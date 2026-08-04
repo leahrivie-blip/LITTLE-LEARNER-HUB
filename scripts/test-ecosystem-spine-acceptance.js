@@ -80,7 +80,7 @@ async function main() {
   const fhLib = fs.readFileSync(path.join(ROOT, "server/family-hub-lib.js"), "utf8");
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-(ecosystem-spine|workflow-integration)"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-(ecosystem-spine|workflow-integration|nav-role-experience)"/);
   assert.match(appJs, /function unlinkChildFromFamilyHubHouseholds/);
   assert.match(appJs, /function weekLessonForChild/);
   assert.match(appJs, /function buildGroundedWeekFactsForAi/);

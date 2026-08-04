@@ -98,7 +98,7 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-workflow-integration"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-(workflow-integration|nav-role-experience)"/);
   assert.match(appJs, /function hasTestingProEntitlement/);
   assert.match(appJs, /shareWithFamily:\s*true/);
   assert.match(appJs, /data-admin-testing-center/);
@@ -310,7 +310,7 @@ async function main() {
     "# Workflow Integration Acceptance Report",
     "",
     "**Environment:** Testing only (`HOME_DAYCARE_HUB_TESTING`)",
-    "**Shell:** `20260804-workflow-integration`",
+    "**Shell:** `20260804-nav-role-experience`",
     "**Rule:** Do not merge. Do not deploy production.",
     "",
     "## Verdict",

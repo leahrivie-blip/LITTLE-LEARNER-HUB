@@ -924,7 +924,7 @@ async function main() {
     "# Provider Simulation Report — Phase 5",
     "",
     "**Environment:** Testing only (`HOME_DAYCARE_HUB_TESTING`)",
-    "**Shell:** `20260804-workflow-integration`",
+    "**Shell:** `20260804-nav-role-experience`",
     "**Program simulated:** Maple Grove Home Daycare (2 classrooms, 2 children, 2 families, staff invite attempt)",
     "**Week:** Monday–Friday care loop through Daily Logs + Family Hub reflection",
     "**Rule:** Do not merge. Do not deploy production. Licensing not started.",

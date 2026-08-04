@@ -1989,7 +1989,9 @@ function setAiDebugEnabled(enabled) {
     renderAiDebugPanel("#docHelperDebugPanel");
   }
 }
-syncAiDebugToggles();
+// Defer until after auth session locals initialize (avoids currentUser TDZ on admin unlock).
+if (typeof queueMicrotask === "function") queueMicrotask(() => { try { syncAiDebugToggles(); } catch (_e) { /* ignore */ } });
+else setTimeout(() => { try { syncAiDebugToggles(); } catch (_e) { /* ignore */ } }, 0);
 
 const ADMIN_PROMPT_LAYER_MASTER = `You are the professional Observation Assistant for Little Learner Hub.
 
@@ -4025,8 +4027,11 @@ function saveLead(email, source = "Free Daycare Starter Pack") {
 
 function showProFeatureModal(message = "This is a Pro Feature.", type = "feature") {
   // Never interrupt care saves on the testing site when Testing Pro (or real Pro) applies.
-  if (typeof isProUser === "function" && isProUser()) return;
-  if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) return;
+  // Guard boot TDZ: this can run while app.js is still initializing currentUser.
+  try {
+    if (typeof isProUser === "function" && isProUser()) return;
+    if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) return;
+  } catch (_error) { /* ignore boot race */ }
   const modal = document.querySelector("#proModal");
   const body = document.querySelector("#proModalBody");
   const eyebrow = document.querySelector("#proModalEyebrow");
@@ -12714,6 +12719,10 @@ function roleAllowsCapability(role, capability) {
 function accountTypeAllowsCapability(accountType, capability) {
   const type = normalizeAccountType(accountType);
   if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
+    // Work-mode nav (testing) surfaces Families/Classrooms/Enrollment for home daycares too.
+    try {
+      if (typeof isWorkModeNavEnabled === "function" && isWorkModeNavEnabled()) return true;
+    } catch (_error) { /* boot race */ }
     return type === ACCOUNT_TYPES.CENTER;
   }
   return true;
@@ -13547,11 +13556,446 @@ function syncPlatformNavVisibility() {
   syncHomeDaycareHubNavVisibility();
   syncAiGuideNavVisibility();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
+    if (section.hasAttribute("data-work-nav-root")) return;
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+  syncWorkModeNav();
+  syncUniversalQuickAdd();
   syncHdhTesterSwitcherChrome();
+}
+
+/** Testing-site work-mode nav: role-specific homes (not a shared feature dump). */
+function isWorkModeNavEnabled() {
+  try {
+    return Boolean(
+      isHomeDaycareHubTestingEnabled()
+      && isLoggedIn()
+      && !isFamilyHubParentMode()
+    );
+  } catch (_error) {
+    return false;
+  }
+}
+
+function workModeRole() {
+  const role = typeof getUserRole === "function" ? getUserRole() : "owner";
+  if (role === USER_ROLES.DIRECTOR) return "director";
+  if (role === USER_ROLES.TEACHER) return "teacher";
+  if (role === USER_ROLES.ASSISTANT) return "assistant";
+  return "owner";
+}
+
+function workModeLandingView(role = workModeRole()) {
+  if (role === "teacher" || role === "assistant") return "today";
+  return "home";
+}
+
+function syncWorkModeNav() {
+  const enabled = isWorkModeNavEnabled();
+  const role = workModeRole();
+  document.body.classList.toggle("work-mode-nav", enabled);
+  document.body.dataset.workRole = enabled ? role : "";
+
+  const workRoot = document.querySelector("[data-work-nav-root]");
+  if (workRoot) workRoot.hidden = !enabled;
+
+  document.querySelectorAll("[data-legacy-nav='true']").forEach((section) => {
+    section.hidden = enabled;
+    section.setAttribute("aria-hidden", enabled ? "true" : "false");
+  });
+
+  document.querySelectorAll("[data-work-nav]").forEach((button) => {
+    const roles = String(button.getAttribute("data-work-roles") || "")
+      .split(",")
+      .map((r) => r.trim())
+      .filter(Boolean);
+    const show = enabled && roles.includes(role);
+    button.hidden = !show;
+    button.setAttribute("aria-hidden", show ? "false" : "true");
+    if (show) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+
+  // Role-specific Children label (Owner vs Teacher vs Assistant — intentionally not symmetrical).
+  document.querySelectorAll("[data-work-label-owner]").forEach((el) => {
+    el.hidden = !(role === "owner" || role === "director");
+  });
+  document.querySelectorAll("[data-work-label-teacher]").forEach((el) => {
+    el.hidden = role !== "teacher";
+  });
+  document.querySelectorAll("[data-work-label-assistant]").forEach((el) => {
+    el.hidden = role !== "assistant";
+  });
+
+  // Testing Pro: never show upgrade CTA on testing work-mode.
+  const upgradeCard = document.querySelector("#sidebarFreeUpgradeCard");
+  if (upgradeCard && typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) {
+    upgradeCard.hidden = true;
+  }
+}
+
+function workHubTile(options = {}) {
+  const {
+    view = "",
+    title = "",
+    detail = "",
+    primary = false,
+    attrs = "",
+  } = options;
+  const viewAttr = view ? `data-view="${escapeHtml(view)}"` : "";
+  return `
+    <button class="work-hub-tile${primary ? " is-primary" : ""}" type="button" ${viewAttr} ${attrs}>
+      <strong>${escapeHtml(title)}</strong>
+      ${detail ? `<span>${escapeHtml(detail)}</span>` : ""}
+    </button>
+  `;
+}
+
+function workHubShell({ eyebrow = "", title = "", subtitle = "", body = "" } = {}) {
+  return `
+    <section class="work-hub-page">
+      <header class="work-hub-header">
+        <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+        <h2>${escapeHtml(title)}</h2>
+        ${subtitle ? `<p class="muted-copy">${escapeHtml(subtitle)}</p>` : ""}
+      </header>
+      <div class="work-hub-body">${body}</div>
+    </section>
+  `;
+}
+
+function renderOwnerHomeDashboard() {
+  const homeSection = document.querySelector("#view-home");
+  if (!homeSection) return;
+  homeSection.classList.remove("landing-home");
+  homeSection.classList.add("user-dashboard-view", "work-owner-home");
+
+  const records = childRecords();
+  const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const children = records.children || [];
+  const attendance = (records.attendance || []).filter((a) => a.date === today);
+  const checkedIn = attendance.filter((a) => {
+    const status = String(a.status || "").toLowerCase();
+    return status !== "absent" && (a.dropoff || status === "present") && !a.pickup;
+  }).length;
+  const present = attendance.filter((a) => String(a.status || "").toLowerCase() !== "absent").length;
+  const mealsToday = (records.meals || []).filter((m) => m.date === today).length;
+  const obsRecent = [...(records.observations || [])]
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 4);
+  const docsPending = (records.documents || []).filter((d) => {
+    const status = String(d.status || d.statusLabel || "").toLowerCase();
+    return d.shareWithFamily && !d.signedAt && /need|notif|assign|action|draft|request/.test(status);
+  }).length;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const name = accountDisplayFirstName(currentAccount());
+  const program = getProgramSettings()?.programName || "your program";
+  const childById = Object.fromEntries(children.map((c) => [c.id, c]));
+
+  homeSection.innerHTML = workHubShell({
+    eyebrow: "Home",
+    title: `${greeting}, ${name}`,
+    subtitle: `${program} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+    body: `
+      <div class="work-pulse-grid" aria-label="Today at a glance">
+        <article class="work-pulse-card"><em>Checked in</em><strong>${checkedIn}</strong><span>of ${children.length} children</span></article>
+        <article class="work-pulse-card"><em>Attendance logged</em><strong>${present}</strong><span>present / recorded</span></article>
+        <article class="work-pulse-card"><em>Meals logged</em><strong>${mealsToday}</strong><span>entries today</span></article>
+        <article class="work-pulse-card"><em>Forms needing attention</em><strong>${docsPending}</strong><span>parent action</span></article>
+      </div>
+
+      <section class="work-hub-section">
+        <h3>Quick actions</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Run the care day", primary: true })}
+          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
+          ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
+          ${workHubTile({ view: "families", title: "Families", detail: "Messages & Family Hub" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Inbox & support" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Upcoming events" })}
+        </div>
+      </section>
+
+      <section class="work-hub-section">
+        <h3>Needs attention</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "families", title: "Parent messages", detail: "Open Families → Messages" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: docsPending ? `${docsPending} awaiting parent` : "No open form requests" })}
+          ${workHubTile({ view: "business", title: "Business alerts", detail: "Staff, enrollment, billing" })}
+          ${workHubTile({ view: "ai", title: "AI recommendations", detail: "Documentation helpers" })}
+        </div>
+      </section>
+
+      <section class="work-hub-section">
+        <div class="work-hub-section-head">
+          <h3>Recent observations</h3>
+          <button class="ghost-button" type="button" data-view="children">Open Children</button>
+        </div>
+        ${obsRecent.length
+          ? `<ul class="work-simple-list">${obsRecent.map((obs) => {
+            const child = childById[obs.childId];
+            return `<li><strong>${escapeHtml(child?.name || "Child")}</strong><span>${escapeHtml((obs.text || obs.note || obs.summary || "Observation").slice(0, 100))}</span><small>${escapeHtml(obs.date || "")}</small></li>`;
+          }).join("")}</ul>`
+          : `<p class="muted-copy">No observations yet today. Capture one from Classroom or Quick Add.</p>`}
+      </section>
+    `,
+  });
+}
+
+function renderTeacherTodayPage() {
+  const section = document.querySelector("#view-today");
+  if (!section) return;
+  const role = workModeRole();
+  const records = childRecords();
+  const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const children = records.children || [];
+  const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
+  section.innerHTML = workHubShell({
+    eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
+    title: "Today",
+    subtitle: "Everything happening in your classroom today — optimized for the care day, not the business office.",
+    body: `
+      <div class="work-pulse-grid">
+        <article class="work-pulse-card"><em>Children here</em><strong>${checkedIn}</strong><span>${children.length} on roster</span></article>
+        <article class="work-pulse-card"><em>Meals</em><strong>${(records.meals || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
+        <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
+        <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
+      </div>
+      <section class="work-hub-section">
+        <h3>Run the day</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: "Check-in, meals, naps, diapers", primary: true })}
+          ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open lesson plans" })}
+          ${workHubTile({ view: "activities", title: "Today's Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "calendar", title: "Today's Schedule", detail: "Calendar & events" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Quick capture</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI documentation", attrs: 'data-quick-doc-type="observation"' })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Add to daily log" })}
+          ${workHubTile({ view: "families", title: "Quick Message", detail: "Parent update", attrs: role === "assistant" ? 'data-view="messages"' : "" })}
+          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Document safely", attrs: 'data-quick-doc-type="incident-report"' })}
+          ${workHubTile({ view: "ai", title: "Quick AI", detail: "Helpers", primary: false })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>My children & classroom</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "children", title: role === "teacher" ? "My Children" : "Children", detail: "Assigned children" })}
+          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Plans, materials, schedule" })}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderClassroomHubPage() {
+  const section = document.querySelector("#view-classroom");
+  if (!section) return;
+  const role = workModeRole();
+  section.innerHTML = workHubShell({
+    eyebrow: "Classroom",
+    title: "Classroom",
+    subtitle: role === "teacher" || role === "assistant"
+      ? "Where teachers spend the day — care logs, lessons, and today's schedule."
+      : "Everything used during the care day. Teachers live here; business stays in Business.",
+    body: `
+      <section class="work-hub-section">
+        <h3>Daily care</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Attendance, meals, naps, diapers, activities", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "End-of-Day Report", detail: "AI summary from today's facts" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Teaching</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign" })}
+          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule & events" })}
+          ${workHubTile({ view: "ai", title: "AI Classroom Assistant", detail: "Documentation helpers" })}
+          ${role === "owner" || role === "director" ? workHubTile({ view: "classrooms", title: "Room setup", detail: "Manage classrooms" }) : ""}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Support tools</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" })}
+          ${workHubTile({ view: "ai-guide", title: "AI Guide", detail: "Guided helpers" })}
+          ${workHubTile({ view: "resources", title: "Materials", detail: "Resources hub" })}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderFamiliesHubPage() {
+  // Enhance existing families view into a parent-facing hub without removing tools.
+  const section = document.querySelector("#view-families");
+  if (!section) return;
+  const role = workModeRole();
+  if (role === "assistant") {
+    setView("messages");
+    return;
+  }
+  const canManage = role === "owner" || role === "director";
+  section.innerHTML = workHubShell({
+    eyebrow: "Families",
+    title: "Families",
+    subtitle: "Everything parent-related lives here — communication, Family Hub, forms, and pickup changes.",
+    body: `
+      <section class="work-hub-section">
+        <h3>Family Hub & messages</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Provider inbox & parent threads" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
+          ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Forms & requests</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Assign & review parent forms" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
+          ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
+          ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Contacts</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "children", title: "Parents & guardians", detail: "On each child profile" })}
+          ${workHubTile({ view: "children", title: "Emergency & authorized pickup", detail: "Child file → contacts" })}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderBusinessHubPage() {
+  const section = document.querySelector("#view-business");
+  if (!section) return;
+  const role = workModeRole();
+  if (role !== "owner" && role !== "director") {
+    setView(workModeLandingView(role));
+    return;
+  }
+  const showBilling = role === "owner" && canAccessPlatformFeature("billing");
+  const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  section.innerHTML = workHubShell({
+    eyebrow: "Business",
+    title: "Business",
+    subtitle: role === "director"
+      ? "Director tools for running the program. Billing stays with the owner."
+      : "Owner tools — staff, enrollment, billing, licensing, and testing.",
+    body: `
+      <section class="work-hub-section">
+        <h3>Program</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true })}
+          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" })}
+          ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families" })}
+          ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
+          ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Growth & compliance</h3>
+        <div class="work-hub-grid">
+          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
+          ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
+          ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
+          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+        </div>
+      </section>
+      ${adminUnlocked ? `
+      <section class="work-hub-section">
+        <h3>Admin only</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "admin", title: "Testing Center", detail: "View As, seed data, Testing Pro", primary: true })}
+        </div>
+      </section>` : ""}
+    `,
+  });
+}
+
+function renderMoreHubPage() {
+  const section = document.querySelector("#view-more");
+  if (!section) return;
+  const role = workModeRole();
+  section.innerHTML = workHubShell({
+    eyebrow: "More",
+    title: "More",
+    subtitle: "Secondary tools for your role — kept out of the daily path on purpose.",
+    body: `
+      <div class="work-hub-grid">
+        ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
+        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
+        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
+        ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
+        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
+        ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
+        ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
+      </div>
+    `,
+  });
+}
+
+function syncUniversalQuickAdd() {
+  let fab = document.querySelector("#workQuickAdd");
+  const show = isWorkModeNavEnabled();
+  if (!show) {
+    fab?.remove();
+    document.body.classList.remove("work-quick-add-open");
+    return;
+  }
+  if (!fab) {
+    fab = document.createElement("div");
+    fab.id = "workQuickAdd";
+    fab.className = "work-quick-add";
+    fab.innerHTML = `
+      <div class="work-quick-add-sheet" data-work-quick-sheet hidden>
+        <p class="work-quick-add-title">Quick add</p>
+        <div class="work-quick-add-grid">
+          <button type="button" data-view="ai" data-quick-doc-type="observation">Observation</button>
+          <button type="button" data-view="ai" data-quick-doc-type="incident-report">Incident</button>
+          <button type="button" data-view="families">Parent Message</button>
+          <button type="button" data-view="child-tools-daily-logs">Photo</button>
+          <button type="button" data-view="child-tools-daily-logs">Meal</button>
+          <button type="button" data-view="child-tools-daily-logs">Nap</button>
+          <button type="button" data-view="child-tools-daily-logs">Diaper</button>
+          <button type="button" data-view="ai" data-quick-doc-type="daily-log">Daily Note</button>
+          <button type="button" data-view="child-tools-daily-logs">Activity</button>
+          <button type="button" data-view="calendar">Calendar Note</button>
+          <button type="button" data-view="forms">Form</button>
+        </div>
+      </div>
+      <button type="button" class="work-quick-add-fab" data-work-quick-toggle aria-expanded="false" aria-label="Quick add">+</button>
+    `;
+    document.body.appendChild(fab);
+  }
+}
+
+function toggleUniversalQuickAdd(force) {
+  const sheet = document.querySelector("[data-work-quick-sheet]");
+  const toggle = document.querySelector("[data-work-quick-toggle]");
+  if (!sheet || !toggle) return;
+  const open = typeof force === "boolean" ? force : sheet.hasAttribute("hidden");
+  if (open) {
+    sheet.removeAttribute("hidden");
+    toggle.setAttribute("aria-expanded", "true");
+    document.body.classList.add("work-quick-add-open");
+  } else {
+    sheet.setAttribute("hidden", "");
+    toggle.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("work-quick-add-open");
+  }
 }
 
 function syncHomeDaycareHubNavVisibility() {
@@ -16098,9 +16542,16 @@ function setView(view, options = {}) {
   if (resolvedRequested === "printables") {
     return setView("activities", options);
   }
-  // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
-  if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
+  // Work-mode (testing): Home is the owner/director dashboard. Legacy: Calendar was home.
+  if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard && !isWorkModeNavEnabled()) {
     return setView("calendar", { ...options, remappedFromHome: true });
+  }
+  if (resolvedRequested === "home" && isLoggedIn() && isWorkModeNavEnabled()) {
+    const role = workModeRole();
+    if (role === "teacher" || role === "assistant") {
+      return setView("today", { ...options, remappedFromHome: true });
+    }
+    options = { ...options, allowDashboard: true, workOwnerHome: true };
   }
   // Invited testers / staff never open Admin (even via deep link).
   if (
@@ -16377,6 +16828,10 @@ function setView(view, options = {}) {
   if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
+  if (resolvedView === "today") renderTeacherTodayPage();
+  if (resolvedView === "classroom") renderClassroomHubPage();
+  if (resolvedView === "business") renderBusinessHubPage();
+  if (resolvedView === "more") renderMoreHubPage();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
@@ -16399,7 +16854,10 @@ function setView(view, options = {}) {
   if (resolvedView === "ai-guide") renderAiGuidePage();
   if (resolvedView === "staff") renderStaffManagementPage();
   if (resolvedView === "classrooms") renderClassroomsPage();
-  if (resolvedView === "families") renderFamiliesPage();
+  if (resolvedView === "families") {
+    if (isWorkModeNavEnabled()) renderFamiliesHubPage();
+    else renderFamiliesPage();
+  }
   if (resolvedView === "enrollment") renderEnrollmentPage();
   if (resolvedView === "planner") {
     // Honor an explicit target week (e.g. from a future-week assign or Calendar's
@@ -16670,7 +17128,12 @@ function membershipDisplayStatus(account = currentAccount()) {
 // Single source-of-truth for "is a real user session active?"
 // Always use this instead of checking currentUser directly in feature guards.
 function isLoggedIn() {
-  return Boolean(currentUser);
+  try {
+    return Boolean(currentUser);
+  } catch (_error) {
+    // app.js is still initializing (TDZ) — treat as logged out.
+    return false;
+  }
 }
 
 function visibleResourcesForCategory(category) {
@@ -21455,6 +21918,9 @@ function readRememberedPlatformView() {
 }
 
 function defaultLoggedInLandingView() {
+  if (isWorkModeNavEnabled()) {
+    return workModeLandingView();
+  }
   const remembered = readRememberedPlatformView();
   if (
     remembered
@@ -21471,6 +21937,7 @@ function defaultLoggedInLandingView() {
 }
 
 function platformBackView(fallback = "home") {
+  if (fallback === "home" && isWorkModeNavEnabled()) return workModeLandingView();
   if (fallback === "home" && (isLoggedIn() || hasAdminFullAccess())) return "calendar";
   return fallback;
 }
@@ -27590,6 +28057,16 @@ function renderHomePublicPreviews() {
 
 function renderHome() {
   if (currentUser) {
+    if (isWorkModeNavEnabled() && (workModeRole() === "owner" || workModeRole() === "director")) {
+      renderOwnerHomeDashboard();
+      updatePlanLabel();
+      return;
+    }
+    if (isWorkModeNavEnabled()) {
+      updatePlanLabel();
+      setView(workModeLandingView(), { allowDashboard: true, skipAccessRedirect: true });
+      return;
+    }
     renderUserDashboard();
     updatePlanLabel();
     return;
@@ -33848,6 +34325,9 @@ function renderFamilyHubTodayPanel(data) {
   const photoUrl = String(child?.photoUrl || "").trim();
   const dateLabel = familyHubFormatDate(today.date || "");
   const preferred = String(data?.settings?.preferredName || "").trim();
+  const hour = new Date().getHours();
+  const dayPart = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const warmGreeting = `${dayPart}, ${first}'s family`;
   const section = (title, icon, body) => {
     if (!body) return "";
     return `
@@ -33859,16 +34339,20 @@ function renderFamilyHubTodayPanel(data) {
   const listHtml = (items, mapFn) => (items?.length ? `<ul class="fh-today-list">${items.map(mapFn).join("")}</ul>` : "");
   const pendingForms = Array.isArray(today.pendingForms) ? today.pendingForms : [];
   const pulse = Array.isArray(today.carePulse) ? today.carePulse : [];
+  const checkedIn = Array.isArray(today.attendance) && today.attendance.some((a) => {
+    const status = String(a.status || "").toLowerCase();
+    return status !== "absent" && (a.dropoff || status === "present");
+  });
   const hero = `
-      <header class="fh-today-hero">
+      <header class="fh-today-hero fh-today-hero--warm">
         <div class="fh-child-avatar" aria-hidden="true">
           ${photoUrl
             ? `<img src="${escapeHtml(photoUrl)}" alt="" />`
             : `<span>${escapeHtml(familyHubChildInitials(name))}</span>`}
         </div>
         <div class="fh-today-hero-copy">
-          <p class="fh-greeting">${escapeHtml(today.greeting || "Hello")}${preferred ? `, ${escapeHtml(preferred)}` : ""}${dateLabel ? ` · ${escapeHtml(dateLabel)}` : ""}</p>
-          <h2>${escapeHtml(familyHubDayHeadline(first))}</h2>
+          <p class="fh-greeting">${escapeHtml(warmGreeting)}${dateLabel ? ` · ${escapeHtml(dateLabel)}` : ""}</p>
+          <h2>${escapeHtml(checkedIn ? `${first} is checked in` : familyHubDayHeadline(first))}</h2>
           <p class="fh-day-story">${escapeHtml(today.dayStory || today.greetingLine || `Here’s how ${first}’s day is going.`)}</p>
         </div>
       </header>
@@ -34197,6 +34681,10 @@ function renderFamilyHubMorePanel(data) {
       <section class="fh-card">
         <h3>Quick links</h3>
         <div class="fh-more-links">
+          <button type="button" class="fh-more-link" data-fh-panel="calendar">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("events")}</span>
+            <span><strong>Calendar</strong><span class="fh-meta">Upcoming events &amp; closures</span></span>
+          </button>
           <button type="button" class="fh-more-link" data-fh-panel="reports">
             <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("reports")}</span>
             <span><strong>Daily reports</strong><span class="fh-meta">Read today’s summaries</span></span>
@@ -34373,14 +34861,13 @@ function renderFamilyHubParentShell(data, options = {}) {
     ["today", "Today", "today"],
     ["photos", "Photos", "photos"],
     ["messages", "Messages", "messages"],
-    ["calendar", "Calendar", "events"],
     ["more", "More", "more"],
   ];
   return `
     <div class="fh-parent-app" data-fh-panel="${escapeHtml(panel)}">
       <header class="fh-app-header">
         <div class="fh-app-brand">
-          <p class="fh-kicker">Family Hub</p>
+          <p class="fh-kicker">For your family</p>
           <h1>${escapeHtml(program)}</h1>
           <p class="fh-app-sub">${escapeHtml(household)}${preferred ? ` · Hi, ${escapeHtml(preferred)}` : ""}</p>
         </div>
@@ -34889,6 +35376,17 @@ function currentAccountHdhVisibility() {
 
 function staffMaySeeHdhView(view) {
   if (!isHomeDaycareHubTestingEnabled()) return true;
+  // Work-mode hubs are always allowed for the matching role shell.
+  if (["today", "classroom", "business", "more", "home", "families", "children"].includes(view)) {
+    if (view === "business") {
+      const role = typeof getUserRole === "function" ? getUserRole() : "";
+      return role === USER_ROLES.OWNER || role === USER_ROLES.DIRECTOR || role === "owner" || role === "director";
+    }
+    if (view === "families") {
+      const role = typeof workModeRole === "function" ? workModeRole() : "";
+      return role !== "assistant";
+    }
+  }
   const persona = getHdhTesterPersona();
   if (persona.role === "staff-helper" || persona.role === "staff-lead") {
     const visibility = currentAccountHdhVisibility() || {};
@@ -43776,8 +44274,13 @@ function hasAdminFullAccess() {
   // plan/features. Full admin access applies when browsing as admin (no member
   // session) or when the signed-in user is the platform owner.
   if (!(isAdminUnlocked() && adminPreviewMode() === "Admin")) return false;
-  if (!currentUser) return true;
-  return isSignedInPlatformOwner();
+  try {
+    if (!currentUser) return true;
+    return isSignedInPlatformOwner();
+  } catch (_error) {
+    // app.js still initializing currentUser — treat as admin-only browse.
+    return true;
+  }
 }
 
 function adminAccessOverridesMemberPlan() {
@@ -43867,16 +44370,22 @@ function isAdminPreviewSimulating() {
 
 function setAdminPreviewMode(mode) {
   if (!isAdminUnlocked()) return false;
-  const next = ADMIN_PREVIEW_MODES.includes(mode) ? mode : "Admin";
+  let allowedModes = ["Admin", "Free", "Trial", "Pro", "Founding", "Owner", "Director", "Teacher", "Assistant", "Parent"];
+  try {
+    if (Array.isArray(ADMIN_PREVIEW_MODES)) allowedModes = ADMIN_PREVIEW_MODES;
+  } catch (_error) { /* const still initializing */ }
+  const next = allowedModes.includes(mode) ? mode : "Admin";
   localStorage.setItem("llhAdminPreviewMode", next);
   // Keep HDH persona in sync for Parent View As; restore teacher persona otherwise.
-  if (isHomeDaycareHubTestingEnabled() && typeof setHdhTesterPersona === "function") {
-    if (next === "Parent") {
-      setHdhTesterPersona({ role: "parent" });
-    } else if (getHdhTesterPersona().role === "parent" && next !== "Parent") {
-      setHdhTesterPersona({ role: "teacher" });
+  try {
+    if (isHomeDaycareHubTestingEnabled() && typeof setHdhTesterPersona === "function") {
+      if (next === "Parent") {
+        setHdhTesterPersona({ role: "parent" });
+      } else if (getHdhTesterPersona().role === "parent" && next !== "Parent") {
+        setHdhTesterPersona({ role: "teacher" });
+      }
     }
-  }
+  } catch (_error) { /* boot / persona race */ }
   applyAdminPreviewToPlatform();
   if (next === "Parent" && isHomeDaycareHubTestingEnabled() && typeof switchHdhTesterRole === "function") {
     switchHdhTesterRole("parent").catch((error) => {
@@ -43931,9 +44440,18 @@ function applyAdminPreviewToPlatform() {
   } else if (activeView === "classrooms") {
     renderClassroomsPage();
   } else if (activeView === "families") {
-    renderFamiliesPage();
+    if (isWorkModeNavEnabled()) renderFamiliesHubPage();
+    else renderFamiliesPage();
   } else if (activeView === "enrollment") {
     renderEnrollmentPage();
+  } else if (activeView === "today") {
+    renderTeacherTodayPage();
+  } else if (activeView === "classroom") {
+    renderClassroomHubPage();
+  } else if (activeView === "business") {
+    renderBusinessHubPage();
+  } else if (activeView === "more") {
+    renderMoreHubPage();
   } else if (activeView === "support-center") {
     renderSupportCenterPage();
   } else if (activeView === "resources") {
@@ -43944,6 +44462,17 @@ function applyAdminPreviewToPlatform() {
     renderFutureTools();
   } else if (viewMap[activeView]) {
     renderCategoryPage(activeView);
+  }
+
+  // After View As, jump to that role's natural home (Owner≠Teacher≠Parent).
+  if (isWorkModeNavEnabled() && isAdminPreviewSimulating()) {
+    const role = workModeRole();
+    const landing = workModeLandingView(role);
+    if (activeView === "admin" || activeView === "home" || activeView === "today" || activeView === "calendar") {
+      if (adminPreviewMode() !== "Parent") {
+        setView(landing, { allowDashboard: true, skipAccessRedirect: true, fromAdminPreview: true });
+      }
+    }
   }
 
   showActionFeedback(`Preview mode: ${previewAwarePlanLabel()}`);
@@ -45658,6 +46187,20 @@ function renderAdminOwnerOverview() {
         <p class="muted-copy">Instantly loads navigation, permissions, Family Hub, forms, and messages for that role — no logout required.</p>
       </div>
       ${previewMode !== "Admin" ? `<div class="account-actions-row"><button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button></div>` : ""}
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">Testing Pro</p>
+        <p class="muted-copy">Every testing account automatically receives Testing Pro — premium features unlocked, no payment, no expiry, no upgrade prompts. Role permissions stay separate.</p>
+        <p class="admin-preview-active-chip">Testing Pro: <strong>${testingProOn ? "ON" : "OFF"}</strong> for this session</p>
+      </div>
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">Seed &amp; reset (local testing)</p>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Testing data tools">
+          <button type="button" class="ghost-button" data-admin-testing-action="seed-demo">Seed demo children</button>
+          <button type="button" class="ghost-button" data-admin-testing-action="open-family-hub">Open Family Hub invites</button>
+          <button type="button" class="ghost-button" data-admin-testing-action="reset-preview">Reset View As</button>
+        </div>
+        <p class="muted-copy">Test programs / providers / parents are created through Family Hub invites and staff invites — not shown outside Admin.</p>
+      </div>
       <p class="admin-preview-active-chip" data-admin-preview-active-chip>
         Active: <strong>${escapeHtml(previewMode)}</strong>
         · role <strong>${escapeHtml(getUserRole())}</strong>
@@ -45665,6 +46208,7 @@ function renderAdminOwnerOverview() {
         · Testing Pro <strong>${testingProOn ? "yes" : "no"}</strong>
         · Pro access <strong>${isProUser() ? "yes" : "no"}</strong>
         · Admin powers <strong>${hasAdminFullAccess() ? "yes" : "no"}</strong>
+        · work landing <strong>${escapeHtml(isWorkModeNavEnabled() ? workModeLandingView() : "n/a")}</strong>
       </p>
     </div>
     ${renderAccessDebugPanel()}
@@ -56195,6 +56739,8 @@ function dismissFreeWelcomeCard() {
  */
 function freeSurfaceUpgradeHtml(variant = "default") {
   void variant;
+  // Testing Pro: never show upgrade prompts on the testing site.
+  if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) return "";
   // Keep calendar/dashboard quiet for brand-new Free explorers.
   if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) {
     return "";
@@ -56437,6 +56983,7 @@ function refreshFreePlanUpgradeChrome() {
   try {
     // Guard early boot: capability maps may not be initialized yet.
     show = typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer();
+    if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) show = false;
   } catch {
     show = false;
   }
@@ -58447,6 +58994,37 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", async (event) => {
+  const quickToggle = event.target.closest("[data-work-quick-toggle]");
+  if (quickToggle) {
+    event.preventDefault();
+    toggleUniversalQuickAdd();
+    return;
+  }
+  if (event.target.closest("[data-work-quick-sheet] button[data-view]")) {
+    toggleUniversalQuickAdd(false);
+  }
+
+  const testingAction = event.target.closest("[data-admin-testing-action]");
+  if (testingAction) {
+    event.preventDefault();
+    const action = testingAction.getAttribute("data-admin-testing-action");
+    if (action === "seed-demo") {
+      if (typeof ensureTesterDemoChild === "function") ensureTesterDemoChild();
+      showActionFeedback("Demo child ready in Children.");
+      setView("children");
+      return;
+    }
+    if (action === "open-family-hub") {
+      setView("home-daycare-hub");
+      return;
+    }
+    if (action === "reset-preview") {
+      setAdminPreviewMode("Admin");
+      showActionFeedback("View As reset to Admin.");
+      return;
+    }
+  }
+
   const clickedButton = event.target.closest("button");
   if (clickedButton && !clickedButton.closest("#adminProtectedContent")) {
     trackEvent("button_click", {
