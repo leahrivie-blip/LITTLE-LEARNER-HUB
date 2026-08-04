@@ -165,8 +165,113 @@
     return Math.max(0, 100 - penalty);
   }
 
+  /** Serious missing areas that must align Quality Review with Publish when completeness is low. */
+  const SERIOUS_GAP_CODES = Object.freeze([
+    "weak_objectives",
+    "missing_family",
+    "missing_books",
+    "missing_songs",
+    "missing_tips",
+    "missing_observations",
+    "missing_vocabulary",
+    "weak_teacher_prep",
+    "missing_materials",
+    "domain_imbalance",
+  ]);
+
+  const PUBLISH_READINESS = Object.freeze({
+    READY: "ready",
+    NEEDS_REVIEW: "needs_review",
+    BLOCKED: "blocked",
+  });
+
+  function publishReadinessLabel(value) {
+    if (value === PUBLISH_READINESS.READY) return "Ready";
+    if (value === PUBLISH_READINESS.NEEDS_REVIEW) return "Needs Review";
+    return "Blocked";
+  }
+
+  function elevateSeriousGapsForPublish(findings, completionPercent, ignoredCodes = []) {
+    const list = asArray(findings);
+    const ignored = ignoredCodes instanceof Set
+      ? ignoredCodes
+      : new Set(asArray(ignoredCodes).map((c) => text(c)));
+    const active = list.filter((f) => f.status !== "ignored");
+    const serious = active.filter((f) => SERIOUS_GAP_CODES.includes(f.code));
+    // Mid-completeness kits with multiple serious gaps must not show "No blockers".
+    if (completionPercent < 70 && serious.length >= 2) {
+      serious.forEach((f) => {
+        f.severity = "blocking";
+        f.blocking = true;
+        f.publishGate = "serious_gaps";
+      });
+    }
+    // Do not re-add if the finding already exists (including ignored) — owner can clear via Ignore.
+    if (completionPercent < 50 && !list.some((f) => f.code === "completeness_too_low")) {
+      const row = finding({
+        code: "completeness_too_low",
+        section: "toolkit",
+        severity: "blocking",
+        blocking: true,
+        publishGate: "completeness",
+        message: `Teaching Kit completeness is only ${completionPercent}% (below Ready). Improve missing areas before normal publish.`,
+        suggestion: "Raise completeness and clear serious gaps, or use an explicit owner override with a written reason.",
+      });
+      if (ignored.has(row.code)) row.status = "ignored";
+      list.push(row);
+    }
+    return list;
+  }
+
+  function finalizePublishGate(reportBase) {
+    const findings = asArray(reportBase.findings);
+    const activeFindings = findings.filter((f) => f.status !== "ignored");
+    const blockingIssues = activeFindings.filter((f) => f.blocking || f.severity === "blocking");
+    const highCount = activeFindings.filter((f) => f.severity === "high" || f.blocking).length;
+    const medium = activeFindings.filter((f) => f.severity === "medium").length;
+    const low = activeFindings.filter((f) => f.severity === "low").length;
+    const overallScore = Math.max(
+      0,
+      Math.min(100, 100 - blockingIssues.length * 18 - highCount * 10 - medium * 5 - low * 2),
+    );
+    const completionPercent = Number(reportBase.completionPercent) || 0;
+    let publishReadiness = PUBLISH_READINESS.BLOCKED;
+    if (!blockingIssues.length && completionPercent >= 90 && overallScore >= 75 && highCount === 0) {
+      publishReadiness = PUBLISH_READINESS.READY;
+    } else if (!blockingIssues.length) {
+      publishReadiness = PUBLISH_READINESS.NEEDS_REVIEW;
+    }
+    let overallLabel = "Not ready";
+    if (publishReadiness === PUBLISH_READINESS.READY) overallLabel = "Publish ready";
+    else if (publishReadiness === PUBLISH_READINESS.NEEDS_REVIEW && overallScore >= 75) overallLabel = "Almost ready";
+    else if (overallScore >= 50) overallLabel = "Needs work";
+
+    return {
+      ...reportBase,
+      findings,
+      overallScore,
+      overallLabel,
+      blockingIssues: blockingIssues.map((f) => ({
+        code: f.code,
+        message: f.message,
+        suggestion: f.suggestion,
+        publishGate: f.publishGate || "quality",
+      })),
+      warnings: activeFindings
+        .filter((f) => f.severity === "high" || f.severity === "medium")
+        .map((f) => ({ code: f.code, message: f.message, severity: f.severity })),
+      publishReadiness,
+      publishReadinessLabel: publishReadinessLabel(publishReadiness),
+      blocksPublish: publishReadiness === PUBLISH_READINESS.BLOCKED,
+      reviewRequired: true,
+      autoPublished: false,
+      autoChanged: false,
+    };
+  }
+
   /**
    * Full specialist-style quality review. Report only — no mutations.
+   * Quality Review and Publish share the same blocker / readiness logic.
    */
   function buildQualityReport(plan, activities, enrichmentDraft, options = {}) {
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
@@ -179,6 +284,15 @@
     const band = ageBand(plan?.age);
     const body = corpus(plan, list, draft);
     const findings = [];
+    const enrich = loadEnrichment();
+    let completionPercent = 0;
+    if (enrich?.computeCompletionPercent) {
+      try {
+        completionPercent = Number(enrich.computeCompletionPercent(plan, list, draft)) || 0;
+      } catch (_error) {
+        completionPercent = 0;
+      }
+    }
 
     // Developmental appropriateness
     if (band === "infant" && /scissors|worksheet|write your name|count to 20|phonics drill/i.test(body)) {
@@ -513,7 +627,12 @@
       }));
     }
 
-    // Apply ignored statuses
+    // Apply ignored statuses before and after elevation so newly added gate
+    // findings (e.g. completeness_too_low) respect qualityReviewIgnored.
+    findings.forEach((f) => {
+      if (ignored.has(f.code) || ignored.has(f.id)) f.status = "ignored";
+    });
+    elevateSeriousGapsForPublish(findings, completionPercent, ignored);
     findings.forEach((f) => {
       if (ignored.has(f.code) || ignored.has(f.id)) f.status = "ignored";
     });
@@ -527,10 +646,8 @@
     });
 
     const activeFindings = findings.filter((f) => f.status !== "ignored");
-    const blockingIssues = activeFindings.filter((f) => f.blocking || f.severity === "blocking");
-    const warnings = activeFindings.filter((f) => f.severity === "high" || f.severity === "medium");
     const missing = activeFindings
-      .filter((f) => /^missing_|thin_|weak_|incomplete_|no_/.test(f.code))
+      .filter((f) => /^missing_|thin_|weak_|incomplete_|no_|completeness_/.test(f.code))
       .map((f) => f.message);
     const suggestedImprovements = activeFindings
       .filter((f) => text(f.suggestion))
@@ -545,38 +662,19 @@
       });
     }
 
-    const high = activeFindings.filter((f) => f.severity === "high" || f.blocking).length;
-    const medium = activeFindings.filter((f) => f.severity === "medium").length;
-    const low = activeFindings.filter((f) => f.severity === "low").length;
-    const overallScore = Math.max(
-      0,
-      Math.min(100, 100 - blockingIssues.length * 18 - high * 10 - medium * 5 - low * 2),
-    );
-    let overallLabel = "Not ready";
-    if (!blockingIssues.length && overallScore >= 90) overallLabel = "Publish ready";
-    else if (!blockingIssues.length && overallScore >= 75) overallLabel = "Almost ready";
-    else if (overallScore >= 50) overallLabel = "Needs work";
-
-    return {
+    return finalizePublishGate({
       planId: text(plan?.id),
       title: text(plan?.title),
       age: text(plan?.age),
       ageBand: band,
-      overallScore,
-      overallLabel,
+      completionPercent,
       sectionScores,
       strengths,
       missing,
       suggestedImprovements,
-      warnings: warnings.map((f) => ({ code: f.code, message: f.message, severity: f.severity })),
-      blockingIssues: blockingIssues.map((f) => ({ code: f.code, message: f.message, suggestion: f.suggestion })),
       findings,
-      reviewRequired: true,
-      blocksPublish: blockingIssues.length > 0,
-      autoPublished: false,
-      autoChanged: false,
       checkedAt: new Date().toISOString(),
-    };
+    });
   }
 
   /**
@@ -624,21 +722,14 @@
           : (decision === "improved" ? "improved" : "pending");
       }
     });
-    next.findings = findings;
     const ignoredCodes = findings.filter((f) => f.status === "ignored").map((f) => f.code);
-    // Recompute publish block from non-ignored blockers
-    const blocking = findings.filter((f) => f.status !== "ignored" && (f.blocking || f.severity === "blocking"));
-    next.blockingIssues = blocking.map((f) => ({ code: f.code, message: f.message, suggestion: f.suggestion }));
-    next.blocksPublish = blocking.length > 0;
-    next.ignoredCodes = ignoredCodes;
-    const high = findings.filter((f) => f.status !== "ignored" && (f.severity === "high" || f.blocking)).length;
-    const medium = findings.filter((f) => f.status !== "ignored" && f.severity === "medium").length;
-    next.overallScore = Math.max(0, Math.min(100, 100 - blocking.length * 18 - high * 10 - medium * 5));
-    if (!next.blocksPublish && next.overallScore >= 90) next.overallLabel = "Publish ready";
-    else if (!next.blocksPublish && next.overallScore >= 75) next.overallLabel = "Almost ready";
-    else if (next.overallScore >= 50) next.overallLabel = "Needs work";
-    else next.overallLabel = "Not ready";
-    return next;
+    const gated = finalizePublishGate({
+      ...next,
+      findings,
+      completionPercent: Number(next.completionPercent) || 0,
+    });
+    gated.ignoredCodes = ignoredCodes;
+    return gated;
   }
 
   /**
@@ -670,7 +761,10 @@
         qualityScore: report.overallScore,
         qualityLabel: report.overallLabel,
         completionPercent: completion,
-        needsReview: report.blocksPublish || report.overallScore < 75,
+        needsReview: report.blocksPublish
+          || report.publishReadiness === PUBLISH_READINESS.NEEDS_REVIEW
+          || report.overallScore < 75,
+        publishReadiness: report.publishReadiness || (report.blocksPublish ? "blocked" : "needs_review"),
         missingBooks: report.findings.some((f) => f.code === "missing_books" && f.status !== "ignored"),
         missingSongs: report.findings.some((f) => f.code === "missing_songs" && f.status !== "ignored"),
         missingPrintables: report.findings.some((f) => f.code === "missing_printables" && f.status !== "ignored"),
@@ -734,6 +828,11 @@
 
   return {
     SECTIONS,
+    SERIOUS_GAP_CODES,
+    PUBLISH_READINESS,
+    publishReadinessLabel,
+    elevateSeriousGapsForPublish,
+    finalizePublishGate,
     buildQualityReport,
     buildImprovementSuggestion,
     applyIssueDecision,

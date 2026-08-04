@@ -230,10 +230,51 @@ function runUnitTests() {
   assert(typeof weakReport.overallScore === "number", "overall score");
   assert(Array.isArray(weakReport.sectionScores) && weakReport.sectionScores.length >= 20, "section scores");
   assert(weakReport.blocksPublish === true, "weak plan blocks publish");
+  assert(weakReport.publishReadiness === "blocked", "weak plan readiness Blocked");
+  assert(weakReport.publishReadinessLabel === "Blocked", "Blocked label");
   assert(weakReport.blockingIssues.length >= 1, "blocking issues listed");
   assert(weakReport.missing.length >= 1, "missing items");
   assert(weakReport.suggestedImprovements.length >= 1, "suggested improvements");
   assert(weakReport.autoChanged === false && weakReport.autoPublished === false, "report only");
+
+  // Mid-completeness kits with serious gaps must not report "No blockers".
+  const mid = {
+    id: "plan-quality-mid-55",
+    title: "Almost There Animals",
+    theme: "Animals",
+    age: "Preschool",
+    weeklyOverview: "Children explore animals through play invitations and short talks.",
+    objectives: "Name",
+    vocabularyWords: "fur",
+    books: [],
+    songs: [],
+    familyConnection: "",
+    enrichmentDraft: {
+      week: {
+        weeklyOverview: "Children explore animals through play invitations and short talks this week.",
+        objectives: "Children will look",
+        teacherPreparation: "Stage trays",
+      },
+      activities: {
+        "act-m1": { teacherTips: ["Offer two sorting trays."], observationPrompts: ["Names an animal?"] },
+      },
+    },
+    dailyPlans: {
+      monday: [{ id: "act-m1", title: "Animal Sort", category: "table" }],
+      tuesday: [{ id: "act-m2", title: "Animal Move", category: "movement" }],
+    },
+  };
+  const midActs = [
+    { id: "act-m1", title: "Animal Sort", lessonPlanId: mid.id },
+    { id: "act-m2", title: "Animal Move", lessonPlanId: mid.id },
+  ];
+  const midReport = quality.buildQualityReport(mid, midActs, mid.enrichmentDraft);
+  assert(midReport.blocksPublish === true, "mid incomplete kit blocks publish");
+  assert(midReport.publishReadiness === "blocked", "mid kit readiness blocked");
+  assert(
+    (midReport.blockingIssues || []).some((b) => /missing_|weak_|completeness_|domain_/.test(b.code)),
+    "mid kit blockers include serious gaps",
+  );
 
   const ignored = quality.applyIssueDecision(weakReport, {
     code: weakReport.blockingIssues[0].code,
@@ -346,7 +387,50 @@ async function main() {
       lessonPlan: { id: weak.id, enrichmentDraft: weak.enrichmentDraft },
     }, auth);
     assert(res.status === 409 && res.json.code === "quality_review_blocked", "publish blocked by quality gate");
+    assert(res.json.ownerOverrideRequired === true, "owner override required when blocked");
     assert(res.json.autoPublished !== true, "blocked publish did not publish");
+
+    // Owner override with reason must succeed and be logged on the fixture only
+    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken,
+      expectedUpdatedAt,
+      saveMode: "publish_enrichment",
+      publishedBy: ADMIN.email,
+      ownerPublishOverride: {
+        confirmed: true,
+        reason: "QA fixture override for quality-gate regression only.",
+      },
+      lessonPlan: { id: weak.id, enrichmentDraft: weak.enrichmentDraft },
+    }, auth);
+    assert(res.status === 200 && res.json.ok, `owner override publish: ${res.status} ${res.json?.error || ""}`);
+    assert(res.json.ownerOverrideApplied === true, "owner override flagged on response");
+    expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
+
+    // Fresh weak-like draft for ignore-path coverage (do not reuse published weak)
+    const weak2 = { ...weak, id: `${weak.id}-ignore-path` };
+    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken,
+      expectedUpdatedAt,
+      lessonPlan: { ...weak2, enrichmentDraft: null },
+    }, auth);
+    assert(res.status === 200, `seed weak2: ${res.status}`);
+    expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
+    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken,
+      expectedUpdatedAt,
+      saveMode: "enrichment_draft",
+      lessonPlan: { id: weak2.id, enrichmentDraft: weak.enrichmentDraft },
+    }, auth);
+    assert(res.status === 200, `draft weak2: ${res.status}`);
+    expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
+
+    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken,
+      expectedUpdatedAt,
+      saveMode: "publish_enrichment",
+      lessonPlan: { id: weak2.id, enrichmentDraft: weak.enrichmentDraft },
+    }, auth);
+    assert(res.status === 409 && res.json.code === "quality_review_blocked", "weak2 still blocked");
 
     // Ignore all blockers via draft ignored codes, then publish should succeed
     const blockCodes = (res.json.qualityReport?.blockingIssues || []).map((b) => b.code);
@@ -364,13 +448,13 @@ async function main() {
       adminToken,
       expectedUpdatedAt,
       saveMode: "enrichment_draft",
-      lessonPlan: { id: weak.id, enrichmentDraft: ignoredDraft },
+      lessonPlan: { id: weak2.id, enrichmentDraft: ignoredDraft },
     }, auth);
     assert(res.status === 200, `save ignored draft: ${res.status}`);
     expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
 
     // After ignoring blockers, remaining high issues may still allow publish (blocksPublish false)
-    const afterIgnore = quality.buildQualityReport(weak, [
+    const afterIgnore = quality.buildQualityReport(weak2, [
       { id: "act-q1", title: "Color Sort" },
       { id: "act-q2", title: "Color Sort Again" },
     ], ignoredDraft, { ignoredCodes: blockCodes });
@@ -379,7 +463,7 @@ async function main() {
         adminToken,
         expectedUpdatedAt,
         saveMode: "publish_enrichment",
-        lessonPlan: { id: weak.id, enrichmentDraft: ignoredDraft },
+        lessonPlan: { id: weak2.id, enrichmentDraft: ignoredDraft },
       }, auth);
       assert(res.status === 200, `publish after ignore blockers: ${res.status}`);
       expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
@@ -391,14 +475,14 @@ async function main() {
         adminToken,
         expectedUpdatedAt,
         saveMode: "enrichment_draft",
-        lessonPlan: { id: weak.id, enrichmentDraft: ignoredDraft },
+        lessonPlan: { id: weak2.id, enrichmentDraft: ignoredDraft },
       }, auth);
       expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
       res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
         adminToken,
         expectedUpdatedAt,
         saveMode: "publish_enrichment",
-        lessonPlan: { id: weak.id, enrichmentDraft: ignoredDraft },
+        lessonPlan: { id: weak2.id, enrichmentDraft: ignoredDraft },
       }, auth);
       assert(res.status === 200, `publish after full ignore: ${res.status}`);
     }
@@ -461,7 +545,9 @@ async function main() {
         qualityReport: Boolean(document.querySelector("[data-quality-report]")),
         improveBtn: Boolean(document.querySelector("[data-quality-improve]")),
         ignoreBtn: Boolean(document.querySelector("[data-quality-ignore]")),
-        confirmDisabled: Boolean(document.querySelector("[data-publish-confirm][disabled]")),
+        readinessBlocked: /Blocked/i.test(document.querySelector("[data-publish-readiness]")?.textContent || ""),
+        overrideUi: Boolean(document.querySelector("[data-publish-override]")),
+        confirmLabel: document.querySelector("[data-publish-confirm]")?.textContent || "",
         features: window.LLHTeachingKitEnrichmentEditor.sliceFeatures?.() || {},
       };
     }, {
@@ -481,7 +567,9 @@ async function main() {
     assert(ui.publishModal, "publish modal opens");
     assert(ui.qualityReport, "quality report in publish modal");
     assert(ui.improveBtn && ui.ignoreBtn, "improve/ignore actions");
-    assert(ui.confirmDisabled, "publish confirm disabled while blocked");
+    assert(ui.readinessBlocked, "publish readiness shows Blocked");
+    assert(ui.overrideUi, "owner override UI shown when blocked");
+    assert(/override/i.test(ui.confirmLabel), "confirm requires owner override when blocked");
     assert(ui.features.aiQualityReview === true, "slice feature");
 
     await page.screenshot({

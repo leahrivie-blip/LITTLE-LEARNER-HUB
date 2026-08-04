@@ -18499,13 +18499,40 @@ async function handlePublishEnrichment(request, response, ctx) {
         : [];
       const report = qualityApi.buildQualityReport(existingPlan, flat, incomingDraft, { ignoredCodes: ignored });
       if (report.blocksPublish) {
-        jsonResponse(response, 409, {
-          error: "Quality Review found blocking issues. Resolve or ignore them before publish.",
-          code: "quality_review_blocked",
-          qualityReport: report,
-          autoPublished: false,
+        const override = body?.ownerPublishOverride && typeof body.ownerPublishOverride === "object"
+          ? body.ownerPublishOverride
+          : null;
+        const overrideReason = normalizedShortText(override?.reason, 500);
+        const overrideOk = override?.confirmed === true && overrideReason.length >= 8;
+        if (!overrideOk) {
+          jsonResponse(response, 409, {
+            error: "Quality Review blocked publish ("
+              + (report.publishReadinessLabel || "Blocked")
+              + "). Resolve issues, or provide an explicit owner override with a reason.",
+            code: "quality_review_blocked",
+            qualityReport: report,
+            publishReadiness: report.publishReadiness || "blocked",
+            autoPublished: false,
+            ownerOverrideRequired: true,
+          });
+          return;
+        }
+        // Explicit owner override — logged; never silent.
+        console.warn("[enrichment-publish-override]", {
+          planId: id,
+          reason: overrideReason,
+          publishedBy: normalizedShortText(body.publishedBy || incomingDraft?.lastEditedBy || "", 180) || "admin",
+          publishReadiness: report.publishReadiness,
+          completionPercent: report.completionPercent,
+          blockingCodes: (report.blockingIssues || []).map((b) => b.code),
+          at: now,
         });
-        return;
+        body._ownerPublishOverrideApplied = {
+          reason: overrideReason,
+          at: now,
+          publishReadiness: report.publishReadiness,
+          completionPercent: report.completionPercent,
+        };
       }
     } catch (error) {
       jsonResponse(response, 500, {
@@ -18618,6 +18645,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     merged.activities,
     id,
   );
+  const ownerOverrideMeta = body?._ownerPublishOverrideApplied || null;
   const nextPlan = normalizedCurriculumLessonPlan({
     ...existingPlan,
     ...mergedPlan,
@@ -18629,6 +18657,15 @@ async function handlePublishEnrichment(request, response, ctx) {
       lastEnrichmentPublishedBy: publishedBy,
       lastEnrichmentPublishFingerprint: fingerprint,
       lastEnrichmentVersionId: versionId,
+      ...(ownerOverrideMeta ? {
+        lastPublishOverride: {
+          reason: ownerOverrideMeta.reason,
+          at: ownerOverrideMeta.at,
+          publishedBy,
+          publishReadiness: ownerOverrideMeta.publishReadiness || "blocked",
+          completionPercent: ownerOverrideMeta.completionPercent,
+        },
+      } : {}),
     },
     updatedAt: now,
   });
@@ -18679,6 +18716,8 @@ async function handlePublishEnrichment(request, response, ctx) {
     curriculum: store.siteContent.curriculum,
     siteContentUpdatedAt: store.siteContent.updatedAt,
     priorVersionAvailable: true,
+    ownerOverrideApplied: Boolean(ownerOverrideMeta),
+    ownerPublishOverride: ownerOverrideMeta || null,
   });
 }
 

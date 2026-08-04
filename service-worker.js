@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v167-20260804-tk-nav-recovery-r1";
+const CACHE_NAME = "llh-shell-v168-20260804-tk-publish-gates-r1";
 const SHELL_VERSION = "20260803-assign-download-fixers";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;

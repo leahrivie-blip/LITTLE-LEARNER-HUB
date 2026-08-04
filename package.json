@@ -46,6 +46,7 @@
     "test:teaching-kit-enrichment-preserve": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-preserve.js",
     "test:teaching-kit-enrichment-draft-reliability": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-draft-reliability.js",
     "test:teaching-kit-editor-nav-recovery": "NODE_ENV=test node scripts/test-teaching-kit-editor-nav-recovery.js",
+    "test:teaching-kit-publish-gates-ai-state": "NODE_ENV=test node scripts/test-teaching-kit-publish-gates-ai-state.js",
     "test:teaching-kit-enrichment-qa": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-qa.js",
     "test:owner-notification-email": "NODE_ENV=test node scripts/test-owner-notification-email.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
