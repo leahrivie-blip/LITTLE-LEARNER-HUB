@@ -16,7 +16,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19300 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-free-p2-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260804-free-ux-phase2-r1";
+const CACHE = "20260804-free-labels-r1";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {
@@ -70,6 +70,12 @@ async function main() {
   assert.match(appJs, /Add Your First Child/);
   assert.match(appJs, /data-activity-access-stats="canonical"/);
   assert.match(appJs, /sidebarCard\.hidden = true/);
+  assert.match(appJs, /function favoriteSaveControl/);
+  assert.match(appJs, /function freeUserMaySaveResource/);
+  assert.doesNotMatch(appJs, /Save \(Pro\)/);
+  assert.doesNotMatch(appJs, /"Pro Save"/);
+  assert.doesNotMatch(appJs, /configurable from Admin later/);
+  assert.match(appJs, /Header Upgrade is the one persistent Free path/);
   assert.doesNotMatch(sampleJs, /Founding or Pro/);
   assert.match(nuoJs, /function clearOnLogout/);
   assert.match(nuoJs, /function hasCompletedOnboarding/);
@@ -78,8 +84,10 @@ async function main() {
   assert.match(css, /body\.auth-modal-open \.llh-meta-cookie-notice/);
   assert.match(css, /#authModal\.modal\.open \{\s*z-index: 13000/);
   assert.match(css, /\.browse-card:focus-visible/);
+  assert.match(css, /\.is-locked-save/);
+  assert.doesNotMatch(indexHtml, /If the Free sample feels this good/);
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${CACHE}`));
-  assert.match(sw, new RegExp(`llh-shell-v165-${CACHE}`));
+  assert.match(sw, new RegExp(`llh-shell-v\\d+-${CACHE}`));
   console.log("PASS static Phase 2 markers");
 
   const child = startServer();
@@ -348,8 +356,42 @@ async function main() {
       assert.ok(viewer.backCount <= 1, `expected ≤1 Back, got ${viewer.backCount}`);
       assert.ok(viewer.saveCount <= 1, `expected ≤1 Save, got ${viewer.saveCount}`);
     }
+    const saveLabels = await page.evaluate(() => {
+      const workspaceSave = document.querySelector(".lesson-workspace-save-btn")?.textContent?.trim() || "";
+      const freeCard = document.querySelector(".lesson-plan-card .browse-card-badge.is-free")?.closest(".lesson-plan-card");
+      const freeSave = freeCard?.querySelector(".browse-card-actions .ghost-button, .lesson-plan-save-btn")?.textContent?.trim() || "";
+      const lockedCard = document.querySelector(".lesson-plan-card.locked");
+      const lockedSave = lockedCard?.querySelector(".lesson-plan-save-btn");
+      const settingsHtml = document.querySelector("#view-settings")?.innerHTML || "";
+      if (typeof renderSettingsHub === "function") {
+        try { renderSettingsHub(); } catch { /* ignore */ }
+      }
+      const settingsAfter = document.querySelector("#view-settings")?.innerHTML || settingsHtml;
+      const calendarHasUpgrade = Boolean(document.querySelector("#view-calendar .free-dashboard-upgrade-card"));
+      const homeHasUpgrade = Boolean(document.querySelector("#view-home .free-dashboard-upgrade-card"));
+      return {
+        workspaceSave,
+        freeSave,
+        lockedSaveDisabled: Boolean(lockedSave?.classList.contains("is-locked-save") || lockedSave?.classList.contains("disabled-control") || lockedSave?.hasAttribute("data-pro-feature")),
+        settingsBanner: /founding-upgrade-banner/i.test(settingsAfter),
+        calendarHasUpgrade,
+        homeHasUpgrade,
+        featuredAdminCopy: /configurable from Admin/i.test(document.body.innerText || ""),
+      };
+    });
+    if (saveLabels.workspaceSave) {
+      assert.doesNotMatch(saveLabels.workspaceSave, /Save \(Pro\)|Pro Save/i);
+    }
+    if (saveLabels.freeSave) {
+      assert.doesNotMatch(saveLabels.freeSave, /Save \(Pro\)|Pro Save/i);
+    }
+    assert.equal(saveLabels.settingsBanner, false, "Settings must not stack Founding/Pro upgrade banner");
+    assert.equal(saveLabels.calendarHasUpgrade, false, "Calendar must not stack upgrade card");
+    assert.equal(saveLabels.homeHasUpgrade, false, "Home must not stack upgrade card");
+    assert.equal(saveLabels.featuredAdminCopy, false);
     assert.equal(netFails.length, 0, `no teaching-kit 404s: ${JSON.stringify(netFails)}`);
     console.log("PASS lesson viewer action bar + no TK 404s");
+    console.log("PASS Free Save labels + no stacked upgrade panels");
 
     // Children empty state
     await page.evaluate(() => {

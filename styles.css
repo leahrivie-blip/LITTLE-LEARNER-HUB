@@ -24249,6 +24249,14 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   overflow: auto;
   box-shadow: -8px 0 24px rgba(20, 28, 24, 0.12);
 }
+.browse-card-save.is-locked-save,
+.lesson-plan-save-btn.is-locked-save,
+.favorite-button.is-locked-save,
+.lesson-workspace-save-btn.is-locked-save {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
 @media (max-width: 900px) {
   body.tk-enrich-open #adminTeachingKitEnrichmentHost {
     left: 0;
