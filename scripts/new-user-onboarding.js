@@ -52,10 +52,12 @@
       step: "welcome",
       experiment: EXPERIMENT_VERSION,
       accountCreatedAt: "",
+      accountEmail: "",
       continueAt: "",
       freeSelectedAt: "",
       trialSelectedAt: "",
       trialStartedAt: "",
+      completedAt: "",
       fromOnboardingCheckout: false,
       deferGenericUpgrades: false,
       firstTimeUser: true,
@@ -79,6 +81,23 @@
       },
       lessonOpenCount: 0,
     };
+  }
+
+  function currentAccountEmail() {
+    try {
+      return String(global.currentUser || localStorage.getItem("llhUser") || "").trim().toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
+  function hasCompletedOnboarding(state = getState()) {
+    if (state.completedAt) return true;
+    if (state.step === "done" || state.step === "free-start") return true;
+    if (!state.active && (state.freeSelectedAt || state.trialStartedAt) && !isOnboardingModalStep(state.step)) {
+      return true;
+    }
+    return false;
   }
 
   function getState() {
@@ -370,10 +389,9 @@
           <li>Calendar planning for about 30 days</li>
           <li>Favorites, child profiles, and starter documentation helpers</li>
         </ul>
-        <p class="muted-copy">You can start a 7-day Pro trial anytime from Settings if you want the full library later.</p>
+        <p class="muted-copy">Want the full library later? Compare Pro anytime in Settings — upgrading is optional.</p>
         <div class="nuo-actions">
           <button type="button" class="primary-button" data-nuo-action="choose-free">Browse my Free plans</button>
-          <button type="button" class="ghost-button" data-nuo-action="choose-trial">Start a 7-day Pro trial instead</button>
         </div>
       </div>
     `;
@@ -632,11 +650,14 @@
 
   function beginAfterFreeSignup() {
     const now = new Date().toISOString();
+    const email = currentAccountEmail();
     saveState({
       ...defaultState(),
       active: true,
       step: "welcome",
       accountCreatedAt: now,
+      accountEmail: email,
+      completedAt: "",
       // Free was already selected during signup — do not ask again on explore.
       freeSelectedAt: now,
       freeChosenAtSignup: true,
@@ -660,10 +681,14 @@
 
   function finishFreePath() {
     const now = new Date().toISOString();
+    const prior = getState();
     updateState({
       active: false,
-      step: "free-start",
-      freeSelectedAt: getState().freeSelectedAt || now,
+      step: "done",
+      completedAt: now,
+      accountEmail: prior.accountEmail || currentAccountEmail(),
+      freeSelectedAt: prior.freeSelectedAt || now,
+      freeChosenAtSignup: true,
       deferGenericUpgrades: true,
       firstTimeUser: true,
     });
@@ -676,6 +701,31 @@
     goToLessonPlans();
     if (typeof global.refreshFreePlanUpgradeChrome === "function") {
       try { global.refreshFreePlanUpgradeChrome(); } catch { /* ignore */ }
+    }
+  }
+
+  function clearOnLogout() {
+    // Always close overlays so login/signup controls stay usable.
+    // Keep persistence: completed users stay completed; incomplete users can resume
+    // after the same account logs back in (maybeResumeOnBoot gates on email).
+    closeModal();
+    const state = getState();
+    if (hasCompletedOnboarding(state) && state.active) {
+      updateState({
+        active: false,
+        step: "done",
+        completedAt: state.completedAt || new Date().toISOString(),
+      });
+    }
+    try {
+      const modal = modalEl();
+      if (modal) {
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+      document.body.classList.remove("nuo-open");
+    } catch {
+      /* ignore */
     }
   }
 
@@ -866,7 +916,12 @@
       return;
     }
     if (action === "finish-trial-success") {
-      updateState({ active: false, step: "done" });
+      updateState({
+        active: false,
+        step: "done",
+        completedAt: new Date().toISOString(),
+        accountEmail: getState().accountEmail || currentAccountEmail(),
+      });
       closeModal();
       goToLessonPlans();
     }
@@ -904,6 +959,14 @@
   function maybeResumeOnBoot() {
     const state = getState();
     if (state.fromOnboardingCheckout) return;
+    if (hasCompletedOnboarding(state)) {
+      if (state.active) updateState({ active: false, step: state.step === "free-start" ? "done" : state.step });
+      return;
+    }
+    const email = currentAccountEmail();
+    if (!email) return;
+    // Only resume for the same signed-in account that started onboarding.
+    if (state.accountEmail && state.accountEmail !== email) return;
     if (state.active && isOnboardingModalStep(state.step)) {
       window.setTimeout(() => openModal(), 80);
     }
@@ -915,6 +978,9 @@
     DEFAULT_FEATURED_IDS,
     getState,
     beginAfterFreeSignup,
+    finishFreePath,
+    clearOnLogout,
+    hasCompletedOnboarding,
     freeStarterExploreHtml,
     trialWelcomeBannerHtml,
     gettingStartedChecklistHtml,

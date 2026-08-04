@@ -68,7 +68,7 @@ async function main() {
   assert.doesNotMatch(nuoJs, /Most Popular/);
   assert.doesNotMatch(gfJs, /Founding or Pro access/);
   assert.match(gfJs, /require Pro access/);
-  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-onboarding-r1/);
+  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-ux-phase2-r1/);
   assert.match(indexHtml, /id="demoAccountButton"[^>]*hidden/);
   assert.match(indexHtml, /id="familyHubSettingsCard"[^>]*hidden/);
   assert.doesNotMatch(indexHtml, /nav-legacy-tag">Legacy/);

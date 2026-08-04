@@ -3155,6 +3155,34 @@ function applySignupIntentCopyToAuthModal() {
   }
 }
 
+function syncNonessentialNoticesForAuthOverlay(open) {
+  // Cookie / announcement / reminder banners must never block signup or login controls.
+  const cookie = document.getElementById("llhMetaCookieNotice");
+  if (cookie) {
+    if (open) {
+      cookie.setAttribute("data-auth-suppressed", "1");
+      cookie.setAttribute("aria-hidden", "true");
+      cookie.style.display = "none";
+      cookie.style.pointerEvents = "none";
+    } else if (cookie.getAttribute("data-auth-suppressed") === "1") {
+      cookie.removeAttribute("data-auth-suppressed");
+      cookie.removeAttribute("aria-hidden");
+      cookie.style.display = "";
+      cookie.style.pointerEvents = "";
+    }
+  }
+  const announcement = document.querySelector("#siteAnnouncementBanner");
+  if (announcement && open) {
+    announcement.setAttribute("data-auth-suppressed", announcement.hidden ? "was-hidden" : "1");
+    announcement.hidden = true;
+  } else if (announcement && announcement.getAttribute("data-auth-suppressed") === "1") {
+    announcement.hidden = false;
+    announcement.removeAttribute("data-auth-suppressed");
+  } else if (announcement) {
+    announcement.removeAttribute("data-auth-suppressed");
+  }
+}
+
 function openAuthModal(mode = "login") {
   if (mode === "signup") {
     signupWizardStep = 1;
@@ -3163,6 +3191,19 @@ function openAuthModal(mode = "login") {
   }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
+  syncNonessentialNoticesForAuthOverlay(true);
+  // Close leftover onboarding so it cannot intercept login after logout.
+  try {
+    if (typeof NewUserOnboarding?.closeModal === "function") NewUserOnboarding.closeModal();
+    const nuo = document.querySelector("#newUserOnboardingModal");
+    if (nuo) {
+      nuo.classList.remove("open");
+      nuo.setAttribute("aria-hidden", "true");
+    }
+    document.body.classList.remove("nuo-open");
+  } catch {
+    /* ignore */
+  }
   modal.hidden = false;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -3199,6 +3240,7 @@ function closeAuthModal() {
   modal.classList.remove("open");
   modal.hidden = true;
   modal.setAttribute("aria-hidden", "true");
+  syncNonessentialNoticesForAuthOverlay(false);
   signupWizardStep = 1;
   signupPersonaChoice = "";
   signupCenterPathway = "";
@@ -16396,19 +16438,8 @@ function canAccess(resource) {
   if (accessRank[effectiveAccessPlan()] >= accessRank.Pro) return true;
   if (resource?._curriculumManaged) {
     if (resource._userLessonCopy) return true;
-    if (resource.category === "Activity Center") {
-      const parentId = resource._curriculumActivity?.lessonPlanId || resource.lessonPlanId || "";
-      const parent = parentId
-        ? (resources.find((item) => item.id === parentId) || effectiveCurriculumLibrary().lessonPlans?.find((item) => item.id === parentId))
-        : null;
-      if (parent) return isFreeAccessibleCurriculumPlan(parent);
-      // Fall back to parent title fields embedded on activity resources.
-      return isFreeAccessibleCurriculumPlan({
-        id: parentId,
-        title: resource.parentTitle || resource._parentTitle || "",
-        age: resource.parentAge || resource.age || "",
-        theme: resource.parentTheme || resource.theme || "",
-      });
+    if (resource.category === "Activity Center" || resource._curriculumActivity) {
+      return isFreeAccessibleActivity(resource);
     }
     return isFreeAccessibleCurriculumPlan(resource);
   }
@@ -17251,6 +17282,44 @@ function libraryCoverToneClass(seed = "") {
   return `cover-tone-${Math.abs(hash) % 8}`;
 }
 
+/** Resolve parent lesson plan for a curriculum activity resource. */
+function resolveActivityParentLessonPlan(resource) {
+  if (!resource) return null;
+  const parentId = String(
+    resource._curriculumActivity?.lessonPlanId
+    || resource.lessonPlanId
+    || resource._curriculumLessonPlanId
+    || "",
+  ).trim();
+  if (!parentId) return null;
+  return resources.find((item) => item.id === parentId)
+    || (effectiveCurriculumLibrary().lessonPlans || []).find((item) => item.id === parentId)
+    || null;
+}
+
+/**
+ * Canonical Free entitlement for activities — inherits from parent Free lesson plan.
+ * Same source used by canAccess(), badges, filters, browse rows, and counts.
+ */
+function isFreeAccessibleActivity(resource) {
+  if (!resource) return false;
+  if (resource._userLessonCopy) return true;
+  const parent = resolveActivityParentLessonPlan(resource);
+  if (parent) return isFreeAccessibleCurriculumPlan(parent);
+  const parentId = String(
+    resource._curriculumActivity?.lessonPlanId
+    || resource.lessonPlanId
+    || resource._curriculumLessonPlanId
+    || "",
+  ).trim();
+  return isFreeAccessibleCurriculumPlan({
+    id: parentId,
+    title: resource.parentTitle || resource._curriculumParentTitle || resource._parentTitle || "",
+    age: resource.parentAge || resource.age || "",
+    theme: resource.parentTheme || resource.theme || "",
+  });
+}
+
 /**
  * Single authoritative Free/Pro display label for every lesson-plan surface
  * (library cards, featured, collections, search, viewer, print/PDF, calendar).
@@ -17259,6 +17328,7 @@ function libraryCoverToneClass(seed = "") {
 function authoritativeLessonPlanAccessLabel(resource) {
   if (!resource) return "Free";
   if (resource._curriculumManaged || resource._curriculumLessonPlan || resource._userLessonCopy) {
+    if (resource._userLessonCopy) return "Free";
     if (isFreeAccessibleCurriculumPlan(resource)) {
       return "Free";
     }
@@ -17271,6 +17341,31 @@ function authoritativeLessonPlanAccessLabel(resource) {
   // Non-curriculum resources: label from stored plan, not from locked-state.
   if (/^free(\s+sample)?$/i.test(stored)) return "Free";
   return stored || "Free";
+}
+
+/**
+ * Canonical Free/Pro label for lessons AND activities.
+ * Activities never use raw activity.plan — they inherit from the parent Free lesson set.
+ */
+function authoritativeContentAccessLabel(resource) {
+  if (!resource) return "Free";
+  if (resource.category === "Activity Center" || resource._curriculumActivity) {
+    return isFreeAccessibleActivity(resource) ? "Free" : "Pro";
+  }
+  return authoritativeLessonPlanAccessLabel(resource);
+}
+
+function curriculumActivityAccessStats(items) {
+  const list = Array.isArray(items)
+    ? items
+    : visibleResourcesForCategory("Activity Center");
+  let freeTotal = 0;
+  let proTotal = 0;
+  list.forEach((item) => {
+    if (isFreeAccessibleActivity(item)) freeTotal += 1;
+    else proTotal += 1;
+  });
+  return { freeTotal, proTotal, total: freeTotal + proTotal };
 }
 
 /** Customer-facing Founding price-lock copy (never show internal "Lifetime" storage values). */
@@ -17291,7 +17386,7 @@ function foundingPriceLockDisplayLabel(accountOrLock) {
 }
 
 function libraryPlanBadge(resource) {
-  return authoritativeLessonPlanAccessLabel(resource);
+  return authoritativeContentAccessLabel(resource);
 }
 
 function libraryAccessBadgeHtml() {
@@ -17583,19 +17678,7 @@ function filterActivityBrowseItems(items) {
   let list = items.slice();
   if (activityLibraryPlanFilter === "Free" || activityLibraryPlanFilter === "Pro") {
     list = list.filter((item) => {
-      const parentId = item.lessonPlanId || item._curriculumLessonPlanId || "";
-      const parent = parentId
-        ? (resources.find((entry) => entry.id === parentId)
-          || (effectiveCurriculumLibrary().lessonPlans || []).find((entry) => entry.id === parentId))
-        : null;
-      const freeAccessible = parent
-        ? isFreeAccessibleCurriculumPlan(parent)
-        : isFreeAccessibleCurriculumPlan({
-          id: parentId,
-          title: item.parentTitle || item._curriculumParentTitle || item.title || "",
-          age: item.parentAge || item.age || "",
-          theme: item.theme || "",
-        });
+      const freeAccessible = isFreeAccessibleActivity(item);
       return activityLibraryPlanFilter === "Free" ? freeAccessible : !freeAccessible;
     });
   }
@@ -17614,7 +17697,7 @@ function buildActivityBrowseRows(items) {
   const continueBrowsing = byId(activityRecentlyViewed).slice(0, 18);
   const recentlyAdded = sortResourcesByRecency(items).slice(0, 18);
   const popular = sortResourcesPopular(items).slice(0, 18);
-  const freeActivities = items.filter((item) => String(item.plan || "Free").trim() !== "Pro").slice(0, 18);
+  const freeActivities = items.filter((item) => isFreeAccessibleActivity(item)).slice(0, 18);
   const freePrimary = isLoggedIn() && !isProUser() && !hasAdminFullAccess() && freeActivities.length;
   const ageRows = ["Infant", "Toddler", "Preschool"].map((age) => ({
     key: `age-${age.toLowerCase()}`,
@@ -17642,7 +17725,7 @@ function buildActivityBrowseRows(items) {
 
 function collectActivityViewAllItems(items, key) {
   if (!key) return items;
-  if (key === "free") return items.filter((item) => String(item.plan || "Free").trim() !== "Pro");
+  if (key === "free") return items.filter((item) => isFreeAccessibleActivity(item));
   if (key === "continue-browsing") return pickUniqueResources([items.filter((item) => activityRecentlyViewed.includes(item.id))]);
   if (key === "recently-added") return sortResourcesByRecency(items);
   if (key === "popular") return sortResourcesPopular(items);
@@ -23838,9 +23921,6 @@ function lessonWorkspaceActionBarsHtml(resource) {
                 <button type="button" data-lesson-archive="${id}">Archive</button>
                 <button type="button" class="lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>
               </div>` : ""}
-              <div class="lesson-workspace-more-group">
-                <button type="button" data-lesson-workspace-back>Back to Library</button>
-              </div>
             </div>
           </div>
         </div>
@@ -24264,6 +24344,10 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   if (!targetId || !canUseLaunchBackend()) {
     return { ok: false, reason: !targetId ? "missing-id" : "backend-unavailable", teachingKit: null, featureFlags: null };
   }
+  const clientFlags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  if (clientFlags.teachingKitViewer !== true) {
+    return { ok: false, reason: "flag_off", teachingKit: null, featureFlags: clientFlags };
+  }
   const params = new URLSearchParams();
   if (query.day) params.set("day", String(query.day));
   if (Array.isArray(query.readyMaterials) && query.readyMaterials.length) {
@@ -24328,6 +24412,11 @@ function lessonWorkspaceTeachingKitChrome(viewerResource) {
 }
 
 async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
+  // Skip network entirely when Teaching Kit customer viewer is off (avoids Free-lesson 404s).
+  const clientFlags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  if (clientFlags.teachingKitViewer !== true) {
+    return { enhanced: false, reason: "viewer_flag_off" };
+  }
   const api = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitViewer : null;
   if (!api || typeof api.enhanceLessonWorkspace !== "function") {
     return { enhanced: false, reason: "viewer_module_missing" };
@@ -26213,13 +26302,8 @@ function freeStarterLibraryBannerHtml() {
     `;
   }
   if (isProUser()) return "";
-  // One short explainer — policy / browse / unlock copy lives in Settings & upgrade chrome.
-  return `
-    <section class="free-starter-library-banner" aria-label="Your included Free plans" data-free-starter-banner="true">
-      <h3>${escapeHtml(MEMBERSHIP_COPY.freeStarterSection)}</h3>
-      <p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)} Browse titles across the library anytime; upgrade later if you want every plan unlocked.</p>
-    </section>
-  `;
+  // Library counts + "Your Included Free Plans" already explain Free — do not stack another panel.
+  return "";
 }
 
 function lessonLibraryEmptyStateHtml(itemsQueried) {
@@ -26481,12 +26565,10 @@ function renderCategoryPage(view) {
       || activityLibraryShowRecentOnly
       || activeActivityLessonPlanId,
     );
-    const freeCount = visibleResourcesForCategory("Activity Center")
-      .filter((item) => String(item.plan || "Free").trim() !== "Pro").length;
-    const proCount = Math.max((accessCounts?.total || 0) - freeCount, 0);
+    const activityAccess = curriculumActivityAccessStats(visibleResourcesForCategory("Activity Center"));
     const activityStatsLine = (curriculumLibraryLoading || siteContentLoadPromise)
       ? `<p class="library-stats-line" role="status" aria-live="polite">Syncing activity library…</p>`
-      : `<p class="library-stats-line">${accessCounts.total} Activities · ${Math.min(freeCount, accessCounts.total)} Free · ${proCount} Pro</p>`;
+      : `<p class="library-stats-line" data-activity-access-stats="canonical">${activityAccess.total} Activities · ${activityAccess.freeTotal} Free · ${activityAccess.proTotal} Pro</p>`;
     let activityBody = "";
     if (activityLibraryViewAllKey || hasSearchOrAdvanced) {
       const viewAllItems = activityLibraryViewAllKey
@@ -26994,6 +27076,11 @@ function renderManagedFaqContent() {
   }).join("");
 }
 
+/** Closed Founding acquisition CTAs must never appear in customer chrome. */
+function isFoundingAcquisitionOfferText(text) {
+  return /Founding\s+Membership|Founding\s+Member|Founding\s+Price|Lock In My \$9\.99|Lock In \$9\.99|\$9\.99\s+Founding|founding price of just \$9\.99/i.test(String(text || ""));
+}
+
 function renderManagedAnnouncementBanner() {
   const banner = document.querySelector("#siteAnnouncementBanner");
   const textEl = document.querySelector("#siteAnnouncementText");
@@ -27008,7 +27095,15 @@ function renderManagedAnnouncementBanner() {
   const ann = content.announcement || {};
   const dismissed = sessionStorage.getItem("llhAnnouncementDismissed") === ann.text;
   const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
-  const shouldShow = ann.visible === true && !ann._draft && !dismissed && !isExpired && ann.text;
+  // Founding acquisition is closed — never show Lock-In / Founding-price pitches
+  // to Free or other customers. Existing Founding entitlements are unchanged.
+  const foundingAcquisitionPitch = isFoundingAcquisitionOfferText(ann.text) && !foundingOpenForAcquisition();
+  const shouldShow = ann.visible === true
+    && !ann._draft
+    && !dismissed
+    && !isExpired
+    && ann.text
+    && !foundingAcquisitionPitch;
   if (shouldShow) {
     textEl.textContent = ann.text;
     banner.hidden = false;
@@ -36966,26 +37061,31 @@ function renderChildManagement() {
   }
 
   syncChildrenViewShell("list");
+  const hasChildren = Boolean(records.children.length);
   app.innerHTML = `
     <section class="simple-child-page">
       <div class="child-page-header">
         <div>
           <h2>Children</h2>
-          <p>Select a child to open their profile — observations, goals, reports, and records in one calm workspace.</p>
+          <p>${hasChildren
+            ? "Select a child to open their profile — observations, goals, reports, and records in one calm workspace."
+            : "Add your first child to track observations, goals, and daily care in one place."}</p>
         </div>
         <div class="child-header-actions">
-          <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
-          <button class="primary-button" data-child-view="add" type="button">+ Add Child</button>
+          ${hasChildren ? `
+            <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
+            <button class="primary-button" data-child-view="add" type="button">+ Add Child</button>
+          ` : ""}
         </div>
       </div>
-      ${renderChildrenNeedList(records)}
+      ${hasChildren ? renderChildrenNeedList(records) : ""}
       <div class="simple-child-grid">
-        ${records.children.length ? records.children.map((item) => renderChildProfileCard(item, records)).join("") : `
-          <section class="section-block empty-state">
+        ${hasChildren ? records.children.map((item) => renderChildProfileCard(item, records)).join("") : `
+          <section class="section-block empty-state" data-children-empty-state="true">
             ${renderProfileEmptyState({
               title: "No child profiles yet",
               body: "Add your first child to track observations, goals, and daily care in one place.",
-              actionsHtml: `<button class="primary-button" data-child-view="add" type="button">Add Child</button>`,
+              actionsHtml: `<button class="primary-button" data-child-view="add" type="button">Add Your First Child</button>`,
             })}
           </section>
         `}
@@ -54561,6 +54661,26 @@ function foundingStatusCard() {
 }
 
 const FOUNDING_UPGRADE_DISMISS_KEY = "llhFoundingUpgradeDismissed";
+const FREE_UPGRADE_QUIET_UNTIL_KEY = "llhFreeUpgradeQuietUntil";
+const FREE_UPGRADE_QUIET_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** After “Maybe later”, suppress large Free upgrade panels for a reasonable period. */
+function isFreeUpgradeQuietPeriodActive() {
+  try {
+    const until = Number(localStorage.getItem(FREE_UPGRADE_QUIET_UNTIL_KEY) || 0);
+    return Number.isFinite(until) && until > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function beginFreeUpgradeQuietPeriod() {
+  try {
+    localStorage.setItem(FREE_UPGRADE_QUIET_UNTIL_KEY, String(Date.now() + FREE_UPGRADE_QUIET_MS));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Free plan owners who can manage billing — not paid, not staff-only, not real admin mode. */
 function canSeePaidUpgradeOffer(account = currentAccount()) {
@@ -54616,8 +54736,12 @@ function dismissFreePlanReminderBar() {
   } catch {
     /* ignore */
   }
+  beginFreeUpgradeQuietPeriod();
   const bar = document.querySelector("#freePlanReminderBar");
   if (bar) bar.hidden = true;
+  document.querySelectorAll(".free-dashboard-upgrade-card, .founding-upgrade-banner, .free-library-conversion-banner").forEach((node) => {
+    if (node && !node.closest("#view-billing, #view-plans, #view-upgrade")) node.remove();
+  });
 }
 
 function isFreeWelcomeCardDismissed() {
@@ -54725,8 +54849,8 @@ function contentGrowthStatsHtml() {
 function lockedContentUnlockLines(options = {}) {
   const kind = String(options.kind || "generic");
   const stats = contentGrowthStats();
-  const freeCount = 10;
-  const proCount = Math.max(stats.proPlans, Math.max(0, stats.totalPlans - freeCount));
+  const freeCount = Number(stats.freePlans) || 10;
+  const proCount = Number(stats.proPlans) || Math.max(0, Number(stats.totalPlans || 0) - freeCount);
   const lines = [
     MEMBERSHIP_COPY.freeCore,
     MEMBERSHIP_COPY.freeBrowse,
@@ -54839,20 +54963,16 @@ function freeWelcomeCardHtml() {
  */
 function freeDashboardUpgradeCardHtml() {
   if (!canSeePaidUpgradeOffer()) return "";
+  // Large dashboard upgrade card is contextual only — never stacks with header Upgrade.
+  if (isFreeUpgradeQuietPeriodActive() || isFreePlanReminderDismissed() || isFoundingUpgradeBannerDismissed()) return "";
   if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) return "";
-  if (typeof hasReachedMeaningfulUpgradeValueMoment === "function" && !hasReachedMeaningfulUpgradeValueMoment()) {
-    // Existing Free owners who already dismissed the old welcome may still see this later;
-    // brand-new Free path stays quiet until they use the product.
-    const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
-    if (onboarding?.deferGenericUpgrades || onboarding?.freeSelectedAt) return "";
+  if (typeof hasReachedMeaningfulUpgradeValueMoment !== "function" || !hasReachedMeaningfulUpgradeValueMoment()) {
+    return "";
   }
-  if (!isFreeWelcomeCardDismissed() && !hasLegacyFreeLessonAccess()) {
-    // Starter cards still own the surface when present.
-    if (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()) return "";
-  }
+  if (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()) return "";
   const unlockLines = lockedContentUnlockLines();
   return `
-    <section class="free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer">
+    <section class="free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer" data-free-upgrade-surface="contextual">
       <div class="free-dashboard-upgrade-card-copy">
         <p class="free-dashboard-upgrade-card-badge">Pro</p>
         <h3>${escapeHtml(freeUpgradePrimaryButtonLabel({ short: true }))}</h3>
@@ -54862,6 +54982,7 @@ function freeDashboardUpgradeCardHtml() {
       <div class="free-dashboard-upgrade-card-actions">
         <button class="primary-button" type="button" data-checkout-plan="${preferredPaidCheckoutPlan()}">${escapeHtml(freeUpgradePrimaryButtonLabel())}</button>
         <button class="ghost-button" type="button" data-view="plans">Compare Plans</button>
+        <button class="ghost-button" type="button" data-dismiss-founding-upgrade>Maybe later</button>
       </div>
     </section>
   `;
@@ -54886,7 +55007,7 @@ function freePlanUpgradePrimaryCta() {
   };
 }
 
-/** Persistent Free Plan badge, sidebar card, and subtle top reminder for eligible Free owners. */
+/** Persistent Free Plan badge + one header Upgrade. No stacked sidebar/reminder panels. */
 function refreshFreePlanUpgradeChrome() {
   let show = false;
   try {
@@ -54900,10 +55021,16 @@ function refreshFreePlanUpgradeChrome() {
   const reminder = document.querySelector("#freePlanReminderBar");
   const softNudge = document.querySelector("#freePlanSoftNudge");
   const deferUpgradeChrome = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
-  if (badge) badge.hidden = !show;
-  // During first-time Free onboarding, keep sidebar upgrade quiet so Free feels welcoming.
-  if (sidebarCard) sidebarCard.hidden = !show || deferUpgradeChrome;
-  // Soft nudge retired — one top reminder bar is enough.
+  const quiet = isFreeUpgradeQuietPeriodActive() || isFreePlanReminderDismissed() || isFoundingUpgradeBannerDismissed();
+  const reachedValue = typeof hasReachedMeaningfulUpgradeValueMoment === "function"
+    && hasReachedMeaningfulUpgradeValueMoment();
+  if (badge) {
+    badge.hidden = !show;
+    badge.textContent = "Free Plan";
+  }
+  // Sidebar upgrade card retired for Free chrome — header Upgrade is the one persistent entry.
+  if (sidebarCard) sidebarCard.hidden = true;
+  // Soft nudge retired.
   if (softNudge) {
     softNudge.hidden = true;
     softNudge.classList.remove("is-visible");
@@ -54925,44 +55052,23 @@ function refreshFreePlanUpgradeChrome() {
       reminderPrimary.dataset.view = primary.view || "plans";
     }
   }
-  const sidebarBtn = sidebarCard?.querySelector(".sidebar-free-upgrade-btn");
-  if (sidebarBtn) {
-    sidebarBtn.textContent = primary.label;
-    if (primary.checkout) {
-      sidebarBtn.dataset.checkoutPlan = primary.checkout;
-      delete sidebarBtn.dataset.view;
-    } else {
-      delete sidebarBtn.dataset.checkoutPlan;
-      sidebarBtn.dataset.view = "plans";
-    }
-  }
-  const sidebarCopy = sidebarCard?.querySelector(".sidebar-free-upgrade-copy");
-  if (sidebarCopy) {
-    // Pro-first Free chrome — avoid Founding spot pressure in the sidebar.
-    sidebarCopy.textContent = `${MEMBERSHIP_COPY.freeStarterProgress} Upgrade to Pro anytime for the complete library.`;
-  }
   if (reminder) {
-    // Keep badge/sidebar always; reminder bar is dismissible for the session.
-    // Hide during account verification so boot gate + reminder never stack.
     const bootBusy = document.body.classList.contains("app-boot-verifying")
       || (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive());
-    // Prefer onboarding/starter cards over the top reminder; defer reminder until value moments.
     const starterActive = Boolean(
       (typeof NewUserOnboarding?.isNewUserOnboardingActive === "function" && NewUserOnboarding.isNewUserOnboardingActive())
       || (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()),
     );
+    // Large reminder only after intentional value/limit moment — not during onboarding.
     reminder.hidden = bootBusy
       || starterActive
       || deferUpgradeChrome
-      || isFreePlanReminderDismissed()
-      || isFoundingUpgradeBannerDismissed();
+      || quiet
+      || !reachedValue;
     const copyEl = reminder.querySelector(".free-plan-reminder-copy");
     if (copyEl) {
       copyEl.innerHTML = `<strong>Free Plan</strong><p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)} Upgrade to Pro anytime for the complete library.</p>`;
     }
-  }
-  if (badge) {
-    badge.textContent = "Free Plan";
   }
 }
 
@@ -55040,7 +55146,7 @@ function foundingUpgradeBannerHtml(options = {}) {
     force = false,
   } = options;
   if (!canSeePaidUpgradeOffer()) return "";
-  if (!force && isFoundingUpgradeBannerDismissed()) return "";
+  if (!force && (isFoundingUpgradeBannerDismissed() || isFreeUpgradeQuietPeriodActive())) return "";
   // Free chrome uses Pro messaging. Founding acquisition copy stays on Pricing/signup only.
   const checkoutPlan = preferredPaidCheckoutPlan() === "founding" ? "monthly" : preferredPaidCheckoutPlan();
   const ctaLabel = "Upgrade to Pro";
@@ -56781,6 +56887,17 @@ async function signOut() {
   }
   clearMemberSessionToken();
   closeForcePasswordModal();
+  // Close onboarding overlays so they cannot block the next login.
+  try {
+    if (typeof NewUserOnboarding?.clearOnLogout === "function") {
+      NewUserOnboarding.clearOnLogout();
+    } else if (typeof NewUserOnboarding?.closeModal === "function") {
+      NewUserOnboarding.closeModal();
+    }
+  } catch {
+    /* ignore */
+  }
+  document.body.classList.remove("nuo-open", "auth-modal-open");
   // Keep Admin unlock on this browser. Provider sign-out should not force a full
   // Admin re-login — use Lock Admin when you want to clear owner access.
   currentUser = "";

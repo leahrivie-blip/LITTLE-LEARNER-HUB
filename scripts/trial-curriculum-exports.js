@@ -22,7 +22,7 @@
 
   const COPY = Object.freeze({
     core:
-      "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first. Upgrade to Founding or Pro for unlimited curriculum access, printing and downloads.",
+      "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first. Upgrade to Pro for unlimited curriculum access, printing and downloads.",
     foundingWhileOpen:
       "Founding Members receive unlimited curriculum access for $9.99/month locked while membership remains continuously active.",
     proMonthly:
@@ -41,7 +41,7 @@
     freeCore:
       "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
     freeBrowse:
-      "Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+      "Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
     foundingCard:
       "Founding includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $9.99/month locked while membership remains continuously active.",
     proCard:
