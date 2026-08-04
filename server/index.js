@@ -12152,12 +12152,32 @@ async function handleAdminTrialAudit(request, response, url) {
             ? Math.round((sub.trial_end - sub.trial_start) / 86400)
             : null;
           row.stripeTrialDurationDays = stripeDays;
+          const stripePromo = normalizePromoCode(
+            sub?.metadata?.promoCode || sub?.metadata?.promo_code || "",
+          );
+          if (stripePromo && !row.promoCode) {
+            row.promoCode = stripePromo;
+            row.extensionSource = row.extensionSource && row.extensionSource !== "—"
+              ? row.extensionSource
+              : `Promo code ${stripePromo} (Stripe metadata)`;
+          }
           if (row.localMatchesStripe === false) {
             row.kind = trialClassification.MISMATCH_KIND;
             row.kindLabel = trialClassification.KIND_LABELS[trialClassification.MISMATCH_KIND];
             row.finalClassification = row.kindLabel;
             row.verdict = "stripe_local_mismatch";
             row.correct = false;
+            row.affected = false;
+          } else if (stripePromo && (
+            row.kind === trialClassification.UNKNOWN_TRIAL_KIND
+            || row.kind === trialClassification.LEGACY_TRIAL_KIND
+            || row.kind === trialClassification.UNEXPECTED_30_KIND
+          )) {
+            row.kind = trialClassification.PROMO_TRIAL_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.PROMO_TRIAL_KIND];
+            row.finalClassification = row.kindLabel;
+            row.verdict = "correct_promo";
+            row.correct = true;
             row.affected = false;
           } else if (stripeDays === STANDARD_TRIAL_DAYS && (
             row.kind === trialClassification.UNKNOWN_TRIAL_KIND
@@ -12184,9 +12204,12 @@ async function handleAdminTrialAudit(request, response, url) {
         row.stripeEnrichError = String(error.message || error).slice(0, 160);
       }
     }
+    audit.summary.standard7day = audit.rows.filter((r) => r.kind === trialClassification.STANDARD_TRIAL_KIND).length;
+    audit.summary.promoExtended = audit.rows.filter((r) => r.kind === trialClassification.PROMO_TRIAL_KIND).length;
+    audit.summary.manuallyExtended = audit.rows.filter((r) => r.kind === trialClassification.MANUAL_TRIAL_KIND).length;
+    audit.summary.legacy = audit.rows.filter((r) => r.kind === trialClassification.LEGACY_TRIAL_KIND).length;
     audit.summary.affectedUnexpected30day = audit.rows.filter((r) => r.affected || r.kind === trialClassification.UNEXPECTED_30_KIND).length;
     audit.summary.unexpected30day = audit.rows.filter((r) => r.kind === trialClassification.UNEXPECTED_30_KIND).length;
-    audit.summary.legacy = audit.rows.filter((r) => r.kind === trialClassification.LEGACY_TRIAL_KIND).length;
     audit.summary.stripeLocalMismatch = audit.rows.filter((r) => r.kind === trialClassification.MISMATCH_KIND || r.localMatchesStripe === false).length;
     audit.summary.localStripeMismatch = audit.summary.stripeLocalMismatch;
     audit.summary.try1monthCount = audit.rows.filter((r) => String(r.promoCode || "").toUpperCase() === "TRY1MONTH").length;
