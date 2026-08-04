@@ -32,8 +32,8 @@ function main() {
   ok(appJs.includes("navigator.serviceWorker.getRegistration"), "SW skips duplicate register when early-registered");
   ok(comms.includes("myMessagesState.loaded && !options.forceReload"), "messages skips loading flash when loaded");
   ok(comms.includes("silent: myMessagesState.loaded"), "mark-read/open use silent refresh when loaded");
-  ok(sw.includes("20260804-admin-login-trim-r2"), "shell cache bumped for perf pass");
-  ok(indexHtml.includes("20260804-admin-login-trim-r2"), "index cache bumped for perf pass");
+  ok(sw.includes("20260804-provider-polish-r1"), "shell cache bumped for perf pass");
+  ok(indexHtml.includes("20260804-provider-polish-r1"), "index cache bumped for perf pass");
 
   console.log(`PASS perf bounded fixes (${passed} asserts)`);
 }

@@ -118,8 +118,11 @@ body.user-authenticated.sidebar-collapsed .sidebar {
   gap: 8px;
   min-height: 44px;
   min-width: 44px;
+  max-width: max-content;
+  width: auto;
   padding: 8px 12px;
   flex: 0 0 auto;
+  justify-self: start;
 }
 
 .sidebar-toggle-bars {
@@ -454,13 +457,16 @@ body.user-authenticated.sidebar-collapsed .sidebar {
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: 14px;
 }
 
 .resource-viewer-toolbar .ghost-button,
 .resource-viewer-toolbar .primary-button {
   min-height: 44px;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  padding-inline: 12px;
 }
 
 .resource-viewer-body {
@@ -807,8 +813,14 @@ body.lessons-view.user-authenticated .topbar .account-actions {
 }
 
 body.lessons-view .topbar {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   padding: 10px 14px;
+}
+
+body.lessons-view.user-authenticated .topbar .sidebar-toggle {
+  justify-self: start;
+  width: auto;
+  max-width: max-content;
 }
 
 body.lessons-view:not(.user-authenticated) .topbar {
@@ -11787,12 +11799,26 @@ body.force-password-required #forcePasswordModal * {
     padding: 14px;
   }
 
+  /* Open activity viewer: keep a single inner scroller (avoid card + body double scroll). */
+  .resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-card {
+    overflow: hidden;
+  }
+
+  .resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-body {
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
   .resource-viewer-toolbar {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
   }
 
   .resource-viewer-toolbar button {
-    width: 100%;
+    width: auto;
+    flex: 1 1 calc(50% - 8px);
+    min-width: min(100%, 140px);
   }
 
   .section-block {
@@ -18294,6 +18320,15 @@ body.has-action-toast #llhMetaCookieNotice {
   max-width: 42ch;
 }
 
+#view-children.children-empty .children-list-title > p:not(.eyebrow):empty {
+  display: none;
+  margin: 0;
+}
+
+#view-children.children-empty .simple-child-page .child-page-header h2 {
+  margin-bottom: 0.35em;
+}
+
 .llh-cal-daynum {
   font-size: 12px;
   color: var(--llh-muted, #6b6b7b);
@@ -20935,10 +20970,13 @@ body.llh-scroll-locked .after-action-prompt {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
+  padding-bottom: 28px;
 }
 
 .resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-toolbar,
 .resource-viewer-modal.open:not(.lesson-workspace-mode) #resourceViewerTitle,
+.resource-viewer-modal.open:not(.lesson-workspace-mode) #resourceViewerTags,
+.resource-viewer-modal.open:not(.lesson-workspace-mode) #resourceViewerCategory,
 .resource-viewer-modal.open:not(.lesson-workspace-mode) #closeResourceViewer {
   flex: 0 0 auto;
 }
