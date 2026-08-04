@@ -57,7 +57,7 @@ async function main() {
   const insights = fs.readFileSync(path.join(ROOT, "server/admin-insights.js"), "utf8");
 
   assert.match(indexHtml, /id="newUserOnboardingModal"/);
-  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-onboarding-r1/);
+  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-ux-phase2-r1/);
   assert.match(appJs, /beginNewUserOnboardingAfterFreeSignup/);
   assert.match(appJs, /featured-this-week|resolveFeaturedThisWeekLessons/);
   assert.match(appJs, /onboardingRecommendations/);
@@ -139,22 +139,20 @@ async function main() {
     assert.ok(names.includes("welcome_continue_pressed"), "welcome_continue_pressed tracked");
     assert.ok(names.includes("free_selected"), "free_selected tracked");
 
-    // Optional Pro trial from free-ready (secondary CTA) — checkout path unchanged.
-    await page.evaluate(() => {
-      beginNewUserOnboardingAfterFreeSignup();
-    });
+    // Phase 2: free-ready completion is not an upgrade/trial prompt.
+    await page.evaluate(() => beginNewUserOnboardingAfterFreeSignup());
     await page.waitForSelector("#newUserOnboardingModal.open");
     await page.click('[data-nuo-action="continue"]');
-    const trialCardText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(trialCardText, /Start a 7-day Pro trial instead|Continue to Secure Checkout/i);
+    await page.waitForSelector(".nuo-free-ready, [data-nuo-action='choose-free']");
+    assert.equal(await page.locator("[data-nuo-action='choose-trial']").count(), 0, "no trial CTA on free-ready");
+    assert.match(await page.locator("#newUserOnboardingBody").innerText(), /Compare Pro anytime in Settings|Browse my Free plans/i);
 
+    // Trial checkout path still available from the explore chooser (non–signup-Free flow).
     await page.evaluate(() => {
       window.__llhStartProTrialCalls = 0;
       window.startProTrial = async function stubStartProTrial(options = {}) {
         window.__llhStartProTrialCalls += 1;
         window.__llhLastStartProTrialOptions = options;
-        NewUserOnboarding.getState();
-        // Mimic pending checkout without navigating to Stripe.
         localStorage.setItem("llhPendingCheckout", JSON.stringify({
           type: "monthly",
           amount: "$19.99",
@@ -162,7 +160,26 @@ async function main() {
           fromOnboarding: Boolean(options.fromOnboarding),
         }));
       };
+      const email = String(localStorage.getItem("llhUser") || "").toLowerCase();
+      localStorage.setItem("llhNewUserOnboardingV1", JSON.stringify({
+        active: true,
+        step: "explore",
+        experiment: "A",
+        accountEmail: email,
+        accountCreatedAt: new Date().toISOString(),
+        freeChosenAtSignup: false,
+        freeSelectedAt: "",
+        completedAt: "",
+        deferGenericUpgrades: false,
+        firstTimeUser: true,
+        milestones: {},
+        checklist: {},
+        lessonOpenCount: 0,
+      }));
+      NewUserOnboarding.openModal();
+      NewUserOnboarding.renderOnboarding();
     });
+    await page.waitForSelector("[data-nuo-action='choose-trial']");
     await page.click('[data-nuo-action="choose-trial"]');
     await page.waitForFunction(() => window.__llhStartProTrialCalls >= 1, null, { timeout: 5000 });
     const opened = await page.evaluate(() => ({

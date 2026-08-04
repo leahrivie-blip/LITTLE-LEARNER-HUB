@@ -77,9 +77,9 @@
     freeCore:
       "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
     freeBrowse:
-      "Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+      "Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
     recommendationSummary:
-      "Free includes exactly 10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool). Providers can browse titles and previews of the full library; complete contents of other plans stay locked until Founding or Pro.",
+      "Free includes exactly 10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool). Providers can browse titles and previews of the full library; complete contents of other plans stay locked until Pro.",
   });
 
   function normalizeAgeGroup(age) {

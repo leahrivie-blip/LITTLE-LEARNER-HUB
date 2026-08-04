@@ -23113,8 +23113,42 @@ body.hdh-persona-parent .main {
   z-index: 12050;
 }
 
-body.nuo-open .llh-meta-cookie-notice {
+/* Auth + onboarding must always stay usable above nonessential notices. */
+body.auth-modal-open .llh-meta-cookie-notice,
+body.nuo-open .llh-meta-cookie-notice,
+body.auth-modal-open #siteAnnouncementBanner,
+body.nuo-open #siteAnnouncementBanner,
+body.auth-modal-open #freePlanReminderBar,
+body.nuo-open #freePlanReminderBar {
   display: none !important;
+  pointer-events: none !important;
+}
+
+#authModal.modal.open {
+  z-index: 13000;
+}
+
+#authModal.modal.open .modal-card,
+#authModal.modal.open .auth-modal-card {
+  position: relative;
+  z-index: 13001;
+}
+
+/* Visible keyboard focus on Free UX surfaces touched in Phase 2. */
+#authModal input:focus-visible,
+#authModal button:focus-visible,
+#authModal select:focus-visible,
+#newUserOnboardingModal button:focus-visible,
+.browse-card:focus-visible,
+.browse-use-plan:focus-visible,
+.lesson-workspace-use-plan-btn:focus-visible,
+.lesson-workspace-back:focus-visible,
+.free-plan-reminder button:focus-visible,
+.sidebar-free-upgrade-btn:focus-visible,
+[data-children-empty-state] .primary-button:focus-visible,
+.llh-meta-cookie-dismiss:focus-visible {
+  outline: 2px solid #6b4fa0;
+  outline-offset: 2px;
 }
 
 .nuo-dashboard-checklist {
