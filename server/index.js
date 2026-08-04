@@ -1070,6 +1070,8 @@ function defaultFreePlanAccessStore() {
 
 function defaultSiteContentStore() {
   return {
+    // Temporary logged-in member update banner (admin can set false to disable immediately).
+    memberUpdateBannerEnabled: true,
     lessonPlans: {},
     customLessonPlans: [],
     activities: [],
@@ -3225,6 +3227,8 @@ function normalizedSiteContent(value) {
     },
     freePlanAccess: normalizedFreePlanAccess(input.freePlanAccess),
     featureFlags: normalizedFeatureFlags(input.featureFlags),
+    // Temporary member update banner — explicit false disables immediately; otherwise on.
+    memberUpdateBannerEnabled: input.memberUpdateBannerEnabled !== false,
     curriculum: normalizedCurriculumStore(input.curriculum),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
     teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
@@ -24036,6 +24040,10 @@ function isDuplicateSend(fingerprint) {
 
 function publicMessage(message, options = {}) {
   const adminView = options.admin === true;
+  const isWelcome = adminMessagingInbox.isWelcomeAutomationMessage(message)
+    || String(message.channel || "").toLowerCase() === "onboarding_welcome"
+    || String(message.onboardingSequenceId || "").trim().length > 0
+    || message.isAutomation === true;
   const payload = {
     id: message.id,
     kind: message.kind,
@@ -24051,10 +24059,15 @@ function publicMessage(message, options = {}) {
     createdAt: message.createdAt,
     sentAt: message.sentAt || message.createdAt,
     pushSummary: message.pushSummary || null,
+    // Members need automation labels in the conversation thread.
+    isAutomation: Boolean(isWelcome || message.isAutomation),
   };
+  if (isWelcome) {
+    payload.channel = "onboarding_welcome";
+    payload.onboardingSequenceId = String(message.onboardingSequenceId || "free-welcome");
+  }
   if (adminView) {
     payload.deliverVia = message.deliverVia || "in_app";
-    const isWelcome = adminMessagingInbox.isWelcomeAutomationMessage(message);
     if (isWelcome) {
       payload.channel = "onboarding_welcome";
       payload.onboardingSequenceId = String(message.onboardingSequenceId || "free-welcome");

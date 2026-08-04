@@ -5677,6 +5677,70 @@ body.lessons-view .mobile-brand {
   white-space: nowrap;
 }
 
+.member-update-banner {
+  position: relative;
+  z-index: 26;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid rgba(74, 111, 165, 0.22);
+  background: linear-gradient(180deg, #f3f7fb 0%, #eef3f8 100%);
+}
+
+.member-update-banner-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 12px 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.member-update-banner-copy {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.member-update-banner-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #243652;
+}
+
+.member-update-banner-copy p {
+  margin: 0 0 6px;
+  color: #42556b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.member-update-banner-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.member-update-banner-dismiss {
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+
+body:not(.user-authenticated) .member-update-banner,
+body.auth-modal-open .member-update-banner,
+body.lesson-editor-view .member-update-banner {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .member-update-banner-inner {
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .member-update-banner-dismiss {
+    width: 100%;
+  }
+}
+
 .free-plan-reminder {
   position: sticky;
   top: 0;
