@@ -41,8 +41,8 @@ function main() {
   ok(comms.includes('aria-controls="${panelId}"'), "messages tabs expose aria-controls");
   ok(comms.includes('aria-hidden="true"'), "messages unread dot is decorative");
   ok(comms.includes('role="tabpanel"'), "messages tabpanel role present");
-  ok(sw.includes("20260804-pass3-cookie-mobile-r1"), "shell cache bumped for a11y pass");
-  ok(indexHtml.includes("20260804-pass3-cookie-mobile-r1"), "index cache bumped for a11y pass");
+  ok(sw.includes("20260804-admin-login-trim-r2"), "shell cache bumped for a11y pass");
+  ok(indexHtml.includes("20260804-admin-login-trim-r2"), "index cache bumped for a11y pass");
 
   console.log(`PASS mobile/a11y pass (${passed} asserts)`);
 }
