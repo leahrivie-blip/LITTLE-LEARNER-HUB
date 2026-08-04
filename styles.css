@@ -23590,6 +23590,59 @@ body.family-hub-parent-mode .settings-check-label {
   gap: 8px;
 }
 
+.forms-status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.hdh-form-status-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(36, 48, 71, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+  color: var(--ink, #243047);
+}
+
+.hdh-form-status-chip strong {
+  font-size: 1.05rem;
+}
+
+.hdh-form-status-chip.is-pending {
+  background: rgba(232, 196, 104, 0.22);
+  border-color: rgba(176, 132, 40, 0.28);
+}
+
+.hdh-form-status-chip.is-overdue {
+  background: rgba(196, 92, 74, 0.14);
+  border-color: rgba(196, 92, 74, 0.28);
+}
+
+.hdh-form-status-chip.is-review {
+  background: rgba(90, 143, 123, 0.16);
+  border-color: rgba(90, 143, 123, 0.3);
+}
+
+.hdh-form-status-chip.is-complete {
+  background: rgba(90, 143, 123, 0.08);
+  border-color: rgba(36, 48, 71, 0.1);
+}
+
+.fh-form-pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  max-height: 240px;
+  overflow: auto;
+}
+
 .hdh-ai-draft-panel {
   scroll-margin-top: 88px;
 }

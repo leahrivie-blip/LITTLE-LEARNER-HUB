@@ -7623,14 +7623,17 @@ function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", r
 function formsAttentionDocuments(records = childRecords()) {
   const docs = Array.isArray(records.documents) ? records.documents : (childStore("Documents") || []);
   const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
+  const activeChildIds = new Set(
+    children.filter((child) => child && !child.archived).map((child) => String(child.id)),
+  );
   const nameFor = (id) => children.find((child) => String(child.id) === String(id))?.name || "Child";
   return docs
-    .filter((doc) => !doc.archived)
+    .filter((doc) => !doc.archived && activeChildIds.has(String(doc.childId || "")))
     .map((doc) => {
       const status = String(doc.status || "").toLowerCase();
       const signedNeedsReview = (status === "signed" || Boolean(doc.signedAt)) && !doc.providerReviewed;
-      const awaitingParent = doc.shareWithFamily && ["needed", "requested", "notified", "assigned", "action needed"].includes(status);
-      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < new Date().toISOString().slice(0, 10) && !doc.signedAt;
+      const awaitingParent = doc.shareWithFamily && ["needed", "requested", "notified", "assigned", "action needed", "draft"].includes(status) && !doc.signedAt;
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < new Date().toISOString().slice(0, 10) && !doc.signedAt && !doc.providerReviewed;
       let attention = "";
       if (signedNeedsReview) attention = "signed_review";
       else if (overdue) attention = "overdue";
@@ -7641,8 +7644,65 @@ function formsAttentionDocuments(records = childRecords()) {
     .sort((a, b) => String(b.updatedAt || b.signedAt || "").localeCompare(String(a.updatedAt || a.signedAt || "")));
 }
 
+function formsStatusSummary(records = childRecords()) {
+  const docs = (Array.isArray(records.documents) ? records.documents : (childStore("Documents") || []))
+    .filter((doc) => !doc.archived);
+  const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
+  const activeChildIds = new Set(children.filter((child) => child && !child.archived).map((child) => String(child.id)));
+  const live = docs.filter((doc) => activeChildIds.has(String(doc.childId || "")));
+  const attention = formsAttentionDocuments(records);
+  return {
+    pending: attention.filter((item) => item.attention === "awaiting_parent").length,
+    overdue: attention.filter((item) => item.attention === "overdue").length,
+    needsReview: attention.filter((item) => item.attention === "signed_review").length,
+    complete: live.filter((doc) => doc.providerReviewed || ["on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())).length,
+    total: live.length,
+  };
+}
+
+function childHasOpenAssignedForm(childId, formSpec = {}) {
+  const docs = childStore("Documents") || [];
+  const templateId = String(formSpec.templateId || "").trim();
+  const packFormId = String(formSpec.packFormId || "").trim();
+  const title = String(formSpec.title || "").trim().toLowerCase();
+  return docs.find((doc) => {
+    if (String(doc.childId) !== String(childId) || doc.archived) return false;
+    if (doc.signedAt || doc.providerReviewed || ["signed", "on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())) {
+      return false;
+    }
+    if (templateId && String(doc.templateId || "") === templateId) return true;
+    if (packFormId && String(doc.packFormId || "") === packFormId) return true;
+    if (title && String(doc.title || "").trim().toLowerCase() === title) return true;
+    return false;
+  }) || null;
+}
+
 function assignFormDocumentToChild(childId, formSpec = {}) {
   if (!childId) throw new Error("Choose a child before assigning a form.");
+  const existing = childHasOpenAssignedForm(childId, formSpec);
+  if (existing && formSpec.allowDuplicate !== true) {
+    // Refresh due date / share flags on the open assignment instead of duplicating.
+    const docs = childStore("Documents") || [];
+    const dueDate = String(formSpec.dueDate || existing.dueDate || "").trim();
+    const shareWithFamily = formSpec.shareWithFamily !== false;
+    const status = shareWithFamily ? "notified" : (existing.status || "assigned");
+    const next = docs.map((item) => (
+      String(item.id) === String(existing.id)
+        ? {
+          ...item,
+          dueDate,
+          shareWithFamily,
+          status,
+          statusLabel: homeDaycarePackDocumentStatusLabel(status),
+          draftText: String(formSpec.draftText || formSpec.body || item.draftText || "").trim() || item.draftText,
+          updatedAt: new Date().toISOString(),
+          duplicateAssignSkipped: true,
+        }
+        : item
+    ));
+    saveChildStore("Documents", next);
+    return next.find((item) => String(item.id) === String(existing.id));
+  }
   const title = String(formSpec.title || "Form").trim() || "Form";
   const category = String(formSpec.category || "Other").trim() || "Other";
   const draftText = String(formSpec.draftText || formSpec.body || "").trim();
@@ -7673,13 +7733,17 @@ async function assignAndNotifyForm(formSpec = {}, childIds = []) {
   const ids = (Array.isArray(childIds) ? childIds : []).map(String).filter(Boolean);
   if (!ids.length) throw new Error("Select at least one child.");
   const saved = [];
+  let refreshed = 0;
   for (const childId of ids) {
+    const before = childHasOpenAssignedForm(childId, formSpec);
     const doc = assignFormDocumentToChild(childId, formSpec);
+    if (before && String(before.id) === String(doc.id)) refreshed += 1;
     saved.push(doc);
     if (doc.shareWithFamily) {
       try { await shareChildDocumentWithFamily(doc.id); } catch (_error) { /* invite may be missing */ }
     }
   }
+  saved.refreshedCount = refreshed;
   return saved;
 }
 
@@ -7719,6 +7783,7 @@ function printChildDocumentRecord(documentId) {
 function renderFormsAttentionPanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
   const items = formsAttentionDocuments();
+  const summary = formsStatusSummary();
   const signed = items.filter((item) => item.attention === "signed_review");
   const awaiting = items.filter((item) => item.attention === "awaiting_parent");
   const overdue = items.filter((item) => item.attention === "overdue");
@@ -7727,13 +7792,20 @@ function renderFormsAttentionPanel() {
       <p class="eyebrow">Forms system</p>
       <h3>Forms needing attention</h3>
       <p class="muted-copy">Signed forms ready for your review, shared forms waiting on parents, and anything past due — all from one place.</p>
+      <div class="forms-status-summary" role="status" aria-label="Forms status summary">
+        <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> pending</span>
+        <span class="hdh-form-status-chip is-overdue"><strong>${summary.overdue}</strong> overdue</span>
+        <span class="hdh-form-status-chip is-review"><strong>${summary.needsReview}</strong> to review</span>
+        <span class="hdh-form-status-chip is-complete"><strong>${summary.complete}</strong> complete</span>
+      </div>
       <div class="account-actions-row" style="margin-bottom:12px;">
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Program templates</button>
+        <button class="ghost-button" type="button" data-hdh-forms-refresh>Refresh statuses</button>
       </div>
       ${!items.length
-        ? `<div class="profile-empty-state"><strong>You’re caught up</strong><p>When parents sign shared forms, they’ll land here for review and printable PDF.</p></div>`
+        ? `<div class="profile-empty-state"><strong>You’re caught up</strong><p>${summary.complete ? `${summary.complete} form${summary.complete === 1 ? "" : "s"} on file. ` : ""}When parents sign shared forms, they’ll land here for review and printable PDF.</p></div>`
         : `
         ${signed.length ? `
           <h4>Signed — review &amp; file</h4>
@@ -7782,19 +7854,33 @@ function renderProgramFormTemplatesPanel() {
     <section class="section-block" id="hdhFormTemplatesPanel">
       <p class="eyebrow">Templates</p>
       <h3>Program form templates</h3>
-      <p class="muted-copy">Save AI drafts as reusable templates, then assign them to children and notify Family Hub in one step.</p>
+      <p class="muted-copy">Save AI drafts as reusable templates, then assign them to children and notify Family Hub in one step. Editing a template updates future assignments only — forms already sent keep their saved copy.</p>
       ${templates.length
         ? templates.map((template) => `
           <article class="hdh-forms-pack-item">
             <div>
               <strong>${escapeHtml(template.title)}</strong>
-              <p class="muted-copy">${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.createdAt || "").slice(0, 10))}</p>
+              <p class="muted-copy">${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
             </div>
             <div class="hdh-forms-pack-actions">
+              <button class="ghost-button" type="button" data-edit-form-template="${escapeHtml(template.id)}">Edit</button>
               <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(template.id)}">Print</button>
               <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Assign</button>
               <button class="ghost-button" type="button" data-delete-form-template="${escapeHtml(template.id)}">Remove</button>
             </div>
+            <form class="panel-form hdh-edit-template-form" data-edit-template-form="${escapeHtml(template.id)}" hidden>
+              <label>Title<input name="title" required maxlength="120" value="${escapeHtml(template.title || "")}" /></label>
+              <label>Category
+                <select name="category">
+                  ${HOME_DAYCARE_FORM_CATEGORIES.map((category) => `
+                    <option value="${escapeHtml(category)}" ${category === (template.category || "Other") ? "selected" : ""}>${escapeHtml(category)}</option>
+                  `).join("")}
+                </select>
+              </label>
+              <label>Form body<textarea name="body" rows="8" required maxlength="12000">${escapeHtml(template.body || "")}</textarea></label>
+              <p class="form-note">Already-assigned child forms keep their original wording. New assigns use this edited body.</p>
+              <button class="primary-button" type="submit">Save template changes</button>
+            </form>
             <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
               <label>Due date (optional)<input type="date" name="dueDate" /></label>
               <fieldset class="hdh-child-pick-fieldset">
@@ -31758,9 +31844,9 @@ async function firebaseAuthHeaders() {
 }
 
 async function saveChildDataToBackend(options = {}) {
-  if (!currentUser) return;
+  if (!currentUser || !canUseLaunchBackend()) return;
   if (childCloudSyncing && !options.force) return;
-  const headers = await firebaseAuthHeaders();
+  const headers = await staffAuthHeaders();
   if (!headers) return;
   await fetch("/api/child-data", {
     method: "POST",
@@ -31770,7 +31856,9 @@ async function saveChildDataToBackend(options = {}) {
 }
 
 function queueChildDataCloudSave() {
-  if (!currentUser || !firebaseAuthEnabled) return;
+  // Persist Forms / child records whenever the launch API is reachable — not only when Firebase is configured.
+  // Family Hub reads live documents from /api/child-data, so local-only saves break the forms spine.
+  if (!currentUser || !canUseLaunchBackend()) return;
   clearTimeout(childCloudSaveTimer);
   childCloudSaveTimer = setTimeout(() => {
     saveChildDataToBackend().catch((error) => console.warn("Child data cloud save did not complete", error));
@@ -31784,7 +31872,7 @@ function delayMs(ms) {
 let childCloudSyncQueued = false;
 
 async function syncChildDataFromBackend(options = {}) {
-  if (!currentUser || !firebaseAuthEnabled) return false;
+  if (!currentUser || !canUseLaunchBackend()) return false;
   if (childCloudSyncing) {
     childCloudSyncQueued = true;
     return false;
@@ -31793,7 +31881,7 @@ async function syncChildDataFromBackend(options = {}) {
   let applied = false;
   try {
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const headers = await firebaseAuthHeaders();
+      const headers = await staffAuthHeaders();
       if (!headers) {
         await delayMs(350 * (attempt + 1));
         continue;
@@ -31806,14 +31894,62 @@ async function syncChildDataFromBackend(options = {}) {
       }
       const remote = await response.json();
       const localUpdatedAt = localStorage.getItem(childCloudUpdatedKey()) || "";
-      if (remote?.data && (!localUpdatedAt || String(remote.updatedAt || "") > localUpdatedAt || !childDataHasRecords())) {
+      const remoteUpdatedAt = String(remote.updatedAt || "");
+      if (remote?.data && (
+        options.force
+        || !localUpdatedAt
+        || remoteUpdatedAt > localUpdatedAt
+        || !childDataHasRecords()
+      )) {
         applyChildDataSnapshot(remote.data, remote.updatedAt);
         applied = true;
+      } else if (remote?.data?.Documents && isHomeDaycareHubTestingEnabled()) {
+        // Keep form sign/review status current even when local timestamps are newer.
+        const localDocs = childStore("Documents") || [];
+        const remoteById = new Map((remote.data.Documents || []).map((doc) => [String(doc.id || ""), doc]));
+        let mergedChange = false;
+        const mergedDocs = localDocs.map((doc) => {
+          const remoteDoc = remoteById.get(String(doc.id || ""));
+          if (!remoteDoc) return doc;
+          const remoteSigned = Boolean(remoteDoc.signedAt) || /^signed/i.test(String(remoteDoc.status || ""));
+          const localSigned = Boolean(doc.signedAt) || /^signed/i.test(String(doc.status || ""));
+          if ((remoteSigned && !localSigned)
+            || (remoteDoc.providerReviewed && !doc.providerReviewed)
+            || (String(remoteDoc.status || "") !== String(doc.status || "") && remoteSigned)) {
+            mergedChange = true;
+            return {
+              ...doc,
+              status: remoteDoc.status || doc.status,
+              statusLabel: remoteDoc.statusLabel || doc.statusLabel,
+              signedAt: remoteDoc.signedAt || doc.signedAt,
+              signedBy: remoteDoc.signedBy || doc.signedBy,
+              signedSnapshot: remoteDoc.signedSnapshot || doc.signedSnapshot,
+              providerReviewed: remoteDoc.providerReviewed ?? doc.providerReviewed,
+              reviewedAt: remoteDoc.reviewedAt || doc.reviewedAt,
+              updatedAt: remoteDoc.updatedAt || doc.updatedAt,
+            };
+          }
+          return doc;
+        });
+        remoteById.forEach((remoteDoc, id) => {
+          if (id && !localDocs.some((doc) => String(doc.id) === id)) {
+            mergedDocs.push(remoteDoc);
+            mergedChange = true;
+          }
+        });
+        if (mergedChange) {
+          saveChildStoreLocalOnly("Documents", mergedDocs);
+          if (remoteUpdatedAt) localStorage.setItem(childCloudUpdatedKey(), remoteUpdatedAt);
+          applied = true;
+        }
       } else if (!remote?.data && childDataHasRecords()) {
         await saveChildDataToBackend({ force: true });
       }
       if (options.render !== false && document.querySelector("#view-children")?.classList.contains("active-view")) {
         renderChildManagement();
+      }
+      if (options.render !== false && document.querySelector("#view-home-daycare-hub")?.classList.contains("active-view") && typeof renderHomeDaycareHubPage === "function") {
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
       }
       updateSidebarDashboard();
       break;
@@ -35094,8 +35230,8 @@ function renderHomeDaycareTesterGuidePanel() {
         <summary>What is NOT working yet (so testers are not surprised)</summary>
         <ul class="hdh-coming-list">
           <li>Real SMS / Twilio texts (testing shows a copyable link instead)</li>
-          <li>E-sign / parent signing inside the app</li>
-          <li>Auto-sending filled form bodies to parents</li>
+          <li>Legal e-sign certificates (Family Hub uses testing acknowledgment: name + timestamp)</li>
+          <li>Email/SMS form delivery (parents are notified in-app in Family Hub)</li>
           <li>Live production — Hub stays hidden there on purpose</li>
           <li>Admin — testers never see Admin; they Message Leah instead</li>
         </ul>
@@ -35170,6 +35306,14 @@ function renderHomeDaycareHubPage(options = {}) {
     </section>
   `;
   if (options.refreshHouseholds !== false) {
+    // Pull parent sign-offs into Forms attention so statuses stay current.
+    syncChildDataFromBackend({ render: false, force: false })
+      .then((applied) => {
+        if (applied && document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false });
+        }
+      })
+      .catch(() => {});
     Promise.all([
       refreshFamilyHubHouseholds().catch(() => {}),
       refreshStaffInvitesFromBackend().catch(() => {}),
@@ -37999,9 +38143,12 @@ function renderChildFormsRecordsTab(child, records) {
           <label>Status
             <select name="status">
               <option value="needed">Needed</option>
+              <option value="assigned">Assigned</option>
               <option value="requested">Requested from family</option>
+              <option value="notified">Shared — awaiting parent</option>
               <option value="received">Received</option>
-              <option value="signed">Signed / complete</option>
+              <option value="signed">Signed — provider review</option>
+              <option value="on_file">On file / complete</option>
             </select>
           </label>
         </div>
@@ -38070,9 +38217,12 @@ function renderChildDocumentsTab(child, records) {
           <label>Status
             <select name="status">
               <option value="needed">Needed</option>
+              <option value="assigned">Assigned</option>
               <option value="requested">Requested from family</option>
+              <option value="notified">Shared — awaiting parent</option>
               <option value="received">Received</option>
-              <option value="signed">Signed / complete</option>
+              <option value="signed">Signed — provider review</option>
+              <option value="on_file">On file / complete</option>
             </select>
           </label>
         </div>
@@ -59699,7 +59849,36 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const templateId = assignTemplateBtn.dataset.assignFormTemplate;
     const form = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
+    const editForm = document.querySelector(`[data-edit-template-form="${CSS.escape(templateId)}"]`);
+    if (editForm) editForm.hidden = true;
     if (form) form.hidden = !form.hidden;
+    return;
+  }
+
+  const editTemplateBtn = event.target.closest("[data-edit-form-template]");
+  if (editTemplateBtn) {
+    event.preventDefault();
+    const templateId = editTemplateBtn.dataset.editFormTemplate;
+    const form = document.querySelector(`[data-edit-template-form="${CSS.escape(templateId)}"]`);
+    const assignForm = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
+    if (assignForm) assignForm.hidden = true;
+    if (form) form.hidden = !form.hidden;
+    return;
+  }
+
+  const formsRefreshBtn = event.target.closest("[data-hdh-forms-refresh]");
+  if (formsRefreshBtn) {
+    event.preventDefault();
+    formsRefreshBtn.disabled = true;
+    syncChildDataFromBackend({ render: true, force: true })
+      .then((applied) => {
+        showActionFeedback(applied ? "Form statuses refreshed from Family Hub." : "Statuses checked — nothing new to pull.");
+        if (document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false });
+        }
+      })
+      .catch(() => showActionFeedback("Could not refresh form statuses right now."))
+      .finally(() => { formsRefreshBtn.disabled = false; });
     return;
   }
 
@@ -67397,10 +67576,40 @@ document.addEventListener("submit", async (event) => {
       notes: "Assigned from program template.",
     }, childIds)
       .then((saved) => {
-        showActionFeedback(`Assigned “${template.title}” to ${saved.length} child${saved.length === 1 ? "" : "ren"}.`);
+        const refreshed = Number(saved.refreshedCount || 0);
+        const message = refreshed
+          ? `Updated existing assignment for “${template.title}” (${refreshed} already open — no duplicate created).`
+          : `Assigned “${template.title}” to ${saved.length} child${saved.length === 1 ? "" : "ren"}.`;
+        showActionFeedback(message);
         renderHomeDaycareHubPage({ refreshHouseholds: false });
       })
       .catch((error) => showActionFeedback(error.message || "Could not assign template."));
+    return;
+  }
+
+  if (event.target?.matches?.("[data-edit-template-form]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const templateId = event.target.getAttribute("data-edit-template-form");
+    const data = collectFormData(event.target);
+    const next = formsProgramTemplates().map((template) => (
+      String(template.id) === String(templateId)
+        ? {
+          ...template,
+          title: String(data.title || template.title || "Custom form").trim() || "Custom form",
+          category: String(data.category || template.category || "Other").trim() || "Other",
+          body: String(data.body || "").trim(),
+          updatedAt: new Date().toISOString(),
+        }
+        : template
+    ));
+    if (!String(data.body || "").trim()) {
+      showActionFeedback("Template body can’t be empty.");
+      return;
+    }
+    saveFormsProgramTemplates(next);
+    showActionFeedback("Template updated. Forms already assigned to children keep their original copy.");
+    renderHomeDaycareHubPage({ refreshHouseholds: false });
     return;
   }
 

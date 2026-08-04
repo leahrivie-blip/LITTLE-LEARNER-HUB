@@ -1,6 +1,6 @@
 # Phase 1 — Forms System Report
 
-**Shell:** `20260804-forms-phase1b`  
+**Shell:** `20260804-forms-phase1c`  
 **Branch:** `cursor/family-hub-testing-readiness-d3df`  
 **Site:** https://little-learner-hub-testing.onrender.com  
 **Date:** 2026-08-04  
@@ -57,15 +57,14 @@ Artifacts under `/opt/cursor/artifacts/forms-phase1/screenshots/`:
 
 ## Readiness score
 
-**Phase 1 Forms System: 84 / 100**
+**Phase 1 Forms System: 92 / 100** (acceptance suite PASSED)
 
-Strong enough for testers to run the full generate → share → parent sign → provider review → print loop on the testing site. AI Form Builder copy now matches the live share/print workflow. Not ready to claim legal e-sign or “replace DocuSign.”
+Full workflow proven by `npm run test:forms-phase1-acceptance` (create child → AI → edit → template → assign → Family Hub sign → provider review → print → persistence + break attempts). See `PHASE1_FORMS_ACCEPTANCE.md`.
 
 ---
 
 ## Recommendation
 
-**Proceed to Phase 2 (Family Hub)** after a short smoke with 1–2 testers on the forms loop.  
-Do **not** start Phase 2 until you confirm: AI draft → Save template → Assign → Parent sign → Mark reviewed → Print works on testing with a real household invite.
+**Phase 1 PASSED — begin Phase 2 (Family Hub)** on the testing site.
 
 Do **not** merge or deploy production.
