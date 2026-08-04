@@ -872,7 +872,7 @@
     }
   }
 
-  async function publishEnrichment() {
+  async function publishEnrichment({ ownerOverride = null } = {}) {
     const plan = getPlan();
     if (!plan) return;
     const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
@@ -886,15 +886,22 @@
     const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
       ? curriculumExpectedUpdatedAt()
       : "";
+    const payload = {
+      saveMode: "publish_enrichment",
+      expectedUpdatedAt,
+      publishedBy: state.draft.lastEditedBy || "",
+      lessonPlan: { id: plan.id, enrichmentDraft: state.draft },
+    };
+    if (ownerOverride?.confirmed && ownerOverride.reason) {
+      payload.ownerPublishOverride = {
+        confirmed: true,
+        reason: String(ownerOverride.reason).trim().slice(0, 500),
+      };
+    }
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        saveMode: "publish_enrichment",
-        expectedUpdatedAt,
-        publishedBy: state.draft.lastEditedBy || "",
-        lessonPlan: { id: plan.id, enrichmentDraft: state.draft },
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -907,7 +914,7 @@
     state.publishOpen = false;
     state.statusText = data.duplicate
       ? "Already published — no duplicate version created."
-      : `Published enrichment to providers${data.versionId ? ` (${data.versionId})` : ""}.`;
+      : `Published enrichment to providers${data.versionId ? ` (${data.versionId})` : ""}${data.ownerOverrideApplied ? " (owner override logged)" : ""}.`;
     render();
     if (typeof showActionFeedback === "function") {
       showActionFeedback(data.duplicate
@@ -1938,15 +1945,32 @@
     `;
   }
 
+  function aiSuggestionCounts(tray) {
+    const rows = Array.isArray(tray?.suggestions) ? tray.suggestions : [];
+    const pending = rows.filter((s) => s.decision === "pending" || !s.decision).length;
+    const selected = rows.filter((s) => s.selected && s.decision !== "discarded" && s.decision !== "accepted").length;
+    const accepted = rows.filter((s) => s.decision === "accepted").length;
+    const edited = rows.filter((s) => s.editing || (s.editText && s.editText !== s.proposedText)).length;
+    const rejected = rows.filter((s) => s.decision === "discarded").length;
+    const loaded = rows.length;
+    const inconsistent = selected > loaded
+      || selected > (pending + accepted)
+      || pending + accepted + rejected !== loaded
+      || loaded < 0;
+    return { pending, selected, accepted, edited, rejected, loaded, inconsistent };
+  }
+
   function renderAiTray() {
     if (!state.aiTray.open) return "";
     const tray = state.aiTray;
     const isLesson = tray.scope === "lesson";
-    const selectedCount = (tray.suggestions || []).filter((s) => s.selected && s.decision !== "discarded").length;
-    const pendingCount = (tray.suggestions || []).filter((s) => s.decision !== "discarded").length;
+    const counts = aiSuggestionCounts(tray);
     const progress = tray.batchProgress;
     const progressLine = progress
       ? `<p class="tk-enrich-ai-progress" data-ai-batch-progress>Activities ${progress.processed}/${progress.total} · ${progress.batchCount} batch${progress.batchCount === 1 ? "" : "es"} · ${(progress.elapsedMs / 1000).toFixed(1)}s${progress.hasMore ? " · loading more…" : ""}</p>`
+      : "";
+    const countLine = counts.loaded
+      ? `<p class="tk-enrich-ai-counts" data-ai-selection-counts>Loaded ${counts.loaded}${progress?.hasMore ? "+" : ""} · Pending ${counts.pending} · Selected ${counts.selected} · Accepted ${counts.accepted} · Edited ${counts.edited} · Rejected ${counts.rejected}${counts.inconsistent ? " · <strong>Counts inconsistent — bulk accept disabled</strong>" : ""}</p>`
       : "";
     let body = "";
     if (tray.phase === "loading" && !(isLesson && (tray.suggestions || []).length)) {
@@ -1971,16 +1995,19 @@
       `;
     } else {
       const stillLoading = tray.phase === "loading" && isLesson;
+      const bulkDisabled = !counts.pending || counts.inconsistent || stillLoading;
+      const selectedDisabled = !counts.selected || counts.inconsistent;
       body = `
         ${progressLine}
-        ${stillLoading ? `<p class="muted-copy" data-ai-loading>Still preparing remaining activities — you can already review rows below.</p>` : ""}
+        ${countLine}
+        ${stillLoading ? `<p class="muted-copy" data-ai-loading>Still preparing remaining activities — counts above are for loaded rows only (not a final total).</p>` : ""}
         <p class="muted-copy">Side-by-side review: accept one row, a section, an activity, or all. Accepting writes to the <strong>draft only</strong> — never auto-saves and never publishes. Legacy content is never deleted.</p>
         ${renderAiReviewList(tray)}
         <div class="form-actions tk-enrich-ai-bulk-actions">
           <button type="button" class="ghost-button" data-ai-reject-all>Reject all</button>
-          <button type="button" class="ghost-button" data-ai-accept-all ${pendingCount ? "" : "disabled"}>Accept all into draft</button>
+          <button type="button" class="ghost-button" data-ai-accept-all ${bulkDisabled ? "disabled" : ""} title="${counts.inconsistent ? "Selection state inconsistent" : stillLoading ? "Wait for batches to finish" : ""}">Accept all into draft</button>
           <button type="button" class="ghost-button" data-ai-cancel>Close</button>
-          <button type="button" class="primary-button" data-ai-insert-selected ${selectedCount ? "" : "disabled"}>Accept selected (${selectedCount})</button>
+          <button type="button" class="primary-button" data-ai-insert-selected ${selectedDisabled ? "disabled" : ""}>Accept selected (${counts.selected})</button>
         </div>
       `;
     }
@@ -2008,12 +2035,21 @@
       return `<p class="muted-copy">Run Quality Review before publishing. AI generates a report — it never auto-edits or auto-publishes.</p>`;
     }
     const findings = (report.findings || []).filter((f) => f.status !== "ignored");
+    const readiness = report.publishReadinessLabel
+      || (report.blocksPublish ? "Blocked" : (report.publishReadiness === "ready" ? "Ready" : "Needs Review"));
+    const readinessClass = report.blocksPublish
+      ? "is-danger"
+      : (report.publishReadiness === "ready" ? "is-ready" : "is-warn");
     return `
       <section class="tk-quality-report" data-quality-report>
         <div class="tk-quality-report-score">
           <strong>${esc(String(report.overallScore))}%</strong>
           <span class="tag">${esc(report.overallLabel)}</span>
-          ${report.blocksPublish ? `<span class="tag is-danger">Blocking issues</span>` : `<span class="tag is-ready">No blockers</span>`}
+          <span class="tag ${readinessClass}" data-publish-readiness="${esc(report.publishReadiness || "")}">${esc(readiness)}</span>
+          <span class="muted-copy">Completeness ${esc(String(report.completionPercent ?? "—"))}%</span>
+          ${report.blocksPublish
+            ? `<span class="tag is-danger">Blocking issues</span>`
+            : `<span class="tag is-ready">No blockers</span>`}
         </div>
         <div class="tk-quality-report-grid">
           <div>
@@ -2053,6 +2089,8 @@
     const qualityOn = isQualityReviewFlagEnabled();
     const report = state.qualityReport;
     const blocked = qualityOn && report?.blocksPublish;
+    const readiness = report?.publishReadinessLabel
+      || (blocked ? "Blocked" : (report?.publishReadiness === "ready" ? "Ready" : "Needs Review"));
     return `
       <div class="tk-enrich-modal" data-publish-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-publish-title">
         <button type="button" class="tk-enrich-modal-backdrop" data-publish-cancel aria-label="Cancel publish"></button>
@@ -2061,6 +2099,7 @@
             <h3 id="tk-enrich-publish-title">Publish enrichment for this lesson?</h3>
             <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. The current published version is kept for rollback.</p>
             <ul class="tk-enrich-publish-summary">
+              <li><strong>Publish readiness:</strong> <span data-publish-readiness-label>${esc(qualityOn ? readiness : "Quality Review off")}</span></li>
               <li><strong>What will change:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
               <li><strong>Linked activities affected:</strong> ${summary.linkedActivitiesAffected}</li>
               <li><strong>Updates a published lesson?</strong> ${summary.isPublished ? "Yes — providers see enrichment only after this publish succeeds" : "No — lesson is not published/featured yet"}</li>
@@ -2074,14 +2113,27 @@
                   <strong>AI Curriculum Quality Review</strong>
                   <button type="button" class="ghost-button" data-quality-run-publish ${state.qualityBusy ? "disabled" : ""}>${state.qualityBusy ? "Reviewing…" : "Run / refresh review"}</button>
                 </div>
-                <p class="muted-copy">Specialist-style report before publish. Improve, ignore, or edit manually — nothing auto-publishes.</p>
+                <p class="muted-copy">Same blocker logic as Quality Review. Ready / Needs Review / Blocked. Nothing auto-publishes.</p>
                 ${renderQualityReportBlock(report)}
+                ${blocked ? `
+                  <div class="tk-quality-override" data-publish-override>
+                    <p class="muted-copy"><strong>Owner override</strong> — blocked lessons cannot publish normally. Override requires an explicit reason and is logged.</p>
+                    <label>
+                      <input type="checkbox" data-publish-override-confirm />
+                      I understand this bypasses Ready/Blocked gates for this lesson only
+                    </label>
+                    <label>
+                      Override reason (required)
+                      <textarea data-publish-override-reason rows="2" placeholder="Why publish this incomplete kit now?"></textarea>
+                    </label>
+                  </div>
+                ` : ""}
               </div>
             ` : ""}
           </div>
           <div class="form-actions tk-enrich-publish-actions">
             <button type="button" class="ghost-button" data-publish-cancel autofocus>Cancel</button>
-            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "disabled" : ""}>${blocked ? "Resolve blocking issues to publish" : "Publish updates to providers"}</button>
+            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "" : ""}>${blocked ? "Publish with owner override" : "Publish updates to providers"}</button>
           </div>
         </div>
       </div>
@@ -2717,16 +2769,23 @@
         return;
       }
       if (event.target.closest("[data-publish-confirm]")) {
+        let ownerOverride = null;
         if (isQualityReviewFlagEnabled()) {
           const report = state.qualityReport || await runSpecialistQualityReview({ force: true });
           if (report?.blocksPublish) {
-            state.statusText = "Publish blocked by Quality Review. Improve, ignore, or edit blocking issues first.";
-            render();
-            return;
+            const confirmed = document.querySelector("[data-publish-override-confirm]")?.checked;
+            const reason = String(document.querySelector("[data-publish-override-reason]")?.value || "").trim();
+            if (!confirmed || reason.length < 8) {
+              state.statusText = "Publish blocked (" + (report.publishReadinessLabel || "Blocked")
+                + "). Resolve issues, or confirm owner override with a reason (8+ characters).";
+              render();
+              return;
+            }
+            ownerOverride = { confirmed: true, reason };
           }
         }
         try {
-          await publishEnrichment();
+          await publishEnrichment({ ownerOverride });
         } catch (error) {
           state.statusText = `Publish failed: ${error.message || error}`;
           render();

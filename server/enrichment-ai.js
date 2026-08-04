@@ -386,6 +386,96 @@ function normalizeSuggestionItem(raw, index, ctx) {
   };
 }
 
+const GENERIC_FILLER_RE = /\b(engage learners|foster creativity|make it fun|in today's world|leverage|synerg(?:y|ize)|holistic approach|unlock potential|game.?changer)\b/i;
+const PLACEHOLDER_RE = /\b(TODO|TBD|FIXME|lorem ipsum|\[insert|\[book|\[author|placeholder|xxx+)\b/i;
+const CHILD_DETAIL_RE = /\b(my child|your child [A-Z][a-z]+|[A-Z][a-z]+ (?:is|was) (?:3|4|5) years? old|diagnosed with|IEP for)\b/;
+const DOUBLED_PUNCT_RE = /[!?]{2,}|\.{4,}|,{2,}|;{2,}/;
+const MARKDOWN_ARTIFACT_RE = /(^|\n)\s{0,3}#{1,6}\s+|(\*\*|__|```|`{2,})/;
+const FAKE_BOOK_AUTHOR_RE = /^(unknown|n\/a|author|tba|tbd|various|anonymous)$/i;
+
+function suggestionBodyText(item) {
+  if (!item || typeof item !== "object") return "";
+  return [
+    item.proposedText,
+    item.proposedValue,
+    item.text,
+    item.title,
+    item.author,
+    item.questions,
+    item.lyrics,
+  ].map((v) => String(v || "")).join(" ").trim();
+}
+
+function sanitizeSuggestionProse(value) {
+  let out = String(value || "");
+  out = out.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  out = out.replace(/(^|\n)\s{0,3}#{1,6}\s+/g, "$1");
+  out = out.replace(/\*\*|__/g, "");
+  out = out.replace(/([!?])\1+/g, "$1");
+  out = out.replace(/\.{4,}/g, "...");
+  out = out.replace(/,{2,}/g, ",");
+  return out.trim();
+}
+
+/**
+ * Generation-time validation for future AI output.
+ * Does not rewrite stored lesson content — only drops/flags suggestion rows.
+ */
+function validateEnrichmentSuggestion(item, ctx = {}, seenTipKeys = new Set()) {
+  if (!item || typeof item !== "object") {
+    return { ok: false, reason: "empty_item" };
+  }
+  const category = String(item.category || "").toLowerCase();
+  const body = suggestionBodyText(item);
+  if (!body) return { ok: false, reason: "empty_text" };
+  if (PLACEHOLDER_RE.test(body)) return { ok: false, reason: "placeholder" };
+  if (GENERIC_FILLER_RE.test(body)) return { ok: false, reason: "generic_filler" };
+  if (CHILD_DETAIL_RE.test(body)) return { ok: false, reason: "child_details" };
+  if (DOUBLED_PUNCT_RE.test(body)) return { ok: false, reason: "doubled_punctuation" };
+  if (MARKDOWN_ARTIFACT_RE.test(body)) return { ok: false, reason: "markdown_artifact" };
+
+  if (category === "books" || category === "book") {
+    const title = String(item.title || item.proposedValue?.title || "").trim();
+    const author = String(item.author || item.proposedValue?.author || "").trim();
+    if (!title || PLACEHOLDER_RE.test(title)) return { ok: false, reason: "invented_book_title" };
+    if (!author || FAKE_BOOK_AUTHOR_RE.test(author) || PLACEHOLDER_RE.test(author)) {
+      return { ok: false, reason: "invented_book_author" };
+    }
+  }
+
+  if (/teacher_tips|group_ideas|observation_prompts/.test(category)) {
+    const tipKey = body.toLowerCase().replace(/\s+/g, " ").slice(0, 120);
+    if (seenTipKeys.has(tipKey)) return { ok: false, reason: "repeated_tip" };
+    seenTipKeys.add(tipKey);
+  }
+
+  // Concise childcare-ready observations / tips
+  if (/observation_prompts|teacher_tips/.test(category) && body.split(/\s+/).length > 40) {
+    return { ok: false, reason: "too_long" };
+  }
+
+  const cleaned = {
+    ...item,
+    proposedText: sanitizeSuggestionProse(item.proposedText || body),
+  };
+  if (item.proposedValue && typeof item.proposedValue === "string") {
+    cleaned.proposedValue = sanitizeSuggestionProse(item.proposedValue);
+  }
+  return { ok: true, item: cleaned, reason: "" };
+}
+
+function filterValidatedSuggestions(items, ctx = {}) {
+  const seenTipKeys = new Set();
+  const kept = [];
+  const rejected = [];
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const result = validateEnrichmentSuggestion(item, ctx, seenTipKeys);
+    if (result.ok) kept.push(result.item);
+    else rejected.push({ reason: result.reason, category: item?.category || "" });
+  });
+  return { suggestions: kept, rejected };
+}
+
 function parseEnrichmentAiOutput(rawText, ctx) {
   const textIn = String(rawText || "").trim();
   if (!textIn) {
@@ -406,14 +496,15 @@ function parseEnrichmentAiOutput(rawText, ctx) {
   if (!list) {
     return { ok: false, code: "malformed_output", suggestions: [], error: "AI returned unexpected JSON shape. Existing content was not changed." };
   }
-  const suggestions = list
+  const normalized = list
     .map((item, index) => normalizeSuggestionItem(item, index, ctx))
-    .filter(Boolean)
-    .slice(0, 20);
+    .filter(Boolean);
+  const filtered = filterValidatedSuggestions(normalized, ctx);
+  const suggestions = filtered.suggestions.slice(0, 20);
   if (!suggestions.length) {
-    return { ok: false, code: "empty_suggestions", suggestions: [], error: "No usable suggestions were returned. Existing content was not changed." };
+    return { ok: false, code: "empty_suggestions", suggestions: [], error: "No usable suggestions were returned. Existing content was not changed.", rejected: filtered.rejected };
   }
-  return { ok: true, code: "ok", suggestions };
+  return { ok: true, code: "ok", suggestions, rejected: filtered.rejected };
 }
 
 function buildEnrichmentAiSystemPrompt() {
@@ -428,8 +519,13 @@ function buildEnrichmentAiSystemPrompt() {
     "- Image briefs must follow this style: " + IMAGE_STYLE_RULES,
     "- Never instruct publishing or changing other lessons.",
     "- Keep tips/prompts under 180 characters unless overview/materials/book questions (then under 400).",
+    "- Observation prompts must be concise (under ~40 words) and based only on supplied lesson/activity facts.",
+    "- Do not invent books or authors. Only suggest widely known classroom books with a real title AND author, or omit books.",
+    "- Never repeat the same tip text across activities.",
+    "- No generic filler, placeholders (TODO/TBD/[book]), markdown headings, or doubled punctuation.",
     "- setting_tags tags must be one of: small_group, large_group, indoor, outdoor.",
-    "- Do not include child names or private family data.",
+    "- Do not include child names, ages of specific children, diagnoses, or private family data.",
+    "- Do not assume preschool if age is missing; stay age-neutral or use the provided age only.",
     "- Provide 8–16 suggestions across several allowed categories for the requested scope.",
     "- Everything is a draft for human review. Nothing publishes automatically.",
   ].join("\n");
@@ -438,7 +534,7 @@ function buildEnrichmentAiSystemPrompt() {
 function buildEnrichmentAiUserPrompt({ plan, activity, scope, existing }) {
   const lines = [
     `Lesson title: ${text(plan?.title, 180) || "Lesson"}`,
-    `Age: ${text(plan?.age, 40) || "Preschool"}`,
+    `Age: ${text(plan?.age, 40) || "(age not set — stay age-neutral)"}`,
     `Theme: ${text(plan?.theme, 120) || ""}`,
     `Scope: ${scope}`,
     `Weekly overview (current): ${text(plan?.weeklyOverview, 500) || "(empty)"}`,
@@ -625,8 +721,10 @@ function buildLessonTeacherFixtureSuggestions(ctx) {
   });
 
   const nextOffset = offset + slice.length;
+  const filtered = filterValidatedSuggestions([...weekSuggestions, ...activitySuggestions], ctx);
   return {
-    suggestions: [...weekSuggestions, ...activitySuggestions],
+    suggestions: filtered.suggestions,
+    rejected: filtered.rejected,
     batch: {
       activityOffset: offset,
       activityLimit: limit,
@@ -697,10 +795,10 @@ function buildFixtureSuggestions(ctx) {
       { category: "milestones", text: "Language" },
       { category: "family_connection", text: `Ask families what children notice during ${lesson} week.` },
     ];
-  return raw
+  const normalized = raw
     .map((item, index) => normalizeSuggestionItem(item, index, ctx))
-    .filter(Boolean)
-    .slice(0, 20);
+    .filter(Boolean);
+  return filterValidatedSuggestions(normalized, ctx).suggestions.slice(0, 20);
 }
 
 /**
@@ -733,6 +831,9 @@ module.exports = {
   parseEnrichmentAiOutput,
   buildEnrichmentAiSystemPrompt,
   buildEnrichmentAiUserPrompt,
+  validateEnrichmentSuggestion,
+  filterValidatedSuggestions,
+  sanitizeSuggestionProse,
   buildFixtureSuggestions,
   buildLessonTeacherFixtureSuggestions,
   getLessonTeacherFixturePack,
