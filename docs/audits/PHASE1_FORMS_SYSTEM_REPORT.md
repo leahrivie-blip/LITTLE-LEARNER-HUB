@@ -1,6 +1,6 @@
 # Phase 1 — Forms System Report
 
-**Shell:** `20260804-forms-phase1`  
+**Shell:** `20260804-forms-phase1b`  
 **Branch:** `cursor/family-hub-testing-readiness-d3df`  
 **Site:** https://little-learner-hub-testing.onrender.com  
 **Date:** 2026-08-04  
@@ -57,9 +57,9 @@ Artifacts under `/opt/cursor/artifacts/forms-phase1/screenshots/`:
 
 ## Readiness score
 
-**Phase 1 Forms System: 82 / 100**
+**Phase 1 Forms System: 84 / 100**
 
-Strong enough for testers to run the full generate → share → parent sign → provider review → print loop on the testing site. Not ready to claim legal e-sign or “replace DocuSign.”
+Strong enough for testers to run the full generate → share → parent sign → provider review → print loop on the testing site. AI Form Builder copy now matches the live share/print workflow. Not ready to claim legal e-sign or “replace DocuSign.”
 
 ---
 
