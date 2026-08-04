@@ -4107,6 +4107,13 @@ function markMetaViewContentTracked(resourceId) {
   }
 }
 
+function dismissMetaCookieNotice() {
+  const notice = document.getElementById("llhMetaCookieNotice");
+  try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
+  if (notice) notice.remove();
+  document.body.classList.remove("has-meta-cookie-notice");
+}
+
 function ensureMetaCookieNotice() {
   try {
     if (document.getElementById("llhMetaCookieNotice")) return;
@@ -4121,9 +4128,9 @@ function ensureMetaCookieNotice() {
       <button type="button" class="llh-meta-cookie-dismiss" data-llh-meta-cookie-dismiss>Got it</button>
     `;
     document.body.appendChild(notice);
+    document.body.classList.add("has-meta-cookie-notice");
     notice.querySelector("[data-llh-meta-cookie-dismiss]")?.addEventListener("click", () => {
-      try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
-      notice.remove();
+      dismissMetaCookieNotice();
     });
   } catch {
     /* notice must never break the app */
@@ -66795,6 +66802,11 @@ document.addEventListener("keydown", (event) => {
   }
   if (document.querySelector("#resourceViewerModal.open")) {
     requestResourceViewerClose();
+    return;
+  }
+  if (document.getElementById("llhMetaCookieNotice") && !document.querySelector(".modal.open")) {
+    event.preventDefault();
+    dismissMetaCookieNotice();
     return;
   }
   setMobileNavOpen(false);
