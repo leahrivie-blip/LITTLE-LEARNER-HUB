@@ -30,6 +30,7 @@ const analyticsStore = require("./analytics-store.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
+const curriculumProductionSync = require("./curriculum-production-sync.js");
 const enrichmentMedia = require("./enrichment-media.js");
 const enrichmentAi = require("./enrichment-ai.js");
 const seo = require("./seo.js");
@@ -18669,6 +18670,312 @@ function handleAdminCurriculumBackupNew(request, response, url) {
   jsonResponse(response, 200, buildNewCurriculumBackupPayload(store));
 }
 
+function productionCurriculumSourceUrl() {
+  return String(process.env.PRODUCTION_CURRICULUM_SOURCE_URL || "https://littlelearnershubbyleah.com")
+    .trim()
+    .replace(/\/$/, "");
+}
+
+function productionCurriculumSourceDatabaseUrl() {
+  return String(process.env.PRODUCTION_CURRICULUM_SOURCE_DATABASE_URL || "").trim();
+}
+
+async function fetchJsonFromUrl(urlString, { headers = {}, timeoutMs = 45000 } = {}) {
+  const lib = urlString.startsWith("https:") ? require("node:https") : require("node:http");
+  return new Promise((resolve, reject) => {
+    const req = lib.get(urlString, { headers, timeout: timeoutMs }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        let json = null;
+        try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+        resolve({ status: res.statusCode || 0, json, text });
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error(`Timed out fetching ${urlString}`));
+    });
+  });
+}
+
+async function loadProductionCurriculumSnapshot() {
+  const dbUrl = productionCurriculumSourceDatabaseUrl();
+  if (dbUrl) {
+    const { Client } = require("pg");
+    const client = new Client({
+      connectionString: dbUrl,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 20000,
+    });
+    await client.connect();
+    try {
+      await client.query("BEGIN READ ONLY");
+      const result = await client.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+      const curriculum = result.rows[0]?.data?.siteContent?.curriculum || {};
+      await client.query("ROLLBACK");
+      return {
+        mode: "database",
+        curriculum: curriculumProductionSync.normalizeCurriculum(curriculum),
+        sourceHost: (() => { try { return new URL(dbUrl).hostname; } catch { return "database"; } })(),
+      };
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+
+  const token = String(process.env.PRODUCTION_CURRICULUM_ADMIN_TOKEN || "").trim();
+  if (!token) {
+    const error = new Error(
+      "Configure PRODUCTION_CURRICULUM_SOURCE_DATABASE_URL (read-only) or PRODUCTION_CURRICULUM_ADMIN_TOKEN to pull full production curriculum.",
+    );
+    error.code = "production_curriculum_source_unconfigured";
+    throw error;
+  }
+  const base = productionCurriculumSourceUrl();
+  const res = await fetchJsonFromUrl(`${base}/api/admin/curriculum/backup/full?adminToken=${encodeURIComponent(token)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status !== 200) {
+    throw new Error(`Production curriculum backup failed (HTTP ${res.status}).`);
+  }
+  const curriculum = res.json?.curriculum?.siteContent?.curriculum
+    || res.json?.siteContent?.curriculum
+    || {};
+  return {
+    mode: "http_backup",
+    curriculum: curriculumProductionSync.normalizeCurriculum(curriculum),
+    sourceHost: base,
+  };
+}
+
+async function handleAdminCurriculumProductionSyncStatus(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Production curriculum sync is available on the testing site only." });
+    return;
+  }
+  const store = peekStore();
+  const localCurriculum = curriculumProductionSync.normalizeCurriculum(readSiteCurriculum(store));
+  const meta = store.curriculumProductionSync || {};
+  let productionPublic = null;
+  try {
+    const inv = await fetchJsonFromUrl(`${productionCurriculumSourceUrl()}/api/public/home-inventory`);
+    if (inv.status === 200 && inv.json?.ok) productionPublic = inv.json;
+  } catch { /* optional */ }
+
+  let comparison = null;
+  let sourceConfigured = Boolean(productionCurriculumSourceDatabaseUrl() || process.env.PRODUCTION_CURRICULUM_ADMIN_TOKEN);
+  if (sourceConfigured) {
+    try {
+      const source = await loadProductionCurriculumSnapshot();
+      comparison = curriculumProductionSync.compareCurriculum(source.curriculum, localCurriculum);
+    } catch (error) {
+      sourceConfigured = false;
+      jsonResponse(response, 200, {
+        ok: true,
+        testingOnly: true,
+        sourceConfigured: false,
+        sourceError: error.message || String(error),
+        summary: curriculumProductionSync.buildSyncStatusSummary({
+          productionLessonCount: productionPublic?.lessonPlanCount || 0,
+          testingLessonCount: localCurriculum.lessonPlans.length,
+          missing: [],
+          outdated: [],
+          conflicts: [],
+          duplicateProductionIds: [],
+          duplicateTestingIds: [],
+          testerOnly: [],
+          status: "needs_sync",
+        }, {
+          lastSyncedAt: meta.lastSyncedAt || null,
+          productionPublicLessonCount: productionPublic?.lessonPlanCount || null,
+        }),
+      });
+      return;
+    }
+  }
+
+  const summary = curriculumProductionSync.buildSyncStatusSummary(
+    comparison || {
+      productionLessonCount: productionPublic?.lessonPlanCount || 0,
+      testingLessonCount: localCurriculum.lessonPlans.length,
+      missing: [],
+      outdated: [],
+      conflicts: [],
+      duplicateProductionIds: [],
+      duplicateTestingIds: [],
+      testerOnly: [],
+      status: (productionPublic?.lessonPlanCount || 0) === localCurriculum.lessonPlans.length ? "in_sync" : "needs_sync",
+    },
+    {
+      lastSyncedAt: meta.lastSyncedAt || null,
+      productionPublicLessonCount: productionPublic?.lessonPlanCount || null,
+      sourceConfigured,
+    },
+  );
+
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    sourceConfigured,
+    summary,
+    comparison: comparison
+      ? {
+          missingCount: comparison.missing.length,
+          outdatedCount: comparison.outdated.length,
+          conflictCount: comparison.conflicts.length,
+          conflicts: comparison.conflicts.slice(0, 20),
+          missingSample: comparison.missing.slice(0, 20),
+        }
+      : null,
+  });
+}
+
+async function handleAdminCurriculumProductionSync(request, response) {
+  const body = await readJson(request).catch(() => ({}));
+  const adminToken = extractAdminTokenFromBody(request, body) || extractAdminToken(request) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Production curriculum sync is available on the testing site only." });
+    return;
+  }
+
+  const dryRun = body?.dryRun !== false && body?.apply !== true;
+  let source;
+  try {
+    source = await loadProductionCurriculumSnapshot();
+  } catch (error) {
+    jsonResponse(response, 400, {
+      error: error.message || "Production curriculum source is not configured.",
+      code: error.code || "production_curriculum_source_unconfigured",
+    });
+    return;
+  }
+
+  // Never allow source host to match this service's own DB host.
+  try {
+    const localDb = String(process.env.PRODUCTION_DATABASE_URL || process.env.TESTING_DATABASE_URL || "");
+    if (source.mode === "database" && localDb) {
+      const sourceHost = new URL(productionCurriculumSourceDatabaseUrl()).hostname;
+      const localHost = new URL(localDb).hostname;
+      if (sourceHost && localHost && sourceHost === localHost) {
+        jsonResponse(response, 400, { error: "Refusing sync: production source database matches this testing database host." });
+        return;
+      }
+    }
+  } catch { /* ignore parse issues; continue with other guards */ }
+
+  const store = await readStoreFresh();
+  const testingCurriculum = curriculumProductionSync.normalizeCurriculum(readSiteCurriculum(store));
+  const productionCountBefore = source.curriculum.lessonPlans.length;
+  const plan = curriculumProductionSync.planCurriculumSync(source.curriculum, testingCurriculum);
+
+  if (plan.aborted) {
+    jsonResponse(response, 409, {
+      ok: false,
+      aborted: true,
+      message: plan.message,
+      reason: plan.reason,
+      summary: curriculumProductionSync.buildSyncStatusSummary(plan.comparison, {
+        lastSyncedAt: store.curriculumProductionSync?.lastSyncedAt || null,
+      }),
+      conflicts: plan.comparison.conflicts,
+      failedImports: plan.failedImports,
+    });
+    return;
+  }
+
+  if (dryRun) {
+    jsonResponse(response, 200, {
+      ok: true,
+      dryRun: true,
+      message: plan.message,
+      summary: curriculumProductionSync.buildSyncStatusSummary(plan.comparison, {
+        lastSyncedAt: store.curriculumProductionSync?.lastSyncedAt || null,
+      }),
+      imported: plan.imported,
+      updated: plan.updated,
+      failedImports: plan.failedImports,
+      activitiesUpserted: plan.activitiesUpserted,
+      resourcesUpserted: plan.resourcesUpserted,
+      seriesUpserted: plan.seriesUpserted,
+      productionLessonCount: productionCountBefore,
+      testingLessonCount: testingCurriculum.lessonPlans.length,
+    });
+    return;
+  }
+
+  // Backup testing curriculum into store audit trail before write.
+  const backupId = `curriculum_sync_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  store.curriculumSyncBackups = Array.isArray(store.curriculumSyncBackups) ? store.curriculumSyncBackups : [];
+  store.curriculumSyncBackups.unshift({
+    id: backupId,
+    at: new Date().toISOString(),
+    lessonPlanCount: testingCurriculum.lessonPlans.length,
+    activityCount: testingCurriculum.activities.length,
+    curriculum: testingCurriculum,
+  });
+  store.curriculumSyncBackups = store.curriculumSyncBackups.slice(0, 10);
+
+  const beforeIds = new Set(testingCurriculum.lessonPlans.map((p) => String(p.id || "")).filter(Boolean));
+  const writeResult = writeSiteCurriculum(store, plan.nextCurriculum, { updatedAt: plan.syncedAt });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, { error: "Curriculum wipe guard blocked the sync write." });
+    return;
+  }
+  const afterIds = new Set(plan.nextCurriculum.lessonPlans.map((p) => String(p.id || "")).filter(Boolean));
+  for (const id of beforeIds) {
+    if (!afterIds.has(id)) {
+      jsonResponse(response, 500, { error: `Safety abort: lesson ${id} would disappear.` });
+      return;
+    }
+  }
+
+  store.curriculumProductionSync = {
+    lastSyncedAt: plan.syncedAt,
+    lastBackupId: backupId,
+    productionLessonCount: productionCountBefore,
+    testingLessonCount: plan.nextCurriculum.lessonPlans.length,
+    importedCount: plan.imported.length,
+    updatedCount: plan.updated.length,
+    sourceMode: source.mode,
+    sourceHost: source.sourceHost,
+    status: "in_sync",
+  };
+
+  await writeStoreAsync(store);
+
+  const after = curriculumProductionSync.compareCurriculum(source.curriculum, plan.nextCurriculum);
+  jsonResponse(response, 200, {
+    ok: true,
+    dryRun: false,
+    message: `Synced production curriculum into testing. Imported ${plan.imported.length}, updated ${plan.updated.length}.`,
+    backupId,
+    summary: curriculumProductionSync.buildSyncStatusSummary(after, {
+      lastSyncedAt: plan.syncedAt,
+    }),
+    imported: plan.imported,
+    updated: plan.updated,
+    failedImports: plan.failedImports,
+    activitiesUpserted: plan.activitiesUpserted,
+    resourcesUpserted: plan.resourcesUpserted,
+    seriesUpserted: plan.seriesUpserted,
+    productionLessonCount: productionCountBefore,
+    testingLessonCount: plan.nextCurriculum.lessonPlans.length,
+    productionUnmodified: true,
+  });
+}
+
 async function handleAdminCurriculumWipe(request, response) {
   const startedAt = Date.now();
   // Phase 2H: wipe is one-time / emergency only. Disabled unless explicitly enabled.
@@ -27259,6 +27566,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/restore-audit") return handleAdminCurriculumRestoreAudit(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/new") return handleAdminCurriculumBackupNew(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/full") return handleAdminCurriculumBackupFull(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/production-sync/status") {
+      return await handleAdminCurriculumProductionSyncStatus(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/production-sync") {
+      return await handleAdminCurriculumProductionSync(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") {
       // Kept behind ALLOW_CURRICULUM_WIPE=true; returns 404 when disabled.
       return await handleAdminCurriculumWipe(request, response);
