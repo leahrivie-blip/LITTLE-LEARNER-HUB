@@ -16,7 +16,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19300 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-free-p2-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260804-messaging-nav-banner-r1";
+const CACHE = "20260804-mobile-a11y-r1";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {

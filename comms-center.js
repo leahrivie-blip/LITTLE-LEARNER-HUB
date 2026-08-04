@@ -972,17 +972,25 @@
     const tab = myMessagesState.tab;
     const unreadCount = (myMessagesState.data.unread || []).length;
     return `
-      <div class="messages-tabs messages-center-tabs" role="tablist">
+      <div class="messages-tabs messages-center-tabs" role="tablist" aria-label="Message folders">
         ${MESSAGES_TABS.map((t) => {
+          const panelId = `messages-tabpanel-${t.id}`;
+          const selected = tab === t.id;
+          const unreadSuffix = t.id === "unread" && unreadCount
+            ? `, ${unreadCount} unread`
+            : "";
           const badge = t.id === "unread" && unreadCount
-            ? ` <span class="messages-tab-dot" aria-label="${unreadCount} unread"></span>`
+            ? ` <span class="messages-tab-dot" aria-hidden="true"></span>`
             : "";
           return `
             <button type="button"
-              class="messages-tab${tab === t.id ? " active" : ""}"
+              class="messages-tab${selected ? " active" : ""}"
               data-messages-center-tab="${escapeHtml(t.id)}"
+              id="messages-tab-${escapeHtml(t.id)}"
               role="tab"
-              aria-selected="${tab === t.id}">${escapeHtml(t.label)}${badge}</button>
+              aria-controls="${panelId}"
+              aria-selected="${selected}"
+              aria-label="${escapeHtml(t.label)}${unreadSuffix}">${escapeHtml(t.label)}${badge}</button>
           `;
         }).join("")}
       </div>
@@ -1224,7 +1232,12 @@
         </div>
         ${foundingCard}
         ${renderMessagesCenterTabs()}
-        <div class="messages-tab-panel" id="messagesCenterPanel">
+        <div
+          class="messages-tab-panel"
+          id="messages-tabpanel-${escapeHtml(myMessagesState.tab || "inbox")}"
+          role="tabpanel"
+          aria-labelledby="messages-tab-${escapeHtml(myMessagesState.tab || "inbox")}"
+        >
           ${myMessagesState.loading
             ? `<p class="messages-loading">Loading your messages…</p>`
             : myMessagesState.error

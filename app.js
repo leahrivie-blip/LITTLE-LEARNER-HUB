@@ -589,6 +589,10 @@ let pendingObservationArea = "";
 let confirmActionResolver = null;
 let confirmActionReturnFocus = null;
 let childRecordEditResolver = null;
+let childRecordEditReturnFocus = null;
+let resourceViewerReturnFocus = null;
+let calendarEventModalReturnFocus = null;
+let notificationBellReturnFocus = null;
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
 let activeSupportCategoryId = "";
@@ -15151,13 +15155,20 @@ function renderNotificationBell() {
 }
 
 function toggleNotificationBellPanel(forceOpen) {
-  notificationBellState.open = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
+  const willOpen = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
+  if (willOpen && !notificationBellState.open) {
+    notificationBellReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : document.querySelector("#notificationBellBtn");
+  }
+  notificationBellState.open = willOpen;
   renderNotificationBell();
   if (notificationBellState.open) {
     refreshNotificationBell().finally(() => positionNotificationBellPanel());
     requestAnimationFrame(() => positionNotificationBellPanel());
   } else {
     positionNotificationBellPanel();
+    const returnFocus = notificationBellReturnFocus;
+    notificationBellReturnFocus = null;
+    restoreLlhFocus(returnFocus || document.querySelector("#notificationBellBtn"));
   }
 }
 
@@ -18644,9 +18655,9 @@ function libraryAccessBadgeHtml() {
   }
   const label = billingPlanLabel();
   if (String(label).toLowerCase().includes("founding") || currentAccount()?.foundingMemberActive) {
-    return `<span class="library-access-badge">✓ Pro Access</span>`;
+    return `<span class="library-access-badge"><span aria-hidden="true">✓</span> Pro Access</span>`;
   }
-  return `<span class="library-access-badge is-pro">✓ Pro — Full Access</span>`;
+  return `<span class="library-access-badge is-pro"><span aria-hidden="true">✓</span> Pro — Full Access</span>`;
 }
 
 function lessonPlanCoversApi() {
@@ -18789,9 +18800,6 @@ function activityBrowseCard(resource) {
       class="resource-card browse-card activity-browse-card ${locked ? "locked" : ""}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
-      role="button"
-      tabindex="0"
-      aria-label="${escapeHtml(openLabel)}"
     >
       <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
         <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
@@ -18812,7 +18820,7 @@ function activityBrowseCard(resource) {
       </div>
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Activity actions">
-        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View</button>
+        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}" aria-label="${escapeHtml(openLabel)}">View</button>
         <button
           type="button"
           class="ghost-button ${saveBtn.className}"
@@ -18861,9 +18869,6 @@ function lessonPlanCard(resource) {
       data-lesson-card="${escapeHtml(resource.id)}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
-      role="button"
-      tabindex="0"
-      aria-label="${escapeHtml(openLabel)}"
     >
       <div class="browse-card-cover ${coverClass} lesson-plan-card__cover-wrap">
         <img
@@ -18901,7 +18906,7 @@ function lessonPlanCard(resource) {
       ` : `<p class="lesson-plan-card-hint browse-card-parent" style="padding:8px 12px 12px">Tap to preview →</p>`}
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Lesson plan actions">
-        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>
+        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}" aria-label="${escapeHtml(openLabel)}">View Plan</button>
         <button
           type="button"
           class="ghost-button ${saveBtn.className}"
@@ -22566,6 +22571,9 @@ function closeResourceViewer() {
   if (wasOpen) restoreHomePreviewScrollPosition();
   if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
   ensureNavigationShellReady();
+  const returnFocus = resourceViewerReturnFocus;
+  resourceViewerReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 function updateResourceViewerBackButton() {
@@ -27114,6 +27122,9 @@ async function openResourceViewer(resourceId, options = {}) {
   if (guardNavigationDuringBootVerification()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
+  if (!(document.querySelector("#resourceViewerModal")?.classList.contains("open"))) {
+    resourceViewerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   if (!isResourceVisibleToCurrentUser(resource)) {
     setView(resourceViewForCategory(resource.category) || "home");
     return;
@@ -32622,6 +32633,7 @@ async function openCalendarAddItemDialog(options = {}) {
     errorEl.textContent = "";
   }
   calendarEventModalOpen = true;
+  calendarEventModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -32638,6 +32650,9 @@ function closeCalendarAddItemDialog() {
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden])")) {
     document.body.classList.remove("auth-modal-open");
   }
+  const returnFocus = calendarEventModalReturnFocus;
+  calendarEventModalReturnFocus = null;
+  restoreLlhFocus(returnFocus);
 }
 
 async function submitCalendarAddItemForm(form) {
@@ -40830,7 +40845,7 @@ function renderDlcDashboard(records) {
       <div class="dlc-dashboard-date-row">
         <div>
           <p class="eyebrow">Daily Logs</p>
-          <h3 class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</h3>
+          <p class="dlc-dashboard-date-label" aria-live="polite">${escapeHtml(dateLabel)}</p>
           <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
         </div>
         <div class="dlc-dashboard-date-picker">
@@ -40904,6 +40919,14 @@ function renderDlcDashboard(records) {
   `;
 }
 
+function dlcBackLabel(target) {
+  if (target === "home" || target === "dashboard") return "← Back to Daily Logs";
+  if (target === "step2") return "← Back to update options";
+  if (target === "step1-multiple" || target === "step1-one") return "← Back to child selection";
+  if (target === "ai-input") return "← Back to AI notes";
+  return "← Back";
+}
+
 function renderDailyLogsCenter(records) {
   const backTarget = dlcBackTarget();
   return `
@@ -40913,7 +40936,7 @@ function renderDailyLogsCenter(records) {
           <h2>Daily Logs</h2>
           <p>See who's here, check children in and out, and log the day as it happens.</p>
         </div>
-        ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">← Back</button>` : ""}
+        ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">${dlcBackLabel(backTarget)}</button>` : ""}
       </div>
       ${renderDlcContent(records)}
     </section>
@@ -43406,6 +43429,48 @@ async function maybeBridgeCommunicationToFamilyHub(record = {}) {
 
 let afterActionPromptTimeout = null;
 
+const LLH_DIALOG_FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function llhDialogFocusableElements(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll(LLH_DIALOG_FOCUSABLE_SELECTOR)].filter((el) => {
+    if (el.hasAttribute("disabled") || el.getAttribute("aria-hidden") === "true") return false;
+    if (el.closest("[hidden]")) return false;
+    const style = window.getComputedStyle(el);
+    return style.visibility !== "hidden" && style.display !== "none";
+  });
+}
+
+function trapLlhDialogFocus(event, root) {
+  if (!root || event.key !== "Tab") return false;
+  const focusable = llhDialogFocusableElements(root);
+  if (!focusable.length) return false;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!focusable.includes(document.activeElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+    return true;
+  }
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+    return true;
+  }
+  if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+    return true;
+  }
+  return true;
+}
+
+function restoreLlhFocus(el) {
+  if (el && typeof el.focus === "function") {
+    try { el.focus(); } catch (_error) { /* ignore */ }
+  }
+}
+
 function confirmActionDialogHtml() {
   return `
     <div class="llh-confirm-dialog" data-llh-confirm-dialog hidden>
@@ -43641,6 +43706,9 @@ function closeChildRecordEditDialog(saved = false) {
   const resolve = childRecordEditResolver;
   childRecordEditResolver = null;
   if (resolve) resolve(Boolean(saved));
+  const returnFocus = childRecordEditReturnFocus;
+  childRecordEditReturnFocus = null;
+  restoreLlhFocus(returnFocus);
 }
 
 function primaryChildRecordDetail(item = {}) {
@@ -43672,6 +43740,7 @@ function openChildRecordEditDialog(storeKey, recordId) {
   form.date.value = item.date || "";
   form.details.value = detail.value || "";
   form.dataset.detailKey = detail.key;
+  childRecordEditReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.body.classList.add("auth-modal-open");
   dialog.hidden = false;
   form.details.focus();
@@ -66201,6 +66270,9 @@ document.addEventListener("click", async (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (document.querySelector("[data-llh-confirm-dialog]:not([hidden]), [data-llh-record-edit-dialog]:not([hidden]), #scheduleEventModal.open")) {
+    return;
+  }
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
     toggleLessonWorkspaceMoreMenu(false);
     return;
@@ -71433,11 +71505,32 @@ window.addEventListener("scroll", () => {
   if (notificationBellState.open) positionNotificationBellPanel();
 }, { passive: true });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab") {
+    const confirmPanel = document.querySelector("[data-llh-confirm-dialog]:not([hidden]) .llh-confirm-panel");
+    if (confirmPanel && trapLlhDialogFocus(event, confirmPanel)) return;
+    const recordEditPanel = document.querySelector("[data-llh-record-edit-dialog]:not([hidden]) .llh-confirm-panel");
+    if (recordEditPanel && trapLlhDialogFocus(event, recordEditPanel)) return;
+    const scheduleCard = document.querySelector("#scheduleEventModal.open .modal-card");
+    if (scheduleCard && trapLlhDialogFocus(event, scheduleCard)) return;
+    const resourceCard = document.querySelector("#resourceViewerModal.open .resource-viewer-card, #resourceViewerModal.open .modal-card");
+    if (resourceCard && trapLlhDialogFocus(event, resourceCard)) return;
+  }
   if (event.key !== "Escape") return;
   const confirmDialog = document.querySelector("[data-llh-confirm-dialog]:not([hidden])");
   if (confirmDialog) {
     event.preventDefault();
     closeConfirmActionDialog(false);
+    return;
+  }
+  const recordEditDialog = document.querySelector("[data-llh-record-edit-dialog]:not([hidden])");
+  if (recordEditDialog) {
+    event.preventDefault();
+    closeChildRecordEditDialog(false);
+    return;
+  }
+  if (document.querySelector("#scheduleEventModal.open")) {
+    event.preventDefault();
+    closeCalendarAddItemDialog();
     return;
   }
   if (notificationBellState.open) {
