@@ -1339,15 +1339,27 @@
       console.warn("Could not load release notes", error);
     }
 
+    if (typeof window.whatsNewNavHasNotes !== "undefined") {
+      window.whatsNewNavHasNotes = notes.length > 0;
+    }
+    try {
+      if (typeof window.setWhatsNewNavVisible === "function") {
+        window.setWhatsNewNavVisible(notes.length > 0);
+      }
+    } catch (_) { /* nav sync is optional */ }
+
     if (!notes.length) {
       section.innerHTML = `
         <div class="changelog-page">
           <div class="page-title">
             <p class="eyebrow">Product Updates</p>
             <h2>What's New</h2>
-            <p>Release notes and product updates will appear here.</p>
+            <p>Published product updates will appear here when they are ready.</p>
           </div>
-          ${emptyStateHtml("No release notes yet", "Check back soon for new features, improvements, and fixes.")}
+          ${emptyStateHtml("No published updates yet", "This page stays quiet until a release note is published.")}
+          <div class="form-actions" style="margin-top:16px;">
+            <button class="ghost-button" data-view="calendar" type="button">← Back to Calendar</button>
+          </div>
         </div>
       `;
       return;
@@ -1370,6 +1382,9 @@
               ${changelogCategoryBlocks(note) || `<p class="muted-copy">No categorized changes listed.</p>`}
             </article>
           `).join("")}
+        </div>
+        <div class="form-actions" style="margin-top:16px;">
+          <button class="ghost-button" data-view="calendar" type="button">← Back to Calendar</button>
         </div>
       </div>
     `;

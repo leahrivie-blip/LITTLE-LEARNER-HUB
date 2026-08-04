@@ -1994,19 +1994,17 @@ Your purpose is to help childcare providers create high-quality, professional, o
 
 The provider using Little Learner Hub is busy caring for children. Assume they have very little time to type. Your job is to do the hard work for them.
 
-Never require the provider to write a long explanation. A quick sentence or two should be enough for you to generate a complete observation.
+Never require the provider to write a long explanation. A quick sentence or two should be enough for a useful observation draft.
 
 You are an experienced early childhood educator with extensive knowledge of infant development, toddler development, preschool development, child development milestones, Developmentally Appropriate Practice (DAP), play-based learning, social-emotional development, language development, cognitive development, physical development, licensing-friendly documentation, objective observation writing, and family communication.
 
 You write observations the way an experienced childcare professional would.
 
-Never mention AI. Never explain that you are an AI assistant. Never apologize. Never tell the provider there is not enough information.
+Never mention AI. Never explain that you are an AI assistant. Never apologize.
 
-Instead, make the best professional observation possible using the information available.
+Use only information the provider actually supplied (note, selected child profile fields, program name). Do not invent setting details, materials, peer names, emotions, injuries, timelines, diagnoses, or skills that are not supported by the note.
 
-Required Input: Only two things should ever be required — the selected child and the teacher quick note. Everything else should be automatically determined whenever possible.
-
-Missing Information: If information is missing, infer developmental areas, learning objectives, next steps, and appropriate activities when appropriate. Never invent major facts not supported by the teacher's note. Never diagnose developmental delays. Never assume medical conditions. Remain objective.`;
+If a detail is missing, keep that section brief or write "Not enough detail provided" — do not fill gaps with assumptions.`;
 
 const ADMIN_PROMPT_LAYER_OBSERVATION = `YOU ARE WRITING A PROFESSIONAL CHILDCARE OBSERVATION RECORD.
 Transform the provider's note into polished, standards-aligned documentation that sounds like a skilled educator wrote it.
@@ -2014,67 +2012,67 @@ Transform the provider's note into polished, standards-aligned documentation tha
 Required format:
 1. Observation Title (3–8 words summarizing the child's learning)
 2. Observation Narrative (describe specifically what the child did using observable, behavioral details)
-3. Developmental Areas (list all relevant domains)
-4. Skills Demonstrated (3–8 specific skills shown)
-5. Why This Learning Matters (one paragraph explaining developmental significance)
-6. Suggested Next Steps (2–4 realistic classroom recommendations)
-7. Suggested Activity (name, materials, instructions, learning objective, time needed)
-8. Family Summary (warm, jargon-free summary for parents)
+3. Developmental Areas (list only domains clearly supported by the note)
+4. Skills Demonstrated (only skills clearly shown in the note)
+5. Why This Learning Matters (one short paragraph, or "Not enough detail provided")
+6. Suggested Next Steps (1–3 realistic recommendations tied to the note)
+7. Suggested Activity (only if the note supports a clear follow-up; otherwise "Not enough detail provided")
+8. Family Summary (warm, jargon-free summary grounded in the note)
 9. Teacher Reflection (one professional reflection statement)
-10. Tags (relevant tags for the observation)
+10. Tags (relevant tags only)
 
 Rules:
-- Keep each observation 225–325 words in the narrative section.
+- Keep the Observation Narrative short: about 60–140 words for a typical note; shorter when the note is brief.
 - Start with a unique sentence reflecting this specific child and moment.
 - Write about what the child actually did — not what children in general do.
 - Never diagnose, overstate, compare to other children, or invent details not in the provider's note.
-- The observation should be polished enough that the provider can simply click Save.`;
+- Prefer a shorter accurate draft over a longer padded one.`;
 
 const ADMIN_PROMPT_LAYER_WRITING_RULES = `Observation Generator – Writing Intelligence Rules
 
 Step 1: Read the Teacher's Note
-Carefully analyze the quick note. Ask yourself: What happened? What was the child trying to accomplish? What skills were demonstrated? What learning occurred? Was the child working independently or interacting with others? Was this teacher-directed or child-led? Never ignore important details.
+Carefully analyze the quick note. Ask yourself: What happened? What was the child trying to accomplish? What skills were demonstrated? What learning occurred? Never ignore important details that are present — and never invent ones that are not.
 
 Step 2: Understand the Child
-Use the child's profile. Consider age, developmental stage, goals, previous observations, and classroom. Never expect skills beyond the child's developmental level. Infants, toddlers, and preschoolers should all sound different.
+Use only provided child profile fields (name, age group, goals, classroom). Never expect skills beyond the child's developmental level. Infants, toddlers, and preschoolers should all sound different. If age is unknown, do not assume Preschool.
 
 Step 3: Identify Learning
-Look beyond what happened. Determine what learning actually occurred. Only include learning supported by the teacher's note. Never invent learning that did not occur.
+Only include learning supported by the teacher's note. Never invent learning that did not occur.
 
 Step 4: Write Like an Experienced Early Childhood Professional
 Use professional language. Write naturally. Keep observations warm. Remain objective. Never diagnose. Never criticize. Never exaggerate. Avoid repetitive wording. Avoid robotic language. Do not copy the teacher's note word-for-word.
 
 Step 5: Explain Why It Matters
-Every observation should answer: Why is today's experience important? How does it support development? How could it help future learning?
+Answer why today's experience matters only when the note supports it. Otherwise keep this section minimal.
 
 Step 6: Recommend Next Steps
-Suggest realistic classroom experiences that support continued development, use common classroom materials, are age appropriate, and are simple to implement.
+Suggest realistic classroom experiences tied to the note. Do not invent materials or settings not implied by the note.
 
 Step 7: Family Communication
-Write a family summary that celebrates progress, uses simple language, avoids educational jargon, and feels warm and encouraging.
+Write a family summary that stays grounded in the note, uses simple language, and feels warm.
 
 Step 8: Teacher Reflection
-Write one useful professional reflection to help teachers plan future learning.
+Write one useful professional reflection, or "Not enough detail provided" when the note is too thin.
 
 Step 9: Quality Review
-Before returning, verify: objective language, clearly explained learning, appropriate developmental areas, correct age expectations, correct grammar, warm professional tone, no assumptions, no diagnoses, licensing-friendly, ready to save.`;
+Before returning, verify: objective language, no invented facts, appropriate developmental areas, correct grammar, warm professional tone, no diagnoses, licensing-friendly, ready to save.`;
 
 const ADMIN_PROMPT_LAYER_FORMATTING_RULES = `Observation Generator – Output Formatting Rules
 
 Always return the observation in this exact order:
 
 1. Observation Title — 3–8 words summarizing the child's learning.
-2. Observation — Complete narrative (one paragraph for a short note, two to three for a detailed note). Describe what happened, explain learning, highlight strengths, remain objective.
-3. Developmental Areas — List all areas supported by the observation (Social Emotional, Language, Communication, Literacy, Mathematics, Science, Fine Motor, Gross Motor, Cognitive, Creative Arts, Sensory, Self-Help, Executive Function, Problem Solving, Approaches to Learning).
-4. Skills Demonstrated — 3–8 skills shown (e.g. Counting, Vocabulary, Problem Solving, Turn Taking, Persistence, Curiosity, Fine Motor Control).
-5. Why This Learning Matters — One short paragraph connecting today's experience to future learning.
-6. Suggested Next Steps — 2–4 realistic recommendations using common classroom materials.
-7. Suggested Activity — Activity Name, Materials Needed, Simple Instructions, Learning Objective, Approximate Time.
-8. Family Summary — Warm, positive, jargon-free summary parents will immediately understand.
-9. Teacher Reflection — One professional reflection (e.g. "Continue offering opportunities for cooperative play.").
-10. Tags — Relevant tags only (e.g. Fine Motor, Math, Counting, Science, Outdoor Play, Creativity).
+2. Observation — Short narrative (about 60–140 words for a typical note). Describe only what the note supports.
+3. Developmental Areas — List only areas clearly supported by the observation.
+4. Skills Demonstrated — Only skills clearly shown (usually 2–5).
+5. Why This Learning Matters — One short paragraph, or "Not enough detail provided".
+6. Suggested Next Steps — 1–3 realistic recommendations tied to the note.
+7. Suggested Activity — Activity Name, Materials Needed, Simple Instructions, Learning Objective, Approximate Time — or "Not enough detail provided".
+8. Family Summary — Warm, positive, jargon-free summary grounded in the note.
+9. Teacher Reflection — One professional reflection, or "Not enough detail provided".
+10. Tags — Relevant tags only.
 
-Overall requirements: professional, warm, objective, easy to read, developmentally appropriate, family-friendly, licensing-friendly, grammatically correct, free from spelling errors. Never leave sections blank.`;
+Overall requirements: professional, warm, objective, concise, developmentally appropriate, family-friendly, licensing-friendly, grammatically correct. Prefer "Not enough detail provided" over invented filler.`;
 
 const adminPromptLayers = [
   { id: "master", label: "Master Prompt", description: "Role definition and core purpose for the observation assistant", text: ADMIN_PROMPT_LAYER_MASTER },
@@ -5938,6 +5936,8 @@ let mainCalendarActiveFilters = null;
 let mainCalendarEditingItemId = "";
 let pendingCalendarAssignNotice = "";
 let calendarLessonAssignContext = null; // { weekStartDate, fromCalendar }
+let calendarDayNoteDraft = null; // { date, notes } — preserves in-flight edits across busy re-renders
+let calendarDayNoteStatus = { message: "", isError: false };
 let scheduleDocCache = null;
 let scheduleSyncPromise = null;
 let scheduleSyncState = "idle"; // idle | loading | ready | error
@@ -13523,12 +13523,56 @@ function syncPlatformNavVisibility() {
   });
   syncHomeDaycareHubNavVisibility();
   syncAiGuideNavVisibility();
+  syncWhatsNewNavVisibility();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
   syncHdhTesterSwitcherChrome();
+}
+
+let whatsNewNavSyncPromise = null;
+window.whatsNewNavHasNotes = null;
+
+function setWhatsNewNavVisible(show) {
+  const link = document.querySelector("#whatsNewNavLink");
+  if (!link) return;
+  const visible = Boolean(show) && isLoggedIn();
+  link.hidden = !visible;
+  link.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (visible) link.removeAttribute("tabindex");
+  else link.setAttribute("tabindex", "-1");
+}
+window.setWhatsNewNavVisible = setWhatsNewNavVisible;
+
+function syncWhatsNewNavVisibility() {
+  const link = document.querySelector("#whatsNewNavLink");
+  if (!link) return;
+  if (!isLoggedIn()) {
+    setWhatsNewNavVisible(false);
+    return;
+  }
+  if (window.whatsNewNavHasNotes != null) {
+    setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+    return;
+  }
+  setWhatsNewNavVisible(false);
+  if (whatsNewNavSyncPromise) return;
+  whatsNewNavSyncPromise = fetch("/api/release-notes", { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : {}))
+    .then((data) => {
+      const notes = Array.isArray(data.releaseNotes) ? data.releaseNotes : [];
+      window.whatsNewNavHasNotes = notes.length > 0;
+      setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+    })
+    .catch(() => {
+      window.whatsNewNavHasNotes = false;
+      setWhatsNewNavVisible(false);
+    })
+    .finally(() => {
+      whatsNewNavSyncPromise = null;
+    });
 }
 
 function syncHomeDaycareHubNavVisibility() {
@@ -16156,19 +16200,38 @@ function setView(view, options = {}) {
   }
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
-    dailyLogsSection = "home";
-    dailyLogsChildTab = "overview";
-    dailyLogsGroupAction = "";
-    dlcNewStep = "step1";
-    dlcChildSelection = "all";
-    dlcSelectedChildIds = [];
-    dlcAiNote = "";
-    dlcAiSuggestions = [];
-    dlcManualSection = "";
-    dlcDashboardDate = "";
-    activeChildObservationEditId = "";
-    activeObservationChildLock = "";
-    activePortfolioChildId = "";
+    const openChildId = String(options.childId || "").trim();
+    if (openChildId) {
+      selectedChildId = openChildId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+      dailyLogsSection = "individual";
+      dailyLogsChildTab = options.dailyLogsChildTab || "overview";
+      dailyLogsGroupAction = "";
+      dlcNewStep = "step1";
+      dlcChildSelection = "one";
+      dlcSelectedChildIds = [openChildId];
+      dlcAiNote = "";
+      dlcAiSuggestions = [];
+      dlcManualSection = "";
+      dlcDashboardDate = "";
+      activeChildObservationEditId = "";
+      activeObservationChildLock = "";
+      activePortfolioChildId = "";
+    } else {
+      dailyLogsSection = "home";
+      dailyLogsChildTab = "overview";
+      dailyLogsGroupAction = "";
+      dlcNewStep = "step1";
+      dlcChildSelection = "all";
+      dlcSelectedChildIds = [];
+      dlcAiNote = "";
+      dlcAiSuggestions = [];
+      dlcManualSection = "";
+      dlcDashboardDate = "";
+      activeChildObservationEditId = "";
+      activeObservationChildLock = "";
+      activePortfolioChildId = "";
+    }
   } else if (requestedChildToolTab) {
     childManagementMode = "tools";
     childToolsTab = requestedChildToolTab;
@@ -31178,7 +31241,8 @@ function renderCalendarDayView(app) {
   const derivedItems = calendarDerivedChildItemsInRange(iso, iso);
   const visibleItems = calendarVisibleItemsForDate(realItems, derivedItems, iso);
   const dayNote = calendarDayNoteForDate(doc, iso);
-  const dayNoteText = String(dayNote?.notes || "");
+  const draftForDay = calendarDayNoteDraft?.date === iso ? calendarDayNoteDraft.notes : null;
+  const dayNoteText = draftForDay != null ? String(draftForDay) : String(dayNote?.notes || "");
   const room = scheduleClassroomName(doc);
   const planDay = dayKey ? lesson?.snapshot?.dailyPlans?.[dayKey] : null;
   const activities = Array.isArray(planDay?.items) ? planDay.items : [];
@@ -31205,13 +31269,13 @@ function renderCalendarDayView(app) {
           <p class="eyebrow">Day notes</p>
           <label class="llh-cal-day-note-label">
             <span class="visually-hidden">Notes for ${escapeHtml(calendarLongDateLabel(iso))}</span>
-            <textarea rows="4" data-calendar-day-note-input placeholder="Prep, what worked, reminders for this day…">${escapeHtml(dayNoteText)}</textarea>
+            <textarea rows="4" data-calendar-day-note-input placeholder="Prep, what worked, reminders for this day…" ${mainCalendarBusy ? "disabled" : ""}>${escapeHtml(dayNoteText)}</textarea>
           </label>
           <div class="form-actions">
-            <button type="button" class="primary-button" data-calendar-save-day-note data-calendar-save-day-note-date="${escapeHtml(iso)}">Save Notes</button>
-            ${dayNote ? `<button type="button" class="ghost-button" data-calendar-clear-day-note data-calendar-clear-day-note-date="${escapeHtml(iso)}">Clear</button>` : ""}
+            <button type="button" class="primary-button" data-calendar-save-day-note data-calendar-save-day-note-date="${escapeHtml(iso)}" ${mainCalendarBusy ? "disabled" : ""}>Save Notes</button>
+            ${dayNote || dayNoteText ? `<button type="button" class="ghost-button" data-calendar-clear-day-note data-calendar-clear-day-note-date="${escapeHtml(iso)}" ${mainCalendarBusy ? "disabled" : ""}>Clear</button>` : ""}
           </div>
-          <p class="muted-copy llh-cal-day-note-hint" data-calendar-day-note-status hidden></p>
+          ${calendarDayNoteStatusHtml()}
         </section>
         <section class="llh-ds-card">
           <p class="eyebrow">Lesson Plan · ${escapeHtml(room)}</p>
@@ -31398,11 +31462,18 @@ async function deleteCalendarItem(itemId) {
 }
 
 function setCalendarDayNoteStatus(message, isError = false) {
+  calendarDayNoteStatus = { message: message || "", isError: Boolean(isError) };
   const statusEl = document.querySelector("[data-calendar-day-note-status]");
   if (!statusEl) return;
   statusEl.hidden = !message;
   statusEl.textContent = message || "";
   statusEl.classList.toggle("is-error", Boolean(isError));
+}
+
+function calendarDayNoteStatusHtml() {
+  const message = calendarDayNoteStatus?.message || "";
+  if (!message) return `<p class="muted-copy llh-cal-day-note-hint" data-calendar-day-note-status hidden></p>`;
+  return `<p class="muted-copy llh-cal-day-note-hint${calendarDayNoteStatus.isError ? " is-error" : ""}" data-calendar-day-note-status role="status">${escapeHtml(message)}</p>`;
 }
 
 async function saveCalendarDayNote(iso, options = {}) {
@@ -31417,6 +31488,7 @@ async function saveCalendarDayNote(iso, options = {}) {
   // Visually blank values (spaces/newlines/NBSP) must persist as cleared/empty.
   const rawNotes = options.clear ? "" : String(options.notes ?? input?.value ?? "");
   const notes = rawNotes.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  calendarDayNoteDraft = { date, notes: options.clear ? "" : String(options.notes ?? input?.value ?? "") };
   mainCalendarBusy = true;
   setCalendarDayNoteStatus(notes ? "Saving to your account…" : "Clearing notes…");
   renderMainCalendar();
@@ -31472,20 +31544,19 @@ async function saveCalendarDayNote(iso, options = {}) {
     scheduleSyncSynced = true;
   } catch (error) {
     mainCalendarBusy = false;
-    renderMainCalendar();
     const message = error?.message || "Could not save day notes to your account.";
     setCalendarDayNoteStatus(message, true);
+    renderMainCalendar();
     showActionFeedback(message);
     const restored = document.querySelector("[data-calendar-day-note-input]");
-    if (restored && !options.clear) restored.value = notes;
+    if (restored && !options.clear) restored.value = calendarDayNoteDraft?.notes ?? notes;
     return;
   }
+  calendarDayNoteDraft = null;
   mainCalendarBusy = false;
-  renderMainCalendar();
-  const clearedInput = document.querySelector("[data-calendar-day-note-input]");
-  if (clearedInput && !notes) clearedInput.value = "";
   const successMessage = notes ? "Notes saved to your account." : "Notes cleared from your account.";
   setCalendarDayNoteStatus(successMessage);
+  renderMainCalendar();
   showActionFeedback(successMessage);
 }
 
@@ -33175,20 +33246,8 @@ function renderSettingsHubPage() {
           ],
         }]
       : []),
-    {
-      title: "Forms Settings",
-      detail: "Enrollment and paperwork defaults",
-      cards: [
-        { view: "forms-settings", title: "Enrollment & Form Templates", detail: "Digital signatures and paperwork preferences" },
-      ],
-    },
-    {
-      title: "Curriculum Settings",
-      detail: "Calendar and lesson plan defaults",
-      cards: [
-        { view: "curriculum-settings", title: "Calendar & Lesson Plan Defaults", detail: "Week start day and planning preferences" },
-      ],
-    },
+    // Forms Settings and Curriculum Settings stay out of the hub until those
+    // preferences are wired into live product behavior (not cosmetic-only saves).
     {
       title: "Account Actions",
       detail: "Sign out securely from this device",
@@ -35287,36 +35346,15 @@ function renderSupportHomePage(records = childRecords()) {
   const currentChild = selectedChild(records);
   const childSupportAreas = currentChild ? childSelectedSupportAreas(currentChild).slice(0, 3) : [];
   const searchResults = supportSearchResults(supportCenterSearch);
-  const plannedAreas = [
-    { title: "Common behavior challenges", detail: "Guidance for tantrums, biting, transitions, and other everyday challenges." },
-    { title: "Support strategies", detail: "Practical classroom strategies you can use the same day." },
-    { title: "Behavior plans", detail: "Simple plans you can adapt for individual children." },
-    { title: "Parent communication help", detail: "Professional wording for sensitive family conversations." },
-    { title: "Behavior tracking", detail: "Track patterns over time without extra paperwork." },
-    { title: "Social emotional resources", detail: "SEL tools that support calm, connection, and confidence." },
-  ];
+  // Ship only the working support library — hide unfinished Coming Soon placeholders.
   return `
-    <section class="support-center-page behavior-support-placeholder">
+    <section class="support-center-page" data-behavior-support-ready="true">
       <div class="page-title support-center-title">
         <p class="eyebrow">Behavior &amp; Support</p>
         <h2>Support for big feelings and everyday challenges</h2>
-        <p>This section will become your calm, child-centered behavior toolkit. The structure below is the foundation for the redesign.</p>
-      </div>
-      <div class="platform-placeholder-grid">
-        ${plannedAreas.map((area) => `
-          <article class="platform-placeholder-card">
-            <strong>${escapeHtml(area.title)}</strong>
-            <p>${escapeHtml(area.detail)}</p>
-            <span class="badge-coming-soon">Coming Soon</span>
-          </article>
-        `).join("")}
+        <p>Browse practical guidance for tantrums, transitions, potty training, and other everyday classroom challenges.</p>
       </div>
       <section class="section-block behavior-support-current-tools">
-        <div class="page-title" style="margin-bottom:12px;">
-          <p class="eyebrow">Available now</p>
-          <h3 style="margin:0;">Browse current support library</h3>
-          <p class="muted-copy">Existing Behavior &amp; Support resources stay available while we rebuild this area.</p>
-        </div>
         <label class="support-search">
           <span>Search support topics</span>
           <input id="supportCenterSearch" type="search" value="${escapeHtml(supportCenterSearch)}" placeholder="Tantrums, biting, potty training, transitions" />
@@ -35537,7 +35575,7 @@ function renderSupportAiIdeas(topic = "", child = null, records = childRecords()
     <div class="support-ai-panel">
       <div class="child-ai-context">
         <strong>${escapeHtml(childLabel)}</strong>
-        ${context ? `<span>Goals: ${escapeHtml(goalLabel)}</span><span>Support: ${escapeHtml(childSelectedSupportAreas(child).join(", ") || topic)}</span><span>Progress: ${progress.progressPercent}%</span>` : ""}
+        ${context ? `<span>Goals: ${escapeHtml(goalLabel)}</span><span>Support: ${escapeHtml(childSelectedSupportAreas(child).join(", ") || topic)}</span>${progress?.hasGoalProgress ? `<span>Progress: ${progress.progressPercent}%</span>` : `<span>Progress: No goals yet</span>`}` : ""}
       </div>
       <div class="support-ai-grid">
         <div><strong>Activities</strong>${renderSupportBulletList(content.activities.slice(0, 3))}</div>
@@ -35703,9 +35741,10 @@ function childProgressSummary(childId, records = childRecords()) {
   const weeklyStats = weeklyObservationStats(records);
   const weeklyCompleted = weeklyStats.byChild.get(childId) || 0;
   const activeGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
+  // Only show a percent when real goals exist — never invent progress from observation counts.
   const goalProgress = portfolio.goals.length
     ? Math.round(portfolio.goals.reduce((sum, goal) => sum + goalProgressPercent(goal.progress), 0) / portfolio.goals.length)
-    : Math.min(100, portfolio.observations.length * 10);
+    : null;
   return {
     observationsCompleted: portfolio.observations.length,
     observationsNeeded: Math.max(weeklyObservationsPerChild - weeklyCompleted, 0),
@@ -35713,6 +35752,7 @@ function childProgressSummary(childId, records = childRecords()) {
     activitiesCompleted: portfolio.differentiations.length,
     lastObservation: formatDateLabel(lastObservationDate(childId, records.observations)),
     progressPercent: goalProgress,
+    hasGoalProgress: goalProgress != null,
     weeklyCompleted,
   };
 }
@@ -36228,9 +36268,9 @@ function renderChildPortfolioPage(childId) {
             <p class="eyebrow">Goals & Progress</p>
             <h3>Active and completed goals</h3>
           </div>
-          <span class="tag">${summary.progressPercent}% progress</span>
+          ${summary.hasGoalProgress ? `<span class="tag">${summary.progressPercent}% progress</span>` : `<span class="tag">No goal progress yet</span>`}
         </div>
-        <div class="progress-bar"><span style="width:${summary.progressPercent}%"></span></div>
+        ${summary.hasGoalProgress ? `<div class="progress-bar"><span style="width:${summary.progressPercent}%"></span></div>` : ""}
         <div class="portfolio-two-column">
           ${activeGoals.length ? `<div>
             <h4>Active Goals</h4>
@@ -36938,7 +36978,7 @@ function renderSimpleGoalCard(child, goal, records) {
       <div class="goal-portfolio-row">
         <span><b>${connectedObservations.length}</b> connected observations</span>
         <span><b>${childSummary.observationsCompleted}</b> portfolio observations</span>
-        <span><b>${childSummary.progressPercent}%</b> portfolio progress</span>
+        <span>${childSummary.hasGoalProgress ? `<b>${childSummary.progressPercent}%</b> portfolio progress` : "No goal progress yet"}</span>
       </div>
 
       <div class="goal-card-actions">
@@ -36981,6 +37021,18 @@ function syncChildrenViewShell(mode = childManagementMode) {
   const view = document.querySelector("#view-children");
   if (!view) return;
   view.dataset.childMode = mode || "list";
+  const titleEl = view.querySelector(".children-list-title p:not(.eyebrow)");
+  const headingEl = view.querySelector(".children-list-title h2");
+  if (!titleEl && !headingEl) return;
+  const hasChildren = childRecords().children.length > 0;
+  const isList = (mode || "list") === "list";
+  if (headingEl) headingEl.textContent = "Child Profiles";
+  if (titleEl && isList) {
+    titleEl.textContent = hasChildren
+      ? "Select a child to open their profile. Track observations, goals, reports, and records in one place."
+      : "Add your first child to track observations, goals, and daily care in one place.";
+  }
+  view.classList.toggle("children-empty", isList && !hasChildren);
 }
 
 function renderProfileEmptyState({ title = "Nothing here yet", body = "", actionsHtml = "" } = {}) {
@@ -37210,7 +37262,7 @@ function renderSimpleChildProfile(child, records) {
         <div class="profile-hero-actions">
           ${switcher}
           <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
-          <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Log</button>
+          <button class="ghost-button" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Daily Log</button>
           <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit</button>
           ${itemActionMenuHtml(`child-profile-${child.id}`, [
             child.archived || child.hiddenFromActive
@@ -37306,7 +37358,7 @@ function renderChildReportsPhotosTab(child, records, observations, goals, suppor
             : renderProfileEmptyState({
               title: "No photos yet",
               body: "Add a photo moment from Daily Logs or save one here when you capture something special.",
-              actionsHtml: `<button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>`,
+              actionsHtml: `<button class="ghost-button" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Daily Log</button>`,
             })}
         </div>
       </section>
@@ -37684,7 +37736,7 @@ function renderChildOverviewTab(child, summary, records = childRecords()) {
           <span class="overview-label">Today</span>
           <strong>${todayAttendance ? escapeHtml(todayAttendance.status || "Present") : "Not checked in"}</strong>
           <p>Daily log ${completion.percent}% complete (${completion.completed}/${completion.total})</p>
-          <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Log</button>
+          <button class="ghost-button" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Daily Log</button>
         </article>
         <article class="overview-dash-card">
           <span class="overview-label">Recent</span>
@@ -37704,9 +37756,8 @@ function renderChildOverviewTab(child, summary, records = childRecords()) {
         actionsHtml: `<button class="ghost-button" data-child-tab="goals" type="button">Add a goal</button>`,
       })}
       <div class="quick-action-list">
-        <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
-        <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Log</button>
         <button class="ghost-button" data-child-tab="goals" type="button">View Goals</button>
+        <button class="ghost-button" data-child-tab="observations" type="button">View Observations</button>
       </div>
     </section>
   `;
@@ -38250,13 +38301,17 @@ function renderDailyLogsCenter(records) {
 }
 
 function dlcBackTarget() {
+  // Dashboard is the home surface. Wizard steps return to the previous step or dashboard.
+  if (dailyLogsSection === "individual" || dailyLogsSection === "group" || dailyLogsSection === "quick") {
+    return "home";
+  }
   if (dailyLogsSection !== "home") return "home";
-  if (dlcNewStep === "step1") return "";
-  if (dlcNewStep === "step1-multiple" || dlcNewStep === "step1-one") return "step1";
-  if (dlcNewStep === "step2") return "step1";
+  if (dlcNewStep === "step1" || !dlcNewStep) return "";
+  if (dlcNewStep === "step1-multiple" || dlcNewStep === "step1-one") return "dashboard";
+  if (dlcNewStep === "step2") return dlcChildSelection === "multiple" ? "step1-multiple" : (dlcChildSelection === "one" ? "step1-one" : "dashboard");
   if (dlcNewStep === "manual" || dlcNewStep === "ai-input") return "step2";
   if (dlcNewStep === "ai-suggestions") return "ai-input";
-  return "step1";
+  return "dashboard";
 }
 
 function renderDlcContent(records) {
@@ -39985,7 +40040,7 @@ function renderChildAiSuggestions(child, records = childRecords()) {
       <div class="child-ai-context">
         <span><b>Goals:</b> ${escapeHtml(goals)}</span>
         <span><b>Support areas:</b> ${escapeHtml(supports)}</span>
-        <span><b>Progress:</b> ${summary.progressPercent}% portfolio progress</span>
+        <span><b>Progress:</b> ${summary.hasGoalProgress ? `${summary.progressPercent}% portfolio progress` : "No goals yet"}</span>
       </div>
       <div class="goal-ai-output-inner child-ai-grid">
         <div><strong>Activities to try</strong><ul>${ideas.activities.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
@@ -53380,37 +53435,43 @@ function generateLessonPlan(data) {
   });
 }
 function generateObservation(data) {
- const note = data.note || "Child counted to 10 and identified colors.";
- const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
- const profile = ageGroupProfile(rawAge);
- const area = data.developmentalDomain || data.area || "Cognitive";
- const nextStep = data.nextStep || "Offer a similar activity with a small new challenge.";
- const childName = data.childName || data.child || "";
- const childRef = childName || ("the " + rawAge.toLowerCase());
- const programName = data.programName || data.program || "";
- return `Professional Observation
-${programName ? `Program: ${programName}\n` : ""}Child: ${childName || "Not specified"}
-Age Group: ${rawAge}
-Developmental Area: ${area}
-
+  const note = String(data.note || "").trim();
+  const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+  const childName = hasChild ? String(data.childName || data.child || "").trim() : "";
+  const childRef = childName || "the child";
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+  const area = String(data.developmentalDomain || data.area || "").trim();
+  const programName = String(data.programName || data.program || "").trim();
+  if (!note) {
+    return `Professional Observation
+${programName ? `Program: ${programName}\n` : ""}${childName ? `Child: ${childName}\n` : ""}${rawAge ? `Age Group: ${rawAge}\n` : ""}
 Observation
-During ${profile.observationSetting}, ${childRef} demonstrated growing ${area.toLowerCase()} skills while ${note.charAt(0).toLowerCase() + note.slice(1)} This shows ${childName ? childName : "the child"} is making meaningful connections through ${profile.observationSupport}.
+Not enough detail provided. Add a quick note about what you observed, then generate again.`;
+  }
+  // Local fallback stays tightly grounded — no invented classroom setting or age-profile skills.
+  return `Professional Observation
+${programName ? `Program: ${programName}\n` : ""}${childName ? `Child: ${childName}\n` : ""}${rawAge ? `Age Group: ${rawAge}\n` : ""}${area ? `Developmental Area: ${area}\n` : ""}
+Observation
+${childName ? `${childName} ` : ""}${note}
 
 Skills Demonstrated
-${profile.observationSkills.map((s) => "- " + s).join("\n")}
+- Skills clearly supported by the note above (review and edit before saving)
 
-What to Look For Next
-Watch for ${childName ? childName : "the child"} repeating this skill independently, using it in a new setting, showing increased confidence, or demonstrating it with less support.
+Why This Learning Matters
+Based on the note provided, continue watching for the same skill or moment with ${childRef}.
 
-Next Steps for Learning
-${nextStep} ${rawAge === "Infant"
-   ? "Continue responsive care, narrate your actions, and offer safe sensory experiences."
-   : rawAge === "School Age"
-   ? "Encourage reflection, discussion, and opportunities to apply the skill independently."
-   : "Model new words, offer guided support, and allow time to practice at an age-appropriate pace."}
+Suggested Next Steps
+- Offer a related chance to practice what was noted, using materials already available
+- Observe again and record only what you see next time
 
-Learning Standard Connection
-${area} development — connected to age-appropriate early learning guidelines for ${rawAge.toLowerCase()} learners.`;
+Family Summary
+${childName ? `${childName} ` : "Your child "}had a meaningful moment today worth sharing: ${note}
+
+Teacher Reflection
+Stay curious about how ${childRef} builds on this moment — add more detail when you have it.
+
+Tags
+${area || "Observation"}`;
 }
 
 function generateActivity(data) {
@@ -58993,12 +59054,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  // Open a child's individual log from the dashboard
+  // Open a child's individual log from the dashboard or Child Profiles.
   const dlcOpenChildBtn = event.target.closest("[data-dlc-open-child]");
   if (dlcOpenChildBtn) {
     event.preventDefault();
     const childId = dlcOpenChildBtn.dataset.dlcOpenChild;
     const tab = dlcOpenChildBtn.dataset.dlcQuickTab || "overview";
+    if (!childId) return;
+    if (activeView !== "children" || childManagementMode !== "daily-logs") {
+      setView("child-tools-daily-logs", { childId, dailyLogsChildTab: tab });
+      return;
+    }
     selectedChildId = childId;
     localStorage.setItem("llhSelectedChild", selectedChildId);
     dailyLogsSection = "individual";
@@ -59187,11 +59253,15 @@ document.addEventListener("click", async (event) => {
   if (dlcBackBtn) {
     event.preventDefault();
     const target = dlcBackBtn.dataset.dlcBack;
-    if (target === "home" || target === "") {
+    if (target === "home" || target === "dashboard" || target === "") {
       dailyLogsSection = "home";
       dlcNewStep = "step1";
       dlcChildSelection = "all";
       dlcSelectedChildIds = [];
+    } else if (target === "step1") {
+      // Legacy "step1" meant the abandoned chooser — land on the live dashboard instead.
+      dailyLogsSection = "home";
+      dlcNewStep = "step1";
     } else {
       dlcNewStep = target;
     }
@@ -64924,7 +64994,8 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   const settings = getProgramSettings();
   // Never send a real child name to AI unless the provider explicitly selected that child.
   const childName = child?.name || "";
-  const ageGroup = child ? (normalizeAgeGroup(child.ageGroup) || "Preschool") : "Preschool";
+  // Do not invent an age group when none is on the child profile.
+  const ageGroup = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
   const programName = settings.programName || "";
   const today = new Date().toISOString().slice(0, 10);
   const toolId = docHelperToolMap[docType] || "observation";
@@ -64939,7 +65010,7 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   }
 
   const data = {
-    childName: childName || "the child",
+    childName: childName || "",
     age: ageGroup,
     programName,
     note,
@@ -64947,8 +65018,8 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
     details: note,
     concern: note,
     incident: note,
-    theme: cleanPromptTheme(note) || "Daily Activities",
-    skill: "play-based learning",
+    theme: cleanPromptTheme(note) || "",
+    skill: "",
     topic: label,
     date: today,
     // Explicit flag so prompts/backends can avoid treating a placeholder as a real child.

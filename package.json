@@ -53,6 +53,7 @@
     "test:new-user-onboarding": "NODE_ENV=test node scripts/test-new-user-onboarding.js",
     "test:free-onboarding-first-impression": "NODE_ENV=test node scripts/test-free-onboarding-first-impression.js",
     "test:free-ux-phase2-remediation": "NODE_ENV=test node scripts/test-free-ux-phase2-remediation.js",
+    "test:customer-ux-polish": "NODE_ENV=test node scripts/test-customer-ux-polish.js",
     "test:marketing-funnel-flow": "NODE_ENV=test node scripts/verify-marketing-funnel-flow.js",
     "test:funnel-exit-insights": "NODE_ENV=test node scripts/verify-funnel-exit-insights.js",
     "stripe:check": "node server/stripe-check.js",
