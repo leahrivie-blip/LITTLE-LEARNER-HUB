@@ -5975,6 +5975,7 @@ let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 let adminAnalyticsLastError = "";
+let adminAnalyticsLastDiagnostic = null;
 let adminAnalyticsLoadPromise = null;
 let adminAnalyticsAbortController = null;
 let adminAnalyticsFetchedAt = 0;
@@ -47972,6 +47973,7 @@ function renderAdminOwnerOverview() {
       <div class="admin-analytics-state is-error" role="alert" data-admin-analytics-state="error">
         <p><strong>${adminSessionInvalidOnServer ? "Admin server session expired." : "Could not load live analytics."}</strong></p>
         <p class="muted-copy">${escapeHtml(adminAnalyticsLastError)}</p>
+        ${adminAnalyticsDiagnosticHtml(adminAnalyticsLastDiagnostic)}
         ${adminSessionInvalidOnServer
           ? `<button type="button" class="primary-button" data-admin-reunlock>Unlock Admin Again</button>`
           : `<button type="button" class="primary-button" data-refresh-analytics>Retry</button>`}
@@ -48642,14 +48644,88 @@ function localAnalyticsSummary() {
   };
 }
 
+function adminAnalyticsDiagnosticsApi() {
+  return (typeof LLHAdminAnalyticsDiagnostics !== "undefined" && LLHAdminAnalyticsDiagnostics)
+    || null;
+}
+
+function createAdminAnalyticsCorrelationId() {
+  return adminAnalyticsDiagnosticsApi()?.createCorrelationId?.()
+    || `aan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildAdminAnalyticsDiagnostic(partial = {}) {
+  const api = adminAnalyticsDiagnosticsApi();
+  const payload = {
+    endpoint: partial.endpoint || analyticsConfig.adminEndpoint || "/api/admin/analytics",
+    httpStatus: partial.httpStatus,
+    code: partial.code,
+    message: partial.message,
+    aborted: partial.aborted,
+    offline: partial.offline,
+    invalidJson: partial.invalidJson,
+    requestCorrelationId: partial.requestCorrelationId,
+    timestamp: partial.timestamp,
+    adminSection: partial.adminSection || "insights",
+    timeoutSeconds: Math.round(ADMIN_ANALYTICS_TIMEOUT_MS / 1000),
+  };
+  if (api?.buildDiagnostic) return api.buildDiagnostic(payload);
+  return {
+    endpoint: String(payload.endpoint || ""),
+    httpStatus: Number(payload.httpStatus) || 0,
+    safeErrorCode: String(payload.code || "client_error"),
+    safeErrorMessage: String(payload.message || "Could not load admin analytics."),
+    requestCorrelationId: String(payload.requestCorrelationId || ""),
+    timestamp: String(payload.timestamp || new Date().toISOString()),
+    adminSection: "insights",
+    retryability: "retryable",
+  };
+}
+
+function logAdminAnalyticsClientEvent(kind, diagnostic) {
+  const api = adminAnalyticsDiagnosticsApi();
+  const safe = buildAdminAnalyticsDiagnostic(diagnostic || {});
+  const line = api?.formatLogLine
+    ? api.formatLogLine(kind, safe)
+    : `[admin-analytics:client] ${kind} ${JSON.stringify(safe)}`;
+  if (kind === "failed" || kind === "non-JSON response") console.error(line);
+  else console.info(line);
+  return safe;
+}
+
+function adminAnalyticsDiagnosticHtml(diagnostic) {
+  if (!diagnostic || typeof diagnostic !== "object") return "";
+  return `
+    <p class="muted-copy admin-analytics-diagnostic" data-admin-analytics-diagnostic>
+      <strong>Diagnostics:</strong>
+      ${escapeHtml(diagnostic.safeErrorCode || "error")}
+      · HTTP ${escapeHtml(String(diagnostic.httpStatus || "—"))}
+      · ${escapeHtml(diagnostic.retryability || "unknown")}
+      · corr ${escapeHtml(diagnostic.requestCorrelationId || "n/a")}
+      · ${escapeHtml(diagnostic.timestamp || "")}
+    </p>
+  `;
+}
+
 async function loadAdminAnalyticsFromBackend(options = {}) {
   const token = adminSession()?.token;
   if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
     adminAnalyticsLoading = false;
     if (!token) {
       adminAnalyticsLastError = "Admin session token missing. Unlock Admin again.";
+      adminAnalyticsLastDiagnostic = buildAdminAnalyticsDiagnostic({
+        httpStatus: 401,
+        code: "admin_token_missing",
+        message: adminAnalyticsLastError,
+        adminSection: "insights",
+      });
     } else if (!canUseLaunchBackend()) {
       adminAnalyticsLastError = "Live analytics require the production backend.";
+      adminAnalyticsLastDiagnostic = buildAdminAnalyticsDiagnostic({
+        code: "backend_unavailable",
+        message: adminAnalyticsLastError,
+        adminSection: "insights",
+      });
     }
     if (options.renderLoading !== false) {
       renderAdminOwnerOverview();
@@ -48661,6 +48737,11 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
   if (LOCAL_ADMIN_TOKENS.has(String(token))) {
     adminAnalyticsLoading = false;
     adminAnalyticsLastError = "Local preview tokens cannot load live production analytics. Use the production Admin unlock.";
+    adminAnalyticsLastDiagnostic = buildAdminAnalyticsDiagnostic({
+      code: "local_preview_token",
+      message: adminAnalyticsLastError,
+      adminSection: "insights",
+    });
     if (options.renderLoading !== false) {
       renderAdminOwnerOverview();
       renderAdminAnalytics();
@@ -48689,6 +48770,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
 
   adminAnalyticsLoading = true;
   adminAnalyticsLastError = "";
+  adminAnalyticsLastDiagnostic = null;
   if (options.renderLoading !== false) {
     renderAdminOwnerOverview();
     renderAdminAnalytics();
@@ -48702,52 +48784,73 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
 
   adminAnalyticsLoadPromise = (async () => {
     const session = adminSession() || {};
-    const requestUrl = `${analyticsConfig.adminEndpoint}?t=${Date.now()}`;
-    console.info("[admin-analytics:client] request", {
-      url: analyticsConfig.adminEndpoint,
-      email: session.email || "",
-      mode: session.mode || "",
-      unlocked: isAdminUnlocked(),
-      tokenPrefix: token ? `${String(token).slice(0, 12)}…` : "",
+    const correlationId = createAdminAnalyticsCorrelationId();
+    const requestUrl = `${analyticsConfig.adminEndpoint}?t=${Date.now()}&correlationId=${encodeURIComponent(correlationId)}`;
+    logAdminAnalyticsClientEvent("request", {
+      endpoint: analyticsConfig.adminEndpoint,
+      requestCorrelationId: correlationId,
+      adminSection: "insights",
+      timestamp: new Date().toISOString(),
     });
     try {
-      const response = await fetch(requestUrl, { cache: "no-store", signal: controller.signal, headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(requestUrl, {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Request-Id": correlationId,
+          "X-Correlation-Id": correlationId,
+        },
+      });
       const rawText = await response.text();
       let data = {};
       try {
         data = rawText ? JSON.parse(rawText) : {};
       } catch (parseError) {
-        console.error("[admin-analytics:client] non-JSON response", {
-          status: response.status,
-          bodyPreview: String(rawText || "").slice(0, 300),
-          parseError: parseError?.message,
+        const diagnostic = logAdminAnalyticsClientEvent("non-JSON response", {
+          endpoint: analyticsConfig.adminEndpoint,
+          httpStatus: response.status,
+          invalidJson: true,
+          message: parseError?.message || "invalid_json",
+          requestCorrelationId: response.headers.get("x-correlation-id") || data?.correlationId || correlationId,
+          adminSection: "insights",
         });
-        throw new Error(
-          `Admin analytics returned HTTP ${response.status} with non-JSON body (often a Render crash/OOM).`,
-        );
+        adminAnalyticsLastDiagnostic = diagnostic;
+        throw Object.assign(new Error(diagnostic.safeErrorMessage), { diagnostic, invalidJson: true, httpStatus: response.status });
       }
-      console.info("[admin-analytics:client] response", {
-        status: response.status,
-        ok: response.ok,
-        code: data?.code || "",
-        error: data?.error || "",
-        hasAnalytics: Boolean(data?.analytics),
-        bodyKeys: Object.keys(data || {}),
+      const serverCorrelationId = response.headers.get("x-correlation-id")
+        || data?.correlationId
+        || correlationId;
+      logAdminAnalyticsClientEvent("response", {
+        endpoint: analyticsConfig.adminEndpoint,
+        httpStatus: response.status,
+        code: data?.code || (response.ok ? "ok" : "http_error"),
+        message: data?.error || "",
+        requestCorrelationId: serverCorrelationId,
+        adminSection: "insights",
       });
       if (!response.ok) {
         if (!assertAdminApiResponse(response, data, { render: false })) {
           // Session invalid — re-unlock shell will appear on next admin paint.
         }
-        const detail = data?.error || data?.hint || `HTTP ${response.status}`;
-        throw new Error(
-          isAdminSessionAuthError(data, response)
-            ? (data?.hint || "Admin session expired on the server. Unlock Admin again.")
-            : detail,
-        );
+        const detail = isAdminSessionAuthError(data, response)
+          ? (data?.hint || "Admin session expired on the server. Unlock Admin again.")
+          : (data?.error || data?.hint || `HTTP ${response.status}`);
+        const diagnostic = buildAdminAnalyticsDiagnostic({
+          endpoint: analyticsConfig.adminEndpoint,
+          httpStatus: response.status,
+          code: data?.code || "",
+          message: detail,
+          requestCorrelationId: serverCorrelationId,
+          adminSection: "insights",
+        });
+        adminAnalyticsLastDiagnostic = diagnostic;
+        throw Object.assign(new Error(diagnostic.safeErrorMessage), { diagnostic, httpStatus: response.status });
       }
       adminAnalyticsCache = data.analytics || data;
       adminAnalyticsFetchedAt = Date.now();
       adminAnalyticsLastError = "";
+      adminAnalyticsLastDiagnostic = null;
       adminSessionInvalidOnServer = false;
       renderAdminAnalytics();
       renderAdminMarketingAnalytics();
@@ -48757,14 +48860,21 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       return adminAnalyticsCache;
     } catch (error) {
       const aborted = error?.name === "AbortError";
-      adminAnalyticsLastError = aborted
-        ? `Analytics timed out after ${Math.round(ADMIN_ANALYTICS_TIMEOUT_MS / 1000)}s. Tap Retry.`
-        : (error?.message || "Could not load admin analytics.");
-      console.error("[admin-analytics:client] failed", {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      const diagnostic = error?.diagnostic || buildAdminAnalyticsDiagnostic({
+        endpoint: analyticsConfig.adminEndpoint,
+        httpStatus: error?.httpStatus || 0,
+        code: aborted ? "timeout" : (error?.code || ""),
+        message: error?.message || "",
         aborted,
-        message: adminAnalyticsLastError,
-        email: session.email || "",
+        offline,
+        invalidJson: Boolean(error?.invalidJson),
+        requestCorrelationId: correlationId,
+        adminSection: "insights",
       });
+      adminAnalyticsLastDiagnostic = diagnostic;
+      adminAnalyticsLastError = diagnostic.safeErrorMessage;
+      logAdminAnalyticsClientEvent("failed", diagnostic);
       renderAdminOwnerOverview();
       renderAdminAnalytics();
       renderAdminMarketingAnalytics();
@@ -48839,6 +48949,8 @@ function renderAdminAnalytics() {
     ${!isLive && adminAnalyticsLastError ? `
       <div class="admin-analytics-state is-error" role="alert">
         <p><strong>Analytics did not load.</strong> ${escapeHtml(adminAnalyticsLastError)}</p>
+        ${adminAnalyticsDiagnosticHtml(adminAnalyticsLastDiagnostic)}
+        <button class="primary-button" type="button" data-refresh-analytics>Retry</button>
       </div>
     ` : ""}
     <div class="analytics-summary-grid">
