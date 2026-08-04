@@ -11118,6 +11118,7 @@ async function buildProductionMonitoringSnapshot() {
     getHealthHints: () => ({
       websiteOk: true,
       stripeWebhookSecretConfigured: isConfiguredValue(STRIPE_WEBHOOK_SECRET),
+      stripeKeysConfigured: Boolean(stripeConfigStatus()?.checkoutReady),
     }),
   });
 }
