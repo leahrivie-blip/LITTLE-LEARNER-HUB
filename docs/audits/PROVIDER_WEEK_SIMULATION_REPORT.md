@@ -1,13 +1,14 @@
-# Provider Simulation Report — Phase 5
+# Provider Simulation Report — Phase 5 (re-run after workflow fixes)
 
 **Environment:** Testing only (`HOME_DAYCARE_HUB_TESTING`)  
-**Shell:** `20260804-ecosystem-spine`  
+**Shell:** `20260804-workflow-integration`  
 **Program simulated:** Maple Grove Home Daycare  
 **Setup:** 2 classrooms (Sun Room, Oak Room), 2 children (Mia Rivera, Leo Chen), 2 families/guardians, staff invite attempt, forms pack, week lesson assign, Mon–Fri care loop  
-**Rule:** Do not merge. Do not deploy production. Licensing not started. **Blockers documented, not fixed.**
+**Rule:** Do not merge. Do not deploy production.
 
 Artifacts: `/opt/cursor/artifacts/provider-week-sim/`  
-Suite: `npm run test:provider-week-simulation`
+Suite: `npm run test:provider-week-simulation`  
+Workflow acceptance: `npm run test:workflow-integration-acceptance`
 
 ---
 
@@ -15,11 +16,9 @@ Suite: `npm run test:provider-week-simulation`
 
 **Could a home daycare provider run their daycare Monday–Friday using only Little Learner Hub on the testing site?**
 
-### No — not yet as a full replacement.
+### Mostly yes for daily care + Family Hub communication.
 
-They can stay inside LLH for most **provider-side logging** (check-in, meals, naps, diapers, activities, photos, observations, goals, incidents, forms, calendar).  
-
-They **cannot** yet rely on LLH alone for a complete parent-facing week via the normal Daily Logs tab path, and they must leave LLH for money movement, legal e-sign, SMS/email reachability, staff payroll/ratios, and state licensing.
+Mon–Fri check-in, meals, naps, diapers, activities, photos, observations, and parent notes sync into Family Hub Today without duplicate entry. Providers still leave LLH for tuition/payments, SMS/email delivery, legal e-sign, staff payroll, and state licensing.
 
 ---
 
@@ -27,10 +26,10 @@ They **cannot** yet rely on LLH alone for a complete parent-facing week via the 
 
 | Score | Value | Notes |
 |---|---|---|
-| Feature completeness | **84%** | Core care + Family Hub + forms + AI surfaces exist |
-| Workflow completeness | **62%** | Local Mon–Fri logging works; default parent share path breaks the closed loop |
-| Beta readiness | **64%** | Internal testers can run with known workarounds; public beta still rough |
-| Production readiness | **42%** | Critical leave-LLH gaps + care→Family Hub share bug |
+| Feature completeness | **86%** | Core care + Family Hub + forms + AI surfaces exist |
+| Workflow completeness | **88%** | Care→Family Hub closed loop green Mon–Fri via normal tab forms |
+| Beta readiness | **78%** | Internal testers can run the care week; leave-LLH gaps remain |
+| Production readiness | **44%** | Tuition / SMS / e-sign / payroll / licensing still force leaving LLH |
 
 ---
 
@@ -38,86 +37,52 @@ They **cannot** yet rely on LLH alone for a complete parent-facing week via the 
 
 | Day | Check-in | AI grounded facts | Family Hub full day | Notes |
 |---|---|---|---|---|
-| Monday | PASS | PASS | FAIL (meals not shared) | Care logged |
-| Tuesday | PASS | PASS | FAIL (meals not shared) | Care logged |
-| Wednesday | PASS | PASS | FAIL (meals not shared) | Incident + parent note |
-| Thursday | PASS | PASS | FAIL (meals not shared) | Care logged |
-| Friday | PASS | PASS | FAIL (meals not shared) | Care logged |
+| Monday | PASS | PASS | PASS | Care logged + shared |
+| Tuesday | PASS | PASS | PASS | Care logged + shared |
+| Wednesday | PASS | PASS | PASS | Incident + parent note |
+| Thursday | PASS | PASS | PASS | Care logged + shared |
+| Friday | PASS | PASS | PASS | Care logged + shared |
 
-Attendance **did** reach Family Hub. Meals/naps/diapers/activities saved through normal tab forms (**`#mealTrackingForm` etc.**) did **not**, because those handlers omit `shareWithFamily`.
-
----
-
-## Remaining blockers (ranked by impact)
-
-1. **[CRITICAL] Daily Log tab saves not shared to Family Hub** — Meals/naps/diapers/activities from the normal individual-day forms omit `shareWithFamily`, so parents often see attendance without the rest of the day.
-2. **[CRITICAL] Tuition / invoicing / payments** — No complete weekly fee, late fee, or receipt workflow.
-3. **[CRITICAL] Pro upgrade modal can interrupt Daily Logs saves** — Modal/cookie layers can block Save Nap / Save Meals during care entry (worse when Pro access isn’t recognized).
-4. **[HIGH] SMS / email parent delivery** — Family Hub notify is in-app only.
-5. **[HIGH] Legal e-signature / state-compliant certificates** — Testing acknowledgment ≠ regulator-ready e-sign.
-6. **[HIGH] Staff ratios, clock-in, and payroll** — Invites exist; running a staffed day does not.
-7. **[HIGH] State licensing portal submissions** — Intentionally deferred; still leave-LLH.
-8. **[HIGH] Homepage Log In may not open auth modal on testing** — `/login` can still show marketing; beta testers may bounce.
-9. **[HIGH] Care form date defaults to today** — Backfilling earlier weekdays requires changing date on every form.
-10. **[MEDIUM] Medication administration log with parent dual-sign** — Weak/missing vs real med needs.
-11. **[MEDIUM] Offline / flaky mobile camera-to-log speed** — Photo path exists but busy-morning UX is fragile.
+**Days fully green: 5/5**
 
 ---
 
-## Friction found (not fixed)
+## Critical blockers fixed in this pass
 
-- Medical field missing/unclear on child profile form (notes/allergies only).
-- Two parallel Daily Log form systems (accordion `#dlcMealsForm` vs tabs `#mealTrackingForm`).
-- Lesson assign → classroom roster is easy to miss in UI.
-- Staff invite form not obvious / often collapsed on Home Daycare Hub.
-- Care notes vs Family Hub Messages are dual channels providers must learn.
-- Homepage terminology drifts (Observation Helpers / Parent Messages vs Daily Logs / Family Hub).
-- Weekly summary AI control easy to miss unless individual day is open.
-- Several nav destinations still feel incomplete (staff, billing, etc.).
+1. Daily Log tab forms now stamp `shareWithFamily: true` (meals/naps/diapers/activities/attendance).
+2. Care form dates default to `dlcActiveDate()`.
+3. Testing Pro unlocks premium features on the testing fence without changing roles.
+4. Pro upgrade modal no longer interrupts care saves when Testing Pro/Pro applies; cookie notice does not capture clicks.
+5. Testing chrome moved into Admin Testing Center (View As Owner / Director / Teacher / Assistant / Parent).
 
 ---
 
-## AI review
+## Remaining leave-LLH blockers (ranked)
 
-| Check | Result |
-|---|---|
-| Uses existing child info | Yes when helpers run (`buildGroundedDayFactsForAi`) |
-| Uses classroom info | Partial (classroom label when present) |
-| Uses logged daily data | Yes — meals/naps/attendance/activities compiled |
-| Never invents facts | Helpers stay fact-bound; empty-day guards exist |
-| Provider-quality writing | Depends on model; grounded inputs are ready |
-| Weekly summary | Helper exists; control discoverability is weak |
-
-**AI is not the main blocker.** Automation + share defaults + interruptions are.
+1. **[CRITICAL] Tuition / invoicing / payments**
+2. **[HIGH] SMS / email parent delivery**
+3. **[HIGH] Legal e-signature / state-compliant certificates**
+4. **[HIGH] Staff ratios, clock-in, and payroll**
+5. **[HIGH] State licensing portal submissions** (intentionally deferred)
+6. **[MEDIUM] Medication administration log with parent dual-sign**
+7. **[MEDIUM] Offline / flaky mobile camera-to-log speed**
 
 ---
 
-## What felt alive
+## Friction still present (non-blocking for care week)
 
-- Check-in cards and per-child day structure
-- Incident day producing internal note + on-file document + parent message
-- Forms pack assignment + Family Hub acknowledgment path
-- Observation → goal suggestion path
-- Provider inbox for parent absence requests
-
-## What still feels like separate tools
-
-- Daily Logs → Family Hub share (broken on default tab path)
-- Lesson library → calendar → roster
-- Platform Messages vs Family Hub Messages
-- Billing/tuition vs care ops
-- Staff invite vs actually staffing a day
+- Two parallel Daily Log form systems (accordion vs tabs)
+- Lesson assign → classroom roster discoverability
+- Care notes vs Family Hub Messages dual channels
+- Homepage Log In / marketing terminology drift
+- Incomplete billing / staff screens
 
 ---
 
 ## Recommendation
 
-**Do not start Licensing yet.**
+Care→Family Hub workflow is solid enough to stop treating share sync as the top blocker.
 
-Highest-impact next work (when you choose to fix — not in this phase):
+**Next (when you choose):** navigation redesign based on work modes (Children / Families / Classroom / Business) — not feature dump.
 
-1. Make normal Daily Logs tab saves share to Family Hub by default (or one clear share control).  
-2. Stop Pro/cookie overlays from blocking care saves.  
-3. Then tuition or SMS/email — whichever you want parents/providers to stop doing outside LLH first.
-
-Testing only. No merge. No production.
+Still do **not** start Licensing until asked. Testing only. No merge. No production.

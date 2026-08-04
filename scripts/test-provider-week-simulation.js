@@ -975,7 +975,9 @@ async function main() {
     "",
     "## What still feels like separate tools",
     "",
-    "- Daily Logs tab path → Family Hub (share defaults broken).",
+    careShareBroken
+      ? "- Daily Logs tab path → Family Hub (share defaults still broken)."
+      : "- Daily Logs → Family Hub share loop is working; parallel accordion/tab UIs remain.",
     "- Lesson library → calendar → roster discoverability.",
     "- Platform Messages vs Family Hub Messages.",
     "- Staff invite ≠ running a staffed classroom day.",
@@ -984,18 +986,17 @@ async function main() {
     "## Recommendation",
     "",
     "Do **not** start Licensing yet.",
-    "Fix order when you choose to resume building: (1) Daily Logs → Family Hub share defaults,",
-    "(2) stop Pro/cookie overlays blocking care saves, (3) tuition or SMS/email.",
+    couldRunWeek
+      ? "Care→Family Hub workflow is solid. Next: navigation redesign by work mode (not feature dump), then tuition or SMS/email."
+      : "Fix order: (1) Daily Logs → Family Hub share defaults, (2) stop overlays blocking saves, (3) tuition or SMS/email.",
     "Testing only. No merge. No production.",
     "",
   ].join("\n");
 
   fs.mkdirSync(path.join(ROOT, "docs/audits"), { recursive: true });
-  // Prefer curated narrative report if present; always refresh artifact copy + JSON.
   const curatedPath = path.join(ROOT, "docs/audits/PROVIDER_WEEK_SIMULATION_REPORT.md");
-  const reportOut = fs.existsSync(curatedPath) ? fs.readFileSync(curatedPath, "utf8") : md;
-  if (!fs.existsSync(curatedPath)) fs.writeFileSync(curatedPath, md);
-  fs.writeFileSync(path.join(ARTIFACT_DIR, "PROVIDER_WEEK_SIMULATION_REPORT.md"), reportOut);
+  fs.writeFileSync(curatedPath, md);
+  fs.writeFileSync(path.join(ARTIFACT_DIR, "PROVIDER_WEEK_SIMULATION_REPORT.md"), md);
   fs.writeFileSync(path.join(ARTIFACT_DIR, "SIM_RESULT.json"), JSON.stringify({
     couldRunWeek,
     featureCompleteness,

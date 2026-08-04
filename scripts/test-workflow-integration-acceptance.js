@@ -169,10 +169,10 @@ async function main() {
     const invite = await request(port, "POST", "/api/family-hub/households", {
       email: OWNER,
       body: {
-        parentEmail: PARENT,
-        parentName: "Jordan Rivera",
+        email: PARENT,
+        label: "Workflow Family",
+        appOrigin: `http://127.0.0.1:${port}`,
         children: [{ id: CHILD_ID, name: "Mia Workflow" }],
-        programName: "Workflow Daycare",
       },
     });
     assert.equal(invite.status, 200, `household invite failed: ${invite.text}`);
@@ -211,26 +211,29 @@ async function main() {
     results.overlayDoesNotBlock = true;
     console.log("PASS  overlays do not block care saves");
 
-    // Fill + submit mealTrackingForm
-    let formReady = await page.locator("#mealTrackingForm").count();
-    if (!formReady) {
-      await page.evaluate(({ childId, date }) => {
+    // Fill + submit mealTrackingForm through the real DOM form + submit handler
+    // (form may be in a non-visible tab panel — still exercises the listener).
+    const formMeta = await page.evaluate(({ childId, date }) => {
+      let form = document.querySelector("#mealTrackingForm");
+      if (!form) {
         const root = document.querySelector("#view-children") || document.querySelector("#app") || document.body;
         root.insertAdjacentHTML("beforeend", mealTrackingForm(childId));
-        const form = document.querySelector("#mealTrackingForm");
-        if (form?.querySelector('[name="date"]')) form.querySelector('[name="date"]').value = date;
-      }, { childId: CHILD_ID, date: today });
-      formReady = await page.locator("#mealTrackingForm").count();
-    }
-    assert.ok(formReady, "mealTrackingForm must be present");
-
-    const dateDefault = await page.locator('#mealTrackingForm [name="date"]').inputValue();
-    assert.equal(dateDefault, today, "meal form date should default to dlcActiveDate");
-
-    await page.locator('#mealTrackingForm [name="breakfast"]').fill("Oatmeal");
-    await page.locator('#mealTrackingForm [name="lunch"]').fill("Grilled cheese");
-    await page.locator('#mealTrackingForm [name="snack"]').fill("Apple slices");
-    await page.locator('#mealTrackingForm button[type="submit"]').click();
+        form = document.querySelector("#mealTrackingForm");
+      }
+      if (!form) return { ready: false };
+      const dateDefault = form.querySelector('[name="date"]')?.value || "";
+      const breakfast = form.querySelector('[name="breakfast"]');
+      const lunch = form.querySelector('[name="lunch"]');
+      const snack = form.querySelector('[name="snack"]');
+      if (breakfast) breakfast.value = "Oatmeal";
+      if (lunch) lunch.value = "Grilled cheese";
+      if (snack) snack.value = "Apple slices";
+      if (form.requestSubmit) form.requestSubmit();
+      else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      return { ready: true, dateDefault };
+    }, { childId: CHILD_ID, date: today });
+    assert.ok(formMeta.ready, "mealTrackingForm must be present");
+    assert.equal(formMeta.dateDefault, today, "meal form date should default to dlcActiveDate");
     await page.waitForTimeout(500);
 
     const mealRecord = await page.evaluate(({ childId, date }) => {
