@@ -51,6 +51,7 @@ function spawnServer({ port, storePath, hubTesting }) {
       LLH_STORE_PATH: storePath,
       DATABASE_PROVIDER: "local-json",
       HOME_DAYCARE_HUB_TESTING: hubTesting ? "true" : "false",
+      LLH_ALLOW_EPHEMERAL_FAMILY_HUB: "true",
       NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -77,8 +78,8 @@ test("shell markers: hub nav, view, client-config, shell version", () => {
   assert.match(indexHtml, /id="view-home-daycare-hub"/);
   assert.match(indexHtml, /Home Daycare Hub/);
   assert.match(indexHtml, /\/api\/client-config\.js/);
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-(hdh-(step-[a-d]|finish|guide)|ai-guide-audit)"/);
-  assert.match(indexHtml, /app\.js\?v=20260730-(hdh-(step-[a-d]|finish|guide)|ai-guide-audit)/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-cross-feature"/);
+  assert.match(indexHtml, /app\.js\?v=20260803-p1-cross-feature/);
 });
 
 test("server exposes HOME_DAYCARE_HUB_TESTING fence", () => {

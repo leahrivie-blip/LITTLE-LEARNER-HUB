@@ -500,6 +500,12 @@ let hdhAiDraftState = {
 };
 let familyHubHouseholdCache = { households: [], loadedAt: 0 };
 let familyHubInviteResult = null;
+let familyHubParentState = {
+  panel: "today",
+  childId: "",
+  data: null,
+  loadId: "",
+};
 let hdhStaffInviteResult = null;
 let hdhTesterInviteResult = null;
 let hdhTesterInviteCache = { invites: [], loadedAt: 0 };
@@ -1986,7 +1992,9 @@ function setAiDebugEnabled(enabled) {
     renderAiDebugPanel("#docHelperDebugPanel");
   }
 }
-syncAiDebugToggles();
+// Defer until after auth session locals initialize (avoids currentUser TDZ on admin unlock).
+if (typeof queueMicrotask === "function") queueMicrotask(() => { try { syncAiDebugToggles(); } catch (_e) { /* ignore */ } });
+else setTimeout(() => { try { syncAiDebugToggles(); } catch (_e) { /* ignore */ } }, 0);
 
 const ADMIN_PROMPT_LAYER_MASTER = `You are the professional Observation Assistant for Little Learner Hub.
 
@@ -2112,7 +2120,7 @@ const firebaseAuthConfig = {
   appId: "",
 };
 const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthConfig.authDomain && firebaseAuthConfig.projectId && firebaseAuthConfig.appId);
-const authProviderName = firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication";
+const authProviderName = "Email & password";
 let firebaseAuthClient = null;
 // Numeric caps apply to legacy library resources only. Curriculum lesson plans and activities
 // use the curated Free sample (see scripts/free-curriculum-sample.js) — not every Free-tagged plan.
@@ -2923,14 +2931,15 @@ function friendlyAuthError(error) {
   if (code.includes("expired-action-code")) return "This reset link has expired. Please request a new password reset email.";
   if (code.includes("invalid-action-code")) return "This reset link is invalid or has already been used.";
   if (code.includes("unauthorized-domain")) {
-    const host = (() => {
-      try { return window.location.hostname || "littlelearnershubbyleah.com"; } catch { return "littlelearnershubbyleah.com"; }
-    })();
-    return `Password reset is not enabled for this website domain yet. In Firebase Authentication → Settings → Authorized domains, add: ${host}, www.littlelearnershubbyleah.com, and littlelearnershubbyleah.com (plus the Render host if you still use it).`;
+    return "Password reset isn’t available from this site right now. Message Support and we’ll help you get back in.";
   }
-  if (code.includes("operation-not-allowed")) return "Email/password login needs to be enabled in Firebase Authentication.";
+  if (code.includes("operation-not-allowed")) {
+    return "Email sign-in isn’t available right now. Message Support and we’ll help.";
+  }
   if (code.includes("too-many-requests")) return "Too many attempts. Please wait a few minutes and try again.";
-  if (!firebaseAuthEnabled && code === "auth/not-configured") return "Real email recovery is ready to use after Firebase Auth config is added.";
+  if (!firebaseAuthEnabled && code === "auth/not-configured") {
+    return "Password recovery isn’t available right now. Message Support and we’ll help you reset access.";
+  }
   return error?.message || "Something went wrong. Please try again.";
 }
 
@@ -3807,8 +3816,101 @@ function trafficSource() {
   return referrer ? "Referral" : "Direct";
 }
 
+/** Query keys that must never appear in analytics, marketing history, or referrers. */
+const LLH_SENSITIVE_URL_PARAM_KEYS = Object.freeze([
+  "familyHub",
+  "resetToken",
+  "testerInvite",
+  "staffInvite",
+]);
+
+function isSensitiveUrlParamKey(key = "") {
+  const clean = String(key || "").trim().toLowerCase();
+  if (!clean) return false;
+  if (LLH_SENSITIVE_URL_PARAM_KEYS.some((item) => item.toLowerCase() === clean)) return true;
+  return /(?:^|[_-])(token|magic|invite|access[_-]?token|session)(?:$|[_-])/i.test(clean)
+    && !/^(utm_|fbclid|ttclid|gclid|view|email|panel)/i.test(clean);
+}
+
+function redactSensitiveUrl(value = "", options = {}) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const replacement = options.hash ? "[hashed]" : "[redacted]";
+  const scrubParams = (params) => {
+    let changed = false;
+    [...params.keys()].forEach((key) => {
+      if (!isSensitiveUrlParamKey(key)) return;
+      const original = String(params.get(key) || "");
+      if (options.hash && original) {
+        // Short non-reversible fingerprint if uniqueness is needed later.
+        let digest = "x";
+        try {
+          let h = 2166136261;
+          for (let i = 0; i < original.length; i += 1) {
+            h ^= original.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          digest = (h >>> 0).toString(16).slice(0, 12);
+        } catch { digest = "x"; }
+        params.set(key, `${replacement}:${digest}`);
+      } else {
+        params.set(key, replacement);
+      }
+      changed = true;
+    });
+    return changed;
+  };
+  try {
+    const absolute = /^[a-z][a-z0-9+.-]*:/i.test(raw);
+    const url = absolute ? new URL(raw) : new URL(raw, "https://llh.local");
+    scrubParams(url.searchParams);
+    if (absolute) return url.toString();
+    return `${url.pathname}${url.search}${url.hash}` || "/";
+  } catch {
+    return raw.replace(
+      /([?&](?:familyHub|resetToken|testerInvite|staffInvite|magicToken|inviteToken)=)[^&#]*/gi,
+      `$1${replacement}`,
+    );
+  }
+}
+
+function readPendingUrlSecret(key) {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem("llhPendingUrlSecrets") || "{}") || {};
+    const value = String(parsed[key] || "").trim();
+    return value;
+  } catch {
+    return "";
+  }
+}
+
+function consumePendingUrlSecret(key) {
+  const value = readPendingUrlSecret(key);
+  if (!value) return "";
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem("llhPendingUrlSecrets") || "{}") || {};
+    delete parsed[key];
+    sessionStorage.setItem("llhPendingUrlSecrets", JSON.stringify(parsed));
+  } catch { /* ignore */ }
+  return value;
+}
+
+function sanitizeAttributionRecord(attribution = {}) {
+  const next = attribution && typeof attribution === "object" ? { ...attribution } : {};
+  if (next.landingPage) next.landingPage = redactSensitiveUrl(next.landingPage);
+  if (next.route) next.route = redactSensitiveUrl(next.route);
+  if (next.referrer) next.referrer = redactSensitiveUrl(next.referrer);
+  if (next.url) next.url = redactSensitiveUrl(next.url);
+  return next;
+}
+
 function currentAttribution() {
-  return readSavedJson("llhAttribution", {});
+  const saved = readSavedJson("llhAttribution", {});
+  const clean = sanitizeAttributionRecord(saved);
+  if (JSON.stringify(clean) !== JSON.stringify(saved || {})) {
+    try { localStorage.setItem("llhAttribution", JSON.stringify(clean)); } catch { /* ignore */ }
+  }
+  return clean;
 }
 
 function saveAttribution(detail = {}) {
@@ -3816,10 +3918,12 @@ function saveAttribution(detail = {}) {
   // Additive fields only; event names and tracking calls stay the same.
   const existing = currentAttribution();
   const params = new URLSearchParams(window.location.search);
-  const landingPage = `${window.location.pathname || ""}${window.location.search || ""}`
-    || detail.route
-    || window.location.hash
-    || "/";
+  const landingPage = redactSensitiveUrl(
+    `${window.location.pathname || ""}${window.location.search || ""}`
+      || detail.route
+      || window.location.hash
+      || "/",
+  );
   if (existing.firstSeenAt) {
     const patched = { ...existing };
     let changed = false;
@@ -3833,14 +3937,15 @@ function saveAttribution(detail = {}) {
     fill("medium", params.get("utm_medium") || detail.medium || "");
     fill("content", params.get("utm_content") || "");
     fill("term", params.get("utm_term") || "");
-    fill("referrer", document.referrer || "");
+    fill("referrer", redactSensitiveUrl(document.referrer || ""));
     fill("landingPage", landingPage);
-    if (changed) {
-      try { localStorage.setItem("llhAttribution", JSON.stringify(patched)); } catch { /* ignore */ }
+    const sanitized = sanitizeAttributionRecord(patched);
+    if (changed || JSON.stringify(sanitized) !== JSON.stringify(existing)) {
+      try { localStorage.setItem("llhAttribution", JSON.stringify(sanitized)); } catch { /* ignore */ }
     }
-    return patched;
+    return sanitized;
   }
-  const attribution = {
+  const attribution = sanitizeAttributionRecord({
     route: detail.route || window.location.pathname || window.location.hash || "home",
     view: detail.view || "home",
     source: detail.source || trafficSource(),
@@ -3848,10 +3953,10 @@ function saveAttribution(detail = {}) {
     medium: params.get("utm_medium") || detail.medium || "",
     content: params.get("utm_content") || "",
     term: params.get("utm_term") || "",
-    referrer: document.referrer || "",
+    referrer: redactSensitiveUrl(document.referrer || ""),
     landingPage,
     firstSeenAt: new Date().toISOString(),
-  };
+  });
   try { localStorage.setItem("llhAttribution", JSON.stringify(attribution)); } catch { /* ignore */ }
   return attribution;
 }
@@ -3980,11 +4085,11 @@ function trackEvent(name, detail = {}) {
     detail,
     visitorId: visitorId(),
     sessionId: analyticsSessionId(),
-    path: window.location.pathname,
+    path: redactSensitiveUrl(window.location.pathname || "/"),
     hash: window.location.hash,
-    url: window.location.href,
+    url: redactSensitiveUrl(window.location.href),
     pageTitle: document.title,
-    referrer: document.referrer || "",
+    referrer: redactSensitiveUrl(document.referrer || ""),
     source: detail.source || attribution.source || trafficSource(),
     user: currentUser || "",
     plan: currentPlan,
@@ -4021,6 +4126,12 @@ function saveLead(email, source = "Free Daycare Starter Pack") {
 }
 
 function showProFeatureModal(message = "This is a Pro Feature.", type = "feature") {
+  // Never interrupt care saves on the testing site when Testing Pro (or real Pro) applies.
+  // Guard boot TDZ: this can run while app.js is still initializing currentUser.
+  try {
+    if (typeof isProUser === "function" && isProUser()) return;
+    if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) return;
+  } catch (_error) { /* ignore boot race */ }
   const modal = document.querySelector("#proModal");
   const body = document.querySelector("#proModalBody");
   const eyebrow = document.querySelector("#proModalEyebrow");
@@ -4379,7 +4490,9 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
 }
 
 function accountStatusBadgeHtml(account = currentAccount(), options = {}) {
-  const status = accountProductStatus(account);
+  const status = typeof membershipDisplayStatus === "function"
+    ? membershipDisplayStatus(account)
+    : accountProductStatus(account);
   const compact = options.compact === true;
   return `<span class="llh-account-status-badge llh-account-status-badge--${escapeHtml(status.tone)}" title="${escapeHtml(status.detail)}">${status.emoji} ${escapeHtml(status.label)}${compact ? "" : ""}</span>`;
 }
@@ -4921,10 +5034,13 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       || (cleanEmail === currentUser ? currentAccount() : null)
       || readSavedJson("llhAccounts", {})?.[cleanEmail]
       || null;
+    // Server is authoritative when it explicitly denies Pro access.
+    const serverDeniesPro = data?.subscription?.hasProAccess === false;
     if (
       updates.plan === "Free"
       && localAccount
       && accountHasRemainingPaidAccess(localAccount)
+      && !serverDeniesPro
       && !data?.recoveredFromStripe
       && !options.allowDemote
       && !String(data?.subscription?.subscriptionStatus || "").toLowerCase().includes("payment failed")
@@ -6467,7 +6583,7 @@ function renderAiGuideHome() {
             <button class="ai-guide-category-card" type="button" data-ai-guide-category="${escapeHtml(category.id)}" ${ready && !askBlocked ? "" : "disabled"}>
               <strong>${escapeHtml(category.label)}</strong>
               <span>${escapeHtml(category.blurb)}</span>
-              <em>Phase ${escapeHtml(String(category.phase || 1))}</em>
+              <em>${ready && !askBlocked ? "Ready to try" : (askBlocked ? "Ask mode off" : "Coming next")}</em>
             </button>
           `;
         }).join("")}
@@ -6671,7 +6787,7 @@ function renderAiGuidePage() {
         <div class="child-page-header">
           <div>
             <h2>AI Guide</h2>
-            <p>AI Guide is only available on the testing site while we build it.</p>
+            <p>AI Guide isn’t available on this site yet. Continue with Documentation Helpers for now.</p>
           </div>
         </div>
         <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
@@ -6684,9 +6800,9 @@ function renderAiGuidePage() {
       <button class="ghost-button back-button" data-view="calendar" type="button">← Back to Calendar</button>
       <div class="child-page-header">
         <div>
-          <p class="eyebrow">Testing only · Phases 1–3</p>
+          <p class="eyebrow">Early access</p>
           <h2>AI Guide</h2>
-          <p>Turn short notes into childcare drafts you review before using. Ask mode is read-only. Nothing sends or publishes on its own.</p>
+          <p>Turn short notes into childcare drafts you review before using. Ask mode is read-only — nothing sends or publishes on its own.</p>
         </div>
       </div>
       <div id="aiGuideBody">
@@ -7062,13 +7178,16 @@ const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
   "Enrollment",
   "Emergency contacts",
   "Allergy / medical",
+  "Medication",
   "Sunscreen authorization",
   "Photo release",
+  "Permission",
   "Incident report",
   "Field trip",
   "Handbook acknowledgment",
   "Infant safe sleep",
   "Diaper cream authorization",
+  "Staff",
   "Other",
 ]);
 
@@ -7096,6 +7215,13 @@ const HOME_DAYCARE_FORMS_PACK = Object.freeze([
     description: "Allergies, reactions, and emergency medical notes.",
   },
   {
+    id: "hdh-pack-medication",
+    title: "Medication Authorization",
+    category: "Medication",
+    resourceId: "form-medical-forms-medication-authorization",
+    description: "Parent permission to store and give medication.",
+  },
+  {
     id: "hdh-pack-sunscreen",
     title: "Sunscreen Authorization",
     category: "Sunscreen authorization",
@@ -7119,9 +7245,16 @@ const HOME_DAYCARE_FORMS_PACK = Object.freeze([
   {
     id: "hdh-pack-field-trip",
     title: "Field Trip Permission",
-    category: "Field trip",
+    category: "Permission",
     resourceId: "form-enrollment-forms-field-trip-permission",
     description: "Permission for off-site trips and outings.",
+  },
+  {
+    id: "hdh-pack-staff-info",
+    title: "Staff Information Sheet",
+    category: "Staff",
+    resourceId: "form-staff-forms-staff-information-sheet",
+    description: "Staff contact, emergency, and onboarding details.",
   },
   {
     id: "hdh-pack-handbook",
@@ -7317,9 +7450,9 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
   const hasDraft = Boolean(String(hdhAiDraftState.lastOutput || "").trim());
   return `
     <section class="section-block hdh-ai-draft-panel" id="hdhAiDraftPanel">
-      <p class="eyebrow">Step C</p>
-      <h3>AI form draft</h3>
-      <p class="muted-copy">Generate a filled draft from short notes. Review and edit before saving. Family send comes later — nothing is sent automatically.</p>
+      <p class="eyebrow">AI Form Builder</p>
+      <h3>AI Form Builder</h3>
+      <p class="muted-copy">Generate a filled draft from short notes. Review and edit, then save to the child profile, save as a reusable template, print PDF, or share to Family Hub for parent sign-off.</p>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <form id="hdhAiDraftForm" class="panel-form hdh-ai-draft-form">
         <div class="form-grid-two">
@@ -7353,10 +7486,11 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
           <button class="ghost-button" type="button" data-hdh-ai-edit>${hdhAiDraftState.editing ? "Done editing" : "Edit draft"}</button>
           <button class="ghost-button" type="button" data-hdh-ai-regenerate>Regenerate</button>
           <button class="primary-button" type="button" data-hdh-ai-save>Save to child file</button>
-          <button class="ghost-button" type="button" data-hdh-ai-print>Print</button>
-          <button class="ghost-button" type="button" data-hdh-ai-send-later title="Invite or open Family Hub for this child">Send later (Family Hub)</button>
+          <button class="ghost-button" type="button" data-hdh-ai-save-template>Save as template</button>
+          <button class="ghost-button" type="button" data-hdh-ai-print>Print PDF</button>
+          <button class="ghost-button" type="button" data-hdh-ai-send-later title="Save and notify Family Hub">Share with Family Hub</button>
         </div>
-        <p class="form-note" id="hdhAiDraftHint">Review this draft carefully before saving or printing. Sending to families is not available yet.</p>
+        <p class="form-note" id="hdhAiDraftHint">Full forms path: Generate → Edit → Save template or child file → Share with Family Hub → Parent signs → You review &amp; print.</p>
         <div id="hdhAiDraftOutput" class="hdh-ai-draft-output" ${hdhAiDraftState.editing ? 'contenteditable="true"' : ""}>${hasDraft ? renderMarkdown(hdhAiDraftState.lastOutput) : ""}</div>
       </div>
     </section>
@@ -7476,7 +7610,7 @@ async function runHomeDaycareAiFormDraft({ draftAction = "" } = {}) {
       } catch (error) {
         output = generateDaycareForm(data);
         if (hintEl) {
-          hintEl.textContent = `${error.message || "AI was unavailable."} Showing a local template draft instead — edit before use.`;
+          hintEl.textContent = "We couldn’t generate a draft just now. Here’s a starter template — review and edit before saving.";
         }
       }
     } else {
@@ -7496,11 +7630,11 @@ async function runHomeDaycareAiFormDraft({ draftAction = "" } = {}) {
     if (previousOutput) {
       hdhAiDraftState.lastOutput = previousOutput;
       outputEl.innerHTML = renderMarkdown(previousOutput);
-      if (hintEl) hintEl.textContent = "Generation failed. Your previous draft is still here.";
+      if (hintEl) hintEl.textContent = "Couldn’t generate a new draft. Your previous draft is still here — edit your notes and try again.";
     } else {
       outputEl.textContent = error.message || "We couldn't create your form draft. Please try again.";
       hdhAiDraftState.lastOutput = "";
-      if (hintEl) hintEl.textContent = "Generation failed. Edit your notes and try again.";
+      if (hintEl) hintEl.textContent = "Couldn’t generate a draft. Edit your notes and try again.";
     }
   } finally {
     if (submitBtn) {
@@ -7550,34 +7684,355 @@ function saveHomeDaycareAiFormDraftToChild() {
   }
   selectedChildId = childId;
   localStorage.setItem("llhSelectedChild", selectedChildId);
-  appendChildRecord("Documents", {
+  const saved = appendChildRecord("Documents", {
     childId,
     title: `${packForm.title} (AI draft)`,
     category: packForm.category,
     packFormId: packForm.id,
     resourceId: packForm.resourceId,
-    status: "received",
-    statusLabel: "Draft ready — review before family use",
+    status: "needed",
+    statusLabel: homeDaycarePackDocumentStatusLabel("needed"),
     notes: "AI-assisted draft. Review for accuracy and licensing before sharing with families.",
     draftText,
+    shareWithFamily: true,
+    providerReviewed: false,
     date: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString(),
   });
   childProfileTab = "forms-records";
   childManagementMode = "profile";
-  if (hintEl) hintEl.textContent = "Saved to the child’s Forms & Records file. Family send is not available yet.";
+  if (hintEl) hintEl.textContent = "Saved to the child’s Forms & Records file. Use Share with Family Hub to notify parents in-app.";
   showActionFeedback("AI form draft saved to child file.");
   trackEvent("hdh_ai_form_draft_saved", { form: packForm.id });
+  return saved;
 }
 
 function homeDaycarePackDocumentStatusLabel(status = "needed") {
   const statusLabels = {
+    draft: "Draft — review before sharing",
     needed: "Needed",
+    assigned: "Assigned",
     requested: "Requested from family",
+    notified: "Shared — awaiting parent",
     received: "Received",
-    signed: "Signed / complete",
+    signed: "Signed — provider review",
+    on_file: "On file",
+    reviewed: "Reviewed & on file",
   };
   return statusLabels[status] || status;
+}
+
+function formsProgramTemplates() {
+  const settings = getProgramSettings() || {};
+  return Array.isArray(settings.formTemplates) ? settings.formTemplates : [];
+}
+
+function saveFormsProgramTemplates(templates) {
+  const settings = { ...(getProgramSettings() || {}), formTemplates: templates };
+  saveProgramSettings(settings);
+  return templates;
+}
+
+function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
+  const text = String(body || "").trim();
+  if (!text) throw new Error("Generate or edit a draft before saving a template.");
+  const template = {
+    id: `form-template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    title: String(title || "Custom form").trim() || "Custom form",
+    category: String(category || "Other").trim() || "Other",
+    body: text,
+    packFormId: String(packFormId || "").trim(),
+    resourceId: String(resourceId || "").trim(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const next = [template, ...formsProgramTemplates()].slice(0, 80);
+  saveFormsProgramTemplates(next);
+  return template;
+}
+
+function formsAttentionDocuments(records = childRecords()) {
+  const docs = Array.isArray(records.documents) ? records.documents : (childStore("Documents") || []);
+  const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
+  const activeChildIds = new Set(
+    children.filter((child) => child && !child.archived).map((child) => String(child.id)),
+  );
+  const nameFor = (id) => children.find((child) => String(child.id) === String(id))?.name || "Child";
+  return docs
+    .filter((doc) => !doc.archived && activeChildIds.has(String(doc.childId || "")))
+    .map((doc) => {
+      const status = String(doc.status || "").toLowerCase();
+      const signedNeedsReview = (status === "signed" || Boolean(doc.signedAt)) && !doc.providerReviewed;
+      const awaitingParent = doc.shareWithFamily && ["needed", "requested", "notified", "assigned", "action needed", "draft"].includes(status) && !doc.signedAt;
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < new Date().toISOString().slice(0, 10) && !doc.signedAt && !doc.providerReviewed;
+      let attention = "";
+      if (signedNeedsReview) attention = "signed_review";
+      else if (overdue) attention = "overdue";
+      else if (awaitingParent) attention = "awaiting_parent";
+      return attention ? { ...doc, childName: nameFor(doc.childId), attention } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt || b.signedAt || "").localeCompare(String(a.updatedAt || a.signedAt || "")));
+}
+
+function formsStatusSummary(records = childRecords()) {
+  const docs = (Array.isArray(records.documents) ? records.documents : (childStore("Documents") || []))
+    .filter((doc) => !doc.archived);
+  const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
+  const activeChildIds = new Set(children.filter((child) => child && !child.archived).map((child) => String(child.id)));
+  const live = docs.filter((doc) => activeChildIds.has(String(doc.childId || "")));
+  const attention = formsAttentionDocuments(records);
+  return {
+    pending: attention.filter((item) => item.attention === "awaiting_parent").length,
+    overdue: attention.filter((item) => item.attention === "overdue").length,
+    needsReview: attention.filter((item) => item.attention === "signed_review").length,
+    complete: live.filter((doc) => doc.providerReviewed || ["on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())).length,
+    total: live.length,
+  };
+}
+
+function childHasOpenAssignedForm(childId, formSpec = {}) {
+  const docs = childStore("Documents") || [];
+  const templateId = String(formSpec.templateId || "").trim();
+  const packFormId = String(formSpec.packFormId || "").trim();
+  const title = String(formSpec.title || "").trim().toLowerCase();
+  return docs.find((doc) => {
+    if (String(doc.childId) !== String(childId) || doc.archived) return false;
+    if (doc.signedAt || doc.providerReviewed || ["signed", "on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())) {
+      return false;
+    }
+    if (templateId && String(doc.templateId || "") === templateId) return true;
+    if (packFormId && String(doc.packFormId || "") === packFormId) return true;
+    if (title && String(doc.title || "").trim().toLowerCase() === title) return true;
+    return false;
+  }) || null;
+}
+
+function assignFormDocumentToChild(childId, formSpec = {}) {
+  if (!childId) throw new Error("Choose a child before assigning a form.");
+  const existing = childHasOpenAssignedForm(childId, formSpec);
+  if (existing && formSpec.allowDuplicate !== true) {
+    // Refresh due date / share flags on the open assignment instead of duplicating.
+    const docs = childStore("Documents") || [];
+    const dueDate = String(formSpec.dueDate || existing.dueDate || "").trim();
+    const shareWithFamily = formSpec.shareWithFamily !== false;
+    const status = shareWithFamily ? "notified" : (existing.status || "assigned");
+    const next = docs.map((item) => (
+      String(item.id) === String(existing.id)
+        ? {
+          ...item,
+          dueDate,
+          shareWithFamily,
+          status,
+          statusLabel: homeDaycarePackDocumentStatusLabel(status),
+          draftText: String(formSpec.draftText || formSpec.body || item.draftText || "").trim() || item.draftText,
+          updatedAt: new Date().toISOString(),
+          duplicateAssignSkipped: true,
+        }
+        : item
+    ));
+    saveChildStore("Documents", next);
+    return next.find((item) => String(item.id) === String(existing.id));
+  }
+  const title = String(formSpec.title || "Form").trim() || "Form";
+  const category = String(formSpec.category || "Other").trim() || "Other";
+  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
+  const dueDate = String(formSpec.dueDate || "").trim();
+  const shareWithFamily = formSpec.shareWithFamily !== false;
+  const status = shareWithFamily ? "notified" : "assigned";
+  const saved = appendChildRecord("Documents", {
+    childId,
+    title,
+    category,
+    packFormId: formSpec.packFormId || "",
+    resourceId: formSpec.resourceId || "",
+    templateId: formSpec.templateId || "",
+    status,
+    statusLabel: homeDaycarePackDocumentStatusLabel(status),
+    notes: String(formSpec.notes || "").trim(),
+    draftText,
+    dueDate,
+    shareWithFamily,
+    date: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString(),
+    providerReviewed: false,
+  });
+  return saved;
+}
+
+async function assignAndNotifyForm(formSpec = {}, childIds = []) {
+  const ids = (Array.isArray(childIds) ? childIds : []).map(String).filter(Boolean);
+  if (!ids.length) throw new Error("Select at least one child.");
+  const saved = [];
+  let refreshed = 0;
+  for (const childId of ids) {
+    const before = childHasOpenAssignedForm(childId, formSpec);
+    const doc = assignFormDocumentToChild(childId, formSpec);
+    if (before && String(before.id) === String(doc.id)) refreshed += 1;
+    saved.push(doc);
+    if (doc.shareWithFamily) {
+      try { await shareChildDocumentWithFamily(doc.id); } catch (_error) { /* invite may be missing */ }
+    }
+  }
+  saved.refreshedCount = refreshed;
+  return saved;
+}
+
+function markChildDocumentReviewed(documentId) {
+  const docs = childStore("Documents") || [];
+  const next = docs.map((item) => (
+    String(item.id) === String(documentId)
+      ? {
+        ...item,
+        providerReviewed: true,
+        status: "on_file",
+        statusLabel: homeDaycarePackDocumentStatusLabel("on_file"),
+        reviewedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      : item
+  ));
+  saveChildStore("Documents", next);
+}
+
+function printChildDocumentRecord(documentId) {
+  const doc = (childStore("Documents") || []).find((item) => String(item.id) === String(documentId));
+  if (!doc) throw new Error("Form not found.");
+  const child = (childStore("Profiles") || []).find((item) => String(item.id) === String(doc.childId));
+  const body = String(doc.signedSnapshot || doc.draftText || doc.notes || "").trim()
+    || `${doc.title || "Form"}\n\nStatus: ${doc.statusLabel || doc.status || "Needed"}`;
+  const banner = [
+    doc.signedAt ? `SIGNED in Family Hub on ${String(doc.signedAt).slice(0, 10)}` : "DRAFT / UNSIGNED",
+    doc.signedBy ? `Signer: ${doc.signedBy}` : "",
+    child?.name ? `Child: ${child.name}` : "",
+    doc.dueDate ? `Due: ${doc.dueDate}` : "",
+    "Testing acknowledgment — not a legal e-signature.",
+  ].filter(Boolean).join("\n");
+  printTextDocument(doc.title || "Form", `${banner}\n\n---\n\n${body}`);
+}
+
+function renderFormsAttentionPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const items = formsAttentionDocuments();
+  const summary = formsStatusSummary();
+  const signed = items.filter((item) => item.attention === "signed_review");
+  const awaiting = items.filter((item) => item.attention === "awaiting_parent");
+  const overdue = items.filter((item) => item.attention === "overdue");
+  return `
+    <section class="section-block" id="hdhFormsAttentionPanel">
+      <p class="eyebrow">Forms system</p>
+      <h3>Forms needing attention</h3>
+      <p class="muted-copy">Signed forms ready for your review, shared forms waiting on parents, and anything past due — all from one place.</p>
+      <div class="forms-status-summary" role="status" aria-label="Forms status summary">
+        <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> pending</span>
+        <span class="hdh-form-status-chip is-overdue"><strong>${summary.overdue}</strong> overdue</span>
+        <span class="hdh-form-status-chip is-review"><strong>${summary.needsReview}</strong> to review</span>
+        <span class="hdh-form-status-chip is-complete"><strong>${summary.complete}</strong> complete</span>
+      </div>
+      <div class="account-actions-row" style="margin-bottom:12px;">
+        <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Program templates</button>
+        <button class="ghost-button" type="button" data-hdh-forms-refresh>Refresh statuses</button>
+      </div>
+      ${!items.length
+        ? `<div class="profile-empty-state"><strong>You’re caught up</strong><p>${summary.complete ? `${summary.complete} form${summary.complete === 1 ? "" : "s"} on file. ` : ""}When parents sign shared forms, they’ll land here for review and printable PDF.</p></div>`
+        : `
+        ${signed.length ? `
+          <h4>Signed — review &amp; file</h4>
+          <div class="resource-list compact">${signed.slice(0, 8).map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Form")}</strong>
+                <p class="muted-copy">${escapeHtml(item.childName)} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}</p>
+              </div>
+              <div class="hdh-forms-pack-actions">
+                <button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>
+                <button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>
+                <button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(item.childId)}" data-open-child-tab="forms-records">Open file</button>
+              </div>
+            </article>`).join("")}</div>` : ""}
+        ${overdue.length ? `
+          <h4>Past due</h4>
+          <div class="resource-list compact">${overdue.slice(0, 6).map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Form")}</strong>
+                <p class="muted-copy">${escapeHtml(item.childName)} · due ${escapeHtml(item.dueDate || "")}</p>
+              </div>
+              <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Remind family</button>
+            </article>`).join("")}</div>` : ""}
+        ${awaiting.length ? `
+          <h4>Awaiting parent</h4>
+          <div class="resource-list compact">${awaiting.slice(0, 6).map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Form")}</strong>
+                <p class="muted-copy">${escapeHtml(item.childName)} · ${escapeHtml(item.statusLabel || item.status || "Shared")}</p>
+              </div>
+              <button class="ghost-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Notify again</button>
+            </article>`).join("")}</div>` : ""}
+        `}
+    </section>
+  `;
+}
+
+function renderProgramFormTemplatesPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const templates = formsProgramTemplates();
+  const children = (childRecords().children || []).filter((child) => !child.archived);
+  return `
+    <section class="section-block" id="hdhFormTemplatesPanel">
+      <p class="eyebrow">Templates</p>
+      <h3>Program form templates</h3>
+      <p class="muted-copy">Save AI drafts as reusable templates, then assign them to children and notify Family Hub in one step. Editing a template updates future assignments only — forms already sent keep their saved copy.</p>
+      ${templates.length
+        ? templates.map((template) => `
+          <article class="hdh-forms-pack-item">
+            <div>
+              <strong>${escapeHtml(template.title)}</strong>
+              <p class="muted-copy">${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
+            </div>
+            <div class="hdh-forms-pack-actions">
+              <button class="ghost-button" type="button" data-edit-form-template="${escapeHtml(template.id)}">Edit</button>
+              <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(template.id)}">Print</button>
+              <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Assign</button>
+              <button class="ghost-button" type="button" data-delete-form-template="${escapeHtml(template.id)}">Remove</button>
+            </div>
+            <form class="panel-form hdh-edit-template-form" data-edit-template-form="${escapeHtml(template.id)}" hidden>
+              <label>Title<input name="title" required maxlength="120" value="${escapeHtml(template.title || "")}" /></label>
+              <label>Category
+                <select name="category">
+                  ${HOME_DAYCARE_FORM_CATEGORIES.map((category) => `
+                    <option value="${escapeHtml(category)}" ${category === (template.category || "Other") ? "selected" : ""}>${escapeHtml(category)}</option>
+                  `).join("")}
+                </select>
+              </label>
+              <label>Form body<textarea name="body" rows="8" required maxlength="12000">${escapeHtml(template.body || "")}</textarea></label>
+              <p class="form-note">Already-assigned child forms keep their original wording. New assigns use this edited body.</p>
+              <button class="primary-button" type="submit">Save template changes</button>
+            </form>
+            <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
+              <label>Due date (optional)<input type="date" name="dueDate" /></label>
+              <fieldset class="hdh-child-pick-fieldset">
+                <legend>Assign to children</legend>
+                <div class="hdh-child-pick-grid">
+                  ${children.map((child) => `
+                    <label class="area-check">
+                      <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${children.length === 1 ? "checked" : ""} />
+                      <span>${escapeHtml(child.name)}</span>
+                    </label>
+                  `).join("") || '<p class="muted-copy">Add a child first.</p>'}
+                </div>
+              </fieldset>
+              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub</label>
+              <button class="primary-button" type="submit">Assign &amp; notify</button>
+            </form>
+          </article>
+        `).join("")
+        : `<div class="profile-empty-state"><strong>No program templates yet</strong><p>Generate a form with AI, then tap Save as template. Your custom forms will show here for reuse.</p></div>`}
+    </section>
+  `;
 }
 
 function childAlreadyHasHomeDaycarePackForm(existingForChild, packForm) {
@@ -7603,8 +8058,101 @@ function addHomeDaycarePackFormToChild(childId, packForm, status = "needed") {
     notes: "",
     date: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString(),
+    shareWithFamily: true,
   });
   return true;
+}
+
+function extractParentEmailFromChild(child = {}) {
+  const guardianEmail = (Array.isArray(child.guardians) ? child.guardians : [])
+    .map((guardian) => String(guardian?.email || "").trim().toLowerCase())
+    .find((email) => email.includes("@"));
+  if (guardianEmail) return guardianEmail;
+  const hint = String(child.parentInfo || "").trim();
+  const angle = hint.match(/<([^>]+@[^>]+)>/);
+  if (angle?.[1]) return angle[1].trim().toLowerCase();
+  const bare = hint.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return bare ? bare[0].trim().toLowerCase() : "";
+}
+
+async function maybeLinkChildToFamilyHubHouseholds(child = {}) {
+  if (!isHomeDaycareHubTestingEnabled() || !child?.id || !canUseLaunchBackend()) return 0;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return 0;
+  const listRes = await fetch("/api/family-hub/households", { headers, cache: "no-store" });
+  const listData = await listRes.json().catch(() => ({}));
+  if (!listRes.ok) return 0;
+  const households = (listData.households || []).filter((item) => item && item.status !== "revoked");
+  if (!households.length) return 0;
+  const parentEmail = extractParentEmailFromChild(child);
+  const targets = households.filter((household) => {
+    const ids = (household.childIds || []).map(String);
+    if (ids.includes(String(child.id))) return false;
+    if (households.length === 1) return true;
+    if (!parentEmail) return false;
+    const guardians = [
+      String(household.email || "").toLowerCase(),
+      ...((household.guardianEmails || []).map((email) => String(email || "").toLowerCase())),
+    ];
+    return guardians.includes(parentEmail);
+  });
+  let linked = 0;
+  for (const household of targets) {
+    const nextChildren = [
+      ...((household.children || []).map((item) => ({ id: item.id, name: item.name }))),
+      { id: child.id, name: child.name },
+    ];
+    const response = await fetch(`/api/family-hub/households/${encodeURIComponent(household.id)}/children`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ children: nextChildren }),
+      cache: "no-store",
+    });
+    if (response.ok) linked += 1;
+  }
+  return linked;
+}
+
+async function shareChildDocumentWithFamily(documentId) {
+  const docs = childStore("Documents") || [];
+  const doc = docs.find((item) => String(item.id) === String(documentId));
+  if (!doc) throw new Error("Document not found.");
+  const child = (childStore("Profiles") || []).find((item) => String(item.id) === String(doc.childId)) || null;
+  const next = docs.map((item) => (
+    String(item.id) === String(documentId)
+      ? {
+        ...item,
+        shareWithFamily: true,
+        status: item.status === "signed" || item.signedAt ? "signed" : "notified",
+        statusLabel: item.status === "signed" || item.signedAt
+          ? (item.statusLabel || homeDaycarePackDocumentStatusLabel("signed"))
+          : homeDaycarePackDocumentStatusLabel("notified"),
+        updatedAt: new Date().toISOString(),
+      }
+      : item
+  ));
+  saveChildStore("Documents", next);
+  if (child) await maybeLinkChildToFamilyHubHouseholds(child).catch(() => 0);
+  if (!isHomeDaycareHubTestingEnabled()) {
+    return { ok: true, localOnly: true };
+  }
+  const headers = await staffAuthHeaders();
+  if (!headers) return { ok: true, localOnly: true };
+  const response = await fetch("/api/family-hub/provider-notifications", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      childId: doc.childId,
+      type: "form",
+      title: "New form to review",
+      body: `${doc.title || "A form"} is ready in Family Hub Forms.`,
+      href: "forms",
+    }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Form saved, but Family Hub could not be notified.");
+  return data;
 }
 
 function addAllHomeDaycarePackFormsToChild(childId) {
@@ -7630,6 +8178,7 @@ function addAllHomeDaycarePackFormsToChild(childId) {
       notes: "",
       date: today,
       updatedAt: now,
+      shareWithFamily: true,
     };
     next.push(record);
     existingForChild.push(record);
@@ -12700,6 +13249,10 @@ function roleAllowsCapability(role, capability) {
 function accountTypeAllowsCapability(accountType, capability) {
   const type = normalizeAccountType(accountType);
   if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
+    // Work-mode nav (testing) surfaces Families/Classrooms/Enrollment for home daycares too.
+    try {
+      if (typeof isWorkModeNavEnabled === "function" && isWorkModeNavEnabled()) return true;
+    } catch (_error) { /* boot race */ }
     return type === ACCOUNT_TYPES.CENTER;
   }
   return true;
@@ -12710,7 +13263,8 @@ function canAccessCapability(account, capability, options = {}) {
   if (options.adminOverride === true) return true;
   if (!account) return false;
   const accountType = resolveAccountType(account);
-  const role = resolveUserRole(account);
+  // Prefer getUserRole so Admin View As (Owner/Director/Teacher/Assistant) updates nav/permissions instantly.
+  const role = typeof getUserRole === "function" ? getUserRole(account) : resolveUserRole(account);
   if (!accountTypeAllowsCapability(accountType, capability)) return false;
   if (!roleAllowsCapability(role, capability)) return false;
   return true;
@@ -12743,6 +13297,8 @@ function getAccountType(account = currentAccount()) {
 
 /** Current session user role. Guests default to owner for read-only marketing paths. */
 function getUserRole(account = currentAccount()) {
+  const previewRole = typeof adminPreviewUserRole === "function" ? adminPreviewUserRole() : "";
+  if (previewRole) return previewRole;
   if (!account) return USER_ROLES.OWNER;
   return resolveUserRole(account);
 }
@@ -13057,7 +13613,7 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   }
   ensureAccount(cleanEmail);
   updateAccount(cleanEmail, {
-    authProvider: "Local demo authentication",
+    authProvider: "Email & password",
     emailVerified: false,
     phone: String(phone || "").trim(),
     firstName: cleanFirst,
@@ -13065,7 +13621,7 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
     name: fullName || undefined,
     passwordHash: await localPasswordHash(password),
   });
-  return { email: cleanEmail, verified: false, message: "Demo account created. Connect Firebase Auth to send real verification emails." };
+  return { email: cleanEmail, verified: false, message: "Welcome! Your account is ready — you can start exploring right away." };
 }
 
 async function loginWithServerPassword(email, password) {
@@ -13084,7 +13640,7 @@ async function loginWithServerPassword(email, password) {
     mustChangePassword: Boolean(data.mustChangePassword),
     serverPasswordAuth: Boolean(data.serverPasswordAuth),
     tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
-    authProvider: firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication",
+    authProvider: "Email & password",
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
@@ -13166,7 +13722,7 @@ async function loginWithProvider(email, password) {
       } catch (serverError) {
         const serverMsg = String(serverError?.message || "");
         if (/method not allowed|failed to fetch|network|offline/i.test(serverMsg)) {
-          throw new Error("Sign-in recovery is still deploying. Please wait one minute and try again.");
+          throw new Error("Sign-in is taking longer than usual. Wait a moment and try again, or Message Support if it keeps happening.");
         }
         throw serverError?.message ? serverError : firebaseError;
       }
@@ -13267,7 +13823,7 @@ async function sendPasswordReset(email) {
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }));
   console.info("[auth] password_reset_demo_token_created", { email: cleanEmail });
-  return "Demo reset created. Connect Firebase Auth to send real password reset emails.";
+  return "If that email is on file, you can continue with a reset link. Check your inbox and spam folder, or Message Support if nothing arrives.";
 }
 
 async function resendVerificationEmail() {
@@ -13292,7 +13848,7 @@ async function resendVerificationEmail() {
     console.warn("[auth] server_verification_email_unavailable", error);
   }
   updateAccount(currentUser, { emailVerified: false });
-  return "Demo mode: connect Firebase Auth to send a real verification email.";
+  return "We couldn’t send a verification email right now. Try again in a minute, or Message Support and we’ll help.";
 }
 
 async function changePassword(currentPassword, newPassword) {
@@ -13335,13 +13891,13 @@ async function changePassword(currentPassword, newPassword) {
       });
     }
   } catch { /* best-effort */ }
-  return "Demo password updated. Connect Firebase Auth for production password security.";
+  return "Password updated. You’re all set — keep using your email and new password to sign in.";
 }
 
 async function confirmPasswordResetFromLink(newPassword) {
   if (String(newPassword || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
   const params = new URLSearchParams(window.location.search);
-  const resetToken = params.get("resetToken");
+  const resetToken = params.get("resetToken") || consumePendingUrlSecret("resetToken");
   if (resetToken) {
     const response = await fetch("/api/auth/password-reset/complete", {
       method: "POST",
@@ -13416,7 +13972,7 @@ async function confirmPasswordResetFromLink(newPassword) {
     // Persist into server JSON store so password-login works after demo reset.
     await syncPasswordAfterFirebaseAuth(newPassword, "demo_password_reset", cleanEmail);
     console.info("[auth] password_reset_demo_success", { email: cleanEmail });
-    return "Demo password reset complete. You can now log in.";
+    return "Password reset complete. You can now log in with your new password.";
   }
   throw new Error("This reset link is missing or expired. Please request a new password reset email.");
 }
@@ -13525,54 +14081,446 @@ function syncPlatformNavVisibility() {
   syncAiGuideNavVisibility();
   syncWhatsNewNavVisibility();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
+    if (section.hasAttribute("data-work-nav-root")) return;
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+  syncWorkModeNav();
+  syncUniversalQuickAdd();
   syncHdhTesterSwitcherChrome();
 }
 
-let whatsNewNavSyncPromise = null;
-window.whatsNewNavHasNotes = null;
-
-function setWhatsNewNavVisible(show) {
-  const link = document.querySelector("#whatsNewNavLink");
-  if (!link) return;
-  const visible = Boolean(show) && isLoggedIn();
-  link.hidden = !visible;
-  link.setAttribute("aria-hidden", visible ? "false" : "true");
-  if (visible) link.removeAttribute("tabindex");
-  else link.setAttribute("tabindex", "-1");
+/** Testing-site work-mode nav: role-specific homes (not a shared feature dump). */
+function isWorkModeNavEnabled() {
+  try {
+    return Boolean(
+      isHomeDaycareHubTestingEnabled()
+      && isLoggedIn()
+      && !isFamilyHubParentMode()
+    );
+  } catch (_error) {
+    return false;
+  }
 }
-window.setWhatsNewNavVisible = setWhatsNewNavVisible;
 
-function syncWhatsNewNavVisibility() {
-  const link = document.querySelector("#whatsNewNavLink");
-  if (!link) return;
-  if (!isLoggedIn()) {
-    setWhatsNewNavVisible(false);
+function workModeRole() {
+  const role = typeof getUserRole === "function" ? getUserRole() : "owner";
+  if (role === USER_ROLES.DIRECTOR) return "director";
+  if (role === USER_ROLES.TEACHER) return "teacher";
+  if (role === USER_ROLES.ASSISTANT) return "assistant";
+  return "owner";
+}
+
+function workModeLandingView(role = workModeRole()) {
+  if (role === "teacher" || role === "assistant") return "today";
+  return "home";
+}
+
+function syncWorkModeNav() {
+  const enabled = isWorkModeNavEnabled();
+  const role = workModeRole();
+  document.body.classList.toggle("work-mode-nav", enabled);
+  document.body.dataset.workRole = enabled ? role : "";
+
+  const workRoot = document.querySelector("[data-work-nav-root]");
+  if (workRoot) workRoot.hidden = !enabled;
+
+  document.querySelectorAll("[data-legacy-nav='true']").forEach((section) => {
+    section.hidden = enabled;
+    section.setAttribute("aria-hidden", enabled ? "true" : "false");
+  });
+
+  document.querySelectorAll("[data-work-nav]").forEach((button) => {
+    const roles = String(button.getAttribute("data-work-roles") || "")
+      .split(",")
+      .map((r) => r.trim())
+      .filter(Boolean);
+    const show = enabled && roles.includes(role);
+    button.hidden = !show;
+    button.setAttribute("aria-hidden", show ? "false" : "true");
+    if (show) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+
+  // Role-specific Children label (Owner vs Teacher vs Assistant — intentionally not symmetrical).
+  document.querySelectorAll("[data-work-label-owner]").forEach((el) => {
+    el.hidden = !(role === "owner" || role === "director");
+  });
+  document.querySelectorAll("[data-work-label-teacher]").forEach((el) => {
+    el.hidden = role !== "teacher";
+  });
+  document.querySelectorAll("[data-work-label-assistant]").forEach((el) => {
+    el.hidden = role !== "assistant";
+  });
+
+  // Testing Pro: never show upgrade CTA on testing work-mode.
+  const upgradeCard = document.querySelector("#sidebarFreeUpgradeCard");
+  if (upgradeCard && typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) {
+    upgradeCard.hidden = true;
+  }
+}
+
+function workHubTile(options = {}) {
+  const {
+    view = "",
+    title = "",
+    detail = "",
+    primary = false,
+    attrs = "",
+  } = options;
+  const viewAttr = view ? `data-view="${escapeHtml(view)}"` : "";
+  return `
+    <button class="work-hub-tile${primary ? " is-primary" : ""}" type="button" ${viewAttr} ${attrs}>
+      <strong>${escapeHtml(title)}</strong>
+      ${detail ? `<span>${escapeHtml(detail)}</span>` : ""}
+    </button>
+  `;
+}
+
+function workHubShell({ eyebrow = "", title = "", subtitle = "", body = "" } = {}) {
+  return `
+    <section class="work-hub-page">
+      <header class="work-hub-header">
+        <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+        <h2>${escapeHtml(title)}</h2>
+        ${subtitle ? `<p class="muted-copy">${escapeHtml(subtitle)}</p>` : ""}
+      </header>
+      <div class="work-hub-body">${body}</div>
+    </section>
+  `;
+}
+
+function renderOwnerHomeDashboard() {
+  const homeSection = document.querySelector("#view-home");
+  if (!homeSection) return;
+  homeSection.classList.remove("landing-home");
+  homeSection.classList.add("user-dashboard-view", "work-owner-home");
+
+  const records = childRecords();
+  const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const children = records.children || [];
+  const attendance = (records.attendance || []).filter((a) => a.date === today);
+  const checkedIn = attendance.filter((a) => {
+    const status = String(a.status || "").toLowerCase();
+    return status !== "absent" && (a.dropoff || status === "present") && !a.pickup;
+  }).length;
+  const present = attendance.filter((a) => String(a.status || "").toLowerCase() !== "absent").length;
+  const mealsToday = (records.meals || []).filter((m) => m.date === today).length;
+  const obsRecent = [...(records.observations || [])]
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 4);
+  const docsPending = (records.documents || []).filter((d) => {
+    const status = String(d.status || d.statusLabel || "").toLowerCase();
+    return d.shareWithFamily && !d.signedAt && /need|notif|assign|action|draft|request/.test(status);
+  }).length;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const name = accountDisplayFirstName(currentAccount());
+  const program = getProgramSettings()?.programName || "your program";
+  const childById = Object.fromEntries(children.map((c) => [c.id, c]));
+
+  homeSection.innerHTML = workHubShell({
+    eyebrow: "Home",
+    title: `${greeting}, ${name}`,
+    subtitle: `${program} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+    body: `
+      <div class="work-pulse-grid" aria-label="Today at a glance">
+        <article class="work-pulse-card"><em>Checked in</em><strong>${checkedIn}</strong><span>of ${children.length} children</span></article>
+        <article class="work-pulse-card"><em>Attendance logged</em><strong>${present}</strong><span>present / recorded</span></article>
+        <article class="work-pulse-card"><em>Meals logged</em><strong>${mealsToday}</strong><span>entries today</span></article>
+        <article class="work-pulse-card"><em>Forms needing attention</em><strong>${docsPending}</strong><span>parent action</span></article>
+      </div>
+
+      <section class="work-hub-section">
+        <h3>Quick actions</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Run the care day", primary: true })}
+          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
+          ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
+          ${workHubTile({ view: "families", title: "Families", detail: "Messages & Family Hub" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Inbox & support" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Upcoming events" })}
+        </div>
+      </section>
+
+      <section class="work-hub-section">
+        <h3>Needs attention</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "families", title: "Parent messages", detail: "Open Families → Messages" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: docsPending ? `${docsPending} awaiting parent` : "No open form requests" })}
+          ${workHubTile({ view: "business", title: "Business alerts", detail: "Staff, enrollment, billing" })}
+          ${workHubTile({ view: "ai", title: "AI recommendations", detail: "Documentation helpers" })}
+        </div>
+      </section>
+
+      <section class="work-hub-section">
+        <div class="work-hub-section-head">
+          <h3>Recent observations</h3>
+          <button class="ghost-button" type="button" data-view="children">Open Children</button>
+        </div>
+        ${obsRecent.length
+          ? `<ul class="work-simple-list">${obsRecent.map((obs) => {
+            const child = childById[obs.childId];
+            return `<li><strong>${escapeHtml(child?.name || "Child")}</strong><span>${escapeHtml((obs.text || obs.note || obs.summary || "Observation").slice(0, 100))}</span><small>${escapeHtml(obs.date || "")}</small></li>`;
+          }).join("")}</ul>`
+          : `<p class="muted-copy">No observations yet today. Capture one from Classroom or Quick Add.</p>`}
+      </section>
+    `,
+  });
+}
+
+function renderTeacherTodayPage() {
+  const section = document.querySelector("#view-today");
+  if (!section) return;
+  const role = workModeRole();
+  const records = childRecords();
+  const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const children = records.children || [];
+  const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
+  section.innerHTML = workHubShell({
+    eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
+    title: "Today",
+    subtitle: "Everything happening in your classroom today — optimized for the care day, not the business office.",
+    body: `
+      <div class="work-pulse-grid">
+        <article class="work-pulse-card"><em>Children here</em><strong>${checkedIn}</strong><span>${children.length} on roster</span></article>
+        <article class="work-pulse-card"><em>Meals</em><strong>${(records.meals || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
+        <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
+        <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
+      </div>
+      <section class="work-hub-section">
+        <h3>Run the day</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: "Check-in, meals, naps, diapers", primary: true })}
+          ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open lesson plans" })}
+          ${workHubTile({ view: "activities", title: "Today's Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "calendar", title: "Today's Schedule", detail: "Calendar & events" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Quick capture</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI documentation", attrs: 'data-quick-doc-type="observation"' })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Add to daily log" })}
+          ${workHubTile({ view: "families", title: "Quick Message", detail: "Parent update", attrs: role === "assistant" ? 'data-view="messages"' : "" })}
+          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Document safely", attrs: 'data-quick-doc-type="incident-report"' })}
+          ${workHubTile({ view: "ai", title: "Quick AI", detail: "Helpers", primary: false })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>My children & classroom</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "children", title: role === "teacher" ? "My Children" : "Children", detail: "Assigned children" })}
+          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Plans, materials, schedule" })}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderClassroomHubPage() {
+  const section = document.querySelector("#view-classroom");
+  if (!section) return;
+  const role = workModeRole();
+  section.innerHTML = workHubShell({
+    eyebrow: "Classroom",
+    title: "Classroom",
+    subtitle: role === "teacher" || role === "assistant"
+      ? "Where teachers spend the day — care logs, lessons, and today's schedule."
+      : "Everything used during the care day. Teachers live here; business stays in Business.",
+    body: `
+      <section class="work-hub-section">
+        <h3>Daily care</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Attendance, meals, naps, diapers, activities", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "End-of-Day Report", detail: "AI summary from today's facts" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Teaching</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign" })}
+          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule & events" })}
+          ${workHubTile({ view: "ai", title: "AI Classroom Assistant", detail: "Documentation helpers" })}
+          ${role === "owner" || role === "director" ? workHubTile({ view: "classrooms", title: "Room setup", detail: "Manage classrooms" }) : ""}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Support tools</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" })}
+          ${workHubTile({ view: "ai-guide", title: "AI Guide", detail: "Guided helpers" })}
+          ${workHubTile({ view: "resources", title: "Materials", detail: "Resources hub" })}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderFamiliesHubPage() {
+  // Enhance existing families view into a parent-facing hub without removing tools.
+  const section = document.querySelector("#view-families");
+  if (!section) return;
+  const role = workModeRole();
+  if (role === "assistant") {
+    setView("messages");
     return;
   }
-  if (window.whatsNewNavHasNotes != null) {
-    setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+  const canManage = role === "owner" || role === "director";
+  section.innerHTML = workHubShell({
+    eyebrow: "Families",
+    title: "Families",
+    subtitle: "Everything parent-related lives here — communication, Family Hub, forms, and pickup changes.",
+    body: `
+      <section class="work-hub-section">
+        <h3>Family Hub & messages</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Provider inbox & parent threads" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
+          ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Forms & requests</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Assign & review parent forms" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
+          ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
+          ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Contacts</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "children", title: "Parents & guardians", detail: "On each child profile" })}
+          ${workHubTile({ view: "children", title: "Emergency & authorized pickup", detail: "Child file → contacts" })}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderBusinessHubPage() {
+  const section = document.querySelector("#view-business");
+  if (!section) return;
+  const role = workModeRole();
+  if (role !== "owner" && role !== "director") {
+    setView(workModeLandingView(role));
     return;
   }
-  setWhatsNewNavVisible(false);
-  if (whatsNewNavSyncPromise) return;
-  whatsNewNavSyncPromise = fetch("/api/release-notes", { cache: "no-store" })
-    .then((res) => (res.ok ? res.json() : {}))
-    .then((data) => {
-      const notes = Array.isArray(data.releaseNotes) ? data.releaseNotes : [];
-      window.whatsNewNavHasNotes = notes.length > 0;
-      setWhatsNewNavVisible(window.whatsNewNavHasNotes);
-    })
-    .catch(() => {
-      window.whatsNewNavHasNotes = false;
-      setWhatsNewNavVisible(false);
-    })
-    .finally(() => {
-      whatsNewNavSyncPromise = null;
-    });
+  const showBilling = role === "owner" && canAccessPlatformFeature("billing");
+  const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  section.innerHTML = workHubShell({
+    eyebrow: "Business",
+    title: "Business",
+    subtitle: role === "director"
+      ? "Director tools for running the program. Billing stays with the owner."
+      : "Owner tools — staff, enrollment, billing, licensing, and testing.",
+    body: `
+      <section class="work-hub-section">
+        <h3>Program</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true })}
+          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" })}
+          ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families" })}
+          ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
+          ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Growth & compliance</h3>
+        <div class="work-hub-grid">
+          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
+          ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
+          ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
+          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+        </div>
+      </section>
+      ${adminUnlocked ? `
+      <section class="work-hub-section">
+        <h3>Admin only</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "admin", title: "Testing Center", detail: "View As, seed data, Testing Pro", primary: true })}
+        </div>
+      </section>` : ""}
+    `,
+  });
+}
+
+function renderMoreHubPage() {
+  const section = document.querySelector("#view-more");
+  if (!section) return;
+  const role = workModeRole();
+  section.innerHTML = workHubShell({
+    eyebrow: "More",
+    title: "More",
+    subtitle: "Secondary tools for your role — kept out of the daily path on purpose.",
+    body: `
+      <div class="work-hub-grid">
+        ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
+        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
+        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
+        ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
+        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
+        ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
+        ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
+      </div>
+    `,
+  });
+}
+
+function syncUniversalQuickAdd() {
+  let fab = document.querySelector("#workQuickAdd");
+  const show = isWorkModeNavEnabled();
+  if (!show) {
+    fab?.remove();
+    document.body.classList.remove("work-quick-add-open");
+    return;
+  }
+  if (!fab) {
+    fab = document.createElement("div");
+    fab.id = "workQuickAdd";
+    fab.className = "work-quick-add";
+    fab.innerHTML = `
+      <div class="work-quick-add-sheet" data-work-quick-sheet hidden>
+        <p class="work-quick-add-title">Quick add</p>
+        <div class="work-quick-add-grid">
+          <button type="button" data-view="ai" data-quick-doc-type="observation">Observation</button>
+          <button type="button" data-view="ai" data-quick-doc-type="incident-report">Incident</button>
+          <button type="button" data-view="families">Parent Message</button>
+          <button type="button" data-view="child-tools-daily-logs">Photo</button>
+          <button type="button" data-view="child-tools-daily-logs">Meal</button>
+          <button type="button" data-view="child-tools-daily-logs">Nap</button>
+          <button type="button" data-view="child-tools-daily-logs">Diaper</button>
+          <button type="button" data-view="ai" data-quick-doc-type="daily-log">Daily Note</button>
+          <button type="button" data-view="child-tools-daily-logs">Activity</button>
+          <button type="button" data-view="calendar">Calendar Note</button>
+          <button type="button" data-view="forms">Form</button>
+        </div>
+      </div>
+      <button type="button" class="work-quick-add-fab" data-work-quick-toggle aria-expanded="false" aria-label="Quick add">+</button>
+    `;
+    document.body.appendChild(fab);
+  }
+}
+
+function toggleUniversalQuickAdd(force) {
+  const sheet = document.querySelector("[data-work-quick-sheet]");
+  const toggle = document.querySelector("[data-work-quick-toggle]");
+  if (!sheet || !toggle) return;
+  const open = typeof force === "boolean" ? force : sheet.hasAttribute("hidden");
+  if (open) {
+    sheet.removeAttribute("hidden");
+    toggle.setAttribute("aria-expanded", "true");
+    document.body.classList.add("work-quick-add-open");
+  } else {
+    sheet.setAttribute("hidden", "");
+    toggle.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("work-quick-add-open");
+  }
 }
 
 function syncHomeDaycareHubNavVisibility() {
@@ -16119,9 +17067,16 @@ function setView(view, options = {}) {
   if (resolvedRequested === "printables") {
     return setView("activities", options);
   }
-  // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
-  if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
+  // Work-mode (testing): Home is the owner/director dashboard. Legacy: Calendar was home.
+  if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard && !isWorkModeNavEnabled()) {
     return setView("calendar", { ...options, remappedFromHome: true });
+  }
+  if (resolvedRequested === "home" && isLoggedIn() && isWorkModeNavEnabled()) {
+    const role = workModeRole();
+    if (role === "teacher" || role === "assistant") {
+      return setView("today", { ...options, remappedFromHome: true });
+    }
+    options = { ...options, allowDashboard: true, workOwnerHome: true };
   }
   // Invited testers / staff never open Admin (even via deep link).
   if (
@@ -16137,6 +17092,15 @@ function setView(view, options = {}) {
   }
   if (resolvedRequested === "family-hub" && !isHomeDaycareHubTestingEnabled()) {
     return setView(isLoggedIn() ? "calendar" : "home", { ...options, skipAccessRedirect: true });
+  }
+  // Pure parent sessions stay inside Family Hub (no provider/admin surfaces).
+  if (
+    getFamilyHubSessionToken()
+    && !isLoggedIn()
+    && !["family-hub", "login", "signup"].includes(resolvedRequested)
+    && !options.allowParentLeaveFamilyHub
+  ) {
+    return setView("family-hub", { ...options, skipAccessRedirect: true });
   }
   // AI Guide is testing-site only (AI_GUIDE_ENABLED).
   if (resolvedRequested === "ai-guide" && !isAiGuideEnabled()) {
@@ -16414,6 +17378,10 @@ function setView(view, options = {}) {
   if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
+  if (resolvedView === "today") renderTeacherTodayPage();
+  if (resolvedView === "classroom") renderClassroomHubPage();
+  if (resolvedView === "business") renderBusinessHubPage();
+  if (resolvedView === "more") renderMoreHubPage();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
@@ -16426,12 +17394,20 @@ function setView(view, options = {}) {
   if (resolvedView === "forms-settings") renderFormsSettingsPage();
   if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
   if (resolvedView === "home-daycare-hub") renderHomeDaycareHubPage();
-  if (resolvedView === "family-hub") renderFamilyHubPage();
+  if (resolvedView === "family-hub") {
+    renderFamilyHubPage();
+    syncFamilyHubParentChrome();
+  } else {
+    document.body.classList.remove("family-hub-parent-mode");
+  }
   syncHdhTesterSwitcherChrome();
   if (resolvedView === "ai-guide") renderAiGuidePage();
   if (resolvedView === "staff") renderStaffManagementPage();
   if (resolvedView === "classrooms") renderClassroomsPage();
-  if (resolvedView === "families") renderFamiliesPage();
+  if (resolvedView === "families") {
+    if (isWorkModeNavEnabled()) renderFamiliesHubPage();
+    else renderFamiliesPage();
+  }
   if (resolvedView === "enrollment") renderEnrollmentPage();
   if (resolvedView === "planner") {
     // Honor an explicit target week (e.g. from a future-week assign or Calendar's
@@ -16627,16 +17603,76 @@ function canAssignMoreFreeCalendarPlans(weekStartDate = "") {
   return isWeekWithinFreeCalendarPlanningWindow(week);
 }
 
+/**
+ * Testing Pro — testing-site entitlement only.
+ * Unlocks premium features for signed-in testing accounts without changing role permissions.
+ * Admin "Free" preview still simulates a Free member.
+ */
+function hasTestingProEntitlement() {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  if (!currentUser) return false;
+  if (typeof isAdminUnlocked === "function" && isAdminUnlocked() && adminPreviewMode() === "Free") return false;
+  return true;
+}
+
 function isProUser() {
-  if (hasAdminFullAccess()) return true;
+  if (adminAccessOverridesMemberPlan()) return true;
+  if (hasTestingProEntitlement()) return true;
   if (currentAccount()?.programAccessViaOwner) return true;
+  if (isSignedInPlatformOwner()) return true;
   return accessRank[effectiveAccessPlan()] >= accessRank.Pro;
+}
+
+/**
+ * Single membership display used by badges/summaries so Free billing and Pro
+ * access never appear as two conflicting states at once.
+ */
+function membershipDisplayStatus(account = currentAccount()) {
+  const product = accountProductStatus(account);
+  if (!currentUser) return product;
+  if (product.hasProAccess) return product;
+  if (account?.programAccessViaOwner) {
+    return {
+      ...product,
+      key: "program_access",
+      adminKey: product.adminKey || "active",
+      label: "Program Access",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: "You have Pro features through your program owner.",
+      planLabel: "Program Access",
+    };
+  }
+  if (isSignedInPlatformOwner() || adminAccessOverridesMemberPlan()) {
+    return {
+      ...product,
+      key: "owner_access",
+      adminKey: product.adminKey || "active",
+      label: "Owner Access",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: "Platform owner access is active. Billing membership may still show Free for testing.",
+      planLabel: "Owner Access",
+    };
+  }
+  return product;
 }
 
 // Single source-of-truth for "is a real user session active?"
 // Always use this instead of checking currentUser directly in feature guards.
 function isLoggedIn() {
-  return Boolean(currentUser);
+  try {
+    return Boolean(currentUser);
+  } catch (_error) {
+    // app.js is still initializing (TDZ) — treat as logged out.
+    return false;
+  }
 }
 
 function visibleResourcesForCategory(category) {
@@ -17042,7 +18078,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       dropoff: time,
       title: `Attendance | ${today}`,
       summary: `Present at ${time}`,
-      shareWithFamily: false,
+      shareWithFamily: true,
     });
     return;
   }
@@ -17057,6 +18093,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
               status: item.status === "Absent" ? "Present" : (item.status || "Present"),
               pickup: time,
               summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
+              shareWithFamily: item.shareWithFamily !== false,
             }
           : item
       )));
@@ -17069,7 +18106,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       pickup: time,
       title: `Attendance | ${today}`,
       summary: `Checked out at ${time}`,
-      shareWithFamily: false,
+      shareWithFamily: true,
     });
     return;
   }
@@ -17096,7 +18133,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       status: "Absent",
       title: `Attendance | ${today}`,
       summary: "Absent",
-      shareWithFamily: false,
+      shareWithFamily: true,
     });
     return;
   }
@@ -17145,7 +18182,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
         text: "Observation noted from Daily Logs",
         title: `Observation | ${today}`,
         summary: "Observation noted",
-        shareWithFamily: false,
+        shareWithFamily: true,
       });
       return;
     }
@@ -17178,15 +18215,13 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     return;
   }
   if (actionId === "photo") {
-    appendChildRecord("Photos", {
-      childId,
-      date: today,
-      time,
-      caption: "Photo moment",
-      title: `Photo | ${today}`,
-      summary: "Photo placeholder — add image from Photos tab",
-      shareWithFamily: true,
-    });
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childProfileTab = "photos";
+    childManagementMode = "profile";
+    showPage("children");
+    renderChildManagement();
+    showActionFeedback("Open Photos on this child’s profile to upload and share with Family Hub.");
     return;
   }
   if (actionId === "activity" || actionId === "daily-log") {
@@ -17998,7 +19033,7 @@ function curriculumCollectionDetailHtml(collection, lessonItems = []) {
           <p class="muted-copy">${track.filledWeekCount || 0} of ${track.weekCount || 4} weeks</p>
         </div>
         <ul class="curriculum-collection-week-list">
-          ${weeks || `<li class="muted-copy">Weeks for ${escapeHtml(age)} are coming soon.</li>`}
+          ${weeks || `<li class="muted-copy">No ${escapeHtml(age)} weeks are published in this collection yet.</li>`}
         </ul>
       </section>
     `;
@@ -20441,6 +21476,9 @@ function lessonObjectives(resource, theme, area) {
     ],
   };
   const base = resource.learningObjectives || lessonAgeData(ageObjectives, age);
+  if (age === "Infant") {
+    return base.slice(0, 3);
+  }
   return [
     ...base,
     `Connect ${theme.toLowerCase()} learning to music, movement, creative arts, and family engagement across the week.`,
@@ -21553,6 +22591,9 @@ function readRememberedPlatformView() {
 }
 
 function defaultLoggedInLandingView() {
+  if (isWorkModeNavEnabled()) {
+    return workModeLandingView();
+  }
   const remembered = readRememberedPlatformView();
   if (
     remembered
@@ -21569,6 +22610,7 @@ function defaultLoggedInLandingView() {
 }
 
 function platformBackView(fallback = "home") {
+  if (fallback === "home" && isWorkModeNavEnabled()) return workModeLandingView();
   if (fallback === "home" && (isLoggedIn() || hasAdminFullAccess())) return "calendar";
   return fallback;
 }
@@ -21667,8 +22709,18 @@ function shouldUseLessonNavHistoryBack() {
 }
 
 function requestResourceViewerClose() {
+  // History-back is preferred for lesson nav, but never leave the X looking dead:
+  // if popstate does not close the viewer promptly, force-close as a fallback.
   if (shouldUseLessonNavHistoryBack()) {
+    const wasOpen = Boolean(document.querySelector("#resourceViewerModal.open"));
     window.history.back();
+    if (wasOpen) {
+      window.setTimeout(() => {
+        if (document.querySelector("#resourceViewerModal.open")) {
+          closeResourceViewer();
+        }
+      }, 120);
+    }
     return;
   }
   closeResourceViewer();
@@ -21762,7 +22814,7 @@ function fallbackBackLabel(view) {
   if (view === "account") return "← Back to Account";
   if (view === "billing") return "← Back to Billing Management";
   if (view === "children") return "← Back to Children";
-  if (view === "ai") return "← Back to Documentation Center";
+  if (view === "ai") return "← Back to Documentation Helpers";
   if (view === "director-center") return "← Back to Director Center";
   if (view === "support-center") return "← Back to Behavior & Support";
   if (viewMap[view]) return `← Back to ${viewMap[view]}`;
@@ -22646,11 +23698,12 @@ function lessonPlanWeeklyScheduleDays(plan) {
     const items = Array.isArray(dayPlan.items) ? dayPlan.items : [];
     const dayDomains = curriculumAsStringArray(dayPlan.learningDomains);
     const domains = dayDomains.length ? dayDomains : weeklyDomains;
+    const isWeeklyMaterialsPlaceholder = (value) => /see weekly materials list/i.test(String(value || "").trim());
     const dayMaterials = String(dayPlan.materials || "").replace(/\s+/g, " ").trim();
     const activityMaterials = items
       .map((item) => String(item?.materials || "").replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    const materialsNeeded = dayMaterials
+      .filter((value) => value && !isWeeklyMaterialsPlaceholder(value));
+    const materialsNeeded = (!isWeeklyMaterialsPlaceholder(dayMaterials) && dayMaterials)
       || [...new Set(activityMaterials)].slice(0, 6).join("; ");
     const teacherNotes = firstSentenceLessonText(
       dayPlan.observations || dayPlan.adaptations || dayPlan.familyConnection || dayPlan.outdoorPlay || "",
@@ -24274,7 +25327,7 @@ async function submitActivityFeedback({
   };
 
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -24354,7 +25407,7 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
   if (hasStars) payload.stars = roundedStars;
 
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -27857,6 +28910,16 @@ function renderHomePublicPreviews() {
 
 function renderHome() {
   if (currentUser) {
+    if (isWorkModeNavEnabled() && (workModeRole() === "owner" || workModeRole() === "director")) {
+      renderOwnerHomeDashboard();
+      updatePlanLabel();
+      return;
+    }
+    if (isWorkModeNavEnabled()) {
+      updatePlanLabel();
+      setView(workModeLandingView(), { allowDashboard: true, skipAccessRedirect: true });
+      return;
+    }
     renderUserDashboard();
     updatePlanLabel();
     return;
@@ -28972,7 +30035,15 @@ async function assignScheduleLessonPlan({
   const week = api.weekStartMonday(weekStartDate || curriculumPlannerSelectedWeek || new Date());
   await ensureScheduleLoaded();
   const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
-  const existing = api.lessonForWeek(doc, week);
+  const rooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms(doc) : (doc?.classrooms || []);
+  const matchedRoom = rooms.find((room) => {
+    const label = String(classroomLabel || "").trim().toLowerCase();
+    if (!label) return false;
+    return String(room.name || "").trim().toLowerCase() === label
+      || String(room.id || "").trim().toLowerCase() === label;
+  }) || rooms[0] || null;
+  const classroomId = matchedRoom?.id || doc?.classrooms?.[0]?.id || "classroom-main";
+  const existing = api.lessonForWeek(doc, week, classroomId);
   if (existing && existing.lessonPlanId !== resourceId && !replaceExisting) {
     const error = new Error("This week already has a lesson plan assigned.");
     error.code = "replace-required";
@@ -28982,9 +30053,16 @@ async function assignScheduleLessonPlan({
   const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
   const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
+  const rosterChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []))
+    .filter((child) => String(child.classroomId || "") === String(classroomId));
+  const childIds = rosterChildren.map((child) => child.id).filter(Boolean);
+  const rosterLabel = rosterChildren.map((child) => child.name).filter(Boolean).slice(0, 8).join(", ");
   const item = await api.assignLessonPlanToWeek(firebaseAuthHeaders, scheduleApiEmail(), {
     id: existing?.id,
     weekStartDate: week,
+    classroomId,
+    childIds,
+    rosterLabel,
     lessonPlanId: resource.id,
     lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
     lessonPlanPlan: snapshot.plan,
@@ -28993,12 +30071,15 @@ async function assignScheduleLessonPlan({
     snapshot,
     preserveExecution: true,
   });
-  if (classroomLabel) {
+  if (classroomLabel && matchedRoom) {
     const nextDoc = api.readCache(scheduleApiEmail());
-    if (nextDoc.classrooms?.[0]) {
-      nextDoc.classrooms[0].name = String(classroomLabel).trim() || nextDoc.classrooms[0].name;
-      scheduleDocCache = await api.saveSchedule(firebaseAuthHeaders, scheduleApiEmail(), nextDoc);
-    }
+    const nextRooms = (nextDoc.classrooms || []).map((room) => (
+      room.id === matchedRoom.id
+        ? { ...room, name: String(classroomLabel).trim() || room.name }
+        : room
+    ));
+    nextDoc.classrooms = nextRooms.length ? nextRooms : nextDoc.classrooms;
+    scheduleDocCache = await api.saveSchedule(firebaseAuthHeaders, scheduleApiEmail(), nextDoc);
   } else {
     scheduleDocCache = api.readCache(scheduleApiEmail());
   }
@@ -30926,7 +32007,6 @@ function renderCalendarMonthView(app) {
       ${curriculumPlannerRetirementBannerHtml()}
       <div class="llh-calendar-toolbar">
         <div>
-          <p class="eyebrow">Planning home</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(cursor))}</h3>
           <p class="muted-copy llh-calendar-toolbar-hint">Tap any day to open it. Add notes and events on any day — lesson plans still run Monday–Friday.</p>
         </div>
@@ -32331,9 +33411,9 @@ async function firebaseAuthHeaders() {
 }
 
 async function saveChildDataToBackend(options = {}) {
-  if (!currentUser) return;
+  if (!currentUser || !canUseLaunchBackend()) return;
   if (childCloudSyncing && !options.force) return;
-  const headers = await firebaseAuthHeaders();
+  const headers = await staffAuthHeaders();
   if (!headers) return;
   await fetch("/api/child-data", {
     method: "POST",
@@ -32343,7 +33423,9 @@ async function saveChildDataToBackend(options = {}) {
 }
 
 function queueChildDataCloudSave() {
-  if (!currentUser || !firebaseAuthEnabled) return;
+  // Persist Forms / child records whenever the launch API is reachable — not only when Firebase is configured.
+  // Family Hub reads live documents from /api/child-data, so local-only saves break the forms spine.
+  if (!currentUser || !canUseLaunchBackend()) return;
   clearTimeout(childCloudSaveTimer);
   childCloudSaveTimer = setTimeout(() => {
     saveChildDataToBackend().catch((error) => console.warn("Child data cloud save did not complete", error));
@@ -32357,7 +33439,7 @@ function delayMs(ms) {
 let childCloudSyncQueued = false;
 
 async function syncChildDataFromBackend(options = {}) {
-  if (!currentUser || !firebaseAuthEnabled) return false;
+  if (!currentUser || !canUseLaunchBackend()) return false;
   if (childCloudSyncing) {
     childCloudSyncQueued = true;
     return false;
@@ -32366,7 +33448,7 @@ async function syncChildDataFromBackend(options = {}) {
   let applied = false;
   try {
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const headers = await firebaseAuthHeaders();
+      const headers = await staffAuthHeaders();
       if (!headers) {
         await delayMs(350 * (attempt + 1));
         continue;
@@ -32379,14 +33461,62 @@ async function syncChildDataFromBackend(options = {}) {
       }
       const remote = await response.json();
       const localUpdatedAt = localStorage.getItem(childCloudUpdatedKey()) || "";
-      if (remote?.data && (!localUpdatedAt || String(remote.updatedAt || "") > localUpdatedAt || !childDataHasRecords())) {
+      const remoteUpdatedAt = String(remote.updatedAt || "");
+      if (remote?.data && (
+        options.force
+        || !localUpdatedAt
+        || remoteUpdatedAt > localUpdatedAt
+        || !childDataHasRecords()
+      )) {
         applyChildDataSnapshot(remote.data, remote.updatedAt);
         applied = true;
+      } else if (remote?.data?.Documents && isHomeDaycareHubTestingEnabled()) {
+        // Keep form sign/review status current even when local timestamps are newer.
+        const localDocs = childStore("Documents") || [];
+        const remoteById = new Map((remote.data.Documents || []).map((doc) => [String(doc.id || ""), doc]));
+        let mergedChange = false;
+        const mergedDocs = localDocs.map((doc) => {
+          const remoteDoc = remoteById.get(String(doc.id || ""));
+          if (!remoteDoc) return doc;
+          const remoteSigned = Boolean(remoteDoc.signedAt) || /^signed/i.test(String(remoteDoc.status || ""));
+          const localSigned = Boolean(doc.signedAt) || /^signed/i.test(String(doc.status || ""));
+          if ((remoteSigned && !localSigned)
+            || (remoteDoc.providerReviewed && !doc.providerReviewed)
+            || (String(remoteDoc.status || "") !== String(doc.status || "") && remoteSigned)) {
+            mergedChange = true;
+            return {
+              ...doc,
+              status: remoteDoc.status || doc.status,
+              statusLabel: remoteDoc.statusLabel || doc.statusLabel,
+              signedAt: remoteDoc.signedAt || doc.signedAt,
+              signedBy: remoteDoc.signedBy || doc.signedBy,
+              signedSnapshot: remoteDoc.signedSnapshot || doc.signedSnapshot,
+              providerReviewed: remoteDoc.providerReviewed ?? doc.providerReviewed,
+              reviewedAt: remoteDoc.reviewedAt || doc.reviewedAt,
+              updatedAt: remoteDoc.updatedAt || doc.updatedAt,
+            };
+          }
+          return doc;
+        });
+        remoteById.forEach((remoteDoc, id) => {
+          if (id && !localDocs.some((doc) => String(doc.id) === id)) {
+            mergedDocs.push(remoteDoc);
+            mergedChange = true;
+          }
+        });
+        if (mergedChange) {
+          saveChildStoreLocalOnly("Documents", mergedDocs);
+          if (remoteUpdatedAt) localStorage.setItem(childCloudUpdatedKey(), remoteUpdatedAt);
+          applied = true;
+        }
       } else if (!remote?.data && childDataHasRecords()) {
         await saveChildDataToBackend({ force: true });
       }
       if (options.render !== false && document.querySelector("#view-children")?.classList.contains("active-view")) {
         renderChildManagement();
+      }
+      if (options.render !== false && document.querySelector("#view-home-daycare-hub")?.classList.contains("active-view") && typeof renderHomeDaycareHubPage === "function") {
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
       }
       updateSidebarDashboard();
       break;
@@ -33359,8 +34489,8 @@ function renderSettingsHubPage() {
   section.innerHTML = `
     <section class="settings-hub-page">
       <div class="page-title">
-        <p class="eyebrow">Settings</p>
-        <h2>Configuration &amp; account</h2>
+        <p class="eyebrow">Account</p>
+        <h2>Settings</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
@@ -33428,6 +34558,30 @@ function clearFamilyHubSession() {
   setFamilyHubSessionToken("");
 }
 
+function isFamilyHubParentMode() {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  const onFamilyHub = Boolean(document.querySelector("#view-family-hub.active-view"));
+  if (!getFamilyHubSessionToken()) return onFamilyHub;
+  // Pure parent session, or provider intentionally previewing as parent.
+  if (!isLoggedIn()) return true;
+  return getHdhTesterPersona().role === "parent" || onFamilyHub;
+}
+
+function syncFamilyHubParentChrome() {
+  const parentMode = Boolean(isFamilyHubParentMode());
+  document.body.classList.toggle("family-hub-parent-mode", parentMode);
+  document.body.classList.toggle("hdh-persona-parent", parentMode || getHdhTesterPersona().role === "parent");
+  // Hide sticky tester chrome for real parent sessions (no provider login).
+  const chrome = document.querySelector("#hdhTesterSwitcherChrome");
+  if (chrome) {
+    const showTester = isHomeDaycareHubTestingEnabled()
+      && isLoggedIn()
+      && !isLinkedProgramStaffAccount()
+      && getHdhTesterPersona().role === "parent";
+    chrome.hidden = !showTester;
+  }
+}
+
 function readTesterFamilyHubInvite() {
   try {
     const raw = localStorage.getItem(FAMILY_HUB_TESTER_INVITE_KEY);
@@ -33462,17 +34616,34 @@ function saveTesterFamilyHubInvite(invite = {}) {
   } catch (_error) { /* ignore */ }
 }
 
+function hdhTesterPersonaStorageKey(email = currentUser) {
+  const clean = String(email || "").trim().toLowerCase();
+  return clean ? `${HDH_TESTER_PERSONA_KEY}:${clean}` : "";
+}
+
 function getHdhTesterPersona() {
   try {
-    const raw = localStorage.getItem(HDH_TESTER_PERSONA_KEY);
+    const scopedKey = hdhTesterPersonaStorageKey();
+    let raw = scopedKey ? localStorage.getItem(scopedKey) : "";
+    let fromLegacy = false;
+    if (!raw) {
+      raw = localStorage.getItem(HDH_TESTER_PERSONA_KEY);
+      fromLegacy = Boolean(raw);
+    }
     const parsed = raw ? JSON.parse(raw) : null;
     if (!parsed || typeof parsed !== "object") {
+      return { role: "teacher", teacherEmail: String(currentUser || "").trim(), focusChildId: "" };
+    }
+    const teacherEmail = String(parsed.teacherEmail || currentUser || "").trim();
+    const currentEmail = String(currentUser || "").trim().toLowerCase();
+    // Never inherit another account's role/nav from a leftover global persona.
+    if (fromLegacy && currentEmail && teacherEmail && teacherEmail.toLowerCase() !== currentEmail) {
       return { role: "teacher", teacherEmail: String(currentUser || "").trim(), focusChildId: "" };
     }
     const role = HDH_TESTER_ROLES.includes(parsed.role) ? parsed.role : "teacher";
     return {
       role,
-      teacherEmail: String(parsed.teacherEmail || currentUser || "").trim(),
+      teacherEmail: teacherEmail || String(currentUser || "").trim(),
       focusChildId: String(parsed.focusChildId || "").trim(),
     };
   } catch (_error) {
@@ -33492,12 +34663,27 @@ function setHdhTesterPersona(updates = {}) {
     next.teacherEmail = String(currentUser || next.teacherEmail || "").trim();
   }
   try {
-    localStorage.setItem(HDH_TESTER_PERSONA_KEY, JSON.stringify(next));
+    const scopedKey = hdhTesterPersonaStorageKey(next.teacherEmail || currentUser);
+    if (scopedKey) localStorage.setItem(scopedKey, JSON.stringify(next));
+    // Stop writing the legacy global key so one browser user cannot affect another.
+    localStorage.removeItem(HDH_TESTER_PERSONA_KEY);
   } catch (_error) { /* ignore */ }
   document.body.dataset.hdhTesterPersona = next.role;
   document.body.classList.toggle("hdh-persona-parent", next.role === "parent");
   document.body.classList.toggle("hdh-persona-staff", next.role === "staff-helper" || next.role === "staff-lead");
   return next;
+}
+
+function clearHdhTesterPersonaForSignOut(email = currentUser) {
+  try {
+    const scopedKey = hdhTesterPersonaStorageKey(email);
+    if (scopedKey) localStorage.removeItem(scopedKey);
+    localStorage.removeItem(HDH_TESTER_PERSONA_KEY);
+  } catch (_error) { /* ignore */ }
+  try {
+    delete document.body.dataset.hdhTesterPersona;
+  } catch (_error) { /* ignore */ }
+  document.body.classList.remove("hdh-persona-parent", "hdh-persona-staff", "family-hub-parent-mode");
 }
 
 function rememberHdhTesterTeacherEmail() {
@@ -33600,32 +34786,24 @@ function renderHdhRoleSwitcher(activeRole = "", options = {}) {
 
 function syncHdhTesterSwitcherChrome() {
   let chrome = document.querySelector("#hdhTesterSwitcherChrome");
-  // Owner/self-test switcher only — invited staff use their real linked role, not the persona tabs.
-  const show = isHomeDaycareHubTestingEnabled()
-    && !isLinkedProgramStaffAccount()
-    && (isLoggedIn() || getHdhTesterPersona().role === "parent");
-  if (!show) {
-    chrome?.remove();
-    document.body.classList.remove("hdh-tester-switching", "hdh-persona-parent", "hdh-persona-staff");
-    delete document.body.dataset.hdhTesterPersona;
-    return;
+  // Sticky tester switcher removed from the main app shell — View As lives in Admin Testing Center.
+  // Keep body persona classes so Parent View As / staff visibility still apply.
+  const pureParentSession = Boolean(getFamilyHubSessionToken()) && !isLoggedIn();
+  chrome?.remove();
+  document.body.classList.remove("hdh-tester-switching");
+  const persona = isHomeDaycareHubTestingEnabled() && isLoggedIn() ? getHdhTesterPersona() : null;
+  if (persona) {
+    document.body.dataset.hdhTesterPersona = persona.role;
+    document.body.classList.toggle("hdh-persona-parent", persona.role === "parent");
+    document.body.classList.toggle("hdh-persona-staff", persona.role === "staff-helper" || persona.role === "staff-lead");
+  } else if (!pureParentSession) {
+    document.body.classList.remove("hdh-persona-staff");
+    if (getHdhTesterPersona().role !== "parent") {
+      document.body.classList.remove("hdh-persona-parent");
+      delete document.body.dataset.hdhTesterPersona;
+    }
   }
-  rememberHdhTesterTeacherEmail();
-  if (!chrome) {
-    chrome = document.createElement("div");
-    chrome.id = "hdhTesterSwitcherChrome";
-    chrome.className = "hdh-tester-switcher-chrome";
-    // Body-level sticky so it stays visible on phone while scrolling Hub content.
-    document.body.prepend(chrome);
-  }
-  const persona = getHdhTesterPersona();
-  document.body.classList.add("hdh-tester-switching");
-  document.body.dataset.hdhTesterPersona = persona.role;
-  document.body.classList.toggle("hdh-persona-parent", persona.role === "parent");
-  document.body.classList.toggle("hdh-persona-staff", persona.role === "staff-helper" || persona.role === "staff-lead");
-  // Always keep a compact sticky switcher available on every device / view.
-  chrome.hidden = false;
-  chrome.innerHTML = renderHdhRoleSwitcher(persona.role, { compact: true });
+  syncFamilyHubParentChrome();
 }
 
 async function familyHubSessionStillValid() {
@@ -33849,6 +35027,8 @@ async function refreshFamilyHubHouseholds() {
   familyHubHouseholdCache = {
     households: Array.isArray(data.households) ? data.households : [],
     emailDeliveryReady: Boolean(data.emailDeliveryReady),
+    testingHandoff: data.testingHandoff || "",
+    storage: data.storage || null,
     loadedAt: Date.now(),
   };
   return familyHubHouseholdCache;
@@ -33859,11 +35039,20 @@ function renderFamilyHubProviderPanel() {
   const children = childRecords().children || [];
   const households = familyHubHouseholdCache.households || [];
   const invite = familyHubInviteResult;
+  const storage = familyHubHouseholdCache.storage || null;
+  const handoff = familyHubHouseholdCache.testingHandoff
+    || "If email isn’t sending yet, copy the magic link and login code and share them with the family.";
+  const storageWarning = storage && storage.durable === false
+    ? `<p class="form-message" role="alert">Family invites can’t be saved right now. Message Support and we’ll get storage ready for you.</p>`
+    : (storage && storage.durable
+      ? `<p class="form-note">Family Hub invites are saving securely.</p>`
+      : "");
   return `
     <section class="section-block hdh-family-hub-panel" id="hdhFamilyHubPanel">
-      <p class="eyebrow">Step D</p>
+      <p class="eyebrow">Family sharing</p>
       <h3>Family Hub</h3>
-      <p class="muted-copy">One household login covers all linked kids. Parents open a magic link (email or text) or sign in with email + code. No per-child logins.</p>
+      <p class="muted-copy">Invite a household so parents can see today’s updates, photos, forms, and messages. One login covers every child you link.</p>
+      ${storageWarning}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <form id="hdhFamilyHubInviteForm" class="panel-form hdh-family-hub-form">
         <div class="form-grid-two">
@@ -33873,8 +35062,11 @@ function renderFamilyHubProviderPanel() {
           <label>Parent email
             <input name="email" type="email" maxlength="120" placeholder="parent@example.com" />
           </label>
-          <label>Parent phone (text magic link)
-            <input name="phone" type="tel" maxlength="40" placeholder="Phone (optional)" />
+          <label>Second guardian email (optional)
+            <input name="guardianEmail" type="email" maxlength="120" placeholder="guardian@example.com" />
+          </label>
+          <label>Parent phone (optional)
+            <input name="phone" type="tel" maxlength="40" placeholder="Phone for a text link later" />
           </label>
         </div>
         <fieldset class="hdh-child-pick-fieldset">
@@ -33887,20 +35079,22 @@ function renderFamilyHubProviderPanel() {
                   <span>${escapeHtml(child.name)}</span>
                 </label>
               `).join("")
-              : `<p class="muted-copy">Add a child profile before inviting Family Hub access.</p>`}
+              : `<p class="muted-copy">Add a child profile first, then come back to invite their family.</p>`}
           </div>
         </fieldset>
         <div class="account-actions-row">
-          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create household invite</button>
-          <button class="ghost-button" type="button" data-hdh-role-switch="parent">Switch to Parent view</button>
+          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Invite family</button>
+          <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview parent view</button>
+          <button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>
         </div>
-        <p class="form-note">SMS is simulated on testing — you will get a magic link to copy/text. Email sends when delivery is configured. Use <strong>Switch to Parent view</strong> to bounce into the parent side yourself.</p>
+        <p class="form-note">${escapeHtml(handoff)} Text delivery isn’t live yet — copy the link if you want to share by phone. Use <strong>Preview parent view</strong> to see what families see.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result" role="status">
-          <strong>Invite ready for ${escapeHtml(invite.label || "family")}</strong>
-          <p class="muted-copy">Magic link (email/text): <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
+          <strong>You’re ready to invite ${escapeHtml(invite.label || "this family")}</strong>
+          <p class="muted-copy">Share the link (and code, if needed). Parents can open Family Hub right away.</p>
+          <p class="muted-copy">Magic link: <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
           ${invite.loginCode ? `<p class="muted-copy">Login code: <code class="hdh-code">${escapeHtml(invite.loginCode)}</code></p>` : ""}
           <div class="account-actions-row">
             <button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(invite.magicUrl || "")}">Copy magic link</button>
@@ -33911,21 +35105,826 @@ function renderFamilyHubProviderPanel() {
       <div class="hdh-family-household-list">
         <h4>Household invites</h4>
         ${households.length
-          ? households.map((item) => `
+          ? households.map((item) => {
+            const pendingRequests = (Array.isArray(item.familyRequests) ? item.familyRequests : [])
+              .filter((req) => String(req.status || "pending") === "pending");
+            return `
             <article class="hdh-forms-pack-item">
               <div>
                 <strong>${escapeHtml(item.label || "Family")}</strong>
-                <p class="muted-copy">${escapeHtml(item.email || "No email")}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
+                <p class="muted-copy">${escapeHtml(item.email || "No email")}${(item.guardianEmails || []).length > 1 ? ` · guardians: ${escapeHtml(item.guardianEmails.join(", "))}` : ""}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
+                ${pendingRequests.length ? `
+                  <div class="hdh-parent-requests">
+                    <p class="muted-copy"><strong>${pendingRequests.length} parent request${pendingRequests.length === 1 ? "" : "s"}</strong></p>
+                    ${pendingRequests.slice(0, 4).map((req) => `
+                      <div class="hdh-request-row">
+                        <p class="muted-copy">${escapeHtml(req.type || "request")}${req.date ? ` · ${escapeHtml(req.date)}` : ""}${req.details ? ` — ${escapeHtml(String(req.details).slice(0, 80))}` : ""}</p>
+                        <div class="account-actions-row">
+                          <button class="primary-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="approved">Approve</button>
+                          <button class="ghost-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="declined">Decline</button>
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                ` : ""}
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.magicUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.magicUrl)}">Copy link</button>` : ""}
                 <button class="ghost-button" type="button" data-hdh-family-revoke="${escapeHtml(item.id)}">Revoke</button>
               </div>
-            </article>
-          `).join("")
-          : `<p class="muted-copy">No household invites yet.</p>`}
+            </article>`;
+          }).join("")
+          : `<div class="profile-empty-state"><strong>No families invited yet</strong><p>Invite a household above, or create a sample household to explore the parent view.</p></div>`}
+      </div>
+      <div id="hdhProviderInbox" class="hdh-provider-inbox" data-hdh-provider-inbox>
+        <h4>Provider inbox</h4>
+        <p class="muted-copy">Signed forms and parent requests land here automatically.</p>
+        <div data-hdh-provider-inbox-body><p class="muted-copy">Loading…</p></div>
       </div>
     </section>
+  `;
+}
+
+function familyHubChildInitials(name = "") {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "FH";
+  return ((parts[0][0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "FH";
+}
+
+function familyHubFormatDate(value = "", { weekday = true } = {}) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const iso = raw.slice(0, 10);
+  const date = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(undefined, weekday
+    ? { weekday: "short", month: "short", day: "numeric" }
+    : { month: "short", day: "numeric" });
+}
+
+function familyHubFormatTime(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{1,2}:\d{2}/.test(raw) && !raw.includes("T")) {
+    const [hPart, mPart] = raw.split(":");
+    const hours = Number(hPart);
+    const minutes = Number(String(mPart || "0").slice(0, 2));
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return raw;
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function familyHubFormatTimeRange(start = "", end = "") {
+  const a = familyHubFormatTime(start);
+  const b = familyHubFormatTime(end);
+  if (a && b) return `${a} – ${b}`;
+  return a || b || "";
+}
+
+function familyHubFormatDateTime(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return familyHubFormatDate(raw);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (sameDay) return `Today · ${time}`;
+  const localIso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${familyHubFormatDate(localIso)} · ${time}`;
+}
+
+function familyHubDayHeadline(firstName = "your child") {
+  const first = String(firstName || "your child").trim() || "your child";
+  return `How was ${first}’s day?`;
+}
+
+function familyHubParentToast(message = "") {
+  const text = String(message || "").trim();
+  if (!text) return;
+  const app = document.querySelector(".fh-parent-app") || document.querySelector("#familyHubParentApp");
+  if (!app) return;
+  let toast = app.querySelector("#familyHubToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "familyHubToast";
+    toast.className = "fh-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    app.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  clearTimeout(familyHubParentToast._timer);
+  familyHubParentToast._timer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
+}
+
+function familyHubBindComposeKeyboard() {
+  const input = document.querySelector("#familyHubMessageInput");
+  const app = document.querySelector(".fh-parent-app");
+  if (!input || !app || input.dataset.fhKeyboardBound === "1") return;
+  input.dataset.fhKeyboardBound = "1";
+  const sync = () => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    app.style.setProperty("--fh-keyboard-inset", `${overlap}px`);
+    app.classList.toggle("fh-composing", document.activeElement === input && overlap > 40);
+  };
+  input.addEventListener("focus", () => {
+    app.classList.add("fh-composing");
+    setTimeout(() => {
+      input.scrollIntoView({ block: "center", behavior: "smooth" });
+      sync();
+    }, 120);
+  });
+  input.addEventListener("blur", () => {
+    app.classList.remove("fh-composing");
+    app.style.setProperty("--fh-keyboard-inset", "0px");
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", sync);
+    window.visualViewport.addEventListener("scroll", sync);
+  }
+}
+
+function familyHubFormatNapDetail(item = {}) {
+  if (item.napStart || item.napEnd) {
+    const range = familyHubFormatTimeRange(item.napStart, item.napEnd);
+    return [range, item.summary].filter(Boolean).join(" · ");
+  }
+  const detail = String(item.detail || item.summary || "").trim();
+  const rangeMatch = detail.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+  if (rangeMatch) {
+    const pretty = familyHubFormatTimeRange(rangeMatch[1], rangeMatch[2]);
+    return detail.replace(rangeMatch[0], pretty);
+  }
+  if (/^\d{1,2}:\d{2}/.test(detail)) {
+    const bits = detail.split(" · ");
+    bits[0] = familyHubFormatTime(bits[0]) || bits[0];
+    return bits.join(" · ");
+  }
+  return detail;
+}
+
+function familyHubSectionIcon(kind = "") {
+  const icons = {
+    mood: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8.5 14.5c1.2 1.4 2.6 2 3.5 2s2.3-.6 3.5-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    meals: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v7c0 2 1.5 3 3 3v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 4v7M11 4v16M16 8c2.5 0 3.5 2 3.5 4.5S18.5 17 16 17v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    naps: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14.5A6.5 6.5 0 0 1 14.8 5.2 7.5 7.5 0 1 0 4 14.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    care: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    activities: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16l4-8 3 5 2-3 5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.5" cy="7" r="1.4" fill="currentColor"/></svg>`,
+    notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h8l4 4v12H7V4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 4v4h4M9 12h6M9 16h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    photos: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="11" r="1.6" fill="currentColor"/><path d="M3.5 16l4.5-4 3.5 3 2.5-2 6.5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    messages: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H8l-3 3V6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    events: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.5V7M16 3.5V7M4 10h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    today: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    reports: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6V4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    forms: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    more: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="17.5" cy="12" r="1.5" fill="currentColor"/></svg>`,
+    alerts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.2L4.4 15h15.2L16 12.2V9a6 6 0 0 0-6-6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  };
+  return icons[kind] || icons.notes;
+}
+
+function familyHubEmptyState({ title, body, actionHtml = "", icon = "notes" } = {}) {
+  return `
+    <div class="fh-empty-state" role="status">
+      <div class="fh-empty-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</div>
+      <strong>${escapeHtml(title || "Nothing here yet")}</strong>
+      <p>${escapeHtml(body || "Check back later.")}</p>
+      ${actionHtml}
+    </div>
+  `;
+}
+
+function familyHubPhotoTile(item = {}, childName = "Child") {
+  const caption = item.caption || item.title || "Photo";
+  const url = String(item.url || "").trim();
+  const when = item.date ? familyHubFormatDate(item.date, { weekday: false }) : "";
+  return `
+    <figure class="fh-photo-tile">
+      ${url
+        ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(caption)}" loading="lazy" />`
+        : `<div class="fh-photo-placeholder" aria-hidden="true"><span>${escapeHtml(familyHubChildInitials(childName))}</span></div>`}
+      <figcaption>
+        <strong>${escapeHtml(caption)}</strong>
+        <span>${escapeHtml(childName)}${when ? ` · ${escapeHtml(when)}` : ""}</span>
+      </figcaption>
+    </figure>
+  `;
+}
+
+function familyHubStatusClass(status = "", label = "") {
+  const raw = `${status} ${label}`.toLowerCase();
+  if (raw.includes("needed") || raw.includes("action") || raw.includes("due")) return "is-action";
+  if (raw.includes("viewable") || raw.includes("on file") || raw.includes("complete")) return "is-ok";
+  return "is-neutral";
+}
+
+function familyHubEventTypeLabel(type = "") {
+  const map = {
+    family_event: "Family event",
+    closure: "Closure",
+    reminder: "Reminder",
+    director_event: "Program event",
+    classroom_event: "Classroom",
+  };
+  const key = String(type || "event");
+  return map[key] || "Event";
+}
+
+function renderFamilyHubTodayPanel(data) {
+  const today = data?.today && typeof data.today === "object" ? data.today : {};
+  const child = today.child || null;
+  const name = child?.name || "your child";
+  const first = String(name).split(/\s+/)[0] || name;
+  const photoUrl = String(child?.photoUrl || "").trim();
+  const dateLabel = familyHubFormatDate(today.date || "");
+  const preferred = String(data?.settings?.preferredName || "").trim();
+  const hour = new Date().getHours();
+  const dayPart = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const warmGreeting = `${dayPart}, ${first}'s family`;
+  const section = (title, icon, body) => {
+    if (!body) return "";
+    return `
+    <section class="fh-today-section">
+      <h3><span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</span>${escapeHtml(title)}</h3>
+      ${body}
+    </section>`;
+  };
+  const listHtml = (items, mapFn) => (items?.length ? `<ul class="fh-today-list">${items.map(mapFn).join("")}</ul>` : "");
+  const pendingForms = Array.isArray(today.pendingForms) ? today.pendingForms : [];
+  const pulse = Array.isArray(today.carePulse) ? today.carePulse : [];
+  const checkedIn = Array.isArray(today.attendance) && today.attendance.some((a) => {
+    const status = String(a.status || "").toLowerCase();
+    return status !== "absent" && (a.dropoff || status === "present");
+  });
+  const hero = `
+      <header class="fh-today-hero fh-today-hero--warm">
+        <div class="fh-child-avatar" aria-hidden="true">
+          ${photoUrl
+            ? `<img src="${escapeHtml(photoUrl)}" alt="" />`
+            : `<span>${escapeHtml(familyHubChildInitials(name))}</span>`}
+        </div>
+        <div class="fh-today-hero-copy">
+          <p class="fh-greeting">${escapeHtml(warmGreeting)}${dateLabel ? ` · ${escapeHtml(dateLabel)}` : ""}</p>
+          <h2>${escapeHtml(checkedIn ? `${first} is checked in` : familyHubDayHeadline(first))}</h2>
+          <p class="fh-day-story">${escapeHtml(today.dayStory || today.greetingLine || `Here’s how ${first}’s day is going.`)}</p>
+        </div>
+      </header>
+      ${pulse.length ? `
+        <div class="fh-care-pulse" aria-label="Today at a glance">
+          ${pulse.map((item) => `
+            <span class="fh-care-chip fh-care-chip--${escapeHtml(item.key || "note")}">
+              <em>${escapeHtml(item.label || "")}</em>
+              <strong>${escapeHtml(item.value || "")}</strong>
+            </span>
+          `).join("")}
+        </div>
+      ` : ""}`;
+  if (today.empty && !pendingForms.length) {
+    return `
+      <div class="fh-today">
+        ${hero}
+        ${familyHubEmptyState({
+          title: `A quiet morning for ${first}`,
+          body: "As soon as drop-off notes, meals, naps, or photos are shared, this page becomes their day story.",
+          icon: "today",
+          actionHtml: `<div class="fh-account-actions">
+            <button class="ghost-button fh-btn-secondary" type="button" data-fh-panel="messages">Say hi to teacher</button>
+            <button class="ghost-button fh-btn-secondary" type="button" data-fh-panel="calendar">See what’s coming</button>
+          </div>`,
+        })}
+      </div>
+    `;
+  }
+  const moodHtml = today.mood
+    ? `<div class="fh-mood-pill"><span>Today’s mood</span><strong>${escapeHtml(today.mood.value)}</strong>${today.mood.summary ? `<p>${escapeHtml(today.mood.summary)}</p>` : ""}</div>`
+    : "";
+  const reportTeaser = today.reports?.length
+    ? `<article class="fh-story-card">
+        <strong>${escapeHtml(today.reports[0].title || "Daily report")}</strong>
+        <p>${escapeHtml(today.reports[0].summary || "Your teacher shared today’s report.")}</p>
+        <button class="fh-text-btn" type="button" data-fh-panel="reports">Read full report</button>
+      </article>`
+    : "";
+  const pendingHtml = pendingForms.length
+    ? `<div class="fh-pending-forms">
+        ${pendingForms.map((doc) => `
+          <button type="button" class="fh-pending-form" data-fh-panel="forms">
+            <strong>${escapeHtml(doc.title || "Form")}</strong>
+            <span>${escapeHtml(doc.statusLabel || "Needs your signature")}${doc.dueDate ? ` · due ${escapeHtml(doc.dueDate)}` : ""}</span>
+          </button>
+        `).join("")}
+      </div>`
+    : "";
+  return `
+    <div class="fh-today">
+      ${hero}
+      ${section("Needs your signature", "forms", pendingHtml)}
+      ${section("Mood", "mood", moodHtml)}
+      ${section(
+        "Attendance",
+        "today",
+        listHtml(today.attendance, (item) => {
+          const parts = [];
+          if (item.dropoff) parts.push(`Arrived ${familyHubFormatTime(item.dropoff)}`);
+          if (item.pickup) parts.push(`Picked up ${familyHubFormatTime(item.pickup)}`);
+          if (!parts.length && item.summary) parts.push(item.summary);
+          if (!parts.length) parts.push(item.status || "Present");
+          return `<li><strong>${escapeHtml(item.status || "Present")}</strong><span>${escapeHtml(parts.join(" · "))}</span></li>`;
+        }),
+      )}
+      ${section(
+        "Meals",
+        "meals",
+        listHtml(today.meals, (item) => `<li><strong>${escapeHtml(item.label || "Meal")}</strong><span>${escapeHtml(item.detail || "")}</span></li>`),
+      )}
+      ${section(
+        "Naps",
+        "naps",
+        listHtml(today.naps, (item) => `<li><strong>Nap</strong><span>${escapeHtml(familyHubFormatNapDetail(item) || "Nap logged")}</span></li>`),
+      )}
+      ${section(
+        "Diapers & potty",
+        "care",
+        listHtml(today.diapers, (item) => `<li><strong>${escapeHtml(item.title || item.category || "Update")}</strong><span>${escapeHtml(item.detail || item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
+      )}
+      ${section(
+        "Activities",
+        "activities",
+        listHtml(today.activities, (item) => `<li><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
+      )}
+      ${section(
+        "Learning moments",
+        "activities",
+        listHtml(today.observations, (item) => `<li><strong>${escapeHtml(item.title || item.area || "Observation")}</strong><span>${escapeHtml(item.summary || item.text || "")}</span></li>`),
+      )}
+      ${section(
+        "Goals",
+        "activities",
+        listHtml(today.goals, (item) => `<li><strong>${escapeHtml(item.title || item.area || "Goal")}</strong><span>${escapeHtml(item.summary || item.text || "")}</span></li>`),
+      )}
+      ${section(
+        "Support updates",
+        "care",
+        listHtml(today.supportPlans, (item) => `<li><strong>${escapeHtml(item.title || "Support plan")}</strong><span>${escapeHtml(item.summary || item.strategies || "")}</span></li>`),
+      )}
+      ${today.weekLesson ? section(
+        "This week’s classroom plan",
+        "activities",
+        `<article class="fh-story-card"><strong>${escapeHtml(today.weekLesson.title || "Lesson plan")}</strong><p>Week of ${escapeHtml(familyHubFormatDate(today.weekLesson.weekStartDate || "") || today.weekLesson.weekStartDate || "")}</p></article>`,
+      ) : ""}
+      ${section(
+        "Teacher notes",
+        "notes",
+        listHtml(today.teacherNotes, (item) => `<li><strong>${escapeHtml(item.title || "Note")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
+      )}
+      ${section(
+        "Announcements",
+        "alerts",
+        listHtml(today.announcements, (item) => `<li><strong>${escapeHtml(item.title || "Announcement")}</strong><span>${escapeHtml(item.summary || item.message || "")}</span></li>`),
+      )}
+      ${section("Daily report", "reports", reportTeaser)}
+      ${section(
+        "Photos from today",
+        "photos",
+        today.photos?.length
+          ? `<div class="fh-photo-grid">${today.photos.map((item) => familyHubPhotoTile(item, first)).join("")}</div>`
+          : "",
+      )}
+      ${section(
+        "Messages",
+        "messages",
+        listHtml(today.messages, (item) => `<li class="${item.unread ? "is-unread" : ""}"><strong>${escapeHtml(item.authorName || "Teacher")}</strong><span>${escapeHtml(item.body || "")}</span></li>`)
+          + (today.messages?.length ? `<button class="fh-text-btn" type="button" data-fh-panel="messages">Open messages</button>` : ""),
+      )}
+      ${section(
+        "Coming up",
+        "events",
+        listHtml(today.upcomingEvents, (item) => {
+          const when = [
+            familyHubFormatDate(item.startDate || ""),
+            item.startTime ? familyHubFormatTime(item.startTime) : "",
+          ].filter(Boolean).join(" · ");
+          return `<li><strong>${escapeHtml(item.title || "Event")}</strong><span>${escapeHtml(when)}${item.summary ? ` — ${escapeHtml(item.summary)}` : ""}</span></li>`;
+        }),
+      )}
+    </div>
+  `;
+}
+
+function renderFamilyHubReportsPanel(data) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
+  const reports = Array.isArray(data?.shared?.reports) ? data.shared.reports : [];
+  if (!reports.length) {
+    return familyHubEmptyState({
+      title: "No daily reports yet",
+      body: "When your teacher shares a daily report, it will show up here for every linked child.",
+      icon: "reports",
+    });
+  }
+  return `
+    <div class="fh-panel-stack">
+      ${reports.map((item) => `
+        <article class="fh-card">
+          <div class="fh-card-head">
+            <strong>${escapeHtml(item.title || "Daily report")}</strong>
+            <span class="fh-meta">${escapeHtml(childName(item.childId))}${item.date ? ` · ${escapeHtml(familyHubFormatDate(item.date))}` : ""}</span>
+          </div>
+          <p>${escapeHtml(item.summary || "No summary provided.")}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFamilyHubPhotosPanel(data) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
+  const photos = Array.isArray(data?.shared?.photos) ? data.shared.photos : [];
+  if (!photos.length) {
+    return familyHubEmptyState({
+      title: "No photos shared yet",
+      body: "Photos your teacher shares with your family will collect here.",
+      icon: "photos",
+      actionHtml: `<button class="fh-text-btn" type="button" data-fh-panel="today">Back to Today</button>`,
+    });
+  }
+  return `<div class="fh-photo-grid fh-photo-grid--page">${photos.map((item) => familyHubPhotoTile(item, childName(item.childId))).join("")}</div>`;
+}
+
+function renderFamilyHubMessagesPanel(data) {
+  const messages = Array.isArray(data?.messages) ? data.messages : [];
+  const sorted = messages.slice().sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  return `
+    <div class="fh-messages">
+      <div class="fh-message-thread" id="familyHubMessageThread">
+        ${sorted.length
+          ? sorted.map((msg) => `
+              <article class="fh-message ${msg.from === "parent" ? "is-parent" : "is-provider"}">
+                <header>
+                  <strong>${escapeHtml(msg.authorName || (msg.from === "parent" ? "You" : "Teacher"))}</strong>
+                  <time datetime="${escapeHtml(msg.createdAt || "")}">${escapeHtml(familyHubFormatDateTime(msg.createdAt))}</time>
+                </header>
+                <p>${escapeHtml(msg.body || "")}</p>
+              </article>
+            `).join("")
+          : familyHubEmptyState({
+            title: "Start the conversation",
+            body: "Send a note to your teacher. Replies will show in this thread.",
+            icon: "messages",
+          })}
+      </div>
+      <form id="familyHubMessageForm" class="fh-message-compose">
+        <label class="sr-only" for="familyHubMessageInput">Message</label>
+        <textarea id="familyHubMessageInput" name="body" maxlength="2000" rows="3" required placeholder="Write a message to your teacher…"></textarea>
+        <div class="fh-compose-actions">
+          <button class="ghost-button" type="button" data-fh-improve-wording>Improve wording</button>
+          <button class="primary-button" type="submit">Send</button>
+        </div>
+        <span class="form-message" id="familyHubMessageStatus" aria-live="polite"></span>
+      </form>
+    </div>
+  `;
+}
+
+function renderFamilyHubCalendarPanel(data) {
+  const events = Array.isArray(data?.calendar) ? data.calendar : [];
+  if (!events.length) {
+    return familyHubEmptyState({
+      title: "No upcoming events",
+      body: "Closures, family events, and reminders from your teacher will appear here.",
+      icon: "events",
+    });
+  }
+  return `
+    <div class="fh-panel-stack">
+      ${events.map((item) => {
+        const when = [
+          familyHubFormatDate(item.startDate || ""),
+          item.endDate && item.endDate !== item.startDate ? `– ${familyHubFormatDate(item.endDate)}` : "",
+          item.allDay || (!item.startTime && !item.endTime)
+            ? (item.startTime ? "" : "All day")
+            : familyHubFormatTimeRange(item.startTime, item.endTime),
+        ].filter(Boolean).join(" · ").replace("· –", "–");
+        return `
+        <article class="fh-card">
+          <div class="fh-card-head">
+            <strong>${escapeHtml(item.title || "Event")}</strong>
+            <span class="fh-status-tag is-neutral">${escapeHtml(familyHubEventTypeLabel(item.type))}</span>
+          </div>
+          <p class="fh-meta">${escapeHtml(when)}</p>
+          ${item.summary ? `<p>${escapeHtml(item.summary)}</p>` : ""}
+        </article>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderFamilyHubFormsPanel(data) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
+  const documents = Array.isArray(data?.documents) ? data.documents : [];
+  if (!documents.length) {
+    return familyHubEmptyState({
+      title: "No forms yet",
+      body: "Enrollment packets, medical forms, and handbook copies will show here when your program shares them.",
+      icon: "forms",
+    });
+  }
+  return `
+    <div class="fh-panel-stack">
+      <p class="fh-meta">Review each form, then sign. Your provider sees the update right away in Forms &amp; Records.</p>
+      ${documents.map((doc) => {
+        const canSign = Boolean(doc.canAcknowledge);
+        const signedMeta = doc.signedAt
+          ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
+          : "";
+        const body = String(doc.bodyText || "").trim();
+        return `
+        <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
+          <div class="fh-card-head">
+            <strong>${escapeHtml(doc.title || "Form")}</strong>
+            <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
+          </div>
+          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}</p>
+          <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
+          ${body ? `<details class="fh-form-body"><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
+          ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
+          ${canSign && doc.id
+            ? `<div class="fh-account-actions">
+                <button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign form</button>
+                <p class="fh-meta">Testing signature — records your name and time for the provider.</p>
+              </div>`
+            : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
+        </article>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderFamilyHubMorePanel(data) {
+  const settings = data?.settings || data?.household?.settings || {};
+  const guardians = Array.isArray(data?.guardians) ? data.guardians : [];
+  const notifications = Array.isArray(data?.notifications) ? data.notifications : [];
+  const contacts = Array.isArray(data?.contacts) ? data.contacts : [];
+  const requests = Array.isArray(data?.requests) ? data.requests : [];
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const todayIsoLocal = new Date().toISOString().slice(0, 10);
+  const guardianRows = guardians.length
+    ? guardians.map((item) => {
+      if (item && typeof item === "object") {
+        const email = String(item.email || "");
+        const looksTest = /llh\.test$|@example\.|demo\./i.test(email);
+        const rawName = String(item.name || "").trim();
+        const name = (!rawName || rawName === email || looksTest)
+          ? (rawName && rawName !== email ? rawName : "Family member")
+          : rawName;
+        return { name: name || "Family member" };
+      }
+      return { name: "Family member" };
+    })
+    : [];
+  const requestTypeLabel = (type) => ({
+    absence: "Absence",
+    pickup_change: "Pickup change",
+    contact_update: "Contact update",
+  }[type] || "Request");
+  return `
+    <div class="fh-panel-stack">
+      <section class="fh-card">
+        <h3>Quick links</h3>
+        <div class="fh-more-links">
+          <button type="button" class="fh-more-link" data-fh-panel="calendar">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("events")}</span>
+            <span><strong>Calendar</strong><span class="fh-meta">Upcoming events &amp; closures</span></span>
+          </button>
+          <button type="button" class="fh-more-link" data-fh-panel="reports">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("reports")}</span>
+            <span><strong>Daily reports</strong><span class="fh-meta">Read today’s summaries</span></span>
+          </button>
+          <button type="button" class="fh-more-link" data-fh-panel="forms">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("forms")}</span>
+            <span><strong>Forms</strong><span class="fh-meta">Enrollment, medical, handbook</span></span>
+          </button>
+          <button type="button" class="fh-more-link" data-fh-panel="today">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("today")}</span>
+            <span><strong>Today’s story</strong><span class="fh-meta">How was their day?</span></span>
+          </button>
+        </div>
+      </section>
+      <section class="fh-card">
+        <h3>Ask your provider</h3>
+        <p class="fh-meta">Send an absence or pickup change without leaving Family Hub.</p>
+        <form id="familyHubRequestForm" class="panel-form fh-settings-form">
+          <label>Request type
+            <select name="type" required>
+              <option value="absence">Absence request</option>
+              <option value="pickup_change">Pickup change</option>
+              <option value="contact_update">Update emergency / pickup contacts</option>
+            </select>
+          </label>
+          ${children.length > 1 ? `
+            <label>Child
+              <select name="childId">
+                ${children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("")}
+              </select>
+            </label>
+          ` : `<input type="hidden" name="childId" value="${escapeHtml(children[0]?.id || "")}" />`}
+          <label>Date
+            <input type="date" name="date" value="${escapeHtml(todayIsoLocal)}" />
+          </label>
+          <label>Time <span class="fh-meta">(optional)</span>
+            <input type="time" name="time" />
+          </label>
+          <label>Note for your provider
+            <textarea name="details" rows="3" maxlength="1200" placeholder="Who’s picking up, reason for absence, new emergency contact…"></textarea>
+          </label>
+          <button class="primary-button" type="submit">Send request</button>
+          <span class="form-message" id="familyHubRequestMessage" aria-live="polite"></span>
+        </form>
+        ${requests.length ? `
+          <ul class="fh-today-list" style="margin-top:14px;">
+            ${requests.slice(0, 6).map((item) => `
+              <li>
+                <strong>${escapeHtml(requestTypeLabel(item.type))}${item.childName ? ` · ${escapeHtml(item.childName)}` : ""}</strong>
+                <span>${escapeHtml(item.date || "")}${item.details ? ` — ${escapeHtml(item.details)}` : ""} · ${escapeHtml(item.status || "pending")}</span>
+              </li>
+            `).join("")}
+          </ul>
+        ` : ""}
+      </section>
+      <section class="fh-card">
+        <h3>Emergency &amp; pickup contacts</h3>
+        ${contacts.length
+          ? contacts.map((item) => `
+            <article class="fh-contact-card">
+              <strong>${escapeHtml(item.childName || "Child")}</strong>
+              <p class="fh-meta">${item.parentInfo ? `Guardian: ${escapeHtml(item.parentInfo)}` : "Add guardian details with your provider if needed."}</p>
+              <p>${item.emergencyContact ? `<strong>Emergency:</strong> ${escapeHtml(item.emergencyContact)}` : "<span class=\"fh-meta\">No emergency contact on file yet.</span>"}</p>
+              <p>${item.pickupContacts ? `<strong>Authorized pickup:</strong> ${escapeHtml(item.pickupContacts)}` : "<span class=\"fh-meta\">No authorized pickup contacts on file yet.</span>"}</p>
+              ${item.allergies ? `<p><strong>Allergies:</strong> ${escapeHtml(item.allergies)}</p>` : ""}
+              ${item.medical ? `<p><strong>Medical notes:</strong> ${escapeHtml(item.medical)}</p>` : ""}
+              ${item.classroom ? `<p class="fh-meta">Classroom: ${escapeHtml(item.classroom)}</p>` : ""}
+            </article>
+          `).join("")
+          : familyHubEmptyState({ title: "Contacts will appear here", body: "Your provider keeps emergency and pickup contacts on each child’s profile.", icon: "care" })}
+        <p class="fh-meta">Need a change? Send a contact update request above.</p>
+      </section>
+      <section class="fh-card">
+        <h3>Notifications</h3>
+        ${notifications.length
+          ? `<ul class="fh-today-list">${notifications.slice(0, 12).map((item) => {
+              const href = String(item.href || "").trim();
+              const openable = ["today", "reports", "photos", "messages", "calendar", "forms", "more"].includes(href);
+              return `
+              <li class="${item.read ? "" : "is-unread"}">
+                ${openable
+                  ? `<button type="button" class="fh-notif-link" data-fh-panel="${escapeHtml(href)}">
+                      <strong>${escapeHtml(item.title || "Update")}</strong>
+                      <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(familyHubFormatDateTime(item.createdAt))}` : ""}</span>
+                    </button>`
+                  : `<strong>${escapeHtml(item.title || "Update")}</strong>
+                     <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(familyHubFormatDateTime(item.createdAt))}` : ""}</span>`}
+              </li>`;
+            }).join("")}</ul>
+            <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-mark-notifications>Mark all read</button>`
+          : familyHubEmptyState({ title: "You’re all caught up", body: "New photos, reports, and messages will show up here.", icon: "alerts" })}
+      </section>
+      <section class="fh-card">
+        <h3>Household guardians</h3>
+        <ul class="fh-today-list">
+          ${(guardianRows.length ? guardianRows : [{ name: "No guardians on file yet" }]).map((item) => `
+            <li>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>Can open Family Hub with your household login code</span>
+            </li>
+          `).join("")}
+        </ul>
+      </section>
+      <section class="fh-card">
+        <h3>Your settings</h3>
+        <form id="familyHubSettingsForm" class="panel-form fh-settings-form">
+          <label>Preferred name
+            <input name="preferredName" maxlength="80" value="${escapeHtml(settings.preferredName || "")}" placeholder="How should we greet you?" />
+          </label>
+          <fieldset class="fh-settings-checks">
+            <legend class="sr-only">Alert preferences</legend>
+            <p class="fh-meta">We’ll highlight new updates in Family Hub when these are on.</p>
+            <label class="settings-check-label"><input type="checkbox" name="notifyMessages" ${settings.notifyMessages !== false ? "checked" : ""} /> Message alerts</label>
+            <label class="settings-check-label"><input type="checkbox" name="notifyPhotos" ${settings.notifyPhotos !== false ? "checked" : ""} /> Photo alerts</label>
+            <label class="settings-check-label"><input type="checkbox" name="notifyDailyReports" ${settings.notifyDailyReports !== false ? "checked" : ""} /> Daily report alerts</label>
+            <label class="settings-check-label"><input type="checkbox" name="notifyEvents" ${settings.notifyEvents !== false ? "checked" : ""} /> Event alerts</label>
+          </fieldset>
+          <button class="primary-button" type="submit">Save settings</button>
+          <span class="form-message" id="familyHubSettingsMessage" aria-live="polite"></span>
+        </form>
+      </section>
+      <section class="fh-card">
+        <h3>Account</h3>
+        <p class="fh-meta">${escapeHtml(data?.household?.programName || "Your program")}</p>
+        <p class="muted-copy">${escapeHtml(data?.household?.label || "Your household")}</p>
+        <div class="fh-account-actions">
+          ${isLoggedIn() ? `<button class="ghost-button fh-btn-secondary" type="button" data-hdh-role-switch="teacher">Exit parent preview</button>` : ""}
+          <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-sign-out>Sign out</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderFamilyHubParentShell(data, options = {}) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const panel = options.panel || familyHubParentState.panel || "today";
+  const childId = options.childId || familyHubParentState.childId || data?.today?.childId || children[0]?.id || "";
+  const unread = Number(data?.unreadNotifications || 0);
+  const preferred = String(data?.settings?.preferredName || "").trim();
+  const program = data?.household?.programName || "Family Hub";
+  const household = data?.household?.label || "Your household";
+  if (!children.length) {
+    return `
+      <div class="fh-parent-app" data-fh-panel="today">
+        <header class="fh-app-header">
+          <div class="fh-app-brand">
+            <p class="fh-kicker">Family Hub</p>
+            <h1>${escapeHtml(program)}</h1>
+            <p class="fh-app-sub">${escapeHtml(household)}</p>
+          </div>
+          <div class="fh-app-header-actions">
+            <button class="fh-text-btn" type="button" data-family-hub-sign-out>Sign out</button>
+          </div>
+        </header>
+        ${familyHubEmptyState({
+          title: "No children linked yet",
+          body: "Ask your program to link your child to this household, then sign in again.",
+          icon: "today",
+        })}
+      </div>
+    `;
+  }
+  const panels = {
+    today: renderFamilyHubTodayPanel(data),
+    reports: renderFamilyHubReportsPanel(data),
+    photos: renderFamilyHubPhotosPanel(data),
+    messages: renderFamilyHubMessagesPanel(data),
+    calendar: renderFamilyHubCalendarPanel(data),
+    forms: renderFamilyHubFormsPanel(data),
+    more: renderFamilyHubMorePanel(data),
+  };
+  const nav = [
+    ["today", "Today", "today"],
+    ["photos", "Photos", "photos"],
+    ["messages", "Messages", "messages"],
+    ["more", "More", "more"],
+  ];
+  return `
+    <div class="fh-parent-app" data-fh-panel="${escapeHtml(panel)}">
+      <header class="fh-app-header">
+        <div class="fh-app-brand">
+          <p class="fh-kicker">For your family</p>
+          <h1>${escapeHtml(program)}</h1>
+          <p class="fh-app-sub">${escapeHtml(household)}${preferred ? ` · Hi, ${escapeHtml(preferred)}` : ""}</p>
+        </div>
+        <div class="fh-app-header-actions">
+          <button class="fh-icon-btn fh-notif-button" type="button" data-fh-panel="more" aria-label="${unread ? `${unread} alerts` : "Alerts"}">
+            <span class="fh-icon-btn-glyph" aria-hidden="true">${familyHubSectionIcon("alerts")}</span>
+            ${unread ? `<span class="fh-badge">${unread > 9 ? "9+" : unread}</span>` : ""}
+          </button>
+        </div>
+      </header>
+      ${children.length > 1 ? `
+        <div class="fh-child-switcher" role="tablist" aria-label="Children">
+          ${children.map((child) => {
+            const first = String(child.name || "Child").split(/\s+/)[0];
+            const selected = child.id === childId;
+            return `
+            <button type="button" role="tab" aria-selected="${selected ? "true" : "false"}" class="fh-child-chip${selected ? " is-active" : ""}" data-fh-child="${escapeHtml(child.id)}">
+              <span class="fh-child-chip-initial" aria-hidden="true">${escapeHtml(familyHubChildInitials(child.name))}</span>
+              ${escapeHtml(first)}
+            </button>`;
+          }).join("")}
+        </div>
+      ` : ""}
+      <nav class="fh-parent-nav" aria-label="Family Hub">
+        ${nav.map(([id, label, icon]) => `
+          <button type="button" class="fh-parent-nav-link${panel === id ? " is-active" : ""}" data-fh-panel="${id}" ${panel === id ? 'aria-current="page"' : ""}>
+            <span class="fh-nav-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</span>
+            <span>${escapeHtml(label)}</span>
+          </button>
+        `).join("")}
+      </nav>
+      <div class="fh-panel-body" id="familyHubPanelBody">
+        ${panels[panel] || panels.today}
+      </div>
+    </div>
   `;
 }
 
@@ -33935,35 +35934,44 @@ function renderFamilyHubPage() {
   if (!isHomeDaycareHubTestingEnabled()) {
     section.innerHTML = `
       <section class="simple-child-page">
-        <div class="child-page-header"><div><h2>Family Hub</h2><p>Family Hub is only available on the testing site.</p></div></div>
+        <div class="child-page-header"><div><h2>Family Hub</h2><p>Family Hub isn’t available on this site yet.</p></div></div>
         <button class="ghost-button" data-view="home" type="button">Back</button>
       </section>
     `;
+    syncFamilyHubParentChrome();
     return;
   }
   const token = getFamilyHubSessionToken();
+  const providerPreview = isLoggedIn();
+  const invitePending = Boolean(new URLSearchParams(window.location.search).get("familyHub"));
   section.innerHTML = `
-    <section class="simple-child-page hdh-family-hub-parent">
-      <div class="child-page-header">
-        <div>
-          <p class="eyebrow">Family Hub · Testing</p>
-          <h2>Your household</h2>
-          <p>One login for all of your children. Review form status here. Signing and returns come later.</p>
-        </div>
-      </div>
-      ${renderHdhRoleSwitcher("parent")}
-      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
+    <section class="simple-child-page hdh-family-hub-parent fh-parent-shell">
+      ${providerPreview && typeof isAdminUnlocked === "function" && isAdminUnlocked()
+        ? `<div class="fh-preview-banner" role="status"><strong>Admin View As · Parent</strong><span>Return to Admin from the Admin Testing Center badge. Real parents never see this.</span></div>`
+        : ""}
       <div id="familyHubParentApp">
         ${token
-          ? `<p class="muted-copy">Loading your household…</p>`
-          : `
-            <section class="section-block">
-              <h3>Sign in to Family Hub</h3>
-              <p class="muted-copy">Use the magic link from your provider, or enter your household email and 6-digit code. If you are the teacher tester, use <strong>Teacher view</strong> above instead.</p>
+          ? `<div class="fh-loading fh-loading-skeleton" id="familyHubLoadingState" aria-live="polite">
+              <div class="fh-skel-line fh-skel-line--brand"></div>
+              <div class="fh-skel-hero"></div>
+              <div class="fh-skel-card"></div>
+              <div class="fh-skel-card"></div>
+              <p class="sr-only">Loading today’s updates…</p>
+            </div>`
+          : invitePending
+            ? `<section class="fh-signin fh-signin--quiet" aria-hidden="true">
+                <p class="fh-kicker">Family Hub</p>
+                <h2>Opening your invite…</h2>
+              </section>`
+            : `
+            <section class="fh-signin">
+              <p class="fh-kicker">Family Hub</p>
+              <h2>Sign in to your household</h2>
+              <p class="muted-copy">Use the link your teacher sent, or enter your household email and 6-digit code.</p>
               <form id="familyHubLoginForm" class="panel-form">
                 <div class="form-grid-two">
-                  <label>Email<input name="email" type="email" required placeholder="parent@example.com" /></label>
-                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" /></label>
+                  <label>Email<input name="email" type="email" required placeholder="you@email.com" autocomplete="username" /></label>
+                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="6-digit code" autocomplete="one-time-code" /></label>
                 </div>
                 <button class="primary-button" type="submit">Sign in</button>
                 <span class="form-message" id="familyHubLoginMessage" aria-live="polite"></span>
@@ -33973,65 +35981,243 @@ function renderFamilyHubPage() {
       </div>
     </section>
   `;
+  syncFamilyHubParentChrome();
   if (token) {
-    loadFamilyHubParentDashboard().catch((error) => {
-      const app = document.querySelector("#familyHubParentApp");
-      if (app) {
-        app.innerHTML = `<p class="muted-copy">${escapeHtml(error.message || "Could not load Family Hub.")}</p>
-          <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>`;
-      }
-    });
+    const loadId = `fh-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    section.dataset.familyHubLoadId = loadId;
+    familyHubParentState.loadId = loadId;
+    ensureFamilyHubParentAppReady(loadId)
+      .then(() => loadFamilyHubParentDashboard({ loadId }))
+      .catch((error) => {
+        if (section.dataset.familyHubLoadId !== loadId) return;
+        const app = document.querySelector("#familyHubParentApp");
+        if (app) {
+          app.innerHTML = `
+            <section class="fh-signin">
+              <h2>Couldn’t open your household</h2>
+              <p class="muted-copy">${escapeHtml(error.message || "Something went wrong while loading Family Hub.")}</p>
+              <div class="account-actions-row">
+                <button class="primary-button" type="button" data-family-hub-retry>Try again</button>
+                <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+              </div>
+            </section>`;
+        }
+        syncFamilyHubParentChrome();
+      });
   }
 }
 
-async function loadFamilyHubParentDashboard() {
-  const headers = familyHubAuthHeaders();
+async function ensureFamilyHubParentAppReady(loadId, attempts = 40) {
+  for (let i = 0; i < attempts; i += 1) {
+    const section = document.querySelector("#view-family-hub");
+    const app = document.querySelector("#familyHubParentApp");
+    // Prefer an active Family Hub view, but accept the mount node as soon as it exists.
+    if (app && (section?.classList.contains("active-view") || section)) return app;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
   const app = document.querySelector("#familyHubParentApp");
-  if (!headers || !app) return;
-  const response = await fetch("/api/family-hub/me", { headers, cache: "no-store" });
-  const data = await response.json().catch(() => ({}));
+  if (app) return app;
+  throw new Error("Family Hub screen didn’t finish opening. Tap Try again.");
+}
+
+async function loadFamilyHubParentDashboard(options = {}) {
+  const loadId = options.loadId || familyHubParentState.loadId || "";
+  const section = document.querySelector("#view-family-hub");
+  let app = document.querySelector("#familyHubParentApp");
+  if (!app) {
+    app = await ensureFamilyHubParentAppReady(loadId);
+  }
+  if (!app) {
+    throw new Error("Family Hub screen is not ready yet. Tap Try again.");
+  }
+  const headers = familyHubAuthHeaders();
+  if (!headers) {
+    clearFamilyHubSession();
+    throw new Error("Your Family Hub session is missing. Open your magic link or sign in with your login code.");
+  }
+
+  const childId = options.childId || familyHubParentState.childId || "";
+  const query = childId ? `?childId=${encodeURIComponent(childId)}` : "";
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+  let response;
+  let data = {};
+  try {
+    response = await fetch(`/api/family-hub/me${query}`, {
+      headers,
+      cache: "no-store",
+      signal: controller?.signal,
+    });
+    data = await response.json().catch(() => ({}));
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Family Hub is taking too long to respond. Check your connection and try again.");
+    }
+    throw new Error("Could not reach Family Hub. Check your connection and try again.");
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  const stillLoading = Boolean(app.querySelector("#familyHubLoadingState, .fh-loading"));
+  const loadIdMatches = !loadId || !section || section.dataset.familyHubLoadId === loadId;
+  // Never abandon a paint while the UI is still on the loading placeholder.
+  if (!loadIdMatches && !stillLoading) return;
+
   if (!response.ok) {
     clearFamilyHubSession();
-    throw new Error(data?.error || "Family Hub session expired.");
+    if (response.status === 401) {
+      throw new Error(data?.error || "Family Hub session expired. Open your magic link or sign in again.");
+    }
+    if (response.status === 410) {
+      throw new Error(data?.error || "This Family Hub invite has expired. Ask your provider for a new invite.");
+    }
+    if (response.status >= 500) {
+      throw new Error(data?.error || "Family Hub had a server problem. Please try again in a moment.");
+    }
+    throw new Error(data?.error || "Could not load Family Hub.");
   }
+
   const children = Array.isArray(data.children) ? data.children : [];
-  const documents = Array.isArray(data.documents) ? data.documents : [];
-  app.innerHTML = `
-    <section class="section-block">
-      <div class="account-actions-row" style="margin-bottom:12px;">
-        <strong>${escapeHtml(data.household?.label || "Your household")}</strong>
-        ${isLoggedIn() ? `<button class="primary-button" type="button" data-hdh-role-switch="teacher">Back to Teacher</button>` : ""}
-        ${isLoggedIn() ? `<button class="ghost-button" type="button" data-hdh-role-switch="staff-helper">Staff Helper</button>` : ""}
-        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out of Parent view</button>
-      </div>
-      <p class="muted-copy">${escapeHtml(data.note || "One household login covers all linked children.")}</p>
-      <h3>Children</h3>
-      <ul class="hdh-coming-list">
-        ${children.length ? children.map((child) => `<li>${escapeHtml(child.name || "Child")}</li>`).join("") : "<li>No children linked yet.</li>"}
-      </ul>
-      <h3>Forms &amp; records status</h3>
-      <div class="resource-list compact">
-        ${documents.length
-          ? documents.map((doc) => {
-            const childName = children.find((c) => c.id === doc.childId)?.name || "Child";
-            return `
-              <article class="resource-row">
-                <div>
-                  <strong>${escapeHtml(doc.title || "Form")}</strong>
-                  <p class="muted-copy">${escapeHtml(childName)} · ${escapeHtml(doc.category || "Other")} · ${escapeHtml(doc.statusLabel || doc.status || "Needed")}</p>
-                </div>
-                <span class="tag">Review only</span>
-              </article>
-            `;
-          }).join("")
-          : renderProfileEmptyState({
-            title: "No forms shared yet",
-            body: "When your provider tracks paperwork for your children, status will show here. E-sign comes later.",
-          })}
-      </div>
-      <p class="form-note">Signing, uploads, and returning forms are not available yet on Family Hub testing.</p>
-    </section>
-  `;
+  const activeChildId = data.today?.childId || childId || children[0]?.id || "";
+  familyHubParentState = {
+    ...familyHubParentState,
+    data,
+    childId: activeChildId,
+    panel: options.panel || familyHubParentState.panel || "today",
+    loadId: loadIdMatches ? loadId : (section?.dataset.familyHubLoadId || loadId),
+  };
+  // Re-query mount in case the view re-rendered during fetch.
+  app = document.querySelector("#familyHubParentApp") || app;
+  app.innerHTML = renderFamilyHubParentShell(data, {
+    panel: familyHubParentState.panel,
+    childId: activeChildId,
+  });
+  syncFamilyHubParentChrome();
+  familyHubBindComposeKeyboard();
+  if (familyHubParentState.panel === "messages") {
+    const thread = document.querySelector("#familyHubMessageThread");
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }
+}
+
+function paintFamilyHubParentPanel(panel) {
+  const next = String(panel || "today");
+  familyHubParentState.panel = next;
+  const data = familyHubParentState.data;
+  const app = document.querySelector("#familyHubParentApp");
+  if (!app || !data) {
+    renderFamilyHubPage();
+    return;
+  }
+  const shell = app.querySelector(".fh-parent-app");
+  const body = app.querySelector("#familyHubPanelBody");
+  if (!shell || !body) {
+    app.innerHTML = renderFamilyHubParentShell(data, {
+      panel: next,
+      childId: familyHubParentState.childId,
+    });
+    syncFamilyHubParentChrome();
+    familyHubBindComposeKeyboard();
+    return;
+  }
+  const panelHtml = {
+    today: renderFamilyHubTodayPanel,
+    reports: renderFamilyHubReportsPanel,
+    photos: renderFamilyHubPhotosPanel,
+    messages: renderFamilyHubMessagesPanel,
+    calendar: renderFamilyHubCalendarPanel,
+    forms: renderFamilyHubFormsPanel,
+    more: renderFamilyHubMorePanel,
+  };
+  const render = panelHtml[next] || panelHtml.today;
+  body.innerHTML = render(data);
+  shell.dataset.fhPanel = next;
+  app.querySelectorAll(".fh-parent-nav-link[data-fh-panel]").forEach((btn) => {
+    const active = btn.getAttribute("data-fh-panel") === next;
+    btn.classList.toggle("is-active", active);
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+  syncFamilyHubParentChrome();
+  familyHubBindComposeKeyboard();
+  if (next === "messages") {
+    const thread = document.querySelector("#familyHubMessageThread");
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }
+}
+
+async function switchFamilyHubChild(childId) {
+  const id = String(childId || "").trim();
+  if (!id || id === familyHubParentState.childId) return;
+  familyHubParentState.childId = id;
+  familyHubParentState.panel = "today";
+  const section = document.querySelector("#view-family-hub");
+  const loadId = `fh-child-${Date.now()}`;
+  if (section) section.dataset.familyHubLoadId = loadId;
+  familyHubParentState.loadId = loadId;
+  const app = document.querySelector("#familyHubParentApp");
+  if (app) app.innerHTML = `<div class="fh-loading"><p>Updating today’s view…</p></div>`;
+  await loadFamilyHubParentDashboard({ loadId, childId: id, panel: "today" });
+}
+
+async function signOutFamilyHubParent() {
+  const headers = familyHubAuthHeaders();
+  if (headers) {
+    try {
+      await fetch("/api/family-hub/logout", { method: "POST", headers, cache: "no-store" });
+    } catch (_error) { /* ignore */ }
+  }
+  clearFamilyHubSession();
+  familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
+  if (isLoggedIn()) {
+    setHdhTesterPersona({ role: "teacher" });
+    syncPlatformNavVisibility();
+    setView(staffMaySeeHdhView("home-daycare-hub") ? "home-daycare-hub" : "calendar");
+    syncHdhTesterSwitcherChrome();
+    showActionFeedback("Exited Parent view.");
+    return;
+  }
+  renderFamilyHubPage();
+  syncFamilyHubParentChrome();
+  familyHubParentToast("Signed out of Family Hub.");
+}
+
+async function acknowledgeFamilyHubDocument(documentId) {
+  const headers = familyHubAuthHeaders();
+  if (!headers) throw new Error("Sign in to Family Hub to sign forms.");
+  const preferredName = String(
+    familyHubParentState?.data?.settings?.preferredName
+    || familyHubParentState?.data?.household?.label
+    || "",
+  ).trim();
+  const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/acknowledge`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ signerName: preferredName }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not sign this form.");
+  // Mirror signed status into the provider's local Documents store when available.
+  try {
+    if (isLoggedIn() && data?.document?.id && typeof saveChildStore === "function") {
+      const docs = childStore("Documents") || [];
+      const next = docs.map((doc) => (
+        String(doc.id || "") === String(data.document.id)
+          ? {
+            ...doc,
+            status: data.document.status || "signed",
+            statusLabel: data.document.statusLabel || "Signed",
+            signedAt: data.document.signedAt || new Date().toISOString(),
+            signedBy: data.document.signedBy || preferredName,
+            updatedAt: data.document.updatedAt || new Date().toISOString(),
+          }
+          : doc
+      ));
+      if (next.some((doc, index) => doc !== docs[index])) saveChildStore("Documents", next);
+    }
+  } catch (_error) { /* non-blocking */ }
+  return data;
 }
 
 async function createFamilyHubHouseholdInvite(form) {
@@ -34054,6 +36240,7 @@ async function createFamilyHubHouseholdInvite(form) {
     body: JSON.stringify({
       label: String(data.label || "").trim(),
       email,
+      guardianEmail: String(data.guardianEmail || "").trim(),
       phone,
       children,
       documents: familyHubDocumentSnapshotForChildren(children.map((child) => child.id)),
@@ -34063,6 +36250,8 @@ async function createFamilyHubHouseholdInvite(form) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result?.error || "Could not create Family Hub invite.");
+  if (result.testingHandoff) familyHubHouseholdCache.testingHandoff = result.testingHandoff;
+  if (result.storage) familyHubHouseholdCache.storage = result.storage;
   familyHubInviteResult = {
     label: result.household?.label || data.label || "Family",
     magicUrl: result.magicUrl || result.household?.magicUrl || "",
@@ -34088,33 +36277,52 @@ async function redeemFamilyHubInviteToken(token) {
 async function maybeHandleFamilyHubInviteFromUrl() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const params = new URLSearchParams(window.location.search);
-  const token = String(params.get("familyHub") || "").trim();
+  // Prefer session-captured token (stripped from URL before analytics/pixel fire).
+  const token = String(params.get("familyHub") || consumePendingUrlSecret("familyHub") || "").trim();
   if (!token) return false;
-  const peek = await fetch(`/api/family-hub/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
+  // Prefer header transport so the invite token never lands in server access logs via query string.
+  const peek = await fetch("/api/family-hub/invites/peek", {
+    headers: {
+      Accept: "application/json",
+      "X-LLH-Invite-Token": token,
+    },
+    cache: "no-store",
+  }).then((r) => r.json()).catch(() => ({}));
   const panel = document.createElement("div");
-  panel.className = "section-block";
+  panel.className = "section-block fh-invite-accept-panel";
   panel.id = "familyHubAcceptPanel";
-  panel.style.cssText = "max-width:640px;margin:24px auto;padding:20px;";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("aria-label", "Family Hub invite");
+  // Body-level overlay so home re-renders cannot wipe the accept panel.
+  panel.style.cssText = "position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;padding-top:max(24px, env(safe-area-inset-top));padding-bottom:max(24px, env(safe-area-inset-bottom));background:rgba(26,43,74,0.55);";
+  const card = document.createElement("div");
+  card.className = "fh-signin";
+  card.style.cssText = "width:min(100%,560px);max-height:90vh;overflow:auto;";
   const mount = () => {
-    const home = document.querySelector("#view-home") || document.querySelector("main") || document.body;
     document.querySelector("#familyHubAcceptPanel")?.remove();
-    home.prepend(panel);
+    panel.appendChild(card);
+    document.body.appendChild(panel);
+    document.body.classList.add("family-hub-invite-open");
+    queueMicrotask(() => {
+      card.querySelector("[data-redeem-family-hub], .primary-button, .ghost-button")?.focus?.();
+    });
   };
   if (!peek?.ok && !peek?.invite) {
-    panel.innerHTML = `<h3>Family Hub</h3><p>${escapeHtml(peek?.error || "This Family Hub link is not valid.")}</p>`;
+    card.innerHTML = `<h3>Family Hub</h3><p>${escapeHtml(peek?.error || "This Family Hub link is not valid.")}</p><button class="ghost-button" type="button" data-dismiss-family-hub-invite>Close</button>`;
     mount();
     return true;
   }
   const invite = peek.invite || {};
-  panel.innerHTML = `
-    <p class="eyebrow">Family Hub invite</p>
-    <h3>Open ${escapeHtml(invite.programName || "Family Hub")}</h3>
-    <p>Household: <strong>${escapeHtml(invite.label || "Your family")}</strong></p>
-    <p class="muted-copy">Children: ${escapeHtml((invite.children || []).map((c) => c.name).join(", ") || "Linked by your provider")}</p>
-    <p class="muted-copy">One household login covers all linked children. No separate login per child.</p>
-    <div class="account-actions-row">
+  card.innerHTML = `
+    <p class="fh-kicker">Family Hub invite</p>
+    <h2>Welcome to ${escapeHtml(invite.programName || "Family Hub")}</h2>
+    <p><strong>${escapeHtml(invite.label || "Your family")}</strong></p>
+    <p class="muted-copy">${escapeHtml((invite.children || []).map((c) => c.name).join(", ") || "Children linked by your provider")}</p>
+    <p class="muted-copy">One login covers every child in your household.</p>
+    <div class="fh-account-actions">
       <button class="primary-button" type="button" data-redeem-family-hub="${escapeHtml(token)}">Open Family Hub</button>
-      <button class="ghost-button" type="button" data-dismiss-family-hub-invite>Not now</button>
+      <button class="ghost-button fh-btn-secondary" type="button" data-dismiss-family-hub-invite>Not now</button>
     </div>
     <p class="form-message" id="familyHubAcceptMessage" aria-live="polite"></p>
   `;
@@ -34190,6 +36398,17 @@ function currentAccountHdhVisibility() {
 
 function staffMaySeeHdhView(view) {
   if (!isHomeDaycareHubTestingEnabled()) return true;
+  // Work-mode hubs are always allowed for the matching role shell.
+  if (["today", "classroom", "business", "more", "home", "families", "children"].includes(view)) {
+    if (view === "business") {
+      const role = typeof getUserRole === "function" ? getUserRole() : "";
+      return role === USER_ROLES.OWNER || role === USER_ROLES.DIRECTOR || role === "owner" || role === "director";
+    }
+    if (view === "families") {
+      const role = typeof workModeRole === "function" ? workModeRole() : "";
+      return role !== "assistant";
+    }
+  }
   const persona = getHdhTesterPersona();
   if (persona.role === "staff-helper" || persona.role === "staff-lead") {
     const visibility = currentAccountHdhVisibility() || {};
@@ -34354,11 +36573,12 @@ async function acceptHdhTesterInviteToken(token) {
 async function maybeHandleHdhTesterInviteFromUrl() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const params = new URLSearchParams(window.location.search);
-  const token = String(params.get("testerInvite") || "").trim();
+  const token = String(params.get("testerInvite") || consumePendingUrlSecret("testerInvite") || "").trim();
   if (!token) return false;
-  const peek = await fetch(`/api/home-daycare-hub/tester-invites/peek?token=${encodeURIComponent(token)}`)
-    .then((r) => r.json())
-    .catch(() => ({}));
+  const peek = await fetch("/api/home-daycare-hub/tester-invites/peek", {
+    headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
+    cache: "no-store",
+  }).then((r) => r.json()).catch(() => ({}));
   const invite = peek?.invite;
   const panel = document.createElement("div");
   panel.className = "section-block";
@@ -34403,7 +36623,7 @@ function renderHomeDaycareStaffInvitePanel() {
   const invite = hdhTesterInviteResult;
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
-      <p class="eyebrow">Step E</p>
+      <p class="eyebrow">Staff invites</p>
       <h3>Invite a tester (own account + own kid)</h3>
       <p class="muted-copy">Each tester gets their <strong>own</strong> Teacher account and their <strong>own</strong> starter child — not your kids, not a shared program. They can use Hub, forms, lessons, calendar, and daily logs. <strong>No Admin.</strong> They Message Leah in Messages.</p>
       <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
@@ -34501,7 +36721,7 @@ function renderHomeDaycareTrainingsPanel() {
   const members = staffInviteRemoteCache.members || [];
   return `
     <section class="section-block" id="hdhTrainingsPanel">
-      <p class="eyebrow">Step F</p>
+      <p class="eyebrow">Trainings</p>
       <h3>CPR &amp; training tracker</h3>
       <p class="muted-copy">Track staff certifications with completion and expiry dates.</p>
       <form id="hdhTrainingForm" class="panel-form">
@@ -34537,7 +36757,7 @@ function renderHomeDaycareTrainingsPanel() {
               <button class="ghost-button" type="button" data-hdh-training-delete="${escapeHtml(item.id)}">Remove</button>
             </article>
           `).join("")
-          : `<p class="muted-copy">No trainings tracked yet.</p>`}
+          : `<div class="profile-empty-state"><strong>No trainings tracked yet</strong><p>Save a CPR, first aid, or other training above so renewals stay visible.</p></div>`}
       </div>
     </section>
   `;
@@ -34550,7 +36770,7 @@ function renderHomeDaycarePacketsPanel() {
   const packets = hdhPacketsCache.packets || [];
   return `
     <section class="section-block" id="hdhPacketsPanel">
-      <p class="eyebrow">Step G</p>
+      <p class="eyebrow">Enrollment</p>
       <h3>Enrollment &amp; forms packets</h3>
       <p class="muted-copy">Bundle the home-daycare forms pack for a child, track each item, and optionally link a Family Hub household.</p>
       <form id="hdhPacketForm" class="panel-form">
@@ -34603,7 +36823,7 @@ function renderHomeDaycarePacketsPanel() {
               </div>
             </article>
           `).join("")
-          : `<p class="muted-copy">No packets yet.</p>`}
+          : `<div class="profile-empty-state"><strong>No packets yet</strong><p>Create a packet for a child to track enrollment forms in one place — then share them with Family Hub when you’re ready.</p></div>`}
       </div>
     </section>
   `;
@@ -34649,11 +36869,11 @@ function renderHomeDaycareTesterGuidePanel() {
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>Where to add testers</h3>
-      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. Each Teacher tester gets their <strong>own account + own kid</strong>. They message you in <strong>Messages → Message Leah</strong>.</p>
+      <p class="muted-copy">Invite real testers here. Role simulation and View As live in <strong>Admin → Testing Center</strong> only — everyday provider screens stay clean.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
-          <strong>1. Test it yourself</strong>
-          <p>Use the sticky <em>Teacher / Helper / Lead / Parent</em> buttons at the top. No second account needed.</p>
+          <strong>1. Run the day as a provider</strong>
+          <p>Use Daily Logs, Children, and Family Hub invites like a real program. Testing Pro unlocks premium tools automatically on this site.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>2. Add a parent tester</strong>
@@ -34661,23 +36881,25 @@ function renderHomeDaycareTesterGuidePanel() {
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>3. Add a Teacher tester (own stuff + own kid)</strong>
-          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child. <strong>Not your kids. Not Admin.</strong></p>
+          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>4. Add a helper on your shared program (optional)</strong>
-          <p>Same section → open the optional shared-program staff invite. Only if they should use <em>your</em> program data.</p>
+          <strong>4. Admin View As</strong>
+          <p>Unlock Admin → Testing Center → View As Owner / Director / Teacher / Assistant / Parent. Instant nav + permissions, no logout.</p>
         </article>
       </div>
-      ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
+      ${typeof isAdminUnlocked === "function" && isAdminUnlocked()
+        ? renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")
+        : ""}
       <h4 class="hdh-tester-path-title">Try this path (about 10 minutes)</h4>
       <ol class="hdh-tester-path">
         <li>${childReady
           ? `You already have a child on file — good.`
-          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button> (or tap Parent — a demo child is created for you).`}</li>
-        <li>As <strong>Teacher</strong>: open a form / AI draft, save to the child file.</li>
-        <li>Switch <strong>Helper</strong> → confirm Hub is hidden → switch <strong>Lead</strong> → confirm Hub is back.</li>
-        <li>Tap <strong>Parent</strong>, check household form status, then tap <strong>Teacher</strong> to return.</li>
-        <li>Optional: invite a real tester below — they Message Leah from Messages (not Admin).</li>
+          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button>.`}</li>
+        <li>Log meals, naps, and activities in Daily Logs — confirm Family Hub Today updates.</li>
+        <li>Invite a parent and open their magic link on another device/browser.</li>
+        <li>Optional: Admin Testing Center → View As Parent, then Return to Admin.</li>
+        <li>Optional: invite a Teacher tester below — they Message Leah from Messages.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
@@ -34694,8 +36916,8 @@ function renderHomeDaycareTesterGuidePanel() {
         <summary>What is NOT working yet (so testers are not surprised)</summary>
         <ul class="hdh-coming-list">
           <li>Real SMS / Twilio texts (testing shows a copyable link instead)</li>
-          <li>E-sign / parent signing inside the app</li>
-          <li>Auto-sending filled form bodies to parents</li>
+          <li>Legal e-sign certificates (Family Hub uses testing acknowledgment: name + timestamp)</li>
+          <li>Email/SMS form delivery (parents are notified in-app in Family Hub)</li>
           <li>Live production — Hub stays hidden there on purpose</li>
           <li>Admin — testers never see Admin; they Message Leah instead</li>
         </ul>
@@ -34713,7 +36935,7 @@ function renderHomeDaycareHubPage(options = {}) {
         <div class="child-page-header">
           <div>
             <h2>Home Daycare Hub</h2>
-            <p>This workspace is only available on the testing site while we build it.</p>
+            <p>This workspace isn’t available on this site yet.</p>
           </div>
         </div>
         <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
@@ -34727,18 +36949,20 @@ function renderHomeDaycareHubPage(options = {}) {
     <section class="simple-child-page hdh-hub-page">
       <div class="child-page-header">
         <div>
-          <p class="eyebrow">Testing only</p>
-          <h2>Home Daycare Hub</h2>
-          <p>Forms, family access, and staff tools for your home daycare — built here on testing first, then brought to live when ready.</p>
+          <p class="eyebrow">Home Daycare Hub</p>
+          <h2>Run paperwork &amp; family access here</h2>
+          <p>Forms system, Family Hub invites, and staff tools — connected so AI drafts, parent signatures, and child files stay in one place.</p>
         </div>
       </div>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
+        ${renderFormsAttentionPanel()}
+        ${renderProgramFormTemplatesPanel()}
         <section class="section-block" id="hdhFormsPackPanel">
-          <p class="eyebrow">Step B</p>
+          <p class="eyebrow">Built-in library</p>
           <h3>Home daycare forms pack</h3>
-          <p class="muted-copy">Ten common forms for home daycare paperwork. Open a template to print or edit, then track status on each child’s Forms &amp; Records tab.</p>
+          <p class="muted-copy">Enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
           ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
           ${firstChild ? `
             <div class="account-actions-row" style="margin-top:14px;">
@@ -34757,7 +36981,7 @@ function renderHomeDaycareHubPage(options = {}) {
         ${renderHomeDaycareTrainingsPanel()}
         ${renderHomeDaycarePacketsPanel()}
         <section class="section-block" id="hdhFormsRecordsPanel">
-          <p class="eyebrow">Step A</p>
+          <p class="eyebrow">Getting started</p>
           <h3>Child Forms &amp; Records</h3>
           <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
           <div class="account-actions-row">
@@ -34767,7 +36991,16 @@ function renderHomeDaycareHubPage(options = {}) {
       </div>
     </section>
   `;
+  refreshHdhProviderInbox().catch(() => {});
   if (options.refreshHouseholds !== false) {
+    // Pull parent sign-offs into Forms attention so statuses stay current.
+    syncChildDataFromBackend({ render: false, force: false })
+      .then((applied) => {
+        if (applied && document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false });
+        }
+      })
+      .catch(() => {});
     Promise.all([
       refreshFamilyHubHouseholds().catch(() => {}),
       refreshStaffInvitesFromBackend().catch(() => {}),
@@ -34779,6 +37012,54 @@ function renderHomeDaycareHubPage(options = {}) {
       renderHomeDaycareHubPage({ refreshHouseholds: false });
     });
   }
+}
+
+async function refreshHdhProviderInbox() {
+  const body = document.querySelector("[data-hdh-provider-inbox-body]");
+  if (!body || !isHomeDaycareHubTestingEnabled()) return;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) {
+    body.innerHTML = `<p class="muted-copy">Log in to see signed forms and parent requests.</p>`;
+    return;
+  }
+  const response = await fetch("/api/family-hub/provider-inbox", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    body.innerHTML = `<p class="muted-copy">${escapeHtml(data.error || "Inbox unavailable.")}</p>`;
+    return;
+  }
+  const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+  const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+  if (!notifications.length && !pending.length) {
+    body.innerHTML = `<p class="muted-copy">No new signed forms or parent requests.</p>`;
+    return;
+  }
+  body.innerHTML = `
+    ${pending.length ? `
+      <div class="hdh-inbox-block">
+        <strong>Pending parent requests (${pending.length})</strong>
+        ${pending.slice(0, 6).map((req) => `
+          <div class="hdh-request-row">
+            <p class="muted-copy">${escapeHtml(req.householdLabel || "Family")} · ${escapeHtml(req.type || "request")}${req.date ? ` · ${escapeHtml(req.date)}` : ""}${req.details ? ` — ${escapeHtml(String(req.details).slice(0, 90))}` : ""}</p>
+            <div class="account-actions-row">
+              <button class="primary-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="approved">Approve</button>
+              <button class="ghost-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="declined">Decline</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    ` : ""}
+    ${notifications.length ? `
+      <ul class="fh-today-list">
+        ${notifications.slice(0, 8).map((item) => `
+          <li class="${item.read ? "" : "is-unread"}">
+            <strong>${escapeHtml(item.title || "Update")}</strong>
+            <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(String(item.createdAt).slice(0, 16).replace("T", " "))}` : ""}</span>
+          </li>
+        `).join("")}
+      </ul>
+    ` : ""}
+  `;
 }
 
 function renderFormsSettingsPage() {
@@ -34883,6 +37164,26 @@ function saveCenterProgramData(patch = {}) {
 function activeScheduleClassrooms(doc = scheduleDocCache) {
   const rooms = Array.isArray(doc?.classrooms) ? doc.classrooms : [];
   return rooms.filter((room) => room && room.id && !room.archived);
+}
+
+/** Classrooms for enrollment matching: schedule store first, then Program Settings. */
+function enrollmentClassroomCandidates() {
+  const scheduleRooms = activeScheduleClassrooms();
+  if (scheduleRooms.length) return scheduleRooms;
+  const settings = typeof getProgramSettings === "function" ? getProgramSettings() : {};
+  const fromSettings = Array.isArray(settings?.classrooms) ? settings.classrooms : [];
+  return fromSettings.filter((room) => room && room.id && !room.archived);
+}
+
+function resolveEnrollmentClassroom(desiredRoom) {
+  const desired = String(desiredRoom || "").trim().toLowerCase();
+  if (!desired) return null;
+  const rooms = enrollmentClassroomCandidates();
+  return rooms.find((room) => String(room.name || "").trim().toLowerCase() === desired)
+    || rooms.find((room) => String(room.id || "").trim().toLowerCase() === desired)
+    || rooms.find((room) => desired && String(room.name || "").toLowerCase().includes(desired))
+    || rooms.find((room) => desired && desired.includes(String(room.name || "").toLowerCase()))
+    || null;
 }
 
 async function persistScheduleClassrooms(nextClassrooms) {
@@ -35064,7 +37365,11 @@ function renderStaffManagementPage(options = {}) {
               </div>
               <button class="ghost-button" type="button" data-staff-invite-remove="${escapeHtml(invite.id)}">Revoke</button>
             </article>
-          `).join("") || (members.length ? "" : `<p class="muted-copy">No staff invites yet.</p>`)}
+          `).join("") || (members.length ? "" : `
+            <div class="profile-empty-state">
+              <strong>No staff invited yet</strong>
+              <p>Invite a lead teacher or assistant below. Assign their classroom so Daily Logs and Children stay scoped to their rooms.</p>
+            </div>`)}
         </div>
       </section>
       <section class="section-block platform-manage-card">
@@ -35148,9 +37453,12 @@ async function acceptStaffInviteToken(token) {
 
 async function maybeHandleStaffInviteFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const token = String(params.get("staffInvite") || "").trim();
+  const token = String(params.get("staffInvite") || consumePendingUrlSecret("staffInvite") || "").trim();
   if (!token) return false;
-  const peek = await fetch(`/api/staff/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
+  const peek = await fetch("/api/staff/invites/peek", {
+    headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
+    cache: "no-store",
+  }).then((r) => r.json()).catch(() => ({}));
   const invite = peek?.invite;
   const panel = document.createElement("div");
   panel.className = "section-block";
@@ -35223,18 +37531,31 @@ function paintClassroomsManageApp() {
     <section class="section-block platform-manage-card">
       <h3>Active classrooms (${active.length})</h3>
       <div class="platform-manage-list">
-        ${active.map((room) => `
+        ${active.map((room) => {
+          const roster = (childRecords().children || []).filter((child) => (
+            !child.archived && String(child.classroomId || "") === String(room.id)
+          ));
+          const rosterLabel = roster.length
+            ? roster.map((child) => child.name).slice(0, 6).join(", ") + (roster.length > 6 ? ` +${roster.length - 6}` : "")
+            : "No children assigned yet — edit a child profile to choose this classroom.";
+          return `
           <article class="platform-manage-row">
             <div>
               <strong>${escapeHtml(room.name || "Classroom")}</strong>
               <p class="muted-copy">${escapeHtml(room.ageGroupDefault || "Age group not set")}${room.notes ? ` · ${escapeHtml(room.notes)}` : ""}</p>
+              <p class="muted-copy"><strong>${roster.length}</strong> child${roster.length === 1 ? "" : "ren"}: ${escapeHtml(rosterLabel)}</p>
             </div>
             <div class="platform-manage-row-actions">
+              <button class="ghost-button" type="button" data-view="children">Assign children</button>
               <button class="ghost-button" type="button" data-classroom-edit="${escapeHtml(room.id)}">Edit</button>
               ${rooms.length > 1 ? `<button class="ghost-button" type="button" data-classroom-archive="${escapeHtml(room.id)}">Archive</button>` : ""}
             </div>
-          </article>
-        `).join("") || `<p class="muted-copy">No active classrooms yet.</p>`}
+          </article>`;
+        }).join("") || `
+          <div class="profile-empty-state">
+            <strong>No classrooms yet</strong>
+            <p>Add your first room below, then assign children from Child Profiles. Attendance, Daily Logs, and staff views use these rooms.</p>
+          </div>`}
       </div>
     </section>
     <section class="section-block platform-manage-card">
@@ -35445,6 +37766,16 @@ function renderSupportHomePage(records = childRecords()) {
         <p>Browse practical guidance for tantrums, transitions, potty training, and other everyday classroom challenges.</p>
       </div>
       <section class="section-block behavior-support-current-tools">
+    <section class="support-center-page">
+        <p>Browse practical guidance now, or draft a Behavior Note / Parent Message with Documentation Helpers when you need wording fast.</p>
+      <div class="account-actions-row" style="margin-bottom:16px;">
+        <button class="primary-button" type="button" data-view="ai" data-quick-doc-type="behavior-note">Write a Behavior Note</button>
+        <button class="ghost-button" type="button" data-view="ai" data-quick-doc-type="parent-message">Draft a Parent Message</button>
+        <div class="page-title" style="margin-bottom:12px;">
+          <p class="eyebrow">Support library</p>
+          <h3 style="margin:0;">Browse topics</h3>
+          <p class="muted-copy">Choose a category or search for the challenge you’re facing today.</p>
+        </div>
         <label class="support-search">
           <span>Search support topics</span>
           <input id="supportCenterSearch" type="search" value="${escapeHtml(supportCenterSearch)}" placeholder="Tantrums, biting, potty training, transitions" />
@@ -35488,33 +37819,35 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
-  const planned = [
-    { title: "Staff Management", detail: "Invite staff, assign roles, and manage access." },
-    { title: "Classroom Management", detail: "Organize classrooms and daily classroom workflows." },
-    { title: "Child Assignments", detail: "Assign children to classrooms and staff." },
-    { title: "Classroom Calendars", detail: "Plan by classroom with shared visibility." },
-    { title: "Enrollment", detail: "Track enrollment and onboarding paperwork." },
-    { title: "Forms", detail: "Center forms and administrative documents." },
-    { title: "Center Administration", detail: "Operate your center from one professional hub." },
-  ];
+  // Director Center is not a separate product yet — route providers to the live manage surfaces.
   section.innerHTML = `
     <section class="platform-placeholder-page director-center-page">
       <div class="page-title">
-        <p class="eyebrow">Director Center</p>
-        <h2>Coming Soon</h2>
-        <p>Director Center will bring staff, classrooms, enrollment, and center administration into one clear place.</p>
-      </div>
-      <div class="platform-placeholder-hero">
-        <span class="badge-coming-soon">Coming Soon</span>
-        <p class="muted-copy">Founding Members will receive access to future Director Center features as they are released.</p>
+        <p class="eyebrow">Center tools</p>
+        <h2>Run your program from these live pages</h2>
+        <p>Use the tools below today. A dedicated Director Center hub will come later — nothing here is a dead end.</p>
       </div>
       <div class="platform-placeholder-grid">
-        ${planned.map((item) => `
-          <article class="platform-placeholder-card">
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.detail)}</p>
-          </article>
-        `).join("")}
+        <article class="platform-placeholder-card">
+          <strong>Staff</strong>
+          <p>Invite teachers and assistants, set roles, and manage access.</p>
+          <button class="primary-button" type="button" data-view="staff">Open Staff</button>
+        </article>
+        <article class="platform-placeholder-card">
+          <strong>Classrooms</strong>
+          <p>Create rooms and assign children from Child Profiles.</p>
+          <button class="primary-button" type="button" data-view="classrooms">Open Classrooms</button>
+        </article>
+        <article class="platform-placeholder-card">
+          <strong>Child Profiles</strong>
+          <p>Add children, assign classrooms, and manage daily care records.</p>
+          <button class="primary-button" type="button" data-view="children">Open Children</button>
+        </article>
+        <article class="platform-placeholder-card">
+          <strong>Calendar</strong>
+          <p>Plan lessons and classroom events in one place.</p>
+          <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
+        </article>
       </div>
     </section>
   `;
@@ -37136,7 +39469,44 @@ function renderProfileEmptyState({ title = "Nothing here yet", body = "", action
 }
 
 function childProfileClassroomLabel(child = {}) {
-  return cleanAgeText(child.classroom) || childAgeGroupLabel(child) || "Classroom not set";
+  const rooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const byId = rooms.find((room) => String(room.id) === String(child?.classroomId || ""));
+  return cleanAgeText(byId?.name || child.classroom) || childAgeGroupLabel(child) || "Classroom not set";
+}
+
+function classroomOptionsHtml(selectedId = "", selectedName = "") {
+  const rooms = activeScheduleClassrooms();
+  if (!rooms.length) {
+    return `
+      <label>Classroom / Room
+        <input name="classroom" value="${escapeHtml(selectedName || "")}" placeholder="Add classrooms under Classrooms, or type a room name" />
+      </label>
+      <p class="form-note"><button class="ghost-button" type="button" data-view="classrooms">Create a classroom</button> so children can be assigned to a real room roster.</p>
+    `;
+  }
+  const selected = String(selectedId || "");
+  const match = rooms.some((room) => String(room.id) === selected);
+  return `
+    <label>Classroom
+      <select name="classroomId" required>
+        <option value="">Select classroom</option>
+        ${rooms.map((room) => `
+          <option value="${escapeHtml(room.id)}" ${String(room.id) === selected ? "selected" : ""}>${escapeHtml(room.name || "Classroom")}${room.ageGroupDefault ? ` · ${escapeHtml(room.ageGroupDefault)}` : ""}</option>
+        `).join("")}
+        <option value="__other__" ${selected && !match && selectedName ? "selected" : ""}>Other / not listed</option>
+      </select>
+    </label>
+    <label class="${selected && !match && selectedName ? "" : "hidden-field"}" data-classroom-other-wrap>
+      Classroom name
+      <input name="classroom" value="${escapeHtml(!match ? (selectedName || "") : "")}" placeholder="Room name" />
+    </label>
+  `;
+}
+
+function staffAssignedClassroomIds(account = currentAccount()) {
+  return (Array.isArray(account?.classroomIds) ? account.classroomIds : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
 }
 
 function renderChildManagement() {
@@ -37258,12 +39628,14 @@ function renderChildProfileFormScreen(child = null) {
           <label>Age<input id="childAgePreview" name="age" value="${escapeHtml(child ? childAgeLabel(child) : "")}" placeholder="Age will calculate automatically" /></label>
           <label>Age Group
             <select name="ageGroup" required>
-              <option value="">Select classroom</option>
+              <option value="">Select age group</option>
               ${["Infant", "Toddler", "Preschool", "Mixed Ages", "School Age"].map((age) => `<option ${normalizeAgeGroup(child?.ageGroup) === age ? "selected" : ""}>${age}</option>`).join("")}
             </select>
           </label>
-          <label>Classroom / Room<input name="classroom" value="${escapeHtml(child?.classroom || "")}" placeholder="Blue Room, Toddlers, Preschool" /></label>
-          <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent or guardian name" /></label>
+          ${classroomOptionsHtml(child?.classroomId || "", child?.classroom || "")}
+          <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent name or email for Family Hub matching" /></label>
+          <label>Emergency contact<input name="emergencyContact" value="${escapeHtml(child?.emergencyContact || child?.emergency || "")}" placeholder="Name + phone for emergencies" maxlength="200" /></label>
+          <label>Authorized pickup<input name="pickupContacts" value="${escapeHtml(child?.pickupContacts || "")}" placeholder="Who can pick up this child" maxlength="240" /></label>
           <label>Enrollment Date<input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
           <label>Observations Required Per Month
             <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
@@ -37549,17 +39921,24 @@ function renderChildFormsRecordsTab(child, records) {
           <label>Status
             <select name="status">
               <option value="needed">Needed</option>
+              <option value="assigned">Assigned</option>
               <option value="requested">Requested from family</option>
+              <option value="notified">Shared — awaiting parent</option>
               <option value="received">Received</option>
-              <option value="signed">Signed / complete</option>
+              <option value="signed">Signed — provider review</option>
+              <option value="on_file">On file / complete</option>
             </select>
           </label>
         </div>
-        <label>Notes
-          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
+        <label>Due date (optional)
+          <input type="date" name="dueDate" />
         </label>
+        <label>Notes
+          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note for your records or the family…"></textarea>
+        </label>
+        <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Share with Family Hub when the family is invited</label>
         <button class="primary-button" type="submit">Save to Child File</button>
-        <p class="form-note">Upload, e-sign, and parent send come next. This file keeps status organized while those pieces land.</p>
+        <p class="form-note">Connected path: save → share → parent signs in Family Hub → review here → print PDF.</p>
       </form>
       <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list>
         ${sorted.length
@@ -37567,12 +39946,14 @@ function renderChildFormsRecordsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}` : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
-                ${item.draftText ? `<button class="ghost-button" type="button" data-hdh-ai-print-saved="${escapeHtml(item.id)}">Print draft</button>` : ""}
+                ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>` : ""}
                 ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
+                ${item.signedAt && !item.providerReviewed ? `<button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>` : ""}
+                ${!(item.status === "signed" || item.signedAt) ? `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>` : ""}
                 <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
               </div>
             </article>
@@ -37581,7 +39962,7 @@ function renderChildFormsRecordsTab(child, records) {
             title: documents.length ? "No forms match these filters" : "No forms in this child’s file yet",
             body: documents.length
               ? "Try clearing search or choosing All statuses / All categories."
-              : "Add forms from the pack above, or save a custom placeholder.",
+              : "Add forms from the pack above, generate an AI draft, or save a custom form to this file.",
             actionsHtml: `<button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>`,
           })}
       </div>
@@ -37606,7 +39987,7 @@ function renderChildDocumentsTab(child, records) {
         <button class="ghost-button" type="button" data-child-tab="overview">Back to Overview</button>
       </div>
       <form id="childDocumentStubForm" class="panel-form" data-child-document-form="${escapeHtml(child.id)}">
-        <p class="eyebrow">Add a document placeholder</p>
+        <p class="eyebrow">Add a form to this child’s file</p>
         <div class="form-grid-two">
           <label>Document title
             <input name="title" required maxlength="120" placeholder="Enrollment packet, allergy form, handbook receipt…" />
@@ -37614,17 +39995,21 @@ function renderChildDocumentsTab(child, records) {
           <label>Status
             <select name="status">
               <option value="needed">Needed</option>
+              <option value="assigned">Assigned</option>
               <option value="requested">Requested from family</option>
+              <option value="notified">Shared — awaiting parent</option>
               <option value="received">Received</option>
-              <option value="signed">Signed / complete</option>
+              <option value="signed">Signed — provider review</option>
+              <option value="on_file">On file / complete</option>
             </select>
           </label>
         </div>
         <label>Notes
           <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
         </label>
+        <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Share with Family Hub when the family is invited</label>
         <button class="primary-button" type="submit">Save to Child File</button>
-        <p class="form-note">Full upload, e-signature, and parent-facing forms ship in the Documents &amp; Forms system. This tab is ready so nothing is lost in the meantime.</p>
+        <p class="form-note">Parents can review and acknowledge shared forms in Family Hub. Use Share with family on any form below to notify them in-app.</p>
       </form>
       <div class="resource-list compact" style="margin-top:16px;">
         ${sorted.length
@@ -37632,14 +40017,19 @@ function renderChildDocumentsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
-              <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              <div class="account-actions-row">
+                ${item.shareWithFamily && (item.status === "signed" || item.status === "received")
+                  ? ""
+                  : `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>`}
+                <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              </div>
             </article>
           `).join("")
           : renderProfileEmptyState({
-            title: "No documents linked yet",
-            body: "Add a placeholder above or open the Forms Library to start enrollment paperwork.",
+            title: "No forms on this child’s file yet",
+            body: "Add a form above, browse the Forms Library, or add the Home Daycare forms pack from Home Daycare Hub.",
             actionsHtml: `<button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>`,
           })}
       </div>
@@ -38130,9 +40520,15 @@ function renderChildToolsContent(child, records) {
 
 // ─── Daily Logs Center ──────────────────────────────────────────────────────
 
-// Returns children not hidden/archived from active daily workflows
+// Returns children not hidden/archived from active daily workflows.
+// Linked staff with classroomIds only see children assigned to those rooms.
 function getActiveChildren(records) {
-  return (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
+  let list = (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
+  const roomIds = staffAssignedClassroomIds();
+  if (roomIds.length && typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount()) {
+    list = list.filter((c) => roomIds.includes(String(c.classroomId || "")));
+  }
+  return list;
 }
 
 // Returns hidden/archived children
@@ -38982,6 +41378,83 @@ function dlcChildDaySnapshot(child, records, today) {
   };
 }
 
+/** Compile the last 7 days of logged facts for weekly AI — never invent. */
+function buildGroundedWeekFactsForAi(child, records, endDate = dlcActiveDate()) {
+  if (!child) return { factsText: "", classroom: "" };
+  const end = new Date(`${String(endDate).slice(0, 10)}T12:00:00`);
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const day = buildGroundedDayFactsForAi(child, records, iso);
+    if (day.factsText) days.push(`${iso}\n${day.factsText}`);
+  }
+  return {
+    factsText: days.join("\n\n"),
+    classroom: String(child.classroom || "").trim(),
+  };
+}
+
+/** One source of grounded day facts for AI — never invent beyond these lines. */
+function buildGroundedDayFactsForAi(child, records, today = dlcActiveDate()) {
+  if (!child) return { factsText: "", highlights: "", meals: "", nap: "", diapering: "", activities: [], attendance: "", photos: 0 };
+  const snapshot = dlcChildDaySnapshot(child, records, today);
+  const mealLines = [];
+  snapshot.meals.forEach((meal) => {
+    if (meal.breakfast) mealLines.push(`Breakfast: ${meal.breakfast}`);
+    if (meal.lunch) mealLines.push(`Lunch: ${meal.lunch}`);
+    if (meal.snack) mealLines.push(`Snack: ${meal.snack}`);
+    if (!meal.breakfast && !meal.lunch && !meal.snack && (meal.summary || meal.notes)) {
+      mealLines.push(meal.summary || meal.notes);
+    }
+  });
+  const napLines = snapshot.naps.map((nap) => {
+    const times = nap.napStart ? `${nap.napStart}${nap.napEnd ? `–${nap.napEnd}` : ""}` : "";
+    return [times && `Slept ${times}`, nap.duration, nap.summary || nap.notes].filter(Boolean).join(" · ") || "Nap logged";
+  });
+  const diaperLines = snapshot.diapers.map((item) => (
+    [item.time, item.type || item.title, item.summary || item.notes].filter(Boolean).join(" — ")
+  ));
+  const activityNames = snapshot.activities.map((item) => item.activity || item.title || item.summary).filter(Boolean);
+  const attendanceLines = snapshot.attendance.map((item) => (
+    [item.status || "Present", item.dropoff && `Arrived ${item.dropoff}`, item.pickup && `Departed ${item.pickup}`, item.summary]
+      .filter(Boolean).join(" · ")
+  ));
+  const noteLines = snapshot.communications
+    .filter((item) => !/incident/i.test(String(item.type || "")))
+    .map((item) => `${item.type || "Note"}: ${item.summary || item.message || item.mood || ""}`.trim())
+    .filter((line) => line.length > 3);
+  const observationLines = snapshot.observations.map((item) => (
+    item.text || item.summary || item.observationText || ""
+  )).filter(Boolean);
+  const facts = [
+    attendanceLines.length ? `Attendance: ${attendanceLines.join("; ")}` : "",
+    mealLines.length ? `Meals: ${mealLines.join("; ")}` : "",
+    napLines.length ? `Naps: ${napLines.join("; ")}` : "",
+    diaperLines.length ? `Diapers/potty: ${diaperLines.join("; ")}` : "",
+    activityNames.length ? `Activities: ${activityNames.join(", ")}` : "",
+    observationLines.length ? `Observations: ${observationLines.join("; ")}` : "",
+    noteLines.length ? `Teacher notes: ${noteLines.join("; ")}` : "",
+    snapshot.photos.length ? `Photos shared today: ${snapshot.photos.length}` : "",
+  ].filter(Boolean);
+  return {
+    factsText: facts.join("\n"),
+    highlights: [...observationLines, ...noteLines, ...activityNames.slice(0, 3)].filter(Boolean).join(". "),
+    meals: mealLines.join("\n"),
+    nap: napLines.join("\n"),
+    diapering: diaperLines.join("\n"),
+    activities: activityNames,
+    attendance: attendanceLines.join("; "),
+    photos: snapshot.photos.length,
+    classroom: String(child.classroom || "").trim(),
+  };
+}
+
+function canUseEmbeddedWorkflowAi() {
+  return Boolean(isProUser() || isHomeDaycareHubTestingEnabled());
+}
+
 function dlcParentSummaryDraftKey(childId, today) {
   return `${childId}:${today}`;
 }
@@ -39218,21 +41691,25 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     });
   }
 
-  if (requested.has("parent-message") && childNames.length && isProUser()) {
+  if (requested.has("parent-message") && childNames.length && canUseEmbeddedWorkflowAi()) {
     const firstChild = selectedChildren[0];
     const age = childAgeGroupLabel(firstChild);
+    const grounded = buildGroundedDayFactsForAi(firstChild, records, today);
     try {
       const result = await generateToolOutputWithBackend("parentMessage", {
         topic: "Daily Update",
-        details: note,
+        details: [note, grounded.factsText].filter(Boolean).join("\n\nKnown day facts (do not invent beyond these):\n"),
         childName: childNames.length === 1 ? childNames[0] : "your child",
         age,
         programName,
+        classroom: grounded.classroom || firstChild.classroom || "",
+        date: today,
         tone: programSettings.communicationTone || "Warm and friendly",
+        providerNotes: grounded.factsText,
       });
       suggestions.push({
         type: "preview", emoji: "💬", title: "Parent Update Ready",
-        lines: ["Generate a friendly parent message from today's note."],
+        lines: ["Warm parent message grounded in today’s logged facts."],
         preview: result.output,
         previewKind: "parent-message",
         recordKey: "Communications",
@@ -39248,21 +41725,25 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
   }
 
-  if (requested.has("observation") && childNames.length && isProUser() && (milestoneMatch || learningKeywords)) {
+  if (requested.has("observation") && childNames.length && canUseEmbeddedWorkflowAi() && (milestoneMatch || learningKeywords || note.trim().length > 20)) {
     const childForObs = milestoneMatch ? milestoneMatch[1] : (childNames[0] || "");
     const childObj = selectedChildren.find((c) => c.name.toLowerCase() === childForObs.toLowerCase()) || selectedChildren[0];
     if (childObj) {
       const age = childAgeGroupLabel(childObj);
+      const grounded = buildGroundedDayFactsForAi(childObj, records, today);
       try {
         const result = await generateToolOutputWithBackend("observation", {
-          note,
+          note: [note, grounded.factsText].filter(Boolean).join("\n"),
           age,
           childName: childObj.name,
           programName,
+          classroom: grounded.classroom || childObj.classroom || "",
+          date: today,
+          providerNotes: grounded.factsText,
         });
         suggestions.push({
           type: "preview", emoji: "📝", title: "Observation Ready",
-          lines: [`Generate a developmental observation${childObj ? ` for ${childObj.name}` : ""}.`],
+          lines: [`Developmental observation for ${childObj.name} from today’s facts.`],
           preview: result.output,
           previewKind: "observation",
           recordKey: "Observations",
@@ -39278,18 +41759,25 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
   }
 
-  if (requested.has("daily-report") && childNames.length && isProUser()) {
+  if (requested.has("daily-report") && childNames.length && canUseEmbeddedWorkflowAi()) {
     const reportLines = childNames.map((name) => `Daily report for ${name}`);
     try {
       const reports = await Promise.all(selectedChildren.map(async (child) => {
         const age = childAgeGroupLabel(child);
+        const grounded = buildGroundedDayFactsForAi(child, records, today);
         const result = await generateToolOutputWithBackend("daily", {
           childName: child.name,
           age,
-          highlights: note,
+          highlights: [note, grounded.highlights].filter(Boolean).join(". "),
           programName,
           date: today,
+          classroom: grounded.classroom || child.classroom || "",
           tone: programSettings.communicationTone || "Warm and friendly",
+          meals: grounded.meals,
+          nap: grounded.nap,
+          diapering: grounded.diapering,
+          activities: grounded.activities,
+          providerNotes: grounded.factsText || note,
         });
         return result.output;
       }));
@@ -39310,36 +41798,111 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
   }
 
-  if (requested.has("behavior-note") && isProUser() && behaviorKeywords) {
-    suggestions.push({
-      type: "preview",
-      emoji: "📌",
-      title: "Behavior Note Suggested",
-      lines: ["Create an internal behavior note from today's update."],
-      preview: note,
-      previewKind: "behavior-note",
-      recordKey: "Communications",
-      recordType: "Behavior Note",
-      shareWithFamily: false,
-      saved: false,
-      ignored: false,
-    });
+  if (requested.has("behavior-note") && canUseEmbeddedWorkflowAi() && behaviorKeywords) {
+    const childObj = selectedChildren[0];
+    try {
+      const result = childObj
+        ? await generateToolOutputWithBackend("behaviorNote", {
+          note,
+          childName: childObj.name,
+          age: childAgeGroupLabel(childObj),
+          programName,
+          date: today,
+          classroom: childObj.classroom || "",
+          providerNotes: buildGroundedDayFactsForAi(childObj, records, today).factsText,
+        })
+        : { output: note };
+      suggestions.push({
+        type: "preview",
+        emoji: "📌",
+        title: "Behavior Note Ready",
+        lines: ["Supportive internal note + strategy ideas from today’s facts."],
+        preview: result.output || note,
+        previewKind: "behavior-note",
+        recordKey: "Communications",
+        recordType: "Behavior Note",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+        alsoSupportPlan: true,
+      });
+    } catch (_error) {
+      suggestions.push({
+        type: "preview",
+        emoji: "📌",
+        title: "Behavior Note Suggested",
+        lines: ["Create an internal behavior note from today's update."],
+        preview: note,
+        previewKind: "behavior-note",
+        recordKey: "Communications",
+        recordType: "Behavior Note",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+        alsoSupportPlan: true,
+      });
+    }
   }
 
-  if (requested.has("incident-report") && isProUser() && incidentKeywords) {
-    suggestions.push({
-      type: "preview",
-      emoji: "⚠️",
-      title: "Incident Report Suggested",
-      lines: ["Review and save an incident report only if this note needs formal documentation."],
-      preview: note,
-      previewKind: "incident-report",
-      recordKey: "Communications",
-      recordType: "Incident Report",
-      shareWithFamily: false,
-      saved: false,
-      ignored: false,
-    });
+  if (requested.has("incident-report") && canUseEmbeddedWorkflowAi() && incidentKeywords) {
+    const childObj = selectedChildren[0];
+    try {
+      const incident = childObj
+        ? await generateToolOutputWithBackend("incidentReport", {
+          note,
+          childName: childObj.name,
+          age: childAgeGroupLabel(childObj),
+          programName,
+          date: today,
+          classroom: childObj.classroom || "",
+          providerNotes: "Use only the provided facts. Do not invent injuries, witnesses, or outcomes.",
+        })
+        : { output: note };
+      let parentMsg = "";
+      try {
+        const msg = await generateToolOutputWithBackend("parentMessage", {
+          topic: "Incident update",
+          details: `Facts only for a calm parent update:\n${note}`,
+          childName: childObj?.name || "your child",
+          age: childObj ? childAgeGroupLabel(childObj) : "",
+          programName,
+          date: today,
+          tone: "Calm, clear, and caring",
+        });
+        parentMsg = msg.output || "";
+      } catch (_err) { /* optional companion */ }
+      suggestions.push({
+        type: "preview",
+        emoji: "⚠️",
+        title: "Incident Report Ready",
+        lines: [
+          "Internal incident draft from the facts you entered.",
+          parentMsg ? "A calm parent message companion is included below the report." : "Review carefully before sharing with family.",
+        ],
+        preview: parentMsg ? `${incident.output || note}\n\n---\nParent message draft:\n${parentMsg}` : (incident.output || note),
+        previewKind: "incident-report",
+        recordKey: "Communications",
+        recordType: "Incident Report",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+        companionParentMessage: parentMsg,
+      });
+    } catch (_error) {
+      suggestions.push({
+        type: "preview",
+        emoji: "⚠️",
+        title: "Incident Report Suggested",
+        lines: ["Review and save an incident report only if this note needs formal documentation."],
+        preview: note,
+        previewKind: "incident-report",
+        recordKey: "Communications",
+        recordType: "Incident Report",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+      });
+    }
   }
 
   if (requested.has("portfolio-entry") && isProUser() && (noteHasPhotos || learningKeywords)) {
@@ -39438,6 +42001,9 @@ function dlcSaveSuggestion(sug, idx) {
     });
   } else if (sug.type === "preview") {
     const content = sug.preview || sug.lines.join("\n");
+    const incidentBody = sug.previewKind === "incident-report" && sug.companionParentMessage
+      ? String(content).split(/\n---\nParent message draft:\n/)[0]
+      : content;
     selectedChildren.forEach((child) => {
       if (sug.previewKind === "daily-report") {
         appendChildRecord("Reports", {
@@ -39446,19 +42012,56 @@ function dlcSaveSuggestion(sug, idx) {
           shareWithFamily: shareFlag,
         });
       } else if (sug.previewKind === "observation") {
-        appendChildRecord("Observations", {
+        const savedObs = appendChildRecord("Observations", {
           childId: child.id, date: today,
           text: content, area: "Daily Log", title: `Observation | ${today}`,
           summary: content.slice(0, 120),
           shareWithFamily: shareFlag,
         });
+        maybeSuggestGoalFromObservation(child, savedObs);
       } else if (sug.previewKind === "behavior-note" || sug.previewKind === "incident-report" || sug.previewKind === "daily-summary") {
         appendChildRecord("Communications", {
           childId: child.id, date: today,
-          type: sug.recordType || "Note", message: content,
-          title: `${sug.recordType || "Note"} | ${today}`, summary: content.slice(0, 120),
+          type: sug.recordType || "Note", message: incidentBody,
+          title: `${sug.recordType || "Note"} | ${today}`, summary: String(incidentBody).slice(0, 120),
           shareWithFamily: shareFlag,
         });
+        if (sug.previewKind === "behavior-note" && sug.alsoSupportPlan) {
+          appendChildRecord("SupportPlans", {
+            childId: child.id,
+            date: today,
+            title: `Support plan | ${today}`,
+            summary: String(incidentBody).slice(0, 200),
+            strategies: String(incidentBody).slice(0, 1200),
+            status: "active",
+            shareWithFamily: false,
+          });
+        }
+        if (sug.previewKind === "incident-report" && sug.companionParentMessage) {
+          appendChildRecord("Communications", {
+            childId: child.id,
+            date: today,
+            type: "Parent Note",
+            message: sug.companionParentMessage,
+            title: `Parent incident update | ${today}`,
+            summary: String(sug.companionParentMessage).slice(0, 120),
+            shareWithFamily: true,
+          });
+        }
+        if (sug.previewKind === "incident-report") {
+          appendChildRecord("Documents", {
+            childId: child.id,
+            date: today,
+            title: `Incident Report | ${today}`,
+            category: "Incident",
+            status: "on_file",
+            statusLabel: "On file",
+            draftText: incidentBody,
+            notes: String(incidentBody).slice(0, 240),
+            shareWithFamily: false,
+            providerReviewed: true,
+          });
+        }
       } else if (sug.previewKind === "portfolio-entry") {
         appendChildRecord("Reports", {
           childId: child.id, date: today,
@@ -39475,6 +42078,53 @@ function dlcSaveSuggestion(sug, idx) {
       }
     });
   }
+}
+
+function maybeSuggestGoalFromObservation(child, observation = {}) {
+  if (!child?.id || !isHomeDaycareHubTestingEnabled()) return null;
+  const text = String(observation.text || observation.summary || "").trim();
+  if (text.length < 24) return null;
+  const areaMatch = text.match(/\b(language|literacy|social|emotional|motor|cognitive|self[- ]?help|math|science|art)\b/i);
+  const area = areaMatch ? areaMatch[1].replace(/^./, (c) => c.toUpperCase()) : "Development";
+  const snippet = text.split(/[.!\n]/).map((part) => part.trim()).find((part) => part.length > 18) || text.slice(0, 80);
+  const title = `${area} goal from observation`;
+  const existing = (childStore("Goals") || []).some((goal) => (
+    String(goal.childId) === String(child.id)
+    && String(goal.title || "").toLowerCase() === title.toLowerCase()
+    && String(goal.date || "").slice(0, 10) === String(observation.date || new Date().toISOString().slice(0, 10)).slice(0, 10)
+  ));
+  if (existing) return null;
+  return appendChildRecord("Goals", {
+    childId: child.id,
+    date: observation.date || new Date().toISOString().slice(0, 10),
+    title,
+    area,
+    summary: `Suggested from observation: ${snippet}`,
+    progress: "0",
+    sourceObservationId: observation.id || "",
+    // Goals stay provider-private until explicitly shared; providers can toggle share later.
+    shareWithFamily: false,
+  });
+}
+
+function weekLessonForChild(child = {}) {
+  if (!child?.id) return null;
+  const classroomId = String(child.classroomId || "").trim();
+  if (!classroomId) return null;
+  const api = typeof getScheduleApi === "function" ? getScheduleApi() : null;
+  const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null);
+  if (!doc) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const week = api?.weekStartMonday?.(today) || today;
+  const byWeek = api?.lessonForWeek?.(doc, week, classroomId);
+  if (byWeek) return byWeek;
+  return (Array.isArray(doc.items) ? doc.items : []).find((item) => (
+    item
+    && item.type === "lesson_plan"
+    && String(item.classroomId || "") === classroomId
+    && Array.isArray(item.childIds)
+    && item.childIds.map(String).includes(String(child.id))
+  )) || null;
 }
 
 // ─── Speech Input ─────────────────────────────────────────────────────────────
@@ -39855,6 +42505,27 @@ function renderDailyLogsOverviewTab(child, records, today) {
           <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
         </section>
       ` : ""}
+      <section class="section-block dlc-end-day-ai">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">End of day</p>
+            <h4>Turn today’s logs into family updates</h4>
+            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented.</p>
+          </div>
+        </div>
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
+          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
+          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
+          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
+        </div>
+        ${(() => {
+          const lesson = typeof weekLessonForChild === "function" ? weekLessonForChild(child) : null;
+          if (!lesson) return "";
+          return `<p class="form-note">This week’s classroom plan: <strong>${escapeHtml(lesson.lessonPlanTitle || lesson.title || "Lesson plan")}</strong>${lesson.rosterLabel ? ` · roster ${escapeHtml(lesson.rosterLabel)}` : ""}</p>`;
+        })()}
+        <p class="form-note" data-dlc-end-day-status="${escapeHtml(child.id)}" aria-live="polite"></p>
+      </section>
       <details class="section-block dlc-parent-summary-card dlc-optional-ai">
         <summary>Optional: Parent summary</summary>
         <p class="muted-copy">Review and edit before saving. AI is optional — you stay in control.</p>
@@ -39917,10 +42588,11 @@ function renderDailyLogsQuickDoc(records) {
 // ─── Daily Logs Form Functions ──────────────────────────────────────────────
 
 function napTrackingForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="napTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Nap Start<input name="napStart" type="time" /></label>
       <label>Nap End<input name="napEnd" type="time" /></label>
       <label>Duration<input name="duration" placeholder="e.g. 1 hour 15 min" /></label>
@@ -39931,10 +42603,11 @@ function napTrackingForm(childId) {
 }
 
 function diaperTrackingForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="diaperTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Time<input name="time" type="time" /></label>
       <label>Type<select name="type"><option>Wet</option><option>Dirty</option><option>Both</option><option>Dry</option><option>Potty - Success</option><option>Potty - Attempt</option></select></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Any notes about diaper change or potty time"></textarea></label>
@@ -39945,6 +42618,7 @@ function diaperTrackingForm(childId) {
 
 function activityLogForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().activityLogs || [], "activity", childId, 8);
+  const activeDate = dlcActiveDate();
   return `
     <form id="activityLogForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
@@ -39952,7 +42626,7 @@ function activityLogForm(childId) {
         <strong>My Favorites</strong>
         <div class="chip-list">${dailyLogFavorites().map((activity) => `<button class="chip chip-button" data-dlc-favorite-activity="${escapeHtml(activity)}" data-dlc-favorite-child="${childId}" type="button">${escapeHtml(activity)}</button>`).join("")}</div>
       </div>
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Activity<input name="activity" list="activityLogSuggestions-${childId}" placeholder="e.g. Sensory play, circle time, outdoor play" required /></label>
       <label>Developmental Area<select name="area">
         <option>Approaches to Learning</option>
@@ -39972,10 +42646,11 @@ function activityLogForm(childId) {
 }
 
 function behaviorNoteForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="behaviorNoteForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Context<input name="context" placeholder="e.g. During lunch, at circle time" /></label>
       <label>Note<textarea name="message" rows="3" placeholder="Describe the behavior or observation…" required></textarea></label>
       <label>Follow-up Needed<select name="followUp"><option>No</option><option>Yes - Notify Parent</option><option>Yes - Monitor</option><option>Yes - Incident Report</option></select></label>
@@ -40298,6 +42973,7 @@ function goalForm(childId) {
         ${["0%", "25%", "50%", "75%", "100%"].map((value) => `<option ${String(editing?.progress || "0%") === value ? "selected" : ""}>${value}</option>`).join("")}
       </select></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Progress notes">${escapeHtml(editing?.notes || "")}</textarea></label>
+      <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" ${editing?.shareWithFamily ? "checked" : ""} /> Share with Family Hub</label>
       <p class="form-note">Related observations, activities, and lesson plan topics will connect automatically by developmental area.</p>
       <div class="form-actions">
         <button class="primary-button" type="submit">${editing ? "Save Goal Changes" : "Add Goal"}</button>
@@ -40332,10 +43008,11 @@ function differentiationForm(childId) {
 }
 
 function attendanceForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="attendanceForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Status<select name="status"><option>Present</option><option>Absent</option></select></label>
       <label>Drop-Off Time<input name="dropoff" type="time" /></label>
       <label>Pick-Up Time<input name="pickup" type="time" /></label>
@@ -40346,10 +43023,11 @@ function attendanceForm(childId) {
 
 function mealTrackingForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().meals || [], "lunch", childId, 6);
+  const activeDate = dlcActiveDate();
   return `
     <form id="mealTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
@@ -40363,11 +43041,12 @@ function mealTrackingForm(childId) {
 }
 
 function communicationForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="communicationForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
       <label>Type<select name="type"><option>Parent Note</option><option>Incident Report</option><option>Daily Report</option><option>Progress Update</option><option>Newsletter</option></select></label>
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Message<textarea name="message" rows="3" placeholder="Write the parent communication note here."></textarea></label>
       <button class="primary-button" type="submit">Save Communication</button>
     </form>
@@ -40474,12 +43153,96 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record) {
   const items = childStore(key);
-  saveChildStore(key, [...items, { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record }]);
+  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
+  saveChildStore(key, [...items, saved]);
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
     renderChildManagement();
   }
+  // Bridge shared parent-facing notes into the Family Hub message thread.
+  if (
+    key === "Communications"
+    && saved.shareWithFamily === true
+    && isHomeDaycareHubTestingEnabled()
+    && typeof maybeBridgeCommunicationToFamilyHub === "function"
+  ) {
+    maybeBridgeCommunicationToFamilyHub(saved).catch(() => {});
+  }
+  // Auto-notify Family Hub when provider shares care updates parents care about.
+  if (
+    saved.shareWithFamily === true
+    && isHomeDaycareHubTestingEnabled()
+    && ["Photos", "Reports", "Observations", "Goals", "SupportPlans"].includes(key)
+  ) {
+    maybeNotifyFamilyHubSharedRecord(key, saved).catch(() => {});
+  }
+  return saved;
+}
+
+async function maybeNotifyFamilyHubSharedRecord(key, record = {}) {
+  if (!currentUser || !canUseLaunchBackend() || !record?.childId) return null;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return null;
+  const kidName = typeof childName === "function" ? childName(record.childId) : "Your child";
+  const meta = {
+    Photos: { type: "photo", title: "New photo shared", href: "photos", body: `${kidName}: ${String(record.caption || record.title || "A new photo is waiting in Family Hub.").trim()}` },
+    Reports: { type: "report", title: "Daily report ready", href: "reports", body: `${kidName}: ${String(record.summary || record.title || "Today’s report is ready to read.").trim()}` },
+    Observations: { type: "observation", title: "Learning moment shared", href: "today", body: `${kidName}: ${String(record.summary || record.text || record.title || "A new observation was shared.").trim()}` },
+    Goals: { type: "goal", title: "Goal update", href: "today", body: `${kidName}: ${String(record.title || record.summary || "A developmental goal was shared.").trim()}` },
+    SupportPlans: { type: "support-plan", title: "Support update", href: "today", body: `${kidName}: ${String(record.title || record.summary || "A support plan update was shared.").trim()}` },
+  }[key] || { type: "update", title: "Update from your teacher", href: "today", body: `${kidName}: New update` };
+  const response = await fetch("/api/family-hub/provider-notifications", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      childId: record.childId,
+      type: meta.type,
+      title: meta.title,
+      body: meta.body.slice(0, 180),
+      href: meta.href,
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return response.json().catch(() => null);
+}
+
+async function unlinkChildFromFamilyHubHouseholds(childId, reason = "child_archived") {
+  if (!isHomeDaycareHubTestingEnabled() || !childId || !canUseLaunchBackend()) return { unlinked: 0, revoked: 0 };
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return { unlinked: 0, revoked: 0 };
+  const response = await fetch("/api/family-hub/unlink-child", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ childId, reason }),
+    cache: "no-store",
+  });
+  if (!response.ok) return { unlinked: 0, revoked: 0 };
+  return response.json().catch(() => ({ unlinked: 0, revoked: 0 }));
+}
+
+async function maybeBridgeCommunicationToFamilyHub(record = {}) {
+  const type = String(record.type || record.category || "").toLowerCase();
+  if (type.includes("mood") || type.includes("incident")) return null;
+  const body = String(record.message || record.summary || record.notes || "").trim();
+  if (!body || body.length < 3) return null;
+  if (type && !/message|note|family|announce|reminder/.test(type)) return null;
+  if (!currentUser || !canUseLaunchBackend()) return null;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return null;
+  const response = await fetch("/api/family-hub/provider-messages", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      childId: record.childId || "",
+      body: /announce|reminder/.test(type) ? `Announcement: ${body}` : body,
+      authorName: "Teacher",
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return response.json().catch(() => null);
 }
 
 let afterActionPromptTimeout = null;
@@ -40792,7 +43555,9 @@ async function setChildRecordFamilyShare(storeKey, recordId, shared) {
   saveChildStore(storeKey, childStore(storeKey).map((item) => (
     item.id === recordId ? { ...item, shareWithFamily: Boolean(shared), updatedAt: new Date().toISOString() } : item
   )));
-  showActionFeedback(shared ? "Shared with Family Hub." : (storeKey === "Photos" ? "Removed from parent view." : "Stopped sharing with Family Hub."));
+  showActionFeedback(shared
+    ? "Shared with Family Hub — families can see this when they’re invited."
+    : (storeKey === "Photos" ? "Removed from the parent view." : "Stopped sharing with Family Hub."));
   renderChildManagement();
   return true;
 }
@@ -40801,7 +43566,7 @@ async function archiveChildProfile(childId) {
   if (!childId) return;
   const confirmed = await confirmAction({
     title: "Archive child?",
-    message: "Archiving hides this child from Daily Logs and active lists. You can reactivate them later. Their records are kept.",
+    message: "Archiving hides this child from Daily Logs and active lists, and removes them from Family Hub. You can reactivate them later. Their records are kept.",
     confirmLabel: "Archive Child",
   });
   if (!confirmed) return;
@@ -40809,7 +43574,12 @@ async function archiveChildProfile(childId) {
   saveChildStore("Profiles", profiles.map((child) => (
     child.id === childId ? { ...child, archived: true, hiddenFromActive: true } : child
   )));
-  showActionFeedback("Child archived.");
+  const unlink = await unlinkChildFromFamilyHubHouseholds(childId, "child_archived").catch(() => ({ unlinked: 0 }));
+  showActionFeedback(
+    unlink?.unlinked
+      ? `Child archived · removed from ${unlink.unlinked} Family Hub household${unlink.unlinked === 1 ? "" : "s"}.`
+      : "Child archived.",
+  );
   renderChildManagement();
 }
 
@@ -40833,6 +43603,7 @@ async function deleteChildProfilePermanently(childId) {
     danger: true,
   });
   if (!confirmed) return;
+  await unlinkChildFromFamilyHubHouseholds(childId, "child_deleted").catch(() => ({}));
   const relatedKeys = childDataKeys.filter((key) => key !== "Profiles" && key !== "MealPresets");
   relatedKeys.forEach((key) => {
     saveChildStore(key, childStore(key).filter((item) => item.childId !== childId));
@@ -40867,7 +43638,7 @@ function showActionFeedback(message, action = null) {
   banner.innerHTML = `
     <span class="after-action-text">${escapeHtml(message)}</span>
     ${action ? `<button class="primary-button after-action-yes" ${action.attr} type="button">${escapeHtml(action.label)}</button>` : ""}
-    <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
+    <button class="ghost-button after-action-dismiss" type="button">Got it</button>
   `;
   banner.classList.add("visible");
   if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
@@ -40911,66 +43682,40 @@ async function buildDailyReportFromChild(childId, quickNote) {
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
   const tone = programSettings.communicationTone || "Warm and friendly";
-
-  // Gather today's records
-  const meal = records.meals.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
-  const observation = records.observations.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
-  const nap = records.naps.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
-  const diaperEntries = records.diapers.filter((item) => item.childId === childId && item.date === today);
-  const activityEntries = records.activityLogs.filter((item) => item.childId === childId && item.date === today);
-  const behaviorNotes = records.communications.filter((item) => item.childId === childId && item.date === today && item.type === "Behavior Note");
+  const grounded = buildGroundedDayFactsForAi(child, records, today);
   const ageGroup = childAgeGroupLabel(child);
-
-  // Build meals text from logged data
-  let mealsText = "";
-  if (meal) {
-    const parts = [];
-    if (meal.breakfast) parts.push(`Breakfast: ${meal.breakfast}`);
-    if (meal.lunch) parts.push(`Lunch: ${meal.lunch}`);
-    if (meal.snack) parts.push(`Snack: ${meal.snack}`);
-    if (meal.notes) parts.push(meal.notes);
-    mealsText = parts.join("\n");
-  }
-
-  // Build nap text from logged data
-  let napText = "";
-  if (nap) {
-    const times = nap.napStart ? `${nap.napStart}${nap.napEnd ? "–" + nap.napEnd : ""}` : "";
-    const duration = nap.duration ? ` (${nap.duration})` : "";
-    const notes = nap.notes ? ` ${nap.notes}` : "";
-    napText = times ? `Slept from ${times}${duration}.${notes}`.trim() : `Rested during nap time.${notes}`.trim();
-  }
-
-  // Build diaper text from logged data
-  let diaperText = "";
-  if (diaperEntries.length) {
-    diaperText = diaperEntries.map((d) => `${d.time ? d.time + ": " : ""}${d.type}${d.notes ? " — " + d.notes : ""}`).join("\n");
-  }
-
-  // Build activities list from logged data
-  const loggedActivities = activityEntries.map((a) => a.activity).filter(Boolean);
-
-  // Build highlights from teacher quick note and/or observation
-  let highlights = quickNote || "";
-  if (!highlights && observation) highlights = observation.text || "";
-  if (!highlights && behaviorNotes.length) highlights = behaviorNotes.map((n) => n.message || n.notes || "").filter(Boolean).join(" ");
+  const highlights = [quickNote, grounded.highlights].filter(Boolean).join(". ");
 
   const result = await generateToolOutputWithBackend("daily", {
     childName: child.name,
     age: ageGroup,
     programName,
     date: today,
+    classroom: grounded.classroom || child.classroom || "",
     tone,
     highlights,
-    meals: mealsText,
-    nap: napText,
-    diapering: diaperText,
-    activities: loggedActivities,
-    providerNotes: observation ? `Observation: ${observation.text}${observation.nextSteps ? "\nNext Steps: " + observation.nextSteps : ""}` : "",
+    meals: grounded.meals,
+    nap: grounded.nap,
+    diapering: grounded.diapering,
+    activities: grounded.activities,
+    providerNotes: [
+      grounded.factsText,
+      grounded.attendance ? `Attendance: ${grounded.attendance}` : "",
+      grounded.photos ? `Photos shared: ${grounded.photos}` : "",
+      "Use only these logged facts. Do not invent missing details.",
+    ].filter(Boolean).join("\n"),
   });
   const report = result.output;
 
-  appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report.slice(0, 200), message: report, shareWithFamily: true });
+  appendChildRecord("Reports", {
+    childId,
+    title: `Daily Report | ${today}`,
+    date: today,
+    summary: report.slice(0, 200),
+    message: report,
+    shareWithFamily: true,
+  });
+  return report;
 }
 
 function exportChildPortfolio(childId) {
@@ -41617,7 +44362,7 @@ async function submitHomeShapeFeedbackForm(event) {
   setHomeShapeFeedbackStatus("Sending…");
   if (submitBtn) submitBtn.disabled = true;
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -41761,7 +44506,7 @@ async function submitIdeaRequestForm(event) {
   setIdeaRequestMessage("Sending…");
   if (submitBtn) submitBtn.disabled = true;
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feature-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -41874,7 +44619,7 @@ async function submitFeedbackForm(event) {
     role: account.role || getUserRole(account),
   };
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -42571,15 +45316,36 @@ function adminPreviewMode() {
 }
 
 function hasAdminFullAccess() {
-  return isAdminUnlocked() && adminPreviewMode() === "Admin";
+  // Admin unlock on a shared browser must not elevate a different Free member's
+  // plan/features. Full admin access applies when browsing as admin (no member
+  // session) or when the signed-in user is the platform owner.
+  if (!(isAdminUnlocked() && adminPreviewMode() === "Admin")) return false;
+  try {
+    if (!currentUser) return true;
+    return isSignedInPlatformOwner();
+  } catch (_error) {
+    // app.js still initializing currentUser — treat as admin-only browse.
+    return true;
+  }
+}
+
+function adminAccessOverridesMemberPlan() {
+  return hasAdminFullAccess();
 }
 
 function effectiveAccessPlan() {
   const preview = adminPreviewMode();
   if (preview === "Free") return "Free";
   if (preview === "Trial" || preview === "Pro") return "Pro";
-  if (preview === "Founding" || preview === "Director" || preview === "Teacher") return "Founding";
-  if (hasAdminFullAccess()) return "Founding";
+  if (
+    preview === "Founding"
+    || preview === "Director"
+    || preview === "Teacher"
+    || preview === "Owner"
+    || preview === "Assistant"
+    || preview === "Parent"
+  ) return "Founding";
+  if (adminAccessOverridesMemberPlan()) return "Founding";
   // Platform owner aliases (e.g. leahivie@icloud.com) always get full Pro/Founding
   // app access so every lesson plan is viewable — even when the membership row is
   // still marked Free for billing/upgrade testing. Admin Free preview above still
@@ -42587,7 +45353,15 @@ function effectiveAccessPlan() {
   if (isSignedInPlatformOwner()) return "Founding";
   if (currentUser) {
     const account = currentAccount();
+    if (account?.programAccessViaOwner) {
+      return normalizeBillingPlan(account?.plan || "Pro", account) === "Free" ? "Pro" : normalizeBillingPlan(account?.plan || "Pro", account);
+    }
     const resolved = accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
+    // Testing Pro unlocks premium features on the testing site without changing role permissions.
+    if (resolved === "Free" && hasTestingProEntitlement()) {
+      console.debug(`[access] effectiveAccessPlan email=${currentUser} Testing Pro entitlement`);
+      return "Pro";
+    }
     console.debug(`[access] effectiveAccessPlan email=${currentUser} plan=${account?.plan || "none"} status="${account?.subscriptionStatus || "none"}" resolved=${resolved}`);
     return resolved;
   }
@@ -42601,10 +45375,29 @@ function previewAwarePlanLabel() {
   if (preview === "Trial") return "Trial";
   if (preview === "Pro") return "Pro";
   if (preview === "Founding") return "Founding Member";
-  if (preview === "Director") return "Director (sandbox)";
-  if (preview === "Teacher") return "Teacher (sandbox)";
+  if (preview === "Owner") return "Owner (View As)";
+  if (preview === "Director") return "Director (View As)";
+  if (preview === "Teacher") return "Teacher (View As)";
+  if (preview === "Assistant") return "Assistant (View As)";
+  if (preview === "Parent") return "Parent (View As)";
   if (preview === "Admin") return "Admin";
   return billingPlanLabel();
+}
+
+const ADMIN_VIEW_AS_ROLES = Object.freeze(["Owner", "Director", "Teacher", "Assistant", "Parent"]);
+const ADMIN_PREVIEW_MODES = Object.freeze([
+  "Admin", "Free", "Trial", "Pro", "Founding", ...ADMIN_VIEW_AS_ROLES,
+]);
+
+/** Map Admin View As mode → platform user role (never changes billing entitlements alone). */
+function adminPreviewUserRole() {
+  if (!isAdminUnlocked()) return "";
+  const preview = adminPreviewMode();
+  if (preview === "Owner") return USER_ROLES.OWNER;
+  if (preview === "Director") return USER_ROLES.DIRECTOR;
+  if (preview === "Teacher") return USER_ROLES.TEACHER;
+  if (preview === "Assistant") return USER_ROLES.ASSISTANT;
+  return "";
 }
 
 function previewAwarePriceLabel() {
@@ -42623,9 +45416,28 @@ function isAdminPreviewSimulating() {
 
 function setAdminPreviewMode(mode) {
   if (!isAdminUnlocked()) return false;
-  const next = ["Admin", "Free", "Trial", "Pro", "Founding", "Director", "Teacher"].includes(mode) ? mode : "Admin";
+  let allowedModes = ["Admin", "Free", "Trial", "Pro", "Founding", "Owner", "Director", "Teacher", "Assistant", "Parent"];
+  try {
+    if (Array.isArray(ADMIN_PREVIEW_MODES)) allowedModes = ADMIN_PREVIEW_MODES;
+  } catch (_error) { /* const still initializing */ }
+  const next = allowedModes.includes(mode) ? mode : "Admin";
   localStorage.setItem("llhAdminPreviewMode", next);
+  // Keep HDH persona in sync for Parent View As; restore teacher persona otherwise.
+  try {
+    if (isHomeDaycareHubTestingEnabled() && typeof setHdhTesterPersona === "function") {
+      if (next === "Parent") {
+        setHdhTesterPersona({ role: "parent" });
+      } else if (getHdhTesterPersona().role === "parent" && next !== "Parent") {
+        setHdhTesterPersona({ role: "teacher" });
+      }
+    }
+  } catch (_error) { /* boot / persona race */ }
   applyAdminPreviewToPlatform();
+  if (next === "Parent" && isHomeDaycareHubTestingEnabled() && typeof switchHdhTesterRole === "function") {
+    switchHdhTesterRole("parent").catch((error) => {
+      showActionFeedback(error?.message || "Could not open Parent View As.");
+    });
+  }
   return true;
 }
 
@@ -42674,9 +45486,18 @@ function applyAdminPreviewToPlatform() {
   } else if (activeView === "classrooms") {
     renderClassroomsPage();
   } else if (activeView === "families") {
-    renderFamiliesPage();
+    if (isWorkModeNavEnabled()) renderFamiliesHubPage();
+    else renderFamiliesPage();
   } else if (activeView === "enrollment") {
     renderEnrollmentPage();
+  } else if (activeView === "today") {
+    renderTeacherTodayPage();
+  } else if (activeView === "classroom") {
+    renderClassroomHubPage();
+  } else if (activeView === "business") {
+    renderBusinessHubPage();
+  } else if (activeView === "more") {
+    renderMoreHubPage();
   } else if (activeView === "support-center") {
     renderSupportCenterPage();
   } else if (activeView === "resources") {
@@ -42687,6 +45508,17 @@ function applyAdminPreviewToPlatform() {
     renderFutureTools();
   } else if (viewMap[activeView]) {
     renderCategoryPage(activeView);
+  }
+
+  // After View As, jump to that role's natural home (Owner≠Teacher≠Parent).
+  if (isWorkModeNavEnabled() && isAdminPreviewSimulating()) {
+    const role = workModeRole();
+    const landing = workModeLandingView(role);
+    if (activeView === "admin" || activeView === "home" || activeView === "today" || activeView === "calendar") {
+      if (adminPreviewMode() !== "Parent") {
+        setView(landing, { allowDashboard: true, skipAccessRedirect: true, fromAdminPreview: true });
+      }
+    }
   }
 
   showActionFeedback(`Preview mode: ${previewAwarePlanLabel()}`);
@@ -44339,7 +47171,9 @@ function renderAdminOwnerOverview() {
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
   const previewMode = adminPreviewMode() || "Admin";
   const sectionOpen = (key) => adminOwnerSectionsOpen[key] !== false;
-  const previewModes = ["Admin", "Free", "Trial", "Pro", "Founding", "Director", "Teacher"];
+  const planPreviewModes = ["Admin", "Free", "Trial", "Pro", "Founding"];
+  const viewAsRoles = ADMIN_VIEW_AS_ROLES;
+  const testingProOn = typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement();
   target.innerHTML = `
     <div class="admin-owner-header admin-owner-header--sticky">
       <div>
@@ -44375,23 +47209,52 @@ function renderAdminOwnerOverview() {
         <p><strong>Live production data loaded.</strong></p>
       </div>
     ` : ""}
-    <div class="admin-preview-panel">
+    <div class="admin-preview-panel admin-testing-center" id="adminTestingCenter" data-admin-testing-center>
       <div>
-        <p class="eyebrow">Sandbox Mode</p>
+        <p class="eyebrow">Admin Testing Center</p>
         <strong>Currently viewing as ${escapeHtml(previewMode)}</strong>
-        <span>Simulate Free, Trial, Pro, Founding, Director, Teacher, or full Admin without changing your real account.</span>
+        <span>All testing controls live here. Outside Admin, testers should not see testing-site chrome. Testing Pro unlocks premium features without changing roles.</span>
       </div>
-      <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Account preview mode">
-        ${previewModes.map((mode) => `
-          <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
-        `).join("")}
-        ${previewMode !== "Admin" ? `<button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button>` : ""}
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">Plan sandbox</p>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Plan preview mode">
+          ${planPreviewModes.map((mode) => `
+            <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">View As (roles)</p>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="View as role">
+          ${viewAsRoles.map((mode) => `
+            <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
+          `).join("")}
+        </div>
+        <p class="muted-copy">Instantly loads navigation, permissions, Family Hub, forms, and messages for that role — no logout required.</p>
+      </div>
+      ${previewMode !== "Admin" ? `<div class="account-actions-row"><button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button></div>` : ""}
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">Testing Pro</p>
+        <p class="muted-copy">Every testing account automatically receives Testing Pro — premium features unlocked, no payment, no expiry, no upgrade prompts. Role permissions stay separate.</p>
+        <p class="admin-preview-active-chip">Testing Pro: <strong>${testingProOn ? "ON" : "OFF"}</strong> for this session</p>
+      </div>
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">Seed &amp; reset (local testing)</p>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Testing data tools">
+          <button type="button" class="ghost-button" data-admin-testing-action="seed-demo">Seed demo children</button>
+          <button type="button" class="ghost-button" data-admin-testing-action="open-family-hub">Open Family Hub invites</button>
+          <button type="button" class="ghost-button" data-admin-testing-action="reset-preview">Reset View As</button>
+        </div>
+        <p class="muted-copy">Test programs / providers / parents are created through Family Hub invites and staff invites — not shown outside Admin.</p>
       </div>
       <p class="admin-preview-active-chip" data-admin-preview-active-chip>
-        Active preview: <strong>${escapeHtml(previewMode)}</strong>
-        · effective plan <strong>${escapeHtml(effectiveAccessPlan())}</strong>
+        Active: <strong>${escapeHtml(previewMode)}</strong>
+        · role <strong>${escapeHtml(getUserRole())}</strong>
+        · plan <strong>${escapeHtml(effectiveAccessPlan())}</strong>
+        · Testing Pro <strong>${testingProOn ? "yes" : "no"}</strong>
         · Pro access <strong>${isProUser() ? "yes" : "no"}</strong>
         · Admin powers <strong>${hasAdminFullAccess() ? "yes" : "no"}</strong>
+        · work landing <strong>${escapeHtml(isWorkModeNavEnabled() ? workModeLandingView() : "n/a")}</strong>
       </p>
     </div>
     ${renderAccessDebugPanel()}
@@ -47698,7 +50561,16 @@ function applyAdminSectionVisibility() {
       else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
       else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
       else if (tab === "website-home") ws.renderAdminWebsiteHome(landingApp);
-      else if (tab === "ai-home") ws.renderAdminAiHome(landingApp);
+      else if (tab === "ai-home") {
+        ws.renderAdminAiHome(landingApp);
+        if (!adminAiSettingsState?.aiSettings && !adminAiSettingsState?.loading) {
+          adminAiSettingsState.loading = true;
+          ws.renderAdminAiHome(landingApp);
+          loadAdminAiSettings().finally(() => {
+            if (getAdminSectionTab() === "ai-home") ws.renderAdminAiHome(landingApp);
+          });
+        }
+      }
       else if (tab === "billing-home") ws.renderAdminBillingHome(landingApp);
       else if (tab === "system-health") ws.renderAdminSystemHealth(landingApp);
       else if (tab === "advanced-home") ws.renderAdminAdvancedHome(landingApp);
@@ -51543,18 +54415,19 @@ async function loadAdminAiSettings() {
   const token = adminSession()?.token || "";
   if (!token || !canUseLaunchBackend()) return;
   adminAiSettingsState.loading = true;
-  renderAdminAiSettingsTab();
+  if (getAdminSectionTab() === "settings") renderAdminAiSettingsTab();
   try {
     const res = await fetch(`${adminAiSettingsConfig.getEndpoint}?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to load AI settings.");
-    adminAiSettingsState.aiSettings = data.aiSettings || null;
+    adminAiSettingsState.aiSettings = data.aiSettings || { enabled: false };
     adminAiSettingsState.error = "";
   } catch (error) {
     adminAiSettingsState.error = error.message || "Could not load AI settings.";
+    if (!adminAiSettingsState.aiSettings) adminAiSettingsState.aiSettings = { enabled: false };
   }
   adminAiSettingsState.loading = false;
-  renderAdminAiSettingsTab();
+  if (getAdminSectionTab() === "settings") renderAdminAiSettingsTab();
 }
 
 async function saveAdminAiSettings() {
@@ -53293,9 +56166,20 @@ function aiPromptFromForm(toolId, data) {
       ? `- Keep every suggestion, strategy, activity, and expectation strictly appropriate for ${ageGroup} (${ageGroupLabel(ageGroup)}).`
       : "- Keep the response developmentally appropriate for the age information provided.",
     "- Use only the details provided and do not invent missing facts, injuries, behaviors, witnesses, or outcomes.",
+    "- Never invent or replace the child name, classroom, or date. If a child name is provided above, use that exact name every time.",
+    "- Never refuse to write a parent message, daily report, observation, incident report, behavior note, activity, or form when a note is provided — draft the best document from the note.",
     "- Produce organized, ready-to-use content a childcare provider can copy right away.",
     "- Use warm, professional childcare language and include the program name in formal documents when it is provided.",
     ...intentRequirements,
+    "",
+    "GROUNDED FACTS (authoritative — do not contradict):",
+    childName ? `- Child name: ${childName}` : "- Child name: not provided (use a neutral wording like “your child” — do not invent a name).",
+    ageGroup ? `- Age group: ${ageGroup}` : "",
+    date ? `- Date: ${date}` : `- Date: use today’s date only if a date is required and none was provided.`,
+    data.classroom ? `- Classroom: ${data.classroom}` : "",
+    providerNotes || data.note || data.details || data.incident
+      ? `- Provider note: ${providerNotes || data.note || data.details || data.incident}`
+      : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -53322,6 +56206,11 @@ async function generateToolOutputWithBackend(toolId, data, options = {}) {
           tool: toolId,
           age: ageValue,
           prompt: aiPromptFromForm(toolId, data),
+          childName: data.childName || data.child || "",
+          date: data.date || new Date().toISOString().slice(0, 10),
+          classroom: data.classroom || "",
+          programName: data.programName || data.program || "",
+          providerNotes: data.providerNotes || data.note || data.details || data.incident || "",
           debug: aiDebugEnabled(),
         }),
         signal: controller.signal,
@@ -53502,10 +56391,10 @@ function generateLessonPlan(data) {
       activityCategory: categories[index % categories.length],
       title: `${theme} ${title}`,
       description: "",
-      materials: "See weekly materials list",
+      materials: "",
       setup: `Prepare a calm, age-appropriate space for ${rawAge.toLowerCase()} learners.`,
       steps,
-      learningGoals: [profile.lessonObjectives[index % profile.lessonObjectives.length] || `Explore ${theme} through play.`],
+      learningGoals: [profile.lessonObjectives[index % profile.lessonObjectives.length] || `Practice one ${theme.toLowerCase()} skill through guided play today.`],
     });
   });
   return formatCurriculumLessonPlanImportText({
@@ -54926,9 +57815,13 @@ function dismissFreeWelcomeCard() {
  */
 function freeSurfaceUpgradeHtml(variant = "default") {
   void variant;
-  // Header Upgrade is the one persistent Free path. Calendar/Dashboard stay quiet;
-  // locked-content interactions use the Pro feature modal instead of stacked panels.
-  return "";
+  // Testing Pro: never show upgrade prompts on the testing site.
+  if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) return "";
+  // Keep calendar/dashboard quiet for brand-new Free explorers.
+  if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) {
+    return "";
+  }
+  return freeDashboardUpgradeCardHtml();
 }
 
 function contentGrowthStats() {
@@ -55162,6 +58055,7 @@ function refreshFreePlanUpgradeChrome() {
   try {
     // Guard early boot: capability maps may not be initialized yet.
     show = typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer();
+    if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) show = false;
   } catch {
     show = false;
   }
@@ -55929,13 +58823,13 @@ function renderResetPasswordPage() {
   const message = document.querySelector("#resetPasswordMessage");
   if (!message) return;
   const params = new URLSearchParams(window.location.search);
-  const resetToken = params.get("resetToken");
+  const resetToken = params.get("resetToken") || readPendingUrlSecret("resetToken");
   if (resetToken) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
   } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
   } else if (!firebaseAuthEnabled && localStorage.getItem("llhDemoResetToken")) {
-    setFormMessage(message, "Demo reset mode is active. Enter a new password to test the recovery screen.", true);
+    setFormMessage(message, "Enter a new password to finish resetting your account.", true);
   } else {
     setFormMessage(message, "Request a password reset email from the login screen first.");
   }
@@ -56119,6 +59013,11 @@ function renderAccountPage() {
     } else {
       verificationLabel.textContent = "You’re signed in. Keep your email and password up to date below.";
     }
+    verificationLabel.textContent = account?.emailVerified
+      ? "Email verified — you’re all set."
+      : (firebaseAuthEnabled
+        ? "Email not verified yet. Check your inbox for a verification link, or resend below."
+        : "You’re signed in with email & password. Verification email may not be required on this site.");
     verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
@@ -56127,7 +59026,7 @@ function renderAccountPage() {
   const productStatus = accountProductStatus(account);
   statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
-    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
+    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
   // Avoid exposing internal auth-provider names (e.g. Local demo / Firebase) on Free account pages.
   if (detailLabel && canBilling && !paidBilling && !isProUser()) {
@@ -56321,9 +59220,13 @@ function updatePlanLabel() {
     updateSidebarDashboard();
     return;
   }
-  const productStatus = accountProductStatus(currentAccount());
-  const planLabel = isAdminUnlocked() ? previewAwarePlanLabel() : productStatus.label;
-  const priceLabel = isAdminUnlocked() ? previewAwarePriceLabel() : billingPriceLabel();
+  const productStatus = membershipDisplayStatus(currentAccount());
+  const planLabel = isAdminPreviewSimulating()
+    ? previewAwarePlanLabel()
+    : (isAdminUnlocked() && !currentUser ? previewAwarePlanLabel() : productStatus.label);
+  const priceLabel = isAdminPreviewSimulating()
+    ? previewAwarePriceLabel()
+    : (productStatus.hasProAccess ? billingPriceLabel() : "$0/month");
   currentPlanLabel.textContent = isAdminPreviewSimulating()
     ? `${planLabel} (preview)`
     : `${productStatus.emoji} ${planLabel}`;
@@ -56336,8 +59239,8 @@ function updatePlanLabel() {
     } else if (productStatus.banner === "access_lost") {
       summary.textContent = `${productStatus.label}: you are on the Free Plan. Reactivate anytime — nothing was deleted.`;
     } else {
-      summary.textContent = isProUser()
-        ? `${productStatus.label}: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
+      summary.textContent = productStatus.hasProAccess
+        ? `${productStatus.label}: ${priceLabel} with full library access and ${aiUsageRemaining()} document creations left this month.`
         : freePlanAccessSummaryText().replace("and 10 document creations.", `and ${aiUsageRemaining()} document creations left this month.`);
     }
   }
@@ -57024,6 +59927,7 @@ async function signOut() {
   // meant for this account. In-app data is unaffected either way.
   await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
+  const signingOutEmail = String(currentUser || "").trim();
   if (firebaseAuthEnabled) {
     try {
       const client = await getFirebaseAuthClient();
@@ -57045,8 +59949,15 @@ async function signOut() {
     /* ignore */
   }
   document.body.classList.remove("nuo-open", "auth-modal-open");
+  // Role / Family Hub / tester invite state is session-specific — never leave it
+  // for the next person who uses this browser.
+  clearHdhTesterPersonaForSignOut(signingOutEmail);
+  clearFamilyHubSession();
+  try { localStorage.removeItem(FAMILY_HUB_TESTER_INVITE_KEY); } catch { /* ignore */ }
+  familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
   // Keep Admin unlock on this browser. Provider sign-out should not force a full
   // Admin re-login — use Lock Admin when you want to clear owner access.
+  // Admin unlock must NOT elevate a later Free member login (see adminAccessOverridesMemberPlan).
   currentUser = "";
   currentPlan = "Free";
   favorites = [];
@@ -57071,6 +59982,7 @@ async function signOut() {
   document.body.classList.remove("app-boot-ready");
   document.body.classList.remove("app-boot-verifying");
   setAppBootGateMode("hidden");
+  syncFamilyHubParentChrome();
   updateAuthButtons();
   updatePlanLabel();
   updateAdminNavVisibility();
@@ -57151,6 +60063,37 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", async (event) => {
+  const quickToggle = event.target.closest("[data-work-quick-toggle]");
+  if (quickToggle) {
+    event.preventDefault();
+    toggleUniversalQuickAdd();
+    return;
+  }
+  if (event.target.closest("[data-work-quick-sheet] button[data-view]")) {
+    toggleUniversalQuickAdd(false);
+  }
+
+  const testingAction = event.target.closest("[data-admin-testing-action]");
+  if (testingAction) {
+    event.preventDefault();
+    const action = testingAction.getAttribute("data-admin-testing-action");
+    if (action === "seed-demo") {
+      if (typeof ensureTesterDemoChild === "function") ensureTesterDemoChild();
+      showActionFeedback("Demo child ready in Children.");
+      setView("children");
+      return;
+    }
+    if (action === "open-family-hub") {
+      setView("home-daycare-hub");
+      return;
+    }
+    if (action === "reset-preview") {
+      setAdminPreviewMode("Admin");
+      showActionFeedback("View As reset to Admin.");
+      return;
+    }
+  }
+
   const clickedButton = event.target.closest("button");
   if (clickedButton && !clickedButton.closest("#adminProtectedContent")) {
     trackEvent("button_click", {
@@ -58108,7 +61051,7 @@ document.addEventListener("click", async (event) => {
       setViewReturnContext("generators", {
         type: "view",
         view: activeView,
-        label: activeView === "ai" ? "← Back to Documentation Center" : fallbackBackLabel(activeView),
+        label: activeView === "ai" ? "← Back to Documentation Helpers" : fallbackBackLabel(activeView),
       });
     }
     setView("generators");
@@ -58633,6 +61576,30 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-hdh-ai-save-template]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    try {
+      const packForm = homeDaycareAiDraftSelectedPackForm();
+      const body = readHomeDaycareAiDraftOutputText();
+      const template = saveAiFormAsProgramTemplate({
+        title: packForm?.title || "Custom form",
+        category: packForm?.category || "Other",
+        body,
+        packFormId: packForm?.id || "",
+        resourceId: packForm?.resourceId || "",
+      });
+      showActionFeedback(`“${template.title}” saved as a program template. Assign it anytime from Templates.`);
+      if (document.querySelector("#view-home-daycare-hub.active-view")) {
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+        queueMicrotask(() => document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      }
+    } catch (error) {
+      showActionFeedback(error.message || "Could not save template.");
+    }
+    return;
+  }
+
   if (event.target.closest("[data-hdh-ai-print]")) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
@@ -58705,16 +61672,31 @@ document.addEventListener("click", async (event) => {
       selectedChildId = childId;
       localStorage.setItem("llhSelectedChild", selectedChildId);
     }
+    const saved = typeof saveHomeDaycareAiFormDraftToChild === "function"
+      ? saveHomeDaycareAiFormDraftToChild()
+      : null;
+    if (saved?.id) {
+      shareChildDocumentWithFamily(saved.id)
+        .then(() => showActionFeedback("Form shared with Family Hub. Parents can review and acknowledge it there."))
+        .catch((error) => {
+          setView("home-daycare-hub");
+          queueMicrotask(() => {
+            document.querySelector("#hdhFamilyHubPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            const form = document.querySelector("#hdhFamilyHubInviteForm");
+            if (form && childId) {
+              form.querySelectorAll('input[name="childIds"]').forEach((input) => {
+                input.checked = input.value === childId;
+              });
+            }
+            showActionFeedback(error.message || "Invite the family to Family Hub first, then share again.");
+          });
+        });
+      return;
+    }
     setView("home-daycare-hub");
     queueMicrotask(() => {
       document.querySelector("#hdhFamilyHubPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      const form = document.querySelector("#hdhFamilyHubInviteForm");
-      if (form && childId) {
-        form.querySelectorAll('input[name="childIds"]').forEach((input) => {
-          input.checked = input.value === childId;
-        });
-      }
-      showActionFeedback("Invite this household to Family Hub, then share the magic link. Forms are not auto-sent.");
+      showActionFeedback("Generate and save a draft first, or invite the family to Family Hub.");
     });
     return;
   }
@@ -58760,6 +61742,72 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const fhRequestStatus = event.target.closest("[data-fh-request-status]");
+  if (fhRequestStatus) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const requestId = fhRequestStatus.dataset.fhRequestStatus;
+    const next = fhRequestStatus.dataset.fhRequestNext || "approved";
+    if (!requestId) return;
+    fhRequestStatus.disabled = true;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/family-hub/requests/${encodeURIComponent(requestId)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status: next }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not update request.");
+        fhRequestStatus.disabled = false;
+        return;
+      }
+      await refreshFamilyHubHouseholds().catch(() => {});
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      refreshHdhProviderInbox().catch(() => {});
+      showActionFeedback(next === "approved" ? "Request approved." : "Request declined.");
+    })();
+    return;
+  }
+
+  const fhImproveWording = event.target.closest("[data-fh-improve-wording]");
+  if (fhImproveWording) {
+    event.preventDefault();
+    const input = document.querySelector("#familyHubMessageInput");
+    const status = document.querySelector("#familyHubMessageStatus");
+    const draft = String(input?.value || "").trim();
+    if (!draft) {
+      if (status) status.textContent = "Write a short message first.";
+      return;
+    }
+    fhImproveWording.disabled = true;
+    if (status) status.textContent = "Improving wording…";
+    (async () => {
+      try {
+        const child = (familyHubState?.data?.children || [])[0] || {};
+        const result = await generateToolOutputWithBackend("parentMessage", {
+          topic: "Message polish",
+          details: `Rewrite this parent-to-teacher message more clearly while keeping the same facts. Do not invent details.\n\n${draft}`,
+          childName: child.name || "my child",
+          age: "",
+          programName: "",
+          tone: "Clear and respectful",
+          providerNotes: draft,
+        });
+        if (input && result?.output) input.value = String(result.output).slice(0, 2000);
+        if (status) status.textContent = "Wording updated — review before sending.";
+        recordAiUse();
+      } catch (error) {
+        if (status) status.textContent = error.message || "Could not improve wording.";
+      } finally {
+        fhImproveWording.disabled = false;
+      }
+    })();
+    return;
+  }
+
   const redeemFamily = event.target.closest("[data-redeem-family-hub]");
   if (redeemFamily) {
     event.preventDefault();
@@ -58767,13 +61815,30 @@ document.addEventListener("click", async (event) => {
     const message = document.querySelector("#familyHubAcceptMessage");
     redeemFamily.disabled = true;
     redeemFamilyHubInviteToken(token)
-      .then(() => {
+      .then(async () => {
         const url = new URL(window.location.href);
         url.searchParams.delete("familyHub");
         window.history.replaceState({}, "", url.pathname + url.search + url.hash);
         document.querySelector("#familyHubAcceptPanel")?.remove();
+        document.body.classList.remove("family-hub-invite-open");
+        familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
         setView("family-hub");
-        showActionFeedback("Family Hub opened for your household.");
+        // Guarantee dashboard paint even if showView race leaves Loading…
+        await ensureFamilyHubParentAppReady("").catch(() => null);
+        if (document.querySelector("#familyHubLoadingState") || !document.querySelector(".fh-parent-app")) {
+          await loadFamilyHubParentDashboard({ panel: "today" }).catch((error) => {
+            const app = document.querySelector("#familyHubParentApp");
+            if (app) {
+              app.innerHTML = `
+                <section class="fh-signin">
+                  <h2>Couldn’t open your household</h2>
+                  <p class="muted-copy">${escapeHtml(error.message || "Try again.")}</p>
+                  <button class="primary-button" type="button" data-family-hub-retry>Try again</button>
+                </section>`;
+            }
+          });
+        }
+        // Stay quiet — the Today dashboard itself is the confirmation.
       })
       .catch((error) => {
         if (message) message.textContent = error.message || "Could not open Family Hub.";
@@ -58785,17 +61850,139 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-dismiss-family-hub-invite]")) {
     event.preventDefault();
     document.querySelector("#familyHubAcceptPanel")?.remove();
+    document.body.classList.remove("family-hub-invite-open");
     const url = new URL(window.location.href);
     url.searchParams.delete("familyHub");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    if (!getFamilyHubSessionToken()) renderFamilyHubPage();
     return;
   }
 
   if (event.target.closest("[data-family-hub-sign-out]")) {
     event.preventDefault();
-    clearFamilyHubSession();
+    signOutFamilyHubParent();
+    return;
+  }
+
+  const signFormBtn = event.target.closest("[data-family-hub-sign-form]");
+  if (signFormBtn) {
+    event.preventDefault();
+    const documentId = String(signFormBtn.dataset.familyHubSignForm || "").trim();
+    if (!documentId) return;
+    signFormBtn.disabled = true;
+    acknowledgeFamilyHubDocument(documentId)
+      .then(async () => {
+        familyHubParentToast("Form signed. Your provider can see the update.");
+        await loadFamilyHubParentDashboard({
+          panel: "forms",
+          childId: familyHubParentState.childId || "",
+        }).catch(() => null);
+      })
+      .catch((error) => {
+        signFormBtn.disabled = false;
+        familyHubParentToast(error.message || "Could not sign this form.");
+      });
+    return;
+  }
+
+  if (event.target.closest("[data-family-hub-retry]")) {
+    event.preventDefault();
     renderFamilyHubPage();
-    showActionFeedback("Signed out of Parent view.");
+    return;
+  }
+
+  const fhPanel = event.target.closest("[data-fh-panel]");
+  if (fhPanel && document.querySelector("#view-family-hub")) {
+    event.preventDefault();
+    paintFamilyHubParentPanel(fhPanel.getAttribute("data-fh-panel"));
+    return;
+  }
+
+  const fhChild = event.target.closest("[data-fh-child]");
+  if (fhChild) {
+    event.preventDefault();
+    switchFamilyHubChild(fhChild.getAttribute("data-fh-child")).catch((error) => {
+      showActionFeedback(error.message || "Could not switch child.");
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-family-hub-mark-notifications]")) {
+    event.preventDefault();
+    (async () => {
+      const headers = familyHubAuthHeaders();
+      if (!headers) return;
+      const response = await fetch("/api/family-hub/notifications/read", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ all: true, messages: true }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not update notifications.");
+      if (familyHubParentState.data) {
+        familyHubParentState.data.notifications = result.notifications || [];
+        familyHubParentState.data.unreadNotifications = result.unread || 0;
+      }
+      paintFamilyHubParentPanel("more");
+      showActionFeedback("Notifications marked read.");
+    })().catch((error) => showActionFeedback(error.message || "Could not update notifications."));
+    return;
+  }
+
+  const fhScroll = event.target.closest("[data-fh-scroll]");
+  if (fhScroll) {
+    event.preventDefault();
+    const id = fhScroll.getAttribute("data-fh-scroll");
+    document.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelectorAll(".fh-parent-nav-link").forEach((btn) => {
+      btn.classList.toggle("is-active", btn === fhScroll);
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-family-hub-seed-demo]")) {
+    event.preventDefault();
+    (async () => {
+      const message = document.querySelector("#hdhFamilyHubInviteMessage");
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers || !canUseLaunchBackend()) throw new Error("Demo seed needs the testing server backend.");
+        const response = await fetch("/api/family-hub/seed-demo", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            appOrigin: window.location.origin,
+            programName: getProgramSettings().programName || getProgramSettings().businessName || "Little Learner Hub program",
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.error || "Could not seed Family Hub demo.");
+        familyHubInviteResult = {
+          label: result.demo?.household?.label || "Demo Family",
+          magicUrl: result.demo?.magicUrl || "",
+          loginCode: result.demo?.loginCode || "",
+        };
+        if (result.storage) familyHubHouseholdCache.storage = result.storage;
+        if (result.testingHandoff) familyHubHouseholdCache.testingHandoff = result.testingHandoff;
+        await refreshFamilyHubHouseholds().catch(() => {});
+        // Sync demo children into local child store for provider pickers.
+        if (Array.isArray(result.demo?.children) && result.demo.children.length) {
+          const existing = childRecords().children || [];
+          const merged = [...existing];
+          result.demo.children.forEach((child) => {
+            if (!merged.some((item) => item.id === child.id)) merged.push(child);
+          });
+          saveChildStore("Profiles", merged);
+        }
+        renderHomeDaycareHubPage();
+        if (message) {
+          message.textContent = `Sample household ready. Parent: ${result.demo?.parentEmail || ""} · Guardian: ${result.demo?.guardianEmail || ""} · Code: ${result.demo?.loginCode || ""}. Use Preview parent view to explore.`;
+        }
+        showActionFeedback("Family Hub demo household seeded.");
+      } catch (error) {
+        if (message) message.textContent = error.message || "Could not create the sample household. Try again in a moment.";
+      }
+    })();
     return;
   }
 
@@ -58934,6 +62121,110 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const shareChildDocument = event.target.closest("[data-share-child-document]");
+  if (shareChildDocument) {
+    event.preventDefault();
+    const docId = shareChildDocument.dataset.shareChildDocument;
+    if (!docId) return;
+    shareChildDocument.disabled = true;
+    shareChildDocumentWithFamily(docId)
+      .then(() => {
+        childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
+        childManagementMode = "profile";
+        if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage({ refreshHouseholds: false });
+        else renderChildManagement();
+        showActionFeedback("Family notified in Family Hub. Parents can review and sign there.");
+      })
+      .catch((error) => {
+        shareChildDocument.disabled = false;
+        showActionFeedback(error.message || "Could not share form with Family Hub.");
+      });
+    return;
+  }
+
+  const printChildDocument = event.target.closest("[data-print-child-document]");
+  if (printChildDocument) {
+    event.preventDefault();
+    try {
+      printChildDocumentRecord(printChildDocument.dataset.printChildDocument);
+    } catch (error) {
+      showActionFeedback(error.message || "Could not print this form.");
+    }
+    return;
+  }
+
+  const reviewChildDocument = event.target.closest("[data-review-child-document]");
+  if (reviewChildDocument) {
+    event.preventDefault();
+    const docId = reviewChildDocument.dataset.reviewChildDocument;
+    markChildDocumentReviewed(docId);
+    showActionFeedback("Marked reviewed and on file. You can still print anytime.");
+    if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage({ refreshHouseholds: false });
+    else {
+      childProfileTab = "forms-records";
+      childManagementMode = "profile";
+      renderChildManagement();
+    }
+    return;
+  }
+
+  const assignTemplateBtn = event.target.closest("[data-assign-form-template]");
+  if (assignTemplateBtn) {
+    event.preventDefault();
+    const templateId = assignTemplateBtn.dataset.assignFormTemplate;
+    const form = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
+    const editForm = document.querySelector(`[data-edit-template-form="${CSS.escape(templateId)}"]`);
+    if (editForm) editForm.hidden = true;
+    if (form) form.hidden = !form.hidden;
+    return;
+  }
+
+  const editTemplateBtn = event.target.closest("[data-edit-form-template]");
+  if (editTemplateBtn) {
+    event.preventDefault();
+    const templateId = editTemplateBtn.dataset.editFormTemplate;
+    const form = document.querySelector(`[data-edit-template-form="${CSS.escape(templateId)}"]`);
+    const assignForm = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
+    if (assignForm) assignForm.hidden = true;
+    if (form) form.hidden = !form.hidden;
+    return;
+  }
+
+  const formsRefreshBtn = event.target.closest("[data-hdh-forms-refresh]");
+  if (formsRefreshBtn) {
+    event.preventDefault();
+    formsRefreshBtn.disabled = true;
+    syncChildDataFromBackend({ render: true, force: true })
+      .then((applied) => {
+        showActionFeedback(applied ? "Form statuses refreshed from Family Hub." : "Statuses checked — nothing new to pull.");
+        if (document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false });
+        }
+      })
+      .catch(() => showActionFeedback("Could not refresh form statuses right now."))
+      .finally(() => { formsRefreshBtn.disabled = false; });
+    return;
+  }
+
+  const printTemplateBtn = event.target.closest("[data-print-form-template]");
+  if (printTemplateBtn) {
+    event.preventDefault();
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(printTemplateBtn.dataset.printFormTemplate));
+    if (!template) return;
+    printTextDocument(template.title || "Form template", template.body || "");
+    return;
+  }
+
+  const deleteTemplateBtn = event.target.closest("[data-delete-form-template]");
+  if (deleteTemplateBtn) {
+    event.preventDefault();
+    const templateId = deleteTemplateBtn.dataset.deleteFormTemplate;
+    saveFormsProgramTemplates(formsProgramTemplates().filter((item) => String(item.id) !== String(templateId)));
+    showActionFeedback("Template removed.");
+    renderHomeDaycareHubPage({ refreshHouseholds: false });
+    return;
+  }
+
   const deleteChildDocument = event.target.closest("[data-delete-child-document]");
   if (deleteChildDocument) {
     event.preventDefault();
@@ -58969,14 +62260,34 @@ document.addEventListener("click", async (event) => {
     const lead = data.enrollmentLeads.find((item) => item.id === leadId);
     if (!lead) return;
     const children = childStore("Profiles");
+    const matchedRoom = resolveEnrollmentClassroom(lead.desiredRoom);
+    const today = new Date().toISOString().slice(0, 10);
+    const parentEmail = String(lead.parentEmail || "").trim();
+    const parentName = String(lead.parentName || "").trim();
+    const parentInfo = parentEmail
+      ? (parentName ? `${parentName} <${parentEmail}>` : parentEmail)
+      : (parentName || "");
     const child = {
       id: `child-${Date.now()}`,
       name: lead.childName || "New Child",
-      parentInfo: lead.parentName || "",
-      classroom: lead.desiredRoom || "",
-      ageGroup: "Preschool",
-      enrollmentDate: "",
+      parentInfo,
+      classroom: matchedRoom?.name || lead.desiredRoom || "",
+      classroomId: matchedRoom?.id || "",
+      ageGroup: lead.ageGroup || "Preschool",
+      enrollmentDate: today,
       notes: lead.notes || "",
+      emergencyContact: lead.emergencyContact || "",
+      pickupContacts: lead.pickupContacts || "",
+      guardians: parentEmail || parentName
+        ? [{
+          id: `g-${Date.now()}`,
+          name: parentName || parentEmail,
+          email: parentEmail,
+          relationship: "Parent",
+          isPrimary: true,
+          receiveUpdates: true,
+        }]
+        : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -58986,8 +62297,15 @@ document.addEventListener("click", async (event) => {
     });
     selectedChildId = child.id;
     localStorage.setItem("llhSelectedChild", selectedChildId);
+    let packAdded = 0;
+    if (isHomeDaycareHubTestingEnabled() && typeof addAllHomeDaycarePackFormsToChild === "function") {
+      packAdded = addAllHomeDaycarePackFormsToChild(child.id) || 0;
+    }
+    maybeLinkChildToFamilyHubHouseholds(child).catch(() => 0);
     renderEnrollmentPage();
-    showActionFeedback(`${child.name} added to Child Profiles. Add an enrollment date when ready.`);
+    showActionFeedback(
+      `${child.name} enrolled${matchedRoom ? ` in ${matchedRoom.name}` : ""}${packAdded ? ` · ${packAdded} forms added` : ""}. Invite Family Hub when ready.`,
+    );
     return;
   }
 
@@ -59539,6 +62857,101 @@ document.addEventListener("click", async (event) => {
       message: summaryText,
       shareWithFamily: shareCheckbox ? shareCheckbox.checked : true,
     });
+    return;
+  }
+
+  const dlcEndDayAi = event.target.closest("[data-dlc-end-day-ai]");
+  if (dlcEndDayAi) {
+    event.preventDefault();
+    if (!canUseEmbeddedWorkflowAi()) {
+      showProFeatureModal("AI end-of-day helpers are available on Pro / testing.");
+      return;
+    }
+    const childId = dlcEndDayAi.dataset.dlcEndDayAi;
+    const kind = dlcEndDayAi.dataset.dlcEndDayKind || "daily-report";
+    const statusEl = document.querySelector(`[data-dlc-end-day-status="${CSS.escape(childId)}"]`);
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === childId);
+    if (!child) return;
+    dlcEndDayAi.disabled = true;
+    if (statusEl) statusEl.textContent = "Creating from today’s logged facts…";
+    const today = dlcActiveDate();
+    const grounded = buildGroundedDayFactsForAi(child, records, today);
+    if (!grounded.factsText && kind !== "parent-message") {
+      if (statusEl) statusEl.textContent = "Log meals, naps, or activities first — AI only uses real day facts.";
+      dlcEndDayAi.disabled = false;
+      return;
+    }
+    (async () => {
+      try {
+        const programSettings = getProgramSettings();
+        if (kind === "daily-report") {
+          await buildDailyReportFromChild(childId, grounded.highlights);
+          if (statusEl) statusEl.textContent = "Daily report saved and shared with Family Hub.";
+          showActionFeedback("Daily report created from today’s logs.");
+        } else if (kind === "weekly-summary") {
+          const weekFacts = buildGroundedWeekFactsForAi(child, records, today);
+          if (!weekFacts.factsText) {
+            if (statusEl) statusEl.textContent = "Log a few days of care first — weekly AI only uses real facts.";
+            return;
+          }
+          const result = await generateToolOutputWithBackend("parentMessage", {
+            topic: "Weekly summary",
+            details: weekFacts.factsText,
+            childName: child.name,
+            age: childAgeGroupLabel(child),
+            programName: programSettings.programName || "",
+            classroom: weekFacts.classroom || child.classroom || "",
+            date: today,
+            tone: programSettings.communicationTone || "Warm and friendly",
+            providerNotes: weekFacts.factsText,
+          });
+          appendChildRecord("Reports", {
+            childId,
+            date: today,
+            title: `Weekly Summary | ${today}`,
+            message: result.output,
+            summary: String(result.output || "").slice(0, 120),
+            type: "Weekly Summary",
+            shareWithFamily: true,
+          });
+          if (statusEl) statusEl.textContent = "Weekly summary saved and shared with Family Hub.";
+          showActionFeedback("Weekly summary created from logged facts.");
+        } else {
+          const result = await generateToolOutputWithBackend("parentMessage", {
+            topic: "End of day update",
+            details: grounded.factsText || `${child.name} had a full day.`,
+            childName: child.name,
+            age: childAgeGroupLabel(child),
+            programName: programSettings.programName || "",
+            classroom: grounded.classroom || child.classroom || "",
+            date: today,
+            tone: programSettings.communicationTone || "Warm and friendly",
+            providerNotes: grounded.factsText,
+          });
+          appendChildRecord("Communications", {
+            childId,
+            date: today,
+            type: "Parent Note",
+            title: `Parent Update | ${today}`,
+            message: result.output,
+            summary: String(result.output || "").slice(0, 120),
+            shareWithFamily: true,
+          });
+          if (statusEl) statusEl.textContent = "Parent message saved and shared with Family Hub.";
+          showActionFeedback("Parent message created from today’s logs.");
+        }
+        recordAiUse();
+        childManagementMode = "daily-logs";
+        dailyLogsSection = "individual";
+        selectedChildId = childId;
+        renderChildManagement();
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error.message || "Could not create that update.";
+      } finally {
+        dlcEndDayAi.disabled = false;
+      }
+    })();
     return;
   }
 
@@ -61022,6 +64435,7 @@ document.addEventListener("click", async (event) => {
       text: resource.observationText || resource.description,
       nextSteps: resource.nextSteps || "Continue observing and offer a similar activity with one small added challenge.",
       sourceResourceId: resource.id,
+      shareWithFamily: true,
     }, child));
     setView("children");
   }
@@ -62431,15 +65845,34 @@ document.addEventListener("click", async (event) => {
     const today = new Date().toISOString().slice(0, 10);
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
-      appendChildRecord(config.key, {
+      const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
+        || document.querySelector("#docHelperShareFamily")?.checked === true;
+      const savedDoc = appendChildRecord(config.key, {
         childId: childId || undefined,
         title,
         date: today,
         summary: text.slice(0, 200),
         message: text,
+        text,
         type: docTypeLabels[docType] || "Documentation",
+        shareWithFamily,
         idempotencyKey: `doc-helper-${docType}-${childId}-${String(text).slice(0, 80)}-${today}`,
       });
+      if (docType === "observation" && childId) {
+        const child = childRecords().children.find((item) => item.id === childId);
+        if (child) maybeSuggestGoalFromObservation(child, savedDoc);
+      }
+      if (docType === "behavior-note" && childId && isHomeDaycareHubTestingEnabled()) {
+        appendChildRecord("SupportPlans", {
+          childId,
+          date: today,
+          title: `Support plan | ${today}`,
+          summary: text.slice(0, 200),
+          strategies: text.slice(0, 1200),
+          status: "active",
+          shareWithFamily: false,
+        });
+      }
     } else {
       const result = { id: `ai-${Date.now()}`, title, toolId: "lesson", text, date: new Date().toLocaleDateString() };
       saveGeneratedOutputs([result, ...generatedOutputs()]);
@@ -62841,6 +66274,11 @@ document.addEventListener("change", (event) => {
     const customWrap = document.querySelector("#customMonthlyObservationGoalWrap");
     customWrap?.classList.toggle("hidden-field", event.target.value !== "custom");
   }
+  if (event.target.matches('select[name="classroomId"]')) {
+    const wrap = event.target.closest("form")?.querySelector("[data-classroom-other-wrap]")
+      || document.querySelector("[data-classroom-other-wrap]");
+    wrap?.classList.toggle("hidden-field", event.target.value !== "__other__");
+  }
   if (event.target.matches("#childObservationArea")) {
     childObservationAreaFilter = event.target.value;
     renderChildManagement();
@@ -63096,7 +66534,7 @@ document.querySelector("#signupSkipButton")?.addEventListener("click", async () 
   if (currentAuthMode !== "signup" || signupWizardStep !== 2) return;
   const submitButton = document.querySelector("#authSubmitButton");
   if (submitButton) submitButton.disabled = true;
-  setFormMessage("#authMessage", "Working...", true);
+  setFormMessage("#authMessage", "Saving your program details…", true);
   try {
     if (!signupPersonaChoice) {
       // Skip without persona → treat as independent home daycare so signup can finish.
@@ -63599,7 +67037,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   const phone = document.querySelector("#phoneInput")?.value || "";
   const submitButton = document.querySelector("#authSubmitButton");
   submitButton.disabled = true;
-  setFormMessage("#authMessage", "Working...", true);
+  setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
   try {
     if (currentAuthMode === "forgot") {
       const message = await sendPasswordReset(email);
@@ -65268,18 +68706,170 @@ document.addEventListener("submit", async (event) => {
     const submitBtn = form.querySelector("[type='submit']");
     if (submitBtn) submitBtn.disabled = true;
     try {
-      const response = await fetch("/api/family-hub/login", {
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+      let response;
+      let result = {};
+      try {
+        response = await fetch("/api/family-hub/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ email: data.email, code: data.code }),
+          signal: controller?.signal,
+        });
+        result = await response.json().catch(() => ({}));
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      if (!response.ok) {
+        if (response.status === 410) throw new Error(result?.error || "This invite has expired.");
+        if (response.status === 404) throw new Error(result?.error || "This invite was revoked or is invalid.");
+        throw new Error(result?.error || "Could not sign in to Family Hub.");
+      }
+      if (!result.sessionToken) throw new Error("Family Hub session was not created.");
+      setFamilyHubSessionToken(result.sessionToken);
+      familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
+      renderFamilyHubPage();
+      familyHubParentToast("Signed in");
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        if (message) message.textContent = "Sign-in timed out. Check your connection and try again.";
+      } else if (message) {
+        message.textContent = error.message || "Could not sign in.";
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#familyHubMessageForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const status = document.querySelector("#familyHubMessageStatus");
+    const submitBtn = form.querySelector("[type='submit']");
+    const data = collectFormData(form);
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = familyHubAuthHeaders();
+      if (!headers) throw new Error("Sign in again to send a message.");
+      const response = await fetch("/api/family-hub/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email: data.email, code: data.code }),
+        headers,
+        body: JSON.stringify({ body: data.body }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result?.error || "Could not sign in to Family Hub.");
-      setFamilyHubSessionToken(result.sessionToken);
-      renderFamilyHubPage();
-      showActionFeedback("Signed in to Family Hub.");
+      if (!response.ok) throw new Error(result?.error || "Could not send message.");
+      if (familyHubParentState.data) {
+        familyHubParentState.data.messages = Array.isArray(result.messages) ? result.messages : familyHubParentState.data.messages;
+      }
+      form.reset();
+      paintFamilyHubParentPanel("messages");
+      if (status) status.textContent = "Message sent.";
+      familyHubParentToast("Message sent");
+      document.querySelector("#familyHubMessageInput")?.focus();
     } catch (error) {
-      if (message) message.textContent = error.message || "Could not sign in.";
+      if (status) status.textContent = error.message || "Could not send message.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#familyHubSettingsForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const status = document.querySelector("#familyHubSettingsMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = familyHubAuthHeaders();
+      if (!headers) throw new Error("Sign in again to save settings.");
+      const preferredName = String(form.querySelector("[name='preferredName']")?.value || "").trim();
+      const payload = {
+        preferredName,
+        notifyMessages: Boolean(form.querySelector("[name='notifyMessages']")?.checked),
+        notifyPhotos: Boolean(form.querySelector("[name='notifyPhotos']")?.checked),
+        notifyDailyReports: Boolean(form.querySelector("[name='notifyDailyReports']")?.checked),
+        notifyEvents: Boolean(form.querySelector("[name='notifyEvents']")?.checked),
+      };
+      const response = await fetch("/api/family-hub/settings", {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not save settings.");
+      if (familyHubParentState.data) {
+        familyHubParentState.data.settings = result.settings || payload;
+        if (familyHubParentState.data.household) {
+          familyHubParentState.data.household.settings = result.settings || payload;
+        }
+      }
+      if (status) status.textContent = "Saved.";
+      familyHubParentToast("Settings saved");
+      showActionFeedback("Settings saved.");
+    } catch (error) {
+      if (status) status.textContent = error.message || "Could not save settings.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#familyHubRequestForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const status = document.querySelector("#familyHubRequestMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = familyHubAuthHeaders();
+      if (!headers) throw new Error("Sign in again to send a request.");
+      const data = collectFormData(form);
+      const child = (familyHubParentState.data?.children || []).find((item) => String(item.id) === String(data.childId || ""));
+      const response = await fetch("/api/family-hub/requests", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          type: data.type,
+          childId: data.childId || "",
+          childName: child?.name || "",
+          date: data.date || "",
+          time: data.time || "",
+          details: data.details || "",
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not send request.");
+      if (familyHubParentState.data) {
+        const next = [result.request, ...(Array.isArray(familyHubParentState.data.requests) ? familyHubParentState.data.requests : [])]
+          .filter(Boolean)
+          .slice(0, 40);
+        familyHubParentState.data.requests = next;
+        if (Array.isArray(familyHubParentState.data.notifications) && result.request) {
+          familyHubParentState.data.notifications = [
+            {
+              id: `local-${result.request.id}`,
+              title: "Request sent",
+              body: result.request.details || result.request.type,
+              createdAt: result.request.createdAt,
+              read: false,
+              href: "more",
+            },
+            ...familyHubParentState.data.notifications,
+          ];
+        }
+      }
+      form.querySelector("[name='details']") && (form.querySelector("[name='details']").value = "");
+      paintFamilyHubParentPanel("more");
+      if (status) status.textContent = result.message || "Request sent.";
+      familyHubParentToast("Request sent to your provider");
+    } catch (error) {
+      if (status) status.textContent = error.message || "Could not send request.";
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -65728,6 +69318,15 @@ document.addEventListener("submit", async (event) => {
   const photo = photoFile?.name ? await fileToDataUrl(photoFile) : "";
   const monthlyGoal = data.monthlyObservationGoal === "custom" ? data.customMonthlyObservationGoal : data.monthlyObservationGoal;
   const age = calculateAgeFromDob(data.dob) || data.age;
+  const rooms = activeScheduleClassrooms();
+  let classroomId = String(data.classroomId || "").trim();
+  let classroomName = String(data.classroom || "").trim();
+  if (classroomId === "__other__") {
+    classroomId = "";
+  } else if (classroomId) {
+    const room = rooms.find((item) => String(item.id) === classroomId);
+    if (room) classroomName = String(room.name || classroomName || "").trim();
+  }
   const child = {
     ...(existing || {}),
     id: editId || `child-${Date.now()}`,
@@ -65736,11 +69335,14 @@ document.addEventListener("submit", async (event) => {
     age,
     dob: data.dob,
     enrollmentDate: data.enrollmentDate,
-    classroom: data.classroom,
+    classroom: classroomName,
+    classroomId,
     monthlyObservationGoal: monthlyGoal || "4",
     observationsRequiredPerMonth: monthlyGoal || "4",
     parentInfo: data.parentInfo,
-    emergency: data.emergency,
+    emergency: data.emergencyContact || data.emergency || "",
+    emergencyContact: data.emergencyContact || data.emergency || "",
+    pickupContacts: data.pickupContacts || "",
     allergies: data.allergies,
     medical: data.medical,
     photo: photo || existing?.photo || "",
@@ -65760,7 +69362,12 @@ document.addEventListener("submit", async (event) => {
   activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
-  showActionFeedback(`${child.name}’s profile saved.`);
+  showActionFeedback(`${child.name} is ready — they’re available in Daily Logs, Attendance, and Documentation Helpers.`);
+  maybeLinkChildToFamilyHubHouseholds(child).then((linked) => {
+    if (linked > 0) {
+      showActionFeedback(`${child.name} is also linked for Family Hub — parents can see shared updates.`);
+    }
+  }).catch(() => {});
 });
 
 document.addEventListener("submit", (event) => {
@@ -65834,11 +69441,12 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
+  const shareWithFamily = event.target.querySelector("[name='shareWithFamily']")?.checked === true;
   childProfileTab = "goals";
   pendingGoalArea = "";
   const goalId = data.goalId || activeGoalEditId;
   if (goalId) {
-    saveChildStore("Goals", childStore("Goals").map((goal) => (
+    const updated = childStore("Goals").map((goal) => (
       goal.id === goalId
         ? {
           ...goal,
@@ -65846,16 +69454,25 @@ document.addEventListener("submit", (event) => {
           id: goalId,
           title: `${data.area} Goal`,
           summary: `${data.goal} | ${data.progress}`,
+          shareWithFamily,
           updatedAt: new Date().toISOString(),
         }
         : goal
-    )));
+    ));
+    saveChildStore("Goals", updated);
+    const saved = updated.find((goal) => goal.id === goalId);
+    if (shareWithFamily && saved) maybeNotifyFamilyHubSharedRecord("Goals", saved).catch(() => {});
     activeGoalEditId = "";
-    showActionFeedback("Goal updated.");
+    showActionFeedback(shareWithFamily ? "Goal updated and shared with Family Hub." : "Goal updated.");
     renderChildManagement();
     return;
   }
-  appendChildRecord("Goals", { ...data, title: `${data.area} Goal`, summary: `${data.goal} | ${data.progress}` });
+  appendChildRecord("Goals", {
+    ...data,
+    title: `${data.area} Goal`,
+    summary: `${data.goal} | ${data.progress}`,
+    shareWithFamily,
+  });
 });
 
 document.addEventListener("submit", (event) => {
@@ -65906,7 +69523,12 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Attendance", { ...data, title: `${data.date} | ${data.status}`, summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}` });
+  appendChildRecord("Attendance", {
+    ...data,
+    title: `${data.date} | ${data.status}`,
+    summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}`,
+    shareWithFamily: true,
+  });
   showAfterActionPrompt("attendance", data.childId);
 });
 
@@ -65918,7 +69540,12 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Meals", { ...data, title: `Meals | ${data.date}`, summary: `Breakfast: ${data.breakfast || ""} | Lunch: ${data.lunch || ""} | Snack: ${data.snack || ""}` });
+  appendChildRecord("Meals", {
+    ...data,
+    title: `Meals | ${data.date}`,
+    summary: `Breakfast: ${data.breakfast || ""} | Lunch: ${data.lunch || ""} | Snack: ${data.snack || ""}`,
+    shareWithFamily: true,
+  });
   showAfterActionPrompt("meals", data.childId);
 });
 
@@ -65930,7 +69557,15 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Communications", { ...data, title: `${data.type} | ${data.date}`, summary: data.message });
+  const type = String(data.type || "Parent Note");
+  const shareWithFamily = !/incident/i.test(type);
+  appendChildRecord("Communications", {
+    ...data,
+    type,
+    title: `${type} | ${data.date}`,
+    summary: data.message,
+    shareWithFamily,
+  });
   showActionFeedback("Parent communication saved.");
 });
 
@@ -65941,7 +69576,12 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = collectFormData(event.target);
   const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
-  appendChildRecord("Naps", { ...data, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+  appendChildRecord("Naps", {
+    ...data,
+    title: `Nap | ${data.date}${dur}`,
+    summary: data.notes || `Nap logged${dur}`,
+    shareWithFamily: true,
+  });
   showActionFeedback("Nap saved.");
 });
 
@@ -65950,7 +69590,12 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = collectFormData(event.target);
   const timeStr = data.time ? ` at ${data.time}` : "";
-  appendChildRecord("Diapers", { ...data, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+  appendChildRecord("Diapers", {
+    ...data,
+    title: `${data.type} | ${data.date}${timeStr}`,
+    summary: data.notes || data.type,
+    shareWithFamily: true,
+  });
   showActionFeedback("Diaper / potty entry saved.");
 });
 
@@ -65960,7 +69605,12 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const activitySummaryParts = [data.area, data.notes].filter(Boolean);
   const activitySummary = activitySummaryParts.join(" | ") || data.activity || "Activity";
-  appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: activitySummary });
+  appendChildRecord("ActivityLogs", {
+    ...data,
+    title: data.activity || "Activity",
+    summary: activitySummary,
+    shareWithFamily: true,
+  });
   showActionFeedback("Activity saved.");
 });
 
@@ -65972,7 +69622,14 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Communications", { ...data, type: "Behavior Note", title: `Behavior Note | ${data.date}`, summary: data.message });
+  const shareWithFamily = String(data.followUp || "").toLowerCase().includes("notify");
+  appendChildRecord("Communications", {
+    ...data,
+    type: "Behavior Note",
+    title: `Behavior Note | ${data.date}`,
+    summary: data.message,
+    shareWithFamily,
+  });
   showActionFeedback("Behavior note saved.");
 });
 
@@ -66491,28 +70148,93 @@ document.addEventListener("submit", async (event) => {
     const title = String(data.title || "").trim();
     if (!title) return;
     const status = String(data.status || "needed").trim();
-    const statusLabels = {
-      needed: "Needed",
-      requested: "Requested from family",
-      received: "Received",
-      signed: "Signed / complete",
-    };
     const category = String(data.category || "Other").trim() || "Other";
-    appendChildRecord("Documents", {
+    const shareWithFamily = String(data.shareWithFamily || "") === "true"
+      || event.target.querySelector('[name="shareWithFamily"]')?.checked === true;
+    const saved = appendChildRecord("Documents", {
       childId,
       title,
       category,
       status,
-      statusLabel: statusLabels[status] || status,
+      statusLabel: homeDaycarePackDocumentStatusLabel(status),
       notes: String(data.notes || "").trim(),
+      dueDate: String(data.dueDate || "").trim(),
       date: new Date().toISOString().slice(0, 10),
       updatedAt: new Date().toISOString(),
+      shareWithFamily,
+      providerReviewed: false,
     });
     childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     event.target.reset();
-    showActionFeedback("Document saved to child file.");
+    showActionFeedback("Form saved to child file.");
     renderChildManagement();
+    if (shareWithFamily && saved?.id) {
+      shareChildDocumentWithFamily(saved.id)
+        .then(() => showActionFeedback("Form shared with Family Hub — parents can sign it there."))
+        .catch((error) => showActionFeedback(error.message || "Saved locally — Family Hub notify failed."));
+    }
+    return;
+  }
+
+  if (event.target?.matches?.("[data-assign-template-form]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const templateId = event.target.getAttribute("data-assign-template-form");
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+    if (!template) {
+      showActionFeedback("Template not found.");
+      return;
+    }
+    const data = collectFormData(event.target);
+    const childIds = Array.from(event.target.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
+    assignAndNotifyForm({
+      title: template.title,
+      category: template.category,
+      body: template.body,
+      draftText: template.body,
+      packFormId: template.packFormId || "",
+      resourceId: template.resourceId || "",
+      templateId: template.id,
+      dueDate: data.dueDate || "",
+      shareWithFamily: event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
+      notes: "Assigned from program template.",
+    }, childIds)
+      .then((saved) => {
+        const refreshed = Number(saved.refreshedCount || 0);
+        const message = refreshed
+          ? `Updated existing assignment for “${template.title}” (${refreshed} already open — no duplicate created).`
+          : `Assigned “${template.title}” to ${saved.length} child${saved.length === 1 ? "" : "ren"}.`;
+        showActionFeedback(message);
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not assign template."));
+    return;
+  }
+
+  if (event.target?.matches?.("[data-edit-template-form]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const templateId = event.target.getAttribute("data-edit-template-form");
+    const data = collectFormData(event.target);
+    const next = formsProgramTemplates().map((template) => (
+      String(template.id) === String(templateId)
+        ? {
+          ...template,
+          title: String(data.title || template.title || "Custom form").trim() || "Custom form",
+          category: String(data.category || template.category || "Other").trim() || "Other",
+          body: String(data.body || "").trim(),
+          updatedAt: new Date().toISOString(),
+        }
+        : template
+    ));
+    if (!String(data.body || "").trim()) {
+      showActionFeedback("Template body can’t be empty.");
+      return;
+    }
+    saveFormsProgramTemplates(next);
+    showActionFeedback("Template updated. Forms already assigned to children keep their original copy.");
+    renderHomeDaycareHubPage({ refreshHouseholds: false });
     return;
   }
 
@@ -66698,7 +70420,7 @@ syncCurriculumPlannerNavVisibility();
 // a guest clicking their email link must land on the reset screen, not the homepage/Dashboard.
 function resetPasswordLinkRequestedFromLocation() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("resetToken")) return true;
+  if (params.get("resetToken") || readPendingUrlSecret("resetToken")) return true;
   if (params.get("view") === "reset-password") return true;
   if (params.get("mode") === "resetPassword") return true;
   return false;
@@ -66744,6 +70466,13 @@ function initialViewFromLocation() {
   // straight to the right conversation/tab instead of the default landing.
   if (params.get("view") === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
   if (params.get("view") === "admin" && (canSeeAdminNav() || isAdminUnlocked() || hasAdminFullAccess())) return "admin";
+  // Parent magic links must land in Family Hub even when the visitor is not a provider account.
+  if (params.get("familyHub") && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    return "family-hub";
+  }
+  if (params.get("view") === "family-hub" && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    return "family-hub";
+  }
   const pathView = adRouteMap[window.location.pathname];
   const hashView = adRouteMap[window.location.hash];
   return pathView || hashView || "home";
@@ -66771,8 +70500,13 @@ async function initializeAppView(options = {}) {
       await runSignedInBootVerification();
       if (runId !== appBootRunId) return;
       markAppBootReady();
-    } else if (!document.body.classList.contains("app-boot-ready")) {
-      markAppBootReady();
+    } else {
+      // Parents open Family Hub via magic link without a provider login — still show the accept panel.
+      await withBootVerificationTimeout("Family Hub invite", () => maybeHandleFamilyHubInviteFromUrl()).catch(() => {});
+      if (runId !== appBootRunId) return;
+      if (!document.body.classList.contains("app-boot-ready")) {
+        markAppBootReady();
+      }
     }
     if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
       return;

@@ -64,6 +64,7 @@ function spawnServer({ port, storePath, hubTesting }) {
       LLH_STORE_PATH: storePath,
       DATABASE_PROVIDER: "local-json",
       HOME_DAYCARE_HUB_TESTING: hubTesting ? "true" : "false",
+      LLH_ALLOW_EPHEMERAL_FAMILY_HUB: "true",
       NODE_ENV: "test",
       ALLOW_EMAIL_SCHEDULE_AUTH: "true",
     },
@@ -84,7 +85,7 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell + view markers for Family Hub", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-own-tester-kid"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-cross-feature"/);
   assert.match(indexHtml, /id="view-family-hub"/);
   assert.match(appJs, /family-hub/);
   assert.match(appJs, /function renderFamilyHubProviderPanel/);

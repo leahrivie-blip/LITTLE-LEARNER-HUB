@@ -424,12 +424,18 @@
     const weekStart = weekStartMonday(payload.weekStartDate || new Date());
     const current = readCache(email);
     const classroomId = payload.classroomId || current.classrooms[0]?.id || "classroom-main";
+    const childIds = (Array.isArray(payload.childIds) ? payload.childIds : [])
+      .map((id) => clamp(id, 80))
+      .filter(Boolean)
+      .slice(0, 80);
     const item = {
       id: payload.id || randomId("sch"),
       type: "lesson_plan",
       organizationId: null,
       centerId: null,
       classroomId,
+      childIds,
+      rosterLabel: clamp(payload.rosterLabel, 200),
       title: payload.lessonPlanTitle || payload.title || "Untitled Lesson Plan",
       startDate: weekStart,
       endDate: weekEndFromStart(weekStart),
