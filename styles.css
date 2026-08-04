@@ -18073,7 +18073,29 @@ body.lesson-workspace-open .main {
   }
 }
 
-/* Mobile lesson viewer = full-screen sheet with large touch targets. */
+/* Mobile lesson viewer = full-screen sheet with large touch targets.
+   Keep these !important overrides after generic .modal / .resource-viewer-card
+   responsive rules so the curriculum viewer is never inset or max-height clipped. */
+@media (max-width: 1100px) {
+  .resource-viewer-modal.lesson-workspace-mode.open {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    overflow: hidden !important;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card,
+  .resource-viewer-modal.lesson-workspace-mode.open .modal-card.resource-viewer-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
 @media (max-width: 767px) {
   body.resource-viewer-open,
   body.lesson-workspace-open {
@@ -18118,6 +18140,15 @@ body.lesson-workspace-open .main {
   .lesson-workspace-week-day-block,
   .lesson-workspace-activity-card-large {
     padding: 16px 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card,
+  .resource-viewer-modal.lesson-workspace-mode.open .modal-card.resource-viewer-card {
+    max-width: 100% !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
   }
 }
 

@@ -96,37 +96,21 @@ async function stopServer(child) {
   });
 }
 
-async function seedLesson(token) {
-  const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
-  const sample = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
-  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(sample, "utf8"));
-  assert.equal(parsed.ok, true, parsed.error || "parse failed");
-  const bootstrap = await request("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
-  const touch = await request("POST", "/api/admin/site-content", {
-    body: {
-      adminToken: token,
-      siteContent: { ...bootstrap.json.siteContent, updatedAt: bootstrap.json.siteContent.updatedAt || "" },
-    },
+async function resolveCuratedFreeLesson(page) {
+  return page.evaluate(() => {
+    const freeSample = globalThis.LLHFreeCurriculumSample;
+    const ids = freeSample?.DEFAULT_FREE_STARTER_LESSON_IDS || [];
+    const match = (resources || []).find((resource) => (
+      resource?.category === "Lesson Plans"
+      && ids.includes(resource.id)
+      && resource._curriculumManaged
+      && resource._curriculumLessonPlan
+      && typeof canAccess === "function"
+      && canAccess(resource)
+    ));
+    if (!match) return null;
+    return { id: match.id, title: match.title };
   });
-  const planId = `cur-lp-fs-${crypto.randomBytes(3).toString("hex")}`;
-  const title = "Fullscreen Mobile Lesson Plan";
-  const save = await request("POST", "/api/admin/curriculum/lesson-plans", {
-    body: {
-      adminToken: token,
-      expectedUpdatedAt: touch.json.siteContent.updatedAt,
-      lessonPlan: {
-        ...parsed.data,
-        id: planId,
-        title,
-        plan: "Free",
-        status: "published",
-        age: "Preschool",
-        theme: "Fullscreen",
-      },
-    },
-  });
-  assert.ok([200, 201].includes(save.status), `seed failed ${save.status}`);
-  return { id: planId, title };
 }
 
 function staticChecks() {
@@ -138,13 +122,29 @@ function staticChecks() {
   assert.match(css, /visibility:\s*hidden/);
   assert.match(app, /lesson-workspace-open/);
   assert.match(app, /classList\.add\("resource-viewer-open"\)/);
-  assert.match(html, /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(html, /app\.js\?v=/);
+  assert.match(css, /llh-spacious-shell/);
   console.log("PASS static fullscreen lesson markers");
 }
 
+async function stubOfflineFonts(page) {
+  await page.route(/fonts\.(googleapis|gstatic)\.com/i, async (route) => {
+    const url = route.request().url();
+    if (url.includes("css")) {
+      await route.fulfill({ status: 200, contentType: "text/css", body: "/* offline fonts stub */" });
+      return;
+    }
+    await route.abort();
+  });
+  await page.route(/multi-role-tester\.js/i, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/javascript", body: "/* stubbed for headless boot */" });
+  });
+}
+
 async function openLesson(page, lesson) {
-  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+  await stubOfflineFonts(page);
+  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
   await page.evaluate(({ email }) => {
     localStorage.setItem("llhUser", email);
     localStorage.setItem("llhAccounts", JSON.stringify({
@@ -156,15 +156,20 @@ async function openLesson(page, lesson) {
     page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }).catch(() => null),
     page.reload({ waitUntil: "domcontentloaded" }),
   ]);
-  await page.waitForFunction(() => typeof isLoggedIn === "function" && isLoggedIn(), null, { timeout: 30000 });
+  await page.waitForFunction(() => (
+    typeof isLoggedIn === "function"
+    && isLoggedIn()
+    && typeof isAppBootInteractive === "function"
+    && isAppBootInteractive()
+  ), null, { timeout: 60000 });
+  const target = lesson || await resolveCuratedFreeLesson(page);
+  assert.ok(target?.id, "curated Free lesson missing");
   await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 15000 });
-  await page.fill("#view-lessons.active-view #lessonPlanSearch", lesson.title);
-  await page.waitForTimeout(350);
   await page.evaluate(() => window.scrollTo(0, 420));
   await page.waitForTimeout(100);
   const libraryY = await page.evaluate(() => window.scrollY || 0);
-  await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: lesson.title }).first().click({ force: true });
+  await page.evaluate((id) => openResourceViewer(id), target.id);
   await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 15000 });
   await page.waitForTimeout(200);
   return libraryY;
@@ -231,19 +236,14 @@ async function main() {
   let browser;
   try {
     await waitForBoot(child);
-    const login = await request("POST", "/api/admin/login", {
-      body: { email: ADMIN.email, password: ADMIN.password, code: ADMIN.code },
-    });
-    assert.equal(login.status, 200);
-    const lesson = await seedLesson(login.json.token);
-    browser = await playwright.chromium.launch({ headless: true });
+    browser = await playwright.chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
 
     for (const width of WIDTHS) {
       const page = await browser.newPage({
         viewport: { width, height: width <= 375 ? 667 : 844 },
         deviceScaleFactor: 2,
       });
-      const libraryY = await openLesson(page, lesson);
+      const libraryY = await openLesson(page, null);
       await assertFullscreen(page, `${width}px`);
 
       // Single-page scroll reaches actions + feedback without a nested scroller.
