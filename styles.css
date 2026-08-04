@@ -14082,6 +14082,12 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
     display: none;
   }
 
+  body.home-view .mobile-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+  }
+
   body.home-view .mobile-brand strong {
     min-width: 0;
     white-space: nowrap;
@@ -14093,27 +14099,58 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
 
   body.home-view .account-actions {
     width: auto;
+    flex: 0 0 auto;
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 6px;
   }
 
   /* Keep Sign Up visible above the fold on mobile — this was previously hidden */
   body.home-view #signupButton {
     display: inline-flex;
     font-weight: 800;
-    min-width: 96px;
+    min-width: 0;
     box-shadow: 0 6px 16px rgba(91, 155, 213, 0.28);
   }
 
   body.home-view #signinButton {
-    min-width: 72px;
-    padding-inline: 12px;
+    min-width: 0;
+    padding-inline: 10px;
   }
 
   body.home-view .account-actions button {
     flex: 0 0 auto;
     min-height: 42px;
-    padding: 10px 14px;
+    padding: 10px 12px;
+  }
+
+  /* Narrow phones: keep full brand readable by tightening chrome, not clipping the name away. */
+  @media (max-width: 390px) {
+    body.home-view .topbar {
+      gap: 6px;
+      padding: 10px 10px;
+    }
+
+    body.home-view .mobile-brand strong {
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+
+    body.home-view #signinButton,
+    body.home-view #signupButton {
+      padding-inline: 9px;
+      font-size: 0.9rem;
+    }
+
+    body.home-view .mobile-menu-toggle {
+      width: 40px;
+      height: 40px;
+    }
+  }
+
+  @media (max-width: 360px) {
+    body.home-view .mobile-brand strong {
+      font-size: 12.5px;
+    }
   }
 
   .lp-hero-cta-note {
@@ -22982,8 +23019,36 @@ body.hdh-persona-parent .main {
   .llh-meta-cookie-notice {
     left: 10px;
     right: 10px;
-    bottom: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    z-index: 40; /* below auth (13000) and below resource viewer chrome */
   }
+
+  .llh-meta-cookie-dismiss {
+    min-height: 44px;
+    min-width: 72px;
+  }
+}
+
+/* Keep page CTAs reachable while the cookie notice is visible. */
+body.has-meta-cookie-notice {
+  padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+}
+
+body.has-meta-cookie-notice .lp-final-cta,
+body.has-meta-cookie-notice .llh-final-cta {
+  scroll-margin-bottom: 140px;
+}
+
+/* Never cover login/signup, resource viewers, calendar dialogs, or editors. */
+body.auth-modal-open .llh-meta-cookie-notice,
+body.nuo-open .llh-meta-cookie-notice,
+body.resource-viewer-open .llh-meta-cookie-notice,
+body.lesson-workspace-open .llh-meta-cookie-notice,
+body.lesson-editor-view .llh-meta-cookie-notice,
+body.auth-modal-open #llhMetaCookieNotice,
+body.resource-viewer-open #llhMetaCookieNotice {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 /* ===== New User Onboarding (Phase 1) ===== */

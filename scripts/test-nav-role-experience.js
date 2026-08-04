@@ -74,7 +74,7 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-smart-automation"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-pass3-cookie-mobile-r1"/);
   assert.match(indexHtml, /data-work-nav-root/);
   assert.match(indexHtml, /data-work-nav="business"/);
   assert.match(indexHtml, /id="view-classroom"/);

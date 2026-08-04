@@ -318,7 +318,8 @@
     "test:profiles-logs-docs": "NODE_ENV=test node scripts/test-profiles-logs-docs.js",
     "test:messaging-nav-banner": "NODE_ENV=test node scripts/test-messaging-nav-banner.js",
     "test:mobile-a11y-pass": "NODE_ENV=test node scripts/test-mobile-a11y-pass.js",
-    "test:perf-bounded-fixes": "NODE_ENV=test node scripts/test-perf-bounded-fixes.js"
+    "test:perf-bounded-fixes": "NODE_ENV=test node scripts/test-perf-bounded-fixes.js",
+    "test:pass3-cookie-mobile-home": "NODE_ENV=test node scripts/test-pass3-cookie-mobile-home.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
