@@ -328,10 +328,18 @@
   max-width: 780px;
 }
 
-.messages-loading {
-  padding: 32px;
+.messages-loading,
+.messages-page-shell .llh-skeleton,
+.messages-page-shell .llh-loading,
+.admin-conversation-thread .llh-loading {
+  padding: 32px 16px;
   text-align: center;
   color: var(--llh-muted, #6b6b7b);
+}
+
+.admin-conversation-thread .llh-loading {
+  display: flex;
+  justify-content: center;
 }
 
 .messages-tabs {
@@ -1107,6 +1115,11 @@
 
 /* Tablet + phone: keep Messages tabs on one scrollable row (no wrap clutter). */
 @media (max-width: 1100px) {
+  .messages-page-shell,
+  .messages-center-shell {
+    max-width: 100%;
+  }
+
   .messages-tabs,
   .messages-center-tabs {
     display: flex;
@@ -1117,6 +1130,7 @@
     flex-wrap: nowrap !important;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    padding-bottom: 2px;
   }
 
   .messages-tabs::-webkit-scrollbar,
@@ -1130,6 +1144,27 @@
     padding: 10px 12px;
     font-size: 13px;
     white-space: nowrap;
+  }
+
+  .messages-tab-panel {
+    overflow-x: hidden;
+  }
+
+  .messages-reply-form {
+    display: grid;
+    gap: 10px;
+  }
+
+  .messages-reply-form textarea,
+  #messagesReplyInput,
+  #messagesCenterReplyInput {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 72px;
+  }
+
+  .admin-conversations-layout {
+    grid-template-columns: 1fr;
   }
 }
 

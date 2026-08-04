@@ -135,7 +135,7 @@ body.user-authenticated.sidebar-collapsed .sidebar {
   display: block;
   height: 2px;
   border-radius: 999px;
-  background: #5b9bd5;
+  background: var(--llh-primary, #7b6bb5);
 }
 
 .sidebar-toggle-label {
@@ -217,7 +217,7 @@ body.user-authenticated.sidebar-collapsed .sidebar {
 
 .nav-section + .nav-section {
   padding-top: 14px;
-  border-top: 1px solid rgba(213, 227, 240, 0.86);
+  border-top: 1px solid color-mix(in srgb, var(--llh-primary, #7b6bb5) 14%, #fff);
 }
 
 .nav-section > p {
@@ -264,9 +264,9 @@ body.user-authenticated.sidebar-collapsed .sidebar {
   height: 34px;
   display: grid;
   place-items: center;
-  color: #5b9bd5;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(213, 227, 240, 0.86);
+  color: var(--llh-primary, #7b6bb5);
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 55%, #fff);
+  border: 1px solid color-mix(in srgb, var(--llh-primary, #7b6bb5) 18%, #fff);
   border-radius: 10px;
 }
 
@@ -281,18 +281,26 @@ body.user-authenticated.sidebar-collapsed .sidebar {
 }
 
 .nav-link.active .nav-icon {
-  color: #8b6be8;
+  color: var(--llh-primary-deep, #5a4d8a);
   background: rgba(255, 255, 255, 0.96);
   border-color: rgba(255, 255, 255, 0.62);
 }
 
 .nav-pill {
   padding: 3px 8px;
-  color: #5b9bd5;
-  background: rgba(219, 234, 247, 0.62);
+  color: var(--llh-primary-deep, #5a4d8a);
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 70%, #fff);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
+}
+
+/* What's New / Settings: same quiet chrome as other inactive nav links (no extra box). */
+.nav-link[data-view="whats-new"]:not(.active),
+.nav-link[data-view="settings"]:not(.active) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .plan-card,
@@ -361,14 +369,14 @@ body.user-authenticated.sidebar-collapsed .sidebar {
   display: grid;
   gap: 8px;
   padding: 12px;
-  background: linear-gradient(135deg, rgba(219, 234, 247, 0.42), rgba(237, 232, 255, 0.28));
-  border: 1px solid rgba(91, 155, 213, 0.18);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 70%, #fff), rgba(255, 255, 255, 0.9));
+  border: 1px solid color-mix(in srgb, var(--llh-primary, #7b6bb5) 18%, #fff);
   border-radius: var(--radius);
 }
 
 .sidebar-glance h3 {
   margin: 0 0 2px;
-  color: #5b9bd5;
+  color: var(--llh-primary-deep, #5a4d8a);
   font-size: 14px;
 }
 
@@ -381,7 +389,7 @@ body.user-authenticated.sidebar-collapsed .sidebar {
 }
 
 .sidebar-glance strong {
-  color: #5b9bd5;
+  color: var(--llh-primary, #7b6bb5);
   font-size: 14px;
 }
 
@@ -7712,6 +7720,17 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+}
+
+.child-page-header--actions-only {
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: -4px;
+}
+
+.child-page-header--actions-only:empty,
+.child-page-header--actions-only:not(:has(.child-header-actions button)) {
+  display: none;
 }
 
 .child-header-actions {
@@ -16128,6 +16147,23 @@ body.has-action-toast #llhMetaCookieNotice {
   gap: 10px;
 }
 
+/* Avoid card-in-card density inside the activity viewer. */
+.curriculum-activity-viewer .curriculum-activity-card,
+.printable-resource-page.curriculum-activity-viewer .print-section {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.curriculum-activity-viewer .curriculum-activity-card + .curriculum-activity-card {
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 0;
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
 .curriculum-activity-card-head {
   display: flex;
   flex-wrap: wrap;
@@ -20565,9 +20601,12 @@ body.lesson-editor-view .main {
   gap: 8px;
 }
 
-.doc-helpers-child-picker select {
+.doc-helpers-child-picker select,
+.doc-helpers-form select,
+#docHelperForm select {
   min-height: 48px;
   width: 100%;
+  max-width: min(100%, 420px);
 }
 
 .doc-helpers-section-heading {
@@ -21027,6 +21066,12 @@ body.auth-modal-open {
   flex: 1 1 auto;
   min-height: 0;
   gap: 0;
+}
+
+#authModal .auth-modal-card,
+#authModal .modal-card {
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 #authModal .signup-wizard-body {
@@ -23319,6 +23364,54 @@ body.has-meta-cookie-notice {
   display: flex;
   justify-content: center;
   padding: 36px 16px;
+}
+
+/* Skeleton placeholders (Calendar + Messages). */
+.llh-skeleton {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.llh-skeleton-head .llh-loading {
+  margin: 0;
+}
+
+.llh-skeleton-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.llh-skeleton-bar {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 55%, #fff) 0%,
+    color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 90%, #fff) 45%,
+    color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 55%, #fff) 100%
+  );
+  background-size: 200% 100%;
+  animation: llh-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.llh-skeleton--calendar .llh-skeleton-bar:nth-child(odd) {
+  height: 14px;
+}
+
+.llh-skeleton--messages {
+  padding: 28px 16px;
+}
+
+@keyframes llh-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.llh-calendar-sync-banner.is-loading .llh-skeleton {
+  width: 100%;
 }
 
 body.has-meta-cookie-notice .lp-final-cta,

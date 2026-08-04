@@ -3087,6 +3087,21 @@ function llhLoadingHtml(label = "Loading…") {
   return `<div class="llh-loading" role="status" aria-live="polite"><span class="llh-loading-spinner" aria-hidden="true"></span><span class="llh-loading-label">${escapeHtml(label)}</span></div>`;
 }
 
+/** Lightweight skeleton placeholder for calendar / messages surfaces. */
+function llhSkeletonHtml({ rows = 3, label = "Loading…", variant = "list" } = {}) {
+  const count = Math.max(1, Math.min(8, Number(rows) || 3));
+  const bars = Array.from({ length: count }, (_, i) => {
+    const width = variant === "calendar"
+      ? (i % 2 === 0 ? "92%" : "68%")
+      : (i === 0 ? "55%" : i === count - 1 ? "72%" : "88%");
+    return `<span class="llh-skeleton-bar" style="width:${width}" aria-hidden="true"></span>`;
+  }).join("");
+  return `<div class="llh-skeleton llh-skeleton--${escapeHtml(variant)}" role="status" aria-live="polite" aria-label="${escapeHtml(label)}">
+    <div class="llh-skeleton-head">${llhLoadingHtml(label)}</div>
+    <div class="llh-skeleton-bars">${bars}</div>
+  </div>`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -4432,10 +4447,35 @@ function dismissMetaCookieNotice() {
   document.body.classList.remove("has-meta-cookie-notice");
 }
 
+function suppressMetaCookieNoticeForBannerStack() {
+  const notice = document.getElementById("llhMetaCookieNotice");
+  if (!notice) return;
+  notice.setAttribute("data-banner-suppressed", "1");
+  notice.setAttribute("aria-hidden", "true");
+  notice.hidden = true;
+  notice.style.display = "none";
+  document.body.classList.remove("has-meta-cookie-notice");
+}
+
+function restoreMetaCookieNoticeAfterBannerStack() {
+  const notice = document.getElementById("llhMetaCookieNotice");
+  if (!notice || notice.getAttribute("data-banner-suppressed") !== "1") return;
+  notice.removeAttribute("data-banner-suppressed");
+  notice.removeAttribute("aria-hidden");
+  notice.hidden = false;
+  notice.style.display = "";
+  document.body.classList.add("has-meta-cookie-notice");
+}
+
 function ensureMetaCookieNotice() {
   try {
     if (document.getElementById("llhMetaCookieNotice")) return;
     if (localStorage.getItem("llhMetaCookieNoticeDismissed") === "1") return;
+    // Avoid stacking cookie with Teaching Kit / member-update banner.
+    if (typeof shouldShowMemberUpdateBanner === "function" && shouldShowMemberUpdateBanner()) return;
+    const memberUpdate = document.querySelector("#memberUpdateBanner");
+    if (memberUpdate && !memberUpdate.hidden) return;
+    if (document.body.classList.contains("auth-modal-open")) return;
     const notice = document.createElement("aside");
     notice.id = "llhMetaCookieNotice";
     notice.className = "llh-meta-cookie-notice";
@@ -15793,7 +15833,7 @@ async function renderMessagesPage(options = {}) {
     return;
   }
   if (options.conversation) messagesViewState.tab = "conversation";
-  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhLoadingHtml("Loading your messages…")}</div>`;
+  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhSkeletonHtml({ rows: 5, label: "Loading your messages…", variant: "messages" })}</div>`;
   await Promise.all([refreshMessagesData(), refreshPushPreferenceState()]);
   renderMessagesPageBody();
   // Opening the Messages page is the "read" action for the private thread —
@@ -16684,7 +16724,7 @@ async function renderAdminMessagesConversations(container, options = {}) {
   else if (!adminMessagesState.inboxBucket || adminMessagesState.inboxBucket === "welcome") {
     adminMessagesState.inboxBucket = "new";
   }
-  container.innerHTML = `<p class="messages-loading">Loading conversations…</p>`;
+  container.innerHTML = llhLoadingHtml("Loading conversations…");
   const token = adminSession()?.token || "";
   const bucket = adminMessagesState.inboxBucket || "new";
   try {
@@ -16735,7 +16775,7 @@ function filteredAdminConversations() {
 }
 
 async function renderAdminMessagesSent(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-loading">Loading sent messages…</p>`;
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}${llhLoadingHtml("Loading sent messages…")}`;
   const token = adminSession()?.token || "";
   const q = encodeURIComponent(adminMessagesState.sentSearch || "");
   try {
@@ -16784,7 +16824,7 @@ async function renderAdminMessagesSent(container) {
 }
 
 async function renderAdminMessagesDrafts(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}<p class="messages-loading">Loading drafts…</p>`;
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}${llhLoadingHtml("Loading drafts…")}`;
   const token = adminSession()?.token || "";
   try {
     const res = await fetch("/api/admin/messages/drafts", { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
@@ -16829,7 +16869,7 @@ async function renderAdminMessagesDrafts(container) {
 }
 
 async function renderAdminMessagesArchived(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}<p class="messages-loading">Loading archived items…</p>`;
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}${llhLoadingHtml("Loading archived items…")}`;
   const token = adminSession()?.token || "";
   const q = encodeURIComponent(adminMessagesState.archivedSearch || "");
   try {
@@ -16943,7 +16983,7 @@ async function openAdminConversation(userEmail) {
     btn.classList.toggle("active", btn.dataset.adminConversation === clean);
   });
   const threadEl = document.querySelector("#adminConversationThread");
-  if (threadEl) threadEl.innerHTML = `<p class="messages-loading">Loading…</p>`;
+  if (threadEl) threadEl.innerHTML = llhLoadingHtml("Loading conversation…");
   const token = adminSession()?.token || "";
   try {
     const res = await fetch(`/api/admin/messages/conversation?userEmail=${encodeURIComponent(clean)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
@@ -30595,7 +30635,7 @@ async function ensureScheduleLoaded(options = {}) {
 function calendarScheduleStatusHtml() {
   if (scheduleSyncState === "loading") {
     return `<div class="llh-calendar-sync-banner is-loading" role="status" data-calendar-sync-banner>
-      ${llhLoadingHtml("Loading your calendar…")}
+      ${llhSkeletonHtml({ rows: 4, label: "Loading your calendar…", variant: "calendar" })}
     </div>`;
   }
   if (scheduleSyncState === "error" && scheduleSyncError) {
@@ -40634,13 +40674,7 @@ function renderChildManagement() {
   const hasChildren = Boolean(records.children.length);
   app.innerHTML = `
     <section class="simple-child-page">
-      <div class="child-page-header">
-        <div>
-          <h2>Children</h2>
-          ${hasChildren ? `
-            <p>Select a child to open their profile — observations, goals, reports, and records in one calm workspace.</p>
-          ` : ""}
-        </div>
+      <div class="child-page-header child-page-header--actions-only">
         <div class="child-header-actions">
           ${hasChildren ? `
             <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
@@ -60215,7 +60249,18 @@ function shouldShowMemberUpdateBanner() {
 function refreshMemberUpdateBanner() {
   const banner = document.querySelector("#memberUpdateBanner");
   if (!banner) return;
-  banner.hidden = !shouldShowMemberUpdateBanner();
+  const show = shouldShowMemberUpdateBanner();
+  banner.hidden = !show;
+  // One product notice at a time — hide cookie while Teaching Kit / update banner is up.
+  if (show) {
+    suppressMetaCookieNoticeForBannerStack();
+    try {
+      if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
+    } catch (_error) { /* ignore */ }
+  } else {
+    restoreMetaCookieNoticeAfterBannerStack();
+    try { ensureMetaCookieNotice(); } catch (_error) { /* ignore */ }
+  }
 }
 
 /** Persistent Free Plan badge + one header Upgrade. No stacked sidebar/reminder panels. */

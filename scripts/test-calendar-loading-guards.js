@@ -166,10 +166,11 @@ async function main() {
     assert.equal(await page.evaluate(() => scheduleSyncState), "ready");
     console.log("PASS retry after timeout succeeds");
 
-    // 5) UI paint: loading uses spinner markup
+    // 5) UI paint: loading uses spinner + skeleton markup
     await page.evaluate(() => { scheduleSyncState = "loading"; });
     const loadingHtml = await page.evaluate(() => calendarScheduleStatusHtml());
     assert.match(loadingHtml, /llh-loading-spinner/);
+    assert.match(loadingHtml, /llh-skeleton/);
     assert.match(loadingHtml, /Loading your calendar/);
 
     await context.close();
