@@ -3007,7 +3007,7 @@ const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
 const HOMEPAGE_FOUNDING_PRICE_NOTE = "Pro is $19.99/month.";
 const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
 const LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY = "llhMemberUpdateBannerDismissedAt";
-const MEMBER_UPDATE_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
+const MEMBER_UPDATE_BANNER_DISMISS_MS = 30 * 24 * 60 * 60 * 1000;
 
 const HOME_LESSON_PREVIEW_HINTS = [
   "Familiar Faces",
@@ -3081,6 +3081,10 @@ function readSavedJson(key, fallback) {
     localStorage.setItem(key, JSON.stringify(fallback));
     return fallback;
   }
+}
+
+function llhLoadingHtml(label = "Loading…") {
+  return `<div class="llh-loading" role="status" aria-live="polite"><span class="llh-loading-spinner" aria-hidden="true"></span><span class="llh-loading-label">${escapeHtml(label)}</span></div>`;
 }
 
 function escapeHtml(value) {
@@ -14154,7 +14158,8 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   if (firebaseAuthEnabled) {
     const client = await getFirebaseAuthClient();
     const credential = await client.createUserWithEmailAndPassword(client.auth, cleanEmail, password);
-    await client.sendEmailVerification(credential.user);
+    // Never block Step 1 → Step 2 on verification email delivery.
+    Promise.resolve(client.sendEmailVerification(credential.user)).catch(() => {});
     ensureAccount(cleanEmail);
     updateAccount(cleanEmail, {
       authProvider: "Firebase Authentication",
@@ -15250,6 +15255,9 @@ function shouldShowInstallPromptCard() {
   // Cookie notice + action toast already occupy the bottom — don't add install chrome.
   if (document.body.classList.contains("has-meta-cookie-notice")) return false;
   if (document.body.classList.contains("has-action-toast")) return false;
+  // Avoid stacking with the Teaching Kit / member-update notice.
+  const memberUpdate = document.querySelector("#memberUpdateBanner");
+  if (memberUpdate && !memberUpdate.hidden) return false;
   if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
     if (!isFreeWelcomeCardDismissed()) return false;
     if (!isFreePlanReminderDismissed()) return false;
@@ -15785,7 +15793,7 @@ async function renderMessagesPage(options = {}) {
     return;
   }
   if (options.conversation) messagesViewState.tab = "conversation";
-  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell"><p class="messages-loading">Loading your messages…</p></div>`;
+  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhLoadingHtml("Loading your messages…")}</div>`;
   await Promise.all([refreshMessagesData(), refreshPushPreferenceState()]);
   renderMessagesPageBody();
   // Opening the Messages page is the "read" action for the private thread —
@@ -28130,7 +28138,7 @@ function lessonPlanRequestPanelHtml() {
 async function loadLessonPlanRequestsForCurrentUser() {
   const host = document.querySelector("#lessonPlanRequestList");
   if (!host || !currentUser) return;
-  host.innerHTML = `<p class="muted-copy">Loading your requests…</p>`;
+  host.innerHTML = llhLoadingHtml("Loading your requests…");
   try {
     const headers = await firebaseAuthHeaders();
     const response = await fetch(`/api/lesson-plan-requests?email=${encodeURIComponent(currentUser)}`, {
@@ -30525,7 +30533,8 @@ async function ensureScheduleLoaded(options = {}) {
     ]);
     const localBefore = api.readCache(email);
     let lastError = "";
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
         const migratedFlag = localStorage.getItem(`llhScheduleMigrated:${email}`);
         if (!migratedFlag || options.forceMigrate) {
@@ -30535,11 +30544,11 @@ async function ensureScheduleLoaded(options = {}) {
             curriculumAssignments: legacy,
             weeklyPlanner: planner,
             force: Boolean(options.forceMigrate),
-          }), 12000, "Calendar migrate timed out. Tap Retry.");
+          }), 8000, "Calendar migrate timed out. Tap Retry.");
         }
         const fetched = await withTimeout(
           api.fetchSchedule(firebaseAuthHeaders, email),
-          12000,
+          8000,
           "Calendar is taking longer than usual. Tap Retry.",
         );
         const merged = api.mergeScheduleDocs
@@ -30566,10 +30575,10 @@ async function ensureScheduleLoaded(options = {}) {
           return scheduleDocCache;
         }
         lastError = fetched?._syncError || "Calendar is waking up. Tap Retry in a moment.";
-        if (attempt < 3) await delayMs(400 * (attempt + 1));
+        if (attempt < maxAttempts - 1) await delayMs(400 * (attempt + 1));
       } catch (error) {
         lastError = error?.message || "Calendar is waking up. Tap Retry in a moment.";
-        if (attempt < 3) await delayMs(400 * (attempt + 1));
+        if (attempt < maxAttempts - 1) await delayMs(400 * (attempt + 1));
       }
     }
     scheduleDocCache = api.readCache(email) || localBefore || api.emptyDoc();
@@ -30586,7 +30595,7 @@ async function ensureScheduleLoaded(options = {}) {
 function calendarScheduleStatusHtml() {
   if (scheduleSyncState === "loading") {
     return `<div class="llh-calendar-sync-banner is-loading" role="status" data-calendar-sync-banner>
-      <p>Loading your calendar…</p>
+      ${llhLoadingHtml("Loading your calendar…")}
     </div>`;
   }
   if (scheduleSyncState === "error" && scheduleSyncError) {
@@ -68694,8 +68703,14 @@ document.querySelector("#signupButton")?.addEventListener("click", () => {
   openAuthModal("signup");
 });
 
-document.querySelector("#closeModal")?.addEventListener("click", () => {
+document.querySelector("#closeModal")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
   closeAuthModal();
+});
+
+document.querySelector("#authModal")?.addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeAuthModal();
 });
 
 document.querySelector("#forgotPasswordButton")?.addEventListener("click", () => setAuthMode("forgot"));
@@ -69388,6 +69403,26 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   const password = document.querySelector("#passwordInput").value;
   const phone = document.querySelector("#phoneInput")?.value || "";
   const submitButton = document.querySelector("#authSubmitButton");
+  // Validate signup Step 1 before disabling the button / showing "Creating…"
+  // so empty fields do not look like a frozen Continue.
+  if (currentAuthMode === "signup" && signupWizardStep === 1) {
+    const { firstName } = syncNameHiddenFieldsFromFullName();
+    if (!firstName) {
+      setFormMessage("#authMessage", "Please enter your name.");
+      document.querySelector("#fullNameInput, #firstNameInput")?.focus?.();
+      return;
+    }
+    if (!String(email || "").trim()) {
+      setFormMessage("#authMessage", "Please enter your email address.");
+      document.querySelector("#emailInput")?.focus?.();
+      return;
+    }
+    if (String(password || "").length < 8) {
+      setFormMessage("#authMessage", "Please use a password with at least 8 characters.");
+      document.querySelector("#passwordInput")?.focus?.();
+      return;
+    }
+  }
   submitButton.disabled = true;
   setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
   try {
