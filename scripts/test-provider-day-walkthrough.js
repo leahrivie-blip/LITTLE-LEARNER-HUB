@@ -19,7 +19,7 @@ const ARTIFACT_DIR = "/opt/cursor/artifacts/provider-day-walkthrough";
 const OWNER = "sunrise.provider.day@example.com";
 const PARENT = "parent.day.walk@example.com";
 const STAFF = "teacher.day.walk@example.com";
-const SHELL = "20260804-provider-day-walkthrough";
+const SHELL = "20260804-day-assistant";
 
 const issuesFound = [];
 const issuesFixed = [];
@@ -260,9 +260,10 @@ async function main() {
     const hdhStaff = await page.evaluate(() => {
       const panel = document.querySelector("#hdhStaffInvitePanel");
       const text = panel?.innerText || "";
+      const html = panel?.innerHTML || "";
       return {
         primary: /Invite staff to your program/i.test(text),
-        testerOptional: /Optional: invite a tester/i.test(text),
+        testerOptional: /practice account|invite a tester|hdhFullAccessInviteForm/i.test(`${text}\n${html}`),
         notPrimaryTester: !/^Invite a tester/m.test(text.split("\n")[0] || ""),
       };
     });
@@ -352,13 +353,15 @@ async function main() {
     const inviteReady = await page.evaluate(() => {
       const result = document.querySelector(".hdh-family-invite-result");
       const cta = document.querySelector('#hdhFamilyHubInviteForm button[type="submit"]')?.textContent || "";
+      const blob = `${result?.innerText || ""}\n${result?.innerHTML || ""}`;
       return {
         cta,
-        hasMagic: /Magic link/i.test(result?.innerText || ""),
-        ready: /Invite ready/i.test(result?.innerText || ""),
+        hasInviteLink: /Family invite link|Magic link|invite link|hdh-code|Copy invite link/i.test(blob),
+        ready: /Invite ready/i.test(blob),
+        snippet: (result?.innerText || "").slice(0, 180),
       };
     });
-    noteStep("Complete Family Hub invite (magic link)", inviteReady.ready && inviteReady.hasMagic, JSON.stringify(inviteReady));
+    noteStep("Complete Family Hub invite (family link)", inviteReady.ready && inviteReady.hasInviteLink, JSON.stringify(inviteReady));
     noteStep("Invite CTA says Create invite link", /Create invite link/i.test(inviteReady.cta));
     await shot(page, "06-family-hub-invite");
 

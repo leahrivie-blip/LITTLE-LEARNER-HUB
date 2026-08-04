@@ -14392,6 +14392,239 @@ function polishMissingContactsCount(children = []) {
   }).length;
 }
 
+/** Personalized “what deserves attention today” snapshot for work-mode dashboards (testing). */
+function buildDayAssistantSnapshot(records = childRecords(), today = (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10))) {
+  const children = records.children || [];
+  const attendance = (records.attendance || []).filter((a) => a.date === today && a.archived !== true);
+  const byChild = Object.fromEntries(attendance.map((a) => [a.childId, a]));
+  const absentKids = children.filter((c) => String(byChild[c.id]?.status || "").toLowerCase() === "absent");
+  const checkedInKids = children.filter((c) => {
+    const a = byChild[c.id];
+    if (!a) return false;
+    const status = String(a.status || "").toLowerCase();
+    return status !== "absent" && (a.dropoff || status === "present") && !a.pickup;
+  });
+  const checkedOutKids = children.filter((c) => {
+    const a = byChild[c.id];
+    return a && a.pickup && String(a.status || "").toLowerCase() !== "absent";
+  });
+  const missingAttendance = children.filter((c) => !byChild[c.id]);
+  const expected = children.length;
+  const formsWaiting = typeof polishMissingFormsCount === "function" ? polishMissingFormsCount(records) : 0;
+  const unreadParentMessages = (() => {
+    try {
+      const ops = typeof listOpsAlerts === "function" ? listOpsAlerts().filter((a) => !a.read && a.type === "message") : [];
+      const bell = Number(notificationBellState?.unreadCount || 0);
+      const drafts = (records.communications || []).filter((item) => {
+        const type = String(item.type || "").toLowerCase();
+        return item.date === today && type.includes("parent") && (item.draft || item.needsReply);
+      });
+      return Math.max(ops.length, bell, drafts.length);
+    } catch (_e) {
+      return 0;
+    }
+  })();
+  const birthdaysSoon = typeof polishBirthdaysSoon === "function" ? polishBirthdaysSoon(children, 2) : [];
+  const birthdayToday = birthdaysSoon.filter((b) => b.days === 0);
+  const allergies = typeof polishAllergyChildren === "function" ? polishAllergyChildren(children) : [];
+  const medications = children.filter((child) => {
+    const blob = [
+      child.medications, child.medication, child.medicationNotes, child.medical, child.notes,
+    ].map((v) => String(v || "")).join(" ");
+    return /\b(medicat|medicine|dose|epipen|inhaler|allergy med)/i.test(blob);
+  });
+  const medsLoggedToday = (records.communications || []).filter((item) => (
+    item.date === today && String(item.type || "").toLowerCase().includes("medication")
+  ));
+  const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn: checkedInKids.length, roster: expected, byRoom: {} };
+  const ratioWarnings = Object.entries(ratio.byRoom || {}).filter(([, count]) => Number(count) >= 6).map(([room, count]) => `${room}: ${count} checked in`);
+  if (ratio.checkedIn >= 8) ratioWarnings.unshift(`${ratio.checkedIn} children checked in — double-check ratios`);
+  let lessonTitle = "";
+  try {
+    if (typeof weekLessonForChild === "function" && children[0]) {
+      const lesson = weekLessonForChild(children.find((c) => weekLessonForChild(c)) || children[0]);
+      lessonTitle = lesson?.lessonPlanTitle || lesson?.title || "";
+    }
+  } catch (_e) { lessonTitle = ""; }
+  const mealChildIds = new Set((records.meals || []).filter((m) => m.date === today).map((m) => m.childId));
+  const mealSkipped = checkedInKids.filter((c) => !mealChildIds.has(c.id));
+  const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today) : [];
+  const reportsToday = (records.reports || []).filter((r) => r.date === today && !r.archived);
+  const photosToday = (records.photos || []).filter((p) => p.date === today);
+  const sharedMessages = (records.communications || []).filter((item) => (
+    item.date === today
+    && String(item.type || "").toLowerCase().includes("parent")
+    && item.shareWithFamily === true
+    && !item.draft
+  ));
+  const hour = new Date().getHours();
+  let suggested = null;
+  if (missingAttendance.length && hour < 11) {
+    suggested = { title: "Start morning check-in", detail: `${missingAttendance.length} child${missingAttendance.length === 1 ? "" : "ren"} not marked yet`, view: "child-tools-daily-logs", primary: true };
+  } else if (checkedInKids.length && mealSkipped.length && hour >= 10 && hour < 15) {
+    suggested = { title: "Finish meal logs", detail: `${mealSkipped.length} checked-in child${mealSkipped.length === 1 ? "" : "ren"} still need a meal entry`, view: "child-tools-daily-logs", attrs: 'data-dlc-open-section="meals"', primary: true };
+  } else if (eodReady.length && hour >= 14) {
+    suggested = { title: "Draft end-of-day reports", detail: `${eodReady.length} ready from today’s care notes`, view: "child-tools-daily-logs", attrs: 'data-dlc-open-section="notes"', primary: true };
+  } else if (formsWaiting) {
+    suggested = { title: "Follow up on forms", detail: `${formsWaiting} waiting on parents`, view: "forms", primary: true };
+  } else if (checkedInKids.length) {
+    suggested = { title: "Continue Daily Logs", detail: "Meals, naps, photos, and notes keep families in the loop", view: "child-tools-daily-logs", primary: true };
+  } else {
+    suggested = { title: "Open Daily Logs", detail: "Check children in to start the day", view: "child-tools-daily-logs", primary: true };
+  }
+  return {
+    today,
+    children,
+    expected,
+    absentKids,
+    checkedInKids,
+    checkedOutKids,
+    missingAttendance,
+    formsWaiting,
+    unreadParentMessages,
+    birthdaysSoon,
+    birthdayToday,
+    allergies,
+    medications,
+    medsLoggedToday,
+    ratio,
+    ratioWarnings,
+    lessonTitle,
+    mealSkipped,
+    eodReady,
+    reportsToday,
+    photosToday,
+    sharedMessages,
+    suggested,
+    hour,
+  };
+}
+
+function dayAssistantBriefHtml(snap) {
+  if (!snap || !(snap.children || []).length) return "";
+  const dateLabel = new Date(`${snap.today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const chips = [];
+  chips.push(`<span class="day-assist-chip"><em>Expected</em><strong>${snap.expected}</strong></span>`);
+  chips.push(`<span class="day-assist-chip"><em>Here now</em><strong>${snap.checkedInKids.length}</strong></span>`);
+  if (snap.absentKids.length) {
+    chips.push(`<span class="day-assist-chip is-alert"><em>Absent</em><strong>${snap.absentKids.length}</strong><small>${snap.absentKids.map((c) => c.name).slice(0, 3).join(", ")}</small></span>`);
+  }
+  if (snap.missingAttendance.length && snap.hour < 16) {
+    chips.push(`<span class="day-assist-chip is-warn"><em>Not marked yet</em><strong>${snap.missingAttendance.length}</strong></span>`);
+  }
+  if (snap.formsWaiting) chips.push(`<span class="day-assist-chip is-alert"><em>Forms</em><strong>${snap.formsWaiting}</strong><small>need parent action</small></span>`);
+  if (snap.unreadParentMessages) chips.push(`<span class="day-assist-chip is-alert"><em>Messages</em><strong>${snap.unreadParentMessages}</strong><small>need a reply</small></span>`);
+  if (snap.birthdaysSoon.length) {
+    const label = snap.birthdaysSoon.map((b) => (b.days === 0 ? `${b.child.name} today` : `${b.child.name} in ${b.days}d`)).slice(0, 2).join(" · ");
+    chips.push(`<span class="day-assist-chip is-warm"><em>Birthdays</em><strong>${snap.birthdaysSoon.length}</strong><small>${escapeHtml(label)}</small></span>`);
+  }
+  if (snap.allergies.length) {
+    chips.push(`<span class="day-assist-chip is-warn"><em>Allergies</em><strong>${snap.allergies.length}</strong><small>${escapeHtml(snap.allergies.map((c) => c.name).slice(0, 3).join(", "))}</small></span>`);
+  }
+  if (snap.medications.length) {
+    chips.push(`<span class="day-assist-chip is-warn"><em>Medications</em><strong>${snap.medications.length}</strong><small>notes on file${snap.medsLoggedToday.length ? ` · ${snap.medsLoggedToday.length} logged today` : " · check Daily Logs"}</small></span>`);
+  }
+  if (snap.ratioWarnings.length) {
+    chips.push(`<span class="day-assist-chip is-alert"><em>Ratio</em><strong>!</strong><small>${escapeHtml(snap.ratioWarnings[0])}</small></span>`);
+  }
+  const lessonLine = snap.lessonTitle
+    ? `<p class="day-assist-lesson">Today’s lesson: <strong>${escapeHtml(snap.lessonTitle)}</strong> <button class="linkish-button" type="button" data-view="lessons">Open plan</button></p>`
+    : `<p class="day-assist-lesson muted-copy">No lesson assigned yet — <button class="linkish-button" type="button" data-view="lessons">choose today’s plan</button>.</p>`;
+  const first = snap.suggested
+    ? `<div class="day-assist-first">
+        <p class="eyebrow">Suggested first task</p>
+        ${workHubTile({
+          view: snap.suggested.view,
+          title: snap.suggested.title,
+          detail: snap.suggested.detail,
+          primary: true,
+          attrs: snap.suggested.attrs || "",
+        })}
+      </div>`
+    : "";
+  return `
+    <section class="work-hub-section day-assist-brief" aria-label="Today at a glance for ${escapeHtml(dateLabel)}">
+      <div class="work-hub-section-head">
+        <h3>Today’s brief</h3>
+        <span class="muted-copy">${escapeHtml(dateLabel)}</span>
+      </div>
+      <div class="day-assist-chip-row">${chips.join("")}</div>
+      ${lessonLine}
+      ${first}
+    </section>
+  `;
+}
+
+function dayAssistantEndOfDayHtml(snap) {
+  if (!snap || !(snap.children || []).length) return "";
+  const hour = snap.hour;
+  // Show wrap-up from mid-afternoon onward, or whenever everyone is checked out.
+  const allOut = snap.checkedInKids.length === 0 && (snap.checkedOutKids.length > 0 || snap.absentKids.length === snap.expected);
+  if (hour < 14 && !allOut) return "";
+  const items = [];
+  const attendanceDone = snap.missingAttendance.length === 0;
+  items.push({
+    ok: attendanceDone,
+    label: attendanceDone ? "Attendance complete" : `${snap.missingAttendance.length} still need attendance`,
+    view: "child-tools-daily-logs",
+  });
+  const reportsOk = snap.eodReady.length === 0 && (snap.reportsToday.length > 0 || snap.checkedOutKids.length === 0);
+  items.push({
+    ok: snap.eodReady.length === 0 && snap.reportsToday.length > 0,
+    label: snap.reportsToday.length
+      ? `${snap.reportsToday.length} daily report${snap.reportsToday.length === 1 ? "" : "s"} ready`
+      : (snap.eodReady.length ? `${snap.eodReady.length} report${snap.eodReady.length === 1 ? "" : "s"} still to draft` : "AI daily summary ready when care notes are logged"),
+    view: "child-tools-daily-logs",
+    attrs: 'data-dlc-open-section="notes"',
+  });
+  items.push({
+    ok: snap.sharedMessages.length > 0 || snap.unreadParentMessages === 0,
+    label: snap.unreadParentMessages
+      ? `${snap.unreadParentMessages} parent message${snap.unreadParentMessages === 1 ? "" : "s"} need a reply`
+      : (snap.sharedMessages.length ? "Parent updates shared" : "No parent messages waiting"),
+    view: "families",
+  });
+  items.push({
+    ok: snap.photosToday.length > 0,
+    label: snap.photosToday.length ? `${snap.photosToday.length} photo${snap.photosToday.length === 1 ? "" : "s"} from today` : "Share a photo when you can",
+    view: "child-tools-daily-logs",
+    attrs: 'data-dlc-open-section="photos"',
+  });
+  items.push({
+    ok: snap.formsWaiting === 0,
+    label: snap.formsWaiting ? `${snap.formsWaiting} form${snap.formsWaiting === 1 ? "" : "s"} still waiting on parents` : "No forms waiting",
+    view: "forms",
+  });
+  items.push({
+    ok: Boolean(snap.lessonTitle),
+    label: snap.lessonTitle ? "Tomorrow’s lesson: keep today’s plan rolling — or pick a new one" : "Prepare tomorrow’s lesson",
+    view: "lessons",
+  });
+  const doneCount = items.filter((i) => i.ok).length;
+  const feeling = doneCount >= items.length - 1
+    ? "Nice work — the day looks organized. You’re ready to close out."
+    : "A few wrap-up items will help you leave feeling caught up.";
+  return `
+    <section class="work-hub-section day-assist-eod" aria-label="End of day wrap-up">
+      <div class="work-hub-section-head">
+        <h3>End of day</h3>
+        <span class="muted-copy">${doneCount}/${items.length} settled</span>
+      </div>
+      <p class="muted-copy">${escapeHtml(feeling)}</p>
+      <ul class="day-assist-checklist">
+        ${items.map((item) => `
+          <li class="${item.ok ? "is-done" : "is-open"}">
+            <button type="button" data-view="${escapeHtml(item.view || "home")}" ${item.attrs || ""}>
+              <span class="day-assist-check" aria-hidden="true">${item.ok ? "✓" : "○"}</span>
+              <span>${escapeHtml(item.label)}</span>
+            </button>
+          </li>
+        `).join("")}
+      </ul>
+    </section>
+  `;
+}
+
 function openDailyLogsSection(sectionId = "") {
   if (typeof setView === "function") {
     setView("child-tools-daily-logs", { skipHistory: true, dlcOpenSection: sectionId || "" });
@@ -14445,23 +14678,19 @@ function renderOwnerHomeDashboard() {
     return;
   }
 
-  const attendance = (records.attendance || []).filter((a) => a.date === today);
-  const checkedIn = attendance.filter((a) => {
-    const status = String(a.status || "").toLowerCase();
-    return status !== "absent" && (a.dropoff || status === "present") && !a.pickup;
-  }).length;
-  const present = attendance.filter((a) => String(a.status || "").toLowerCase() !== "absent").length;
+  const snap = typeof buildDayAssistantSnapshot === "function" ? buildDayAssistantSnapshot(records, today) : null;
+  const checkedIn = snap ? snap.checkedInKids.length : 0;
   const mealsToday = (records.meals || []).filter((m) => m.date === today).length;
   const obsRecent = [...(records.observations || [])]
     .filter((obs) => String(obs.date || "") === today || !obs.date)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
     .slice(0, 4);
-  const docsPending = polishMissingFormsCount(records);
-  const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, roster: children.length, byRoom: {} };
+  const docsPending = snap ? snap.formsWaiting : polishMissingFormsCount(records);
+  const ratio = snap?.ratio || { checkedIn, roster: children.length, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
     ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
     : "No rooms checked in yet";
-  const hour = new Date().getHours();
+  const hour = snap?.hour ?? new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const name = accountDisplayFirstName(currentAccount());
   const program = getProgramSettings()?.programName || "your program";
@@ -14469,13 +14698,29 @@ function renderOwnerHomeDashboard() {
   const attention = typeof buildActionOnlyAttentionCards === "function" ? buildActionOnlyAttentionCards() : [];
   const attentionHtml = attention.length
     ? `<section class="work-hub-section">
-        <h3>Needs attention</h3>
+        <h3>What deserves attention today</h3>
         <div class="work-hub-grid">
           ${attention.map((card) => workHubTile(card)).join("")}
         </div>
       </section>`
-    : `<section class="work-hub-section"><p class="work-hub-all-clear">You’re caught up — no urgent items right now. Keep the care day moving in Daily Logs.</p></section>`;
+    : `<section class="work-hub-section"><p class="work-hub-all-clear">You’re caught up for now — keep the care day moving in Daily Logs when you’re ready.</p></section>`;
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
+  const briefHtml = typeof dayAssistantBriefHtml === "function" ? dayAssistantBriefHtml(snap) : "";
+  const eodHtml = typeof dayAssistantEndOfDayHtml === "function" ? dayAssistantEndOfDayHtml(snap) : "";
+  const pulseCards = [
+    { label: "Expected today", value: children.length, detail: snap?.absentKids?.length ? `${snap.absentKids.length} absent` : "on the roster" },
+    { label: "Checked in", value: checkedIn, detail: roomRatioText || "rooms" },
+    mealsToday
+      ? { label: "Meals logged", value: mealsToday, detail: snap?.mealSkipped?.length ? `${snap.mealSkipped.length} still need lunch` : "entries today" }
+      : (snap?.allergies?.length
+        ? { label: "Allergies", value: snap.allergies.length, detail: "review before snacks", alert: true }
+        : { label: "Meals logged", value: 0, detail: "start when ready" }),
+    docsPending
+      ? { label: "Forms awaiting parent", value: docsPending, detail: "follow up", alert: true }
+      : (snap?.unreadParentMessages
+        ? { label: "Parent messages", value: snap.unreadParentMessages, detail: "need a reply", alert: true }
+        : { label: "Attendance marked", value: children.length - (snap?.missingAttendance?.length || 0), detail: "of roster" }),
+  ].filter(Boolean);
 
   homeSection.innerHTML = workHubShell({
     eyebrow: "Home",
@@ -14484,14 +14729,8 @@ function renderOwnerHomeDashboard() {
     crumbs: [{ label: "Home" }],
     actionsHtml: `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Continue Daily Logs" : "Start check-in"}</button>`,
     body: `
-      ${workHubPulseCards([
-        { label: "Checked in", value: checkedIn, detail: `of ${children.length} children` },
-        { label: "Classroom count", value: ratio.checkedIn, detail: roomRatioText },
-        { label: "Meals logged", value: mealsToday, detail: "entries today" },
-        docsPending
-          ? { label: "Forms awaiting parent", value: docsPending, detail: "follow up", alert: true }
-          : { label: "Attendance logged", value: present, detail: "present / recorded" },
-      ])}
+      ${briefHtml}
+      ${workHubPulseCards(pulseCards)}
 
       <section class="work-hub-section">
         <h3>What to do next</h3>
@@ -14505,6 +14744,7 @@ function renderOwnerHomeDashboard() {
 
       ${attentionHtml}
       ${lessonHtml}
+      ${eodHtml}
 
       ${obsRecent.length ? `<section class="work-hub-section">
         <div class="work-hub-section-head">
@@ -14544,34 +14784,39 @@ function renderTeacherTodayPage() {
     });
     return;
   }
-  const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
-  const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
+  const snap = typeof buildDayAssistantSnapshot === "function" ? buildDayAssistantSnapshot(records, today) : null;
+  const checkedIn = snap ? snap.checkedInKids.length : (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
+  const ratio = snap?.ratio || { checkedIn, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
     ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
     : `${children.length} on roster`;
   const attention = typeof buildActionOnlyAttentionCards === "function"
-    ? buildActionOnlyAttentionCards().filter((card) => !["business", "forms"].includes(card.view) || /incident|report/i.test(card.title || ""))
+    ? buildActionOnlyAttentionCards().filter((card) => !["business"].includes(card.view) || /incident|report|meal|attendance/i.test(card.title || ""))
     : [];
   const attentionHtml = attention.length
-    ? `<section class="work-hub-section"><h3>Needs you now</h3><div class="work-hub-grid">${attention.map((card) => workHubTile(card)).join("")}</div></section>`
+    ? `<section class="work-hub-section"><h3>What deserves attention today</h3><div class="work-hub-grid">${attention.map((card) => workHubTile(card)).join("")}</div></section>`
     : `<section class="work-hub-section"><p class="work-hub-all-clear">No urgent alerts — keep logging the day.</p></section>`;
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
-  const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
+  const briefHtml = typeof dayAssistantBriefHtml === "function" ? dayAssistantBriefHtml(snap) : "";
+  const eodHtml = typeof dayAssistantEndOfDayHtml === "function" ? dayAssistantEndOfDayHtml(snap) : "";
+  const eodReady = snap ? snap.eodReady.length : (typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0);
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: "Today",
-    subtitle: "Everything happening in your classroom today — optimized for the care day, not the business office.",
+    subtitle: new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) + " · your care-day cockpit",
     crumbs: [{ label: "Today" }],
     actionsHtml: `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Continue logs" : "Start check-in"}</button>`,
     body: `
+      ${briefHtml}
       ${workHubPulseCards([
+        { label: "Expected", value: children.length, detail: snap?.absentKids?.length ? `${snap.absentKids.length} absent` : "on roster" },
         { label: "Children here", value: checkedIn, detail: roomRatioText },
-        { label: "Meals", value: (records.meals || []).filter((m) => m.date === today).length, detail: "logged" },
+        { label: "Meals", value: (records.meals || []).filter((m) => m.date === today).length, detail: snap?.mealSkipped?.length ? `${snap.mealSkipped.length} still need a meal` : "logged" },
         { label: "Naps", value: (records.naps || []).filter((m) => m.date === today).length, detail: "logged" },
-        { label: "Activities", value: (records.activityLogs || []).filter((m) => m.date === today).length, detail: "logged" },
-      ])}
+      ].filter(Boolean))}
       ${lessonHtml}
       ${attentionHtml}
+      ${eodHtml}
       <section class="work-hub-section">
         <h3>Run the day</h3>
         <div class="work-hub-grid">
@@ -14786,14 +15031,14 @@ function renderBusinessHubPage() {
         <div class="work-hub-grid">
           ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
           ${workHubTile({ view: "forms", title: "Forms overview", detail: formsWaiting ? `${formsWaiting} awaiting parents` : "Assign & review" })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Trainings & packets", detail: "Testing helpers for licensing prep" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Trainings & packets", detail: "Forms & licensing prep" })}
         </div>
       </section>
       <section class="work-hub-section">
         <h3>Account</h3>
         <div class="work-hub-grid">
           ${showBilling
-            ? workHubTile({ view: "billing", title: "Billing & subscription", detail: "Membership & invoices (testing placeholder)" })
+            ? workHubTile({ view: "billing", title: "Billing & subscription", detail: "Membership & invoices" })
             : `<div class="work-hub-note muted-copy">Billing stays with the program owner. Payments beyond membership come later.</div>`}
           ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
           ${workHubTile({ view: "staff", title: "Users & access", detail: "Staff invites and roles" })}
@@ -35437,8 +35682,9 @@ function renderFamilyHubProviderPanel() {
   const households = familyHubHouseholdCache.households || [];
   const invite = familyHubInviteResult;
   const storage = familyHubHouseholdCache.storage || null;
-  const handoff = familyHubHouseholdCache.testingHandoff
-    || "If email isn’t sending yet, copy the magic link and login code and share them with the family.";
+  const handoffRaw = familyHubHouseholdCache.testingHandoff
+    || "If email isn’t sending yet, copy the family invite link and login code and share them with the family.";
+  const handoff = String(handoffRaw).replace(/magic link/gi, "family invite link");
   const storageWarning = storage && storage.durable === false
     ? `<p class="form-message" role="alert">Family invites can’t be saved right now. Message Support and we’ll get storage ready for you.</p>`
     : (storage && storage.durable
@@ -35481,20 +35727,22 @@ function renderFamilyHubProviderPanel() {
         </fieldset>
         <div class="account-actions-row">
           <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create invite link</button>
-          <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview parent view</button>
-          <button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>
+          <button class="ghost-button" type="button" data-hdh-role-switch="parent">See what parents see</button>
+          ${typeof isAdminUnlocked === "function" && isAdminUnlocked()
+            ? `<button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>`
+            : ""}
         </div>
-        <p class="form-note">${escapeHtml(handoff)} You’ll get a magic link to copy and send (email/SMS delivery isn’t live on the testing site yet). Use <strong>Preview parent view</strong> to see what families see.</p>
+        <p class="form-note">${escapeHtml(handoff)} You’ll get a family invite link to copy and send. Use <strong>See what parents see</strong> to walk through their view.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result" role="status">
           <strong>Invite ready for ${escapeHtml(invite.label || "this family")}</strong>
-          <p class="muted-copy">Copy the magic link below and send it to the parent. They open Family Hub without creating a separate provider account.</p>
-          <p class="muted-copy">Magic link: <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
+          <p class="muted-copy">Copy the family invite link below and send it to the parent. They open Family Hub without creating a separate provider account.</p>
+          <p class="muted-copy">Family invite link: <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
           ${invite.loginCode ? `<p class="muted-copy">Login code: <code class="hdh-code">${escapeHtml(invite.loginCode)}</code></p>` : ""}
           <div class="account-actions-row">
-            <button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(invite.magicUrl || "")}">Copy magic link</button>
+            <button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(invite.magicUrl || "")}">Copy invite link</button>
             ${invite.loginCode ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(invite.loginCode)}">Copy login code</button>` : ""}
           </div>
         </div>
@@ -35531,7 +35779,7 @@ function renderFamilyHubProviderPanel() {
               </div>
             </article>`;
           }).join("")
-          : `<div class="profile-empty-state"><strong>No families invited yet</strong><p>Invite a household above, or create a sample household to explore the parent view.</p></div>`}
+          : `<div class="profile-empty-state"><strong>No families invited yet</strong><p>Invite a household above so parents can follow today’s updates.</p></div>`}
       </div>
       <div id="hdhProviderInbox" class="hdh-provider-inbox" data-hdh-provider-inbox>
         <h4>Provider inbox</h4>
@@ -35598,7 +35846,10 @@ function familyHubFormatDateTime(value = "") {
 
 function familyHubDayHeadline(firstName = "your child") {
   const first = String(firstName || "your child").trim() || "your child";
-  return `How was ${first}’s day?`;
+  const hour = new Date().getHours();
+  if (hour < 12) return `See what ${first} is enjoying today`;
+  if (hour < 16) return `Here’s how ${first}’s day is going`;
+  return `See what ${first} enjoyed today`;
 }
 
 function familyHubParentToast(message = "") {
@@ -35791,7 +36042,7 @@ function renderFamilyHubTodayPanel(data) {
         ${hero}
         ${familyHubEmptyState({
           title: `A quiet morning for ${first}`,
-          body: "As soon as drop-off notes, meals, naps, or photos are shared, this page becomes their day story.",
+          body: `When teachers share drop-off notes, meals, naps, or photos, you’ll see ${first}’s day story here.`,
           icon: "today",
           actionHtml: `<div class="fh-account-actions">
             <button class="ghost-button fh-btn-secondary" type="button" data-fh-panel="messages">Say hi to teacher</button>
@@ -35807,7 +36058,7 @@ function renderFamilyHubTodayPanel(data) {
   const reportTeaser = today.reports?.length
     ? `<article class="fh-story-card">
         <strong>${escapeHtml(today.reports[0].title || "Daily report")}</strong>
-        <p>${escapeHtml(today.reports[0].summary || "Your teacher shared today’s report.")}</p>
+        <p>${escapeHtml(today.reports[0].summary || "Your child’s teacher shared an update from today.")}</p>
         <button class="fh-text-btn" type="button" data-fh-panel="reports">Read full report</button>
       </article>`
     : "";
@@ -35816,7 +36067,7 @@ function renderFamilyHubTodayPanel(data) {
         ${pendingForms.map((doc) => `
           <button type="button" class="fh-pending-form" data-fh-panel="forms">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
-            <span>${escapeHtml(doc.statusLabel || "Needs your signature")}${doc.dueDate ? ` · due ${escapeHtml(doc.dueDate)}` : ""}</span>
+            <span>${escapeHtml(doc.statusLabel || "Ready when you have a moment")}${doc.dueDate ? ` · due ${escapeHtml(doc.dueDate)}` : ""}</span>
           </button>
         `).join("")}
       </div>`
@@ -35824,7 +36075,7 @@ function renderFamilyHubTodayPanel(data) {
   return `
     <div class="fh-today">
       ${hero}
-      ${section("Needs your signature", "forms", pendingHtml)}
+      ${section("A form is ready when you have a moment", "forms", pendingHtml)}
       ${section("Mood", "mood", moodHtml)}
       ${section(
         "Attendance",
@@ -35859,7 +36110,7 @@ function renderFamilyHubTodayPanel(data) {
         listHtml(today.activities, (item) => `<li><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
       )}
       ${section(
-        "Learning moments",
+        "Moments of learning",
         "activities",
         listHtml(today.observations, (item) => `<li><strong>${escapeHtml(item.title || item.area || "Observation")}</strong><span>${escapeHtml(item.summary || item.text || "")}</span></li>`),
       )}
@@ -35890,7 +36141,7 @@ function renderFamilyHubTodayPanel(data) {
       )}
       ${section("Daily report", "reports", reportTeaser)}
       ${section(
-        "Photos from today",
+        "New memories from today",
         "photos",
         today.photos?.length
           ? `<div class="fh-photo-grid">${today.photos.map((item) => familyHubPhotoTile(item, first)).join("")}</div>`
@@ -35923,8 +36174,8 @@ function renderFamilyHubReportsPanel(data) {
   const reports = Array.isArray(data?.shared?.reports) ? data.shared.reports : [];
   if (!reports.length) {
     return familyHubEmptyState({
-      title: "No daily reports yet",
-      body: "When your teacher shares a daily report, it will show up here for every linked child.",
+      title: "No updates yet",
+      body: "When your child’s teacher shares a daily report, it will show up here.",
       icon: "reports",
     });
   }
@@ -36430,7 +36681,7 @@ async function loadFamilyHubParentDashboard(options = {}) {
   const headers = familyHubAuthHeaders();
   if (!headers) {
     clearFamilyHubSession();
-    throw new Error("Your Family Hub session is missing. Open your magic link or sign in with your login code.");
+    throw new Error("Your Family Hub session is missing. Open your family invite link or sign in with your login code.");
   }
 
   const childId = options.childId || familyHubParentState.childId || "";
@@ -36463,7 +36714,7 @@ async function loadFamilyHubParentDashboard(options = {}) {
   if (!response.ok) {
     clearFamilyHubSession();
     if (response.status === 401) {
-      throw new Error(data?.error || "Family Hub session expired. Open your magic link or sign in again.");
+      throw new Error(data?.error || "Family Hub session expired. Open your family invite link or sign in again.");
     }
     if (response.status === 410) {
       throw new Error(data?.error || "This Family Hub invite has expired. Ask your provider for a new invite.");
@@ -37040,7 +37291,7 @@ function renderHomeDaycareStaffInvitePanel() {
         </div>
         ${renderHdhStaffVisibilityFields("hdh")}
         <button class="primary-button" type="submit">Send staff invite</button>
-        <p class="form-note">You’ll get a copyable accept link. Email delivery may not be live on the testing site yet.</p>
+        <p class="form-note">You’ll get a copyable accept link to share with your helper.</p>
         <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
       </form>
       <div class="hdh-family-household-list">
@@ -37060,18 +37311,18 @@ function renderHomeDaycareStaffInvitePanel() {
           : `<p class="muted-copy">No staff invites yet. Add a helper above when you’re ready.</p>`}
       </div>
       <details class="hdh-tester-details" id="hdhStaffCustomInviteDetails">
-        <summary>Optional: invite a tester with their own account + kid</summary>
+        <summary>Optional: practice account (separate data)</summary>
         <p class="muted-copy">Use this only when someone should practice on <strong>separate</strong> demo data — not your real classrooms or children.</p>
         <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
           <div class="form-grid-two">
-            <label>Tester email
+            <label>Practice email
               <input name="email" type="email" required placeholder="friend@example.com" autocomplete="email" />
             </label>
             <label>Starter child name
               <input name="childName" maxlength="60" placeholder="Demo Child" />
             </label>
           </div>
-          <button class="primary-button" type="submit">Invite tester</button>
+          <button class="primary-button" type="submit">Create practice invite</button>
           <p class="form-note">Creates an independent testing account. Their data stays private to their login. No Admin.</p>
           <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
         </form>
@@ -37267,11 +37518,35 @@ function renderHomeDaycareTesterGuidePanel() {
   }
   const children = childRecords().children || [];
   const childReady = children.length > 0;
-  return `
+  const adminTools = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  if (!adminTools) {
+    return `
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
-      <h3>Where to add testers</h3>
-      <p class="muted-copy">Invite real testers here. Role simulation and View As live in <strong>Admin → Testing Center</strong> only — everyday provider screens stay clean.</p>
+      <h3>Invite families &amp; staff</h3>
+      <p class="muted-copy">Use this page to send Family Hub invites, assign forms, and add helpers to your program. Daily care stays in Home, Today, and Daily Logs.</p>
+      <ol class="hdh-tester-path">
+        <li>${childReady
+          ? `You already have a child on file — good.`
+          : `Add a child under <button class="linkish-button" type="button" data-view="children">Children</button>.`}</li>
+        <li>Invite a parent from <em>Family Hub</em> below — copy the family invite link and send it.</li>
+        <li>Log meals, naps, and activities in Daily Logs so families see today’s story.</li>
+        <li>Optional: invite staff so helpers can share the care day.</li>
+      </ol>
+      <div class="account-actions-row hdh-tester-jumps">
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFamilyHubPanel">Family Hub</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Invite staff</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFormsPackPanel">Forms pack</button>
+        <button class="ghost-button" type="button" data-view="children">Children</button>
+      </div>
+    </section>
+  `;
+  }
+  return `
+    <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
+      <p class="eyebrow">Admin · Testing Center helpers</p>
+      <h3>QA shortcuts on this page</h3>
+      <p class="muted-copy">These tools stay in Admin only. Everyday providers see a simple invite guide instead.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
           <strong>1. Run the day as a provider</strong>
@@ -37279,7 +37554,7 @@ function renderHomeDaycareTesterGuidePanel() {
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>2. Add a parent tester</strong>
-          <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
+          <p>Scroll to <em>Family Hub</em> → create household invite → copy the family invite link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>3. Add staff or a Teacher tester</strong>
@@ -37299,7 +37574,7 @@ function renderHomeDaycareTesterGuidePanel() {
           ? `You already have a child on file — good.`
           : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button>.`}</li>
         <li>Log meals, naps, and activities in Daily Logs — confirm Family Hub Today updates.</li>
-        <li>Invite a parent and open their magic link on another device/browser.</li>
+        <li>Invite a parent and open their family invite link on another device/browser.</li>
         <li>Optional: Admin Testing Center → View As Parent, then Return to Admin.</li>
         <li>Optional: invite staff below — or a separate Teacher tester who Messages Leah.</li>
       </ol>
@@ -42587,7 +42862,7 @@ function maybeSuggestGoalFromObservation(child, observation = {}) {
   const areaMatch = text.match(/\b(language|literacy|social|emotional|motor|cognitive|self[- ]?help|math|science|art)\b/i);
   const area = areaMatch ? areaMatch[1].replace(/^./, (c) => c.toUpperCase()) : "Development";
   const snippet = text.split(/[.!\n]/).map((part) => part.trim()).find((part) => part.length > 18) || text.slice(0, 80);
-  const title = `${area} goal from observation`;
+  const title = `Suggested ${area} goal`;
   const existing = (childStore("Goals") || []).some((goal) => (
     String(goal.childId) === String(child.id)
     && String(goal.title || "").toLowerCase() === title.toLowerCase()
@@ -42599,7 +42874,7 @@ function maybeSuggestGoalFromObservation(child, observation = {}) {
     date: observation.date || new Date().toISOString().slice(0, 10),
     title,
     area,
-    summary: `Suggested from observation: ${snippet}`,
+    summary: `From today’s observation: ${snippet}`,
     progress: "0",
     sourceObservationId: observation.id || "",
     // Goals stay provider-private until explicitly shared; providers can toggle share later.
@@ -43792,6 +44067,11 @@ function appendOpsAlert(alert = {}) {
     "medication_due",
     "lesson_assigned",
     "child_ready",
+    "meal_skipped",
+    "report_due",
+    "attendance_missing",
+    "parent_draft",
+    "goal_suggested",
   ]);
   if (!allowed.has(type)) return null;
   const next = {
@@ -43827,6 +44107,7 @@ function dismissNoiseOpsAlerts() {
   const allowed = new Set([
     "incident_review", "form_signed", "form_overdue", "observation_shared",
     "message", "medication_due", "lesson_assigned", "child_ready",
+    "meal_skipped", "report_due", "attendance_missing", "parent_draft", "goal_suggested",
   ]);
   saveOpsAlerts(listOpsAlerts().filter((item) => allowed.has(String(item.type || ""))));
 }
@@ -43984,6 +44265,13 @@ function runIncidentAutomation(record = {}) {
     childId: record.childId,
     hrefView: "child-tools-daily-logs",
   });
+  appendOpsAlert({
+    type: "parent_draft",
+    title: `Parent message draft ready · ${kid}`,
+    detail: "A warm update is drafted from the incident — review before sharing",
+    childId: record.childId,
+    hrefView: "child-tools-daily-logs",
+  });
 }
 
 function runObservationAutomation(record = {}) {
@@ -43992,7 +44280,18 @@ function runObservationAutomation(record = {}) {
   if (!child) return;
   // Observations already appear on timeline; quietly connect goals + matter-worthy notify.
   if (typeof maybeSuggestGoalFromObservation === "function") {
-    try { maybeSuggestGoalFromObservation(child, record); } catch (_e) { /* ignore */ }
+    try {
+      const goal = maybeSuggestGoalFromObservation(child, record);
+      if (goal) {
+        appendOpsAlert({
+          type: "goal_suggested",
+          title: `Link observation to a learning goal · ${child.name || "Child"}`,
+          detail: goal.title || "A suggested goal is ready on their profile",
+          childId: record.childId,
+          hrefView: "children",
+        });
+      }
+    } catch (_e) { /* ignore */ }
   }
   if (record.shareWithFamily === true) {
     appendOpsAlert({
@@ -44007,7 +44306,36 @@ function runObservationAutomation(record = {}) {
 
 function runAttendanceAutomation(record = {}) {
   if (!isSmartAutomationEnabled() || !record?.childId) return;
-  // Attendance already appears on the child timeline & Family Hub Today when shared — no duplicate event.
+  try {
+    const today = record.date || (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10));
+    // Checked out → remind about unfinished daily report (quiet ops card, not a popup)
+    if (record.pickup) {
+      const ready = typeof dayReadinessForChild === "function" ? dayReadinessForChild(record.childId, childRecords(), today) : null;
+      if (ready && !ready.report && (ready.meals || ready.naps || ready.observations || ready.photos || ready.attendance)) {
+        const kid = typeof childName === "function" ? childName(record.childId) : "Child";
+        appendOpsAlert({
+          type: "report_due",
+          title: `Daily report still open · ${kid}`,
+          detail: "Checked out — draft a family update from today’s logs when you have a moment",
+          childId: record.childId,
+          hrefView: "child-tools-daily-logs",
+        });
+      }
+    }
+    const snap = typeof buildDayAssistantSnapshot === "function" ? buildDayAssistantSnapshot(childRecords(), today) : null;
+    if (snap?.missingAttendance?.length && snap.hour >= 15) {
+      appendOpsAlert({
+        type: "attendance_missing",
+        title: `${snap.missingAttendance.length} missing attendance`,
+        detail: "Mark everyone before the day ends",
+        hrefView: "child-tools-daily-logs",
+      });
+    } else if (snap && !snap.missingAttendance.length) {
+      saveOpsAlerts(listOpsAlerts().map((item) => (
+        item.type === "attendance_missing" && !item.read ? { ...item, read: true } : item
+      )));
+    }
+  } catch (_e) { /* ignore */ }
   try {
     if (document.body.classList.contains("work-mode-nav")) {
       const view = document.body.getAttribute("data-view") || "";
@@ -44019,7 +44347,28 @@ function runAttendanceAutomation(record = {}) {
 
 function runMealAutomation(record = {}) {
   if (!isSmartAutomationEnabled() || !record?.childId) return;
-  // Meals already feed timeline, daily history, Family Hub Today, and grounded EOD AI facts.
+  // Quiet helper: if other checked-in children still need a meal, leave a soft reminder.
+  try {
+    const today = record.date || (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10));
+    const snap = typeof buildDayAssistantSnapshot === "function" ? buildDayAssistantSnapshot(childRecords(), today) : null;
+    if (snap?.mealSkipped?.length) {
+      const names = snap.mealSkipped.map((c) => c.name).filter(Boolean).slice(0, 3).join(", ");
+      appendOpsAlert({
+        type: "meal_skipped",
+        title: snap.mealSkipped.length === 1
+          ? `Meal still needed for ${names}`
+          : `${snap.mealSkipped.length} children still need a meal`,
+        detail: names ? `Skipped so far: ${names}` : "Finish lunch logs when you can",
+        childId: snap.mealSkipped[0]?.id || "",
+        hrefView: "child-tools-daily-logs",
+      });
+    } else {
+      // Clear meal_skipped once everyone checked-in has a meal
+      saveOpsAlerts(listOpsAlerts().map((item) => (
+        item.type === "meal_skipped" && !item.read ? { ...item, read: true } : item
+      )));
+    }
+  } catch (_e) { /* ignore */ }
   try {
     if (document.body.classList.contains("work-mode-nav")) {
       const view = document.body.getAttribute("data-view") || "";
@@ -44050,11 +44399,19 @@ function runFormSignedAutomation(doc = {}) {
     childId: childId || "",
     hrefView: "forms",
   });
-  saveOpsAlerts(listOpsAlerts().map((item) => (
-    item.type === "form_overdue" && String(item.detail || "").includes(String(doc.title || ""))
-      ? { ...item, read: true }
-      : item
-  )));
+  // Parent signed → quietly remove matching form reminders
+  const docTitle = String(doc.title || "").toLowerCase();
+  const docId = String(doc.id || "");
+  saveOpsAlerts(listOpsAlerts().map((item) => {
+    if (item.read) return item;
+    const isFormNoise = item.type === "form_overdue" || /form/i.test(item.title || "") || /awaiting parent/i.test(item.title || "");
+    if (!isFormNoise) return item;
+    const blob = `${item.title || ""} ${item.detail || ""}`.toLowerCase();
+    if ((docTitle && blob.includes(docTitle.slice(0, 24))) || (docId && blob.includes(docId)) || (doc.childId && String(item.childId || "") === String(doc.childId))) {
+      return { ...item, read: true };
+    }
+    return item;
+  }));
   try {
     if (window.document.body.classList.contains("work-mode-nav")) {
       const view = window.document.body.getAttribute("data-view") || "";
@@ -44105,10 +44462,18 @@ function buildActionOnlyAttentionCards() {
   dismissNoiseOpsAlerts();
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const snap = typeof buildDayAssistantSnapshot === "function" ? buildDayAssistantSnapshot(records, today) : null;
   const cards = [];
-  const unreadOps = listOpsAlerts().filter((item) => !item.read).slice(0, 6);
+  const seenTitles = new Set();
+  const pushCard = (card) => {
+    const key = String(card.title || "").toLowerCase();
+    if (!key || seenTitles.has(key)) return;
+    seenTitles.add(key);
+    cards.push(card);
+  };
+  const unreadOps = listOpsAlerts().filter((item) => !item.read).slice(0, 8);
   unreadOps.forEach((alert) => {
-    cards.push({
+    pushCard({
       view: alert.hrefView || "home",
       title: alert.title,
       detail: alert.detail || "Take action",
@@ -44118,27 +44483,64 @@ function buildActionOnlyAttentionCards() {
   });
   const docsPending = (records.documents || []).filter((d) => {
     const status = String(d.status || d.statusLabel || "").toLowerCase();
-    return d.shareWithFamily && !d.signedAt && /need|notif|assign|action|draft|request/.test(status);
+    return !d.signedAt && (d.shareWithFamily || /need|notif|assign|action|draft|request|overdue/.test(status));
   });
   if (docsPending.length) {
-    cards.push({
+    pushCard({
       view: "forms",
       title: `${docsPending.length} form${docsPending.length === 1 ? "" : "s"} awaiting parent`,
-      detail: "Follow up or resend from Forms",
+      detail: "Follow up from Forms — signed forms clear automatically",
     });
   }
-  const eodReady = childrenReadyForEndOfDayReport(records, today);
-  if (eodReady.length) {
-    cards.push({
+  // Quiet mid-day helpers (no pop-ups)
+  if (snap?.mealSkipped?.length && snap.checkedInKids.length) {
+    pushCard({
       view: "child-tools-daily-logs",
-      title: `${eodReady.length} daily report${eodReady.length === 1 ? "" : "s"} ready to generate`,
-      detail: "AI can draft from today’s logged facts",
-      primary: true,
+      title: `Meal still needed for ${snap.mealSkipped.length === 1 ? snap.mealSkipped[0].name : `${snap.mealSkipped.length} children`}`,
+      detail: "Someone was skipped — finish lunch logs when you can",
+      attrs: 'data-dlc-open-section="meals"',
     });
   }
-  const incidents = listOpsAlerts().filter((item) => item.type === "incident_review" && !item.read);
-  // already included via unreadOps
-  return cards;
+  if (snap?.missingAttendance?.length && (snap.hour >= 15 || snap.checkedInKids.length > 0)) {
+    pushCard({
+      view: "child-tools-daily-logs",
+      title: `${snap.missingAttendance.length} missing attendance`,
+      detail: snap.hour >= 15 ? "Highlight before the day ends" : "Mark present, absent, or not yet here",
+      primary: snap.hour >= 15,
+    });
+  }
+  const parentDrafts = (records.communications || []).filter((item) => (
+    item.draft && item.shareWithFamily === false && String(item.type || "").toLowerCase().includes("parent") && !item.archived
+  )).slice(0, 3);
+  parentDrafts.forEach((draft) => {
+    const kid = (records.children || []).find((c) => c.id === draft.childId);
+    pushCard({
+      view: "child-tools-daily-logs",
+      title: `Parent message draft ready${kid ? ` · ${kid.name}` : ""}`,
+      detail: String(draft.summary || "Review and send when you’re ready").slice(0, 120),
+      attrs: 'data-dlc-open-section="notes"',
+    });
+  });
+  const eodReady = snap?.eodReady || childrenReadyForEndOfDayReport(records, today);
+  if (eodReady.length) {
+    pushCard({
+      view: "child-tools-daily-logs",
+      title: `${eodReady.length} daily report${eodReady.length === 1 ? "" : "s"} ready to draft`,
+      detail: "Built only from today’s logged facts",
+      primary: true,
+      attrs: 'data-dlc-open-section="notes"',
+    });
+  }
+  if (snap?.suggested && cards.length === 0) {
+    pushCard({
+      view: snap.suggested.view,
+      title: snap.suggested.title,
+      detail: snap.suggested.detail,
+      primary: true,
+      attrs: snap.suggested.attrs || "",
+    });
+  }
+  return cards.slice(0, 8);
 }
 
 function todayAssignedLessonCardHtml() {

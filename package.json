@@ -160,6 +160,7 @@
     "test:smart-automation": "node scripts/test-smart-automation.js",
     "test:ux-polish-complete": "node scripts/test-ux-polish-complete.js",
     "test:provider-day-walkthrough": "node scripts/test-provider-day-walkthrough.js",
+    "test:day-assistant": "node scripts/test-day-assistant.js",
     "test:home-daycare-hub-finish": "node scripts/test-home-daycare-hub-finish.js",
     "test:home-daycare-hub-walkthrough": "node scripts/test-home-daycare-hub-walkthrough.js",
     "test:home-daycare-hub": "npm run test:home-daycare-hub-step-a && npm run test:home-daycare-hub-step-b && npm run test:home-daycare-hub-step-c && npm run test:home-daycare-hub-step-d && npm run test:home-daycare-hub-finish && npm run test:home-daycare-hub-walkthrough",
