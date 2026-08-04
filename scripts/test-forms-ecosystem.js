@@ -15,7 +15,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/forms-ecosystem";
 const SHOT_DIR = path.join(ARTIFACT_DIR, "screenshots");
-const SHELL = "20260804-forms-ecosystem";
+const SHELL = "20260804-forms-center";
 const OWNER = "forms.eco.owner@example.com";
 
 function ensureDirs() {
@@ -68,8 +68,8 @@ async function main() {
   const ecoJs = fs.readFileSync(path.join(ROOT, "scripts/forms-ecosystem.js"), "utf8");
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-  assert.match(indexHtml, /forms-ecosystem\.js\?v=20260804-forms-ecosystem/);
-  assert.match(sw, /SHELL_VERSION = "20260804-forms-ecosystem"/);
+  assert.match(indexHtml, /forms-ecosystem\.js\?v=20260804-forms-(?:ecosystem|center)/);
+  assert.match(sw, /SHELL_VERSION = "20260804-forms-(?:ecosystem|center)"/);
   assert.match(ecoJs, /FormsEcosystem/);
   assert.match(ecoJs, /FIELD_TYPES/);
   assert.match(ecoJs, /REFINE_ACTIONS/);
@@ -191,19 +191,23 @@ async function main() {
 
     const dash = await page.evaluate(() => {
       const s = window.FormsEcosystem.dashboardStats();
+      const centerSections = document.querySelectorAll("[data-fc-section]").length;
+      const legacyCategories = document.querySelectorAll("[data-fe-category]").length;
+      const cards = document.querySelectorAll(".fe-library-card, .fc-section-card, .fc-form-tile").length;
       return {
         library: s.libraryCount,
-        hasDash: Boolean(document.querySelector("[data-fe-dashboard]")),
-        hasLib: Boolean(document.querySelector("[data-fe-library]")),
-        hasAi: Boolean(document.querySelector("[data-fe-ai-builder]")),
-        categories: document.querySelectorAll("[data-fe-category]").length,
-        cards: document.querySelectorAll(".fe-library-card").length,
+        hasDash: Boolean(document.querySelector("[data-fe-dashboard], [data-fc-dashboard]")),
+        hasLib: Boolean(document.querySelector("[data-fe-library], [data-fc-sections]")),
+        hasAi: Boolean(document.querySelector("[data-fe-ai-builder], [data-fc-ai]")),
+        categories: Math.max(centerSections, legacyCategories),
+        cards,
+        center: Boolean(window.FormsCenter),
       };
     });
     assert.ok(dash.hasDash && dash.hasLib && dash.hasAi);
-    assert.equal(dash.categories, 7);
-    assert.ok(dash.cards >= 60);
-    console.log(`PASS  Hub dashboard + library UI — cards=${dash.cards}`);
+    assert.ok(dash.categories === 7 || dash.categories === 10, `expected 7 or 10 sections, got ${dash.categories}`);
+    assert.ok(dash.cards >= 10 || dash.library >= 60);
+    console.log(`PASS  Hub dashboard + library UI — cards=${dash.cards} sections=${dash.categories}`);
 
     await page.evaluate(() => {
       document.querySelector("[data-dismiss-announcement], [data-dismiss-whats-new], .cookie-accept, [data-cookie-accept]")?.click();

@@ -14442,6 +14442,9 @@ function renderTeacherTodayPage() {
     : "";
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
   const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
+  const allergyBanner = typeof window !== "undefined" && window.FormsCenter?.allergyBannerHtml
+    ? window.FormsCenter.allergyBannerHtml(records)
+    : "";
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: "Today",
@@ -14453,6 +14456,7 @@ function renderTeacherTodayPage() {
         <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
         <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
       </div>
+      ${allergyBanner}
       ${lessonHtml}
       ${attentionHtml}
       <section class="work-hub-section">
@@ -35999,6 +36003,9 @@ function renderFamilyHubFormsPanel(data) {
     </div>
   `;
   try {
+    if (typeof window !== "undefined" && window.FormsCenter?.enhanceFamilyHubFormsHtml) {
+      return window.FormsCenter.enhanceFamilyHubFormsHtml(baseHtml, { ...data, documents: enriched });
+    }
     if (typeof window !== "undefined" && window.FormsEcosystem?.enhanceFamilyHubFormsHtml) {
       return window.FormsEcosystem.enhanceFamilyHubFormsHtml(baseHtml, { ...data, documents: enriched });
     }
@@ -37296,10 +37303,12 @@ function renderHomeDaycareHubPage(options = {}) {
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
-        ${typeof window !== "undefined" && window.FormsEcosystem?.dashboardHtml ? window.FormsEcosystem.dashboardHtml() : ""}
-        ${renderFormsAttentionPanel()}
+        ${typeof window !== "undefined" && window.FormsCenter?.hubHtml
+          ? window.FormsCenter.hubHtml()
+          : `${typeof window !== "undefined" && window.FormsEcosystem?.dashboardHtml ? window.FormsEcosystem.dashboardHtml() : ""}
         ${typeof window !== "undefined" && window.FormsEcosystem?.libraryHtml ? window.FormsEcosystem.libraryHtml() : ""}
-        ${typeof window !== "undefined" && window.FormsEcosystem?.aiBuilderHtml ? window.FormsEcosystem.aiBuilderHtml() : ""}
+        ${typeof window !== "undefined" && window.FormsEcosystem?.aiBuilderHtml ? window.FormsEcosystem.aiBuilderHtml() : ""}`}
+        ${renderFormsAttentionPanel()}
         ${renderProgramFormTemplatesPanel()}
         <section class="section-block" id="hdhFormsPackPanel">
           <p class="eyebrow">Starter pack</p>
@@ -40276,9 +40285,10 @@ function renderChildFormsRecordsTab(child, records) {
         <div>
           <p class="eyebrow">Forms &amp; Records</p>
           <h3>Child file for ${escapeHtml(child.name)}</h3>
-          <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
+          <p class="muted-copy">Enrollment, medical, emergency, permissions, medications, and immunizations — one file, one timeline.</p>
         </div>
       </div>
+      ${typeof window !== "undefined" && window.FormsCenter?.childStatusHtml ? window.FormsCenter.childStatusHtml(child) : ""}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-forms-filters" aria-label="Search and filter forms">
         <label>Search
@@ -43461,16 +43471,19 @@ function attendanceForm(childId) {
 function mealTrackingForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().meals || [], "lunch", childId, 6);
   const activeDate = dlcActiveDate();
+  const child = (childRecords().children || []).find((item) => String(item.id) === String(childId));
+  const allergyWarning = String(child?.allergies || "").trim();
   return `
     <form id="mealTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
+      ${allergyWarning ? `<p class="fc-allergy-card" role="alert"><strong>Allergy warning</strong><br>${escapeHtml(allergyWarning)}</p>` : ""}
       <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
       ${renderMealPresetControls(`mealPresetSelect-${childId}`)}
       <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes"></textarea></label>
-      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes"></textarea></label>
+      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes">${escapeHtml(allergyWarning)}</textarea></label>
       ${renderSuggestionDataList(`mealTrackingSuggestions-${childId}`, suggestions)}
       <button class="primary-button" type="submit">Save Meals</button>
     </form>
@@ -43981,9 +43994,11 @@ function runFormSignedAutomation(doc = {}) {
       source: "form_signed",
     });
   }
-  // Forms ecosystem: push answers into Child Profile / reminders / medication notes.
+  // Forms Center / ecosystem: one form updates profile, timeline, alerts, Family Hub.
   try {
-    if (typeof window !== "undefined" && window.FormsEcosystem && typeof window.FormsEcosystem.onFormSigned === "function") {
+    if (typeof window !== "undefined" && window.FormsCenter && typeof window.FormsCenter.onFormSigned === "function") {
+      window.FormsCenter.onFormSigned(doc);
+    } else if (typeof window !== "undefined" && window.FormsEcosystem && typeof window.FormsEcosystem.onFormSigned === "function") {
       window.FormsEcosystem.onFormSigned(doc);
     }
   } catch (_fe) { /* non-blocking */ }
