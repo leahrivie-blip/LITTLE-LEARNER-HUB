@@ -7321,7 +7321,7 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
     <section class="section-block hdh-ai-draft-panel" id="hdhAiDraftPanel">
       <p class="eyebrow">AI Form Builder</p>
       <h3>AI Form Builder</h3>
-      <p class="muted-copy">Generate a filled draft from short notes. Review and edit before saving. Family send comes later — nothing is sent automatically.</p>
+      <p class="muted-copy">Generate a filled draft from short notes. Review and edit, then save to the child profile, save as a reusable template, print PDF, or share to Family Hub for parent sign-off.</p>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <form id="hdhAiDraftForm" class="panel-form hdh-ai-draft-form">
         <div class="form-grid-two">
