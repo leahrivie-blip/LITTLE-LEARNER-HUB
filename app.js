@@ -14908,6 +14908,8 @@ function deferInstallPrompt() {
 // and Messages tab keep working exactly the same.
 
 let notificationBellState = { items: [], unreadCount: 0, open: false, loaded: false };
+let notificationBellLoadPromise = null;
+let librarySearchRemountTimer = null;
 let messagesViewState = { tab: "conversation", conversation: [], inbox: [], reply: "", loaded: false };
 let pushUiState = { preference: null, deviceCount: 0, publicKey: "", supportedOnServer: false, busy: false, lastMessage: "" };
 let notificationBellPollTimer = null;
@@ -14962,30 +14964,37 @@ async function fetchNotificationsFromBackend() {
 
 async function refreshNotificationBell() {
   if (!isLoggedIn()) {
+    notificationBellLoadPromise = null;
     notificationBellState = { items: [], unreadCount: 0, open: notificationBellState.open, loaded: true };
     renderNotificationBell();
     return;
   }
-  const previousUnread = Number(notificationBellState.unreadCount) || 0;
-  const data = await fetchNotificationsFromBackend();
-  // Defense in depth: never show owner/admin-only alerts in a normal member bell.
-  const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
-  const items = isSignedInPlatformOwner() || isAdminUnlocked()
-    ? rawItems
-    : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
-  notificationBellState.items = items;
-  notificationBellState.unreadCount = items.filter((item) => !item.read).length;
-  notificationBellState.loaded = true;
-  renderNotificationBell();
-  // When a new notification arrives while Messages is open, refresh the thread
-  // so Leah's reply appears without a manual page reload.
-  if (
-    notificationBellState.unreadCount > previousUnread
-    && document.querySelector("#view-messages.active-view")
-    && typeof window.refreshMyMessagesCenterLive === "function"
-  ) {
-    window.refreshMyMessagesCenterLive().catch(() => {});
-  }
+  if (notificationBellLoadPromise) return notificationBellLoadPromise;
+  notificationBellLoadPromise = (async () => {
+    const previousUnread = Number(notificationBellState.unreadCount) || 0;
+    const data = await fetchNotificationsFromBackend();
+    // Defense in depth: never show owner/admin-only alerts in a normal member bell.
+    const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
+    const items = isSignedInPlatformOwner() || isAdminUnlocked()
+      ? rawItems
+      : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
+    notificationBellState.items = items;
+    notificationBellState.unreadCount = items.filter((item) => !item.read).length;
+    notificationBellState.loaded = true;
+    renderNotificationBell();
+    // When a new notification arrives while Messages is open, refresh the thread
+    // so Leah's reply appears without a manual page reload.
+    if (
+      notificationBellState.unreadCount > previousUnread
+      && document.querySelector("#view-messages.active-view")
+      && typeof window.refreshMyMessagesCenterLive === "function"
+    ) {
+      window.refreshMyMessagesCenterLive().catch(() => {});
+    }
+  })().finally(() => {
+    notificationBellLoadPromise = null;
+  });
+  return notificationBellLoadPromise;
 }
 
 function notificationBellIsMobileViewport() {
@@ -16781,26 +16790,38 @@ document.addEventListener("submit", async (event) => {
 function registerPwaSupport() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      // index.html already registers early for Home Screen recovery; still ensure
-      // update checks run after a healthy app.js boot.
-      navigator.serviceWorker.register("/service-worker.js").then((registration) => {
-        // Force activation of a waiting worker so cache-bust deploys reach users.
+      // index.html already registers early for Home Screen recovery; avoid a second
+      // register/updatefound cycle that can race SKIP_WAITING. Only refresh updates.
+      const attachRegistrationHooks = (registration) => {
+        if (!registration) return;
         if (registration.waiting) {
           registration.waiting.postMessage({ type: "SKIP_WAITING" });
         }
         if (typeof registration.update === "function") {
           registration.update().catch(() => {});
         }
-        registration.addEventListener("updatefound", () => {
-          const installing = registration.installing;
-          if (!installing) return;
-          installing.addEventListener("statechange", () => {
-            if (installing.state === "installed" && navigator.serviceWorker.controller) {
-              installing.postMessage({ type: "SKIP_WAITING" });
-            }
+        if (!window.__LLH_SW_EARLY_REGISTERED) {
+          registration.addEventListener("updatefound", () => {
+            const installing = registration.installing;
+            if (!installing) return;
+            installing.addEventListener("statechange", () => {
+              if (installing.state === "installed" && navigator.serviceWorker.controller) {
+                installing.postMessage({ type: "SKIP_WAITING" });
+              }
+            });
           });
-        });
-      }).catch((error) => {
+        }
+      };
+      const registrationPromise = window.__LLH_SW_EARLY_REGISTERED
+        ? navigator.serviceWorker.getRegistration("/service-worker.js").then((registration) => {
+            attachRegistrationHooks(registration);
+            return registration;
+          })
+        : navigator.serviceWorker.register("/service-worker.js").then((registration) => {
+            attachRegistrationHooks(registration);
+            return registration;
+          });
+      registrationPromise.catch((error) => {
         console.warn("Service worker registration failed", error);
       });
       // Early head script already owns controllerchange reload for stuck installs.
@@ -44830,6 +44851,7 @@ function closeFeedbackModal({ discardDraft = false } = {}) {
 async function submitFeedbackForm(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (form?.dataset?.submitting === "1") return;
   const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
   const name = document.querySelector("#feedbackNameInput")?.value?.trim() || "Provider";
   const email = document.querySelector("#feedbackEmailInput")?.value?.trim() || currentUser || "";
@@ -44839,6 +44861,9 @@ async function submitFeedbackForm(event) {
     setFormMessage("#feedbackMessage", "Email and message are required.");
     return;
   }
+  form.dataset.submitting = "1";
+  const submitBtn = form.querySelector('[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
   setFormMessage("#feedbackMessage", "Sending…", true);
   const account = currentAccount() || {};
   const payload = {
@@ -44906,6 +44931,12 @@ async function submitFeedbackForm(event) {
       setTimeout(closeFeedbackModal, 1400);
     } catch {
       setFormMessage("#feedbackMessage", error.message || "Could not send feedback. Please email support.");
+    }
+  } finally {
+    if (form) {
+      delete form.dataset.submitting;
+      const btn = form.querySelector('[type="submit"]');
+      if (btn) btn.disabled = false;
     }
   }
 }
@@ -66372,41 +66403,30 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#userLessonPlanEditorForm")) {
     markUserLessonEditorDirty();
   }
-  if (event.target.matches("#lessonPlanSearch")) {
-    const query = event.target.value;
-    const selectionStart = event.target.selectionStart;
-    const selectionEnd = event.target.selectionEnd;
+  if (event.target.matches("#lessonPlanSearch") || event.target.matches("#activityCenterSearch")) {
+    const inputEl = event.target;
+    const query = inputEl.value;
+    const selectionStart = inputEl.selectionStart;
+    const selectionEnd = inputEl.selectionEnd;
+    const isActivity = inputEl.matches("#activityCenterSearch");
     searchInput.value = query;
-    lessonLibraryViewAllKey = "";
-    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
-    const restored = document.querySelector("#lessonPlanSearch");
-    if (restored) {
-      restored.focus();
-      try {
-        restored.setSelectionRange(selectionStart, selectionEnd);
-      } catch {
-        /* ignore selection restore failures on unsupported input types */
+    if (isActivity) activityLibraryViewAllKey = "";
+    else lessonLibraryViewAllKey = "";
+    if (librarySearchRemountTimer) clearTimeout(librarySearchRemountTimer);
+    librarySearchRemountTimer = setTimeout(() => {
+      librarySearchRemountTimer = null;
+      const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+      if (viewMap[activeView]) renderCategoryPage(activeView);
+      const restored = document.querySelector(isActivity ? "#activityCenterSearch" : "#lessonPlanSearch");
+      if (restored) {
+        restored.focus();
+        try {
+          restored.setSelectionRange(selectionStart, selectionEnd);
+        } catch {
+          /* ignore selection restore failures on unsupported input types */
+        }
       }
-    }
-  }
-  if (event.target.matches("#activityCenterSearch")) {
-    const query = event.target.value;
-    const selectionStart = event.target.selectionStart;
-    const selectionEnd = event.target.selectionEnd;
-    searchInput.value = query;
-    activityLibraryViewAllKey = "";
-    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
-    const restored = document.querySelector("#activityCenterSearch");
-    if (restored) {
-      restored.focus();
-      try {
-        restored.setSelectionRange(selectionStart, selectionEnd);
-      } catch {
-        /* ignore */
-      }
-    }
+    }, 200);
   }
   if (event.target.matches("#adminLessonPlanForm [name='title']")) {
     updateAdminLessonEditorHeading();
@@ -68674,9 +68694,9 @@ document.querySelector("#adminAddDemo")?.addEventListener("click", () => {
   addDemoAdminResource();
 });
 
-document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminDashboard);
+document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminLegacyUploadsPanel);
 
-document.querySelector("#adminCategoryFilter")?.addEventListener("change", renderAdminDashboard);
+document.querySelector("#adminCategoryFilter")?.addEventListener("change", renderAdminLegacyUploadsPanel);
 document.querySelector("#adminNotifCategoryFilter")?.addEventListener("change", () => {
   fetchAdminNotificationCenter({ category: document.querySelector("#adminNotifCategoryFilter")?.value || "" })
     .then(() => renderAdminNotificationCenter())

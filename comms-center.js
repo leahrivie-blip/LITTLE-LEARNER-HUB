@@ -1279,16 +1279,25 @@
       return;
     }
 
+    if (options.tab && MESSAGES_TABS.some((t) => t.id === options.tab)) {
+      myMessagesState.tab = options.tab;
+    } else if (options.conversation) {
+      myMessagesState.tab = "conversation";
+    }
+
     if (options.silent) {
       await refreshMyMessagesCenterLive();
       startMemberMessagesLiveRefresh();
       return;
     }
 
-    if (options.tab && MESSAGES_TABS.some((t) => t.id === options.tab)) {
-      myMessagesState.tab = options.tab;
-    } else if (options.conversation) {
-      myMessagesState.tab = "conversation";
+    // Already-loaded centers skip the loading shell flash; refresh in place.
+    if (myMessagesState.loaded && !options.forceReload) {
+      paintMyMessagesCenter();
+      refreshMyMessagesCenterLive().catch(() => {});
+      startMemberMessagesLiveRefresh();
+      trackEvent("messages_center_view", { tab: myMessagesState.tab, cached: true });
+      return;
     }
 
     myMessagesState.loading = true;
@@ -2835,7 +2844,7 @@
       if (typeof window.markNotificationRead === "function") {
         await window.markNotificationRead({ all: true });
       }
-      await renderMyMessagesCenter({ tab: myMessagesState.tab || "unread" });
+      await renderMyMessagesCenter({ tab: myMessagesState.tab || "unread", silent: myMessagesState.loaded });
       refreshNotificationBellSafe();
       return;
     }
@@ -2848,7 +2857,7 @@
         await window.markNotificationRead({ id });
       }
       // Keep the item visible; refresh counts after an explicit open/mark action.
-      await renderMyMessagesCenter({ tab: myMessagesState.tab || "inbox" });
+      await renderMyMessagesCenter({ tab: myMessagesState.tab || "inbox", silent: myMessagesState.loaded });
       refreshNotificationBellSafe();
       return;
     }

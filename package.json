@@ -316,7 +316,8 @@
     "test:teaching-kit-production-smoke": "NODE_ENV=test node scripts/test-teaching-kit-production-smoke.js",
     "test:profiles-logs-docs": "NODE_ENV=test node scripts/test-profiles-logs-docs.js",
     "test:messaging-nav-banner": "NODE_ENV=test node scripts/test-messaging-nav-banner.js",
-    "test:mobile-a11y-pass": "NODE_ENV=test node scripts/test-mobile-a11y-pass.js"
+    "test:mobile-a11y-pass": "NODE_ENV=test node scripts/test-mobile-a11y-pass.js",
+    "test:perf-bounded-fixes": "NODE_ENV=test node scripts/test-perf-bounded-fixes.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
