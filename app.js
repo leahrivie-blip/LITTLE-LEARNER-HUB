@@ -23127,6 +23127,7 @@ function refreshContextualViewBackButtons() {
     button.setAttribute("aria-label", button.textContent.trim());
   });
 }
+window.refreshContextualViewBackButtons = refreshContextualViewBackButtons;
 
 function dismissResourceViewerForNavigation() {
   if (document.querySelector("#resourceViewerModal.open")) {
