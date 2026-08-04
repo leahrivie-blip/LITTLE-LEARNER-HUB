@@ -35,6 +35,9 @@
     previewUnbind: null,
     pendingCleanupAssetIds: [], // deferred until draft save succeeds
     lastSavedDraft: null,
+    saveInFlight: false,
+    saveQueued: false,
+    lastSaveError: "",
     lessonAnalysis: null,
     analysisOpen: true,
     assistant: {
@@ -269,6 +272,53 @@
     state.autosaveTimer = setTimeout(() => {
       void saveDraft({ silent: true });
     }, 1200);
+  }
+
+  /** Markers used to verify the server echoed the draft we just saved. */
+  function draftVerificationMarkers(draft) {
+    const markers = [];
+    const activities = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
+    Object.keys(activities).slice(0, 40).forEach((key) => {
+      const act = activities[key] || {};
+      const tip = String(act.teacherTip || act.setupTip || act.tip || "").trim();
+      if (tip) markers.push(`act:${key}:tip:${tip.slice(0, 80)}`);
+      const materials = String(act.materials || "").trim();
+      if (materials) markers.push(`act:${key}:mat:${materials.slice(0, 60)}`);
+    });
+    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+    const family = String(week.familyConnection || "").trim();
+    if (family) markers.push(`week:family:${family.slice(0, 80)}`);
+    return markers;
+  }
+
+  function draftContainsMarkers(draft, markers) {
+    if (!markers.length) {
+      // Empty intentional save (metadata-only) is allowed when the local draft is also empty.
+      return true;
+    }
+    const haystack = JSON.stringify(draft || {});
+    return markers.every((marker) => {
+      const parts = marker.split(":");
+      // act:<key>:tip:<text> or week:family:<text>
+      const text = parts.length >= 4 ? parts.slice(3).join(":") : parts.slice(2).join(":");
+      const needle = String(text || "").slice(0, 40);
+      return needle && haystack.includes(needle);
+    });
+  }
+
+  function enrichmentDraftLooksPopulated(draft) {
+    if (!draft || typeof draft !== "object") return false;
+    const acts = draft.activities && typeof draft.activities === "object" ? Object.keys(draft.activities) : [];
+    if (acts.length) return true;
+    const week = draft.week && typeof draft.week === "object" ? draft.week : {};
+    return Object.keys(week).some((key) => {
+      const value = week[key];
+      if (value == null) return false;
+      if (typeof value === "string") return Boolean(value.trim());
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === "object") return Object.keys(value).length > 0;
+      return true;
+    });
   }
 
   function resetAiTray() {
@@ -722,13 +772,18 @@
     }
   }
 
-  async function saveDraft({ silent = false } = {}) {
+  async function saveDraft({ silent = false, _retry = false } = {}) {
     const plan = getPlan();
     if (!plan) return false;
+    if (state.saveInFlight) {
+      state.saveQueued = true;
+      return false;
+    }
     const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
     const endpoint = root.curriculumLessonPlanConfig?.endpoint || "/api/admin/curriculum/lesson-plans";
     if (!token) {
       state.statusText = "Admin unlock required to save draft.";
+      state.lastSaveError = state.statusText;
       renderChromeOnly();
       return false;
     }
@@ -738,6 +793,13 @@
     const admin = typeof adminSession === "function" ? adminSession() : null;
     state.draft.lastEditedBy = String(admin?.email || admin?.name || state.draft.lastEditedBy || "admin").trim();
     const draftSnapshot = JSON.parse(JSON.stringify(state.draft));
+    const markers = draftVerificationMarkers(draftSnapshot);
+    state.saveInFlight = true;
+    state.lastSaveError = "";
+    if (!silent) {
+      state.statusText = "Saving draft…";
+      renderChromeOnly();
+    }
     try {
       const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
         ? curriculumExpectedUpdatedAt()
@@ -750,17 +812,39 @@
           expectedUpdatedAt,
           lessonPlan: {
             id: plan.id,
-            enrichmentDraft: state.draft,
+            enrichmentDraft: draftSnapshot,
           },
         }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (response.status === 409 && !_retry && data.curriculum) {
+        if (typeof applyCurriculumState === "function") {
+          applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+        }
+        state.saveInFlight = false;
+        // Retry once with the same local draft against the refreshed concurrency stamp.
+        return saveDraft({ silent, _retry: true });
+      }
+      if (!response.ok) {
+        const err = new Error(data.error || `HTTP ${response.status}`);
+        err.code = data.code || "";
+        throw err;
+      }
+      const savedPlan = data.lessonPlan
+        || (data.curriculum?.lessonPlans || []).find((item) => item.id === plan.id)
+        || null;
+      const savedDraft = savedPlan?.enrichmentDraft || null;
+      if (!draftContainsMarkers(savedDraft, markers)) {
+        throw new Error("Draft save verification failed — server did not keep your changes. Unsaved work is still in the editor.");
+      }
       if (data.curriculum && typeof applyCurriculumState === "function") {
         applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
       }
+      // Rehydrate from the verified server draft so reload matches what we just saved.
+      state.draft = JSON.parse(JSON.stringify(savedDraft));
+      state.lastSavedDraft = JSON.parse(JSON.stringify(savedDraft));
       state.dirty = false;
-      state.lastSavedDraft = draftSnapshot;
+      state.lastSaveError = "";
       // Only after successful draft save may unused replaced/removed assets be cleaned up.
       await flushPendingMediaCleanup(plan.id);
       state.statusText = silent
@@ -771,9 +855,18 @@
     } catch (error) {
       // Failed draft save must not erase previously saved photos — keep lastSavedDraft refs
       // and do not flush pending cleanup (old assets may still be referenced server-side).
-      state.statusText = networkErrorMessage(error, `Draft save failed: ${error.message || error}`);
+      // Keep dirty=true and local state.draft so the admin can retry without losing work.
+      state.dirty = true;
+      state.lastSaveError = error?.message || String(error);
+      state.statusText = networkErrorMessage(error, `Draft save failed: ${error.message || error}. Click Save draft to retry.`);
       renderChromeOnly();
       return false;
+    } finally {
+      state.saveInFlight = false;
+      if (state.saveQueued) {
+        state.saveQueued = false;
+        if (state.dirty) void saveDraft({ silent: true });
+      }
     }
   }
 
@@ -873,7 +966,7 @@
     });
   }
 
-  function close() {
+  async function close({ force = false } = {}) {
     clearTimeout(state.autosaveTimer);
     clearTimeout(state._previewTimer);
     if (typeof state.previewUnbind === "function") {
@@ -884,12 +977,19 @@
     state.publishOpen = false;
     state.lightboxUrl = "";
     state.jumpOpen = false;
-    if (state.dirty) {
+    if (state.dirty && !force) {
       if (!isEditorFlagEnabled()) {
         state.statusText = "Enrichment Editor disabled — unsaved draft kept locally only.";
       } else {
         state.statusText = "Saving draft before exit…";
-        void saveDraft({ silent: true });
+        renderChromeOnly();
+        const saved = await saveDraft({ silent: true });
+        if (!saved && state.dirty) {
+          state.statusText = `${state.lastSaveError || "Draft save failed."} Stay in the editor to retry, or exit without saving.`;
+          renderChromeOnly();
+          // Keep the editor open so unsaved work is not discarded silently.
+          return false;
+        }
       }
     }
     state.open = false;
@@ -900,6 +1000,7 @@
     if (typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
     }
+    return true;
   }
 
   function filteredActivities(activities) {
@@ -2157,7 +2258,7 @@
       }
       if (!state.open) return;
       if (event.target.closest("[data-enrich-exit]")) {
-        close();
+        void close();
         return;
       }
       if (event.target.closest("[data-summary-toggle]")) {
@@ -3058,7 +3159,7 @@
         if (typeof showActionFeedback === "function") {
           showActionFeedback("Enrichment Editor was disabled. Closing without publishing.");
         }
-        close();
+        void close({ force: true });
         return;
       }
       if (event.key === "Escape") {
@@ -3148,9 +3249,12 @@
   root.LLHTeachingKitEnrichmentEditor = {
     open,
     close,
+    saveDraft,
     isOpen: () => state.open,
     isEnabled: isEditorFlagEnabled,
     getDraft: () => state.draft,
+    isDirty: () => state.dirty,
+    lastSaveError: () => state.lastSaveError,
     getLessonAnalysis: () => state.lessonAnalysis,
     refreshLessonAnalysis,
     requestAiSuggestions,
@@ -3170,6 +3274,7 @@
       publish: true,
       polish: true,
       preserveRemediation: true,
+      draftSaveReliability: true,
       slice: 7,
     }),
     getQualityReport: () => state.qualityReport,
