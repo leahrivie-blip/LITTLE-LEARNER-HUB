@@ -1866,7 +1866,27 @@ function normalizedCurriculumLessonPlan(value) {
       normalized.enrichmentDraftUndo = null;
     }
   }
+  // Explicit disposable QA fixture marker (never inferred from title alone).
+  if (entry.disposableQaFixture === true || isKnownDisposableQaFixtureId(id)) {
+    normalized.disposableQaFixture = true;
+  }
   return normalized;
+}
+
+/** Explicit allowlist for pre-flag production QA fixtures. Never title-pattern based. */
+const KNOWN_DISPOSABLE_QA_FIXTURE_IDS = new Set([
+  "cur-lp-19fcc8a9f18314f85fb", // ZZ QA Disposable Teaching Kit Fixture 2026-08-04
+]);
+
+function isKnownDisposableQaFixtureId(id) {
+  return KNOWN_DISPOSABLE_QA_FIXTURE_IDS.has(normalizedShortText(id, 160));
+}
+
+function isDisposableQaFixturePlan(plan) {
+  if (!plan || typeof plan !== "object") return false;
+  const id = normalizedShortText(plan.id, 160);
+  if (!id) return false;
+  return plan.disposableQaFixture === true || isKnownDisposableQaFixtureId(id);
 }
 
 function normalizedCurriculumActivity(value) {
@@ -19853,6 +19873,151 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
  * Reversible publish: restore prior enrichment snapshot as the published lesson.
  * Does not auto-run; admin must call explicitly. Keeps history (adds a rollback entry).
  */
+async function handlePermanentDeleteDisposableFixture(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required.", code: "admin_required" });
+    return;
+  }
+  const store = await readStore();
+  if (curriculumConcurrencyConflict(store.siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, store.siteContent);
+    return;
+  }
+  const planId = normalizedShortText(body.planId || body.lessonPlanId, 160);
+  const confirmTitle = String(body.confirmTitle || "").trim();
+  const confirmPhrase = String(body.confirmPhrase || "").trim();
+  if (!planId) {
+    jsonResponse(response, 400, { error: "planId is required.", code: "missing_plan_id" });
+    return;
+  }
+  if (confirmPhrase !== "PERMANENTLY DELETE") {
+    jsonResponse(response, 400, {
+      error: "Secondary confirmation phrase must be exactly PERMANENTLY DELETE.",
+      code: "confirm_phrase_required",
+    });
+    return;
+  }
+  const curriculum = store.siteContent?.curriculum || {};
+  const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === planId);
+  if (!existingPlan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+    return;
+  }
+  if (!isDisposableQaFixturePlan(existingPlan)) {
+    jsonResponse(response, 403, {
+      error: "Permanent deletion is only available for records explicitly marked as disposable QA fixtures.",
+      code: "not_disposable_fixture",
+    });
+    return;
+  }
+  if (String(existingPlan.status || "").toLowerCase() !== "archived") {
+    jsonResponse(response, 409, {
+      error: "Disposable fixtures must be archived before permanent deletion.",
+      code: "fixture_not_archived",
+    });
+    return;
+  }
+  if (confirmTitle !== String(existingPlan.title || "").trim()) {
+    jsonResponse(response, 400, {
+      error: "Exact title confirmation does not match this fixture.",
+      code: "confirm_title_mismatch",
+    });
+    return;
+  }
+
+  const beforePlans = (curriculum.lessonPlans || []).length;
+  const beforeActs = (curriculum.activities || []).length;
+  const linkedActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId === planId);
+  const linkedActivityIds = linkedActivities.map((act) => act.id);
+  const mediaAssetIds = new Set();
+  linkedActivities.forEach((act) => {
+    if (enrichmentMedia.isEnrichmentMediaAssetId(act.setupMediaAssetId)) mediaAssetIds.add(act.setupMediaAssetId);
+    if (enrichmentMedia.isEnrichmentMediaAssetId(act.exampleMediaAssetId)) mediaAssetIds.add(act.exampleMediaAssetId);
+  });
+  const draft = existingPlan.enrichmentDraft;
+  if (draft) {
+    enrichmentMedia.collectDraftMediaAssetIds(draft).forEach((id) => mediaAssetIds.add(id));
+  }
+
+  const adminEmail = normalizedShortText(body.adminEmail || "", 180) || "admin";
+  const now = new Date().toISOString();
+  const auditBefore = {
+    id: `fixture_delete_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    action: "permanent_delete_disposable_fixture",
+    lessonPlanId: planId,
+    title: existingPlan.title || "",
+    linkedActivityIds,
+    mediaAssetIds: [...mediaAssetIds],
+    historyEntries: Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory.length : 0,
+    adminEmail,
+    createdAt: now,
+    beforeLessonPlans: beforePlans,
+    beforeActivities: beforeActs,
+  };
+  store.disposableFixtureDeleteAudit = Array.isArray(store.disposableFixtureDeleteAudit)
+    ? store.disposableFixtureDeleteAudit
+    : [];
+  store.disposableFixtureDeleteAudit.unshift(auditBefore);
+  store.disposableFixtureDeleteAudit = store.disposableFixtureDeleteAudit.slice(0, 200);
+  appendEnrichmentEditorAudit(store, {
+    action: "permanent_delete_disposable_fixture",
+    lessonPlanId: planId,
+    adminEmail,
+    note: `Permanent delete of disposable fixture “${existingPlan.title || planId}” with ${linkedActivityIds.length} linked activities.`,
+  });
+
+  const nextPlans = (curriculum.lessonPlans || []).filter((item) => item.id !== planId);
+  const nextActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId !== planId);
+  const nextCurriculum = normalizedCurriculumStore({
+    ...curriculum,
+    lessonPlans: nextPlans,
+    activities: nextActivities,
+    updatedAt: now,
+  });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "Delete refused to protect curriculum integrity.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
+
+  const cleanupLogs = [];
+  for (const mediaId of mediaAssetIds) {
+    try {
+      cleanupLogs.push(await cleanupEnrichmentMediaAsset(store, {
+        mediaAssetId: mediaId,
+        lessonPlanId: planId,
+        reason: "disposable_fixture_permanent_delete",
+      }));
+    } catch (error) {
+      cleanupLogs.push({ mediaAssetId: mediaId, error: error.message || String(error) });
+    }
+  }
+  auditBefore.afterLessonPlans = (store.siteContent.curriculum.lessonPlans || []).length;
+  auditBefore.afterActivities = (store.siteContent.curriculum.activities || []).length;
+  auditBefore.cleanupLogs = cleanupLogs.slice(0, 50);
+  await writeStoreAsync(store);
+
+  jsonResponse(response, 200, {
+    ok: true,
+    deleted: true,
+    deletedPlanId: planId,
+    deletedTitle: existingPlan.title || "",
+    deletedActivityIds: linkedActivityIds,
+    deletedMediaAssetIds: [...mediaAssetIds],
+    before: { lessonPlans: beforePlans, activities: beforeActs },
+    after: {
+      lessonPlans: auditBefore.afterLessonPlans,
+      activities: auditBefore.afterActivities,
+    },
+    curriculum: store.siteContent.curriculum,
+    siteContentUpdatedAt: store.siteContent.updatedAt,
+  });
+}
+
 async function handleEnrichmentRollback(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -26851,6 +27016,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-suggest") return await handleAdminEnrichmentAiSuggest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-rollback") return await handleEnrichmentRollback(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/disposable-fixture/permanent-delete") {
+      return await handlePermanentDeleteDisposableFixture(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/ai-teacher-assistant") return await handleAdminAiTeacherAssistant(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/director") return await handleAdminCurriculumDirector(request, response);

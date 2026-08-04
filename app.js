@@ -11132,6 +11132,9 @@ function curriculumLessonPlanAdminCardHtml(plan) {
         ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Upgrade Lesson</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
+        ${plan.disposableQaFixture === true && String(plan.status || "").toLowerCase() === "archived"
+          ? `<button class="danger-button" type="button" data-curriculum-fixture-permanent-delete="${escapeHtml(plan.id)}">Permanently Delete Disposable Fixture</button>`
+          : ""}
       </div>
     </article>
   `;
@@ -50119,6 +50122,76 @@ async function archiveAdminLessonPlan(id) {
   });
 }
 
+async function permanentlyDeleteDisposableFixture(planId) {
+  const plan = curriculumLessonPlansForAdmin().find((item) => item.id === planId);
+  if (!plan) {
+    window.alert("Fixture not found.");
+    return;
+  }
+  if (plan.disposableQaFixture !== true) {
+    window.alert("Permanent deletion is only available for disposable QA fixtures.");
+    return;
+  }
+  if (String(plan.status || "").toLowerCase() !== "archived") {
+    window.alert("Archive this disposable fixture before permanently deleting it.");
+    return;
+  }
+  const linked = curriculumActivitiesForAdmin().filter((act) => act.lessonPlanId === plan.id);
+  const typedTitle = window.prompt(
+    `Permanently delete disposable fixture?\n\n`
+    + `This removes the fixture lesson, ${linked.length} linked activit${linked.length === 1 ? "y" : "ies"}, `
+    + `enrichment draft/history, and fixture-only media references.\n\n`
+    + `Type the exact title to confirm:\n${plan.title}`,
+    "",
+  );
+  if (typedTitle == null) return;
+  if (String(typedTitle).trim() !== String(plan.title || "").trim()) {
+    window.alert("Title confirmation did not match. Nothing was deleted.");
+    return;
+  }
+  const phrase = window.prompt(
+    'Secondary confirmation: type PERMANENTLY DELETE to continue.',
+    "",
+  );
+  if (phrase !== "PERMANENTLY DELETE") {
+    window.alert("Secondary confirmation failed. Nothing was deleted.");
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (!token) {
+    window.alert("Admin unlock required.");
+    return;
+  }
+  const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+    ? curriculumExpectedUpdatedAt()
+    : "";
+  const response = await fetch("/api/admin/curriculum/disposable-fixture/permanent-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      planId: plan.id,
+      confirmTitle: plan.title,
+      confirmPhrase: "PERMANENTLY DELETE",
+      expectedUpdatedAt,
+      adminEmail: adminSession()?.email || "",
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert(data.error || `Delete failed (${response.status})`);
+    return;
+  }
+  if (data.curriculum && typeof applyCurriculumState === "function") {
+    applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+  }
+  if (typeof showActionFeedback === "function") {
+    showActionFeedback(
+      `Deleted disposable fixture ${data.deletedPlanId}. Lessons ${data.before?.lessonPlans}→${data.after?.lessonPlans}, activities ${data.before?.activities}→${data.after?.activities}.`,
+    );
+  }
+  renderAdminContentManager();
+}
+
 async function deleteAdminLessonPlan(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
@@ -68730,6 +68803,11 @@ document.addEventListener("click", async (event) => {
   const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
   if (curriculumLessonEditButton) {
     openAdminCurriculumLessonEditor(curriculumLessonEditButton.dataset.curriculumLessonEdit, { scroll: true });
+    return;
+  }
+  const fixtureDeleteButton = event.target.closest("[data-curriculum-fixture-permanent-delete]");
+  if (fixtureDeleteButton) {
+    await permanentlyDeleteDisposableFixture(fixtureDeleteButton.dataset.curriculumFixturePermanentDelete);
     return;
   }
   const coverPickButton = event.target.closest("[data-curriculum-cover-pick]");
