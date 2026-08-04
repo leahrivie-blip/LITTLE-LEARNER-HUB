@@ -366,7 +366,8 @@ function planCurriculumSync(productionCurriculum, testingCurriculum, { syncedAt,
     activitiesUpserted += 1;
   }
 
-  for (const res of relatedResources(production, productionLessonIds)) {
+  // Import every production resource (including printables not yet linked via lessonPlanIds).
+  for (const res of production.resources || []) {
     const id = String(res.id || "").trim();
     if (!id) continue;
     const existing = nextRes.get(id);
