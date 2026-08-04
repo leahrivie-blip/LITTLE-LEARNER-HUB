@@ -932,7 +932,10 @@
       ? (state.returnSurface || "today")
       : state.surface;
     const age = chrome.age || kit.age || "";
-    const planLabel = chrome.planLabel || kit.plan || "";
+    // Prefer chrome.planLabel when provided (including "") so entitled members can hide Free/Pro tags.
+    const planLabel = Object.prototype.hasOwnProperty.call(chrome || {}, "planLabel")
+      ? String(chrome.planLabel || "")
+      : String(kit.plan || "");
     const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
     const theme = chrome.theme || kit.theme || "";
     return `

@@ -18746,7 +18746,33 @@ function foundingPriceLockDisplayLabel(accountOrLock) {
 }
 
 function libraryPlanBadge(resource) {
+  // Fully entitled members (Pro / Founding / Trial) do not need Free/Pro content badges —
+  // the library is unlocked for them. Keep labels for Free users and guests.
+  if (isProUser() || hasAdminFullAccess()) return "";
   return authoritativeContentAccessLabel(resource);
+}
+
+/** Title-case child display names for consistent customer-facing UI. */
+function formatChildDisplayName(name) {
+  const raw = String(name || "").trim().replace(/\s+/g, " ");
+  if (!raw) return "";
+  return raw.split(" ").map((part) => {
+    if (!part) return part;
+    // Preserve short all-caps initials (e.g. "AJ") and hyphenated names.
+    if (/^[A-Z]{1,3}$/.test(part) && part.length <= 3) return part;
+    return part
+      .split("-")
+      .map((seg) => (seg ? seg.charAt(0).toUpperCase() + seg.slice(1).toLowerCase() : seg))
+      .join("-");
+  }).join(" ");
+}
+
+function libraryContentBadgeHtml(resource, className = "browse-card-badge") {
+  const planBadge = libraryPlanBadge(resource);
+  if (!planBadge) return "";
+  const planBadgeIsPro = planBadge === "Pro";
+  const tone = planBadgeIsPro ? "is-pro" : "is-free";
+  return `<span class="${escapeHtml(className)} ${tone}">${escapeHtml(planBadge)}</span>`;
 }
 
 /** Free users may save included/accessible content up to the Free favorites limit. */
@@ -18812,7 +18838,10 @@ function libraryAccessBadgeHtml() {
   }
   const label = billingPlanLabel();
   if (String(label).toLowerCase().includes("founding") || currentAccount()?.foundingMemberActive) {
-    return `<span class="library-access-badge"><span aria-hidden="true">✓</span> Pro Access</span>`;
+    return `<span class="library-access-badge is-founding"><span aria-hidden="true">✓</span> Founding Member — Full Access</span>`;
+  }
+  if (String(label).toLowerCase() === "trial") {
+    return `<span class="library-access-badge is-pro"><span aria-hidden="true">✓</span> Trial — Full Access</span>`;
   }
   return `<span class="library-access-badge is-pro"><span aria-hidden="true">✓</span> Pro — Full Access</span>`;
 }
@@ -18936,7 +18965,6 @@ function browseRowHtml({ key, title, items, cardHtml, viewAllLabel = "View All" 
 function activityBrowseCard(resource) {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const planBadge = libraryPlanBadge(resource);
   const category = resource.activityCategory || resource.theme || "Activity";
   const age = resource.age || "All Ages";
   const parentLessonTitle = resource._curriculumParentTitle || "";
@@ -18951,7 +18979,6 @@ function activityBrowseCard(resource) {
   const coverClass = libraryCoverToneClass(`${resource.title}-${category}`);
   const coverStyle = libraryResourceCoverStyle(resource);
   const parentLessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
-  const planBadgeIsPro = String(planBadge).startsWith("Pro");
   return `
     <article
       class="resource-card browse-card activity-browse-card ${locked ? "locked" : ""}"
@@ -18959,7 +18986,7 @@ function activityBrowseCard(resource) {
       data-browse-card="${escapeHtml(resource.id)}"
     >
       <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
-        <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
+        ${libraryContentBadgeHtml(resource)}
         <button
           class="browse-card-save lesson-plan-save-btn ${saveCtrl.className}"
           type="button"
@@ -18993,7 +19020,6 @@ function lessonPlanCard(resource) {
   try {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const planBadge = libraryPlanBadge(resource);
   const theme = resource.theme || resource.tags?.[0] || "";
   const ageLabel = String(resource.age || "Age Group").trim() || "Age Group";
   const activityCount = resource._curriculumManaged
@@ -19019,7 +19045,6 @@ function lessonPlanCard(resource) {
   const activityLabel = activityCount
     ? `${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`
     : "";
-  const planBadgeIsPro = String(planBadge).startsWith("Pro");
   return `
     <article
       class="resource-card lesson-plan-card browse-card has-cover-image netflix-cover-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
@@ -19028,6 +19053,7 @@ function lessonPlanCard(resource) {
       data-browse-card="${escapeHtml(resource.id)}"
     >
       <div class="browse-card-cover ${coverClass} lesson-plan-card__cover-wrap">
+        ${libraryContentBadgeHtml(resource)}
         <img
           class="lesson-plan-card__cover"
           src="${escapeHtml(coverUrl)}"
@@ -19041,7 +19067,6 @@ function lessonPlanCard(resource) {
           onerror="handleLessonCoverImageError(this)"
         />
         <div class="browse-card-cover-scrim" aria-hidden="true"></div>
-        <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
           class="lesson-plan-save-btn browse-card-save ${saveCtrl.className}"
           type="button"
@@ -19202,7 +19227,7 @@ function curriculumCollectionCard(collection) {
   const coverUrl = collectionCoverUrl(collection);
   const coverAlt = String(collection.coverImageAlt || "").trim()
     || `Cover illustration for ${collection.title} curriculum collection`;
-  const planBadge = collection.plan === "Pro" ? "Pro" : "Free";
+  const planBadge = (isProUser() || hasAdminFullAccess()) ? "" : (collection.plan === "Pro" ? "Pro" : "Free");
   const ageSummary = (collection.ageOrder || []).join(" · ") || "Multi-age";
   const weekLabel = collection.totalWeeks === 1 ? "1 week" : `${collection.totalWeeks} weeks`;
   return `
@@ -19219,7 +19244,7 @@ function curriculumCollectionCard(collection) {
           style="object-position:${escapeHtml(collection.coverImagePosition || "center")}"
           onerror="handleLessonCoverImageError(this)"
         />
-        <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        ${planBadge ? `<span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>` : ""}
         <div class="browse-card-overlay">
           <h3 class="browse-card-title-overlay">${escapeHtml(collection.title)}</h3>
           <p class="browse-card-meta-overlay">${escapeHtml(ageSummary)} · ${escapeHtml(weekLabel)}</p>
@@ -19257,7 +19282,7 @@ function curriculumCollectionDetailHtml(collection, lessonItems = []) {
   const coverUrl = collectionCoverUrl(collection);
   const coverAlt = String(collection.coverImageAlt || "").trim()
     || `Cover illustration for ${collection.title}`;
-  const planBadge = collection.plan === "Pro" ? "Pro" : "Free";
+  const planBadge = (isProUser() || hasAdminFullAccess()) ? "" : (collection.plan === "Pro" ? "Pro" : "Free");
   const ageSections = (collection.ageOrder || []).map((age) => {
     const track = collection.ages[age];
     if (!track) return "";
@@ -19310,7 +19335,7 @@ function curriculumCollectionDetailHtml(collection, lessonItems = []) {
         />
         <div class="curriculum-collection-detail-copy">
           <p class="eyebrow">Curriculum Collection</p>
-          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+          ${planBadge ? `<span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>` : ""}
           <h3>${escapeHtml(collection.title)}</h3>
           <p>${escapeHtml(collection.description || collection.theme || "A complete multi-week curriculum collection.")}</p>
           <p class="muted-copy">${escapeHtml((collection.ageOrder || []).join(" · "))} · ${collection.totalWeeks} weekly plans</p>
@@ -19481,12 +19506,11 @@ function featuredLessonBannerHtml(items) {
   // Extension point: source may become "ai" / "analytics" later without redesigning this UI.
   const cards = lessons.map((featured) => {
     const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 100);
-    const planBadge = libraryPlanBadge(featured);
     const ageLabel = String(featured.age || "").trim();
     return `
       <article class="featured-week-card" data-featured-source="${escapeHtml(source)}">
         <p class="featured-week-card-meta">
-          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+          ${libraryContentBadgeHtml(featured)}
           ${ageLabel ? `<span class="browse-card-age">${escapeHtml(ageLabel)}</span>` : ""}
         </p>
         <h4>${escapeHtml(featured.title)}</h4>
@@ -19625,7 +19649,7 @@ function resourceCard(resource) {
   const locked = !canAccess(resource);
   const viewText = locked ? "Preview" : "View";
   const saveCtrl = favoriteSaveControl(resource);
-  const accessText = authoritativeContentAccessLabel(resource);
+  const accessText = libraryPlanBadge(resource);
   const lessonContext = resource._childRecommendation || null;
   const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumActivityCountForLesson(resource.id)
@@ -19642,7 +19666,7 @@ function resourceCard(resource) {
         ${resource.featured ? `<span class="tag">Featured</span>` : ""}
         ${resource.tags.slice(0, 3).map((tag) => `<span class="tag">${tag}</span>`).join("")}
         ${resource.format ? `<span class="tag">${resource.format}</span>` : ""}
-        <span class="tag access-tag">${accessText}</span>
+        ${accessText ? `<span class="tag access-tag">${escapeHtml(accessText)}</span>` : ""}
       </div>
       <div>
         <h3>${resource.title}</h3>
@@ -20282,13 +20306,14 @@ ________________________________________________________________________`;
 
 function resourceFileText(resource) {
   const standards = resourceStandardConnections(resource);
+  const accessLabel = libraryPlanBadge(resource);
   return [
     "Little Learner Hub",
     resource.title,
     "",
     `Category: ${resource.category}`,
     `Age Group: ${resource.age}`,
-    `Access: ${resource.category === "Lesson Plans" ? authoritativeLessonPlanAccessLabel(resource) : resource.plan}`,
+    ...(accessLabel ? [`Access: ${accessLabel}`] : []),
     `Format: ${resource.format || "In-app resource"}`,
     `Tags: ${resource.tags.join(", ")}`,
     "",
@@ -23905,6 +23930,7 @@ function llhCopyrightNoticeHtml(className = "llh-copyright-notice") {
 function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
   const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
   const lead = String(options.lead || "").trim();
+  const accessTag = libraryPlanBadge(resource);
   return `
     <header class="curriculum-lesson-header lesson-print-variant-header">
       <p class="lesson-print-brand">Little Learner Hub</p>
@@ -23912,7 +23938,7 @@ function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
       <div class="tag-row">
         <span class="tag">${escapeHtml(resource?.age || plan.age || "Preschool")}</span>
         ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
-        <span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>
+        ${accessTag ? `<span class="tag access-tag">${escapeHtml(accessTag)}</span>` : ""}
       </div>
       ${lead ? `<p class="curriculum-lesson-overview-lead">${escapeHtml(lead)}</p>` : ""}
       ${llhCopyrightNoticeHtml("llh-copyright-notice lesson-print-copyright")}
@@ -24363,7 +24389,10 @@ function lessonPlanVariantText(resource, printVariant = "week") {
     "",
     `Age Group: ${resource?.age || plan.age || "Preschool"}`,
     plan.theme ? `Theme: ${plan.theme}` : "",
-    `Access: ${authoritativeLessonPlanAccessLabel(resource)}`,
+    (() => {
+      const accessLabel = libraryPlanBadge(resource);
+      return accessLabel ? `Access: ${accessLabel}` : "";
+    })(),
     "",
   ].filter((line) => line !== "");
 
@@ -25716,7 +25745,7 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
-  const planLabel = authoritativeLessonPlanAccessLabel(resource);
+  const planLabel = libraryPlanBadge(resource);
   const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
   const theme = String(resource.theme || plan.theme || "").trim();
   const tabs = [
@@ -25734,7 +25763,7 @@ function lessonWorkspaceChromeHtml(resource) {
             <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
             <p class="lesson-workspace-meta">
               <span class="tag">${escapeHtml(age)}</span>
-              <span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>
+              ${planLabel ? `<span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>` : ""}
               ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
             </p>
           </div>
@@ -25860,7 +25889,7 @@ function lessonWorkspaceTeachingKitChrome(viewerResource) {
   return {
     title: viewerResource.title,
     age: viewerResource.age || plan.age || "Preschool",
-    planLabel: authoritativeLessonPlanAccessLabel(viewerResource),
+    planLabel: libraryPlanBadge(viewerResource),
     theme: String(viewerResource.theme || plan.theme || "").trim(),
     backLabel: lessonWorkspaceBackButtonLabel(),
     saveButtonHtml: lessonWorkspaceSaveButtonHtml(viewerResource.id),
@@ -26400,7 +26429,7 @@ function buildTextResourcePdfBlob(resource) {
     page.push("0.20 0.38 0.38 rg 36 724 540 32 re f");
     page.push(`1 1 1 rg BT /F2 12 Tf 50 736 Td (${pdfEscapeText("Little Learner Hub")}) Tj ET`);
     page.push(`0 0 0 rg BT /F2 16 Tf 50 704 Td (${pdfEscapeText(resource.title)}) Tj ET`);
-    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText(`${resource.category} | ${resource.age} | ${resource.category === "Lesson Plans" ? authoritativeLessonPlanAccessLabel(resource) : resource.plan}`)}) Tj ET`);
+    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText([resource.category, resource.age, libraryPlanBadge(resource)].filter(Boolean).join(" | "))}) Tj ET`);
     page.push("0.82 0.82 0.82 RG 1 w 50 676 m 544 676 l S");
     y = 654;
   };
@@ -27133,9 +27162,10 @@ function openGeneratedPrintableResource(resource) {
     pdfButton.hidden = !hasResourcePdf(resource);
     pdfButton.dataset.pdfResource = "";
   }
+  const viewerAccessLabel = libraryPlanBadge(resource);
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    `<span class="tag access-tag">${escapeHtml(authoritativeContentAccessLabel(resource))}</span>`,
+    viewerAccessLabel ? `<span class="tag access-tag">${escapeHtml(viewerAccessLabel)}</span>` : "",
     resource.format ? `<span class="tag">${escapeHtml(resource.format || "Print-ready PDF")}</span>` : "",
     ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
   ].filter(Boolean).join("");
@@ -27317,9 +27347,10 @@ async function openResourceViewer(resourceId, options = {}) {
   const parentLessonLabel = resource._curriculumLessonPlanId
     ? `From lesson: ${resource._curriculumParentTitle || resource._curriculumLessonPlanId}`
     : "";
+  const viewerAccessLabel = libraryPlanBadge(resource);
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    `<span class="tag access-tag">${escapeHtml(authoritativeContentAccessLabel(resource))}</span>`,
+    viewerAccessLabel ? `<span class="tag access-tag">${escapeHtml(viewerAccessLabel)}</span>` : "",
     resource.format ? `<span class="tag">${escapeHtml(resource.format || "In-app resource")}</span>` : "",
     parentLessonLabel ? `<span class="tag">${escapeHtml(parentLessonLabel)}</span>` : "",
     ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
@@ -33910,8 +33941,14 @@ function saveChildStore(key, value) {
 }
 
 function childRecords() {
+  const children = (childStore("Profiles") || []).map((child) => {
+    const displayName = formatChildDisplayName(child?.name);
+    return displayName && displayName !== child.name
+      ? { ...child, name: displayName }
+      : child;
+  });
   return {
-    children: childStore("Profiles"),
+    children,
     observations: childStore("Observations"),
     supportPlans: childStore("SupportPlans"),
     goals: childStore("Goals"),
@@ -33930,7 +33967,8 @@ function childRecords() {
 }
 
 function childName(childId) {
-  return childRecords().children.find((child) => child.id === childId)?.name || "Child";
+  const raw = childRecords().children.find((child) => child.id === childId)?.name || "";
+  return formatChildDisplayName(raw) || "Child";
 }
 
 function selectedChild(records = childRecords()) {
@@ -34786,9 +34824,9 @@ function renderSettingsHubPage() {
         {
           view: "",
           title: "Membership status",
-          detail: `${displayName} · ${email || "No email"} · ${accountTypeLabel} · ${roleLabel} · ${planLabel}`,
+          detail: `${displayName} · ${email || "No email"} · ${accountTypeLabel} · ${roleLabel}`,
           disabled: true,
-          badge: planLabel === "Founding Member" ? "Founding Member" : planLabel,
+          badge: planLabel,
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
         { view: "account", title: "Notifications", detail: "Email reminders and Messages push preferences", hash: "notifications" },
@@ -34871,7 +34909,7 @@ function renderSettingsHubPage() {
         <p class="eyebrow">Account</p>
         <h2>Settings</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
-        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
+        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)}</p>
       </div>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
       <div class="settings-hub-groups">
@@ -35426,7 +35464,7 @@ function renderFamilyHubProviderPanel() {
   const invite = familyHubInviteResult;
   const storage = familyHubHouseholdCache.storage || null;
   const handoff = familyHubHouseholdCache.testingHandoff
-    || "If email isn’t sending yet, copy the magic link and login code and share them with the family.";
+    || "After you invite a household, copy the magic link and login code to share with the family.";
   const storageWarning = storage && storage.durable === false
     ? `<p class="form-message" role="alert">Family invites can’t be saved right now. Message Support and we’ll get storage ready for you.</p>`
     : (storage && storage.durable
@@ -35451,7 +35489,7 @@ function renderFamilyHubProviderPanel() {
             <input name="guardianEmail" type="email" maxlength="120" placeholder="guardian@example.com" />
           </label>
           <label>Parent phone (optional)
-            <input name="phone" type="tel" maxlength="40" placeholder="Phone for a text link later" />
+            <input name="phone" type="tel" maxlength="40" placeholder="Optional — for your records" />
           </label>
         </div>
         <fieldset class="hdh-child-pick-fieldset">
@@ -35461,7 +35499,7 @@ function renderFamilyHubProviderPanel() {
               ? children.map((child) => `
                 <label class="area-check">
                   <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${children.length === 1 ? "checked" : ""} />
-                  <span>${escapeHtml(child.name)}</span>
+                  <span>${escapeHtml(formatChildDisplayName(child.name) || child.name)}</span>
                 </label>
               `).join("")
               : `<p class="muted-copy">Add a child profile first, then come back to invite their family.</p>`}
@@ -35472,7 +35510,7 @@ function renderFamilyHubProviderPanel() {
           <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview parent view</button>
           <button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>
         </div>
-        <p class="form-note">${escapeHtml(handoff)} Text delivery isn’t live yet — copy the link if you want to share by phone. Use <strong>Preview parent view</strong> to see what families see.</p>
+        <p class="form-note">${escapeHtml(handoff)} Share the link by text or email. Use <strong>Preview parent view</strong> to see what families see.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
@@ -37302,13 +37340,13 @@ function renderHomeDaycareTesterGuidePanel() {
         <button class="ghost-button" type="button" data-view="children">Child forms tab</button>
       </div>
       <details class="hdh-tester-details">
-        <summary>What is NOT working yet (so testers are not surprised)</summary>
+        <summary>How Family Hub works in this test workspace</summary>
         <ul class="hdh-coming-list">
-          <li>Real SMS / Twilio texts (testing shows a copyable link instead)</li>
-          <li>Legal e-sign certificates (Family Hub uses testing acknowledgment: name + timestamp)</li>
-          <li>Email/SMS form delivery (parents are notified in-app in Family Hub)</li>
-          <li>Live production — Hub stays hidden there on purpose</li>
-          <li>Admin — testers never see Admin; they Message Leah instead</li>
+          <li>Share invites with the copyable magic link and login code</li>
+          <li>Parent form acknowledgments record name + timestamp (not a legal e-sign certificate)</li>
+          <li>Parents get in-app Family Hub notifications when forms and updates are shared</li>
+          <li>This Hub is available on the testing site; production keeps it gated until release</li>
+          <li>Testers never see Admin — use Message Leah for support</li>
         </ul>
       </details>
     </section>
@@ -38208,31 +38246,31 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
-  // Director Center is not a separate product yet — route providers to the live manage surfaces.
+  // Director Center routes providers to the live manage surfaces they use every day.
   section.innerHTML = `
-    <section class="platform-placeholder-page director-center-page">
+    <section class="director-center-page">
       <div class="page-title">
         <p class="eyebrow">Center tools</p>
-        <h2>Run your program from these live pages</h2>
-        <p>Use the tools below today. A dedicated Director Center hub will come later — nothing here is a dead end.</p>
+        <h2>Program tools</h2>
+        <p>Open the live pages you use to run staff, classrooms, children, and the calendar.</p>
       </div>
-      <div class="platform-placeholder-grid">
-        <article class="platform-placeholder-card">
+      <div class="director-center-grid platform-placeholder-grid">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Staff</strong>
           <p>Invite teachers and assistants, set roles, and manage access.</p>
           <button class="primary-button" type="button" data-view="staff">Open Staff</button>
         </article>
-        <article class="platform-placeholder-card">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Classrooms</strong>
           <p>Create rooms and assign children from Child Profiles.</p>
           <button class="primary-button" type="button" data-view="classrooms">Open Classrooms</button>
         </article>
-        <article class="platform-placeholder-card">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Child Profiles</strong>
           <p>Add children, assign classrooms, and manage daily care records.</p>
           <button class="primary-button" type="button" data-view="children">Open Children</button>
         </article>
-        <article class="platform-placeholder-card">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Calendar</strong>
           <p>Plan lessons and classroom events in one place.</p>
           <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
@@ -39378,7 +39416,7 @@ function renderChildProfileCard(child, records) {
       <div class="simple-child-card-head">
         ${renderChildAvatar(child, "small")}
         <div>
-          <h3>${escapeHtml(child.name)}</h3>
+          <h3>${escapeHtml(formatChildDisplayName(child.name) || child.name)}</h3>
           <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(childRoomAgeLabel(child))}</p>
         </div>
         <span class="attention-tag">${child.archived || child.hiddenFromActive ? "Archived" : escapeHtml(attention)}</span>
@@ -41413,7 +41451,7 @@ function renderDlcOutputOptions(prefix = "dlcOutput") {
           <label class="dlc-check-label${proOnly ? " dlc-check-label-pro" : ""}">
             <input id="${prefix}-${value}" type="checkbox" data-dlc-output-option value="${value}" ${dlcSelectedOutputs.includes(value) && enabled ? "checked" : ""} ${enabled ? "" : "disabled"} />
             <span>${escapeHtml(label)}</span>
-            ${proOnly ? `<span class="mini-pro-label">Included with Pro</span>` : `<span class="mini-free-label">Free</span>`}
+            ${isProUser() ? "" : (proOnly ? `<span class="mini-pro-label">Included with Pro</span>` : `<span class="mini-free-label">Free</span>`)}
             ${!enabled && previewId ? `<button class="inline-link" data-preview="${previewId}" type="button">Preview</button>` : ""}
           </label>
         `;
@@ -43059,7 +43097,9 @@ function renderDailyLogsQuickDoc(records) {
             <label class="dlc-check-label${option.pro ? " dlc-check-label-pro" : ""}">
               <input type="checkbox" name="quickDocType" value="${option.value}" ${index < 2 && (!option.pro || isProUser()) ? "checked" : ""} ${option.pro && !isProUser() ? "disabled" : ""} />
               <span>☑ ${escapeHtml(option.label)}</span>
-              ${option.pro ? `<span class="mini-pro-label">Included with Pro</span>${!isProUser() ? `<button class="inline-link" data-preview="${dailyLogOutputPreviewMap[option.value] || "daily-log-reports"}" type="button">Preview</button>` : ""}` : `<span class="mini-free-label">Free</span>`}
+              ${isProUser() ? "" : (option.pro
+                ? `<span class="mini-pro-label">Included with Pro</span><button class="inline-link" data-preview="${dailyLogOutputPreviewMap[option.value] || "daily-log-reports"}" type="button">Preview</button>`
+                : `<span class="mini-free-label">Free</span>`)}
             </label>
           `).join("")}
         </fieldset>
@@ -63760,7 +63800,7 @@ document.addEventListener("click", async (event) => {
     const parentInfo = parentEmail
       ? (parentName ? `${parentName} <${parentEmail}>` : parentEmail)
       : (parentName || "");
-    const convertedName = String(lead.childName || "").trim();
+    const convertedName = formatChildDisplayName(lead.childName) || String(lead.childName || "").trim();
     if (isPlaceholderChildName(convertedName)) {
       alert("This enrollment lead needs a real child name before it can become a profile. Update the lead name, then try again.");
       return;
@@ -71091,7 +71131,7 @@ document.addEventListener("submit", async (event) => {
   const child = {
     ...(existing || {}),
     id: editId || `child-${Date.now()}`,
-    name: data.name,
+    name: formatChildDisplayName(data.name) || String(data.name || "").trim(),
     ageGroup: normalizeAgeGroup(data.ageGroup) || ageGroupFromDob(data.dob) || data.ageGroup,
     age,
     dob: data.dob,
