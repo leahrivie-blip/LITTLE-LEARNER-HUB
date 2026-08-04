@@ -1,0 +1,49 @@
+---
+description: Production Render environment-variable safety — never full-replace env lists
+alwaysApply: true
+---
+
+# Production environment safety
+
+## Default: read-only
+
+Coding agents are **read-only** for production environment variables by default.
+
+Allowed without owner approval:
+
+- `npm run env:audit`
+- `npm run env:preflight`
+- `npm run env:verify`
+- `npm run env:propose` (prints names-only diff; no write)
+
+## Forbidden
+
+- Any Render API call that replaces the full production env-var list with a partial list
+- `PUT /v1/services/{id}/env-vars` unless performed exclusively by `scripts/render-env-apply.js` after a fresh merge of the complete current set
+- `replace: true` / “set all env vars” Dashboard-equivalent automation
+- Logging, printing, or committing secret values
+- Production deploy or restart when `env:preflight` fails
+- Removing keys in `docs/production-env/REQUIRED_ENV_INVENTORY.json` → `protectedKeys`
+
+## Writes require all of
+
+1. Fresh read of the complete current environment
+2. Names-only diff (added / updated / removed)
+3. Confirmation that no existing keys will be removed (unless owner explicitly allows a non-protected removal)
+4. `ENV_WRITE_MODE=merge-with-owner-approval`
+5. `--i-have-owner-approval` + matching `OWNER_APPROVAL_TOKEN`
+6. Owner’s explicit approval in the conversation
+
+## Before deploy/restart
+
+```bash
+RENDER_API_KEY=... npm run env:preflight
+RENDER_API_KEY=... npm run env:deploy-guard -- --dry-run
+```
+
+If preflight fails: **stop**. Do not deploy or restart.
+
+## Inventory
+
+Canonical names-only list: `docs/production-env/REQUIRED_ENV_INVENTORY.json`  
+Prefer Environment Groups / Blueprint for non-secrets; never put secrets in Git.

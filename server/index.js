@@ -11,6 +11,7 @@ const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const teachingKit = require("../scripts/teaching-kit.js");
+const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
@@ -1116,7 +1117,10 @@ function normalizedFreePlanAccess(value) {
 }
 
 function normalizedMultilineText(value, maxLength = 12000) {
-  return String(value || "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
+  const text = String(value || "").replace(/\r\n?/g, "\n").trim();
+  if (!text) return "";
+  if (curriculumSentinel.isSentinelValue(text)) return "";
+  return text.slice(0, maxLength);
 }
 
 function normalizedShortText(value, maxLength = 240) {
@@ -1640,22 +1644,34 @@ function normalizedCurriculumLearningDomains(value) {
 
 function normalizedCurriculumBookEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
+  if (curriculumSentinel.isSentinelValue(entry) || curriculumSentinel.isSentinelValue(entry.title)) {
+    return null;
+  }
   const title = normalizedShortText(entry.title, 180);
-  if (!title) return null;
+  if (!title || curriculumSentinel.isSentinelValue(title)) return null;
   return {
     title,
-    author: normalizedShortText(entry.author, 120),
-    notes: normalizedMultilineText(entry.notes, 1000),
+    author: curriculumSentinel.isSentinelValue(entry.author)
+      ? ""
+      : normalizedShortText(entry.author, 120),
+    notes: curriculumSentinel.isSentinelValue(entry.notes)
+      ? ""
+      : normalizedMultilineText(entry.notes, 1000),
   };
 }
 
 function normalizedCurriculumSongEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
+  if (curriculumSentinel.isSentinelValue(entry) || curriculumSentinel.isSentinelValue(entry.title)) {
+    return null;
+  }
   const title = normalizedShortText(entry.title, 180);
-  if (!title) return null;
+  if (!title || curriculumSentinel.isSentinelValue(title)) return null;
   return {
     title,
-    notes: normalizedMultilineText(entry.notes, 1000),
+    notes: curriculumSentinel.isSentinelValue(entry.notes)
+      ? ""
+      : normalizedMultilineText(entry.notes, 1000),
   };
 }
 
@@ -1840,13 +1856,15 @@ function normalizedCurriculumLessonPlan(value) {
   if (Array.isArray(entry.enrichmentPublishHistory)) {
     normalized.enrichmentPublishHistory = entry.enrichmentPublishHistory
       .filter((item) => item && typeof item === "object")
-      .slice(0, 12)
+      .slice(0, ENRICHMENT_HISTORY_LIMIT)
       .map((item) => ({
         versionId: normalizedShortText(item.versionId, 80),
+        kind: normalizedShortText(item.kind, 20) || "publish",
         publishedAt: normalizedShortText(item.publishedAt, 80),
         publishedBy: normalizedShortText(item.publishedBy, 180),
         fingerprint: normalizedShortText(item.fingerprint, 80),
         lessonPlanId: normalizedShortText(item.lessonPlanId, 160),
+        rollbackOf: normalizedShortText(item.rollbackOf, 80) || "",
         snapshot: item.snapshot && typeof item.snapshot === "object" ? item.snapshot : null,
       }))
       .filter((item) => item.versionId);
@@ -1864,7 +1882,27 @@ function normalizedCurriculumLessonPlan(value) {
       normalized.enrichmentDraftUndo = null;
     }
   }
+  // Explicit disposable QA fixture marker (never inferred from title alone).
+  if (entry.disposableQaFixture === true || isKnownDisposableQaFixtureId(id)) {
+    normalized.disposableQaFixture = true;
+  }
   return normalized;
+}
+
+/** Explicit allowlist for pre-flag production QA fixtures. Never title-pattern based. */
+const KNOWN_DISPOSABLE_QA_FIXTURE_IDS = new Set([
+  "cur-lp-19fcc8a9f18314f85fb", // ZZ QA Disposable Teaching Kit Fixture 2026-08-04
+]);
+
+function isKnownDisposableQaFixtureId(id) {
+  return KNOWN_DISPOSABLE_QA_FIXTURE_IDS.has(normalizedShortText(id, 160));
+}
+
+function isDisposableQaFixturePlan(plan) {
+  if (!plan || typeof plan !== "object") return false;
+  const id = normalizedShortText(plan.id, 160);
+  if (!id) return false;
+  return plan.disposableQaFixture === true || isKnownDisposableQaFixtureId(id);
 }
 
 function normalizedCurriculumActivity(value) {
@@ -2486,128 +2524,165 @@ function curriculumParentPlanMeta(plan) {
   };
 }
 
+/** Short-TTL cache for curriculum library DTOs — avoids re-normalizing 2k+ activities per request. */
+const curriculumLibraryDtoCache = new Map();
+const CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS = Math.max(
+  5_000,
+  Math.min(120_000, Number(process.env.CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS) || 30_000),
+);
+
+function curriculumLibraryDtoCacheKey(kind, siteContent, accessContext = {}) {
+  const updatedAt = siteContent?.curriculum?.updatedAt || siteContent?.updatedAt || "";
+  const mode = accessContext?.mode || kind;
+  const legacy = accessContext?.legacyFree ? "1" : "0";
+  return `${kind}|${updatedAt}|${mode}|${legacy}`;
+}
+
+function withCurriculumLibraryDtoCache(cacheKey, build) {
+  const now = Date.now();
+  const hit = curriculumLibraryDtoCache.get(cacheKey);
+  if (hit && hit.expiresAt > now) return hit.value;
+  const value = build();
+  curriculumLibraryDtoCache.set(cacheKey, { expiresAt: now + CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS, value });
+  if (curriculumLibraryDtoCache.size > 12) {
+    const oldest = curriculumLibraryDtoCache.keys().next().value;
+    curriculumLibraryDtoCache.delete(oldest);
+  }
+  return value;
+}
+
 function authorizedCurriculumLibraryDto(siteContent) {
   // Pro / Founding / Trial / admin-override users get an unlocked *browse* library.
   // Full dailyPlans / activity how-to stay on the detail endpoints so /api/site-content
   // stays small enough for installed-app cold starts on mobile.
-  const store = normalizedCurriculumStore(siteContent?.curriculum);
-  const lessonPlans = store.lessonPlans
-    .map((plan) => authorizedCurriculumLessonPlanListDto(plan))
-    .filter(Boolean)
-    .sort((a, b) => {
-      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
-      if (featuredDelta) return featuredDelta;
-      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    });
-  const parentPlanById = new Map(
-    store.lessonPlans
-      .map((plan) => curriculumParentPlanMeta(plan))
-      .filter(Boolean)
-      .map((plan) => [plan.id, plan]),
+  return withCurriculumLibraryDtoCache(
+    curriculumLibraryDtoCacheKey("authorized", siteContent, { mode: "pro" }),
+    () => {
+      const store = normalizedCurriculumStore(siteContent?.curriculum);
+      const lessonPlans = store.lessonPlans
+        .map((plan) => authorizedCurriculumLessonPlanListDto(plan))
+        .filter(Boolean)
+        .sort((a, b) => {
+          const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+          if (featuredDelta) return featuredDelta;
+          return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+        });
+      const parentPlanById = new Map(
+        store.lessonPlans
+          .map((plan) => curriculumParentPlanMeta(plan))
+          .filter(Boolean)
+          .map((plan) => [plan.id, plan]),
+      );
+      const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
+      const activities = store.activities
+        .map((activity) => authorizedCurriculumActivityListDto(activity, parentPlanById.get(activity.lessonPlanId)))
+        .filter(Boolean)
+        .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+      const resources = store.resources
+        .map((resource) => {
+          const meta = curriculumResourceMetadata(resource);
+          if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
+          const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+          if (!linkedToPublicLesson) return null;
+          return meta;
+        })
+        .filter(Boolean);
+      return {
+        lessonPlans,
+        activities,
+        resources,
+        series: store.series || [],
+        updatedAt: store.updatedAt || "",
+        freeLessonAccessMode: "pro",
+      };
+    },
   );
-  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
-  const activities = store.activities
-    .map((activity) => authorizedCurriculumActivityListDto(activity, parentPlanById.get(activity.lessonPlanId)))
-    .filter(Boolean)
-    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-  const resources = store.resources
-    .map((resource) => {
-      const meta = curriculumResourceMetadata(resource);
-      if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
-      const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
-      if (!linkedToPublicLesson) return null;
-      return meta;
-    })
-    .filter(Boolean);
-  return {
-    lessonPlans,
-    activities,
-    resources,
-    series: store.series || [],
-    updatedAt: store.updatedAt || "",
-    freeLessonAccessMode: "pro",
-  };
 }
 
 function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
   // Phase 2H: curriculum library is always the public lesson/activity source.
   // accessContext.legacyFree unlocks all store Free-tier plans for grandfathered accounts.
-  const store = normalizedCurriculumStore(siteContent?.curriculum);
-  const lessonPlans = store.lessonPlans
-    .map((plan) => publicCurriculumLessonPlanDto(plan, accessContext))
-    .filter(Boolean)
-    .sort((a, b) => {
-      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
-      if (featuredDelta) return featuredDelta;
-      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    });
-  const parentPlanById = new Map(
-    store.lessonPlans
-      .map((plan) => curriculumParentPlanMeta(plan))
-      .filter(Boolean)
-      .map((plan) => [plan.id, plan]),
+  return withCurriculumLibraryDtoCache(
+    curriculumLibraryDtoCacheKey("public", siteContent, accessContext),
+    () => {
+      const store = normalizedCurriculumStore(siteContent?.curriculum);
+      const lessonPlans = store.lessonPlans
+        .map((plan) => publicCurriculumLessonPlanDto(plan, accessContext))
+        .filter(Boolean)
+        .sort((a, b) => {
+          const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+          if (featuredDelta) return featuredDelta;
+          return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+        });
+      const parentPlanById = new Map(
+        store.lessonPlans
+          .map((plan) => curriculumParentPlanMeta(plan))
+          .filter(Boolean)
+          .map((plan) => [plan.id, plan]),
+      );
+      const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
+      const activities = store.activities
+        .map((activity) => publicCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId), accessContext))
+        .filter(Boolean)
+        .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+      const resources = store.resources
+        .map((resource) => {
+          const meta = curriculumResourceMetadata(resource);
+          if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
+          const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+          if (!linkedToPublicLesson) return null;
+          return meta;
+        })
+        .filter(Boolean);
+      // Public library only exposes published/featured curriculum collections (series).
+      // Draft / needs_review stay on admin site-content for preview before publish.
+      const series = (store.series || [])
+        .filter((entry) => entry && ["published", "featured"].includes(entry.status))
+        .map((entry) => ({
+          id: entry.id,
+          collectionKey: entry.collectionKey || "",
+          collectionTitle: entry.collectionTitle || "",
+          title: entry.title,
+          description: entry.description || "",
+          theme: entry.theme || "",
+          age: entry.age,
+          month: entry.month || "",
+          season: entry.season || "",
+          year: entry.year || "",
+          weekCount: entry.weekCount,
+          plan: entry.plan,
+          status: entry.status,
+          featured: Boolean(entry.featured) || entry.status === "featured",
+          displayOrder: entry.displayOrder || 0,
+          coverImageUrl: entry.coverImageUrl || "",
+          coverImageAlt: entry.coverImageAlt || "",
+          coverImageSource: entry.coverImageSource || "",
+          coverImagePosition: entry.coverImagePosition || "center",
+          learningDomains: entry.learningDomains || [],
+          updatedAt: entry.updatedAt || "",
+          weeks: (entry.weeks || []).map((week) => ({
+            weekNumber: week.weekNumber,
+            lessonPlanId: week.lessonPlanId,
+            displayOrder: week.displayOrder,
+            label: week.label || "",
+          })),
+        }))
+        .sort((a, b) => {
+          const featuredDelta = (b.featured || b.status === "featured" ? 1 : 0) - (a.featured || a.status === "featured" ? 1 : 0);
+          if (featuredDelta) return featuredDelta;
+          return (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0)
+            || String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+        });
+      return {
+        lessonPlans,
+        activities,
+        resources,
+        series,
+        updatedAt: store.updatedAt || "",
+        freeLessonAccessMode: accessContext?.mode || "curated",
+      };
+    },
   );
-  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
-  const activities = store.activities
-    .map((activity) => publicCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId), accessContext))
-    .filter(Boolean)
-    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-  const resources = store.resources
-    .map((resource) => {
-      const meta = curriculumResourceMetadata(resource);
-      if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
-      const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
-      if (!linkedToPublicLesson) return null;
-      return meta;
-    })
-    .filter(Boolean);
-  // Public library only exposes published/featured curriculum collections (series).
-  // Draft / needs_review stay on admin site-content for preview before publish.
-  const series = (store.series || [])
-    .filter((entry) => entry && ["published", "featured"].includes(entry.status))
-    .map((entry) => ({
-      id: entry.id,
-      collectionKey: entry.collectionKey || "",
-      collectionTitle: entry.collectionTitle || "",
-      title: entry.title,
-      description: entry.description || "",
-      theme: entry.theme || "",
-      age: entry.age,
-      month: entry.month || "",
-      season: entry.season || "",
-      year: entry.year || "",
-      weekCount: entry.weekCount,
-      plan: entry.plan,
-      status: entry.status,
-      featured: Boolean(entry.featured) || entry.status === "featured",
-      displayOrder: entry.displayOrder || 0,
-      coverImageUrl: entry.coverImageUrl || "",
-      coverImageAlt: entry.coverImageAlt || "",
-      coverImageSource: entry.coverImageSource || "",
-      coverImagePosition: entry.coverImagePosition || "center",
-      learningDomains: entry.learningDomains || [],
-      updatedAt: entry.updatedAt || "",
-      weeks: (entry.weeks || []).map((week) => ({
-        weekNumber: week.weekNumber,
-        lessonPlanId: week.lessonPlanId,
-        displayOrder: week.displayOrder,
-        label: week.label || "",
-      })),
-    }))
-    .sort((a, b) => {
-      const featuredDelta = (b.featured || b.status === "featured" ? 1 : 0) - (a.featured || a.status === "featured" ? 1 : 0);
-      if (featuredDelta) return featuredDelta;
-      return (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0)
-        || String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    });
-  return {
-    lessonPlans,
-    activities,
-    resources,
-    series,
-    updatedAt: store.updatedAt || "",
-    freeLessonAccessMode: accessContext?.mode || "curated",
-  };
 }
 
 function assertCurriculumIntegrityOrError(curriculum) {
@@ -3767,7 +3842,18 @@ async function initializeStorage() {
       foundingMembers: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
     };
     const pruned = pruneAnalyticsEventsInStore(store);
-    if (pruned.trimmed) {
+    // Postgres mode already appends to llh_analytics_events. Keeping thousands of
+    // events in the shared JSON blob doubles RAM on every structuredClone/stringify.
+    // After the table is ready, drop the in-document copy (admin reads merge from SQL).
+    let clearedFromBlob = { cleared: false, before: 0, after: 0 };
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      const beforeBlob = Array.isArray(store.analyticsEvents) ? store.analyticsEvents.length : 0;
+      if (beforeBlob > 0) {
+        store.analyticsEvents = [];
+        clearedFromBlob = { cleared: true, before: beforeBlob, after: 0 };
+      }
+    }
+    if (pruned.trimmed || clearedFromBlob.cleared) {
       await writeStoreAsync(store);
       const inventoryAfter = {
         users: Object.keys(store.users || {}).length,
@@ -3793,7 +3879,14 @@ async function initializeStorage() {
         });
         throw new Error("Analytics boot prune changed non-analytics inventory counts.");
       }
-      console.log(`[analytics] boot prune ${pruned.before} → ${pruned.after} events (cap=${MAX_ANALYTICS_EVENTS})`);
+      if (pruned.trimmed) {
+        console.log(`[analytics] boot prune ${pruned.before} → ${pruned.after} events (cap=${MAX_ANALYTICS_EVENTS})`);
+      }
+      if (clearedFromBlob.cleared) {
+        console.log(
+          `[analytics] cleared ${clearedFromBlob.before} events from llh_store blob (Postgres table is source of truth)`,
+        );
+      }
     }
   } catch (error) {
     console.warn("[analytics] boot prune skipped:", error.message);
@@ -4915,11 +5008,17 @@ function securityResponseHeaders(extra = {}) {
   };
 }
 
-function jsonResponse(response, statusCode, payload) {
-  response.writeHead(statusCode, securityResponseHeaders({
+function jsonResponse(response, statusCode, payload, extraHeaders = null) {
+  const headers = securityResponseHeaders({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-  }));
+    ...(extraHeaders && typeof extraHeaders === "object" ? extraHeaders : {}),
+  });
+  if (payload && typeof payload === "object" && payload.correlationId) {
+    headers["X-Correlation-Id"] = String(payload.correlationId).slice(0, 80);
+    headers["X-Request-Id"] = String(payload.correlationId).slice(0, 80);
+  }
+  response.writeHead(statusCode, headers);
   response.end(JSON.stringify(payload));
 }
 
@@ -5511,6 +5610,35 @@ async function flushDurableStoreOrWebhookError(response, failMessage = "Webhook 
 
 // Persisted (not just console-logged) audit trail for confirmed curriculum
 // replace/restore actions — high-impact and rare enough to warrant their own record.
+const ENRICHMENT_HISTORY_LIMIT = 250; // effectively unlimited for curriculum upgrade campaigns
+
+function enrichmentHistoryFingerprint(payload) {
+  try {
+    const raw = JSON.stringify(payload || {});
+    return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
+  } catch (_error) {
+    return `fp-${Date.now()}`;
+  }
+}
+
+function appendEnrichmentEditorAudit(store, details = {}) {
+  store.enrichmentEditorAudit = Array.isArray(store.enrichmentEditorAudit) ? store.enrichmentEditorAudit : [];
+  const entry = {
+    id: `enrich_audit_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    action: normalizedShortText(details.action, 40) || "unknown",
+    lessonPlanId: normalizedShortText(details.lessonPlanId, 160) || "",
+    versionId: normalizedShortText(details.versionId, 80) || "",
+    adminEmail: normalizedShortText(details.adminEmail, 180) || "unknown",
+    fingerprint: normalizedShortText(details.fingerprint, 80) || "",
+    note: normalizedShortText(details.note, 300) || "",
+    createdAt: new Date().toISOString(),
+  };
+  store.enrichmentEditorAudit.unshift(entry);
+  store.enrichmentEditorAudit = store.enrichmentEditorAudit.slice(0, 2000);
+  console.log("[enrichment-editor-audit]", JSON.stringify(entry));
+  return entry;
+}
+
 function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
   store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
   const session = adminSessionStore.validate(adminToken);
@@ -6057,18 +6185,40 @@ function currentAiCycle() {
 }
 
 function aiLimitForPlan(plan) {
-  return ["Pro", "Founding"].includes(plan) ? 250 : 10;
+  return ["Pro", "Founding", "Trial"].includes(String(plan || "").trim()) ? 250 : 10;
+}
+
+function aiLimitForUser(user = {}) {
+  // Prefer live access over bare plan string so Founding/Pro with lagging labels still get 250.
+  if (membershipHasProAccess(user)) return aiLimitForPlan("Pro");
+  return aiLimitForPlan(user?.plan || "Free");
 }
 
 function aiUsageKey(email) {
   return `${normalizeEmail(email)}:${currentAiCycle()}`;
 }
 
-function canUseServerAi(email, plan) {
+function nextAiCycleResetDate() {
+  const now = new Date();
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return nextMonth.toISOString().slice(0, 10);
+}
+
+function canUseServerAi(email, plan, user = null) {
   const store = readStore();
   const key = aiUsageKey(email);
   const used = Number(store.aiUsage?.[key] || 0);
-  return { used, limit: aiLimitForPlan(plan), allowed: used < aiLimitForPlan(plan), key };
+  const record = user || store.users?.[normalizeEmail(email)] || { plan };
+  const limit = user || store.users?.[normalizeEmail(email)]
+    ? aiLimitForUser(record)
+    : aiLimitForPlan(plan);
+  return {
+    used,
+    limit,
+    allowed: used < limit,
+    key,
+    resetDate: nextAiCycleResetDate(),
+  };
 }
 
 async function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null, requestId = "" } = {}) {
@@ -7738,10 +7888,17 @@ async function handleAccountProfileSync(request, response) {
     updates.programName = businessName;
   }
   if (accountType) updates.accountType = accountType;
+  // Role changes for established accounts go through staff invites / admin tools.
+  // Profile sync may only set role on first signup or when the stored role is blank
+  // (migration). Never allow privilege escalation via an unauthenticated body field.
   if (role) {
     const linkedOwner = normalizeEmail(existing.linkedProgramOwnerEmail || "");
     const isLinkedMember = Boolean(linkedOwner && linkedOwner !== email);
-    if (!(isLinkedMember && role === accountAccess.USER_ROLES.OWNER)) {
+    const existingRole = existing.role ? accountAccess.normalizeUserRole(existing.role) : "";
+    const isNewSignup = Boolean(body.signup === true && !existing.signupAt);
+    const canSetRole = (isNewSignup || !existingRole)
+      && !(isLinkedMember && role === accountAccess.USER_ROLES.OWNER);
+    if (canSetRole) {
       updates.role = role;
     }
   }
@@ -9312,9 +9469,14 @@ function storeHealthSnapshot(store = peekStore()) {
       heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
       rssMb: Math.round(mem.rss / 1024 / 1024),
       externalMb: Math.round((mem.external || 0) / 1024 / 1024),
-      maxOldSpaceMb: Number(process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1])
-        || 300,
+      maxOldSpaceMb: (() => {
+        const match = String(process.env.NODE_OPTIONS || "").match(/--max-old-space-size=(\d+)/);
+        return match ? Number(match[1]) : null;
+      })(),
+      instanceMemoryMb: Number(process.env.MONITOR_INSTANCE_MEMORY_MB || process.env.RENDER_INSTANCE_MEMORY_MB || 0) || null,
       analyticsEventCap: MAX_ANALYTICS_EVENTS,
+      analyticsEventsInStore: analyticsEvents.length,
+      curriculumLibraryDtoCacheSize: curriculumLibraryDtoCache.size,
     },
     storeWrites: storeWriteMetricsLib.snapshot(storeWriteMetrics),
     sampleUsers: userEmails.slice(0, 12),
@@ -9583,6 +9745,8 @@ function membershipSummaryForUser(user, storeRef = null) {
     stripeCustomerId: user?.stripeCustomerId || "",
     stripeSubscriptionId: user?.stripeSubscriptionId || "",
     internalAccessOverride: Boolean(user?.internalAccessOverride),
+    multiRoleTester: Boolean(user?.multiRoleTester),
+    hdhIndependentTester: Boolean(user?.hdhIndependentTester),
     membershipAuditRecent: audits,
   };
 }
@@ -9719,13 +9883,40 @@ async function handleCheckoutStatus(request, response, url) {
   }
 }
 
+async function requireMatchingBillingIdentity(request, email) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    const err = new Error(error?.message || "Please log in before managing billing.");
+    err.statusCode = 401;
+    throw err;
+  }
+  if (normalizeEmail(identity.email) !== normalizeEmail(email)) {
+    const err = new Error("Billing actions are only allowed for the signed-in account.");
+    err.statusCode = 403;
+    throw err;
+  }
+  return identity;
+}
+
 async function handlePortal(request, response) {
-  if (!requireStripe(response)) return;
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  try {
+    await requireMatchingBillingIdentity(request, email);
+  } catch (error) {
+    jsonResponse(response, error.statusCode || 401, { error: error.message || "Please log in before managing billing." });
+    return;
+  }
+  if (!requireStripe(response)) return;
   const store = readStore();
   const user = store.users?.[email];
-  if (!email || !user?.stripeCustomerId) {
+  if (!user?.stripeCustomerId) {
     jsonResponse(response, 400, { error: "No Stripe customer found for this account yet." });
     return;
   }
@@ -10276,6 +10467,12 @@ async function handleCancelSubscription(request, response) {
     jsonResponse(response, 400, { error: "email is required." });
     return;
   }
+  try {
+    await requireMatchingBillingIdentity(request, email);
+  } catch (error) {
+    jsonResponse(response, error.statusCode || 401, { error: error.message || "Please log in before managing billing." });
+    return;
+  }
   const store = readStore();
   const user = store.users?.[email];
   if (!user) {
@@ -10455,7 +10652,7 @@ async function handleSubscriptionStatus(request, response, url) {
       email,
       subscription: subscription ? { ...subscription, ...membershipSummaryForUser(subscription) } : null,
       recoveredFromStripe,
-      aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
+      aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free", subscription) : null,
       founding: foundingStatusPayload(readStore()),
     });
   } catch (error) {
@@ -11027,8 +11224,6 @@ function handleUserAiUsage(request, response, url) {
   const user = store.users?.[email] || null;
   const plan = user?.plan || "Free";
   const usage = canUseServerAi(email, plan);
-  const now = new Date();
-  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   jsonResponse(response, 200, {
     aiUsage: {
       email,
@@ -11036,7 +11231,7 @@ function handleUserAiUsage(request, response, url) {
       limit: usage.limit,
       remaining: Math.max(usage.limit - usage.used, 0),
       plan,
-      resetDate: nextMonth.toISOString().slice(0, 10),
+      resetDate: usage.resetDate,
     },
   });
 }
@@ -11091,6 +11286,7 @@ async function buildProductionMonitoringSnapshot() {
     getHealthHints: () => ({
       websiteOk: true,
       stripeWebhookSecretConfigured: isConfiguredValue(STRIPE_WEBHOOK_SECRET),
+      stripeKeysConfigured: Boolean(stripeConfigStatus()?.checkoutReady),
     }),
   });
 }
@@ -11110,13 +11306,24 @@ async function runProductionMonitoringTick() {
       to: SUPPORT_EMAIL_TO || ADMIN_EMAIL,
       subject,
       text,
+      // Hour-scoped key. Body includes live RSS, so Resend may 409 when RSS text
+      // changes within the same hour — treat that as already delivered.
       idempotencyKey: `llh-monitor-${due.map((c) => c.id).sort().join("-")}-${new Date().toISOString().slice(0, 13)}`,
       tags: [{ name: "category", value: "production_monitoring" }],
     });
     productionMonitoring.markAlertsSent(due);
     console.warn("[production-monitoring] alert email sent:", due.map((c) => c.id).join(", "));
   } catch (error) {
-    console.warn("[production-monitoring] alert email failed:", error.message || error);
+    const message = String(error?.message || error || "");
+    if (/invalid_idempotent_request|statusCode":409|"statusCode":\s*409/i.test(message)) {
+      productionMonitoring.markAlertsSent(due);
+      console.warn(
+        "[production-monitoring] alert email already sent this hour (idempotent):",
+        due.map((c) => c.id).join(", "),
+      );
+    } else {
+      console.warn("[production-monitoring] alert email failed:", message);
+    }
   }
   return snapshot;
 }
@@ -11135,9 +11342,11 @@ async function loadInsightsAnalyticsEvents(store) {
   let mergedEvents = Array.isArray(store?.analyticsEvents) ? store.analyticsEvents.slice() : [];
   if (usePostgresStore() && postgresPool && databaseReady) {
     try {
+      // Cap fetch size — admin insights must not pull unbounded history into RAM.
       const tableEvents = await analyticsStore.fetchRecentAnalyticsEvents(
         postgresPool,
         postgresQueryWithTransientRetry,
+        { limit: Math.min(MAX_ANALYTICS_EVENTS, 5000), days: 90 },
       );
       const byId = new Map(mergedEvents.map((evt) => [evt.id, evt]));
       tableEvents.forEach((evt) => {
@@ -15588,6 +15797,67 @@ async function handleHdhTesterInviteAccept(request, response) {
   }, "Could not accept tester invite.");
 }
 
+async function handleHdhTesterRoleSwitchCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before switching tester views." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid role-switch payload." });
+    return;
+  }
+  const email = normalizeEmail(body.email || identity.email);
+  if (email !== normalizeEmail(identity.email)) {
+    jsonResponse(response, 403, { error: "You can only log role switches for your own account." });
+    return;
+  }
+  const store = readStore();
+  const user = store.users?.[email] || {};
+  if (!user.multiRoleTester) {
+    jsonResponse(response, 403, { error: "Multi-Role Tester is not enabled for this account." });
+    return;
+  }
+  store.testerRoleSwitches = Array.isArray(store.testerRoleSwitches) ? store.testerRoleSwitches : [];
+  const entry = {
+    id: `trs-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`,
+    email,
+    fromRole: String(body.fromRole || "").slice(0, 80),
+    toRole: String(body.toRole || "").slice(0, 80),
+    source: String(body.source || "switch_view").slice(0, 80),
+    at: String(body.at || new Date().toISOString()).slice(0, 40),
+    context: body.context && typeof body.context === "object"
+      ? {
+          page: String(body.context.page || "").slice(0, 200),
+          deviceClass: String(body.context.deviceClass || "").slice(0, 40),
+          appVersion: String(body.context.appVersion || "").slice(0, 80),
+        }
+      : null,
+  };
+  store.testerRoleSwitches.unshift(entry);
+  store.testerRoleSwitches = store.testerRoleSwitches.slice(0, 2000);
+  await respondAfterPersist(store, response, 200, { ok: true, switch: entry }, "Could not save role switch.");
+}
+
+async function handleAdminTesterRoleSwitchesList(request, response, url) {
+  const token = extractAdminToken(request, url) || extractAdminTokenFromBody(request, {});
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = peekStore();
+  const all = Array.isArray(store.testerRoleSwitches) ? store.testerRoleSwitches : [];
+  const switches = email ? all.filter((row) => normalizeEmail(row.email) === email) : all;
+  jsonResponse(response, 200, { ok: true, switches: switches.slice(0, 200) });
+}
+
 async function handleHdhTesterInviteRevoke(request, response, inviteId) {
   if (!requireHomeDaycareHubTesting(response)) return;
   let identity;
@@ -16016,8 +16286,10 @@ function listProgramMembers(store, ownerEmail) {
 }
 
 function canManageStaffInvites(user = {}) {
+  // Owner/director only — never treat a missing/blank role as an implicit manager
+  // beyond the owner default below (teachers/assistants must stay blocked).
   const role = String(user.role || "owner").trim().toLowerCase();
-  return role === "owner" || role === "director" || !user.role;
+  return role === "owner" || role === "director";
 }
 
 async function resolveStaffIdentity(request) {
@@ -16935,16 +17207,24 @@ async function handleAdminAnalytics(request, response, url) {
   const startedAt = Date.now();
   const token = String(extractAdminToken(request, url) || "").trim();
   const tokenPrefix = token ? `${token.slice(0, 12)}…` : "(empty)";
+  const correlationId = String(
+    url.searchParams.get("correlationId")
+      || request.headers["x-correlation-id"]
+      || request.headers["x-request-id"]
+      || `aan-${crypto.randomBytes(6).toString("hex")}`,
+  ).slice(0, 80);
   console.log("[admin-analytics] request", {
+    correlationId,
     tokenPrefix,
     tokenValid: validAdminToken(token),
     heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
   });
   if (!validAdminToken(token)) {
-    console.warn("[admin-analytics] rejected — invalid admin token", { tokenPrefix });
+    console.warn("[admin-analytics] rejected — invalid admin token", { correlationId, tokenPrefix });
     jsonResponse(response, 401, {
       error: "Admin access is required.",
       code: "admin_session_invalid",
+      correlationId,
       hint: "Unlock Admin again with owner email, password, and access code. Browser unlock state can outlive a lost server session after deploy or store sync.",
     });
     return;
@@ -16959,17 +17239,19 @@ async function handleAdminAnalytics(request, response, url) {
         const tableEvents = await analyticsStore.fetchRecentAnalyticsEvents(
           postgresPool,
           postgresQueryWithTransientRetry,
+          { limit: Math.min(MAX_ANALYTICS_EVENTS, 5000), days: 90 },
         );
         const byId = new Map(mergedEvents.map((evt) => [evt.id, evt]));
         tableEvents.forEach((evt) => byId.set(evt.id, evt));
         mergedEvents = Array.from(byId.values());
       } catch (error) {
-        console.warn("[admin-analytics] table fetch failed:", error.message);
+        console.warn("[admin-analytics] table fetch failed:", { correlationId, message: error.message });
       }
     }
     const userCount = Object.keys(store.users || {}).length;
     const eventCount = mergedEvents.length;
     console.log("[admin-analytics] building summary", {
+      correlationId,
       email: session.email || "",
       userCount,
       eventCount,
@@ -16977,15 +17259,17 @@ async function handleAdminAnalytics(request, response, url) {
     });
     const analytics = analyticsSummary(store, { events: mergedEvents });
     console.log("[admin-analytics] success", {
+      correlationId,
       email: session.email || "",
       ms: Date.now() - startedAt,
       usersReturned: (analytics.users || []).length,
       rawEventCount: analytics.rawEventCount,
       heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
     });
-    jsonResponse(response, 200, { analytics });
+    jsonResponse(response, 200, { analytics, correlationId });
   } catch (error) {
     console.error("[admin-analytics] FAILED", {
+      correlationId,
       message: error?.message,
       stack: error?.stack,
       ms: Date.now() - startedAt,
@@ -16994,6 +17278,7 @@ async function handleAdminAnalytics(request, response, url) {
     jsonResponse(response, 500, {
       error: error?.message || "Admin analytics failed.",
       code: "admin_analytics_failed",
+      correlationId,
       hint: "Server failed while building analytics. Check Render logs for [admin-analytics] FAILED.",
     });
   }
@@ -17039,6 +17324,9 @@ async function handleAdminMembershipUpdate(request, response) {
   store.membershipAudit.unshift(auditEntry);
   store.membershipAudit = store.membershipAudit.slice(0, 500);
   const merged = { ...existing, ...updates, email, updatedAt: new Date().toISOString() };
+  if (typeof updates.multiRoleTester === "boolean") {
+    merged.multiRoleTester = updates.multiRoleTester;
+  }
   if (updates.internalAccessOverride === true) {
     merged.internalAccessOverride = true;
   }
@@ -17223,7 +17511,8 @@ async function handleCurriculumLessonPlanDetail(request, response, url, planId) 
     jsonResponse(response, 400, { error: "Lesson plan id is required." });
     return;
   }
-  const store = readStore();
+  // Read-only — never structuredClone the full store for lesson viewer traffic.
+  const store = peekStore();
   const curriculum = readSiteCurriculum(store);
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const rawPlan = curriculum.lessonPlans.find((item) => item.id === cleanId);
@@ -17299,7 +17588,8 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
     return;
   }
 
-  const store = readStore();
+  // Read-only Teaching Kit viewer — peek avoids a full-store clone per open.
+  const store = peekStore();
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const flags = normalizedFeatureFlags(siteContent.featureFlags);
   if (!teachingKit.isTeachingKitApiEnabled(flags)) {
@@ -17399,7 +17689,7 @@ async function handleCurriculumActivityDetail(request, response, url, activityId
     jsonResponse(response, 400, { error: "Activity id is required." });
     return;
   }
-  const store = readStore();
+  const store = peekStore();
   const curriculum = readSiteCurriculum(store);
   const candidates = curriculum.activities.filter((item) => item.id === cleanId && item.status === "published");
   if (!candidates.length) {
@@ -19825,6 +20115,151 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
  * Reversible publish: restore prior enrichment snapshot as the published lesson.
  * Does not auto-run; admin must call explicitly. Keeps history (adds a rollback entry).
  */
+async function handlePermanentDeleteDisposableFixture(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required.", code: "admin_required" });
+    return;
+  }
+  const store = await readStore();
+  if (curriculumConcurrencyConflict(store.siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, store.siteContent);
+    return;
+  }
+  const planId = normalizedShortText(body.planId || body.lessonPlanId, 160);
+  const confirmTitle = String(body.confirmTitle || "").trim();
+  const confirmPhrase = String(body.confirmPhrase || "").trim();
+  if (!planId) {
+    jsonResponse(response, 400, { error: "planId is required.", code: "missing_plan_id" });
+    return;
+  }
+  if (confirmPhrase !== "PERMANENTLY DELETE") {
+    jsonResponse(response, 400, {
+      error: "Secondary confirmation phrase must be exactly PERMANENTLY DELETE.",
+      code: "confirm_phrase_required",
+    });
+    return;
+  }
+  const curriculum = store.siteContent?.curriculum || {};
+  const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === planId);
+  if (!existingPlan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+    return;
+  }
+  if (!isDisposableQaFixturePlan(existingPlan)) {
+    jsonResponse(response, 403, {
+      error: "Permanent deletion is only available for records explicitly marked as disposable QA fixtures.",
+      code: "not_disposable_fixture",
+    });
+    return;
+  }
+  if (String(existingPlan.status || "").toLowerCase() !== "archived") {
+    jsonResponse(response, 409, {
+      error: "Disposable fixtures must be archived before permanent deletion.",
+      code: "fixture_not_archived",
+    });
+    return;
+  }
+  if (confirmTitle !== String(existingPlan.title || "").trim()) {
+    jsonResponse(response, 400, {
+      error: "Exact title confirmation does not match this fixture.",
+      code: "confirm_title_mismatch",
+    });
+    return;
+  }
+
+  const beforePlans = (curriculum.lessonPlans || []).length;
+  const beforeActs = (curriculum.activities || []).length;
+  const linkedActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId === planId);
+  const linkedActivityIds = linkedActivities.map((act) => act.id);
+  const mediaAssetIds = new Set();
+  linkedActivities.forEach((act) => {
+    if (enrichmentMedia.isEnrichmentMediaAssetId(act.setupMediaAssetId)) mediaAssetIds.add(act.setupMediaAssetId);
+    if (enrichmentMedia.isEnrichmentMediaAssetId(act.exampleMediaAssetId)) mediaAssetIds.add(act.exampleMediaAssetId);
+  });
+  const draft = existingPlan.enrichmentDraft;
+  if (draft) {
+    enrichmentMedia.collectDraftMediaAssetIds(draft).forEach((id) => mediaAssetIds.add(id));
+  }
+
+  const adminEmail = normalizedShortText(body.adminEmail || "", 180) || "admin";
+  const now = new Date().toISOString();
+  const auditBefore = {
+    id: `fixture_delete_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    action: "permanent_delete_disposable_fixture",
+    lessonPlanId: planId,
+    title: existingPlan.title || "",
+    linkedActivityIds,
+    mediaAssetIds: [...mediaAssetIds],
+    historyEntries: Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory.length : 0,
+    adminEmail,
+    createdAt: now,
+    beforeLessonPlans: beforePlans,
+    beforeActivities: beforeActs,
+  };
+  store.disposableFixtureDeleteAudit = Array.isArray(store.disposableFixtureDeleteAudit)
+    ? store.disposableFixtureDeleteAudit
+    : [];
+  store.disposableFixtureDeleteAudit.unshift(auditBefore);
+  store.disposableFixtureDeleteAudit = store.disposableFixtureDeleteAudit.slice(0, 200);
+  appendEnrichmentEditorAudit(store, {
+    action: "permanent_delete_disposable_fixture",
+    lessonPlanId: planId,
+    adminEmail,
+    note: `Permanent delete of disposable fixture “${existingPlan.title || planId}” with ${linkedActivityIds.length} linked activities.`,
+  });
+
+  const nextPlans = (curriculum.lessonPlans || []).filter((item) => item.id !== planId);
+  const nextActivities = (curriculum.activities || []).filter((act) => act.lessonPlanId !== planId);
+  const nextCurriculum = normalizedCurriculumStore({
+    ...curriculum,
+    lessonPlans: nextPlans,
+    activities: nextActivities,
+    updatedAt: now,
+  });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "Delete refused to protect curriculum integrity.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
+
+  const cleanupLogs = [];
+  for (const mediaId of mediaAssetIds) {
+    try {
+      cleanupLogs.push(await cleanupEnrichmentMediaAsset(store, {
+        mediaAssetId: mediaId,
+        lessonPlanId: planId,
+        reason: "disposable_fixture_permanent_delete",
+      }));
+    } catch (error) {
+      cleanupLogs.push({ mediaAssetId: mediaId, error: error.message || String(error) });
+    }
+  }
+  auditBefore.afterLessonPlans = (store.siteContent.curriculum.lessonPlans || []).length;
+  auditBefore.afterActivities = (store.siteContent.curriculum.activities || []).length;
+  auditBefore.cleanupLogs = cleanupLogs.slice(0, 50);
+  await writeStoreAsync(store);
+
+  jsonResponse(response, 200, {
+    ok: true,
+    deleted: true,
+    deletedPlanId: planId,
+    deletedTitle: existingPlan.title || "",
+    deletedActivityIds: linkedActivityIds,
+    deletedMediaAssetIds: [...mediaAssetIds],
+    before: { lessonPlans: beforePlans, activities: beforeActs },
+    after: {
+      lessonPlans: auditBefore.afterLessonPlans,
+      activities: auditBefore.afterActivities,
+    },
+    curriculum: store.siteContent.curriculum,
+    siteContentUpdatedAt: store.siteContent.updatedAt,
+  });
+}
+
 async function handleEnrichmentRollback(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -19835,6 +20270,10 @@ async function handleEnrichmentRollback(request, response) {
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(flags)) {
     jsonResponse(response, 404, { error: "Enrichment Editor is disabled.", code: "enrichment_editor_disabled" });
+    return;
+  }
+  if (curriculumConcurrencyConflict(store.siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, store.siteContent);
     return;
   }
   const planId = normalizedShortText(body.planId || body.lessonPlanId || body.lessonPlan?.id, 160);
@@ -19854,61 +20293,127 @@ async function handleEnrichmentRollback(request, response) {
   const versionId = normalizedShortText(body.versionId, 80);
   const entry = versionId
     ? history.find((item) => item.versionId === versionId)
-    : history[0];
+    : history.find((item) => item?.snapshot && (item.kind || "publish") !== "draft") || history[0];
   if (!entry?.snapshot) {
     jsonResponse(response, 400, {
-      error: "No enrichment publish history is available to roll back.",
+      error: "No enrichment version history is available to restore.",
       code: "enrichment_rollback_unavailable",
     });
     return;
   }
   const snap = entry.snapshot;
   const now = new Date().toISOString();
+  const adminEmail = normalizedShortText(body.publishedBy || body.adminEmail || "", 180) || "admin";
+  const entryKind = normalizedShortText(entry.kind, 20) || "publish";
+  const isDraftRestore = entryKind === "draft" || (snap.enrichmentDraft && !snap.dailyPlans);
+
+  if (isDraftRestore) {
+    const draftSnap = snap.enrichmentDraft && typeof snap.enrichmentDraft === "object"
+      ? snap.enrichmentDraft
+      : null;
+    if (!enrichmentDraftHasContent(draftSnap)) {
+      jsonResponse(response, 400, {
+        error: "That draft snapshot has no enrichment content to restore.",
+        code: "enrichment_draft_restore_empty",
+      });
+      return;
+    }
+    const restoredPlan = normalizedCurriculumLessonPlan({
+      ...existingPlan,
+      enrichmentDraft: {
+        ...draftSnap,
+        updatedAt: now,
+        lastEditedBy: adminEmail,
+      },
+      enrichmentPublishHistory: [
+        {
+          versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+          kind: "rollback",
+          publishedAt: now,
+          publishedBy: adminEmail,
+          fingerprint: `rollback-draft:${entry.versionId}`,
+          lessonPlanId: planId,
+          snapshot: { enrichmentDraft: cloneJson(existingPlan.enrichmentDraft || {}) },
+          rollbackOf: entry.versionId,
+        },
+        ...history,
+      ].slice(0, ENRICHMENT_HISTORY_LIMIT),
+      updatedAt: existingPlan.updatedAt,
+    });
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
+      updatedAt: now,
+    });
+    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "Rollback refused to protect curriculum integrity.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
+    appendEnrichmentEditorAudit(store, {
+      action: "restore_draft",
+      lessonPlanId: planId,
+      versionId: entry.versionId,
+      adminEmail,
+      fingerprint: `rollback-draft:${entry.versionId}`,
+      note: "Restored draft snapshot for this lesson only.",
+    });
+    await writeStoreAsync(store);
+    const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
+    jsonResponse(response, 200, {
+      ok: true,
+      rolledBack: true,
+      restoredDraft: true,
+      autoPublished: false,
+      restoredFromVersionId: entry.versionId,
+      lessonPlan: saved,
+      curriculum: store.siteContent.curriculum,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+    });
+    return;
+  }
+
+  // Publish/history snapshots restore into a NEW DRAFT only.
+  // Customer-visible published content stays unchanged until an explicit Publish.
+  const draftFromPublish = publishedEnrichmentSnapshotToDraft(snap, {
+    adminEmail,
+    now,
+    versionId: entry.versionId,
+  });
+  if (!enrichmentDraftHasContent(draftFromPublish)) {
+    jsonResponse(response, 400, {
+      error: "That published snapshot has no enrichment content to restore into a draft.",
+      code: "enrichment_publish_restore_empty",
+    });
+    return;
+  }
+  const priorDraftSnap = enrichmentDraftHasContent(existingPlan.enrichmentDraft)
+    ? { enrichmentDraft: cloneJson(existingPlan.enrichmentDraft) }
+    : snapshotEnrichmentPublishedState(existingPlan, curriculum.activities || []);
   const restoredPlan = normalizedCurriculumLessonPlan({
     ...existingPlan,
-    dailyPlans: snap.dailyPlans || existingPlan.dailyPlans,
-    familyConnection: snap.familyConnection != null ? snap.familyConnection : existingPlan.familyConnection,
-    teachingKit: snap.teachingKit != null ? snap.teachingKit : existingPlan.teachingKit,
-    enrichmentDraft: null,
+    enrichmentDraft: draftFromPublish,
     enrichmentPublishHistory: [
       {
         versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+        kind: "rollback",
         publishedAt: now,
-        publishedBy: normalizedShortText(body.publishedBy || "admin", 180) || "admin",
-        fingerprint: `rollback:${entry.versionId}`,
+        publishedBy: adminEmail,
+        fingerprint: `rollback-to-draft:${entry.versionId}`,
         lessonPlanId: planId,
-        snapshot: snapshotEnrichmentPublishedState(existingPlan, curriculum.activities || []),
+        snapshot: priorDraftSnap,
         rollbackOf: entry.versionId,
       },
       ...history,
-    ].slice(0, 12),
-    updatedAt: now,
-  });
-  const snapActs = Array.isArray(snap.activities) ? snap.activities : [];
-  const byId = new Map(snapActs.map((act) => [act.id, act]));
-  const byItem = new Map(snapActs.filter((act) => act.itemId).map((act) => [act.itemId, act]));
-  const nextActivities = (curriculum.activities || []).map((act) => {
-    if (act.lessonPlanId !== planId) return act;
-    const match = byId.get(act.id) || byItem.get(act.itemId);
-    if (!match) return act;
-    return normalizedCurriculumActivity({
-      ...act,
-      setupImageUrl: match.setupImageUrl || "",
-      exampleImageUrl: match.exampleImageUrl || "",
-      setupMediaAssetId: match.setupMediaAssetId || "",
-      exampleMediaAssetId: match.exampleMediaAssetId || "",
-      teacherTips: Array.isArray(match.teacherTips) ? match.teacherTips : [],
-      substitutions: Array.isArray(match.substitutions) ? match.substitutions : [],
-      settingTags: Array.isArray(match.settingTags) ? match.settingTags : [],
-      observationOpportunities: match.observationOpportunities || "",
-      vocabulary: match.vocabulary || "",
-      updatedAt: now,
-    });
+    ].slice(0, ENRICHMENT_HISTORY_LIMIT),
+    updatedAt: existingPlan.updatedAt,
   });
   const nextCurriculum = normalizedCurriculumStore({
     ...curriculum,
     lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
-    activities: nextActivities,
     updatedAt: now,
   });
   const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
@@ -19919,11 +20424,22 @@ async function handleEnrichmentRollback(request, response) {
     });
     return;
   }
+  appendEnrichmentEditorAudit(store, {
+    action: "restore_publish_to_draft",
+    lessonPlanId: planId,
+    versionId: entry.versionId,
+    adminEmail,
+    fingerprint: `rollback-to-draft:${entry.versionId}`,
+    note: "Restored published snapshot into draft for this lesson only. Customer-visible content unchanged until Publish.",
+  });
   await writeStoreAsync(store);
   const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
   jsonResponse(response, 200, {
     ok: true,
     rolledBack: true,
+    restoredDraft: true,
+    restoredIntoDraft: true,
+    customerVisibleUnchanged: true,
     autoPublished: false,
     restoredFromVersionId: entry.versionId,
     lessonPlan: saved,
@@ -19931,6 +20447,51 @@ async function handleEnrichmentRollback(request, response) {
     siteContentUpdatedAt: store.siteContent.updatedAt,
   });
 }
+
+function publishedEnrichmentSnapshotToDraft(snap, { adminEmail = "admin", now = "", versionId = "" } = {}) {
+  const activities = {};
+  const pushAct = (key, fields = {}) => {
+    const id = normalizedShortText(key, 160);
+    if (!id) return;
+    const prev = activities[id] || {};
+    activities[id] = {
+      teacherTips: Array.isArray(fields.teacherTips) && fields.teacherTips.length
+        ? fields.teacherTips
+        : (Array.isArray(prev.teacherTips) ? prev.teacherTips : []),
+      setupImageUrl: fields.setupImageUrl || prev.setupImageUrl || "",
+      exampleImageUrl: fields.exampleImageUrl || prev.exampleImageUrl || "",
+      setupMediaAssetId: fields.setupMediaAssetId || prev.setupMediaAssetId || "",
+      exampleMediaAssetId: fields.exampleMediaAssetId || prev.exampleMediaAssetId || "",
+      substitutions: Array.isArray(fields.substitutions) ? fields.substitutions : (prev.substitutions || []),
+      settingTags: Array.isArray(fields.settingTags) ? fields.settingTags : (prev.settingTags || []),
+      observationOpportunities: fields.observationOpportunities || prev.observationOpportunities || "",
+      vocabulary: fields.vocabulary || prev.vocabulary || "",
+    };
+  };
+  (Array.isArray(snap?.activities) ? snap.activities : []).forEach((act) => {
+    pushAct(act.itemId || act.id, act);
+  });
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    (snap?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      pushAct(item.itemId || item.id || item.title, {
+        teacherTips: Array.isArray(item.teacherTips) ? item.teacherTips : [],
+        setupImageUrl: item.setupImageUrl || "",
+        exampleImageUrl: item.exampleImageUrl || "",
+      });
+    });
+  });
+  return {
+    activities,
+    week: {
+      familyConnection: snap?.familyConnection || "",
+    },
+    updatedAt: now || new Date().toISOString(),
+    lastEditedBy: adminEmail,
+    restoredFromPublishVersionId: normalizedShortText(versionId, 80) || "",
+    previewReady: false,
+  };
+}
+
 
 async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId) {
   const dir = enrichmentMedia.localMediaDirFromStorePath(storePath);
@@ -20141,6 +20702,7 @@ async function handlePublishEnrichment(request, response, ctx) {
   const history = [
     {
       versionId,
+      kind: "publish",
       publishedAt: now,
       publishedBy,
       fingerprint,
@@ -20148,7 +20710,7 @@ async function handlePublishEnrichment(request, response, ctx) {
       snapshot: priorSnapshot,
     },
     ...(Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory : []),
-  ].slice(0, 12);
+  ].slice(0, ENRICHMENT_HISTORY_LIMIT);
 
   const nextActivities = applyMergedEnrichmentToActivities(
     existingCurriculum.activities || [],
@@ -20210,6 +20772,14 @@ async function handlePublishEnrichment(request, response, ctx) {
     });
     return;
   }
+  appendEnrichmentEditorAudit(store, {
+    action: "publish",
+    lessonPlanId: id,
+    versionId,
+    adminEmail: publishedBy,
+    fingerprint,
+    note: "Automatic backup snapshot retained before publish for this lesson only.",
+  });
   await writeStoreAsync(store);
   const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
   const summary = enrichmentApi.summarizePublishChanges
@@ -20346,6 +20916,32 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         // A real draft save replaces any prior undo stash.
         undoStash = null;
       }
+      const previousHistory = Array.isArray(existingPlan.enrichmentPublishHistory)
+        ? existingPlan.enrichmentPublishHistory
+        : [];
+      let nextHistory = previousHistory;
+      const adminEmail = normalizedShortText(
+        body?.adminEmail || draftForSave.lastEditedBy || previousDraft?.lastEditedBy || "",
+        180,
+      ) || "admin";
+      // Automatic version history before every meaningful draft save (previous draft snapshot).
+      if (
+        enrichmentDraftHasContent(previousDraft)
+        && enrichmentHistoryFingerprint(previousDraft) !== enrichmentHistoryFingerprint(draftForSave)
+      ) {
+        nextHistory = [
+          {
+            versionId: `edraft-${crypto.randomBytes(10).toString("hex")}`,
+            kind: "draft",
+            publishedAt: now,
+            publishedBy: adminEmail,
+            fingerprint: `draft:${enrichmentHistoryFingerprint(previousDraft)}`,
+            lessonPlanId: id,
+            snapshot: { enrichmentDraft: cloneJson(previousDraft) },
+          },
+          ...previousHistory,
+        ].slice(0, ENRICHMENT_HISTORY_LIMIT);
+      }
       const draftPlan = normalizedCurriculumLessonPlan({
         ...existingPlan,
         enrichmentDraft: {
@@ -20353,6 +20949,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
           updatedAt: now,
         },
         enrichmentDraftUndo: undoStash,
+        enrichmentPublishHistory: nextHistory,
         updatedAt: existingPlan.updatedAt,
       });
       // Verify normalized draft still carries activity/week content when we intended to save it.
@@ -20378,6 +20975,16 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         });
         return;
       }
+      appendEnrichmentEditorAudit(store, {
+        action: restoringDiscarded ? "undo_discard" : (allowEmptyOverwrite && !enrichmentDraftHasContent(draftForSave) ? "discard_draft" : "save_draft"),
+        lessonPlanId: id,
+        versionId: nextHistory[0]?.versionId || "",
+        adminEmail,
+        fingerprint: enrichmentHistoryFingerprint(draftForSave),
+        note: restoringDiscarded
+          ? "Restored discarded draft for this lesson only."
+          : "Draft save for this lesson only; published content unchanged.",
+      });
       await writeStoreAsync(store);
       // After successful draft save, cleanup assets removed from this draft if unreferenced.
       const removedIds = enrichmentMedia.diffRemovedMediaAssetIds(previousDraft, draftPlan.enrichmentDraft);
@@ -23070,6 +23677,13 @@ function publicFeedback(item) {
     lessonId: item.lessonId || "",
     sentiment: item.sentiment || "",
     stars: normalizeFeedbackStars(item.stars),
+    role: item.role || "",
+    accountType: item.accountType || "",
+    testedRole: item.testedRole || "",
+    deviceInfo: item.deviceInfo || "",
+    browserInfo: item.browserInfo || "",
+    screenshotUrl: item.screenshotUrl || "",
+    context: item.context && typeof item.context === "object" ? item.context : null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -23758,7 +24372,7 @@ const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
   "Bug", "Bug Report", "Problem", "Missing Feature", "Question", "Feature Request",
   "New Feature", "Support", "Lesson Plan Feedback", "Lesson Plan Request",
-  "Activity Request", "Activity Feedback",
+  "Activity Request", "Activity Feedback", "Tester Session",
 ]);
 const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
@@ -23775,6 +24389,19 @@ async function handleFeedbackCreate(request, response) {
   const activityId = String(body.activityId || "").trim().slice(0, 160);
   const lessonId = String(body.lessonId || "").trim().slice(0, 160);
   const sentiment = String(body.sentiment || "").trim().slice(0, 40);
+  const context = body.context && typeof body.context === "object"
+    ? {
+        currentRole: String(body.context.currentRole || "").slice(0, 80),
+        page: String(body.context.page || "").slice(0, 200),
+        deviceClass: String(body.context.deviceClass || "").slice(0, 40),
+        screenWidth: Number(body.context.screenWidth) || 0,
+        screenHeight: Number(body.context.screenHeight) || 0,
+        appVersion: String(body.context.appVersion || "").slice(0, 80),
+        time: String(body.context.time || "").slice(0, 40),
+        feature: String(body.context.feature || "").slice(0, 120),
+        testingSite: Boolean(body.context.testingSite),
+      }
+    : null;
   const store = readStore();
   store.feedbackItems = store.feedbackItems || [];
   const item = {
@@ -23796,6 +24423,11 @@ async function handleFeedbackCreate(request, response) {
     lessonId,
     sentiment,
     stars,
+    testedRole: String(body.testedRole || context?.currentRole || "").slice(0, 80),
+    deviceInfo: String(body.deviceInfo || "").slice(0, 200),
+    browserInfo: String(body.browserInfo || body.userAgent || "").slice(0, 400),
+    screenshotUrl: String(body.screenshotUrl || "").slice(0, 500),
+    context,
   };
   store.feedbackItems.unshift(item);
   store.feedbackItems = store.feedbackItems.slice(0, 1000);
@@ -25209,7 +25841,7 @@ async function handleMemberInbox(request, response) {
   const broadcastNotifications = store.notifications
     .filter((n) => {
       if (normalizeEmail(n.email) !== myEmail || n.conversationEmail) return false;
-      if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return false;
+      if (isAdminOnlyNotificationType(n.type)) return false;
       return n.type === "message" || n.type === "announcement" || n.type === "feature_update";
     })
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
@@ -25236,7 +25868,7 @@ async function handleMemberMarkRead(request, response) {
   let updated = 0;
   store.notifications.forEach((n) => {
     if (normalizeEmail(n.email) !== myEmail || n.read) return;
-    if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return;
+    if (isAdminOnlyNotificationType(n.type)) return;
     const matchesConversation = body.conversationEmail
       && normalizeEmail(n.conversationEmail) === normalizeEmail(body.conversationEmail);
     const matchesId = Array.isArray(body.notificationIds) && body.notificationIds.includes(n.id);
@@ -25261,10 +25893,11 @@ async function handleMemberNotificationsList(request, response, url) {
   }
   const store = ensureMessagingStore(readStore());
   const myEmail = normalizeEmail(identity.email);
-  const allowAdminTypes = isConfiguredAdminEmail(myEmail);
+  // Provider/member channel never includes admin_* alerts — even for configured
+  // owner emails. Admin alerts are only exposed via /api/admin/notifications.
   const mine = store.notifications
     .filter((n) => normalizeEmail(n.email) === myEmail)
-    .filter((n) => allowAdminTypes || !isAdminOnlyNotificationType(n.type))
+    .filter((n) => !isAdminOnlyNotificationType(n.type))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
   const unreadCount = mine.filter((n) => !n.read).length;
@@ -25288,7 +25921,8 @@ async function handleMemberNotificationsMarkAllRead(request, response) {
   let updated = 0;
   store.notifications.forEach((n) => {
     if (normalizeEmail(n.email) !== myEmail || n.read) return;
-    if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return;
+    // Never mark admin_* via the member channel — Admin Center owns that inbox.
+    if (isAdminOnlyNotificationType(n.type)) return;
     n.read = true;
     n.readAt = now;
     updated += 1;
@@ -26651,6 +27285,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-suggest") return await handleAdminEnrichmentAiSuggest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-rollback") return await handleEnrichmentRollback(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/disposable-fixture/permanent-delete") {
+      return await handlePermanentDeleteDisposableFixture(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/ai-teacher-assistant") return await handleAdminAiTeacherAssistant(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/director") return await handleAdminCurriculumDirector(request, response);
@@ -26722,6 +27359,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites") return await handleHdhTesterInviteCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/tester-invites/peek") return await handleHdhTesterInvitePeek(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites/accept") return await handleHdhTesterInviteAccept(request, response);
+    if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-role-switches") {
+      return await handleHdhTesterRoleSwitchCreate(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/tester-role-switches") {
+      return await handleAdminTesterRoleSwitchesList(request, response, url);
+    }
     if (request.method === "DELETE" && url.pathname.startsWith("/api/home-daycare-hub/tester-invites/")) {
       const inviteId = decodeURIComponent(url.pathname.slice("/api/home-daycare-hub/tester-invites/".length));
       return await handleHdhTesterInviteRevoke(request, response, inviteId);

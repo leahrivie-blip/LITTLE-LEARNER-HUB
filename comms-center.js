@@ -1225,6 +1225,7 @@
 
     section.innerHTML = `
       <div class="messages-page-shell messages-center-shell">
+        <button class="ghost-button back-button" data-contextual-back="messages" data-fallback-view="settings" data-always-visible="true" type="button">← Back to Settings</button>
         <div class="page-title">
           <p class="eyebrow">Help &amp; Support</p>
           <h2>My Messages &amp; Requests</h2>
@@ -1252,6 +1253,9 @@
 
     const replyForm = document.querySelector("#messagesReplyForm");
     if (replyForm) LLHDrafts.attach(replyForm);
+    if (typeof window.refreshContextualViewBackButtons === "function") {
+      window.refreshContextualViewBackButtons();
+    }
   }
 
   async function renderMyMessagesCenter(options = {}) {

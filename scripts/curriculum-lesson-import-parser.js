@@ -14,6 +14,13 @@ try {
   nodeCrypto = null;
 }
 
+let curriculumSentinel = null;
+try {
+  curriculumSentinel = require("./curriculum-sentinel.js");
+} catch {
+  curriculumSentinel = (typeof globalThis !== "undefined" && globalThis.LLHCurriculumSentinel) || null;
+}
+
 const PLAY_ACTIVITY_CATEGORIES_V1 = [
   "Circle Time",
   "Literacy",
@@ -287,7 +294,10 @@ function normalizedMultilineText(value, max = 12000) {
 }
 
 function preserveMultilineText(value, max = 12000) {
-  return String(value || "").replace(/\r\n?/g, "\n").replace(/\s+$/gm, "").slice(0, max);
+  const text = String(value || "").replace(/\r\n?/g, "\n").replace(/\s+$/gm, "");
+  if (!text) return "";
+  if (curriculumSentinel?.isSentinelValue?.(text)) return "";
+  return text.slice(0, max);
 }
 
 function generateCurriculumItemId() {
@@ -413,11 +423,19 @@ function parseCurriculumImportListLines(text, { parts = 2 } = {}) {
     .map((chunks) => {
       if (parts === 3) {
         const [title, author, notes] = chunks;
-        return title ? { title, author: author || "", notes: notes || "" } : null;
+        if (!title) return null;
+        if (curriculumSentinel?.isSentinelValue?.(title)) return null;
+        return { title, author: author || "", notes: notes || "" };
       }
       const [title, notes] = chunks;
-      return title ? { title, notes: notes || "" } : null;
+      if (!title) return null;
+      if (curriculumSentinel?.isSentinelValue?.(title)) return null;
+      return { title, notes: notes || "" };
     })
+    .filter(Boolean)
+    .map((entry) => (curriculumSentinel?.normalizeBookOrSongEntry
+      ? curriculumSentinel.normalizeBookOrSongEntry(entry)
+      : entry))
     .filter(Boolean);
 }
 
@@ -427,7 +445,7 @@ function parseTextListItems(text) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => line.replace(/^[-*•]\s*/, "").trim())
-    .filter(Boolean);
+    .filter((line) => line && !(curriculumSentinel?.isSentinelValue?.(line)));
 }
 
 function isV3LabelOnlyFormat(text) {
@@ -1975,6 +1993,7 @@ const api = {
   formatCurriculumLessonPlanImport,
   formatCurriculumLessonPlanImportV3,
   formatImportActivity,
+  curriculumSentinel,
 };
 
 if (typeof module !== "undefined" && module.exports) {

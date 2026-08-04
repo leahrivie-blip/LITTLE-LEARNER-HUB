@@ -216,14 +216,21 @@ body:has(#view-admin.active-view) .llh-public-nav {
   background: #f4fff7;
 }
 
-#view-admin .admin-health-card[data-status="attention"] {
+#view-admin .admin-health-card[data-status="attention"],
+#view-admin .admin-health-card[data-status="warning"] {
   border-color: #f0c27b;
   background: #fffaf2;
 }
 
+#view-admin .admin-health-card[data-status="critical"] {
+  border-color: #e39a9a;
+  background: #fff5f5;
+}
+
 #view-admin .admin-health-card[data-status="disabled"],
 #view-admin .admin-health-card[data-status="not-configured"],
-#view-admin .admin-health-card[data-status="not-verified"] {
+#view-admin .admin-health-card[data-status="not-verified"],
+#view-admin .admin-health-card[data-status="unknown"] {
   border-color: #d5d8e2;
   background: #f7f8fb;
 }

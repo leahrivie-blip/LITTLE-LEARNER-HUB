@@ -110,6 +110,55 @@ function makeActivities(count = 120) {
   }));
 }
 
+const GOOGLE_FONT_HOST_RE = /fonts\.googleapis\.com|fonts\.gstatic\.com/i;
+const STUB_FONT_CSS = `
+@font-face { font-family: "Plus Jakarta Sans"; src: local("Arial"); }
+@font-face { font-family: "Fraunces"; src: local("Times New Roman"); }
+.landing-home, body {
+  font-family: "Plus Jakarta Sans", Fraunces, sans-serif !important;
+}
+`;
+
+/**
+ * External Google Fonts often hang in Playwright/CI and block HTML parsing /
+ * DOMContentLoaded (stylesheet @import → gstatic woff2). Shell CSS recovery
+ * then sees missing Fraunces/Jakarta and reload-loops after sessionStorage.clear().
+ * Install once per page before goto.
+ */
+async function installBootNetworkGuards(page) {
+  if (page._llhBootGuardsInstalled) return;
+  page._llhBootGuardsInstalled = true;
+
+  await page.route(GOOGLE_FONT_HOST_RE, async (route) => {
+    const url = route.request().url();
+    if (/fonts\.googleapis\.com/i.test(url) || /(?:\.css)(?:$|\?)/i.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/css; charset=utf-8",
+        body: STUB_FONT_CSS,
+      });
+    }
+    // Abort binary font files quickly — empty bodies can still stall some Chromium builds.
+    return route.abort();
+  });
+
+  await page.addInitScript((fontCss) => {
+    const inject = () => {
+      if (typeof document === "undefined") return;
+      if (document.getElementById("llh-test-font-shim")) return;
+      const root = document.head || document.documentElement;
+      if (!root) return;
+      const style = document.createElement("style");
+      style.id = "llh-test-font-shim";
+      style.textContent = fontCss;
+      root.appendChild(style);
+    };
+    inject();
+    document.addEventListener("readystatechange", inject);
+    document.addEventListener("DOMContentLoaded", inject, { once: true });
+  }, STUB_FONT_CSS);
+}
+
 /**
  * Seed a client-only persona. When blockServerPersistence is true (default for
  * production hosts), profile sync is stubbed and analytics events are rewritten
@@ -120,6 +169,7 @@ async function seedSession(page, persona, {
   cacheActivities = 120,
   blockServerPersistence = null,
 } = {}) {
+  await installBootNetworkGuards(page);
   const plans = makePlans(24);
   const activities = makeActivities(cacheActivities);
   const prodHint = String(process.env.LLH_PROD_URL || process.env.SITE_URL || "");
@@ -187,13 +237,32 @@ async function seedSession(page, persona, {
   }, { acct: persona, rememberedView: lastView, cachedPlans: plans, cachedActivities: activities });
 }
 
-async function waitBootReady(page) {
+/**
+ * Wait until the SPA marks itself ready. Tolerate document.body === null when
+ * navigation used waitUntil: "commit" (fires before the body exists).
+ */
+async function waitBootReady(page, { timeout = 60000 } = {}) {
   await page.waitForFunction(
-    () => document.body.classList.contains("app-boot-ready")
-      && !document.querySelector("#appBootGate:not([hidden])"),
+    () => {
+      const body = document.body;
+      if (!body) return false;
+      return body.classList.contains("app-boot-ready")
+        && !document.querySelector("#appBootGate:not([hidden])");
+    },
     null,
-    { timeout: 45000 },
+    { timeout },
   );
+}
+
+/**
+ * Navigate to the app shell. Prefer "commit" over "domcontentloaded" — Google
+ * Font loads and long deferred boot scripts can prevent DOMContentLoaded even
+ * when Node serves / with 200. Readiness is body.app-boot-ready.
+ */
+async function gotoApp(page, url, { timeout = 90000 } = {}) {
+  await installBootNetworkGuards(page);
+  await page.goto(url, { waitUntil: "commit", timeout });
+  await waitBootReady(page, { timeout: Math.min(timeout, 60000) });
 }
 
 async function openMobileNavIfNeeded(page) {
@@ -276,8 +345,10 @@ module.exports = {
   PERSONAS,
   makePlans,
   makeActivities,
+  installBootNetworkGuards,
   seedSession,
   waitBootReady,
+  gotoApp,
   openMobileNavIfNeeded,
   closeMobileNavIfOpen,
   clickSidebarNav,

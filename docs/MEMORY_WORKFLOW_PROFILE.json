@@ -1,0 +1,101 @@
+{
+  "storeJsonMb": 1.74,
+  "lessonPlans": 130,
+  "activities": 2080,
+  "peakRssMb": 366,
+  "peakHeapMb": 178,
+  "workflows": [
+    {
+      "workflow": "startup",
+      "status": 200,
+      "bytes": 1226,
+      "rssBeforeMb": null,
+      "rssAfterMb": 366,
+      "heapBeforeMb": null,
+      "heapAfterMb": 178,
+      "deltaRssMb": null
+    },
+    {
+      "workflow": "site-content (curriculum library)",
+      "status": 200,
+      "bytes": 1331425,
+      "rssBeforeMb": 366,
+      "rssAfterMb": 347,
+      "heapBeforeMb": 178,
+      "heapAfterMb": 23,
+      "deltaRssMb": -19
+    },
+    {
+      "workflow": "site-content x5 (cache)",
+      "status": 200,
+      "bytes": 1331425,
+      "rssBeforeMb": 347,
+      "rssAfterMb": 350,
+      "heapBeforeMb": 23,
+      "heapAfterMb": 40,
+      "deltaRssMb": 3
+    },
+    {
+      "workflow": "home-inventory",
+      "status": 200,
+      "bytes": 155,
+      "rssBeforeMb": 350,
+      "rssAfterMb": 348,
+      "heapBeforeMb": 40,
+      "heapAfterMb": 45,
+      "deltaRssMb": -2
+    },
+    {
+      "workflow": "lesson viewer",
+      "status": 200,
+      "bytes": 702,
+      "rssBeforeMb": 348,
+      "rssAfterMb": 348,
+      "heapBeforeMb": 45,
+      "heapAfterMb": 44,
+      "deltaRssMb": 0
+    },
+    {
+      "workflow": "activity detail",
+      "status": 403,
+      "bytes": 53,
+      "rssBeforeMb": 348,
+      "rssAfterMb": 348,
+      "heapBeforeMb": 44,
+      "heapAfterMb": 23,
+      "deltaRssMb": 0
+    },
+    {
+      "workflow": "admin production-monitoring",
+      "status": 200,
+      "bytes": 2784,
+      "rssBeforeMb": 348,
+      "rssAfterMb": 348,
+      "heapBeforeMb": 23,
+      "heapAfterMb": 23,
+      "deltaRssMb": 0
+    },
+    {
+      "workflow": "admin analytics",
+      "status": 200,
+      "bytes": 14287,
+      "rssBeforeMb": 348,
+      "rssAfterMb": 348,
+      "heapBeforeMb": 23,
+      "heapAfterMb": 34,
+      "deltaRssMb": 0
+    }
+  ],
+  "memoryCheck": {
+    "state": "healthy",
+    "warningMb": 921,
+    "criticalMb": 1433,
+    "detail": "RSS 348 MB · Heap 34 MB · 17% of 2048 MB instance · warning ≥ 921 MB · critical ≥ 1433 MB."
+  },
+  "profiler": {
+    "label": "profiler-process",
+    "rssMb": 82.7,
+    "heapUsedMb": 11.9,
+    "heapTotalMb": 29.8
+  }
+}

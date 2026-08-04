@@ -80,7 +80,8 @@ button {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 304px 1fr;
+  grid-template-columns: 268px minmax(0, 1fr);
+  transition: grid-template-columns 180ms ease;
 }
 
 .sidebar {
@@ -88,10 +89,65 @@ button {
   top: 0;
   height: 100vh;
   overflow: auto;
-  padding: 24px 22px;
+  padding: 16px 14px;
   background: rgba(255, 255, 255, 0.98);
   border-right: 1px solid var(--line);
   backdrop-filter: blur(16px);
+  min-width: 0;
+}
+
+/* Desktop collapsible sidebar — content expands with no leftover gutter. */
+body.user-authenticated.sidebar-collapsed .app-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.user-authenticated.sidebar-collapsed .sidebar {
+  display: none;
+}
+
+/* Tablet/mobile drawer must win over desktop-collapsed hide. */
+@media (max-width: 1100px) {
+  body.user-authenticated.sidebar-collapsed .sidebar {
+    display: block;
+  }
+}
+
+.sidebar-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  flex: 0 0 auto;
+}
+
+.sidebar-toggle-bars {
+  display: grid;
+  gap: 4px;
+  width: 18px;
+}
+
+.sidebar-toggle-bars span {
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: #5b9bd5;
+}
+
+.sidebar-toggle-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+@media (min-width: 1101px) {
+  body.user-authenticated .sidebar-toggle {
+    display: inline-flex;
+  }
+
+  body.user-authenticated .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
 }
 
 .brand,
@@ -350,9 +406,9 @@ button {
   z-index: 5;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 16px;
+  gap: 12px 16px;
   align-items: center;
-  padding: 18px 30px;
+  padding: 14px 22px;
   background: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(14px);
@@ -1138,11 +1194,21 @@ body.lessons-view .mobile-brand {
 
 .view {
   display: none;
-  padding: 30px;
+  padding: 22px 22px 32px;
+}
+
+body.user-authenticated .view {
+  padding: 20px 22px 36px;
 }
 
 .active-view {
   display: block;
+}
+
+body.user-authenticated .main,
+body.user-authenticated .view.active-view {
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 .hero {
@@ -15070,20 +15136,20 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   margin: 0;
 }
 
-/* After-action AI prompt banner */
+/* After-action AI prompt banner — one toast at a time, above cookie notice. */
 .after-action-prompt {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(calc(100% + 40px));
-  z-index: 900;
+  z-index: 13050;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   padding: 14px 20px;
   background: var(--white);
-  border: 1px solid rgba(112, 85, 209, 0.3);
+  border: 1px solid rgba(91, 155, 213, 0.35);
   border-radius: var(--radius);
   box-shadow: 0 8px 32px rgba(26, 43, 74, 0.14);
   max-width: 580px;
@@ -15095,6 +15161,18 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .after-action-prompt.visible {
   transform: translateX(-50%) translateY(0);
   pointer-events: auto;
+}
+
+/* Keep toast above the cookie banner and off its buttons. */
+body.has-meta-cookie-notice .after-action-prompt.visible {
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+}
+
+/* While a toast with actions is visible, hide the cookie notice so it cannot cover CTAs. */
+body.has-action-toast .llh-meta-cookie-notice,
+body.has-action-toast #llhMetaCookieNotice {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .after-action-text {
@@ -20051,9 +20129,20 @@ body.lesson-editor-view .main {
 
 .resources-hub-page,
 .settings-hub-page,
-.platform-placeholder-page {
+.platform-placeholder-page,
+.director-center-page {
   display: grid;
   gap: 20px;
+}
+
+.director-center-page .page-title p {
+  max-width: 42rem;
+}
+
+.director-center-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
 }
 
 .resources-hub-grid,
@@ -20781,6 +20870,86 @@ body.admin-preview-simulating .sidebar .brand h1::after {
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     justify-content: space-between;
   }
+}
+
+/* ── Canonical provider overlay scroll-lock (JS-managed) ─────────────── */
+html.llh-scroll-locked,
+body.llh-scroll-locked {
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+body.llh-scroll-locked {
+  /* position/top/width/padding applied via JS to preserve scroll + gutter */
+}
+
+/* Overlay priority: hide nonessential notices under workflow/auth overlays */
+body.llh-scroll-locked .llh-meta-cookie-notice,
+body.llh-scroll-locked #llhMetaCookieNotice,
+body.llh-scroll-locked .member-update-banner,
+body.llh-scroll-locked #memberUpdateBanner,
+body.llh-scroll-locked #siteAnnouncementBanner,
+body.llh-scroll-locked #llhFoundingAnnounceBanner,
+body.resource-viewer-open .member-update-banner,
+body.resource-viewer-open #siteAnnouncementBanner,
+body.lesson-workspace-open .member-update-banner {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body.auth-modal-open .after-action-prompt,
+body.force-password-required .after-action-prompt,
+body.nuo-open .after-action-prompt {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Keep download/action toasts below workflow chrome (bottom), never over header actions */
+body.resource-viewer-open .after-action-prompt,
+body.lesson-workspace-open .after-action-prompt,
+body.llh-scroll-locked .after-action-prompt {
+  z-index: 90;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Activity / standard resource viewer: panel scrolls; background stays locked */
+.resource-viewer-modal.open {
+  overscroll-behavior: contain;
+  touch-action: auto;
+}
+
+.resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-card {
+  max-height: min(92dvh, 960px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: auto;
+}
+
+.resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-toolbar,
+.resource-viewer-modal.open:not(.lesson-workspace-mode) #resourceViewerTitle,
+.resource-viewer-modal.open:not(.lesson-workspace-mode) #closeResourceViewer {
+  flex: 0 0 auto;
+}
+
+/* Desktop + mobile: lock via JS; keep CSS overflow as a belt-and-suspenders fallback */
+body.auth-modal-open,
+body.resource-viewer-open,
+body.lesson-workspace-open,
+body.force-password-required {
+  /* Prefer the canonical llh-scroll-locked path; retain overflow:hidden as fallback */
+  overflow: hidden;
 }
 
 /* ── Signup conversion wizard ───────────────────────────────────────── */
@@ -24491,6 +24660,24 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   justify-content: space-between;
   margin-top: 0.55rem;
 }
+.tk-enrich-jump-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.tk-enrich-jump-links .ghost-button {
+  min-height: 2.25rem;
+}
+.admin-content-filters,
+.curriculum-activity-filters {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: rgba(251, 248, 242, 0.96);
+  backdrop-filter: blur(4px);
+  padding: 0.5rem 0;
+}
 .tk-enrich-progress-block {
   flex: 1 1 16rem;
   min-width: 12rem;
@@ -25632,6 +25819,37 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   border-radius: 0.5rem;
   background: #faf8f3;
 }
+.tk-enrich-history-diff {
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(36, 49, 42, 0.04);
+  border-radius: 0.4rem;
+  font-size: 0.88rem;
+}
+.tk-enrich-history-diff ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+.tk-enrich-recovery-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin: 0.55rem 0 0.25rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.55rem;
+  background: rgba(250, 248, 243, 0.95);
+}
+.tk-enrich-recovery-toolbar > strong {
+  margin-right: 0.25rem;
+}
+@media (max-width: 720px) {
+  .tk-enrich-recovery-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 .tk-enrich-compare-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -26017,4 +26235,367 @@ body.work-mode-nav [data-legacy-nav="true"] {
     right: 12px;
     bottom: 12px;
   }
+}
+
+/* ── Multi-Role Tester + Report a Bug (testing site) ─────────────────────── */
+.multi-role-tester-banner {
+  margin: 0;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #eef6f4 0%, #e7f1ee 100%);
+  border-bottom: 1px solid rgba(56, 96, 98, 0.22);
+  color: #243047;
+}
+.multi-role-tester-banner[hidden] { display: none !important; }
+.multi-role-tester-banner-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.multi-role-tester-banner-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.multi-role-tester-banner-blurb {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  color: #40506a;
+}
+.multi-role-tester-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.multi-role-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 96, 98, 0.35);
+  background: #fff;
+  color: #386062;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.multi-role-switch-btn {
+  white-space: nowrap;
+}
+.multi-role-switch-grid {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+}
+.multi-role-switch-option {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(36, 48, 71, 0.14);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.multi-role-switch-option strong { color: #243047; }
+.multi-role-switch-option span { color: #40506a; font-size: 0.9rem; }
+.multi-role-switch-option.is-active,
+.multi-role-switch-option:hover {
+  border-color: rgba(56, 96, 98, 0.45);
+  background: #f3faf8;
+}
+.multi-role-help-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+.multi-role-help-columns h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+.multi-role-help-columns ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.report-bug-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 88;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(138, 75, 40, 0.28);
+  background: #fff8f3;
+  color: #8a4b28;
+  font: inherit;
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(26, 43, 74, 0.14);
+  cursor: pointer;
+}
+.report-bug-fab[hidden] { display: none !important; }
+body.admin-preview-simulating .report-bug-fab,
+body.multi-role-tester-simulating .report-bug-fab {
+  bottom: 72px;
+}
+.feedback-smart-block {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+.feedback-auto-context {
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f4f7fb;
+  border: 1px solid rgba(36, 48, 71, 0.1);
+  color: #40506a;
+}
+.aup-multi-role-log {
+  margin-top: 10px;
+  max-height: 240px;
+  overflow: auto;
+}
+@media (max-width: 760px) {
+  .multi-role-help-columns { grid-template-columns: 1fr; }
+  .report-bug-fab span:last-child { display: none; }
+  .multi-role-tester-banner-inner { align-items: flex-start; }
+}
+
+/* ========== Provider UI polish (live customer shell) ========== */
+body.user-authenticated .page-title,
+body.user-authenticated .llh-schedule-page-title,
+body.user-authenticated .doc-helpers-page-title {
+  margin-bottom: 14px;
+}
+
+body.user-authenticated .page-title h2,
+body.user-authenticated .llh-schedule-page-title h2,
+body.user-authenticated .doc-helpers-page-title h2 {
+  margin: 0 0 6px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+body.user-authenticated .page-title p,
+body.user-authenticated .llh-schedule-page-title p,
+body.user-authenticated .doc-helpers-page-title p {
+  margin: 0;
+  max-width: 52rem;
+  line-height: 1.45;
+}
+
+/* Use available width; avoid orphaned gutters when sidebar collapses. */
+body.user-authenticated .llh-calendar-shell,
+body.user-authenticated .llh-main-calendar,
+body.user-authenticated .llh-weekly-execution,
+body.user-authenticated .llh-dash-week-card,
+body.user-authenticated #view-settings .settings-card,
+body.user-authenticated #view-billing .section-block,
+body.user-authenticated #view-messages .section-block,
+body.user-authenticated #view-ai .section-block,
+body.user-authenticated #view-support-center .section-block,
+body.user-authenticated #view-children .section-block,
+body.user-authenticated #view-child-tools-daily-logs .section-block,
+body.user-authenticated #view-home .section-block {
+  width: 100%;
+  max-width: min(1360px, 100%);
+  box-sizing: border-box;
+}
+
+body.user-authenticated .llh-calendar-shell,
+body.user-authenticated .llh-main-calendar,
+body.user-authenticated.sidebar-collapsed .llh-dash-week-card,
+body.user-authenticated.sidebar-collapsed #view-settings .settings-card,
+body.user-authenticated.sidebar-collapsed #view-billing .section-block,
+body.user-authenticated.sidebar-collapsed #view-messages .section-block,
+body.user-authenticated.sidebar-collapsed #view-ai .section-block,
+body.user-authenticated.sidebar-collapsed #view-support-center .section-block,
+body.user-authenticated.sidebar-collapsed #view-children .section-block,
+body.user-authenticated.sidebar-collapsed #view-child-tools-daily-logs .section-block {
+  max-width: none;
+}
+
+body.user-authenticated .section-block,
+body.user-authenticated .settings-card,
+body.user-authenticated .llh-ds-card,
+body.user-authenticated .doc-helper-card {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+body.user-authenticated .llh-calendar-shell {
+  gap: 14px;
+}
+
+body.user-authenticated .llh-calendar-layout {
+  gap: 14px;
+}
+
+body.user-authenticated .nav-link {
+  min-height: 44px;
+}
+
+body.user-authenticated .account-actions .ghost-button,
+body.user-authenticated .account-actions .primary-button,
+body.user-authenticated .topbar .sidebar-toggle {
+  min-height: 44px;
+}
+
+body.user-authenticated .topbar .ghost-button,
+body.user-authenticated .topbar .primary-button {
+  min-height: 40px;
+}
+
+body.user-authenticated .empty-state,
+body.user-authenticated .profile-empty-state {
+  padding: 24px 20px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+body.user-authenticated .empty-state h3,
+body.user-authenticated .profile-empty-state h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+body.user-authenticated .empty-state p,
+body.user-authenticated .profile-empty-state p {
+  margin: 0 auto;
+  max-width: 32rem;
+  line-height: 1.45;
+}
+
+body.user-authenticated .after-action-prompt {
+  left: 50%;
+  right: auto;
+  width: min(560px, calc(100vw - 32px));
+  max-width: min(560px, calc(100vw - 32px));
+  z-index: 60;
+}
+
+body.user-authenticated .modal-content {
+  width: min(100%, 42rem);
+  max-width: min(42rem, calc(100vw - 1.5rem));
+  box-sizing: border-box;
+}
+
+body.user-authenticated .doc-helpers-grid,
+body.user-authenticated .doc-helper-cards,
+body.user-authenticated .support-center-grid,
+body.user-authenticated .children-list,
+body.user-authenticated .settings-stack {
+  min-width: 0;
+}
+
+body.user-authenticated .primary-button,
+body.user-authenticated .ghost-button {
+  max-width: 100%;
+}
+
+body.user-authenticated .primary-button,
+body.user-authenticated .ghost-button,
+body.user-authenticated .chip-button {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1101px) {
+  body.user-authenticated .view {
+    padding: 18px 24px 32px;
+  }
+
+  body.user-authenticated.sidebar-collapsed .view {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  body.user-authenticated .topbar {
+    padding: 12px 22px;
+  }
+
+  body.user-authenticated .billing-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+
+  body.user-authenticated .settings-card-body {
+    gap: 12px;
+  }
+
+  body.user-authenticated .llh-calendar-layout {
+    grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.85fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  body.user-authenticated .view {
+    padding: 14px 14px 28px;
+  }
+
+  body.user-authenticated .page-title,
+  body.user-authenticated .llh-schedule-page-title,
+  body.user-authenticated .doc-helpers-page-title {
+    margin-bottom: 12px;
+  }
+
+  body.user-authenticated .llh-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  body.user-authenticated .view {
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.user-authenticated .account-actions .ghost-button,
+  body.user-authenticated .account-actions .primary-button {
+    min-height: 44px;
+  }
+
+  body.user-authenticated .after-action-prompt {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+  body.user-authenticated .modal-content {
+    max-width: calc(100vw - 1rem);
+  }
+}
+
+/* Soft overflow guards for provider content */
+body.user-authenticated .main img,
+body.user-authenticated .main video,
+body.user-authenticated .main canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+body.user-authenticated .admin-table-wrap,
+body.user-authenticated .comparison-table-wrap,
+body.user-authenticated .llh-cal-week-strip {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+body.user-authenticated .main {
+  overflow-x: clip;
 }

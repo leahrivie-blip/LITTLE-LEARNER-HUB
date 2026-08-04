@@ -593,6 +593,291 @@ let childRecordEditReturnFocus = null;
 let resourceViewerReturnFocus = null;
 let calendarEventModalReturnFocus = null;
 let notificationBellReturnFocus = null;
+
+/* =========================================================================
+   Canonical provider overlay body scroll-lock
+   - Nested-safe token stack
+   - Preserves exact page scroll (position: fixed + restore)
+   - Compensates scrollbar gutter so the page does not jump horizontally
+   - Blocks wheel / touch / keyboard scroll from moving the background
+   ========================================================================= */
+const llhBodyScrollLockTokens = new Set();
+let llhBodyScrollLockState = null;
+let llhBodyScrollLockSyncQueued = false;
+
+function llhScrollbarGutterWidth() {
+  return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+}
+
+function llhIsEditableScrollTarget(target) {
+  if (!(target instanceof Element)) return false;
+  const tag = (target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return true;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
+function llhScrollableAncestor(start, root) {
+  let node = start instanceof Element ? start : null;
+  while (node && node !== root && node !== document.body && node !== document.documentElement) {
+    const style = window.getComputedStyle(node);
+    const overflowY = style.overflowY;
+    const canScrollY = (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay")
+      && node.scrollHeight > node.clientHeight + 1;
+    if (canScrollY) return node;
+    const overflowX = style.overflowX;
+    const canScrollX = (overflowX === "auto" || overflowX === "scroll" || overflowX === "overlay")
+      && node.scrollWidth > node.clientWidth + 1;
+    if (canScrollX) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function llhEventInsideOpenOverlay(target) {
+  if (!(target instanceof Node)) return false;
+  const el = target.nodeType === 1 ? target : target.parentElement;
+  if (!el) return false;
+  return Boolean(el.closest(
+    ".modal.open, .llh-confirm-dialog:not([hidden]), [data-llh-record-edit-dialog]:not([hidden]), "
+    + "[data-lesson-editor-leave-dialog]:not([hidden]), .founding-vs-pro-confirm-overlay, "
+    + ".lesson-workspace-more-menu:not([hidden]), .lesson-workspace-action-sheet:not([hidden]), "
+    + ".sidebar, .mobile-nav-backdrop, #notificationBellPanel:not([hidden]), "
+    + ".llh-item-menu-panel.is-open, [data-work-quick-sheet].is-open, "
+    + ".family-hub-invite-panel, #llhPublicMobileMenu:not([hidden])",
+  ));
+}
+
+function llhPreventBackgroundWheel(event) {
+  if (!llhBodyScrollLockState) return;
+  if (llhEventInsideOpenOverlay(event.target)) {
+    const root = document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), .founding-vs-pro-confirm-overlay")
+      || document.body;
+    const scrollable = llhScrollableAncestor(event.target, root);
+    if (scrollable) {
+      const delta = event.deltaY;
+      const top = scrollable.scrollTop;
+      const max = scrollable.scrollHeight - scrollable.clientHeight;
+      if ((delta < 0 && top <= 0) || (delta > 0 && top >= max - 1)) {
+        event.preventDefault();
+      }
+      return;
+    }
+  }
+  event.preventDefault();
+}
+
+function llhPreventBackgroundTouchMove(event) {
+  if (!llhBodyScrollLockState) return;
+  if (llhEventInsideOpenOverlay(event.target)) {
+    const root = document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), .founding-vs-pro-confirm-overlay")
+      || document.body;
+    if (llhScrollableAncestor(event.target, root)) return;
+  }
+  event.preventDefault();
+}
+
+function llhPreventBackgroundKeyScroll(event) {
+  if (!llhBodyScrollLockState) return;
+  const keys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Spacebar"]);
+  if (!keys.has(event.key)) return;
+  if (llhIsEditableScrollTarget(event.target)) return;
+  if (llhEventInsideOpenOverlay(event.target)) {
+    const root = document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), .founding-vs-pro-confirm-overlay")
+      || document.body;
+    if (llhScrollableAncestor(event.target, root)) return;
+  }
+  event.preventDefault();
+}
+
+function llhApplyBodyScrollLock(preferred = null) {
+  if (llhBodyScrollLockState) return;
+  const scrollX = Number.isFinite(preferred?.scrollX)
+    ? preferred.scrollX
+    : (window.scrollX || window.pageXOffset || 0);
+  const scrollY = Number.isFinite(preferred?.scrollY)
+    ? preferred.scrollY
+    : (window.scrollY || window.pageYOffset || 0);
+  const gutter = llhScrollbarGutterWidth();
+  llhBodyScrollLockState = {
+    scrollX,
+    scrollY,
+    gutter,
+    htmlOverflow: document.documentElement.style.overflow,
+    bodyOverflow: document.body.style.overflow,
+    bodyPosition: document.body.style.position,
+    bodyTop: document.body.style.top,
+    bodyLeft: document.body.style.left,
+    bodyRight: document.body.style.right,
+    bodyWidth: document.body.style.width,
+    bodyPaddingRight: document.body.style.paddingRight,
+  };
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${scrollY}px`;
+  document.body.style.left = `-${scrollX}px`;
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+  if (gutter > 0) {
+    document.body.style.paddingRight = `${gutter}px`;
+    document.documentElement.style.setProperty("--llh-scrollbar-compensation", `${gutter}px`);
+  }
+  document.documentElement.classList.add("llh-scroll-locked");
+  document.body.classList.add("llh-scroll-locked");
+  window.addEventListener("wheel", llhPreventBackgroundWheel, { passive: false, capture: true });
+  window.addEventListener("touchmove", llhPreventBackgroundTouchMove, { passive: false, capture: true });
+  window.addEventListener("keydown", llhPreventBackgroundKeyScroll, true);
+}
+
+function llhClearBodyScrollLockStyles() {
+  const saved = llhBodyScrollLockState;
+  if (!saved) {
+    document.documentElement.classList.remove("llh-scroll-locked");
+    document.body.classList.remove("llh-scroll-locked");
+    document.documentElement.style.removeProperty("--llh-scrollbar-compensation");
+    return;
+  }
+  document.documentElement.style.overflow = saved.htmlOverflow || "";
+  document.body.style.overflow = saved.bodyOverflow || "";
+  document.body.style.position = saved.bodyPosition || "";
+  document.body.style.top = saved.bodyTop || "";
+  document.body.style.left = saved.bodyLeft || "";
+  document.body.style.right = saved.bodyRight || "";
+  document.body.style.width = saved.bodyWidth || "";
+  document.body.style.paddingRight = saved.bodyPaddingRight || "";
+  document.documentElement.style.removeProperty("--llh-scrollbar-compensation");
+  document.documentElement.classList.remove("llh-scroll-locked");
+  document.body.classList.remove("llh-scroll-locked");
+  window.removeEventListener("wheel", llhPreventBackgroundWheel, { capture: true });
+  window.removeEventListener("touchmove", llhPreventBackgroundTouchMove, { capture: true });
+  window.removeEventListener("keydown", llhPreventBackgroundKeyScroll, true);
+  const x = saved.scrollX;
+  const y = saved.scrollY;
+  llhBodyScrollLockState = null;
+  // Blur overlay focus targets so the browser does not scroll-into-view after unlock.
+  const active = document.activeElement;
+  if (active && active !== document.body && typeof active.blur === "function") {
+    try { active.blur(); } catch { /* ignore */ }
+  }
+  const restore = () => {
+    if (llhBodyScrollLockState) return;
+    window.scrollTo(x, y);
+    if (document.documentElement) document.documentElement.scrollTop = y;
+    if (document.body) document.body.scrollTop = y;
+  };
+  restore();
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(restore);
+  });
+}
+
+function acquireBodyScrollLock(token = "overlay", preferred = null) {
+  const key = String(token || "overlay");
+  const wasUnlocked = llhBodyScrollLockTokens.size === 0 && !llhBodyScrollLockState;
+  llhBodyScrollLockTokens.add(key);
+  llhApplyBodyScrollLock(preferred);
+  // Cancel deferred library scroll restores so they cannot fight a new overlay.
+  if (wasUnlocked) {
+    try { lessonLibraryRestoreGeneration += 1; } catch { /* boot-safe */ }
+  }
+}
+
+function releaseBodyScrollLock(token = "overlay") {
+  const key = String(token || "overlay");
+  llhBodyScrollLockTokens.delete(key);
+  if (llhBodyScrollLockTokens.size === 0) {
+    llhClearBodyScrollLockStyles();
+  }
+}
+
+function forceReleaseAllBodyScrollLocks() {
+  llhBodyScrollLockTokens.clear();
+  llhClearBodyScrollLockStyles();
+}
+
+function providerOverlayScrollLockActive() {
+  if (document.querySelector(".modal.open")) return true;
+  if (document.querySelector(".llh-confirm-dialog:not([hidden])")) return true;
+  if (document.querySelector("[data-llh-record-edit-dialog]:not([hidden])")) return true;
+  if (document.querySelector("[data-lesson-editor-leave-dialog]:not([hidden])")) return true;
+  if (document.querySelector(".founding-vs-pro-confirm-overlay")) return true;
+  if (document.body.classList.contains("mobile-nav-open")) return true;
+  if (document.body.classList.contains("force-password-required")) return true;
+  if (document.body.classList.contains("notification-bell-open")) return true;
+  if (document.body.classList.contains("llh-item-menu-open")) return true;
+  if (document.body.classList.contains("lesson-workspace-more-open")) return true;
+  if (document.body.classList.contains("lesson-workspace-sheet-open")) return true;
+  if (document.body.classList.contains("llh-public-menu-open")) return true;
+  if (document.body.classList.contains("work-quick-add-open")) return true;
+  if (document.body.classList.contains("family-hub-invite-open")) return true;
+  if (document.body.classList.contains("resource-viewer-open")) return true;
+  if (document.body.classList.contains("lesson-workspace-open")) return true;
+  if (document.body.classList.contains("auth-modal-open")) return true;
+  if (document.body.classList.contains("nuo-open")) return true;
+  return false;
+}
+
+function syncProviderBodyScrollLock(preferred = null) {
+  if (providerOverlayScrollLockActive()) {
+    acquireBodyScrollLock("provider-overlays", preferred);
+  } else {
+    releaseBodyScrollLock("provider-overlays");
+  }
+}
+
+function queueProviderBodyScrollLockSync() {
+  if (llhBodyScrollLockSyncQueued) return;
+  llhBodyScrollLockSyncQueued = true;
+  requestAnimationFrame(() => {
+    llhBodyScrollLockSyncQueued = false;
+    syncProviderBodyScrollLock();
+  });
+}
+
+function installProviderOverlayScrollLock() {
+  if (window.__llhProviderOverlayScrollLockInstalled) return;
+  window.__llhProviderOverlayScrollLockInstalled = true;
+  const schedule = () => queueProviderBodyScrollLockSync();
+  const bodyObserver = new MutationObserver(schedule);
+  bodyObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  const watchOverlayNode = (node) => {
+    if (!(node instanceof Element)) return;
+    if (
+      node.classList.contains("modal")
+      || node.classList.contains("llh-confirm-dialog")
+      || node.hasAttribute("data-llh-record-edit-dialog")
+      || node.hasAttribute("data-lesson-editor-leave-dialog")
+      || node.classList.contains("founding-vs-pro-confirm-overlay")
+      || node.classList.contains("lesson-workspace-more-menu")
+      || node.classList.contains("lesson-workspace-action-sheet")
+      || node.id === "notificationBellPanel"
+    ) {
+      bodyObserver.observe(node, { attributes: true, attributeFilter: ["class", "hidden", "aria-hidden"] });
+    }
+  };
+  document.querySelectorAll(
+    ".modal, .llh-confirm-dialog, [data-llh-record-edit-dialog], [data-lesson-editor-leave-dialog], "
+    + ".founding-vs-pro-confirm-overlay, .lesson-workspace-more-menu, .lesson-workspace-action-sheet, #notificationBellPanel",
+  ).forEach(watchOverlayNode);
+  const treeObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach(watchOverlayNode);
+    }
+    schedule();
+  });
+  treeObserver.observe(document.body, { childList: true, subtree: true });
+  schedule();
+}
+
+if (typeof window !== "undefined") {
+  window.acquireBodyScrollLock = acquireBodyScrollLock;
+  window.releaseBodyScrollLock = releaseBodyScrollLock;
+  window.forceReleaseAllBodyScrollLocks = forceReleaseAllBodyScrollLocks;
+  window.syncProviderBodyScrollLock = syncProviderBodyScrollLock;
+  window.queueProviderBodyScrollLockSync = queueProviderBodyScrollLockSync;
+}
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
 let activeSupportCategoryId = "";
@@ -2329,10 +2614,15 @@ function freeLessonPlanMarketingLabel() {
 }
 
 function freePlanFeatureList() {
+  const childLimit = effectiveFreeChildProfileLimit();
   return [
     MEMBERSHIP_COPY.freeCore,
     MEMBERSHIP_COPY.freeBrowse,
-    ...freePlanBaseFeatures.filter((line) => !/10 complete starter|browse titles/i.test(line)),
+    ...freePlanBaseFeatures
+      .filter((line) => !/10 complete starter|browse titles/i.test(line))
+      .map((line) => String(line || "")
+        .replace(/Up to \d+ Child Profiles/i, `Up to ${childLimit} Child Profiles`)
+        .replace(/^\d+ Child Profiles/i, `${childLimit} Child Profiles`)),
   ];
 }
 
@@ -2584,6 +2874,7 @@ const paidAiMonthlyLimit = 250;
 // null means "not yet loaded"; when null, canUseAi() defaults to true and the server enforces the limit.
 let serverAiUsed = null;
 let serverAiLimit = null;
+let serverAiResetDate = null;
 const freeChildProfileLimit = 5;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
@@ -3245,6 +3536,11 @@ function syncNonessentialNoticesForAuthOverlay(open) {
 }
 
 function openAuthModal(mode = "login") {
+  // Capture scroll before auth chrome mutates layout / focus.
+  const preferredScroll = {
+    scrollX: window.scrollX || window.pageXOffset || 0,
+    scrollY: window.scrollY || window.pageYOffset || 0,
+  };
   if (mode === "signup") {
     signupWizardStep = 1;
     signupPersonaChoice = "";
@@ -3252,6 +3548,7 @@ function openAuthModal(mode = "login") {
   }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
+  syncProviderBodyScrollLock(preferredScroll);
   syncNonessentialNoticesForAuthOverlay(true);
   // Close leftover onboarding so it cannot intercept login after logout.
   try {
@@ -3301,6 +3598,7 @@ function closeAuthModal() {
   modal.classList.remove("open");
   modal.hidden = true;
   modal.setAttribute("aria-hidden", "true");
+  syncProviderBodyScrollLock();
   syncNonessentialNoticesForAuthOverlay(false);
   signupWizardStep = 1;
   signupPersonaChoice = "";
@@ -4352,6 +4650,10 @@ function accountHasRemainingPaidAccess(account = null) {
   ) {
     return endMs === null || endMs > Date.now();
   }
+  // Founding active flag alone (pre-Stripe-sync) must still grant paid access.
+  if (target.foundingMemberActive) {
+    return endMs === null || endMs > Date.now();
+  }
   if (status.includes("access ends") && endMs !== null && endMs > Date.now()) return true;
   return false;
 }
@@ -5028,9 +5330,21 @@ function subscriptionToAccountUpdates(subscription) {
       programAccessViaOwner: typeof subscription.programAccessViaOwner === "boolean"
         ? subscription.programAccessViaOwner
         : undefined,
+      multiRoleTester: typeof subscription.multiRoleTester === "boolean"
+        ? subscription.multiRoleTester
+        : undefined,
+      hdhIndependentTester: typeof subscription.hdhIndependentTester === "boolean"
+        ? subscription.hdhIndependentTester
+        : undefined,
       productStatus: subscription.productStatus || undefined,
       adminAuditKey: subscription.adminAuditKey || undefined,
       lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
+      membershipPlan: subscription.membershipPlan || undefined,
+      membershipStatus: subscription.membershipStatus || undefined,
+      displayPrice: subscription.displayPrice || undefined,
+      currentAccess: subscription.currentAccess || undefined,
+      accessEndLabel: subscription.accessEndLabel || undefined,
+      hasProAccess: typeof subscription.hasProAccess === "boolean" ? subscription.hasProAccess : undefined,
     };
   }
   const isFounding = isFoundingSubscription(subscription);
@@ -5040,7 +5354,8 @@ function subscriptionToAccountUpdates(subscription) {
     plan,
     subscriptionCadence: subscription.subscriptionCadence || (plan === "Founding" ? "monthly" : ""),
     subscriptionStatus: subscription.subscriptionStatus || `${billingPlanLabel(plan)} Subscription Active`,
-    subscriptionStartedAt: subscription.subscriptionStartedAt || new Date().toISOString(),
+    // Keep blank when server omits start date — never invent "now" (that skews AI reset/billing displays).
+    subscriptionStartedAt: subscription.subscriptionStartedAt || "",
     foundingMemberActive: isFounding,
     foundingMemberHistorical: Boolean(subscription.foundingMemberHistorical || subscription.foundingMember || isFounding),
     foundingMember: Boolean(subscription.foundingMemberHistorical || subscription.foundingMember || isFounding),
@@ -5065,9 +5380,21 @@ function subscriptionToAccountUpdates(subscription) {
     programAccessViaOwner: typeof subscription.programAccessViaOwner === "boolean"
       ? subscription.programAccessViaOwner
       : undefined,
+    multiRoleTester: typeof subscription.multiRoleTester === "boolean"
+      ? subscription.multiRoleTester
+      : undefined,
+    hdhIndependentTester: typeof subscription.hdhIndependentTester === "boolean"
+      ? subscription.hdhIndependentTester
+      : undefined,
     productStatus: subscription.productStatus || undefined,
     adminAuditKey: subscription.adminAuditKey || undefined,
     lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
+    membershipPlan: subscription.membershipPlan || undefined,
+    membershipStatus: subscription.membershipStatus || undefined,
+    displayPrice: subscription.displayPrice || undefined,
+    currentAccess: subscription.currentAccess || undefined,
+    accessEndLabel: subscription.accessEndLabel || undefined,
+    hasProAccess: typeof subscription.hasProAccess === "boolean" ? subscription.hasProAccess : undefined,
   };
 }
 
@@ -5081,8 +5408,7 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
     if (data?.aiUsage && cleanEmail === currentUser) {
-      if (typeof data.aiUsage.used === "number") serverAiUsed = data.aiUsage.used;
-      if (typeof data.aiUsage.limit === "number") serverAiLimit = data.aiUsage.limit;
+      applyServerAiUsage(data.aiUsage);
     }
     const updates = subscriptionToAccountUpdates(data?.subscription);
     if (!updates) {
@@ -5142,6 +5468,12 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     }
     if (typeof data?.subscription?.programAccessViaOwner === "boolean") {
       updates.programAccessViaOwner = data.subscription.programAccessViaOwner;
+    }
+    if (typeof data?.subscription?.multiRoleTester === "boolean") {
+      updates.multiRoleTester = data.subscription.multiRoleTester;
+    }
+    if (typeof data?.subscription?.hdhIndependentTester === "boolean") {
+      updates.hdhIndependentTester = data.subscription.hdhIndependentTester;
     }
     // Drop undefined keys so sync never wipes program fields accidentally.
     Object.keys(updates).forEach((key) => {
@@ -5756,6 +6088,7 @@ let lessonLibrarySort = "recommended"; // recommended | newest | az | recent
 let lessonLibraryFiltersOpen = false;
 let lessonLibraryScrollY = 0;
 let lessonLibraryFocusResourceId = "";
+let lessonLibraryRestoreGeneration = 0;
 let lessonWorkspaceTab = "week";
 let lessonWorkspaceWeekDay = "monday";
 let lessonRecentlyViewed = readSavedJson("llhLessonRecentlyViewed", []);
@@ -5975,6 +6308,7 @@ let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 let adminAnalyticsLastError = "";
+let adminAnalyticsLastDiagnostic = null;
 let adminAnalyticsLoadPromise = null;
 let adminAnalyticsAbortController = null;
 let adminAnalyticsFetchedAt = 0;
@@ -6339,8 +6673,10 @@ const adminTabLabels = {
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
 const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
-   Desktop side-nav remains from 1101px up (covers iPad portrait/landscape). */
+   Desktop side-nav remains from 1101px up (covers iPad portrait/landscape).
+   Desktop can also collapse via #sidebarToggle; preference persists. */
 const mobileNavMaxWidth = 1100;
+const DESKTOP_SIDEBAR_PREF_KEY = "llhDesktopSidebarCollapsed";
 const installPromptDeferDays = 30;
 let deferredInstallPrompt = null;
 let installModalSource = "settings";
@@ -6408,44 +6744,132 @@ function isMobileLayout() {
   return window.matchMedia(`(max-width: ${mobileNavMaxWidth}px)`).matches;
 }
 
+function readDesktopSidebarCollapsedPref() {
+  try {
+    return localStorage.getItem(DESKTOP_SIDEBAR_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeDesktopSidebarCollapsedPref(collapsed) {
+  try {
+    localStorage.setItem(DESKTOP_SIDEBAR_PREF_KEY, collapsed ? "1" : "0");
+  } catch { /* ignore quota / private mode */ }
+}
+
 function setMobileNavOpen(open) {
-  const shouldOpen = Boolean(open) && isMobileLayout();
+  // Never open the provider drawer underneath an active workflow modal/viewer.
+  const blockingOverlay = Boolean(
+    open
+    && (
+      document.querySelector(".modal.open")
+      || document.querySelector(".llh-confirm-dialog:not([hidden])")
+      || document.body.classList.contains("force-password-required")
+    ),
+  );
+  const shouldOpen = Boolean(open) && isMobileLayout() && !blockingOverlay;
   document.body.classList.toggle("mobile-nav-open", shouldOpen);
   const toggle = document.querySelector("#mobileMenuToggle");
   if (toggle) {
     toggle.setAttribute("aria-expanded", String(shouldOpen));
     toggle.setAttribute("aria-label", shouldOpen ? "Close menu" : "Open menu");
   }
+  syncSidebarToggleChrome();
+  queueProviderBodyScrollLockSync();
+}
+
+function syncSidebarToggleChrome() {
+  const authenticated = document.body.classList.contains("user-authenticated");
+  const desktop = !isMobileLayout();
+  const desktopCollapsed = desktop && authenticated && readDesktopSidebarCollapsedPref();
+  document.body.classList.toggle("sidebar-collapsed", desktopCollapsed);
+
+  const desktopToggle = document.querySelector("#sidebarToggle");
+  if (desktopToggle) {
+    desktopToggle.hidden = !authenticated || !desktop;
+    if (authenticated && desktop) {
+      desktopToggle.setAttribute("aria-expanded", desktopCollapsed ? "false" : "true");
+      desktopToggle.setAttribute("aria-label", desktopCollapsed ? "Expand menu" : "Collapse menu");
+      desktopToggle.classList.toggle("is-collapsed", desktopCollapsed);
+      const label = desktopToggle.querySelector(".sidebar-toggle-label");
+      if (label) label.textContent = desktopCollapsed ? "Menu" : "Hide menu";
+    }
+  }
+
+  const mobileToggle = document.querySelector("#mobileMenuToggle");
+  if (mobileToggle) {
+    const open = document.body.classList.contains("mobile-nav-open");
+    mobileToggle.setAttribute("aria-expanded", String(open));
+    mobileToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  }
+}
+
+function setDesktopSidebarCollapsed(collapsed) {
+  writeDesktopSidebarCollapsedPref(Boolean(collapsed));
+  syncSidebarToggleChrome();
+  syncTopbarMetrics();
+}
+
+function toggleDesktopSidebar() {
+  setDesktopSidebarCollapsed(!readDesktopSidebarCollapsedPref());
 }
 
 function installMobileNavigation() {
   const sidebar = document.querySelector(".sidebar");
   const mobileBrand = document.querySelector(".mobile-brand");
-  if (!sidebar || !mobileBrand || document.querySelector("#mobileMenuToggle")) return;
+  if (!sidebar || !mobileBrand) return;
   sidebar.id = sidebar.id || "mobileNavigation";
-  const toggle = document.createElement("button");
-  toggle.className = "mobile-menu-toggle";
-  toggle.id = "mobileMenuToggle";
-  toggle.type = "button";
-  toggle.setAttribute("aria-label", "Open menu");
-  toggle.setAttribute("aria-controls", sidebar.id);
-  toggle.setAttribute("aria-expanded", "false");
-  toggle.innerHTML = "<span></span><span></span><span></span>";
-  mobileBrand.prepend(toggle);
-  const backdrop = document.createElement("button");
-  backdrop.className = "mobile-nav-backdrop";
-  backdrop.type = "button";
-  backdrop.setAttribute("aria-label", "Close menu");
-  document.body.appendChild(backdrop);
-  toggle.addEventListener("click", () => setMobileNavOpen(!document.body.classList.contains("mobile-nav-open")));
-  backdrop.addEventListener("click", () => setMobileNavOpen(false));
-  window.addEventListener("resize", () => {
-    if (!isMobileLayout()) setMobileNavOpen(false);
-    syncTopbarMetrics();
-  });
-  window.visualViewport?.addEventListener("resize", syncTopbarMetrics);
-  window.visualViewport?.addEventListener("scroll", syncTopbarMetrics);
+
+  if (!document.querySelector("#mobileMenuToggle")) {
+    const toggle = document.createElement("button");
+    toggle.className = "mobile-menu-toggle";
+    toggle.id = "mobileMenuToggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-label", "Open menu");
+    toggle.setAttribute("aria-controls", sidebar.id);
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.innerHTML = "<span></span><span></span><span></span>";
+    mobileBrand.prepend(toggle);
+    toggle.addEventListener("click", () => setMobileNavOpen(!document.body.classList.contains("mobile-nav-open")));
+  }
+
+  if (!document.querySelector(".mobile-nav-backdrop")) {
+    const backdrop = document.createElement("button");
+    backdrop.className = "mobile-nav-backdrop";
+    backdrop.type = "button";
+    backdrop.setAttribute("aria-label", "Close menu");
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", () => setMobileNavOpen(false));
+  }
+
+  const desktopToggle = document.querySelector("#sidebarToggle");
+  if (desktopToggle && !desktopToggle.dataset.llhBound) {
+    desktopToggle.dataset.llhBound = "1";
+    desktopToggle.setAttribute("aria-controls", sidebar.id);
+    desktopToggle.addEventListener("click", () => {
+      if (isMobileLayout()) {
+        setMobileNavOpen(!document.body.classList.contains("mobile-nav-open"));
+        return;
+      }
+      toggleDesktopSidebar();
+    });
+  }
+
+  if (!window.__llhSidebarResizeBound) {
+    window.__llhSidebarResizeBound = true;
+    window.addEventListener("resize", () => {
+      if (!isMobileLayout()) setMobileNavOpen(false);
+      syncSidebarToggleChrome();
+      syncTopbarMetrics();
+    });
+    window.visualViewport?.addEventListener("resize", syncTopbarMetrics);
+    window.visualViewport?.addEventListener("scroll", syncTopbarMetrics);
+  }
+
+  syncSidebarToggleChrome();
   syncTopbarMetrics();
+  installProviderOverlayScrollLock();
 }
 
 function syncTopbarMetrics() {
@@ -8402,7 +8826,11 @@ function curriculumActivityIdForItemId(itemId) {
 function curriculumActivityCountForLesson(lessonPlanId) {
   const targetId = String(lessonPlanId || "").trim();
   if (!targetId) return 0;
-  return effectiveCurriculumLibrary().activities.filter((item) => item.lessonPlanId === targetId).length;
+  const library = effectiveCurriculumLibrary();
+  const plan = (library.lessonPlans || []).find((item) => String(item.id || "") === targetId);
+  const declared = Number(plan?.activityCount || 0);
+  if (Number.isFinite(declared) && declared > 0) return declared;
+  return (library.activities || []).filter((item) => item.lessonPlanId === targetId).length;
 }
 
 function activityMatchesCurriculumCategoryFilter(activityCategory, filter) {
@@ -8921,7 +9349,7 @@ function filteredCurriculumActivitiesForAdmin() {
     const parent = curriculumActivityParentLesson(activity);
     if (filters.category && activity.activityCategory !== filters.category) return false;
     if (filters.status && (activity.status || "draft") !== filters.status) return false;
-    if (filters.age && (parent?.age || "") !== filters.age) return false;
+    if (filters.age && !agesMatchForFilter(parent?.age || "", filters.age)) return false;
     if (filters.lessonPlanId && activity.lessonPlanId !== filters.lessonPlanId) return false;
     if (!query) return true;
     const haystack = [
@@ -9022,7 +9450,7 @@ function renderAdminCurriculumActivityBrowser() {
   const viewingId = adminCurriculumActivityViewerId;
   const viewing = viewingId ? curriculumActivityById(viewingId) : null;
   const parentLessons = curriculumLessonPlansForAdmin();
-  const ages = [...new Set(parentLessons.map((plan) => plan.age).filter(Boolean))].sort();
+  const ages = canonicalAgeFilterOptions(parentLessons.map((plan) => plan.age).filter(Boolean));
   target.innerHTML = `
     <div class="section-heading">
       <div>
@@ -9055,7 +9483,7 @@ function renderAdminCurriculumActivityBrowser() {
         <select id="adminCurriculumActivityAgeFilter">
           <option value="">All ages</option>
           ${ages.map((age) => `
-            <option value="${escapeHtml(age)}"${filters.age === age ? " selected" : ""}>${escapeHtml(age)}</option>
+            <option value="${escapeHtml(age.value)}"${filters.age === age.value ? " selected" : ""}>${escapeHtml(age.label)}</option>
           `).join("")}
         </select>
       </label>
@@ -11024,6 +11452,9 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
       label: "Legacy",
       stage: "Legacy",
       summary: null,
+      contentPercent: 0,
+      weekdayLabel: "",
+      enrichmentFillPercent: 0,
     };
   }
   const acts = typeof curriculumActivitiesForLesson === "function"
@@ -11032,17 +11463,28 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
   const summary = typeof enrich.buildUpgradeSummary === "function"
     ? enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null)
     : null;
-  const percent = summary
-    ? summary.completionPercent
+  const enrichmentFill = summary
+    ? (summary.enrichmentFillPercent ?? summary.completionPercent)
     : enrich.computeCompletionPercent(plan, acts, plan.enrichmentDraft || null);
+  const contentPercent = summary?.contentCompletionPercent != null
+    ? summary.contentCompletionPercent
+    : enrichmentFill;
   const label = summary
     ? summary.completenessLabel
-    : enrich.completenessLabelFromPercent(percent, null);
+    : enrich.completenessLabelFromPercent(enrichmentFill, null);
   const stage = summary?.dashboardStage
     || (typeof enrich.dashboardStageFromSummary === "function"
-      ? enrich.dashboardStageFromSummary(summary || { completionPercent: percent })
+      ? enrich.dashboardStageFromSummary(summary || { completionPercent: enrichmentFill })
       : label);
-  return { percent, label, stage, summary };
+  return {
+    percent: contentPercent,
+    enrichmentFillPercent: enrichmentFill,
+    contentPercent,
+    weekdayLabel: summary?.weekdayCoverageLabel || summary?.weekdayCoverage?.label || "",
+    label,
+    stage,
+    summary,
+  };
 }
 
 function adminCurriculumCompletionBandMatch(percent, band) {
@@ -11115,13 +11557,14 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
-            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Upgrade status">${escapeHtml(stage)} · ${enrichment.percent}%</span>` : ""}
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status">${escapeHtml(stage)}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag" title="Content completion (weekday coverage)">${escapeHtml(enrichment.weekdayLabel || `${enrichment.contentPercent}% content`)}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
             ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
-            ${summary?.needsReview ? `<span class="tag">Needs review</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
-          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>` : ""}
+          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.contentPercent}%"></i></div>` : ""}
           ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
@@ -11132,6 +11575,9 @@ function curriculumLessonPlanAdminCardHtml(plan) {
         ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Upgrade Lesson</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
+        ${plan.disposableQaFixture === true && String(plan.status || "").toLowerCase() === "archived"
+          ? `<button class="danger-button" type="button" data-curriculum-fixture-permanent-delete="${escapeHtml(plan.id)}">Permanently Delete Disposable Fixture</button>`
+          : ""}
       </div>
     </article>
   `;
@@ -11149,7 +11595,7 @@ function filteredAdminCurriculumLessonPlans() {
   const filtered = curriculumLessonPlansForAdmin().filter((plan) => {
     if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
-    if (filters.age && String(plan.age || "") !== filters.age) return false;
+    if (filters.age && !agesMatchForFilter(plan.age, filters.age)) return false;
     if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
     const meta = metaFor(plan);
     if (isTeachingKitEnrichmentEditorEnabled() && filters.completionBand) {
@@ -11263,7 +11709,7 @@ function renderAdminCurriculumLessonPlanManager() {
   const editingId = adminCurriculumLessonEditorId;
   const editingPlan = editingId ? curriculumLessonEditorRecord() : null;
   const themes = [...new Set(allPlans.map((plan) => plan.theme).filter(Boolean))].sort();
-  const ages = [...new Set(allPlans.map((plan) => plan.age).filter(Boolean))].sort();
+  const ages = canonicalAgeFilterOptions(allPlans.map((plan) => plan.age).filter(Boolean));
   const selectedCount = adminCurriculumSelectedIds.size;
   const mismatch = adminCurriculumLoadMismatch();
   const mismatchBanner = mismatch
@@ -11325,7 +11771,7 @@ function renderAdminCurriculumLessonPlanManager() {
       <label><span>Age</span>
         <select id="adminCurriculumFilterAge">
           <option value="">All</option>
-          ${ages.map((age) => `<option value="${escapeHtml(age)}" ${adminCurriculumListFilters.age === age ? "selected" : ""}>${escapeHtml(age)}</option>`).join("")}
+          ${ages.map((age) => `<option value="${escapeHtml(age.value)}" ${adminCurriculumListFilters.age === age.value ? "selected" : ""}>${escapeHtml(age.label)}</option>`).join("")}
         </select>
       </label>
       <label><span>Theme</span>
@@ -13323,6 +13769,12 @@ function canAccessCapability(account, capability, options = {}) {
   if (!capability || !PLATFORM_CAPABILITIES.includes(capability)) return false;
   if (options.adminOverride === true) return true;
   if (!account) return false;
+  // Multi-Role Tester sandbox fence: never expose billing while simulating a role.
+  try {
+    if (typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating()) {
+      if (capability === "billing") return false;
+    }
+  } catch (_error) { /* ignore */ }
   const accountType = resolveAccountType(account);
   // Prefer getUserRole so Admin View As (Owner/Director/Teacher/Assistant) updates nav/permissions instantly.
   const role = typeof getUserRole === "function" ? getUserRole(account) : resolveUserRole(account);
@@ -13360,6 +13812,16 @@ function getAccountType(account = currentAccount()) {
 function getUserRole(account = currentAccount()) {
   const previewRole = typeof adminPreviewUserRole === "function" ? adminPreviewUserRole() : "";
   if (previewRole) return previewRole;
+  // Multi-Role Tester Switch View (sandbox-only; never Admin View As).
+  try {
+    if (typeof getMultiRoleTesterViewRole === "function") {
+      const testerRole = String(getMultiRoleTesterViewRole() || "").trim().toLowerCase();
+      if (testerRole === USER_ROLES.OWNER || testerRole === USER_ROLES.DIRECTOR
+        || testerRole === USER_ROLES.TEACHER || testerRole === USER_ROLES.ASSISTANT) {
+        return testerRole;
+      }
+    }
+  } catch (_error) { /* module boot race */ }
   if (!account) return USER_ROLES.OWNER;
   return resolveUserRole(account);
 }
@@ -13521,6 +13983,8 @@ function loadAccountState(email) {
   const account = ensureAccount(email);
   if (!account) return;
   currentUser = account.email;
+  // Shared-browser safety: never leave Admin Bearer tokens available to a customer login.
+  enforceAdminSessionIsolationForMember();
   // Backfill accountType + role for existing accounts (defaults: home_daycare / owner).
   ensureAccountAccessMigrated(account.email);
   // Refresh curriculum so grandfathered Free users receive their legacy Free library payload.
@@ -13908,7 +14372,7 @@ async function resendVerificationEmail() {
   } catch (error) {
     console.warn("[auth] server_verification_email_unavailable", error);
   }
-  updateAccount(currentUser, { emailVerified: false });
+  // Do not flip emailVerified on send failure — that incorrectly marks verified users unverified.
   return "We couldn’t send a verification email right now. Try again in a minute, or Message Support and we’ll help.";
 }
 
@@ -14050,7 +14514,11 @@ function updateAuthButtons() {
       signUp.dataset.view = isProUser() ? "billing" : "plans";
     } else if (currentUser) {
       if (isProUser()) {
-        signUp.textContent = `${billingPlanLabel()} Active`;
+        const accessStatus = typeof membershipDisplayStatus === "function"
+          ? membershipDisplayStatus(currentAccount())
+          : null;
+        const accessLabel = accessStatus?.planLabel || accessStatus?.label || billingPlanLabel();
+        signUp.textContent = `${accessLabel} Active`;
         signUp.dataset.view = "billing";
         delete signUp.dataset.checkoutPlan;
       } else if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
@@ -14193,6 +14661,7 @@ function syncPlatformNavVisibility() {
   syncWorkModeNav();
   syncUniversalQuickAdd();
   syncHdhTesterSwitcherChrome();
+  try { typeof syncMultiRoleTesterChrome === "function" && syncMultiRoleTesterChrome(); } catch (_error) { /* ignore */ }
 }
 
 /** Testing-site work-mode nav: role-specific homes (not a shared feature dump). */
@@ -14303,7 +14772,7 @@ function renderOwnerHomeDashboard() {
 
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
-  const children = records.children || [];
+  const children = getActiveChildren(records);
   const attendance = (records.attendance || []).filter((a) => a.date === today);
   const checkedIn = attendance.filter((a) => {
     const status = String(a.status || "").toLowerCase();
@@ -14384,7 +14853,7 @@ function renderTeacherTodayPage() {
   const role = workModeRole();
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
-  const children = records.children || [];
+  const children = getActiveChildren(records);
   const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
   const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
@@ -14747,6 +15216,9 @@ function shouldShowInstallPromptCard() {
   // First-login overlay budget: never stack install with boot verification or Free upgrade chrome.
   if (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive()) return false;
   if (document.body.classList.contains("app-boot-verifying")) return false;
+  // Cookie notice + action toast already occupy the bottom — don't add install chrome.
+  if (document.body.classList.contains("has-meta-cookie-notice")) return false;
+  if (document.body.classList.contains("has-action-toast")) return false;
   if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
     if (!isFreeWelcomeCardDismissed()) return false;
     if (!isFreePlanReminderDismissed()) return false;
@@ -14999,13 +15471,16 @@ async function refreshNotificationBell() {
   notificationBellLoadPromise = (async () => {
     const previousUnread = Number(notificationBellState.unreadCount) || 0;
     const data = await fetchNotificationsFromBackend();
-    // Defense in depth: never show owner/admin-only alerts in a normal member bell.
+    // Provider bell is member-channel only. Admin_* alerts belong exclusively in
+    // Admin Center — even when the signed-in user is the platform owner.
     const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
-    const items = isSignedInPlatformOwner() || isAdminUnlocked()
-      ? rawItems
-      : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
+    const items = rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
     notificationBellState.items = items;
-    notificationBellState.unreadCount = items.filter((item) => !item.read).length;
+    // Server unreadCount is authoritative across the full inbox (not just the fetched page).
+    const serverUnread = Number(data.unreadCount);
+    notificationBellState.unreadCount = Number.isFinite(serverUnread)
+      ? Math.max(0, serverUnread)
+      : items.filter((item) => !item.read).length;
     notificationBellState.loaded = true;
     renderNotificationBell();
     // When a new notification arrives while Messages is open, refresh the thread
@@ -16897,6 +17372,7 @@ function updateBodyAuthClass() {
     freeUpgrade = false;
   }
   document.body.classList.toggle("user-free-upgrade", freeUpgrade);
+  try { syncSidebarToggleChrome(); } catch { /* boot-safe */ }
 }
 
 function updateAdminNavVisibility() {
@@ -17179,14 +17655,34 @@ function canSeeAdminNav() {
   // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
   // The floating preview badge still provides Return to Admin.
   if (isAdminPreviewSimulating()) return false;
+  // Multi-Role Tester Switch View never exposes Admin / Testing Center.
+  try {
+    if (typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating()) return false;
+    if (typeof canUseMultiRoleTester === "function" && canUseMultiRoleTester()) return false;
+  } catch (_error) { /* ignore */ }
   // Invited staff / independent testers never see Admin unlock — Leah-only.
   if (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount()) return false;
+  // A signed-in customer who is not the platform owner must never see Admin nav,
+  // even if a prior Admin unlock remains on this shared browser.
+  if (currentUser && !isSignedInPlatformOwner()) return false;
   // Keep Admin reachable when unlocked, awaiting re-auth, signed in as owner,
   // or on a browser that has unlocked Admin before (so the unlock form is one tap away).
   return isAdminUnlocked()
     || adminSessionInvalidOnServer
     || isSignedInPlatformOwner()
     || hasRememberedAdminDevice();
+}
+
+/** Clear leftover Admin unlock when a non-owner customer signs in on a shared browser. */
+function enforceAdminSessionIsolationForMember() {
+  try {
+    if (!currentUser) return;
+    if (isSignedInPlatformOwner()) return;
+    if (!isAdminUnlocked() && !adminSession()?.token) return;
+    clearAdminSession({ forgetDevice: false });
+  } catch (error) {
+    console.warn("Could not isolate admin session for member login", error);
+  }
 }
 
 function setView(view, options = {}) {
@@ -17515,6 +18011,7 @@ function setView(view, options = {}) {
   if (resolvedView === "cancel-subscription") renderCancelSubscriptionPage();
   if (resolvedView === "reset-password") renderResetPasswordPage();
   if (resolvedView === "contact") renderContactPage();
+  if (resolvedView === "faq") renderManagedFaqContent();
   if (resolvedView === "ai") renderAiPage();
   if (resolvedView === "lesson-editor") {
     if (!options.skipEditorRoute && userLessonEditorResourceId) {
@@ -17873,19 +18370,35 @@ function aiUsageRemaining() {
   return Math.max(aiMonthlyLimit() - aiUsageCount(), 0);
 }
 
+/** Single display path so Account, Billing, and sidebar never disagree. */
+function displayAiUsageUsed() {
+  return serverAiUsed !== null ? serverAiUsed : aiUsageCount();
+}
+
+function displayAiUsageLimit() {
+  return serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit();
+}
+
+function displayAiUsageLabel() {
+  return `${displayAiUsageUsed()} / ${displayAiUsageLimit()}`;
+}
+
 function aiResetLabel() {
-  if (isProUser() && currentAccount()?.subscriptionStartedAt) {
-    const start = new Date(currentAccount().subscriptionStartedAt);
-    if (!Number.isNaN(start.getTime())) {
-      const next = new Date(start);
-      const now = new Date();
-      while (next <= now) next.setMonth(next.getMonth() + 1);
-      return next.toLocaleDateString();
-    }
+  // Prefer the server calendar-month reset so Account, Billing, and helpers stay aligned.
+  if (serverAiResetDate) {
+    const parsed = new Date(`${serverAiResetDate}T12:00:00`);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString();
   }
   const nextMonth = new Date();
   nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
   return nextMonth.toLocaleDateString();
+}
+
+function applyServerAiUsage(usage = {}) {
+  if (!usage || typeof usage !== "object") return;
+  if (typeof usage.used === "number") serverAiUsed = usage.used;
+  if (typeof usage.limit === "number") serverAiLimit = usage.limit;
+  if (usage.resetDate) serverAiResetDate = String(usage.resetDate).slice(0, 10);
 }
 
 function canUseAi() {
@@ -17920,8 +18433,7 @@ async function loadUserAiUsage(email) {
     if (!res.ok) return;
     const usage = data?.aiUsage;
     if (usage && cleanEmail === currentUser) {
-      if (typeof usage.used === "number") serverAiUsed = usage.used;
-      if (typeof usage.limit === "number") serverAiLimit = usage.limit;
+      applyServerAiUsage(usage);
       renderAiUsagePanel();
       updatePlanLabel();
     }
@@ -18472,30 +18984,40 @@ function rememberLessonRecentlyViewed(resourceId) {
 
 function captureLessonLibraryBrowseState(focusResourceId = "") {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (activeView !== "lessons") return;
-  lessonLibraryScrollY = window.scrollY || window.pageYOffset || 0;
+  if (activeView !== "lessons" && activeView !== "activities") return;
+  // Capture before body scroll-lock freezes the document.
+  const lockedY = llhBodyScrollLockState?.scrollY;
+  lessonLibraryScrollY = Number.isFinite(lockedY)
+    ? lockedY
+    : (window.scrollY || window.pageYOffset || 0);
   lessonLibraryFocusResourceId = focusResourceId || "";
 }
 
 function restoreLessonLibraryBrowseState() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (activeView !== "lessons") return;
+  if (activeView !== "lessons" && activeView !== "activities") return;
   const y = Number(lessonLibraryScrollY) || 0;
   const focusId = lessonLibraryFocusResourceId || "";
+  const generation = ++lessonLibraryRestoreGeneration;
   const apply = () => {
+    if (generation !== lessonLibraryRestoreGeneration) return;
+    if (llhBodyScrollLockState || document.body.classList.contains("llh-scroll-locked")) return;
     window.scrollTo({ top: y, left: 0, behavior: "auto" });
     if (focusId) {
-      const card = document.querySelector(`[data-lesson-card="${CSS.escape(focusId)}"]`);
+      const card = document.querySelector(
+        `[data-lesson-card="${CSS.escape(focusId)}"], [data-view-resource="${CSS.escape(focusId)}"]`,
+      );
       if (card && typeof card.focus === "function") {
         try { card.focus({ preventScroll: true }); } catch { card.focus(); }
       }
     }
   };
-  // Re-apply after layout settles (viewer close unhides .main).
+  // Re-apply after layout settles (viewer close unhides .main / unlocks body).
   requestAnimationFrame(() => {
     apply();
     requestAnimationFrame(apply);
     setTimeout(apply, 50);
+    setTimeout(apply, 120);
   });
 }
 
@@ -18650,7 +19172,33 @@ function foundingPriceLockDisplayLabel(accountOrLock) {
 }
 
 function libraryPlanBadge(resource) {
+  // Fully entitled members (Pro / Founding / Trial) do not need Free/Pro content badges —
+  // the library is unlocked for them. Keep labels for Free users and guests.
+  if (isProUser() || hasAdminFullAccess()) return "";
   return authoritativeContentAccessLabel(resource);
+}
+
+/** Title-case child display names for consistent customer-facing UI. */
+function formatChildDisplayName(name) {
+  const raw = String(name || "").trim().replace(/\s+/g, " ");
+  if (!raw) return "";
+  return raw.split(" ").map((part) => {
+    if (!part) return part;
+    // Preserve short all-caps initials (e.g. "AJ") and hyphenated names.
+    if (/^[A-Z]{1,3}$/.test(part) && part.length <= 3) return part;
+    return part
+      .split("-")
+      .map((seg) => (seg ? seg.charAt(0).toUpperCase() + seg.slice(1).toLowerCase() : seg))
+      .join("-");
+  }).join(" ");
+}
+
+function libraryContentBadgeHtml(resource, className = "browse-card-badge") {
+  const planBadge = libraryPlanBadge(resource);
+  if (!planBadge) return "";
+  const planBadgeIsPro = planBadge === "Pro";
+  const tone = planBadgeIsPro ? "is-pro" : "is-free";
+  return `<span class="${escapeHtml(className)} ${tone}">${escapeHtml(planBadge)}</span>`;
 }
 
 /** Free users may save included/accessible content up to the Free favorites limit. */
@@ -18716,7 +19264,10 @@ function libraryAccessBadgeHtml() {
   }
   const label = billingPlanLabel();
   if (String(label).toLowerCase().includes("founding") || currentAccount()?.foundingMemberActive) {
-    return `<span class="library-access-badge"><span aria-hidden="true">✓</span> Pro Access</span>`;
+    return `<span class="library-access-badge is-founding"><span aria-hidden="true">✓</span> Founding Member — Full Access</span>`;
+  }
+  if (String(label).toLowerCase() === "trial") {
+    return `<span class="library-access-badge is-pro"><span aria-hidden="true">✓</span> Trial — Full Access</span>`;
   }
   return `<span class="library-access-badge is-pro"><span aria-hidden="true">✓</span> Pro — Full Access</span>`;
 }
@@ -18840,7 +19391,6 @@ function browseRowHtml({ key, title, items, cardHtml, viewAllLabel = "View All" 
 function activityBrowseCard(resource) {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const planBadge = libraryPlanBadge(resource);
   const category = resource.activityCategory || resource.theme || "Activity";
   const age = resource.age || "All Ages";
   const parentLessonTitle = resource._curriculumParentTitle || "";
@@ -18855,7 +19405,6 @@ function activityBrowseCard(resource) {
   const coverClass = libraryCoverToneClass(`${resource.title}-${category}`);
   const coverStyle = libraryResourceCoverStyle(resource);
   const parentLessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
-  const planBadgeIsPro = String(planBadge).startsWith("Pro");
   return `
     <article
       class="resource-card browse-card activity-browse-card ${locked ? "locked" : ""}"
@@ -18863,7 +19412,7 @@ function activityBrowseCard(resource) {
       data-browse-card="${escapeHtml(resource.id)}"
     >
       <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
-        <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
+        ${libraryContentBadgeHtml(resource)}
         <button
           class="browse-card-save lesson-plan-save-btn ${saveCtrl.className}"
           type="button"
@@ -18897,7 +19446,6 @@ function lessonPlanCard(resource) {
   try {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const planBadge = libraryPlanBadge(resource);
   const theme = resource.theme || resource.tags?.[0] || "";
   const ageLabel = String(resource.age || "Age Group").trim() || "Age Group";
   const activityCount = resource._curriculumManaged
@@ -18923,7 +19471,6 @@ function lessonPlanCard(resource) {
   const activityLabel = activityCount
     ? `${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`
     : "";
-  const planBadgeIsPro = String(planBadge).startsWith("Pro");
   return `
     <article
       class="resource-card lesson-plan-card browse-card has-cover-image netflix-cover-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
@@ -18932,6 +19479,7 @@ function lessonPlanCard(resource) {
       data-browse-card="${escapeHtml(resource.id)}"
     >
       <div class="browse-card-cover ${coverClass} lesson-plan-card__cover-wrap">
+        ${libraryContentBadgeHtml(resource)}
         <img
           class="lesson-plan-card__cover"
           src="${escapeHtml(coverUrl)}"
@@ -18945,7 +19493,6 @@ function lessonPlanCard(resource) {
           onerror="handleLessonCoverImageError(this)"
         />
         <div class="browse-card-cover-scrim" aria-hidden="true"></div>
-        <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
           class="lesson-plan-save-btn browse-card-save ${saveCtrl.className}"
           type="button"
@@ -19106,7 +19653,7 @@ function curriculumCollectionCard(collection) {
   const coverUrl = collectionCoverUrl(collection);
   const coverAlt = String(collection.coverImageAlt || "").trim()
     || `Cover illustration for ${collection.title} curriculum collection`;
-  const planBadge = collection.plan === "Pro" ? "Pro" : "Free";
+  const planBadge = (isProUser() || hasAdminFullAccess()) ? "" : (collection.plan === "Pro" ? "Pro" : "Free");
   const ageSummary = (collection.ageOrder || []).join(" · ") || "Multi-age";
   const weekLabel = collection.totalWeeks === 1 ? "1 week" : `${collection.totalWeeks} weeks`;
   return `
@@ -19123,7 +19670,7 @@ function curriculumCollectionCard(collection) {
           style="object-position:${escapeHtml(collection.coverImagePosition || "center")}"
           onerror="handleLessonCoverImageError(this)"
         />
-        <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        ${planBadge ? `<span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>` : ""}
         <div class="browse-card-overlay">
           <h3 class="browse-card-title-overlay">${escapeHtml(collection.title)}</h3>
           <p class="browse-card-meta-overlay">${escapeHtml(ageSummary)} · ${escapeHtml(weekLabel)}</p>
@@ -19161,7 +19708,7 @@ function curriculumCollectionDetailHtml(collection, lessonItems = []) {
   const coverUrl = collectionCoverUrl(collection);
   const coverAlt = String(collection.coverImageAlt || "").trim()
     || `Cover illustration for ${collection.title}`;
-  const planBadge = collection.plan === "Pro" ? "Pro" : "Free";
+  const planBadge = (isProUser() || hasAdminFullAccess()) ? "" : (collection.plan === "Pro" ? "Pro" : "Free");
   const ageSections = (collection.ageOrder || []).map((age) => {
     const track = collection.ages[age];
     if (!track) return "";
@@ -19214,7 +19761,7 @@ function curriculumCollectionDetailHtml(collection, lessonItems = []) {
         />
         <div class="curriculum-collection-detail-copy">
           <p class="eyebrow">Curriculum Collection</p>
-          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+          ${planBadge ? `<span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>` : ""}
           <h3>${escapeHtml(collection.title)}</h3>
           <p>${escapeHtml(collection.description || collection.theme || "A complete multi-week curriculum collection.")}</p>
           <p class="muted-copy">${escapeHtml((collection.ageOrder || []).join(" · "))} · ${collection.totalWeeks} weekly plans</p>
@@ -19385,12 +19932,11 @@ function featuredLessonBannerHtml(items) {
   // Extension point: source may become "ai" / "analytics" later without redesigning this UI.
   const cards = lessons.map((featured) => {
     const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 100);
-    const planBadge = libraryPlanBadge(featured);
     const ageLabel = String(featured.age || "").trim();
     return `
       <article class="featured-week-card" data-featured-source="${escapeHtml(source)}">
         <p class="featured-week-card-meta">
-          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+          ${libraryContentBadgeHtml(featured)}
           ${ageLabel ? `<span class="browse-card-age">${escapeHtml(ageLabel)}</span>` : ""}
         </p>
         <h4>${escapeHtml(featured.title)}</h4>
@@ -19529,7 +20075,7 @@ function resourceCard(resource) {
   const locked = !canAccess(resource);
   const viewText = locked ? "Preview" : "View";
   const saveCtrl = favoriteSaveControl(resource);
-  const accessText = authoritativeContentAccessLabel(resource);
+  const accessText = libraryPlanBadge(resource);
   const lessonContext = resource._childRecommendation || null;
   const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumActivityCountForLesson(resource.id)
@@ -19546,7 +20092,7 @@ function resourceCard(resource) {
         ${resource.featured ? `<span class="tag">Featured</span>` : ""}
         ${resource.tags.slice(0, 3).map((tag) => `<span class="tag">${tag}</span>`).join("")}
         ${resource.format ? `<span class="tag">${resource.format}</span>` : ""}
-        <span class="tag access-tag">${accessText}</span>
+        ${accessText ? `<span class="tag access-tag">${escapeHtml(accessText)}</span>` : ""}
       </div>
       <div>
         <h3>${resource.title}</h3>
@@ -20186,13 +20732,14 @@ ________________________________________________________________________`;
 
 function resourceFileText(resource) {
   const standards = resourceStandardConnections(resource);
+  const accessLabel = libraryPlanBadge(resource);
   return [
     "Little Learner Hub",
     resource.title,
     "",
     `Category: ${resource.category}`,
     `Age Group: ${resource.age}`,
-    `Access: ${resource.category === "Lesson Plans" ? authoritativeLessonPlanAccessLabel(resource) : resource.plan}`,
+    ...(accessLabel ? [`Access: ${accessLabel}`] : []),
     `Format: ${resource.format || "In-app resource"}`,
     `Tags: ${resource.tags.join(", ")}`,
     "",
@@ -22628,6 +23175,8 @@ function closeResourceViewer() {
   resetLessonWorkspaceState();
   restoreDefaultResourceViewerChrome();
   updateResourceViewerBackButton();
+  // Unlock synchronously so scroll restoration can write window.scrollY.
+  syncProviderBodyScrollLock();
   if (wasOpen) restoreLessonLibraryBrowseState();
   if (wasOpen) restoreHomePreviewScrollPosition();
   if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
@@ -23045,14 +23594,13 @@ function navigateContextualBack(view, fallbackView = "home") {
     setView(context.view, { replaceHistory: false });
     return;
   }
-  // Prefer real browser history so Back returns to the exact prior section + scroll.
-  const platform = platformNavHistoryState();
-  if (platform?.view && platform.view !== view && window.history?.state?.llhPlatformNav) {
-    const canUseHistoryBack = platformHistoryPrimed && window.history.length > 1;
-    if (canUseHistoryBack) {
-      window.history.back();
-      return;
-    }
+  // Prefer real browser history so Back matches the browser Back stack.
+  const canUseHistoryBack = platformHistoryPrimed
+    && window.history?.length > 1
+    && Boolean(window.history?.state?.llhPlatformNav);
+  if (canUseHistoryBack) {
+    window.history.back();
+    return;
   }
   const resolvedFallback = (fallbackView === "home" && isLoggedIn()) ? "calendar" : fallbackView;
   setView(resolvedFallback, { replaceHistory: false });
@@ -23064,11 +23612,18 @@ function refreshContextualViewBackButtons() {
     const fallbackView = button.dataset.fallbackView || "home";
     const alwaysVisible = button.dataset.alwaysVisible === "true";
     const hasContext = Boolean(getViewReturnContext(view));
+    // Child Profiles section Back only belongs on the list — nested profile/tools
+    // screens already render their own “Back to Children” control.
+    if (view === "children" && typeof childManagementMode === "string" && childManagementMode !== "list") {
+      button.hidden = true;
+      return;
+    }
     button.hidden = !alwaysVisible && !hasContext;
     button.textContent = contextualBackLabel(view, fallbackView);
     button.setAttribute("aria-label", button.textContent.trim());
   });
 }
+window.refreshContextualViewBackButtons = refreshContextualViewBackButtons;
 
 function dismissResourceViewerForNavigation() {
   if (document.querySelector("#resourceViewerModal.open")) {
@@ -23803,6 +24358,7 @@ function llhCopyrightNoticeHtml(className = "llh-copyright-notice") {
 function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
   const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
   const lead = String(options.lead || "").trim();
+  const accessTag = libraryPlanBadge(resource);
   return `
     <header class="curriculum-lesson-header lesson-print-variant-header">
       <p class="lesson-print-brand">Little Learner Hub</p>
@@ -23810,7 +24366,7 @@ function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
       <div class="tag-row">
         <span class="tag">${escapeHtml(resource?.age || plan.age || "Preschool")}</span>
         ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
-        <span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>
+        ${accessTag ? `<span class="tag access-tag">${escapeHtml(accessTag)}</span>` : ""}
       </div>
       ${lead ? `<p class="curriculum-lesson-overview-lead">${escapeHtml(lead)}</p>` : ""}
       ${llhCopyrightNoticeHtml("llh-copyright-notice lesson-print-copyright")}
@@ -24261,7 +24817,10 @@ function lessonPlanVariantText(resource, printVariant = "week") {
     "",
     `Age Group: ${resource?.age || plan.age || "Preschool"}`,
     plan.theme ? `Theme: ${plan.theme}` : "",
-    `Access: ${authoritativeLessonPlanAccessLabel(resource)}`,
+    (() => {
+      const accessLabel = libraryPlanBadge(resource);
+      return accessLabel ? `Access: ${accessLabel}` : "";
+    })(),
     "",
   ].filter((line) => line !== "");
 
@@ -25131,7 +25690,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         format: "pdf",
         trialServerGenerated: true,
       });
-      showToast("Download started.");
+      queueMicrotask(() => showActionFeedback("Download started.", null, { ttlMs: 3200 }));
       return true;
     }
 
@@ -25213,7 +25772,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       printVariant: safeVariant,
       format: preferDocx ? "docx" : "pdf",
     });
-    showToast("Download started.");
+    queueMicrotask(() => showActionFeedback("Download started.", null, { ttlMs: 3200 }));
     return true;
   } catch (error) {
     console.error("[llh-download] lesson plan download failed", {
@@ -25221,7 +25780,11 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       resourceId: viewerResource?.id || "",
       message: error?.message || String(error || ""),
     });
-    showToast(error?.message || MEMBERSHIP_COPY.watermarkTryAgain || "Download failed. Please try again.");
+    queueMicrotask(() => showActionFeedback(
+      error?.message || MEMBERSHIP_COPY.watermarkTryAgain || "Download failed. Please try again.",
+      null,
+      { ttlMs: 5000 },
+    ));
     return false;
   } finally {
     lessonPlanDownloadBusy = false;
@@ -25610,7 +26173,7 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
-  const planLabel = authoritativeLessonPlanAccessLabel(resource);
+  const planLabel = libraryPlanBadge(resource);
   const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
   const theme = String(resource.theme || plan.theme || "").trim();
   const tabs = [
@@ -25628,7 +26191,7 @@ function lessonWorkspaceChromeHtml(resource) {
             <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
             <p class="lesson-workspace-meta">
               <span class="tag">${escapeHtml(age)}</span>
-              <span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>
+              ${planLabel ? `<span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>` : ""}
               ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
             </p>
           </div>
@@ -25754,7 +26317,7 @@ function lessonWorkspaceTeachingKitChrome(viewerResource) {
   return {
     title: viewerResource.title,
     age: viewerResource.age || plan.age || "Preschool",
-    planLabel: authoritativeLessonPlanAccessLabel(viewerResource),
+    planLabel: libraryPlanBadge(viewerResource),
     theme: String(viewerResource.theme || plan.theme || "").trim(),
     backLabel: lessonWorkspaceBackButtonLabel(),
     saveButtonHtml: lessonWorkspaceSaveButtonHtml(viewerResource.id),
@@ -26294,7 +26857,7 @@ function buildTextResourcePdfBlob(resource) {
     page.push("0.20 0.38 0.38 rg 36 724 540 32 re f");
     page.push(`1 1 1 rg BT /F2 12 Tf 50 736 Td (${pdfEscapeText("Little Learner Hub")}) Tj ET`);
     page.push(`0 0 0 rg BT /F2 16 Tf 50 704 Td (${pdfEscapeText(resource.title)}) Tj ET`);
-    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText(`${resource.category} | ${resource.age} | ${resource.category === "Lesson Plans" ? authoritativeLessonPlanAccessLabel(resource) : resource.plan}`)}) Tj ET`);
+    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText([resource.category, resource.age, libraryPlanBadge(resource)].filter(Boolean).join(" | "))}) Tj ET`);
     page.push("0.82 0.82 0.82 RG 1 w 50 676 m 544 676 l S");
     y = 654;
   };
@@ -26919,12 +27482,16 @@ async function downloadResourcePdf(id) {
       category: resource.category,
       trialExportCounted: Boolean(gate.counted),
     });
+    const fileName = resourcePdfFileName(resource);
     const blob = buildResourcePdfBlob(pdfResource);
-    downloadBlob(blob, resourcePdfFileName(resource));
+    downloadBlob(blob, fileName);
     if (!savedDownloads.includes(resource.id)) {
       savedDownloads = [...savedDownloads, resource.id];
       saveDownloads();
       updatePlanLabel();
+    }
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(`Downloaded “${resource.title || "PDF"}” (${fileName}).`, null, { allowDuringOverlay: true, ttlMs: 5000 });
     }
     trackEvent("resource_pdf_download", {
       resourceId: resource.id,
@@ -26934,7 +27501,13 @@ async function downloadResourcePdf(id) {
       access: resource.plan,
     });
   } catch (error) {
-    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(
+        `Could not download “${resource?.title || "PDF"}”. ${MEMBERSHIP_COPY.watermarkTryAgain}`,
+        null,
+        { allowDuringOverlay: true, ttlMs: 6000 },
+      );
+    }
     throw error;
   }
 }
@@ -27018,6 +27591,10 @@ async function downloadActiveResourcePdf() {
 }
 
 function openGeneratedPrintableResource(resource) {
+  const preferredScroll = {
+    scrollX: window.scrollX || window.pageXOffset || 0,
+    scrollY: window.scrollY || window.pageYOffset || 0,
+  };
   ensureResourceViewer();
   activeGeneratedPdfResource = resource;
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
@@ -27027,9 +27604,10 @@ function openGeneratedPrintableResource(resource) {
     pdfButton.hidden = !hasResourcePdf(resource);
     pdfButton.dataset.pdfResource = "";
   }
+  const viewerAccessLabel = libraryPlanBadge(resource);
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    `<span class="tag access-tag">${escapeHtml(authoritativeContentAccessLabel(resource))}</span>`,
+    viewerAccessLabel ? `<span class="tag access-tag">${escapeHtml(viewerAccessLabel)}</span>` : "",
     resource.format ? `<span class="tag">${escapeHtml(resource.format || "Print-ready PDF")}</span>` : "",
     ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
   ].filter(Boolean).join("");
@@ -27038,6 +27616,8 @@ function openGeneratedPrintableResource(resource) {
   const viewer = document.querySelector("#resourceViewerModal");
   viewer.classList.add("open");
   viewer.setAttribute("aria-hidden", "false");
+  document.body.classList.add("resource-viewer-open");
+  syncProviderBodyScrollLock(preferredScroll);
   trackEvent("generated_goal_printable_view", {
     resourceId: resource.id,
     title: resource.title,
@@ -27183,6 +27763,11 @@ async function openResourceViewer(resourceId, options = {}) {
   if (guardNavigationDuringBootVerification()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
+  const preferredScroll = {
+    scrollX: window.scrollX || window.pageXOffset || 0,
+    scrollY: llhBodyScrollLockState?.scrollY
+      ?? (window.scrollY || window.pageYOffset || 0),
+  };
   if (!(document.querySelector("#resourceViewerModal")?.classList.contains("open"))) {
     resourceViewerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
@@ -27211,9 +27796,10 @@ async function openResourceViewer(resourceId, options = {}) {
   const parentLessonLabel = resource._curriculumLessonPlanId
     ? `From lesson: ${resource._curriculumParentTitle || resource._curriculumLessonPlanId}`
     : "";
+  const viewerAccessLabel = libraryPlanBadge(resource);
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    `<span class="tag access-tag">${escapeHtml(authoritativeContentAccessLabel(resource))}</span>`,
+    viewerAccessLabel ? `<span class="tag access-tag">${escapeHtml(viewerAccessLabel)}</span>` : "",
     resource.format ? `<span class="tag">${escapeHtml(resource.format || "In-app resource")}</span>` : "",
     parentLessonLabel ? `<span class="tag">${escapeHtml(parentLessonLabel)}</span>` : "",
     ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
@@ -27266,6 +27852,7 @@ async function openResourceViewer(resourceId, options = {}) {
     modal?.classList.add("open");
     modal?.setAttribute("aria-hidden", "false");
     document.body.classList.add("resource-viewer-open");
+    syncProviderBodyScrollLock(preferredScroll);
     return;
   }
   if (viewerResource.fileData && viewerResource.fileData.startsWith("data:image")) {
@@ -27348,6 +27935,7 @@ async function openResourceViewer(resourceId, options = {}) {
   } else {
     document.body.classList.remove("lesson-workspace-open");
   }
+  syncProviderBodyScrollLock(preferredScroll);
   activeViewerResourceId = resource.id;
   if (!options.skipHistory) {
     if (isLessonWorkspaceResource(viewerResource) && !options.replaceActivityParent) {
@@ -28011,9 +28599,10 @@ function renderCategoryPage(view) {
 
   const categoryBackTarget = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
   const categoryBackButton = `<button class="ghost-button back-button" data-view="${categoryBackTarget}" type="button">${escapeHtml(fallbackBackLabel(categoryBackTarget))}</button>`;
+  const accessPlanLabel = billingPlanLabel(currentPlan, currentAccount());
   const accessNoticeHtml = `<div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
-        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
+        ? `${accessPlanLabel === "Founding Member" ? "Founding Member access" : "Pro is active"}: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>`;
   section.innerHTML = `
@@ -28579,9 +29168,10 @@ function renderUserDashboard() {
   const programName = programSettings.programName || "";
 
   const records = childRecords();
+  const activeChildren = getActiveChildren(records);
   const stats = weeklyObservationStats(records);
-  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
-  const childCount = records.children.length;
+  const activeGoals = records.goals.filter((goal) => !goal.archived && goalProgressPercent(goal.progress) < 100).length;
+  const childCount = activeChildren.length;
   const observationsDue = Math.max(stats.totalNeeded - stats.completed, 0);
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
   const recentActivity = dashboardRecentActivity(records, childById);
@@ -29486,7 +30076,6 @@ function renderWeeklyPlanViewHtml(scheduleItem, weekStart, weekEnd, room) {
           <button type="button" class="ghost-button" data-weekly-plan-print="${escapeHtml(weekStart)}">Print</button>
           <button type="button" class="ghost-button" data-weekly-plan-download="${escapeHtml(weekStart)}">Download Teacher Weekly Planner</button>
           <button type="button" class="ghost-button" data-weekly-plan-remove="${escapeHtml(scheduleItem.id)}" data-weekly-plan-remove-week="${escapeHtml(weekStart)}">Remove from Calendar</button>
-          <button type="button" class="ghost-button" data-view="calendar" data-dash-select-week="${escapeHtml(weekStart)}" data-weekly-plan-back-calendar>Back to Calendar</button>
         </div>
       </section>
       <div class="llh-weekly-plan-days" data-weekly-plan-days>
@@ -32278,6 +32867,7 @@ function calendarWeekHeaderActionsHtml(week, options = {}) {
       <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
       <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download week-at-a-glance PDF (classroom copy)" : "Add a lesson plan before printing"}">Print Week PDF</button>
       <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Print the full classroom lesson plan" : "Add a lesson plan before printing"}">Print Full Plan</button>
+      ${hasLesson ? `<button type="button" class="ghost-button" data-calendar-clear-week="${escapeHtml(week)}" title="Remove this week's lesson plan and activities from the calendar">Clear Week</button>` : ""}
     </div>
   `;
 }
@@ -32317,8 +32907,10 @@ function calendarWeekLessonSummaryHtml(lesson, week, room, glance) {
         <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}">Print Week PDF</button>
         <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}">Print Full Plan</button>
         <button type="button" class="ghost-button" data-calendar-add-lesson-plan data-calendar-add-lesson-week="${escapeHtml(week)}">Change Plan</button>
+        <button type="button" class="ghost-button" data-calendar-remove-lesson="${escapeHtml(lesson.id)}" data-calendar-remove-lesson-week="${escapeHtml(week)}">Remove from Calendar</button>
+        <button type="button" class="ghost-button" data-calendar-clear-week="${escapeHtml(week)}">Clear Week</button>
       </div>
-      <p class="muted-copy llh-cal-print-hint">Prints use your classroom copy${customized ? " (including day edits)" : ""} — not a Google Doc.</p>
+      <p class="muted-copy llh-cal-print-hint">Prints use your classroom copy${customized ? " (including day edits)" : ""} — not a Google Doc. Remove / Clear Week only affects your calendar — library lessons stay unchanged.</p>
     </section>
   `;
 }
@@ -32596,7 +33188,7 @@ function renderCalendarDayView(app) {
       <p class="muted-copy llh-cal-print-status" data-calendar-print-status hidden></p>
       <div class="llh-calendar-toolbar">
         <div>
-          <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
+          <button type="button" class="ghost-button" data-calendar-back-to-week="1">← Back to Week</button>
           <p class="eyebrow">Day view</p>
           <h3 class="llh-calendar-month">${escapeHtml(calendarLongDateLabel(iso))}</h3>
         </div>
@@ -32774,37 +33366,126 @@ async function submitCalendarAddItemForm(form) {
   }
 }
 
-async function deleteCalendarItem(itemId) {
-  if (!itemId) return;
+/**
+ * After a schedule item is deleted, keep legacy assignment storage + weekly planner
+ * in sync so removed lessons do not reappear as "Assigned" or leave orphan activities.
+ * Cascades only to classroom events linked via lesson.parent.visibleEventIds.
+ */
+async function finalizeCalendarLessonRemoval(deletedLessonItem, api) {
+  if (!api || !deletedLessonItem || deletedLessonItem.type !== "lesson_plan") {
+    dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache || api?.readCache?.(scheduleApiEmail()));
+    return;
+  }
+  const linkedIds = Array.isArray(deletedLessonItem?.parent?.visibleEventIds)
+    ? deletedLessonItem.parent.visibleEventIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  for (const eventId of linkedIds) {
+    try {
+      if (typeof api.deleteItem === "function") {
+        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), eventId);
+      }
+    } catch (error) {
+      console.warn("[calendar] linked event cleanup failed", eventId, error?.message || error);
+    }
+  }
+  scheduleDocCache = api.readCache(scheduleApiEmail()) || scheduleDocCache;
+  dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache);
+  clearWeeklyPlannerForRemovedLesson(deletedLessonItem);
+}
+
+function clearWeeklyPlannerForRemovedLesson(lessonItem) {
+  if (!lessonItem || lessonItem.type !== "lesson_plan") return;
+  const planner = weeklyPlanner();
+  const week = curriculumPlannerWeekStartIso(lessonItem.weekStartDate || "");
+  const planId = String(lessonItem.lessonPlanId || lessonItem.resourceId || "").trim();
+  const plannerWeek = curriculumPlannerWeekStartIso(planner.weekOf || "");
+  const plannerResource = String(planner.resourceId || "").trim();
+  const matchesWeek = week && plannerWeek === week;
+  const matchesPlan = planId && plannerResource === planId;
+  if (!matchesWeek && !matchesPlan) return;
+  const resetDate = week ? new Date(`${week}T12:00:00`) : new Date();
+  saveWeeklyPlanner(defaultPlanner(resetDate));
+}
+
+async function deleteCalendarItem(itemId, options = {}) {
+  if (!itemId) return false;
   const api = getScheduleApi();
-  if (!api || !api.deleteItem) return;
-  const item = calendarItemById(itemId);
+  if (!api || !api.deleteItem) return false;
+  await ensureScheduleLoaded();
+  const item = calendarItemById(itemId) || (scheduleDocCache?.items || []).find((entry) => entry.id === itemId) || null;
   const isPlacement = item?.type === "lesson_plan";
-  const confirmed = await confirmAction({
-    title: isPlacement ? "Remove from calendar?" : "Delete permanently?",
-    message: isPlacement
-      ? "This removes the lesson plan from the calendar only. The original lesson plan will not be deleted."
-      : `Delete “${item?.title || "this calendar item"}” permanently? This cannot be undone.`,
-    confirmLabel: isPlacement ? "Remove From Calendar" : "Delete Permanently",
-    danger: !isPlacement,
-  });
-  if (!confirmed) return;
+  const skipConfirm = options.skipConfirm === true;
+  if (!skipConfirm) {
+    const confirmed = await confirmAction({
+      title: isPlacement ? "Remove from calendar?" : "Delete permanently?",
+      message: isPlacement
+        ? "This removes the lesson plan and its week activities from the calendar only. The original lesson plan in the library will not be deleted. Linked classroom events from this assignment are also cleared."
+        : `Delete “${item?.title || "this calendar item"}” permanently? This cannot be undone.`,
+      confirmLabel: isPlacement ? "Remove From Calendar" : "Delete Permanently",
+      danger: !isPlacement,
+    });
+    if (!confirmed) return false;
+  }
   mainCalendarBusy = true;
   renderMainCalendar();
   try {
     await ensureScheduleLoaded();
     await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), itemId);
     scheduleDocCache = api.readCache(scheduleApiEmail());
+    if (isPlacement) {
+      await finalizeCalendarLessonRemoval(item, api);
+    } else {
+      dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache);
+    }
     closeCalendarAddItemDialog();
-    showActionFeedback(isPlacement ? "Removed from calendar." : "Calendar item deleted.");
+    showActionFeedback(
+      options.successMessage
+        || (isPlacement ? "Removed from calendar." : "Calendar item deleted."),
+    );
     refreshCalendarSurfacesAfterScheduleChange(item?.weekStartDate || mainCalendarSelectedWeek || "");
+    return true;
   } catch (error) {
     console.warn(error);
     showActionFeedback(error?.message || "Could not update the calendar. Please try again.");
+    return false;
   } finally {
     mainCalendarBusy = false;
     renderMainCalendar();
   }
+}
+
+/** Clear / unassign the lesson plan for a week (activities live in the lesson snapshot). */
+async function clearCalendarWeekLesson(weekStart = "", options = {}) {
+  const api = getScheduleApi();
+  if (!api) return false;
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    return false;
+  }
+  const week = curriculumPlannerWeekStartIso(weekStart || mainCalendarSelectedWeek || new Date());
+  await ensureScheduleLoaded({ force: true });
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || { items: [] };
+  const lesson = typeof api.lessonForWeek === "function"
+    ? api.lessonForWeek(doc, week)
+    : (doc.items || []).find((item) => item.type === "lesson_plan" && item.weekStartDate === week);
+  if (!lesson?.id) {
+    showActionFeedback("This week has no lesson plan to clear.");
+    return false;
+  }
+  const skipConfirm = options.skipConfirm === true;
+  if (!skipConfirm) {
+    const confirmed = await confirmAction({
+      title: "Clear this week?",
+      message: `Remove “${lesson.lessonPlanTitle || "this lesson plan"}” and its activities from the week of ${week}? Day notes you wrote separately are kept. The library lesson is not deleted.`,
+      confirmLabel: "Clear Week",
+      danger: true,
+    });
+    if (!confirmed) return false;
+  }
+  return deleteCalendarItem(lesson.id, {
+    skipConfirm: true,
+    successMessage: "Week cleared — lesson plan removed from the calendar.",
+  });
 }
 
 function setCalendarDayNoteStatus(message, isError = false) {
@@ -33712,8 +34393,14 @@ function saveChildStore(key, value) {
 }
 
 function childRecords() {
+  const children = (childStore("Profiles") || []).map((child) => {
+    const displayName = formatChildDisplayName(child?.name);
+    return displayName && displayName !== child.name
+      ? { ...child, name: displayName }
+      : child;
+  });
   return {
-    children: childStore("Profiles"),
+    children,
     observations: childStore("Observations"),
     supportPlans: childStore("SupportPlans"),
     goals: childStore("Goals"),
@@ -33732,7 +34419,8 @@ function childRecords() {
 }
 
 function childName(childId) {
-  return childRecords().children.find((child) => child.id === childId)?.name || "Child";
+  const raw = childRecords().children.find((child) => child.id === childId)?.name || "";
+  return formatChildDisplayName(raw) || "Child";
 }
 
 function selectedChild(records = childRecords()) {
@@ -34576,10 +35264,8 @@ function renderSettingsHubPage() {
   const account = currentAccount();
   const accountTypeLabel = accountTypeDisplayLabel(account);
   const roleLabel = roleDisplayLabel(account);
-  const rawPlan = String(account?.plan || "").trim();
-  const planLabel = rawPlan === "Founding" || account?.foundingMemberActive
-    ? "Founding Member"
-    : (isProUser() ? "Pro" : "Free");
+  const membershipStatus = membershipDisplayStatus(account);
+  const planLabel = membershipStatus?.planLabel || billingPlanLabel(currentPlan, account);
   const displayName = [account?.firstName, account?.lastName].filter(Boolean).join(" ") || account?.name || "Provider";
   const email = currentUser || account?.email || "";
   const groups = [
@@ -34591,9 +35277,9 @@ function renderSettingsHubPage() {
         {
           view: "",
           title: "Membership status",
-          detail: `${displayName} · ${email || "No email"} · ${accountTypeLabel} · ${roleLabel} · ${planLabel}`,
+          detail: `${displayName} · ${email || "No email"} · ${accountTypeLabel} · ${roleLabel}`,
           disabled: true,
-          badge: planLabel === "Founding Member" ? "Founding Member" : planLabel,
+          badge: planLabel,
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
         { view: "account", title: "Notifications", detail: "Email reminders and Messages push preferences", hash: "notifications" },
@@ -34620,7 +35306,9 @@ function renderSettingsHubPage() {
           title: isStandaloneDisplayMode() ? "App Installed" : "Add to Home Screen",
           detail: isStandaloneDisplayMode()
             ? "Little Learner Hub is already installed on this device"
-            : "Install for faster access on iPhone, Android, and desktop",
+            : (typeof isIosDevice === "function" && isIosDevice()
+              ? "On iPhone/iPad: tap Share, then Add to Home Screen"
+              : "Install for faster access on phone, tablet, and desktop"),
           action: "install-app",
           disabled: isStandaloneDisplayMode(),
         },
@@ -34638,6 +35326,7 @@ function renderSettingsHubPage() {
     {
       title: "Program Settings",
       detail: "Business information and classroom defaults",
+      id: "program",
       cards: [
         { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
       ],
@@ -34673,7 +35362,7 @@ function renderSettingsHubPage() {
         <p class="eyebrow">Account</p>
         <h2>Settings</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
-        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
+        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)}</p>
       </div>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
       <div class="settings-hub-groups">
@@ -34740,6 +35429,13 @@ function clearFamilyHubSession() {
 
 function isFamilyHubParentMode() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
+  // Multi-Role Tester Parent view — Family Hub only.
+  try {
+    if (typeof getMultiRoleTesterViewRole === "function"
+      && String(localStorage.getItem("llhMultiRoleTesterView") || "").toLowerCase() === "parent") {
+      return true;
+    }
+  } catch (_error) { /* ignore */ }
   const onFamilyHub = Boolean(document.querySelector("#view-family-hub.active-view"));
   if (!getFamilyHubSessionToken()) return onFamilyHub;
   // Pure parent session, or provider intentionally previewing as parent.
@@ -35221,7 +35917,7 @@ function renderFamilyHubProviderPanel() {
   const invite = familyHubInviteResult;
   const storage = familyHubHouseholdCache.storage || null;
   const handoff = familyHubHouseholdCache.testingHandoff
-    || "If email isn’t sending yet, copy the magic link and login code and share them with the family.";
+    || "After you invite a household, copy the magic link and login code to share with the family.";
   const storageWarning = storage && storage.durable === false
     ? `<p class="form-message" role="alert">Family invites can’t be saved right now. Message Support and we’ll get storage ready for you.</p>`
     : (storage && storage.durable
@@ -35246,7 +35942,7 @@ function renderFamilyHubProviderPanel() {
             <input name="guardianEmail" type="email" maxlength="120" placeholder="guardian@example.com" />
           </label>
           <label>Parent phone (optional)
-            <input name="phone" type="tel" maxlength="40" placeholder="Phone for a text link later" />
+            <input name="phone" type="tel" maxlength="40" placeholder="Optional — for your records" />
           </label>
         </div>
         <fieldset class="hdh-child-pick-fieldset">
@@ -35256,7 +35952,7 @@ function renderFamilyHubProviderPanel() {
               ? children.map((child) => `
                 <label class="area-check">
                   <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${children.length === 1 ? "checked" : ""} />
-                  <span>${escapeHtml(child.name)}</span>
+                  <span>${escapeHtml(formatChildDisplayName(child.name) || child.name)}</span>
                 </label>
               `).join("")
               : `<p class="muted-copy">Add a child profile first, then come back to invite their family.</p>`}
@@ -35267,7 +35963,7 @@ function renderFamilyHubProviderPanel() {
           <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview parent view</button>
           <button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>
         </div>
-        <p class="form-note">${escapeHtml(handoff)} Text delivery isn’t live yet — copy the link if you want to share by phone. Use <strong>Preview parent view</strong> to see what families see.</p>
+        <p class="form-note">${escapeHtml(handoff)} Share the link by text or email. Use <strong>Preview parent view</strong> to see what families see.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
@@ -37097,13 +37793,13 @@ function renderHomeDaycareTesterGuidePanel() {
         <button class="ghost-button" type="button" data-view="children">Child forms tab</button>
       </div>
       <details class="hdh-tester-details">
-        <summary>What is NOT working yet (so testers are not surprised)</summary>
+        <summary>How Family Hub works in this test workspace</summary>
         <ul class="hdh-coming-list">
-          <li>Real SMS / Twilio texts (testing shows a copyable link instead)</li>
-          <li>Legal e-sign certificates (Family Hub uses testing acknowledgment: name + timestamp)</li>
-          <li>Email/SMS form delivery (parents are notified in-app in Family Hub)</li>
-          <li>Live production — Hub stays hidden there on purpose</li>
-          <li>Admin — testers never see Admin; they Message Leah instead</li>
+          <li>Share invites with the copyable magic link and login code</li>
+          <li>Parent form acknowledgments record name + timestamp (not a legal e-sign certificate)</li>
+          <li>Parents get in-app Family Hub notifications when forms and updates are shared</li>
+          <li>This Hub is available on the testing site; production keeps it gated until release</li>
+          <li>Testers never see Admin — use Message Leah for support</li>
         </ul>
       </details>
     </section>
@@ -38003,31 +38699,31 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
-  // Director Center is not a separate product yet — route providers to the live manage surfaces.
+  // Director Center routes providers to the live manage surfaces they use every day.
   section.innerHTML = `
-    <section class="platform-placeholder-page director-center-page">
+    <section class="director-center-page">
       <div class="page-title">
         <p class="eyebrow">Center tools</p>
-        <h2>Run your program from these live pages</h2>
-        <p>Use the tools below today. A dedicated Director Center hub will come later — nothing here is a dead end.</p>
+        <h2>Program tools</h2>
+        <p>Open the live pages you use to run staff, classrooms, children, and the calendar.</p>
       </div>
-      <div class="platform-placeholder-grid">
-        <article class="platform-placeholder-card">
+      <div class="director-center-grid platform-placeholder-grid">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Staff</strong>
           <p>Invite teachers and assistants, set roles, and manage access.</p>
           <button class="primary-button" type="button" data-view="staff">Open Staff</button>
         </article>
-        <article class="platform-placeholder-card">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Classrooms</strong>
           <p>Create rooms and assign children from Child Profiles.</p>
           <button class="primary-button" type="button" data-view="classrooms">Open Classrooms</button>
         </article>
-        <article class="platform-placeholder-card">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Child Profiles</strong>
           <p>Add children, assign classrooms, and manage daily care records.</p>
           <button class="primary-button" type="button" data-view="children">Open Children</button>
         </article>
-        <article class="platform-placeholder-card">
+        <article class="director-center-card platform-placeholder-card">
           <strong>Calendar</strong>
           <p>Plan lessons and classroom events in one place.</p>
           <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
@@ -38247,14 +38943,18 @@ function enrichObservationRecord(record, child = {}) {
 }
 
 function weeklyObservationStats(records = childRecords()) {
-  const thisWeekObservations = records.observations.filter((item) => isThisWeek(item.date));
-  const byChild = new Map(records.children.map((child) => [child.id, 0]));
+  const activeChildren = typeof getActiveChildren === "function"
+    ? getActiveChildren(records)
+    : (records.children || []).filter((child) => !child.hiddenFromActive && !child.archived);
+  const activeIds = new Set(activeChildren.map((child) => child.id));
+  const thisWeekObservations = records.observations.filter((item) => isThisWeek(item.date) && activeIds.has(item.childId));
+  const byChild = new Map(activeChildren.map((child) => [child.id, 0]));
   thisWeekObservations.forEach((item) => byChild.set(item.childId, (byChild.get(item.childId) || 0) + 1));
-  const totalNeeded = records.children.length * weeklyObservationsPerChild;
+  const totalNeeded = activeChildren.length * weeklyObservationsPerChild;
   const completed = Math.min(thisWeekObservations.length, totalNeeded);
   const percent = totalNeeded ? Math.min(100, Math.round((completed / totalNeeded) * 100)) : 0;
-  const missingChildren = records.children.filter((child) => (byChild.get(child.id) || 0) < weeklyObservationsPerChild);
-  const completedChildren = records.children.filter((child) => (byChild.get(child.id) || 0) >= weeklyObservationsPerChild);
+  const missingChildren = activeChildren.filter((child) => (byChild.get(child.id) || 0) < weeklyObservationsPerChild);
+  const completedChildren = activeChildren.filter((child) => (byChild.get(child.id) || 0) >= weeklyObservationsPerChild);
   return { thisWeekObservations, byChild, totalNeeded, completed, percent, missingChildren, completedChildren };
 }
 
@@ -38379,16 +39079,21 @@ function childProgressSummary(childId, records = childRecords()) {
   const portfolio = childPortfolioRecords(childId, records);
   const weeklyStats = weeklyObservationStats(records);
   const weeklyCompleted = weeklyStats.byChild.get(childId) || 0;
-  const activeGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
-  // Only show a percent when real goals exist — never invent progress from observation counts.
-  const goalProgress = portfolio.goals.length
-    ? Math.round(portfolio.goals.reduce((sum, goal) => sum + goalProgressPercent(goal.progress), 0) / portfolio.goals.length)
+  const liveGoals = portfolio.goals.filter((goal) => !goal.archived);
+  const activeGoals = liveGoals.filter((goal) => goalProgressPercent(goal.progress) < 100);
+  // Only show a percent when real non-archived goals exist — never invent progress from observation counts.
+  const goalProgress = liveGoals.length
+    ? Math.round(liveGoals.reduce((sum, goal) => sum + goalProgressPercent(goal.progress), 0) / liveGoals.length)
     : null;
+  const activitiesCompleted = Math.max(
+    portfolio.differentiations.length,
+    (portfolio.activityLogs || []).length,
+  );
   return {
     observationsCompleted: portfolio.observations.length,
     observationsNeeded: Math.max(weeklyObservationsPerChild - weeklyCompleted, 0),
     activeGoals: activeGoals.length,
-    activitiesCompleted: portfolio.differentiations.length,
+    activitiesCompleted,
     lastObservation: formatDateLabel(lastObservationDate(childId, records.observations)),
     progressPercent: goalProgress,
     hasGoalProgress: goalProgress != null,
@@ -38466,7 +39171,12 @@ function resourceRecommendationScore(resource, areas) {
 }
 
 function normalizeAgeGroup(value) {
-  const text = String(value || "").toLowerCase();
+  const api = typeof LLHAgeGroupNormalize !== "undefined" ? LLHAgeGroupNormalize : null;
+  if (api?.canonicalAgeGroup) {
+    const canonical = api.canonicalAgeGroup(value);
+    if (canonical) return canonical;
+  }
+  const text = String(value || "").toLowerCase().replace(/[\u2010-\u2015\u2212]/g, "-");
   if (text.includes("infant")) return "Infant";
   if (text.includes("toddler")) return "Toddler";
   if (text.includes("preschool")) return "Preschool";
@@ -38474,6 +39184,29 @@ function normalizeAgeGroup(value) {
   if (text.includes("mixed")) return "Mixed Ages";
   if (text.includes("all")) return "All Ages";
   return "";
+}
+
+function agesMatchForFilter(left, right) {
+  const api = typeof LLHAgeGroupNormalize !== "undefined" ? LLHAgeGroupNormalize : null;
+  if (api?.agesMatch) return api.agesMatch(left, right);
+  const a = normalizeAgeGroup(left);
+  const b = normalizeAgeGroup(right);
+  if (a && b) return a === b;
+  return String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
+}
+
+function canonicalAgeFilterOptions(rawAges) {
+  const api = typeof LLHAgeGroupNormalize !== "undefined" ? LLHAgeGroupNormalize : null;
+  if (api?.uniqueCanonicalAgeOptions) return api.uniqueCanonicalAgeOptions(rawAges);
+  const seen = new Set();
+  const options = [];
+  (Array.isArray(rawAges) ? rawAges : []).forEach((raw) => {
+    const value = normalizeAgeGroup(raw) || String(raw || "").trim();
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    options.push({ value, label: value });
+  });
+  return options;
 }
 
 function resourceAgeGroup(resource) {
@@ -39145,7 +39878,7 @@ function renderChildProfileCard(child, records) {
       <div class="simple-child-card-head">
         ${renderChildAvatar(child, "small")}
         <div>
-          <h3>${escapeHtml(child.name)}</h3>
+          <h3>${escapeHtml(formatChildDisplayName(child.name) || child.name)}</h3>
           <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(childRoomAgeLabel(child))}</p>
         </div>
         <span class="attention-tag">${child.archived || child.hiddenFromActive ? "Archived" : escapeHtml(attention)}</span>
@@ -39730,6 +40463,7 @@ function staffAssignedClassroomIds(account = currentAccount()) {
 function renderChildManagement() {
   const app = document.querySelector("#childManagementApp");
   if (!app) return;
+  refreshContextualViewBackButtons();
   activePortfolioChildId = "";
   childProfileTab = normalizeChildProfileTab(childProfileTab);
   const records = childRecords();
@@ -41179,7 +41913,7 @@ function renderDlcOutputOptions(prefix = "dlcOutput") {
           <label class="dlc-check-label${proOnly ? " dlc-check-label-pro" : ""}">
             <input id="${prefix}-${value}" type="checkbox" data-dlc-output-option value="${value}" ${dlcSelectedOutputs.includes(value) && enabled ? "checked" : ""} ${enabled ? "" : "disabled"} />
             <span>${escapeHtml(label)}</span>
-            ${proOnly ? `<span class="mini-pro-label">Included with Pro</span>` : `<span class="mini-free-label">Free</span>`}
+            ${isProUser() ? "" : (proOnly ? `<span class="mini-pro-label">Included with Pro</span>` : `<span class="mini-free-label">Free</span>`)}
             ${!enabled && previewId ? `<button class="inline-link" data-preview="${previewId}" type="button">Preview</button>` : ""}
           </label>
         `;
@@ -42825,7 +43559,9 @@ function renderDailyLogsQuickDoc(records) {
             <label class="dlc-check-label${option.pro ? " dlc-check-label-pro" : ""}">
               <input type="checkbox" name="quickDocType" value="${option.value}" ${index < 2 && (!option.pro || isProUser()) ? "checked" : ""} ${option.pro && !isProUser() ? "disabled" : ""} />
               <span>☑ ${escapeHtml(option.label)}</span>
-              ${option.pro ? `<span class="mini-pro-label">Included with Pro</span>${!isProUser() ? `<button class="inline-link" data-preview="${dailyLogOutputPreviewMap[option.value] || "daily-log-reports"}" type="button">Preview</button>` : ""}` : `<span class="mini-free-label">Free</span>`}
+              ${isProUser() ? "" : (option.pro
+                ? `<span class="mini-pro-label">Included with Pro</span><button class="inline-link" data-preview="${dailyLogOutputPreviewMap[option.value] || "daily-log-reports"}" type="button">Preview</button>`
+                : `<span class="mini-free-label">Free</span>`)}
             </label>
           `).join("")}
         </fieldset>
@@ -44367,8 +45103,30 @@ async function deleteChildProfilePermanently(childId) {
  * @param {string} message - The text to display in the banner.
  * @param {{label: string, attr: string}|null} action - Optional CTA button. label is the button text; attr is the HTML attribute string (e.g. 'data-view="plans"').
  */
-function showActionFeedback(message, action = null) {
+function hideActionFeedback() {
+  const banner = document.querySelector("#afterActionPrompt");
+  if (banner) banner.classList.remove("visible");
+  document.body.classList.remove("has-action-toast");
+  if (afterActionPromptTimeout) {
+    clearTimeout(afterActionPromptTimeout);
+    afterActionPromptTimeout = null;
+  }
+}
+
+function showActionFeedback(message, action = null, options = {}) {
   if (!message) return;
+  // Noncritical toasts must not cover active workflow / auth overlays.
+  if (
+    !options.allowDuringOverlay
+    && (
+      document.querySelector(".modal.open")
+      || document.body.classList.contains("auth-modal-open")
+      || document.body.classList.contains("resource-viewer-open")
+      || document.body.classList.contains("force-password-required")
+    )
+  ) {
+    return;
+  }
   let banner = document.querySelector("#afterActionPrompt");
   if (!banner) {
     banner = document.createElement("div");
@@ -44378,14 +45136,17 @@ function showActionFeedback(message, action = null) {
     banner.setAttribute("aria-live", "polite");
     document.querySelector(".main")?.appendChild(banner);
   }
+  // One toast at a time — replace any previous message instead of stacking.
   banner.innerHTML = `
     <span class="after-action-text">${escapeHtml(message)}</span>
     ${action ? `<button class="primary-button after-action-yes" ${action.attr} type="button">${escapeHtml(action.label)}</button>` : ""}
     <button class="ghost-button after-action-dismiss" type="button">Got it</button>
   `;
   banner.classList.add("visible");
+  document.body.classList.add("has-action-toast");
   if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
-  afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
+  const ttlMs = Number(options.ttlMs) > 0 ? Number(options.ttlMs) : (action ? 10000 : 4500);
+  afterActionPromptTimeout = setTimeout(() => hideActionFeedback(), ttlMs);
 }
 
 function showAfterActionPrompt(trigger, childId) {
@@ -45354,16 +46115,38 @@ async function submitFeedbackForm(event) {
   if (submitBtn) submitBtn.disabled = true;
   setFormMessage("#feedbackMessage", "Sending…", true);
   const account = currentAccount() || {};
+  let context = null;
+  try {
+    if (typeof collectMultiRoleFeedbackContext === "function") {
+      context = collectMultiRoleFeedbackContext({ feature: type });
+    } else {
+      context = JSON.parse(sessionStorage.getItem("llhFeedbackAutoContext") || "null");
+    }
+  } catch (_error) { context = null; }
+  let composedMessage = message;
+  try {
+    if (typeof buildMultiRoleSmartFeedbackMessage === "function"
+      && document.querySelector("#feedbackAutoContext")) {
+      composedMessage = buildMultiRoleSmartFeedbackMessage() || message;
+    }
+  } catch (_error) { /* keep original message */ }
   const payload = {
     type,
     name,
     email,
     subject,
-    message,
+    message: composedMessage,
     sourceUrl: window.location.href,
-    page: window.location.hash || window.location.pathname || "app",
+    page: context?.page || window.location.hash || window.location.pathname || "app",
     accountType: account.accountType || getAccountType(account),
-    role: account.role || getUserRole(account),
+    role: context?.currentRole || account.role || getUserRole(account),
+    context: context || undefined,
+    testedRole: context?.currentRole || undefined,
+    screenshotUrl: document.querySelector("#feedbackScreenshotInput")?.value?.trim() || undefined,
+    deviceInfo: context
+      ? `${context.deviceClass || ""} ${context.screenWidth || ""}x${context.screenHeight || ""}`.trim()
+      : undefined,
+    browserInfo: context?.userAgent || navigator.userAgent || undefined,
   };
   try {
     if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
@@ -46564,6 +47347,8 @@ function adminSession() {
 
 window.adminSession = adminSession;
 window.setAdminSectionTab = setAdminSectionTab;
+window.getAdminSectionTab = getAdminSectionTab;
+window.setAdminGroup = setAdminGroup;
 window.startAdminMessageToUser = startAdminMessageToUser;
 window.openAdminUserProfile = openAdminUserProfile;
 
@@ -47954,6 +48739,7 @@ function renderAdminOwnerOverview() {
       <div class="admin-analytics-state is-error" role="alert" data-admin-analytics-state="error">
         <p><strong>${adminSessionInvalidOnServer ? "Admin server session expired." : "Could not load live analytics."}</strong></p>
         <p class="muted-copy">${escapeHtml(adminAnalyticsLastError)}</p>
+        ${adminAnalyticsDiagnosticHtml(adminAnalyticsLastDiagnostic)}
         ${adminSessionInvalidOnServer
           ? `<button type="button" class="primary-button" data-admin-reunlock>Unlock Admin Again</button>`
           : `<button type="button" class="primary-button" data-refresh-analytics>Retry</button>`}
@@ -48624,14 +49410,88 @@ function localAnalyticsSummary() {
   };
 }
 
+function adminAnalyticsDiagnosticsApi() {
+  return (typeof LLHAdminAnalyticsDiagnostics !== "undefined" && LLHAdminAnalyticsDiagnostics)
+    || null;
+}
+
+function createAdminAnalyticsCorrelationId() {
+  return adminAnalyticsDiagnosticsApi()?.createCorrelationId?.()
+    || `aan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildAdminAnalyticsDiagnostic(partial = {}) {
+  const api = adminAnalyticsDiagnosticsApi();
+  const payload = {
+    endpoint: partial.endpoint || analyticsConfig.adminEndpoint || "/api/admin/analytics",
+    httpStatus: partial.httpStatus,
+    code: partial.code,
+    message: partial.message,
+    aborted: partial.aborted,
+    offline: partial.offline,
+    invalidJson: partial.invalidJson,
+    requestCorrelationId: partial.requestCorrelationId,
+    timestamp: partial.timestamp,
+    adminSection: partial.adminSection || "insights",
+    timeoutSeconds: Math.round(ADMIN_ANALYTICS_TIMEOUT_MS / 1000),
+  };
+  if (api?.buildDiagnostic) return api.buildDiagnostic(payload);
+  return {
+    endpoint: String(payload.endpoint || ""),
+    httpStatus: Number(payload.httpStatus) || 0,
+    safeErrorCode: String(payload.code || "client_error"),
+    safeErrorMessage: String(payload.message || "Could not load admin analytics."),
+    requestCorrelationId: String(payload.requestCorrelationId || ""),
+    timestamp: String(payload.timestamp || new Date().toISOString()),
+    adminSection: "insights",
+    retryability: "retryable",
+  };
+}
+
+function logAdminAnalyticsClientEvent(kind, diagnostic) {
+  const api = adminAnalyticsDiagnosticsApi();
+  const safe = buildAdminAnalyticsDiagnostic(diagnostic || {});
+  const line = api?.formatLogLine
+    ? api.formatLogLine(kind, safe)
+    : `[admin-analytics:client] ${kind} ${JSON.stringify(safe)}`;
+  if (kind === "failed" || kind === "non-JSON response") console.error(line);
+  else console.info(line);
+  return safe;
+}
+
+function adminAnalyticsDiagnosticHtml(diagnostic) {
+  if (!diagnostic || typeof diagnostic !== "object") return "";
+  return `
+    <p class="muted-copy admin-analytics-diagnostic" data-admin-analytics-diagnostic>
+      <strong>Diagnostics:</strong>
+      ${escapeHtml(diagnostic.safeErrorCode || "error")}
+      · HTTP ${escapeHtml(String(diagnostic.httpStatus || "—"))}
+      · ${escapeHtml(diagnostic.retryability || "unknown")}
+      · corr ${escapeHtml(diagnostic.requestCorrelationId || "n/a")}
+      · ${escapeHtml(diagnostic.timestamp || "")}
+    </p>
+  `;
+}
+
 async function loadAdminAnalyticsFromBackend(options = {}) {
   const token = adminSession()?.token;
   if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
     adminAnalyticsLoading = false;
     if (!token) {
       adminAnalyticsLastError = "Admin session token missing. Unlock Admin again.";
+      adminAnalyticsLastDiagnostic = buildAdminAnalyticsDiagnostic({
+        httpStatus: 401,
+        code: "admin_token_missing",
+        message: adminAnalyticsLastError,
+        adminSection: "insights",
+      });
     } else if (!canUseLaunchBackend()) {
       adminAnalyticsLastError = "Live analytics require the production backend.";
+      adminAnalyticsLastDiagnostic = buildAdminAnalyticsDiagnostic({
+        code: "backend_unavailable",
+        message: adminAnalyticsLastError,
+        adminSection: "insights",
+      });
     }
     if (options.renderLoading !== false) {
       renderAdminOwnerOverview();
@@ -48643,6 +49503,11 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
   if (LOCAL_ADMIN_TOKENS.has(String(token))) {
     adminAnalyticsLoading = false;
     adminAnalyticsLastError = "Local preview tokens cannot load live production analytics. Use the production Admin unlock.";
+    adminAnalyticsLastDiagnostic = buildAdminAnalyticsDiagnostic({
+      code: "local_preview_token",
+      message: adminAnalyticsLastError,
+      adminSection: "insights",
+    });
     if (options.renderLoading !== false) {
       renderAdminOwnerOverview();
       renderAdminAnalytics();
@@ -48671,6 +49536,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
 
   adminAnalyticsLoading = true;
   adminAnalyticsLastError = "";
+  adminAnalyticsLastDiagnostic = null;
   if (options.renderLoading !== false) {
     renderAdminOwnerOverview();
     renderAdminAnalytics();
@@ -48684,52 +49550,73 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
 
   adminAnalyticsLoadPromise = (async () => {
     const session = adminSession() || {};
-    const requestUrl = `${analyticsConfig.adminEndpoint}?t=${Date.now()}`;
-    console.info("[admin-analytics:client] request", {
-      url: analyticsConfig.adminEndpoint,
-      email: session.email || "",
-      mode: session.mode || "",
-      unlocked: isAdminUnlocked(),
-      tokenPrefix: token ? `${String(token).slice(0, 12)}…` : "",
+    const correlationId = createAdminAnalyticsCorrelationId();
+    const requestUrl = `${analyticsConfig.adminEndpoint}?t=${Date.now()}&correlationId=${encodeURIComponent(correlationId)}`;
+    logAdminAnalyticsClientEvent("request", {
+      endpoint: analyticsConfig.adminEndpoint,
+      requestCorrelationId: correlationId,
+      adminSection: "insights",
+      timestamp: new Date().toISOString(),
     });
     try {
-      const response = await fetch(requestUrl, { cache: "no-store", signal: controller.signal, headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(requestUrl, {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Request-Id": correlationId,
+          "X-Correlation-Id": correlationId,
+        },
+      });
       const rawText = await response.text();
       let data = {};
       try {
         data = rawText ? JSON.parse(rawText) : {};
       } catch (parseError) {
-        console.error("[admin-analytics:client] non-JSON response", {
-          status: response.status,
-          bodyPreview: String(rawText || "").slice(0, 300),
-          parseError: parseError?.message,
+        const diagnostic = logAdminAnalyticsClientEvent("non-JSON response", {
+          endpoint: analyticsConfig.adminEndpoint,
+          httpStatus: response.status,
+          invalidJson: true,
+          message: parseError?.message || "invalid_json",
+          requestCorrelationId: response.headers.get("x-correlation-id") || data?.correlationId || correlationId,
+          adminSection: "insights",
         });
-        throw new Error(
-          `Admin analytics returned HTTP ${response.status} with non-JSON body (often a Render crash/OOM).`,
-        );
+        adminAnalyticsLastDiagnostic = diagnostic;
+        throw Object.assign(new Error(diagnostic.safeErrorMessage), { diagnostic, invalidJson: true, httpStatus: response.status });
       }
-      console.info("[admin-analytics:client] response", {
-        status: response.status,
-        ok: response.ok,
-        code: data?.code || "",
-        error: data?.error || "",
-        hasAnalytics: Boolean(data?.analytics),
-        bodyKeys: Object.keys(data || {}),
+      const serverCorrelationId = response.headers.get("x-correlation-id")
+        || data?.correlationId
+        || correlationId;
+      logAdminAnalyticsClientEvent("response", {
+        endpoint: analyticsConfig.adminEndpoint,
+        httpStatus: response.status,
+        code: data?.code || (response.ok ? "ok" : "http_error"),
+        message: data?.error || "",
+        requestCorrelationId: serverCorrelationId,
+        adminSection: "insights",
       });
       if (!response.ok) {
         if (!assertAdminApiResponse(response, data, { render: false })) {
           // Session invalid — re-unlock shell will appear on next admin paint.
         }
-        const detail = data?.error || data?.hint || `HTTP ${response.status}`;
-        throw new Error(
-          isAdminSessionAuthError(data, response)
-            ? (data?.hint || "Admin session expired on the server. Unlock Admin again.")
-            : detail,
-        );
+        const detail = isAdminSessionAuthError(data, response)
+          ? (data?.hint || "Admin session expired on the server. Unlock Admin again.")
+          : (data?.error || data?.hint || `HTTP ${response.status}`);
+        const diagnostic = buildAdminAnalyticsDiagnostic({
+          endpoint: analyticsConfig.adminEndpoint,
+          httpStatus: response.status,
+          code: data?.code || "",
+          message: detail,
+          requestCorrelationId: serverCorrelationId,
+          adminSection: "insights",
+        });
+        adminAnalyticsLastDiagnostic = diagnostic;
+        throw Object.assign(new Error(diagnostic.safeErrorMessage), { diagnostic, httpStatus: response.status });
       }
       adminAnalyticsCache = data.analytics || data;
       adminAnalyticsFetchedAt = Date.now();
       adminAnalyticsLastError = "";
+      adminAnalyticsLastDiagnostic = null;
       adminSessionInvalidOnServer = false;
       renderAdminAnalytics();
       renderAdminMarketingAnalytics();
@@ -48739,14 +49626,21 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       return adminAnalyticsCache;
     } catch (error) {
       const aborted = error?.name === "AbortError";
-      adminAnalyticsLastError = aborted
-        ? `Analytics timed out after ${Math.round(ADMIN_ANALYTICS_TIMEOUT_MS / 1000)}s. Tap Retry.`
-        : (error?.message || "Could not load admin analytics.");
-      console.error("[admin-analytics:client] failed", {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      const diagnostic = error?.diagnostic || buildAdminAnalyticsDiagnostic({
+        endpoint: analyticsConfig.adminEndpoint,
+        httpStatus: error?.httpStatus || 0,
+        code: aborted ? "timeout" : (error?.code || ""),
+        message: error?.message || "",
         aborted,
-        message: adminAnalyticsLastError,
-        email: session.email || "",
+        offline,
+        invalidJson: Boolean(error?.invalidJson),
+        requestCorrelationId: correlationId,
+        adminSection: "insights",
       });
+      adminAnalyticsLastDiagnostic = diagnostic;
+      adminAnalyticsLastError = diagnostic.safeErrorMessage;
+      logAdminAnalyticsClientEvent("failed", diagnostic);
       renderAdminOwnerOverview();
       renderAdminAnalytics();
       renderAdminMarketingAnalytics();
@@ -48821,6 +49715,8 @@ function renderAdminAnalytics() {
     ${!isLive && adminAnalyticsLastError ? `
       <div class="admin-analytics-state is-error" role="alert">
         <p><strong>Analytics did not load.</strong> ${escapeHtml(adminAnalyticsLastError)}</p>
+        ${adminAnalyticsDiagnosticHtml(adminAnalyticsLastDiagnostic)}
+        <button class="primary-button" type="button" data-refresh-analytics>Retry</button>
       </div>
     ` : ""}
     <div class="analytics-summary-grid">
@@ -50119,6 +51015,76 @@ async function archiveAdminLessonPlan(id) {
   });
 }
 
+async function permanentlyDeleteDisposableFixture(planId) {
+  const plan = curriculumLessonPlansForAdmin().find((item) => item.id === planId);
+  if (!plan) {
+    window.alert("Fixture not found.");
+    return;
+  }
+  if (plan.disposableQaFixture !== true) {
+    window.alert("Permanent deletion is only available for disposable QA fixtures.");
+    return;
+  }
+  if (String(plan.status || "").toLowerCase() !== "archived") {
+    window.alert("Archive this disposable fixture before permanently deleting it.");
+    return;
+  }
+  const linked = curriculumActivitiesForAdmin().filter((act) => act.lessonPlanId === plan.id);
+  const typedTitle = window.prompt(
+    `Permanently delete disposable fixture?\n\n`
+    + `This removes the fixture lesson, ${linked.length} linked activit${linked.length === 1 ? "y" : "ies"}, `
+    + `enrichment draft/history, and fixture-only media references.\n\n`
+    + `Type the exact title to confirm:\n${plan.title}`,
+    "",
+  );
+  if (typedTitle == null) return;
+  if (String(typedTitle).trim() !== String(plan.title || "").trim()) {
+    window.alert("Title confirmation did not match. Nothing was deleted.");
+    return;
+  }
+  const phrase = window.prompt(
+    'Secondary confirmation: type PERMANENTLY DELETE to continue.',
+    "",
+  );
+  if (phrase !== "PERMANENTLY DELETE") {
+    window.alert("Secondary confirmation failed. Nothing was deleted.");
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (!token) {
+    window.alert("Admin unlock required.");
+    return;
+  }
+  const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+    ? curriculumExpectedUpdatedAt()
+    : "";
+  const response = await fetch("/api/admin/curriculum/disposable-fixture/permanent-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      planId: plan.id,
+      confirmTitle: plan.title,
+      confirmPhrase: "PERMANENTLY DELETE",
+      expectedUpdatedAt,
+      adminEmail: adminSession()?.email || "",
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert(data.error || `Delete failed (${response.status})`);
+    return;
+  }
+  if (data.curriculum && typeof applyCurriculumState === "function") {
+    applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+  }
+  if (typeof showActionFeedback === "function") {
+    showActionFeedback(
+      `Deleted disposable fixture ${data.deletedPlanId}. Lessons ${data.before?.lessonPlans}→${data.after?.lessonPlans}, activities ${data.before?.activities}→${data.after?.activities}.`,
+    );
+  }
+  renderAdminContentManager();
+}
+
 async function deleteAdminLessonPlan(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
@@ -51144,6 +52110,10 @@ const adminSectionTabs = [
   { id: "usage",       label: "Usage Monitor" },
 ];
 
+function getAdminSectionTab() {
+  return adminActiveSectionTab || "admin-home";
+}
+
 function setAdminSectionTab(tabId) {
   // Settings → Homepage removed; keep Images as the Settings landing tab.
   let resolvedTabId = tabId === "homepage" ? "images" : tabId;
@@ -51158,9 +52128,60 @@ function setAdminSectionTab(tabId) {
   adminActiveSectionTab = resolvedTabId;
   adminActiveGroup = adminGroupForTab[resolvedTabId] || "dashboard";
   localStorage.setItem("llhAdminActiveSection", resolvedTabId);
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("view") === "admin" || document.body?.dataset?.view === "admin") {
+      url.searchParams.set("view", "admin");
+      url.searchParams.set("adminPanel", resolvedTabId);
+      window.history.replaceState({ llhAdminPanel: resolvedTabId }, "", url.toString());
+    }
+  } catch (_error) {
+    /* ignore history sync failures */
+  }
   renderAdminSectionNav();
-  renderAdminDashboard({ sectionChange: true });
+  try {
+    renderAdminDashboard({ sectionChange: true });
+  } catch (error) {
+    console.error("[admin-nav] section render failed", {
+      tab: resolvedTabId,
+      message: error?.message || String(error),
+    });
+    showAdminSectionLoadError(resolvedTabId, error);
+  }
   prefetchAdminSectionData(resolvedTabId);
+}
+
+function showAdminSectionLoadError(tabId, error) {
+  const landingApp = document.querySelector("#adminWorkspaceLandingApp");
+  const landingPanel = document.querySelector(".admin-workspace-landing-panel");
+  const message = String(error?.message || error || "Unknown error");
+  const html = `
+    <div class="admin-section-load-error" role="alert" data-admin-section-error="${escapeHtml(tabId)}">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Admin navigation</p>
+          <h3>This section could not load</h3>
+          <p class="muted-copy">Tried to open <strong>${escapeHtml(tabId)}</strong>. ${escapeHtml(message)}</p>
+        </div>
+        <div class="account-actions-row">
+          <button type="button" class="primary-button" data-admin-section-tab="admin-home">Back to Admin Home</button>
+          <button type="button" class="ghost-button" data-admin-section-retry="${escapeHtml(tabId)}">Retry</button>
+        </div>
+      </div>
+    </div>
+  `;
+  if (landingPanel) landingPanel.hidden = false;
+  if (landingApp) {
+    landingApp.innerHTML = html;
+    return;
+  }
+  const main = document.querySelector("#adminWorkspaceMain") || document.querySelector("#adminView");
+  if (main) {
+    const host = document.createElement("div");
+    host.className = "admin-section-load-error-host";
+    host.innerHTML = html;
+    main.prepend(host);
+  }
 }
 
 const adminAnalyticsTabs = new Set([
@@ -51199,11 +52220,17 @@ function prefetchAdminSectionData(tab) {
   }
 }
 
-function setAdminGroup(groupId) {
+function setAdminGroup(groupId, options = {}) {
   const group = adminGroups.find((g) => g.id === groupId);
   if (!group) return;
-  // Stay on the current sub-tab if it belongs to this group; otherwise use the default.
-  const targetTab = group.tabs.includes(adminActiveSectionTab) ? adminActiveSectionTab : group.defaultTab;
+  const forceDefault = options.forceDefault === true;
+  // Alerts lives under the Admin Home group but has its own sidebar button.
+  // Clicking Admin Home must never leave Alerts stuck on screen.
+  const leavingAlertsForHome = groupId === "admin-home" && adminActiveSectionTab === "admin-notifications";
+  const stayOnCurrent = !forceDefault
+    && !leavingAlertsForHome
+    && group.tabs.includes(adminActiveSectionTab);
+  const targetTab = stayOnCurrent ? adminActiveSectionTab : group.defaultTab;
   setAdminSectionTab(targetTab);
 }
 
@@ -51311,7 +52338,13 @@ function applyAdminSectionVisibility() {
     const landingApp = document.querySelector("#adminWorkspaceLandingApp");
     if (landingPanel) landingPanel.hidden = false;
     const ws = window.AdminWorkspace;
-    if (landingApp && ws) {
+    // Clear prior section content so failed navigations never leave a stale screen.
+    if (landingApp) {
+      landingApp.innerHTML = `<p class="muted-copy" data-admin-section-loading>Loading ${escapeHtml(tab)}…</p>`;
+    }
+    try {
+      if (!landingApp) throw new Error("Admin landing workspace is missing from the page.");
+      if (!ws) throw new Error("Admin workspace helpers failed to load.");
       if (tab === "admin-home") ws.renderAdminHomeWorkspace(landingApp);
       else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
       else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
@@ -51332,6 +52365,13 @@ function applyAdminSectionVisibility() {
       else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
       else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
       else if (tab === "messages-home") ws.renderAdminMessagesHome(landingApp);
+      else {
+        throw new Error(`No landing renderer is registered for “${tab}”.`);
+      }
+    } catch (error) {
+      console.error("[admin-nav] landing section failed", { tab, message: error?.message || String(error) });
+      showAdminSectionLoadError(tab, error);
+      return;
     }
     if (tab === "admin-home" && notifPanel) {
       notifPanel.hidden = true;
@@ -51350,9 +52390,13 @@ function applyAdminSectionVisibility() {
         } else if (target) {
           target.innerHTML = `<p class="muted-copy">Loading owner alerts…</p>`;
           fetchAdminNotificationCenter().then(() => {
+            if (getAdminSectionTab() !== "admin-home") return;
             renderAdminNotificationCenter();
             const source = document.querySelector("#adminNotificationCenter");
             if (source && target) target.innerHTML = source.innerHTML;
+          }).catch((error) => {
+            if (getAdminSectionTab() !== "admin-home") return;
+            if (target) target.innerHTML = `<p class="muted-copy" role="alert">Owner alerts could not load: ${escapeHtml(error?.message || error)}</p>`;
           });
         }
       }
@@ -52489,6 +53533,23 @@ function openAdminUserProfile(email, startTab) {
         <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
 
+      <fieldset class="admin-fieldset">
+        <legend>🔀 Multi-Role Tester</legend>
+        <div class="aup-info-grid">
+          <div><span>Permission</span><strong>${account.multiRoleTester ? "Enabled" : "Off"}</strong></div>
+          <div><span>Independent tester</span><strong>${account.hdhIndependentTester ? "Yes" : "No"}</strong></div>
+        </div>
+        <p class="muted-copy" style="margin-top:8px;">When enabled, this single tester login gets a header <strong>Switch View</strong> (Owner / Director / Teacher / Assistant / Parent) inside their own sandbox. Never grants Admin, Testing Center, analytics, billing, or other testers’ data.</p>
+        <div class="aup-action-row" style="margin-top:12px;">
+          ${!account.multiRoleTester
+            ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="enable-multi-role" data-aup-email="${escapeHtml(email)}">Enable Multi-Role Tester</button>`
+            : `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="disable-multi-role" data-aup-email="${escapeHtml(email)}">Disable Multi-Role Tester</button>`}
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="view-role-switches" data-aup-email="${escapeHtml(email)}">View role-switch log</button>
+        </div>
+        <p id="aupMultiRoleMsg" class="form-message" style="margin-top:8px;"></p>
+        <div id="aupMultiRoleLog" class="aup-multi-role-log" hidden></div>
+      </fieldset>
+
       ${isFounding ? `
       <fieldset class="admin-fieldset aup-founding-fieldset">
         <legend>⭐ Founding Member Management</legend>
@@ -52760,6 +53821,8 @@ function handleAdminUserAction(action, email, modal) {
     action.startsWith("set-free-") ? "#aupFreeAccessMsg"
       : (action === "temp-password" || action === "view-as")
         ? "#aupSecurityMsg"
+        : (action.includes("multi-role") || action === "view-role-switches")
+          ? "#aupMultiRoleMsg"
         : (action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg"),
   );
   function showMsg(text, ok = true) {
@@ -52787,6 +53850,47 @@ function handleAdminUserAction(action, email, modal) {
     return;
   }
 
+  if (action === "enable-multi-role" || action === "disable-multi-role") {
+    const enable = action === "enable-multi-role";
+    if (!confirm(`${enable ? "Enable" : "Disable"} Multi-Role Tester for ${displayUserName(account)} (${email})?`)) return;
+    const updates = { multiRoleTester: enable };
+    adminUpdateMembershipOnServer(email, updates, action, enable
+      ? "Admin enabled Multi-Role Tester Switch View."
+      : "Admin disabled Multi-Role Tester Switch View.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, updates);
+      showMsg(enable ? "Multi-Role Tester enabled." : "Multi-Role Tester disabled.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "view-role-switches") {
+    const logEl = modal?.querySelector("#aupMultiRoleLog");
+    showMsg("Loading role-switch log…");
+    const token = adminSession()?.token;
+    fetch(`/api/admin/tester-role-switches?email=${encodeURIComponent(email)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: "no-store",
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not load role switches.");
+      const items = Array.isArray(data.switches) ? data.switches : [];
+      showMsg(items.length ? `${items.length} role switch(es).` : "No role switches logged yet.");
+      if (logEl) {
+        logEl.hidden = false;
+        logEl.innerHTML = items.length
+          ? items.slice(0, 40).map((item) => `
+              <div class="aup-billing-row">
+                <span>${escapeHtml(item.fromRole || "—")} → <strong>${escapeHtml(item.toRole || "—")}</strong></span>
+                <small>${escapeHtml(item.at ? new Date(item.at).toLocaleString() : "")} · ${escapeHtml(item.source || "")}</small>
+                ${item.context?.page ? `<em>page: ${escapeHtml(item.context.page)}</em>` : ""}
+              </div>`).join("")
+          : `<p class="muted-copy">No switches yet for this tester.</p>`;
+      }
+    }).catch((error) => showMsg(error.message || "Could not load log.", false));
+    return;
+  }
   if (action === "set-free-legacy" || action === "set-free-curated") {
     const mode = action === "set-free-legacy" ? "legacy" : "curated";
     const label = mode === "legacy" ? "Legacy Free (grandfathered)" : "Curated Free sample";
@@ -58482,9 +59586,11 @@ function renderOnboardingChecklist() {
   const target = document.querySelector("#onboardingChecklist");
   if (!target) return;
   const completed = onboardingProgress();
+  // Paid / Founding members never see an “Upgrade to unlock full library” checklist item.
+  const steps = onboardingSteps.filter((step) => step.id !== "upgrade-library" || (!isProUser() && canSeePaidUpgradeOffer()));
   target.innerHTML = `
     <div class="onboarding-list">
-      ${onboardingSteps.map((step) => `
+      ${steps.map((step) => `
         <button class="onboarding-item ${completed.has(step.id) ? "complete" : ""}" data-view="${step.view}" type="button">
           <span>${completed.has(step.id) ? "Done" : "Next"}</span>
           <strong>${escapeHtml(step.label)}</strong>
@@ -58563,6 +59669,9 @@ function canSeePaidUpgradeOffer(account = currentAccount()) {
   if (!isLoggedIn()) return false;
   if (hasAdminFullAccess()) return false;
   if (isProUser()) return false;
+  // Entitled Founding Members must never see upgrade/unlock-library chrome.
+  if (account?.foundingMemberActive) return false;
+  if (normalizeBillingPlan(account?.plan || currentPlan, account) === "Founding") return false;
   if (account?.programAccessViaOwner) return false;
   if (!canAccessPlatformFeature("billing", account)) return false;
   const plan = normalizeBillingPlan(account?.plan || currentPlan, account);
@@ -58727,18 +59836,22 @@ function contentGrowthStatsHtml() {
 function lockedContentUnlockLines(options = {}) {
   const kind = String(options.kind || "generic");
   const stats = contentGrowthStats();
-  const freeCount = Number(stats.freePlans) || 10;
-  const proCount = Number(stats.proPlans) || Math.max(0, Number(stats.totalPlans || 0) - freeCount);
+  const freeCount = Number(stats.freePlans) || 0;
+  const proCount = Number(stats.proPlans) || 0;
+  const activityStats = typeof curriculumActivityAccessStats === "function"
+    ? curriculumActivityAccessStats()
+    : { freeTotal: 0, proTotal: 0, total: stats.totalActivities || 0 };
+  const proActivities = Number(activityStats.proTotal || 0);
   const lines = [
     MEMBERSHIP_COPY.freeCore,
     MEMBERSHIP_COPY.freeBrowse,
-    `Unlock ${proCount > 0 ? `${proCount}+` : "the complete library of"} additional lesson plans.`,
+    `Unlock ${proCount > 0 ? `${proCount}` : "the complete library of"} additional lesson plans.`,
     MEMBERSHIP_COPY.unlimitedLabel + ".",
   ];
   if (kind === "activity") {
     return [
-      stats.totalActivities > 0
-        ? `Unlock ${stats.totalActivities}+ activities across the full Activity Center.`
+      proActivities > 0
+        ? `Unlock ${proActivities} Pro activities across the full Activity Center.`
         : "Unlock the full Activity Center by age, theme, and domain.",
       MEMBERSHIP_COPY.unlimitedLabel + ".",
       "New curriculum added every week.",
@@ -58747,7 +59860,7 @@ function lockedContentUnlockLines(options = {}) {
   if (kind === "ai") {
     return [
       "Generate custom lesson plans in seconds.",
-      `Unlock ${proCount > 0 ? `${proCount}+` : "400+"} ready-to-use lesson plans too.`,
+      `Unlock ${proCount > 0 ? `${proCount}` : "the full library of"} ready-to-use lesson plans too.`,
       MEMBERSHIP_COPY.unlimitedLabel + ".",
     ];
   }
@@ -58776,15 +59889,27 @@ function freeUpgradeSupportingText() {
 
 function planComparisonTableHtml() {
   const stats = contentGrowthStats();
+  const activityStats = typeof curriculumActivityAccessStats === "function"
+    ? curriculumActivityAccessStats()
+    : { freeTotal: 0, proTotal: 0, total: stats.totalActivities || 0 };
   const foundingOpen = foundingOpenForAcquisition();
   const paidLabel = foundingOpen ? "Founding" : "Pro";
-  const freePlans = 10;
-  const proPlans = Math.max(stats.proPlans, Math.max(0, stats.totalPlans - freePlans));
+  const freePlans = Number(stats.freePlans || 0);
+  const proPlans = Number(stats.proPlans || 0);
+  const freeActivities = Number(activityStats.freeTotal || 0);
+  const totalActivities = Number(activityStats.total || stats.totalActivities || 0);
+  const freePlanAge = typeof formatLessonPlanAgeBreakdown === "function"
+    ? formatLessonPlanAgeBreakdown(curriculumLessonPlanAccessStats().freeByAge)
+    : "";
   const rows = [
-    ["Lesson plans", `${freePlans} complete starter plans (3 Infant, 3 Toddler, 4 Preschool)`, `${proPlans > 0 ? `${proPlans}+` : "Complete library"} + unlimited access`],
-    ["Curriculum printing & downloads", "Print/download your 10 Free starter plans", "Unlimited curriculum printing and downloads"],
+    ["Lesson plans", freePlans
+      ? `${freePlans} Free starter plans${freePlanAge ? ` (${freePlanAge})` : ""}`
+      : "Included Free starter plans", `${proPlans > 0 ? `${proPlans} Pro plans` : "Complete library"} + unlimited access`],
+    ["Curriculum printing & downloads", freePlans
+      ? `Print/download your ${freePlans} Free starter plans`
+      : "Print/download included Free plans", "Unlimited curriculum printing and downloads"],
     ["Curriculum collections", "Browse & preview", foundingOpen ? "Unlimited collections" : "Unlimited collections"],
-    ["Activities", "Limited samples", stats.totalActivities > 0 ? `${stats.totalActivities}+ activities` : "Full Activity Center"],
+    ["Activities", freeActivities > 0 ? `${freeActivities} Free activities` : "Limited samples", totalActivities > 0 ? `${totalActivities} activities` : "Full Activity Center"],
     ["New content", "Browse titles & previews", "New curriculum added every week"],
     ["Lesson customization", "Not included", "Customize & save your versions"],
     ["Calendar planning", "About 30 days", "Unlimited"],
@@ -59260,12 +60385,14 @@ function promoCodePanel(options = {}) {
 
 function foundingPlanFeatureList() {
   const stats = contentGrowthStats();
-  const proPlans = Math.max(stats.proPlans, Math.max(0, stats.totalPlans - 10));
+  const totalPlans = Number(stats.totalPlans || 0);
+  const totalActivities = Number(stats.totalActivities || 0);
   return [
     MEMBERSHIP_COPY.foundingCard,
     "Unlimited curriculum printing and downloads",
     "Includes all current and future Pro features",
-    `Unlimited lesson plans${proPlans > 0 ? ` (${proPlans}+ ready now)` : ""}`,
+    `Unlimited lesson plans${totalPlans > 0 ? ` (${totalPlans} ready now)` : ""}`,
+    totalActivities > 0 ? `Full Activity Center (${totalActivities} activities)` : "Full Activity Center",
     stats.totalCollections > 0
       ? `Unlimited curriculum collections (${stats.totalCollections} available)`
       : "Unlimited curriculum collections",
@@ -59404,16 +60531,16 @@ function renderUpgradePage() {
 function subscriptionSummaryHtml() {
   const account = currentAccount();
   const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
-  const status = currentUser ? accountProductStatus(account) : null;
+  const status = currentUser ? membershipDisplayStatus(account) : null;
   const planLabel = currentUser ? (status?.planLabel || billingPlanLabel(currentPlan, account)) : "Guest";
   const statusLabel = currentUser ? `${status.emoji} ${status.label}` : "No account";
   return `
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
-      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : "Regular Pro pricing") : "None"}</strong></div>
+      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : "Regular Pro pricing") : "None"}</strong></div>
       <div><span>Account Status</span><strong class="llh-billing-status-value llh-billing-status-value--${escapeHtml(status?.tone || "neutral")}">${escapeHtml(statusLabel)}</strong></div>
-      <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
+      <div><span>AI Usage</span><strong>${escapeHtml(displayAiUsageLabel())}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
     </div>
     ${status?.detail ? `<p class="muted-copy llh-billing-status-detail">${escapeHtml(status.detail)}</p>` : ""}
@@ -59459,7 +60586,6 @@ function renderBillingPage() {
         ${!paidBilling && !accountIsInTrial(account) ? `<p class="muted-copy">${escapeHtml(MEMBERSHIP_COPY.freeCore)} ${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>` : ""}
         ${account?.promoCodeUsed ? `<p class="muted-copy">Promo code used: <strong>${escapeHtml(account.promoCodeUsed)}</strong>${account.promoLabelUsed ? ` — ${escapeHtml(account.promoLabelUsed)}` : ""}</p>` : ""}
         <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           ${primaryCta}
           ${showUpdatePayment && productStatus?.cta !== "update_payment" ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
@@ -59468,8 +60594,15 @@ function renderBillingPage() {
       <div class="account-panel">
         <p class="eyebrow">Payment Method</p>
         <h3>${escapeHtml(paidBilling ? account?.paymentMethod || "Managed in Stripe" : "No payment method on file")}</h3>
-        <p>Stripe Customer: ${escapeHtml(paidBilling ? account?.stripeCustomerId || "Created after live checkout" : "Created after checkout")}</p>
-        <p>Subscription: ${escapeHtml(paidBilling ? account?.stripeSubscriptionId || "Created after live checkout" : "No active subscription")}</p>
+        <p class="muted-copy">${paidBilling
+          ? "Billing is managed securely through Stripe. Use Update Payment Method to open the customer portal."
+          : "A Stripe customer record is created after checkout."}</p>
+        ${(account?.stripeCustomerId || account?.stripeSubscriptionId) ? `
+        <details class="llh-billing-dev-details">
+          <summary>Developer / support details</summary>
+          <p>Stripe Customer: <code>${escapeHtml(account?.stripeCustomerId || "—")}</code></p>
+          <p>Subscription: <code>${escapeHtml(account?.stripeSubscriptionId || "—")}</code></p>
+        </details>` : ""}
       </div>
     </section>
     ${paidBilling ? `
@@ -59514,7 +60647,6 @@ function renderBillingHistoryPage() {
           <p class="eyebrow">Billing History</p>
           <h3>${history.length} event${history.length === 1 ? "" : "s"}</h3>
         </div>
-        <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       </div>
       <div class="account-actions-row">
         <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing Management</button>
@@ -59716,6 +60848,7 @@ function renderDashboardTasksPage() {
   const section = document.querySelector("#view-dashboard-tasks");
   if (!section) return;
   const records = childRecords();
+  const activeChildren = getActiveChildren(records);
   const stats = weeklyObservationStats(records);
   const planner = weeklyPlanner();
   const weekday = new Date().toLocaleDateString("en-US", { weekday: "long" });
@@ -59730,7 +60863,7 @@ function renderDashboardTasksPage() {
     </div>
     <section class="section-block">
       <div class="analytics-row">
-        <span>Child Profiles</span><strong>${records.children.length}</strong>
+        <span>Child Profiles</span><strong>${activeChildren.length}</strong>
       </div>
       <div class="analytics-row">
         <span>Observations still needed this week</span><strong>${stats.missingChildren.length}</strong>
@@ -59880,34 +61013,33 @@ function renderAccountPage() {
 
   const account = currentAccount();
   const paidBilling = accountHasPaidBilling(account);
+  const productStatus = membershipDisplayStatus(account);
   emailLabel.textContent = currentUser;
-  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
+  planLabel.textContent = `${productStatus.planLabel || billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
-    if (account?.emailVerified) {
-      verificationLabel.textContent = "Email verified.";
+    const verified = Boolean(account?.emailVerified);
+    if (verified) {
+      verificationLabel.textContent = "Email verified — you’re all set.";
     } else if (firebaseAuthEnabled) {
-      verificationLabel.textContent = "Email not verified yet. Use Resend Verification Email if you need a new link.";
+      verificationLabel.textContent = "Email not verified yet. Check your inbox for a verification link, or resend below.";
     } else {
-      verificationLabel.textContent = "You’re signed in. Keep your email and password up to date below.";
+      verificationLabel.textContent = "You’re signed in with email & password. Email verification is not required on this site.";
     }
-    verificationLabel.textContent = account?.emailVerified
-      ? "Email verified — you’re all set."
-      : (firebaseAuthEnabled
-        ? "Email not verified yet. Check your inbox for a verification link, or resend below."
-        : "You’re signed in with email & password. Verification email may not be required on this site.");
-    verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
+    verificationLabel.classList.toggle("verified", verified);
+  }
+  if (resendButton) {
+    resendButton.style.display = (firebaseAuthEnabled && !account?.emailVerified) ? "" : "none";
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
   if (firstNameInput) firstNameInput.value = account?.firstName || "";
   if (lastNameInput) lastNameInput.value = account?.lastName || "";
-  const productStatus = accountProductStatus(account);
   statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
-    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
+    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding") ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
   // Avoid exposing internal auth-provider names (e.g. Local demo / Firebase) on Free account pages.
   if (detailLabel && canBilling && !paidBilling && !isProUser()) {
-    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: Free<br>Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel || "Free")}<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`;
   }
   const programConnectionHost = document.querySelector("#accountProgramConnection");
   if (programConnectionHost) {
@@ -59954,7 +61086,9 @@ function renderAccountPage() {
       upgradeButton.style.display = "none";
     }
   }
-  if (resendButton) resendButton.style.display = account?.emailVerified ? "none" : "inline-flex";
+  if (resendButton) {
+    resendButton.style.display = (firebaseAuthEnabled && !account?.emailVerified) ? "inline-flex" : "none";
+  }
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
@@ -60137,7 +61271,7 @@ function updateSidebarDashboard() {
   }
   const records = childRecords();
   const stats = weeklyObservationStats(records);
-  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
+  const activeGoals = records.goals.filter((goal) => !goal.archived && goalProgressPercent(goal.progress) < 100).length;
   const planner = weeklyPlanner();
   const plannedDays = plannerDays.filter((day) => Object.values(planner.days?.[day] || {}).some(Boolean)).length;
   dueTarget.textContent = String(Math.max(stats.totalNeeded - stats.completed, 0));
@@ -60706,9 +61840,12 @@ async function cancelSubscription() {
 
   if (stripeCheckoutConfig.cancelSubscriptionEndpoint && canUseStripeBackend()) {
     try {
+      const authHeaders = (typeof firebaseAuthHeaders === "function"
+        ? await firebaseAuthHeaders().catch(() => null)
+        : null) || { "Content-Type": "application/json", "X-LLH-User-Email": String(currentUser) };
       const response = await fetch(stripeCheckoutConfig.cancelSubscriptionEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ email: currentUser }),
       });
       const data = await response.json();
@@ -60768,9 +61905,12 @@ async function openCustomerPortal() {
   if (!requireBillingAccount()) return;
   if (stripeCheckoutConfig.customerPortalEndpoint && canUseStripeBackend()) {
     try {
+      const authHeaders = (typeof firebaseAuthHeaders === "function"
+        ? await firebaseAuthHeaders().catch(() => null)
+        : null) || { "Content-Type": "application/json", "X-LLH-User-Email": String(currentUser) };
       const response = await fetch(stripeCheckoutConfig.customerPortalEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           email: currentUser,
           returnUrl: `${window.location.origin}${window.location.pathname}?billing=portal-return`,
@@ -60799,12 +61939,22 @@ function updatePaymentMethod() {
 }
 
 async function signOut() {
+  // Multi-Role Tester: ask which role they tested before clearing the session.
+  try {
+    if (typeof maybePromptMultiRoleSessionEnd === "function"
+      && typeof canUseMultiRoleTester === "function"
+      && (canUseMultiRoleTester() || currentAccount()?.multiRoleTester)
+      && sessionStorage.getItem("llhMultiRoleSessionPrompted") !== "1") {
+      if (maybePromptMultiRoleSessionEnd("logout")) return;
+    }
+  } catch (_error) { /* continue logout */ }
   // Best-effort: revoke this device's push subscription BEFORE clearing the
   // session so the next person to use this browser never receives pushes
   // meant for this account. In-app data is unaffected either way.
   await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
   const signingOutEmail = String(currentUser || "").trim();
+  try { localStorage.removeItem("llhMultiRoleTesterView"); } catch (_error) { /* ignore */ }
   if (firebaseAuthEnabled) {
     try {
       const client = await getFirebaseAuthClient();
@@ -61686,9 +62836,7 @@ document.addEventListener("click", async (event) => {
   const afterActionDismissButton = event.target.closest(".after-action-dismiss");
   if (afterActionDismissButton) {
     event.preventDefault();
-    const banner = document.querySelector("#afterActionPrompt");
-    if (banner) banner.classList.remove("visible");
-    if (afterActionPromptTimeout) { clearTimeout(afterActionPromptTimeout); afterActionPromptTimeout = null; }
+    hideActionFeedback();
     return;
   }
   const supportCategoryButton = event.target.closest("[data-support-category]");
@@ -61849,8 +62997,11 @@ document.addEventListener("click", async (event) => {
         label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
       });
     }
+    if (viewButton.dataset.settingsAnchor) {
+      navOptions.settingsAnchor = viewButton.dataset.settingsAnchor;
+    }
     setView(viewButton.dataset.view, navOptions);
-    if (viewButton.dataset.settingsAnchor === "notifications") {
+    if (viewButton.dataset.settingsAnchor === "notifications" && viewButton.dataset.view === "account") {
       requestAnimationFrame(() => {
         document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -63144,7 +64295,7 @@ document.addEventListener("click", async (event) => {
     const parentInfo = parentEmail
       ? (parentName ? `${parentName} <${parentEmail}>` : parentEmail)
       : (parentName || "");
-    const convertedName = String(lead.childName || "").trim();
+    const convertedName = formatChildDisplayName(lead.childName) || String(lead.childName || "").trim();
     if (isPlaceholderChildName(convertedName)) {
       alert("This enrollment lead needs a real child name before it can become a profile. Update the lead name, then try again.");
       return;
@@ -64869,6 +66020,16 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const calendarBackToWeek = event.target.closest("[data-calendar-back-to-week]");
+  if (calendarBackToWeek) {
+    event.preventDefault();
+    if (mainCalendarSelectedDay) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(mainCalendarSelectedDay);
+    }
+    mainCalendarSubView = "week";
+    renderMainCalendar();
+    return;
+  }
   const calendarBackToMonth = event.target.closest("[data-calendar-back-to-month]");
   if (calendarBackToMonth) {
     event.preventDefault();
@@ -64898,6 +66059,20 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     closeAllItemActionMenus();
     deleteCalendarItem(calendarDeleteItem.dataset.calendarDeleteItem || "");
+    return;
+  }
+
+  const calendarRemoveLesson = event.target.closest("[data-calendar-remove-lesson]");
+  if (calendarRemoveLesson) {
+    event.preventDefault();
+    deleteCalendarItem(calendarRemoveLesson.dataset.calendarRemoveLesson || "");
+    return;
+  }
+
+  const calendarClearWeek = event.target.closest("[data-calendar-clear-week]");
+  if (calendarClearWeek) {
+    event.preventDefault();
+    clearCalendarWeekLesson(calendarClearWeek.dataset.calendarClearWeek || mainCalendarSelectedWeek || "");
     return;
   }
 
@@ -65753,8 +66928,31 @@ document.addEventListener("click", async (event) => {
 
   const clearPlannerButton = event.target.closest("#clearPlannerButton");
   if (clearPlannerButton) {
-    saveWeeklyPlanner(defaultPlanner());
-    renderWeeklyPlanner();
+    event.preventDefault();
+    const planner = weeklyPlanner();
+    const week = curriculumPlannerWeekStartIso(planner.weekOf || weeklyPlannerFocusWeek || new Date());
+    // Prefer clearing the real calendar assignment when one exists for this week.
+    (async () => {
+      const api = getScheduleApi();
+      await ensureScheduleLoaded().catch(() => {});
+      const doc = scheduleDocCache || api?.readCache?.(scheduleApiEmail()) || { items: [] };
+      const lesson = api?.lessonForWeek?.(doc, week) || null;
+      if (lesson?.id) {
+        const cleared = await clearCalendarWeekLesson(week);
+        if (!cleared) return;
+      } else {
+        const confirmed = await confirmAction({
+          title: "Clear planner?",
+          message: "Clear the weekly planner fields for this week? There is no calendar lesson assigned for this week.",
+          confirmLabel: "Clear Planner",
+        });
+        if (!confirmed) return;
+        saveWeeklyPlanner(defaultPlanner(week ? new Date(`${week}T12:00:00`) : new Date()));
+      }
+      renderWeeklyPlanner();
+      if (typeof renderMainCalendar === "function") renderMainCalendar();
+    })();
+    return;
   }
 
   const useCurrentWeekButton = event.target.closest("#useCurrentWeekButton");
@@ -66621,13 +67819,22 @@ document.addEventListener("click", async (event) => {
   if (docHelperCopyBtn) {
     const outputEl = document.querySelector("#docHelperOutput");
     if (!outputEl) return;
-    const text = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
+    const docType = document.querySelector("#docHelperSaveBtn")?.dataset.docType
+      || docHelperDraftState?.docType
+      || "observation";
+    const shareWithFamily = ["daily-log", "parent-message"].includes(docType);
+    const raw = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
+    const text = prepareDocHelperSaveText(docType, raw, { shareWithFamily }) || sanitizeDocHelperDraftText(raw);
     const finish = () => {
       docHelperCopyBtn.textContent = "Copied!";
       setTimeout(() => { docHelperCopyBtn.textContent = "Copy"; }, 2000);
       const hint = document.querySelector("#docHelperNextStepHint");
       if (hint) hint.textContent = "Copied. You can also Save to Child Profile or Create Another.";
     };
+    if (!text) {
+      window.alert("Nothing clean to copy yet — finish the draft first.");
+      return;
+    }
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(finish).catch(() => {
         document.execCommand?.("copy");
@@ -66708,13 +67915,26 @@ document.addEventListener("click", async (event) => {
     const childSelect = document.querySelector("#docHelperChild");
     const childId = childSelect?.value || docHelperSaveBtn.dataset.childId || "";
     const outputEl = document.querySelector("#docHelperOutput");
-    const text = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
-    if (!text || text === "Generating..." || text === "Creating your document…") return;
+    const rawText = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
+    if (!rawText || rawText === "Generating..." || rawText === "Creating your document…") return;
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children", childTab: "overview", label: "documentation" };
-    if (config.key && !childId) {
+    if ((config.key || docHelperRequiresSelectedChild(docType)) && !childId) {
       window.alert("Choose a child above before saving to a child profile.");
       childSelect?.focus();
       return;
+    }
+    const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
+      || document.querySelector("#docHelperShareFamily")?.checked === true;
+    const text = prepareDocHelperSaveText(docType, rawText, { shareWithFamily });
+    if (!text) {
+      window.alert("This draft still looks unfinished (placeholders or empty sections). Edit the note and create it again before saving.");
+      return;
+    }
+    // Keep the visible draft aligned with what will be saved.
+    if (outputEl) {
+      outputEl.dataset.rawMarkdown = text;
+      if (typeof renderMarkdown === "function") outputEl.innerHTML = renderMarkdown(text);
+      else outputEl.textContent = text;
     }
     const childName = childRecords().children.find((c) => c.id === childId)?.name || "this child";
     const confirmed = window.confirm(
@@ -66727,8 +67947,6 @@ document.addEventListener("click", async (event) => {
     const today = new Date().toISOString().slice(0, 10);
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
-      const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
-        || document.querySelector("#docHelperShareFamily")?.checked === true;
       const savedDoc = appendChildRecord(config.key, {
         childId: childId || undefined,
         title,
@@ -67853,6 +69071,27 @@ document.addEventListener("keydown", (event) => {
     closeInstallAppModal();
     return;
   }
+  if (event.key === "Escape" && document.querySelector("#resourceViewerModal.open")) {
+    // Nested lesson sheets first, then the viewer.
+    if (document.body.classList.contains("lesson-workspace-sheet-open")) {
+      try { toggleLessonWorkspaceActionSheet(false); } catch { /* ignore */ }
+      return;
+    }
+    if (document.body.classList.contains("lesson-workspace-more-open")) {
+      try { toggleLessonWorkspaceMoreMenu(false); } catch { /* ignore */ }
+      return;
+    }
+    requestResourceViewerClose();
+    return;
+  }
+  if (event.key === "Escape" && document.body.classList.contains("mobile-nav-open")) {
+    setMobileNavOpen(false);
+    return;
+  }
+  if (event.key === "Escape" && document.body.classList.contains("notification-bell-open")) {
+    try { toggleNotificationBellPanel(false); } catch { /* ignore */ }
+    return;
+  }
   if (event.key === "Tab" && isFeaturePreviewOpen()) {
     const focusable = featurePreviewFocusableElements();
     if (!focusable.length) {
@@ -68463,18 +69702,30 @@ document.addEventListener("click", async (event) => {
     setAdminLessonSaveFlowMessage("Save button clicked", { reset: true, isSuccess: true });
   }
 
-  // Admin section navigation — group buttons (top-level 6-section nav)
+  // Admin section navigation — group buttons (top-level sidebar)
   const groupBtn = event.target.closest("[data-admin-group]");
   if (groupBtn) {
     const groupId = groupBtn.dataset.adminGroup || "";
     if (!groupId) return;
     if (groupId !== adminActiveGroup && !confirmDiscardAdminLessonChanges()) return;
+    // Sidebar "Admin Home" always opens the home landing (Alerts has its own button).
+    if (groupId === "admin-home") {
+      setAdminSectionTab("admin-home");
+      return;
+    }
     setAdminGroup(groupId);
     return;
   }
 
   if (event.target.closest("[data-admin-open-notifications]")) {
     setAdminSectionTab("admin-notifications");
+    return;
+  }
+
+  const retrySectionBtn = event.target.closest("[data-admin-section-retry]");
+  if (retrySectionBtn) {
+    const tab = retrySectionBtn.getAttribute("data-admin-section-retry") || "admin-home";
+    setAdminSectionTab(tab);
     return;
   }
 
@@ -68640,6 +69891,11 @@ document.addEventListener("click", async (event) => {
   const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
   if (curriculumLessonEditButton) {
     openAdminCurriculumLessonEditor(curriculumLessonEditButton.dataset.curriculumLessonEdit, { scroll: true });
+    return;
+  }
+  const fixtureDeleteButton = event.target.closest("[data-curriculum-fixture-permanent-delete]");
+  if (fixtureDeleteButton) {
+    await permanentlyDeleteDisposableFixture(fixtureDeleteButton.dataset.curriculumFixturePermanentDelete);
     return;
   }
   const coverPickButton = event.target.closest("[data-curriculum-cover-pick]");
@@ -69382,13 +70638,138 @@ function restoreDocHelperOriginalNote() {
 
 let docHelperGenerating = false;
 
+/**
+ * Strip Markdown / AI artifacts from Documentation Helper drafts before display or save.
+ * Does not invent facts — only cleans formatting and obvious unfinished placeholders.
+ */
 function sanitizeDocHelperDraftText(text) {
-  return String(text || "")
+  let out = String(text || "");
+  // Fenced code blocks and inline backticks
+  out = out.replace(/```[\s\S]*?```/g, (block) => block.replace(/```/g, "").trim());
+  out = out.replace(/`([^`]+)`/g, "$1");
+  // Headings / bold / italic / list markers commonly left by models
+  out = out
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,]|$)/g, "$1$2")
+    .replace(/^\s*[-*+]\s+/gm, "• ");
+  // Bracket placeholders and unfinished template tokens
+  out = out
+    .replace(/\[Your Name\]/gi, "")
+    .replace(/\[Child(?:'s)? Name\]/gi, "")
+    .replace(/\[Date\]/gi, "")
+    .replace(/\[Time\]/gi, "")
+    .replace(/\[Age(?: Group)?\]/gi, "")
+    .replace(/\[Program Name\]/gi, "")
+    .replace(/\[Insert[^\]]*\]/gi, "")
+    .replace(/\[TODO[^\]]*\]/gi, "")
+    .replace(/\[TBD[^\]]*\]/gi, "");
+  out = out
     .replace(/[!]{2,}/g, "!")
     .replace(/[?]{2,}/g, "?")
+    .replace(/[.]{4,}/g, "...")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  return out;
+}
+
+const DOC_HELPER_FILLER_LINE_RE = /^(not enough detail provided\.?|not provided\.?|n\/?a\.?|none\.?|tbd\.?|todo\.?|describe what happened.*|add (a )?quick note.*|choose an age group.*)$/i;
+const DOC_HELPER_INTERNAL_SECTION_RE = /^(provider notes?(?:\s*\(.*\))?|teacher reflection|provider note(?:s)?|internal notes?(?:\s*\(.*\))?|staff notes?)\s*:?\s*$/i;
+
+/**
+ * Prepare Documentation Helper text for save/share.
+ * - Always strips Markdown / placeholders
+ * - Drops empty filler sections
+ * - For parent-facing share, removes internal provider/teacher sections
+ */
+function prepareDocHelperSaveText(docType, text, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  const shareWithFamily = opts.shareWithFamily === true
+    || ["daily-log", "parent-message"].includes(String(docType || ""));
+  let cleaned = sanitizeDocHelperDraftText(text);
+  if (!cleaned) return "";
+
+  const lines = cleaned.split(/\r?\n/);
+  const kept = [];
+  let skippingInternal = false;
+  let sectionBuffer = [];
+  let sectionHasContent = false;
+
+  function flushSection() {
+    if (!sectionBuffer.length) return;
+    if (sectionHasContent) kept.push(...sectionBuffer);
+    sectionBuffer = [];
+    sectionHasContent = false;
+  }
+
+  for (const rawLine of lines) {
+    const line = String(rawLine || "");
+    const trimmed = line.trim();
+    const isHeading = /^[A-Z][\w\s/&()-]{2,60}:?\s*$/.test(trimmed)
+      && !/[.!?]$/.test(trimmed)
+      && trimmed.length <= 64;
+
+    if (skippingInternal) {
+      if (isHeading && !DOC_HELPER_INTERNAL_SECTION_RE.test(trimmed)) {
+        skippingInternal = false;
+      } else {
+        continue;
+      }
+    }
+
+    if (shareWithFamily && DOC_HELPER_INTERNAL_SECTION_RE.test(trimmed)) {
+      flushSection();
+      skippingInternal = true;
+      continue;
+    }
+
+    if (isHeading) {
+      flushSection();
+      sectionBuffer.push(line);
+      continue;
+    }
+
+    if (!trimmed) {
+      if (sectionBuffer.length) sectionBuffer.push(line);
+      else if (kept.length && kept[kept.length - 1] !== "") kept.push("");
+      continue;
+    }
+
+    if (DOC_HELPER_FILLER_LINE_RE.test(trimmed)) {
+      // Skip filler-only bodies; heading may still flush empty and drop.
+      continue;
+    }
+
+    if (/licensing|keep a copy for your records|for your files only|internal use only/i.test(trimmed)
+      && shareWithFamily) {
+      continue;
+    }
+
+    sectionBuffer.push(line);
+    sectionHasContent = true;
+  }
+  flushSection();
+
+  cleaned = kept.join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  // Reject save payload that is still only unfinished template noise
+  if (!cleaned || DOC_HELPER_FILLER_LINE_RE.test(cleaned)) return "";
+  if (/^\W*$/.test(cleaned)) return "";
+  return cleaned;
+}
+
+function docHelperRequiresSelectedChild(docType) {
+  return ["observation", "parent-message", "daily-log", "incident-report", "behavior-note"].includes(String(docType || ""));
+}
+
+function docHelperRequiresAge(docType) {
+  return ["lesson-plan", "activity-idea", "behavior-note", "daily-log", "observation", "incident-report"].includes(String(docType || ""));
 }
 
 async function runDocHelperGeneration({ docType, note, childId, draftAction = "" } = {}) {
@@ -69416,13 +70797,24 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   const records = childRecords();
   const child = (childId && records.children.find((c) => c.id === childId)) || null;
   const settings = getProgramSettings();
+  if (docHelperRequiresSelectedChild(docType) && !(childId && child)) {
+    resultsEl.hidden = false;
+    outputEl.textContent = "Select a child profile before creating this document. Age-specific wording and names stay accurate only when a child is chosen.";
+    delete outputEl.dataset.rawMarkdown;
+    if (titleEl) titleEl.textContent = "Child needed";
+    if (labelEl) labelEl.textContent = "Notice";
+    setDocHelperDraftActionsVisible(false);
+    document.querySelector("#docHelperChild")?.focus();
+    updateDocHelperComposeHint();
+    return;
+  }
   // Never send a real child name to AI unless the provider explicitly selected that child.
   const childName = child?.name || "";
   // Do not invent an age group when none is on the child profile.
   const ageFromChild = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
   const ageFromForm = normalizeAiAgeGroup(document.querySelector("#docHelperAge")?.value || "");
   const ageGroup = ageFromChild || ageFromForm || "";
-  if (!ageGroup && ["lesson-plan", "activity-idea", "behavior-note", "daily-log"].includes(docType)) {
+  if (!ageGroup && docHelperRequiresAge(docType)) {
     syncDocHelperAgeField();
     resultsEl.hidden = false;
     outputEl.textContent = "Choose an age group before generating this document, or select a child profile that already has an age.";
@@ -69532,7 +70924,11 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
-    const cleaned = sanitizeDocHelperDraftText(result.output);
+    const cleaned = prepareDocHelperSaveText(docType, result.output, { shareWithFamily: false })
+      || sanitizeDocHelperDraftText(result.output);
+    if (!cleaned || DOC_HELPER_FILLER_LINE_RE.test(cleaned)) {
+      throw new Error("The draft looked unfinished. Add a clearer note and try again — nothing was saved.");
+    }
     outputEl.innerHTML = renderMarkdown(cleaned);
     outputEl.dataset.rawMarkdown = cleaned;
     docHelperDraftState.lastOutput = cleaned;
@@ -70251,7 +71647,7 @@ document.addEventListener("submit", async (event) => {
   const child = {
     ...(existing || {}),
     id: editId || `child-${Date.now()}`,
-    name: data.name,
+    name: formatChildDisplayName(data.name) || String(data.name || "").trim(),
     ageGroup: normalizeAgeGroup(data.ageGroup) || ageGroupFromDob(data.dob) || data.ageGroup,
     age,
     dob: data.dob,

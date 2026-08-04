@@ -2,15 +2,24 @@ services:
   - type: web
     name: little-learner-hub
     env: node
-    # Starter (~512MB) is tight for the ~17MB in-memory store + full-document clones.
-    # Prefer Standard (2GB) in the Dashboard if Render emails OOM restarts — see docs/RENDER_OOM_MEMORY.md.
-    plan: starter
+    # Production runs on Standard (2GB). Starter (~512MB) is too tight for the ~17MB
+    # in-memory store + full-document clones — see docs/RENDER_OOM_MEMORY.md.
+    plan: standard
     buildCommand: "npm install"
-    startCommand: "node --max-old-space-size=300 server/index.js"
+    # Match live Dashboard start command. Do not cap V8 at 300MB on a 2GB instance —
+    # that forced RSS near the old System Health critical threshold (280MB).
+    startCommand: "node server/index.js"
     healthCheckPath: /api/health
+    # Env policy: non-secret values may be declared here. Secrets use sync:false and must
+    # be set in the Dashboard or an Environment Group — never committed. Agents must not
+    # PUT a partial env list to Render (see docs/production-env/README.md). Before deploy
+    # or restart, run: npm run env:preflight
     envVars:
       - key: NODE_ENV
         value: production
+      # System Health memory thresholds scale from this (warn ~45% / critical ~70%).
+      - key: MONITOR_INSTANCE_MEMORY_MB
+        value: "2048"
       - key: SITE_URL
         sync: false
       - key: STRIPE_PUBLISHABLE_KEY

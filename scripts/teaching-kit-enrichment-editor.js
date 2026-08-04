@@ -30,6 +30,7 @@
     publishOpen: false,
     recoveryOpen: false,
     compareOpen: false,
+    historyDiffVersionId: "",
     statusText: "",
     summaryOpen: true,
     previewViewport: "desktop", // desktop | tablet | mobile
@@ -812,6 +813,7 @@
         body: JSON.stringify({
           saveMode: "enrichment_draft",
           expectedUpdatedAt,
+          adminEmail: state.draft.lastEditedBy || admin?.email || "",
           lessonPlan: {
             id: plan.id,
             enrichmentDraft: draftSnapshot,
@@ -819,11 +821,26 @@
         }),
       });
       const data = await response.json().catch(() => ({}));
-      if (response.status === 409 && !_retry && data.curriculum) {
-        if (typeof applyCurriculumState === "function") {
+      if (response.status === 409 && !_retry && (data.curriculum || data.code === "curriculum_conflict")) {
+        state.saveInFlight = false;
+        const overwrite = window.confirm(
+          "Another admin updated curriculum while you were editing this lesson.\n\n"
+          + "OK — overwrite with YOUR current draft for this lesson only.\n"
+          + "Cancel — reload the lesson and discard your unsaved local draft changes.",
+        );
+        if (!overwrite) {
+          if (data.curriculum && typeof applyCurriculumState === "function") {
+            applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+          }
+          open(plan.id);
+          state.statusText = "Reloaded after concurrent edit. Local unsaved draft was not written.";
+          state.dirty = false;
+          render();
+          return false;
+        }
+        if (data.curriculum && typeof applyCurriculumState === "function") {
           applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
         }
-        state.saveInFlight = false;
         // Retry once with the same local draft against the refreshed concurrency stamp.
         return saveDraft({ silent, _retry: true });
       }
@@ -1419,7 +1436,7 @@
         <div class="tk-lesson-teacher-head">
           <div>
             <p class="eyebrow">AI Lesson Teacher</p>
-            <strong>Completeness ${analysis.completionPercent}% · ${esc(analysis.dashboardStage || "Legacy")}</strong>
+            <strong>Workflow ${esc(analysis.dashboardStage || "Legacy")} · Content ${analysis.completionPercent}%${analysis.weekdayCoverage ? ` · ${esc(analysis.weekdayCoverage.label)}` : ""}</strong>
             <p class="muted-copy">Scores completeness only (not educational quality). Existing approved content is preserved.</p>
           </div>
           <div class="tk-lesson-teacher-actions">
@@ -1472,17 +1489,19 @@
         <div class="tk-enrich-summary-head">
           <div>
             <p class="eyebrow">Upgrade Summary</p>
-            <strong>${esc(summary.dashboardStage || summary.completenessLabel)} · ${summary.completionPercent}%</strong>
+            <strong>${esc(summary.dashboardStage || summary.completenessLabel)}</strong>
+            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${summary.enrichmentFillPercent ?? summary.completionPercent}% enrichment fill · content ${summary.contentCompletionPercent ?? summary.completionPercent}%</p>
           </div>
           <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
         </div>
         ${state.summaryOpen ? `
           <div class="tk-enrich-summary-stepper" aria-hidden="true">
             <span class="${summary.dashboardStage === "Legacy" ? "is-active" : "is-done"}">Legacy</span>
-            <span class="${summary.dashboardStage === "In Progress" || summary.dashboardStage === "Needs Review" ? "is-active" : (summary.completionPercent >= 50 ? "is-done" : "")}">In Progress</span>
-            <span class="${summary.dashboardStage === "Ready" || summary.dashboardStage === "Complete" ? "is-active" : ""}">Ready</span>
+            <span class="${summary.dashboardStage === "In Progress" || summary.dashboardStage === "Needs Review" ? "is-active" : ((summary.contentCompletionPercent ?? summary.completionPercent) >= 50 ? "is-done" : "")}">In Progress</span>
+            <span class="${summary.dashboardStage === "Ready" || summary.dashboardStage === "Published" || summary.dashboardStage === "Complete" ? "is-active" : ""}">Ready</span>
+            <span class="${summary.dashboardStage === "Published" ? "is-active" : ""}">Published</span>
           </div>
-          <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.completionPercent}%"></i></div>
+          <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.contentCompletionPercent ?? summary.completionPercent}%"></i></div>
           <dl class="tk-enrich-summary-list">
             ${rows.map(([jump, label, value, warn]) => `
               <div class="tk-enrich-summary-row ${warn ? "is-missing" : "is-ready"}">
@@ -1504,8 +1523,8 @@
             </div>
           </dl>
           ${canRollback ? `
-            <button type="button" class="ghost-button" data-enrich-rollback>Rollback last publish</button>
-            <p class="muted-copy">Restores the previous published enrichment. You stay in control — review after rollback.</p>
+            <button type="button" class="ghost-button" data-enrich-rollback>Rollback Last Publish</button>
+            <p class="muted-copy">Loads the prior publish backup into a new draft. Providers keep seeing the current published kit until you Publish.</p>
           ` : ""}
           <p class="muted-copy tk-enrich-summary-note">Guidance only — never blocks saving a draft. Nothing publishes automatically.</p>
         ` : ""}
@@ -1542,11 +1561,19 @@
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
-            <button type="button" class="ghost-button" data-enrich-recovery>Recovery (${historyCount})</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
             <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
+        </div>
+        <div class="tk-enrich-recovery-toolbar" data-enrich-recovery-toolbar aria-label="Version history and recovery">
+          <strong>History &amp; Recovery</strong>
+          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-history data-tk-recovery-toolbar>Version History (${historyCount})</button>
+          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-compare>Compare versions</button>
+          <button type="button" class="ghost-button" data-enrich-rollback ${historyCount ? "" : "disabled"}>Rollback Last Publish</button>
+          <button type="button" class="ghost-button" data-enrich-discard-draft>Discard Draft</button>
+          <button type="button" class="ghost-button" data-enrich-undo-discard ${plan?.enrichmentDraftUndo?.draft ? "" : "disabled"}>Undo Discard</button>
+          <span class="muted-copy">Rollback restores into a draft — Publish required before providers see changes.</span>
         </div>
         <p class="muted-copy tk-enrich-workflow-note">Workflow: Analyze → Prepare AI Draft → Side-by-side review → Edit → Publish → Next lesson. Published content is never overwritten without your approval.</p>
         <div class="tk-enrich-chrome-sub">
@@ -1555,6 +1582,12 @@
             <button type="button" class="ghost-button" data-enrich-prev ${idx <= 0 ? "disabled" : ""}>← Previous</button>
             <button type="button" class="ghost-button" data-enrich-next ${idx >= n - 1 ? "disabled" : ""}>Next →</button>
           </div>
+          <nav class="tk-enrich-jump-links" aria-label="Editor section shortcuts">
+            <button type="button" class="ghost-button" data-enrich-save-draft>Save</button>
+            <button type="button" class="ghost-button" data-enrich-scroll-target="quality">Review</button>
+            <button type="button" class="ghost-button" data-enrich-scroll-target="history">History</button>
+            <button type="button" class="ghost-button" data-enrich-exit>Exit</button>
+          </nav>
           <div class="tk-enrich-jump">
             <button type="button" class="ghost-button" data-enrich-jump-toggle>Jump to…</button>
             ${state.jumpOpen ? `
@@ -2043,13 +2076,15 @@
     return `
       <section class="tk-quality-report" data-quality-report>
         <div class="tk-quality-report-score">
-          <strong>${esc(String(report.overallScore))}%</strong>
-          <span class="tag">${esc(report.overallLabel)}</span>
+          <strong title="Educational quality score">${esc(String(report.overallScore))}%</strong>
+          <span class="tag" title="Educational quality">${esc(report.overallLabel)}</span>
           <span class="tag ${readinessClass}" data-publish-readiness="${esc(report.publishReadiness || "")}">${esc(readiness)}</span>
-          <span class="muted-copy">Completeness ${esc(String(report.completionPercent ?? "—"))}%</span>
+          <span class="muted-copy" title="Enrichment field fill — not weekday coverage">${esc(String(report.weekdayCoverageLabel || report.contentCompletionLabel || `Enrichment fill ${report.completionPercent ?? "—"}%`))}</span>
           ${report.blocksPublish
-            ? `<span class="tag is-danger">Blocking issues</span>`
-            : `<span class="tag is-ready">No blockers</span>`}
+            ? `<span class="tag is-danger">Blocked</span>`
+            : (report.publishReadiness === "needs_review"
+              ? `<span class="tag is-warn">Warnings</span>`
+              : `<span class="tag is-ready">No blockers</span>`)}
         </div>
         <div class="tk-quality-report-grid">
           <div>
@@ -2103,7 +2138,7 @@
               <li><strong>What will change:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
               <li><strong>Linked activities affected:</strong> ${summary.linkedActivitiesAffected}</li>
               <li><strong>Updates a published lesson?</strong> ${summary.isPublished ? "Yes — providers see enrichment only after this publish succeeds" : "No — lesson is not published/featured yet"}</li>
-              <li><strong>Teaching Kit completeness:</strong> ${esc(summary.labelBefore)} ${summary.completionBefore}% → ${esc(summary.labelAfter)} ${summary.completionAfter}%</li>
+              <li><strong>Content completion:</strong> ${esc(summary.labelBefore)} ${summary.completionBefore}% → ${esc(summary.labelAfter)} ${summary.completionAfter}% (enrichment fill; weekday coverage checked separately)</li>
               <li><strong>Prior published version:</strong> ${historyCount ? `${historyCount} snapshot(s) already saved` : "Will be preserved on first publish"}</li>
               <li><strong>Draft photos:</strong> Become provider-visible only after a successful publish (private draft URLs are never exposed)</li>
             </ul>
@@ -2140,6 +2175,170 @@
     `;
   }
 
+  function historyKindLabel(entry) {
+    const kind = String(entry?.kind || "publish").toLowerCase();
+    if (kind === "draft") return "Draft save backup";
+    if (kind === "rollback") return "Rollback checkpoint";
+    return "Publish backup";
+  }
+
+  function isDraftHistorySnapshot(entry) {
+    const kind = String(entry?.kind || "").toLowerCase();
+    const snap = entry?.snapshot;
+    if (kind === "draft") return true;
+    return Boolean(snap?.enrichmentDraft && !snap?.dailyPlans);
+  }
+
+  function flattenPublishedSnapshot(snap) {
+    const out = {
+      familyConnection: String(snap?.familyConnection || ""),
+      activities: {},
+    };
+    const acts = Array.isArray(snap?.activities) ? snap.activities : [];
+    acts.forEach((act) => {
+      const key = act.itemId || act.id;
+      if (!key) return;
+      out.activities[key] = {
+        teacherTips: Array.isArray(act.teacherTips) ? act.teacherTips.filter(Boolean) : [],
+        setupImageUrl: act.setupImageUrl || "",
+        exampleImageUrl: act.exampleImageUrl || "",
+        observationOpportunities: act.observationOpportunities || "",
+        vocabulary: act.vocabulary || "",
+        substitutions: Array.isArray(act.substitutions) ? act.substitutions : [],
+      };
+    });
+    WEEKDAYS.forEach((day) => {
+      (snap?.dailyPlans?.[day]?.items || []).forEach((item) => {
+        const key = item.itemId || item.id || item.title;
+        if (!key) return;
+        const tips = Array.isArray(item.teacherTips) ? item.teacherTips.filter(Boolean) : [];
+        if (!out.activities[key]) {
+          out.activities[key] = {
+            teacherTips: tips,
+            setupImageUrl: item.setupImageUrl || "",
+            exampleImageUrl: item.exampleImageUrl || "",
+            observationOpportunities: "",
+            vocabulary: "",
+            substitutions: [],
+          };
+        } else if (tips.length && !out.activities[key].teacherTips.length) {
+          out.activities[key].teacherTips = tips;
+        }
+      });
+    });
+    return out;
+  }
+
+  function flattenDraftSnapshot(snap) {
+    const draft = snap?.enrichmentDraft && typeof snap.enrichmentDraft === "object"
+      ? snap.enrichmentDraft
+      : (snap && typeof snap === "object" && snap.activities ? snap : {});
+    const week = draft.week && typeof draft.week === "object" ? draft.week : {};
+    const acts = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
+    const out = {
+      familyConnection: String(week.familyConnection || draft.familyConnection || ""),
+      circleTimePrompt: String(week.circleTimePrompt || ""),
+      materials: String(week.materials || ""),
+      activities: {},
+    };
+    Object.keys(acts).forEach((key) => {
+      const act = acts[key] || {};
+      const tips = Array.isArray(act.teacherTips)
+        ? act.teacherTips.filter(Boolean)
+        : (act.teacherTip || act.setupTip ? [act.teacherTip || act.setupTip] : []);
+      out.activities[key] = {
+        teacherTips: tips.map(String),
+        setupImageUrl: act.setupImageUrl || "",
+        exampleImageUrl: act.exampleImageUrl || "",
+        observationOpportunities: act.observationOpportunities || "",
+        vocabulary: act.vocabulary || "",
+        materials: Array.isArray(act.materials) ? act.materials.join(", ") : String(act.materials || ""),
+        substitutions: Array.isArray(act.substitutions) ? act.substitutions : [],
+      };
+    });
+    return out;
+  }
+
+  function flattenHistorySnapshot(entry) {
+    if (!entry?.snapshot) return { familyConnection: "", activities: {} };
+    return isDraftHistorySnapshot(entry)
+      ? flattenDraftSnapshot(entry.snapshot)
+      : flattenPublishedSnapshot(entry.snapshot);
+  }
+
+  function currentLiveFlatten(plan) {
+    if (state.draft && (Object.keys(state.draft.activities || {}).length || state.draft.week)) {
+      return flattenDraftSnapshot({ enrichmentDraft: state.draft });
+    }
+    return flattenPublishedSnapshot({
+      dailyPlans: plan?.dailyPlans,
+      familyConnection: plan?.familyConnection,
+      activities: [],
+    });
+  }
+
+  function diffFlattenedEnrichment(before, after) {
+    const lines = [];
+    const b = before || { familyConnection: "", activities: {} };
+    const a = after || { familyConnection: "", activities: {} };
+    if (String(b.familyConnection || "") !== String(a.familyConnection || "")) {
+      lines.push(`Family: "${String(b.familyConnection || "").slice(0, 80)}" → "${String(a.familyConnection || "").slice(0, 80)}"`);
+    }
+    if (b.circleTimePrompt != null || a.circleTimePrompt != null) {
+      if (String(b.circleTimePrompt || "") !== String(a.circleTimePrompt || "")) {
+        lines.push(`Circle time: "${String(b.circleTimePrompt || "").slice(0, 80)}" → "${String(a.circleTimePrompt || "").slice(0, 80)}"`);
+      }
+    }
+    const keys = new Set([...Object.keys(b.activities || {}), ...Object.keys(a.activities || {})]);
+    keys.forEach((key) => {
+      const left = b.activities[key] || {};
+      const right = a.activities[key] || {};
+      const tipL = (left.teacherTips || []).join(" | ");
+      const tipR = (right.teacherTips || []).join(" | ");
+      if (tipL !== tipR) {
+        lines.push(`${key} tips: "${tipL.slice(0, 70)}" → "${tipR.slice(0, 70)}"`);
+      }
+      if (String(left.setupImageUrl || "") !== String(right.setupImageUrl || "")) {
+        lines.push(`${key}: setup photo ${left.setupImageUrl ? "changed/removed" : "added"}`);
+      }
+      if (String(left.exampleImageUrl || "") !== String(right.exampleImageUrl || "")) {
+        lines.push(`${key}: example photo ${left.exampleImageUrl ? "changed/removed" : "added"}`);
+      }
+      if (String(left.observationOpportunities || "") !== String(right.observationOpportunities || "")) {
+        lines.push(`${key}: observations changed`);
+      }
+      if (String(left.vocabulary || "") !== String(right.vocabulary || "")) {
+        lines.push(`${key}: vocabulary changed`);
+      }
+      if (String(left.materials || "") !== String(right.materials || "")) {
+        lines.push(`${key}: materials "${String(left.materials || "").slice(0, 40)}" → "${String(right.materials || "").slice(0, 40)}"`);
+      }
+      const subL = JSON.stringify(left.substitutions || []);
+      const subR = JSON.stringify(right.substitutions || []);
+      if (subL !== subR) lines.push(`${key}: substitutions changed`);
+    });
+    if (!lines.length) lines.push("No field-level differences detected between these snapshots.");
+    return lines;
+  }
+
+  function renderHistoryDiff(plan, history, entry, index) {
+    if (state.historyDiffVersionId !== entry.versionId) return "";
+    // Diff this backup against the next-newer state (previous list item, or current live).
+    const newer = index === 0 ? null : history[index - 1];
+    const olderFlat = flattenHistorySnapshot(entry);
+    const newerFlat = newer ? flattenHistorySnapshot(newer) : currentLiveFlatten(plan);
+    const label = newer
+      ? `Changes from this version → ${historyKindLabel(newer)} (${newer.versionId})`
+      : "Changes from this version → current editor / live state";
+    const lines = diffFlattenedEnrichment(olderFlat, newerFlat);
+    return `
+      <div class="tk-enrich-history-diff" data-history-diff="${esc(entry.versionId)}">
+        <p class="muted-copy"><strong>${esc(label)}</strong></p>
+        <ul>${lines.slice(0, 40).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+      </div>
+    `;
+  }
+
   function renderRecoveryModal(plan, activities) {
     if (!state.recoveryOpen) return "";
     const history = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory : [];
@@ -2152,30 +2351,40 @@
         if (tips.length) publishedTips.push({ key: item.itemId || item.title, tips });
       });
     });
+    const restorePublishCount = history.filter((entry) => entry.snapshot && !isDraftHistorySnapshot(entry)).length;
     return `
       <div class="tk-enrich-modal" data-recovery-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-recovery-title">
         <button type="button" class="tk-enrich-modal-backdrop" data-recovery-close aria-label="Close recovery"></button>
         <div class="tk-enrich-modal-card tk-enrich-recovery-card" tabindex="-1">
           <div class="tk-enrich-publish-scroll">
-            <h3 id="tk-enrich-recovery-title">Draft recovery</h3>
-            <p class="muted-copy">Version history, draft compare, discard, and rollback. Fixture-safe controls — nothing publishes automatically.</p>
+            <h3 id="tk-enrich-recovery-title">Version history & recovery</h3>
+            <p class="muted-copy">Automatic backups before draft saves and publishes. Restore any retained version for <strong>this lesson only</strong>. Restores load into a draft — providers are unchanged until you Publish. Discard Draft never deletes published content.</p>
 
-            <section class="tk-enrich-recovery-section">
-              <h4>Version History</h4>
+            <section class="tk-enrich-recovery-section" data-recovery-history>
+              <h4>Version History (${history.length} retained)</h4>
               ${history.length ? `
                 <ul class="tk-enrich-history-list">
-                  ${history.slice(0, 8).map((entry, index) => `
+                  ${history.map((entry, index) => {
+                    const draftSnap = isDraftHistorySnapshot(entry);
+                    const restoreLabel = draftSnap ? "Restore This Draft" : "Restore This Version";
+                    return `
                     <li>
-                      <strong>${esc(entry.versionId || `v${index + 1}`)}</strong>
-                      <span class="muted-copy">${esc(entry.publishedAt || "")}${entry.publishedBy ? ` · ${esc(entry.publishedBy)}` : ""}${entry.rollbackOf ? " · rollback entry" : ""}</span>
-                      ${entry.snapshot ? `<button type="button" class="ghost-button" data-enrich-restore-version="${esc(entry.versionId)}">${index === 0 ? "Rollback Last Publish" : "Restore This Version"}</button>` : ""}
+                      <strong>${esc(historyKindLabel(entry))}</strong>
+                      <code>${esc(entry.versionId || `v${index + 1}`)}</code>
+                      <span class="muted-copy">${esc(entry.publishedAt || "")}${entry.publishedBy ? ` · ${esc(entry.publishedBy)}` : ""}${entry.rollbackOf ? ` · of ${esc(entry.rollbackOf)}` : ""}</span>
+                      <div class="form-actions">
+                        ${entry.snapshot ? `<button type="button" class="ghost-button" data-enrich-restore-version="${esc(entry.versionId)}" data-restore-kind="${draftSnap ? "draft" : "publish"}">${restoreLabel}</button>` : ""}
+                        <button type="button" class="ghost-button" data-enrich-history-diff="${esc(entry.versionId)}">${state.historyDiffVersionId === entry.versionId ? "Hide changes" : "Show exact changes"}</button>
+                      </div>
+                      ${renderHistoryDiff(plan, history, entry, index)}
                     </li>
-                  `).join("")}
+                  `;
+                  }).join("")}
                 </ul>
-              ` : `<p class="muted-copy">No published enrichment snapshots yet.</p>`}
+              ` : `<p class="muted-copy">No version snapshots yet. Save a draft or publish to create the first backup.</p>`}
             </section>
 
-            <section class="tk-enrich-recovery-section">
+            <section class="tk-enrich-recovery-section" data-recovery-compare>
               <h4>Compare Draft vs Published</h4>
               <button type="button" class="ghost-button" data-enrich-compare-toggle>${state.compareOpen ? "Hide compare" : "Show compare"}</button>
               ${state.compareOpen ? `
@@ -2205,6 +2414,29 @@
               ` : ""}
             </section>
 
+            <section class="tk-enrich-recovery-section" data-recovery-compare-publish>
+              <h4>Compare Published vs Previous Version</h4>
+              ${(() => {
+                const publishEntries = history.filter((entry) => entry.snapshot && !isDraftHistorySnapshot(entry));
+                if (publishEntries.length < 1) {
+                  return `<p class="muted-copy">No publish backups yet — publish once to create a previous-version comparison.</p>`;
+                }
+                const currentPub = {
+                  familyConnection: plan.familyConnection || "",
+                  activities: {},
+                };
+                publishedTips.forEach((row) => {
+                  currentPub.activities[row.key] = { teacherTips: row.tips };
+                });
+                const previous = flattenHistorySnapshot(publishEntries[0]);
+                const lines = diffFlattenedEnrichment(previous, currentPub);
+                return `
+                  <p class="muted-copy">Current published kit vs backup <code>${esc(publishEntries[0].versionId)}</code> (${esc(publishEntries[0].publishedAt || "")}${publishEntries[0].publishedBy ? ` · ${esc(publishEntries[0].publishedBy)}` : ""}).</p>
+                  <ul>${lines.slice(0, 30).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+                `;
+              })()}
+            </section>
+
             <section class="tk-enrich-recovery-section">
               <h4>Discard Draft</h4>
               <p class="muted-copy">Clears the enrichment draft for this lesson only. Published content stays unchanged. You can undo once if you discard by mistake.</p>
@@ -2215,9 +2447,9 @@
             </section>
 
             <section class="tk-enrich-recovery-section">
-              <h4>Restore Previous Publish</h4>
-              <p class="muted-copy">Rolls the published enrichment back to the prior snapshot. Use only on fixture lessons during QA.</p>
-              <button type="button" class="ghost-button" data-enrich-rollback ${history.length ? "" : "disabled"}>Rollback Last Publish</button>
+              <h4>Rollback Last Publish / Restore Previous Version</h4>
+              <p class="muted-copy">Loads the most recent publish backup into a <strong>new draft</strong> for this lesson (${restorePublishCount} publish snapshot(s) available). Providers keep the current published kit until you Publish. Cancel or press Escape to close without changes.</p>
+              <button type="button" class="ghost-button" data-enrich-rollback ${restorePublishCount ? "" : "disabled"}>Rollback Last Publish</button>
             </section>
           </div>
           <div class="form-actions tk-enrich-publish-actions">
@@ -2453,20 +2685,32 @@
         return;
       }
       if (event.target.closest("[data-enrich-recovery]")) {
+        const openCompare = Boolean(event.target.closest("[data-enrich-open-compare]"));
         state.recoveryOpen = true;
-        state.compareOpen = false;
+        state.compareOpen = openCompare;
+        state.historyDiffVersionId = "";
         render();
+        const focusSel = openCompare ? "[data-enrich-compare-toggle]" : "[data-enrich-open-history]";
+        document.querySelector(focusSel)?.focus?.();
         return;
       }
       if (event.target.closest("[data-recovery-close]")) {
         state.recoveryOpen = false;
         state.compareOpen = false;
+        state.historyDiffVersionId = "";
         render();
         document.querySelector("[data-enrich-recovery]")?.focus?.();
         return;
       }
       if (event.target.closest("[data-enrich-compare-toggle]")) {
         state.compareOpen = !state.compareOpen;
+        render();
+        return;
+      }
+      if (event.target.closest("[data-enrich-history-diff]")) {
+        const btn = event.target.closest("[data-enrich-history-diff]");
+        const versionId = String(btn?.getAttribute("data-enrich-history-diff") || "").trim();
+        state.historyDiffVersionId = state.historyDiffVersionId === versionId ? "" : versionId;
         render();
         return;
       }
@@ -2555,31 +2799,53 @@
       if (event.target.closest("[data-enrich-restore-version]")) {
         const btn = event.target.closest("[data-enrich-restore-version]");
         const versionId = String(btn?.getAttribute("data-enrich-restore-version") || "").trim();
+        const restoreKind = String(btn?.getAttribute("data-restore-kind") || "publish").trim();
         const plan = getPlan();
         if (!plan?.id || !versionId) return;
-        if (!window.confirm(`Restore published enrichment from version ${versionId}? Current draft will be cleared.`)) {
+        const confirmMsg = restoreKind === "draft"
+          ? `Restore draft backup ${versionId} into the editor for this lesson only?\n\nYour current draft will be replaced.\nPublished provider content stays unchanged.`
+          : `Restore publish backup ${versionId} into a NEW DRAFT for this lesson only?\n\nProviders keep seeing the current published kit until you Publish.\nYour current draft will be replaced.`;
+        if (!window.confirm(confirmMsg)) {
           return;
         }
         try {
           const token = adminToken();
+          const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+            ? curriculumExpectedUpdatedAt()
+            : "";
           const response = await fetch("/api/admin/curriculum/enrichment-rollback", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
               planId: plan.id,
               versionId,
+              expectedUpdatedAt,
               publishedBy: state.draft.lastEditedBy || "",
             }),
           });
           const data = await response.json().catch(() => ({}));
+          if (response.status === 409) {
+            window.alert("Another admin edited curriculum while you were working. Reloading this lesson — retry restore after review.");
+            if (data.curriculum && typeof applyCurriculumState === "function") {
+              applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+            }
+            open(plan.id);
+            state.statusText = "Concurrent edit detected on restore. Reloaded lesson.";
+            return;
+          }
           if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
           if (data.curriculum && typeof applyCurriculumState === "function") {
             applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
           }
           state.recoveryOpen = false;
           state.compareOpen = false;
+          state.historyDiffVersionId = "";
           open(plan.id);
-          state.statusText = `Restored publish version ${versionId}.`;
+          state.statusText = data.restoredIntoDraft || data.customerVisibleUnchanged
+            ? `Restored version ${versionId} into draft. Providers unchanged until Publish.`
+            : (data.restoredDraft
+              ? `Restored draft version ${versionId}.`
+              : `Restored version ${versionId}.`);
         } catch (error) {
           state.statusText = `Restore failed: ${error.message || error}`;
           render();
@@ -2624,6 +2890,25 @@
       }
       if (event.target.closest("[data-enrich-save-draft]")) {
         await saveDraft({ silent: false });
+        return;
+      }
+      const scrollTarget = event.target.closest("[data-enrich-scroll-target]");
+      if (scrollTarget) {
+        const key = scrollTarget.getAttribute("data-enrich-scroll-target") || "";
+        const node = key === "history"
+          ? document.querySelector("[data-enrich-recovery-toolbar]")
+          : (document.querySelector("[data-quality-report]")
+            || document.querySelector("[data-quality-run-publish]")
+            || document.querySelector("[data-assistant-panel='quality']"));
+        if (node?.scrollIntoView) {
+          node.scrollIntoView({ behavior: "smooth", block: "start" });
+          (node.querySelector?.("button") || node)?.focus?.();
+        } else if (key === "quality") {
+          state.mode = "week";
+          render();
+        } else if (key === "history") {
+          document.querySelector("[data-enrich-open-history]")?.click?.();
+        }
         return;
       }
       if (event.target.closest("[data-enrich-publish]")) {
@@ -2771,28 +3056,46 @@
       if (event.target.closest("[data-enrich-rollback]")) {
         const plan = getPlan();
         if (!plan?.id) return;
-        if (!window.confirm("Roll back to the previous published enrichment for this lesson? Your current draft will be cleared.")) {
+        if (!window.confirm(
+          "Rollback Last Publish for this lesson only?\n\n"
+          + "This loads the previous publish backup into a NEW DRAFT.\n"
+          + "Providers keep the current published kit until you Publish.\n"
+          + "Your current draft will be replaced.",
+        )) {
           return;
         }
         try {
           const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
+          const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+            ? curriculumExpectedUpdatedAt()
+            : "";
           const response = await fetch("/api/admin/curriculum/enrichment-rollback", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
               planId: plan.id,
+              expectedUpdatedAt,
               publishedBy: state.draft.lastEditedBy || "",
             }),
           });
           const data = await response.json().catch(() => ({}));
+          if (response.status === 409) {
+            window.alert("Another admin edited curriculum while you were working. Reloading this lesson — retry rollback after review.");
+            if (data.curriculum && typeof applyCurriculumState === "function") {
+              applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+            }
+            open(plan.id);
+            state.statusText = "Concurrent edit detected on rollback. Reloaded lesson.";
+            return;
+          }
           if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
           if (data.curriculum && typeof applyCurriculumState === "function") {
             applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
           }
           open(plan.id);
-          state.statusText = `Rolled back to prior publish${data.restoredFromVersionId ? ` (${data.restoredFromVersionId})` : ""}.`;
+          state.statusText = `Rolled back into draft${data.restoredFromVersionId ? ` (${data.restoredFromVersionId})` : ""}. Providers unchanged until Publish.`;
           if (typeof showActionFeedback === "function") {
-            showActionFeedback("Previous enrichment restored. Review the lesson before publishing again.");
+            showActionFeedback("Previous publish loaded into draft. Review, then Publish if you want providers to see it.");
           }
         } catch (error) {
           state.statusText = `Rollback failed: ${error.message || error}`;

@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-admin-login-trim-r1" />
+  <link rel="stylesheet" href="styles.css?v=20260804-admin-login-trim-r2" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
@@ -123,7 +123,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-admin-login-trim-r1";
+      var SHELL_VERSION = "20260804-admin-login-trim-r2";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -464,6 +464,10 @@
             <div class="brand-mark small" aria-hidden="true"><span>LL</span></div>
             <strong title="Little Learner Hub">Little Learner Hub</strong>
           </div>
+          <button class="ghost-button sidebar-toggle" id="sidebarToggle" type="button" aria-label="Collapse menu" aria-controls="mobileNavigation" aria-expanded="true" hidden>
+            <span class="sidebar-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span class="sidebar-toggle-label">Menu</span>
+          </button>
           <label class="search-wrap">
             <span>Search</span>
             <input id="searchInput" type="search" placeholder="Search lesson plans, activities, and tools" />
@@ -791,8 +795,8 @@
             </div>
             <div class="llh-coming-grid llh-coming-grid--preview">
               <article class="llh-coming-card llh-coming-category">
-                <h3>Family Hub <span class="llh-status-pill">Testing</span></h3>
-                <p>Family communication and digital form workflows currently in testing.</p>
+                <h3>Family Hub <span class="llh-status-pill">In Preview</span></h3>
+                <p>Family communication, shared updates, and digital form workflows for invited households.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
                 <h3>Daily operations <span class="llh-status-pill">In Development</span></h3>
@@ -1587,9 +1591,9 @@
         </section>
 
         <section id="view-generators" class="view">
-          <button class="ghost-button back-button" data-contextual-back="generators" data-fallback-view="ai" data-always-visible="true" type="button">← Back to Documentation Center</button>
+          <button class="ghost-button back-button" data-contextual-back="generators" data-fallback-view="ai" data-always-visible="true" type="button">← Back to Documentation Helpers</button>
           <div class="page-title">
-            <p class="eyebrow">Documentation Center</p>
+            <p class="eyebrow">Documentation Helpers</p>
             <h2>More documentation tools</h2>
             <p>Choose a helper, fill in the details, and create ready-to-edit childcare documents. Review and edit before you save.</p>
           </div>
@@ -1948,7 +1952,7 @@
         </section>
 
         <section id="view-faq" class="view">
-          <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
+          <button class="ghost-button back-button" data-contextual-back="faq" data-fallback-view="home" data-always-visible="true" type="button">← Back</button>
           <div class="page-title">
             <p class="eyebrow">Help Center</p>
             <h2>Little Learner Hub FAQ</h2>
@@ -2463,25 +2467,27 @@
     <script src="scripts/lesson-plan-covers.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/curriculum-series.js?v=20260729-curriculum-collections" defer></script>
     <script src="scripts/curriculum-standards.js?v=20260716-curriculum-standards" defer></script>
+    <script src="scripts/curriculum-sentinel.js?v=20260804-sentinel-phase5-r1" defer></script>
     <script src="scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards" defer></script>
-    <script src="scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards" defer></script>
+    <script src="scripts/curriculum-lesson-import-parser.js?v=20260804-sentinel-phase5-r1" defer></script>
     <script src="scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/teaching-kit-mapper.js?v=20260803-tk-vision" defer></script>
-    <script src="scripts/teaching-kit.js?v=20260803-tk-quality-review" defer></script>
+    <script src="scripts/teaching-kit.js?v=20260804-quality-status-phase7-r1" defer></script>
+    <script src="scripts/teaching-kit-status.js?v=20260804-quality-status-phase7-r1" defer></script>
     <script src="scripts/teaching-kit-print.js?v=20260803-teaching-kit-qa" defer></script>
     <script src="scripts/teaching-kit-viewer.js?v=20260803-tk-vision" defer></script>
-    <script src="scripts/teaching-kit-enrichment.js?v=20260804-tk-draft-reliability-r1" defer></script>
+    <script src="scripts/teaching-kit-enrichment.js?v=20260804-quality-status-phase7-r1" defer></script>
     <script src="scripts/teaching-kit-upgrade-workspace.js?v=20260803-tk-upgrade-ws" defer></script>
-    <script src="scripts/teaching-kit-ai-lesson-teacher.js?v=20260803-tk-complete-kit" defer></script>
+    <script src="scripts/teaching-kit-ai-lesson-teacher.js?v=20260804-quality-status-phase7-r1" defer></script>
     <script src="scripts/teaching-kit-reusable-library.js?v=20260803-tk-ai-assistant" defer></script>
     <script src="scripts/teaching-kit-ai-teacher-assistant.js?v=20260803-tk-ai-assistant" defer></script>
     <script src="scripts/teaching-kit-curriculum-director.js?v=20260803-tk-curriculum-director" defer></script>
     <script src="scripts/teaching-kit-curriculum-director-ui.js?v=20260803-tk-curriculum-director" defer></script>
-    <script src="scripts/teaching-kit-quality-review.js?v=20260804-tk-publish-gates-r1" defer></script>
+    <script src="scripts/teaching-kit-quality-review.js?v=20260804-quality-status-phase7-r1" defer></script>
     <script src="scripts/teaching-kit-quality-review-ui.js?v=20260803-tk-quality-review" defer></script>
-    <script src="scripts/teaching-kit-enrichment-editor.js?v=20260804-pass3-tk-undo-r1" defer></script>
+    <script src="scripts/teaching-kit-enrichment-editor.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/teaching-kit-authoring.js?v=20260803-tk-authoring" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
@@ -2492,9 +2498,12 @@
     <script src="scripts/free-plan-grandfathering.js?v=20260804-free-ux-phase2-r1" defer></script>
     <div id="adminTeachingKitEnrichmentHost" aria-live="polite"></div>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260804-admin-login-trim-r1" defer></script>
+    <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
+    <script src="scripts/admin-analytics-diagnostics.js?v=20260804-analytics-diag-phase8-r1" defer></script>
+    <script src="scripts/multi-role-tester.js?v=20260804-admin-login-trim-r2" defer></script>
+    <script src="app.js?v=20260804-admin-login-trim-r2" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
-    <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
+    <script src="admin-workspace.js?v=20260804-settings-honesty-phase9-r1" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="comms-center.js?v=20260804-perf-bounded-r1" defer></script>
   </body>
