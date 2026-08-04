@@ -16,6 +16,7 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
+const { installBootNetworkGuards, gotoApp } = require("./test-helpers/llh-browser-nav");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 19750 + Math.floor(Math.random() * 80);
@@ -224,9 +225,9 @@ async function openAs(page, account) {
     sessionStorage.removeItem("llhFoundingUpgradeDismissed");
   }, account);
   page.setDefaultTimeout(45000);
-  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
-  await page.waitForFunction(() => document.body.classList.contains("app-boot-ready"), null, { timeout: 60000 });
+  await installBootNetworkGuards(page);
+  await gotoApp(page, `http://127.0.0.1:${PORT}/`, { timeout: 90000 });
+  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
   await page.waitForTimeout(400);
   if (account) {
     await page.evaluate(() => {
