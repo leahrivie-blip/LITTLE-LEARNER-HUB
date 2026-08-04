@@ -350,6 +350,7 @@
     "test:toasts-phase7": "NODE_ENV=test node scripts/test-toasts-phase7.js",
     "test:ui-polish-phase8": "NODE_ENV=test node scripts/test-ui-polish-phase8.js",
     "test:data-consistency-phase9": "NODE_ENV=test node scripts/test-data-consistency-phase9.js",
+    "test:role-regression-phase10": "NODE_ENV=test node scripts/test-role-regression-phase10.js",
     "test:multi-role-tester": "NODE_ENV=test node scripts/test-multi-role-tester.js"
   },
   "devDependencies": {
