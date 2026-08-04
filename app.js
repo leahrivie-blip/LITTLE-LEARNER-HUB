@@ -4024,6 +4024,9 @@ function saveLead(email, source = "Free Daycare Starter Pack") {
 }
 
 function showProFeatureModal(message = "This is a Pro Feature.", type = "feature") {
+  // Never interrupt care saves on the testing site when Testing Pro (or real Pro) applies.
+  if (typeof isProUser === "function" && isProUser()) return;
+  if (typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement()) return;
   const modal = document.querySelector("#proModal");
   const body = document.querySelector("#proModalBody");
   const eyebrow = document.querySelector("#proModalEyebrow");
@@ -12721,7 +12724,8 @@ function canAccessCapability(account, capability, options = {}) {
   if (options.adminOverride === true) return true;
   if (!account) return false;
   const accountType = resolveAccountType(account);
-  const role = resolveUserRole(account);
+  // Prefer getUserRole so Admin View As (Owner/Director/Teacher/Assistant) updates nav/permissions instantly.
+  const role = typeof getUserRole === "function" ? getUserRole(account) : resolveUserRole(account);
   if (!accountTypeAllowsCapability(accountType, capability)) return false;
   if (!roleAllowsCapability(role, capability)) return false;
   return true;
@@ -12754,6 +12758,8 @@ function getAccountType(account = currentAccount()) {
 
 /** Current session user role. Guests default to owner for read-only marketing paths. */
 function getUserRole(account = currentAccount()) {
+  const previewRole = typeof adminPreviewUserRole === "function" ? adminPreviewUserRole() : "";
+  if (previewRole) return previewRole;
   if (!account) return USER_ROLES.OWNER;
   return resolveUserRole(account);
 }
@@ -16600,8 +16606,21 @@ function canAssignMoreFreeCalendarPlans(weekStartDate = "") {
   return isWeekWithinFreeCalendarPlanningWindow(week);
 }
 
+/**
+ * Testing Pro — testing-site entitlement only.
+ * Unlocks premium features for signed-in testing accounts without changing role permissions.
+ * Admin "Free" preview still simulates a Free member.
+ */
+function hasTestingProEntitlement() {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  if (!currentUser) return false;
+  if (typeof isAdminUnlocked === "function" && isAdminUnlocked() && adminPreviewMode() === "Free") return false;
+  return true;
+}
+
 function isProUser() {
   if (adminAccessOverridesMemberPlan()) return true;
+  if (hasTestingProEntitlement()) return true;
   if (currentAccount()?.programAccessViaOwner) return true;
   if (isSignedInPlatformOwner()) return true;
   return accessRank[effectiveAccessPlan()] >= accessRank.Pro;
@@ -33268,39 +33287,24 @@ function renderHdhRoleSwitcher(activeRole = "", options = {}) {
 
 function syncHdhTesterSwitcherChrome() {
   let chrome = document.querySelector("#hdhTesterSwitcherChrome");
-  // Owner/self-test switcher only — invited staff use their real linked role, not the persona tabs.
-  // Pure Family Hub parents (magic link / code, no provider login) never see tester chrome.
+  // Sticky tester switcher removed from the main app shell — View As lives in Admin Testing Center.
+  // Keep body persona classes so Parent View As / staff visibility still apply.
   const pureParentSession = Boolean(getFamilyHubSessionToken()) && !isLoggedIn();
-  const show = isHomeDaycareHubTestingEnabled()
-    && !isLinkedProgramStaffAccount()
-    && !pureParentSession
-    && isLoggedIn();
-  if (!show) {
-    chrome?.remove();
-    document.body.classList.remove("hdh-tester-switching", "hdh-persona-staff");
-    if (!pureParentSession && getHdhTesterPersona().role !== "parent") {
+  chrome?.remove();
+  document.body.classList.remove("hdh-tester-switching");
+  const persona = isHomeDaycareHubTestingEnabled() && isLoggedIn() ? getHdhTesterPersona() : null;
+  if (persona) {
+    document.body.dataset.hdhTesterPersona = persona.role;
+    document.body.classList.toggle("hdh-persona-parent", persona.role === "parent");
+    document.body.classList.toggle("hdh-persona-staff", persona.role === "staff-helper" || persona.role === "staff-lead");
+  } else if (!pureParentSession) {
+    document.body.classList.remove("hdh-persona-staff");
+    if (getHdhTesterPersona().role !== "parent") {
       document.body.classList.remove("hdh-persona-parent");
       delete document.body.dataset.hdhTesterPersona;
     }
-    syncFamilyHubParentChrome();
-    return;
   }
-  rememberHdhTesterTeacherEmail();
-  if (!chrome) {
-    chrome = document.createElement("div");
-    chrome.id = "hdhTesterSwitcherChrome";
-    chrome.className = "hdh-tester-switcher-chrome";
-    // Body-level sticky so it stays visible on phone while scrolling Hub content.
-    document.body.prepend(chrome);
-  }
-  const persona = getHdhTesterPersona();
-  document.body.classList.add("hdh-tester-switching");
-  document.body.dataset.hdhTesterPersona = persona.role;
-  document.body.classList.toggle("hdh-persona-parent", persona.role === "parent");
-  document.body.classList.toggle("hdh-persona-staff", persona.role === "staff-helper" || persona.role === "staff-lead");
-  // Always keep a compact sticky switcher available on every device / view.
-  chrome.hidden = false;
-  chrome.innerHTML = renderHdhRoleSwitcher(persona.role, { compact: true });
+  syncFamilyHubParentChrome();
 }
 
 async function familyHubSessionStillValid() {
@@ -34433,7 +34437,9 @@ function renderFamilyHubPage() {
   const invitePending = Boolean(new URLSearchParams(window.location.search).get("familyHub"));
   section.innerHTML = `
     <section class="simple-child-page hdh-family-hub-parent fh-parent-shell">
-      ${providerPreview ? `<div class="fh-preview-banner" role="status"><strong>Provider preview</strong><span>You’re viewing Family Hub as a parent tester. Parents never see this banner.</span></div>${renderHdhRoleSwitcher("parent")}` : ""}
+      ${providerPreview && typeof isAdminUnlocked === "function" && isAdminUnlocked()
+        ? `<div class="fh-preview-banner" role="status"><strong>Admin View As · Parent</strong><span>Return to Admin from the Admin Testing Center badge. Real parents never see this.</span></div>`
+        : ""}
       <div id="familyHubParentApp">
         ${token
           ? `<div class="fh-loading fh-loading-skeleton" id="familyHubLoadingState" aria-live="polite">
@@ -35343,11 +35349,11 @@ function renderHomeDaycareTesterGuidePanel() {
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>Where to add testers</h3>
-      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. Each Teacher tester gets their <strong>own account + own kid</strong>. They message you in <strong>Messages → Message Leah</strong>.</p>
+      <p class="muted-copy">Invite real testers here. Role simulation and View As live in <strong>Admin → Testing Center</strong> only — everyday provider screens stay clean.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
-          <strong>1. Test it yourself</strong>
-          <p>Use the sticky <em>Teacher / Helper / Lead / Parent</em> buttons at the top. No second account needed.</p>
+          <strong>1. Run the day as a provider</strong>
+          <p>Use Daily Logs, Children, and Family Hub invites like a real program. Testing Pro unlocks premium tools automatically on this site.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>2. Add a parent tester</strong>
@@ -35355,23 +35361,25 @@ function renderHomeDaycareTesterGuidePanel() {
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>3. Add a Teacher tester (own stuff + own kid)</strong>
-          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child. <strong>Not your kids. Not Admin.</strong></p>
+          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>4. Add a helper on your shared program (optional)</strong>
-          <p>Same section → open the optional shared-program staff invite. Only if they should use <em>your</em> program data.</p>
+          <strong>4. Admin View As</strong>
+          <p>Unlock Admin → Testing Center → View As Owner / Director / Teacher / Assistant / Parent. Instant nav + permissions, no logout.</p>
         </article>
       </div>
-      ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
+      ${typeof isAdminUnlocked === "function" && isAdminUnlocked()
+        ? renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")
+        : ""}
       <h4 class="hdh-tester-path-title">Try this path (about 10 minutes)</h4>
       <ol class="hdh-tester-path">
         <li>${childReady
           ? `You already have a child on file — good.`
-          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button> (or tap Parent — a demo child is created for you).`}</li>
-        <li>As <strong>Teacher</strong>: open a form / AI draft, save to the child file.</li>
-        <li>Switch <strong>Helper</strong> → confirm Hub is hidden → switch <strong>Lead</strong> → confirm Hub is back.</li>
-        <li>Tap <strong>Parent</strong>, check household form status, then tap <strong>Teacher</strong> to return.</li>
-        <li>Optional: invite a real tester below — they Message Leah from Messages (not Admin).</li>
+          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button>.`}</li>
+        <li>Log meals, naps, and activities in Daily Logs — confirm Family Hub Today updates.</li>
+        <li>Invite a parent and open their magic link on another device/browser.</li>
+        <li>Optional: Admin Testing Center → View As Parent, then Return to Admin.</li>
+        <li>Optional: invite a Teacher tester below — they Message Leah from Messages.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
@@ -41036,10 +41044,11 @@ function renderDailyLogsQuickDoc(records) {
 // ─── Daily Logs Form Functions ──────────────────────────────────────────────
 
 function napTrackingForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="napTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Nap Start<input name="napStart" type="time" /></label>
       <label>Nap End<input name="napEnd" type="time" /></label>
       <label>Duration<input name="duration" placeholder="e.g. 1 hour 15 min" /></label>
@@ -41050,10 +41059,11 @@ function napTrackingForm(childId) {
 }
 
 function diaperTrackingForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="diaperTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Time<input name="time" type="time" /></label>
       <label>Type<select name="type"><option>Wet</option><option>Dirty</option><option>Both</option><option>Dry</option><option>Potty - Success</option><option>Potty - Attempt</option></select></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Any notes about diaper change or potty time"></textarea></label>
@@ -41064,6 +41074,7 @@ function diaperTrackingForm(childId) {
 
 function activityLogForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().activityLogs || [], "activity", childId, 8);
+  const activeDate = dlcActiveDate();
   return `
     <form id="activityLogForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
@@ -41071,7 +41082,7 @@ function activityLogForm(childId) {
         <strong>My Favorites</strong>
         <div class="chip-list">${dailyLogFavorites().map((activity) => `<button class="chip chip-button" data-dlc-favorite-activity="${escapeHtml(activity)}" data-dlc-favorite-child="${childId}" type="button">${escapeHtml(activity)}</button>`).join("")}</div>
       </div>
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Activity<input name="activity" list="activityLogSuggestions-${childId}" placeholder="e.g. Sensory play, circle time, outdoor play" required /></label>
       <label>Developmental Area<select name="area">
         <option>Approaches to Learning</option>
@@ -41091,10 +41102,11 @@ function activityLogForm(childId) {
 }
 
 function behaviorNoteForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="behaviorNoteForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Context<input name="context" placeholder="e.g. During lunch, at circle time" /></label>
       <label>Note<textarea name="message" rows="3" placeholder="Describe the behavior or observation…" required></textarea></label>
       <label>Follow-up Needed<select name="followUp"><option>No</option><option>Yes - Notify Parent</option><option>Yes - Monitor</option><option>Yes - Incident Report</option></select></label>
@@ -41452,10 +41464,11 @@ function differentiationForm(childId) {
 }
 
 function attendanceForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="attendanceForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Status<select name="status"><option>Present</option><option>Absent</option></select></label>
       <label>Drop-Off Time<input name="dropoff" type="time" /></label>
       <label>Pick-Up Time<input name="pickup" type="time" /></label>
@@ -41466,10 +41479,11 @@ function attendanceForm(childId) {
 
 function mealTrackingForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().meals || [], "lunch", childId, 6);
+  const activeDate = dlcActiveDate();
   return `
     <form id="mealTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
@@ -41483,11 +41497,12 @@ function mealTrackingForm(childId) {
 }
 
 function communicationForm(childId) {
+  const activeDate = dlcActiveDate();
   return `
     <form id="communicationForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
       <label>Type<select name="type"><option>Parent Note</option><option>Incident Report</option><option>Daily Report</option><option>Progress Update</option><option>Newsletter</option></select></label>
-      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Message<textarea name="message" rows="3" placeholder="Write the parent communication note here."></textarea></label>
       <button class="primary-button" type="submit">Save Communication</button>
     </form>
@@ -43773,7 +43788,14 @@ function effectiveAccessPlan() {
   const preview = adminPreviewMode();
   if (preview === "Free") return "Free";
   if (preview === "Trial" || preview === "Pro") return "Pro";
-  if (preview === "Founding" || preview === "Director" || preview === "Teacher") return "Founding";
+  if (
+    preview === "Founding"
+    || preview === "Director"
+    || preview === "Teacher"
+    || preview === "Owner"
+    || preview === "Assistant"
+    || preview === "Parent"
+  ) return "Founding";
   if (adminAccessOverridesMemberPlan()) return "Founding";
   // Platform owner aliases (e.g. leahivie@icloud.com) always get full Pro/Founding
   // app access so every lesson plan is viewable — even when the membership row is
@@ -43786,6 +43808,11 @@ function effectiveAccessPlan() {
       return normalizeBillingPlan(account?.plan || "Pro", account) === "Free" ? "Pro" : normalizeBillingPlan(account?.plan || "Pro", account);
     }
     const resolved = accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
+    // Testing Pro unlocks premium features on the testing site without changing role permissions.
+    if (resolved === "Free" && hasTestingProEntitlement()) {
+      console.debug(`[access] effectiveAccessPlan email=${currentUser} Testing Pro entitlement`);
+      return "Pro";
+    }
     console.debug(`[access] effectiveAccessPlan email=${currentUser} plan=${account?.plan || "none"} status="${account?.subscriptionStatus || "none"}" resolved=${resolved}`);
     return resolved;
   }
@@ -43799,10 +43826,29 @@ function previewAwarePlanLabel() {
   if (preview === "Trial") return "Trial";
   if (preview === "Pro") return "Pro";
   if (preview === "Founding") return "Founding Member";
-  if (preview === "Director") return "Director (sandbox)";
-  if (preview === "Teacher") return "Teacher (sandbox)";
+  if (preview === "Owner") return "Owner (View As)";
+  if (preview === "Director") return "Director (View As)";
+  if (preview === "Teacher") return "Teacher (View As)";
+  if (preview === "Assistant") return "Assistant (View As)";
+  if (preview === "Parent") return "Parent (View As)";
   if (preview === "Admin") return "Admin";
   return billingPlanLabel();
+}
+
+const ADMIN_VIEW_AS_ROLES = Object.freeze(["Owner", "Director", "Teacher", "Assistant", "Parent"]);
+const ADMIN_PREVIEW_MODES = Object.freeze([
+  "Admin", "Free", "Trial", "Pro", "Founding", ...ADMIN_VIEW_AS_ROLES,
+]);
+
+/** Map Admin View As mode → platform user role (never changes billing entitlements alone). */
+function adminPreviewUserRole() {
+  if (!isAdminUnlocked()) return "";
+  const preview = adminPreviewMode();
+  if (preview === "Owner") return USER_ROLES.OWNER;
+  if (preview === "Director") return USER_ROLES.DIRECTOR;
+  if (preview === "Teacher") return USER_ROLES.TEACHER;
+  if (preview === "Assistant") return USER_ROLES.ASSISTANT;
+  return "";
 }
 
 function previewAwarePriceLabel() {
@@ -43821,9 +43867,22 @@ function isAdminPreviewSimulating() {
 
 function setAdminPreviewMode(mode) {
   if (!isAdminUnlocked()) return false;
-  const next = ["Admin", "Free", "Trial", "Pro", "Founding", "Director", "Teacher"].includes(mode) ? mode : "Admin";
+  const next = ADMIN_PREVIEW_MODES.includes(mode) ? mode : "Admin";
   localStorage.setItem("llhAdminPreviewMode", next);
+  // Keep HDH persona in sync for Parent View As; restore teacher persona otherwise.
+  if (isHomeDaycareHubTestingEnabled() && typeof setHdhTesterPersona === "function") {
+    if (next === "Parent") {
+      setHdhTesterPersona({ role: "parent" });
+    } else if (getHdhTesterPersona().role === "parent" && next !== "Parent") {
+      setHdhTesterPersona({ role: "teacher" });
+    }
+  }
   applyAdminPreviewToPlatform();
+  if (next === "Parent" && isHomeDaycareHubTestingEnabled() && typeof switchHdhTesterRole === "function") {
+    switchHdhTesterRole("parent").catch((error) => {
+      showActionFeedback(error?.message || "Could not open Parent View As.");
+    });
+  }
   return true;
 }
 
@@ -45537,7 +45596,9 @@ function renderAdminOwnerOverview() {
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
   const previewMode = adminPreviewMode() || "Admin";
   const sectionOpen = (key) => adminOwnerSectionsOpen[key] !== false;
-  const previewModes = ["Admin", "Free", "Trial", "Pro", "Founding", "Director", "Teacher"];
+  const planPreviewModes = ["Admin", "Free", "Trial", "Pro", "Founding"];
+  const viewAsRoles = ADMIN_VIEW_AS_ROLES;
+  const testingProOn = typeof hasTestingProEntitlement === "function" && hasTestingProEntitlement();
   target.innerHTML = `
     <div class="admin-owner-header admin-owner-header--sticky">
       <div>
@@ -45573,21 +45634,35 @@ function renderAdminOwnerOverview() {
         <p><strong>Live production data loaded.</strong></p>
       </div>
     ` : ""}
-    <div class="admin-preview-panel">
+    <div class="admin-preview-panel admin-testing-center" id="adminTestingCenter" data-admin-testing-center>
       <div>
-        <p class="eyebrow">Sandbox Mode</p>
+        <p class="eyebrow">Admin Testing Center</p>
         <strong>Currently viewing as ${escapeHtml(previewMode)}</strong>
-        <span>Simulate Free, Trial, Pro, Founding, Director, Teacher, or full Admin without changing your real account.</span>
+        <span>All testing controls live here. Outside Admin, testers should not see testing-site chrome. Testing Pro unlocks premium features without changing roles.</span>
       </div>
-      <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Account preview mode">
-        ${previewModes.map((mode) => `
-          <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
-        `).join("")}
-        ${previewMode !== "Admin" ? `<button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button>` : ""}
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">Plan sandbox</p>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Plan preview mode">
+          ${planPreviewModes.map((mode) => `
+            <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
+          `).join("")}
+        </div>
       </div>
+      <div class="admin-testing-center-block">
+        <p class="admin-testing-center-label">View As (roles)</p>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="View as role">
+          ${viewAsRoles.map((mode) => `
+            <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
+          `).join("")}
+        </div>
+        <p class="muted-copy">Instantly loads navigation, permissions, Family Hub, forms, and messages for that role — no logout required.</p>
+      </div>
+      ${previewMode !== "Admin" ? `<div class="account-actions-row"><button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button></div>` : ""}
       <p class="admin-preview-active-chip" data-admin-preview-active-chip>
-        Active preview: <strong>${escapeHtml(previewMode)}</strong>
-        · effective plan <strong>${escapeHtml(effectiveAccessPlan())}</strong>
+        Active: <strong>${escapeHtml(previewMode)}</strong>
+        · role <strong>${escapeHtml(getUserRole())}</strong>
+        · plan <strong>${escapeHtml(effectiveAccessPlan())}</strong>
+        · Testing Pro <strong>${testingProOn ? "yes" : "no"}</strong>
         · Pro access <strong>${isProUser() ? "yes" : "no"}</strong>
         · Admin powers <strong>${hasAdminFullAccess() ? "yes" : "no"}</strong>
       </p>
@@ -67749,7 +67824,12 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Attendance", { ...data, title: `${data.date} | ${data.status}`, summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}` });
+  appendChildRecord("Attendance", {
+    ...data,
+    title: `${data.date} | ${data.status}`,
+    summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}`,
+    shareWithFamily: true,
+  });
   showAfterActionPrompt("attendance", data.childId);
 });
 
@@ -67761,7 +67841,12 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Meals", { ...data, title: `Meals | ${data.date}`, summary: `Breakfast: ${data.breakfast || ""} | Lunch: ${data.lunch || ""} | Snack: ${data.snack || ""}` });
+  appendChildRecord("Meals", {
+    ...data,
+    title: `Meals | ${data.date}`,
+    summary: `Breakfast: ${data.breakfast || ""} | Lunch: ${data.lunch || ""} | Snack: ${data.snack || ""}`,
+    shareWithFamily: true,
+  });
   showAfterActionPrompt("meals", data.childId);
 });
 
@@ -67773,7 +67858,15 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Communications", { ...data, title: `${data.type} | ${data.date}`, summary: data.message });
+  const type = String(data.type || "Parent Note");
+  const shareWithFamily = !/incident/i.test(type);
+  appendChildRecord("Communications", {
+    ...data,
+    type,
+    title: `${type} | ${data.date}`,
+    summary: data.message,
+    shareWithFamily,
+  });
   showActionFeedback("Parent communication saved.");
 });
 
@@ -67784,7 +67877,12 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = collectFormData(event.target);
   const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
-  appendChildRecord("Naps", { ...data, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+  appendChildRecord("Naps", {
+    ...data,
+    title: `Nap | ${data.date}${dur}`,
+    summary: data.notes || `Nap logged${dur}`,
+    shareWithFamily: true,
+  });
   showActionFeedback("Nap saved.");
 });
 
@@ -67793,7 +67891,12 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = collectFormData(event.target);
   const timeStr = data.time ? ` at ${data.time}` : "";
-  appendChildRecord("Diapers", { ...data, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+  appendChildRecord("Diapers", {
+    ...data,
+    title: `${data.type} | ${data.date}${timeStr}`,
+    summary: data.notes || data.type,
+    shareWithFamily: true,
+  });
   showActionFeedback("Diaper / potty entry saved.");
 });
 
@@ -67803,7 +67906,12 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const activitySummaryParts = [data.area, data.notes].filter(Boolean);
   const activitySummary = activitySummaryParts.join(" | ") || data.activity || "Activity";
-  appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: activitySummary });
+  appendChildRecord("ActivityLogs", {
+    ...data,
+    title: data.activity || "Activity",
+    summary: activitySummary,
+    shareWithFamily: true,
+  });
   showActionFeedback("Activity saved.");
 });
 
@@ -67815,7 +67923,14 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Communications", { ...data, type: "Behavior Note", title: `Behavior Note | ${data.date}`, summary: data.message });
+  const shareWithFamily = String(data.followUp || "").toLowerCase().includes("notify");
+  appendChildRecord("Communications", {
+    ...data,
+    type: "Behavior Note",
+    title: `Behavior Note | ${data.date}`,
+    summary: data.message,
+    shareWithFamily,
+  });
   showActionFeedback("Behavior note saved.");
 });
 

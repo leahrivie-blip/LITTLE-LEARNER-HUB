@@ -150,7 +150,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-ecosystem-spine";
+      var SHELL_VERSION = "20260804-workflow-integration";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -762,8 +762,8 @@
             </div>
             <div class="llh-coming-grid llh-coming-grid--preview">
               <article class="llh-coming-card llh-coming-category">
-                <h3>Family Hub <span class="llh-status-pill">Testing</span></h3>
-                <p>Family communication and digital form workflows currently in testing.</p>
+                <h3>Family Hub</h3>
+                <p>Family communication, daily updates, and digital form workflows for parents.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
                 <h3>Daily operations <span class="llh-status-pill">Available</span></h3>

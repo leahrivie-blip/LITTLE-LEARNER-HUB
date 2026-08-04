@@ -23976,7 +23976,9 @@ body.family-hub-parent-mode .settings-check-label {
   margin: 8px 0 12px;
 }
 
-/* Non-blocking Meta / advertising analytics notice (consent style A). */
+/* Non-blocking Meta / advertising analytics notice (consent style A).
+   pointer-events:none on the shell so it never covers Daily Logs Save buttons;
+   interactive children re-enable clicks. */
 .llh-meta-cookie-notice {
   position: fixed;
   left: 16px;
@@ -23998,6 +24000,22 @@ body.family-hub-parent-mode .settings-check-label {
   color: #243047;
   font-size: 0.92rem;
   line-height: 1.45;
+  pointer-events: none;
+}
+
+.llh-meta-cookie-notice .llh-meta-cookie-link,
+.llh-meta-cookie-notice .llh-meta-cookie-dismiss {
+  pointer-events: auto;
+}
+
+.admin-testing-center-block {
+  margin-top: 12px;
+}
+
+.admin-testing-center-label {
+  margin: 0 0 6px;
+  font-weight: 700;
+  font-size: 0.92rem;
 }
 
 .llh-meta-cookie-notice p {
