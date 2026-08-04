@@ -14275,17 +14275,140 @@ function workHubTile(options = {}) {
   `;
 }
 
-function workHubShell({ eyebrow = "", title = "", subtitle = "", body = "" } = {}) {
+function workHubEmptyState({
+  title = "Nothing here yet",
+  body = "",
+  ctaLabel = "",
+  ctaAttrs = "",
+  secondaryLabel = "",
+  secondaryAttrs = "",
+} = {}) {
+  return `
+    <section class="work-hub-empty" role="status">
+      <strong>${escapeHtml(title)}</strong>
+      ${body ? `<p>${escapeHtml(body)}</p>` : ""}
+      <div class="work-hub-empty-actions">
+        ${ctaLabel ? `<button class="primary-button" type="button" ${ctaAttrs}>${escapeHtml(ctaLabel)}</button>` : ""}
+        ${secondaryLabel ? `<button class="ghost-button" type="button" ${secondaryAttrs}>${escapeHtml(secondaryLabel)}</button>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+function workHubShell({ eyebrow = "", title = "", subtitle = "", crumbs = [], body = "", actionsHtml = "" } = {}) {
+  const crumbHtml = Array.isArray(crumbs) && crumbs.length
+    ? `<nav class="work-hub-crumbs" aria-label="Breadcrumb">${crumbs.map((item, index) => {
+      const label = escapeHtml(item.label || "");
+      if (item.view) {
+        return `${index ? `<span class="work-hub-crumb-sep" aria-hidden="true">/</span>` : ""}<button type="button" class="work-hub-crumb-link" data-view="${escapeHtml(item.view)}">${label}</button>`;
+      }
+      return `${index ? `<span class="work-hub-crumb-sep" aria-hidden="true">/</span>` : ""}<span class="work-hub-crumb-current">${label}</span>`;
+    }).join("")}</nav>`
+    : "";
   return `
     <section class="work-hub-page">
       <header class="work-hub-header">
-        <p class="eyebrow">${escapeHtml(eyebrow)}</p>
-        <h2>${escapeHtml(title)}</h2>
-        ${subtitle ? `<p class="muted-copy">${escapeHtml(subtitle)}</p>` : ""}
+        ${crumbHtml}
+        <div class="work-hub-header-row">
+          <div>
+            <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+            <h2>${escapeHtml(title)}</h2>
+            ${subtitle ? `<p class="muted-copy">${escapeHtml(subtitle)}</p>` : ""}
+          </div>
+          ${actionsHtml ? `<div class="work-hub-header-actions">${actionsHtml}</div>` : ""}
+        </div>
       </header>
       <div class="work-hub-body">${body}</div>
     </section>
   `;
+}
+
+function workHubPulseCards(cards = []) {
+  const visible = (cards || []).filter(Boolean);
+  if (!visible.length) return "";
+  return `
+    <div class="work-pulse-grid" aria-label="At a glance">
+      ${visible.map((card) => `
+        <article class="work-pulse-card${card.alert ? " is-alert" : ""}">
+          <em>${escapeHtml(card.label || "")}</em>
+          <strong>${escapeHtml(String(card.value ?? "0"))}</strong>
+          <span>${escapeHtml(card.detail || "")}</span>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function polishBirthdaysSoon(children = [], withinDays = 14) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const out = [];
+  children.forEach((child) => {
+    const dob = String(child.dob || "");
+    if (dob.length < 10) return;
+    const [, mm, dd] = dob.split("-").map(Number);
+    if (!mm || !dd) return;
+    let next = new Date(today.getFullYear(), mm - 1, dd, 12);
+    if (next < today) next = new Date(today.getFullYear() + 1, mm - 1, dd, 12);
+    const diff = Math.round((next - today) / 86400000);
+    if (diff >= 0 && diff <= withinDays) {
+      out.push({ child, days: diff, date: next.toISOString().slice(0, 10) });
+    }
+  });
+  return out.sort((a, b) => a.days - b.days);
+}
+
+function polishMissingFormsCount(records = childRecords()) {
+  return (records.documents || []).filter((d) => {
+    const status = String(d.status || d.statusLabel || "").toLowerCase();
+    return !d.signedAt && /need|notif|assign|action|draft|request|overdue/.test(status);
+  }).length;
+}
+
+function polishAllergyChildren(children = []) {
+  return children.filter((child) => String(child.allergies || "").trim().length > 1);
+}
+
+function polishNewChildren(children = [], withinDays = 14) {
+  const cutoff = Date.now() - withinDays * 86400000;
+  return children.filter((child) => {
+    const stamp = Date.parse(child.createdAt || child.enrollmentDate || "") || 0;
+    return stamp >= cutoff;
+  });
+}
+
+function polishMissingContactsCount(children = []) {
+  return children.filter((child) => {
+    const parent = String(child.parentInfo || "").trim();
+    const emergency = String(child.emergencyContact || child.emergency || "").trim();
+    return parent.length < 3 || emergency.length < 3;
+  }).length;
+}
+
+function openDailyLogsSection(sectionId = "") {
+  if (typeof setView === "function") {
+    setView("child-tools-daily-logs", { skipHistory: true, dlcOpenSection: sectionId || "" });
+  } else {
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    dlcNewStep = sectionId ? "manual" : "step1";
+    dlcManualSection = sectionId || "";
+    if (typeof renderChildManagement === "function") renderChildManagement();
+  }
+  if (sectionId && typeof showActionFeedback === "function") {
+    const labels = {
+      meals: "Meals",
+      naps: "Naps",
+      diapers: "Diapers",
+      photos: "Photos",
+      activities: "Activities",
+      attendance: "Attendance",
+      notes: "Notes",
+      incident: "Incident",
+      medication: "Medication",
+    };
+    showActionFeedback(`${labels[sectionId] || "Daily Logs"} is ready — log and tap Save.`);
+  }
 }
 
 function renderOwnerHomeDashboard() {
@@ -14297,6 +14420,24 @@ function renderOwnerHomeDashboard() {
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
   const children = records.children || [];
+  if (!children.length) {
+    homeSection.innerHTML = workHubShell({
+      eyebrow: "Home",
+      title: "Welcome to your program",
+      subtitle: "Home shows what needs attention today. Start by adding the children in your care.",
+      crumbs: [{ label: "Home" }],
+      body: workHubEmptyState({
+        title: "Add your first child to bring Home to life",
+        body: "Once children are on the roster, you’ll see check-ins, meals, forms waiting on parents, and the next action for your day.",
+        ctaLabel: "Add your first child",
+        ctaAttrs: 'data-view="children" data-child-view="add"',
+        secondaryLabel: "Tour Family Hub",
+        secondaryAttrs: 'data-view="home-daycare-hub"',
+      }),
+    });
+    return;
+  }
+
   const attendance = (records.attendance || []).filter((a) => a.date === today);
   const checkedIn = attendance.filter((a) => {
     const status = String(a.status || "").toLowerCase();
@@ -14308,10 +14449,7 @@ function renderOwnerHomeDashboard() {
     .filter((obs) => String(obs.date || "") === today || !obs.date)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
     .slice(0, 4);
-  const docsPending = (records.documents || []).filter((d) => {
-    const status = String(d.status || d.statusLabel || "").toLowerCase();
-    return d.shareWithFamily && !d.signedAt && /need|notif|assign|action|draft|request/.test(status);
-  }).length;
+  const docsPending = polishMissingFormsCount(records);
   const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, roster: children.length, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
     ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
@@ -14329,23 +14467,27 @@ function renderOwnerHomeDashboard() {
           ${attention.map((card) => workHubTile(card)).join("")}
         </div>
       </section>`
-    : "";
+    : `<section class="work-hub-section"><p class="work-hub-all-clear">You’re caught up — no urgent items right now. Keep the care day moving in Daily Logs.</p></section>`;
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
 
   homeSection.innerHTML = workHubShell({
     eyebrow: "Home",
     title: `${greeting}, ${name}`,
     subtitle: `${program} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+    crumbs: [{ label: "Home" }],
+    actionsHtml: `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Continue Daily Logs" : "Start check-in"}</button>`,
     body: `
-      <div class="work-pulse-grid" aria-label="Today at a glance">
-        <article class="work-pulse-card"><em>Checked in</em><strong>${checkedIn}</strong><span>of ${children.length} children</span></article>
-        <article class="work-pulse-card"><em>Classroom count</em><strong>${ratio.checkedIn}</strong><span>${escapeHtml(roomRatioText)}</span></article>
-        <article class="work-pulse-card"><em>Meals logged</em><strong>${mealsToday}</strong><span>entries today</span></article>
-        ${docsPending ? `<article class="work-pulse-card"><em>Forms awaiting parent</em><strong>${docsPending}</strong><span>follow up</span></article>` : `<article class="work-pulse-card"><em>Attendance logged</em><strong>${present}</strong><span>present / recorded</span></article>`}
-      </div>
+      ${workHubPulseCards([
+        { label: "Checked in", value: checkedIn, detail: `of ${children.length} children` },
+        { label: "Classroom count", value: ratio.checkedIn, detail: roomRatioText },
+        { label: "Meals logged", value: mealsToday, detail: "entries today" },
+        docsPending
+          ? { label: "Forms awaiting parent", value: docsPending, detail: "follow up", alert: true }
+          : { label: "Attendance logged", value: present, detail: "present / recorded" },
+      ])}
 
       <section class="work-hub-section">
-        <h3>Next actions</h3>
+        <h3>What to do next</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
           ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
@@ -14378,37 +14520,56 @@ function renderTeacherTodayPage() {
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
   const children = records.children || [];
+  if (!children.length) {
+    section.innerHTML = workHubShell({
+      eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
+      title: "Today",
+      subtitle: "Today is your care-day cockpit — attendance, meals, lessons, and quick capture.",
+      crumbs: [{ label: "Today" }],
+      body: workHubEmptyState({
+        title: "No children on your roster yet",
+        body: "Ask your director to add children, or add one yourself if you have access. Then check-in starts here.",
+        ctaLabel: "Open Children",
+        ctaAttrs: 'data-view="children"',
+        secondaryLabel: "Open Classroom",
+        secondaryAttrs: 'data-view="classroom"',
+      }),
+    });
+    return;
+  }
   const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
   const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
     ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
     : `${children.length} on roster`;
   const attention = typeof buildActionOnlyAttentionCards === "function"
-    ? buildActionOnlyAttentionCards().filter((card) => !["business", "forms"].includes(card.view) || card.title.toLowerCase().includes("incident") || card.title.toLowerCase().includes("report"))
+    ? buildActionOnlyAttentionCards().filter((card) => !["business", "forms"].includes(card.view) || /incident|report/i.test(card.title || ""))
     : [];
   const attentionHtml = attention.length
     ? `<section class="work-hub-section"><h3>Needs you now</h3><div class="work-hub-grid">${attention.map((card) => workHubTile(card)).join("")}</div></section>`
-    : "";
+    : `<section class="work-hub-section"><p class="work-hub-all-clear">No urgent alerts — keep logging the day.</p></section>`;
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
   const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: "Today",
     subtitle: "Everything happening in your classroom today — optimized for the care day, not the business office.",
+    crumbs: [{ label: "Today" }],
+    actionsHtml: `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Continue logs" : "Start check-in"}</button>`,
     body: `
-      <div class="work-pulse-grid">
-        <article class="work-pulse-card"><em>Children here</em><strong>${checkedIn}</strong><span>${escapeHtml(roomRatioText)}</span></article>
-        <article class="work-pulse-card"><em>Meals</em><strong>${(records.meals || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
-        <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
-        <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
-      </div>
+      ${workHubPulseCards([
+        { label: "Children here", value: checkedIn, detail: roomRatioText },
+        { label: "Meals", value: (records.meals || []).filter((m) => m.date === today).length, detail: "logged" },
+        { label: "Naps", value: (records.naps || []).filter((m) => m.date === today).length, detail: "logged" },
+        { label: "Activities", value: (records.activityLogs || []).filter((m) => m.date === today).length, detail: "logged" },
+      ])}
       ${lessonHtml}
       ${attentionHtml}
       <section class="work-hub-section">
         <h3>Run the day</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
-          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts`, primary: true }) : ""}
+          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts`, primary: true, attrs: 'data-dlc-open-section="notes"' }) : ""}
           ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open assigned plan" })}
           ${workHubTile({ view: "activities", title: "Suggested activities", detail: "Activity Center" })}
           ${workHubTile({ view: "calendar", title: "Today's Schedule", detail: "Calendar & events" })}
@@ -14418,7 +14579,7 @@ function renderTeacherTodayPage() {
         <h3>Quick capture</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Opens Photos to upload", attrs: 'data-dlc-open-section="photos"' })}
           ${workHubTile({ view: role === "assistant" ? "messages" : "families", title: "Quick Message", detail: "Parent update" })}
           ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
         </div>
@@ -14438,18 +14599,40 @@ function renderClassroomHubPage() {
   const section = document.querySelector("#view-classroom");
   if (!section) return;
   const role = workModeRole();
-  section.innerHTML = workHubShell({
-    eyebrow: "Classroom",
-    title: "Classroom",
-    subtitle: role === "teacher" || role === "assistant"
-      ? "Where teachers spend the day — care logs, lessons, and today's schedule."
-      : "Everything used during the care day. Teachers live here; business stays in Business.",
-    body: `
+  const records = childRecords();
+  const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const children = records.children || [];
+  const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
+  const meals = (records.meals || []).filter((m) => m.date === today).length;
+  const activities = (records.activityLogs || []).filter((m) => m.date === today).length;
+  const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
+  const roomRatioText = Object.keys(ratio.byRoom || {}).length
+    ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 4).join(" · ")
+    : "Check children in to see room counts";
+  const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
+  const emptyBody = !children.length
+    ? workHubEmptyState({
+      title: "Classroom is ready when children are",
+      body: "This is where attendance, meals, ratios, today’s lesson, and activities live during the care day.",
+      ctaLabel: "Add a child",
+      ctaAttrs: 'data-view="children" data-child-view="add"',
+      secondaryLabel: "Set up rooms",
+      secondaryAttrs: 'data-view="classrooms"',
+    })
+    : `
+      ${workHubPulseCards([
+        { label: "Attendance", value: checkedIn, detail: `${children.length} on roster` },
+        { label: "Meals", value: meals, detail: "logged today" },
+        { label: "Ratios", value: ratio.checkedIn, detail: roomRatioText },
+        { label: "Activities", value: activities, detail: "completed today" },
+      ])}
+      ${lessonHtml || `<section class="work-hub-section"><p class="muted-copy">No lesson assigned this week yet. <button class="inline-link" type="button" data-view="lessons">Assign a lesson</button> so Teacher Today and Daily Logs stay connected.</p></section>`}
       <section class="work-hub-section">
         <h3>Daily care</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Attendance, meals, naps, diapers, activities", primary: true })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "End-of-Day Report", detail: "AI summary from today's facts" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue attendance & care" : "Start with check-in", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Log a meal", detail: "Opens Meals", attrs: 'data-dlc-open-section="meals"' })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "End-of-day report", detail: "Generate from today’s facts", attrs: 'data-dlc-open-section="notes"' })}
         </div>
       </section>
       <section class="work-hub-section">
@@ -14458,7 +14641,7 @@ function renderClassroomHubPage() {
           ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign" })}
           ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
           ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule & events" })}
-          ${workHubTile({ view: "ai", title: "AI Classroom Assistant", detail: "Documentation helpers" })}
+          ${workHubTile({ view: "ai", title: "Documentation helpers", detail: "Quiet AI for notes & reports" })}
           ${role === "owner" || role === "director" ? workHubTile({ view: "classrooms", title: "Room setup", detail: "Manage classrooms" }) : ""}
         </div>
       </section>
@@ -14470,12 +14653,22 @@ function renderClassroomHubPage() {
           ${workHubTile({ view: "resources", title: "Materials", detail: "Resources hub" })}
         </div>
       </section>
-    `,
+    `;
+  section.innerHTML = workHubShell({
+    eyebrow: "Classroom",
+    title: "Classroom",
+    subtitle: role === "teacher" || role === "assistant"
+      ? "Where teachers spend the day — care logs, lessons, and today's schedule."
+      : "Everything used during the care day. Teachers live here; business stays in Business.",
+    crumbs: [{ label: "Classroom" }],
+    actionsHtml: children.length
+      ? `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Open Daily Logs" : "Start attendance"}</button>`
+      : "",
+    body: emptyBody,
   });
 }
 
 function renderFamiliesHubPage() {
-  // Enhance existing families view into a parent-facing hub without removing tools.
   const section = document.querySelector("#view-families");
   if (!section) return;
   const role = workModeRole();
@@ -14484,37 +14677,66 @@ function renderFamiliesHubPage() {
     return;
   }
   const canManage = role === "owner" || role === "director";
-  section.innerHTML = workHubShell({
-    eyebrow: "Families",
-    title: "Families",
-    subtitle: "Everything parent-related lives here — communication, Family Hub, forms, and pickup changes.",
-    body: `
+  const records = childRecords();
+  const children = records.children || [];
+  const formsWaiting = polishMissingFormsCount(records);
+  const missingContacts = polishMissingContactsCount(children);
+  const opsUnread = typeof listOpsAlerts === "function"
+    ? listOpsAlerts().filter((a) => !a.read && ["form_signed", "observation_shared", "message"].includes(a.type)).length
+    : 0;
+  const body = !children.length
+    ? workHubEmptyState({
+      title: "Invite families after you add children",
+      body: "Families is for parent messages, forms, Family Hub invites, and pickup updates. Start with a child profile, then invite their household.",
+      ctaLabel: "Add a child",
+      ctaAttrs: 'data-view="children" data-child-view="add"',
+      secondaryLabel: "Open Family Hub",
+      secondaryAttrs: 'data-view="home-daycare-hub"',
+    })
+    : `
+      ${workHubPulseCards([
+        { label: "Needs follow-up", value: opsUnread, detail: "signed forms & shares", alert: opsUnread > 0 },
+        { label: "Forms waiting", value: formsWaiting, detail: "parent action", alert: formsWaiting > 0 },
+        { label: "Missing contacts", value: missingContacts, detail: "parent or emergency", alert: missingContacts > 0 },
+        { label: "Children linked", value: children.length, detail: "ready for Family Hub" },
+      ])}
       <section class="work-hub-section">
-        <h3>Family Hub & messages</h3>
+        <h3>What to do next</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
-          ${workHubTile({ view: "messages", title: "Messages", detail: "Provider inbox & parent threads" })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
-          ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Invite a parent", detail: "Create a Family Hub household", primary: true })}
+          ${formsWaiting ? workHubTile({ view: "forms", title: "Forms waiting", detail: `${formsWaiting} need parent action`, primary: true }) : workHubTile({ view: "forms", title: "Forms", detail: "Assign & review" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: opsUnread ? `${opsUnread} updates to review` : "Provider inbox" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily reports", detail: "Share end-of-day updates", attrs: 'data-dlc-open-section="notes"' })}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Forms & requests</h3>
+        <h3>Family Hub & day updates</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "forms", title: "Forms", detail: "Assign & review parent forms" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Households & parent portal" })}
           ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Contacts</h3>
+        <h3>Contacts on child files</h3>
+        <p class="muted-copy">Parent, emergency, and pickup contacts live on each child’s profile so you only enter them once.</p>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "children", title: "Parents & guardians", detail: "On each child profile" })}
+          ${workHubTile({ view: "children", title: "Parents & guardians", detail: missingContacts ? `${missingContacts} profiles need contacts` : "Open a child → Contacts" })}
           ${workHubTile({ view: "children", title: "Emergency & authorized pickup", detail: "Child file → contacts" })}
+          ${workHubTile({ view: "children", title: "Photos & notes", detail: "Shared from each child’s file" })}
         </div>
       </section>
-    `,
+    `;
+  section.innerHTML = workHubShell({
+    eyebrow: "Families",
+    title: "Families",
+    subtitle: "Everything parent-related lives here — communication, Family Hub, forms, and pickup changes.",
+    crumbs: [{ label: "Families" }],
+    actionsHtml: children.length
+      ? `<button class="primary-button" type="button" data-view="home-daycare-hub">Invite parent</button>`
+      : "",
+    body,
   });
 }
 
@@ -14528,30 +14750,56 @@ function renderBusinessHubPage() {
   }
   const showBilling = role === "owner" && canAccessPlatformFeature("billing");
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  const records = childRecords();
+  const staffCount = (() => {
+    try {
+      const settings = typeof getProgramSettings === "function" ? getProgramSettings() : {};
+      const members = Array.isArray(settings.staffMembers) ? settings.staffMembers : [];
+      return members.length || (Array.isArray(settings.staff) ? settings.staff.length : 0);
+    } catch (_e) { return 0; }
+  })();
+  const rooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const formsWaiting = polishMissingFormsCount(records);
   section.innerHTML = workHubShell({
     eyebrow: "Business",
     title: "Business",
     subtitle: role === "director"
       ? "Director tools for running the program. Billing stays with the owner."
-      : "Owner tools — staff, enrollment, billing, licensing, and testing.",
+      : "Owner tools — staff, enrollment, settings, and testing. Keep the care day in Classroom.",
+    crumbs: [{ label: "Business" }],
+    actionsHtml: `<button class="primary-button" type="button" data-view="staff">Manage staff</button>`,
     body: `
+      ${workHubPulseCards([
+        { label: "Staff", value: staffCount, detail: staffCount ? "on the team" : "invite your first helper" },
+        { label: "Classrooms", value: rooms.length, detail: rooms.length ? "rooms set up" : "add a room" },
+        { label: "Children", value: (records.children || []).length, detail: "on roster" },
+        { label: "Forms waiting", value: formsWaiting, detail: "parent action", alert: formsWaiting > 0 },
+      ])}
       <section class="work-hub-section">
-        <h3>Program</h3>
+        <h3>What to do next</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true })}
-          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" })}
+          ${workHubTile({ view: "staff", title: "Staff", detail: staffCount ? "Invites, roles, classrooms" : "Invite your first staff member", primary: true })}
           ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families" })}
-          ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
-          ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
+          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: rooms.length ? "Rooms & rosters" : "Create your first room" })}
+          ${workHubTile({ view: "program-settings", title: "Program settings", detail: "Name, hours, ages, branding" })}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Growth & compliance</h3>
+        <h3>Program & reporting</h3>
         <div class="work-hub-grid">
-          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
-          ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
-          ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
-          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+          ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
+          ${workHubTile({ view: "forms", title: "Forms overview", detail: formsWaiting ? `${formsWaiting} awaiting parents` : "Assign & review" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Trainings & packets", detail: "Testing helpers for licensing prep" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Account</h3>
+        <div class="work-hub-grid">
+          ${showBilling
+            ? workHubTile({ view: "billing", title: "Billing & subscription", detail: "Membership & invoices (testing placeholder)" })
+            : `<div class="work-hub-note muted-copy">Billing stays with the program owner. Payments beyond membership come later.</div>`}
+          ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
+          ${workHubTile({ view: "staff", title: "Users & access", detail: "Staff invites and roles" })}
         </div>
       </section>
       ${adminUnlocked ? `
@@ -14573,16 +14821,25 @@ function renderMoreHubPage() {
     eyebrow: "More",
     title: "More",
     subtitle: "Secondary tools for your role — kept out of the daily path on purpose.",
+    crumbs: [{ label: "More" }],
     body: `
-      <div class="work-hub-grid">
-        ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
-        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
-        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
-        ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
-        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
-        ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
-        ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
-      </div>
+      <section class="work-hub-section">
+        <h3>Account</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences", primary: true })}
+          ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
+          ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Help & tools</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
+          ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "Quiet AI writing tools" })}
+          ${role === "teacher" || role === "assistant" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
+        </div>
+      </section>
     `,
   });
 }
@@ -14606,12 +14863,12 @@ function syncUniversalQuickAdd() {
           <button type="button" data-view="ai" data-quick-doc-type="observation">Observation</button>
           <button type="button" data-view="ai" data-quick-doc-type="incident-report">Incident</button>
           <button type="button" data-view="families">Parent Message</button>
-          <button type="button" data-view="child-tools-daily-logs">Photo</button>
-          <button type="button" data-view="child-tools-daily-logs">Meal</button>
-          <button type="button" data-view="child-tools-daily-logs">Nap</button>
-          <button type="button" data-view="child-tools-daily-logs">Diaper</button>
+          <button type="button" data-view="child-tools-daily-logs" data-dlc-open-section="photos">Photo</button>
+          <button type="button" data-view="child-tools-daily-logs" data-dlc-open-section="meals">Meal</button>
+          <button type="button" data-view="child-tools-daily-logs" data-dlc-open-section="naps">Nap</button>
+          <button type="button" data-view="child-tools-daily-logs" data-dlc-open-section="diapers">Diaper</button>
           <button type="button" data-view="ai" data-quick-doc-type="daily-log">Daily Note</button>
-          <button type="button" data-view="child-tools-daily-logs">Activity</button>
+          <button type="button" data-view="child-tools-daily-logs" data-dlc-open-section="activities">Activity</button>
           <button type="button" data-view="calendar">Calendar Note</button>
           <button type="button" data-view="forms">Form</button>
         </div>
@@ -17325,15 +17582,16 @@ function setView(view, options = {}) {
       activeObservationChildLock = "";
       activePortfolioChildId = "";
     } else {
+      const openSection = String(options.dlcOpenSection || options.dailyLogsManualSection || "").trim();
       dailyLogsSection = "home";
       dailyLogsChildTab = "overview";
       dailyLogsGroupAction = "";
-      dlcNewStep = "step1";
+      dlcNewStep = openSection ? "manual" : "step1";
       dlcChildSelection = "all";
       dlcSelectedChildIds = [];
       dlcAiNote = "";
       dlcAiSuggestions = [];
-      dlcManualSection = "";
+      dlcManualSection = openSection;
       dlcDashboardDate = "";
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
@@ -39785,14 +40043,24 @@ function renderChildManagement() {
 
   syncChildrenViewShell("list");
   const hasChildren = Boolean(records.children.length);
+  const kids = records.children || [];
+  const newKids = polishNewChildren(kids);
+  const missingForms = polishMissingFormsCount(records);
+  const birthdays = polishBirthdaysSoon(kids);
+  const allergyKids = polishAllergyChildren(kids);
+  const recentObs = [...(records.observations || [])]
+    .sort((a, b) => String(b.date || b.createdAt || "").localeCompare(String(a.date || a.createdAt || "")))
+    .slice(0, 3);
   app.innerHTML = `
-    <section class="simple-child-page">
+    <section class="simple-child-page work-aligned-page">
+      <nav class="work-hub-crumbs" aria-label="Breadcrumb"><span class="work-hub-crumb-current">Children</span></nav>
       <div class="child-page-header">
         <div>
+          <p class="eyebrow">Children</p>
           <h2>Children</h2>
           <p>${hasChildren
-            ? "Select a child to open their profile — observations, goals, reports, and records in one calm workspace."
-            : "Add your first child to track observations, goals, and daily care in one place."}</p>
+            ? "What needs attention across your roster — then open any child for their full file."
+            : "Children is the home for profiles, forms, allergies, observations, and goals."}</p>
         </div>
         <div class="child-header-actions">
           ${hasChildren ? `
@@ -39801,13 +40069,25 @@ function renderChildManagement() {
           ` : ""}
         </div>
       </div>
-      ${hasChildren ? renderChildrenNeedList(records) : ""}
+      ${hasChildren ? `
+        ${workHubPulseCards([
+          { label: "New children", value: newKids.length, detail: "added in 14 days" },
+          { label: "Missing forms", value: missingForms, detail: "need parent action", alert: missingForms > 0 },
+          { label: "Birthdays", value: birthdays.length, detail: birthdays[0] ? `${birthdays[0].child.name} in ${birthdays[0].days}d` : "next 14 days" },
+          { label: "Allergies on file", value: allergyKids.length, detail: allergyKids.length ? "review before meals" : "none listed", alert: allergyKids.length > 0 },
+        ])}
+        ${renderChildrenNeedList(records)}
+        ${recentObs.length ? `<section class="work-hub-section"><h3>Recent observations</h3><ul class="work-simple-list">${recentObs.map((obs) => {
+          const child = kids.find((c) => c.id === obs.childId);
+          return `<li><strong>${escapeHtml(child?.name || "Child")}</strong><span>${escapeHtml((obs.text || obs.summary || "Observation").slice(0, 100))}</span><small>${escapeHtml(obs.date || "")}</small></li>`;
+        }).join("")}</ul></section>` : ""}
+      ` : ""}
       <div class="simple-child-grid">
         ${hasChildren ? records.children.map((item) => renderChildProfileCard(item, records)).join("") : `
           <section class="section-block empty-state" data-children-empty-state="true">
             ${renderProfileEmptyState({
               title: "No child profiles yet",
-              body: "Add your first child to track observations, goals, and daily care in one place.",
+              body: "Add a child once — we’ll create their timeline, forms folder, and Daily Logs readiness automatically.",
               actionsHtml: `<button class="primary-button" data-child-view="add" type="button">Add Your First Child</button>`,
             })}
           </section>
@@ -40931,8 +41211,13 @@ function renderDlcDashboard(records) {
         ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.", { compactEmpty: true })}
         ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.", { compactEmpty: true })}
       ` : `
-        <div class="section-block empty-state">
-          <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to start today's logs.</p>
+        <div class="section-block empty-state work-hub-empty">
+          <strong>Daily Logs needs a child roster</strong>
+          <p>This is where you check children in, log meals and naps, capture photos, and build end-of-day reports.</p>
+          <div class="work-hub-empty-actions">
+            <button class="primary-button" data-child-view="add" type="button">Add your first child</button>
+            <button class="ghost-button" data-view="children" type="button">Open Children</button>
+          </div>
         </div>
       `}
 
@@ -61001,7 +61286,7 @@ document.addEventListener("click", async (event) => {
     }
   }
 
-  const adminPreviewButton = event.target.closest("[data-admin-preview]");
+  const adminPreviewButton = event.target.closest("button[data-admin-preview], [data-admin-preview-control]");
   if (adminPreviewButton) {
     event.preventDefault();
     if (!isAdminUnlocked()) return;
@@ -61748,6 +62033,7 @@ document.addEventListener("click", async (event) => {
 
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
+    event.preventDefault();
     const nextView = viewButton.dataset.view || "";
     const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
     if (viewButton.dataset.dashSelectWeek) {
@@ -61800,17 +62086,24 @@ document.addEventListener("click", async (event) => {
       supportCenterSearch = "";
     }
     const requestedChildToolTab = childToolTabFromView(viewButton.dataset.view);
+    if (viewButton.dataset.childView === "add") {
+      childManagementMode = "add";
+      childProfileTab = "overview";
+      activeChildProfileEditId = "";
+    }
     if (requestedChildToolTab === "daily-logs") {
       childManagementMode = "daily-logs";
       dailyLogsSection = "home";
       dailyLogsChildTab = "overview";
       dailyLogsGroupAction = "";
-      dlcNewStep = "step1";
+      const openSection = viewButton.dataset.dlcOpenSection || "";
+      // Deep-link Quick Add / hub tiles into the manual accordion when a section is requested.
+      dlcNewStep = openSection ? "manual" : "step1";
       dlcChildSelection = "all";
       dlcSelectedChildIds = [];
       dlcAiNote = "";
       dlcAiSuggestions = [];
-      dlcManualSection = "";
+      dlcManualSection = openSection;
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
       activePortfolioChildId = "";
@@ -61824,13 +62117,16 @@ document.addEventListener("click", async (event) => {
     setMobileNavOpen(false);
     // Sidebar section changes participate in platform History so browser Back restores
     // the previous section + scroll. skipHistory only suppresses nested lesson entries.
-    const navOptions = { skipHistory: true };
+    const navOptions = { skipHistory: true, skipAccessRedirect: true };
     if (requestedLessonLibraryMode) navOptions.lessonLibraryMode = requestedLessonLibraryMode;
     if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
       navOptions.weekStartDate = viewButton.dataset.plannerFocusWeek;
     }
     if (nextView === "calendar" && viewButton.dataset.dashSelectWeek) {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
+    }
+    if (viewButton.dataset.dlcOpenSection) {
+      navOptions.dlcOpenSection = viewButton.dataset.dlcOpenSection;
     }
     const resolvedNext = resolveSidebarView(nextView);
     if (previousView && previousView !== resolvedNext && previousView !== "home") {
@@ -61845,6 +62141,14 @@ document.addEventListener("click", async (event) => {
       requestAnimationFrame(() => {
         document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
+    }
+    if (viewButton.dataset.dlcOpenSection && typeof showActionFeedback === "function") {
+      const labels = { meals: "Meals", naps: "Naps", diapers: "Diapers", photos: "Photos", activities: "Activities", notes: "Notes", attendance: "Attendance" };
+      const label = labels[viewButton.dataset.dlcOpenSection] || "Daily Logs";
+      showActionFeedback(`${label} opened — log the update and tap Save.`);
+    }
+    if (viewButton.dataset.childView === "add" && typeof showActionFeedback === "function") {
+      showActionFeedback("Add the child’s details, then Save — forms and timeline set up automatically.");
     }
     return;
   }
@@ -70918,6 +71222,7 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
 
     if (messageEl) {
       messageEl.textContent = "Settings saved.";
+    if (typeof showActionFeedback === "function") showActionFeedback("Program settings saved.");
       messageEl.classList.add("success");
       setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
     }

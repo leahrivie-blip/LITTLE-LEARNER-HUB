@@ -25953,3 +25953,115 @@ body.work-mode-nav [data-legacy-nav="true"] {
     bottom: 12px;
   }
 }
+
+
+/* ===== UX polish: empty states, crumbs, live hubs ===== */
+.work-hub-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.work-hub-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.work-hub-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  color: #6a7a90;
+}
+
+.work-hub-crumb-link {
+  border: 0;
+  background: transparent;
+  color: #2f6f9f;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.work-hub-crumb-sep {
+  opacity: 0.55;
+}
+
+.work-hub-crumb-current {
+  color: #243047;
+  font-weight: 650;
+}
+
+.work-hub-empty {
+  display: grid;
+  gap: 10px;
+  padding: 22px 20px;
+  border-radius: 18px;
+  border: 1px dashed rgba(47, 111, 159, 0.28);
+  background:
+    linear-gradient(165deg, rgba(255, 252, 248, 0.98), rgba(232, 242, 248, 0.72));
+  max-width: 640px;
+}
+
+.work-hub-empty strong {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.work-hub-empty p {
+  margin: 0;
+  color: #5b6b82;
+  line-height: 1.45;
+}
+
+.work-hub-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.work-hub-all-clear {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(219, 233, 220, 0.55);
+  border: 1px solid rgba(61, 122, 90, 0.18);
+  color: #2f4a3a;
+}
+
+.work-pulse-card.is-alert {
+  border-color: rgba(176, 106, 42, 0.35);
+  background: linear-gradient(180deg, #fff9f2, #fff1e4);
+}
+
+.work-aligned-page .eyebrow {
+  margin: 0 0 4px;
+}
+
+.simple-child-page.work-aligned-page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+@media (max-width: 720px) {
+  .work-hub-header-row {
+    flex-direction: column;
+  }
+  .work-hub-header-actions {
+    width: 100%;
+  }
+  .work-hub-header-actions .primary-button,
+  .work-hub-header-actions .ghost-button {
+    flex: 1 1 auto;
+  }
+}
