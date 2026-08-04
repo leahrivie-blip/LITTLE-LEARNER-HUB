@@ -92,6 +92,17 @@ test("owner can always see Admin nav to reach unlock form", () => {
   assert.match(appJs, /Bookmark <code>\/admin<\/code>/);
 });
 
+test("admin login trims password and access code before compare", () => {
+  assert.match(serverJs, /const password = String\(body\.password \|\| ""\)\.trim\(\)/);
+  assert.match(serverJs, /const code = String\(body\.code \|\| ""\)\.trim\(\)/);
+  assert.match(serverJs, /timingSafeEqualText\(password, String\(ADMIN_PASSWORD\)\.trim\(\)\)/);
+  assert.match(serverJs, /timingSafeEqualText\(code, String\(ADMIN_ACCESS_CODE\)\.trim\(\)\)/);
+  assert.match(serverJs, /Owner email, password, and admin access code must all match/);
+  assert.match(appJs, /const cleanPassword = String\(password \|\| ""\)\.trim\(\)/);
+  assert.match(appJs, /const cleanCode = String\(code \|\| ""\)\.trim\(\)/);
+  assert.match(appJs, /separate from your regular member sign-in/);
+});
+
 test("provider sign-out keeps Admin unlock on this browser", () => {
   assert.match(appJs, /Keep Admin unlock on this browser/);
   assert.doesNotMatch(
