@@ -1109,10 +1109,12 @@
 @media (max-width: 1100px) {
   .messages-tabs,
   .messages-center-tabs {
+    display: flex;
     gap: 4px;
     margin: 12px 0 14px;
     overflow-x: auto;
-    flex-wrap: nowrap;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -1122,8 +1124,9 @@
     display: none;
   }
 
-  .messages-tab {
-    flex: 0 0 auto;
+  .messages-tab,
+  .messages-center-tabs .messages-tab {
+    flex: 0 0 auto !important;
     padding: 10px 12px;
     font-size: 13px;
     white-space: nowrap;
