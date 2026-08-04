@@ -322,6 +322,86 @@ function membershipTrialDaysRemaining(user, nowMs = Date.now()) {
   return days > 0 ? days : 0;
 }
 
+const STANDARD_TRIAL_DAYS = 7;
+
+function membershipTrialLengthDays(user) {
+  const startMs = parseIsoMs(user?.trialStart);
+  const endMs = parseIsoMs(user?.trialEnd);
+  if (startMs === null || endMs === null) return null;
+  return Math.round((endMs - startMs) / 86400000);
+}
+
+function membershipPromoCodeUsed(user) {
+  if (!user) return "";
+  const direct = String(user.promoCodeUsed || "").trim();
+  if (direct) return direct.toUpperCase();
+  const first = Array.isArray(user.promoRedemptions) ? user.promoRedemptions[0] : null;
+  const nested = String(first?.code || first?.promoCode || "").trim();
+  return nested ? nested.toUpperCase() : "";
+}
+
+/**
+ * Classify an active (or historical) trial offer for Admin clarity.
+ * Standard intro trial is always 7 days. Promo / manual / legacy are separate.
+ */
+function classifyMembershipTrialOffer(user, nowMs = Date.now()) {
+  if (!user) return null;
+  const inTrial = membershipUserInTrial(user, nowMs);
+  const hasHistory = membershipHasTrialHistory(user);
+  if (!inTrial && !hasHistory) return null;
+
+  const promoCode = membershipPromoCodeUsed(user);
+  const promoLabel = String(user.promoLabelUsed || user.pendingPromoLabel || "").trim();
+  const lengthDays = membershipTrialLengthDays(user);
+  const daysRemaining = inTrial ? membershipTrialDaysRemaining(user, nowMs) : null;
+  const manualDays = Number(user.manualTrialExtensionDays || 0);
+  const manualMarked = Boolean(
+    user.trialExtensionSource === "manual_admin"
+    || user.trialExtendedManually
+    || (Number.isFinite(manualDays) && manualDays > 0)
+    || (user.internalAccessOverride && inTrial && !promoCode && lengthDays != null && lengthDays > STANDARD_TRIAL_DAYS + 1),
+  );
+
+  let key = "standard_7_day";
+  let label = "Standard 7-Day Trial";
+  let extensionSource = "standard_introductory";
+
+  if (manualMarked) {
+    key = "manually_extended";
+    label = "Manually Extended Trial";
+    extensionSource = "manual_admin";
+  } else if (promoCode || /promo|free month|day free|try1month|trypro/i.test(promoLabel)) {
+    key = "promo_extended";
+    label = "Promo-Extended Trial";
+    extensionSource = "promo_code";
+  } else if (lengthDays != null && lengthDays > STANDARD_TRIAL_DAYS + 1) {
+    key = "legacy";
+    label = "Legacy Trial";
+    extensionSource = "legacy_or_unknown";
+  } else {
+    key = "standard_7_day";
+    label = "Standard 7-Day Trial";
+    extensionSource = user.introductoryTrialConsumed || lengthDays === STANDARD_TRIAL_DAYS
+      ? "standard_introductory"
+      : "standard_or_unspecified";
+  }
+
+  return {
+    key,
+    label,
+    inTrial,
+    promoCode: promoCode || null,
+    promoLabel: promoLabel || null,
+    extensionSource,
+    manualTrialExtensionDays: Number.isFinite(manualDays) && manualDays > 0 ? manualDays : null,
+    trialStart: user.trialStart || null,
+    trialEnd: user.trialEnd || null,
+    trialLengthDays: lengthDays,
+    daysRemaining,
+    standardTrialDays: STANDARD_TRIAL_DAYS,
+  };
+}
+
 /**
  * Mutually exclusive product-facing account status for banners, badges, and emails.
  * Priority: payment_failed → past_due → trial → founding → active_pro → canceled/inactive → free
@@ -651,6 +731,7 @@ module.exports = {
   PAYMENT_FAILURE_STALE_DAYS,
   BILLING_REVIEW_REQUIRED_LABEL,
   PAYMENT_FAILURE_NEEDS_REVIEW_LABEL,
+  STANDARD_TRIAL_DAYS,
   membershipIsBillingReviewRequired,
   membershipPaymentFailureIsStale,
   membershipBillingReviewSnapshot,
@@ -666,6 +747,9 @@ module.exports = {
   membershipCurrentAccessKey,
   membershipBillingStatusKey,
   membershipTrialDaysRemaining,
+  membershipTrialLengthDays,
+  membershipPromoCodeUsed,
+  classifyMembershipTrialOffer,
   membershipProductStatus,
   membershipAdminAuditKey,
   membershipAdminAuditBuckets,

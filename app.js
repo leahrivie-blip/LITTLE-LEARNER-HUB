@@ -53092,6 +53092,60 @@ function adminMembershipInTrial(account) {
   return status.includes("trialing") || (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial"));
 }
 
+/** Admin trial offer labels — mirrors scripts/membership-access.js classifyMembershipTrialOffer. */
+function classifyAdminTrialOffer(account) {
+  if (!account) return null;
+  const inTrial = adminMembershipInTrial(account);
+  const hasHistory = adminMembershipHasTrialHistory(account);
+  if (!inTrial && !hasHistory) return null;
+  const promoCode = String(account.promoCodeUsed || account.promoRedemptions?.[0]?.code || "").trim().toUpperCase();
+  const promoLabel = String(account.promoLabelUsed || account.pendingPromoLabel || "").trim();
+  const startMs = account.trialStart ? Date.parse(account.trialStart) : NaN;
+  const endMs = account.trialEnd ? Date.parse(account.trialEnd) : NaN;
+  const lengthDays = Number.isFinite(startMs) && Number.isFinite(endMs)
+    ? Math.round((endMs - startMs) / 86400000)
+    : null;
+  let daysRemaining = null;
+  if (inTrial && account.trialEnd) {
+    daysRemaining = Math.max(0, Math.ceil((Date.parse(account.trialEnd) - Date.now()) / 86400000));
+  }
+  const manualDays = Number(account.manualTrialExtensionDays || 0);
+  const manualMarked = Boolean(
+    account.trialExtensionSource === "manual_admin"
+    || account.trialExtendedManually
+    || (Number.isFinite(manualDays) && manualDays > 0),
+  );
+  let key = "standard_7_day";
+  let label = "Standard 7-Day Trial";
+  let extensionSource = "standard_introductory";
+  if (manualMarked) {
+    key = "manually_extended";
+    label = "Manually Extended Trial";
+    extensionSource = "manual_admin";
+  } else if (promoCode || /promo|free month|day free|try1month|trypro/i.test(promoLabel)) {
+    key = "promo_extended";
+    label = "Promo-Extended Trial";
+    extensionSource = "promo_code";
+  } else if (lengthDays != null && lengthDays > 8) {
+    key = "legacy";
+    label = "Legacy Trial";
+    extensionSource = "legacy_or_unknown";
+  }
+  return {
+    key,
+    label,
+    inTrial,
+    promoCode: promoCode || null,
+    promoLabel: promoLabel || null,
+    extensionSource,
+    manualTrialExtensionDays: Number.isFinite(manualDays) && manualDays > 0 ? manualDays : null,
+    trialStart: account.trialStart || null,
+    trialEnd: account.trialEnd || null,
+    trialLengthDays: lengthDays,
+    daysRemaining,
+  };
+}
+
 function adminMembershipHasTrialHistory(account) {
   if (!account) return false;
   const trialStatus = String(account.trialStatus || "").toLowerCase();
@@ -53310,7 +53364,7 @@ function adminUserCard(account) {
         <span>📅 Signed up <strong>${escapeHtml(joined)}</strong></span>
         <span>💳 <strong>${escapeHtml(price)}</strong></span>
         <span>🕐 Last active <strong>${escapeHtml(lastActive)}</strong></span>
-        ${adminMembershipInTrial(account) && trialEnd ? `<span>⏳ Trial ends <strong>${escapeHtml(trialEnd)}</strong></span>` : ""}
+        ${adminMembershipInTrial(account) && trialEnd ? `<span>⏳ ${escapeHtml((classifyAdminTrialOffer(account) || {}).label || "Trial")} ends <strong>${escapeHtml(trialEnd)}</strong></span>` : ""}
         ${account.cancelAtPeriodEnd && accessEnd ? `<span>Access through <strong>${escapeHtml(new Date(accessEnd).toLocaleDateString())}</strong></span>` : ""}
         ${endedAt ? `<span>Ended <strong>${escapeHtml(new Date(endedAt).toLocaleDateString())}</strong></span>` : ""}
       </div>
@@ -53675,22 +53729,44 @@ function openAdminUserProfile(email, startTab) {
     </div>
 
     <div class="aup-modal-panel" id="aupPanelManage" ${activeTab !== "manage" ? 'hidden' : ''}>
-      ${isTrial ? `
+      ${isTrial || adminMembershipHasTrialHistory(account) ? `
       <fieldset class="admin-fieldset aup-trial-fieldset">
         <legend>🧪 Trial Management</legend>
+        ${(() => {
+          const trialOffer = classifyAdminTrialOffer(account) || {};
+          const extensionSourceLabel = trialOffer.extensionSource === "promo_code"
+            ? "Promo code"
+            : trialOffer.extensionSource === "manual_admin"
+              ? "Manual admin extension"
+              : trialOffer.extensionSource === "legacy_or_unknown"
+                ? "Legacy / unknown offer"
+                : "Standard 7-day introductory trial";
+          return `
         <div class="aup-info-grid">
-          ${trialStart  ? `<div><span>Trial Start</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
-          ${trialEnd    ? `<div><span>Trial End</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
-          ${trialDaysLeft !== null ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
+          <div><span>Trial Type</span><strong data-admin-trial-type="${escapeHtml(trialOffer.key || "")}">${escapeHtml(trialOffer.label || (isTrial ? "Trial" : "Trial history"))}</strong></div>
+          ${trialStart  ? `<div><span>Start date</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
+          ${trialEnd    ? `<div><span>End date</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
+          ${trialDaysLeft !== null && isTrial ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
+          ${trialOffer.trialLengthDays != null ? `<div><span>Configured Length</span><strong>${escapeHtml(String(trialOffer.trialLengthDays))} days</strong></div>` : ""}
+          <div><span>Extension source</span><strong>${escapeHtml(extensionSourceLabel)}</strong></div>
+          ${trialOffer.promoCode
+            ? `<div><span>Promo code</span><strong>${escapeHtml(trialOffer.promoCode)}${trialOffer.promoLabel ? ` · ${escapeHtml(trialOffer.promoLabel)}` : ""}</strong></div>`
+            : `<div><span>Promo code</span><strong>None</strong></div>`}
+          ${trialOffer.manualTrialExtensionDays
+            ? `<div><span>Manual extension</span><strong>+${escapeHtml(String(trialOffer.manualTrialExtensionDays))} day(s)</strong></div>`
+            : ""}
           <div><span>Payment Method Attached</span><strong>${account.hasPaymentMethod === true ? "Yes" : account.hasPaymentMethod === false ? "No" : "Unknown"}</strong></div>
-          <div><span>Will Convert to Paid</span><strong>${account.cancelAtPeriodEnd ? "No — cancellation scheduled" : "Yes, unless canceled"}</strong></div>
-        </div>
+          <div><span>Will Convert to Paid</span><strong>${account.cancelAtPeriodEnd ? "No — cancellation scheduled" : isTrial ? "Yes, unless canceled" : "—"}</strong></div>
+        </div>`;
+        })()}
+        ${isTrial ? `
         <div class="aup-action-row" style="margin-top:12px;">
           <button class="ghost-button aup-action-btn" type="button" data-aup-action="extend-trial" data-aup-email="${escapeHtml(email)}">Extend Trial</button>
           <button class="ghost-button aup-action-btn" type="button" data-aup-action="end-trial"    data-aup-email="${escapeHtml(email)}">End Trial</button>
           <button class="primary-button aup-action-btn" type="button" data-aup-action="convert-pro"  data-aup-email="${escapeHtml(email)}">Convert to Pro</button>
         </div>
         <p id="aupTrialMsg" class="form-message" style="margin-top:8px;"></p>
+        ` : `<p class="muted-copy" style="margin-top:12px;">This account has trial history but is not currently in an active trial.</p>`}
       </fieldset>
       ` : ""}
 

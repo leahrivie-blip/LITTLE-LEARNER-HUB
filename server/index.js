@@ -17361,13 +17361,19 @@ async function handleAdminMembershipUpdate(request, response) {
     merged.accountStatus = "Active";
   }
   if (Number.isFinite(Number(updates.extendTrialDays)) && Number(updates.extendTrialDays) > 0) {
+    const extendBy = Number(updates.extendTrialDays);
     const base = merged.trialEnd ? new Date(merged.trialEnd) : new Date();
     if (!Number.isFinite(base.getTime())) base.setTime(Date.now());
-    base.setUTCDate(base.getUTCDate() + Number(updates.extendTrialDays));
+    base.setUTCDate(base.getUTCDate() + extendBy);
     merged.trialEnd = base.toISOString();
     // Access layer matches trialStatus.includes("in trial") — keep that wording.
     merged.trialStatus = "In Trial";
     merged.accessEndsAt = merged.trialEnd;
+    // Provenance for Admin labels — distinct from promo-extended and standard 7-day trials.
+    merged.trialExtensionSource = "manual_admin";
+    merged.trialExtendedManually = true;
+    merged.trialExtendedAt = new Date().toISOString();
+    merged.manualTrialExtensionDays = Number(merged.manualTrialExtensionDays || 0) + extendBy;
     if (!merged.plan || merged.plan === "Free") merged.plan = "Pro";
     if (!merged.subscriptionStatus || String(merged.subscriptionStatus).toLowerCase().includes("free")) {
       merged.subscriptionStatus = "Trialing — Access Ends " + merged.trialEnd.slice(0, 10);
