@@ -430,11 +430,46 @@ function updateDocHelperComposeHint() {
   const childSelect = document.querySelector("#docHelperChild");
   const childId = childSelect?.value || "";
   const childName = childSelect?.selectedOptions?.[0]?.textContent?.trim() || "";
+  const remaining = typeof aiUsageRemaining === "function" ? aiUsageRemaining() : null;
+  const limit = typeof aiMonthlyLimit === "function" ? aiMonthlyLimit() : freeAiMonthlyLimit;
+  const usageLine = !isProUser() && remaining != null
+    ? ` Free plan: ${remaining} of ${limit} document creations left this month.`
+    : "";
   if (childId && childName && childName !== "No child selected") {
-    hint.textContent = `Selected child: ${childName}. Add a quick note, generate documentation, then review before saving.`;
+    hint.textContent = `Selected child: ${childName}. Add a quick note, generate a draft, then review before saving.${usageLine}`;
     return;
   }
-  hint.textContent = "No child selected. Add a quick note, generate a draft, then choose a child explicitly before saving to a profile.";
+  hint.textContent = `No child selected. Add a quick note, generate a draft, then choose a child explicitly before saving to a profile.${usageLine}`;
+}
+
+function syncDocHelperAgeField() {
+  const compose = document.querySelector("#docHelperCompose");
+  const form = document.querySelector("#docHelperForm");
+  if (!compose || !form) return;
+  const childSelect = document.querySelector("#docHelperChild");
+  const childId = childSelect?.value || "";
+  const child = childId ? childRecords().children.find((item) => item.id === childId) : null;
+  const childAge = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  let ageWrap = form.querySelector("[data-doc-helper-age-wrap]");
+  const needsAge = !childAge && ["lesson-plan", "activity-idea", "behavior-note", "daily-log"].includes(selectedDocHelperType || form.querySelector("#docHelperType")?.value || "");
+  if (!needsAge) {
+    if (ageWrap) ageWrap.hidden = true;
+    return;
+  }
+  if (!ageWrap) {
+    ageWrap = document.createElement("label");
+    ageWrap.dataset.docHelperAgeWrap = "1";
+    ageWrap.className = "doc-helpers-age-label";
+    ageWrap.innerHTML = `Age group (required when no child age is on file)
+      <select name="docHelperAge" id="docHelperAge">
+        <option value="">Select age group</option>
+        ${aiAgeGroupOptions.map((option) => `<option value="${option}">${option}</option>`).join("")}
+      </select>`;
+    const noteLabel = form.querySelector("#docHelperNote")?.closest("label");
+    if (noteLabel) noteLabel.before(ageWrap);
+    else form.appendChild(ageWrap);
+  }
+  ageWrap.hidden = false;
 }
 
 function selectDocHelperType(docType, options = {}) {
@@ -451,6 +486,7 @@ function selectDocHelperType(docType, options = {}) {
   if (compose) compose.hidden = false;
   if (title) title.textContent = label;
   updateDocHelperComposeHint();
+  syncDocHelperAgeField();
   if (options.scroll !== false) {
     compose?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -38124,14 +38160,46 @@ function weeklyObservationStats(records = childRecords()) {
 }
 
 function goalProgressPercent(progress) {
-  const text = String(progress || "").toLowerCase();
+  const text = String(progress || "").toLowerCase().trim();
   const number = Number(text.match(/\d+/)?.[0] || "");
-  if (!Number.isNaN(number) && number >= 0) return Math.min(100, number);
-  if (text.includes("complete")) return 100;
-  if (text.includes("improving")) return 75;
-  if (text.includes("progress")) return 50;
-  if (text.includes("started")) return 25;
+  if (text && !Number.isNaN(number) && /\d/.test(text)) return Math.min(100, number);
+  if (text.includes("complete") || text.includes("done") || text.includes("met")) return 100;
+  if (text.includes("improving") || text.includes("making good progress")) return 75;
+  if (text.includes("started") || text.includes("beginning")) return 25;
+  // Do not treat the bare word "progress" (or empty/"0%") as mid-point progress.
   return 0;
+}
+
+function isPlaceholderChildName(name) {
+  const raw = String(name || "").trim();
+  if (!raw || raw.length < 2) return true;
+  if (/^\[.+\]$/.test(raw)) return true;
+  const normalized = raw.toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const blocked = new Set([
+    "your name",
+    "child name",
+    "childs name",
+    "enter childs name",
+    "enter child name",
+    "enter a name",
+    "new child",
+    "test",
+    "test child",
+    "firstname lastname",
+    "first name",
+    "last name",
+    "baby name",
+    "toddler name",
+    "name here",
+    "child",
+    "baby",
+  ]);
+  if (blocked.has(normalized)) return true;
+  if (/^(your|enter|type|insert)\b/.test(normalized) && /\bname\b/.test(normalized)) return true;
+  return false;
 }
 
 function childSupportAreas(childId, records = childRecords()) {
@@ -38849,9 +38917,8 @@ function monthlyObservationGoal(child = {}) {
 function monthlyObservationSummary(child, observations = childRecords().observations) {
   const goal = monthlyObservationGoal(child);
   const completed = observations.filter((item) => item.childId === child.id && isObservationInCurrentMonth(item.date)).length;
-  const safeCompleted = Math.min(completed, goal);
   const remaining = Math.max(goal - completed, 0);
-  const percent = goal ? Math.min(100, Math.round((safeCompleted / goal) * 100)) : 0;
+  const percent = goal ? Math.min(100, Math.round((Math.min(completed, goal) / goal) * 100)) : 0;
   return { goal, completed, remaining, percent };
 }
 
@@ -38936,11 +39003,14 @@ function renderChildAvatar(child, size = "normal") {
 }
 
 function renderMonthlyProgress(summary) {
-  const statusText = summary.remaining > 0 ? `${summary.remaining} still needed` : "Complete";
+  const statusText = summary.remaining > 0 ? `${summary.remaining} still needed` : "Goal met";
+  const countLabel = summary.completed > summary.goal
+    ? `${summary.completed} logged (goal ${summary.goal})`
+    : `${summary.completed} of ${summary.goal} completed`;
   return `
     <div class="monthly-progress">
-      <div><span>${summary.completed}/${summary.goal} completed</span><strong>${escapeHtml(statusText)}</strong></div>
-      <div class="progress-bar"><span style="width:${summary.percent}%"></span></div>
+      <div><span>${escapeHtml(countLabel)}</span><strong>${escapeHtml(statusText)}</strong></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="${summary.percent}" aria-valuemin="0" aria-valuemax="100"><span style="width:${summary.percent}%"></span></div>
     </div>
   `;
 }
@@ -40757,10 +40827,10 @@ function renderDlcDashboard(records) {
       ${renderDlcClassroomOverview(activeChildren, records, today)}
 
       <div class="dlc-home-toolbar">
-        <button class="primary-button" data-daily-logs-section="group" type="button">Group Log</button>
-        <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Group Activity</button>
-        <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button">Group Meal</button>
-        <button class="ghost-button" data-dlc-print-all type="button">Print All Reports</button>
+        <button class="primary-button" data-daily-logs-section="group" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Log</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Activity</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Meal</button>
+        <button class="ghost-button" data-dlc-print-all type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Print All Reports</button>
       </div>
 
       ${activeChildren.length ? `
@@ -40774,7 +40844,7 @@ function renderDlcDashboard(records) {
         </div>
       `}
 
-      <details class="dlc-optional-ai section-block">
+      <details class="dlc-optional-ai section-block" ${activeChildren.length ? "" : "hidden"}>
         <summary>Optional: Organize a note with AI</summary>
         <div class="dlc-quick-doc-box">
           <p class="dlc-sub">AI is optional. Type what happened, then review before saving.</p>
@@ -40787,7 +40857,7 @@ function renderDlcDashboard(records) {
               <label class="dlc-quick-doc-for-label">
                 For:
                 <select id="dlcDashboardNoteChild" class="dlc-inline-select">
-                  <option value="all">All children</option>
+                  ${activeChildren.length > 1 ? `<option value="all">All children (${activeChildren.length})</option>` : ""}
                   ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
                 </select>
               </label>
@@ -41640,6 +41710,31 @@ function printAllDailyLogs(today = dlcActiveDate()) {
   if (!activeChildren.length) {
     alert("No active children to print reports for.");
     return;
+  }
+  const hasAnyLoggedContent = activeChildren.some((child) => {
+    const lines = buildDailyLogLines(child, records, today);
+    const joined = lines.join("\n").toLowerCase();
+    return joined && !/not recorded|no (meals|naps|diapers|activities|observations|incidents)/i.test(joined)
+      ? true
+      : lines.some((line) => {
+        const text = String(line || "").trim();
+        return text && !/^not recorded/i.test(text) && !/:\s*$/.test(text);
+      });
+  });
+  // Prefer a concrete check: any non-empty care record for the day.
+  const hasRecords = activeChildren.some((child) => {
+    const id = child.id;
+    const dayMatch = (item) => item.childId === id && String(item.date || "").slice(0, 10) === today;
+    return (records.meals || []).some(dayMatch)
+      || (records.naps || []).some(dayMatch)
+      || (records.diapers || []).some(dayMatch)
+      || (records.activityLogs || []).some(dayMatch)
+      || (records.observations || []).some(dayMatch)
+      || (records.attendance || []).some(dayMatch)
+      || (records.communications || []).some(dayMatch);
+  });
+  if (!hasRecords && !hasAnyLoggedContent) {
+    if (!confirm("No care records are logged for this day yet. Print empty report shells anyway?")) return;
   }
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const sections = activeChildren.map((child) => buildDailyLogLines(child, records, today).join("\n"));
@@ -55813,13 +55908,47 @@ function ageGroupLabel(ageGroup) {
 }
 
 function normalizeAiAgeGroup(rawAge) {
-  if (aiAgeGroupOptions.includes(rawAge)) return rawAge;
-  if (rawAge === "Toddler") return "Older Toddler";
-  return "Preschool";
+  const value = String(rawAge || "").trim();
+  if (!value) return "";
+  if (aiAgeGroupOptions.includes(value)) return value;
+  if (value === "Toddler") return "Older Toddler";
+  // Never invent Preschool (or any age) when the provider did not supply one.
+  try {
+    if (typeof normalizeAgeGroup === "function") {
+      const mapped = normalizeAgeGroup(value);
+      if (mapped && aiAgeGroupOptions.includes(mapped)) return mapped;
+    }
+  } catch (_error) { /* ignore */ }
+  return "";
 }
 
 function ageGroupProfile(rawAge) {
   const ageGroup = normalizeAiAgeGroup(rawAge);
+  if (!ageGroup) {
+    return {
+      learningFocus: "",
+      lessonMaterials: "Not enough detail provided",
+      lessonObjectives: ["Not enough detail provided"],
+      lessonBooks: "",
+      lessonPlanDays: [["Open Play", "- Not enough detail provided"]],
+      dailySummary: "Not enough detail provided",
+      dailyClosing: "Not enough detail provided",
+      dailyLearning: "",
+      behaviorNeed: "support",
+      behaviorStrategiesTitle: "Support Strategies",
+      behaviorStrategies: ["Stay calm and close.", "Use short words.", "Offer a safe choice."],
+      behaviorGoal: "Not enough detail provided",
+      behaviorPlan: "Not enough detail provided",
+      parentToneLine: "We will keep you updated.",
+      activityTitle: "Activity",
+      activityDuration: "Not enough detail provided",
+      activityMaterials: "Not enough detail provided",
+      activityInstructions: ["Not enough detail provided — choose an age group and add a short note, then generate again."],
+      activityGoals: ["Not enough detail provided"],
+      activitySafety: "Not enough detail provided",
+      activityExtensions: "Not enough detail provided",
+    };
+  }
   const profiles = {
     "Infant": {
       learningFocus: "sensory exploration, bonding, secure routines, tracking objects, tummy time, and early communication",
@@ -56426,14 +56555,27 @@ function generateFromPrompt(prompt) {
 }
 
 function generateLessonPlan(data) {
-  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+  if (!rawAge) {
+    return `Lesson Plan Draft
+
+Age Group
+Not enough detail provided. Choose an age group before generating a lesson plan.
+
+Theme
+${String(data.theme || data.note || "").trim() || "Not enough detail provided"}
+
+Next step
+Add an age group and a short theme or note, then generate again. This draft will not invent preschool (or any age) assumptions.`;
+  }
   const profile = ageGroupProfile(rawAge);
   const theme = data.theme || "Farm";
   const materials = data.materials || profile.lessonMaterials;
   const categories = ["Circle Time", "Literacy", "Sensory Play", "Fine Motor", "Gross Motor", "Music & Movement", "Art", "STEM/Discovery", "Dramatic Play", "Outdoor Play", "Open-Ended Exploration"];
   const dailyPlans = emptyCurriculumDailyPlans();
+  const days = Array.isArray(profile.lessonPlanDays) && profile.lessonPlanDays.length ? profile.lessonPlanDays : [["Open Play", "- Offer a calm play invitation."]];
   CURRICULUM_WEEKDAYS.forEach((day, index) => {
-    const [title, ...stepLines] = profile.lessonPlanDays[index % profile.lessonPlanDays.length];
+    const [title, ...stepLines] = days[index % days.length];
     const steps = stepLines.map((line) => line.replace(/^-\s*/, "").trim()).filter(Boolean).join("\n");
     dailyPlans[day].items.push({
       itemId: "",
@@ -56503,16 +56645,30 @@ ${area || "Observation"}`;
 }
 
 function generateActivity(data) {
- const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+ const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+ const theme = String(data.theme || data.note || data.skill || "").trim();
+ if (!rawAge) {
+   return `Activity Idea Draft
+
+Age Group
+Not enough detail provided. Choose an age group before generating an activity idea.
+
+Theme / Skill
+${theme || "Not enough detail provided"}
+
+Next step
+Add an age group and a short note, then generate again. This draft will not invent preschool assumptions.`;
+ }
  const profile = ageGroupProfile(rawAge);
- const theme = data.theme || (data.skill ? "Discovery" : "Ocean");
  const skill = data.skill || "fine motor";
  const area = data.developmentalDomain || data.developmentalArea || skill;
- const childName = data.childName || "";
+ const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+ const childName = hasChild ? String(data.childName || data.child || "").trim() : "";
  const childAge = data.childAge || "";
  const programName = data.programName || data.program || "";
  const materials = data.materials || profile.activityMaterials;
- return `Activity: ${theme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${profile.activityTitle}
+ const activityTheme = theme || (data.skill ? "Discovery" : "Open Play");
+ return `Activity: ${activityTheme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${profile.activityTitle || "Activity"}
 ${programName ? "Program: " + programName + "\n" : ""}${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}Age Group: ${rawAge}
 Duration: ${profile.activityDuration}
 Developmental Area: ${area}
@@ -56521,16 +56677,16 @@ Materials
 ${materials}
 
 Instructions
-${profile.activityInstructions.map((step, i) => (i + 1) + ". " + step).join("\n")}
+${(profile.activityInstructions || ["Not enough detail provided"]).map((step, i) => (i + 1) + ". " + step).join("\n")}
 
 Learning Goals
-${profile.activityGoals.map((goal) => `- ${goal}`).join("\n")}
+${(profile.activityGoals || ["Not enough detail provided"]).map((goal) => `- ${goal}`).join("\n")}
 
 Safety Notes
-${profile.activitySafety}
+${profile.activitySafety || "Not enough detail provided"}
 
 Extensions
-${profile.activityExtensions}`;
+${profile.activityExtensions || "Not enough detail provided"}`;
 }
 
 function generateAiMenu(data) {
@@ -56711,45 +56867,54 @@ Send home a short note with vocabulary words, book ideas, and one simple activit
 }
 
 function generateBehaviorDocumentation(data) {
-  const childName = data.childName || data.child || "Child";
-  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
-  const profile = ageGroupProfile(rawAge);
-  const programName = data.programName || data.program || "Your Daycare Name";
+  const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+  const childName = hasChild ? String(data.childName || data.child || "").trim() : "";
+  const childRef = childName || "the child";
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+  const programName = String(data.programName || data.program || "").trim();
   const tone = data.tone || "Warm and professional";
-  const ageContext = data.childAge ? ` (${data.childAge} · ${rawAge})` : rawAge ? ` (${rawAge})` : "";
-  const domain = data.developmentalDomain || "Social Emotional";
+  const ageContext = data.childAge && rawAge
+    ? ` (${data.childAge} · ${rawAge})`
+    : data.childAge
+      ? ` (${data.childAge})`
+      : rawAge
+        ? ` (${rawAge})`
+        : "";
+  const domain = String(data.developmentalDomain || "").trim();
+  const concern = String(data.concern || data.note || data.details || "").trim();
+  const missing = "Not enough detail provided";
   const parentMessage = toneCopy(tone, [
-    ["brief", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine}`],
-    ["supportive", `Today at ${programName}, ${childName} needed extra support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will keep practicing the skill together and can share strategies that may help at home too.`],
-    ["warm", `Today at ${programName}, ${childName} needed some extra guidance with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} I am happy to talk more about the strategies we are using together.`],
-    ["professional", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will continue using consistent age-appropriate strategies and keep you updated as needed.`],
+    ["brief", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed support${concern ? ` with ${concern}` : ""}. We will keep you updated.`],
+    ["supportive", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed extra support${concern ? ` with ${concern}` : ""}. We can share strategies that may help at home too.`],
+    ["warm", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed some extra guidance${concern ? ` with ${concern}` : ""}. I am happy to talk more about what helped.`],
+    ["professional", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed support${concern ? ` with ${concern}` : ""}. We will continue using consistent strategies and keep you updated as needed.`],
   ]);
   return `Behavior Support Documentation
-Program: ${programName}
-Child: ${childName}${ageContext}
-Developmental Domain: ${domain}
-Concern: ${data.concern || "Behavior that needed support"}
+${programName ? `Program: ${programName}\n` : ""}${childName ? `Child: ${childName}${ageContext}\n` : ""}${domain ? `Developmental Domain: ${domain}\n` : ""}Concern: ${concern || missing}
 
 What Happened
-${data.incident || "Describe the behavior factually and objectively."}
+${data.incident && String(data.incident).trim() ? String(data.incident).trim() : (concern || missing)}
 
 Possible Trigger or Antecedent
-${data.trigger || "Describe what occurred just before the behavior."}
+${data.trigger && String(data.trigger).trim() ? String(data.trigger).trim() : missing}
 
 Support Given
-${data.support || "Comfort was offered, safety was maintained, and the child was redirected using calm guidance."}
+${data.support && String(data.support).trim() ? String(data.support).trim() : missing}
 
 What This Behavior May Communicate
-${childName} may be communicating a need for ${profile.behaviorNeed}.
+${missing}. Add only what you observed — do not invent causes.
 
-${profile.behaviorStrategiesTitle}
-${profile.behaviorStrategies.map((strategy) => `- ${strategy}`).join("\n")}
+Support Strategies
+- Stay calm and close
+- Use short words
+- Offer a safe choice
+(Edit these to match what you actually used.)
 
 Developmental Goal
-${data.goal || profile.behaviorGoal}
+${data.goal && String(data.goal).trim() ? String(data.goal).trim() : missing}
 
 Follow-Up Plan
-${data.plan || profile.behaviorPlan}
+${data.plan && String(data.plan).trim() ? String(data.plan).trim() : missing}
 
 Parent Communication
 Tone: ${tone}
@@ -57066,38 +57231,51 @@ ${programName}`;
 }
 
 function generateDailyReport(data) {
-  const child = data.childName || data.child || "Your child";
-  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
-  const profile = ageGroupProfile(rawAge);
+  const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+  const child = hasChild ? String(data.childName || data.child || "").trim() : "";
+  const childRef = child || "Your child";
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
   const programName = data.programName || data.program || "";
   const date = data.date || "";
   const tone = data.tone || "Warm and friendly";
-  const isInfant = rawAge === "Infant";
-  const isToddler = rawAge === "Young Toddler" || rawAge === "Older Toddler";
-  const isDiaperAge = isInfant || isToddler;
-  const highlights = data.highlights || "";
+  const highlights = String(data.highlights || data.note || "").trim();
+  const missing = "Not enough detail provided";
 
   // ── Header ─────────────────────────────────────────────────────────────────
   const header = [
-    programName ? programName + " — Daily Report" : "Daily Report",
-    date ? "Date: " + date : "",
-    "Child: " + child,
-    rawAge ? "Age Group: " + rawAge : "",
+    programName ? `${programName} — Daily Report` : "Daily Report",
+    date ? `Date: ${date}` : "",
+    child ? `Child: ${child}` : "",
+    rawAge ? `Age Group: ${rawAge}` : "",
   ].filter(Boolean).join("\n");
 
+  if (!highlights && !data.meals && !data.nap && !data.mood && !data.activities) {
+    return `${header}
+
+Daily Summary
+${missing}. Add a short note about the day, then generate again.
+
+Family Note
+Add a few facts from the day before sharing with families.`;
+  }
+
   // ── Section 1: Daily Summary ───────────────────────────────────────────────
-  const moodText = data.mood || "happy and engaged";
-  const highlightSnippet = highlights && highlights.length > 1
+  const moodText = data.mood && String(data.mood).trim() ? String(data.mood).trim() : "";
+  const highlightSnippet = highlights
     ? highlights.charAt(0).toLowerCase() + highlights.slice(1).replace(/\.$/, "")
-    : highlights || profile.dailySummary;
+    : "";
   const summarySentence = toneCopy(tone, [
-    ["professional", `${child} had a productive day and participated in routines and learning experiences.`],
-    ["detailed", `${child} had a full day and took part in routines, care moments, and learning throughout the day.`],
-    ["short", `${child} had a positive day with us today.`],
-    ["warm", `${child} had a wonderful day with us today!`],
-    ["friendly", `${child} had a great day with us today!`],
+    ["professional", `${childRef} participated in the parts of the day noted below.`],
+    ["detailed", `${childRef} took part in the routines and moments noted below.`],
+    ["short", `${childRef} had a day worth sharing.`],
+    ["warm", `${childRef} had a day worth sharing with you.`],
+    ["friendly", `${childRef} had a day worth sharing with you.`],
   ]);
-  const dailySummary = `${summarySentence} ${child} arrived ${moodText} and had an enjoyable day filled with ${highlightSnippet}.`;
+  const dailySummary = [
+    summarySentence,
+    moodText ? `${childRef} seemed ${moodText}.` : "",
+    highlightSnippet ? `Highlights included ${highlightSnippet}.` : "",
+  ].filter(Boolean).join(" ");
 
   // ── Section 2: Today's Activities ─────────────────────────────────────────
   let activitiesList = [];
@@ -57105,8 +57283,7 @@ function generateDailyReport(data) {
     activitiesList = data.activities;
   } else if (data.activities && typeof data.activities === "string" && data.activities.trim()) {
     activitiesList = data.activities.split(/[,\n]+/).map((a) => a.trim()).filter(Boolean);
-  } else {
-    // Infer activities from highlights
+  } else if (highlights) {
     const note = highlights.toLowerCase();
     if (/paint|brush|art|drawing|drew|color/.test(note)) activitiesList.push("Art");
     if (/outside|outdoor|playground|yard/.test(note)) activitiesList.push("Outdoor Play");
@@ -57119,54 +57296,51 @@ function generateDailyReport(data) {
     if (/dramatic|pretend|role/.test(note)) activitiesList.push("Dramatic Play");
     if (/count|number|math/.test(note)) activitiesList.push("Math & Counting");
     if (/science|experiment|nature|bug|plant/.test(note)) activitiesList.push("Science Exploration");
-    if (/free play|choice/.test(note)) activitiesList.push("Free Play");
-    if (!activitiesList.length) activitiesList.push("Free Play", "Group Activities");
   }
-  const activitiesSection = activitiesList.map((a) => `• ${a}`).join("\n");
+  const activitiesSection = activitiesList.length
+    ? activitiesList.map((a) => `• ${a}`).join("\n")
+    : missing;
 
   // ── Section 3: Learning Highlights ────────────────────────────────────────
-  const learningText = data.learning || buildLearningHighlights(highlights, rawAge, profile, child);
+  const learningText = data.learning && String(data.learning).trim()
+    ? String(data.learning).trim()
+    : (highlights ? highlights : missing);
 
   // ── Section 4: Meals & Snacks ──────────────────────────────────────────────
-  let mealsSection = "";
-  if (data.meals && data.meals.trim()) {
-    mealsSection = data.meals.trim();
-  } else if (isInfant) {
-    mealsSection = "Feeding was provided on cue and according to the family's feeding plan.";
-  } else {
-    mealsSection = "Meals and snacks were offered according to the daily menu.";
-  }
+  const mealsSection = data.meals && String(data.meals).trim()
+    ? String(data.meals).trim()
+    : missing;
 
   // ── Section 5: Nap / Rest ──────────────────────────────────────────────────
-  const napSection = data.nap && data.nap.trim()
-    ? data.nap.trim()
-    : isInfant
-      ? "Sleep was supported in a safe sleep environment according to safe sleep guidelines."
-      : "Rest time was offered and supported.";
+  const napSection = data.nap && String(data.nap).trim()
+    ? String(data.nap).trim()
+    : missing;
 
   // ── Section 6: Diaper / Potty ──────────────────────────────────────────────
-  const diaperSection = isDiaperAge
-    ? (data.diapering && data.diapering.trim()
-      ? data.diapering.trim()
-      : isInfant
-        ? "Diaper changes were completed throughout the day. No concerns noted."
-        : "Diapering and potty attempts were supported throughout the day with handwashing.")
+  const diaperSection = data.diapering && String(data.diapering).trim()
+    ? String(data.diapering).trim()
     : "";
 
   // ── Section 7: Mood & Social Interactions ─────────────────────────────────
-  const socialText = data.social || buildSocialText(highlights, moodText, child, rawAge);
+  const socialText = data.social && String(data.social).trim()
+    ? String(data.social).trim()
+    : (moodText || highlights ? [moodText, highlights].filter(Boolean).join(". ") : missing);
 
   // ── Section 8: Special Moments ────────────────────────────────────────────
-  const specialMoments = data.specialMoments || buildSpecialMoments(highlights, child, rawAge, profile);
+  const specialMoments = data.specialMoments && String(data.specialMoments).trim()
+    ? String(data.specialMoments).trim()
+    : (highlights || missing);
 
   // ── Section 9: Family Note ─────────────────────────────────────────────────
-  const familyClosing = data.notes || profile.dailyClosing;
+  const familyClosing = data.notes && String(data.notes).trim()
+    ? String(data.notes).trim()
+    : (highlights ? `Today we noticed: ${highlights}` : missing);
   const familyNote = toneCopy(tone, [
-    ["professional", `Thank you for entrusting us with ${child}'s care today. ${familyClosing}`],
-    ["detailed", `It was a pleasure spending the day with ${child}. ${familyClosing} Please don't hesitate to reach out with any questions.`],
-    ["short", `Thank you for sharing ${child} with us today! ${familyClosing}`],
-    ["warm", `We loved having ${child} with us today! ${familyClosing}`],
-    ["friendly", `We loved having ${child} with us today! ${familyClosing}`],
+    ["professional", `Thank you for entrusting us with ${childRef}'s care today. ${familyClosing}`],
+    ["detailed", `It was a pleasure spending the day with ${childRef}. ${familyClosing} Please don't hesitate to reach out with any questions.`],
+    ["short", `Thank you for sharing ${childRef} with us today. ${familyClosing}`],
+    ["warm", `Thank you for sharing ${childRef} with us today. ${familyClosing}`],
+    ["friendly", `Thank you for sharing ${childRef} with us today. ${familyClosing}`],
   ]);
 
   // ── Section 10: Follow-Up (only if present) ───────────────────────────────
@@ -57175,11 +57349,11 @@ function generateDailyReport(data) {
     : "";
 
   // ── Section 11: Tags ───────────────────────────────────────────────────────
-  const tags = buildDailyReportTags(activitiesList, highlights, rawAge);
+  const tags = typeof buildDailyReportTags === "function"
+    ? buildDailyReportTags(activitiesList, highlights, rawAge)
+    : [];
   const tagsSection = tags.length ? `\nTags\n${tags.join(" · ")}` : "";
-
-  // ── Infant tummy time note ─────────────────────────────────────────────────
-  const tummyTimeNote = isInfant ? "\n\nTummy Time\nTummy time was offered during awake, supervised periods." : "";
+  const diaperBlock = diaperSection ? `\n\nDiaper / Potty\n${diaperSection}` : "";
 
   return `${header}
 
@@ -57196,7 +57370,7 @@ Meals & Snacks
 ${mealsSection}
 
 Nap / Rest
-${napSection}${isDiaperAge ? `\n\nDiaper / Potty\n${diaperSection}` : ""}${tummyTimeNote}
+${napSection}${diaperBlock}
 
 Mood & Social Interactions
 ${socialText}
@@ -57223,7 +57397,9 @@ function buildLearningHighlights(note, rawAge, profile, child) {
   if (/problem.solv|puzzl|figur/.test(n)) highlights.push("Practiced problem-solving and critical thinking.");
   if (/independ|self-help|dress|wash|clean up/.test(n)) highlights.push("Practiced independence and self-help routines.");
   if (!highlights.length) {
-    highlights.push(`Today supported ${profile.dailyLearning}.`);
+    highlights.push(profile?.dailyLearning
+      ? `Today supported ${profile.dailyLearning}.`
+      : "Not enough detail provided");
   }
   return highlights.join("\n");
 }
@@ -62316,9 +62492,14 @@ document.addEventListener("click", async (event) => {
     const parentInfo = parentEmail
       ? (parentName ? `${parentName} <${parentEmail}>` : parentEmail)
       : (parentName || "");
+    const convertedName = String(lead.childName || "").trim();
+    if (isPlaceholderChildName(convertedName)) {
+      alert("This enrollment lead needs a real child name before it can become a profile. Update the lead name, then try again.");
+      return;
+    }
     const child = {
       id: `child-${Date.now()}`,
-      name: lead.childName || "New Child",
+      name: convertedName,
       parentInfo,
       classroom: matchedRoom?.name || lead.desiredRoom || "",
       classroomId: matchedRoom?.id || "",
@@ -68543,6 +68724,17 @@ function restoreDocHelperOriginalNote() {
   note.value = docHelperDraftState.originalNote;
 }
 
+let docHelperGenerating = false;
+
+function sanitizeDocHelperDraftText(text) {
+  return String(text || "")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/[!]{2,}/g, "!")
+    .replace(/[?]{2,}/g, "?")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function runDocHelperGeneration({ docType, note, childId, draftAction = "" } = {}) {
   const form = document.querySelector("#docHelperForm");
   const submitBtn = form?.querySelector("[type='submit']");
@@ -68552,14 +68744,16 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   const labelEl = document.querySelector("#docHelperResultLabel");
   const saveBtn = document.querySelector("#docHelperSaveBtn");
   if (!outputEl || !resultsEl || !note) return;
+  if (docHelperGenerating || submitBtn?.disabled) return;
 
-  if (!canUseAi()) {
+  if (!canUseAi() || (!isProUser() && aiUsageRemaining() <= 0 && serverAiUsed !== null)) {
     resultsEl.hidden = false;
     outputEl.textContent = aiLimitMessage();
     delete outputEl.dataset.rawMarkdown;
     if (titleEl) titleEl.textContent = "Limit Reached";
     if (labelEl) labelEl.textContent = "Notice";
     setDocHelperDraftActionsVisible(false);
+    updateDocHelperComposeHint();
     return;
   }
 
@@ -68569,11 +68763,25 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   // Never send a real child name to AI unless the provider explicitly selected that child.
   const childName = child?.name || "";
   // Do not invent an age group when none is on the child profile.
-  const ageGroup = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  const ageFromChild = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  const ageFromForm = normalizeAiAgeGroup(document.querySelector("#docHelperAge")?.value || "");
+  const ageGroup = ageFromChild || ageFromForm || "";
+  if (!ageGroup && ["lesson-plan", "activity-idea", "behavior-note", "daily-log"].includes(docType)) {
+    syncDocHelperAgeField();
+    resultsEl.hidden = false;
+    outputEl.textContent = "Choose an age group before generating this document, or select a child profile that already has an age.";
+    delete outputEl.dataset.rawMarkdown;
+    if (titleEl) titleEl.textContent = "Age needed";
+    if (labelEl) labelEl.textContent = "Notice";
+    setDocHelperDraftActionsVisible(false);
+    document.querySelector("#docHelperAge")?.focus();
+    return;
+  }
   const programName = settings.programName || "";
   const today = new Date().toISOString().slice(0, 10);
   const toolId = docHelperToolMap[docType] || "observation";
   const label = docTypeLabels[docType] || "Documentation";
+  docHelperGenerating = true;
 
   const missingFactWarnings = [];
   if (/incident/i.test(docType) && !/\b(when|where|time|date|location|happened)\b/i.test(note)) {
@@ -68668,10 +68876,11 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
-    outputEl.innerHTML = renderMarkdown(result.output);
-    outputEl.dataset.rawMarkdown = result.output;
-    docHelperDraftState.lastOutput = result.output;
-    renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
+    const cleaned = sanitizeDocHelperDraftText(result.output);
+    outputEl.innerHTML = renderMarkdown(cleaned);
+    outputEl.dataset.rawMarkdown = cleaned;
+    docHelperDraftState.lastOutput = cleaned;
+    renderAiDebugPanel("#docHelperDebugPanel", result.debug, cleaned);
     if (labelEl) labelEl.textContent = "Draft";
     if (hint) {
       hint.textContent = childId
@@ -68680,6 +68889,7 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
     }
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
+    updateDocHelperComposeHint();
     setDocHelperDraftActionsVisible(true);
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed), draftAction: draftAction || "create" });
     if (docType === "observation") trackEvent("observation_created", { source: "doc-helper" });
@@ -68703,6 +68913,7 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
       setDocHelperDraftActionsVisible(false);
     }
   } finally {
+    docHelperGenerating = false;
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Documentation"; }
     document.querySelectorAll("[data-doc-draft-action]").forEach((btn) => { btn.disabled = false; });
   }
@@ -69355,6 +69566,11 @@ document.addEventListener("submit", async (event) => {
   const form = event.target;
   const data = collectFormData(form);
   const editId = data.childId || activeChildProfileEditId || "";
+  if (isPlaceholderChildName(data.name)) {
+    alert("Please enter the child’s real first name before saving. Placeholder names like “Your Name” or “New Child” cannot be saved.");
+    form.querySelector("[name='name']")?.focus();
+    return;
+  }
   if (!editId && !isProUser() && childStore("Profiles").length >= effectiveFreeChildProfileLimit()) {
     showProFeatureModal(freeChildProfileLimitMessage, "limit");
     return;

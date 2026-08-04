@@ -19,7 +19,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19400 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-cx-polish-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260804-settings-whatsnew-r1";
+const CACHE = "20260804-profiles-logs-docs-r1";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {
@@ -113,7 +113,7 @@ async function main() {
   // Cache bust
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${CACHE}`));
   assert.match(indexHtml, new RegExp(`styles\\.css\\?v=${CACHE}`));
-  assert.match(sw, new RegExp(`llh-shell-v172-${CACHE}`));
+  assert.match(sw, new RegExp(`llh-shell-v173-${CACHE}`));
   console.log("PASS static customer UX polish markers");
 
   const child = startServer();
