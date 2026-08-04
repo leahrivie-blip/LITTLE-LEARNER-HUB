@@ -46706,17 +46706,19 @@ function canUseSignedInOwnerAdmin() {
 
 async function adminLogin(email, password, code) {
   const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanPassword = String(password || "").trim();
+  const cleanCode = String(code || "").trim();
   if (adminOwnerAccount.loginEndpoint && canUseStripeBackend()) {
     const response = await fetch(adminOwnerAccount.loginEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: cleanEmail, password, code }),
+      body: JSON.stringify({ email: cleanEmail, password: cleanPassword, code: cleanCode }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Admin login failed.");
     return data;
   }
-  if (isLocalPreview() && cleanEmail === adminOwnerAccount.email.toLowerCase() && password && code) {
+  if (isLocalPreview() && cleanEmail === adminOwnerAccount.email.toLowerCase() && cleanPassword && cleanCode) {
     return {
       email: cleanEmail,
       name: adminOwnerAccount.name,
@@ -48353,7 +48355,7 @@ function renderAdminAccessShell() {
         <form id="adminUnlockForm" class="admin-unlock-form">
           <label>
             Owner Email
-            <input name="adminEmail" type="email" required value="${emailValue}" placeholder="little.learners.hub.customer@gmail.com" autocomplete="username" />
+            <input name="adminEmail" type="email" required value="${emailValue}" placeholder="leahivie@icloud.com" autocomplete="username" />
           </label>
           <label>
             Owner Password
@@ -48361,14 +48363,14 @@ function renderAdminAccessShell() {
           </label>
           <label>
             Admin Access Code
-            <input name="adminCode" type="password" required placeholder="Enter owner code" autocomplete="off" />
+            <input name="adminCode" type="password" required placeholder="Admin access code (required)" autocomplete="off" />
           </label>
           <label class="checkbox-row admin-trust-device-row">
             <input type="checkbox" name="trustDevice" id="adminTrustDeviceInput" checked />
             <span>Trust this device — keep Admin unlocked on this phone, tablet, or computer</span>
           </label>
           <button class="primary-button" type="submit">Unlock Admin</button>
-          <p class="form-note">On a trusted private device, Admin stays signed in across refreshes, browser restarts, and the home-screen app. Use <strong>Lock Admin</strong> to revoke this device. Turn off Trust on shared computers. Bookmark <code>/admin</code> or use the installed-app Admin shortcut if the sidebar link is ever missing.</p>
+          <p class="form-note">Unlock needs all three fields: owner email, owner password, and admin access code. This is separate from your regular member sign-in. On a trusted private device, Admin stays signed in across refreshes. Use <strong>Lock Admin</strong> to revoke this device. Bookmark <code>/admin</code> if the sidebar link is ever missing.</p>
           <span id="adminUnlockMessage" class="form-message"></span>
         </form>
         ${canUseSignedInOwnerAdmin() ? `

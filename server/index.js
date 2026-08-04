@@ -8373,8 +8373,10 @@ async function handleSyncPasswordAfterFirebase(request, response) {
 async function handleAdminLogin(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
-  const password = String(body.password || "");
-  const code = String(body.code || "");
+  // Trim password/code so paste/autocomplete trailing spaces do not reject a
+  // correct owner unlock (common on mobile). Env values are compared as stored.
+  const password = String(body.password || "").trim();
+  const code = String(body.code || "").trim();
   if (!ADMIN_EMAILS.length || !ADMIN_PASSWORD || !ADMIN_ACCESS_CODE) {
     jsonResponse(response, 503, { error: "Admin login is not configured on the server." });
     return;
@@ -8391,11 +8393,13 @@ async function handleAdminLogin(request, response) {
     return;
   }
   const valid = isConfiguredAdminEmail(email)
-    && timingSafeEqualText(password, ADMIN_PASSWORD)
-    && timingSafeEqualText(code, ADMIN_ACCESS_CODE);
+    && timingSafeEqualText(password, String(ADMIN_PASSWORD).trim())
+    && timingSafeEqualText(code, String(ADMIN_ACCESS_CODE).trim());
   if (!valid) {
     adminSessionStore.recordFailedAttempt(email);
-    jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
+    jsonResponse(response, 401, {
+      error: "Owner email, password, and admin access code must all match. These are the three Admin unlock fields (not your regular member sign-in password).",
+    });
     return;
   }
   adminSessionStore.recordSuccessfulAttempt(email);
