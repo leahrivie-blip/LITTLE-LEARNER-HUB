@@ -6362,8 +6362,10 @@ const adminTabLabels = {
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
 const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
-   Desktop side-nav remains from 1101px up (covers iPad portrait/landscape). */
+   Desktop side-nav remains from 1101px up (covers iPad portrait/landscape).
+   Desktop can also collapse via #sidebarToggle; preference persists. */
 const mobileNavMaxWidth = 1100;
+const DESKTOP_SIDEBAR_PREF_KEY = "llhDesktopSidebarCollapsed";
 const installPromptDeferDays = 30;
 let deferredInstallPrompt = null;
 let installModalSource = "settings";
@@ -6431,6 +6433,20 @@ function isMobileLayout() {
   return window.matchMedia(`(max-width: ${mobileNavMaxWidth}px)`).matches;
 }
 
+function readDesktopSidebarCollapsedPref() {
+  try {
+    return localStorage.getItem(DESKTOP_SIDEBAR_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeDesktopSidebarCollapsedPref(collapsed) {
+  try {
+    localStorage.setItem(DESKTOP_SIDEBAR_PREF_KEY, collapsed ? "1" : "0");
+  } catch { /* ignore quota / private mode */ }
+}
+
 function setMobileNavOpen(open) {
   const shouldOpen = Boolean(open) && isMobileLayout();
   document.body.classList.toggle("mobile-nav-open", shouldOpen);
@@ -6439,35 +6455,98 @@ function setMobileNavOpen(open) {
     toggle.setAttribute("aria-expanded", String(shouldOpen));
     toggle.setAttribute("aria-label", shouldOpen ? "Close menu" : "Open menu");
   }
+  syncSidebarToggleChrome();
+}
+
+function syncSidebarToggleChrome() {
+  const authenticated = document.body.classList.contains("user-authenticated");
+  const desktop = !isMobileLayout();
+  const desktopCollapsed = desktop && authenticated && readDesktopSidebarCollapsedPref();
+  document.body.classList.toggle("sidebar-collapsed", desktopCollapsed);
+
+  const desktopToggle = document.querySelector("#sidebarToggle");
+  if (desktopToggle) {
+    desktopToggle.hidden = !authenticated || !desktop;
+    if (authenticated && desktop) {
+      desktopToggle.setAttribute("aria-expanded", desktopCollapsed ? "false" : "true");
+      desktopToggle.setAttribute("aria-label", desktopCollapsed ? "Expand menu" : "Collapse menu");
+      desktopToggle.classList.toggle("is-collapsed", desktopCollapsed);
+      const label = desktopToggle.querySelector(".sidebar-toggle-label");
+      if (label) label.textContent = desktopCollapsed ? "Menu" : "Hide menu";
+    }
+  }
+
+  const mobileToggle = document.querySelector("#mobileMenuToggle");
+  if (mobileToggle) {
+    const open = document.body.classList.contains("mobile-nav-open");
+    mobileToggle.setAttribute("aria-expanded", String(open));
+    mobileToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  }
+}
+
+function setDesktopSidebarCollapsed(collapsed) {
+  writeDesktopSidebarCollapsedPref(Boolean(collapsed));
+  syncSidebarToggleChrome();
+  syncTopbarMetrics();
+}
+
+function toggleDesktopSidebar() {
+  setDesktopSidebarCollapsed(!readDesktopSidebarCollapsedPref());
 }
 
 function installMobileNavigation() {
   const sidebar = document.querySelector(".sidebar");
   const mobileBrand = document.querySelector(".mobile-brand");
-  if (!sidebar || !mobileBrand || document.querySelector("#mobileMenuToggle")) return;
+  if (!sidebar || !mobileBrand) return;
   sidebar.id = sidebar.id || "mobileNavigation";
-  const toggle = document.createElement("button");
-  toggle.className = "mobile-menu-toggle";
-  toggle.id = "mobileMenuToggle";
-  toggle.type = "button";
-  toggle.setAttribute("aria-label", "Open menu");
-  toggle.setAttribute("aria-controls", sidebar.id);
-  toggle.setAttribute("aria-expanded", "false");
-  toggle.innerHTML = "<span></span><span></span><span></span>";
-  mobileBrand.prepend(toggle);
-  const backdrop = document.createElement("button");
-  backdrop.className = "mobile-nav-backdrop";
-  backdrop.type = "button";
-  backdrop.setAttribute("aria-label", "Close menu");
-  document.body.appendChild(backdrop);
-  toggle.addEventListener("click", () => setMobileNavOpen(!document.body.classList.contains("mobile-nav-open")));
-  backdrop.addEventListener("click", () => setMobileNavOpen(false));
-  window.addEventListener("resize", () => {
-    if (!isMobileLayout()) setMobileNavOpen(false);
-    syncTopbarMetrics();
-  });
-  window.visualViewport?.addEventListener("resize", syncTopbarMetrics);
-  window.visualViewport?.addEventListener("scroll", syncTopbarMetrics);
+
+  if (!document.querySelector("#mobileMenuToggle")) {
+    const toggle = document.createElement("button");
+    toggle.className = "mobile-menu-toggle";
+    toggle.id = "mobileMenuToggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-label", "Open menu");
+    toggle.setAttribute("aria-controls", sidebar.id);
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.innerHTML = "<span></span><span></span><span></span>";
+    mobileBrand.prepend(toggle);
+    toggle.addEventListener("click", () => setMobileNavOpen(!document.body.classList.contains("mobile-nav-open")));
+  }
+
+  if (!document.querySelector(".mobile-nav-backdrop")) {
+    const backdrop = document.createElement("button");
+    backdrop.className = "mobile-nav-backdrop";
+    backdrop.type = "button";
+    backdrop.setAttribute("aria-label", "Close menu");
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", () => setMobileNavOpen(false));
+  }
+
+  const desktopToggle = document.querySelector("#sidebarToggle");
+  if (desktopToggle && !desktopToggle.dataset.llhBound) {
+    desktopToggle.dataset.llhBound = "1";
+    desktopToggle.setAttribute("aria-controls", sidebar.id);
+    desktopToggle.addEventListener("click", () => {
+      if (isMobileLayout()) {
+        setMobileNavOpen(!document.body.classList.contains("mobile-nav-open"));
+        return;
+      }
+      toggleDesktopSidebar();
+    });
+  }
+
+  if (!window.__llhSidebarResizeBound) {
+    window.__llhSidebarResizeBound = true;
+    window.addEventListener("resize", () => {
+      if (!isMobileLayout()) setMobileNavOpen(false);
+      syncSidebarToggleChrome();
+      syncTopbarMetrics();
+    });
+    window.visualViewport?.addEventListener("resize", syncTopbarMetrics);
+    window.visualViewport?.addEventListener("scroll", syncTopbarMetrics);
+  }
+
+  syncSidebarToggleChrome();
   syncTopbarMetrics();
 }
 
@@ -16959,6 +17038,7 @@ function updateBodyAuthClass() {
     freeUpgrade = false;
   }
   document.body.classList.toggle("user-free-upgrade", freeUpgrade);
+  try { syncSidebarToggleChrome(); } catch { /* boot-safe */ }
 }
 
 function updateAdminNavVisibility() {
