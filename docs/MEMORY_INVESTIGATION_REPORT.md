@@ -71,3 +71,7 @@ curl -sS https://littlelearnershubbyleah.com/api/health
 # Admin → System Health: memory check should be healthy at ~300MB RSS
 # Render metrics: RSS stays comfortably below ~921MB warning during normal use
 ```
+
+## Ops note (2026-08-04)
+
+While setting `MONITOR_*` via the Render API, `PUT /v1/services/.../env-vars` **replaced** the entire env list (API semantics: non-listed keys are removed). The live process kept working because env updates do not auto-deploy. Recoverable vars were restored; Stripe/Resend/Meta CAPI secrets must be re-pasted in the Dashboard **before** the next deploy/restart. Prefer merge-style updates (`update_environment_variables` / Dashboard add) going forward — never full PUT replace unless the complete set is known.
