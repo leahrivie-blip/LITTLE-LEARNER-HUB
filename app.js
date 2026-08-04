@@ -67056,13 +67056,22 @@ document.addEventListener("click", async (event) => {
   if (docHelperCopyBtn) {
     const outputEl = document.querySelector("#docHelperOutput");
     if (!outputEl) return;
-    const text = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
+    const docType = document.querySelector("#docHelperSaveBtn")?.dataset.docType
+      || docHelperDraftState?.docType
+      || "observation";
+    const shareWithFamily = ["daily-log", "parent-message"].includes(docType);
+    const raw = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
+    const text = prepareDocHelperSaveText(docType, raw, { shareWithFamily }) || sanitizeDocHelperDraftText(raw);
     const finish = () => {
       docHelperCopyBtn.textContent = "Copied!";
       setTimeout(() => { docHelperCopyBtn.textContent = "Copy"; }, 2000);
       const hint = document.querySelector("#docHelperNextStepHint");
       if (hint) hint.textContent = "Copied. You can also Save to Child Profile or Create Another.";
     };
+    if (!text) {
+      window.alert("Nothing clean to copy yet — finish the draft first.");
+      return;
+    }
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(finish).catch(() => {
         document.execCommand?.("copy");
@@ -67143,13 +67152,26 @@ document.addEventListener("click", async (event) => {
     const childSelect = document.querySelector("#docHelperChild");
     const childId = childSelect?.value || docHelperSaveBtn.dataset.childId || "";
     const outputEl = document.querySelector("#docHelperOutput");
-    const text = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
-    if (!text || text === "Generating..." || text === "Creating your document…") return;
+    const rawText = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
+    if (!rawText || rawText === "Generating..." || rawText === "Creating your document…") return;
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children", childTab: "overview", label: "documentation" };
-    if (config.key && !childId) {
+    if ((config.key || docHelperRequiresSelectedChild(docType)) && !childId) {
       window.alert("Choose a child above before saving to a child profile.");
       childSelect?.focus();
       return;
+    }
+    const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
+      || document.querySelector("#docHelperShareFamily")?.checked === true;
+    const text = prepareDocHelperSaveText(docType, rawText, { shareWithFamily });
+    if (!text) {
+      window.alert("This draft still looks unfinished (placeholders or empty sections). Edit the note and create it again before saving.");
+      return;
+    }
+    // Keep the visible draft aligned with what will be saved.
+    if (outputEl) {
+      outputEl.dataset.rawMarkdown = text;
+      if (typeof renderMarkdown === "function") outputEl.innerHTML = renderMarkdown(text);
+      else outputEl.textContent = text;
     }
     const childName = childRecords().children.find((c) => c.id === childId)?.name || "this child";
     const confirmed = window.confirm(
@@ -67162,8 +67184,6 @@ document.addEventListener("click", async (event) => {
     const today = new Date().toISOString().slice(0, 10);
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
-      const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
-        || document.querySelector("#docHelperShareFamily")?.checked === true;
       const savedDoc = appendChildRecord(config.key, {
         childId: childId || undefined,
         title,
@@ -69834,13 +69854,138 @@ function restoreDocHelperOriginalNote() {
 
 let docHelperGenerating = false;
 
+/**
+ * Strip Markdown / AI artifacts from Documentation Helper drafts before display or save.
+ * Does not invent facts — only cleans formatting and obvious unfinished placeholders.
+ */
 function sanitizeDocHelperDraftText(text) {
-  return String(text || "")
+  let out = String(text || "");
+  // Fenced code blocks and inline backticks
+  out = out.replace(/```[\s\S]*?```/g, (block) => block.replace(/```/g, "").trim());
+  out = out.replace(/`([^`]+)`/g, "$1");
+  // Headings / bold / italic / list markers commonly left by models
+  out = out
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,]|$)/g, "$1$2")
+    .replace(/^\s*[-*+]\s+/gm, "• ");
+  // Bracket placeholders and unfinished template tokens
+  out = out
+    .replace(/\[Your Name\]/gi, "")
+    .replace(/\[Child(?:'s)? Name\]/gi, "")
+    .replace(/\[Date\]/gi, "")
+    .replace(/\[Time\]/gi, "")
+    .replace(/\[Age(?: Group)?\]/gi, "")
+    .replace(/\[Program Name\]/gi, "")
+    .replace(/\[Insert[^\]]*\]/gi, "")
+    .replace(/\[TODO[^\]]*\]/gi, "")
+    .replace(/\[TBD[^\]]*\]/gi, "");
+  out = out
     .replace(/[!]{2,}/g, "!")
     .replace(/[?]{2,}/g, "?")
+    .replace(/[.]{4,}/g, "...")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  return out;
+}
+
+const DOC_HELPER_FILLER_LINE_RE = /^(not enough detail provided\.?|not provided\.?|n\/?a\.?|none\.?|tbd\.?|todo\.?|describe what happened.*|add (a )?quick note.*|choose an age group.*)$/i;
+const DOC_HELPER_INTERNAL_SECTION_RE = /^(provider notes?(?:\s*\(.*\))?|teacher reflection|provider note(?:s)?|internal notes?(?:\s*\(.*\))?|staff notes?)\s*:?\s*$/i;
+
+/**
+ * Prepare Documentation Helper text for save/share.
+ * - Always strips Markdown / placeholders
+ * - Drops empty filler sections
+ * - For parent-facing share, removes internal provider/teacher sections
+ */
+function prepareDocHelperSaveText(docType, text, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  const shareWithFamily = opts.shareWithFamily === true
+    || ["daily-log", "parent-message"].includes(String(docType || ""));
+  let cleaned = sanitizeDocHelperDraftText(text);
+  if (!cleaned) return "";
+
+  const lines = cleaned.split(/\r?\n/);
+  const kept = [];
+  let skippingInternal = false;
+  let sectionBuffer = [];
+  let sectionHasContent = false;
+
+  function flushSection() {
+    if (!sectionBuffer.length) return;
+    if (sectionHasContent) kept.push(...sectionBuffer);
+    sectionBuffer = [];
+    sectionHasContent = false;
+  }
+
+  for (const rawLine of lines) {
+    const line = String(rawLine || "");
+    const trimmed = line.trim();
+    const isHeading = /^[A-Z][\w\s/&()-]{2,60}:?\s*$/.test(trimmed)
+      && !/[.!?]$/.test(trimmed)
+      && trimmed.length <= 64;
+
+    if (skippingInternal) {
+      if (isHeading && !DOC_HELPER_INTERNAL_SECTION_RE.test(trimmed)) {
+        skippingInternal = false;
+      } else {
+        continue;
+      }
+    }
+
+    if (shareWithFamily && DOC_HELPER_INTERNAL_SECTION_RE.test(trimmed)) {
+      flushSection();
+      skippingInternal = true;
+      continue;
+    }
+
+    if (isHeading) {
+      flushSection();
+      sectionBuffer.push(line);
+      continue;
+    }
+
+    if (!trimmed) {
+      if (sectionBuffer.length) sectionBuffer.push(line);
+      else if (kept.length && kept[kept.length - 1] !== "") kept.push("");
+      continue;
+    }
+
+    if (DOC_HELPER_FILLER_LINE_RE.test(trimmed)) {
+      // Skip filler-only bodies; heading may still flush empty and drop.
+      continue;
+    }
+
+    if (/licensing|keep a copy for your records|for your files only|internal use only/i.test(trimmed)
+      && shareWithFamily) {
+      continue;
+    }
+
+    sectionBuffer.push(line);
+    sectionHasContent = true;
+  }
+  flushSection();
+
+  cleaned = kept.join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  // Reject save payload that is still only unfinished template noise
+  if (!cleaned || DOC_HELPER_FILLER_LINE_RE.test(cleaned)) return "";
+  if (/^\W*$/.test(cleaned)) return "";
+  return cleaned;
+}
+
+function docHelperRequiresSelectedChild(docType) {
+  return ["observation", "parent-message", "daily-log", "incident-report", "behavior-note"].includes(String(docType || ""));
+}
+
+function docHelperRequiresAge(docType) {
+  return ["lesson-plan", "activity-idea", "behavior-note", "daily-log", "observation", "incident-report"].includes(String(docType || ""));
 }
 
 async function runDocHelperGeneration({ docType, note, childId, draftAction = "" } = {}) {
@@ -69868,13 +70013,24 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   const records = childRecords();
   const child = (childId && records.children.find((c) => c.id === childId)) || null;
   const settings = getProgramSettings();
+  if (docHelperRequiresSelectedChild(docType) && !(childId && child)) {
+    resultsEl.hidden = false;
+    outputEl.textContent = "Select a child profile before creating this document. Age-specific wording and names stay accurate only when a child is chosen.";
+    delete outputEl.dataset.rawMarkdown;
+    if (titleEl) titleEl.textContent = "Child needed";
+    if (labelEl) labelEl.textContent = "Notice";
+    setDocHelperDraftActionsVisible(false);
+    document.querySelector("#docHelperChild")?.focus();
+    updateDocHelperComposeHint();
+    return;
+  }
   // Never send a real child name to AI unless the provider explicitly selected that child.
   const childName = child?.name || "";
   // Do not invent an age group when none is on the child profile.
   const ageFromChild = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
   const ageFromForm = normalizeAiAgeGroup(document.querySelector("#docHelperAge")?.value || "");
   const ageGroup = ageFromChild || ageFromForm || "";
-  if (!ageGroup && ["lesson-plan", "activity-idea", "behavior-note", "daily-log"].includes(docType)) {
+  if (!ageGroup && docHelperRequiresAge(docType)) {
     syncDocHelperAgeField();
     resultsEl.hidden = false;
     outputEl.textContent = "Choose an age group before generating this document, or select a child profile that already has an age.";
@@ -69984,7 +70140,11 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
-    const cleaned = sanitizeDocHelperDraftText(result.output);
+    const cleaned = prepareDocHelperSaveText(docType, result.output, { shareWithFamily: false })
+      || sanitizeDocHelperDraftText(result.output);
+    if (!cleaned || DOC_HELPER_FILLER_LINE_RE.test(cleaned)) {
+      throw new Error("The draft looked unfinished. Add a clearer note and try again — nothing was saved.");
+    }
     outputEl.innerHTML = renderMarkdown(cleaned);
     outputEl.dataset.rawMarkdown = cleaned;
     docHelperDraftState.lastOutput = cleaned;
