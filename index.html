@@ -113,8 +113,9 @@
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
-  <!-- Meta Pixel: loaded from META_PIXEL_ID via server (never hardcoded). -->
-  <script src="/api/meta-pixel.js"></script>
+  <!-- Meta Pixel: loaded from META_PIXEL_ID via server (never hardcoded).
+       defer so stylesheet + body parsing are not blocked by this sync tag. -->
+  <script src="/api/meta-pixel.js" defer></script>
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
     // perform a one-time safe recovery without looping.

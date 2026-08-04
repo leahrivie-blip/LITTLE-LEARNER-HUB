@@ -20,8 +20,11 @@ async function evalTimed(page, fn, timeoutMs = 8000) {
 }
 
 async function waitReady(page, label) {
+  // Important: do not evaluate immediately after commit — sync head work can
+  // deadlock HTML parsing if the main world is entered too early.
+  await new Promise((r) => setTimeout(r, 8000));
   const start = Date.now();
-  for (let i = 0; i < 90; i += 1) {
+  for (let i = 0; i < 60; i += 1) {
     try {
       const s = await evalTimed(page, () => ({
         ready: document.readyState,
@@ -29,15 +32,14 @@ async function waitReady(page, label) {
         openAuth: typeof openAuthModal,
         setAuth: typeof setAuthMode,
         textLen: (document.body?.innerText || "").length,
-      }));
-      if (i % 2 === 0) console.log(label, i, s, `${Date.now() - start}ms`);
+      }), 10000);
+      console.log(label, i, s, `${Date.now() - start}ms`);
       if (s.setAuth === "function" && s.authMode) return s;
+      if (s.ready === "complete" && s.textLen > 200 && s.authMode) return s;
     } catch (error) {
-      if (i % 2 === 0) {
-        console.log(label, i, "blocked", `${Date.now() - start}ms`, String(error.message || error).slice(0, 80));
-      }
+      console.log(label, i, "blocked", `${Date.now() - start}ms`, String(error.message || error).slice(0, 80));
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 3000));
   }
   throw new Error(`${label} never ready`);
 }
@@ -127,7 +129,7 @@ async function main() {
   ];
   for (const vp of viewports) {
     await page.setViewportSize({ width: vp.width, height: vp.height });
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
     const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     console.log("viewport", vp.id, "overflowX", overflowX);
     await page.screenshot({ path: path.join(OUT, `matrix-${vp.id}.png`) });
