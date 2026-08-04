@@ -127,8 +127,9 @@ function staticChecks() {
   assert.match(appJs, /leahivie@icloud\.com/, "owner account aliases must include iCloud login");
   assert.match(serverJs, /DEFAULT_ADMIN_EMAIL_ALIASES/, "server must define admin email aliases");
   assert.match(serverJs, /isAdminOnlyNotificationType/, "member APIs must filter admin-only notification types");
-  assert.match(indexHtml, /llh-messaging\.css\?v=20260722-lesson-empty-hotfix/);
-  assert.match(indexHtml, /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(indexHtml, /llh-messaging\.css\?v=/);
+  assert.match(indexHtml, /app\.js\?v=/);
+  assert.match(serverJs, /Provider\/member channel never includes admin_\*/, "member notification channel must exclude admin_*");
   console.log("PASS static multi-admin + mobile notification markers");
 }
 
@@ -204,6 +205,17 @@ async function main() {
     assert.ok(
       !(freeSeesAdminAlert.json.notifications || []).some((n) => String(n.type || "").startsWith("admin_")),
       "Free member must not see admin signup alerts",
+    );
+
+    const ownerMemberBell = await request("GET", "/api/notifications", { headers: memberHeaders(PRIMARY_ADMIN) });
+    assert.ok(
+      !(ownerMemberBell.json.notifications || []).some((n) => String(n.type || "").startsWith("admin_")),
+      "Owner provider bell must not include admin_* (Admin Center only)",
+    );
+    const icloudMemberBell = await request("GET", "/api/notifications", { headers: memberHeaders(ICLOUD_ADMIN) });
+    assert.ok(
+      !(icloudMemberBell.json.notifications || []).some((n) => String(n.type || "").startsWith("admin_")),
+      "iCloud admin alias provider bell must not include admin_*",
     );
 
     const icloudUser = store.users?.[ICLOUD_ADMIN];

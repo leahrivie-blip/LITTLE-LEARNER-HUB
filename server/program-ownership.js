@@ -219,7 +219,7 @@ function resolveProgramContext(store, identity = {}) {
   }
   let role = String((ownerEmail === actorEmail ? (user.role || "owner") : (user.role || "director"))).toLowerCase();
   if (ownerEmail !== actorEmail && role === "owner") role = "director";
-  const canManageStaff = role === "owner" || role === "director" || !user.role;
+  const canManageStaff = role === "owner" || role === "director";
   const canWriteProgramData = true; // all active members can contribute operational data
   return {
     ok: true,
