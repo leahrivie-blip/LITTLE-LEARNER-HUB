@@ -20063,9 +20063,20 @@ body.lesson-editor-view .main {
 
 .resources-hub-page,
 .settings-hub-page,
-.platform-placeholder-page {
+.platform-placeholder-page,
+.director-center-page {
   display: grid;
   gap: 20px;
+}
+
+.director-center-page .page-title p {
+  max-width: 42rem;
+}
+
+.director-center-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
 }
 
 .resources-hub-grid,
