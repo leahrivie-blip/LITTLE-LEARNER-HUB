@@ -381,10 +381,11 @@ async function main() {
 
     const rollback = await requestJson("POST", "/api/admin/curriculum/enrichment-rollback", {
       adminToken,
+      expectedUpdatedAt,
       planId: otherPlan.id,
       publishedBy: "upgrade-ws-test",
     }, auth);
-    assert(rollback.status === 200 && rollback.json.rolledBack === true, `rollback: ${rollback.status}`);
+    assert(rollback.status === 200 && rollback.json.rolledBack === true, `rollback: ${rollback.status} ${String(rollback.text || "").slice(0, 160)}`);
     assert(rollback.json.autoPublished !== true, "rollback is explicit");
 
     // Browser: dashboard workspace + Upgrade Lesson CTA for non-farm lesson

@@ -400,6 +400,32 @@ async function main() {
       JSON.stringify(timingReport, null, 2),
     );
 
+    // Clear server draft so AI gap-fill regenerates activity rows (not filtered as already-complete).
+    const siteBeforeClear = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);
+    expectedUpdatedAt = siteBeforeClear.json.siteContent?.updatedAt
+      || siteBeforeClear.json.siteContentUpdatedAt
+      || expectedUpdatedAt;
+    res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken,
+      expectedUpdatedAt,
+      saveMode: "enrichment_draft",
+      allowEmptyDraftOverwrite: true,
+      lessonPlan: { id: plan.id, enrichmentDraft: { activities: {}, week: {} } },
+    }, auth);
+    if (res.status === 409 && res.json?.siteContentUpdatedAt) {
+      expectedUpdatedAt = res.json.siteContentUpdatedAt;
+      res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+        adminToken,
+        expectedUpdatedAt,
+        saveMode: "enrichment_draft",
+        allowEmptyDraftOverwrite: true,
+        lessonPlan: { id: plan.id, enrichmentDraft: { activities: {}, week: {} } },
+      }, auth);
+    }
+    assert(res.status === 200, `clear draft for UI: ${res.status} ${String(res.text || "").slice(0, 160)}`);
+    expectedUpdatedAt = res.json.siteContentUpdatedAt || expectedUpdatedAt;
+    const uiPlan = (res.json.curriculum.lessonPlans || []).find((p) => p.id === plan.id) || drafted;
+
     const { chromium } = require("playwright");
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
@@ -460,7 +486,7 @@ async function main() {
         progressText: document.querySelector("[data-ai-batch-progress]")?.textContent || "",
         timing,
       };
-    }, { plan: drafted, adminToken });
+    }, { plan: uiPlan, adminToken });
 
     assert(ui.reviewTitle, "complete kit review title");
     assert(ui.acceptSection, "accept section controls");
