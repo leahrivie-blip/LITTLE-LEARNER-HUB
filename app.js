@@ -9268,7 +9268,14 @@ function loadCurriculumManagedActivities() {
       // Locked Pro teasers never carry activity how-to copy into the library card.
       description: lockedTeaser ? "" : (item.description || ""),
       theme: item.parentTheme || item.activityCategory || "",
-      tags: [item.activityCategory, item.dayOfWeek, item.parentTitle, item.parentTheme].filter(Boolean),
+      tags: [
+        item.activityCategory,
+        typeof curriculumPlannerWeekdayLabel === "function"
+          ? curriculumPlannerWeekdayLabel(item.dayOfWeek)
+          : item.dayOfWeek,
+        item.parentTitle,
+        item.parentTheme,
+      ].filter(Boolean),
       previewData: "",
       fileData: "",
       customContent: lockedTeaser ? "" : buildActivityTextFromCurriculum(item),
@@ -23194,7 +23201,7 @@ function ensureResourceViewer() {
         <div class="resource-viewer-toolbar">
           <button class="ghost-button" id="resourceViewerBackButton" type="button" hidden>← Back</button>
           <button class="primary-button" id="downloadPdfButton" type="button" hidden>Download PDF</button>
-          <button class="primary-button" id="printResourceButton" type="button">Print / Save PDF</button>
+          <button class="primary-button" id="printResourceButton" type="button" title="Print or save as PDF" aria-label="Print or save as PDF">Print</button>
         </div>
         <div class="resource-viewer-body" id="resourceViewerBody"></div>
       </div>
@@ -27850,13 +27857,32 @@ async function openResourceViewer(resourceId, options = {}) {
     ? `From lesson: ${resource._curriculumParentTitle || resource._curriculumLessonPlanId}`
     : "";
   const viewerAccessLabel = libraryPlanBadge(resource);
-  document.querySelector("#resourceViewerTags").innerHTML = [
-    resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    viewerAccessLabel ? `<span class="tag access-tag">${escapeHtml(viewerAccessLabel)}</span>` : "",
-    resource.format ? `<span class="tag">${escapeHtml(resource.format || "In-app resource")}</span>` : "",
-    parentLessonLabel ? `<span class="tag">${escapeHtml(parentLessonLabel)}</span>` : "",
-    ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
-  ].filter(Boolean).join("");
+  const weekdayNames = new Set(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+  const formatViewerTag = (tag) => {
+    const raw = String(tag || "").trim();
+    if (!raw) return "";
+    if (weekdayNames.has(raw.toLowerCase()) && typeof curriculumPlannerWeekdayLabel === "function") {
+      return curriculumPlannerWeekdayLabel(raw);
+    }
+    return raw;
+  };
+  // Deduplicate near-identical tags (age / parent lesson / weekday often repeat).
+  const viewerTagHtml = [];
+  const seenViewerTags = new Set();
+  const pushViewerTag = (label, className = "tag") => {
+    const clean = formatViewerTag(label);
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (seenViewerTags.has(key)) return;
+    seenViewerTags.add(key);
+    viewerTagHtml.push(`<span class="${className}">${escapeHtml(clean)}</span>`);
+  };
+  pushViewerTag(resource.age);
+  pushViewerTag(viewerAccessLabel, "tag access-tag");
+  pushViewerTag(resource.format || "In-app resource");
+  pushViewerTag(parentLessonLabel);
+  (resource.tags || []).slice(0, 6).forEach((tag) => pushViewerTag(tag));
+  document.querySelector("#resourceViewerTags").innerHTML = viewerTagHtml.join("");
   const body = document.querySelector("#resourceViewerBody");
   body.innerHTML = `<p class="admin-generator-note">Loading resource…</p>`;
   let viewerResource = resource;
@@ -30468,7 +30494,14 @@ function curriculumPlannerRetirementBannerHtml() {
 
 async function ensureScheduleLoaded(options = {}) {
   const api = getScheduleApi();
-  if (!api) return null;
+  if (!api) {
+    // Never leave Calendar stuck on "Loading…" when the schedule module is unavailable.
+    scheduleSyncState = "ready";
+    scheduleSyncError = "";
+    scheduleSyncSynced = false;
+    scheduleDocCache = scheduleDocCache || { classrooms: [], items: [], updatedAt: "", schemaVersion: 1 };
+    return scheduleDocCache;
+  }
   if (scheduleDocCache && !options.force && scheduleSyncState === "ready") return scheduleDocCache;
   if (scheduleDocCache && !options.force && scheduleSyncState === "error" && !options.retry) {
     return scheduleDocCache;
@@ -30484,6 +30517,12 @@ async function ensureScheduleLoaded(options = {}) {
       scheduleSyncSynced = false;
       return scheduleDocCache;
     }
+    const withTimeout = (promise, ms, label) => Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(label || "Calendar is taking longer than usual. Tap Retry.")), ms);
+      }),
+    ]);
     const localBefore = api.readCache(email);
     let lastError = "";
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -30492,13 +30531,17 @@ async function ensureScheduleLoaded(options = {}) {
         if (!migratedFlag || options.forceMigrate) {
           const legacy = loadCurriculumWeekAssignments();
           const planner = typeof weeklyPlanner === "function" ? weeklyPlanner() : null;
-          await api.migrateFromLegacy(firebaseAuthHeaders, email, {
+          await withTimeout(api.migrateFromLegacy(firebaseAuthHeaders, email, {
             curriculumAssignments: legacy,
             weeklyPlanner: planner,
             force: Boolean(options.forceMigrate),
-          });
+          }), 12000, "Calendar migrate timed out. Tap Retry.");
         }
-        const fetched = await api.fetchSchedule(firebaseAuthHeaders, email);
+        const fetched = await withTimeout(
+          api.fetchSchedule(firebaseAuthHeaders, email),
+          12000,
+          "Calendar is taking longer than usual. Tap Retry.",
+        );
         const merged = api.mergeScheduleDocs
           ? api.mergeScheduleDocs(localBefore, fetched || api.emptyDoc())
           : (fetched || localBefore);
@@ -40455,9 +40498,10 @@ function syncChildrenViewShell(mode = childManagementMode) {
   const isList = (mode || "list") === "list";
   if (headingEl) headingEl.textContent = "Child Profiles";
   if (titleEl && isList) {
+    // Empty-state copy lives only in the empty-state card (avoid triple repeat).
     titleEl.textContent = hasChildren
       ? "Select a child to open their profile. Track observations, goals, reports, and records in one place."
-      : "Add your first child to track observations, goals, and daily care in one place.";
+      : "";
   }
   view.classList.toggle("children-empty", isList && !hasChildren);
 }
@@ -40584,9 +40628,9 @@ function renderChildManagement() {
       <div class="child-page-header">
         <div>
           <h2>Children</h2>
-          <p>${hasChildren
-            ? "Select a child to open their profile — observations, goals, reports, and records in one calm workspace."
-            : "Add your first child to track observations, goals, and daily care in one place."}</p>
+          ${hasChildren ? `
+            <p>Select a child to open their profile — observations, goals, reports, and records in one calm workspace.</p>
+          ` : ""}
         </div>
         <div class="child-header-actions">
           ${hasChildren ? `
