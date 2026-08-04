@@ -184,6 +184,12 @@ function membershipHasProAccess(user, nowMs = Date.now()) {
     return false;
   }
 
+  // Active Founding marker can precede Stripe field sync after checkout — still paid access
+  // when there is no Free/ended/billing-review signal and the period has not expired.
+  if (user.foundingMemberActive) {
+    return endMs === null || periodStillValid;
+  }
+
   if (["Pro", "Founding"].includes(user.plan) && (subStatus.includes("active") || subStatus.includes("trialing") || subStatus.includes("trial"))) {
     return periodStillValid || endMs === null;
   }
