@@ -23098,14 +23098,13 @@ function navigateContextualBack(view, fallbackView = "home") {
     setView(context.view, { replaceHistory: false });
     return;
   }
-  // Prefer real browser history so Back returns to the exact prior section + scroll.
-  const platform = platformNavHistoryState();
-  if (platform?.view && platform.view !== view && window.history?.state?.llhPlatformNav) {
-    const canUseHistoryBack = platformHistoryPrimed && window.history.length > 1;
-    if (canUseHistoryBack) {
-      window.history.back();
-      return;
-    }
+  // Prefer real browser history so Back matches the browser Back stack.
+  const canUseHistoryBack = platformHistoryPrimed
+    && window.history?.length > 1
+    && Boolean(window.history?.state?.llhPlatformNav);
+  if (canUseHistoryBack) {
+    window.history.back();
+    return;
   }
   const resolvedFallback = (fallbackView === "home" && isLoggedIn()) ? "calendar" : fallbackView;
   setView(resolvedFallback, { replaceHistory: false });
@@ -23117,6 +23116,12 @@ function refreshContextualViewBackButtons() {
     const fallbackView = button.dataset.fallbackView || "home";
     const alwaysVisible = button.dataset.alwaysVisible === "true";
     const hasContext = Boolean(getViewReturnContext(view));
+    // Child Profiles section Back only belongs on the list — nested profile/tools
+    // screens already render their own “Back to Children” control.
+    if (view === "children" && typeof childManagementMode === "string" && childManagementMode !== "list") {
+      button.hidden = true;
+      return;
+    }
     button.hidden = !alwaysVisible && !hasContext;
     button.textContent = contextualBackLabel(view, fallbackView);
     button.setAttribute("aria-label", button.textContent.trim());
@@ -29540,7 +29545,6 @@ function renderWeeklyPlanViewHtml(scheduleItem, weekStart, weekEnd, room) {
           <button type="button" class="ghost-button" data-weekly-plan-print="${escapeHtml(weekStart)}">Print</button>
           <button type="button" class="ghost-button" data-weekly-plan-download="${escapeHtml(weekStart)}">Download Teacher Weekly Planner</button>
           <button type="button" class="ghost-button" data-weekly-plan-remove="${escapeHtml(scheduleItem.id)}" data-weekly-plan-remove-week="${escapeHtml(weekStart)}">Remove from Calendar</button>
-          <button type="button" class="ghost-button" data-view="calendar" data-dash-select-week="${escapeHtml(weekStart)}" data-weekly-plan-back-calendar>Back to Calendar</button>
         </div>
       </section>
       <div class="llh-weekly-plan-days" data-weekly-plan-days>
@@ -32653,7 +32657,7 @@ function renderCalendarDayView(app) {
       <p class="muted-copy llh-cal-print-status" data-calendar-print-status hidden></p>
       <div class="llh-calendar-toolbar">
         <div>
-          <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
+          <button type="button" class="ghost-button" data-calendar-back-to-week="1">← Back to Week</button>
           <p class="eyebrow">Day view</p>
           <h3 class="llh-calendar-month">${escapeHtml(calendarLongDateLabel(iso))}</h3>
         </div>
@@ -39904,6 +39908,7 @@ function staffAssignedClassroomIds(account = currentAccount()) {
 function renderChildManagement() {
   const app = document.querySelector("#childManagementApp");
   if (!app) return;
+  refreshContextualViewBackButtons();
   activePortfolioChildId = "";
   childProfileTab = normalizeChildProfileTab(childProfileTab);
   const records = childRecords();
@@ -59897,7 +59902,6 @@ function renderBillingPage() {
         ${!paidBilling && !accountIsInTrial(account) ? `<p class="muted-copy">${escapeHtml(MEMBERSHIP_COPY.freeCore)} ${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>` : ""}
         ${account?.promoCodeUsed ? `<p class="muted-copy">Promo code used: <strong>${escapeHtml(account.promoCodeUsed)}</strong>${account.promoLabelUsed ? ` — ${escapeHtml(account.promoLabelUsed)}` : ""}</p>` : ""}
         <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           ${primaryCta}
           ${showUpdatePayment && productStatus?.cta !== "update_payment" ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
@@ -59959,7 +59963,6 @@ function renderBillingHistoryPage() {
           <p class="eyebrow">Billing History</p>
           <h3>${history.length} event${history.length === 1 ? "" : "s"}</h3>
         </div>
-        <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       </div>
       <div class="account-actions-row">
         <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing Management</button>
@@ -65324,6 +65327,16 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const calendarBackToWeek = event.target.closest("[data-calendar-back-to-week]");
+  if (calendarBackToWeek) {
+    event.preventDefault();
+    if (mainCalendarSelectedDay) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(mainCalendarSelectedDay);
+    }
+    mainCalendarSubView = "week";
+    renderMainCalendar();
+    return;
+  }
   const calendarBackToMonth = event.target.closest("[data-calendar-back-to-month]");
   if (calendarBackToMonth) {
     event.preventDefault();
