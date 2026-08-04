@@ -14,6 +14,7 @@ const {
   createProductionMonitoring,
   classifyThreshold,
   aggregateOverall,
+  resolveMemoryThresholds,
 } = require("../server/production-monitoring.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -105,6 +106,43 @@ async function unitTests() {
   assert.equal(aggregateOverall([{ state: "unknown" }, { state: "healthy" }]), "unknown");
   assert.equal(aggregateOverall([{ state: "healthy" }, { state: "healthy" }]), "healthy");
 
+  // Standard (2GB): thresholds scale from instance RAM unless explicitly overridden.
+  const prevInstance = process.env.MONITOR_INSTANCE_MEMORY_MB;
+  const prevCritical = process.env.MONITOR_MEMORY_CRITICAL_MB;
+  const prevWarning = process.env.MONITOR_MEMORY_WARNING_MB;
+  delete process.env.MONITOR_MEMORY_CRITICAL_MB;
+  delete process.env.MONITOR_MEMORY_WARNING_MB;
+  process.env.MONITOR_INSTANCE_MEMORY_MB = "2048";
+  const scaled = resolveMemoryThresholds({});
+  assert.equal(scaled.thresholdMode, "instance-percent");
+  assert.equal(scaled.memoryCriticalMb, Math.floor(2048 * 0.70));
+  assert.equal(scaled.memoryWarningMb, Math.floor(2048 * 0.45));
+  // ~300MB RSS (production steady-state) must be healthy on Standard — not critical.
+  const standardSteady = await createProductionMonitoring({
+    instanceMemoryMb: 2048,
+    alertsEnabled: false,
+  }).buildSnapshot({
+    getStore: () => ({}),
+    getMetaConfig: () => ({}),
+    isDatabaseReady: () => true,
+    getDatabaseProvider: () => "postgres",
+    getDatabaseSizeMb: async () => 10,
+    getMemoryStats: () => ({ rssMb: 300, heapUsedMb: 120, instanceMemoryMb: 2048, pctOfInstance: 14.6 }),
+    getHealthHints: () => ({
+      websiteOk: true,
+      stripeWebhookSecretConfigured: true,
+      stripeKeysConfigured: true,
+    }),
+  });
+  assert.equal(byId(standardSteady).memory.state, "healthy", "300MB RSS on 2GB must be healthy");
+  assert.notEqual(standardSteady.overall, "critical");
+  if (prevInstance == null) delete process.env.MONITOR_INSTANCE_MEMORY_MB;
+  else process.env.MONITOR_INSTANCE_MEMORY_MB = prevInstance;
+  if (prevCritical == null) delete process.env.MONITOR_MEMORY_CRITICAL_MB;
+  else process.env.MONITOR_MEMORY_CRITICAL_MB = prevCritical;
+  if (prevWarning == null) delete process.env.MONITOR_MEMORY_WARNING_MB;
+  else process.env.MONITOR_MEMORY_WARNING_MB = prevWarning;
+
   const below = await snapshotWithMemory(100);
   assert.equal(byId(below).memory.state, "healthy");
   assert.equal(below.overall === "critical", false);
@@ -117,7 +155,7 @@ async function unitTests() {
   const critical = await snapshotWithMemory(280);
   assert.equal(byId(critical).memory.state, "critical");
   assert.equal(critical.overall, "critical");
-  assert.match(byId(critical).memory.recommendedAction || "", /Restart|Render|memory/i);
+  assert.match(byId(critical).memory.recommendedAction || "", /Restart|Render|memory|Thresholds|instance/i);
 
   const above = await snapshotWithMemory(311);
   assert.equal(byId(above).memory.state, "critical");

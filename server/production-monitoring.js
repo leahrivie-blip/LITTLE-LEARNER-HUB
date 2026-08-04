@@ -10,6 +10,12 @@
  * - critical — at or above critical threshold / hard failure
  * - not-configured — missing required configuration (never "working")
  * - unknown — unable to verify (never "healthy")
+ *
+ * Memory thresholds:
+ * - Explicit MONITOR_MEMORY_*_MB / options always win.
+ * - Else when MONITOR_INSTANCE_MEMORY_MB (or RENDER_INSTANCE_MEMORY_MB) ≥ 1024,
+ *   thresholds are percentages of instance RAM (Standard 2GB → warn ~45%, critical ~70%).
+ * - Else Starter-era absolutes (220 / 280) for ~512MB instances.
  */
 
 const DEFAULTS = {
@@ -18,6 +24,10 @@ const DEFAULTS = {
   errorSpikeRate: 0.05,
   memoryWarningMb: 220,
   memoryCriticalMb: 280,
+  /** Fraction of instance RAM used as warning when instance size is known. */
+  memoryWarningFraction: 0.45,
+  /** Fraction of instance RAM used as critical when instance size is known. */
+  memoryCriticalFraction: 0.70,
   dbSizeCriticalMb: 12000,
   metaSilenceHours: 24,
   webhookFailWindowMs: 30 * 60 * 1000,
@@ -34,6 +44,73 @@ function flagEnv(name, fallback = true) {
   const raw = process.env[name];
   if (raw === undefined || raw === null || String(raw).trim() === "") return fallback;
   return ["1", "true", "yes", "on"].includes(String(raw).trim().toLowerCase());
+}
+
+function positiveNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Resolve RSS warning/critical thresholds from env + instance size.
+ * Explicit MONITOR_MEMORY_CRITICAL_MB (or options.memoryCriticalMb) wins.
+ */
+function resolveMemoryThresholds(options = {}) {
+  const instanceMemoryMb = numEnv(
+    "MONITOR_INSTANCE_MEMORY_MB",
+    numEnv("RENDER_INSTANCE_MEMORY_MB", positiveNumber(options.instanceMemoryMb)),
+  );
+
+  const envCriticalRaw = process.env.MONITOR_MEMORY_CRITICAL_MB;
+  const hasExplicitCritical = (
+    (envCriticalRaw != null && String(envCriticalRaw).trim() !== "" && positiveNumber(envCriticalRaw) > 0)
+    || positiveNumber(options.memoryCriticalMb) > 0
+  );
+
+  if (hasExplicitCritical) {
+    const memoryCriticalMb = numEnv(
+      "MONITOR_MEMORY_CRITICAL_MB",
+      positiveNumber(options.memoryCriticalMb) || DEFAULTS.memoryCriticalMb,
+    );
+    const memoryWarningMb = numEnv(
+      "MONITOR_MEMORY_WARNING_MB",
+      positiveNumber(options.memoryWarningMb) || Math.max(1, Math.floor(memoryCriticalMb * 0.8)),
+    );
+    return {
+      instanceMemoryMb: instanceMemoryMb || null,
+      memoryWarningMb,
+      memoryCriticalMb,
+      thresholdMode: "explicit",
+    };
+  }
+
+  if (instanceMemoryMb >= 1024) {
+    const memoryCriticalMb = Math.max(
+      512,
+      Math.floor(instanceMemoryMb * (options.memoryCriticalFraction || DEFAULTS.memoryCriticalFraction)),
+    );
+    const memoryWarningMb = numEnv(
+      "MONITOR_MEMORY_WARNING_MB",
+      positiveNumber(options.memoryWarningMb)
+        || Math.max(384, Math.floor(instanceMemoryMb * (options.memoryWarningFraction || DEFAULTS.memoryWarningFraction))),
+    );
+    return {
+      instanceMemoryMb,
+      memoryWarningMb: Math.min(memoryWarningMb, memoryCriticalMb - 1),
+      memoryCriticalMb,
+      thresholdMode: "instance-percent",
+    };
+  }
+
+  return {
+    instanceMemoryMb: instanceMemoryMb || null,
+    memoryWarningMb: numEnv(
+      "MONITOR_MEMORY_WARNING_MB",
+      positiveNumber(options.memoryWarningMb) || DEFAULTS.memoryWarningMb,
+    ),
+    memoryCriticalMb: DEFAULTS.memoryCriticalMb,
+    thresholdMode: instanceMemoryMb ? "starter-absolute" : "legacy-absolute",
+  };
 }
 
 /**
@@ -77,17 +154,15 @@ function aggregateOverall(checks = []) {
 }
 
 function createProductionMonitoring(options = {}) {
-  const memoryCriticalMb = numEnv("MONITOR_MEMORY_CRITICAL_MB", options.memoryCriticalMb || DEFAULTS.memoryCriticalMb);
-  const memoryWarningMb = numEnv(
-    "MONITOR_MEMORY_WARNING_MB",
-    options.memoryWarningMb || DEFAULTS.memoryWarningMb || Math.max(1, Math.floor(memoryCriticalMb * 0.8)),
-  );
+  const memoryThresholds = resolveMemoryThresholds(options);
   const cfg = {
     windowMs: numEnv("MONITOR_WINDOW_MS", options.windowMs || DEFAULTS.windowMs),
     errorSpikeCount: numEnv("MONITOR_5XX_COUNT", options.errorSpikeCount || DEFAULTS.errorSpikeCount),
     errorSpikeRate: Number(process.env.MONITOR_5XX_RATE || options.errorSpikeRate || DEFAULTS.errorSpikeRate),
-    memoryWarningMb,
-    memoryCriticalMb,
+    memoryWarningMb: memoryThresholds.memoryWarningMb,
+    memoryCriticalMb: memoryThresholds.memoryCriticalMb,
+    instanceMemoryMb: memoryThresholds.instanceMemoryMb,
+    memoryThresholdMode: memoryThresholds.thresholdMode,
     dbSizeCriticalMb: numEnv("MONITOR_DB_SIZE_CRITICAL_MB", options.dbSizeCriticalMb || DEFAULTS.dbSizeCriticalMb),
     metaSilenceHours: numEnv("MONITOR_META_SILENCE_HOURS", options.metaSilenceHours || DEFAULTS.metaSilenceHours),
     webhookFailWindowMs: numEnv("MONITOR_WEBHOOK_FAIL_WINDOW_MS", options.webhookFailWindowMs || DEFAULTS.webhookFailWindowMs),
@@ -146,13 +221,21 @@ function createProductionMonitoring(options = {}) {
     const mem = process.memoryUsage();
     const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
     const rssMb = Math.round(mem.rss / 1024 / 1024);
-    const maxOldSpaceMb = Number(process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1]) || 300;
+    const maxOldSpaceMatch = String(process.env.NODE_OPTIONS || "").match(/--max-old-space-size=(\d+)/);
+    const maxOldSpaceMb = maxOldSpaceMatch ? Number(maxOldSpaceMatch[1]) : null;
+    const instanceMemoryMb = cfg.instanceMemoryMb || null;
+    const pctOfInstance = instanceMemoryMb
+      ? Math.round((rssMb / instanceMemoryMb) * 1000) / 10
+      : null;
     return {
       heapUsedMb,
       rssMb,
       maxOldSpaceMb,
+      instanceMemoryMb,
+      pctOfInstance,
       warningMb: cfg.memoryWarningMb,
       criticalMb: cfg.memoryCriticalMb,
+      thresholdMode: cfg.memoryThresholdMode,
     };
   }
 
@@ -435,7 +518,13 @@ function createProductionMonitoring(options = {}) {
             recommendedAction: "Retry System Health. If memory metrics stay unavailable, inspect the Node process on Render.",
           });
         }
-        const detail = `RSS ${mem.rssMb} MB · Heap ${mem.heapUsedMb} MB · warning ≥ ${cfg.memoryWarningMb} MB · critical ≥ ${cfg.memoryCriticalMb} MB · max-old-space ${mem.maxOldSpaceMb} MB.`;
+        const instancePart = mem.instanceMemoryMb
+          ? ` · ${mem.pctOfInstance != null ? `${mem.pctOfInstance}% of` : "of"} ${mem.instanceMemoryMb} MB instance`
+          : "";
+        const heapCapPart = mem.maxOldSpaceMb != null
+          ? ` · max-old-space ${mem.maxOldSpaceMb} MB`
+          : "";
+        const detail = `RSS ${mem.rssMb} MB · Heap ${mem.heapUsedMb} MB${instancePart} · warning ≥ ${cfg.memoryWarningMb} MB · critical ≥ ${cfg.memoryCriticalMb} MB${heapCapPart}.`;
         if (rssClass.state === "critical") {
           return makeCheck({
             id: "memory",
@@ -443,7 +532,9 @@ function createProductionMonitoring(options = {}) {
             state: "critical",
             detail: `${detail} RSS is at or above the critical threshold.`,
             value: mem,
-            recommendedAction: "Restart the web service on Render, then investigate memory growth (large curriculum payloads, leaked caches). Consider raising the instance size if RSS stays near max-old-space after restart.",
+            recommendedAction: mem.instanceMemoryMb && mem.rssMb < Math.floor(mem.instanceMemoryMb * 0.5)
+              ? "Thresholds may be miscalibrated for this instance size. Confirm MONITOR_INSTANCE_MEMORY_MB matches the Render plan, then investigate retained store/curriculum payloads."
+              : "Restart the web service on Render, then investigate memory growth (large curriculum payloads, leaked caches, full-store clones). Consider raising the instance size only if RSS stays near the instance limit after optimization.",
           });
         }
         if (rssClass.state === "warning") {
@@ -509,6 +600,8 @@ function createProductionMonitoring(options = {}) {
         windowMinutes: Math.round(cfg.windowMs / 60000),
         memoryWarningMb: cfg.memoryWarningMb,
         memoryCriticalMb: cfg.memoryCriticalMb,
+        instanceMemoryMb: cfg.instanceMemoryMb,
+        memoryThresholdMode: cfg.memoryThresholdMode,
         dbSizeCriticalMb: cfg.dbSizeCriticalMb,
         metaSilenceHours: cfg.metaSilenceHours,
       },
@@ -589,5 +682,6 @@ module.exports = {
   DEFAULTS,
   classifyThreshold,
   aggregateOverall,
+  resolveMemoryThresholds,
   createProductionMonitoring,
 };

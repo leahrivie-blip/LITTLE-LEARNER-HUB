@@ -2524,128 +2524,165 @@ function curriculumParentPlanMeta(plan) {
   };
 }
 
+/** Short-TTL cache for curriculum library DTOs — avoids re-normalizing 2k+ activities per request. */
+const curriculumLibraryDtoCache = new Map();
+const CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS = Math.max(
+  5_000,
+  Math.min(120_000, Number(process.env.CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS) || 30_000),
+);
+
+function curriculumLibraryDtoCacheKey(kind, siteContent, accessContext = {}) {
+  const updatedAt = siteContent?.curriculum?.updatedAt || siteContent?.updatedAt || "";
+  const mode = accessContext?.mode || kind;
+  const legacy = accessContext?.legacyFree ? "1" : "0";
+  return `${kind}|${updatedAt}|${mode}|${legacy}`;
+}
+
+function withCurriculumLibraryDtoCache(cacheKey, build) {
+  const now = Date.now();
+  const hit = curriculumLibraryDtoCache.get(cacheKey);
+  if (hit && hit.expiresAt > now) return hit.value;
+  const value = build();
+  curriculumLibraryDtoCache.set(cacheKey, { expiresAt: now + CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS, value });
+  if (curriculumLibraryDtoCache.size > 12) {
+    const oldest = curriculumLibraryDtoCache.keys().next().value;
+    curriculumLibraryDtoCache.delete(oldest);
+  }
+  return value;
+}
+
 function authorizedCurriculumLibraryDto(siteContent) {
   // Pro / Founding / Trial / admin-override users get an unlocked *browse* library.
   // Full dailyPlans / activity how-to stay on the detail endpoints so /api/site-content
   // stays small enough for installed-app cold starts on mobile.
-  const store = normalizedCurriculumStore(siteContent?.curriculum);
-  const lessonPlans = store.lessonPlans
-    .map((plan) => authorizedCurriculumLessonPlanListDto(plan))
-    .filter(Boolean)
-    .sort((a, b) => {
-      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
-      if (featuredDelta) return featuredDelta;
-      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    });
-  const parentPlanById = new Map(
-    store.lessonPlans
-      .map((plan) => curriculumParentPlanMeta(plan))
-      .filter(Boolean)
-      .map((plan) => [plan.id, plan]),
+  return withCurriculumLibraryDtoCache(
+    curriculumLibraryDtoCacheKey("authorized", siteContent, { mode: "pro" }),
+    () => {
+      const store = normalizedCurriculumStore(siteContent?.curriculum);
+      const lessonPlans = store.lessonPlans
+        .map((plan) => authorizedCurriculumLessonPlanListDto(plan))
+        .filter(Boolean)
+        .sort((a, b) => {
+          const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+          if (featuredDelta) return featuredDelta;
+          return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+        });
+      const parentPlanById = new Map(
+        store.lessonPlans
+          .map((plan) => curriculumParentPlanMeta(plan))
+          .filter(Boolean)
+          .map((plan) => [plan.id, plan]),
+      );
+      const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
+      const activities = store.activities
+        .map((activity) => authorizedCurriculumActivityListDto(activity, parentPlanById.get(activity.lessonPlanId)))
+        .filter(Boolean)
+        .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+      const resources = store.resources
+        .map((resource) => {
+          const meta = curriculumResourceMetadata(resource);
+          if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
+          const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+          if (!linkedToPublicLesson) return null;
+          return meta;
+        })
+        .filter(Boolean);
+      return {
+        lessonPlans,
+        activities,
+        resources,
+        series: store.series || [],
+        updatedAt: store.updatedAt || "",
+        freeLessonAccessMode: "pro",
+      };
+    },
   );
-  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
-  const activities = store.activities
-    .map((activity) => authorizedCurriculumActivityListDto(activity, parentPlanById.get(activity.lessonPlanId)))
-    .filter(Boolean)
-    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-  const resources = store.resources
-    .map((resource) => {
-      const meta = curriculumResourceMetadata(resource);
-      if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
-      const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
-      if (!linkedToPublicLesson) return null;
-      return meta;
-    })
-    .filter(Boolean);
-  return {
-    lessonPlans,
-    activities,
-    resources,
-    series: store.series || [],
-    updatedAt: store.updatedAt || "",
-    freeLessonAccessMode: "pro",
-  };
 }
 
 function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
   // Phase 2H: curriculum library is always the public lesson/activity source.
   // accessContext.legacyFree unlocks all store Free-tier plans for grandfathered accounts.
-  const store = normalizedCurriculumStore(siteContent?.curriculum);
-  const lessonPlans = store.lessonPlans
-    .map((plan) => publicCurriculumLessonPlanDto(plan, accessContext))
-    .filter(Boolean)
-    .sort((a, b) => {
-      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
-      if (featuredDelta) return featuredDelta;
-      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    });
-  const parentPlanById = new Map(
-    store.lessonPlans
-      .map((plan) => curriculumParentPlanMeta(plan))
-      .filter(Boolean)
-      .map((plan) => [plan.id, plan]),
+  return withCurriculumLibraryDtoCache(
+    curriculumLibraryDtoCacheKey("public", siteContent, accessContext),
+    () => {
+      const store = normalizedCurriculumStore(siteContent?.curriculum);
+      const lessonPlans = store.lessonPlans
+        .map((plan) => publicCurriculumLessonPlanDto(plan, accessContext))
+        .filter(Boolean)
+        .sort((a, b) => {
+          const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+          if (featuredDelta) return featuredDelta;
+          return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+        });
+      const parentPlanById = new Map(
+        store.lessonPlans
+          .map((plan) => curriculumParentPlanMeta(plan))
+          .filter(Boolean)
+          .map((plan) => [plan.id, plan]),
+      );
+      const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
+      const activities = store.activities
+        .map((activity) => publicCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId), accessContext))
+        .filter(Boolean)
+        .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+      const resources = store.resources
+        .map((resource) => {
+          const meta = curriculumResourceMetadata(resource);
+          if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
+          const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+          if (!linkedToPublicLesson) return null;
+          return meta;
+        })
+        .filter(Boolean);
+      // Public library only exposes published/featured curriculum collections (series).
+      // Draft / needs_review stay on admin site-content for preview before publish.
+      const series = (store.series || [])
+        .filter((entry) => entry && ["published", "featured"].includes(entry.status))
+        .map((entry) => ({
+          id: entry.id,
+          collectionKey: entry.collectionKey || "",
+          collectionTitle: entry.collectionTitle || "",
+          title: entry.title,
+          description: entry.description || "",
+          theme: entry.theme || "",
+          age: entry.age,
+          month: entry.month || "",
+          season: entry.season || "",
+          year: entry.year || "",
+          weekCount: entry.weekCount,
+          plan: entry.plan,
+          status: entry.status,
+          featured: Boolean(entry.featured) || entry.status === "featured",
+          displayOrder: entry.displayOrder || 0,
+          coverImageUrl: entry.coverImageUrl || "",
+          coverImageAlt: entry.coverImageAlt || "",
+          coverImageSource: entry.coverImageSource || "",
+          coverImagePosition: entry.coverImagePosition || "center",
+          learningDomains: entry.learningDomains || [],
+          updatedAt: entry.updatedAt || "",
+          weeks: (entry.weeks || []).map((week) => ({
+            weekNumber: week.weekNumber,
+            lessonPlanId: week.lessonPlanId,
+            displayOrder: week.displayOrder,
+            label: week.label || "",
+          })),
+        }))
+        .sort((a, b) => {
+          const featuredDelta = (b.featured || b.status === "featured" ? 1 : 0) - (a.featured || a.status === "featured" ? 1 : 0);
+          if (featuredDelta) return featuredDelta;
+          return (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0)
+            || String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+        });
+      return {
+        lessonPlans,
+        activities,
+        resources,
+        series,
+        updatedAt: store.updatedAt || "",
+        freeLessonAccessMode: accessContext?.mode || "curated",
+      };
+    },
   );
-  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
-  const activities = store.activities
-    .map((activity) => publicCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId), accessContext))
-    .filter(Boolean)
-    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-  const resources = store.resources
-    .map((resource) => {
-      const meta = curriculumResourceMetadata(resource);
-      if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
-      const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
-      if (!linkedToPublicLesson) return null;
-      return meta;
-    })
-    .filter(Boolean);
-  // Public library only exposes published/featured curriculum collections (series).
-  // Draft / needs_review stay on admin site-content for preview before publish.
-  const series = (store.series || [])
-    .filter((entry) => entry && ["published", "featured"].includes(entry.status))
-    .map((entry) => ({
-      id: entry.id,
-      collectionKey: entry.collectionKey || "",
-      collectionTitle: entry.collectionTitle || "",
-      title: entry.title,
-      description: entry.description || "",
-      theme: entry.theme || "",
-      age: entry.age,
-      month: entry.month || "",
-      season: entry.season || "",
-      year: entry.year || "",
-      weekCount: entry.weekCount,
-      plan: entry.plan,
-      status: entry.status,
-      featured: Boolean(entry.featured) || entry.status === "featured",
-      displayOrder: entry.displayOrder || 0,
-      coverImageUrl: entry.coverImageUrl || "",
-      coverImageAlt: entry.coverImageAlt || "",
-      coverImageSource: entry.coverImageSource || "",
-      coverImagePosition: entry.coverImagePosition || "center",
-      learningDomains: entry.learningDomains || [],
-      updatedAt: entry.updatedAt || "",
-      weeks: (entry.weeks || []).map((week) => ({
-        weekNumber: week.weekNumber,
-        lessonPlanId: week.lessonPlanId,
-        displayOrder: week.displayOrder,
-        label: week.label || "",
-      })),
-    }))
-    .sort((a, b) => {
-      const featuredDelta = (b.featured || b.status === "featured" ? 1 : 0) - (a.featured || a.status === "featured" ? 1 : 0);
-      if (featuredDelta) return featuredDelta;
-      return (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0)
-        || String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
-    });
-  return {
-    lessonPlans,
-    activities,
-    resources,
-    series,
-    updatedAt: store.updatedAt || "",
-    freeLessonAccessMode: accessContext?.mode || "curated",
-  };
 }
 
 function assertCurriculumIntegrityOrError(curriculum) {
@@ -3805,7 +3842,18 @@ async function initializeStorage() {
       foundingMembers: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
     };
     const pruned = pruneAnalyticsEventsInStore(store);
-    if (pruned.trimmed) {
+    // Postgres mode already appends to llh_analytics_events. Keeping thousands of
+    // events in the shared JSON blob doubles RAM on every structuredClone/stringify.
+    // After the table is ready, drop the in-document copy (admin reads merge from SQL).
+    let clearedFromBlob = { cleared: false, before: 0, after: 0 };
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      const beforeBlob = Array.isArray(store.analyticsEvents) ? store.analyticsEvents.length : 0;
+      if (beforeBlob > 0) {
+        store.analyticsEvents = [];
+        clearedFromBlob = { cleared: true, before: beforeBlob, after: 0 };
+      }
+    }
+    if (pruned.trimmed || clearedFromBlob.cleared) {
       await writeStoreAsync(store);
       const inventoryAfter = {
         users: Object.keys(store.users || {}).length,
@@ -3831,7 +3879,14 @@ async function initializeStorage() {
         });
         throw new Error("Analytics boot prune changed non-analytics inventory counts.");
       }
-      console.log(`[analytics] boot prune ${pruned.before} → ${pruned.after} events (cap=${MAX_ANALYTICS_EVENTS})`);
+      if (pruned.trimmed) {
+        console.log(`[analytics] boot prune ${pruned.before} → ${pruned.after} events (cap=${MAX_ANALYTICS_EVENTS})`);
+      }
+      if (clearedFromBlob.cleared) {
+        console.log(
+          `[analytics] cleared ${clearedFromBlob.before} events from llh_store blob (Postgres table is source of truth)`,
+        );
+      }
     }
   } catch (error) {
     console.warn("[analytics] boot prune skipped:", error.message);
@@ -9398,9 +9453,14 @@ function storeHealthSnapshot(store = peekStore()) {
       heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
       rssMb: Math.round(mem.rss / 1024 / 1024),
       externalMb: Math.round((mem.external || 0) / 1024 / 1024),
-      maxOldSpaceMb: Number(process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1])
-        || 300,
+      maxOldSpaceMb: (() => {
+        const match = String(process.env.NODE_OPTIONS || "").match(/--max-old-space-size=(\d+)/);
+        return match ? Number(match[1]) : null;
+      })(),
+      instanceMemoryMb: Number(process.env.MONITOR_INSTANCE_MEMORY_MB || process.env.RENDER_INSTANCE_MEMORY_MB || 0) || null,
       analyticsEventCap: MAX_ANALYTICS_EVENTS,
+      analyticsEventsInStore: analyticsEvents.length,
+      curriculumLibraryDtoCacheSize: curriculumLibraryDtoCache.size,
     },
     storeWrites: storeWriteMetricsLib.snapshot(storeWriteMetrics),
     sampleUsers: userEmails.slice(0, 12),
@@ -11230,13 +11290,24 @@ async function runProductionMonitoringTick() {
       to: SUPPORT_EMAIL_TO || ADMIN_EMAIL,
       subject,
       text,
+      // Hour-scoped key. Body includes live RSS, so Resend may 409 when RSS text
+      // changes within the same hour — treat that as already delivered.
       idempotencyKey: `llh-monitor-${due.map((c) => c.id).sort().join("-")}-${new Date().toISOString().slice(0, 13)}`,
       tags: [{ name: "category", value: "production_monitoring" }],
     });
     productionMonitoring.markAlertsSent(due);
     console.warn("[production-monitoring] alert email sent:", due.map((c) => c.id).join(", "));
   } catch (error) {
-    console.warn("[production-monitoring] alert email failed:", error.message || error);
+    const message = String(error?.message || error || "");
+    if (/invalid_idempotent_request|statusCode":409|"statusCode":\s*409/i.test(message)) {
+      productionMonitoring.markAlertsSent(due);
+      console.warn(
+        "[production-monitoring] alert email already sent this hour (idempotent):",
+        due.map((c) => c.id).join(", "),
+      );
+    } else {
+      console.warn("[production-monitoring] alert email failed:", message);
+    }
   }
   return snapshot;
 }
@@ -11255,9 +11326,11 @@ async function loadInsightsAnalyticsEvents(store) {
   let mergedEvents = Array.isArray(store?.analyticsEvents) ? store.analyticsEvents.slice() : [];
   if (usePostgresStore() && postgresPool && databaseReady) {
     try {
+      // Cap fetch size — admin insights must not pull unbounded history into RAM.
       const tableEvents = await analyticsStore.fetchRecentAnalyticsEvents(
         postgresPool,
         postgresQueryWithTransientRetry,
+        { limit: Math.min(MAX_ANALYTICS_EVENTS, 5000), days: 90 },
       );
       const byId = new Map(mergedEvents.map((evt) => [evt.id, evt]));
       tableEvents.forEach((evt) => {
@@ -17089,6 +17162,7 @@ async function handleAdminAnalytics(request, response, url) {
         const tableEvents = await analyticsStore.fetchRecentAnalyticsEvents(
           postgresPool,
           postgresQueryWithTransientRetry,
+          { limit: Math.min(MAX_ANALYTICS_EVENTS, 5000), days: 90 },
         );
         const byId = new Map(mergedEvents.map((evt) => [evt.id, evt]));
         tableEvents.forEach((evt) => byId.set(evt.id, evt));
@@ -17357,7 +17431,8 @@ async function handleCurriculumLessonPlanDetail(request, response, url, planId) 
     jsonResponse(response, 400, { error: "Lesson plan id is required." });
     return;
   }
-  const store = readStore();
+  // Read-only — never structuredClone the full store for lesson viewer traffic.
+  const store = peekStore();
   const curriculum = readSiteCurriculum(store);
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const rawPlan = curriculum.lessonPlans.find((item) => item.id === cleanId);
@@ -17433,7 +17508,8 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
     return;
   }
 
-  const store = readStore();
+  // Read-only Teaching Kit viewer — peek avoids a full-store clone per open.
+  const store = peekStore();
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const flags = normalizedFeatureFlags(siteContent.featureFlags);
   if (!teachingKit.isTeachingKitApiEnabled(flags)) {
@@ -17533,7 +17609,7 @@ async function handleCurriculumActivityDetail(request, response, url, activityId
     jsonResponse(response, 400, { error: "Activity id is required." });
     return;
   }
-  const store = readStore();
+  const store = peekStore();
   const curriculum = readSiteCurriculum(store);
   const candidates = curriculum.activities.filter((item) => item.id === cleanId && item.status === "published");
   if (!candidates.length) {
