@@ -254,52 +254,46 @@ async function main() {
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
 
-    console.log("1) Real plans expose Mon-Fri activities and Plan tab support sections");
+    console.log("1) Real plans expose Mon-Fri activities and dedicated support tabs");
     for (const plan of seeded) {
       await openLesson(page, plan.title);
-      await page.click('[data-lesson-workspace-tab="plan"]');
-      await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 5000 });
-      const proof = await page.evaluate((expected) => {
-        const planPanel = document.querySelector('[data-lesson-workspace-panel="plan"]');
+      const weekProof = await page.evaluate(() => {
         const weekPanel = document.querySelector('[data-lesson-workspace-panel="week"]');
-        const sectionLabels = [...planPanel.querySelectorAll("[data-lesson-plan-section]")].map((el) => el.dataset.lessonPlanSection);
-        const text = planPanel.textContent || "";
-        const weekDays = [...weekPanel.querySelectorAll("[data-lesson-workspace-week-day]")].map((el) => el.textContent.trim());
+        const weekDays = [...weekPanel.querySelectorAll(".lesson-workspace-week-day-block h3")].map((el) => el.textContent.trim());
         return {
           title: document.querySelector(".lesson-workspace-title")?.textContent.trim() || "",
           weekDays,
-          activityRows: document.querySelectorAll(".lesson-workspace-activity-row").length,
-          sectionLabels,
-          hasVocabulary: /Vocabulary/i.test(text) && text.includes(expected.vocabularySnippet),
-          hasBooks: expected.bookTitles.every((title) => text.includes(title)),
-          hasSongs: expected.songTitles.every((title) => text.includes(title)),
-          hasFamily: /Family Connection/i.test(text) && (!expected.familySnippet || text.includes(expected.familySnippet)),
-          hasObservation: /Observation Opportunities/i.test(text) && (!expected.observationSnippet || text.includes(expected.observationSnippet)),
-          hasAdaptations: /Adaptations/i.test(text) && (!expected.adaptationsSnippet || text.includes(expected.adaptationsSnippet)),
+          activityRows: weekPanel.querySelectorAll(".lesson-workspace-activity-card, .lesson-workspace-activity-row").length,
+          tabs: [...document.querySelectorAll("[data-lesson-workspace-tab]")].map((el) => el.textContent.trim()),
         };
-      }, {
-        vocabularySnippet: (plan.vocabulary || "").split(/[,\n]/)[0]?.trim() || "",
-        bookTitles: plan.bookTitles.slice(0, 2),
-        songTitles: plan.songTitles.slice(0, 2),
-        familySnippet: (plan.familyConnection || "").slice(0, 24),
-        observationSnippet: (plan.observationOpportunities || "").slice(0, 24),
-        adaptationsSnippet: (plan.adaptations || "").slice(0, 24),
       });
-      assert(proof.title === plan.title, `${plan.key} title wrong: ${proof.title}`);
-      assert(proof.weekDays.join(",") === "Mon,Tue,Wed,Thu,Fri", `${plan.key} week days wrong: ${proof.weekDays.join(",")}`);
-      assert(proof.activityRows >= Math.max(1, Math.min(plan.activityCount, 3)), `${plan.key} missing activities (${proof.activityRows}/${plan.activityCount})`);
-      assert(proof.sectionLabels.includes("Vocabulary"), `${plan.key} Vocabulary section missing`);
-      assert(proof.sectionLabels.includes("Books"), `${plan.key} Books section missing`);
-      assert(proof.sectionLabels.includes("Songs and Fingerplays"), `${plan.key} Songs section missing`);
-      assert(proof.sectionLabels.includes("Family Connection"), `${plan.key} Family Connection missing`);
-      assert(proof.sectionLabels.includes("Observation Opportunities"), `${plan.key} Observation Opportunities missing`);
-      assert(proof.sectionLabels.includes("Adaptations"), `${plan.key} Adaptations missing`);
-      assert(proof.hasVocabulary, `${plan.key} vocabulary content missing`);
-      assert(proof.hasBooks, `${plan.key} book titles missing`);
-      assert(proof.hasSongs, `${plan.key} song titles missing`);
-      assert(proof.hasFamily, `${plan.key} family connection content missing`);
-      assert(proof.hasObservation, `${plan.key} observation content missing`);
-      assert(proof.hasAdaptations, `${plan.key} adaptations content missing`);
+      assert(weekProof.title === plan.title, `${plan.key} title wrong: ${weekProof.title}`);
+      assert(weekProof.weekDays.join(",") === "Monday,Tuesday,Wednesday,Thursday,Friday", `${plan.key} week days wrong: ${weekProof.weekDays.join(",")}`);
+      assert(weekProof.activityRows >= Math.max(1, Math.min(plan.activityCount, 3)), `${plan.key} missing activities (${weekProof.activityRows}/${plan.activityCount})`);
+      assert(weekProof.tabs.includes("Books") && weekProof.tabs.includes("Teacher Notes"), `${plan.key} missing redesigned tabs`);
+
+      const tabChecks = [
+        ["books", (plan.bookTitles || []).slice(0, 2), "book titles"],
+        ["songs", (plan.songTitles || []).slice(0, 2), "song titles"],
+        ["family", [(plan.familyConnection || "").slice(0, 24)].filter(Boolean), "family connection"],
+        ["observations", [(plan.observationOpportunities || "").slice(0, 24)].filter(Boolean), "observation"],
+        ["teacher-notes", [(plan.adaptations || "").slice(0, 24)].filter(Boolean), "adaptations"],
+      ];
+      for (const [tab, snippets, label] of tabChecks) {
+        await page.click(`[data-lesson-workspace-tab="${tab}"]`);
+        await page.waitForSelector(`[data-lesson-workspace-panel="${tab}"].is-active`, { timeout: 5000 });
+        const text = await page.evaluate((id) => document.querySelector(`[data-lesson-workspace-panel="${id}"]`)?.textContent || "", tab);
+        for (const snippet of snippets) {
+          if (!snippet) continue;
+          assert(text.includes(snippet), `${plan.key} ${label} missing in ${tab} tab`);
+        }
+      }
+
+      await page.click('[data-lesson-workspace-tab="teacher-notes"]');
+      await page.waitForSelector('[data-lesson-workspace-panel="teacher-notes"].is-active', { timeout: 3000 });
+      const notesText = await page.evaluate(() => document.querySelector('[data-lesson-workspace-panel="teacher-notes"]')?.textContent || "");
+      const vocabSnippet = (plan.vocabulary || "").split(/[,\n]/)[0]?.trim() || "";
+      if (vocabSnippet) assert(notesText.includes(vocabSnippet), `${plan.key} vocabulary content missing`);
 
       const printProof = await page.evaluate(() => {
         const weekHtml = resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" });

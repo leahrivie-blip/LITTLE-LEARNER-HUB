@@ -254,7 +254,7 @@ async function main() {
       weekActive: document.querySelector('[data-lesson-workspace-panel="week"]')?.classList.contains("is-active"),
     }));
     assert(!workspaceA.overflow, "lesson workspace overflows on mobile");
-    assert(workspaceA.tabs.join(",") === "Week,Plan,Activities,Materials", `unexpected lesson workspace tabs: ${workspaceA.tabs.join(",")}`);
+    assert(workspaceA.tabs.join(",") === "Week,Activities,Materials,Books,Songs,Printables,Teacher Notes,Family Connection,Observations", `unexpected lesson workspace tabs: ${workspaceA.tabs.join(",")}`);
     assert(workspaceA.weekActive, "week panel should be active by default");
 
     console.log("2) Search and filters persist after close");

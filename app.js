@@ -23150,7 +23150,7 @@ function lessonWorkspaceReturnContext(label = "← Back to Lesson Plan") {
 
 function openLessonWorkspaceFromContext(context) {
   if (!context?.resourceId) return;
-  lessonWorkspaceTab = context.workspaceTab || "week";
+  lessonWorkspaceTab = normalizeLessonWorkspaceTab(context.workspaceTab || "week");
   lessonWorkspaceWeekDay = context.workspaceWeekDay || "monday";
   openResourceViewer(context.resourceId);
 }
@@ -23744,42 +23744,94 @@ document.addEventListener("focusin", (event) => {
   }
 }, true);
 
+function lessonWorkspaceMaterialLines(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+  const lines = raw.split(/\r?\n/).map((line) => line.replace(/^[-•*]\s*/, "").replace(/^\[\s?\]\s*/, "").trim()).filter(Boolean);
+  if (lines.length > 1) return lines;
+  const single = lines[0] || raw;
+  if (single.includes(";") || (single.includes(",") && single.length > 48)) {
+    return single.split(/\s*[;,]\s*/).map((part) => part.trim()).filter(Boolean);
+  }
+  return [single];
+}
+
+function lessonWorkspaceChecklistHtml(items, options = {}) {
+  const list = (Array.isArray(items) ? items : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+  if (!list.length) return options.emptyHtml || '<p class="muted-copy">Nothing listed yet.</p>';
+  const interactive = options.interactive !== false;
+  return `
+    <ul class="llh-checklist lesson-workspace-checklist"${options.label ? ` aria-label="${escapeHtml(options.label)}"` : ""}>
+      ${list.map((item, index) => `
+        <li class="llh-checklist-item">
+          ${interactive
+            ? `<label class="llh-checklist-label"><input type="checkbox" class="llh-checklist-input" data-lesson-workspace-check="${escapeHtml(options.prefix || "item")}-${index}" /><span>${escapeHtml(item)}</span></label>`
+            : `<span class="llh-checklist-label is-static"><span class="llh-checklist-box" aria-hidden="true"></span><span>${escapeHtml(item)}</span></span>`}
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
 function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
-  const weekly = lessonWorkspaceWeeklySectionsHtml(normalized);
+  const overview = String(normalized.weeklyOverview || "").trim();
+  const objectives = String(normalized.objectives || "").trim();
+  const domains = curriculumAsStringArray(normalized.learningDomains);
   const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
-  const dayTabs = LESSON_WORKSPACE_WEEKDAYS.map((day) => {
-    const active = day === lessonWorkspaceWeekDay;
-    return `<button type="button" class="lesson-workspace-day-tab${active ? " is-active" : ""}" data-lesson-workspace-week-day="${day}" role="tab" aria-selected="${active ? "true" : "false"}">${LESSON_WORKSPACE_DAY_SHORT[day]}</button>`;
-  }).join("");
-  const dayPanels = LESSON_WORKSPACE_WEEKDAYS.map((day) => {
+  const dayBlocks = LESSON_WORKSPACE_WEEKDAYS.map((day) => {
     const dayPlan = dailyPlans[day] || {};
     const items = Array.isArray(dayPlan.items) ? dayPlan.items : [];
-    const active = day === lessonWorkspaceWeekDay;
     const theme = String(dayPlan.theme || "").trim();
+    const dayObjectives = String(dayPlan.objectives || "").trim();
     const activities = items.map((item) => {
       const activityId = resolvePublishedCurriculumActivityId(lessonPlanId, item);
       const title = escapeHtml(item.title || "Activity");
-      const category = item.activityCategory ? `<span class="lesson-workspace-activity-cat">${escapeHtml(item.activityCategory)}</span>` : "";
+      const category = item.activityCategory
+        ? `<span class="lesson-workspace-activity-cat">${escapeHtml(item.activityCategory)}</span>`
+        : "";
+      const objective = String(item.objective || item.description || "").trim();
+      const materials = lessonWorkspaceMaterialLines(item.materials).slice(0, 4);
+      const body = `
+        <div class="lesson-workspace-activity-card-meta">
+          ${category}
+        </div>
+        <h4 class="lesson-workspace-activity-name">${title}</h4>
+        ${objective ? `<p class="lesson-workspace-activity-desc"><strong>Objective:</strong> ${escapeHtml(objective)}</p>` : ""}
+        ${materials.length ? `<div class="lesson-workspace-activity-field"><strong>Materials</strong>${lessonWorkspaceChecklistHtml(materials, { interactive: false, prefix: `${day}-mat` })}</div>` : ""}
+      `;
       if (activityId) {
-        return `<button type="button" class="lesson-workspace-activity-row" data-open-curriculum-activity="${escapeHtml(activityId)}"><span class="lesson-workspace-activity-name">${title}</span>${category}</button>`;
+        return `<button type="button" class="lesson-workspace-activity-card lesson-workspace-week-activity-card" data-open-curriculum-activity="${escapeHtml(activityId)}">${body}</button>`;
       }
-      return `<div class="lesson-workspace-activity-row is-static"><span class="lesson-workspace-activity-name">${title}</span>${category}</div>`;
+      return `<article class="lesson-workspace-activity-card lesson-workspace-week-activity-card is-static">${body}</article>`;
     }).join("");
     return `
-      <div class="lesson-workspace-day-panel${active ? " is-active" : ""}" data-lesson-workspace-week-day-panel="${day}" role="tabpanel">
-        ${theme ? `<p class="lesson-workspace-day-theme">${escapeHtml(theme)}</p>` : ""}
-        <div class="lesson-workspace-activity-list">${activities || '<p class="muted-copy">No activities scheduled.</p>'}</div>
-      </div>
+      <section class="lesson-workspace-week-day-block" data-lesson-workspace-week-day-panel="${day}" aria-labelledby="lesson-week-day-${day}">
+        <header class="lesson-workspace-week-day-header">
+          <h3 id="lesson-week-day-${day}">${LESSON_WORKSPACE_DAY_LONG[day]}</h3>
+          ${theme ? `<p class="lesson-workspace-day-theme">${escapeHtml(theme)}</p>` : ""}
+        </header>
+        ${dayObjectives ? `<p class="lesson-workspace-day-objectives">${escapeHtml(dayObjectives)}</p>` : ""}
+        <div class="lesson-workspace-activity-list lesson-workspace-week-day-activities">
+          ${activities || '<p class="muted-copy">No activities scheduled.</p>'}
+        </div>
+      </section>
     `;
   }).join("");
   return `
-    <div class="lesson-workspace-week-glance">
-      ${weekly ? `<section class="lesson-workspace-week-overview curriculum-lesson-weekly" aria-label="Weekly overview">${weekly}</section>` : ""}
-      <section class="lesson-workspace-week-days" aria-label="Daily activities">
-        <h3 class="lesson-workspace-week-days-heading">Daily Activities</h3>
-        <div class="lesson-workspace-day-tabs" role="tablist" aria-label="Week days">${dayTabs}</div>
-        <div class="lesson-workspace-day-panels">${dayPanels}</div>
+    <div class="lesson-workspace-week-glance lesson-workspace-week-vertical">
+      ${(overview || objectives || domains.length) ? `
+        <section class="lesson-workspace-week-overview" aria-label="Weekly overview">
+          ${overview ? `<div class="lesson-workspace-plan-section" data-lesson-plan-section="Weekly Overview"><h3>Weekly Overview</h3><div class="lesson-workspace-plan-section-body">${curriculumMultilineSectionHtml(overview)}</div></div>` : ""}
+          ${objectives ? `<div class="lesson-workspace-plan-section" data-lesson-plan-section="Learning Objectives"><h3>Learning Objectives</h3><div class="lesson-workspace-plan-section-body">${curriculumMultilineSectionHtml(objectives)}</div></div>` : ""}
+          ${domains.length ? `<div class="lesson-workspace-plan-section" data-lesson-plan-section="Learning Domains"><h3>Learning Domains</h3><div class="lesson-workspace-plan-section-body"><div class="tag-row">${domains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div></div></div>` : ""}
+        </section>
+      ` : ""}
+      <section class="lesson-workspace-week-days" aria-label="Week at a glance">
+        <h3 class="lesson-workspace-week-days-heading">Monday – Friday</h3>
+        <div class="lesson-workspace-week-day-stack">${dayBlocks}</div>
       </section>
     </div>
   `;
@@ -23833,6 +23885,41 @@ function lessonWorkspacePlanTabHtml(plan) {
   `;
 }
 
+function lessonWorkspaceActivityDetailCardHtml(day, item, lessonPlanId) {
+  const activityId = resolvePublishedCurriculumActivityId(lessonPlanId, item);
+  const title = escapeHtml(item.title || "Activity");
+  const category = String(item.activityCategory || "").trim();
+  const objective = String(item.objective || "").trim();
+  const description = String(item.description || "").trim();
+  const materials = lessonWorkspaceMaterialLines(item.materials);
+  const instructions = String(item.steps || item.directions || item.setup || "").trim();
+  const extensions = String(item.extensions || "").trim();
+  const adaptations = String(item.adaptations || item.ageModifications || "").trim();
+  const goals = Array.isArray(item.learningGoals)
+    ? item.learningGoals.map((goal) => String(goal || "").trim()).filter(Boolean)
+    : lessonWorkspaceMaterialLines(item.learningGoals);
+  const openAttr = activityId ? ` data-open-curriculum-activity="${escapeHtml(activityId)}"` : "";
+  const tagName = activityId ? "button" : "article";
+  const typeAttr = activityId ? ' type="button"' : "";
+  return `
+    <${tagName}${typeAttr} class="lesson-workspace-activity-card lesson-workspace-activity-card-large${activityId ? "" : " is-static"}"${openAttr}>
+      <div class="lesson-workspace-activity-card-meta">
+        <span class="lesson-workspace-activity-day">${LESSON_WORKSPACE_DAY_LONG[day]}</span>
+        ${category ? `<span class="lesson-workspace-activity-cat">${escapeHtml(category)}</span>` : ""}
+      </div>
+      <h4 class="lesson-workspace-activity-name">${title}</h4>
+      ${objective ? `<div class="lesson-workspace-activity-field"><strong>Learning objective</strong><p>${escapeHtml(objective)}</p></div>` : ""}
+      ${!objective && description ? `<div class="lesson-workspace-activity-field"><strong>Overview</strong><p>${escapeHtml(description)}</p></div>` : ""}
+      ${materials.length ? `<div class="lesson-workspace-activity-field"><strong>Materials</strong>${lessonWorkspaceChecklistHtml(materials, { interactive: false, prefix: "act-mat" })}</div>` : ""}
+      ${instructions ? `<div class="lesson-workspace-activity-field"><strong>Instructions</strong>${curriculumMultilineSectionHtml(instructions)}</div>` : ""}
+      ${goals.length ? `<div class="lesson-workspace-activity-field"><strong>Learning goals</strong>${lessonWorkspaceChecklistHtml(goals, { interactive: false, prefix: "act-goal" })}</div>` : ""}
+      ${extensions ? `<div class="lesson-workspace-activity-field"><strong>Extensions</strong>${curriculumMultilineSectionHtml(extensions)}</div>` : ""}
+      ${adaptations ? `<div class="lesson-workspace-activity-field"><strong>Adaptations</strong>${curriculumMultilineSectionHtml(adaptations)}</div>` : ""}
+      ${activityId ? `<span class="lesson-workspace-open-activity-hint">Open full activity →</span>` : ""}
+    </${tagName}>
+  `;
+}
+
 function lessonWorkspaceActivitiesTabHtml(plan, lessonPlanId) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
@@ -23840,31 +23927,7 @@ function lessonWorkspaceActivitiesTabHtml(plan, lessonPlanId) {
   LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
     const items = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
     items.forEach((item) => {
-      const activityId = resolvePublishedCurriculumActivityId(lessonPlanId, item);
-      const title = escapeHtml(item.title || "Activity");
-      const category = String(item.activityCategory || "").trim();
-      const description = String(item.description || item.objective || "").trim();
-      const materials = String(item.materials || "").trim();
-      const directions = String(item.steps || item.directions || "").trim();
-      const goals = Array.isArray(item.learningGoals)
-        ? item.learningGoals.map((goal) => String(goal || "").trim()).filter(Boolean)
-        : String(item.learningGoals || "").split(/\n+/).map((line) => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
-      const body = `
-        <div class="lesson-workspace-activity-card-meta">
-          <span class="lesson-workspace-activity-day">${LESSON_WORKSPACE_DAY_LONG[day]}</span>
-          ${category ? `<span class="lesson-workspace-activity-cat">${escapeHtml(category)}</span>` : ""}
-        </div>
-        <h4 class="lesson-workspace-activity-name">${title}</h4>
-        ${description ? `<p class="lesson-workspace-activity-desc">${escapeHtml(description)}</p>` : ""}
-        ${materials ? `<p class="lesson-workspace-activity-field"><strong>Materials:</strong> ${escapeHtml(materials)}</p>` : ""}
-        ${directions ? `<div class="lesson-workspace-activity-field"><strong>Directions:</strong>${curriculumMultilineSectionHtml(directions)}</div>` : ""}
-        ${goals.length ? `<p class="lesson-workspace-activity-field"><strong>Learning goals:</strong> ${escapeHtml(goals.join("; "))}</p>` : ""}
-      `;
-      if (activityId) {
-        cards.push(`<button type="button" class="lesson-workspace-activity-card" data-open-curriculum-activity="${escapeHtml(activityId)}">${body}</button>`);
-      } else {
-        cards.push(`<div class="lesson-workspace-activity-card is-static">${body}</div>`);
-      }
+      cards.push(lessonWorkspaceActivityDetailCardHtml(day, item, lessonPlanId));
     });
   });
   return cards.length
@@ -23876,38 +23939,177 @@ function lessonWorkspaceMaterialsTabHtml(plan, resource, options = {}) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
   const blocks = [];
-  const includeAttachedResources = options.includeAttachedResources !== false;
-  const addTextBlock = (label, value) => {
-    if (!String(value || "").trim()) return;
-    blocks.push(`<section class="lesson-workspace-materials-block"><h3>${escapeHtml(label)}</h3>${curriculumMultilineSectionHtml(value)}</section>`);
-  };
-  addTextBlock("Weekly Materials", normalized.weeklyMaterials);
-  addTextBlock("Vocabulary", normalized.vocabularyWords);
-  const weeklyBooks = Array.isArray(normalized.books) ? normalized.books : [];
-  const weeklySongs = Array.isArray(normalized.songs) ? normalized.songs : [];
-  if (weeklyBooks.length) {
-    blocks.push(`<section class="lesson-workspace-materials-block"><h3>Books</h3>${curriculumBooksSectionHtml(weeklyBooks)}</section>`);
+  const seen = new Set();
+  const pushUnique = (lines) => lines.filter((line) => {
+    const key = line.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const weekly = pushUnique(lessonWorkspaceMaterialLines(normalized.weeklyMaterials));
+  if (weekly.length) {
+    blocks.push(`
+      <section class="lesson-workspace-materials-block">
+        <h3>Weekly Materials</h3>
+        ${lessonWorkspaceChecklistHtml(weekly, { label: "Weekly materials", prefix: "weekly-mat" })}
+      </section>
+    `);
   }
-  if (weeklySongs.length) {
-    blocks.push(`<section class="lesson-workspace-materials-block"><h3>Songs and Fingerplays</h3>${curriculumSongsSectionHtml(weeklySongs)}</section>`);
-  }
+
   LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
     const dayPlan = dailyPlans[day] || {};
-    const dayMaterials = String(dayPlan.materials || "").trim();
-    const dayBooks = Array.isArray(dayPlan.books) ? dayPlan.books : [];
-    const daySongs = Array.isArray(dayPlan.songs) ? dayPlan.songs : [];
-    if (!dayMaterials && !dayBooks.length && !daySongs.length) return;
-    let dayHtml = "";
-    if (dayMaterials) dayHtml += curriculumMultilineSectionHtml(dayMaterials);
-    if (dayBooks.length) dayHtml += `<div class="lesson-workspace-materials-sub"><strong>Books</strong>${curriculumBooksSectionHtml(dayBooks)}</div>`;
-    if (daySongs.length) dayHtml += `<div class="lesson-workspace-materials-sub"><strong>Songs</strong>${curriculumSongsSectionHtml(daySongs)}</div>`;
-    blocks.push(`<section class="lesson-workspace-materials-block"><h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3>${dayHtml}</section>`);
+    const dayLines = pushUnique(lessonWorkspaceMaterialLines(dayPlan.materials));
+    const fromActivities = [];
+    (Array.isArray(dayPlan.items) ? dayPlan.items : []).forEach((item) => {
+      fromActivities.push(...lessonWorkspaceMaterialLines(item.materials));
+    });
+    const activityLines = pushUnique(fromActivities);
+    const combined = [...dayLines, ...activityLines];
+    if (!combined.length) return;
+    blocks.push(`
+      <section class="lesson-workspace-materials-block">
+        <h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3>
+        ${lessonWorkspaceChecklistHtml(combined, { label: `${LESSON_WORKSPACE_DAY_LONG[day]} materials`, prefix: `${day}-mat` })}
+      </section>
+    `);
   });
-  if (includeAttachedResources) {
+
+  if (options.includeAttachedResources !== false) {
     const attached = lessonPlanAttachedResourcesHtml(resource);
     if (attached) blocks.push(attached);
   }
   return blocks.length ? blocks.join("") : '<p class="muted-copy">No materials listed for this plan.</p>';
+}
+
+function lessonWorkspaceBooksTabHtml(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const weeklyBooks = Array.isArray(normalized.books) ? normalized.books : [];
+  const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
+  const blocks = [];
+  if (weeklyBooks.length) {
+    blocks.push(`<section class="lesson-workspace-materials-block"><h3>Week Books</h3>${curriculumBooksSectionHtml(weeklyBooks)}</section>`);
+  }
+  LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
+    const dayBooks = Array.isArray(dailyPlans[day]?.books) ? dailyPlans[day].books : [];
+    if (!dayBooks.length) return;
+    blocks.push(`<section class="lesson-workspace-materials-block"><h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3>${curriculumBooksSectionHtml(dayBooks)}</section>`);
+  });
+  return blocks.length ? blocks.join("") : '<p class="muted-copy">No books listed for this plan.</p>';
+}
+
+function lessonWorkspaceSongsTabHtml(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const weeklySongs = Array.isArray(normalized.songs) ? normalized.songs : [];
+  const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
+  const blocks = [];
+  if (weeklySongs.length) {
+    blocks.push(`<section class="lesson-workspace-materials-block"><h3>Week Songs &amp; Fingerplays</h3>${curriculumSongsSectionHtml(weeklySongs)}</section>`);
+  }
+  LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
+    const daySongs = Array.isArray(dailyPlans[day]?.songs) ? dailyPlans[day].songs : [];
+    if (!daySongs.length) return;
+    blocks.push(`<section class="lesson-workspace-materials-block"><h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3>${curriculumSongsSectionHtml(daySongs)}</section>`);
+  });
+  return blocks.length ? blocks.join("") : '<p class="muted-copy">No songs listed for this plan.</p>';
+}
+
+function lessonWorkspacePrintablesTabHtml(resource) {
+  const attached = lessonPlanAttachedResourcesHtml(resource);
+  if (attached) {
+    return `<div class="lesson-workspace-printables-panel">${attached}</div>`;
+  }
+  return '<p class="muted-copy">No printables are attached to this lesson plan yet.</p>';
+}
+
+function lessonWorkspaceTeacherNotesTabHtml(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
+  const blocks = [];
+  if (String(normalized.adaptations || "").trim()) {
+    blocks.push(`<section class="lesson-workspace-plan-section"><h3>Week Adaptations</h3><div class="lesson-workspace-plan-section-body">${curriculumMultilineSectionHtml(normalized.adaptations)}</div></section>`);
+  }
+  if (String(normalized.vocabularyWords || "").trim()) {
+    blocks.push(`<section class="lesson-workspace-plan-section"><h3>Vocabulary</h3><div class="lesson-workspace-plan-section-body">${curriculumMultilineSectionHtml(normalized.vocabularyWords)}</div></section>`);
+  }
+  LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
+    const dayPlan = dailyPlans[day] || {};
+    const notes = [];
+    if (String(dayPlan.adaptations || "").trim()) {
+      notes.push(`<div class="lesson-workspace-activity-field"><strong>Adaptations</strong>${curriculumMultilineSectionHtml(dayPlan.adaptations)}</div>`);
+    }
+    if (String(dayPlan.safetyNotes || "").trim()) {
+      notes.push(`<div class="lesson-workspace-activity-field"><strong>Safety notes</strong>${curriculumMultilineSectionHtml(dayPlan.safetyNotes)}</div>`);
+    }
+    (Array.isArray(dayPlan.items) ? dayPlan.items : []).forEach((item) => {
+      const tipBits = [];
+      if (String(item.teacherRole || "").trim()) tipBits.push(`<div class="lesson-workspace-activity-field"><strong>Teacher role</strong>${curriculumMultilineSectionHtml(item.teacherRole)}</div>`);
+      if (String(item.teacherLanguage || "").trim()) tipBits.push(`<div class="lesson-workspace-activity-field"><strong>Teacher language</strong>${curriculumMultilineSectionHtml(item.teacherLanguage)}</div>`);
+      if (Array.isArray(item.teacherTips) && item.teacherTips.length) {
+        tipBits.push(`<div class="lesson-workspace-activity-field"><strong>Teacher tips</strong>${lessonWorkspaceChecklistHtml(item.teacherTips, { interactive: false, prefix: "tip" })}</div>`);
+      }
+      if (String(item.safetyNotes || "").trim()) tipBits.push(`<div class="lesson-workspace-activity-field"><strong>Safety</strong>${curriculumMultilineSectionHtml(item.safetyNotes)}</div>`);
+      if (!tipBits.length) return;
+      notes.push(`
+        <article class="lesson-workspace-note-card">
+          <h4>${escapeHtml(item.title || "Activity")}</h4>
+          ${tipBits.join("")}
+        </article>
+      `);
+    });
+    if (!notes.length) return;
+    blocks.push(`<section class="lesson-workspace-plan-section"><h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3><div class="lesson-workspace-plan-section-body">${notes.join("")}</div></section>`);
+  });
+  return blocks.length ? blocks.join("") : '<p class="muted-copy">No teacher notes for this plan.</p>';
+}
+
+function lessonWorkspaceFamilyConnectionTabHtml(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
+  const blocks = [];
+  if (String(normalized.familyConnection || "").trim()) {
+    blocks.push(`<section class="lesson-workspace-plan-section"><h3>Week Family Connection</h3><div class="lesson-workspace-plan-section-body">${curriculumMultilineSectionHtml(normalized.familyConnection)}</div></section>`);
+  }
+  LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
+    const text = String(dailyPlans[day]?.familyConnection || "").trim();
+    if (!text) return;
+    blocks.push(`<section class="lesson-workspace-plan-section"><h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3><div class="lesson-workspace-plan-section-body">${curriculumMultilineSectionHtml(text)}</div></section>`);
+  });
+  return blocks.length ? blocks.join("") : '<p class="muted-copy">No family connection notes for this plan.</p>';
+}
+
+function lessonWorkspaceObservationsTabHtml(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
+  const blocks = [];
+  if (String(normalized.observationOpportunities || "").trim()) {
+    blocks.push(`
+      <section class="lesson-workspace-plan-section">
+        <h3>Week Observation Opportunities</h3>
+        <div class="lesson-workspace-plan-section-body">${lessonWorkspaceChecklistHtml(lessonWorkspaceMaterialLines(normalized.observationOpportunities), { label: "Week observations", prefix: "obs-week" })}</div>
+      </section>
+    `);
+  }
+  LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
+    const dayPlan = dailyPlans[day] || {};
+    const dayObs = curriculumAsStringArray(dayPlan.observations);
+    const fromActivities = [];
+    (Array.isArray(dayPlan.items) ? dayPlan.items : []).forEach((item) => {
+      const title = String(item.title || "Activity").trim();
+      const obs = String(item.observationOpportunities || "").trim();
+      if (!obs) return;
+      fromActivities.push(...lessonWorkspaceMaterialLines(obs).map((line) => `${title}: ${line}`));
+    });
+    const combined = [...dayObs, ...fromActivities];
+    if (!combined.length) return;
+    blocks.push(`
+      <section class="lesson-workspace-plan-section">
+        <h3>${LESSON_WORKSPACE_DAY_LONG[day]}</h3>
+        <div class="lesson-workspace-plan-section-body">${lessonWorkspaceChecklistHtml(combined, { label: `${LESSON_WORKSPACE_DAY_LONG[day]} observations`, prefix: `obs-${day}` })}</div>
+      </section>
+    `);
+  });
+  return blocks.length ? blocks.join("") : '<p class="muted-copy">No observation opportunities listed for this plan.</p>';
 }
 
 function llhCopyrightText() {
@@ -25742,32 +25944,52 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
   }
 }
 
+const LESSON_WORKSPACE_TABS = [
+  ["week", "Week"],
+  ["activities", "Activities"],
+  ["materials", "Materials"],
+  ["books", "Books"],
+  ["songs", "Songs"],
+  ["printables", "Printables"],
+  ["teacher-notes", "Teacher Notes"],
+  ["family", "Family Connection"],
+  ["observations", "Observations"],
+];
+
+function normalizeLessonWorkspaceTab(tab) {
+  const allowed = new Set(LESSON_WORKSPACE_TABS.map(([id]) => id));
+  if (allowed.has(tab)) return tab;
+  // Legacy "plan" tab content now lives primarily in Week + dedicated sections.
+  if (tab === "plan") return "week";
+  return "week";
+}
+
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
   const planLabel = libraryPlanBadge(resource);
   const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
   const theme = String(resource.theme || plan.theme || "").trim();
-  const tabs = [
-    ["week", "Week"],
-    ["plan", "Plan"],
-    ["activities", "Activities"],
-    ["materials", "Materials"],
-  ];
+  const category = theme || resource.category || "Lesson Plans";
+  lessonWorkspaceTab = normalizeLessonWorkspaceTab(lessonWorkspaceTab);
+  const tabs = LESSON_WORKSPACE_TABS;
   return `
-    <div class="lesson-workspace" data-lesson-workspace>
-      <div class="lesson-workspace-topchrome">
+    <div class="lesson-workspace llh-spacious-shell" data-lesson-workspace>
+      <div class="lesson-workspace-topchrome llh-spacious-sticky">
         <header class="lesson-workspace-header">
           <button type="button" class="lesson-workspace-back ghost-button" data-lesson-workspace-back>${escapeHtml(lessonWorkspaceBackButtonLabel())}</button>
           <div class="lesson-workspace-title-block">
             <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
             <p class="lesson-workspace-meta">
               <span class="tag">${escapeHtml(age)}</span>
+              <span class="tag lesson-workspace-category-tag">${escapeHtml(category)}</span>
               ${planLabel ? `<span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>` : ""}
-              ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
             </p>
           </div>
-          ${lessonWorkspaceSaveButtonHtml(resource.id)}
+          <div class="lesson-workspace-header-actions">
+            ${lessonWorkspaceSaveButtonHtml(resource.id)}
+            <button type="button" class="ghost-button lesson-workspace-close-btn" data-lesson-workspace-close aria-label="Close lesson plan">Close</button>
+          </div>
         </header>
         <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
           ${tabs.map(([id, label]) => `
@@ -25775,11 +25997,16 @@ function lessonWorkspaceChromeHtml(resource) {
           `).join("")}
         </nav>
       </div>
-      <div class="lesson-workspace-panels">
+      <div class="lesson-workspace-panels llh-spacious-body">
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "week" ? " is-active" : ""}" data-lesson-workspace-panel="week">${lessonWorkspaceWeekGlanceHtml(plan, resource.id)}</div>
-        <div class="lesson-workspace-panel${lessonWorkspaceTab === "plan" ? " is-active" : ""}" data-lesson-workspace-panel="plan">${lessonWorkspacePlanTabHtml(plan)}</div>
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "activities" ? " is-active" : ""}" data-lesson-workspace-panel="activities">${lessonWorkspaceActivitiesTabHtml(plan, resource.id)}</div>
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "materials" ? " is-active" : ""}" data-lesson-workspace-panel="materials">${lessonWorkspaceMaterialsTabHtml(plan, resource)}</div>
+        <div class="lesson-workspace-panel${lessonWorkspaceTab === "books" ? " is-active" : ""}" data-lesson-workspace-panel="books">${lessonWorkspaceBooksTabHtml(plan)}</div>
+        <div class="lesson-workspace-panel${lessonWorkspaceTab === "songs" ? " is-active" : ""}" data-lesson-workspace-panel="songs">${lessonWorkspaceSongsTabHtml(plan)}</div>
+        <div class="lesson-workspace-panel${lessonWorkspaceTab === "printables" ? " is-active" : ""}" data-lesson-workspace-panel="printables">${lessonWorkspacePrintablesTabHtml(resource)}</div>
+        <div class="lesson-workspace-panel${lessonWorkspaceTab === "teacher-notes" ? " is-active" : ""}" data-lesson-workspace-panel="teacher-notes">${lessonWorkspaceTeacherNotesTabHtml(plan)}</div>
+        <div class="lesson-workspace-panel${lessonWorkspaceTab === "family" ? " is-active" : ""}" data-lesson-workspace-panel="family">${lessonWorkspaceFamilyConnectionTabHtml(plan)}</div>
+        <div class="lesson-workspace-panel${lessonWorkspaceTab === "observations" ? " is-active" : ""}" data-lesson-workspace-panel="observations">${lessonWorkspaceObservationsTabHtml(plan)}</div>
       </div>
       ${lessonWorkspaceActionBarsHtml(resource)}
       ${lessonWorkspaceFeedbackHtml(resource)}
@@ -65894,10 +66121,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const lessonWorkspaceCloseBtn = event.target.closest("[data-lesson-workspace-close]");
+  if (lessonWorkspaceCloseBtn) {
+    event.preventDefault();
+    requestResourceViewerClose();
+    return;
+  }
+
   const lessonWorkspaceTabBtn = event.target.closest("[data-lesson-workspace-tab]");
   if (lessonWorkspaceTabBtn) {
     event.preventDefault();
-    const tab = lessonWorkspaceTabBtn.dataset.lessonWorkspaceTab;
+    const tab = normalizeLessonWorkspaceTab(lessonWorkspaceTabBtn.dataset.lessonWorkspaceTab);
     if (!tab) return;
     lessonWorkspaceTab = tab;
     document.querySelectorAll("[data-lesson-workspace-tab]").forEach((btn) => {
@@ -65908,24 +66142,8 @@ document.addEventListener("click", async (event) => {
     document.querySelectorAll("[data-lesson-workspace-panel]").forEach((panel) => {
       panel.classList.toggle("is-active", panel.dataset.lessonWorkspacePanel === tab);
     });
-    return;
-  }
-
-  const lessonWorkspaceWeekDayBtn = event.target.closest("[data-lesson-workspace-week-day]");
-  if (lessonWorkspaceWeekDayBtn) {
-    event.preventDefault();
-    const day = lessonWorkspaceWeekDayBtn.dataset.lessonWorkspaceWeekDay;
-    const container = lessonWorkspaceWeekDayBtn.closest(".lesson-workspace-week-glance");
-    if (!container || !day) return;
-    lessonWorkspaceWeekDay = day;
-    container.querySelectorAll("[data-lesson-workspace-week-day]").forEach((tab) => {
-      const active = tab.dataset.lessonWorkspaceWeekDay === day;
-      tab.classList.toggle("is-active", active);
-      tab.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    container.querySelectorAll("[data-lesson-workspace-week-day-panel]").forEach((panel) => {
-      panel.classList.toggle("is-active", panel.dataset.lessonWorkspaceWeekDayPanel === day);
-    });
+    const workspace = document.querySelector(".lesson-workspace");
+    if (workspace) workspace.scrollTop = 0;
     return;
   }
 

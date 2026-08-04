@@ -180,10 +180,13 @@ async function main() {
       const modal = document.querySelector("#resourceViewerModal");
       const overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
       const tabs = [...document.querySelectorAll("[data-lesson-workspace-tab]")].map((el) => el.textContent.trim());
-      const dayTabs = [...document.querySelectorAll("[data-lesson-workspace-week-day]")].map((el) => el.textContent.trim());
+      const dayBlocks = [...document.querySelectorAll(".lesson-workspace-week-day-block")].map((el) => el.querySelector("h3")?.textContent.trim() || "");
       const activityRows = document.querySelectorAll(".lesson-workspace-activity-row, .lesson-workspace-activity-card").length;
+      const panelsOverflow = getComputedStyle(document.querySelector(".lesson-workspace-panels")).overflowY;
+      const workspaceOverflow = getComputedStyle(document.querySelector(".lesson-workspace")).overflowY;
       return {
         hasBack: Boolean(document.querySelector("[data-lesson-workspace-back]")),
+        hasClose: Boolean(document.querySelector("[data-lesson-workspace-close]")),
         hasUseThisPlan: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
         hasEdit: Boolean(document.querySelector("[data-edit-lesson-plan]")),
         hasPrintWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')),
@@ -198,19 +201,28 @@ async function main() {
           return Boolean(panels && actions && (panels.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING));
         })(),
         tabs,
-        dayTabs,
+        dayBlocks,
         activityRows,
+        panelsOverflow,
+        workspaceOverflow,
         weekPanelActive: document.querySelector('[data-lesson-workspace-panel="week"]')?.classList.contains("is-active"),
         title: document.querySelector(".lesson-workspace-title")?.textContent || "",
         meta: document.querySelector(".lesson-workspace-meta")?.textContent || "",
         toolbarHidden: document.querySelector(".resource-viewer-toolbar")?.hidden === true,
         overflow,
         modalClass: modal?.className || "",
+        fullHeight: (() => {
+          const card = document.querySelector(".resource-viewer-card");
+          const cr = card.getBoundingClientRect();
+          return cr.height >= window.innerHeight - 2;
+        })(),
       };
     });
 
+    const expectedTabs = "Week,Activities,Materials,Books,Songs,Printables,Teacher Notes,Family Connection,Observations";
     assert(workspace.modalClass.includes("lesson-workspace-mode"), "lesson workspace mode not applied");
     assert(workspace.hasBack, "workspace back button missing");
+    assert(workspace.hasClose, "workspace close button missing");
     assert(workspace.hasUseThisPlan && workspace.hasEdit, "primary/manage actions missing");
     assert(workspace.hasPrintWeekly && workspace.hasDownloadWeekly, "print/download weekly actions missing");
     assert(!workspace.hasBottomBar, "duplicate bottom action bar should be removed");
@@ -219,17 +231,20 @@ async function main() {
     assert(workspace.hasOverview, "Week tab should show weekly overview content");
     assert(workspace.actionsAfterPanels, "actions should appear after lesson content");
     assert(workspace.toolbarHidden, "duplicate toolbar should be hidden for lessons");
-    assert(workspace.tabs.join(",") === "Week,Plan,Activities,Materials", `unexpected tabs: ${workspace.tabs.join(",")}`);
+    assert(workspace.tabs.join(",") === expectedTabs, `unexpected tabs: ${workspace.tabs.join(",")}`);
     assert(workspace.weekPanelActive, "Week tab should be active by default");
-    assert(workspace.dayTabs.length === 5, `expected 5 weekday tabs, got ${workspace.dayTabs.length}`);
-    assert(workspace.dayTabs.includes("Mon") && workspace.dayTabs.includes("Fri"), "weekday labels missing");
+    assert(workspace.dayBlocks.length === 5, `expected 5 weekday blocks, got ${workspace.dayBlocks.length}`);
+    assert(workspace.dayBlocks.includes("Monday") && workspace.dayBlocks.includes("Friday"), "weekday labels missing");
     assert(workspace.activityRows > 0, "Week at a Glance should list activities");
     assert(workspace.title.includes("Workspace"), "workspace title missing");
     assert(/Preschool/.test(workspace.meta) && /Free/.test(workspace.meta), "workspace meta should show age and plan");
     assert(!workspace.overflow, "horizontal overflow in workspace viewer");
+    assert(workspace.fullHeight, "lesson viewer should use full window height");
+    assert(workspace.panelsOverflow === "visible", `panels must not nest-scroll (${workspace.panelsOverflow})`);
+    assert(workspace.workspaceOverflow === "auto" || workspace.workspaceOverflow === "scroll", "workspace should be the page scroller");
 
-    await page.click("[data-lesson-workspace-tab='plan']");
-    await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 3000 });
+    await page.click("[data-lesson-workspace-tab='activities']");
+    await page.waitForSelector('[data-lesson-workspace-panel="activities"].is-active', { timeout: 3000 });
 
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
