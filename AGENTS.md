@@ -20,3 +20,11 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Test scripts are the `test:*` entries in `package.json` (run via `npm run test:<name>`), e.g. `npm run test:homepage-smoke`.
 - Browser-based tests (e.g. `test:homepage-smoke`, `test:lesson-library-header`, `test:curriculum-ux`, `test:curriculum-publish`) use **Playwright Chromium (headless)** and require the browser binaries (installed via `npx playwright install --with-deps chromium`).
 - Each test **spawns its own server instance on a random port with a temp JSON store**, so tests do not depend on (or conflict with) a separately running dev server.
+
+### Production environment variables (CRITICAL)
+- Coding agents are **read-only** for production Render env vars by default. Never call Render APIs that replace the full env-var list with a partial list (that wiped production once).
+- Names-only inventory: `docs/production-env/REQUIRED_ENV_INVENTORY.json`. Policy + commands: `docs/production-env/README.md`. Cursor rule: `.cursor/rules/production-env-safety.mdc`.
+- Allowed without owner approval: `npm run env:audit`, `env:preflight`, `env:verify`, `env:propose` (propose does not write).
+- Writes only via `npm run env:apply` with `ENV_WRITE_MODE=merge-with-owner-approval`, a fresh full read, names-only diff, no protected-key removals, and Leah’s explicit approval token.
+- Before any production deploy/restart: `npm run env:preflight` must pass. Use `npm run env:deploy-guard` to wrap deploy triggers. If preflight fails, **do not deploy or restart**.
+- Never log or commit secret values. Prefer Environment Groups / Blueprint for non-secrets (`sync: false` for secrets in `render.yaml`).

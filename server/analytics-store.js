@@ -100,9 +100,9 @@ async function insertAnalyticsEvent(pool, queryFn, event) {
   );
 }
 
-async function fetchRecentAnalyticsEvents(pool, queryFn, { limit = 10000, days = 120 } = {}) {
-  const cappedLimit = Math.max(1, Math.min(25000, Number(limit) || 10000));
-  const cappedDays = Math.max(1, Math.min(365, Number(days) || 120));
+async function fetchRecentAnalyticsEvents(pool, queryFn, { limit = 5000, days = 90 } = {}) {
+  const cappedLimit = Math.max(1, Math.min(25000, Number(limit) || 5000));
+  const cappedDays = Math.max(1, Math.min(365, Number(days) || 90));
   const result = await queryFn(
     `SELECT id, name, user_email, visitor_id, session_id, path, plan,
             detail, attribution, referrer, user_agent, ip_hash, created_at

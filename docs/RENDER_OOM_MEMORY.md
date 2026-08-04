@@ -30,6 +30,18 @@ On **Starter** (~512 MB RAM) with `node --max-old-space-size=300`, a spike from:
 
 This is primarily **undersized RAM for the current data model**, amplified by full-document clone/write — not a classic unbounded leak.
 
+## Current production (2026-08-04)
+
+| Signal | Value |
+|---|---|
+| Render plan | **Standard** (memory limit **2048 MB**) |
+| Start command | `node server/index.js` (no 300MB V8 cap) |
+| Store write payload | **~17.7 MB** JSON |
+| Curriculum inventory | **127** lesson plans / **2110** activities |
+| 24h RSS | avg **~302 MB**, peak **~589 MB**, latest ~15% of instance |
+
+System Health previously used Starter-era thresholds (**warning 220 / critical 280**). Steady ~300 MB RSS therefore stayed **Critical** across multiple monitor ticks even though the process was only ~15% of Standard RAM. Thresholds now scale from `MONITOR_INSTANCE_MEMORY_MB=2048` (warn ~45% / critical ~70%).
+
 ## Immediate fix (Dashboard — do this first)
 
 Upgrade the web service instance type for headroom:
@@ -38,7 +50,7 @@ Upgrade the web service instance type for headroom:
 2. **Instance Type**: Starter → **Standard** (2 GB RAM)
 3. Save (payment method required)
 
-`render.yaml` still says `starter` for Blueprint defaults; the live Dashboard plan is what matters. Standard is the practical short-term fix while the store stays one large JSON document.
+`render.yaml` now defaults to `standard` and sets `MONITOR_INSTANCE_MEMORY_MB=2048`. Confirm the live Dashboard plan still matches.
 
 ## Code relief (this change)
 
