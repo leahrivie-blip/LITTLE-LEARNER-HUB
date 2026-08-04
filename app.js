@@ -46564,6 +46564,8 @@ function adminSession() {
 
 window.adminSession = adminSession;
 window.setAdminSectionTab = setAdminSectionTab;
+window.getAdminSectionTab = getAdminSectionTab;
+window.setAdminGroup = setAdminGroup;
 window.startAdminMessageToUser = startAdminMessageToUser;
 window.openAdminUserProfile = openAdminUserProfile;
 
@@ -51142,6 +51144,10 @@ const adminSectionTabs = [
   { id: "usage",       label: "Usage Monitor" },
 ];
 
+function getAdminSectionTab() {
+  return adminActiveSectionTab || "admin-home";
+}
+
 function setAdminSectionTab(tabId) {
   // Settings → Homepage removed; keep Images as the Settings landing tab.
   let resolvedTabId = tabId === "homepage" ? "images" : tabId;
@@ -51156,9 +51162,60 @@ function setAdminSectionTab(tabId) {
   adminActiveSectionTab = resolvedTabId;
   adminActiveGroup = adminGroupForTab[resolvedTabId] || "dashboard";
   localStorage.setItem("llhAdminActiveSection", resolvedTabId);
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("view") === "admin" || document.body?.dataset?.view === "admin") {
+      url.searchParams.set("view", "admin");
+      url.searchParams.set("adminPanel", resolvedTabId);
+      window.history.replaceState({ llhAdminPanel: resolvedTabId }, "", url.toString());
+    }
+  } catch (_error) {
+    /* ignore history sync failures */
+  }
   renderAdminSectionNav();
-  renderAdminDashboard({ sectionChange: true });
+  try {
+    renderAdminDashboard({ sectionChange: true });
+  } catch (error) {
+    console.error("[admin-nav] section render failed", {
+      tab: resolvedTabId,
+      message: error?.message || String(error),
+    });
+    showAdminSectionLoadError(resolvedTabId, error);
+  }
   prefetchAdminSectionData(resolvedTabId);
+}
+
+function showAdminSectionLoadError(tabId, error) {
+  const landingApp = document.querySelector("#adminWorkspaceLandingApp");
+  const landingPanel = document.querySelector(".admin-workspace-landing-panel");
+  const message = String(error?.message || error || "Unknown error");
+  const html = `
+    <div class="admin-section-load-error" role="alert" data-admin-section-error="${escapeHtml(tabId)}">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Admin navigation</p>
+          <h3>This section could not load</h3>
+          <p class="muted-copy">Tried to open <strong>${escapeHtml(tabId)}</strong>. ${escapeHtml(message)}</p>
+        </div>
+        <div class="account-actions-row">
+          <button type="button" class="primary-button" data-admin-section-tab="admin-home">Back to Admin Home</button>
+          <button type="button" class="ghost-button" data-admin-section-retry="${escapeHtml(tabId)}">Retry</button>
+        </div>
+      </div>
+    </div>
+  `;
+  if (landingPanel) landingPanel.hidden = false;
+  if (landingApp) {
+    landingApp.innerHTML = html;
+    return;
+  }
+  const main = document.querySelector("#adminWorkspaceMain") || document.querySelector("#adminView");
+  if (main) {
+    const host = document.createElement("div");
+    host.className = "admin-section-load-error-host";
+    host.innerHTML = html;
+    main.prepend(host);
+  }
 }
 
 const adminAnalyticsTabs = new Set([
@@ -51197,11 +51254,17 @@ function prefetchAdminSectionData(tab) {
   }
 }
 
-function setAdminGroup(groupId) {
+function setAdminGroup(groupId, options = {}) {
   const group = adminGroups.find((g) => g.id === groupId);
   if (!group) return;
-  // Stay on the current sub-tab if it belongs to this group; otherwise use the default.
-  const targetTab = group.tabs.includes(adminActiveSectionTab) ? adminActiveSectionTab : group.defaultTab;
+  const forceDefault = options.forceDefault === true;
+  // Alerts lives under the Admin Home group but has its own sidebar button.
+  // Clicking Admin Home must never leave Alerts stuck on screen.
+  const leavingAlertsForHome = groupId === "admin-home" && adminActiveSectionTab === "admin-notifications";
+  const stayOnCurrent = !forceDefault
+    && !leavingAlertsForHome
+    && group.tabs.includes(adminActiveSectionTab);
+  const targetTab = stayOnCurrent ? adminActiveSectionTab : group.defaultTab;
   setAdminSectionTab(targetTab);
 }
 
@@ -51309,7 +51372,13 @@ function applyAdminSectionVisibility() {
     const landingApp = document.querySelector("#adminWorkspaceLandingApp");
     if (landingPanel) landingPanel.hidden = false;
     const ws = window.AdminWorkspace;
-    if (landingApp && ws) {
+    // Clear prior section content so failed navigations never leave a stale screen.
+    if (landingApp) {
+      landingApp.innerHTML = `<p class="muted-copy" data-admin-section-loading>Loading ${escapeHtml(tab)}…</p>`;
+    }
+    try {
+      if (!landingApp) throw new Error("Admin landing workspace is missing from the page.");
+      if (!ws) throw new Error("Admin workspace helpers failed to load.");
       if (tab === "admin-home") ws.renderAdminHomeWorkspace(landingApp);
       else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
       else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
@@ -51330,6 +51399,13 @@ function applyAdminSectionVisibility() {
       else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
       else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
       else if (tab === "messages-home") ws.renderAdminMessagesHome(landingApp);
+      else {
+        throw new Error(`No landing renderer is registered for “${tab}”.`);
+      }
+    } catch (error) {
+      console.error("[admin-nav] landing section failed", { tab, message: error?.message || String(error) });
+      showAdminSectionLoadError(tab, error);
+      return;
     }
     if (tab === "admin-home" && notifPanel) {
       notifPanel.hidden = true;
@@ -51348,9 +51424,13 @@ function applyAdminSectionVisibility() {
         } else if (target) {
           target.innerHTML = `<p class="muted-copy">Loading owner alerts…</p>`;
           fetchAdminNotificationCenter().then(() => {
+            if (getAdminSectionTab() !== "admin-home") return;
             renderAdminNotificationCenter();
             const source = document.querySelector("#adminNotificationCenter");
             if (source && target) target.innerHTML = source.innerHTML;
+          }).catch((error) => {
+            if (getAdminSectionTab() !== "admin-home") return;
+            if (target) target.innerHTML = `<p class="muted-copy" role="alert">Owner alerts could not load: ${escapeHtml(error?.message || error)}</p>`;
           });
         }
       }
@@ -68461,18 +68541,30 @@ document.addEventListener("click", async (event) => {
     setAdminLessonSaveFlowMessage("Save button clicked", { reset: true, isSuccess: true });
   }
 
-  // Admin section navigation — group buttons (top-level 6-section nav)
+  // Admin section navigation — group buttons (top-level sidebar)
   const groupBtn = event.target.closest("[data-admin-group]");
   if (groupBtn) {
     const groupId = groupBtn.dataset.adminGroup || "";
     if (!groupId) return;
     if (groupId !== adminActiveGroup && !confirmDiscardAdminLessonChanges()) return;
+    // Sidebar "Admin Home" always opens the home landing (Alerts has its own button).
+    if (groupId === "admin-home") {
+      setAdminSectionTab("admin-home");
+      return;
+    }
     setAdminGroup(groupId);
     return;
   }
 
   if (event.target.closest("[data-admin-open-notifications]")) {
     setAdminSectionTab("admin-notifications");
+    return;
+  }
+
+  const retrySectionBtn = event.target.closest("[data-admin-section-retry]");
+  if (retrySectionBtn) {
+    const tab = retrySectionBtn.getAttribute("data-admin-section-retry") || "admin-home";
+    setAdminSectionTab(tab);
     return;
   }
 

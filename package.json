@@ -169,6 +169,7 @@
     "test:admin-final-browser-audit": "node scripts/test-admin-final-browser-audit.js",
     "test:admin-messaging-hotfix": "node scripts/test-admin-messaging-hotfix.js",
     "test:admin-panel-loading": "node scripts/test-admin-panel-loading-audit.js",
+    "test:admin-nav-phase1": "NODE_ENV=test node scripts/test-admin-nav-phase1.js",
     "test:production-performance": "node scripts/test-production-performance-audit.js",
     "test:production-manual-regression": "node scripts/test-production-manual-regression.js",
     "test:production-core-flows": "node scripts/test-production-core-flows.js",
