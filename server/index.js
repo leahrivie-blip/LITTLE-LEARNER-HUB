@@ -3354,6 +3354,19 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
   if (previousHasContent && !incomingHasContent && !allowEmptyOverwrite) {
     return { draft: previous, rejectedEmptyOverwrite: true };
   }
+  // Explicit discard: empty incoming + allowEmptyOverwrite clears activity/week content.
+  if (!incomingHasContent && allowEmptyOverwrite) {
+    return {
+      draft: {
+        activities: {},
+        week: {},
+        completionPercent: Number(incoming.completionPercent) || 0,
+        previewReady: false,
+        ...(incoming.lastEditedBy ? { lastEditedBy: String(incoming.lastEditedBy) } : {}),
+      },
+      rejectedEmptyOverwrite: false,
+    };
+  }
 
   const knownKeys = new Set([
     "updatedAt",

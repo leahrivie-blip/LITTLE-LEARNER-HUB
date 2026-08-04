@@ -24238,11 +24238,21 @@ body.tk-enrich-open {
 body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   display: block;
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* Leave admin section sidebar usable on desktop */
+  left: min(16.5rem, 28vw);
   z-index: 12000;
   background: #f7f3ec;
   color: #24312a;
   overflow: auto;
+  box-shadow: -8px 0 24px rgba(20, 28, 24, 0.12);
+}
+@media (max-width: 900px) {
+  body.tk-enrich-open #adminTeachingKitEnrichmentHost {
+    left: 0;
+  }
 }
 .tk-enrich-shell {
   min-height: 100%;
@@ -24260,12 +24270,25 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-chrome-top,
 .tk-enrich-chrome-sub,
 .tk-enrich-chrome-actions,
+.tk-enrich-chrome-nav,
 .tk-enrich-counter,
 .tk-enrich-percent-row {
   display: flex;
   align-items: center;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+.tk-enrich-chrome-nav {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.tk-enrich-chrome-title {
+  font-weight: 700;
+  color: #24312a;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tk-enrich-chrome-top {
   justify-content: space-between;
@@ -25356,7 +25379,79 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   gap: 0.5rem;
   align-items: center;
 }
-.tk-enrich-publish-card { max-width: min(720px, 96vw); }
+.tk-enrich-publish-card,
+.tk-enrich-recovery-card {
+  max-width: min(720px, 96vw);
+  max-height: min(90vh, 52rem);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.tk-enrich-publish-scroll {
+  overflow: auto;
+  padding: 1.1rem 1.2rem 0.5rem;
+  flex: 1 1 auto;
+}
+.tk-enrich-publish-actions {
+  position: sticky;
+  bottom: 0;
+  margin: 0;
+  padding: 0.85rem 1.2rem 1.1rem;
+  background: #fff;
+  border-top: 1px solid rgba(36, 49, 42, 0.1);
+}
+.tk-enrich-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 0;
+}
+.tk-enrich-modal-card {
+  position: relative;
+  z-index: 1;
+}
+.tk-enrich-recovery-section {
+  margin: 1rem 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-enrich-recovery-section h4 {
+  margin: 0 0 0.35rem;
+}
+.tk-enrich-history-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+.tk-enrich-history-list li {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(36, 49, 42, 0.1);
+  border-radius: 0.5rem;
+  background: #faf8f3;
+}
+.tk-enrich-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin-top: 0.65rem;
+}
+.tk-enrich-compare-grid ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 720px) {
+  .tk-enrich-compare-grid { grid-template-columns: 1fr; }
+}
 .tk-quality-status { margin: 0.55rem 0 0; }
 @media (max-width: 720px) {
   .tk-quality-head { flex-direction: column; }
