@@ -88,7 +88,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-beta-polish"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-forms-phase1"/);
   assert.match(indexHtml, /llhPendingUrlSecrets/);
   assert.match(indexHtml, /referrer" content="strict-origin-when-cross-origin"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
@@ -124,6 +124,16 @@ test("shell markers for Family Hub parent beta UX", () => {
   assert.match(appJs, /function shareChildDocumentWithFamily/);
   assert.match(appJs, /function classroomOptionsHtml/);
   assert.match(appJs, /function staffAssignedClassroomIds/);
+  assert.match(appJs, /function saveAiFormAsProgramTemplate/);
+  assert.match(appJs, /function assignAndNotifyForm/);
+  assert.match(appJs, /function formsAttentionDocuments/);
+  assert.match(appJs, /function printChildDocumentRecord/);
+  assert.match(appJs, /function markChildDocumentReviewed/);
+  assert.match(serverJs, /"form"/);
+  assert.match(serverJs, /AI_VALID_TOOLS/);
+  const familyHubLibSource = fs.readFileSync(path.join(ROOT, "server", "family-hub-lib.js"), "utf8");
+  assert.match(familyHubLibSource, /shareWithFamily === true/);
+  assert.match(familyHubLibSource, /requested/);
   assert.doesNotMatch(appJs, /badge-coming-soon/);
   assert.doesNotMatch(indexHtml, /Daily operations <span class="llh-status-pill">In Development<\/span>/);
 });
@@ -191,6 +201,21 @@ test("family-hub-lib storage + today + calendar helpers", () => {
 
   const guardians = familyHubLib.normalizeGuardianEmails("a@example.com", ["b@example.com", "a@example.com"]);
   assert.deepEqual(guardians, ["a@example.com", "b@example.com"]);
+
+  assert.equal(familyHubLib.documentNeedsParentAction("needed"), true);
+  assert.equal(familyHubLib.documentNeedsParentAction("requested"), true);
+  assert.equal(familyHubLib.documentNeedsParentAction("received"), true);
+  assert.equal(familyHubLib.documentNeedsParentAction("notified"), true);
+  assert.equal(familyHubLib.documentNeedsParentAction("signed"), false);
+  const liveShared = familyHubLib.liveDocumentsForChildren({
+    Documents: [
+      { id: "d1", childId: "c1", title: "Shared", shareWithFamily: true, status: "notified" },
+      { id: "d2", childId: "c1", title: "Private", shareWithFamily: false, status: "needed" },
+    ],
+  }, ["c1"]);
+  assert.equal(liveShared.length, 1);
+  assert.equal(liveShared[0].id, "d1");
+  assert.ok(liveShared[0].canAcknowledge);
 
   const seed = familyHubLib.buildFamilyHubDemoSeed({ now: new Date("2026-08-03T15:00:00Z") });
   assert.equal(seed.household.programName, "Sunshine Home Daycare");

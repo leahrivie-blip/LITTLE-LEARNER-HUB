@@ -23474,6 +23474,38 @@ body.family-hub-parent-mode .settings-check-label {
   transition: outline-color 1.2s ease;
 }
 
+.fh-form-body {
+  margin: 10px 0 4px;
+  border-radius: 10px;
+  background: #f7fafc;
+  border: 1px solid rgba(91, 155, 213, 0.22);
+  padding: 10px 12px;
+}
+
+.fh-form-body summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink, #1a2b4a);
+}
+
+.fh-form-pre {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink, #1a2b4a);
+  max-height: 280px;
+  overflow: auto;
+}
+
+.hdh-assign-template-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(91, 155, 213, 0.28);
+}
+
 .hdh-coming-list {
   margin: 10px 0 0;
   padding-left: 1.2rem;

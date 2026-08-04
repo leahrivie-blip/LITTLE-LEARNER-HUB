@@ -134,12 +134,26 @@ function buildSharedFamilyFeed(childData = null, childIds = []) {
 
 function documentNeedsParentAction(status = "") {
   const key = String(status || "").trim().toLowerCase();
-  return !key || key === "needed" || key === "action needed" || key === "pending" || key === "to_sign" || key === "to-sign";
+  if (!key) return true;
+  if (/signed|completed|on_file|on file|reviewed|archived/.test(key)) return false;
+  return [
+    "needed",
+    "action needed",
+    "pending",
+    "to_sign",
+    "to-sign",
+    "requested",
+    "received",
+    "notified",
+    "assigned",
+    "draft",
+  ].includes(key) || /action needed|awaiting|to sign|needs signature/.test(key);
 }
 
 function publicFamilyDocument(doc = {}) {
   const status = String(doc.status || "needed").trim() || "needed";
-  const signed = Boolean(doc.signedAt) || /signed|completed|on_file|on file/i.test(status);
+  const signed = Boolean(doc.signedAt) || /^(signed|completed|on_file|on file|reviewed)\b/i.test(status);
+  const bodyText = String(doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "").trim();
   return {
     id: String(doc.id || ""),
     childId: String(doc.childId || ""),
@@ -148,9 +162,13 @@ function publicFamilyDocument(doc = {}) {
     status,
     statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
     notes: String(doc.notes || doc.summary || "").trim(),
+    bodyText: bodyText.slice(0, 12000),
+    dueDate: String(doc.dueDate || "").trim(),
     updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
     signedAt: String(doc.signedAt || "").trim(),
     signedBy: String(doc.signedBy || "").trim(),
+    providerReviewed: Boolean(doc.providerReviewed),
+    shareWithFamily: doc.shareWithFamily !== false,
     canAcknowledge: documentNeedsParentAction(status) && !signed,
     viewOnly: !(documentNeedsParentAction(status) && !signed),
   };
@@ -158,11 +176,14 @@ function publicFamilyDocument(doc = {}) {
 
 function liveDocumentsForChildren(childData = null, childIds = [], fallbackDocuments = []) {
   const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
+  const sharedOnly = (doc) => doc?.shareWithFamily === true || doc?.shareWithFamily === "true";
   const live = (Array.isArray(childData?.Documents) ? childData.Documents : [])
-    .filter((doc) => idSet.has(String(doc?.childId || "")) && doc?.archived !== true)
+    .filter((doc) => idSet.has(String(doc?.childId || "")) && doc?.archived !== true && sharedOnly(doc))
     .map((doc) => publicFamilyDocument(doc));
   if (live.length) return live;
-  return (Array.isArray(fallbackDocuments) ? fallbackDocuments : []).map((doc) => publicFamilyDocument(doc));
+  return (Array.isArray(fallbackDocuments) ? fallbackDocuments : [])
+    .filter((doc) => sharedOnly(doc) || doc?.shareWithFamily == null)
+    .map((doc) => publicFamilyDocument(doc));
 }
 
 function normalizeGuardianEmails(primaryEmail = "", guardianEmails = []) {

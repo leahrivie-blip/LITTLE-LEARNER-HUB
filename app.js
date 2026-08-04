@@ -7047,13 +7047,16 @@ const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
   "Enrollment",
   "Emergency contacts",
   "Allergy / medical",
+  "Medication",
   "Sunscreen authorization",
   "Photo release",
+  "Permission",
   "Incident report",
   "Field trip",
   "Handbook acknowledgment",
   "Infant safe sleep",
   "Diaper cream authorization",
+  "Staff",
   "Other",
 ]);
 
@@ -7081,6 +7084,13 @@ const HOME_DAYCARE_FORMS_PACK = Object.freeze([
     description: "Allergies, reactions, and emergency medical notes.",
   },
   {
+    id: "hdh-pack-medication",
+    title: "Medication Authorization",
+    category: "Medication",
+    resourceId: "form-medical-forms-medication-authorization",
+    description: "Parent permission to store and give medication.",
+  },
+  {
     id: "hdh-pack-sunscreen",
     title: "Sunscreen Authorization",
     category: "Sunscreen authorization",
@@ -7104,9 +7114,16 @@ const HOME_DAYCARE_FORMS_PACK = Object.freeze([
   {
     id: "hdh-pack-field-trip",
     title: "Field Trip Permission",
-    category: "Field trip",
+    category: "Permission",
     resourceId: "form-enrollment-forms-field-trip-permission",
     description: "Permission for off-site trips and outings.",
+  },
+  {
+    id: "hdh-pack-staff-info",
+    title: "Staff Information Sheet",
+    category: "Staff",
+    resourceId: "form-staff-forms-staff-information-sheet",
+    description: "Staff contact, emergency, and onboarding details.",
   },
   {
     id: "hdh-pack-handbook",
@@ -7302,8 +7319,8 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
   const hasDraft = Boolean(String(hdhAiDraftState.lastOutput || "").trim());
   return `
     <section class="section-block hdh-ai-draft-panel" id="hdhAiDraftPanel">
-      <p class="eyebrow">AI forms</p>
-      <h3>AI form draft</h3>
+      <p class="eyebrow">AI Form Builder</p>
+      <h3>AI Form Builder</h3>
       <p class="muted-copy">Generate a filled draft from short notes. Review and edit before saving. Family send comes later — nothing is sent automatically.</p>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <form id="hdhAiDraftForm" class="panel-form hdh-ai-draft-form">
@@ -7338,10 +7355,11 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
           <button class="ghost-button" type="button" data-hdh-ai-edit>${hdhAiDraftState.editing ? "Done editing" : "Edit draft"}</button>
           <button class="ghost-button" type="button" data-hdh-ai-regenerate>Regenerate</button>
           <button class="primary-button" type="button" data-hdh-ai-save>Save to child file</button>
-          <button class="ghost-button" type="button" data-hdh-ai-print>Print</button>
+          <button class="ghost-button" type="button" data-hdh-ai-save-template>Save as template</button>
+          <button class="ghost-button" type="button" data-hdh-ai-print>Print PDF</button>
           <button class="ghost-button" type="button" data-hdh-ai-send-later title="Save and notify Family Hub">Share with Family Hub</button>
         </div>
-        <p class="form-note" id="hdhAiDraftHint">Review this draft carefully, then save or share with Family Hub so parents can review and acknowledge it in-app.</p>
+        <p class="form-note" id="hdhAiDraftHint">Full forms path: Generate → Edit → Save template or child file → Share with Family Hub → Parent signs → You review &amp; print.</p>
         <div id="hdhAiDraftOutput" class="hdh-ai-draft-output" ${hdhAiDraftState.editing ? 'contenteditable="true"' : ""}>${hasDraft ? renderMarkdown(hdhAiDraftState.lastOutput) : ""}</div>
       </div>
     </section>
@@ -7541,11 +7559,12 @@ function saveHomeDaycareAiFormDraftToChild() {
     category: packForm.category,
     packFormId: packForm.id,
     resourceId: packForm.resourceId,
-    status: "received",
-    statusLabel: "Draft ready — review before family use",
+    status: "needed",
+    statusLabel: homeDaycarePackDocumentStatusLabel("needed"),
     notes: "AI-assisted draft. Review for accuracy and licensing before sharing with families.",
     draftText,
     shareWithFamily: true,
+    providerReviewed: false,
     date: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString(),
   });
@@ -7559,12 +7578,244 @@ function saveHomeDaycareAiFormDraftToChild() {
 
 function homeDaycarePackDocumentStatusLabel(status = "needed") {
   const statusLabels = {
+    draft: "Draft — review before sharing",
     needed: "Needed",
+    assigned: "Assigned",
     requested: "Requested from family",
+    notified: "Shared — awaiting parent",
     received: "Received",
-    signed: "Signed / complete",
+    signed: "Signed — provider review",
+    on_file: "On file",
+    reviewed: "Reviewed & on file",
   };
   return statusLabels[status] || status;
+}
+
+function formsProgramTemplates() {
+  const settings = getProgramSettings() || {};
+  return Array.isArray(settings.formTemplates) ? settings.formTemplates : [];
+}
+
+function saveFormsProgramTemplates(templates) {
+  const settings = { ...(getProgramSettings() || {}), formTemplates: templates };
+  saveProgramSettings(settings);
+  return templates;
+}
+
+function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
+  const text = String(body || "").trim();
+  if (!text) throw new Error("Generate or edit a draft before saving a template.");
+  const template = {
+    id: `form-template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    title: String(title || "Custom form").trim() || "Custom form",
+    category: String(category || "Other").trim() || "Other",
+    body: text,
+    packFormId: String(packFormId || "").trim(),
+    resourceId: String(resourceId || "").trim(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const next = [template, ...formsProgramTemplates()].slice(0, 80);
+  saveFormsProgramTemplates(next);
+  return template;
+}
+
+function formsAttentionDocuments(records = childRecords()) {
+  const docs = Array.isArray(records.documents) ? records.documents : (childStore("Documents") || []);
+  const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
+  const nameFor = (id) => children.find((child) => String(child.id) === String(id))?.name || "Child";
+  return docs
+    .filter((doc) => !doc.archived)
+    .map((doc) => {
+      const status = String(doc.status || "").toLowerCase();
+      const signedNeedsReview = (status === "signed" || Boolean(doc.signedAt)) && !doc.providerReviewed;
+      const awaitingParent = doc.shareWithFamily && ["needed", "requested", "notified", "assigned", "action needed"].includes(status);
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < new Date().toISOString().slice(0, 10) && !doc.signedAt;
+      let attention = "";
+      if (signedNeedsReview) attention = "signed_review";
+      else if (overdue) attention = "overdue";
+      else if (awaitingParent) attention = "awaiting_parent";
+      return attention ? { ...doc, childName: nameFor(doc.childId), attention } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt || b.signedAt || "").localeCompare(String(a.updatedAt || a.signedAt || "")));
+}
+
+function assignFormDocumentToChild(childId, formSpec = {}) {
+  if (!childId) throw new Error("Choose a child before assigning a form.");
+  const title = String(formSpec.title || "Form").trim() || "Form";
+  const category = String(formSpec.category || "Other").trim() || "Other";
+  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
+  const dueDate = String(formSpec.dueDate || "").trim();
+  const shareWithFamily = formSpec.shareWithFamily !== false;
+  const status = shareWithFamily ? "notified" : "assigned";
+  const saved = appendChildRecord("Documents", {
+    childId,
+    title,
+    category,
+    packFormId: formSpec.packFormId || "",
+    resourceId: formSpec.resourceId || "",
+    templateId: formSpec.templateId || "",
+    status,
+    statusLabel: homeDaycarePackDocumentStatusLabel(status),
+    notes: String(formSpec.notes || "").trim(),
+    draftText,
+    dueDate,
+    shareWithFamily,
+    date: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString(),
+    providerReviewed: false,
+  });
+  return saved;
+}
+
+async function assignAndNotifyForm(formSpec = {}, childIds = []) {
+  const ids = (Array.isArray(childIds) ? childIds : []).map(String).filter(Boolean);
+  if (!ids.length) throw new Error("Select at least one child.");
+  const saved = [];
+  for (const childId of ids) {
+    const doc = assignFormDocumentToChild(childId, formSpec);
+    saved.push(doc);
+    if (doc.shareWithFamily) {
+      try { await shareChildDocumentWithFamily(doc.id); } catch (_error) { /* invite may be missing */ }
+    }
+  }
+  return saved;
+}
+
+function markChildDocumentReviewed(documentId) {
+  const docs = childStore("Documents") || [];
+  const next = docs.map((item) => (
+    String(item.id) === String(documentId)
+      ? {
+        ...item,
+        providerReviewed: true,
+        status: "on_file",
+        statusLabel: homeDaycarePackDocumentStatusLabel("on_file"),
+        reviewedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      : item
+  ));
+  saveChildStore("Documents", next);
+}
+
+function printChildDocumentRecord(documentId) {
+  const doc = (childStore("Documents") || []).find((item) => String(item.id) === String(documentId));
+  if (!doc) throw new Error("Form not found.");
+  const child = (childStore("Profiles") || []).find((item) => String(item.id) === String(doc.childId));
+  const body = String(doc.signedSnapshot || doc.draftText || doc.notes || "").trim()
+    || `${doc.title || "Form"}\n\nStatus: ${doc.statusLabel || doc.status || "Needed"}`;
+  const banner = [
+    doc.signedAt ? `SIGNED in Family Hub on ${String(doc.signedAt).slice(0, 10)}` : "DRAFT / UNSIGNED",
+    doc.signedBy ? `Signer: ${doc.signedBy}` : "",
+    child?.name ? `Child: ${child.name}` : "",
+    doc.dueDate ? `Due: ${doc.dueDate}` : "",
+    "Testing acknowledgment — not a legal e-signature.",
+  ].filter(Boolean).join("\n");
+  printTextDocument(doc.title || "Form", `${banner}\n\n---\n\n${body}`);
+}
+
+function renderFormsAttentionPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const items = formsAttentionDocuments();
+  const signed = items.filter((item) => item.attention === "signed_review");
+  const awaiting = items.filter((item) => item.attention === "awaiting_parent");
+  const overdue = items.filter((item) => item.attention === "overdue");
+  return `
+    <section class="section-block" id="hdhFormsAttentionPanel">
+      <p class="eyebrow">Forms system</p>
+      <h3>Forms needing attention</h3>
+      <p class="muted-copy">Signed forms ready for your review, shared forms waiting on parents, and anything past due — all from one place.</p>
+      <div class="account-actions-row" style="margin-bottom:12px;">
+        <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Program templates</button>
+      </div>
+      ${!items.length
+        ? `<div class="profile-empty-state"><strong>You’re caught up</strong><p>When parents sign shared forms, they’ll land here for review and printable PDF.</p></div>`
+        : `
+        ${signed.length ? `
+          <h4>Signed — review &amp; file</h4>
+          <div class="resource-list compact">${signed.slice(0, 8).map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Form")}</strong>
+                <p class="muted-copy">${escapeHtml(item.childName)} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}</p>
+              </div>
+              <div class="hdh-forms-pack-actions">
+                <button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>
+                <button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>
+                <button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(item.childId)}" data-open-child-tab="forms-records">Open file</button>
+              </div>
+            </article>`).join("")}</div>` : ""}
+        ${overdue.length ? `
+          <h4>Past due</h4>
+          <div class="resource-list compact">${overdue.slice(0, 6).map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Form")}</strong>
+                <p class="muted-copy">${escapeHtml(item.childName)} · due ${escapeHtml(item.dueDate || "")}</p>
+              </div>
+              <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Remind family</button>
+            </article>`).join("")}</div>` : ""}
+        ${awaiting.length ? `
+          <h4>Awaiting parent</h4>
+          <div class="resource-list compact">${awaiting.slice(0, 6).map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Form")}</strong>
+                <p class="muted-copy">${escapeHtml(item.childName)} · ${escapeHtml(item.statusLabel || item.status || "Shared")}</p>
+              </div>
+              <button class="ghost-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Notify again</button>
+            </article>`).join("")}</div>` : ""}
+        `}
+    </section>
+  `;
+}
+
+function renderProgramFormTemplatesPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const templates = formsProgramTemplates();
+  const children = (childRecords().children || []).filter((child) => !child.archived);
+  return `
+    <section class="section-block" id="hdhFormTemplatesPanel">
+      <p class="eyebrow">Templates</p>
+      <h3>Program form templates</h3>
+      <p class="muted-copy">Save AI drafts as reusable templates, then assign them to children and notify Family Hub in one step.</p>
+      ${templates.length
+        ? templates.map((template) => `
+          <article class="hdh-forms-pack-item">
+            <div>
+              <strong>${escapeHtml(template.title)}</strong>
+              <p class="muted-copy">${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.createdAt || "").slice(0, 10))}</p>
+            </div>
+            <div class="hdh-forms-pack-actions">
+              <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(template.id)}">Print</button>
+              <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Assign</button>
+              <button class="ghost-button" type="button" data-delete-form-template="${escapeHtml(template.id)}">Remove</button>
+            </div>
+            <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
+              <label>Due date (optional)<input type="date" name="dueDate" /></label>
+              <fieldset class="hdh-child-pick-fieldset">
+                <legend>Assign to children</legend>
+                <div class="hdh-child-pick-grid">
+                  ${children.map((child) => `
+                    <label class="area-check">
+                      <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${children.length === 1 ? "checked" : ""} />
+                      <span>${escapeHtml(child.name)}</span>
+                    </label>
+                  `).join("") || '<p class="muted-copy">Add a child first.</p>'}
+                </div>
+              </fieldset>
+              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub</label>
+              <button class="primary-button" type="submit">Assign &amp; notify</button>
+            </form>
+          </article>
+        `).join("")
+        : `<div class="profile-empty-state"><strong>No program templates yet</strong><p>Generate a form with AI, then tap Save as template. Your custom forms will show here for reuse.</p></div>`}
+    </section>
+  `;
 }
 
 function childAlreadyHasHomeDaycarePackForm(existingForChild, packForm) {
@@ -7644,10 +7895,10 @@ async function shareChildDocumentWithFamily(documentId) {
       ? {
         ...item,
         shareWithFamily: true,
-        status: item.status === "signed" || item.status === "received" ? item.status : "needed",
-        statusLabel: item.status === "signed" || item.status === "received"
-          ? (item.statusLabel || item.status)
-          : "Action needed",
+        status: item.status === "signed" || item.signedAt ? "signed" : "notified",
+        statusLabel: item.status === "signed" || item.signedAt
+          ? (item.statusLabel || homeDaycarePackDocumentStatusLabel("signed"))
+          : homeDaycarePackDocumentStatusLabel("notified"),
         updatedAt: new Date().toISOString(),
       }
       : item
@@ -33658,25 +33909,29 @@ function renderFamilyHubFormsPanel(data) {
   }
   return `
     <div class="fh-panel-stack">
+      <p class="fh-meta">Review each form, then sign. Your provider sees the update right away in Forms &amp; Records.</p>
       ${documents.map((doc) => {
-        const canSign = Boolean(doc.canAcknowledge) || /needed|pending|to[_ -]?sign|action needed/i.test(String(doc.statusLabel || doc.status || ""));
+        const canSign = Boolean(doc.canAcknowledge);
         const signedMeta = doc.signedAt
           ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
           : "";
+        const body = String(doc.bodyText || "").trim();
         return `
         <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
           <div class="fh-card-head">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
-          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}</p>
-          <p>${escapeHtml(doc.notes || "Review this form and sign when ready. Your provider will see the update.")}</p>
+          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}</p>
+          <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
+          ${body ? `<details class="fh-form-body"><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
           ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
           ${canSign && doc.id
             ? `<div class="fh-account-actions">
-                <button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign / acknowledge</button>
+                <button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign form</button>
+                <p class="fh-meta">Testing signature — records your name and time for the provider.</p>
               </div>`
-            : ""}
+            : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
         </article>`;
       }).join("")}
     </div>
@@ -34872,18 +35127,20 @@ function renderHomeDaycareHubPage(options = {}) {
     <section class="simple-child-page hdh-hub-page">
       <div class="child-page-header">
         <div>
-          <p class="eyebrow">Testing only</p>
-          <h2>Home Daycare Hub</h2>
-          <p>Forms, family access, and staff tools for your home daycare — built here on testing first, then brought to live when ready.</p>
+          <p class="eyebrow">Home Daycare Hub</p>
+          <h2>Run paperwork &amp; family access here</h2>
+          <p>Forms system, Family Hub invites, and staff tools — connected so AI drafts, parent signatures, and child files stay in one place.</p>
         </div>
       </div>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
+        ${renderFormsAttentionPanel()}
+        ${renderProgramFormTemplatesPanel()}
         <section class="section-block" id="hdhFormsPackPanel">
-          <p class="eyebrow">Forms pack</p>
+          <p class="eyebrow">Built-in library</p>
           <h3>Home daycare forms pack</h3>
-          <p class="muted-copy">Ten common forms for home daycare paperwork. Open a template to print or edit, then track status on each child’s Forms &amp; Records tab.</p>
+          <p class="muted-copy">Enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
           ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
           ${firstChild ? `
             <div class="account-actions-row" style="margin-top:14px;">
@@ -37748,12 +38005,15 @@ function renderChildFormsRecordsTab(child, records) {
             </select>
           </label>
         </div>
+        <label>Due date (optional)
+          <input type="date" name="dueDate" />
+        </label>
         <label>Notes
-          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
+          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note for your records or the family…"></textarea>
         </label>
         <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Share with Family Hub when the family is invited</label>
         <button class="primary-button" type="submit">Save to Child File</button>
-        <p class="form-note">Parents review and acknowledge shared forms in Family Hub. Tap Share with family to notify them in-app on the testing site.</p>
+        <p class="form-note">Connected path: save → share → parent signs in Family Hub → review here → print PDF.</p>
       </form>
       <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list>
         ${sorted.length
@@ -37761,13 +38021,14 @@ function renderChildFormsRecordsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}` : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
-                ${item.draftText ? `<button class="ghost-button" type="button" data-hdh-ai-print-saved="${escapeHtml(item.id)}">Print draft</button>` : ""}
+                ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>` : ""}
                 ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
-                <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>
+                ${item.signedAt && !item.providerReviewed ? `<button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>` : ""}
+                ${!(item.status === "signed" || item.signedAt) ? `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>` : ""}
                 <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
               </div>
             </article>
@@ -58907,6 +59168,30 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-hdh-ai-save-template]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    try {
+      const packForm = homeDaycareAiDraftSelectedPackForm();
+      const body = readHomeDaycareAiDraftOutputText();
+      const template = saveAiFormAsProgramTemplate({
+        title: packForm?.title || "Custom form",
+        category: packForm?.category || "Other",
+        body,
+        packFormId: packForm?.id || "",
+        resourceId: packForm?.resourceId || "",
+      });
+      showActionFeedback(`“${template.title}” saved as a program template. Assign it anytime from Templates.`);
+      if (document.querySelector("#view-home-daycare-hub.active-view")) {
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+        queueMicrotask(() => document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      }
+    } catch (error) {
+      showActionFeedback(error.message || "Could not save template.");
+    }
+    return;
+  }
+
   if (event.target.closest("[data-hdh-ai-print]")) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
@@ -59372,13 +59657,68 @@ document.addEventListener("click", async (event) => {
       .then(() => {
         childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
         childManagementMode = "profile";
-        renderChildManagement();
-        showActionFeedback("Form shared with Family Hub. Parents can review and sign it there.");
+        if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage({ refreshHouseholds: false });
+        else renderChildManagement();
+        showActionFeedback("Family notified in Family Hub. Parents can review and sign there.");
       })
       .catch((error) => {
         shareChildDocument.disabled = false;
         showActionFeedback(error.message || "Could not share form with Family Hub.");
       });
+    return;
+  }
+
+  const printChildDocument = event.target.closest("[data-print-child-document]");
+  if (printChildDocument) {
+    event.preventDefault();
+    try {
+      printChildDocumentRecord(printChildDocument.dataset.printChildDocument);
+    } catch (error) {
+      showActionFeedback(error.message || "Could not print this form.");
+    }
+    return;
+  }
+
+  const reviewChildDocument = event.target.closest("[data-review-child-document]");
+  if (reviewChildDocument) {
+    event.preventDefault();
+    const docId = reviewChildDocument.dataset.reviewChildDocument;
+    markChildDocumentReviewed(docId);
+    showActionFeedback("Marked reviewed and on file. You can still print anytime.");
+    if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage({ refreshHouseholds: false });
+    else {
+      childProfileTab = "forms-records";
+      childManagementMode = "profile";
+      renderChildManagement();
+    }
+    return;
+  }
+
+  const assignTemplateBtn = event.target.closest("[data-assign-form-template]");
+  if (assignTemplateBtn) {
+    event.preventDefault();
+    const templateId = assignTemplateBtn.dataset.assignFormTemplate;
+    const form = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
+    if (form) form.hidden = !form.hidden;
+    return;
+  }
+
+  const printTemplateBtn = event.target.closest("[data-print-form-template]");
+  if (printTemplateBtn) {
+    event.preventDefault();
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(printTemplateBtn.dataset.printFormTemplate));
+    if (!template) return;
+    printTextDocument(template.title || "Form template", template.body || "");
+    return;
+  }
+
+  const deleteTemplateBtn = event.target.closest("[data-delete-form-template]");
+  if (deleteTemplateBtn) {
+    event.preventDefault();
+    const templateId = deleteTemplateBtn.dataset.deleteFormTemplate;
+    saveFormsProgramTemplates(formsProgramTemplates().filter((item) => String(item.id) !== String(templateId)));
+    showActionFeedback("Template removed.");
+    renderHomeDaycareHubPage({ refreshHouseholds: false });
     return;
   }
 
@@ -67004,12 +67344,6 @@ document.addEventListener("submit", async (event) => {
     const title = String(data.title || "").trim();
     if (!title) return;
     const status = String(data.status || "needed").trim();
-    const statusLabels = {
-      needed: "Needed",
-      requested: "Requested from family",
-      received: "Received",
-      signed: "Signed / complete",
-    };
     const category = String(data.category || "Other").trim() || "Other";
     const shareWithFamily = String(data.shareWithFamily || "") === "true"
       || event.target.querySelector('[name="shareWithFamily"]')?.checked === true;
@@ -67018,22 +67352,55 @@ document.addEventListener("submit", async (event) => {
       title,
       category,
       status,
-      statusLabel: statusLabels[status] || status,
+      statusLabel: homeDaycarePackDocumentStatusLabel(status),
       notes: String(data.notes || "").trim(),
+      dueDate: String(data.dueDate || "").trim(),
       date: new Date().toISOString().slice(0, 10),
       updatedAt: new Date().toISOString(),
       shareWithFamily,
+      providerReviewed: false,
     });
     childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     event.target.reset();
-    showActionFeedback("Document saved to child file.");
+    showActionFeedback("Form saved to child file.");
     renderChildManagement();
     if (shareWithFamily && saved?.id) {
       shareChildDocumentWithFamily(saved.id)
-        .then(() => showActionFeedback("Form shared with Family Hub."))
+        .then(() => showActionFeedback("Form shared with Family Hub — parents can sign it there."))
         .catch((error) => showActionFeedback(error.message || "Saved locally — Family Hub notify failed."));
     }
+    return;
+  }
+
+  if (event.target?.matches?.("[data-assign-template-form]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const templateId = event.target.getAttribute("data-assign-template-form");
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+    if (!template) {
+      showActionFeedback("Template not found.");
+      return;
+    }
+    const data = collectFormData(event.target);
+    const childIds = Array.from(event.target.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
+    assignAndNotifyForm({
+      title: template.title,
+      category: template.category,
+      body: template.body,
+      draftText: template.body,
+      packFormId: template.packFormId || "",
+      resourceId: template.resourceId || "",
+      templateId: template.id,
+      dueDate: data.dueDate || "",
+      shareWithFamily: event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
+      notes: "Assigned from program template.",
+    }, childIds)
+      .then((saved) => {
+        showActionFeedback(`Assigned “${template.title}” to ${saved.length} child${saved.length === 1 ? "" : "ren"}.`);
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not assign template."));
     return;
   }
 

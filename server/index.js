@@ -1029,6 +1029,7 @@ function defaultAiSettings() {
       activity:       toolDefaults(),
       behaviorNote:   toolDefaults(),
       incidentReport: toolDefaults(),
+      form:           toolDefaults(),
     },
   };
 }
@@ -1118,7 +1119,7 @@ function normalizedShortText(value, maxLength = 240) {
   return normalizedMultilineText(value, maxLength);
 }
 
-const AI_VALID_TOOLS = new Set(["observation", "lesson", "daily", "parentMessage", "activity", "behaviorNote", "incidentReport"]);
+const AI_VALID_TOOLS = new Set(["observation", "lesson", "daily", "parentMessage", "activity", "behaviorNote", "incidentReport", "form"]);
 const AI_TOOL_ALIASES = {
   behavior: "behaviorNote",
   "behavior-note": "behaviorNote",
@@ -1130,6 +1131,8 @@ const AI_TOOL_ALIASES = {
   "activity-idea": "activity",
   "lesson-plan": "lesson",
   lesson_plan: "lesson",
+  "form-builder": "form",
+  daycareForm: "form",
 };
 const AI_PROMPT_LAYERS = ["masterPrompt", "toolSpecificPrompt", "writingIntelligence", "outputFormatting"];
 const AI_MAX_OUTPUT_TOKENS = {
@@ -1140,6 +1143,7 @@ const AI_MAX_OUTPUT_TOKENS = {
   activity: 1800,
   behaviorNote: 1800,
   incidentReport: 1800,
+  form: 2600,
 };
 const AI_DEFAULT_MAX_OUTPUT_TOKENS = 2000;
 
@@ -14090,15 +14094,18 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
     const docs = Array.isArray(childData.Documents) ? [...childData.Documents] : [];
     const index = docs.findIndex((doc) => String(doc?.id || "") === id && childIds.has(String(doc?.childId || "")));
     if (index >= 0) {
+      const previousBody = String(docs[index].draftText || docs[index].bodyText || docs[index].signedSnapshot || "").trim();
       docs[index] = {
         ...docs[index],
         status: "signed",
-        statusLabel: "Signed",
+        statusLabel: "Signed — provider review",
         signedAt: now,
         signedBy: signerName,
         updatedAt: now,
+        providerReviewed: false,
+        signedSnapshot: previousBody || String(docs[index].notes || "").trim(),
         notes: String(docs[index].notes || "").trim()
-          || "Parent acknowledged this form in Family Hub.",
+          || "Parent signed this form in Family Hub (testing acknowledgment).",
       };
       childData.Documents = docs;
       programOwnership.writeProgramChildData(store, context, childData);
@@ -14145,9 +14152,11 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   store.familyHubNotifications.unshift({
     id: `fh-notif-form-${Date.now().toString(36)}`,
     householdId: household.id,
-    title: "Form signed",
-    body: `${signerName} signed “${updatedDoc.title || "Form"}”.`,
+    type: "form_signed",
+    title: "Form signed — review needed",
+    body: `${signerName} signed “${updatedDoc.title || "Form"}”. Open the child’s Forms & Records to review and print.`,
     href: "forms",
+    childId: updatedDoc.childId || "",
     read: false,
     createdAt: now,
     audience: "provider",

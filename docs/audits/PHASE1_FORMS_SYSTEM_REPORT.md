@@ -1,0 +1,61 @@
+# Phase 1 — Forms System Report
+
+**Shell:** `20260804-forms-phase1`  
+**Branch:** `cursor/family-hub-testing-readiness-d3df`  
+**Site:** https://little-learner-hub-testing.onrender.com  
+**Date:** 2026-08-04  
+**Rule:** Testing only. Do not merge. Do not deploy production.
+
+---
+
+## Summary of work completed
+
+Connected the forms spine so paperwork is one system, not separate stubs:
+
+| Spine step | Status |
+|---|---|
+| Generate with AI | ✅ HDH AI Form Builder + `/api/ai-generate` now first-class `form` tool |
+| Edit | ✅ ContentEditable draft |
+| Save Template | ✅ Program form templates (assignable/reusable) |
+| Assign | ✅ Assign template to one/many children + due date |
+| Notify Parent | ✅ Share → Family Hub in-app notification (`notified` status) |
+| Parent Completes | ✅ Parent can read full form body in Family Hub |
+| Parent Signs | ✅ Testing sign/acknowledge (name + timestamp); parent-actionable statuses fixed |
+| Provider Reviews | ✅ Forms needing attention + Mark reviewed → on file |
+| Store in Child Profile | ✅ Documents / Forms & Records |
+| Status Everywhere | ✅ Attention panel + child file + Family Hub tags aligned |
+| Printable PDF | ✅ Print signed/draft copy with signature banner |
+
+Also:
+- Built-in pack expanded (Medication Authorization, Staff Information Sheet; permission category)
+- Family Hub only shows `shareWithFamily` documents
+- Signed forms store snapshot for print/review
+- Hub UI: Attention → Templates → Pack → AI Form Builder → Family Hub
+
+---
+
+## Remaining issues (Phase 1)
+
+1. **Not legal e-sign** — testing acknowledgment records name/time; no vendor signature / certificate.  
+2. **No email/SMS form delivery** — in-app Family Hub notify only (magic-link handoff when email off).  
+3. **Parent fill-in fields** — parents read body + sign; structured field fill UI not built.  
+4. **Packet ↔ Documents sync** — packets still a parallel tracker; Documents is the spine of truth.  
+5. **State-specific templates** — disclaimer remains; no state auto-selection engine yet.  
+6. **Forms Settings toggles** — still lightly wired (defaults UI exists; full automation later).
+
+---
+
+## Readiness score
+
+**Phase 1 Forms System: 82 / 100**
+
+Strong enough for testers to run the full generate → share → parent sign → provider review → print loop on the testing site. Not ready to claim legal e-sign or “replace DocuSign.”
+
+---
+
+## Recommendation
+
+**Proceed to Phase 2 (Family Hub)** after a short smoke with 1–2 testers on the forms loop.  
+Do **not** start Phase 2 until you confirm: AI draft → Save template → Assign → Parent sign → Mark reviewed → Print works on testing with a real household invite.
+
+Do **not** merge or deploy production.
