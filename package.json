@@ -146,6 +146,7 @@
     "test:remaining-polish": "NODE_ENV=test node scripts/test-remaining-polish.js",
     "test:signup-modal-polish": "NODE_ENV=test node scripts/test-signup-modal-polish.js",
     "test:calendar-loading-guards": "NODE_ENV=test node scripts/test-calendar-loading-guards.js",
+    "test:trial-length-system": "NODE_ENV=test node scripts/test-trial-length-system.js",
     "test:provider-overlay-scroll-lock": "node scripts/test-provider-overlay-scroll-lock.js",
     "test:navigation-history": "node scripts/test-navigation-history-qa.js",
     "test:signed-in-nav-boot-hotfix": "node scripts/test-signed-in-nav-boot-hotfix.js",
