@@ -49,7 +49,7 @@ const APP_SHELL = [
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260803-nuo-onboarding-r4",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",
-  "/comms-center.js?v=20260802-request-idea-final",
+  "/comms-center.js?v=20260804-perf-bounded-r1",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

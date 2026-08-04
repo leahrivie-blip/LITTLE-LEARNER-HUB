@@ -374,7 +374,7 @@
               Message Support
               <span class="nav-unread-badge" id="messagesNavBadge" hidden>0</span>
             </button>
-            <button class="nav-link" data-view="whats-new" id="whatsNewNavLink">
+            <button class="nav-link" data-view="whats-new" id="whatsNewNavLink" hidden aria-hidden="true" tabindex="-1">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 4.5L19 8.2l-3.5 3.4.8 4.9L12 14.8 7.7 16.5l.8-4.9L5 8.2l4.8-.7z"/></svg></span>
               What&apos;s New
             </button>
@@ -500,6 +500,18 @@
         <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
           <span id="siteAnnouncementText"></span>
           <button class="site-announcement-close" id="siteAnnouncementClose" type="button" aria-label="Dismiss announcement">✕</button>
+        </div>
+
+        <!-- Temporary logged-in member update banner (dismissible, admin-disableable) -->
+        <div id="memberUpdateBanner" class="member-update-banner" hidden role="region" aria-label="Product updates">
+          <div class="member-update-banner-inner">
+            <div class="member-update-banner-copy">
+              <p class="member-update-banner-title">✨ Big improvements are on the way!</p>
+              <p>Based on feedback from childcare providers, we’re upgrading our lesson plans into a new Complete Teaching Kit experience. Over the next few days, you may notice updated lesson plans, new teacher resources, and improvements throughout Little Learner Hub as we finish the rollout.</p>
+              <p>Thank you for helping us make Little Learner Hub better. If you have an idea or notice anything unexpected, please send us a message—we’d love to hear from you.</p>
+            </div>
+            <button class="ghost-button member-update-banner-dismiss" type="button" data-dismiss-member-update-banner aria-label="Dismiss update notice">Dismiss</button>
+          </div>
         </div>
 
         <!-- Subtle Free-plan reminder for logged-in Free owners (not Pro/Founding/Trial/Admin) -->
@@ -956,11 +968,11 @@
                   <div class="lp-price-amount"><strong>$0</strong><span>to explore</span></div>
                 </div>
                 <ul class="lp-price-features" data-homepage-free-features>
-                  <li>✓ Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.</li>
-                  <li>✓ Browse the complete library and preview additional themes.</li>
-                  <li>✓ Print and download your 10 Free starter plans</li>
-                  <li>✓ Explore selected planning tools</li>
-                  <li>✓ Upgrade anytime for unlimited curriculum printing and downloads</li>
+                  <li><span aria-hidden="true">✓</span> Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.</li>
+                  <li><span aria-hidden="true">✓</span> Browse the complete library and preview additional themes.</li>
+                  <li><span aria-hidden="true">✓</span> Print and download your 10 Free starter plans</li>
+                  <li><span aria-hidden="true">✓</span> Explore selected planning tools</li>
+                  <li><span aria-hidden="true">✓</span> Upgrade anytime for unlimited curriculum printing and downloads</li>
                 </ul>
                 <button class="lp-btn-outline llh-btn llh-btn-secondary" data-plan="Free" data-action="start-free" type="button">Create Free Account</button>
                 <p class="lp-price-note">No credit card required. Free starter plans are complete—other premium plans stay locked until you upgrade.</p>
@@ -972,14 +984,14 @@
                   <div class="lp-price-amount"><strong>$19.99</strong><span>/month</span></div>
                 </div>
                 <ul class="lp-price-features">
-                  <li>✓ Hundreds of lesson plans and thousands of classroom activities</li>
-                  <li>✓ Curriculum Calendar and Lesson Planner</li>
-                  <li>✓ AI Documentation Helpers for observations, parent messages, and reports</li>
-                  <li>✓ Child Profiles for documentation and developmental observations</li>
-                  <li>✓ Unlimited curriculum printing and downloads</li>
-                  <li>✓ Customize, save, and reuse your own lesson plans</li>
-                  <li>✓ Request lesson plans, activities, and features in-app</li>
-                  <li>✓ Built by a childcare provider · Cancel anytime</li>
+                  <li><span aria-hidden="true">✓</span> Hundreds of lesson plans and thousands of classroom activities</li>
+                  <li><span aria-hidden="true">✓</span> Curriculum Calendar and Lesson Planner</li>
+                  <li><span aria-hidden="true">✓</span> AI Documentation Helpers for observations, parent messages, and reports</li>
+                  <li><span aria-hidden="true">✓</span> Child Profiles for documentation and developmental observations</li>
+                  <li><span aria-hidden="true">✓</span> Unlimited curriculum printing and downloads</li>
+                  <li><span aria-hidden="true">✓</span> Customize, save, and reuse your own lesson plans</li>
+                  <li><span aria-hidden="true">✓</span> Request lesson plans, activities, and features in-app</li>
+                  <li><span aria-hidden="true">✓</span> Built by a childcare provider · Cancel anytime</li>
                 </ul>
                 <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="monthly" type="button">Choose Pro Monthly</button>
                 <p class="lp-price-note" data-founding-price-note>Pro Monthly is $19.99/month. Pro Annual is $199/year. Cancel anytime.</p>
@@ -1090,15 +1102,15 @@
         <section id="view-ai-guide" class="view"></section>
 
         <section id="view-ai" class="view">
-          <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>
+          <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div class="page-title doc-helpers-page-title">
-            <h2>Documentation Center</h2>
+            <h2>Documentation Helpers</h2>
             <p>Turn quick classroom notes into professional childcare documentation in seconds.</p>
           </div>
 
           <section class="doc-helpers-child-step" aria-label="Select a child">
             <label class="doc-helpers-child-picker">
-              <span class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(select only when saving to a child)</span></span>
+              <h3 class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(select only when saving to a child)</span></h3>
               <select name="childId" id="docHelperChild">
                 <option value="">No child selected</option>
               </select>
@@ -1601,7 +1613,7 @@
         </section>
 
         <section id="view-children" class="view" data-child-mode="list">
-          <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="calendar" data-always-visible="true" type="button">← Back</button>
+          <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div class="page-title children-list-title">
             <p class="eyebrow">Child Profiles</p>
             <h2>Child Profiles</h2>
@@ -1677,6 +1689,8 @@
               <button class="primary-button" type="submit">Save Notifications</button>
               <span class="form-message" id="notificationSettingsMessage" aria-live="polite"></span>
             </form>
+            <p class="muted-copy" style="margin-top:12px;">For optional browser push alerts, open Messages → Notification Settings.</p>
+            <button class="ghost-button" type="button" data-view="messages">Open Messages</button>
           </section>
           <section class="section-block account-install-panel">
             <div class="section-heading">
@@ -2482,6 +2496,6 @@
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
-    <script src="comms-center.js?v=20260804-customer-ux-polish-r2" defer></script>
+    <script src="comms-center.js?v=20260804-perf-bounded-r1" defer></script>
   </body>
 </html>

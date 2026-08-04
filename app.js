@@ -430,11 +430,46 @@ function updateDocHelperComposeHint() {
   const childSelect = document.querySelector("#docHelperChild");
   const childId = childSelect?.value || "";
   const childName = childSelect?.selectedOptions?.[0]?.textContent?.trim() || "";
+  const remaining = typeof aiUsageRemaining === "function" ? aiUsageRemaining() : null;
+  const limit = typeof aiMonthlyLimit === "function" ? aiMonthlyLimit() : freeAiMonthlyLimit;
+  const usageLine = !isProUser() && remaining != null
+    ? ` Free plan: ${remaining} of ${limit} document creations left this month.`
+    : "";
   if (childId && childName && childName !== "No child selected") {
-    hint.textContent = `Selected child: ${childName}. Add a quick note, generate documentation, then review before saving.`;
+    hint.textContent = `Selected child: ${childName}. Add a quick note, generate a draft, then review before saving.${usageLine}`;
     return;
   }
-  hint.textContent = "No child selected. Add a quick note, generate a draft, then choose a child explicitly before saving to a profile.";
+  hint.textContent = `No child selected. Add a quick note, generate a draft, then choose a child explicitly before saving to a profile.${usageLine}`;
+}
+
+function syncDocHelperAgeField() {
+  const compose = document.querySelector("#docHelperCompose");
+  const form = document.querySelector("#docHelperForm");
+  if (!compose || !form) return;
+  const childSelect = document.querySelector("#docHelperChild");
+  const childId = childSelect?.value || "";
+  const child = childId ? childRecords().children.find((item) => item.id === childId) : null;
+  const childAge = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  let ageWrap = form.querySelector("[data-doc-helper-age-wrap]");
+  const needsAge = !childAge && ["lesson-plan", "activity-idea", "behavior-note", "daily-log"].includes(selectedDocHelperType || form.querySelector("#docHelperType")?.value || "");
+  if (!needsAge) {
+    if (ageWrap) ageWrap.hidden = true;
+    return;
+  }
+  if (!ageWrap) {
+    ageWrap = document.createElement("label");
+    ageWrap.dataset.docHelperAgeWrap = "1";
+    ageWrap.className = "doc-helpers-age-label";
+    ageWrap.innerHTML = `Age group (required when no child age is on file)
+      <select name="docHelperAge" id="docHelperAge">
+        <option value="">Select age group</option>
+        ${aiAgeGroupOptions.map((option) => `<option value="${option}">${option}</option>`).join("")}
+      </select>`;
+    const noteLabel = form.querySelector("#docHelperNote")?.closest("label");
+    if (noteLabel) noteLabel.before(ageWrap);
+    else form.appendChild(ageWrap);
+  }
+  ageWrap.hidden = false;
 }
 
 function selectDocHelperType(docType, options = {}) {
@@ -451,6 +486,7 @@ function selectDocHelperType(docType, options = {}) {
   if (compose) compose.hidden = false;
   if (title) title.textContent = label;
   updateDocHelperComposeHint();
+  syncDocHelperAgeField();
   if (options.scroll !== false) {
     compose?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -551,7 +587,12 @@ let activeGoalEditId = "";
 let activeChildProfileEditId = "";
 let pendingObservationArea = "";
 let confirmActionResolver = null;
+let confirmActionReturnFocus = null;
 let childRecordEditResolver = null;
+let childRecordEditReturnFocus = null;
+let resourceViewerReturnFocus = null;
+let calendarEventModalReturnFocus = null;
+let notificationBellReturnFocus = null;
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
 let activeSupportCategoryId = "";
@@ -2668,6 +2709,8 @@ const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
 
 const HOMEPAGE_FOUNDING_PRICE_NOTE = "Pro is $19.99/month.";
 const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
+const LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY = "llhMemberUpdateBannerDismissedAt";
+const MEMBER_UPDATE_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 const HOME_LESSON_PREVIEW_HINTS = [
   "Familiar Faces",
@@ -3187,6 +3230,17 @@ function syncNonessentialNoticesForAuthOverlay(open) {
     announcement.removeAttribute("data-auth-suppressed");
   } else if (announcement) {
     announcement.removeAttribute("data-auth-suppressed");
+  }
+  const memberUpdate = document.querySelector("#memberUpdateBanner");
+  if (memberUpdate && open) {
+    memberUpdate.setAttribute("data-auth-suppressed", memberUpdate.hidden ? "was-hidden" : "1");
+    memberUpdate.hidden = true;
+  } else if (memberUpdate && memberUpdate.getAttribute("data-auth-suppressed") === "1") {
+    memberUpdate.removeAttribute("data-auth-suppressed");
+    // Re-evaluate visibility rather than forcing show under auth close.
+    try { refreshMemberUpdateBanner(); } catch (_error) { /* ignore */ }
+  } else if (memberUpdate) {
+    memberUpdate.removeAttribute("data-auth-suppressed");
   }
 }
 
@@ -14873,6 +14927,8 @@ function deferInstallPrompt() {
 // and Messages tab keep working exactly the same.
 
 let notificationBellState = { items: [], unreadCount: 0, open: false, loaded: false };
+let notificationBellLoadPromise = null;
+let librarySearchRemountTimer = null;
 let messagesViewState = { tab: "conversation", conversation: [], inbox: [], reply: "", loaded: false };
 let pushUiState = { preference: null, deviceCount: 0, publicKey: "", supportedOnServer: false, busy: false, lastMessage: "" };
 let notificationBellPollTimer = null;
@@ -14927,30 +14983,37 @@ async function fetchNotificationsFromBackend() {
 
 async function refreshNotificationBell() {
   if (!isLoggedIn()) {
+    notificationBellLoadPromise = null;
     notificationBellState = { items: [], unreadCount: 0, open: notificationBellState.open, loaded: true };
     renderNotificationBell();
     return;
   }
-  const previousUnread = Number(notificationBellState.unreadCount) || 0;
-  const data = await fetchNotificationsFromBackend();
-  // Defense in depth: never show owner/admin-only alerts in a normal member bell.
-  const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
-  const items = isSignedInPlatformOwner() || isAdminUnlocked()
-    ? rawItems
-    : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
-  notificationBellState.items = items;
-  notificationBellState.unreadCount = items.filter((item) => !item.read).length;
-  notificationBellState.loaded = true;
-  renderNotificationBell();
-  // When a new notification arrives while Messages is open, refresh the thread
-  // so Leah's reply appears without a manual page reload.
-  if (
-    notificationBellState.unreadCount > previousUnread
-    && document.querySelector("#view-messages.active-view")
-    && typeof window.refreshMyMessagesCenterLive === "function"
-  ) {
-    window.refreshMyMessagesCenterLive().catch(() => {});
-  }
+  if (notificationBellLoadPromise) return notificationBellLoadPromise;
+  notificationBellLoadPromise = (async () => {
+    const previousUnread = Number(notificationBellState.unreadCount) || 0;
+    const data = await fetchNotificationsFromBackend();
+    // Defense in depth: never show owner/admin-only alerts in a normal member bell.
+    const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
+    const items = isSignedInPlatformOwner() || isAdminUnlocked()
+      ? rawItems
+      : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
+    notificationBellState.items = items;
+    notificationBellState.unreadCount = items.filter((item) => !item.read).length;
+    notificationBellState.loaded = true;
+    renderNotificationBell();
+    // When a new notification arrives while Messages is open, refresh the thread
+    // so Leah's reply appears without a manual page reload.
+    if (
+      notificationBellState.unreadCount > previousUnread
+      && document.querySelector("#view-messages.active-view")
+      && typeof window.refreshMyMessagesCenterLive === "function"
+    ) {
+      window.refreshMyMessagesCenterLive().catch(() => {});
+    }
+  })().finally(() => {
+    notificationBellLoadPromise = null;
+  });
+  return notificationBellLoadPromise;
 }
 
 function notificationBellIsMobileViewport() {
@@ -15120,13 +15183,20 @@ function renderNotificationBell() {
 }
 
 function toggleNotificationBellPanel(forceOpen) {
-  notificationBellState.open = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
+  const willOpen = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
+  if (willOpen && !notificationBellState.open) {
+    notificationBellReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : document.querySelector("#notificationBellBtn");
+  }
+  notificationBellState.open = willOpen;
   renderNotificationBell();
   if (notificationBellState.open) {
     refreshNotificationBell().finally(() => positionNotificationBellPanel());
     requestAnimationFrame(() => positionNotificationBellPanel());
   } else {
     positionNotificationBellPanel();
+    const returnFocus = notificationBellReturnFocus;
+    notificationBellReturnFocus = null;
+    restoreLlhFocus(returnFocus || document.querySelector("#notificationBellBtn"));
   }
 }
 
@@ -16739,26 +16809,38 @@ document.addEventListener("submit", async (event) => {
 function registerPwaSupport() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      // index.html already registers early for Home Screen recovery; still ensure
-      // update checks run after a healthy app.js boot.
-      navigator.serviceWorker.register("/service-worker.js").then((registration) => {
-        // Force activation of a waiting worker so cache-bust deploys reach users.
+      // index.html already registers early for Home Screen recovery; avoid a second
+      // register/updatefound cycle that can race SKIP_WAITING. Only refresh updates.
+      const attachRegistrationHooks = (registration) => {
+        if (!registration) return;
         if (registration.waiting) {
           registration.waiting.postMessage({ type: "SKIP_WAITING" });
         }
         if (typeof registration.update === "function") {
           registration.update().catch(() => {});
         }
-        registration.addEventListener("updatefound", () => {
-          const installing = registration.installing;
-          if (!installing) return;
-          installing.addEventListener("statechange", () => {
-            if (installing.state === "installed" && navigator.serviceWorker.controller) {
-              installing.postMessage({ type: "SKIP_WAITING" });
-            }
+        if (!window.__LLH_SW_EARLY_REGISTERED) {
+          registration.addEventListener("updatefound", () => {
+            const installing = registration.installing;
+            if (!installing) return;
+            installing.addEventListener("statechange", () => {
+              if (installing.state === "installed" && navigator.serviceWorker.controller) {
+                installing.postMessage({ type: "SKIP_WAITING" });
+              }
+            });
           });
-        });
-      }).catch((error) => {
+        }
+      };
+      const registrationPromise = window.__LLH_SW_EARLY_REGISTERED
+        ? navigator.serviceWorker.getRegistration("/service-worker.js").then((registration) => {
+            attachRegistrationHooks(registration);
+            return registration;
+          })
+        : navigator.serviceWorker.register("/service-worker.js").then((registration) => {
+            attachRegistrationHooks(registration);
+            return registration;
+          });
+      registrationPromise.catch((error) => {
         console.warn("Service worker registration failed", error);
       });
       // Early head script already owns controllerchange reload for stuck installs.
@@ -17369,6 +17451,7 @@ function setView(view, options = {}) {
   document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
   syncCurriculumPlannerNavVisibility();
   syncPlatformNavVisibility();
+  try { refreshMemberUpdateBanner(); } catch (_error) { /* ignore */ }
   requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", isPlatformNavActive(button.dataset.view, requestedView, resolvedView));
@@ -18626,9 +18709,9 @@ function libraryAccessBadgeHtml() {
   }
   const label = billingPlanLabel();
   if (String(label).toLowerCase().includes("founding") || currentAccount()?.foundingMemberActive) {
-    return `<span class="library-access-badge">✓ Pro Access</span>`;
+    return `<span class="library-access-badge"><span aria-hidden="true">✓</span> Pro Access</span>`;
   }
-  return `<span class="library-access-badge is-pro">✓ Pro — Full Access</span>`;
+  return `<span class="library-access-badge is-pro"><span aria-hidden="true">✓</span> Pro — Full Access</span>`;
 }
 
 function lessonPlanCoversApi() {
@@ -18771,9 +18854,6 @@ function activityBrowseCard(resource) {
       class="resource-card browse-card activity-browse-card ${locked ? "locked" : ""}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
-      role="button"
-      tabindex="0"
-      aria-label="${escapeHtml(openLabel)}"
     >
       <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
         <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
@@ -18794,7 +18874,7 @@ function activityBrowseCard(resource) {
       </div>
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Activity actions">
-        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View</button>
+        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}" aria-label="${escapeHtml(openLabel)}">View</button>
         <button
           type="button"
           class="ghost-button ${saveBtn.className}"
@@ -18843,9 +18923,6 @@ function lessonPlanCard(resource) {
       data-lesson-card="${escapeHtml(resource.id)}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
-      role="button"
-      tabindex="0"
-      aria-label="${escapeHtml(openLabel)}"
     >
       <div class="browse-card-cover ${coverClass} lesson-plan-card__cover-wrap">
         <img
@@ -18883,7 +18960,7 @@ function lessonPlanCard(resource) {
       ` : `<p class="lesson-plan-card-hint browse-card-parent" style="padding:8px 12px 12px">Tap to preview →</p>`}
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Lesson plan actions">
-        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>
+        <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}" aria-label="${escapeHtml(openLabel)}">View Plan</button>
         <button
           type="button"
           class="ghost-button ${saveBtn.className}"
@@ -22548,6 +22625,9 @@ function closeResourceViewer() {
   if (wasOpen) restoreHomePreviewScrollPosition();
   if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
   ensureNavigationShellReady();
+  const returnFocus = resourceViewerReturnFocus;
+  resourceViewerReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 function updateResourceViewerBackButton() {
@@ -27096,6 +27176,9 @@ async function openResourceViewer(resourceId, options = {}) {
   if (guardNavigationDuringBootVerification()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
+  if (!(document.querySelector("#resourceViewerModal")?.classList.contains("open"))) {
+    resourceViewerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   if (!isResourceVisibleToCurrentUser(resource)) {
     setView(resourceViewForCategory(resource.category) || "home");
     return;
@@ -32607,6 +32690,7 @@ async function openCalendarAddItemDialog(options = {}) {
     errorEl.textContent = "";
   }
   calendarEventModalOpen = true;
+  calendarEventModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -32623,6 +32707,9 @@ function closeCalendarAddItemDialog() {
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden])")) {
     document.body.classList.remove("auth-modal-open");
   }
+  const returnFocus = calendarEventModalReturnFocus;
+  calendarEventModalReturnFocus = null;
+  restoreLlhFocus(returnFocus);
 }
 
 async function submitCalendarAddItemForm(form) {
@@ -34199,7 +34286,7 @@ function supportCenterCategories() {
       id: "behavior-emotions",
       title: "Behavior & Emotions",
       detail: "Quick support for big feelings and safe bodies.",
-      topics: ["Tantrums", "Biting", "Hitting", "Pushing", "Throwing", "Emotional Regulation", "Aggressive Behaviors"],
+      topics: ["Tantrums", "Biting", "Hitting", "Pushing", "Throwing", "Emotional Regulation", "Unsafe Body Moments"],
     },
     {
       id: "daily-routines",
@@ -34230,6 +34317,8 @@ function supportTopicIdForArea(area = "") {
   const text = String(area || "").toLowerCase();
   const directId = supportTopicSlug(area);
   if (supportTopicById(directId)) return directId;
+  // Legacy label from earlier Behavior & Support copy.
+  if (text.includes("aggressive") || text.includes("unsafe body")) return "unsafe-body-moments";
   if (text.includes("rest")) return "rest-time";
   if (text.includes("transition") || text.includes("separation")) return "transitions";
   if (text.includes("listening")) return "following-directions";
@@ -34260,7 +34349,7 @@ function supportTopicDevelopmentArea(topic = "") {
   if (text.includes("gross")) return "Gross Motor";
   if (text.includes("potty") || text.includes("rest") || text.includes("cleanup")) return "Physical Development";
   if (text.includes("sensory")) return "Approaches to Learning";
-  if (text.includes("social") || text.includes("emotion") || text.includes("friend") || text.includes("sharing") || text.includes("turn") || text.includes("peer") || text.includes("throw") || text.includes("aggressive")) return "Social Emotional";
+  if (text.includes("social") || text.includes("emotion") || text.includes("friend") || text.includes("sharing") || text.includes("turn") || text.includes("peer") || text.includes("throw") || text.includes("aggressive") || text.includes("unsafe body")) return "Social Emotional";
   return normalizeObservationArea(topic) || supportAreaToDevelopmentArea(topic);
 }
 
@@ -34341,6 +34430,13 @@ function supportTopicContent(topic = "", child = null) {
       activities: ["Playdough pinch and roll", "Bead threading", "Scissor snip strips"],
       observations: ["How did the child grasp materials?", "Did they use one hand or both?", "What level of help was needed?"],
       parentNotes: ["We are building hand strength through play.", "Short tool practice is helping confidence.", "Playdough, stickers, and safe cutting are good next steps."],
+    },
+    "Unsafe Body Moments": {
+      why: "Unsafe body moments often happen when a child is overwhelmed, seeking connection, defending space, or still learning safe ways to use their body with peers.",
+      tips: ["Stay close during busy play.", "Block gently and name the safe choice.", "Practice calm body tools before hard moments."],
+      activities: ["Gentle hands practice", "Stop and space picture cards", "Push-the-wall then breathe"],
+      observations: ["What happened right before the unsafe moment?", "Was the child crowded, frustrated, or excited?", "Which calm support helped recovery?"],
+      parentNotes: ["We are coaching safe body choices with short, calm words.", "We stay close during busy peer play and practice replacements.", "We will keep sharing what helps your child reset."],
     },
   };
   const content = { ...base, ...(overrides[topic] || {}) };
@@ -34493,14 +34589,16 @@ function renderSettingsHubPage() {
           badge: planLabel === "Founding Member" ? "Founding Member" : planLabel,
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
-        { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+        { view: "account", title: "Notifications", detail: "Email reminders and Messages push preferences", hash: "notifications" },
         ...(canBilling
           ? (isProUser()
             ? [
-                { view: "billing", title: "Billing & Subscription", detail: "Manage subscription, payment method, invoices, and cancellation" },
-                { view: "billing", title: "Current Plan", detail: "Review your paid plan and billing status" },
-                { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
-                { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+                // One billing destination — plan status, portal, cancel live on Billing.
+                { view: "billing", title: "Billing & Subscription", detail: "Plan status, payment method, invoices, and cancellation" },
+                // Hide Billing History until this device has recorded events (local history).
+                ...(currentBillingHistory(account).length
+                  ? [{ view: "billing-history", title: "Billing History", detail: "Invoices and payment events on this device" }]
+                  : []),
               ]
             : [
                 // Free: one membership path — avoid duplicate Billing + Upgrade + Subscription cards.
@@ -34525,12 +34623,9 @@ function renderSettingsHubPage() {
       title: "Help & Support",
       detail: "Message Leah, send feedback, or browse common questions",
       cards: [
-        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
-        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
-        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
-        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
-        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
-        { view: "faq", title: "FAQ", detail: "Common questions and product updates" },
+        { view: "messages", title: "Messages", detail: "Talk with Leah, track support, and manage push notifications" },
+        { view: "", title: "Send Feedback", detail: "Share a bug, idea, or question in one place", action: "feedback", feedbackType: "General Feedback" },
+        { view: "faq", title: "FAQ", detail: "Common questions about membership and using the hub" },
       ],
     },
     {
@@ -34574,7 +34669,6 @@ function renderSettingsHubPage() {
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
-      ${platformInstallCardMarkup("settings-prompt")}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
           <section class="settings-hub-group"${group.id ? ` id="settings-${escapeHtml(group.id)}" data-settings-group="${escapeHtml(group.id)}"` : ""}>
@@ -38158,14 +38252,46 @@ function weeklyObservationStats(records = childRecords()) {
 }
 
 function goalProgressPercent(progress) {
-  const text = String(progress || "").toLowerCase();
+  const text = String(progress || "").toLowerCase().trim();
   const number = Number(text.match(/\d+/)?.[0] || "");
-  if (!Number.isNaN(number) && number >= 0) return Math.min(100, number);
-  if (text.includes("complete")) return 100;
-  if (text.includes("improving")) return 75;
-  if (text.includes("progress")) return 50;
-  if (text.includes("started")) return 25;
+  if (text && !Number.isNaN(number) && /\d/.test(text)) return Math.min(100, number);
+  if (text.includes("complete") || text.includes("done") || text.includes("met")) return 100;
+  if (text.includes("improving") || text.includes("making good progress")) return 75;
+  if (text.includes("started") || text.includes("beginning")) return 25;
+  // Do not treat the bare word "progress" (or empty/"0%") as mid-point progress.
   return 0;
+}
+
+function isPlaceholderChildName(name) {
+  const raw = String(name || "").trim();
+  if (!raw || raw.length < 2) return true;
+  if (/^\[.+\]$/.test(raw)) return true;
+  const normalized = raw.toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const blocked = new Set([
+    "your name",
+    "child name",
+    "childs name",
+    "enter childs name",
+    "enter child name",
+    "enter a name",
+    "new child",
+    "test",
+    "test child",
+    "firstname lastname",
+    "first name",
+    "last name",
+    "baby name",
+    "toddler name",
+    "name here",
+    "child",
+    "baby",
+  ]);
+  if (blocked.has(normalized)) return true;
+  if (/^(your|enter|type|insert)\b/.test(normalized) && /\bname\b/.test(normalized)) return true;
+  return false;
 }
 
 function childSupportAreas(childId, records = childRecords()) {
@@ -38883,9 +39009,8 @@ function monthlyObservationGoal(child = {}) {
 function monthlyObservationSummary(child, observations = childRecords().observations) {
   const goal = monthlyObservationGoal(child);
   const completed = observations.filter((item) => item.childId === child.id && isObservationInCurrentMonth(item.date)).length;
-  const safeCompleted = Math.min(completed, goal);
   const remaining = Math.max(goal - completed, 0);
-  const percent = goal ? Math.min(100, Math.round((safeCompleted / goal) * 100)) : 0;
+  const percent = goal ? Math.min(100, Math.round((Math.min(completed, goal) / goal) * 100)) : 0;
   return { goal, completed, remaining, percent };
 }
 
@@ -38970,11 +39095,14 @@ function renderChildAvatar(child, size = "normal") {
 }
 
 function renderMonthlyProgress(summary) {
-  const statusText = summary.remaining > 0 ? `${summary.remaining} still needed` : "Complete";
+  const statusText = summary.remaining > 0 ? `${summary.remaining} still needed` : "Goal met";
+  const countLabel = summary.completed > summary.goal
+    ? `${summary.completed} logged (goal ${summary.goal})`
+    : `${summary.completed} of ${summary.goal} completed`;
   return `
     <div class="monthly-progress">
-      <div><span>${summary.completed}/${summary.goal} completed</span><strong>${escapeHtml(statusText)}</strong></div>
-      <div class="progress-bar"><span style="width:${summary.percent}%"></span></div>
+      <div><span>${escapeHtml(countLabel)}</span><strong>${escapeHtml(statusText)}</strong></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="${summary.percent}" aria-valuemin="0" aria-valuemax="100"><span style="width:${summary.percent}%"></span></div>
     </div>
   `;
 }
@@ -40779,7 +40907,7 @@ function renderDlcDashboard(records) {
       <div class="dlc-dashboard-date-row">
         <div>
           <p class="eyebrow">Daily Logs</p>
-          <h3 class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</h3>
+          <p class="dlc-dashboard-date-label" aria-live="polite">${escapeHtml(dateLabel)}</p>
           <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
         </div>
         <div class="dlc-dashboard-date-picker">
@@ -40791,10 +40919,10 @@ function renderDlcDashboard(records) {
       ${renderDlcClassroomOverview(activeChildren, records, today)}
 
       <div class="dlc-home-toolbar">
-        <button class="primary-button" data-daily-logs-section="group" type="button">Group Log</button>
-        <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Group Activity</button>
-        <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button">Group Meal</button>
-        <button class="ghost-button" data-dlc-print-all type="button">Print All Reports</button>
+        <button class="primary-button" data-daily-logs-section="group" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Log</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Activity</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Meal</button>
+        <button class="ghost-button" data-dlc-print-all type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Print All Reports</button>
       </div>
 
       ${activeChildren.length ? `
@@ -40808,7 +40936,7 @@ function renderDlcDashboard(records) {
         </div>
       `}
 
-      <details class="dlc-optional-ai section-block">
+      <details class="dlc-optional-ai section-block" ${activeChildren.length ? "" : "hidden"}>
         <summary>Optional: Organize a note with AI</summary>
         <div class="dlc-quick-doc-box">
           <p class="dlc-sub">AI is optional. Type what happened, then review before saving.</p>
@@ -40821,7 +40949,7 @@ function renderDlcDashboard(records) {
               <label class="dlc-quick-doc-for-label">
                 For:
                 <select id="dlcDashboardNoteChild" class="dlc-inline-select">
-                  <option value="all">All children</option>
+                  ${activeChildren.length > 1 ? `<option value="all">All children (${activeChildren.length})</option>` : ""}
                   ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
                 </select>
               </label>
@@ -40853,6 +40981,14 @@ function renderDlcDashboard(records) {
   `;
 }
 
+function dlcBackLabel(target) {
+  if (target === "home" || target === "dashboard") return "← Back to Daily Logs";
+  if (target === "step2") return "← Back to update options";
+  if (target === "step1-multiple" || target === "step1-one") return "← Back to child selection";
+  if (target === "ai-input") return "← Back to AI notes";
+  return "← Back";
+}
+
 function renderDailyLogsCenter(records) {
   const backTarget = dlcBackTarget();
   return `
@@ -40862,7 +40998,7 @@ function renderDailyLogsCenter(records) {
           <h2>Daily Logs</h2>
           <p>See who's here, check children in and out, and log the day as it happens.</p>
         </div>
-        ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">← Back</button>` : ""}
+        ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">${dlcBackLabel(backTarget)}</button>` : ""}
       </div>
       ${renderDlcContent(records)}
     </section>
@@ -41674,6 +41810,31 @@ function printAllDailyLogs(today = dlcActiveDate()) {
   if (!activeChildren.length) {
     alert("No active children to print reports for.");
     return;
+  }
+  const hasAnyLoggedContent = activeChildren.some((child) => {
+    const lines = buildDailyLogLines(child, records, today);
+    const joined = lines.join("\n").toLowerCase();
+    return joined && !/not recorded|no (meals|naps|diapers|activities|observations|incidents)/i.test(joined)
+      ? true
+      : lines.some((line) => {
+        const text = String(line || "").trim();
+        return text && !/^not recorded/i.test(text) && !/:\s*$/.test(text);
+      });
+  });
+  // Prefer a concrete check: any non-empty care record for the day.
+  const hasRecords = activeChildren.some((child) => {
+    const id = child.id;
+    const dayMatch = (item) => item.childId === id && String(item.date || "").slice(0, 10) === today;
+    return (records.meals || []).some(dayMatch)
+      || (records.naps || []).some(dayMatch)
+      || (records.diapers || []).some(dayMatch)
+      || (records.activityLogs || []).some(dayMatch)
+      || (records.observations || []).some(dayMatch)
+      || (records.attendance || []).some(dayMatch)
+      || (records.communications || []).some(dayMatch);
+  });
+  if (!hasRecords && !hasAnyLoggedContent) {
+    if (!confirm("No care records are logged for this day yet. Print empty report shells anyway?")) return;
   }
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const sections = activeChildren.map((child) => buildDailyLogLines(child, records, today).join("\n"));
@@ -43770,6 +43931,48 @@ document.addEventListener("click", (event) => {
 
 let afterActionPromptTimeout = null;
 
+const LLH_DIALOG_FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function llhDialogFocusableElements(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll(LLH_DIALOG_FOCUSABLE_SELECTOR)].filter((el) => {
+    if (el.hasAttribute("disabled") || el.getAttribute("aria-hidden") === "true") return false;
+    if (el.closest("[hidden]")) return false;
+    const style = window.getComputedStyle(el);
+    return style.visibility !== "hidden" && style.display !== "none";
+  });
+}
+
+function trapLlhDialogFocus(event, root) {
+  if (!root || event.key !== "Tab") return false;
+  const focusable = llhDialogFocusableElements(root);
+  if (!focusable.length) return false;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!focusable.includes(document.activeElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+    return true;
+  }
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+    return true;
+  }
+  if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+    return true;
+  }
+  return true;
+}
+
+function restoreLlhFocus(el) {
+  if (el && typeof el.focus === "function") {
+    try { el.focus(); } catch (_error) { /* ignore */ }
+  }
+}
+
 function confirmActionDialogHtml() {
   return `
     <div class="llh-confirm-dialog" data-llh-confirm-dialog hidden>
@@ -43803,7 +44006,12 @@ function closeConfirmActionDialog(result = false) {
   }
   const resolve = confirmActionResolver;
   confirmActionResolver = null;
+  const returnFocus = confirmActionReturnFocus;
+  confirmActionReturnFocus = null;
   if (resolve) resolve(Boolean(result));
+  if (returnFocus && typeof returnFocus.focus === "function") {
+    try { returnFocus.focus(); } catch (_error) { /* ignore */ }
+  }
 }
 
 /**
@@ -43837,6 +44045,7 @@ function confirmAction(options = {}) {
   });
   dialog.hidden = false;
   document.body.classList.add("auth-modal-open");
+  confirmActionReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   okBtn?.focus();
   return new Promise((resolve) => {
     confirmActionResolver = resolve;
@@ -43999,6 +44208,9 @@ function closeChildRecordEditDialog(saved = false) {
   const resolve = childRecordEditResolver;
   childRecordEditResolver = null;
   if (resolve) resolve(Boolean(saved));
+  const returnFocus = childRecordEditReturnFocus;
+  childRecordEditReturnFocus = null;
+  restoreLlhFocus(returnFocus);
 }
 
 function primaryChildRecordDetail(item = {}) {
@@ -44030,6 +44242,7 @@ function openChildRecordEditDialog(storeKey, recordId) {
   form.date.value = item.date || "";
   form.details.value = detail.value || "";
   form.dataset.detailKey = detail.key;
+  childRecordEditReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.body.classList.add("auth-modal-open");
   dialog.hidden = false;
   form.details.focus();
@@ -45119,6 +45332,7 @@ function closeFeedbackModal({ discardDraft = false } = {}) {
 async function submitFeedbackForm(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (form?.dataset?.submitting === "1") return;
   const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
   const name = document.querySelector("#feedbackNameInput")?.value?.trim() || "Provider";
   const email = document.querySelector("#feedbackEmailInput")?.value?.trim() || currentUser || "";
@@ -45128,6 +45342,9 @@ async function submitFeedbackForm(event) {
     setFormMessage("#feedbackMessage", "Email and message are required.");
     return;
   }
+  form.dataset.submitting = "1";
+  const submitBtn = form.querySelector('[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
   setFormMessage("#feedbackMessage", "Sending…", true);
   const account = currentAccount() || {};
   const payload = {
@@ -45195,6 +45412,12 @@ async function submitFeedbackForm(event) {
       setTimeout(closeFeedbackModal, 1400);
     } catch {
       setFormMessage("#feedbackMessage", error.message || "Could not send feedback. Please email support.");
+    }
+  } finally {
+    if (form) {
+      delete form.dataset.submitting;
+      const btn = form.querySelector('[type="submit"]');
+      if (btn) btn.disabled = false;
     }
   }
 }
@@ -56287,13 +56510,47 @@ function ageGroupLabel(ageGroup) {
 }
 
 function normalizeAiAgeGroup(rawAge) {
-  if (aiAgeGroupOptions.includes(rawAge)) return rawAge;
-  if (rawAge === "Toddler") return "Older Toddler";
-  return "Preschool";
+  const value = String(rawAge || "").trim();
+  if (!value) return "";
+  if (aiAgeGroupOptions.includes(value)) return value;
+  if (value === "Toddler") return "Older Toddler";
+  // Never invent Preschool (or any age) when the provider did not supply one.
+  try {
+    if (typeof normalizeAgeGroup === "function") {
+      const mapped = normalizeAgeGroup(value);
+      if (mapped && aiAgeGroupOptions.includes(mapped)) return mapped;
+    }
+  } catch (_error) { /* ignore */ }
+  return "";
 }
 
 function ageGroupProfile(rawAge) {
   const ageGroup = normalizeAiAgeGroup(rawAge);
+  if (!ageGroup) {
+    return {
+      learningFocus: "",
+      lessonMaterials: "Not enough detail provided",
+      lessonObjectives: ["Not enough detail provided"],
+      lessonBooks: "",
+      lessonPlanDays: [["Open Play", "- Not enough detail provided"]],
+      dailySummary: "Not enough detail provided",
+      dailyClosing: "Not enough detail provided",
+      dailyLearning: "",
+      behaviorNeed: "support",
+      behaviorStrategiesTitle: "Support Strategies",
+      behaviorStrategies: ["Stay calm and close.", "Use short words.", "Offer a safe choice."],
+      behaviorGoal: "Not enough detail provided",
+      behaviorPlan: "Not enough detail provided",
+      parentToneLine: "We will keep you updated.",
+      activityTitle: "Activity",
+      activityDuration: "Not enough detail provided",
+      activityMaterials: "Not enough detail provided",
+      activityInstructions: ["Not enough detail provided — choose an age group and add a short note, then generate again."],
+      activityGoals: ["Not enough detail provided"],
+      activitySafety: "Not enough detail provided",
+      activityExtensions: "Not enough detail provided",
+    };
+  }
   const profiles = {
     "Infant": {
       learningFocus: "sensory exploration, bonding, secure routines, tracking objects, tummy time, and early communication",
@@ -56900,14 +57157,27 @@ function generateFromPrompt(prompt) {
 }
 
 function generateLessonPlan(data) {
-  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+  if (!rawAge) {
+    return `Lesson Plan Draft
+
+Age Group
+Not enough detail provided. Choose an age group before generating a lesson plan.
+
+Theme
+${String(data.theme || data.note || "").trim() || "Not enough detail provided"}
+
+Next step
+Add an age group and a short theme or note, then generate again. This draft will not invent preschool (or any age) assumptions.`;
+  }
   const profile = ageGroupProfile(rawAge);
   const theme = data.theme || "Farm";
   const materials = data.materials || profile.lessonMaterials;
   const categories = ["Circle Time", "Literacy", "Sensory Play", "Fine Motor", "Gross Motor", "Music & Movement", "Art", "STEM/Discovery", "Dramatic Play", "Outdoor Play", "Open-Ended Exploration"];
   const dailyPlans = emptyCurriculumDailyPlans();
+  const days = Array.isArray(profile.lessonPlanDays) && profile.lessonPlanDays.length ? profile.lessonPlanDays : [["Open Play", "- Offer a calm play invitation."]];
   CURRICULUM_WEEKDAYS.forEach((day, index) => {
-    const [title, ...stepLines] = profile.lessonPlanDays[index % profile.lessonPlanDays.length];
+    const [title, ...stepLines] = days[index % days.length];
     const steps = stepLines.map((line) => line.replace(/^-\s*/, "").trim()).filter(Boolean).join("\n");
     dailyPlans[day].items.push({
       itemId: "",
@@ -56977,16 +57247,30 @@ ${area || "Observation"}`;
 }
 
 function generateActivity(data) {
- const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+ const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+ const theme = String(data.theme || data.note || data.skill || "").trim();
+ if (!rawAge) {
+   return `Activity Idea Draft
+
+Age Group
+Not enough detail provided. Choose an age group before generating an activity idea.
+
+Theme / Skill
+${theme || "Not enough detail provided"}
+
+Next step
+Add an age group and a short note, then generate again. This draft will not invent preschool assumptions.`;
+ }
  const profile = ageGroupProfile(rawAge);
- const theme = data.theme || (data.skill ? "Discovery" : "Ocean");
  const skill = data.skill || "fine motor";
  const area = data.developmentalDomain || data.developmentalArea || skill;
- const childName = data.childName || "";
+ const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+ const childName = hasChild ? String(data.childName || data.child || "").trim() : "";
  const childAge = data.childAge || "";
  const programName = data.programName || data.program || "";
  const materials = data.materials || profile.activityMaterials;
- return `Activity: ${theme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${profile.activityTitle}
+ const activityTheme = theme || (data.skill ? "Discovery" : "Open Play");
+ return `Activity: ${activityTheme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${profile.activityTitle || "Activity"}
 ${programName ? "Program: " + programName + "\n" : ""}${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}Age Group: ${rawAge}
 Duration: ${profile.activityDuration}
 Developmental Area: ${area}
@@ -56995,16 +57279,16 @@ Materials
 ${materials}
 
 Instructions
-${profile.activityInstructions.map((step, i) => (i + 1) + ". " + step).join("\n")}
+${(profile.activityInstructions || ["Not enough detail provided"]).map((step, i) => (i + 1) + ". " + step).join("\n")}
 
 Learning Goals
-${profile.activityGoals.map((goal) => `- ${goal}`).join("\n")}
+${(profile.activityGoals || ["Not enough detail provided"]).map((goal) => `- ${goal}`).join("\n")}
 
 Safety Notes
-${profile.activitySafety}
+${profile.activitySafety || "Not enough detail provided"}
 
 Extensions
-${profile.activityExtensions}`;
+${profile.activityExtensions || "Not enough detail provided"}`;
 }
 
 function generateAiMenu(data) {
@@ -57185,45 +57469,54 @@ Send home a short note with vocabulary words, book ideas, and one simple activit
 }
 
 function generateBehaviorDocumentation(data) {
-  const childName = data.childName || data.child || "Child";
-  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
-  const profile = ageGroupProfile(rawAge);
-  const programName = data.programName || data.program || "Your Daycare Name";
+  const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+  const childName = hasChild ? String(data.childName || data.child || "").trim() : "";
+  const childRef = childName || "the child";
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
+  const programName = String(data.programName || data.program || "").trim();
   const tone = data.tone || "Warm and professional";
-  const ageContext = data.childAge ? ` (${data.childAge} · ${rawAge})` : rawAge ? ` (${rawAge})` : "";
-  const domain = data.developmentalDomain || "Social Emotional";
+  const ageContext = data.childAge && rawAge
+    ? ` (${data.childAge} · ${rawAge})`
+    : data.childAge
+      ? ` (${data.childAge})`
+      : rawAge
+        ? ` (${rawAge})`
+        : "";
+  const domain = String(data.developmentalDomain || "").trim();
+  const concern = String(data.concern || data.note || data.details || "").trim();
+  const missing = "Not enough detail provided";
   const parentMessage = toneCopy(tone, [
-    ["brief", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine}`],
-    ["supportive", `Today at ${programName}, ${childName} needed extra support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will keep practicing the skill together and can share strategies that may help at home too.`],
-    ["warm", `Today at ${programName}, ${childName} needed some extra guidance with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} I am happy to talk more about the strategies we are using together.`],
-    ["professional", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will continue using consistent age-appropriate strategies and keep you updated as needed.`],
+    ["brief", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed support${concern ? ` with ${concern}` : ""}. We will keep you updated.`],
+    ["supportive", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed extra support${concern ? ` with ${concern}` : ""}. We can share strategies that may help at home too.`],
+    ["warm", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed some extra guidance${concern ? ` with ${concern}` : ""}. I am happy to talk more about what helped.`],
+    ["professional", `Today${programName ? ` at ${programName}` : ""}, ${childRef} needed support${concern ? ` with ${concern}` : ""}. We will continue using consistent strategies and keep you updated as needed.`],
   ]);
   return `Behavior Support Documentation
-Program: ${programName}
-Child: ${childName}${ageContext}
-Developmental Domain: ${domain}
-Concern: ${data.concern || "Behavior that needed support"}
+${programName ? `Program: ${programName}\n` : ""}${childName ? `Child: ${childName}${ageContext}\n` : ""}${domain ? `Developmental Domain: ${domain}\n` : ""}Concern: ${concern || missing}
 
 What Happened
-${data.incident || "Describe the behavior factually and objectively."}
+${data.incident && String(data.incident).trim() ? String(data.incident).trim() : (concern || missing)}
 
 Possible Trigger or Antecedent
-${data.trigger || "Describe what occurred just before the behavior."}
+${data.trigger && String(data.trigger).trim() ? String(data.trigger).trim() : missing}
 
 Support Given
-${data.support || "Comfort was offered, safety was maintained, and the child was redirected using calm guidance."}
+${data.support && String(data.support).trim() ? String(data.support).trim() : missing}
 
 What This Behavior May Communicate
-${childName} may be communicating a need for ${profile.behaviorNeed}.
+${missing}. Add only what you observed — do not invent causes.
 
-${profile.behaviorStrategiesTitle}
-${profile.behaviorStrategies.map((strategy) => `- ${strategy}`).join("\n")}
+Support Strategies
+- Stay calm and close
+- Use short words
+- Offer a safe choice
+(Edit these to match what you actually used.)
 
 Developmental Goal
-${data.goal || profile.behaviorGoal}
+${data.goal && String(data.goal).trim() ? String(data.goal).trim() : missing}
 
 Follow-Up Plan
-${data.plan || profile.behaviorPlan}
+${data.plan && String(data.plan).trim() ? String(data.plan).trim() : missing}
 
 Parent Communication
 Tone: ${tone}
@@ -57540,38 +57833,51 @@ ${programName}`;
 }
 
 function generateDailyReport(data) {
-  const child = data.childName || data.child || "Your child";
-  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
-  const profile = ageGroupProfile(rawAge);
+  const hasChild = Boolean(data.childExplicitlySelected && (data.childName || data.child));
+  const child = hasChild ? String(data.childName || data.child || "").trim() : "";
+  const childRef = child || "Your child";
+  const rawAge = data.age ? normalizeAiAgeGroup(data.age) : "";
   const programName = data.programName || data.program || "";
   const date = data.date || "";
   const tone = data.tone || "Warm and friendly";
-  const isInfant = rawAge === "Infant";
-  const isToddler = rawAge === "Young Toddler" || rawAge === "Older Toddler";
-  const isDiaperAge = isInfant || isToddler;
-  const highlights = data.highlights || "";
+  const highlights = String(data.highlights || data.note || "").trim();
+  const missing = "Not enough detail provided";
 
   // ── Header ─────────────────────────────────────────────────────────────────
   const header = [
-    programName ? programName + " — Daily Report" : "Daily Report",
-    date ? "Date: " + date : "",
-    "Child: " + child,
-    rawAge ? "Age Group: " + rawAge : "",
+    programName ? `${programName} — Daily Report` : "Daily Report",
+    date ? `Date: ${date}` : "",
+    child ? `Child: ${child}` : "",
+    rawAge ? `Age Group: ${rawAge}` : "",
   ].filter(Boolean).join("\n");
 
+  if (!highlights && !data.meals && !data.nap && !data.mood && !data.activities) {
+    return `${header}
+
+Daily Summary
+${missing}. Add a short note about the day, then generate again.
+
+Family Note
+Add a few facts from the day before sharing with families.`;
+  }
+
   // ── Section 1: Daily Summary ───────────────────────────────────────────────
-  const moodText = data.mood || "happy and engaged";
-  const highlightSnippet = highlights && highlights.length > 1
+  const moodText = data.mood && String(data.mood).trim() ? String(data.mood).trim() : "";
+  const highlightSnippet = highlights
     ? highlights.charAt(0).toLowerCase() + highlights.slice(1).replace(/\.$/, "")
-    : highlights || profile.dailySummary;
+    : "";
   const summarySentence = toneCopy(tone, [
-    ["professional", `${child} had a productive day and participated in routines and learning experiences.`],
-    ["detailed", `${child} had a full day and took part in routines, care moments, and learning throughout the day.`],
-    ["short", `${child} had a positive day with us today.`],
-    ["warm", `${child} had a wonderful day with us today!`],
-    ["friendly", `${child} had a great day with us today!`],
+    ["professional", `${childRef} participated in the parts of the day noted below.`],
+    ["detailed", `${childRef} took part in the routines and moments noted below.`],
+    ["short", `${childRef} had a day worth sharing.`],
+    ["warm", `${childRef} had a day worth sharing with you.`],
+    ["friendly", `${childRef} had a day worth sharing with you.`],
   ]);
-  const dailySummary = `${summarySentence} ${child} arrived ${moodText} and had an enjoyable day filled with ${highlightSnippet}.`;
+  const dailySummary = [
+    summarySentence,
+    moodText ? `${childRef} seemed ${moodText}.` : "",
+    highlightSnippet ? `Highlights included ${highlightSnippet}.` : "",
+  ].filter(Boolean).join(" ");
 
   // ── Section 2: Today's Activities ─────────────────────────────────────────
   let activitiesList = [];
@@ -57579,8 +57885,7 @@ function generateDailyReport(data) {
     activitiesList = data.activities;
   } else if (data.activities && typeof data.activities === "string" && data.activities.trim()) {
     activitiesList = data.activities.split(/[,\n]+/).map((a) => a.trim()).filter(Boolean);
-  } else {
-    // Infer activities from highlights
+  } else if (highlights) {
     const note = highlights.toLowerCase();
     if (/paint|brush|art|drawing|drew|color/.test(note)) activitiesList.push("Art");
     if (/outside|outdoor|playground|yard/.test(note)) activitiesList.push("Outdoor Play");
@@ -57593,54 +57898,51 @@ function generateDailyReport(data) {
     if (/dramatic|pretend|role/.test(note)) activitiesList.push("Dramatic Play");
     if (/count|number|math/.test(note)) activitiesList.push("Math & Counting");
     if (/science|experiment|nature|bug|plant/.test(note)) activitiesList.push("Science Exploration");
-    if (/free play|choice/.test(note)) activitiesList.push("Free Play");
-    if (!activitiesList.length) activitiesList.push("Free Play", "Group Activities");
   }
-  const activitiesSection = activitiesList.map((a) => `• ${a}`).join("\n");
+  const activitiesSection = activitiesList.length
+    ? activitiesList.map((a) => `• ${a}`).join("\n")
+    : missing;
 
   // ── Section 3: Learning Highlights ────────────────────────────────────────
-  const learningText = data.learning || buildLearningHighlights(highlights, rawAge, profile, child);
+  const learningText = data.learning && String(data.learning).trim()
+    ? String(data.learning).trim()
+    : (highlights ? highlights : missing);
 
   // ── Section 4: Meals & Snacks ──────────────────────────────────────────────
-  let mealsSection = "";
-  if (data.meals && data.meals.trim()) {
-    mealsSection = data.meals.trim();
-  } else if (isInfant) {
-    mealsSection = "Feeding was provided on cue and according to the family's feeding plan.";
-  } else {
-    mealsSection = "Meals and snacks were offered according to the daily menu.";
-  }
+  const mealsSection = data.meals && String(data.meals).trim()
+    ? String(data.meals).trim()
+    : missing;
 
   // ── Section 5: Nap / Rest ──────────────────────────────────────────────────
-  const napSection = data.nap && data.nap.trim()
-    ? data.nap.trim()
-    : isInfant
-      ? "Sleep was supported in a safe sleep environment according to safe sleep guidelines."
-      : "Rest time was offered and supported.";
+  const napSection = data.nap && String(data.nap).trim()
+    ? String(data.nap).trim()
+    : missing;
 
   // ── Section 6: Diaper / Potty ──────────────────────────────────────────────
-  const diaperSection = isDiaperAge
-    ? (data.diapering && data.diapering.trim()
-      ? data.diapering.trim()
-      : isInfant
-        ? "Diaper changes were completed throughout the day. No concerns noted."
-        : "Diapering and potty attempts were supported throughout the day with handwashing.")
+  const diaperSection = data.diapering && String(data.diapering).trim()
+    ? String(data.diapering).trim()
     : "";
 
   // ── Section 7: Mood & Social Interactions ─────────────────────────────────
-  const socialText = data.social || buildSocialText(highlights, moodText, child, rawAge);
+  const socialText = data.social && String(data.social).trim()
+    ? String(data.social).trim()
+    : (moodText || highlights ? [moodText, highlights].filter(Boolean).join(". ") : missing);
 
   // ── Section 8: Special Moments ────────────────────────────────────────────
-  const specialMoments = data.specialMoments || buildSpecialMoments(highlights, child, rawAge, profile);
+  const specialMoments = data.specialMoments && String(data.specialMoments).trim()
+    ? String(data.specialMoments).trim()
+    : (highlights || missing);
 
   // ── Section 9: Family Note ─────────────────────────────────────────────────
-  const familyClosing = data.notes || profile.dailyClosing;
+  const familyClosing = data.notes && String(data.notes).trim()
+    ? String(data.notes).trim()
+    : (highlights ? `Today we noticed: ${highlights}` : missing);
   const familyNote = toneCopy(tone, [
-    ["professional", `Thank you for entrusting us with ${child}'s care today. ${familyClosing}`],
-    ["detailed", `It was a pleasure spending the day with ${child}. ${familyClosing} Please don't hesitate to reach out with any questions.`],
-    ["short", `Thank you for sharing ${child} with us today! ${familyClosing}`],
-    ["warm", `We loved having ${child} with us today! ${familyClosing}`],
-    ["friendly", `We loved having ${child} with us today! ${familyClosing}`],
+    ["professional", `Thank you for entrusting us with ${childRef}'s care today. ${familyClosing}`],
+    ["detailed", `It was a pleasure spending the day with ${childRef}. ${familyClosing} Please don't hesitate to reach out with any questions.`],
+    ["short", `Thank you for sharing ${childRef} with us today. ${familyClosing}`],
+    ["warm", `Thank you for sharing ${childRef} with us today. ${familyClosing}`],
+    ["friendly", `Thank you for sharing ${childRef} with us today. ${familyClosing}`],
   ]);
 
   // ── Section 10: Follow-Up (only if present) ───────────────────────────────
@@ -57649,11 +57951,11 @@ function generateDailyReport(data) {
     : "";
 
   // ── Section 11: Tags ───────────────────────────────────────────────────────
-  const tags = buildDailyReportTags(activitiesList, highlights, rawAge);
+  const tags = typeof buildDailyReportTags === "function"
+    ? buildDailyReportTags(activitiesList, highlights, rawAge)
+    : [];
   const tagsSection = tags.length ? `\nTags\n${tags.join(" · ")}` : "";
-
-  // ── Infant tummy time note ─────────────────────────────────────────────────
-  const tummyTimeNote = isInfant ? "\n\nTummy Time\nTummy time was offered during awake, supervised periods." : "";
+  const diaperBlock = diaperSection ? `\n\nDiaper / Potty\n${diaperSection}` : "";
 
   return `${header}
 
@@ -57670,7 +57972,7 @@ Meals & Snacks
 ${mealsSection}
 
 Nap / Rest
-${napSection}${isDiaperAge ? `\n\nDiaper / Potty\n${diaperSection}` : ""}${tummyTimeNote}
+${napSection}${diaperBlock}
 
 Mood & Social Interactions
 ${socialText}
@@ -57697,7 +57999,9 @@ function buildLearningHighlights(note, rawAge, profile, child) {
   if (/problem.solv|puzzl|figur/.test(n)) highlights.push("Practiced problem-solving and critical thinking.");
   if (/independ|self-help|dress|wash|clean up/.test(n)) highlights.push("Practiced independence and self-help routines.");
   if (!highlights.length) {
-    highlights.push(`Today supported ${profile.dailyLearning}.`);
+    highlights.push(profile?.dailyLearning
+      ? `Today supported ${profile.dailyLearning}.`
+      : "Not enough detail provided");
   }
   return highlights.join("\n");
 }
@@ -58572,6 +58876,46 @@ function freePlanUpgradePrimaryCta() {
   };
 }
 
+function isMemberUpdateBannerDismissed() {
+  try {
+    const raw = localStorage.getItem(LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY) || "";
+    const at = Number(raw);
+    if (!Number.isFinite(at) || at <= 0) return false;
+    return (Date.now() - at) < MEMBER_UPDATE_BANNER_DISMISS_MS;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function dismissMemberUpdateBanner() {
+  try {
+    localStorage.setItem(LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY, String(Date.now()));
+  } catch (_error) { /* ignore */ }
+  const banner = document.querySelector("#memberUpdateBanner");
+  if (banner) banner.hidden = true;
+}
+
+function shouldShowMemberUpdateBanner() {
+  if (!isLoggedIn()) return false;
+  if (isMemberUpdateBannerDismissed()) return false;
+  if (document.body.classList.contains("auth-modal-open")) return false;
+  if (document.querySelector("#authModal.open, .modal.open[data-checkout], #resourceViewerModal.open")) return false;
+  if (document.querySelector("[data-enrich-editor].is-open, .tk-enrich-shell, .lesson-editor-view.active-view")) return false;
+  const activeView = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || "";
+  if (["", "home"].includes(activeView) && !isLoggedIn()) return false;
+  if (["signup", "login", "payment-success", "checkout", "plans"].includes(activeView)) return false;
+  if (typeof NewUserOnboarding?.isActive === "function" && NewUserOnboarding.isActive()) return false;
+  const site = typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null;
+  if (site && site.memberUpdateBannerEnabled === false) return false;
+  return true;
+}
+
+function refreshMemberUpdateBanner() {
+  const banner = document.querySelector("#memberUpdateBanner");
+  if (!banner) return;
+  banner.hidden = !shouldShowMemberUpdateBanner();
+}
+
 /** Persistent Free Plan badge + one header Upgrade. No stacked sidebar/reminder panels. */
 function refreshFreePlanUpgradeChrome() {
   let show = false;
@@ -58601,6 +58945,7 @@ function refreshFreePlanUpgradeChrome() {
     softNudge.hidden = true;
     softNudge.classList.remove("is-visible");
   }
+  try { refreshMemberUpdateBanner(); } catch (_error) { /* ignore */ }
   if (!show) {
     if (reminder) reminder.hidden = true;
     return;
@@ -62790,9 +63135,14 @@ document.addEventListener("click", async (event) => {
     const parentInfo = parentEmail
       ? (parentName ? `${parentName} <${parentEmail}>` : parentEmail)
       : (parentName || "");
+    const convertedName = String(lead.childName || "").trim();
+    if (isPlaceholderChildName(convertedName)) {
+      alert("This enrollment lead needs a real child name before it can become a profile. Update the lead name, then try again.");
+      return;
+    }
     const child = {
       id: `child-${Date.now()}`,
-      name: lead.childName || "New Child",
+      name: convertedName,
       parentInfo,
       classroom: matchedRoom?.name || lead.desiredRoom || "",
       classroomId: matchedRoom?.id || "",
@@ -66432,6 +66782,9 @@ document.addEventListener("click", async (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (document.querySelector("[data-llh-confirm-dialog]:not([hidden]), [data-llh-record-edit-dialog]:not([hidden]), #scheduleEventModal.open")) {
+    return;
+  }
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
     toggleLessonWorkspaceMoreMenu(false);
     return;
@@ -66531,41 +66884,30 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#userLessonPlanEditorForm")) {
     markUserLessonEditorDirty();
   }
-  if (event.target.matches("#lessonPlanSearch")) {
-    const query = event.target.value;
-    const selectionStart = event.target.selectionStart;
-    const selectionEnd = event.target.selectionEnd;
+  if (event.target.matches("#lessonPlanSearch") || event.target.matches("#activityCenterSearch")) {
+    const inputEl = event.target;
+    const query = inputEl.value;
+    const selectionStart = inputEl.selectionStart;
+    const selectionEnd = inputEl.selectionEnd;
+    const isActivity = inputEl.matches("#activityCenterSearch");
     searchInput.value = query;
-    lessonLibraryViewAllKey = "";
-    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
-    const restored = document.querySelector("#lessonPlanSearch");
-    if (restored) {
-      restored.focus();
-      try {
-        restored.setSelectionRange(selectionStart, selectionEnd);
-      } catch {
-        /* ignore selection restore failures on unsupported input types */
+    if (isActivity) activityLibraryViewAllKey = "";
+    else lessonLibraryViewAllKey = "";
+    if (librarySearchRemountTimer) clearTimeout(librarySearchRemountTimer);
+    librarySearchRemountTimer = setTimeout(() => {
+      librarySearchRemountTimer = null;
+      const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+      if (viewMap[activeView]) renderCategoryPage(activeView);
+      const restored = document.querySelector(isActivity ? "#activityCenterSearch" : "#lessonPlanSearch");
+      if (restored) {
+        restored.focus();
+        try {
+          restored.setSelectionRange(selectionStart, selectionEnd);
+        } catch {
+          /* ignore selection restore failures on unsupported input types */
+        }
       }
-    }
-  }
-  if (event.target.matches("#activityCenterSearch")) {
-    const query = event.target.value;
-    const selectionStart = event.target.selectionStart;
-    const selectionEnd = event.target.selectionEnd;
-    searchInput.value = query;
-    activityLibraryViewAllKey = "";
-    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
-    const restored = document.querySelector("#activityCenterSearch");
-    if (restored) {
-      restored.focus();
-      try {
-        restored.setSelectionRange(selectionStart, selectionEnd);
-      } catch {
-        /* ignore */
-      }
-    }
+    }, 200);
   }
   if (event.target.matches("#adminLessonPlanForm [name='title']")) {
     updateAdminLessonEditorHeading();
@@ -68718,6 +69060,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const memberUpdateDismiss = event.target.closest("[data-dismiss-member-update-banner]");
+  if (memberUpdateDismiss) {
+    event.preventDefault();
+    dismissMemberUpdateBanner();
+    return;
+  }
+
   const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome], [data-dismiss-free-starter]");
   if (freeWelcomeDismiss) {
     event.preventDefault();
@@ -68826,9 +69175,9 @@ document.querySelector("#adminAddDemo")?.addEventListener("click", () => {
   addDemoAdminResource();
 });
 
-document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminDashboard);
+document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminLegacyUploadsPanel);
 
-document.querySelector("#adminCategoryFilter")?.addEventListener("change", renderAdminDashboard);
+document.querySelector("#adminCategoryFilter")?.addEventListener("change", renderAdminLegacyUploadsPanel);
 document.querySelector("#adminNotifCategoryFilter")?.addEventListener("change", () => {
   fetchAdminNotificationCenter({ category: document.querySelector("#adminNotifCategoryFilter")?.value || "" })
     .then(() => renderAdminNotificationCenter())
@@ -69017,6 +69366,17 @@ function restoreDocHelperOriginalNote() {
   note.value = docHelperDraftState.originalNote;
 }
 
+let docHelperGenerating = false;
+
+function sanitizeDocHelperDraftText(text) {
+  return String(text || "")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/[!]{2,}/g, "!")
+    .replace(/[?]{2,}/g, "?")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function runDocHelperGeneration({ docType, note, childId, draftAction = "" } = {}) {
   const form = document.querySelector("#docHelperForm");
   const submitBtn = form?.querySelector("[type='submit']");
@@ -69026,14 +69386,16 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   const labelEl = document.querySelector("#docHelperResultLabel");
   const saveBtn = document.querySelector("#docHelperSaveBtn");
   if (!outputEl || !resultsEl || !note) return;
+  if (docHelperGenerating || submitBtn?.disabled) return;
 
-  if (!canUseAi()) {
+  if (!canUseAi() || (!isProUser() && aiUsageRemaining() <= 0 && serverAiUsed !== null)) {
     resultsEl.hidden = false;
     outputEl.textContent = aiLimitMessage();
     delete outputEl.dataset.rawMarkdown;
     if (titleEl) titleEl.textContent = "Limit Reached";
     if (labelEl) labelEl.textContent = "Notice";
     setDocHelperDraftActionsVisible(false);
+    updateDocHelperComposeHint();
     return;
   }
 
@@ -69043,11 +69405,25 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   // Never send a real child name to AI unless the provider explicitly selected that child.
   const childName = child?.name || "";
   // Do not invent an age group when none is on the child profile.
-  const ageGroup = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  const ageFromChild = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  const ageFromForm = normalizeAiAgeGroup(document.querySelector("#docHelperAge")?.value || "");
+  const ageGroup = ageFromChild || ageFromForm || "";
+  if (!ageGroup && ["lesson-plan", "activity-idea", "behavior-note", "daily-log"].includes(docType)) {
+    syncDocHelperAgeField();
+    resultsEl.hidden = false;
+    outputEl.textContent = "Choose an age group before generating this document, or select a child profile that already has an age.";
+    delete outputEl.dataset.rawMarkdown;
+    if (titleEl) titleEl.textContent = "Age needed";
+    if (labelEl) labelEl.textContent = "Notice";
+    setDocHelperDraftActionsVisible(false);
+    document.querySelector("#docHelperAge")?.focus();
+    return;
+  }
   const programName = settings.programName || "";
   const today = new Date().toISOString().slice(0, 10);
   const toolId = docHelperToolMap[docType] || "observation";
   const label = docTypeLabels[docType] || "Documentation";
+  docHelperGenerating = true;
 
   const missingFactWarnings = [];
   if (/incident/i.test(docType) && !/\b(when|where|time|date|location|happened)\b/i.test(note)) {
@@ -69142,10 +69518,11 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
-    outputEl.innerHTML = renderMarkdown(result.output);
-    outputEl.dataset.rawMarkdown = result.output;
-    docHelperDraftState.lastOutput = result.output;
-    renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
+    const cleaned = sanitizeDocHelperDraftText(result.output);
+    outputEl.innerHTML = renderMarkdown(cleaned);
+    outputEl.dataset.rawMarkdown = cleaned;
+    docHelperDraftState.lastOutput = cleaned;
+    renderAiDebugPanel("#docHelperDebugPanel", result.debug, cleaned);
     if (labelEl) labelEl.textContent = "Draft";
     if (hint) {
       hint.textContent = childId
@@ -69154,6 +69531,7 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
     }
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
+    updateDocHelperComposeHint();
     setDocHelperDraftActionsVisible(true);
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed), draftAction: draftAction || "create" });
     if (docType === "observation") trackEvent("observation_created", { source: "doc-helper" });
@@ -69177,6 +69555,7 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
       setDocHelperDraftActionsVisible(false);
     }
   } finally {
+    docHelperGenerating = false;
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Documentation"; }
     document.querySelectorAll("[data-doc-draft-action]").forEach((btn) => { btn.disabled = false; });
   }
@@ -69829,6 +70208,11 @@ document.addEventListener("submit", async (event) => {
   const form = event.target;
   const data = collectFormData(form);
   const editId = data.childId || activeChildProfileEditId || "";
+  if (isPlaceholderChildName(data.name)) {
+    alert("Please enter the child’s real first name before saving. Placeholder names like “Your Name” or “New Child” cannot be saved.");
+    form.querySelector("[name='name']")?.focus();
+    return;
+  }
   if (!editId && !isProUser() && childStore("Profiles").length >= effectiveFreeChildProfileLimit()) {
     showProFeatureModal(freeChildProfileLimitMessage, "limit");
     return;
@@ -71638,7 +72022,34 @@ window.addEventListener("scroll", () => {
   if (notificationBellState.open) positionNotificationBellPanel();
 }, { passive: true });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab") {
+    const confirmPanel = document.querySelector("[data-llh-confirm-dialog]:not([hidden]) .llh-confirm-panel");
+    if (confirmPanel && trapLlhDialogFocus(event, confirmPanel)) return;
+    const recordEditPanel = document.querySelector("[data-llh-record-edit-dialog]:not([hidden]) .llh-confirm-panel");
+    if (recordEditPanel && trapLlhDialogFocus(event, recordEditPanel)) return;
+    const scheduleCard = document.querySelector("#scheduleEventModal.open .modal-card");
+    if (scheduleCard && trapLlhDialogFocus(event, scheduleCard)) return;
+    const resourceCard = document.querySelector("#resourceViewerModal.open .resource-viewer-card, #resourceViewerModal.open .modal-card");
+    if (resourceCard && trapLlhDialogFocus(event, resourceCard)) return;
+  }
   if (event.key !== "Escape") return;
+  const confirmDialog = document.querySelector("[data-llh-confirm-dialog]:not([hidden])");
+  if (confirmDialog) {
+    event.preventDefault();
+    closeConfirmActionDialog(false);
+    return;
+  }
+  const recordEditDialog = document.querySelector("[data-llh-record-edit-dialog]:not([hidden])");
+  if (recordEditDialog) {
+    event.preventDefault();
+    closeChildRecordEditDialog(false);
+    return;
+  }
+  if (document.querySelector("#scheduleEventModal.open")) {
+    event.preventDefault();
+    closeCalendarAddItemDialog();
+    return;
+  }
   if (notificationBellState.open) {
     toggleNotificationBellPanel(false);
     return;

@@ -617,11 +617,17 @@
 
   function messageBubbleHtml(message) {
     const mine = message.senderType === "user";
+    const automated = !mine && (
+      message.isAutomation === true
+      || String(message.channel || "").toLowerCase() === "onboarding_welcome"
+      || Boolean(message.onboardingSequenceId)
+    );
     const who = mine ? "You" : (message.senderName || "Leah");
+    const label = automated ? `${who} · Automated welcome` : who;
     return `
-      <div class="message-bubble ${mine ? "message-bubble-mine" : "message-bubble-admin"}">
+      <div class="message-bubble ${mine ? "message-bubble-mine" : "message-bubble-admin"}${automated ? " message-bubble-automation" : ""}">
         <div class="message-bubble-meta">
-          <strong>${escapeHtml(who)}</strong>
+          <strong>${escapeHtml(label)}</strong>
           <span>${escapeHtml(messagingRelativeTime(message.createdAt))}</span>
         </div>
         <div class="message-bubble-body">${escapeHtml(message.body || "").replace(/\n/g, "<br>")}</div>
@@ -828,8 +834,19 @@
           }))
           : (Array.isArray(data.archived) ? data.archived : []);
         const unread = Array.isArray(data.unread)
-          ? data.unread
+          ? data.unread.map((item) => ({
+            id: item.id,
+            title: item.title || "Update",
+            preview: item.preview || item.body || "",
+            createdAt: item.createdAt,
+            unread: true,
+            kind: item.kind || item.type || "announcement",
+            source: item.source || (item.kind === "message" ? "conversation" : "inbox"),
+          }))
           : inbox.filter((i) => i.unread);
+        const unreadCount = Number.isFinite(Number(data.unreadCount))
+          ? Number(data.unreadCount)
+          : unread.length;
         return {
           ok: true,
           data: {
@@ -842,7 +859,7 @@
             bugs,
             archived,
             unread,
-            unreadCount: Number(data.unreadCount) || unread.length,
+            unreadCount,
             feedback: Array.isArray(data.feedback) ? data.feedback : [],
           },
         };
@@ -884,15 +901,21 @@
       raw: item,
     }));
 
+    // Fallback unread: announcements from inbox + unread DM notifications from the bell payload.
+    // Do not use message.read — member publicMessage historically omitted that field.
+    const bellUnread = (typeof window.notificationBellState === "object" && Array.isArray(window.notificationBellState?.items))
+      ? window.notificationBellState.items.filter((item) => !item.read && (item.type === "message" || item.conversationEmail))
+      : [];
     const unread = [
       ...inbox.filter((i) => i.unread),
-      ...conversation.filter((m) => m.senderType === "admin" && m.read === false).map((m) => ({
-        id: m.id,
-        title: m.subject || "Message from Leah",
-        preview: m.body,
-        createdAt: m.createdAt,
+      ...bellUnread.map((item) => ({
+        id: item.id,
+        title: item.title || "Message from Leah",
+        preview: item.body || item.preview || "",
+        createdAt: item.createdAt,
         unread: true,
         kind: "message",
+        source: "conversation",
       })),
     ];
 
@@ -949,17 +972,25 @@
     const tab = myMessagesState.tab;
     const unreadCount = (myMessagesState.data.unread || []).length;
     return `
-      <div class="messages-tabs messages-center-tabs" role="tablist">
+      <div class="messages-tabs messages-center-tabs" role="tablist" aria-label="Message folders">
         ${MESSAGES_TABS.map((t) => {
+          const panelId = `messages-tabpanel-${t.id}`;
+          const selected = tab === t.id;
+          const unreadSuffix = t.id === "unread" && unreadCount
+            ? `, ${unreadCount} unread`
+            : "";
           const badge = t.id === "unread" && unreadCount
-            ? ` <span class="messages-tab-dot" aria-label="${unreadCount} unread"></span>`
+            ? ` <span class="messages-tab-dot" aria-hidden="true"></span>`
             : "";
           return `
             <button type="button"
-              class="messages-tab${tab === t.id ? " active" : ""}"
+              class="messages-tab${selected ? " active" : ""}"
               data-messages-center-tab="${escapeHtml(t.id)}"
+              id="messages-tab-${escapeHtml(t.id)}"
               role="tab"
-              aria-selected="${tab === t.id}">${escapeHtml(t.label)}${badge}</button>
+              aria-controls="${panelId}"
+              aria-selected="${selected}"
+              aria-label="${escapeHtml(t.label)}${unreadSuffix}">${escapeHtml(t.label)}${badge}</button>
           `;
         }).join("")}
       </div>
@@ -1163,7 +1194,7 @@
             <h3>Notification Settings</h3>
           </div>
         </div>
-        <p class="muted-copy">Manage push notifications from Messages → Notification Settings, or open Settings → Push Notifications.</p>
+        <p class="muted-copy">Manage push notifications here in Messages → Notification Settings. Email reminders live under Settings → Notifications.</p>
         <button type="button" class="ghost-button" data-messages-center-action="prefs-link">Open notification preferences</button>
       </section>
     `;
@@ -1201,7 +1232,12 @@
         </div>
         ${foundingCard}
         ${renderMessagesCenterTabs()}
-        <div class="messages-tab-panel" id="messagesCenterPanel">
+        <div
+          class="messages-tab-panel"
+          id="messages-tabpanel-${escapeHtml(myMessagesState.tab || "inbox")}"
+          role="tabpanel"
+          aria-labelledby="messages-tab-${escapeHtml(myMessagesState.tab || "inbox")}"
+        >
           ${myMessagesState.loading
             ? `<p class="messages-loading">Loading your messages…</p>`
             : myMessagesState.error
@@ -1243,16 +1279,25 @@
       return;
     }
 
+    if (options.tab && MESSAGES_TABS.some((t) => t.id === options.tab)) {
+      myMessagesState.tab = options.tab;
+    } else if (options.conversation) {
+      myMessagesState.tab = "conversation";
+    }
+
     if (options.silent) {
       await refreshMyMessagesCenterLive();
       startMemberMessagesLiveRefresh();
       return;
     }
 
-    if (options.tab && MESSAGES_TABS.some((t) => t.id === options.tab)) {
-      myMessagesState.tab = options.tab;
-    } else if (options.conversation) {
-      myMessagesState.tab = "conversation";
+    // Already-loaded centers skip the loading shell flash; refresh in place.
+    if (myMessagesState.loaded && !options.forceReload) {
+      paintMyMessagesCenter();
+      refreshMyMessagesCenterLive().catch(() => {});
+      startMemberMessagesLiveRefresh();
+      trackEvent("messages_center_view", { tab: myMessagesState.tab, cached: true });
+      return;
     }
 
     myMessagesState.loading = true;
@@ -1416,22 +1461,17 @@
       ? new Date(joinDate).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
       : "—";
     const memberNumber = account.foundingMemberNumber ? `#${account.foundingMemberNumber}` : "";
-    const remaining = foundingSpotsRemainingSafe();
-    const spotsNote = remaining > 0
-      ? `${remaining} founding spot${remaining === 1 ? "" : "s"} remaining for new members.`
-      : "Founding membership is closed to new members.";
-
+    // Member Settings/Messages card: thank-you only — never acquisition / spots-remaining copy.
     const html = `
       <section class="founding-experience-card" aria-label="Founding Member experience">
-        <div class="founding-experience-badge">⭐ Founding Member${memberNumber ? ` ${escapeHtml(memberNumber)}` : ""}</div>
+        <div class="founding-experience-badge">Founding Member${memberNumber ? ` ${escapeHtml(memberNumber)}` : ""}</div>
         <h3>Thank you for being a Founding Member</h3>
-        <p>You have $9.99/month locked while your membership remains continuously active and early access to new features as Little Learner Hub grows.</p>
+        <p>Your $9.99/month rate stays locked while your membership remains continuously active. Thank you for helping Little Learner Hub grow.</p>
         <dl class="founding-experience-meta">
           <div><dt>Joined</dt><dd>${escapeHtml(joinLabel)}</dd></div>
           <div><dt>Pricing</dt><dd>$9.99/month locked while continuously active</dd></div>
-          <div><dt>Access</dt><dd>Early access to new features</dd></div>
+          <div><dt>Access</dt><dd>Full Pro membership benefits</dd></div>
         </dl>
-        <p class="muted-copy founding-spots-note">${escapeHtml(spotsNote)}</p>
       </section>
     `;
 
@@ -2804,7 +2844,7 @@
       if (typeof window.markNotificationRead === "function") {
         await window.markNotificationRead({ all: true });
       }
-      await renderMyMessagesCenter({ tab: myMessagesState.tab || "unread" });
+      await renderMyMessagesCenter({ tab: myMessagesState.tab || "unread", silent: myMessagesState.loaded });
       refreshNotificationBellSafe();
       return;
     }
@@ -2817,7 +2857,7 @@
         await window.markNotificationRead({ id });
       }
       // Keep the item visible; refresh counts after an explicit open/mark action.
-      await renderMyMessagesCenter({ tab: myMessagesState.tab || "inbox" });
+      await renderMyMessagesCenter({ tab: myMessagesState.tab || "inbox", silent: myMessagesState.loaded });
       refreshNotificationBellSafe();
       return;
     }

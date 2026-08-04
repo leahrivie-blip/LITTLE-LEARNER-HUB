@@ -31,23 +31,15 @@ const TEMPLATE_VARIABLES = Object.freeze([
 const DEFAULT_FOUNDING_SECTION_TEXT = "";
 
 const FREE_WELCOME_BODY = [
-  "Thank you so much for joining Little Learner Hub!",
+  "Welcome to Little Learner Hub — I’m so glad you’re here.",
   "",
-  "I’m so happy you’re here. As a childcare provider myself, I created this platform to save educators time, reduce stress, and make lesson planning easier.",
+  "As a Free Member, you can explore included lesson plans, activities, and resources right away.",
   "",
-  "As a Free Member, you can start exploring free lesson plans, activities, and resources right away.",
+  "Have an idea or need something specific for your classroom? Reply here anytime. I read every message.",
   "",
-  "One thing that makes Little Learner Hub different is that it’s constantly growing. I build new features, lesson plans, and tools based on what childcare providers actually need.",
+  "Whenever you’re ready, Pro unlocks the complete curriculum library and premium tools.",
   "",
-  "Have an idea that would make your day easier? Looking for a specific theme, age group, activity, or feature?",
-  "",
-  "Send me a message anytime through Little Learner Hub.",
-  "",
-  "I personally read every message, and many of the updates you see are inspired by suggestions from providers just like you. I’m building this platform for you, so your feedback truly matters.",
-  "",
-  "Whenever you’re ready, you can upgrade to Pro to unlock the complete curriculum library, premium tools, and every new feature as it’s released.",
-  "",
-  "Thank you again for being here. I can’t wait to keep building Little Learner Hub with you! 💜",
+  "Thank you for joining. — Leah",
 ].join("\n");
 
 const TRIAL_WELCOME_BODY = [

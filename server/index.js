@@ -1070,6 +1070,8 @@ function defaultFreePlanAccessStore() {
 
 function defaultSiteContentStore() {
   return {
+    // Temporary logged-in member update banner (admin can set false to disable immediately).
+    memberUpdateBannerEnabled: true,
     lessonPlans: {},
     customLessonPlans: [],
     activities: [],
@@ -3225,6 +3227,8 @@ function normalizedSiteContent(value) {
     },
     freePlanAccess: normalizedFreePlanAccess(input.freePlanAccess),
     featureFlags: normalizedFeatureFlags(input.featureFlags),
+    // Temporary member update banner — explicit false disables immediately; otherwise on.
+    memberUpdateBannerEnabled: input.memberUpdateBannerEnabled !== false,
     curriculum: normalizedCurriculumStore(input.curriculum),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
     teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
@@ -24036,6 +24040,10 @@ function isDuplicateSend(fingerprint) {
 
 function publicMessage(message, options = {}) {
   const adminView = options.admin === true;
+  const isWelcome = adminMessagingInbox.isWelcomeAutomationMessage(message)
+    || String(message.channel || "").toLowerCase() === "onboarding_welcome"
+    || String(message.onboardingSequenceId || "").trim().length > 0
+    || message.isAutomation === true;
   const payload = {
     id: message.id,
     kind: message.kind,
@@ -24051,10 +24059,15 @@ function publicMessage(message, options = {}) {
     createdAt: message.createdAt,
     sentAt: message.sentAt || message.createdAt,
     pushSummary: message.pushSummary || null,
+    // Members need automation labels in the conversation thread.
+    isAutomation: Boolean(isWelcome || message.isAutomation),
   };
+  if (isWelcome) {
+    payload.channel = "onboarding_welcome";
+    payload.onboardingSequenceId = String(message.onboardingSequenceId || "free-welcome");
+  }
   if (adminView) {
     payload.deliverVia = message.deliverVia || "in_app";
-    const isWelcome = adminMessagingInbox.isWelcomeAutomationMessage(message);
     if (isWelcome) {
       payload.channel = "onboarding_welcome";
       payload.onboardingSequenceId = String(message.onboardingSequenceId || "free-welcome");
@@ -26210,36 +26223,44 @@ async function handleReleaseNoteUpdate(request, response) {
   await respondAfterPersist(store, response, 200, { releaseNote: publicReleaseNote(items[index]) }, "Could not save release note.");
 }
 
-function ensureDefaultReleaseNotes(store) {
-  store.releaseNotes = Array.isArray(store.releaseNotes) ? store.releaseNotes : [];
-  const hasPublished = store.releaseNotes.some((note) => note && note.status === "published");
-  if (hasPublished) return false;
-  const now = new Date().toISOString();
-  store.releaseNotes.unshift({
-    id: "release-family-hub-beta-seed",
-    version: "Family Hub beta",
-    releaseDate: now.slice(0, 10),
+function customerFacingStarterReleaseNote(now = new Date().toISOString()) {
+  return {
+    id: "release-august-2026-member-updates",
+    version: "August 2026 updates",
+    releaseDate: "2026-08-01",
     featuresAdded: [
-      "Family Hub parent app with Today, Photos, Messages, Calendar, Forms, and More",
-      "Parent form signing so providers see acknowledgements in real time",
-      "Magic-link invite flow with tokens stripped from analytics and referrers",
-    ],
-    bugsFixed: [
-      "Lesson plan close (X) no longer gets stuck on history navigation",
-      "Membership badge and feature access stay on one authoritative state",
-      "Tester roles stay scoped to the signed-in account on shared browsers",
+      "Clearer Free onboarding so new providers can pick Free once and start exploring right away",
+      "Behavior & Support library with practical classroom tips for everyday challenges",
     ],
     improvements: [
-      "Daily lesson materials no longer repeat the full weekly list every day",
-      "AI Tools shows Checking… instead of a false Needs attention state",
-      "Calendar and Settings labels cleaned up for clearer navigation",
+      "Lesson-to-calendar assignment keeps the lesson content you selected",
+      "Lesson PDF downloads work more reliably from the lesson viewer",
+      "Free lesson and activity access labels are clearer about what is included",
+      "Settings hub is simpler: account, notifications, billing, and support in one place",
+    ],
+    bugsFixed: [
+      "Removed unfinished Settings cards that did not change live product behavior",
+      "Cleaned up overlapping support and feedback entry points",
     ],
     lessonPlanAdditions: [],
     activityAdditions: [],
     status: "published",
     createdAt: now,
     updatedAt: now,
-  });
+  };
+}
+
+function ensureDefaultReleaseNotes(store) {
+  store.releaseNotes = Array.isArray(store.releaseNotes) ? store.releaseNotes : [];
+  const now = new Date().toISOString();
+  // Replace accidental Family Hub beta seed — that surface is testing-only, not member What's New.
+  const familyHubSeedIdx = store.releaseNotes.findIndex((note) => note && note.id === "release-family-hub-beta-seed");
+  if (familyHubSeedIdx >= 0) {
+    store.releaseNotes.splice(familyHubSeedIdx, 1);
+  }
+  const hasPublished = store.releaseNotes.some((note) => note && note.status === "published");
+  if (hasPublished) return familyHubSeedIdx >= 0;
+  store.releaseNotes.unshift(customerFacingStarterReleaseNote(now));
   return true;
 }
 

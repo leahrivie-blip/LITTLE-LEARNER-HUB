@@ -47,6 +47,8 @@
     "test:teaching-kit-enrichment-draft-reliability": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-draft-reliability.js",
     "test:teaching-kit-editor-nav-recovery": "NODE_ENV=test node scripts/test-teaching-kit-editor-nav-recovery.js",
     "test:teaching-kit-publish-gates-ai-state": "NODE_ENV=test node scripts/test-teaching-kit-publish-gates-ai-state.js",
+    "test:teaching-kit-fixture-smoke": "NODE_ENV=test node scripts/test-teaching-kit-fixture-smoke.js",
+    "test:settings-whatsnew-behavior": "NODE_ENV=test node scripts/test-settings-whatsnew-behavior.js",
     "test:teaching-kit-enrichment-qa": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-qa.js",
     "test:owner-notification-email": "NODE_ENV=test node scripts/test-owner-notification-email.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
@@ -312,7 +314,11 @@
     "test:ai-guide-button-audit": "node scripts/test-ai-guide-button-audit.js",
     "test:auth-modal-button-audit": "node scripts/test-auth-modal-button-audit.js",
     "test:teaching-kit-phase1-qa": "NODE_ENV=test node scripts/test-teaching-kit-phase1-qa.js",
-    "test:teaching-kit-production-smoke": "NODE_ENV=test node scripts/test-teaching-kit-production-smoke.js"
+    "test:teaching-kit-production-smoke": "NODE_ENV=test node scripts/test-teaching-kit-production-smoke.js",
+    "test:profiles-logs-docs": "NODE_ENV=test node scripts/test-profiles-logs-docs.js",
+    "test:messaging-nav-banner": "NODE_ENV=test node scripts/test-messaging-nav-banner.js",
+    "test:mobile-a11y-pass": "NODE_ENV=test node scripts/test-mobile-a11y-pass.js",
+    "test:perf-bounded-fixes": "NODE_ENV=test node scripts/test-perf-bounded-fixes.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
