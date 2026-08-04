@@ -123,7 +123,7 @@ function staticChecks() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const accessJs = fs.readFileSync(path.join(ROOT, "scripts/membership-access.js"), "utf8");
 
-  assert.match(serverJs, /subscription_data\[trial_period_days\]"\]\s*=\s*"7"/);
+  assert.match(serverJs, /subscription_data\[trial_period_days\]"\]\s*=\s*String\(STANDARD_TRIAL_DAYS\)/);
   assert.match(serverJs, /payment_method_collection:\s*"always"/);
   assert.match(serverJs, /trialExtensionSource\s*=\s*"manual_admin"/);
   assert.match(serverJs, /manualTrialExtensionDays/);
