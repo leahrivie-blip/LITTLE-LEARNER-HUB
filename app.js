@@ -13817,8 +13817,14 @@ async function loginWithProvider(email, password) {
   try {
     return await loginWithServerPassword(cleanEmail, password);
   } catch (serverError) {
+    const serverMsg = String(serverError?.message || "");
+    // Never fall back to a local password hash when the server says the account is disabled.
+    if (/disabled|contact support/i.test(serverMsg)) throw serverError;
     const account = accounts()[cleanEmail];
     if (!account) throw serverError;
+    if (String(account.accountStatus || "").toLowerCase() === "disabled" || account.disabled === true) {
+      throw new Error("This account has been disabled. Please contact support.");
+    }
     if (account.passwordHash) {
       const hash = await localPasswordHash(password);
       if (hash !== account.passwordHash) throw serverError;
