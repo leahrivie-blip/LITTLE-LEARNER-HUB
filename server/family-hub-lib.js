@@ -97,6 +97,7 @@ function publicSharedItem(item = {}, type = "item") {
     summary: String(item.summary || item.notes || item.message || item.observationText || item.caption || "").trim(),
     date: String(item.date || item.createdAt || item.updatedAt || "").slice(0, 10),
     category: String(item.category || item.type || "").trim(),
+    sourceType: String(item.type || item.category || "").trim(),
     url: String(item.url || item.photoUrl || item.src || "").trim(),
     mood: String(item.mood || "").trim(),
     time: String(item.time || item.napStart || item.napEnd || item.dropoff || item.pickup || "").trim(),
@@ -349,6 +350,40 @@ function buildFamilyHubToday({
 
   const upcoming = (Array.isArray(events) ? events : []).slice(0, 5);
 
+  const isAnnouncementItem = (item) => {
+    const cat = String(item?.category || item?.sourceType || item?.type || "").toLowerCase();
+    return /announce|reminder|closure|program note/.test(cat);
+  };
+  const announcements = onDay(data.Communications, "note").filter(isAnnouncementItem);
+
+  const storyBits = [];
+  if (mood?.value) storyBits.push(`${firstName} seemed ${String(mood.value).toLowerCase()}`);
+  if (attendance.some((item) => /present|checked|here/i.test(String(item.status || "")))) {
+    storyBits.push("checked in");
+  } else if (attendance.some((item) => /absent/i.test(String(item.status || "")))) {
+    storyBits.push("marked absent today");
+  }
+  if (meals.length) storyBits.push(meals.length === 1 ? "had a meal logged" : "enjoyed meals");
+  if (naps.length) storyBits.push("got rest time");
+  if (diapers.length) storyBits.push("care updates shared");
+  if (activities.length || observations.length) storyBits.push("had learning moments");
+  if (photos.length) storyBits.push(photos.length === 1 ? "1 new photo" : `${photos.length} new photos`);
+  if (reports.length) storyBits.push("daily report ready");
+  const dayStory = storyBits.length
+    ? storyBits.join(" · ")
+    : (focusChild
+      ? `Waiting for today’s updates from ${firstName}’s teacher.`
+      : "Your household updates will show here.");
+
+  const carePulse = [
+    mood ? { key: "mood", label: "Mood", value: String(mood.value) } : null,
+    attendance[0] ? { key: "attendance", label: "Attendance", value: attendance[0].status || "Present" } : null,
+    meals.length ? { key: "meals", label: "Meals", value: String(meals.length) } : null,
+    naps.length ? { key: "naps", label: "Naps", value: String(naps.length) } : null,
+    diapers.length ? { key: "care", label: "Care", value: String(diapers.length) } : null,
+    photos.length ? { key: "photos", label: "Photos", value: String(photos.length) } : null,
+  ].filter(Boolean);
+
   return {
     date: day,
     childId: focusId,
@@ -357,6 +392,8 @@ function buildFamilyHubToday({
     greetingLine: focusChild
       ? `Here’s how ${firstName}’s day is going.`
       : "Your household updates will show here.",
+    dayStory,
+    carePulse,
     mood,
     attendance,
     meals,
@@ -364,14 +401,46 @@ function buildFamilyHubToday({
     diapers,
     activities,
     observations,
-    teacherNotes: notes,
+    teacherNotes: notes.filter((item) => !isAnnouncementItem(item)),
+    announcements,
     photos,
     reports,
     messages: recentMessages,
     upcomingEvents: upcoming,
     empty: !mood && !attendance.length && !meals.length && !naps.length && !diapers.length && !activities.length
       && !observations.length && !notes.length && !photos.length && !reports.length
-      && !recentMessages.length && !upcoming.length,
+      && !recentMessages.length && !upcoming.length && !announcements.length,
+  };
+}
+
+function buildFamilyContacts(childData = null, childIds = []) {
+  const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
+  return (Array.isArray(childData?.Profiles) ? childData.Profiles : [])
+    .filter((profile) => idSet.has(String(profile?.id || "")))
+    .map((profile) => ({
+      childId: String(profile.id || ""),
+      childName: String(profile.name || "Child").trim() || "Child",
+      parentInfo: String(profile.parentInfo || "").trim(),
+      emergencyContact: String(profile.emergencyContact || profile.emergency || profile.emergencyContacts || "").trim(),
+      pickupContacts: String(profile.pickupContacts || profile.authorizedPickup || profile.authorizedPickups || "").trim(),
+      allergies: String(profile.allergies || "").trim(),
+      notes: String(profile.familyNotes || profile.notes || "").trim(),
+    }));
+}
+
+function publicFamilyRequest(item = {}) {
+  return {
+    id: String(item.id || ""),
+    type: String(item.type || "").trim() || "request",
+    childId: String(item.childId || "").trim(),
+    childName: String(item.childName || "").trim(),
+    date: String(item.date || "").trim(),
+    time: String(item.time || "").trim(),
+    details: String(item.details || item.notes || "").trim(),
+    status: String(item.status || "pending").trim() || "pending",
+    createdAt: String(item.createdAt || "").trim(),
+    createdBy: String(item.createdBy || "").trim(),
+    updatedAt: String(item.updatedAt || "").trim(),
   };
 }
 
@@ -424,7 +493,15 @@ function publicFamilyMessage(msg = {}) {
 /** Bridge shared child Communications into the Family Hub message thread. */
 function sharedCommunicationsAsMessages(childData = null, childIds = [], householdId = "") {
   const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
-  const allowed = new Set(["parent message", "teacher note", "message", "note to family"]);
+  const allowed = new Set([
+    "parent message",
+    "teacher note",
+    "message",
+    "note to family",
+    "announcement",
+    "reminder",
+    "program note",
+  ]);
   return (Array.isArray(childData?.Communications) ? childData.Communications : [])
     .filter((item) => (
       item
@@ -437,7 +514,14 @@ function sharedCommunicationsAsMessages(childData = null, childIds = [], househo
       const body = String(item.message || item.summary || item.notes || item.body || "").trim();
       if (!body) return null;
       if (type.includes("mood") || type.includes("incident")) return null;
-      if (type && !allowed.has(type) && !type.includes("message") && !type.includes("note")) return null;
+      if (
+        type
+        && !allowed.has(type)
+        && !type.includes("message")
+        && !type.includes("note")
+        && !type.includes("announce")
+        && !type.includes("reminder")
+      ) return null;
       return {
         id: `comm-${String(item.id || "")}`,
         householdId: String(householdId || ""),
@@ -1021,6 +1105,7 @@ module.exports = {
   buildSharedFamilyFeed,
   buildFamilyHubToday,
   buildFamilyHubCalendar,
+  buildFamilyContacts,
   familyHubDemoPhotoUri,
   familyHubDemoPortraitUri,
   liveDocumentsForChildren,
@@ -1033,6 +1118,7 @@ module.exports = {
   publicSharedItem,
   publicFamilyMessage,
   publicFamilyNotification,
+  publicFamilyRequest,
   defaultHouseholdSettings,
   todayIso,
   addDaysIso,

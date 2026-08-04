@@ -88,7 +88,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-forms-phase1[bc]?"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-(forms-phase1[bc]?|family-hub-phase2)"/);
   assert.match(indexHtml, /llhPendingUrlSecrets/);
   assert.match(indexHtml, /referrer" content="strict-origin-when-cross-origin"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);

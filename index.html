@@ -150,7 +150,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-forms-phase1c";
+      var SHELL_VERSION = "20260804-family-hub-phase2";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");

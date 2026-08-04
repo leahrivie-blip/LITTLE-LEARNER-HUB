@@ -22496,6 +22496,96 @@ body.family-hub-parent-mode .simple-child-page {
   box-shadow: none;
 }
 
+.fh-day-story {
+  margin: 6px 0 0;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  color: var(--fh-ink, #243447);
+}
+
+.fh-care-pulse {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
+  animation: fhSoftIn 480ms ease both;
+}
+
+.fh-care-chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 72px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(61, 126, 166, 0.16);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.fh-care-chip em {
+  font-style: normal;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fh-muted, #4a5563);
+}
+
+.fh-care-chip strong {
+  font-size: 0.95rem;
+  color: var(--fh-accent-deep, #2f5f7d);
+}
+
+.fh-care-chip--mood { background: rgba(255, 214, 170, 0.35); }
+.fh-care-chip--meals { background: rgba(186, 230, 201, 0.35); }
+.fh-care-chip--naps { background: rgba(196, 214, 240, 0.45); }
+.fh-care-chip--photos { background: rgba(244, 210, 224, 0.4); }
+
+.fh-pending-forms {
+  display: grid;
+  gap: 8px;
+}
+
+.fh-pending-form {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(184, 106, 47, 0.28);
+  background: rgba(255, 244, 230, 0.9);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fh-pending-form span {
+  color: var(--fh-muted, #4a5563);
+  font-size: 0.9rem;
+}
+
+.fh-story-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--fh-line, rgba(36, 52, 71, 0.12));
+}
+
+.fh-contact-card {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--fh-line, rgba(36, 52, 71, 0.1));
+}
+
+.fh-contact-card:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+
 .fh-preview-banner {
   display: grid;
   gap: 4px;
@@ -23246,6 +23336,24 @@ body.family-hub-parent-mode .settings-check-label {
   .fh-today-hero {
     grid-template-columns: 64px 1fr;
     padding: 14px 12px;
+  }
+
+  .fh-care-pulse {
+    gap: 6px;
+  }
+
+  .fh-care-chip {
+    min-width: 64px;
+    padding: 7px 8px;
+  }
+
+  .fh-pending-form,
+  .fh-story-card {
+    border-radius: 12px;
+  }
+
+  .fh-day-story {
+    font-size: 0.98rem;
   }
 
   .fh-child-avatar {
