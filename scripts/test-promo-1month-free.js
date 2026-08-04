@@ -17,7 +17,7 @@ const PORT = 19610 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-promo1m-${crypto.randomBytes(4).toString("hex")}.json`);
 const FOUNDING_LIMIT = 50;
 
-function requestJson(method, urlPath, body) {
+function requestJson(method, urlPath, body, options = {}) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const req = http.request(
@@ -26,9 +26,12 @@ function requestJson(method, urlPath, body) {
         port: PORT,
         path: urlPath,
         method,
-        headers: payload
-          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
-          : {},
+        headers: {
+          ...(payload
+            ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
+            : {}),
+          ...(options.headers || {}),
+        },
         timeout: 30000,
       },
       (res) => {
@@ -268,7 +271,9 @@ async function main() {
       const before = readStoreFile();
       assert.ok(before.foundingMembers.includes(email));
 
-      const cancel = await requestJson("POST", "/api/cancel-subscription", { email });
+      const cancel = await requestJson("POST", "/api/cancel-subscription", { email }, {
+        headers: { Authorization: `Bearer test:${email}`, "X-LLH-User-Email": email },
+      });
       assert.equal(cancel.status, 200, JSON.stringify(cancel.json));
       assert.equal(cancel.json.inFreeMonth, true);
       assert.equal(cancel.json.foundingSpotReleased, true);
@@ -317,7 +322,9 @@ async function main() {
       child = startServer();
       await waitForBoot(child);
 
-      const cancel = await requestJson("POST", "/api/cancel-subscription", { email });
+      const cancel = await requestJson("POST", "/api/cancel-subscription", { email }, {
+        headers: { Authorization: `Bearer test:${email}`, "X-LLH-User-Email": email },
+      });
       assert.equal(cancel.status, 200, JSON.stringify(cancel.json));
       assert.equal(cancel.json.foundingSpotReleased, false);
       assert.equal(cancel.json.inFreeMonth, false);

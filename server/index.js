@@ -7811,10 +7811,17 @@ async function handleAccountProfileSync(request, response) {
     updates.programName = businessName;
   }
   if (accountType) updates.accountType = accountType;
+  // Role changes for established accounts go through staff invites / admin tools.
+  // Profile sync may only set role on first signup or when the stored role is blank
+  // (migration). Never allow privilege escalation via an unauthenticated body field.
   if (role) {
     const linkedOwner = normalizeEmail(existing.linkedProgramOwnerEmail || "");
     const isLinkedMember = Boolean(linkedOwner && linkedOwner !== email);
-    if (!(isLinkedMember && role === accountAccess.USER_ROLES.OWNER)) {
+    const existingRole = existing.role ? accountAccess.normalizeUserRole(existing.role) : "";
+    const isNewSignup = Boolean(body.signup === true && !existing.signupAt);
+    const canSetRole = (isNewSignup || !existingRole)
+      && !(isLinkedMember && role === accountAccess.USER_ROLES.OWNER);
+    if (canSetRole) {
       updates.role = role;
     }
   }
@@ -9788,13 +9795,40 @@ async function handleCheckoutStatus(request, response, url) {
   }
 }
 
+async function requireMatchingBillingIdentity(request, email) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    const err = new Error(error?.message || "Please log in before managing billing.");
+    err.statusCode = 401;
+    throw err;
+  }
+  if (normalizeEmail(identity.email) !== normalizeEmail(email)) {
+    const err = new Error("Billing actions are only allowed for the signed-in account.");
+    err.statusCode = 403;
+    throw err;
+  }
+  return identity;
+}
+
 async function handlePortal(request, response) {
-  if (!requireStripe(response)) return;
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  try {
+    await requireMatchingBillingIdentity(request, email);
+  } catch (error) {
+    jsonResponse(response, error.statusCode || 401, { error: error.message || "Please log in before managing billing." });
+    return;
+  }
+  if (!requireStripe(response)) return;
   const store = readStore();
   const user = store.users?.[email];
-  if (!email || !user?.stripeCustomerId) {
+  if (!user?.stripeCustomerId) {
     jsonResponse(response, 400, { error: "No Stripe customer found for this account yet." });
     return;
   }
@@ -10343,6 +10377,12 @@ async function handleCancelSubscription(request, response) {
   const email = normalizeEmail(body.email);
   if (!email) {
     jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  try {
+    await requireMatchingBillingIdentity(request, email);
+  } catch (error) {
+    jsonResponse(response, error.statusCode || 401, { error: error.message || "Please log in before managing billing." });
     return;
   }
   const store = readStore();
@@ -16086,8 +16126,10 @@ function listProgramMembers(store, ownerEmail) {
 }
 
 function canManageStaffInvites(user = {}) {
+  // Owner/director only — never treat a missing/blank role as an implicit manager
+  // beyond the owner default below (teachers/assistants must stay blocked).
   const role = String(user.role || "owner").trim().toLowerCase();
-  return role === "owner" || role === "director" || !user.role;
+  return role === "owner" || role === "director";
 }
 
 async function resolveStaffIdentity(request) {
@@ -25608,7 +25650,7 @@ async function handleMemberInbox(request, response) {
   const broadcastNotifications = store.notifications
     .filter((n) => {
       if (normalizeEmail(n.email) !== myEmail || n.conversationEmail) return false;
-      if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return false;
+      if (isAdminOnlyNotificationType(n.type)) return false;
       return n.type === "message" || n.type === "announcement" || n.type === "feature_update";
     })
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
@@ -25635,7 +25677,7 @@ async function handleMemberMarkRead(request, response) {
   let updated = 0;
   store.notifications.forEach((n) => {
     if (normalizeEmail(n.email) !== myEmail || n.read) return;
-    if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return;
+    if (isAdminOnlyNotificationType(n.type)) return;
     const matchesConversation = body.conversationEmail
       && normalizeEmail(n.conversationEmail) === normalizeEmail(body.conversationEmail);
     const matchesId = Array.isArray(body.notificationIds) && body.notificationIds.includes(n.id);
@@ -25660,10 +25702,11 @@ async function handleMemberNotificationsList(request, response, url) {
   }
   const store = ensureMessagingStore(readStore());
   const myEmail = normalizeEmail(identity.email);
-  const allowAdminTypes = isConfiguredAdminEmail(myEmail);
+  // Provider/member channel never includes admin_* alerts — even for configured
+  // owner emails. Admin alerts are only exposed via /api/admin/notifications.
   const mine = store.notifications
     .filter((n) => normalizeEmail(n.email) === myEmail)
-    .filter((n) => allowAdminTypes || !isAdminOnlyNotificationType(n.type))
+    .filter((n) => !isAdminOnlyNotificationType(n.type))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
   const unreadCount = mine.filter((n) => !n.read).length;
@@ -25687,7 +25730,8 @@ async function handleMemberNotificationsMarkAllRead(request, response) {
   let updated = 0;
   store.notifications.forEach((n) => {
     if (normalizeEmail(n.email) !== myEmail || n.read) return;
-    if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return;
+    // Never mark admin_* via the member channel — Admin Center owns that inbox.
+    if (isAdminOnlyNotificationType(n.type)) return;
     n.read = true;
     n.readAt = now;
     updated += 1;

@@ -235,6 +235,7 @@
     "test:calendar-assign-download-blockers": "node scripts/test-calendar-assign-download-blockers.js",
     "test:calendar-cleanup-phase1": "NODE_ENV=test node scripts/test-calendar-cleanup-phase1.js",
     "test:ai-content-validation-phase2": "NODE_ENV=test node scripts/test-ai-content-validation-phase2.js",
+    "test:permissions-privacy-phase3": "NODE_ENV=test node scripts/test-permissions-privacy-phase3.js",
     "test:lesson-library-phase2": "node scripts/test-lesson-library-phase2.js",
     "test:lesson-library-mobile-qa": "node scripts/test-lesson-library-mobile-qa.js",
     "test:lesson-owner-review": "node scripts/test-lesson-owner-review.js",

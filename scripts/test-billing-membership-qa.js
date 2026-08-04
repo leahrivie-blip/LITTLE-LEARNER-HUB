@@ -625,13 +625,32 @@ async function main() {
 
     console.log("5) Cancel subscription API schedules period-end access");
     seedPersonas();
-    const cancelRes = await requestJson("POST", "/api/cancel-subscription", { email: "pro@billing.test" });
+    const cancelUnauth = await requestJson("POST", "/api/cancel-subscription", { email: "pro@billing.test" });
+    assert(cancelUnauth.status === 401, "Cancel without session must be rejected");
+    const cancelWrongUser = await requestJson(
+      "POST",
+      "/api/cancel-subscription",
+      { email: "pro@billing.test" },
+      { headers: { Authorization: "Bearer test:trial@billing.test", "X-LLH-User-Email": "trial@billing.test" } },
+    );
+    assert(cancelWrongUser.status === 403, "Cancel for a different account must be rejected");
+    const cancelRes = await requestJson(
+      "POST",
+      "/api/cancel-subscription",
+      { email: "pro@billing.test" },
+      { headers: { Authorization: "Bearer test:pro@billing.test", "X-LLH-User-Email": "pro@billing.test" } },
+    );
     assert(cancelRes.status === 200, "Cancel subscription should succeed");
     assert(cancelRes.json?.subscription?.cancelAtPeriodEnd === true, "cancelAtPeriodEnd set");
     assert(String(cancelRes.json?.subscription?.subscriptionStatus || "").includes("Access Ends"), "Access end label in status");
     assert(cancelRes.json?.subscription?.hasProAccess === true, "Pro access remains until period end");
 
-    const trialCancelRes = await requestJson("POST", "/api/cancel-subscription", { email: "trial@billing.test" });
+    const trialCancelRes = await requestJson(
+      "POST",
+      "/api/cancel-subscription",
+      { email: "trial@billing.test" },
+      { headers: { Authorization: "Bearer test:trial@billing.test", "X-LLH-User-Email": "trial@billing.test" } },
+    );
     assert(trialCancelRes.status === 200, "Trial cancel should succeed");
     assert(String(trialCancelRes.json?.subscription?.subscriptionStatus || "").includes("Trial — no future charge"), "Trial cancel policy label");
 

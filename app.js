@@ -13540,6 +13540,8 @@ function loadAccountState(email) {
   const account = ensureAccount(email);
   if (!account) return;
   currentUser = account.email;
+  // Shared-browser safety: never leave Admin Bearer tokens available to a customer login.
+  enforceAdminSessionIsolationForMember();
   // Backfill accountType + role for existing accounts (defaults: home_daycare / owner).
   ensureAccountAccessMigrated(account.email);
   // Refresh curriculum so grandfathered Free users receive their legacy Free library payload.
@@ -15018,11 +15020,10 @@ async function refreshNotificationBell() {
   notificationBellLoadPromise = (async () => {
     const previousUnread = Number(notificationBellState.unreadCount) || 0;
     const data = await fetchNotificationsFromBackend();
-    // Defense in depth: never show owner/admin-only alerts in a normal member bell.
+    // Provider bell is member-channel only. Admin_* alerts belong exclusively in
+    // Admin Center — even when the signed-in user is the platform owner.
     const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
-    const items = isSignedInPlatformOwner() || isAdminUnlocked()
-      ? rawItems
-      : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
+    const items = rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
     notificationBellState.items = items;
     notificationBellState.unreadCount = items.filter((item) => !item.read).length;
     notificationBellState.loaded = true;
@@ -17200,12 +17201,27 @@ function canSeeAdminNav() {
   if (isAdminPreviewSimulating()) return false;
   // Invited staff / independent testers never see Admin unlock — Leah-only.
   if (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount()) return false;
+  // A signed-in customer who is not the platform owner must never see Admin nav,
+  // even if a prior Admin unlock remains on this shared browser.
+  if (currentUser && !isSignedInPlatformOwner()) return false;
   // Keep Admin reachable when unlocked, awaiting re-auth, signed in as owner,
   // or on a browser that has unlocked Admin before (so the unlock form is one tap away).
   return isAdminUnlocked()
     || adminSessionInvalidOnServer
     || isSignedInPlatformOwner()
     || hasRememberedAdminDevice();
+}
+
+/** Clear leftover Admin unlock when a non-owner customer signs in on a shared browser. */
+function enforceAdminSessionIsolationForMember() {
+  try {
+    if (!currentUser) return;
+    if (isSignedInPlatformOwner()) return;
+    if (!isAdminUnlocked() && !adminSession()?.token) return;
+    clearAdminSession({ forgetDevice: false });
+  } catch (error) {
+    console.warn("Could not isolate admin session for member login", error);
+  }
 }
 
 function setView(view, options = {}) {
@@ -61104,9 +61120,12 @@ async function cancelSubscription() {
 
   if (stripeCheckoutConfig.cancelSubscriptionEndpoint && canUseStripeBackend()) {
     try {
+      const authHeaders = (typeof firebaseAuthHeaders === "function"
+        ? await firebaseAuthHeaders().catch(() => null)
+        : null) || { "Content-Type": "application/json", "X-LLH-User-Email": String(currentUser) };
       const response = await fetch(stripeCheckoutConfig.cancelSubscriptionEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ email: currentUser }),
       });
       const data = await response.json();
@@ -61166,9 +61185,12 @@ async function openCustomerPortal() {
   if (!requireBillingAccount()) return;
   if (stripeCheckoutConfig.customerPortalEndpoint && canUseStripeBackend()) {
     try {
+      const authHeaders = (typeof firebaseAuthHeaders === "function"
+        ? await firebaseAuthHeaders().catch(() => null)
+        : null) || { "Content-Type": "application/json", "X-LLH-User-Email": String(currentUser) };
       const response = await fetch(stripeCheckoutConfig.customerPortalEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           email: currentUser,
           returnUrl: `${window.location.origin}${window.location.pathname}?billing=portal-return`,
