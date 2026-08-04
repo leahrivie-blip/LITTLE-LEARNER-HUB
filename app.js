@@ -4352,6 +4352,10 @@ function accountHasRemainingPaidAccess(account = null) {
   ) {
     return endMs === null || endMs > Date.now();
   }
+  // Founding active flag alone (pre-Stripe-sync) must still grant paid access.
+  if (target.foundingMemberActive) {
+    return endMs === null || endMs > Date.now();
+  }
   if (status.includes("access ends") && endMs !== null && endMs > Date.now()) return true;
   return false;
 }
@@ -13929,7 +13933,7 @@ async function resendVerificationEmail() {
   } catch (error) {
     console.warn("[auth] server_verification_email_unavailable", error);
   }
-  updateAccount(currentUser, { emailVerified: false });
+  // Do not flip emailVerified on send failure — that incorrectly marks verified users unverified.
   return "We couldn’t send a verification email right now. Try again in a minute, or Message Support and we’ll help.";
 }
 
@@ -17907,6 +17911,19 @@ function aiUsageRemaining() {
     return Math.max(serverAiLimit - serverAiUsed, 0);
   }
   return Math.max(aiMonthlyLimit() - aiUsageCount(), 0);
+}
+
+/** Single display path so Account, Billing, and sidebar never disagree. */
+function displayAiUsageUsed() {
+  return serverAiUsed !== null ? serverAiUsed : aiUsageCount();
+}
+
+function displayAiUsageLimit() {
+  return serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit();
+}
+
+function displayAiUsageLabel() {
+  return `${displayAiUsageUsed()} / ${displayAiUsageLimit()}`;
 }
 
 function aiResetLabel() {
@@ -28047,9 +28064,10 @@ function renderCategoryPage(view) {
 
   const categoryBackTarget = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
   const categoryBackButton = `<button class="ghost-button back-button" data-view="${categoryBackTarget}" type="button">${escapeHtml(fallbackBackLabel(categoryBackTarget))}</button>`;
+  const accessPlanLabel = billingPlanLabel(currentPlan, currentAccount());
   const accessNoticeHtml = `<div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
-        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
+        ? `${accessPlanLabel === "Founding Member" ? "Founding Member access" : "Pro is active"}: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>`;
   section.innerHTML = `
@@ -34704,10 +34722,7 @@ function renderSettingsHubPage() {
   const account = currentAccount();
   const accountTypeLabel = accountTypeDisplayLabel(account);
   const roleLabel = roleDisplayLabel(account);
-  const rawPlan = String(account?.plan || "").trim();
-  const planLabel = rawPlan === "Founding" || account?.foundingMemberActive
-    ? "Founding Member"
-    : (isProUser() ? "Pro" : "Free");
+  const planLabel = billingPlanLabel(currentPlan, account);
   const displayName = [account?.firstName, account?.lastName].filter(Boolean).join(" ") || account?.name || "Provider";
   const email = currentUser || account?.email || "";
   const groups = [
@@ -58900,9 +58915,11 @@ function renderOnboardingChecklist() {
   const target = document.querySelector("#onboardingChecklist");
   if (!target) return;
   const completed = onboardingProgress();
+  // Paid / Founding members never see an “Upgrade to unlock full library” checklist item.
+  const steps = onboardingSteps.filter((step) => step.id !== "upgrade-library" || (!isProUser() && canSeePaidUpgradeOffer()));
   target.innerHTML = `
     <div class="onboarding-list">
-      ${onboardingSteps.map((step) => `
+      ${steps.map((step) => `
         <button class="onboarding-item ${completed.has(step.id) ? "complete" : ""}" data-view="${step.view}" type="button">
           <span>${completed.has(step.id) ? "Done" : "Next"}</span>
           <strong>${escapeHtml(step.label)}</strong>
@@ -58981,6 +58998,9 @@ function canSeePaidUpgradeOffer(account = currentAccount()) {
   if (!isLoggedIn()) return false;
   if (hasAdminFullAccess()) return false;
   if (isProUser()) return false;
+  // Entitled Founding Members must never see upgrade/unlock-library chrome.
+  if (account?.foundingMemberActive) return false;
+  if (normalizeBillingPlan(account?.plan || currentPlan, account) === "Founding") return false;
   if (account?.programAccessViaOwner) return false;
   if (!canAccessPlatformFeature("billing", account)) return false;
   const plan = normalizeBillingPlan(account?.plan || currentPlan, account);
@@ -59829,9 +59849,9 @@ function subscriptionSummaryHtml() {
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
-      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : "Regular Pro pricing") : "None"}</strong></div>
+      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : "Regular Pro pricing") : "None"}</strong></div>
       <div><span>Account Status</span><strong class="llh-billing-status-value llh-billing-status-value--${escapeHtml(status?.tone || "neutral")}">${escapeHtml(statusLabel)}</strong></div>
-      <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
+      <div><span>AI Usage</span><strong>${escapeHtml(displayAiUsageLabel())}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
     </div>
     ${status?.detail ? `<p class="muted-copy llh-billing-status-detail">${escapeHtml(status.detail)}</p>` : ""}
@@ -59886,8 +59906,15 @@ function renderBillingPage() {
       <div class="account-panel">
         <p class="eyebrow">Payment Method</p>
         <h3>${escapeHtml(paidBilling ? account?.paymentMethod || "Managed in Stripe" : "No payment method on file")}</h3>
-        <p>Stripe Customer: ${escapeHtml(paidBilling ? account?.stripeCustomerId || "Created after live checkout" : "Created after checkout")}</p>
-        <p>Subscription: ${escapeHtml(paidBilling ? account?.stripeSubscriptionId || "Created after live checkout" : "No active subscription")}</p>
+        <p class="muted-copy">${paidBilling
+          ? "Billing is managed securely through Stripe. Use Update Payment Method to open the customer portal."
+          : "A Stripe customer record is created after checkout."}</p>
+        ${(account?.stripeCustomerId || account?.stripeSubscriptionId) ? `
+        <details class="llh-billing-dev-details">
+          <summary>Developer / support details</summary>
+          <p>Stripe Customer: <code>${escapeHtml(account?.stripeCustomerId || "—")}</code></p>
+          <p>Subscription: <code>${escapeHtml(account?.stripeSubscriptionId || "—")}</code></p>
+        </details>` : ""}
       </div>
     </section>
     ${paidBilling ? `
@@ -60301,19 +60328,18 @@ function renderAccountPage() {
   emailLabel.textContent = currentUser;
   planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
-    if (account?.emailVerified) {
-      verificationLabel.textContent = "Email verified.";
+    const verified = Boolean(account?.emailVerified);
+    if (verified) {
+      verificationLabel.textContent = "Email verified — you’re all set.";
     } else if (firebaseAuthEnabled) {
-      verificationLabel.textContent = "Email not verified yet. Use Resend Verification Email if you need a new link.";
+      verificationLabel.textContent = "Email not verified yet. Check your inbox for a verification link, or resend below.";
     } else {
-      verificationLabel.textContent = "You’re signed in. Keep your email and password up to date below.";
+      verificationLabel.textContent = "You’re signed in with email & password. Email verification is not required on this site.";
     }
-    verificationLabel.textContent = account?.emailVerified
-      ? "Email verified — you’re all set."
-      : (firebaseAuthEnabled
-        ? "Email not verified yet. Check your inbox for a verification link, or resend below."
-        : "You’re signed in with email & password. Verification email may not be required on this site.");
-    verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
+    verificationLabel.classList.toggle("verified", verified);
+  }
+  if (resendButton) {
+    resendButton.style.display = (firebaseAuthEnabled && !account?.emailVerified) ? "" : "none";
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
   if (firstNameInput) firstNameInput.value = account?.firstName || "";
@@ -60321,11 +60347,11 @@ function renderAccountPage() {
   const productStatus = accountProductStatus(account);
   statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
-    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
+    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding") ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
   // Avoid exposing internal auth-provider names (e.g. Local demo / Firebase) on Free account pages.
   if (detailLabel && canBilling && !paidBilling && !isProUser()) {
-    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: Free<br>Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: Free<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`;
   }
   const programConnectionHost = document.querySelector("#accountProgramConnection");
   if (programConnectionHost) {

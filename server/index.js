@@ -6130,18 +6130,28 @@ function currentAiCycle() {
 }
 
 function aiLimitForPlan(plan) {
-  return ["Pro", "Founding"].includes(plan) ? 250 : 10;
+  return ["Pro", "Founding", "Trial"].includes(String(plan || "").trim()) ? 250 : 10;
+}
+
+function aiLimitForUser(user = {}) {
+  // Prefer live access over bare plan string so Founding/Pro with lagging labels still get 250.
+  if (membershipHasProAccess(user)) return aiLimitForPlan("Pro");
+  return aiLimitForPlan(user?.plan || "Free");
 }
 
 function aiUsageKey(email) {
   return `${normalizeEmail(email)}:${currentAiCycle()}`;
 }
 
-function canUseServerAi(email, plan) {
+function canUseServerAi(email, plan, user = null) {
   const store = readStore();
   const key = aiUsageKey(email);
   const used = Number(store.aiUsage?.[key] || 0);
-  return { used, limit: aiLimitForPlan(plan), allowed: used < aiLimitForPlan(plan), key };
+  const record = user || store.users?.[normalizeEmail(email)] || { plan };
+  const limit = user || store.users?.[normalizeEmail(email)]
+    ? aiLimitForUser(record)
+    : aiLimitForPlan(plan);
+  return { used, limit, allowed: used < limit, key };
 }
 
 async function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null, requestId = "" } = {}) {
@@ -10564,7 +10574,7 @@ async function handleSubscriptionStatus(request, response, url) {
       email,
       subscription: subscription ? { ...subscription, ...membershipSummaryForUser(subscription) } : null,
       recoveredFromStripe,
-      aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
+      aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free", subscription) : null,
       founding: foundingStatusPayload(readStore()),
     });
   } catch (error) {
