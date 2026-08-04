@@ -17550,6 +17550,7 @@ function setView(view, options = {}) {
   if (resolvedView === "cancel-subscription") renderCancelSubscriptionPage();
   if (resolvedView === "reset-password") renderResetPasswordPage();
   if (resolvedView === "contact") renderContactPage();
+  if (resolvedView === "faq") renderManagedFaqContent();
   if (resolvedView === "ai") renderAiPage();
   if (resolvedView === "lesson-editor") {
     if (!options.skipEditorRoute && userLessonEditorResourceId) {
@@ -34747,7 +34748,9 @@ function renderSettingsHubPage() {
           title: isStandaloneDisplayMode() ? "App Installed" : "Add to Home Screen",
           detail: isStandaloneDisplayMode()
             ? "Little Learner Hub is already installed on this device"
-            : "Install for faster access on iPhone, Android, and desktop",
+            : (typeof isIosDevice === "function" && isIosDevice()
+              ? "On iPhone/iPad: tap Share, then Add to Home Screen"
+              : "Install for faster access on phone, tablet, and desktop"),
           action: "install-app",
           disabled: isStandaloneDisplayMode(),
         },
@@ -34765,6 +34768,7 @@ function renderSettingsHubPage() {
     {
       title: "Program Settings",
       detail: "Business information and classroom defaults",
+      id: "program",
       cards: [
         { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
       ],
@@ -62269,8 +62273,11 @@ document.addEventListener("click", async (event) => {
         label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
       });
     }
+    if (viewButton.dataset.settingsAnchor) {
+      navOptions.settingsAnchor = viewButton.dataset.settingsAnchor;
+    }
     setView(viewButton.dataset.view, navOptions);
-    if (viewButton.dataset.settingsAnchor === "notifications") {
+    if (viewButton.dataset.settingsAnchor === "notifications" && viewButton.dataset.view === "account") {
       requestAnimationFrame(() => {
         document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
