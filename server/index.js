@@ -1851,6 +1851,19 @@ function normalizedCurriculumLessonPlan(value) {
       }))
       .filter((item) => item.versionId);
   }
+  // Admin-only undo stash after Discard Draft (never exposed to customers).
+  if (Object.prototype.hasOwnProperty.call(entry, "enrichmentDraftUndo")) {
+    const undo = entry.enrichmentDraftUndo;
+    if (undo && typeof undo === "object" && !Array.isArray(undo) && undo.draft && typeof undo.draft === "object") {
+      normalized.enrichmentDraftUndo = {
+        discardedAt: normalizedShortText(undo.discardedAt, 80) || "",
+        discardedBy: normalizedShortText(undo.discardedBy, 180) || "",
+        draft: undo.draft,
+      };
+    } else if (undo == null) {
+      normalized.enrichmentDraftUndo = null;
+    }
+  }
   return normalized;
 }
 
@@ -2924,6 +2937,10 @@ function mergeEnrichmentPreservingLessonPlan(existingPlan, incomingPlan) {
   if (!Object.prototype.hasOwnProperty.call(next, "enrichmentPublishHistory")
     && Array.isArray(existingPlan.enrichmentPublishHistory)) {
     next.enrichmentPublishHistory = existingPlan.enrichmentPublishHistory;
+  }
+  if (!Object.prototype.hasOwnProperty.call(next, "enrichmentDraftUndo")
+    && Object.prototype.hasOwnProperty.call(existingPlan, "enrichmentDraftUndo")) {
+    next.enrichmentDraftUndo = existingPlan.enrichmentDraftUndo;
   }
 
   if (!Object.prototype.hasOwnProperty.call(next, "teachingKit") && existingPlan.teachingKit) {
@@ -17325,6 +17342,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
       : (() => {
         const next = { ...plan };
         delete next.enrichmentDraft;
+        delete next.enrichmentDraftUndo;
         return next;
       })();
     const mapped = teachingKit.mapLessonPlanToTeachingKit(planForMap, activities, resources, mapperOptions);
@@ -20285,16 +20303,56 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         return;
       }
       const draftInput = mergeResult.draft || {};
+      const restoringDiscarded = body?.restoreDiscardedDraft === true
+        || incomingPlan?.restoreDiscardedDraft === true;
+      let undoStash = existingPlan.enrichmentDraftUndo && typeof existingPlan.enrichmentDraftUndo === "object"
+        ? existingPlan.enrichmentDraftUndo
+        : null;
+      let draftForSave = draftInput;
+      if (restoringDiscarded) {
+        const stashDraft = undoStash?.draft && typeof undoStash.draft === "object" ? undoStash.draft : null;
+        if (!enrichmentDraftHasContent(stashDraft)) {
+          jsonResponse(response, 409, {
+            error: "No discarded draft is available to undo.",
+            code: "enrichment_draft_undo_missing",
+            lessonPlan: existingPlan,
+            curriculum: existingCurriculum,
+            siteContentUpdatedAt: siteContent.updatedAt,
+          });
+          return;
+        }
+        draftForSave = {
+          ...stashDraft,
+          updatedAt: now,
+          lastEditedBy: normalizedShortText(body?.adminEmail || incomingPlan?.lastEditedBy, 180) || stashDraft.lastEditedBy || "",
+        };
+        undoStash = null;
+      } else if (
+        allowEmptyOverwrite
+        && enrichmentDraftHasContent(previousDraft)
+        && !enrichmentDraftHasContent(draftInput)
+      ) {
+        // Discard Draft — keep one undo stash so admin can restore without republishing.
+        undoStash = {
+          discardedAt: now,
+          discardedBy: normalizedShortText(body?.adminEmail || "", 180) || "",
+          draft: previousDraft,
+        };
+      } else if (enrichmentDraftHasContent(draftInput)) {
+        // A real draft save replaces any prior undo stash.
+        undoStash = null;
+      }
       const draftPlan = normalizedCurriculumLessonPlan({
         ...existingPlan,
         enrichmentDraft: {
-          ...draftInput,
+          ...draftForSave,
           updatedAt: now,
         },
+        enrichmentDraftUndo: undoStash,
         updatedAt: existingPlan.updatedAt,
       });
       // Verify normalized draft still carries activity/week content when we intended to save it.
-      if (enrichmentDraftHasContent(draftInput) && !enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
+      if (enrichmentDraftHasContent(draftForSave) && !enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
         jsonResponse(response, 500, {
           error: "Draft save failed verification — enrichment content did not persist. Nothing was written.",
           code: "enrichment_draft_verify_failed",
