@@ -224,8 +224,8 @@ async function main() {
 
     await openLesson(page, helpers.title);
     await capture(page, "03-community-helpers-week", "#resourceViewerModal .resource-viewer-card");
-    await page.click('[data-lesson-workspace-tab="plan"]');
-    await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 5000 });
+    await page.click('[data-lesson-workspace-tab="activities"]');
+    await page.waitForSelector('[data-lesson-workspace-panel="activities"].is-active', { timeout: 5000 });
     await capture(page, "04-community-helpers-plan-sections", "#resourceViewerModal .resource-viewer-card");
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });

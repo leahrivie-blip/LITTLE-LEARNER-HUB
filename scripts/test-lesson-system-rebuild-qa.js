@@ -222,22 +222,27 @@ async function main() {
           const actions = document.querySelector(".lesson-workspace-action-bars");
           return Boolean(panels && actions && (panels.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING));
         })(),
-        theme: document.querySelector(".lesson-workspace-theme-tag")?.textContent.trim() || "",
+        theme: document.querySelector(".lesson-workspace-category-tag, .lesson-workspace-theme-tag")?.textContent.trim() || "",
+        dayBlocks: document.querySelectorAll(".lesson-workspace-week-day-block").length,
+        panelsOverflow: getComputedStyle(document.querySelector(".lesson-workspace-panels")).overflowY,
         fullPage,
         overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       };
     });
 
+    const expectedTabs = "Week,Activities,Materials,Books,Songs,Printables,Teacher Notes,Family Connection,Observations";
     check("Primary is Use This Plan / Print / Download", viewer.primary.includes("Use This Plan") && viewer.primary.includes("Print") && viewer.primary.includes("Download"));
     check("No duplicate primary assign CTAs", !viewer.primary.includes("Add to My Week") && !viewer.primary.includes("Add to Calendar"));
-    check("Week overview sections render", viewer.hasOverview && viewer.sections.length >= 4, viewer.sections.join(","));
-    check("Tabs present", viewer.tabs.join(",") === "Week,Plan,Activities,Materials");
+    check("Week overview sections render", viewer.hasOverview && viewer.sections.length >= 2, viewer.sections.join(","));
+    check("Tabs present", viewer.tabs.join(",") === expectedTabs);
     check("Actions sit after content", viewer.actionsAfter);
     check("Theme badge visible", viewer.theme === "Discovery", viewer.theme);
+    check("Vertical week days", viewer.dayBlocks === 5);
+    check("No nested panel scroll", viewer.panelsOverflow === "visible");
     check("Mobile full-page (no rounded modal)", viewer.fullPage);
     check("No horizontal overflow", !viewer.overflow);
 
-    for (const tab of ["plan", "activities", "materials", "week"]) {
+    for (const tab of ["week", "activities", "materials", "books", "family"]) {
       await page.click(`[data-lesson-workspace-tab="${tab}"]`);
       await page.waitForSelector(`[data-lesson-workspace-panel="${tab}"].is-active`, { timeout: 3000 });
       const filled = await page.evaluate((id) => {

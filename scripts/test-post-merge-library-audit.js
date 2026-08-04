@@ -471,7 +471,7 @@ async function main() {
         const modal = document.querySelector("#resourceViewerModal");
         const labels = [...modal.querySelectorAll("button")].map((b) => (b.textContent || "").trim());
         const text = modal.innerText || "";
-        const dayTabs = [...modal.querySelectorAll(".lesson-workspace-day-tab")].map((t) => t.textContent.trim());
+        const dayBlocks = [...modal.querySelectorAll(".lesson-workspace-week-day-block h3")].map((t) => t.textContent.trim());
         const sections = {
           overview: /weekly overview|overview/i.test(text),
           objectives: /objective/i.test(text),
@@ -482,7 +482,7 @@ async function main() {
           family: /family/i.test(text),
           observation: /observation/i.test(text),
           adaptations: /adaptation|modificat/i.test(text),
-          weekDays: dayTabs.length >= 5 || (/Mon/i.test(text) && /Fri/i.test(text)),
+          weekDays: dayBlocks.length >= 5 || (/Monday/i.test(text) && /Friday/i.test(text)),
           activityRows: modal.querySelectorAll(".lesson-workspace-activity-row, .lesson-workspace-activity-card, .curriculum-activity-card").length,
         };
         return {
@@ -493,7 +493,7 @@ async function main() {
           hasDownload: labels.some((t) => /Download/i.test(t)),
           hasUsePlan: labels.some((t) => /Use This Plan|Add to Calendar|Assign/i.test(t)),
           hasBack: Boolean(document.querySelector("[data-lesson-workspace-back], #resourceViewerBackButton")),
-          dayTabs,
+          dayBlocks,
           sections,
           labels: labels.filter((t) => /print|download|save|use|calendar|edit|assign/i.test(t)).slice(0, 20),
         };
@@ -502,7 +502,7 @@ async function main() {
       assert(workspace.hasPrint && workspace.hasDownload, `print/download missing: ${workspace.labels.join(", ")}`);
       assert(workspace.hasSave, "Save missing in viewer");
       assert(workspace.sections.overview || workspace.sections.materials, "lesson overview/materials missing");
-      assert(workspace.sections.weekDays, `Mon–Fri activities missing (tabs: ${workspace.dayTabs.join(",")})`);
+      assert(workspace.sections.weekDays, `Mon–Fri activities missing (days: ${workspace.dayBlocks.join(",")})`);
       assert(workspace.sections.activityRows > 0 || workspace.sections.weekDays, "activity details missing");
       pass("Lesson viewer content + Print/Download/Save controls");
 

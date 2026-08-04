@@ -291,9 +291,11 @@ async function main() {
       await openLessonWorkspace(page, plan.title);
       const workspace = await page.evaluate(() => ({
         tabs: [...document.querySelectorAll("[data-lesson-workspace-tab]")].map((el) => el.textContent.trim()),
-        activityCount: document.querySelectorAll(".lesson-workspace-activity-row").length,
+        activityCount: document.querySelectorAll(".lesson-workspace-activity-row, .lesson-workspace-activity-card").length,
+        dayBlocks: document.querySelectorAll(".lesson-workspace-week-day-block").length,
       }));
-      assert(workspace.tabs.join(",") === "Week,Plan,Activities,Materials", `${plan.age} workspace tabs missing`);
+      assert(workspace.tabs.join(",") === "Week,Activities,Materials,Books,Songs,Printables,Teacher Notes,Family Connection,Observations", `${plan.age} workspace tabs missing`);
+      assert(workspace.dayBlocks === 5, `${plan.age} week should show Mon–Fri blocks`);
       assert(workspace.activityCount > 0, `${plan.age} plan should expose at least one weekday activity`);
     }
 

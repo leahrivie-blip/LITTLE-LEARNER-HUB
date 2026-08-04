@@ -356,11 +356,11 @@ async function main() {
       }
 
       // Tab smoke
-      for (const tab of ["plan", "activities", "materials", "week"]) {
+      for (const tab of ["week", "activities", "materials", "books", "family"]) {
         await page.click(`[data-lesson-workspace-tab="${tab}"]`);
         await page.waitForTimeout(300);
       }
-      record("viewer-tabs", "viewer", "PASS", "Week/Plan/Activities/Materials tabs switch");
+      record("viewer-tabs", "viewer", "PASS", "Week/Activities/Materials/Books/Family tabs switch");
       await shot(page, "05-viewer-tabs-week");
 
       // --- Use This Plan sheet ---
