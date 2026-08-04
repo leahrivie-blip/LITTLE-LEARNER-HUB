@@ -2207,8 +2207,11 @@
 
             <section class="tk-enrich-recovery-section">
               <h4>Discard Draft</h4>
-              <p class="muted-copy">Clears the enrichment draft for this lesson only. Published content stays unchanged.</p>
-              <button type="button" class="ghost-button" data-enrich-discard-draft ${draftKeys.length || state.draft?.week?.familyConnection ? "" : "disabled"}>Discard Draft</button>
+              <p class="muted-copy">Clears the enrichment draft for this lesson only. Published content stays unchanged. You can undo once if you discard by mistake.</p>
+              <div class="form-actions">
+                <button type="button" class="ghost-button" data-enrich-discard-draft ${draftKeys.length || state.draft?.week?.familyConnection ? "" : "disabled"}>Discard Draft</button>
+                <button type="button" class="ghost-button" data-enrich-undo-discard ${plan?.enrichmentDraftUndo?.draft ? "" : "disabled"}>Undo Discard</button>
+              </div>
             </section>
 
             <section class="tk-enrich-recovery-section">
@@ -2467,10 +2470,45 @@
         render();
         return;
       }
+      if (event.target.closest("[data-enrich-undo-discard]")) {
+        const plan = getPlan();
+        if (!plan?.id || !plan?.enrichmentDraftUndo?.draft) return;
+        try {
+          const token = adminToken();
+          const endpoint = root.curriculumLessonPlanConfig?.endpoint || "/api/admin/curriculum/lesson-plans";
+          const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+            ? curriculumExpectedUpdatedAt()
+            : "";
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              saveMode: "enrichment_draft",
+              expectedUpdatedAt,
+              restoreDiscardedDraft: true,
+              lessonPlan: { id: plan.id },
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+          if (data.curriculum && typeof applyCurriculumState === "function") {
+            applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+          }
+          state.dirty = false;
+          state.recoveryOpen = false;
+          state.compareOpen = false;
+          open(plan.id);
+          state.statusText = "Discard undone — previous draft restored.";
+        } catch (error) {
+          state.statusText = `Undo discard failed: ${error.message || error}`;
+          render();
+        }
+        return;
+      }
       if (event.target.closest("[data-enrich-discard-draft]")) {
         const plan = getPlan();
         if (!plan?.id) return;
-        if (!window.confirm("Discard the saved enrichment draft for this lesson? Published content stays unchanged.")) {
+        if (!window.confirm("Discard the saved enrichment draft for this lesson? Published content stays unchanged. You can Undo Discard once afterward.")) {
           return;
         }
         try {
