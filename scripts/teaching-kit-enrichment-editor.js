@@ -1568,7 +1568,7 @@
         </div>
         <div class="tk-enrich-recovery-toolbar" data-enrich-recovery-toolbar aria-label="Version history and recovery">
           <strong>History &amp; Recovery</strong>
-          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-history>Version History (${historyCount})</button>
+          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-history data-tk-recovery-toolbar>Version History (${historyCount})</button>
           <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-compare>Compare versions</button>
           <button type="button" class="ghost-button" data-enrich-rollback ${historyCount ? "" : "disabled"}>Rollback Last Publish</button>
           <button type="button" class="ghost-button" data-enrich-discard-draft>Discard Draft</button>
@@ -1582,6 +1582,12 @@
             <button type="button" class="ghost-button" data-enrich-prev ${idx <= 0 ? "disabled" : ""}>← Previous</button>
             <button type="button" class="ghost-button" data-enrich-next ${idx >= n - 1 ? "disabled" : ""}>Next →</button>
           </div>
+          <nav class="tk-enrich-jump-links" aria-label="Editor section shortcuts">
+            <button type="button" class="ghost-button" data-enrich-save-draft>Save</button>
+            <button type="button" class="ghost-button" data-enrich-scroll-target="quality">Review</button>
+            <button type="button" class="ghost-button" data-enrich-scroll-target="history">History</button>
+            <button type="button" class="ghost-button" data-enrich-exit>Exit</button>
+          </nav>
           <div class="tk-enrich-jump">
             <button type="button" class="ghost-button" data-enrich-jump-toggle>Jump to…</button>
             ${state.jumpOpen ? `
@@ -2884,6 +2890,25 @@
       }
       if (event.target.closest("[data-enrich-save-draft]")) {
         await saveDraft({ silent: false });
+        return;
+      }
+      const scrollTarget = event.target.closest("[data-enrich-scroll-target]");
+      if (scrollTarget) {
+        const key = scrollTarget.getAttribute("data-enrich-scroll-target") || "";
+        const node = key === "history"
+          ? document.querySelector("[data-enrich-recovery-toolbar]")
+          : (document.querySelector("[data-quality-report]")
+            || document.querySelector("[data-quality-run-publish]")
+            || document.querySelector("[data-assistant-panel='quality']"));
+        if (node?.scrollIntoView) {
+          node.scrollIntoView({ behavior: "smooth", block: "start" });
+          (node.querySelector?.("button") || node)?.focus?.();
+        } else if (key === "quality") {
+          state.mode = "week";
+          render();
+        } else if (key === "history") {
+          document.querySelector("[data-enrich-open-history]")?.click?.();
+        }
         return;
       }
       if (event.target.closest("[data-enrich-publish]")) {

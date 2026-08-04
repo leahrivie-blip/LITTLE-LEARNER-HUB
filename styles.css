@@ -24491,6 +24491,24 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   justify-content: space-between;
   margin-top: 0.55rem;
 }
+.tk-enrich-jump-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.tk-enrich-jump-links .ghost-button {
+  min-height: 2.25rem;
+}
+.admin-content-filters,
+.curriculum-activity-filters {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: rgba(251, 248, 242, 0.96);
+  backdrop-filter: blur(4px);
+  padding: 0.5rem 0;
+}
 .tk-enrich-progress-block {
   flex: 1 1 16rem;
   min-width: 12rem;

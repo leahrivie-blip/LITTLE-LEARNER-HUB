@@ -8922,7 +8922,7 @@ function filteredCurriculumActivitiesForAdmin() {
     const parent = curriculumActivityParentLesson(activity);
     if (filters.category && activity.activityCategory !== filters.category) return false;
     if (filters.status && (activity.status || "draft") !== filters.status) return false;
-    if (filters.age && (parent?.age || "") !== filters.age) return false;
+    if (filters.age && !agesMatchForFilter(parent?.age || "", filters.age)) return false;
     if (filters.lessonPlanId && activity.lessonPlanId !== filters.lessonPlanId) return false;
     if (!query) return true;
     const haystack = [
@@ -9023,7 +9023,7 @@ function renderAdminCurriculumActivityBrowser() {
   const viewingId = adminCurriculumActivityViewerId;
   const viewing = viewingId ? curriculumActivityById(viewingId) : null;
   const parentLessons = curriculumLessonPlansForAdmin();
-  const ages = [...new Set(parentLessons.map((plan) => plan.age).filter(Boolean))].sort();
+  const ages = canonicalAgeFilterOptions(parentLessons.map((plan) => plan.age).filter(Boolean));
   target.innerHTML = `
     <div class="section-heading">
       <div>
@@ -9056,7 +9056,7 @@ function renderAdminCurriculumActivityBrowser() {
         <select id="adminCurriculumActivityAgeFilter">
           <option value="">All ages</option>
           ${ages.map((age) => `
-            <option value="${escapeHtml(age)}"${filters.age === age ? " selected" : ""}>${escapeHtml(age)}</option>
+            <option value="${escapeHtml(age.value)}"${filters.age === age.value ? " selected" : ""}>${escapeHtml(age.label)}</option>
           `).join("")}
         </select>
       </label>
@@ -11168,7 +11168,7 @@ function filteredAdminCurriculumLessonPlans() {
   const filtered = curriculumLessonPlansForAdmin().filter((plan) => {
     if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
-    if (filters.age && String(plan.age || "") !== filters.age) return false;
+    if (filters.age && !agesMatchForFilter(plan.age, filters.age)) return false;
     if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
     const meta = metaFor(plan);
     if (isTeachingKitEnrichmentEditorEnabled() && filters.completionBand) {
@@ -11282,7 +11282,7 @@ function renderAdminCurriculumLessonPlanManager() {
   const editingId = adminCurriculumLessonEditorId;
   const editingPlan = editingId ? curriculumLessonEditorRecord() : null;
   const themes = [...new Set(allPlans.map((plan) => plan.theme).filter(Boolean))].sort();
-  const ages = [...new Set(allPlans.map((plan) => plan.age).filter(Boolean))].sort();
+  const ages = canonicalAgeFilterOptions(allPlans.map((plan) => plan.age).filter(Boolean));
   const selectedCount = adminCurriculumSelectedIds.size;
   const mismatch = adminCurriculumLoadMismatch();
   const mismatchBanner = mismatch
@@ -11344,7 +11344,7 @@ function renderAdminCurriculumLessonPlanManager() {
       <label><span>Age</span>
         <select id="adminCurriculumFilterAge">
           <option value="">All</option>
-          ${ages.map((age) => `<option value="${escapeHtml(age)}" ${adminCurriculumListFilters.age === age ? "selected" : ""}>${escapeHtml(age)}</option>`).join("")}
+          ${ages.map((age) => `<option value="${escapeHtml(age.value)}" ${adminCurriculumListFilters.age === age.value ? "selected" : ""}>${escapeHtml(age.label)}</option>`).join("")}
         </select>
       </label>
       <label><span>Theme</span>
@@ -38485,7 +38485,12 @@ function resourceRecommendationScore(resource, areas) {
 }
 
 function normalizeAgeGroup(value) {
-  const text = String(value || "").toLowerCase();
+  const api = typeof LLHAgeGroupNormalize !== "undefined" ? LLHAgeGroupNormalize : null;
+  if (api?.canonicalAgeGroup) {
+    const canonical = api.canonicalAgeGroup(value);
+    if (canonical) return canonical;
+  }
+  const text = String(value || "").toLowerCase().replace(/[\u2010-\u2015\u2212]/g, "-");
   if (text.includes("infant")) return "Infant";
   if (text.includes("toddler")) return "Toddler";
   if (text.includes("preschool")) return "Preschool";
@@ -38493,6 +38498,29 @@ function normalizeAgeGroup(value) {
   if (text.includes("mixed")) return "Mixed Ages";
   if (text.includes("all")) return "All Ages";
   return "";
+}
+
+function agesMatchForFilter(left, right) {
+  const api = typeof LLHAgeGroupNormalize !== "undefined" ? LLHAgeGroupNormalize : null;
+  if (api?.agesMatch) return api.agesMatch(left, right);
+  const a = normalizeAgeGroup(left);
+  const b = normalizeAgeGroup(right);
+  if (a && b) return a === b;
+  return String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
+}
+
+function canonicalAgeFilterOptions(rawAges) {
+  const api = typeof LLHAgeGroupNormalize !== "undefined" ? LLHAgeGroupNormalize : null;
+  if (api?.uniqueCanonicalAgeOptions) return api.uniqueCanonicalAgeOptions(rawAges);
+  const seen = new Set();
+  const options = [];
+  (Array.isArray(rawAges) ? rawAges : []).forEach((raw) => {
+    const value = normalizeAgeGroup(raw) || String(raw || "").trim();
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    options.push({ value, label: value });
+  });
+  return options;
 }
 
 function resourceAgeGroup(resource) {
