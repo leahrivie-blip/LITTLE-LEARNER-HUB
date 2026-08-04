@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v169-20260804-free-labels-r1";
+const CACHE_NAME = "llh-shell-v170-20260804-close-activity-r1";
 const SHELL_VERSION = "20260803-assign-download-fixers";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;

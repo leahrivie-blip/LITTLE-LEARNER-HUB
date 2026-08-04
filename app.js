@@ -24795,9 +24795,28 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   };
 }
 
+function resourceViewerCloseLabel(resource) {
+  if (resource?.category === "Activity Center" || resource?._curriculumActivity) {
+    return "Close Activity";
+  }
+  if (resource?.category === "Lesson Plans" || isLessonWorkspaceResource(resource)) {
+    return "Close lesson plan";
+  }
+  return "Close";
+}
+
+function applyResourceViewerCloseLabel(resource) {
+  const closeBtn = document.querySelector("#closeResourceViewer");
+  if (!closeBtn) return;
+  const label = resourceViewerCloseLabel(resource);
+  closeBtn.setAttribute("aria-label", label);
+  closeBtn.setAttribute("title", label);
+}
+
 function applyLessonWorkspaceChrome(viewerResource) {
   if (!isLessonWorkspaceResource(viewerResource)) {
     restoreDefaultResourceViewerChrome();
+    applyResourceViewerCloseLabel(viewerResource);
     return;
   }
   const modal = document.querySelector("#resourceViewerModal");
@@ -24811,7 +24830,7 @@ function applyLessonWorkspaceChrome(viewerResource) {
   const closeBtn = document.querySelector("#closeResourceViewer");
   if (closeBtn) {
     closeBtn.hidden = false;
-    closeBtn.setAttribute("aria-label", "Close lesson plan");
+    applyResourceViewerCloseLabel(viewerResource);
   }
   const toolbar = document.querySelector(".resource-viewer-toolbar");
   if (toolbar) toolbar.hidden = true;
@@ -26079,6 +26098,7 @@ async function openResourceViewer(resourceId, options = {}) {
     }
   } else {
     restoreDefaultResourceViewerChrome();
+    applyResourceViewerCloseLabel(viewerResource);
     const printButton = document.querySelector("#printResourceButton");
     if (printButton) printButton.hidden = false;
     if (pdfButton) {
