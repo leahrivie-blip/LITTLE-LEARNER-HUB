@@ -17319,13 +17319,14 @@ function sortLessonPlanResources(items) {
       return aRank - bRank || String(a.title || "").localeCompare(String(b.title || ""));
     });
   }
-  // recommended: featured, then Free samples for free users, then title
+  // recommended: Free-included first for Free users, then featured, then title
   return list.sort((a, b) => {
+    const aFree = authoritativeContentAccessLabel(a) === "Free" ? 0 : 1;
+    const bFree = authoritativeContentAccessLabel(b) === "Free" ? 0 : 1;
+    if (!isProUser() && aFree !== bFree) return aFree - bFree;
     const aFeatured = a.featured ? 0 : 1;
     const bFeatured = b.featured ? 0 : 1;
     if (aFeatured !== bFeatured) return aFeatured - bFeatured;
-    const aFree = String(a.plan || "Free") !== "Pro" ? 0 : 1;
-    const bFree = String(b.plan || "Free") !== "Pro" ? 0 : 1;
     if (aFree !== bFree) return aFree - bFree;
     return String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" });
   });
@@ -17450,6 +17451,60 @@ function foundingPriceLockDisplayLabel(accountOrLock) {
 
 function libraryPlanBadge(resource) {
   return authoritativeContentAccessLabel(resource);
+}
+
+/** Free users may save included/accessible content up to the Free favorites limit. */
+function freeUserMaySaveResource(resource) {
+  if (!resource) return false;
+  if (isProUser() || hasAdminFullAccess()) return true;
+  if (typeof canAccess === "function" && canAccess(resource)) return true;
+  if (resource.category === "Activity Center" || resource._curriculumActivity) {
+    return typeof isFreeAccessibleActivity === "function" && isFreeAccessibleActivity(resource);
+  }
+  return typeof isFreeAccessibleCurriculumPlan === "function" && isFreeAccessibleCurriculumPlan(resource);
+}
+
+/**
+ * Canonical Save control for Free/Pro. Never show Pro-gated Save labels on included Free content.
+ * Locked Pro previews use a quiet disabled control (not an active Save affordance).
+ */
+function favoriteSaveControl(resource, options = {}) {
+  const favorite = favorites.includes(resource?.id);
+  const compact = options.compact === true;
+  const star = options.star === true;
+  const label = favorite ? (options.savedLabel || "Saved") : (options.saveLabel || "Save");
+  const aria = favorite
+    ? (options.savedAria || "Remove from Saved Plans")
+    : (options.saveAria || "Save plan");
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return {
+      label: star ? "☆" : label,
+      aria,
+      attrs: `data-pro-feature="favorites"`,
+      className: "disabled-control",
+      pressed: false,
+      active: false,
+    };
+  }
+  if (freeUserMaySaveResource(resource)) {
+    return {
+      label: star ? (favorite ? "★" : "☆") : label,
+      aria,
+      attrs: `data-favorite="${escapeHtml(resource.id)}"`,
+      className: favorite ? "is-saved" : "",
+      pressed: favorite,
+      active: true,
+    };
+  }
+  // Locked Pro preview — do not look like an active Save control.
+  return {
+    label: star ? "☆" : (compact ? "Save" : "Save"),
+    aria: "Save is available for included Free content, or with Pro",
+    attrs: `data-pro-feature="favorites"`,
+    className: "disabled-control is-locked-save",
+    pressed: false,
+    active: false,
+  };
 }
 
 function libraryAccessBadgeHtml() {
@@ -17590,6 +17645,12 @@ function activityBrowseCard(resource) {
   const age = resource.age || "All Ages";
   const parentLessonTitle = resource._curriculumParentTitle || "";
   const favoriteLabel = favorite ? "Remove from Saved" : "Save activity";
+  const saveCtrl = favoriteSaveControl(resource, {
+    star: true,
+    saveAria: favoriteLabel,
+    savedAria: favoriteLabel,
+  });
+  const saveBtn = favoriteSaveControl(resource);
   const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
   const coverClass = libraryCoverToneClass(`${resource.title}-${category}`);
   const coverStyle = libraryResourceCoverStyle(resource);
@@ -17607,13 +17668,13 @@ function activityBrowseCard(resource) {
       <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
         <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
-          class="browse-card-save lesson-plan-save-btn ${favorite ? "is-saved" : ""}"
+          class="browse-card-save lesson-plan-save-btn ${saveCtrl.className}"
           type="button"
-          data-favorite="${escapeHtml(resource.id)}"
-          aria-label="${escapeHtml(favoriteLabel)}"
-          aria-pressed="${favorite ? "true" : "false"}"
-          title="${escapeHtml(favoriteLabel)}"
-        >${favorite ? "★" : "☆"}</button>
+          ${saveCtrl.attrs}
+          aria-label="${escapeHtml(saveCtrl.aria)}"
+          aria-pressed="${saveCtrl.pressed ? "true" : "false"}"
+          title="${escapeHtml(saveCtrl.aria)}"
+        >${saveCtrl.label}</button>
         ${!coverStyle ? `<span class="browse-card-cover-label">${escapeHtml(category)}</span>` : ""}
       </div>
       <div class="browse-card-body">
@@ -17626,9 +17687,9 @@ function activityBrowseCard(resource) {
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View</button>
         <button
           type="button"
-          class="ghost-button"
-          data-favorite="${escapeHtml(resource.id)}"
-        >${favorite ? "Saved" : "Save"}</button>
+          class="ghost-button ${saveBtn.className}"
+          ${saveBtn.attrs}
+        >${saveBtn.label}</button>
         ${parentLessonId && !locked ? `<button type="button" class="ghost-button" data-activity-add-calendar="${escapeHtml(parentLessonId)}">Add to Calendar</button>` : ""}
       </div>
     </article>
@@ -17646,6 +17707,12 @@ function lessonPlanCard(resource) {
     ? curriculumActivityCountForLesson(resource.id)
     : 0;
   const favoriteLabel = favorite ? "Remove from Saved Plans" : "Save plan";
+  const saveCtrl = favoriteSaveControl(resource, {
+    star: true,
+    saveAria: favoriteLabel,
+    savedAria: favoriteLabel,
+  });
+  const saveBtn = favoriteSaveControl(resource);
   const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
   const pickingForCalendar = Boolean(calendarLessonAssignContext?.weekStartDate);
   const coverClass = libraryCoverToneClass(`${resource.title}-${theme || ageLabel}`);
@@ -17686,13 +17753,13 @@ function lessonPlanCard(resource) {
         <div class="browse-card-cover-scrim" aria-hidden="true"></div>
         <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
-          class="lesson-plan-save-btn browse-card-save ${favorite ? "is-saved" : ""}"
+          class="lesson-plan-save-btn browse-card-save ${saveCtrl.className}"
           type="button"
-          data-favorite="${escapeHtml(resource.id)}"
-          aria-label="${escapeHtml(favoriteLabel)}"
-          aria-pressed="${favorite ? "true" : "false"}"
-          title="${escapeHtml(favoriteLabel)}"
-        >${favorite ? "★" : "☆"}</button>
+          ${saveCtrl.attrs}
+          aria-label="${escapeHtml(saveCtrl.aria)}"
+          aria-pressed="${saveCtrl.pressed ? "true" : "false"}"
+          title="${escapeHtml(saveCtrl.aria)}"
+        >${saveCtrl.label}</button>
         <div class="browse-card-cover-overlay">
           <span class="browse-card-age">${escapeHtml(ageLabel)}</span>
           <h3 class="browse-card-title-overlay">${escapeHtml(resource.title)}</h3>
@@ -17709,9 +17776,9 @@ function lessonPlanCard(resource) {
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>
         <button
           type="button"
-          class="ghost-button"
-          data-favorite="${escapeHtml(resource.id)}"
-        >${favorite ? "Saved" : "Save"}</button>
+          class="ghost-button ${saveBtn.className}"
+          ${saveBtn.attrs}
+        >${saveBtn.label}</button>
       </div>
     </article>
   `;
@@ -18115,7 +18182,11 @@ function resolveFeaturedThisWeekLessons(items) {
 }
 
 function featuredLessonBannerHtml(items) {
-  const { lessons, source } = resolveFeaturedThisWeekLessons(items);
+  let { lessons, source } = resolveFeaturedThisWeekLessons(items);
+  // Free accounts: keep Featured secondary and Free-included first — only show Free featured cards.
+  if (!isProUser() && !hasAdminFullAccess()) {
+    lessons = lessons.filter((item) => authoritativeContentAccessLabel(item) === "Free");
+  }
   if (!lessons.length) return "";
   // Extension point: source may become "ai" / "analytics" later without redesigning this UI.
   const cards = lessons.map((featured) => {
@@ -18139,7 +18210,7 @@ function featuredLessonBannerHtml(items) {
       <div class="featured-this-week-head">
         <p class="eyebrow">Featured This Week</p>
         <h3>Great places to start</h3>
-        <p class="muted-copy">Hand-picked lesson plans providers love — configurable from Admin later.</p>
+        <p class="muted-copy">Hand-picked lesson plans providers love.</p>
       </div>
       <div class="featured-this-week-grid">
         ${cards}
@@ -18262,12 +18333,9 @@ function searchedResources() {
 
 function resourceCard(resource) {
   const locked = !canAccess(resource);
-  const favorite = favorites.includes(resource.id);
   const viewText = locked ? "Preview" : "View";
-  const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
-  const accessText = resource.category === "Lesson Plans"
-    ? authoritativeLessonPlanAccessLabel(resource)
-    : (locked ? "Pro" : isProUser() ? "Included" : "Free");
+  const saveCtrl = favoriteSaveControl(resource);
+  const accessText = authoritativeContentAccessLabel(resource);
   const lessonContext = resource._childRecommendation || null;
   const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumActivityCountForLesson(resource.id)
@@ -18309,7 +18377,7 @@ function resourceCard(resource) {
         </div>
       ` : ""}
       <div class="resource-actions">
-        <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`} type="button">${favoriteText}</button>
+        <button class="favorite-button ${saveCtrl.className}" ${saveCtrl.attrs} type="button">${saveCtrl.label}</button>
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-edit-lesson-plan="${resource.id}" type="button">Edit Lesson Plan</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-find-lesson-activities="${resource.id}" type="button">View Activities</button>` : ""}
         ${resource.category === "Lesson Plans" && resource._curriculumManaged && !locked ? `<button class="ghost-button" data-curriculum-assign-week="${resource.id}" type="button">Add to Calendar</button>` : ""}
@@ -21834,19 +21902,29 @@ function lessonWorkspaceSaveButtonHtml(resourceId) {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     return `<span class="lesson-workspace-save-btn llh-public-preview-save-note" aria-hidden="false">Public preview</span>`;
   }
-  const favorite = favorites.includes(resourceId);
-  const saveAttrs = !isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resourceId)}"`;
-  const saveLabel = !isProUser() ? "Save (Pro)" : favorite ? "Saved" : "Save";
-  return `<button type="button" class="ghost-button lesson-workspace-save-btn ${favorite ? "is-saved" : ""} ${!isProUser() ? "disabled-control" : ""}" ${saveAttrs} aria-pressed="${favorite ? "true" : "false"}">${saveLabel}</button>`;
+  const resource = (typeof resources !== "undefined" ? resources : []).find((item) => item.id === resourceId)
+    || { id: resourceId, category: "Lesson Plans" };
+  const saveCtrl = favoriteSaveControl(resource);
+  return `<button type="button" class="ghost-button lesson-workspace-save-btn ${saveCtrl.className}" ${saveCtrl.attrs} aria-pressed="${saveCtrl.pressed ? "true" : "false"}" aria-label="${escapeHtml(saveCtrl.aria)}">${saveCtrl.label}</button>`;
 }
 
 function refreshLessonWorkspaceSaveButton() {
   const btn = document.querySelector(".lesson-workspace-save-btn");
   if (!btn || !activeViewerResourceId) return;
-  const favorite = favorites.includes(activeViewerResourceId);
-  btn.classList.toggle("is-saved", favorite);
-  btn.textContent = !isProUser() ? "Save (Pro)" : favorite ? "Saved" : "Save";
-  btn.setAttribute("aria-pressed", favorite ? "true" : "false");
+  const resource = (typeof resources !== "undefined" ? resources : []).find((item) => item.id === activeViewerResourceId)
+    || { id: activeViewerResourceId, category: "Lesson Plans" };
+  const saveCtrl = favoriteSaveControl(resource);
+  btn.className = `ghost-button lesson-workspace-save-btn ${saveCtrl.className}`.trim();
+  btn.textContent = saveCtrl.label;
+  btn.setAttribute("aria-pressed", saveCtrl.pressed ? "true" : "false");
+  btn.setAttribute("aria-label", saveCtrl.aria);
+  if (saveCtrl.active) {
+    btn.setAttribute("data-favorite", activeViewerResourceId);
+    btn.removeAttribute("data-pro-feature");
+  } else {
+    btn.removeAttribute("data-favorite");
+    btn.setAttribute("data-pro-feature", "favorites");
+  }
 }
 
 let lessonWorkspaceActionSheetPanel = "main-calendar";
@@ -25717,9 +25795,7 @@ function openGeneratedPrintableResource(resource) {
   }
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    resource.category === "Lesson Plans"
-      ? `<span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>`
-      : (resource.plan ? `<span class="tag access-tag">${escapeHtml(resource.plan)}</span>` : ""),
+    `<span class="tag access-tag">${escapeHtml(authoritativeContentAccessLabel(resource))}</span>`,
     resource.format ? `<span class="tag">${escapeHtml(resource.format || "Print-ready PDF")}</span>` : "",
     ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
   ].filter(Boolean).join("");
@@ -25900,9 +25976,7 @@ async function openResourceViewer(resourceId, options = {}) {
     : "";
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
-    resource.category === "Lesson Plans"
-      ? `<span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>`
-      : (resource.plan ? `<span class="tag access-tag">${escapeHtml(resource.plan)}</span>` : ""),
+    `<span class="tag access-tag">${escapeHtml(authoritativeContentAccessLabel(resource))}</span>`,
     resource.format ? `<span class="tag">${escapeHtml(resource.format || "In-app resource")}</span>` : "",
     parentLessonLabel ? `<span class="tag">${escapeHtml(parentLessonLabel)}</span>` : "",
     ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
@@ -33271,10 +33345,6 @@ function renderSettingsHubPage() {
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
-      ${canBilling && !isProUser() && !accountProductStatus(currentAccount()).banner
-        && !(typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts())
-        ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true })
-        : ""}
       ${platformInstallCardMarkup("settings-prompt")}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
@@ -54580,15 +54650,15 @@ At home, families can support this growth by reading together, talking about dai
 }
 
 function compactItem(resource) {
-  const favoriteText = !isProUser() ? "Pro Save" : favorites.includes(resource.id) ? "Saved" : "Save";
-  const favoriteAttribute = !isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`;
+  const saveCtrl = favoriteSaveControl(resource);
+  const accessLabel = authoritativeContentAccessLabel(resource);
   return `
     <div class="compact-item">
       <div>
         <strong>${resource.title}</strong>
-        <span>${resource.category} · ${resource.age} · ${resource.plan}</span>
+        <span>${resource.category} · ${resource.age} · ${accessLabel}</span>
       </div>
-      <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${favoriteAttribute} type="button">${favoriteText}</button>
+      <button class="favorite-button ${saveCtrl.className}" ${saveCtrl.attrs} type="button">${saveCtrl.label}</button>
     </div>
   `;
 }
@@ -54836,11 +54906,9 @@ function dismissFreeWelcomeCard() {
  */
 function freeSurfaceUpgradeHtml(variant = "default") {
   void variant;
-  // Keep calendar/dashboard quiet for brand-new Free explorers.
-  if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) {
-    return "";
-  }
-  return freeDashboardUpgradeCardHtml();
+  // Header Upgrade is the one persistent Free path. Calendar/Dashboard stay quiet;
+  // locked-content interactions use the Pro feature modal instead of stacked panels.
+  return "";
 }
 
 function contentGrowthStats() {
@@ -55120,16 +55188,14 @@ function refreshFreePlanUpgradeChrome() {
       (typeof NewUserOnboarding?.isNewUserOnboardingActive === "function" && NewUserOnboarding.isNewUserOnboardingActive())
       || (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()),
     );
-    // Large reminder only after intentional value/limit moment — not during onboarding.
-    reminder.hidden = bootBusy
-      || starterActive
-      || deferUpgradeChrome
-      || quiet
-      || !reachedValue;
-    const copyEl = reminder.querySelector(".free-plan-reminder-copy");
-    if (copyEl) {
-      copyEl.innerHTML = `<strong>Free Plan</strong><p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)} Upgrade to Pro anytime for the complete library.</p>`;
-    }
+    // Large reminder retired — header Upgrade is the one persistent Free path.
+    // Locked-content interactions use the Pro feature modal (contextual).
+    void bootBusy;
+    void starterActive;
+    void deferUpgradeChrome;
+    void quiet;
+    void reachedValue;
+    reminder.hidden = true;
   }
 }
 
