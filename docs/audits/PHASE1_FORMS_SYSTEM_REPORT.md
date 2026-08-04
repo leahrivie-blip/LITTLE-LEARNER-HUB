@@ -34,6 +34,16 @@ Also:
 
 ---
 
+## Screenshots
+
+Artifacts under `/opt/cursor/artifacts/forms-phase1/screenshots/`:
+
+1. `01-hub-forms-attention.png` — Forms needing attention on Home Daycare Hub  
+2. `02-program-templates.png` — Program form templates + assign  
+3. `03-ai-form-builder.png` — AI Form Builder actions  
+4. `04-forms-pack.png` — Built-in forms pack  
+5. `05-child-forms-records.png` — Child Forms & Records with review/print  
+
 ## Remaining issues (Phase 1)
 
 1. **Not legal e-sign** — testing acknowledgment records name/time; no vendor signature / certificate.  
