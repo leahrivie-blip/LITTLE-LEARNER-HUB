@@ -326,7 +326,8 @@
     "test:tk-upgrade-safety": "NODE_ENV=test node scripts/test-tk-upgrade-safety.js",
     "test:tk-recovery-controls-phase3": "NODE_ENV=test node scripts/test-tk-recovery-controls-phase3.js",
     "test:disposable-fixture-delete-phase4": "NODE_ENV=test node scripts/test-disposable-fixture-delete-phase4.js",
-    "test:curriculum-sentinel-phase5": "NODE_ENV=test node scripts/test-curriculum-sentinel-phase5.js"
+    "test:curriculum-sentinel-phase5": "NODE_ENV=test node scripts/test-curriculum-sentinel-phase5.js",
+    "test:ai-specificity-phase6": "NODE_ENV=test node scripts/test-ai-specificity-phase6.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
