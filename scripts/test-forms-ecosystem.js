@@ -216,13 +216,13 @@ async function main() {
         if (/got it|dismiss/i.test(btn.textContent || "")) btn.click();
       });
     });
-    await page.locator("[data-fe-dashboard]").scrollIntoViewIfNeeded();
+    await page.locator("[data-fe-dashboard], [data-fc-dashboard]").first().scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SHOT_DIR, "01-forms-dashboard.png"), fullPage: false });
-    await page.locator("#feLibraryPanel").scrollIntoViewIfNeeded();
+    await page.locator("#feLibraryPanel, #fcSections, [data-fc-sections]").first().scrollIntoViewIfNeeded();
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(SHOT_DIR, "02-forms-library.png"), fullPage: false });
-    await page.locator("#feAiBuilder").scrollIntoViewIfNeeded();
+    await page.locator("#feAiBuilder, #fcAiChat, [data-fc-ai]").first().scrollIntoViewIfNeeded();
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(SHOT_DIR, "03-ai-form-builder.png"), fullPage: false });
 
@@ -232,7 +232,7 @@ async function main() {
       if (typeof renderHomeDaycareHubPage === "function") renderHomeDaycareHubPage({ refreshHouseholds: false });
     });
     await page.waitForSelector(".fe-beautiful-form", { timeout: 8000 });
-    await page.locator("#feAiBuilder").scrollIntoViewIfNeeded();
+    await page.locator("#feAiBuilder, #fcAiChat, [data-fc-ai]").first().scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(SHOT_DIR, "04-beautiful-form-preview.png"), fullPage: false });
     console.log("PASS  beautiful form preview");
 
