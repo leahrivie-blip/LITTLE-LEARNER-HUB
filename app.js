@@ -14059,6 +14059,49 @@ function canOpenViewForCurrentAccess(view) {
  * Show/hide sidebar items from accountType + role capabilities.
  * No separate Director Tools section — items appear only when allowed.
  */
+let whatsNewNavSyncPromise = null;
+window.whatsNewNavHasNotes = null;
+
+function setWhatsNewNavVisible(show) {
+  const link = document.querySelector("#whatsNewNavLink");
+  if (!link) return;
+  const visible = Boolean(show) && isLoggedIn();
+  link.hidden = !visible;
+  link.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (visible) link.removeAttribute("tabindex");
+  else link.setAttribute("tabindex", "-1");
+}
+window.setWhatsNewNavVisible = setWhatsNewNavVisible;
+
+function syncWhatsNewNavVisibility() {
+  const link = document.querySelector("#whatsNewNavLink");
+  if (!link) return;
+  if (!isLoggedIn()) {
+    setWhatsNewNavVisible(false);
+    return;
+  }
+  if (window.whatsNewNavHasNotes != null) {
+    setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+    return;
+  }
+  setWhatsNewNavVisible(false);
+  if (whatsNewNavSyncPromise) return;
+  whatsNewNavSyncPromise = fetch("/api/release-notes", { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : {}))
+    .then((data) => {
+      const notes = Array.isArray(data.releaseNotes) ? data.releaseNotes : [];
+      window.whatsNewNavHasNotes = notes.length > 0;
+      setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+    })
+    .catch(() => {
+      window.whatsNewNavHasNotes = false;
+      setWhatsNewNavVisible(false);
+    })
+    .finally(() => {
+      whatsNewNavSyncPromise = null;
+    });
+}
+
 function syncPlatformNavVisibility() {
   const account = currentAccount();
   document.querySelectorAll("[data-nav-capability]").forEach((button) => {
@@ -14208,17 +14251,32 @@ function renderOwnerHomeDashboard() {
   const present = attendance.filter((a) => String(a.status || "").toLowerCase() !== "absent").length;
   const mealsToday = (records.meals || []).filter((m) => m.date === today).length;
   const obsRecent = [...(records.observations || [])]
+    .filter((obs) => String(obs.date || "") === today || !obs.date)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
     .slice(0, 4);
   const docsPending = (records.documents || []).filter((d) => {
     const status = String(d.status || d.statusLabel || "").toLowerCase();
     return d.shareWithFamily && !d.signedAt && /need|notif|assign|action|draft|request/.test(status);
   }).length;
+  const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, roster: children.length, byRoom: {} };
+  const roomRatioText = Object.keys(ratio.byRoom || {}).length
+    ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
+    : "No rooms checked in yet";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const name = accountDisplayFirstName(currentAccount());
   const program = getProgramSettings()?.programName || "your program";
   const childById = Object.fromEntries(children.map((c) => [c.id, c]));
+  const attention = typeof buildActionOnlyAttentionCards === "function" ? buildActionOnlyAttentionCards() : [];
+  const attentionHtml = attention.length
+    ? `<section class="work-hub-section">
+        <h3>Needs attention</h3>
+        <div class="work-hub-grid">
+          ${attention.map((card) => workHubTile(card)).join("")}
+        </div>
+      </section>`
+    : "";
+  const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
 
   homeSection.innerHTML = workHubShell({
     eyebrow: "Home",
@@ -14227,45 +14285,34 @@ function renderOwnerHomeDashboard() {
     body: `
       <div class="work-pulse-grid" aria-label="Today at a glance">
         <article class="work-pulse-card"><em>Checked in</em><strong>${checkedIn}</strong><span>of ${children.length} children</span></article>
-        <article class="work-pulse-card"><em>Attendance logged</em><strong>${present}</strong><span>present / recorded</span></article>
+        <article class="work-pulse-card"><em>Classroom count</em><strong>${ratio.checkedIn}</strong><span>${escapeHtml(roomRatioText)}</span></article>
         <article class="work-pulse-card"><em>Meals logged</em><strong>${mealsToday}</strong><span>entries today</span></article>
-        <article class="work-pulse-card"><em>Forms needing attention</em><strong>${docsPending}</strong><span>parent action</span></article>
+        ${docsPending ? `<article class="work-pulse-card"><em>Forms awaiting parent</em><strong>${docsPending}</strong><span>follow up</span></article>` : `<article class="work-pulse-card"><em>Attendance logged</em><strong>${present}</strong><span>present / recorded</span></article>`}
       </div>
 
       <section class="work-hub-section">
-        <h3>Quick actions</h3>
+        <h3>Next actions</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Run the care day", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
           ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
           ${workHubTile({ view: "families", title: "Families", detail: "Messages & Family Hub" })}
-          ${workHubTile({ view: "messages", title: "Messages", detail: "Inbox & support" })}
-          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Upcoming events" })}
         </div>
       </section>
 
-      <section class="work-hub-section">
-        <h3>Needs attention</h3>
-        <div class="work-hub-grid">
-          ${workHubTile({ view: "families", title: "Parent messages", detail: "Open Families → Messages" })}
-          ${workHubTile({ view: "forms", title: "Forms", detail: docsPending ? `${docsPending} awaiting parent` : "No open form requests" })}
-          ${workHubTile({ view: "business", title: "Business alerts", detail: "Staff, enrollment, billing" })}
-          ${workHubTile({ view: "ai", title: "AI recommendations", detail: "Documentation helpers" })}
-        </div>
-      </section>
+      ${attentionHtml}
+      ${lessonHtml}
 
-      <section class="work-hub-section">
+      ${obsRecent.length ? `<section class="work-hub-section">
         <div class="work-hub-section-head">
           <h3>Recent observations</h3>
           <button class="ghost-button" type="button" data-view="children">Open Children</button>
         </div>
-        ${obsRecent.length
-          ? `<ul class="work-simple-list">${obsRecent.map((obs) => {
+        <ul class="work-simple-list">${obsRecent.map((obs) => {
             const child = childById[obs.childId];
             return `<li><strong>${escapeHtml(child?.name || "Child")}</strong><span>${escapeHtml((obs.text || obs.note || obs.summary || "Observation").slice(0, 100))}</span><small>${escapeHtml(obs.date || "")}</small></li>`;
-          }).join("")}</ul>`
-          : `<p class="muted-copy">No observations yet today. Capture one from Classroom or Quick Add.</p>`}
-      </section>
+          }).join("")}</ul>
+      </section>` : ""}
     `,
   });
 }
@@ -14278,34 +14325,48 @@ function renderTeacherTodayPage() {
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
   const children = records.children || [];
   const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
+  const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
+  const roomRatioText = Object.keys(ratio.byRoom || {}).length
+    ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
+    : `${children.length} on roster`;
+  const attention = typeof buildActionOnlyAttentionCards === "function"
+    ? buildActionOnlyAttentionCards().filter((card) => !["business", "forms"].includes(card.view) || card.title.toLowerCase().includes("incident") || card.title.toLowerCase().includes("report"))
+    : [];
+  const attentionHtml = attention.length
+    ? `<section class="work-hub-section"><h3>Needs you now</h3><div class="work-hub-grid">${attention.map((card) => workHubTile(card)).join("")}</div></section>`
+    : "";
+  const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
+  const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: "Today",
     subtitle: "Everything happening in your classroom today — optimized for the care day, not the business office.",
     body: `
       <div class="work-pulse-grid">
-        <article class="work-pulse-card"><em>Children here</em><strong>${checkedIn}</strong><span>${children.length} on roster</span></article>
+        <article class="work-pulse-card"><em>Children here</em><strong>${checkedIn}</strong><span>${escapeHtml(roomRatioText)}</span></article>
         <article class="work-pulse-card"><em>Meals</em><strong>${(records.meals || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
         <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
         <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
       </div>
+      ${lessonHtml}
+      ${attentionHtml}
       <section class="work-hub-section">
         <h3>Run the day</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: "Check-in, meals, naps, diapers", primary: true })}
-          ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open lesson plans" })}
-          ${workHubTile({ view: "activities", title: "Today's Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
+          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts`, primary: true }) : ""}
+          ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open assigned plan" })}
+          ${workHubTile({ view: "activities", title: "Suggested activities", detail: "Activity Center" })}
           ${workHubTile({ view: "calendar", title: "Today's Schedule", detail: "Calendar & events" })}
         </div>
       </section>
       <section class="work-hub-section">
         <h3>Quick capture</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI documentation", attrs: 'data-quick-doc-type="observation"' })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Add to daily log" })}
-          ${workHubTile({ view: "families", title: "Quick Message", detail: "Parent update", attrs: role === "assistant" ? 'data-view="messages"' : "" })}
-          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Document safely", attrs: 'data-quick-doc-type="incident-report"' })}
-          ${workHubTile({ view: "ai", title: "Quick AI", detail: "Helpers", primary: false })}
+          ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
+          ${workHubTile({ view: role === "assistant" ? "messages" : "families", title: "Quick Message", detail: "Parent update" })}
+          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
         </div>
       </section>
       <section class="work-hub-section">
@@ -17982,6 +18043,12 @@ function childTimelineEntries(child, records) {
   addEntries(records.reports, (item) => item.type || item.title || "Report Generated", (item) => item.summary || item.message || "Report saved", "Reports", "Reports");
   addEntries(records.photos || [], () => "Photo Added", (item) => item.caption || item.summary || "Photo saved", "Photos", "Photos");
   addEntries(records.communications, (item) => item.type || "Note Saved", (item) => item.message || item.summary || "Communication saved", "Notes", "Communications");
+  addEntries(records.documents || [], (item) => item.title || "Form / Document", (item) => {
+    const status = item.statusLabel || item.status || "Updated";
+    const signed = item.signedAt ? `Signed ${String(item.signedAt).slice(0, 10)}` : status;
+    return signed;
+  }, "Forms", "Documents", (item) => String(item.signedAt || item.updatedAt || item.createdAt || "").slice(11, 16));
+  addEntries(records.automationEvents || [], (item) => item.title || "Update", (item) => item.detail || item.summary || "Automated update", "System", "AutomationEvents", (item) => item.time || "");
   return filterDailyLogHistory(entries)
     .filter((item) => item.date)
     .sort((a, b) => `${b.date} ${b.time || ""}`.localeCompare(`${a.date} ${a.time || ""}`));
@@ -18058,17 +18125,20 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     const attendance = childStore("Attendance");
     const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
     if (existing) {
-      saveChildStore("Attendance", attendance.map((item) => (
-        item.id === existing.id
-          ? {
-              ...item,
-              status: "Present",
-              dropoff: item.dropoff || time,
-              pickup: "",
-              summary: `Present at ${item.dropoff || time}`,
-            }
-          : item
-      )));
+      let updated = null;
+      saveChildStore("Attendance", attendance.map((item) => {
+        if (item.id !== existing.id) return item;
+        updated = {
+          ...item,
+          status: "Present",
+          dropoff: item.dropoff || time,
+          pickup: "",
+          summary: `Present at ${item.dropoff || time}`,
+          shareWithFamily: item.shareWithFamily !== false,
+        };
+        return updated;
+      }));
+      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
       return;
     }
     appendChildRecord("Attendance", {
@@ -18086,17 +18156,19 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     const attendance = childStore("Attendance");
     const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
     if (existing) {
-      saveChildStore("Attendance", attendance.map((item) => (
-        item.id === existing.id
-          ? {
-              ...item,
-              status: item.status === "Absent" ? "Present" : (item.status || "Present"),
-              pickup: time,
-              summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
-              shareWithFamily: item.shareWithFamily !== false,
-            }
-          : item
-      )));
+      let updated = null;
+      saveChildStore("Attendance", attendance.map((item) => {
+        if (item.id !== existing.id) return item;
+        updated = {
+          ...item,
+          status: item.status === "Absent" ? "Present" : (item.status || "Present"),
+          pickup: time,
+          summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
+          shareWithFamily: item.shareWithFamily !== false,
+        };
+        return updated;
+      }));
+      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
       return;
     }
     appendChildRecord("Attendance", {
@@ -18114,17 +18186,20 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     const attendance = childStore("Attendance");
     const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
     if (existing) {
-      saveChildStore("Attendance", attendance.map((item) => (
-        item.id === existing.id
-          ? {
-              ...item,
-              status: "Absent",
-              dropoff: "",
-              pickup: "",
-              summary: "Absent",
-            }
-          : item
-      )));
+      let updated = null;
+      saveChildStore("Attendance", attendance.map((item) => {
+        if (item.id !== existing.id) return item;
+        updated = {
+          ...item,
+          status: "Absent",
+          dropoff: "",
+          pickup: "",
+          summary: "Absent",
+          shareWithFamily: item.shareWithFamily !== false,
+        };
+        return updated;
+      }));
+      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
       return;
     }
     appendChildRecord("Attendance", {
@@ -30087,6 +30162,9 @@ async function assignScheduleLessonPlan({
   syncWeeklyPlannerFromScheduleItem(item);
   curriculumPlannerSelectedWeek = week;
   curriculumPlannerAssignResourceId = "";
+  if (typeof runLessonAssignedAutomation === "function") {
+    try { runLessonAssignedAutomation(item, { classroomId, childIds, week }); } catch (_e) { /* non-blocking */ }
+  }
   curriculumPlannerMessage = {
     text: existing
       ? `Updated assignment to “${item.lessonPlanTitle}” (${activityCount} activities). Notes were preserved.`
@@ -33555,6 +33633,7 @@ function childRecords() {
     activityLogs: childStore("ActivityLogs"),
     photos: childStore("Photos"),
     documents: childStore("Documents"),
+    automationEvents: childStore("AutomationEvents"),
   };
 }
 
@@ -36214,7 +36293,11 @@ async function acknowledgeFamilyHubDocument(documentId) {
           }
           : doc
       ));
-      if (next.some((doc, index) => doc !== docs[index])) saveChildStore("Documents", next);
+      if (next.some((doc, index) => doc !== docs[index])) {
+        saveChildStore("Documents", next);
+        const signedDoc = next.find((doc) => String(doc.id || "") === String(data.document.id));
+        if (signedDoc && typeof runFormSignedAutomation === "function") runFormSignedAutomation(signedDoc);
+      }
     }
   } catch (_error) { /* non-blocking */ }
   return data;
@@ -43151,18 +43234,21 @@ function goalItem(item, child = {}) {
   `;
 }
 
-function appendChildRecord(key, record) {
+function appendChildRecord(key, record, options = {}) {
   const items = childStore(key);
   const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
   saveChildStore(key, [...items, saved]);
-  if (activePortfolioChildId) {
-    renderChildPortfolioPage(activePortfolioChildId);
-  } else {
-    renderChildManagement();
+  if (!options.skipRender) {
+    if (activePortfolioChildId) {
+      renderChildPortfolioPage(activePortfolioChildId);
+    } else if (typeof renderChildManagement === "function") {
+      try { renderChildManagement(); } catch (_e) { /* non-blocking */ }
+    }
   }
   // Bridge shared parent-facing notes into the Family Hub message thread.
   if (
-    key === "Communications"
+    !options.skipBridge
+    && key === "Communications"
     && saved.shareWithFamily === true
     && isHomeDaycareHubTestingEnabled()
     && typeof maybeBridgeCommunicationToFamilyHub === "function"
@@ -43170,12 +43256,17 @@ function appendChildRecord(key, record) {
     maybeBridgeCommunicationToFamilyHub(saved).catch(() => {});
   }
   // Auto-notify Family Hub when provider shares care updates parents care about.
+  // Meals / attendance / naps stay silent on purpose (appear on Family Hub Today without push noise).
   if (
-    saved.shareWithFamily === true
+    !options.skipNotify
+    && saved.shareWithFamily === true
     && isHomeDaycareHubTestingEnabled()
     && ["Photos", "Reports", "Observations", "Goals", "SupportPlans"].includes(key)
   ) {
     maybeNotifyFamilyHubSharedRecord(key, saved).catch(() => {});
+  }
+  if (!options.skipAutomation && typeof runSmartAutomationForRecord === "function") {
+    try { runSmartAutomationForRecord(key, saved, options); } catch (_e) { /* non-blocking */ }
   }
   return saved;
 }
@@ -43244,6 +43335,438 @@ async function maybeBridgeCommunicationToFamilyHub(record = {}) {
   if (!response.ok) return null;
   return response.json().catch(() => null);
 }
+
+/** Testing-site smart automation: connect features so providers enter data once. */
+function isSmartAutomationEnabled() {
+  try {
+    return Boolean(typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled());
+  } catch (_error) {
+    return false;
+  }
+}
+
+function opsAlertsStorageKey() {
+  const email = String(currentUser?.email || currentAccount()?.email || "local").toLowerCase();
+  return `llhOpsAlerts:${email}`;
+}
+
+function listOpsAlerts() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(opsAlertsStorageKey()) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function saveOpsAlerts(items = []) {
+  localStorage.setItem(opsAlertsStorageKey(), JSON.stringify((items || []).slice(0, 60)));
+}
+
+function appendOpsAlert(alert = {}) {
+  if (!isSmartAutomationEnabled()) return null;
+  const type = String(alert.type || "update").trim() || "update";
+  // Notification audit: only matter-worthy types.
+  const allowed = new Set([
+    "incident_review",
+    "form_signed",
+    "form_overdue",
+    "observation_shared",
+    "message",
+    "medication_due",
+    "lesson_assigned",
+    "child_ready",
+  ]);
+  if (!allowed.has(type)) return null;
+  const next = {
+    id: `ops-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    createdAt: new Date().toISOString(),
+    read: false,
+    priority: alert.priority || "normal",
+    type,
+    title: String(alert.title || "Needs attention").trim(),
+    detail: String(alert.detail || "").trim(),
+    childId: alert.childId || "",
+    hrefView: alert.hrefView || "home",
+  };
+  const items = listOpsAlerts().filter((item) => !(
+    item.type === next.type
+    && String(item.childId || "") === String(next.childId || "")
+    && String(item.title || "") === next.title
+    && !item.read
+    && (Date.now() - Date.parse(item.createdAt || 0)) < 5 * 60 * 1000
+  ));
+  items.unshift(next);
+  saveOpsAlerts(items);
+  return next;
+}
+
+function markOpsAlertRead(id) {
+  if (!id) return;
+  saveOpsAlerts(listOpsAlerts().map((item) => (item.id === id ? { ...item, read: true } : item)));
+}
+
+function dismissNoiseOpsAlerts() {
+  // Drop low-value leftover alerts that are not in the matter-worthy set.
+  const allowed = new Set([
+    "incident_review", "form_signed", "form_overdue", "observation_shared",
+    "message", "medication_due", "lesson_assigned", "child_ready",
+  ]);
+  saveOpsAlerts(listOpsAlerts().filter((item) => allowed.has(String(item.type || ""))));
+}
+
+function appendAutomationTimeline(childId, title, detail = "", extras = {}) {
+  if (!isSmartAutomationEnabled() || !childId) return null;
+  const today = extras.date || (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10));
+  return appendChildRecord("AutomationEvents", {
+    childId,
+    date: today,
+    time: extras.time || (typeof quickActionTime === "function" ? quickActionTime() : ""),
+    title,
+    detail,
+    summary: detail || title,
+    source: extras.source || "automation",
+    shareWithFamily: false,
+  }, { skipAutomation: true, skipNotify: true, skipBridge: true, skipRender: true });
+}
+
+function classroomRatioSnapshot(records = childRecords(), today = (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10))) {
+  const children = records.children || [];
+  const present = (records.attendance || []).filter((a) => {
+    if (a.date !== today) return false;
+    const status = String(a.status || "").toLowerCase();
+    return status !== "absent" && (a.dropoff || status === "present") && !a.pickup;
+  });
+  const byRoom = {};
+  present.forEach((a) => {
+    const child = children.find((c) => c.id === a.childId);
+    const room = child?.classroom || child?.classroomId || "Unassigned";
+    byRoom[room] = (byRoom[room] || 0) + 1;
+  });
+  return { checkedIn: present.length, roster: children.length, byRoom };
+}
+
+function dayReadinessForChild(childId, records = childRecords(), today = (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10))) {
+  const has = (key) => (records[key] || []).some((item) => item.childId === childId && item.date === today && item.archived !== true);
+  return {
+    attendance: has("attendance"),
+    meals: has("meals"),
+    naps: has("naps"),
+    observations: (records.observations || []).some((item) => item.childId === childId && item.date === today),
+    photos: (records.photos || []).some((item) => item.childId === childId && item.date === today),
+    report: (records.reports || []).some((item) => item.childId === childId && item.date === today),
+  };
+}
+
+function childrenReadyForEndOfDayReport(records = childRecords(), today = (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10))) {
+  return (records.children || []).filter((child) => {
+    const ready = dayReadinessForChild(child.id, records, today);
+    return ready.attendance && (ready.meals || ready.naps || ready.observations || ready.photos) && !ready.report;
+  });
+}
+
+function runChildCreatedAutomation(child, { isNew = true } = {}) {
+  if (!isSmartAutomationEnabled() || !child?.id || !isNew) return { formsAdded: 0 };
+  appendAutomationTimeline(child.id, "Child enrolled", `${child.name || "Child"} is ready for Daily Logs, observations, goals, and reports.`, { source: "child_created" });
+  let formsAdded = 0;
+  try {
+    if (typeof addAllHomeDaycarePackFormsToChild === "function") {
+      formsAdded = addAllHomeDaycarePackFormsToChild(child.id) || 0;
+    }
+  } catch (_error) { formsAdded = 0; }
+  if (formsAdded > 0) {
+    appendAutomationTimeline(child.id, "Forms folder ready", `${formsAdded} enrollment / care forms added to this child’s file.`, { source: "child_created_forms" });
+  }
+  // Soft readiness markers (no empty stub records parents would see).
+  const profiles = childStore("Profiles");
+  saveChildStore("Profiles", profiles.map((item) => (
+    item.id === child.id
+      ? {
+        ...item,
+        automation: {
+          ...(item.automation || {}),
+          timelineReady: true,
+          documentsReady: formsAdded > 0,
+          observationsReady: true,
+          goalsReady: true,
+          dailyReportsReady: true,
+          connectedAt: new Date().toISOString(),
+        },
+      }
+      : item
+  )));
+  appendOpsAlert({
+    type: "child_ready",
+    title: `${child.name || "Child"} is set up`,
+    detail: formsAdded ? `${formsAdded} forms ready · linked for Daily Logs & Family Hub` : "Ready for Daily Logs, observations, and reports",
+    childId: child.id,
+    hrefView: "children",
+  });
+  return { formsAdded };
+}
+
+function runIncidentAutomation(record = {}) {
+  if (!isSmartAutomationEnabled() || !record?.childId) return;
+  const type = String(record.type || record.category || "").toLowerCase();
+  if (!type.includes("incident")) return;
+  const today = record.date || (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10));
+  const kid = typeof childName === "function" ? childName(record.childId) : "Child";
+  const description = String(record.description || record.summary || record.message || "Incident noted").trim();
+  appendAutomationTimeline(record.childId, "Incident recorded", description.slice(0, 160), { date: today, source: "incident" });
+  // Internal document on file (dedupe by source id)
+  const docs = childStore("Documents") || [];
+  const already = docs.some((doc) => doc.sourceRecordId === record.id);
+  if (!already) {
+    appendChildRecord("Documents", {
+      childId: record.childId,
+      date: today,
+      title: `Incident Report | ${today}`,
+      category: "Incident",
+      status: "on_file",
+      statusLabel: "On file",
+      notes: description,
+      sourceRecordId: record.id,
+      shareWithFamily: false,
+    }, { skipAutomation: true, skipNotify: true, skipBridge: true, skipRender: true });
+  }
+  // Parent message draft (private until provider sends/shares)
+  const communications = childStore("Communications") || [];
+  const draftExists = communications.some((item) => (
+    item.childId === record.childId
+    && item.sourceIncidentId === record.id
+  ));
+  if (!draftExists) {
+    appendChildRecord("Communications", {
+      childId: record.childId,
+      date: today,
+      type: "Parent Message",
+      title: `Parent update draft | Incident ${today}`,
+      summary: `Draft for ${kid}: ${description.slice(0, 100)}`,
+      message: `Hi — I wanted to share a brief update about ${kid} today. ${description}\n\nPlease reply if you have any questions.`,
+      shareWithFamily: false,
+      sourceIncidentId: record.id,
+      draft: true,
+    }, { skipAutomation: true, skipNotify: true, skipBridge: true, skipRender: true });
+  }
+  // Behavior history marker
+  appendChildRecord("Communications", {
+    childId: record.childId,
+    date: today,
+    type: "Behavior Note",
+    title: `Behavior history | ${today}`,
+    summary: description.slice(0, 120),
+    message: description,
+    shareWithFamily: false,
+    sourceIncidentId: record.id,
+    systemGenerated: true,
+  }, { skipAutomation: true, skipNotify: true, skipBridge: true, skipRender: true });
+  appendOpsAlert({
+    type: "incident_review",
+    priority: "high",
+    title: `Incident needs review · ${kid}`,
+    detail: description.slice(0, 140),
+    childId: record.childId,
+    hrefView: "child-tools-daily-logs",
+  });
+}
+
+function runObservationAutomation(record = {}) {
+  if (!isSmartAutomationEnabled() || !record?.childId) return;
+  const child = (childRecords().children || []).find((item) => item.id === record.childId);
+  if (!child) return;
+  // Observations already appear on timeline; quietly connect goals + matter-worthy notify.
+  if (typeof maybeSuggestGoalFromObservation === "function") {
+    try { maybeSuggestGoalFromObservation(child, record); } catch (_e) { /* ignore */ }
+  }
+  if (record.shareWithFamily === true) {
+    appendOpsAlert({
+      type: "observation_shared",
+      title: `Observation shared · ${child.name || "Child"}`,
+      detail: String(record.summary || record.text || "Shared with Family Hub").slice(0, 140),
+      childId: record.childId,
+      hrefView: "families",
+    });
+  }
+}
+
+function runAttendanceAutomation(record = {}) {
+  if (!isSmartAutomationEnabled() || !record?.childId) return;
+  // Attendance already appears on the child timeline & Family Hub Today when shared — no duplicate event.
+  try {
+    if (document.body.classList.contains("work-mode-nav")) {
+      const view = document.body.getAttribute("data-view") || "";
+      if (view === "home" && typeof renderOwnerHomeDashboard === "function") renderOwnerHomeDashboard();
+      if (view === "today" && typeof renderTeacherTodayPage === "function") renderTeacherTodayPage();
+    }
+  } catch (_e) { /* ignore */ }
+}
+
+function runMealAutomation(record = {}) {
+  if (!isSmartAutomationEnabled() || !record?.childId) return;
+  // Meals already feed timeline, daily history, Family Hub Today, and grounded EOD AI facts.
+  try {
+    if (document.body.classList.contains("work-mode-nav")) {
+      const view = document.body.getAttribute("data-view") || "";
+      if (view === "home" && typeof renderOwnerHomeDashboard === "function") renderOwnerHomeDashboard();
+      if (view === "today" && typeof renderTeacherTodayPage === "function") renderTeacherTodayPage();
+    }
+  } catch (_e) { /* ignore */ }
+}
+
+function runPhotoAutomation(record = {}) {
+  if (!isSmartAutomationEnabled() || !record?.childId) return;
+  // Photos already land on profile, timeline, Family Hub gallery/Today, and report photo counts.
+}
+
+function runFormSignedAutomation(doc = {}) {
+  if (!isSmartAutomationEnabled() || !doc?.id) return;
+  const childId = doc.childId;
+  if (childId) {
+    appendAutomationTimeline(childId, "Parent signed form", `${doc.title || "Form"} signed${doc.signedBy ? ` by ${doc.signedBy}` : ""}`, {
+      date: String(doc.signedAt || new Date().toISOString()).slice(0, 10),
+      source: "form_signed",
+    });
+  }
+  appendOpsAlert({
+    type: "form_signed",
+    title: `Form signed${doc.title ? `: ${doc.title}` : ""}`,
+    detail: doc.signedBy ? `Signed by ${doc.signedBy}` : "Parent completed a form",
+    childId: childId || "",
+    hrefView: "forms",
+  });
+  saveOpsAlerts(listOpsAlerts().map((item) => (
+    item.type === "form_overdue" && String(item.detail || "").includes(String(doc.title || ""))
+      ? { ...item, read: true }
+      : item
+  )));
+  try {
+    if (window.document.body.classList.contains("work-mode-nav")) {
+      const view = window.document.body.getAttribute("data-view") || "";
+      if (view === "home" && typeof renderOwnerHomeDashboard === "function") renderOwnerHomeDashboard();
+      if (view === "families" && typeof renderFamiliesHubPage === "function") renderFamiliesHubPage();
+    }
+  } catch (_e) { /* ignore */ }
+}
+
+function runLessonAssignedAutomation(item = {}, meta = {}) {
+  if (!isSmartAutomationEnabled() || !item) return;
+  const title = item.lessonPlanTitle || item.title || "Lesson plan";
+  const classroomId = item.classroomId || meta.classroomId || "";
+  const childIds = Array.isArray(item.childIds) ? item.childIds : (meta.childIds || []);
+  childIds.slice(0, 40).forEach((childId) => {
+    appendAutomationTimeline(childId, "Lesson assigned", `${title} · on classroom calendar & Teacher Today`, {
+      date: item.weekStartDate || meta.week || (typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10)),
+      source: "lesson_assigned",
+    });
+  });
+  appendOpsAlert({
+    type: "lesson_assigned",
+    title: `Lesson ready: ${title}`,
+    detail: classroomId ? `Classroom ${classroomId} · opens on Teacher Today & Daily Logs` : "Available on Teacher Today & Daily Logs",
+    hrefView: "today",
+  });
+  try {
+    if (window.document.body.classList.contains("work-mode-nav") && typeof renderTeacherTodayPage === "function") {
+      const view = window.document.body.getAttribute("data-view") || "";
+      if (view === "today") renderTeacherTodayPage();
+    }
+  } catch (_e) { /* ignore */ }
+}
+
+function runSmartAutomationForRecord(key, record = {}, options = {}) {
+  if (!isSmartAutomationEnabled() || options.skipAutomation) return;
+  if (key === "Attendance") runAttendanceAutomation(record);
+  else if (key === "Meals") runMealAutomation(record);
+  else if (key === "Observations") runObservationAutomation(record);
+  else if (key === "Photos") runPhotoAutomation(record);
+  else if (key === "Communications") runIncidentAutomation(record);
+  else if (key === "Documents" && (record.signedAt || String(record.status || "").toLowerCase() === "signed")) {
+    runFormSignedAutomation(record);
+  }
+}
+
+function buildActionOnlyAttentionCards() {
+  dismissNoiseOpsAlerts();
+  const records = childRecords();
+  const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
+  const cards = [];
+  const unreadOps = listOpsAlerts().filter((item) => !item.read).slice(0, 6);
+  unreadOps.forEach((alert) => {
+    cards.push({
+      view: alert.hrefView || "home",
+      title: alert.title,
+      detail: alert.detail || "Take action",
+      primary: alert.priority === "high",
+      attrs: `data-ops-alert="${escapeHtml(alert.id)}"`,
+    });
+  });
+  const docsPending = (records.documents || []).filter((d) => {
+    const status = String(d.status || d.statusLabel || "").toLowerCase();
+    return d.shareWithFamily && !d.signedAt && /need|notif|assign|action|draft|request/.test(status);
+  });
+  if (docsPending.length) {
+    cards.push({
+      view: "forms",
+      title: `${docsPending.length} form${docsPending.length === 1 ? "" : "s"} awaiting parent`,
+      detail: "Follow up or resend from Forms",
+    });
+  }
+  const eodReady = childrenReadyForEndOfDayReport(records, today);
+  if (eodReady.length) {
+    cards.push({
+      view: "child-tools-daily-logs",
+      title: `${eodReady.length} daily report${eodReady.length === 1 ? "" : "s"} ready to generate`,
+      detail: "AI can draft from today’s logged facts",
+      primary: true,
+    });
+  }
+  const incidents = listOpsAlerts().filter((item) => item.type === "incident_review" && !item.read);
+  // already included via unreadOps
+  return cards;
+}
+
+function todayAssignedLessonCardHtml() {
+  if (typeof weekLessonForChild !== "function") return "";
+  const records = childRecords();
+  const children = records.children || [];
+  const seen = new Set();
+  const lessons = [];
+  children.forEach((child) => {
+    const lesson = weekLessonForChild(child);
+    if (!lesson) return;
+    const key = `${lesson.classroomId || ""}:${lesson.lessonPlanId || lesson.id || lesson.lessonPlanTitle || ""}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    lessons.push(lesson);
+  });
+  if (!lessons.length) return "";
+  return `
+    <section class="work-hub-section">
+      <h3>Today’s assigned lesson</h3>
+      <ul class="work-simple-list">
+        ${lessons.slice(0, 3).map((lesson) => `
+          <li>
+            <strong>${escapeHtml(lesson.lessonPlanTitle || lesson.title || "Lesson plan")}</strong>
+            <span>On classroom calendar · Daily Logs · Teacher Today</span>
+            <small>${escapeHtml(lesson.weekStartDate || "")}</small>
+          </li>
+        `).join("")}
+      </ul>
+      <div class="work-hub-grid" style="margin-top:12px">
+        ${workHubTile({ view: "lessons", title: "Open lesson", detail: "Teach from the assigned plan", primary: true })}
+        ${workHubTile({ view: "activities", title: "Suggested activities", detail: "Activity Center" })}
+      </div>
+    </section>
+  `;
+}
+
+
+document.addEventListener("click", (event) => {
+  const opsTile = event.target.closest("[data-ops-alert]");
+  if (!opsTile) return;
+  const alertId = opsTile.getAttribute("data-ops-alert");
+  if (alertId && typeof markOpsAlertRead === "function") markOpsAlertRead(alertId);
+}, true);
 
 let afterActionPromptTimeout = null;
 
@@ -69362,7 +69885,17 @@ document.addEventListener("submit", async (event) => {
   activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
-  showActionFeedback(`${child.name} is ready — they’re available in Daily Logs, Attendance, and Documentation Helpers.`);
+  const createdNew = !editId;
+  if (createdNew && typeof runChildCreatedAutomation === "function") {
+    const auto = runChildCreatedAutomation(child, { isNew: true }) || {};
+    if (auto.formsAdded > 0) {
+      showActionFeedback(`${child.name} is ready — Daily Logs, timeline, and ${auto.formsAdded} forms are set up automatically.`);
+    } else {
+      showActionFeedback(`${child.name} is ready — they’re available in Daily Logs, Attendance, and Documentation Helpers.`);
+    }
+  } else {
+    showActionFeedback(`${child.name} is ready — they’re available in Daily Logs, Attendance, and Documentation Helpers.`);
+  }
   maybeLinkChildToFamilyHubHouseholds(child).then((linked) => {
     if (linked > 0) {
       showActionFeedback(`${child.name} is also linked for Family Hub — parents can see shared updates.`);
@@ -69383,33 +69916,39 @@ document.addEventListener("submit", (event) => {
     renderChildManagement();
     return;
   }
+  const shareWithFamily = form.querySelector("[name='shareWithFamily']")?.checked === true;
   const record = enrichObservationRecord({
     ...data,
     childId: child.id,
     childName: child.name,
     area: selectedAreas[0] || data.area || "Approaches to Learning",
     categories: selectedAreas.length ? Array.from(new Set(selectedAreas)) : undefined,
+    shareWithFamily,
   }, child);
   const observations = childStore("Observations");
   if (data.observationId || activeChildObservationEditId) {
     const editId = data.observationId || activeChildObservationEditId;
-    saveChildStore("Observations", observations.map((item) => item.id === editId ? {
+    const updated = observations.map((item) => item.id === editId ? {
       ...item,
       ...record,
       id: editId,
       updatedAt: new Date().toISOString(),
-    } : item));
+    } : item);
+    saveChildStore("Observations", updated);
+    const saved = updated.find((item) => item.id === editId);
+    if (saved && typeof runObservationAutomation === "function") runObservationAutomation(saved);
+    if (saved?.shareWithFamily && typeof maybeNotifyFamilyHubSharedRecord === "function") {
+      maybeNotifyFamilyHubSharedRecord("Observations", saved).catch(() => {});
+    }
   } else {
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
       trackUpgradePrompt("observations_limit", { limit: freeObservationRecordLimit });
-      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've used all ${freeObservationRecordLimit} Free observations for now — upgrade for unlimited documentation that saves time every day.`, "limit");
+      showProFeatureModal(`${freeDocumentationLimitMessage}
+
+You've used all ${freeObservationRecordLimit} Free observations for now — upgrade for unlimited documentation that saves time every day.`, "limit");
       return;
     }
-    saveChildStore("Observations", [...observations, {
-      id: `Observations-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      ...record,
-    }]);
+    appendChildRecord("Observations", record);
   }
   selectedChildId = child.id;
   localStorage.setItem("llhSelectedChild", selectedChildId);
