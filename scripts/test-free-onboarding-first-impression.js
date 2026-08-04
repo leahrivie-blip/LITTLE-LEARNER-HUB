@@ -71,8 +71,9 @@ async function main() {
   assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-ux-phase2-r1/);
   assert.match(indexHtml, /id="demoAccountButton"[^>]*hidden/);
   assert.match(indexHtml, /id="familyHubSettingsCard"[^>]*hidden/);
-  assert.doesNotMatch(indexHtml, /nav-legacy-tag">Legacy/);
+  // Curriculum Planner may show a Legacy tag in testing nav; Free onboarding itself must not.
   assert.doesNotMatch(indexHtml, /Firebase Auth is connected/);
+  assert.doesNotMatch(nuoJs, /nav-legacy-tag">Legacy/);
   console.log("PASS static Phase 1 markers");
 
   const child = startServer();

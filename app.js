@@ -14055,6 +14055,48 @@ function canOpenViewForCurrentAccess(view) {
   return canAccessPlatformFeature(capability);
 }
 
+let whatsNewNavSyncPromise = null;
+
+function setWhatsNewNavVisible(show) {
+  const link = document.querySelector("#whatsNewNavLink");
+  if (!link) return;
+  const visible = Boolean(show) && isLoggedIn();
+  link.hidden = !visible;
+  link.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (visible) link.removeAttribute("tabindex");
+  else link.setAttribute("tabindex", "-1");
+}
+window.setWhatsNewNavVisible = setWhatsNewNavVisible;
+
+function syncWhatsNewNavVisibility() {
+  const link = document.querySelector("#whatsNewNavLink");
+  if (!link) return;
+  if (!isLoggedIn()) {
+    setWhatsNewNavVisible(false);
+    return;
+  }
+  if (window.whatsNewNavHasNotes != null) {
+    setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+    return;
+  }
+  setWhatsNewNavVisible(false);
+  if (whatsNewNavSyncPromise) return;
+  whatsNewNavSyncPromise = fetch("/api/release-notes", { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : {}))
+    .then((data) => {
+      const notes = Array.isArray(data.releaseNotes) ? data.releaseNotes : [];
+      window.whatsNewNavHasNotes = notes.length > 0;
+      setWhatsNewNavVisible(window.whatsNewNavHasNotes);
+    })
+    .catch(() => {
+      window.whatsNewNavHasNotes = false;
+      setWhatsNewNavVisible(false);
+    })
+    .finally(() => {
+      whatsNewNavSyncPromise = null;
+    });
+}
+
 /**
  * Show/hide sidebar items from accountType + role capabilities.
  * No separate Director Tools section — items appear only when allowed.
@@ -34120,7 +34162,7 @@ function supportCenterCategories() {
       id: "behavior-emotions",
       title: "Behavior & Emotions",
       detail: "Quick support for big feelings and safe bodies.",
-      topics: ["Tantrums", "Biting", "Hitting", "Pushing", "Throwing", "Emotional Regulation", "Aggressive Behaviors"],
+      topics: ["Tantrums", "Biting", "Hitting", "Pushing", "Throwing", "Emotional Regulation", "Unsafe Body Moments"],
     },
     {
       id: "daily-routines",
@@ -34151,6 +34193,8 @@ function supportTopicIdForArea(area = "") {
   const text = String(area || "").toLowerCase();
   const directId = supportTopicSlug(area);
   if (supportTopicById(directId)) return directId;
+  // Legacy label from earlier Behavior & Support copy.
+  if (text.includes("aggressive") || text.includes("unsafe body")) return "unsafe-body-moments";
   if (text.includes("rest")) return "rest-time";
   if (text.includes("transition") || text.includes("separation")) return "transitions";
   if (text.includes("listening")) return "following-directions";
@@ -34181,7 +34225,7 @@ function supportTopicDevelopmentArea(topic = "") {
   if (text.includes("gross")) return "Gross Motor";
   if (text.includes("potty") || text.includes("rest") || text.includes("cleanup")) return "Physical Development";
   if (text.includes("sensory")) return "Approaches to Learning";
-  if (text.includes("social") || text.includes("emotion") || text.includes("friend") || text.includes("sharing") || text.includes("turn") || text.includes("peer") || text.includes("throw") || text.includes("aggressive")) return "Social Emotional";
+  if (text.includes("social") || text.includes("emotion") || text.includes("friend") || text.includes("sharing") || text.includes("turn") || text.includes("peer") || text.includes("throw") || text.includes("aggressive") || text.includes("unsafe body")) return "Social Emotional";
   return normalizeObservationArea(topic) || supportAreaToDevelopmentArea(topic);
 }
 
@@ -34262,6 +34306,13 @@ function supportTopicContent(topic = "", child = null) {
       activities: ["Playdough pinch and roll", "Bead threading", "Scissor snip strips"],
       observations: ["How did the child grasp materials?", "Did they use one hand or both?", "What level of help was needed?"],
       parentNotes: ["We are building hand strength through play.", "Short tool practice is helping confidence.", "Playdough, stickers, and safe cutting are good next steps."],
+    },
+    "Unsafe Body Moments": {
+      why: "Unsafe body moments often happen when a child is overwhelmed, seeking connection, defending space, or still learning safe ways to use their body with peers.",
+      tips: ["Stay close during busy play.", "Block gently and name the safe choice.", "Practice calm body tools before hard moments."],
+      activities: ["Gentle hands practice", "Stop and space picture cards", "Push-the-wall then breathe"],
+      observations: ["What happened right before the unsafe moment?", "Was the child crowded, frustrated, or excited?", "Which calm support helped recovery?"],
+      parentNotes: ["We are coaching safe body choices with short, calm words.", "We stay close during busy peer play and practice replacements.", "We will keep sharing what helps your child reset."],
     },
   };
   const content = { ...base, ...(overrides[topic] || {}) };
@@ -34414,14 +34465,16 @@ function renderSettingsHubPage() {
           badge: planLabel === "Founding Member" ? "Founding Member" : planLabel,
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
-        { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+        { view: "account", title: "Notifications", detail: "Email reminders and Messages push preferences", hash: "notifications" },
         ...(canBilling
           ? (isProUser()
             ? [
-                { view: "billing", title: "Billing & Subscription", detail: "Manage subscription, payment method, invoices, and cancellation" },
-                { view: "billing", title: "Current Plan", detail: "Review your paid plan and billing status" },
-                { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
-                { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+                // One billing destination — plan status, portal, cancel live on Billing.
+                { view: "billing", title: "Billing & Subscription", detail: "Plan status, payment method, invoices, and cancellation" },
+                // Hide Billing History until this device has recorded events (local history).
+                ...(currentBillingHistory(account).length
+                  ? [{ view: "billing-history", title: "Billing History", detail: "Invoices and payment events on this device" }]
+                  : []),
               ]
             : [
                 // Free: one membership path — avoid duplicate Billing + Upgrade + Subscription cards.
@@ -34446,12 +34499,9 @@ function renderSettingsHubPage() {
       title: "Help & Support",
       detail: "Message Leah, send feedback, or browse common questions",
       cards: [
-        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
-        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
-        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
-        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
-        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
-        { view: "faq", title: "FAQ", detail: "Common questions and product updates" },
+        { view: "messages", title: "Messages", detail: "Talk with Leah, track support, and manage push notifications" },
+        { view: "", title: "Send Feedback", detail: "Share a bug, idea, or question in one place", action: "feedback", feedbackType: "General Feedback" },
+        { view: "faq", title: "FAQ", detail: "Common questions about membership and using the hub" },
       ],
     },
     {
@@ -34495,7 +34545,6 @@ function renderSettingsHubPage() {
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
-      ${platformInstallCardMarkup("settings-prompt")}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
           <section class="settings-hub-group"${group.id ? ` id="settings-${escapeHtml(group.id)}" data-settings-group="${escapeHtml(group.id)}"` : ""}>

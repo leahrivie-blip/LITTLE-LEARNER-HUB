@@ -19,7 +19,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19400 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-cx-polish-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260804-customer-ux-polish-r2";
+const CACHE = "20260804-settings-whatsnew-r1";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {
@@ -28,7 +28,7 @@ function startServer() {
       ...process.env,
       PORT: String(PORT),
       DATABASE_PROVIDER: "local-json",
-      LOCAL_JSON_STORE_PATH: STORE_PATH,
+      LLH_STORE_PATH: STORE_PATH,
       NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -93,9 +93,10 @@ async function main() {
   assert.match(appJs, /Forms Settings and Curriculum Settings stay out of the hub/);
   assert.doesNotMatch(indexHtml, /Screenshot upload coming soon/);
 
-  // What's New gated until published notes exist
+  // What's New starts hidden; sync reveals it only for logged-in users with published notes
   assert.match(indexHtml, /id="whatsNewNavLink"[^>]*hidden/);
   assert.match(appJs, /function syncWhatsNewNavVisibility/);
+  assert.match(appJs, /function setWhatsNewNavVisible/);
   assert.match(comms, /setWhatsNewNavVisible/);
 
   // Doc helpers: no duplicate Most Used block
@@ -112,7 +113,7 @@ async function main() {
   // Cache bust
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${CACHE}`));
   assert.match(indexHtml, new RegExp(`styles\\.css\\?v=${CACHE}`));
-  assert.match(sw, new RegExp(`llh-shell-v166-${CACHE}`));
+  assert.match(sw, new RegExp(`llh-shell-v172-${CACHE}`));
   console.log("PASS static customer UX polish markers");
 
   const child = startServer();
@@ -152,9 +153,22 @@ async function main() {
 
     await page.waitForTimeout(500);
 
-    // What's New stays hidden with no published notes.
+    // What's New starts hidden, then appears after published notes sync for logged-in users.
+    await page.waitForFunction(
+      () => typeof window.setWhatsNewNavVisible === "function" && window.whatsNewNavHasNotes != null,
+      null,
+      { timeout: 15000 },
+    ).catch(() => {});
+    await page.evaluate(() => {
+      if (typeof window.syncWhatsNewNavVisibility === "function") window.syncWhatsNewNavVisibility();
+    });
+    await page.waitForTimeout(800);
     const whatsNewHidden = await page.locator("#whatsNewNavLink").evaluate((el) => el.hidden);
-    assert.equal(whatsNewHidden, true, "What's New should stay hidden until release notes exist");
+    assert.equal(whatsNewHidden, false, "What's New should show for logged-in users when starter notes exist");
+    assert.doesNotMatch(
+      await page.locator("#whatsNewNavLink").innerText(),
+      /Family Hub beta/i,
+    );
 
     // Behavior & Support shows live library, not Coming Soon placeholders.
     await page.evaluate(() => window.setView("behavior-support"));
@@ -169,6 +183,8 @@ async function main() {
     await page.waitForTimeout(500);
     const settingsText = await page.locator("#view-settings").innerText();
     assert.doesNotMatch(settingsText, /Forms Settings|Curriculum Settings/);
+    assert.doesNotMatch(settingsText, /Report a Bug|Request a Feature|Contact Support|Current Plan|Subscription Status/);
+    assert.match(settingsText, /Send Feedback|Messages|FAQ/);
 
     // Child Profiles empty shell copy
     await page.evaluate(() => window.setView("children"));

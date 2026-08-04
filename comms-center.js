@@ -1163,7 +1163,7 @@
             <h3>Notification Settings</h3>
           </div>
         </div>
-        <p class="muted-copy">Manage push notifications from Messages → Notification Settings, or open Settings → Push Notifications.</p>
+        <p class="muted-copy">Manage push notifications here in Messages → Notification Settings. Email reminders live under Settings → Notifications.</p>
         <button type="button" class="ghost-button" data-messages-center-action="prefs-link">Open notification preferences</button>
       </section>
     `;
@@ -1416,22 +1416,17 @@
       ? new Date(joinDate).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
       : "—";
     const memberNumber = account.foundingMemberNumber ? `#${account.foundingMemberNumber}` : "";
-    const remaining = foundingSpotsRemainingSafe();
-    const spotsNote = remaining > 0
-      ? `${remaining} founding spot${remaining === 1 ? "" : "s"} remaining for new members.`
-      : "Founding membership is closed to new members.";
-
+    // Member Settings/Messages card: thank-you only — never acquisition / spots-remaining copy.
     const html = `
       <section class="founding-experience-card" aria-label="Founding Member experience">
-        <div class="founding-experience-badge">⭐ Founding Member${memberNumber ? ` ${escapeHtml(memberNumber)}` : ""}</div>
+        <div class="founding-experience-badge">Founding Member${memberNumber ? ` ${escapeHtml(memberNumber)}` : ""}</div>
         <h3>Thank you for being a Founding Member</h3>
-        <p>You have $9.99/month locked while your membership remains continuously active and early access to new features as Little Learner Hub grows.</p>
+        <p>Your $9.99/month rate stays locked while your membership remains continuously active. Thank you for helping Little Learner Hub grow.</p>
         <dl class="founding-experience-meta">
           <div><dt>Joined</dt><dd>${escapeHtml(joinLabel)}</dd></div>
           <div><dt>Pricing</dt><dd>$9.99/month locked while continuously active</dd></div>
-          <div><dt>Access</dt><dd>Early access to new features</dd></div>
+          <div><dt>Access</dt><dd>Full Pro membership benefits</dd></div>
         </dl>
-        <p class="muted-copy founding-spots-note">${escapeHtml(spotsNote)}</p>
       </section>
     `;
 

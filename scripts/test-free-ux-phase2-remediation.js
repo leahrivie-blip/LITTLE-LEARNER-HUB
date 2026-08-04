@@ -16,7 +16,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19300 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-free-p2-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260804-close-activity-r1";
+const CACHE = "20260804-settings-whatsnew-r1";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {
@@ -75,7 +75,7 @@ async function main() {
   assert.doesNotMatch(appJs, /Save \(Pro\)/);
   assert.doesNotMatch(appJs, /"Pro Save"/);
   assert.doesNotMatch(appJs, /configurable from Admin later/);
-  assert.match(appJs, /Header Upgrade is the one persistent Free path/);
+  assert.match(appJs, /[Hh]eader Upgrade is the one persistent Free path/);
   assert.doesNotMatch(sampleJs, /Founding or Pro/);
   assert.match(nuoJs, /function clearOnLogout/);
   assert.match(nuoJs, /function hasCompletedOnboarding/);
