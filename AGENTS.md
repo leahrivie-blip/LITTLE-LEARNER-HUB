@@ -20,3 +20,8 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Test scripts are the `test:*` entries in `package.json` (run via `npm run test:<name>`), e.g. `npm run test:homepage-smoke`.
 - Browser-based tests (e.g. `test:homepage-smoke`, `test:lesson-library-header`, `test:curriculum-ux`, `test:curriculum-publish`) use **Playwright Chromium (headless)** and require the browser binaries (installed via `npx playwright install --with-deps chromium`).
 - Each test **spawns its own server instance on a random port with a temp JSON store**, so tests do not depend on (or conflict with) a separately running dev server.
+
+### Production deploy
+- **Auto-deploy is disabled** on the live Render service. Merging to `main` does **not** update production — every approved merge requires a **separate manual Render deploy**. See `docs/PRODUCTION_DEPLOY.md`.
+- Do not store, commit, or reuse Render API keys. Owner rotates keys after any exposure.
+- **Teaching Kit** work stays in separate PRs — do not merge, deploy, or enable Teaching Kit flags without explicit owner approval for final integration review.
