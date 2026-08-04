@@ -6198,6 +6198,12 @@ function aiUsageKey(email) {
   return `${normalizeEmail(email)}:${currentAiCycle()}`;
 }
 
+function nextAiCycleResetDate() {
+  const now = new Date();
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return nextMonth.toISOString().slice(0, 10);
+}
+
 function canUseServerAi(email, plan, user = null) {
   const store = readStore();
   const key = aiUsageKey(email);
@@ -6206,7 +6212,13 @@ function canUseServerAi(email, plan, user = null) {
   const limit = user || store.users?.[normalizeEmail(email)]
     ? aiLimitForUser(record)
     : aiLimitForPlan(plan);
-  return { used, limit, allowed: used < limit, key };
+  return {
+    used,
+    limit,
+    allowed: used < limit,
+    key,
+    resetDate: nextAiCycleResetDate(),
+  };
 }
 
 async function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null, requestId = "" } = {}) {
@@ -11208,8 +11220,6 @@ function handleUserAiUsage(request, response, url) {
   const user = store.users?.[email] || null;
   const plan = user?.plan || "Free";
   const usage = canUseServerAi(email, plan);
-  const now = new Date();
-  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   jsonResponse(response, 200, {
     aiUsage: {
       email,
@@ -11217,7 +11227,7 @@ function handleUserAiUsage(request, response, url) {
       limit: usage.limit,
       remaining: Math.max(usage.limit - usage.used, 0),
       plan,
-      resetDate: nextMonth.toISOString().slice(0, 10),
+      resetDate: usage.resetDate,
     },
   });
 }

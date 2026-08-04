@@ -2329,10 +2329,15 @@ function freeLessonPlanMarketingLabel() {
 }
 
 function freePlanFeatureList() {
+  const childLimit = effectiveFreeChildProfileLimit();
   return [
     MEMBERSHIP_COPY.freeCore,
     MEMBERSHIP_COPY.freeBrowse,
-    ...freePlanBaseFeatures.filter((line) => !/10 complete starter|browse titles/i.test(line)),
+    ...freePlanBaseFeatures
+      .filter((line) => !/10 complete starter|browse titles/i.test(line))
+      .map((line) => String(line || "")
+        .replace(/Up to \d+ Child Profiles/i, `Up to ${childLimit} Child Profiles`)
+        .replace(/^\d+ Child Profiles/i, `${childLimit} Child Profiles`)),
   ];
 }
 
@@ -2584,6 +2589,7 @@ const paidAiMonthlyLimit = 250;
 // null means "not yet loaded"; when null, canUseAi() defaults to true and the server enforces the limit.
 let serverAiUsed = null;
 let serverAiLimit = null;
+let serverAiResetDate = null;
 const freeChildProfileLimit = 5;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
@@ -5041,6 +5047,12 @@ function subscriptionToAccountUpdates(subscription) {
       productStatus: subscription.productStatus || undefined,
       adminAuditKey: subscription.adminAuditKey || undefined,
       lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
+      membershipPlan: subscription.membershipPlan || undefined,
+      membershipStatus: subscription.membershipStatus || undefined,
+      displayPrice: subscription.displayPrice || undefined,
+      currentAccess: subscription.currentAccess || undefined,
+      accessEndLabel: subscription.accessEndLabel || undefined,
+      hasProAccess: typeof subscription.hasProAccess === "boolean" ? subscription.hasProAccess : undefined,
     };
   }
   const isFounding = isFoundingSubscription(subscription);
@@ -5050,7 +5062,8 @@ function subscriptionToAccountUpdates(subscription) {
     plan,
     subscriptionCadence: subscription.subscriptionCadence || (plan === "Founding" ? "monthly" : ""),
     subscriptionStatus: subscription.subscriptionStatus || `${billingPlanLabel(plan)} Subscription Active`,
-    subscriptionStartedAt: subscription.subscriptionStartedAt || new Date().toISOString(),
+    // Keep blank when server omits start date — never invent "now" (that skews AI reset/billing displays).
+    subscriptionStartedAt: subscription.subscriptionStartedAt || "",
     foundingMemberActive: isFounding,
     foundingMemberHistorical: Boolean(subscription.foundingMemberHistorical || subscription.foundingMember || isFounding),
     foundingMember: Boolean(subscription.foundingMemberHistorical || subscription.foundingMember || isFounding),
@@ -5084,6 +5097,12 @@ function subscriptionToAccountUpdates(subscription) {
     productStatus: subscription.productStatus || undefined,
     adminAuditKey: subscription.adminAuditKey || undefined,
     lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
+    membershipPlan: subscription.membershipPlan || undefined,
+    membershipStatus: subscription.membershipStatus || undefined,
+    displayPrice: subscription.displayPrice || undefined,
+    currentAccess: subscription.currentAccess || undefined,
+    accessEndLabel: subscription.accessEndLabel || undefined,
+    hasProAccess: typeof subscription.hasProAccess === "boolean" ? subscription.hasProAccess : undefined,
   };
 }
 
@@ -5097,8 +5116,7 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
     if (data?.aiUsage && cleanEmail === currentUser) {
-      if (typeof data.aiUsage.used === "number") serverAiUsed = data.aiUsage.used;
-      if (typeof data.aiUsage.limit === "number") serverAiLimit = data.aiUsage.limit;
+      applyServerAiUsage(data.aiUsage);
     }
     const updates = subscriptionToAccountUpdates(data?.subscription);
     if (!updates) {
@@ -8425,7 +8443,11 @@ function curriculumActivityIdForItemId(itemId) {
 function curriculumActivityCountForLesson(lessonPlanId) {
   const targetId = String(lessonPlanId || "").trim();
   if (!targetId) return 0;
-  return effectiveCurriculumLibrary().activities.filter((item) => item.lessonPlanId === targetId).length;
+  const library = effectiveCurriculumLibrary();
+  const plan = (library.lessonPlans || []).find((item) => String(item.id || "") === targetId);
+  const declared = Number(plan?.activityCount || 0);
+  if (Number.isFinite(declared) && declared > 0) return declared;
+  return (library.activities || []).filter((item) => item.lessonPlanId === targetId).length;
 }
 
 function activityMatchesCurriculumCategoryFilter(activityCategory, filter) {
@@ -14109,7 +14131,11 @@ function updateAuthButtons() {
       signUp.dataset.view = isProUser() ? "billing" : "plans";
     } else if (currentUser) {
       if (isProUser()) {
-        signUp.textContent = `${billingPlanLabel()} Active`;
+        const accessStatus = typeof membershipDisplayStatus === "function"
+          ? membershipDisplayStatus(currentAccount())
+          : null;
+        const accessLabel = accessStatus?.planLabel || accessStatus?.label || billingPlanLabel();
+        signUp.textContent = `${accessLabel} Active`;
         signUp.dataset.view = "billing";
         delete signUp.dataset.checkoutPlan;
       } else if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
@@ -14363,7 +14389,7 @@ function renderOwnerHomeDashboard() {
 
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
-  const children = records.children || [];
+  const children = getActiveChildren(records);
   const attendance = (records.attendance || []).filter((a) => a.date === today);
   const checkedIn = attendance.filter((a) => {
     const status = String(a.status || "").toLowerCase();
@@ -14444,7 +14470,7 @@ function renderTeacherTodayPage() {
   const role = workModeRole();
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
-  const children = records.children || [];
+  const children = getActiveChildren(records);
   const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
   const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
@@ -15067,7 +15093,11 @@ async function refreshNotificationBell() {
     const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
     const items = rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
     notificationBellState.items = items;
-    notificationBellState.unreadCount = items.filter((item) => !item.read).length;
+    // Server unreadCount is authoritative across the full inbox (not just the fetched page).
+    const serverUnread = Number(data.unreadCount);
+    notificationBellState.unreadCount = Number.isFinite(serverUnread)
+      ? Math.max(0, serverUnread)
+      : items.filter((item) => !item.read).length;
     notificationBellState.loaded = true;
     renderNotificationBell();
     // When a new notification arrives while Messages is open, refresh the thread
@@ -17970,18 +18000,21 @@ function displayAiUsageLabel() {
 }
 
 function aiResetLabel() {
-  if (isProUser() && currentAccount()?.subscriptionStartedAt) {
-    const start = new Date(currentAccount().subscriptionStartedAt);
-    if (!Number.isNaN(start.getTime())) {
-      const next = new Date(start);
-      const now = new Date();
-      while (next <= now) next.setMonth(next.getMonth() + 1);
-      return next.toLocaleDateString();
-    }
+  // Prefer the server calendar-month reset so Account, Billing, and helpers stay aligned.
+  if (serverAiResetDate) {
+    const parsed = new Date(`${serverAiResetDate}T12:00:00`);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString();
   }
   const nextMonth = new Date();
   nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
   return nextMonth.toLocaleDateString();
+}
+
+function applyServerAiUsage(usage = {}) {
+  if (!usage || typeof usage !== "object") return;
+  if (typeof usage.used === "number") serverAiUsed = usage.used;
+  if (typeof usage.limit === "number") serverAiLimit = usage.limit;
+  if (usage.resetDate) serverAiResetDate = String(usage.resetDate).slice(0, 10);
 }
 
 function canUseAi() {
@@ -18016,8 +18049,7 @@ async function loadUserAiUsage(email) {
     if (!res.ok) return;
     const usage = data?.aiUsage;
     if (usage && cleanEmail === currentUser) {
-      if (typeof usage.used === "number") serverAiUsed = usage.used;
-      if (typeof usage.limit === "number") serverAiLimit = usage.limit;
+      applyServerAiUsage(usage);
       renderAiUsagePanel();
       updatePlanLabel();
     }
@@ -28717,9 +28749,10 @@ function renderUserDashboard() {
   const programName = programSettings.programName || "";
 
   const records = childRecords();
+  const activeChildren = getActiveChildren(records);
   const stats = weeklyObservationStats(records);
-  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
-  const childCount = records.children.length;
+  const activeGoals = records.goals.filter((goal) => !goal.archived && goalProgressPercent(goal.progress) < 100).length;
+  const childCount = activeChildren.length;
   const observationsDue = Math.max(stats.totalNeeded - stats.completed, 0);
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
   const recentActivity = dashboardRecentActivity(records, childById);
@@ -34812,7 +34845,8 @@ function renderSettingsHubPage() {
   const account = currentAccount();
   const accountTypeLabel = accountTypeDisplayLabel(account);
   const roleLabel = roleDisplayLabel(account);
-  const planLabel = billingPlanLabel(currentPlan, account);
+  const membershipStatus = membershipDisplayStatus(account);
+  const planLabel = membershipStatus?.planLabel || billingPlanLabel(currentPlan, account);
   const displayName = [account?.firstName, account?.lastName].filter(Boolean).join(" ") || account?.name || "Provider";
   const email = currentUser || account?.email || "";
   const groups = [
@@ -38490,14 +38524,18 @@ function enrichObservationRecord(record, child = {}) {
 }
 
 function weeklyObservationStats(records = childRecords()) {
-  const thisWeekObservations = records.observations.filter((item) => isThisWeek(item.date));
-  const byChild = new Map(records.children.map((child) => [child.id, 0]));
+  const activeChildren = typeof getActiveChildren === "function"
+    ? getActiveChildren(records)
+    : (records.children || []).filter((child) => !child.hiddenFromActive && !child.archived);
+  const activeIds = new Set(activeChildren.map((child) => child.id));
+  const thisWeekObservations = records.observations.filter((item) => isThisWeek(item.date) && activeIds.has(item.childId));
+  const byChild = new Map(activeChildren.map((child) => [child.id, 0]));
   thisWeekObservations.forEach((item) => byChild.set(item.childId, (byChild.get(item.childId) || 0) + 1));
-  const totalNeeded = records.children.length * weeklyObservationsPerChild;
+  const totalNeeded = activeChildren.length * weeklyObservationsPerChild;
   const completed = Math.min(thisWeekObservations.length, totalNeeded);
   const percent = totalNeeded ? Math.min(100, Math.round((completed / totalNeeded) * 100)) : 0;
-  const missingChildren = records.children.filter((child) => (byChild.get(child.id) || 0) < weeklyObservationsPerChild);
-  const completedChildren = records.children.filter((child) => (byChild.get(child.id) || 0) >= weeklyObservationsPerChild);
+  const missingChildren = activeChildren.filter((child) => (byChild.get(child.id) || 0) < weeklyObservationsPerChild);
+  const completedChildren = activeChildren.filter((child) => (byChild.get(child.id) || 0) >= weeklyObservationsPerChild);
   return { thisWeekObservations, byChild, totalNeeded, completed, percent, missingChildren, completedChildren };
 }
 
@@ -38622,16 +38660,21 @@ function childProgressSummary(childId, records = childRecords()) {
   const portfolio = childPortfolioRecords(childId, records);
   const weeklyStats = weeklyObservationStats(records);
   const weeklyCompleted = weeklyStats.byChild.get(childId) || 0;
-  const activeGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
-  // Only show a percent when real goals exist — never invent progress from observation counts.
-  const goalProgress = portfolio.goals.length
-    ? Math.round(portfolio.goals.reduce((sum, goal) => sum + goalProgressPercent(goal.progress), 0) / portfolio.goals.length)
+  const liveGoals = portfolio.goals.filter((goal) => !goal.archived);
+  const activeGoals = liveGoals.filter((goal) => goalProgressPercent(goal.progress) < 100);
+  // Only show a percent when real non-archived goals exist — never invent progress from observation counts.
+  const goalProgress = liveGoals.length
+    ? Math.round(liveGoals.reduce((sum, goal) => sum + goalProgressPercent(goal.progress), 0) / liveGoals.length)
     : null;
+  const activitiesCompleted = Math.max(
+    portfolio.differentiations.length,
+    (portfolio.activityLogs || []).length,
+  );
   return {
     observationsCompleted: portfolio.observations.length,
     observationsNeeded: Math.max(weeklyObservationsPerChild - weeklyCompleted, 0),
     activeGoals: activeGoals.length,
-    activitiesCompleted: portfolio.differentiations.length,
+    activitiesCompleted,
     lastObservation: formatDateLabel(lastObservationDate(childId, records.observations)),
     progressPercent: goalProgress,
     hasGoalProgress: goalProgress != null,
@@ -59360,18 +59403,22 @@ function contentGrowthStatsHtml() {
 function lockedContentUnlockLines(options = {}) {
   const kind = String(options.kind || "generic");
   const stats = contentGrowthStats();
-  const freeCount = Number(stats.freePlans) || 10;
-  const proCount = Number(stats.proPlans) || Math.max(0, Number(stats.totalPlans || 0) - freeCount);
+  const freeCount = Number(stats.freePlans) || 0;
+  const proCount = Number(stats.proPlans) || 0;
+  const activityStats = typeof curriculumActivityAccessStats === "function"
+    ? curriculumActivityAccessStats()
+    : { freeTotal: 0, proTotal: 0, total: stats.totalActivities || 0 };
+  const proActivities = Number(activityStats.proTotal || 0);
   const lines = [
     MEMBERSHIP_COPY.freeCore,
     MEMBERSHIP_COPY.freeBrowse,
-    `Unlock ${proCount > 0 ? `${proCount}+` : "the complete library of"} additional lesson plans.`,
+    `Unlock ${proCount > 0 ? `${proCount}` : "the complete library of"} additional lesson plans.`,
     MEMBERSHIP_COPY.unlimitedLabel + ".",
   ];
   if (kind === "activity") {
     return [
-      stats.totalActivities > 0
-        ? `Unlock ${stats.totalActivities}+ activities across the full Activity Center.`
+      proActivities > 0
+        ? `Unlock ${proActivities} Pro activities across the full Activity Center.`
         : "Unlock the full Activity Center by age, theme, and domain.",
       MEMBERSHIP_COPY.unlimitedLabel + ".",
       "New curriculum added every week.",
@@ -59380,7 +59427,7 @@ function lockedContentUnlockLines(options = {}) {
   if (kind === "ai") {
     return [
       "Generate custom lesson plans in seconds.",
-      `Unlock ${proCount > 0 ? `${proCount}+` : "400+"} ready-to-use lesson plans too.`,
+      `Unlock ${proCount > 0 ? `${proCount}` : "the full library of"} ready-to-use lesson plans too.`,
       MEMBERSHIP_COPY.unlimitedLabel + ".",
     ];
   }
@@ -59409,15 +59456,27 @@ function freeUpgradeSupportingText() {
 
 function planComparisonTableHtml() {
   const stats = contentGrowthStats();
+  const activityStats = typeof curriculumActivityAccessStats === "function"
+    ? curriculumActivityAccessStats()
+    : { freeTotal: 0, proTotal: 0, total: stats.totalActivities || 0 };
   const foundingOpen = foundingOpenForAcquisition();
   const paidLabel = foundingOpen ? "Founding" : "Pro";
-  const freePlans = 10;
-  const proPlans = Math.max(stats.proPlans, Math.max(0, stats.totalPlans - freePlans));
+  const freePlans = Number(stats.freePlans || 0);
+  const proPlans = Number(stats.proPlans || 0);
+  const freeActivities = Number(activityStats.freeTotal || 0);
+  const totalActivities = Number(activityStats.total || stats.totalActivities || 0);
+  const freePlanAge = typeof formatLessonPlanAgeBreakdown === "function"
+    ? formatLessonPlanAgeBreakdown(curriculumLessonPlanAccessStats().freeByAge)
+    : "";
   const rows = [
-    ["Lesson plans", `${freePlans} complete starter plans (3 Infant, 3 Toddler, 4 Preschool)`, `${proPlans > 0 ? `${proPlans}+` : "Complete library"} + unlimited access`],
-    ["Curriculum printing & downloads", "Print/download your 10 Free starter plans", "Unlimited curriculum printing and downloads"],
+    ["Lesson plans", freePlans
+      ? `${freePlans} Free starter plans${freePlanAge ? ` (${freePlanAge})` : ""}`
+      : "Included Free starter plans", `${proPlans > 0 ? `${proPlans} Pro plans` : "Complete library"} + unlimited access`],
+    ["Curriculum printing & downloads", freePlans
+      ? `Print/download your ${freePlans} Free starter plans`
+      : "Print/download included Free plans", "Unlimited curriculum printing and downloads"],
     ["Curriculum collections", "Browse & preview", foundingOpen ? "Unlimited collections" : "Unlimited collections"],
-    ["Activities", "Limited samples", stats.totalActivities > 0 ? `${stats.totalActivities}+ activities` : "Full Activity Center"],
+    ["Activities", freeActivities > 0 ? `${freeActivities} Free activities` : "Limited samples", totalActivities > 0 ? `${totalActivities} activities` : "Full Activity Center"],
     ["New content", "Browse titles & previews", "New curriculum added every week"],
     ["Lesson customization", "Not included", "Customize & save your versions"],
     ["Calendar planning", "About 30 days", "Unlimited"],
@@ -59893,12 +59952,14 @@ function promoCodePanel(options = {}) {
 
 function foundingPlanFeatureList() {
   const stats = contentGrowthStats();
-  const proPlans = Math.max(stats.proPlans, Math.max(0, stats.totalPlans - 10));
+  const totalPlans = Number(stats.totalPlans || 0);
+  const totalActivities = Number(stats.totalActivities || 0);
   return [
     MEMBERSHIP_COPY.foundingCard,
     "Unlimited curriculum printing and downloads",
     "Includes all current and future Pro features",
-    `Unlimited lesson plans${proPlans > 0 ? ` (${proPlans}+ ready now)` : ""}`,
+    `Unlimited lesson plans${totalPlans > 0 ? ` (${totalPlans} ready now)` : ""}`,
+    totalActivities > 0 ? `Full Activity Center (${totalActivities} activities)` : "Full Activity Center",
     stats.totalCollections > 0
       ? `Unlimited curriculum collections (${stats.totalCollections} available)`
       : "Unlimited curriculum collections",
@@ -60037,7 +60098,7 @@ function renderUpgradePage() {
 function subscriptionSummaryHtml() {
   const account = currentAccount();
   const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
-  const status = currentUser ? accountProductStatus(account) : null;
+  const status = currentUser ? membershipDisplayStatus(account) : null;
   const planLabel = currentUser ? (status?.planLabel || billingPlanLabel(currentPlan, account)) : "Guest";
   const statusLabel = currentUser ? `${status.emoji} ${status.label}` : "No account";
   return `
@@ -60354,6 +60415,7 @@ function renderDashboardTasksPage() {
   const section = document.querySelector("#view-dashboard-tasks");
   if (!section) return;
   const records = childRecords();
+  const activeChildren = getActiveChildren(records);
   const stats = weeklyObservationStats(records);
   const planner = weeklyPlanner();
   const weekday = new Date().toLocaleDateString("en-US", { weekday: "long" });
@@ -60368,7 +60430,7 @@ function renderDashboardTasksPage() {
     </div>
     <section class="section-block">
       <div class="analytics-row">
-        <span>Child Profiles</span><strong>${records.children.length}</strong>
+        <span>Child Profiles</span><strong>${activeChildren.length}</strong>
       </div>
       <div class="analytics-row">
         <span>Observations still needed this week</span><strong>${stats.missingChildren.length}</strong>
@@ -60518,8 +60580,9 @@ function renderAccountPage() {
 
   const account = currentAccount();
   const paidBilling = accountHasPaidBilling(account);
+  const productStatus = membershipDisplayStatus(account);
   emailLabel.textContent = currentUser;
-  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
+  planLabel.textContent = `${productStatus.planLabel || billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
     const verified = Boolean(account?.emailVerified);
     if (verified) {
@@ -60537,14 +60600,13 @@ function renderAccountPage() {
   if (phoneInput) phoneInput.value = account?.phone || "";
   if (firstNameInput) firstNameInput.value = account?.firstName || "";
   if (lastNameInput) lastNameInput.value = account?.lastName || "";
-  const productStatus = accountProductStatus(account);
   statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
     ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding") ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
   // Avoid exposing internal auth-provider names (e.g. Local demo / Firebase) on Free account pages.
   if (detailLabel && canBilling && !paidBilling && !isProUser()) {
-    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: Free<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel || "Free")}<br>Helper Usage: ${displayAiUsageUsed()} of ${displayAiUsageLimit()} used. Resets ${escapeHtml(aiResetLabel())}.`;
   }
   const programConnectionHost = document.querySelector("#accountProgramConnection");
   if (programConnectionHost) {
@@ -60776,7 +60838,7 @@ function updateSidebarDashboard() {
   }
   const records = childRecords();
   const stats = weeklyObservationStats(records);
-  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
+  const activeGoals = records.goals.filter((goal) => !goal.archived && goalProgressPercent(goal.progress) < 100).length;
   const planner = weeklyPlanner();
   const plannedDays = plannerDays.filter((day) => Object.values(planner.days?.[day] || {}).some(Boolean)).length;
   dueTarget.textContent = String(Math.max(stats.totalNeeded - stats.completed, 0));

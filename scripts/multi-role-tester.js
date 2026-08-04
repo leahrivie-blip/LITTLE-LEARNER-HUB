@@ -293,22 +293,29 @@
     }
   }
 
-  function applyChrome() {
-    ensureDom();
-    const allowed = canUseMultiRoleTester();
-    const active = getActiveViewRole();
-    const switchBtn = document.querySelector("#multiRoleSwitchBtn");
-    if (switchBtn) {
-      switchBtn.hidden = !allowed;
-      switchBtn.textContent = active ? `View: ${active}` : "Switch View";
-    }
+  let applyingChrome = false;
 
-    const banner = document.querySelector("#multiRoleTesterBanner");
-    if (banner) {
-      if (allowed && active) {
-        const meta = ROLE_META[active];
-        banner.hidden = false;
-        banner.innerHTML = `
+  function applyChrome() {
+    // Guard against syncPlatformNavVisibility → syncMultiRoleTesterChrome → applyChrome
+    // → refreshPlatform → updateAuthButtons → syncPlatformNavVisibility recursion.
+    if (applyingChrome) return;
+    applyingChrome = true;
+    try {
+      ensureDom();
+      const allowed = canUseMultiRoleTester();
+      const active = getActiveViewRole();
+      const switchBtn = document.querySelector("#multiRoleSwitchBtn");
+      if (switchBtn) {
+        switchBtn.hidden = !allowed;
+        switchBtn.textContent = active ? `View: ${active}` : "Switch View";
+      }
+
+      const banner = document.querySelector("#multiRoleTesterBanner");
+      if (banner) {
+        if (allowed && active) {
+          const meta = ROLE_META[active];
+          banner.hidden = false;
+          banner.innerHTML = `
           <div class="multi-role-tester-banner-inner">
             <div class="multi-role-tester-banner-copy">
               <p class="multi-role-tester-banner-title">
@@ -322,19 +329,25 @@
               <button type="button" class="primary-button" data-multi-role-return>Return to My Tester View</button>
             </div>
           </div>`;
-      } else {
-        banner.hidden = true;
-        banner.innerHTML = "";
+        } else {
+          banner.hidden = true;
+          banner.innerHTML = "";
+        }
       }
-    }
 
-    const fab = document.querySelector("#reportBugFab");
-    if (fab) {
-      // Show for any logged-in testing-site user (not only multi-role).
-      fab.hidden = !(isTestingSite() && isLoggedInSafe());
-    }
+      const fab = document.querySelector("#reportBugFab");
+      if (fab) {
+        // Show for any logged-in testing-site user (not only multi-role).
+        fab.hidden = !(isTestingSite() && isLoggedInSafe());
+      }
 
-    refreshPlatform();
+      // Body simulation classes only — do not call refreshPlatform() here.
+      // refreshPlatform → updateAuthButtons → syncPlatformNavVisibility → applyChrome.
+      document.body.classList.toggle("multi-role-tester-simulating", isSimulating());
+      document.body.dataset.multiRoleView = getActiveViewRole() || "";
+    } finally {
+      applyingChrome = false;
+    }
   }
 
   function openSwitchModal() {
@@ -700,6 +713,8 @@
     ensureDom();
     bindEvents();
     applyChrome();
+    // One platform sync after chrome is mounted (safe: applyChrome no longer calls refreshPlatform).
+    refreshPlatform();
   }
 
   const api = {

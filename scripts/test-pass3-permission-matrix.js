@@ -17,7 +17,7 @@ const {
   makePlans,
   makeActivities,
   seedSession,
-  waitBootReady,
+  gotoApp,
   clickSidebarNav,
   dismissFreePlanNudgeIfPresent,
   evaluateShell,
@@ -408,10 +408,8 @@ async function runPersonaDevice(page, baseUrl, key, persona, device) {
     cacheActivities: 80,
     blockServerPersistence: true,
   });
-  await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-
   try {
-    await waitBootReady(page);
+    await gotoApp(page, `${baseUrl}/`, { timeout: 90000 });
     record(key, device.label, "boot", "pass");
   } catch (error) {
     record(key, device.label, "boot", "fail", error.message);
