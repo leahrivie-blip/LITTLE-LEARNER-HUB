@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-messaging-nav-banner-r1" />
+  <link rel="stylesheet" href="styles.css?v=20260804-mobile-a11y-r1" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
@@ -123,7 +123,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-messaging-nav-banner-r1";
+      var SHELL_VERSION = "20260804-mobile-a11y-r1";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -968,11 +968,11 @@
                   <div class="lp-price-amount"><strong>$0</strong><span>to explore</span></div>
                 </div>
                 <ul class="lp-price-features" data-homepage-free-features>
-                  <li>✓ Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.</li>
-                  <li>✓ Browse the complete library and preview additional themes.</li>
-                  <li>✓ Print and download your 10 Free starter plans</li>
-                  <li>✓ Explore selected planning tools</li>
-                  <li>✓ Upgrade anytime for unlimited curriculum printing and downloads</li>
+                  <li><span aria-hidden="true">✓</span> Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.</li>
+                  <li><span aria-hidden="true">✓</span> Browse the complete library and preview additional themes.</li>
+                  <li><span aria-hidden="true">✓</span> Print and download your 10 Free starter plans</li>
+                  <li><span aria-hidden="true">✓</span> Explore selected planning tools</li>
+                  <li><span aria-hidden="true">✓</span> Upgrade anytime for unlimited curriculum printing and downloads</li>
                 </ul>
                 <button class="lp-btn-outline llh-btn llh-btn-secondary" data-plan="Free" data-action="start-free" type="button">Create Free Account</button>
                 <p class="lp-price-note">No credit card required. Free starter plans are complete—other premium plans stay locked until you upgrade.</p>
@@ -984,14 +984,14 @@
                   <div class="lp-price-amount"><strong>$19.99</strong><span>/month</span></div>
                 </div>
                 <ul class="lp-price-features">
-                  <li>✓ Hundreds of lesson plans and thousands of classroom activities</li>
-                  <li>✓ Curriculum Calendar and Lesson Planner</li>
-                  <li>✓ AI Documentation Helpers for observations, parent messages, and reports</li>
-                  <li>✓ Child Profiles for documentation and developmental observations</li>
-                  <li>✓ Unlimited curriculum printing and downloads</li>
-                  <li>✓ Customize, save, and reuse your own lesson plans</li>
-                  <li>✓ Request lesson plans, activities, and features in-app</li>
-                  <li>✓ Built by a childcare provider · Cancel anytime</li>
+                  <li><span aria-hidden="true">✓</span> Hundreds of lesson plans and thousands of classroom activities</li>
+                  <li><span aria-hidden="true">✓</span> Curriculum Calendar and Lesson Planner</li>
+                  <li><span aria-hidden="true">✓</span> AI Documentation Helpers for observations, parent messages, and reports</li>
+                  <li><span aria-hidden="true">✓</span> Child Profiles for documentation and developmental observations</li>
+                  <li><span aria-hidden="true">✓</span> Unlimited curriculum printing and downloads</li>
+                  <li><span aria-hidden="true">✓</span> Customize, save, and reuse your own lesson plans</li>
+                  <li><span aria-hidden="true">✓</span> Request lesson plans, activities, and features in-app</li>
+                  <li><span aria-hidden="true">✓</span> Built by a childcare provider · Cancel anytime</li>
                 </ul>
                 <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="monthly" type="button">Choose Pro Monthly</button>
                 <p class="lp-price-note" data-founding-price-note>Pro Monthly is $19.99/month. Pro Annual is $199/year. Cancel anytime.</p>
@@ -1110,7 +1110,7 @@
 
           <section class="doc-helpers-child-step" aria-label="Select a child">
             <label class="doc-helpers-child-picker">
-              <span class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(select only when saving to a child)</span></span>
+              <h3 class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(select only when saving to a child)</span></h3>
               <select name="childId" id="docHelperChild">
                 <option value="">No child selected</option>
               </select>
@@ -2492,10 +2492,10 @@
     <script src="scripts/free-plan-grandfathering.js?v=20260804-free-ux-phase2-r1" defer></script>
     <div id="adminTeachingKitEnrichmentHost" aria-live="polite"></div>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260804-messaging-nav-banner-r1" defer></script>
+    <script src="app.js?v=20260804-mobile-a11y-r1" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
-    <script src="comms-center.js?v=20260804-messaging-nav-banner-r1" defer></script>
+    <script src="comms-center.js?v=20260804-mobile-a11y-r1" defer></script>
   </body>
 </html>

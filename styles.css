@@ -23254,6 +23254,63 @@ body.nuo-open #freePlanReminderBar {
   outline-offset: 2px;
 }
 
+/* Shared chrome focus-visible (mobile/a11y pass). */
+.ghost-button:focus-visible,
+.primary-button:focus-visible,
+.danger-button:focus-visible,
+.nav-link:focus-visible,
+.messages-tab:focus-visible,
+.llh-cal-cell:focus-visible,
+.search-wrap input:focus-visible,
+.llh-confirm-panel button:focus-visible,
+.llh-confirm-panel input:focus-visible,
+.llh-confirm-panel textarea:focus-visible,
+#scheduleEventModal input:focus-visible,
+#scheduleEventModal select:focus-visible,
+#scheduleEventModal textarea:focus-visible,
+#scheduleEventModal button:focus-visible,
+#resourceViewerModal button:focus-visible,
+.notification-bell-btn:focus-visible,
+.member-update-banner-dismiss:focus-visible,
+.doc-helper-card:focus-visible,
+.back-button:focus-visible {
+  outline: 2px solid #4a6fa5;
+  outline-offset: 2px;
+}
+
+@media (max-width: 390px) {
+  html, body {
+    overflow-x: clip;
+  }
+  .modal.open .modal-card,
+  .resource-viewer-card,
+  .llh-confirm-panel {
+    max-width: min(100vw - 16px, 560px);
+    max-height: min(100dvh - 24px, 100%);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .llh-confirm-actions,
+  #scheduleEventModal .form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .llh-confirm-actions .primary-button,
+  .llh-confirm-actions .ghost-button,
+  #scheduleEventModal .form-actions .primary-button,
+  #scheduleEventModal .form-actions .ghost-button {
+    min-height: 44px;
+    flex: 1 1 auto;
+  }
+  .child-page-header {
+    gap: 10px;
+  }
+  .child-page-header .back-button {
+    min-height: 44px;
+  }
+}
+
 .nuo-dashboard-checklist {
   margin: 14px 0 18px;
   padding: 16px 18px;
