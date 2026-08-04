@@ -32297,6 +32297,7 @@ function calendarWeekHeaderActionsHtml(week, options = {}) {
       <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
       <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download week-at-a-glance PDF (classroom copy)" : "Add a lesson plan before printing"}">Print Week PDF</button>
       <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Print the full classroom lesson plan" : "Add a lesson plan before printing"}">Print Full Plan</button>
+      ${hasLesson ? `<button type="button" class="ghost-button" data-calendar-clear-week="${escapeHtml(week)}" title="Remove this week's lesson plan and activities from the calendar">Clear Week</button>` : ""}
     </div>
   `;
 }
@@ -32336,8 +32337,10 @@ function calendarWeekLessonSummaryHtml(lesson, week, room, glance) {
         <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}">Print Week PDF</button>
         <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}">Print Full Plan</button>
         <button type="button" class="ghost-button" data-calendar-add-lesson-plan data-calendar-add-lesson-week="${escapeHtml(week)}">Change Plan</button>
+        <button type="button" class="ghost-button" data-calendar-remove-lesson="${escapeHtml(lesson.id)}" data-calendar-remove-lesson-week="${escapeHtml(week)}">Remove from Calendar</button>
+        <button type="button" class="ghost-button" data-calendar-clear-week="${escapeHtml(week)}">Clear Week</button>
       </div>
-      <p class="muted-copy llh-cal-print-hint">Prints use your classroom copy${customized ? " (including day edits)" : ""} — not a Google Doc.</p>
+      <p class="muted-copy llh-cal-print-hint">Prints use your classroom copy${customized ? " (including day edits)" : ""} — not a Google Doc. Remove / Clear Week only affects your calendar — library lessons stay unchanged.</p>
     </section>
   `;
 }
@@ -32793,37 +32796,126 @@ async function submitCalendarAddItemForm(form) {
   }
 }
 
-async function deleteCalendarItem(itemId) {
-  if (!itemId) return;
+/**
+ * After a schedule item is deleted, keep legacy assignment storage + weekly planner
+ * in sync so removed lessons do not reappear as "Assigned" or leave orphan activities.
+ * Cascades only to classroom events linked via lesson.parent.visibleEventIds.
+ */
+async function finalizeCalendarLessonRemoval(deletedLessonItem, api) {
+  if (!api || !deletedLessonItem || deletedLessonItem.type !== "lesson_plan") {
+    dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache || api?.readCache?.(scheduleApiEmail()));
+    return;
+  }
+  const linkedIds = Array.isArray(deletedLessonItem?.parent?.visibleEventIds)
+    ? deletedLessonItem.parent.visibleEventIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  for (const eventId of linkedIds) {
+    try {
+      if (typeof api.deleteItem === "function") {
+        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), eventId);
+      }
+    } catch (error) {
+      console.warn("[calendar] linked event cleanup failed", eventId, error?.message || error);
+    }
+  }
+  scheduleDocCache = api.readCache(scheduleApiEmail()) || scheduleDocCache;
+  dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache);
+  clearWeeklyPlannerForRemovedLesson(deletedLessonItem);
+}
+
+function clearWeeklyPlannerForRemovedLesson(lessonItem) {
+  if (!lessonItem || lessonItem.type !== "lesson_plan") return;
+  const planner = weeklyPlanner();
+  const week = curriculumPlannerWeekStartIso(lessonItem.weekStartDate || "");
+  const planId = String(lessonItem.lessonPlanId || lessonItem.resourceId || "").trim();
+  const plannerWeek = curriculumPlannerWeekStartIso(planner.weekOf || "");
+  const plannerResource = String(planner.resourceId || "").trim();
+  const matchesWeek = week && plannerWeek === week;
+  const matchesPlan = planId && plannerResource === planId;
+  if (!matchesWeek && !matchesPlan) return;
+  const resetDate = week ? new Date(`${week}T12:00:00`) : new Date();
+  saveWeeklyPlanner(defaultPlanner(resetDate));
+}
+
+async function deleteCalendarItem(itemId, options = {}) {
+  if (!itemId) return false;
   const api = getScheduleApi();
-  if (!api || !api.deleteItem) return;
-  const item = calendarItemById(itemId);
+  if (!api || !api.deleteItem) return false;
+  await ensureScheduleLoaded();
+  const item = calendarItemById(itemId) || (scheduleDocCache?.items || []).find((entry) => entry.id === itemId) || null;
   const isPlacement = item?.type === "lesson_plan";
-  const confirmed = await confirmAction({
-    title: isPlacement ? "Remove from calendar?" : "Delete permanently?",
-    message: isPlacement
-      ? "This removes the lesson plan from the calendar only. The original lesson plan will not be deleted."
-      : `Delete “${item?.title || "this calendar item"}” permanently? This cannot be undone.`,
-    confirmLabel: isPlacement ? "Remove From Calendar" : "Delete Permanently",
-    danger: !isPlacement,
-  });
-  if (!confirmed) return;
+  const skipConfirm = options.skipConfirm === true;
+  if (!skipConfirm) {
+    const confirmed = await confirmAction({
+      title: isPlacement ? "Remove from calendar?" : "Delete permanently?",
+      message: isPlacement
+        ? "This removes the lesson plan and its week activities from the calendar only. The original lesson plan in the library will not be deleted. Linked classroom events from this assignment are also cleared."
+        : `Delete “${item?.title || "this calendar item"}” permanently? This cannot be undone.`,
+      confirmLabel: isPlacement ? "Remove From Calendar" : "Delete Permanently",
+      danger: !isPlacement,
+    });
+    if (!confirmed) return false;
+  }
   mainCalendarBusy = true;
   renderMainCalendar();
   try {
     await ensureScheduleLoaded();
     await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), itemId);
     scheduleDocCache = api.readCache(scheduleApiEmail());
+    if (isPlacement) {
+      await finalizeCalendarLessonRemoval(item, api);
+    } else {
+      dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache);
+    }
     closeCalendarAddItemDialog();
-    showActionFeedback(isPlacement ? "Removed from calendar." : "Calendar item deleted.");
+    showActionFeedback(
+      options.successMessage
+        || (isPlacement ? "Removed from calendar." : "Calendar item deleted."),
+    );
     refreshCalendarSurfacesAfterScheduleChange(item?.weekStartDate || mainCalendarSelectedWeek || "");
+    return true;
   } catch (error) {
     console.warn(error);
     showActionFeedback(error?.message || "Could not update the calendar. Please try again.");
+    return false;
   } finally {
     mainCalendarBusy = false;
     renderMainCalendar();
   }
+}
+
+/** Clear / unassign the lesson plan for a week (activities live in the lesson snapshot). */
+async function clearCalendarWeekLesson(weekStart = "", options = {}) {
+  const api = getScheduleApi();
+  if (!api) return false;
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    return false;
+  }
+  const week = curriculumPlannerWeekStartIso(weekStart || mainCalendarSelectedWeek || new Date());
+  await ensureScheduleLoaded({ force: true });
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || { items: [] };
+  const lesson = typeof api.lessonForWeek === "function"
+    ? api.lessonForWeek(doc, week)
+    : (doc.items || []).find((item) => item.type === "lesson_plan" && item.weekStartDate === week);
+  if (!lesson?.id) {
+    showActionFeedback("This week has no lesson plan to clear.");
+    return false;
+  }
+  const skipConfirm = options.skipConfirm === true;
+  if (!skipConfirm) {
+    const confirmed = await confirmAction({
+      title: "Clear this week?",
+      message: `Remove “${lesson.lessonPlanTitle || "this lesson plan"}” and its activities from the week of ${week}? Day notes you wrote separately are kept. The library lesson is not deleted.`,
+      confirmLabel: "Clear Week",
+      danger: true,
+    });
+    if (!confirmed) return false;
+  }
+  return deleteCalendarItem(lesson.id, {
+    skipConfirm: true,
+    successMessage: "Week cleared — lesson plan removed from the calendar.",
+  });
 }
 
 function setCalendarDayNoteStatus(message, isError = false) {
@@ -65207,6 +65299,20 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const calendarRemoveLesson = event.target.closest("[data-calendar-remove-lesson]");
+  if (calendarRemoveLesson) {
+    event.preventDefault();
+    deleteCalendarItem(calendarRemoveLesson.dataset.calendarRemoveLesson || "");
+    return;
+  }
+
+  const calendarClearWeek = event.target.closest("[data-calendar-clear-week]");
+  if (calendarClearWeek) {
+    event.preventDefault();
+    clearCalendarWeekLesson(calendarClearWeek.dataset.calendarClearWeek || mainCalendarSelectedWeek || "");
+    return;
+  }
+
   const calendarSaveDayNote = event.target.closest("[data-calendar-save-day-note]");
   if (calendarSaveDayNote) {
     event.preventDefault();
@@ -66059,8 +66165,31 @@ document.addEventListener("click", async (event) => {
 
   const clearPlannerButton = event.target.closest("#clearPlannerButton");
   if (clearPlannerButton) {
-    saveWeeklyPlanner(defaultPlanner());
-    renderWeeklyPlanner();
+    event.preventDefault();
+    const planner = weeklyPlanner();
+    const week = curriculumPlannerWeekStartIso(planner.weekOf || weeklyPlannerFocusWeek || new Date());
+    // Prefer clearing the real calendar assignment when one exists for this week.
+    (async () => {
+      const api = getScheduleApi();
+      await ensureScheduleLoaded().catch(() => {});
+      const doc = scheduleDocCache || api?.readCache?.(scheduleApiEmail()) || { items: [] };
+      const lesson = api?.lessonForWeek?.(doc, week) || null;
+      if (lesson?.id) {
+        const cleared = await clearCalendarWeekLesson(week);
+        if (!cleared) return;
+      } else {
+        const confirmed = await confirmAction({
+          title: "Clear planner?",
+          message: "Clear the weekly planner fields for this week? There is no calendar lesson assigned for this week.",
+          confirmLabel: "Clear Planner",
+        });
+        if (!confirmed) return;
+        saveWeeklyPlanner(defaultPlanner(week ? new Date(`${week}T12:00:00`) : new Date()));
+      }
+      renderWeeklyPlanner();
+      if (typeof renderMainCalendar === "function") renderMainCalendar();
+    })();
+    return;
   }
 
   const useCurrentWeekButton = event.target.closest("#useCurrentWeekButton");
