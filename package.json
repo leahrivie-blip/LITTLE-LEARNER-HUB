@@ -348,7 +348,8 @@
     "test:provider-qa-workflows-phase11": "NODE_ENV=test node scripts/test-provider-qa-workflows-phase11.js",
     "test:navigation-back-phase6": "NODE_ENV=test node scripts/test-navigation-back-phase6.js",
     "test:toasts-phase7": "NODE_ENV=test node scripts/test-toasts-phase7.js",
-    "test:ui-polish-phase8": "NODE_ENV=test node scripts/test-ui-polish-phase8.js"
+    "test:ui-polish-phase8": "NODE_ENV=test node scripts/test-ui-polish-phase8.js",
+    "test:data-consistency-phase9": "NODE_ENV=test node scripts/test-data-consistency-phase9.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
