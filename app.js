@@ -2231,7 +2231,7 @@ const stripeCheckoutConfig = {
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
   promoValidationEndpoint: "/api/validate-promo-code",
-  defaultTrialDays: 30,
+  defaultTrialDays: 7,
   promoExpiresLabel: "when the code expires (see Admin → Promo Codes)",
 };
 const aiGenerationConfig = {
@@ -5619,8 +5619,8 @@ function checkoutPromoSummary() {
   return normalizedCheckoutPromoCode()
     ? "Promo applied at checkout: first month $0 with a card on file. If Founding spots remain, you lock in $9.99/month while your membership remains continuously active after the free month."
     : currentUser
-      ? "Already have an account? Enter your promo code (example: TRY1MONTH) here, tap Apply, then choose a plan. First month is free with a card on file; membership continues automatically unless you cancel before renewal."
-      : "Enter a promo code (example: TRY1MONTH) before choosing a plan. Log in or create an account first so the free month can attach to your membership.";
+      ? "Already have an account? If you have a promo code, enter it here, tap Apply, then choose a plan. Standard Pro trials are 7 days with a card on file."
+      : "If you have a promo code, enter it before choosing a plan. Log in or create an account first so the trial can attach to your membership. Standard Pro trials are 7 days with a card on file.";
 }
 
 function saveCheckoutPromoCode(value) {
@@ -53120,12 +53120,16 @@ function classifyAdminTrialOffer(account) {
   let extensionSource = "standard_introductory";
   if (manualMarked) {
     key = "manually_extended";
-    label = "Manually Extended Trial";
+    label = "Correct Manual Extension";
     extensionSource = "manual_admin";
   } else if (promoCode || /promo|free month|day free|try1month|trypro/i.test(promoLabel)) {
     key = "promo_extended";
-    label = "Promo-Extended Trial";
+    label = "Correct Promo-Extended Trial";
     extensionSource = "promo_code";
+  } else if (lengthDays != null && lengthDays >= 28 && lengthDays <= 31) {
+    key = "unexpected_30day";
+    label = "Unexpected 30-Day Trial";
+    extensionSource = "unexpected_30day";
   } else if (lengthDays != null && lengthDays > 8) {
     key = "legacy";
     label = "Legacy Trial";
@@ -55467,7 +55471,7 @@ function renderAdminPromoCodesSection() {
   const redemptions = (adminPromoCodesState.redemptions || []).slice(0, 12);
   const duplicateWarning = audit?.duplicateEnvAndStore
     ? `<div class="admin-promo-audit-warning" role="alert">
-        <p><strong>Duplicate promo detected:</strong> <code>${escapeHtml(audit.envCode || envPromo?.code || "TRY1MONTH")}</code> exists as both an environment code and a stored code.</p>
+        <p><strong>Duplicate promo detected:</strong> <code>${escapeHtml(audit.envCode || envPromo?.code || "PROMO")}</code> exists as both an environment code and a stored code.</p>
         <p class="muted-copy">No codes were changed automatically. At checkout, the <strong>stored active promo wins</strong>; the environment row is a fallback display only.</p>
         <p class="muted-copy">Redemption counts come from the shared <code>promoRedemptions</code> ledger (filtered by normalized code) — not separate per row.</p>
       </div>`
@@ -55477,7 +55481,7 @@ function renderAdminPromoCodesSection() {
       <div>
         <p class="eyebrow">Growth</p>
         <h3>Promo Code Manager</h3>
-        <p class="muted-copy">Create multi-code free months (example: TRY1MONTH). Environment and stored promos are listed separately. Card is always required at signup.</p>
+        <p class="muted-copy">Create intentional promo codes when needed (standard signup is always a 7-day trial). Environment and stored promos are listed separately. Card is always required at signup. TRY1MONTH is retired for new redemptions.</p>
       </div>
       <button class="ghost-button" type="button" data-admin-promo-refresh>Refresh</button>
     </div>
@@ -55486,7 +55490,7 @@ function renderAdminPromoCodesSection() {
     ${adminPromoCodesState.success ? `<p class="form-message success">${escapeHtml(adminPromoCodesState.success)}</p>` : ""}
     <form id="adminPromoCodeForm" class="panel-form admin-stacked-form">
       <div class="form-grid-two">
-        <label>Code<input name="code" required placeholder="TRY1MONTH" /></label>
+        <label>Code<input name="code" required placeholder="PROMOCODE" /></label>
         <label>Free days<input name="trialDays" type="number" min="1" max="365" value="30" required /></label>
       </div>
       <div class="form-grid-two">
@@ -60663,7 +60667,7 @@ function promoCodePanel(options = {}) {
       <div class="promo-code-entry">
         <label>
           <span>Promo code</span>
-          <input id="checkoutPromoCodeInput" data-checkout-promo-input value="${escapeHtml(stored)}" placeholder="TRY1MONTH" autocomplete="off" inputmode="text" />
+          <input id="checkoutPromoCodeInput" data-checkout-promo-input value="${escapeHtml(stored)}" placeholder="Promo code" autocomplete="off" inputmode="text" />
         </label>
         <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
         <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" data-checkout-promo-message aria-live="polite"></span>
@@ -60871,7 +60875,7 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         <p class="llh-billing-status-line">${accountStatusBadgeHtml(account)}</p>
         ${subscriptionSummaryHtml()}
-        ${accountIsInTrial(account) ? `<p class="muted-copy"><strong>Trial curriculum exports:</strong> ${escapeHtml(MEMBERSHIP_COPY.trialCore)} Your own records are never limited by this allowance.</p>` : ""}
+        ${accountIsInTrial(account) ? `<p class="muted-copy"><strong>Trial:</strong> ${escapeHtml(account.trialSourceLabel || (classifyAdminTrialOffer(account) || {}).label || (/7[-\s]?day/i.test(String(account.promoLabelUsed || "")) ? "Standard 7-Day Trial" : account.promoCodeUsed ? "Correct Promo-Extended Trial" : "Pro Trial"))}${account.trialStart && account.trialEnd ? ` · ${escapeHtml(new Date(account.trialStart).toLocaleDateString())} → ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : account.trialEnd ? ` ends ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : ""}. ${escapeHtml(MEMBERSHIP_COPY.trialCore)} Your own records are never limited by this allowance.</p>` : ""}
         ${!paidBilling && !accountIsInTrial(account) ? `<p class="muted-copy">${escapeHtml(MEMBERSHIP_COPY.freeCore)} ${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>` : ""}
         ${account?.promoCodeUsed ? `<p class="muted-copy">Promo code used: <strong>${escapeHtml(account.promoCodeUsed)}</strong>${account.promoLabelUsed ? ` — ${escapeHtml(account.promoLabelUsed)}` : ""}</p>` : ""}
         <div class="account-actions-row">

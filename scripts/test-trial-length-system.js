@@ -62,6 +62,14 @@ function startServer() {
       status: "active",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+    }, {
+      id: "promo_intentional30_test",
+      code: "INTENTIONAL30",
+      label: "Intentional future promo",
+      trialDays: 30,
+      status: "active",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }],
   }, null, 2));
   const child = spawn(process.execPath, ["server/index.js"], {
@@ -115,15 +123,20 @@ function staticChecks() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const accessJs = fs.readFileSync(path.join(ROOT, "scripts/membership-access.js"), "utf8");
 
-  assert.match(serverJs, /subscription_data\[trial_period_days\]"\]\s*=\s*"7"/);
+  assert.match(serverJs, /subscription_data\[trial_period_days\]"\]\s*=\s*String\(STANDARD_TRIAL_DAYS\)/);
   assert.match(serverJs, /payment_method_collection:\s*"always"/);
   assert.match(serverJs, /trialExtensionSource\s*=\s*"manual_admin"/);
   assert.match(serverJs, /manualTrialExtensionDays/);
   assert.match(accessJs, /function classifyMembershipTrialOffer/);
   assert.match(accessJs, /Standard 7-Day Trial/);
-  assert.match(accessJs, /Promo-Extended Trial/);
-  assert.match(accessJs, /Manually Extended Trial/);
+  assert.match(accessJs, /Correct Promo-Extended Trial|Promo-Extended Trial/);
+  assert.match(accessJs, /Correct Manual Extension|Manually Extended Trial/);
   assert.match(accessJs, /Legacy Trial/);
+  assert.match(serverJs, /RETIRED_SIGNUP_PROMO_CODES|TRY1MONTH/);
+  assert.match(serverJs, /PROMO_FREE_TRIAL_CODE \|\| ""/);
+  assert.doesNotMatch(appJs, /placeholder="TRY1MONTH"/);
+  assert.doesNotMatch(appJs, /defaultTrialDays:\s*30/);
+  assert.match(appJs, /defaultTrialDays:\s*7/);
   assert.match(appJs, /function classifyAdminTrialOffer/);
   assert.match(appJs, /data-admin-trial-type/);
   assert.match(appJs, /Extension source/);
@@ -177,12 +190,12 @@ function classificationUnitTests() {
   assert.equal(cStd.daysRemaining, membershipAccess.membershipTrialDaysRemaining(standard, now));
 
   assert.equal(cPromo.key, "promo_extended");
-  assert.equal(cPromo.label, "Promo-Extended Trial");
+  assert.equal(cPromo.label, "Correct Promo-Extended Trial");
   assert.equal(cPromo.promoCode, "TRY1MONTH");
   assert.equal(cPromo.trialLengthDays, 30);
 
   assert.equal(cManual.key, "manually_extended");
-  assert.equal(cManual.label, "Manually Extended Trial");
+  assert.equal(cManual.label, "Correct Manual Extension");
   assert.equal(cManual.manualTrialExtensionDays, 7);
 
   assert.equal(cLegacy.key, "legacy");
@@ -213,14 +226,25 @@ async function checkoutAndLifecycleTests(child) {
   const promoCheckout = await requestJson("POST", "/api/create-checkout-session", {
     email: "promo-trial@test.local",
     plan: "monthly",
-    promoCode: "TRY1MONTH",
+    promoCode: "INTENTIONAL30",
     successUrl: `http://127.0.0.1:${PORT}/?ok=1`,
     cancelUrl: `http://127.0.0.1:${PORT}/?cancel=1`,
   });
   assert.equal(promoCheckout.status, 200, JSON.stringify(promoCheckout.json));
   assert.equal(promoCheckout.json.promo?.trialDays, 30);
   assert.match(String(promoCheckout.json.url || ""), /trial_days=30|promo_trial_days=30/);
-  console.log("PASS promo checkout creates separate 30-day trial");
+  console.log("PASS intentional promo checkout creates separate 30-day trial");
+
+  const retiredCheckout = await requestJson("POST", "/api/create-checkout-session", {
+    email: "retired-promo@test.local",
+    plan: "monthly",
+    promoCode: "TRY1MONTH",
+    successUrl: `http://127.0.0.1:${PORT}/?ok=1`,
+    cancelUrl: `http://127.0.0.1:${PORT}/?cancel=1`,
+  });
+  assert.equal(retiredCheckout.status, 400, JSON.stringify(retiredCheckout.json));
+  assert.match(String(retiredCheckout.json?.error || ""), /no longer available|not active/i);
+  console.log("PASS retired TRY1MONTH rejected for new checkout");
 
   // Simulate Stripe→local sync dates matching for a standard trial.
   const trialStart = new Date().toISOString();
