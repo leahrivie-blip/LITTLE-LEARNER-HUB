@@ -3,12 +3,20 @@
  *
  * Aggregates process metrics + existing store signals. Does not change
  * membership, checkout, curriculum, or other product logic.
+ *
+ * Canonical component states:
+ * - healthy / working — verified OK (below warning thresholds)
+ * - warning — at or above warning threshold
+ * - critical — at or above critical threshold / hard failure
+ * - not-configured — missing required configuration (never "working")
+ * - unknown — unable to verify (never "healthy")
  */
 
 const DEFAULTS = {
   windowMs: 5 * 60 * 1000,
   errorSpikeCount: 10,
   errorSpikeRate: 0.05,
+  memoryWarningMb: 220,
   memoryCriticalMb: 280,
   dbSizeCriticalMb: 12000,
   metaSilenceHours: 24,
@@ -28,12 +36,58 @@ function flagEnv(name, fallback = true) {
   return ["1", "true", "yes", "on"].includes(String(raw).trim().toLowerCase());
 }
 
+/**
+ * Canonical threshold classifier.
+ * Below warning → healthy; at/above warning → warning; at/above critical → critical;
+ * missing/non-finite → unknown (never healthy).
+ */
+function classifyThreshold(value, { warningAt, criticalAt } = {}) {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return { state: "unknown", severity: "unknown", ok: false };
+  }
+  const n = Number(value);
+  const critical = Number(criticalAt);
+  const warning = Number(warningAt);
+  if (Number.isFinite(critical) && n >= critical) {
+    return { state: "critical", severity: "critical", ok: false };
+  }
+  if (Number.isFinite(warning) && n >= warning) {
+    return { state: "warning", severity: "warning", ok: false };
+  }
+  return { state: "healthy", severity: "ok", ok: true };
+}
+
+function aggregateOverall(checks = []) {
+  const list = Array.isArray(checks) ? checks : [];
+  if (!list.length) return "unknown";
+  const stateOf = (c) => String(c?.state || c?.status || (c?.ok ? "healthy" : "") || c?.severity || "");
+  if (list.some((c) => ["critical"].includes(stateOf(c)) || c.severity === "critical")) {
+    return "critical";
+  }
+  if (list.some((c) => ["unknown", "not-verified"].includes(stateOf(c)) || c.severity === "unknown")) {
+    return "unknown";
+  }
+  if (list.some((c) => ["warning", "attention", "not-configured"].includes(stateOf(c)) || c.severity === "warning")) {
+    return "warning";
+  }
+  if (list.every((c) => c.ok === true || ["healthy", "working", "ok"].includes(stateOf(c)))) {
+    return "healthy";
+  }
+  return "unknown";
+}
+
 function createProductionMonitoring(options = {}) {
+  const memoryCriticalMb = numEnv("MONITOR_MEMORY_CRITICAL_MB", options.memoryCriticalMb || DEFAULTS.memoryCriticalMb);
+  const memoryWarningMb = numEnv(
+    "MONITOR_MEMORY_WARNING_MB",
+    options.memoryWarningMb || DEFAULTS.memoryWarningMb || Math.max(1, Math.floor(memoryCriticalMb * 0.8)),
+  );
   const cfg = {
     windowMs: numEnv("MONITOR_WINDOW_MS", options.windowMs || DEFAULTS.windowMs),
     errorSpikeCount: numEnv("MONITOR_5XX_COUNT", options.errorSpikeCount || DEFAULTS.errorSpikeCount),
     errorSpikeRate: Number(process.env.MONITOR_5XX_RATE || options.errorSpikeRate || DEFAULTS.errorSpikeRate),
-    memoryCriticalMb: numEnv("MONITOR_MEMORY_CRITICAL_MB", options.memoryCriticalMb || DEFAULTS.memoryCriticalMb),
+    memoryWarningMb,
+    memoryCriticalMb,
     dbSizeCriticalMb: numEnv("MONITOR_DB_SIZE_CRITICAL_MB", options.dbSizeCriticalMb || DEFAULTS.dbSizeCriticalMb),
     metaSilenceHours: numEnv("MONITOR_META_SILENCE_HOURS", options.metaSilenceHours || DEFAULTS.metaSilenceHours),
     webhookFailWindowMs: numEnv("MONITOR_WEBHOOK_FAIL_WINDOW_MS", options.webhookFailWindowMs || DEFAULTS.webhookFailWindowMs),
@@ -60,7 +114,6 @@ function createProductionMonitoring(options = {}) {
     const status = Number(statusCode) || 0;
     if (!status) return;
     const path = String(rawPath || "").split("?")[0].slice(0, 160);
-    // Ignore monitoring/health self-traffic for spike math noise.
     if (path === "/api/health" || path === "/api/admin/production-monitoring") return;
     httpEvents.push({ at: Date.now(), status, path });
     prune(httpEvents, cfg.windowMs);
@@ -94,7 +147,13 @@ function createProductionMonitoring(options = {}) {
     const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
     const rssMb = Math.round(mem.rss / 1024 / 1024);
     const maxOldSpaceMb = Number(process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1]) || 300;
-    return { heapUsedMb, rssMb, maxOldSpaceMb, criticalMb: cfg.memoryCriticalMb };
+    return {
+      heapUsedMb,
+      rssMb,
+      maxOldSpaceMb,
+      warningMb: cfg.memoryWarningMb,
+      criticalMb: cfg.memoryCriticalMb,
+    };
   }
 
   function metaStats(store = {}, metaConfig = {}) {
@@ -126,26 +185,49 @@ function createProductionMonitoring(options = {}) {
     };
   }
 
-  function evaluateCheck({ id, label, ok, severity = "critical", detail, value = null }) {
+  function makeCheck({
+    id,
+    label,
+    state,
+    detail,
+    value = null,
+    recommendedAction = "",
+  }) {
+    const normalized = String(state || "unknown");
+    const ok = normalized === "healthy" || normalized === "working";
+    let severity = "ok";
+    let status = "working";
+    if (normalized === "critical") {
+      severity = "critical";
+      status = "critical";
+    } else if (normalized === "warning" || normalized === "attention") {
+      severity = "warning";
+      status = "warning";
+    } else if (normalized === "not-configured") {
+      severity = "warning";
+      status = "not-configured";
+    } else if (normalized === "unknown" || normalized === "not-verified") {
+      severity = "unknown";
+      status = "unknown";
+    } else if (normalized === "healthy" || normalized === "working") {
+      severity = "ok";
+      status = "working";
+    }
     return {
       id,
       label,
-      ok: Boolean(ok),
-      severity: ok ? "ok" : severity,
-      status: ok ? "working" : (severity === "warning" ? "attention" : "attention"),
+      ok,
+      state: ok ? "healthy" : normalized,
+      severity,
+      status,
       detail: String(detail || ""),
+      recommendedAction: String(recommendedAction || ""),
       value,
     };
   }
 
   /**
    * @param {object} deps
-   * @param {() => object} deps.getStore
-   * @param {() => object} deps.getMetaConfig
-   * @param {() => boolean} deps.isDatabaseReady
-   * @param {() => string} deps.getDatabaseProvider
-   * @param {() => Promise<number|null>} [deps.getDatabaseSizeMb]
-   * @param {() => object} [deps.getHealthHints] — optional { stripeWebhookSecretConfigured, websiteOk }
    */
   async function buildSnapshot(deps = {}) {
     const store = typeof deps.getStore === "function" ? (deps.getStore() || {}) : {};
@@ -162,106 +244,270 @@ function createProductionMonitoring(options = {}) {
     }
 
     const http = httpWindowStats();
-    const mem = memoryStats();
+    const mem = typeof deps.getMemoryStats === "function"
+      ? { ...memoryStats(), ...(deps.getMemoryStats() || {}) }
+      : memoryStats();
     const meta = metaStats(store, metaConfig);
     prune(webhookFailures, cfg.webhookFailWindowMs);
     const recentWebhookFails = webhookFailures.length;
 
     const websiteOk = hints.websiteOk !== false;
+    const stripeWebhookConfigured = hints.stripeWebhookSecretConfigured;
+    const stripeKeysConfigured = hints.stripeKeysConfigured;
+
+    const rssClass = classifyThreshold(mem.rssMb, {
+      warningAt: cfg.memoryWarningMb,
+      criticalAt: cfg.memoryCriticalMb,
+    });
+
     const checks = [
-      evaluateCheck({
+      makeCheck({
         id: "website_health",
         label: "Website health check",
-        ok: websiteOk,
+        state: websiteOk ? "healthy" : "critical",
         detail: websiteOk ? "Process is serving /api/health." : "Website health check failed.",
+        recommendedAction: websiteOk ? "" : "Inspect process logs and redeploy if /api/health stays down.",
       }),
-      evaluateCheck({
+      makeCheck({
         id: "database",
         label: "Database availability",
-        ok: databaseProvider === "local-json" ? true : databaseReady,
+        state: databaseProvider === "local-json"
+          ? "healthy"
+          : (databaseReady ? "healthy" : "critical"),
         detail: databaseProvider === "local-json"
           ? "Local JSON store (dev)."
           : (databaseReady ? "Postgres connection ready." : "Database is unavailable."),
         value: { provider: databaseProvider, ready: databaseReady },
+        recommendedAction: databaseReady || databaseProvider === "local-json"
+          ? ""
+          : "Check DATABASE_URL / Postgres readiness on Render and recent deploy logs.",
       }),
-      evaluateCheck({
-        id: "stripe_webhooks",
-        label: "Stripe webhook failures",
-        ok: recentWebhookFails === 0,
-        detail: recentWebhookFails === 0
-          ? `No webhook processing failures in the last ${Math.round(cfg.webhookFailWindowMs / 60000)} minutes.`
-          : `${recentWebhookFails} webhook failure(s) recently. Latest: ${webhookFailures[webhookFailures.length - 1]?.type || "unknown"}.`,
-        value: { recentFailures: recentWebhookFails, latest: webhookFailures.slice(-3) },
-      }),
-      evaluateCheck({
-        id: "meta_tracking",
-        label: "Meta Pixel / CAPI events",
-        ok: (() => {
-          if (!meta.pixelConfigured && !meta.capiConfigured) return true; // not configured → not alarming
-          if (meta.capiEnabled || meta.pixelEnabled) {
-            if (meta.recentFailCount >= 5) return false;
-            if (meta.ageHours == null) return true; // no events yet after wiring — warning only below
-            return meta.ageHours <= meta.silenceHours;
-          }
-          return true;
-        })(),
-        severity: (meta.pixelConfigured || meta.capiConfigured) && meta.ageHours == null ? "warning" : "critical",
-        detail: (() => {
-          if (!meta.pixelConfigured && !meta.capiConfigured) return "Meta tracking is not configured.";
-          if (meta.recentFailCount >= 5) return `${meta.recentFailCount} CAPI failures in the monitoring window.`;
-          if (meta.ageHours == null) return "Configured, but no successful delivery logged yet.";
-          if (meta.ageHours > meta.silenceHours) {
-            return `No successful Meta delivery for ${meta.ageHours.toFixed(1)} hours (threshold ${meta.silenceHours}h).`;
-          }
-          return `Last successful delivery ${meta.ageHours.toFixed(1)}h ago. Pixel ${meta.pixelEnabled ? "on" : "off"}, CAPI ${meta.capiEnabled ? "on" : "off"}.`;
-        })(),
-        value: meta,
-      }),
-      evaluateCheck({
-        id: "error_rate_5xx",
-        label: "Error rate (5xx)",
-        ok: http.failed5xx < cfg.errorSpikeCount && http.rate < cfg.errorSpikeRate,
-        detail: http.total === 0
-          ? `No sampled requests in the last ${http.windowMinutes} minutes.`
-          : `${http.failed5xx}/${http.total} requests were 5xx (${(http.rate * 100).toFixed(1)}%) in ${http.windowMinutes}m.`,
-        value: http,
-      }),
-      evaluateCheck({
-        id: "memory",
-        label: "Memory usage",
-        ok: mem.heapUsedMb < cfg.memoryCriticalMb,
-        detail: `Heap ${mem.heapUsedMb} MB / RSS ${mem.rssMb} MB (critical ≥ ${cfg.memoryCriticalMb} MB; max-old-space ${mem.maxOldSpaceMb} MB).`,
-        value: mem,
-      }),
-      evaluateCheck({
-        id: "database_storage",
-        label: "Database storage",
-        ok: dbSizeMb == null ? true : dbSizeMb < cfg.dbSizeCriticalMb,
-        severity: dbSizeMb == null ? "warning" : "critical",
-        detail: dbSizeMb == null
-          ? (databaseProvider === "postgres"
-            ? "Database size not available yet."
-            : "Storage size check applies to Postgres production.")
-          : `Database size ${Math.round(dbSizeMb)} MB (critical ≥ ${cfg.dbSizeCriticalMb} MB).`,
-        value: { dbSizeMb, criticalMb: cfg.dbSizeCriticalMb },
-      }),
+      (() => {
+        if (stripeWebhookConfigured === false) {
+          return makeCheck({
+            id: "stripe_webhooks",
+            label: "Stripe webhook health",
+            state: "not-configured",
+            detail: "Stripe webhook secret is not configured. Zero recorded failures does not mean webhooks are working.",
+            value: { configured: false, recentFailures: recentWebhookFails },
+            recommendedAction: "Set STRIPE_WEBHOOK_SECRET after creating the Stripe webhook endpoint.",
+          });
+        }
+        if (stripeWebhookConfigured == null && hints.stripeVerificationUnavailable) {
+          return makeCheck({
+            id: "stripe_webhooks",
+            label: "Stripe webhook health",
+            state: "unknown",
+            detail: "Unable to verify Stripe webhook configuration.",
+            value: { configured: null, recentFailures: recentWebhookFails },
+            recommendedAction: "Retry System Health refresh. If this persists, check admin auth and billing-readiness.",
+          });
+        }
+        if (recentWebhookFails > 0) {
+          return makeCheck({
+            id: "stripe_webhooks",
+            label: "Stripe webhook health",
+            state: "critical",
+            detail: `Configured but failing: ${recentWebhookFails} webhook failure(s) in the last ${Math.round(cfg.webhookFailWindowMs / 60000)} minutes. Latest: ${webhookFailures[webhookFailures.length - 1]?.type || "unknown"}.`,
+            value: { configured: true, recentFailures: recentWebhookFails, latest: webhookFailures.slice(-3) },
+            recommendedAction: "Open Stripe Dashboard → Webhooks, inspect failed deliveries, and verify STRIPE_WEBHOOK_SECRET matches the endpoint.",
+          });
+        }
+        if (stripeWebhookConfigured === true) {
+          return makeCheck({
+            id: "stripe_webhooks",
+            label: "Stripe webhook health",
+            state: "healthy",
+            detail: `Configured and healthy: no webhook processing failures in the last ${Math.round(cfg.webhookFailWindowMs / 60000)} minutes.`,
+            value: { configured: true, recentFailures: 0 },
+          });
+        }
+        // Legacy callers without hints — treat zero failures as unknown, never healthy.
+        return makeCheck({
+          id: "stripe_webhooks",
+          label: "Stripe webhook health",
+          state: "unknown",
+          detail: "Unable to verify whether the Stripe webhook secret is configured.",
+          value: { configured: null, recentFailures: recentWebhookFails },
+          recommendedAction: "Confirm STRIPE_WEBHOOK_SECRET is set in the production environment.",
+        });
+      })(),
+      (() => {
+        if (stripeKeysConfigured === false) {
+          return makeCheck({
+            id: "stripe_api_keys",
+            label: "Stripe API keys",
+            state: "not-configured",
+            detail: "Stripe API keys are missing.",
+            recommendedAction: "Set STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY (or price env vars) for checkout.",
+          });
+        }
+        if (stripeKeysConfigured === true) {
+          return makeCheck({
+            id: "stripe_api_keys",
+            label: "Stripe API keys",
+            state: "healthy",
+            detail: "Configured and healthy: Stripe API keys are present for checkout.",
+          });
+        }
+        return makeCheck({
+          id: "stripe_api_keys",
+          label: "Stripe API keys",
+          state: "unknown",
+          detail: "Unable to verify Stripe API key configuration from monitoring hints.",
+          recommendedAction: "Open Billing readiness or refresh System Health.",
+        });
+      })(),
+      (() => {
+        if (!meta.pixelConfigured && !meta.capiConfigured) {
+          return makeCheck({
+            id: "meta_tracking",
+            label: "Meta Pixel / CAPI events",
+            state: "not-configured",
+            detail: "Meta tracking is not configured.",
+            value: meta,
+          });
+        }
+        if (meta.recentFailCount >= 5) {
+          return makeCheck({
+            id: "meta_tracking",
+            label: "Meta Pixel / CAPI events",
+            state: "critical",
+            detail: `${meta.recentFailCount} CAPI failures in the monitoring window.`,
+            value: meta,
+            recommendedAction: "Inspect Meta CAPI credentials and recent delivery errors.",
+          });
+        }
+        if (meta.ageHours == null) {
+          return makeCheck({
+            id: "meta_tracking",
+            label: "Meta Pixel / CAPI events",
+            state: "warning",
+            detail: "Configured, but no successful delivery logged yet.",
+            value: meta,
+          });
+        }
+        if (meta.ageHours > meta.silenceHours) {
+          return makeCheck({
+            id: "meta_tracking",
+            label: "Meta Pixel / CAPI events",
+            state: "warning",
+            detail: `No successful Meta delivery for ${meta.ageHours.toFixed(1)} hours (threshold ${meta.silenceHours}h).`,
+            value: meta,
+          });
+        }
+        return makeCheck({
+          id: "meta_tracking",
+          label: "Meta Pixel / CAPI events",
+          state: "healthy",
+          detail: `Last successful delivery ${meta.ageHours.toFixed(1)}h ago. Pixel ${meta.pixelEnabled ? "on" : "off"}, CAPI ${meta.capiEnabled ? "on" : "off"}.`,
+          value: meta,
+        });
+      })(),
+      (() => {
+        if (http.total === 0) {
+          return makeCheck({
+            id: "error_rate_5xx",
+            label: "Error rate (5xx)",
+            state: "healthy",
+            detail: `No sampled requests in the last ${http.windowMinutes} minutes.`,
+            value: http,
+          });
+        }
+        const spiked = http.failed5xx >= cfg.errorSpikeCount || http.rate >= cfg.errorSpikeRate;
+        return makeCheck({
+          id: "error_rate_5xx",
+          label: "Error rate (5xx)",
+          state: spiked ? "critical" : "healthy",
+          detail: `${http.failed5xx}/${http.total} requests were 5xx (${(http.rate * 100).toFixed(1)}%) in ${http.windowMinutes}m.`,
+          value: http,
+          recommendedAction: spiked ? "Inspect recent 5xx paths in logs and roll back the last deploy if errors spiked after release." : "",
+        });
+      })(),
+      (() => {
+        if (rssClass.state === "unknown") {
+          return makeCheck({
+            id: "memory",
+            label: "Memory usage",
+            state: "unknown",
+            detail: "Unable to verify process memory metrics.",
+            value: mem,
+            recommendedAction: "Retry System Health. If memory metrics stay unavailable, inspect the Node process on Render.",
+          });
+        }
+        const detail = `RSS ${mem.rssMb} MB · Heap ${mem.heapUsedMb} MB · warning ≥ ${cfg.memoryWarningMb} MB · critical ≥ ${cfg.memoryCriticalMb} MB · max-old-space ${mem.maxOldSpaceMb} MB.`;
+        if (rssClass.state === "critical") {
+          return makeCheck({
+            id: "memory",
+            label: "Memory usage",
+            state: "critical",
+            detail: `${detail} RSS is at or above the critical threshold.`,
+            value: mem,
+            recommendedAction: "Restart the web service on Render, then investigate memory growth (large curriculum payloads, leaked caches). Consider raising the instance size if RSS stays near max-old-space after restart.",
+          });
+        }
+        if (rssClass.state === "warning") {
+          return makeCheck({
+            id: "memory",
+            label: "Memory usage",
+            state: "warning",
+            detail: `${detail} RSS is at or above the warning threshold.`,
+            value: mem,
+            recommendedAction: "Monitor RSS over the next hour. Avoid large admin curriculum imports until memory drops below the warning threshold.",
+          });
+        }
+        return makeCheck({
+          id: "memory",
+          label: "Memory usage",
+          state: "healthy",
+          detail,
+          value: mem,
+        });
+      })(),
+      (() => {
+        if (dbSizeMb == null) {
+          return makeCheck({
+            id: "database_storage",
+            label: "Database storage",
+            state: databaseProvider === "postgres" ? "unknown" : "healthy",
+            detail: databaseProvider === "postgres"
+              ? "Unable to verify database size yet."
+              : "Storage size check applies to Postgres production.",
+            value: { dbSizeMb, criticalMb: cfg.dbSizeCriticalMb },
+          });
+        }
+        const storageClass = classifyThreshold(dbSizeMb, {
+          warningAt: Math.floor(cfg.dbSizeCriticalMb * 0.85),
+          criticalAt: cfg.dbSizeCriticalMb,
+        });
+        return makeCheck({
+          id: "database_storage",
+          label: "Database storage",
+          state: storageClass.state,
+          detail: `Database size ${Math.round(dbSizeMb)} MB (warning ≥ ${Math.floor(cfg.dbSizeCriticalMb * 0.85)} MB; critical ≥ ${cfg.dbSizeCriticalMb} MB).`,
+          value: { dbSizeMb, criticalMb: cfg.dbSizeCriticalMb },
+          recommendedAction: storageClass.state === "critical"
+            ? "Increase Postgres storage or prune non-essential analytics retention after owner approval."
+            : "",
+        });
+      })(),
     ];
 
-    // Soft-fail meta "none yet" as attention/warning without paging if severity warning
-    const failing = checks.filter((check) => !check.ok && check.severity === "critical");
-    const warnings = checks.filter((check) => !check.ok && check.severity !== "critical");
+    const overall = aggregateOverall(checks);
     const snapshot = {
-      ok: failing.length === 0,
+      ok: overall === "healthy",
       updatedAt: new Date().toISOString(),
-      overall: failing.length ? "critical" : (warnings.length ? "attention" : "healthy"),
+      overall,
       checks,
       alerts: {
         enabled: cfg.alertsEnabled,
         cooldownMinutes: Math.round(cfg.alertCooldownMs / 60000),
         lastAlertAt: { ...lastAlertAt },
+        activeCritical: checks.filter((c) => c.state === "critical").map((c) => c.id),
       },
       config: {
         windowMinutes: Math.round(cfg.windowMs / 60000),
+        memoryWarningMb: cfg.memoryWarningMb,
         memoryCriticalMb: cfg.memoryCriticalMb,
         dbSizeCriticalMb: cfg.dbSizeCriticalMb,
         metaSilenceHours: cfg.metaSilenceHours,
@@ -275,7 +521,7 @@ function createProductionMonitoring(options = {}) {
     if (!cfg.alertsEnabled || !snapshot) return [];
     const now = Date.now();
     return (snapshot.checks || []).filter((check) => {
-      if (check.ok || check.severity !== "critical") return false;
+      if (check.state !== "critical" && check.severity !== "critical") return false;
       const prev = lastAlertAt[check.id] || 0;
       return (now - prev) >= cfg.alertCooldownMs;
     });
@@ -287,7 +533,10 @@ function createProductionMonitoring(options = {}) {
   }
 
   function formatAlertEmail(snapshot, dueChecks, siteUrl = "") {
-    const lines = dueChecks.map((check) => `- ${check.label}: ${check.detail}`);
+    const lines = dueChecks.map((check) => {
+      const action = check.recommendedAction ? ` Action: ${check.recommendedAction}` : "";
+      return `- ${check.label}: ${check.detail}${action}`;
+    });
     const subject = `[LLH Alert] ${dueChecks.length} production issue${dueChecks.length === 1 ? "" : "s"} — ${snapshot.overall}`;
     const text = [
       "Little Learner Hub production monitoring detected critical issues:",
@@ -312,7 +561,6 @@ function createProductionMonitoring(options = {}) {
     };
     timer = setInterval(tick, cfg.checkIntervalMs);
     if (typeof timer.unref === "function") timer.unref();
-    // First run shortly after boot so Admin has data without waiting a full interval.
     setTimeout(tick, 15000).unref?.();
   }
 
@@ -339,5 +587,7 @@ function createProductionMonitoring(options = {}) {
 
 module.exports = {
   DEFAULTS,
+  classifyThreshold,
+  aggregateOverall,
   createProductionMonitoring,
 };

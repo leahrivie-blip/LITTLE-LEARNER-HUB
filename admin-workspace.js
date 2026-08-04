@@ -340,22 +340,50 @@
     });
   }
 
-  function healthStatusCard(name, status, detail) {
-    const normalized = ["working", "attention", "disabled", "not-configured", "not-verified"].includes(status) ? status : "not-verified";
+  function healthStatusCard(name, status, detail, recommendedAction = "") {
+    const allowed = [
+      "working",
+      "healthy",
+      "warning",
+      "attention",
+      "critical",
+      "disabled",
+      "not-configured",
+      "not-verified",
+      "unknown",
+    ];
+    let normalized = allowed.includes(status) ? status : "unknown";
+    if (normalized === "healthy") normalized = "working";
+    if (normalized === "attention") normalized = "warning";
+    if (normalized === "not-verified") normalized = "unknown";
     const labels = {
-      working: "Working",
-      attention: "Needs attention",
+      working: "Configured and healthy",
+      warning: "Warning",
+      critical: "Critical",
       disabled: "Disabled",
       "not-configured": "Not configured",
-      "not-verified": "Not verified",
+      unknown: "Unable to verify",
     };
+    const action = String(recommendedAction || "").trim();
     return `
       <article class="admin-health-card" data-status="${normalized}">
         <p class="eyebrow">${escapeHtml(name)}</p>
-        <h4>${escapeHtml(labels[normalized])}</h4>
+        <h4>${escapeHtml(labels[normalized] || "Unable to verify")}</h4>
         <p class="muted-copy">${escapeHtml(detail)}</p>
+        ${action ? `<p class="muted-copy"><strong>Recommended:</strong> ${escapeHtml(action)}</p>` : ""}
       </article>
     `;
+  }
+
+  function monitorCheckToCard(check) {
+    const status = check?.status || check?.state || (check?.ok ? "working" : "unknown");
+    const detail = [check?.detail || "", check?.recommendedAction ? "" : ""].filter(Boolean).join(" ");
+    return healthStatusCard(
+      check?.label || check?.id || "Check",
+      status,
+      detail || "No detail available.",
+      check?.recommendedAction || "",
+    );
   }
 
   function renderAdminSystemHealth(target) {
@@ -372,25 +400,38 @@
       const monitoring = snapshot?.monitoring || null;
       const monitorChecks = Array.isArray(monitoring?.checks) ? monitoring.checks : [];
       const monitorCards = monitorChecks.length
-        ? monitorChecks.map((check) => healthStatusCard(check.label || check.id, check.ok ? "working" : "attention", check.detail || "")).join("")
-        : `<article class="admin-health-card" data-status="not-verified"><p class="eyebrow">Production monitoring</p><h4>Not verified</h4><p class="muted-copy">Monitoring snapshot unavailable. Tap Refresh.</p></article>`;
+        ? monitorChecks.map((check) => monitorCheckToCard(check)).join("")
+        : `<article class="admin-health-card" data-status="unknown"><p class="eyebrow">Production monitoring</p><h4>Unable to verify</h4><p class="muted-copy">Monitoring snapshot unavailable. Tap Refresh.</p></article>`;
       const overall = monitoring?.overall || "unknown";
+      const overallLabel = ({
+        healthy: "Healthy",
+        warning: "Warning",
+        attention: "Warning",
+        critical: "Critical",
+        unknown: "Unable to verify",
+      })[overall] || "Unable to verify";
+      const criticalMemory = monitorChecks.find((c) => c.id === "memory" && (c.state === "critical" || c.status === "critical"));
       const alertNote = monitoring?.alerts
         ? (monitoring.alerts.enabled
           ? `Alert emails enabled (cooldown ${monitoring.alerts.cooldownMinutes || 60}m) to the support/admin inbox when critical.`
           : "Alert emails disabled (MONITOR_ALERTS_ENABLED).")
         : "Alert email status unknown.";
+      const overallAction = criticalMemory?.recommendedAction
+        || (overall === "critical"
+          ? "Resolve every Critical card below before treating production as healthy."
+          : (overall === "unknown" ? "Refresh checks. Unable to verify must never be treated as healthy." : ""));
       target.innerHTML = `
         <div class="section-heading">
           <div><p class="eyebrow">System Health</p><h3>Verified service status</h3><p class="muted-copy">${escapeHtml(checked)} Status is based on live checks — not UI availability alone.</p></div>
           <button type="button" class="ghost-button" data-admin-health-refresh ${adminSystemHealthLoading ? "disabled" : ""}>${adminSystemHealthLoading ? "Checking…" : "Refresh"}</button>
         </div>
-        <section class="admin-command-center-card" aria-label="Production monitoring" style="margin-bottom:16px;">
+        <section class="admin-command-center-card" aria-label="Production monitoring" style="margin-bottom:16px;" data-overall-health="${escapeHtml(overall)}">
           <div class="section-heading" style="margin-bottom:12px;">
             <div>
               <p class="eyebrow">Production monitoring</p>
-              <h3>Live alerts · ${escapeHtml(String(overall))}</h3>
-              <p class="muted-copy">Read-only checks for health, database, Stripe webhooks, Meta tracking, 5xx spikes, memory, and DB storage. ${escapeHtml(alertNote)}</p>
+              <h3>Overall · ${escapeHtml(overallLabel)}</h3>
+              <p class="muted-copy">Read-only checks for health, database, Stripe, Meta tracking, 5xx spikes, memory, and DB storage. ${escapeHtml(alertNote)}</p>
+              ${overallAction ? `<p class="muted-copy" data-health-overall-action><strong>Recommended:</strong> ${escapeHtml(overallAction)}</p>` : ""}
             </div>
           </div>
           <div class="admin-health-grid">${monitorCards}</div>
@@ -472,21 +513,29 @@
     try {
       const billingRes = await adminFetchWithTimeout("/api/billing-readiness");
       const billing = await billingRes.json().catch(() => ({}));
-      const keys = billing?.keysConnected;
-      setCard(
-        "stripeApi",
-        keys?.ready ? "working" : (keys ? "not-configured" : "not-verified"),
-        keys?.note || (keys?.ready ? "Stripe secret and publishable keys verified." : "Stripe API keys missing."),
-      );
-      const webhook = billing?.webhookReady;
-      setCard(
-        "stripeWebhook",
-        webhook?.ready ? "working" : (webhook ? "attention" : "not-configured"),
-        webhook?.note || (webhook?.ready ? "Webhook secret configured." : "Stripe webhook secret not configured."),
-      );
+      const keys = billing?.keysConnected || billing?.stripeKeysConnected;
+      if (!keys) {
+        setCard("stripeApi", "unknown", "Unable to verify Stripe API key configuration.");
+      } else if (keys.ready) {
+        setCard("stripeApi", "working", keys.note || "Configured and healthy: Stripe API keys verified.");
+      } else {
+        setCard("stripeApi", "not-configured", keys.note || "Stripe API keys are missing.");
+      }
+      const webhook = billing?.webhookReady || billing?.webhookConfigured;
+      if (!webhook) {
+        setCard("stripeWebhook", "unknown", "Unable to verify Stripe webhook configuration.");
+      } else if (webhook.ready) {
+        setCard("stripeWebhook", "working", webhook.note || "Configured and healthy: webhook secret configured.");
+      } else {
+        setCard(
+          "stripeWebhook",
+          "not-configured",
+          webhook.note || "Stripe webhook secret is not configured. Zero recorded failures does not mean webhooks are working.",
+        );
+      }
     } catch {
-      setCard("stripeApi", "not-verified", "Stripe API connection was not checked.");
-      setCard("stripeWebhook", "not-verified", "Stripe webhook health was not checked.");
+      setCard("stripeApi", "unknown", "Unable to verify Stripe API connection.");
+      setCard("stripeWebhook", "unknown", "Unable to verify Stripe webhook health.");
     }
 
     try {
