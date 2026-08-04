@@ -1521,8 +1521,8 @@
             </div>
           </dl>
           ${canRollback ? `
-            <button type="button" class="ghost-button" data-enrich-rollback>Rollback last publish</button>
-            <p class="muted-copy">Restores the previous published enrichment. You stay in control — review after rollback.</p>
+            <button type="button" class="ghost-button" data-enrich-rollback>Rollback Last Publish</button>
+            <p class="muted-copy">Loads the prior publish backup into a new draft. Providers keep seeing the current published kit until you Publish.</p>
           ` : ""}
           <p class="muted-copy tk-enrich-summary-note">Guidance only — never blocks saving a draft. Nothing publishes automatically.</p>
         ` : ""}
@@ -1559,11 +1559,19 @@
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
-            <button type="button" class="ghost-button" data-enrich-recovery>Recovery (${historyCount})</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
             <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
+        </div>
+        <div class="tk-enrich-recovery-toolbar" data-enrich-recovery-toolbar aria-label="Version history and recovery">
+          <strong>History &amp; Recovery</strong>
+          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-history>Version History (${historyCount})</button>
+          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-compare>Compare versions</button>
+          <button type="button" class="ghost-button" data-enrich-rollback ${historyCount ? "" : "disabled"}>Rollback Last Publish</button>
+          <button type="button" class="ghost-button" data-enrich-discard-draft>Discard Draft</button>
+          <button type="button" class="ghost-button" data-enrich-undo-discard ${plan?.enrichmentDraftUndo?.draft ? "" : "disabled"}>Undo Discard</button>
+          <span class="muted-copy">Rollback restores into a draft — Publish required before providers see changes.</span>
         </div>
         <p class="muted-copy tk-enrich-workflow-note">Workflow: Analyze → Prepare AI Draft → Side-by-side review → Edit → Publish → Next lesson. Published content is never overwritten without your approval.</p>
         <div class="tk-enrich-chrome-sub">
@@ -2340,9 +2348,9 @@
         <div class="tk-enrich-modal-card tk-enrich-recovery-card" tabindex="-1">
           <div class="tk-enrich-publish-scroll">
             <h3 id="tk-enrich-recovery-title">Version history & recovery</h3>
-            <p class="muted-copy">Automatic backups before draft saves and publishes. Restore any retained version for <strong>this lesson only</strong>. Nothing auto-publishes.</p>
+            <p class="muted-copy">Automatic backups before draft saves and publishes. Restore any retained version for <strong>this lesson only</strong>. Restores load into a draft — providers are unchanged until you Publish. Discard Draft never deletes published content.</p>
 
-            <section class="tk-enrich-recovery-section">
+            <section class="tk-enrich-recovery-section" data-recovery-history>
               <h4>Version History (${history.length} retained)</h4>
               ${history.length ? `
                 <ul class="tk-enrich-history-list">
@@ -2366,7 +2374,7 @@
               ` : `<p class="muted-copy">No version snapshots yet. Save a draft or publish to create the first backup.</p>`}
             </section>
 
-            <section class="tk-enrich-recovery-section">
+            <section class="tk-enrich-recovery-section" data-recovery-compare>
               <h4>Compare Draft vs Published</h4>
               <button type="button" class="ghost-button" data-enrich-compare-toggle>${state.compareOpen ? "Hide compare" : "Show compare"}</button>
               ${state.compareOpen ? `
@@ -2396,6 +2404,29 @@
               ` : ""}
             </section>
 
+            <section class="tk-enrich-recovery-section" data-recovery-compare-publish>
+              <h4>Compare Published vs Previous Version</h4>
+              ${(() => {
+                const publishEntries = history.filter((entry) => entry.snapshot && !isDraftHistorySnapshot(entry));
+                if (publishEntries.length < 1) {
+                  return `<p class="muted-copy">No publish backups yet — publish once to create a previous-version comparison.</p>`;
+                }
+                const currentPub = {
+                  familyConnection: plan.familyConnection || "",
+                  activities: {},
+                };
+                publishedTips.forEach((row) => {
+                  currentPub.activities[row.key] = { teacherTips: row.tips };
+                });
+                const previous = flattenHistorySnapshot(publishEntries[0]);
+                const lines = diffFlattenedEnrichment(previous, currentPub);
+                return `
+                  <p class="muted-copy">Current published kit vs backup <code>${esc(publishEntries[0].versionId)}</code> (${esc(publishEntries[0].publishedAt || "")}${publishEntries[0].publishedBy ? ` · ${esc(publishEntries[0].publishedBy)}` : ""}).</p>
+                  <ul>${lines.slice(0, 30).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+                `;
+              })()}
+            </section>
+
             <section class="tk-enrich-recovery-section">
               <h4>Discard Draft</h4>
               <p class="muted-copy">Clears the enrichment draft for this lesson only. Published content stays unchanged. You can undo once if you discard by mistake.</p>
@@ -2406,8 +2437,8 @@
             </section>
 
             <section class="tk-enrich-recovery-section">
-              <h4>Restore Previous Publish</h4>
-              <p class="muted-copy">One-click restore of the most recent published enrichment backup for this lesson (${restorePublishCount} publish snapshot(s) available). Current draft is cleared on publish restore.</p>
+              <h4>Rollback Last Publish / Restore Previous Version</h4>
+              <p class="muted-copy">Loads the most recent publish backup into a <strong>new draft</strong> for this lesson (${restorePublishCount} publish snapshot(s) available). Providers keep the current published kit until you Publish. Cancel or press Escape to close without changes.</p>
               <button type="button" class="ghost-button" data-enrich-rollback ${restorePublishCount ? "" : "disabled"}>Rollback Last Publish</button>
             </section>
           </div>
@@ -2644,10 +2675,13 @@
         return;
       }
       if (event.target.closest("[data-enrich-recovery]")) {
+        const openCompare = Boolean(event.target.closest("[data-enrich-open-compare]"));
         state.recoveryOpen = true;
-        state.compareOpen = false;
+        state.compareOpen = openCompare;
         state.historyDiffVersionId = "";
         render();
+        const focusSel = openCompare ? "[data-enrich-compare-toggle]" : "[data-enrich-open-history]";
+        document.querySelector(focusSel)?.focus?.();
         return;
       }
       if (event.target.closest("[data-recovery-close]")) {
@@ -2759,8 +2793,8 @@
         const plan = getPlan();
         if (!plan?.id || !versionId) return;
         const confirmMsg = restoreKind === "draft"
-          ? `Restore draft backup ${versionId} into the editor for this lesson only? Your current draft will be replaced.`
-          : `Restore published enrichment from version ${versionId}? Current draft will be cleared. Only this lesson changes.`;
+          ? `Restore draft backup ${versionId} into the editor for this lesson only?\n\nYour current draft will be replaced.\nPublished provider content stays unchanged.`
+          : `Restore publish backup ${versionId} into a NEW DRAFT for this lesson only?\n\nProviders keep seeing the current published kit until you Publish.\nYour current draft will be replaced.`;
         if (!window.confirm(confirmMsg)) {
           return;
         }
@@ -2797,9 +2831,11 @@
           state.compareOpen = false;
           state.historyDiffVersionId = "";
           open(plan.id);
-          state.statusText = data.restoredDraft
-            ? `Restored draft version ${versionId}.`
-            : `Restored publish version ${versionId}.`;
+          state.statusText = data.restoredIntoDraft || data.customerVisibleUnchanged
+            ? `Restored version ${versionId} into draft. Providers unchanged until Publish.`
+            : (data.restoredDraft
+              ? `Restored draft version ${versionId}.`
+              : `Restored version ${versionId}.`);
         } catch (error) {
           state.statusText = `Restore failed: ${error.message || error}`;
           render();
@@ -2991,7 +3027,12 @@
       if (event.target.closest("[data-enrich-rollback]")) {
         const plan = getPlan();
         if (!plan?.id) return;
-        if (!window.confirm("Roll back to the previous published enrichment for this lesson only? Your current draft will be cleared.")) {
+        if (!window.confirm(
+          "Rollback Last Publish for this lesson only?\n\n"
+          + "This loads the previous publish backup into a NEW DRAFT.\n"
+          + "Providers keep the current published kit until you Publish.\n"
+          + "Your current draft will be replaced.",
+        )) {
           return;
         }
         try {
@@ -3023,9 +3064,9 @@
             applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
           }
           open(plan.id);
-          state.statusText = `Rolled back to prior publish${data.restoredFromVersionId ? ` (${data.restoredFromVersionId})` : ""}.`;
+          state.statusText = `Rolled back into draft${data.restoredFromVersionId ? ` (${data.restoredFromVersionId})` : ""}. Providers unchanged until Publish.`;
           if (typeof showActionFeedback === "function") {
-            showActionFeedback("Previous enrichment restored. Review the lesson before publishing again.");
+            showActionFeedback("Previous publish loaded into draft. Review, then Publish if you want providers to see it.");
           }
         } catch (error) {
           state.statusText = `Rollback failed: ${error.message || error}`;

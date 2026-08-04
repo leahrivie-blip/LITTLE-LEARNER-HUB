@@ -375,12 +375,17 @@ async function main() {
       versionId: publishVersionId,
       publishedBy: ADMIN.email,
     }, auth);
+    const familyPublishedBeforeRestore = planA.familyConnection;
     ok(res.status === 200, `restore publish: ${res.status} ${res.json?.error || ""}`);
-    ok(res.json.restoredDraft !== true, "publish restore is not draft-only");
+    ok(res.json.restoredDraft === true, "publish restore loads into draft");
+    ok(res.json.customerVisibleUnchanged === true, "customer-visible content unchanged flag");
     stamp = res.json.siteContentUpdatedAt;
     planA = findPlan(res.json.curriculum, FIXTURE_A);
-    ok(planA.familyConnection === familyInBackup, "publish restore recovered family from backup");
-    ok(!planA.enrichmentDraft || !enrichmentDraftHasContent(planA.enrichmentDraft), "publish restore cleared draft");
+    ok(planA.familyConnection === familyPublishedBeforeRestore, "published family unchanged after restore-to-draft");
+    ok(planA.enrichmentDraft?.week?.familyConnection === familyInBackup
+      || String(planA.enrichmentDraft?.week?.familyConnection || "") === String(familyInBackup || ""),
+    "publish backup family restored into draft");
+    ok(enrichmentDraftHasContent(planA.enrichmentDraft), "draft present after publish restore");
 
     planB = findPlan(res.json.curriculum, FIXTURE_B);
     ok(planB?.familyConnection === `family-base-${FIXTURE_B}`, "sibling still untouched after publish restore");
@@ -395,7 +400,7 @@ async function main() {
     ok(actions.has("save_draft"), "audit includes save_draft");
     ok(actions.has("publish"), "audit includes publish");
     ok(actions.has("restore_draft"), "audit includes restore_draft");
-    ok(actions.has("restore_publish"), "audit includes restore_publish");
+    ok(actions.has("restore_publish_to_draft"), "audit includes restore_publish_to_draft");
     ok(audit.every((e) => e.createdAt && e.adminEmail), "audit entries have timestamp and user");
     ok(audit.every((e) => !e.lessonPlanId || e.lessonPlanId === FIXTURE_A || e.lessonPlanId === FIXTURE_B),
       "audit lesson ids stay within fixtures");

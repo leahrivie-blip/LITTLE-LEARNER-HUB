@@ -19969,52 +19969,44 @@ async function handleEnrichmentRollback(request, response) {
     return;
   }
 
+  // Publish/history snapshots restore into a NEW DRAFT only.
+  // Customer-visible published content stays unchanged until an explicit Publish.
+  const draftFromPublish = publishedEnrichmentSnapshotToDraft(snap, {
+    adminEmail,
+    now,
+    versionId: entry.versionId,
+  });
+  if (!enrichmentDraftHasContent(draftFromPublish)) {
+    jsonResponse(response, 400, {
+      error: "That published snapshot has no enrichment content to restore into a draft.",
+      code: "enrichment_publish_restore_empty",
+    });
+    return;
+  }
+  const priorDraftSnap = enrichmentDraftHasContent(existingPlan.enrichmentDraft)
+    ? { enrichmentDraft: cloneJson(existingPlan.enrichmentDraft) }
+    : snapshotEnrichmentPublishedState(existingPlan, curriculum.activities || []);
   const restoredPlan = normalizedCurriculumLessonPlan({
     ...existingPlan,
-    dailyPlans: snap.dailyPlans || existingPlan.dailyPlans,
-    familyConnection: snap.familyConnection != null ? snap.familyConnection : existingPlan.familyConnection,
-    teachingKit: snap.teachingKit != null ? snap.teachingKit : existingPlan.teachingKit,
-    enrichmentDraft: null,
+    enrichmentDraft: draftFromPublish,
     enrichmentPublishHistory: [
       {
         versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
         kind: "rollback",
         publishedAt: now,
         publishedBy: adminEmail,
-        fingerprint: `rollback:${entry.versionId}`,
+        fingerprint: `rollback-to-draft:${entry.versionId}`,
         lessonPlanId: planId,
-        snapshot: snapshotEnrichmentPublishedState(existingPlan, curriculum.activities || []),
+        snapshot: priorDraftSnap,
         rollbackOf: entry.versionId,
       },
       ...history,
     ].slice(0, ENRICHMENT_HISTORY_LIMIT),
-    updatedAt: now,
-  });
-  const snapActs = Array.isArray(snap.activities) ? snap.activities : [];
-  const byId = new Map(snapActs.map((act) => [act.id, act]));
-  const byItem = new Map(snapActs.filter((act) => act.itemId).map((act) => [act.itemId, act]));
-  const nextActivities = (curriculum.activities || []).map((act) => {
-    if (act.lessonPlanId !== planId) return act;
-    const match = byId.get(act.id) || byItem.get(act.itemId);
-    if (!match) return act;
-    return normalizedCurriculumActivity({
-      ...act,
-      setupImageUrl: match.setupImageUrl || "",
-      exampleImageUrl: match.exampleImageUrl || "",
-      setupMediaAssetId: match.setupMediaAssetId || "",
-      exampleMediaAssetId: match.exampleMediaAssetId || "",
-      teacherTips: Array.isArray(match.teacherTips) ? match.teacherTips : [],
-      substitutions: Array.isArray(match.substitutions) ? match.substitutions : [],
-      settingTags: Array.isArray(match.settingTags) ? match.settingTags : [],
-      observationOpportunities: match.observationOpportunities || "",
-      vocabulary: match.vocabulary || "",
-      updatedAt: now,
-    });
+    updatedAt: existingPlan.updatedAt,
   });
   const nextCurriculum = normalizedCurriculumStore({
     ...curriculum,
     lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
-    activities: nextActivities,
     updatedAt: now,
   });
   const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
@@ -20026,24 +20018,71 @@ async function handleEnrichmentRollback(request, response) {
     return;
   }
   appendEnrichmentEditorAudit(store, {
-    action: "restore_publish",
+    action: "restore_publish_to_draft",
     lessonPlanId: planId,
     versionId: entry.versionId,
     adminEmail,
-    fingerprint: `rollback:${entry.versionId}`,
-    note: "Restored published enrichment snapshot for this lesson only.",
+    fingerprint: `rollback-to-draft:${entry.versionId}`,
+    note: "Restored published snapshot into draft for this lesson only. Customer-visible content unchanged until Publish.",
   });
   await writeStoreAsync(store);
   const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
   jsonResponse(response, 200, {
     ok: true,
     rolledBack: true,
+    restoredDraft: true,
+    restoredIntoDraft: true,
+    customerVisibleUnchanged: true,
     autoPublished: false,
     restoredFromVersionId: entry.versionId,
     lessonPlan: saved,
     curriculum: store.siteContent.curriculum,
     siteContentUpdatedAt: store.siteContent.updatedAt,
   });
+}
+
+function publishedEnrichmentSnapshotToDraft(snap, { adminEmail = "admin", now = "", versionId = "" } = {}) {
+  const activities = {};
+  const pushAct = (key, fields = {}) => {
+    const id = normalizedShortText(key, 160);
+    if (!id) return;
+    const prev = activities[id] || {};
+    activities[id] = {
+      teacherTips: Array.isArray(fields.teacherTips) && fields.teacherTips.length
+        ? fields.teacherTips
+        : (Array.isArray(prev.teacherTips) ? prev.teacherTips : []),
+      setupImageUrl: fields.setupImageUrl || prev.setupImageUrl || "",
+      exampleImageUrl: fields.exampleImageUrl || prev.exampleImageUrl || "",
+      setupMediaAssetId: fields.setupMediaAssetId || prev.setupMediaAssetId || "",
+      exampleMediaAssetId: fields.exampleMediaAssetId || prev.exampleMediaAssetId || "",
+      substitutions: Array.isArray(fields.substitutions) ? fields.substitutions : (prev.substitutions || []),
+      settingTags: Array.isArray(fields.settingTags) ? fields.settingTags : (prev.settingTags || []),
+      observationOpportunities: fields.observationOpportunities || prev.observationOpportunities || "",
+      vocabulary: fields.vocabulary || prev.vocabulary || "",
+    };
+  };
+  (Array.isArray(snap?.activities) ? snap.activities : []).forEach((act) => {
+    pushAct(act.itemId || act.id, act);
+  });
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    (snap?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      pushAct(item.itemId || item.id || item.title, {
+        teacherTips: Array.isArray(item.teacherTips) ? item.teacherTips : [],
+        setupImageUrl: item.setupImageUrl || "",
+        exampleImageUrl: item.exampleImageUrl || "",
+      });
+    });
+  });
+  return {
+    activities,
+    week: {
+      familyConnection: snap?.familyConnection || "",
+    },
+    updatedAt: now || new Date().toISOString(),
+    lastEditedBy: adminEmail,
+    restoredFromPublishVersionId: normalizedShortText(versionId, 80) || "",
+    previewReady: false,
+  };
 }
 
 
