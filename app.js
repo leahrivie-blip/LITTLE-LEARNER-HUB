@@ -60398,7 +60398,9 @@ function renderAccountPage() {
       upgradeButton.style.display = "none";
     }
   }
-  if (resendButton) resendButton.style.display = account?.emailVerified ? "none" : "inline-flex";
+  if (resendButton) {
+    resendButton.style.display = (firebaseAuthEnabled && !account?.emailVerified) ? "inline-flex" : "none";
+  }
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
