@@ -5113,7 +5113,8 @@ async function verifyFirebaseUser(request) {
 }
 
 async function resolveCurriculumAccessUser(request, url) {
-  const adminToken = String(url?.searchParams?.get("adminToken") || "").trim();
+  // Prefer Authorization Bearer (same as other admin APIs); legacy ?adminToken= still works.
+  const adminToken = extractAdminToken(request, url);
   if (adminToken && validAdminToken(adminToken)) {
     return { authorized: true, email: "", user: null, source: "admin" };
   }
@@ -17584,8 +17585,48 @@ function parseTeachingKitReadyMaterials(url) {
 }
 
 /**
+ * Resolve the caller email for Teaching Kit Owner Preview.
+ * Member identity wins over admin tokens so a shared-browser Admin unlock cannot
+ * elevate a different signed-in account. Admin session email is used only when
+ * no member identity is present.
+ */
+async function resolveTeachingKitCallerEmail(request, url) {
+  let identity = null;
+  if (firebaseConfigStatus().ready) {
+    try {
+      identity = await verifyFirebaseUser(request);
+    } catch {
+      identity = null;
+    }
+  }
+  if (!identity && process.env.NODE_ENV === "test") {
+    const authHeader = String(request.headers.authorization || "");
+    if (authHeader.startsWith("Bearer test:")) {
+      const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
+      if (email) identity = { uid: `test-${email}`, email };
+    }
+  }
+  if (!identity) {
+    const allowHeaderIdentity = process.env.NODE_ENV === "test"
+      || String(process.env.DATABASE_PROVIDER || "").toLowerCase() === "local-json";
+    if (allowHeaderIdentity) {
+      const headerEmail = normalizeEmail(request.headers["x-llh-user-email"] || "");
+      if (headerEmail) identity = { uid: `local-${headerEmail}`, email: headerEmail };
+    }
+  }
+  if (identity?.email) return normalizeEmail(identity.email);
+
+  const adminToken = extractAdminToken(request, url);
+  if (!adminToken) return "";
+  const session = adminSessionStore.validate(adminToken);
+  return session?.email ? normalizeEmail(session.email) : "";
+}
+
+/**
  * Slice 1C — GET /api/curriculum/lesson-plans/:id/teaching-kit
- * Behind teachingKitViewer or teachingKitPrintCenter. Auth parity with detail.
+ * Behind teachingKitViewer or teachingKitPrintCenter for customers.
+ * Owner Preview: leahivie@icloud.com only may use Viewer / Print / Attachments
+ * while store customer flags remain false. Other Admins and every other role stay blocked.
  */
 async function handleCurriculumLessonPlanTeachingKit(request, response, url, planId) {
   const cleanId = normalizedShortText(planId, 160);
@@ -17598,7 +17639,9 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   const store = peekStore();
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const flags = normalizedFeatureFlags(siteContent.featureFlags);
-  if (!teachingKit.isTeachingKitApiEnabled(flags)) {
+  const callerEmail = await resolveTeachingKitCallerEmail(request, url);
+  const ownerPreview = teachingKit.isTeachingKitOwnerPreviewEmail(callerEmail);
+  if (!teachingKit.isTeachingKitApiEnabledForRequest(flags, { ownerPreview })) {
     jsonResponse(response, 404, {
       error: "Teaching Kit is not available.",
       code: "teaching_kit_disabled",
@@ -17628,6 +17671,15 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
     return Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(cleanId);
   });
 
+  const effectiveFlags = teachingKit.effectiveCustomerTeachingKitFlags(flags, { ownerPreview });
+  const ownerOnlyPreview = teachingKit.isOwnerOnlyTeachingKitPreview(flags, { ownerPreview });
+  const featureFlagsPayload = {
+    teachingKitViewer: effectiveFlags.teachingKitViewer === true,
+    teachingKitPrintCenter: effectiveFlags.teachingKitPrintCenter === true,
+    teachingKitAttachments: effectiveFlags.teachingKitAttachments === true,
+    ...(ownerOnlyPreview ? { ownerPreview: true } : {}),
+  };
+
   const respondUnlocked = () => {
     // Never feed admin enrichmentDraft into the provider Teaching Kit mapper.
     // Incomplete drafts must not change the published member experience.
@@ -17652,11 +17704,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
         locked: false,
         access: access.authorized ? "pro" : "free_unlocked",
       },
-      featureFlags: {
-        teachingKitViewer: flags.teachingKitViewer === true,
-        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
-        teachingKitAttachments: flags.teachingKitAttachments === true,
-      },
+      featureFlags: featureFlagsPayload,
     });
   };
 
@@ -17678,11 +17726,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   if (preview) {
     jsonResponse(response, 200, {
       teachingKit: preview,
-      featureFlags: {
-        teachingKitViewer: flags.teachingKitViewer === true,
-        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
-        teachingKitAttachments: flags.teachingKitAttachments === true,
-      },
+      featureFlags: featureFlagsPayload,
     });
     return;
   }
