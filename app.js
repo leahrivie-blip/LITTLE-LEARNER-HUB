@@ -14772,6 +14772,9 @@ function shouldShowInstallPromptCard() {
   // First-login overlay budget: never stack install with boot verification or Free upgrade chrome.
   if (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive()) return false;
   if (document.body.classList.contains("app-boot-verifying")) return false;
+  // Cookie notice + action toast already occupy the bottom — don't add install chrome.
+  if (document.body.classList.contains("has-meta-cookie-notice")) return false;
+  if (document.body.classList.contains("has-action-toast")) return false;
   if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
     if (!isFreeWelcomeCardDismissed()) return false;
     if (!isFreePlanReminderDismissed()) return false;
@@ -25190,7 +25193,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         format: "pdf",
         trialServerGenerated: true,
       });
-      showToast("Download started.");
+      queueMicrotask(() => showActionFeedback("Download started.", null, { ttlMs: 3200 }));
       return true;
     }
 
@@ -25272,7 +25275,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       printVariant: safeVariant,
       format: preferDocx ? "docx" : "pdf",
     });
-    showToast("Download started.");
+    queueMicrotask(() => showActionFeedback("Download started.", null, { ttlMs: 3200 }));
     return true;
   } catch (error) {
     console.error("[llh-download] lesson plan download failed", {
@@ -25280,7 +25283,11 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       resourceId: viewerResource?.id || "",
       message: error?.message || String(error || ""),
     });
-    showToast(error?.message || MEMBERSHIP_COPY.watermarkTryAgain || "Download failed. Please try again.");
+    queueMicrotask(() => showActionFeedback(
+      error?.message || MEMBERSHIP_COPY.watermarkTryAgain || "Download failed. Please try again.",
+      null,
+      { ttlMs: 5000 },
+    ));
     return false;
   } finally {
     lessonPlanDownloadBusy = false;
@@ -44547,7 +44554,17 @@ async function deleteChildProfilePermanently(childId) {
  * @param {string} message - The text to display in the banner.
  * @param {{label: string, attr: string}|null} action - Optional CTA button. label is the button text; attr is the HTML attribute string (e.g. 'data-view="plans"').
  */
-function showActionFeedback(message, action = null) {
+function hideActionFeedback() {
+  const banner = document.querySelector("#afterActionPrompt");
+  if (banner) banner.classList.remove("visible");
+  document.body.classList.remove("has-action-toast");
+  if (afterActionPromptTimeout) {
+    clearTimeout(afterActionPromptTimeout);
+    afterActionPromptTimeout = null;
+  }
+}
+
+function showActionFeedback(message, action = null, options = {}) {
   if (!message) return;
   let banner = document.querySelector("#afterActionPrompt");
   if (!banner) {
@@ -44558,14 +44575,17 @@ function showActionFeedback(message, action = null) {
     banner.setAttribute("aria-live", "polite");
     document.querySelector(".main")?.appendChild(banner);
   }
+  // One toast at a time — replace any previous message instead of stacking.
   banner.innerHTML = `
     <span class="after-action-text">${escapeHtml(message)}</span>
     ${action ? `<button class="primary-button after-action-yes" ${action.attr} type="button">${escapeHtml(action.label)}</button>` : ""}
     <button class="ghost-button after-action-dismiss" type="button">Got it</button>
   `;
   banner.classList.add("visible");
+  document.body.classList.add("has-action-toast");
   if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
-  afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
+  const ttlMs = Number(options.ttlMs) > 0 ? Number(options.ttlMs) : (action ? 10000 : 4500);
+  afterActionPromptTimeout = setTimeout(() => hideActionFeedback(), ttlMs);
 }
 
 function showAfterActionPrompt(trigger, childId) {
@@ -62142,9 +62162,7 @@ document.addEventListener("click", async (event) => {
   const afterActionDismissButton = event.target.closest(".after-action-dismiss");
   if (afterActionDismissButton) {
     event.preventDefault();
-    const banner = document.querySelector("#afterActionPrompt");
-    if (banner) banner.classList.remove("visible");
-    if (afterActionPromptTimeout) { clearTimeout(afterActionPromptTimeout); afterActionPromptTimeout = null; }
+    hideActionFeedback();
     return;
   }
   const supportCategoryButton = event.target.closest("[data-support-category]");

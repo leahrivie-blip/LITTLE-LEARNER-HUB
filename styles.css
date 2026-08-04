@@ -15070,20 +15070,20 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   margin: 0;
 }
 
-/* After-action AI prompt banner */
+/* After-action AI prompt banner — one toast at a time, above cookie notice. */
 .after-action-prompt {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(calc(100% + 40px));
-  z-index: 900;
+  z-index: 13050;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   padding: 14px 20px;
   background: var(--white);
-  border: 1px solid rgba(112, 85, 209, 0.3);
+  border: 1px solid rgba(91, 155, 213, 0.35);
   border-radius: var(--radius);
   box-shadow: 0 8px 32px rgba(26, 43, 74, 0.14);
   max-width: 580px;
@@ -15095,6 +15095,18 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .after-action-prompt.visible {
   transform: translateX(-50%) translateY(0);
   pointer-events: auto;
+}
+
+/* Keep toast above the cookie banner and off its buttons. */
+body.has-meta-cookie-notice .after-action-prompt.visible {
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+}
+
+/* While a toast with actions is visible, hide the cookie notice so it cannot cover CTAs. */
+body.has-action-toast .llh-meta-cookie-notice,
+body.has-action-toast #llhMetaCookieNotice {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .after-action-text {
