@@ -587,6 +587,7 @@ let activeGoalEditId = "";
 let activeChildProfileEditId = "";
 let pendingObservationArea = "";
 let confirmActionResolver = null;
+let confirmActionReturnFocus = null;
 let childRecordEditResolver = null;
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
@@ -2704,6 +2705,8 @@ const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
 
 const HOMEPAGE_FOUNDING_PRICE_NOTE = "Pro is $19.99/month.";
 const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
+const LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY = "llhMemberUpdateBannerDismissedAt";
+const MEMBER_UPDATE_BANNER_DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 const HOME_LESSON_PREVIEW_HINTS = [
   "Familiar Faces",
@@ -3223,6 +3226,17 @@ function syncNonessentialNoticesForAuthOverlay(open) {
     announcement.removeAttribute("data-auth-suppressed");
   } else if (announcement) {
     announcement.removeAttribute("data-auth-suppressed");
+  }
+  const memberUpdate = document.querySelector("#memberUpdateBanner");
+  if (memberUpdate && open) {
+    memberUpdate.setAttribute("data-auth-suppressed", memberUpdate.hidden ? "was-hidden" : "1");
+    memberUpdate.hidden = true;
+  } else if (memberUpdate && memberUpdate.getAttribute("data-auth-suppressed") === "1") {
+    memberUpdate.removeAttribute("data-auth-suppressed");
+    // Re-evaluate visibility rather than forcing show under auth close.
+    try { refreshMemberUpdateBanner(); } catch (_error) { /* ignore */ }
+  } else if (memberUpdate) {
+    memberUpdate.removeAttribute("data-auth-suppressed");
   }
 }
 
@@ -17386,6 +17400,7 @@ function setView(view, options = {}) {
   document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
   syncCurriculumPlannerNavVisibility();
   syncPlatformNavVisibility();
+  try { refreshMemberUpdateBanner(); } catch (_error) { /* ignore */ }
   requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", isPlatformNavActive(button.dataset.view, requestedView, resolvedView));
@@ -43424,7 +43439,12 @@ function closeConfirmActionDialog(result = false) {
   }
   const resolve = confirmActionResolver;
   confirmActionResolver = null;
+  const returnFocus = confirmActionReturnFocus;
+  confirmActionReturnFocus = null;
   if (resolve) resolve(Boolean(result));
+  if (returnFocus && typeof returnFocus.focus === "function") {
+    try { returnFocus.focus(); } catch (_error) { /* ignore */ }
+  }
 }
 
 /**
@@ -43458,6 +43478,7 @@ function confirmAction(options = {}) {
   });
   dialog.hidden = false;
   document.body.classList.add("auth-modal-open");
+  confirmActionReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   okBtn?.focus();
   return new Promise((resolve) => {
     confirmActionResolver = resolve;
@@ -58274,6 +58295,46 @@ function freePlanUpgradePrimaryCta() {
   };
 }
 
+function isMemberUpdateBannerDismissed() {
+  try {
+    const raw = localStorage.getItem(LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY) || "";
+    const at = Number(raw);
+    if (!Number.isFinite(at) || at <= 0) return false;
+    return (Date.now() - at) < MEMBER_UPDATE_BANNER_DISMISS_MS;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function dismissMemberUpdateBanner() {
+  try {
+    localStorage.setItem(LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY, String(Date.now()));
+  } catch (_error) { /* ignore */ }
+  const banner = document.querySelector("#memberUpdateBanner");
+  if (banner) banner.hidden = true;
+}
+
+function shouldShowMemberUpdateBanner() {
+  if (!isLoggedIn()) return false;
+  if (isMemberUpdateBannerDismissed()) return false;
+  if (document.body.classList.contains("auth-modal-open")) return false;
+  if (document.querySelector("#authModal.open, .modal.open[data-checkout], #resourceViewerModal.open")) return false;
+  if (document.querySelector("[data-enrich-editor].is-open, .tk-enrich-shell, .lesson-editor-view.active-view")) return false;
+  const activeView = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || "";
+  if (["", "home"].includes(activeView) && !isLoggedIn()) return false;
+  if (["signup", "login", "payment-success", "checkout", "plans"].includes(activeView)) return false;
+  if (typeof NewUserOnboarding?.isActive === "function" && NewUserOnboarding.isActive()) return false;
+  const site = typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null;
+  if (site && site.memberUpdateBannerEnabled === false) return false;
+  return true;
+}
+
+function refreshMemberUpdateBanner() {
+  const banner = document.querySelector("#memberUpdateBanner");
+  if (!banner) return;
+  banner.hidden = !shouldShowMemberUpdateBanner();
+}
+
 /** Persistent Free Plan badge + one header Upgrade. No stacked sidebar/reminder panels. */
 function refreshFreePlanUpgradeChrome() {
   let show = false;
@@ -58303,6 +58364,7 @@ function refreshFreePlanUpgradeChrome() {
     softNudge.hidden = true;
     softNudge.classList.remove("is-visible");
   }
+  try { refreshMemberUpdateBanner(); } catch (_error) { /* ignore */ }
   if (!show) {
     if (reminder) reminder.hidden = true;
     return;
@@ -68425,6 +68487,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const memberUpdateDismiss = event.target.closest("[data-dismiss-member-update-banner]");
+  if (memberUpdateDismiss) {
+    event.preventDefault();
+    dismissMemberUpdateBanner();
+    return;
+  }
+
   const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome], [data-dismiss-free-starter]");
   if (freeWelcomeDismiss) {
     event.preventDefault();
@@ -71365,6 +71434,12 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  const confirmDialog = document.querySelector("[data-llh-confirm-dialog]:not([hidden])");
+  if (confirmDialog) {
+    event.preventDefault();
+    closeConfirmActionDialog(false);
+    return;
+  }
   if (notificationBellState.open) {
     toggleNotificationBellPanel(false);
     return;

@@ -314,7 +314,8 @@
     "test:auth-modal-button-audit": "node scripts/test-auth-modal-button-audit.js",
     "test:teaching-kit-phase1-qa": "NODE_ENV=test node scripts/test-teaching-kit-phase1-qa.js",
     "test:teaching-kit-production-smoke": "NODE_ENV=test node scripts/test-teaching-kit-production-smoke.js",
-    "test:profiles-logs-docs": "NODE_ENV=test node scripts/test-profiles-logs-docs.js"
+    "test:profiles-logs-docs": "NODE_ENV=test node scripts/test-profiles-logs-docs.js",
+    "test:messaging-nav-banner": "NODE_ENV=test node scripts/test-messaging-nav-banner.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

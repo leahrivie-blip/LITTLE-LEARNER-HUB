@@ -617,11 +617,17 @@
 
   function messageBubbleHtml(message) {
     const mine = message.senderType === "user";
+    const automated = !mine && (
+      message.isAutomation === true
+      || String(message.channel || "").toLowerCase() === "onboarding_welcome"
+      || Boolean(message.onboardingSequenceId)
+    );
     const who = mine ? "You" : (message.senderName || "Leah");
+    const label = automated ? `${who} · Automated welcome` : who;
     return `
-      <div class="message-bubble ${mine ? "message-bubble-mine" : "message-bubble-admin"}">
+      <div class="message-bubble ${mine ? "message-bubble-mine" : "message-bubble-admin"}${automated ? " message-bubble-automation" : ""}">
         <div class="message-bubble-meta">
-          <strong>${escapeHtml(who)}</strong>
+          <strong>${escapeHtml(label)}</strong>
           <span>${escapeHtml(messagingRelativeTime(message.createdAt))}</span>
         </div>
         <div class="message-bubble-body">${escapeHtml(message.body || "").replace(/\n/g, "<br>")}</div>
@@ -828,8 +834,19 @@
           }))
           : (Array.isArray(data.archived) ? data.archived : []);
         const unread = Array.isArray(data.unread)
-          ? data.unread
+          ? data.unread.map((item) => ({
+            id: item.id,
+            title: item.title || "Update",
+            preview: item.preview || item.body || "",
+            createdAt: item.createdAt,
+            unread: true,
+            kind: item.kind || item.type || "announcement",
+            source: item.source || (item.kind === "message" ? "conversation" : "inbox"),
+          }))
           : inbox.filter((i) => i.unread);
+        const unreadCount = Number.isFinite(Number(data.unreadCount))
+          ? Number(data.unreadCount)
+          : unread.length;
         return {
           ok: true,
           data: {
@@ -842,7 +859,7 @@
             bugs,
             archived,
             unread,
-            unreadCount: Number(data.unreadCount) || unread.length,
+            unreadCount,
             feedback: Array.isArray(data.feedback) ? data.feedback : [],
           },
         };
@@ -884,15 +901,21 @@
       raw: item,
     }));
 
+    // Fallback unread: announcements from inbox + unread DM notifications from the bell payload.
+    // Do not use message.read — member publicMessage historically omitted that field.
+    const bellUnread = (typeof window.notificationBellState === "object" && Array.isArray(window.notificationBellState?.items))
+      ? window.notificationBellState.items.filter((item) => !item.read && (item.type === "message" || item.conversationEmail))
+      : [];
     const unread = [
       ...inbox.filter((i) => i.unread),
-      ...conversation.filter((m) => m.senderType === "admin" && m.read === false).map((m) => ({
-        id: m.id,
-        title: m.subject || "Message from Leah",
-        preview: m.body,
-        createdAt: m.createdAt,
+      ...bellUnread.map((item) => ({
+        id: item.id,
+        title: item.title || "Message from Leah",
+        preview: item.body || item.preview || "",
+        createdAt: item.createdAt,
         unread: true,
         kind: "message",
+        source: "conversation",
       })),
     ];
 

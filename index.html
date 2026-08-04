@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-profiles-logs-docs-r1" />
+  <link rel="stylesheet" href="styles.css?v=20260804-messaging-nav-banner-r1" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
@@ -123,7 +123,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-profiles-logs-docs-r1";
+      var SHELL_VERSION = "20260804-messaging-nav-banner-r1";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -500,6 +500,18 @@
         <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
           <span id="siteAnnouncementText"></span>
           <button class="site-announcement-close" id="siteAnnouncementClose" type="button" aria-label="Dismiss announcement">✕</button>
+        </div>
+
+        <!-- Temporary logged-in member update banner (dismissible, admin-disableable) -->
+        <div id="memberUpdateBanner" class="member-update-banner" hidden role="region" aria-label="Product updates">
+          <div class="member-update-banner-inner">
+            <div class="member-update-banner-copy">
+              <p class="member-update-banner-title">✨ Big improvements are on the way!</p>
+              <p>Based on feedback from childcare providers, we’re upgrading our lesson plans into a new Complete Teaching Kit experience. Over the next few days, you may notice updated lesson plans, new teacher resources, and improvements throughout Little Learner Hub as we finish the rollout.</p>
+              <p>Thank you for helping us make Little Learner Hub better. If you have an idea or notice anything unexpected, please send us a message—we’d love to hear from you.</p>
+            </div>
+            <button class="ghost-button member-update-banner-dismiss" type="button" data-dismiss-member-update-banner aria-label="Dismiss update notice">Dismiss</button>
+          </div>
         </div>
 
         <!-- Subtle Free-plan reminder for logged-in Free owners (not Pro/Founding/Trial/Admin) -->
@@ -1090,9 +1102,9 @@
         <section id="view-ai-guide" class="view"></section>
 
         <section id="view-ai" class="view">
-          <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>
+          <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div class="page-title doc-helpers-page-title">
-            <h2>Documentation Center</h2>
+            <h2>Documentation Helpers</h2>
             <p>Turn quick classroom notes into professional childcare documentation in seconds.</p>
           </div>
 
@@ -1601,7 +1613,7 @@
         </section>
 
         <section id="view-children" class="view" data-child-mode="list">
-          <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="calendar" data-always-visible="true" type="button">← Back</button>
+          <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div class="page-title children-list-title">
             <p class="eyebrow">Child Profiles</p>
             <h2>Child Profiles</h2>
@@ -2480,10 +2492,10 @@
     <script src="scripts/free-plan-grandfathering.js?v=20260804-free-ux-phase2-r1" defer></script>
     <div id="adminTeachingKitEnrichmentHost" aria-live="polite"></div>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260804-profiles-logs-docs-r1" defer></script>
+    <script src="app.js?v=20260804-messaging-nav-banner-r1" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
-    <script src="comms-center.js?v=20260804-profiles-logs-docs-r1" defer></script>
+    <script src="comms-center.js?v=20260804-messaging-nav-banner-r1" defer></script>
   </body>
 </html>

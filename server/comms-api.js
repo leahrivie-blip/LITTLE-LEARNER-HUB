@@ -639,6 +639,16 @@ function createCommsApi(deps) {
       .slice(0, 100)
       .map(publicFeedback);
 
+    const unreadItems = unread.slice(0, 100).map((n) => ({
+      id: n.id,
+      title: n.title || (n.conversationEmail ? "Message from Leah" : "Update"),
+      preview: n.body || n.preview || "",
+      createdAt: n.createdAt,
+      unread: true,
+      kind: n.conversationEmail ? "message" : (n.type || "announcement"),
+      source: n.conversationEmail ? "conversation" : "inbox",
+    }));
+
     jsonResponse(response, 200, {
       inbox: inboxRows,
       conversation,
@@ -649,6 +659,7 @@ function createCommsApi(deps) {
       bugReports,
       feedback,
       archived: archivedPayload,
+      unread: unreadItems,
       unreadCount: unread.length,
     });
   }
