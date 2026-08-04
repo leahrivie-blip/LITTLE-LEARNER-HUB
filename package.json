@@ -329,7 +329,8 @@
     "test:curriculum-sentinel-phase5": "NODE_ENV=test node scripts/test-curriculum-sentinel-phase5.js",
     "test:ai-specificity-phase6": "NODE_ENV=test node scripts/test-ai-specificity-phase6.js",
     "test:curriculum-quality-status-phase7": "NODE_ENV=test node scripts/test-curriculum-quality-status-phase7.js",
-    "test:admin-analytics-diagnostics-phase8": "NODE_ENV=test node scripts/test-admin-analytics-diagnostics-phase8.js"
+    "test:admin-analytics-diagnostics-phase8": "NODE_ENV=test node scripts/test-admin-analytics-diagnostics-phase8.js",
+    "test:admin-settings-honesty-phase9": "NODE_ENV=test node scripts/test-admin-settings-honesty-phase9.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
