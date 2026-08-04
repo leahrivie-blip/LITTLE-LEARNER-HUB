@@ -15,7 +15,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/smart-automation";
 const OWNER = "smart.auto.owner@example.com";
-const SHELL = "20260804-provider-polish-r1";
+const SHELL = "20260804-final-provider-polish-r1";
 
 function request(port, method, urlPath, { email = "", body = null } = {}) {
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
