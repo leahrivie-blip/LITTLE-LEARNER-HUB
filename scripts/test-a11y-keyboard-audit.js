@@ -81,7 +81,8 @@ async function scrollY(page) {
 
 async function pressEscape(page) {
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(200);
+  // Allow deferred restoreLlhFocus (double rAF after scroll unlock).
+  await page.waitForTimeout(350);
 }
 
 async function assertNoScrollJump(page, label, yPreOpen) {

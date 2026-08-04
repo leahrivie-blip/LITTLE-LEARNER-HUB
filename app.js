@@ -44764,11 +44764,15 @@ function trapLlhDialogFocus(event, root) {
 }
 
 function restoreLlhFocus(el) {
-  if (el && typeof el.focus === "function") {
+  if (!el || typeof el.focus !== "function") return;
+  // Defer past body scroll-unlock (position:fixed restore) so focus is not dropped onto <body>.
+  const apply = () => {
+    if (!document.contains(el)) return;
     try { el.focus({ preventScroll: true }); } catch (_error) {
       try { el.focus(); } catch (_inner) { /* ignore */ }
     }
-  }
+  };
+  requestAnimationFrame(() => requestAnimationFrame(apply));
 }
 
 /** Arrow-key roving focus for role=tablist (APG pattern). Activates the target tab via click. */
@@ -44844,14 +44848,13 @@ function closeConfirmActionDialog(result = false) {
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
     document.body.classList.remove("auth-modal-open");
   }
+  syncProviderBodyScrollLock();
   const resolve = confirmActionResolver;
   confirmActionResolver = null;
   const returnFocus = confirmActionReturnFocus;
   confirmActionReturnFocus = null;
   if (resolve) resolve(Boolean(result));
-  if (returnFocus && typeof returnFocus.focus === "function") {
-    try { returnFocus.focus(); } catch (_error) { /* ignore */ }
-  }
+  restoreLlhFocus(returnFocus);
 }
 
 /**
