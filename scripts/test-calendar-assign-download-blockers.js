@@ -368,22 +368,37 @@ async function runBrowserSuite() {
       return countCurriculumSnapshotActivities(detail.lessonPlan || {});
     }, FARM_ID);
     assert.equal(before, 15);
-    // Deterministic remove via schedule API (same persistence path as UI delete).
+    // Use the same deleteCalendarItem path as the UI (legacy + planner cleanup).
     await page.evaluate(async (weekStart) => {
       const api = getScheduleApi();
       await ensureScheduleLoaded({ force: true });
       const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
       const item = api.lessonForWeek(doc, weekStart);
       if (!item?.id) throw new Error("expected assigned lesson before remove");
-      await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), item.id);
-      scheduleDocCache = api.readCache(scheduleApiEmail());
-      if (typeof refreshCalendarSurfacesAfterScheduleChange === "function") {
-        refreshCalendarSurfacesAfterScheduleChange(weekStart);
+      window.confirmAction = async () => true;
+      if (typeof deleteCalendarItem === "function") {
+        const ok = await deleteCalendarItem(item.id, { skipConfirm: true });
+        if (!ok) throw new Error("deleteCalendarItem failed");
+      } else {
+        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), item.id);
+        scheduleDocCache = api.readCache(scheduleApiEmail());
       }
       if (typeof renderMainCalendar === "function") renderMainCalendar();
     }, week);
     const afterRemove = await snapshotForWeek(page, week);
     assert.equal(afterRemove.total, 0);
+    const cleanup = await page.evaluate((weekStart) => {
+      const legacyRaw = localStorage.getItem(`llhCurriculumAssignments:${typeof scheduleApiEmail === "function" ? scheduleApiEmail() : ""}`)
+        || localStorage.getItem("llhCurriculumAssignments")
+        || "[]";
+      const legacy = JSON.parse(legacyRaw);
+      const planner = JSON.parse(localStorage.getItem("llhWeeklyPlanner") || "{}");
+      return {
+        legacyForWeek: Array.isArray(legacy) ? legacy.filter((a) => a.weekStartDate === weekStart).length : -1,
+        plannerResource: planner.resourceId || "",
+      };
+    }, week);
+    assert.equal(cleanup.legacyForWeek, 0, "legacy week assignment must clear on remove");
     const source = await page.evaluate(async (id) => {
       const detail = await fetchAuthorizedCurriculumLessonPlan(id);
       return countCurriculumSnapshotActivities(detail.lessonPlan || {});
