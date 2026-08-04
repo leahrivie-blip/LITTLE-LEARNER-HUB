@@ -2231,7 +2231,7 @@ const stripeCheckoutConfig = {
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
   promoValidationEndpoint: "/api/validate-promo-code",
-  defaultTrialDays: 30,
+  defaultTrialDays: 7,
   promoExpiresLabel: "when the code expires (see Admin → Promo Codes)",
 };
 const aiGenerationConfig = {
@@ -53531,6 +53531,20 @@ function openAdminUserProfile(email, startTab) {
     const ms = new Date(account.trialEnd) - new Date();
     trialDaysLeft = Math.max(0, Math.ceil(ms / 86400000));
   }
+  const trialSourceLabel = account.trialSourceLabel
+    || (account.trialSource === "promo_extended" || account.promoCodeUsed
+      ? "Promo-Extended Trial"
+      : account.trialSource === "manual_extension" || account.trialManuallyExtendedAt
+        ? "Manually Extended Trial"
+        : account.trialSource === "standard_7day" || /7[-\s]?day/i.test(String(account.promoLabelUsed || ""))
+          ? "Standard 7-Day Trial"
+          : (isTrial ? "Trial (source unclear)" : null));
+  const trialExtensionSource = account.trialExtensionSource
+    || (account.promoCodeUsed
+      ? `Promo code ${account.promoCodeUsed}${account.promoLabelUsed ? ` (${account.promoLabelUsed})` : ""}`
+      : account.trialManuallyExtendedAt
+        ? "Admin manual extension"
+        : (trialSourceLabel === "Standard 7-Day Trial" ? "7-Day Pro Trial" : ""));
 
   // Per-user analytics from cache
   const analyticsUsers = (adminAnalyticsCache || localAnalyticsSummary()).users || [];
@@ -53610,6 +53624,8 @@ function openAdminUserProfile(email, startTab) {
           ${isFounding ? `<div><span>Founding Eligibility</span><strong>${escapeHtml(foundingEligibility)}</strong></div>` : ""}
           ${account.trialStart ? `<div><span>Trial Start</span><strong>${escapeHtml(new Date(account.trialStart).toLocaleDateString())}</strong></div>` : ""}
           ${account.trialEnd ? `<div><span>Trial End</span><strong>${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}</strong></div>` : ""}
+          ${trialSourceLabel ? `<div><span>Trial Type</span><strong>${escapeHtml(trialSourceLabel)}</strong></div>` : ""}
+          ${trialExtensionSource ? `<div><span>Trial Extension Source</span><strong>${escapeHtml(trialExtensionSource)}</strong></div>` : ""}
           ${account.canceledAt || account.subscriptionEndedAt ? `<div><span>Subscription Ended</span><strong>${escapeHtml(new Date(account.subscriptionEndedAt || account.canceledAt).toLocaleDateString())}</strong></div>` : ""}
           ${account.stripeCustomerId ? `<div><span>Stripe Customer ID</span><strong><small>${escapeHtml(account.stripeCustomerId)}</small></strong></div>` : ""}
           ${account.stripeSubscriptionId ? `<div><span>Stripe Subscription ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
@@ -53645,9 +53661,11 @@ function openAdminUserProfile(email, startTab) {
       <fieldset class="admin-fieldset aup-trial-fieldset">
         <legend>🧪 Trial Management</legend>
         <div class="aup-info-grid">
+          <div><span>Trial Type</span><strong>${escapeHtml(trialSourceLabel || "—")}</strong></div>
           ${trialStart  ? `<div><span>Trial Start</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
           ${trialEnd    ? `<div><span>Trial End</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
           ${trialDaysLeft !== null ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
+          <div><span>Source of Extension</span><strong>${escapeHtml(trialExtensionSource || "—")}</strong></div>
           <div><span>Payment Method Attached</span><strong>${account.hasPaymentMethod === true ? "Yes" : account.hasPaymentMethod === false ? "No" : "Unknown"}</strong></div>
           <div><span>Will Convert to Paid</span><strong>${account.cancelAtPeriodEnd ? "No — cancellation scheduled" : "Yes, unless canceled"}</strong></div>
         </div>
@@ -60750,7 +60768,7 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         <p class="llh-billing-status-line">${accountStatusBadgeHtml(account)}</p>
         ${subscriptionSummaryHtml()}
-        ${accountIsInTrial(account) ? `<p class="muted-copy"><strong>Trial curriculum exports:</strong> ${escapeHtml(MEMBERSHIP_COPY.trialCore)} Your own records are never limited by this allowance.</p>` : ""}
+        ${accountIsInTrial(account) ? `<p class="muted-copy"><strong>Trial:</strong> ${escapeHtml(account.trialSourceLabel || (/7[-\s]?day/i.test(String(account.promoLabelUsed || "")) ? "Standard 7-Day Trial" : account.promoCodeUsed ? "Promo-Extended Trial" : "Pro Trial"))}${account.trialStart && account.trialEnd ? ` · ${escapeHtml(new Date(account.trialStart).toLocaleDateString())} → ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : account.trialEnd ? ` ends ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : ""}. ${escapeHtml(MEMBERSHIP_COPY.trialCore)} Your own records are never limited by this allowance.</p>` : ""}
         ${!paidBilling && !accountIsInTrial(account) ? `<p class="muted-copy">${escapeHtml(MEMBERSHIP_COPY.freeCore)} ${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>` : ""}
         ${account?.promoCodeUsed ? `<p class="muted-copy">Promo code used: <strong>${escapeHtml(account.promoCodeUsed)}</strong>${account.promoLabelUsed ? ` — ${escapeHtml(account.promoLabelUsed)}` : ""}</p>` : ""}
         <div class="account-actions-row">

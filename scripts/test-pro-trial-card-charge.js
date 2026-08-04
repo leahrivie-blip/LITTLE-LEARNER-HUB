@@ -98,10 +98,11 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
   assert.match(serverJs, /payment_method_collection:\s*"always"/);
-  assert.match(serverJs, /subscription_data\[trial_period_days\]"\]\s*=\s*"7"/);
+  assert.match(serverJs, /subscription_data\[trial_period_days\]"\]\s*=\s*String\(STANDARD_TRIAL_DAYS\)/);
   assert.match(serverJs, /subscription_data\[trial_settings\]\[end_behavior\]\[missing_payment_method\]"\]\s*=\s*"cancel"/);
-  assert.match(serverJs, /metadata\[promoTrialDays\]"\]\s*=\s*"7"/);
+  assert.match(serverJs, /metadata\[promoTrialDays\]"\]\s*=\s*String\(STANDARD_TRIAL_DAYS\)/);
   assert.match(serverJs, /metadata\[trial7day\]"\]\s*=\s*"true"/);
+  assert.match(serverJs, /ignoredBecauseStandardTrial/);
   assert.match(appJs, /trial7day:\s*true/);
   assert.match(appJs, /session\.trial\?\.trialDays/);
   assert.match(appJs, /introductoryTrialConsumed:\s*true/);
