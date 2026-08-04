@@ -20872,6 +20872,86 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   }
 }
 
+/* ── Canonical provider overlay scroll-lock (JS-managed) ─────────────── */
+html.llh-scroll-locked,
+body.llh-scroll-locked {
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+body.llh-scroll-locked {
+  /* position/top/width/padding applied via JS to preserve scroll + gutter */
+}
+
+/* Overlay priority: hide nonessential notices under workflow/auth overlays */
+body.llh-scroll-locked .llh-meta-cookie-notice,
+body.llh-scroll-locked #llhMetaCookieNotice,
+body.llh-scroll-locked .member-update-banner,
+body.llh-scroll-locked #memberUpdateBanner,
+body.llh-scroll-locked #siteAnnouncementBanner,
+body.llh-scroll-locked #llhFoundingAnnounceBanner,
+body.resource-viewer-open .member-update-banner,
+body.resource-viewer-open #siteAnnouncementBanner,
+body.lesson-workspace-open .member-update-banner {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body.auth-modal-open .after-action-prompt,
+body.force-password-required .after-action-prompt,
+body.nuo-open .after-action-prompt {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Keep download/action toasts below workflow chrome (bottom), never over header actions */
+body.resource-viewer-open .after-action-prompt,
+body.lesson-workspace-open .after-action-prompt,
+body.llh-scroll-locked .after-action-prompt {
+  z-index: 90;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Activity / standard resource viewer: panel scrolls; background stays locked */
+.resource-viewer-modal.open {
+  overscroll-behavior: contain;
+  touch-action: auto;
+}
+
+.resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-card {
+  max-height: min(92dvh, 960px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: auto;
+}
+
+.resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.resource-viewer-modal.open:not(.lesson-workspace-mode) .resource-viewer-toolbar,
+.resource-viewer-modal.open:not(.lesson-workspace-mode) #resourceViewerTitle,
+.resource-viewer-modal.open:not(.lesson-workspace-mode) #closeResourceViewer {
+  flex: 0 0 auto;
+}
+
+/* Desktop + mobile: lock via JS; keep CSS overflow as a belt-and-suspenders fallback */
+body.auth-modal-open,
+body.resource-viewer-open,
+body.lesson-workspace-open,
+body.force-password-required {
+  /* Prefer the canonical llh-scroll-locked path; retain overflow:hidden as fallback */
+  overflow: hidden;
+}
+
 /* ── Signup conversion wizard ───────────────────────────────────────── */
 /* Keep auth usable on short desktop viewports: scroll body, sticky actions. */
 body.auth-modal-open {

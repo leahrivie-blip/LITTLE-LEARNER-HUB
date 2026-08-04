@@ -593,6 +593,291 @@ let childRecordEditReturnFocus = null;
 let resourceViewerReturnFocus = null;
 let calendarEventModalReturnFocus = null;
 let notificationBellReturnFocus = null;
+
+/* =========================================================================
+   Canonical provider overlay body scroll-lock
+   - Nested-safe token stack
+   - Preserves exact page scroll (position: fixed + restore)
+   - Compensates scrollbar gutter so the page does not jump horizontally
+   - Blocks wheel / touch / keyboard scroll from moving the background
+   ========================================================================= */
+const llhBodyScrollLockTokens = new Set();
+let llhBodyScrollLockState = null;
+let llhBodyScrollLockSyncQueued = false;
+
+function llhScrollbarGutterWidth() {
+  return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+}
+
+function llhIsEditableScrollTarget(target) {
+  if (!(target instanceof Element)) return false;
+  const tag = (target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return true;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
+function llhScrollableAncestor(start, root) {
+  let node = start instanceof Element ? start : null;
+  while (node && node !== root && node !== document.body && node !== document.documentElement) {
+    const style = window.getComputedStyle(node);
+    const overflowY = style.overflowY;
+    const canScrollY = (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay")
+      && node.scrollHeight > node.clientHeight + 1;
+    if (canScrollY) return node;
+    const overflowX = style.overflowX;
+    const canScrollX = (overflowX === "auto" || overflowX === "scroll" || overflowX === "overlay")
+      && node.scrollWidth > node.clientWidth + 1;
+    if (canScrollX) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function llhEventInsideOpenOverlay(target) {
+  if (!(target instanceof Node)) return false;
+  const el = target.nodeType === 1 ? target : target.parentElement;
+  if (!el) return false;
+  return Boolean(el.closest(
+    ".modal.open, .llh-confirm-dialog:not([hidden]), [data-llh-record-edit-dialog]:not([hidden]), "
+    + "[data-lesson-editor-leave-dialog]:not([hidden]), .founding-vs-pro-confirm-overlay, "
+    + ".lesson-workspace-more-menu:not([hidden]), .lesson-workspace-action-sheet:not([hidden]), "
+    + ".sidebar, .mobile-nav-backdrop, #notificationBellPanel:not([hidden]), "
+    + ".llh-item-menu-panel.is-open, [data-work-quick-sheet].is-open, "
+    + ".family-hub-invite-panel, #llhPublicMobileMenu:not([hidden])",
+  ));
+}
+
+function llhPreventBackgroundWheel(event) {
+  if (!llhBodyScrollLockState) return;
+  if (llhEventInsideOpenOverlay(event.target)) {
+    const root = document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), .founding-vs-pro-confirm-overlay")
+      || document.body;
+    const scrollable = llhScrollableAncestor(event.target, root);
+    if (scrollable) {
+      const delta = event.deltaY;
+      const top = scrollable.scrollTop;
+      const max = scrollable.scrollHeight - scrollable.clientHeight;
+      if ((delta < 0 && top <= 0) || (delta > 0 && top >= max - 1)) {
+        event.preventDefault();
+      }
+      return;
+    }
+  }
+  event.preventDefault();
+}
+
+function llhPreventBackgroundTouchMove(event) {
+  if (!llhBodyScrollLockState) return;
+  if (llhEventInsideOpenOverlay(event.target)) {
+    const root = document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), .founding-vs-pro-confirm-overlay")
+      || document.body;
+    if (llhScrollableAncestor(event.target, root)) return;
+  }
+  event.preventDefault();
+}
+
+function llhPreventBackgroundKeyScroll(event) {
+  if (!llhBodyScrollLockState) return;
+  const keys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Spacebar"]);
+  if (!keys.has(event.key)) return;
+  if (llhIsEditableScrollTarget(event.target)) return;
+  if (llhEventInsideOpenOverlay(event.target)) {
+    const root = document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), .founding-vs-pro-confirm-overlay")
+      || document.body;
+    if (llhScrollableAncestor(event.target, root)) return;
+  }
+  event.preventDefault();
+}
+
+function llhApplyBodyScrollLock(preferred = null) {
+  if (llhBodyScrollLockState) return;
+  const scrollX = Number.isFinite(preferred?.scrollX)
+    ? preferred.scrollX
+    : (window.scrollX || window.pageXOffset || 0);
+  const scrollY = Number.isFinite(preferred?.scrollY)
+    ? preferred.scrollY
+    : (window.scrollY || window.pageYOffset || 0);
+  const gutter = llhScrollbarGutterWidth();
+  llhBodyScrollLockState = {
+    scrollX,
+    scrollY,
+    gutter,
+    htmlOverflow: document.documentElement.style.overflow,
+    bodyOverflow: document.body.style.overflow,
+    bodyPosition: document.body.style.position,
+    bodyTop: document.body.style.top,
+    bodyLeft: document.body.style.left,
+    bodyRight: document.body.style.right,
+    bodyWidth: document.body.style.width,
+    bodyPaddingRight: document.body.style.paddingRight,
+  };
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${scrollY}px`;
+  document.body.style.left = `-${scrollX}px`;
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+  if (gutter > 0) {
+    document.body.style.paddingRight = `${gutter}px`;
+    document.documentElement.style.setProperty("--llh-scrollbar-compensation", `${gutter}px`);
+  }
+  document.documentElement.classList.add("llh-scroll-locked");
+  document.body.classList.add("llh-scroll-locked");
+  window.addEventListener("wheel", llhPreventBackgroundWheel, { passive: false, capture: true });
+  window.addEventListener("touchmove", llhPreventBackgroundTouchMove, { passive: false, capture: true });
+  window.addEventListener("keydown", llhPreventBackgroundKeyScroll, true);
+}
+
+function llhClearBodyScrollLockStyles() {
+  const saved = llhBodyScrollLockState;
+  if (!saved) {
+    document.documentElement.classList.remove("llh-scroll-locked");
+    document.body.classList.remove("llh-scroll-locked");
+    document.documentElement.style.removeProperty("--llh-scrollbar-compensation");
+    return;
+  }
+  document.documentElement.style.overflow = saved.htmlOverflow || "";
+  document.body.style.overflow = saved.bodyOverflow || "";
+  document.body.style.position = saved.bodyPosition || "";
+  document.body.style.top = saved.bodyTop || "";
+  document.body.style.left = saved.bodyLeft || "";
+  document.body.style.right = saved.bodyRight || "";
+  document.body.style.width = saved.bodyWidth || "";
+  document.body.style.paddingRight = saved.bodyPaddingRight || "";
+  document.documentElement.style.removeProperty("--llh-scrollbar-compensation");
+  document.documentElement.classList.remove("llh-scroll-locked");
+  document.body.classList.remove("llh-scroll-locked");
+  window.removeEventListener("wheel", llhPreventBackgroundWheel, { capture: true });
+  window.removeEventListener("touchmove", llhPreventBackgroundTouchMove, { capture: true });
+  window.removeEventListener("keydown", llhPreventBackgroundKeyScroll, true);
+  const x = saved.scrollX;
+  const y = saved.scrollY;
+  llhBodyScrollLockState = null;
+  // Blur overlay focus targets so the browser does not scroll-into-view after unlock.
+  const active = document.activeElement;
+  if (active && active !== document.body && typeof active.blur === "function") {
+    try { active.blur(); } catch { /* ignore */ }
+  }
+  const restore = () => {
+    if (llhBodyScrollLockState) return;
+    window.scrollTo(x, y);
+    if (document.documentElement) document.documentElement.scrollTop = y;
+    if (document.body) document.body.scrollTop = y;
+  };
+  restore();
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(restore);
+  });
+}
+
+function acquireBodyScrollLock(token = "overlay", preferred = null) {
+  const key = String(token || "overlay");
+  const wasUnlocked = llhBodyScrollLockTokens.size === 0 && !llhBodyScrollLockState;
+  llhBodyScrollLockTokens.add(key);
+  llhApplyBodyScrollLock(preferred);
+  // Cancel deferred library scroll restores so they cannot fight a new overlay.
+  if (wasUnlocked) {
+    try { lessonLibraryRestoreGeneration += 1; } catch { /* boot-safe */ }
+  }
+}
+
+function releaseBodyScrollLock(token = "overlay") {
+  const key = String(token || "overlay");
+  llhBodyScrollLockTokens.delete(key);
+  if (llhBodyScrollLockTokens.size === 0) {
+    llhClearBodyScrollLockStyles();
+  }
+}
+
+function forceReleaseAllBodyScrollLocks() {
+  llhBodyScrollLockTokens.clear();
+  llhClearBodyScrollLockStyles();
+}
+
+function providerOverlayScrollLockActive() {
+  if (document.querySelector(".modal.open")) return true;
+  if (document.querySelector(".llh-confirm-dialog:not([hidden])")) return true;
+  if (document.querySelector("[data-llh-record-edit-dialog]:not([hidden])")) return true;
+  if (document.querySelector("[data-lesson-editor-leave-dialog]:not([hidden])")) return true;
+  if (document.querySelector(".founding-vs-pro-confirm-overlay")) return true;
+  if (document.body.classList.contains("mobile-nav-open")) return true;
+  if (document.body.classList.contains("force-password-required")) return true;
+  if (document.body.classList.contains("notification-bell-open")) return true;
+  if (document.body.classList.contains("llh-item-menu-open")) return true;
+  if (document.body.classList.contains("lesson-workspace-more-open")) return true;
+  if (document.body.classList.contains("lesson-workspace-sheet-open")) return true;
+  if (document.body.classList.contains("llh-public-menu-open")) return true;
+  if (document.body.classList.contains("work-quick-add-open")) return true;
+  if (document.body.classList.contains("family-hub-invite-open")) return true;
+  if (document.body.classList.contains("resource-viewer-open")) return true;
+  if (document.body.classList.contains("lesson-workspace-open")) return true;
+  if (document.body.classList.contains("auth-modal-open")) return true;
+  if (document.body.classList.contains("nuo-open")) return true;
+  return false;
+}
+
+function syncProviderBodyScrollLock(preferred = null) {
+  if (providerOverlayScrollLockActive()) {
+    acquireBodyScrollLock("provider-overlays", preferred);
+  } else {
+    releaseBodyScrollLock("provider-overlays");
+  }
+}
+
+function queueProviderBodyScrollLockSync() {
+  if (llhBodyScrollLockSyncQueued) return;
+  llhBodyScrollLockSyncQueued = true;
+  requestAnimationFrame(() => {
+    llhBodyScrollLockSyncQueued = false;
+    syncProviderBodyScrollLock();
+  });
+}
+
+function installProviderOverlayScrollLock() {
+  if (window.__llhProviderOverlayScrollLockInstalled) return;
+  window.__llhProviderOverlayScrollLockInstalled = true;
+  const schedule = () => queueProviderBodyScrollLockSync();
+  const bodyObserver = new MutationObserver(schedule);
+  bodyObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  const watchOverlayNode = (node) => {
+    if (!(node instanceof Element)) return;
+    if (
+      node.classList.contains("modal")
+      || node.classList.contains("llh-confirm-dialog")
+      || node.hasAttribute("data-llh-record-edit-dialog")
+      || node.hasAttribute("data-lesson-editor-leave-dialog")
+      || node.classList.contains("founding-vs-pro-confirm-overlay")
+      || node.classList.contains("lesson-workspace-more-menu")
+      || node.classList.contains("lesson-workspace-action-sheet")
+      || node.id === "notificationBellPanel"
+    ) {
+      bodyObserver.observe(node, { attributes: true, attributeFilter: ["class", "hidden", "aria-hidden"] });
+    }
+  };
+  document.querySelectorAll(
+    ".modal, .llh-confirm-dialog, [data-llh-record-edit-dialog], [data-lesson-editor-leave-dialog], "
+    + ".founding-vs-pro-confirm-overlay, .lesson-workspace-more-menu, .lesson-workspace-action-sheet, #notificationBellPanel",
+  ).forEach(watchOverlayNode);
+  const treeObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach(watchOverlayNode);
+    }
+    schedule();
+  });
+  treeObserver.observe(document.body, { childList: true, subtree: true });
+  schedule();
+}
+
+if (typeof window !== "undefined") {
+  window.acquireBodyScrollLock = acquireBodyScrollLock;
+  window.releaseBodyScrollLock = releaseBodyScrollLock;
+  window.forceReleaseAllBodyScrollLocks = forceReleaseAllBodyScrollLocks;
+  window.syncProviderBodyScrollLock = syncProviderBodyScrollLock;
+  window.queueProviderBodyScrollLockSync = queueProviderBodyScrollLockSync;
+}
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
 let activeSupportCategoryId = "";
@@ -3245,6 +3530,11 @@ function syncNonessentialNoticesForAuthOverlay(open) {
 }
 
 function openAuthModal(mode = "login") {
+  // Capture scroll before auth chrome mutates layout / focus.
+  const preferredScroll = {
+    scrollX: window.scrollX || window.pageXOffset || 0,
+    scrollY: window.scrollY || window.pageYOffset || 0,
+  };
   if (mode === "signup") {
     signupWizardStep = 1;
     signupPersonaChoice = "";
@@ -3252,6 +3542,7 @@ function openAuthModal(mode = "login") {
   }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
+  syncProviderBodyScrollLock(preferredScroll);
   syncNonessentialNoticesForAuthOverlay(true);
   // Close leftover onboarding so it cannot intercept login after logout.
   try {
@@ -3301,6 +3592,7 @@ function closeAuthModal() {
   modal.classList.remove("open");
   modal.hidden = true;
   modal.setAttribute("aria-hidden", "true");
+  syncProviderBodyScrollLock();
   syncNonessentialNoticesForAuthOverlay(false);
   signupWizardStep = 1;
   signupPersonaChoice = "";
@@ -5778,6 +6070,7 @@ let lessonLibrarySort = "recommended"; // recommended | newest | az | recent
 let lessonLibraryFiltersOpen = false;
 let lessonLibraryScrollY = 0;
 let lessonLibraryFocusResourceId = "";
+let lessonLibraryRestoreGeneration = 0;
 let lessonWorkspaceTab = "week";
 let lessonWorkspaceWeekDay = "monday";
 let lessonRecentlyViewed = readSavedJson("llhLessonRecentlyViewed", []);
@@ -6448,7 +6741,16 @@ function writeDesktopSidebarCollapsedPref(collapsed) {
 }
 
 function setMobileNavOpen(open) {
-  const shouldOpen = Boolean(open) && isMobileLayout();
+  // Never open the provider drawer underneath an active workflow modal/viewer.
+  const blockingOverlay = Boolean(
+    open
+    && (
+      document.querySelector(".modal.open")
+      || document.querySelector(".llh-confirm-dialog:not([hidden])")
+      || document.body.classList.contains("force-password-required")
+    ),
+  );
+  const shouldOpen = Boolean(open) && isMobileLayout() && !blockingOverlay;
   document.body.classList.toggle("mobile-nav-open", shouldOpen);
   const toggle = document.querySelector("#mobileMenuToggle");
   if (toggle) {
@@ -6456,6 +6758,7 @@ function setMobileNavOpen(open) {
     toggle.setAttribute("aria-label", shouldOpen ? "Close menu" : "Open menu");
   }
   syncSidebarToggleChrome();
+  queueProviderBodyScrollLockSync();
 }
 
 function syncSidebarToggleChrome() {
@@ -6548,6 +6851,7 @@ function installMobileNavigation() {
 
   syncSidebarToggleChrome();
   syncTopbarMetrics();
+  installProviderOverlayScrollLock();
 }
 
 function syncTopbarMetrics() {
@@ -18648,30 +18952,40 @@ function rememberLessonRecentlyViewed(resourceId) {
 
 function captureLessonLibraryBrowseState(focusResourceId = "") {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (activeView !== "lessons") return;
-  lessonLibraryScrollY = window.scrollY || window.pageYOffset || 0;
+  if (activeView !== "lessons" && activeView !== "activities") return;
+  // Capture before body scroll-lock freezes the document.
+  const lockedY = llhBodyScrollLockState?.scrollY;
+  lessonLibraryScrollY = Number.isFinite(lockedY)
+    ? lockedY
+    : (window.scrollY || window.pageYOffset || 0);
   lessonLibraryFocusResourceId = focusResourceId || "";
 }
 
 function restoreLessonLibraryBrowseState() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (activeView !== "lessons") return;
+  if (activeView !== "lessons" && activeView !== "activities") return;
   const y = Number(lessonLibraryScrollY) || 0;
   const focusId = lessonLibraryFocusResourceId || "";
+  const generation = ++lessonLibraryRestoreGeneration;
   const apply = () => {
+    if (generation !== lessonLibraryRestoreGeneration) return;
+    if (llhBodyScrollLockState || document.body.classList.contains("llh-scroll-locked")) return;
     window.scrollTo({ top: y, left: 0, behavior: "auto" });
     if (focusId) {
-      const card = document.querySelector(`[data-lesson-card="${CSS.escape(focusId)}"]`);
+      const card = document.querySelector(
+        `[data-lesson-card="${CSS.escape(focusId)}"], [data-view-resource="${CSS.escape(focusId)}"]`,
+      );
       if (card && typeof card.focus === "function") {
         try { card.focus({ preventScroll: true }); } catch { card.focus(); }
       }
     }
   };
-  // Re-apply after layout settles (viewer close unhides .main).
+  // Re-apply after layout settles (viewer close unhides .main / unlocks body).
   requestAnimationFrame(() => {
     apply();
     requestAnimationFrame(apply);
     setTimeout(apply, 50);
+    setTimeout(apply, 120);
   });
 }
 
@@ -22829,6 +23143,8 @@ function closeResourceViewer() {
   resetLessonWorkspaceState();
   restoreDefaultResourceViewerChrome();
   updateResourceViewerBackButton();
+  // Unlock synchronously so scroll restoration can write window.scrollY.
+  syncProviderBodyScrollLock();
   if (wasOpen) restoreLessonLibraryBrowseState();
   if (wasOpen) restoreHomePreviewScrollPosition();
   if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
@@ -27134,12 +27450,16 @@ async function downloadResourcePdf(id) {
       category: resource.category,
       trialExportCounted: Boolean(gate.counted),
     });
+    const fileName = resourcePdfFileName(resource);
     const blob = buildResourcePdfBlob(pdfResource);
-    downloadBlob(blob, resourcePdfFileName(resource));
+    downloadBlob(blob, fileName);
     if (!savedDownloads.includes(resource.id)) {
       savedDownloads = [...savedDownloads, resource.id];
       saveDownloads();
       updatePlanLabel();
+    }
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(`Downloaded “${resource.title || "PDF"}” (${fileName}).`, null, { allowDuringOverlay: true, ttlMs: 5000 });
     }
     trackEvent("resource_pdf_download", {
       resourceId: resource.id,
@@ -27149,7 +27469,13 @@ async function downloadResourcePdf(id) {
       access: resource.plan,
     });
   } catch (error) {
-    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(
+        `Could not download “${resource?.title || "PDF"}”. ${MEMBERSHIP_COPY.watermarkTryAgain}`,
+        null,
+        { allowDuringOverlay: true, ttlMs: 6000 },
+      );
+    }
     throw error;
   }
 }
@@ -27233,6 +27559,10 @@ async function downloadActiveResourcePdf() {
 }
 
 function openGeneratedPrintableResource(resource) {
+  const preferredScroll = {
+    scrollX: window.scrollX || window.pageXOffset || 0,
+    scrollY: window.scrollY || window.pageYOffset || 0,
+  };
   ensureResourceViewer();
   activeGeneratedPdfResource = resource;
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
@@ -27254,6 +27584,8 @@ function openGeneratedPrintableResource(resource) {
   const viewer = document.querySelector("#resourceViewerModal");
   viewer.classList.add("open");
   viewer.setAttribute("aria-hidden", "false");
+  document.body.classList.add("resource-viewer-open");
+  syncProviderBodyScrollLock(preferredScroll);
   trackEvent("generated_goal_printable_view", {
     resourceId: resource.id,
     title: resource.title,
@@ -27399,6 +27731,11 @@ async function openResourceViewer(resourceId, options = {}) {
   if (guardNavigationDuringBootVerification()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
+  const preferredScroll = {
+    scrollX: window.scrollX || window.pageXOffset || 0,
+    scrollY: llhBodyScrollLockState?.scrollY
+      ?? (window.scrollY || window.pageYOffset || 0),
+  };
   if (!(document.querySelector("#resourceViewerModal")?.classList.contains("open"))) {
     resourceViewerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
@@ -27483,6 +27820,7 @@ async function openResourceViewer(resourceId, options = {}) {
     modal?.classList.add("open");
     modal?.setAttribute("aria-hidden", "false");
     document.body.classList.add("resource-viewer-open");
+    syncProviderBodyScrollLock(preferredScroll);
     return;
   }
   if (viewerResource.fileData && viewerResource.fileData.startsWith("data:image")) {
@@ -27565,6 +27903,7 @@ async function openResourceViewer(resourceId, options = {}) {
   } else {
     document.body.classList.remove("lesson-workspace-open");
   }
+  syncProviderBodyScrollLock(preferredScroll);
   activeViewerResourceId = resource.id;
   if (!options.skipHistory) {
     if (isLessonWorkspaceResource(viewerResource) && !options.replaceActivityParent) {
@@ -44733,6 +45072,18 @@ function hideActionFeedback() {
 
 function showActionFeedback(message, action = null, options = {}) {
   if (!message) return;
+  // Noncritical toasts must not cover active workflow / auth overlays.
+  if (
+    !options.allowDuringOverlay
+    && (
+      document.querySelector(".modal.open")
+      || document.body.classList.contains("auth-modal-open")
+      || document.body.classList.contains("resource-viewer-open")
+      || document.body.classList.contains("force-password-required")
+    )
+  ) {
+    return;
+  }
   let banner = document.querySelector("#afterActionPrompt");
   if (!banner) {
     banner = document.createElement("div");
@@ -68654,6 +69005,27 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape" && document.querySelector("#installAppModal.open")) {
     closeInstallAppModal();
+    return;
+  }
+  if (event.key === "Escape" && document.querySelector("#resourceViewerModal.open")) {
+    // Nested lesson sheets first, then the viewer.
+    if (document.body.classList.contains("lesson-workspace-sheet-open")) {
+      try { toggleLessonWorkspaceActionSheet(false); } catch { /* ignore */ }
+      return;
+    }
+    if (document.body.classList.contains("lesson-workspace-more-open")) {
+      try { toggleLessonWorkspaceMoreMenu(false); } catch { /* ignore */ }
+      return;
+    }
+    requestResourceViewerClose();
+    return;
+  }
+  if (event.key === "Escape" && document.body.classList.contains("mobile-nav-open")) {
+    setMobileNavOpen(false);
+    return;
+  }
+  if (event.key === "Escape" && document.body.classList.contains("notification-bell-open")) {
+    try { toggleNotificationBellPanel(false); } catch { /* ignore */ }
     return;
   }
   if (event.key === "Tab" && isFeaturePreviewOpen()) {

@@ -143,6 +143,7 @@
     "test:platform-nav": "node scripts/test-platform-nav.js",
     "test:provider-sidebar-collapse": "node scripts/test-provider-sidebar-collapse.js",
     "test:provider-ui-polish-qa": "node scripts/test-provider-ui-polish-qa.js",
+    "test:provider-overlay-scroll-lock": "node scripts/test-provider-overlay-scroll-lock.js",
     "test:navigation-history": "node scripts/test-navigation-history-qa.js",
     "test:signed-in-nav-boot-hotfix": "node scripts/test-signed-in-nav-boot-hotfix.js",
     "test:signed-in-nav-audit": "node scripts/test-signed-in-nav-audit.js",
