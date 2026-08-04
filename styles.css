@@ -25632,6 +25632,17 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   border-radius: 0.5rem;
   background: #faf8f3;
 }
+.tk-enrich-history-diff {
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(36, 49, 42, 0.04);
+  border-radius: 0.4rem;
+  font-size: 0.88rem;
+}
+.tk-enrich-history-diff ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
 .tk-enrich-compare-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
