@@ -74,7 +74,7 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-day-assistant"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-first-time-setup"/);
   assert.match(indexHtml, /data-work-nav-root/);
   assert.match(indexHtml, /data-work-nav="business"/);
   assert.match(indexHtml, /id="view-classroom"/);

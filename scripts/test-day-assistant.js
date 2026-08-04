@@ -16,7 +16,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/day-assistant";
 const OWNER = "day.assistant.owner@example.com";
-const SHELL = "20260804-day-assistant";
+const SHELL = "20260804-first-time-setup";
 
 function request(port, method, urlPath, { email = "", body = null } = {}) {
   const headers = { Accept: "application/json", "Content-Type": "application/json" };

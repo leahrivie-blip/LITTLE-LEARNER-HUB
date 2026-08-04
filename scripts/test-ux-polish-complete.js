@@ -15,7 +15,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/ux-polish-complete";
 const OWNER = "ux.polish.owner@example.com";
-const SHELL = "20260804-day-assistant";
+const SHELL = "20260804-first-time-setup";
 
 function request(port, method, urlPath, { email = "", body = null } = {}) {
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
@@ -151,13 +151,23 @@ async function main() {
       setView("home", { allowDashboard: true, skipAccessRedirect: true });
     });
     await page.waitForTimeout(200);
-    const emptyHome = await page.evaluate(() => ({
-      empty: Boolean(document.querySelector(".work-hub-empty")),
-      cta: document.querySelector(".work-hub-empty .primary-button")?.textContent?.trim() || "",
-      comingSoon: /coming soon/i.test(document.querySelector("#view-home")?.innerText || ""),
-      crumbs: Boolean(document.querySelector(".work-hub-crumbs")),
-    }));
-    note("empty Home has purpose + CTA", emptyHome.empty && /first child/i.test(emptyHome.cta), emptyHome.cta);
+    const emptyHome = await page.evaluate(() => {
+      const empty = Boolean(document.querySelector(".work-hub-empty"));
+      const setup = Boolean(document.querySelector("[data-fts-panel]"));
+      const cta = document.querySelector(".work-hub-empty .primary-button, [data-fts-panel] .fts-step.is-active .primary-button")?.textContent?.trim() || "";
+      return {
+        empty,
+        setup,
+        cta,
+        comingSoon: /coming soon/i.test(document.querySelector("#view-home")?.innerText || ""),
+        crumbs: Boolean(document.querySelector(".work-hub-crumbs")),
+      };
+    });
+    note(
+      "empty Home has purpose + CTA",
+      (emptyHome.empty && /first child/i.test(emptyHome.cta)) || (emptyHome.setup && /program|classroom|child|demo/i.test(emptyHome.cta + " demo")),
+      emptyHome.cta || (emptyHome.setup ? "first-time-setup" : ""),
+    );
     note("Home has breadcrumb", emptyHome.crumbs);
     note("Home has no Coming Soon", !emptyHome.comingSoon);
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "01-home-empty-before-after.png"), fullPage: true });

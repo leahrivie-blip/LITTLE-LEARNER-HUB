@@ -19,7 +19,7 @@ const ARTIFACT_DIR = "/opt/cursor/artifacts/provider-day-walkthrough";
 const OWNER = "sunrise.provider.day@example.com";
 const PARENT = "parent.day.walk@example.com";
 const STAFF = "teacher.day.walk@example.com";
-const SHELL = "20260804-day-assistant";
+const SHELL = "20260804-first-time-setup";
 
 const issuesFound = [];
 const issuesFixed = [];

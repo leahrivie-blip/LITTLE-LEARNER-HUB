@@ -1,6 +1,7 @@
 // Declared early so boot-time references (trackEvent, upgrade chrome) do not throw
 // ReferenceError before scripts/new-user-onboarding.js assigns the API on window.
 var NewUserOnboarding;
+var FirstTimeSetup;
 
 const categories = [
   { view: "observations", title: "Observation Hub", detail: "Professional wording, skills, standards, and next steps.", icon: "OB" },
@@ -13515,6 +13516,9 @@ function saveProgramSettings(data) {
     role: updates.role || account?.role || "",
     phone: account?.phone || "",
   }).catch(() => {});
+  try {
+    if (typeof FirstTimeSetup?.syncProgress === "function") FirstTimeSetup.syncProgress();
+  } catch (_e) { /* ignore */ }
 }
 
 function loadAccountState(email) {
@@ -14661,20 +14665,30 @@ function renderOwnerHomeDashboard() {
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
   const children = records.children || [];
   if (!children.length) {
+    const setupActive = Boolean(typeof FirstTimeSetup?.shouldShowSetup === "function" && FirstTimeSetup.shouldShowSetup());
+    let setupHtml = "";
+    try {
+      setupHtml = (typeof FirstTimeSetup?.panelHtml === "function") ? (FirstTimeSetup.panelHtml() || "") : "";
+    } catch (_e) { setupHtml = ""; }
     homeSection.innerHTML = workHubShell({
       eyebrow: "Home",
       title: "Welcome to your program",
       subtitle: "Home shows what needs attention today. Start by adding the children in your care.",
       crumbs: [{ label: "Home" }],
-      body: workHubEmptyState({
-        title: "Add your first child to bring Home to life",
-        body: "Once children are on the roster, you’ll see check-ins, meals, forms waiting on parents, and the next action for your day.",
-        ctaLabel: "Add your first child",
-        ctaAttrs: 'data-view="children" data-child-view="add"',
-        secondaryLabel: "Program name & details",
-        secondaryAttrs: 'data-view="program-settings"',
-      }),
+      body: `${setupHtml}${setupActive ? "" : workHubEmptyState({
+          title: "Add your first child to bring Home to life",
+          body: "Once children are on the roster, you’ll see check-ins, meals, forms waiting on parents, and the next action for your day.",
+          ctaLabel: "Add your first child",
+          ctaAttrs: 'data-view="children" data-child-view="add"',
+          secondaryLabel: "Program name & details",
+          secondaryAttrs: 'data-view="program-settings"',
+        })}`,
     });
+    // Guarantee checklist mount on empty Home (module may finish loading after first paint).
+    if (setupActive && setupHtml && !homeSection.querySelector("[data-fts-panel]")) {
+      const body = homeSection.querySelector(".work-hub-body");
+      if (body) body.insertAdjacentHTML("afterbegin", setupHtml);
+    }
     return;
   }
 
@@ -14729,6 +14743,7 @@ function renderOwnerHomeDashboard() {
     crumbs: [{ label: "Home" }],
     actionsHtml: `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Continue Daily Logs" : "Start check-in"}</button>`,
     body: `
+      ${(typeof FirstTimeSetup?.panelHtml === "function") ? FirstTimeSetup.panelHtml() : ""}
       ${briefHtml}
       ${workHubPulseCards(pulseCards)}
 
@@ -14807,6 +14822,7 @@ function renderTeacherTodayPage() {
     crumbs: [{ label: "Today" }],
     actionsHtml: `<button class="primary-button" type="button" data-view="child-tools-daily-logs">${checkedIn ? "Continue logs" : "Start check-in"}</button>`,
     body: `
+      ${(typeof FirstTimeSetup?.tipHtml === "function") ? FirstTimeSetup.tipHtml() : ""}
       ${briefHtml}
       ${workHubPulseCards([
         { label: "Expected", value: children.length, detail: snap?.absentKids?.length ? `${snap.absentKids.length} absent` : "on roster" },
@@ -15049,6 +15065,10 @@ function renderBusinessHubPage() {
         <h3>Admin only</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "admin", title: "Testing Center", detail: "View As, seed data, Testing Pro", primary: true })}
+          <button class="work-hub-tile" type="button" data-fts-reset>
+            <strong>Reset first-time setup</strong>
+            <span>Show the setup checklist again for this account</span>
+          </button>
         </div>
       </section>` : ""}
     `,
@@ -44199,6 +44219,9 @@ function runChildCreatedAutomation(child, { isNew = true } = {}) {
     childId: child.id,
     hrefView: "children",
   });
+  try {
+    if (typeof FirstTimeSetup?.syncProgress === "function") FirstTimeSetup.syncProgress();
+  } catch (_e) { /* ignore */ }
   return { formsAdded };
 }
 
@@ -44456,6 +44479,9 @@ function runSmartAutomationForRecord(key, record = {}, options = {}) {
   else if (key === "Documents" && (record.signedAt || String(record.status || "").toLowerCase() === "signed")) {
     runFormSignedAutomation(record);
   }
+  try {
+    if (typeof FirstTimeSetup?.syncProgress === "function") FirstTimeSetup.syncProgress();
+  } catch (_e) { /* ignore */ }
 }
 
 function buildActionOnlyAttentionCards() {
@@ -71651,6 +71677,12 @@ document.addEventListener("submit", async (event) => {
       form.reset();
       paintClassroomsManageApp();
       showActionFeedback(`${nextRoom.name} added.`);
+      try {
+        if (typeof FirstTimeSetup?.syncProgress === "function") {
+          FirstTimeSetup.syncProgress();
+          if (typeof FirstTimeSetup.refreshSurfaces === "function") FirstTimeSetup.refreshSurfaces();
+        }
+      } catch (_e) { /* ignore */ }
     } catch (error) {
       window.alert(error.message || "Could not add classroom.");
     }
