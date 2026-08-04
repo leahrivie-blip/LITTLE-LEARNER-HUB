@@ -9729,6 +9729,8 @@ function membershipSummaryForUser(user, storeRef = null) {
     stripeCustomerId: user?.stripeCustomerId || "",
     stripeSubscriptionId: user?.stripeSubscriptionId || "",
     internalAccessOverride: Boolean(user?.internalAccessOverride),
+    multiRoleTester: Boolean(user?.multiRoleTester),
+    hdhIndependentTester: Boolean(user?.hdhIndependentTester),
     membershipAuditRecent: audits,
   };
 }
@@ -15781,6 +15783,67 @@ async function handleHdhTesterInviteAccept(request, response) {
   }, "Could not accept tester invite.");
 }
 
+async function handleHdhTesterRoleSwitchCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before switching tester views." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid role-switch payload." });
+    return;
+  }
+  const email = normalizeEmail(body.email || identity.email);
+  if (email !== normalizeEmail(identity.email)) {
+    jsonResponse(response, 403, { error: "You can only log role switches for your own account." });
+    return;
+  }
+  const store = readStore();
+  const user = store.users?.[email] || {};
+  if (!user.multiRoleTester) {
+    jsonResponse(response, 403, { error: "Multi-Role Tester is not enabled for this account." });
+    return;
+  }
+  store.testerRoleSwitches = Array.isArray(store.testerRoleSwitches) ? store.testerRoleSwitches : [];
+  const entry = {
+    id: `trs-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`,
+    email,
+    fromRole: String(body.fromRole || "").slice(0, 80),
+    toRole: String(body.toRole || "").slice(0, 80),
+    source: String(body.source || "switch_view").slice(0, 80),
+    at: String(body.at || new Date().toISOString()).slice(0, 40),
+    context: body.context && typeof body.context === "object"
+      ? {
+          page: String(body.context.page || "").slice(0, 200),
+          deviceClass: String(body.context.deviceClass || "").slice(0, 40),
+          appVersion: String(body.context.appVersion || "").slice(0, 80),
+        }
+      : null,
+  };
+  store.testerRoleSwitches.unshift(entry);
+  store.testerRoleSwitches = store.testerRoleSwitches.slice(0, 2000);
+  await respondAfterPersist(store, response, 200, { ok: true, switch: entry }, "Could not save role switch.");
+}
+
+async function handleAdminTesterRoleSwitchesList(request, response, url) {
+  const token = extractAdminToken(request, url) || extractAdminTokenFromBody(request, {});
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = peekStore();
+  const all = Array.isArray(store.testerRoleSwitches) ? store.testerRoleSwitches : [];
+  const switches = email ? all.filter((row) => normalizeEmail(row.email) === email) : all;
+  jsonResponse(response, 200, { ok: true, switches: switches.slice(0, 200) });
+}
+
 async function handleHdhTesterInviteRevoke(request, response, inviteId) {
   if (!requireHomeDaycareHubTesting(response)) return;
   let identity;
@@ -17247,6 +17310,9 @@ async function handleAdminMembershipUpdate(request, response) {
   store.membershipAudit.unshift(auditEntry);
   store.membershipAudit = store.membershipAudit.slice(0, 500);
   const merged = { ...existing, ...updates, email, updatedAt: new Date().toISOString() };
+  if (typeof updates.multiRoleTester === "boolean") {
+    merged.multiRoleTester = updates.multiRoleTester;
+  }
   if (updates.internalAccessOverride === true) {
     merged.internalAccessOverride = true;
   }
@@ -23597,6 +23663,13 @@ function publicFeedback(item) {
     lessonId: item.lessonId || "",
     sentiment: item.sentiment || "",
     stars: normalizeFeedbackStars(item.stars),
+    role: item.role || "",
+    accountType: item.accountType || "",
+    testedRole: item.testedRole || "",
+    deviceInfo: item.deviceInfo || "",
+    browserInfo: item.browserInfo || "",
+    screenshotUrl: item.screenshotUrl || "",
+    context: item.context && typeof item.context === "object" ? item.context : null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -24285,7 +24358,7 @@ const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
   "Bug", "Bug Report", "Problem", "Missing Feature", "Question", "Feature Request",
   "New Feature", "Support", "Lesson Plan Feedback", "Lesson Plan Request",
-  "Activity Request", "Activity Feedback",
+  "Activity Request", "Activity Feedback", "Tester Session",
 ]);
 const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
@@ -24302,6 +24375,19 @@ async function handleFeedbackCreate(request, response) {
   const activityId = String(body.activityId || "").trim().slice(0, 160);
   const lessonId = String(body.lessonId || "").trim().slice(0, 160);
   const sentiment = String(body.sentiment || "").trim().slice(0, 40);
+  const context = body.context && typeof body.context === "object"
+    ? {
+        currentRole: String(body.context.currentRole || "").slice(0, 80),
+        page: String(body.context.page || "").slice(0, 200),
+        deviceClass: String(body.context.deviceClass || "").slice(0, 40),
+        screenWidth: Number(body.context.screenWidth) || 0,
+        screenHeight: Number(body.context.screenHeight) || 0,
+        appVersion: String(body.context.appVersion || "").slice(0, 80),
+        time: String(body.context.time || "").slice(0, 40),
+        feature: String(body.context.feature || "").slice(0, 120),
+        testingSite: Boolean(body.context.testingSite),
+      }
+    : null;
   const store = readStore();
   store.feedbackItems = store.feedbackItems || [];
   const item = {
@@ -24323,6 +24409,11 @@ async function handleFeedbackCreate(request, response) {
     lessonId,
     sentiment,
     stars,
+    testedRole: String(body.testedRole || context?.currentRole || "").slice(0, 80),
+    deviceInfo: String(body.deviceInfo || "").slice(0, 200),
+    browserInfo: String(body.browserInfo || body.userAgent || "").slice(0, 400),
+    screenshotUrl: String(body.screenshotUrl || "").slice(0, 500),
+    context,
   };
   store.feedbackItems.unshift(item);
   store.feedbackItems = store.feedbackItems.slice(0, 1000);
@@ -27254,6 +27345,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites") return await handleHdhTesterInviteCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/tester-invites/peek") return await handleHdhTesterInvitePeek(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites/accept") return await handleHdhTesterInviteAccept(request, response);
+    if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-role-switches") {
+      return await handleHdhTesterRoleSwitchCreate(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/tester-role-switches") {
+      return await handleAdminTesterRoleSwitchesList(request, response, url);
+    }
     if (request.method === "DELETE" && url.pathname.startsWith("/api/home-daycare-hub/tester-invites/")) {
       const inviteId = decodeURIComponent(url.pathname.slice("/api/home-daycare-hub/tester-invites/".length));
       return await handleHdhTesterInviteRevoke(request, response, inviteId);
