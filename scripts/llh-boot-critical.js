@@ -1,15 +1,16 @@
 /**
  * Tiny boot helpers that run before the large app.js finishes.
  * - Shows homepage HTML immediately (never leave testers on a blank shell)
- * - Queues Log In / Sign Up until openAuthModal exists
+ * - Queues Log In / Sign Up / primary nav until app helpers exist
  * - Loads app.js after first paint so marketing content is visible first
  */
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r2";
+  const APP_SRC = "app.js?v=20260804-js-split-r3";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
+  let appScriptLoaded = false;
 
   function ensureStatusNode() {
     let el = document.getElementById("llhLazyStatus");
@@ -31,7 +32,6 @@
   }
 
   function revealHomeIfStuck() {
-    // Early boot CSS can hide inactive views for returning users until app-boot-ready.
     // Keep a usable home shell so testers never see "login buttons only".
     try {
       document.documentElement.classList.remove("llh-boot-authenticated");
@@ -65,12 +65,26 @@
     appLoadStarted = true;
     setStatus("Loading Little Learner Hub…");
     loadScript(APP_SRC)
-      .then(() => loadScript(ONBOARDING_SRC))
       .then(() => {
-        // app.js will clear status via markAppBootReady; keep a soft fallback.
+        appScriptLoaded = true;
+        setStatus("Starting Little Learner Hub…");
+        return loadScript(ONBOARDING_SRC);
+      })
+      .then(() => {
+        // app.js clears status via markAppBootReady; keep a soft fallback.
         window.setTimeout(() => {
           if (document.body.classList.contains("app-boot-ready")) setStatus("");
         }, 500);
+        // Guests: if verification/boot never flips ready, still clear the sticky pill
+        // so the page does not look permanently broken while content remains usable.
+        window.setTimeout(() => {
+          if (!document.body.classList.contains("app-boot-ready")) {
+            setStatus("Still starting… you can keep browsing this page.");
+          }
+        }, 20000);
+        window.setTimeout(() => {
+          if (!document.body.classList.contains("app-boot-ready")) setStatus("");
+        }, 45000);
       })
       .catch((error) => {
         console.error("[llh-boot]", error);
@@ -98,14 +112,51 @@
     }, 200);
   }
 
+  function queueNav(view) {
+    if (!view) return;
+    setStatus("Loading Little Learner Hub…");
+    startCoreAppLoad();
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      if (typeof window.setView === "function" && document.body.classList.contains("app-boot-ready")) {
+        window.clearInterval(timer);
+        setStatus("");
+        try { window.setView(view); } catch (_error) { /* ignore */ }
+        return;
+      }
+      if (typeof window.setView === "function" && appScriptLoaded && Date.now() - started > 8000) {
+        // App parsed but boot-ready gate still pending — try the navigation anyway.
+        window.clearInterval(timer);
+        try { window.setView(view, { allowDuringBootVerification: true }); } catch (_error) { /* ignore */ }
+        return;
+      }
+      if (Date.now() - started > 90000) {
+        window.clearInterval(timer);
+        setStatus("Loading is taking longer than usual. Please refresh and try again.");
+      }
+    }, 250);
+  }
+
   document.addEventListener("click", (event) => {
     const openLogin = event.target.closest?.("[data-action='open-login'], #signinButton");
     const startFree = event.target.closest?.("[data-action='start-free'], #getStartedButton, #createAccountButton");
-    if (!openLogin && !startFree) return;
-    if (typeof window.openAuthModal === "function") return;
+    if (openLogin || startFree) {
+      if (typeof window.openAuthModal === "function") return;
+      event.preventDefault();
+      event.stopPropagation();
+      queueAuth(startFree ? "signup" : "login");
+      return;
+    }
+
+    // Sidebar / bottom-nav data-view clicks before app.js is ready.
+    const nav = event.target.closest?.("[data-view]");
+    if (!nav) return;
+    if (typeof window.setView === "function" && document.body.classList.contains("app-boot-ready")) return;
+    const view = nav.getAttribute("data-view");
+    if (!view || view === "home") return;
     event.preventDefault();
     event.stopPropagation();
-    queueAuth(startFree ? "signup" : "login");
+    queueNav(view);
   }, true);
 
   function onReady() {
@@ -116,6 +167,7 @@
       if (!document.body.classList.contains("app-boot-ready")) revealHomeIfStuck();
     }, 2500);
     // Load the large app after first paint so homepage content is visible first.
+    // Preload in <head> should already be fetching app.js by this point.
     const start = () => startCoreAppLoad();
     if (typeof window.requestAnimationFrame === "function") {
       window.requestAnimationFrame(() => window.requestAnimationFrame(start));
@@ -143,5 +195,5 @@
   if (document.body) observeBody();
   else document.addEventListener("DOMContentLoaded", observeBody);
 
-  window.LLHBootCritical = { setStatus, queueAuth, startCoreAppLoad, revealHomeIfStuck };
+  window.LLHBootCritical = { setStatus, queueAuth, queueNav, startCoreAppLoad, revealHomeIfStuck };
 })();
