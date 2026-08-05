@@ -19,7 +19,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19400 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-cx-polish-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260805-tk-owner-preview-r1";
+const CACHE = "20260805-tk-owner-preview-r2";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {

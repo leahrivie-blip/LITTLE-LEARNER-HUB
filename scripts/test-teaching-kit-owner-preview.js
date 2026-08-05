@@ -360,6 +360,78 @@ async function main() {
         await page.close();
       }
 
+      // Signed-in owner member + Admin unlock must still authorize (admin token
+      // attached even when currentUser is the owner — production ignores local identity headers).
+      const ownerMemberPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await ownerMemberPage.addInitScript((email) => {
+        localStorage.setItem("llhUser", email);
+      }, OWNER_EMAIL);
+      await ownerMemberPage.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await ownerMemberPage.waitForFunction(() => typeof window.fetchTeachingKitForPlan === "function", null, { timeout: 30000 });
+      const ownerMemberClient = await ownerMemberPage.evaluate(async (payload) => {
+        localStorage.setItem("llhAdminUnlocked", "true");
+        localStorage.setItem("llhAdminPreviewMode", "Admin");
+        localStorage.setItem("llhAdminSession", JSON.stringify({
+          token: payload.ownerToken,
+          email: payload.ownerEmail,
+          unlockedAt: new Date().toISOString(),
+        }));
+        const signedIn = String(typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
+        const preview = window.isOwnerTeachingKitPreviewActive();
+        const flags = window.effectiveTeachingKitCustomerFlags();
+        const session = typeof adminSession === "function" ? adminSession() : null;
+        const seen = [];
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (input, init = {}) => {
+          const url = String(typeof input === "string" ? input : input?.url || "");
+          const headers = init.headers || {};
+          const auth = headers.Authorization || headers.authorization || "";
+          if (url.includes("/teaching-kit")) {
+            seen.push({
+              url,
+              hasAdminQuery: /[?&]adminToken=/.test(url),
+              authPrefix: String(auth).slice(0, 24),
+            });
+          }
+          const res = await originalFetch(input, init);
+          if (url.includes("/teaching-kit")) {
+            seen[seen.length - 1].status = res.status;
+          }
+          return res;
+        };
+        const kitRes = await window.fetchTeachingKitForPlan(payload.planId, { day: "monday" });
+        window.fetch = originalFetch;
+        return {
+          signedIn,
+          preview,
+          flags,
+          sessionEmail: String(session?.email || "").toLowerCase(),
+          hasToken: Boolean(session?.token),
+          kitRes: {
+            ok: kitRes.ok,
+            reason: kitRes.reason,
+            status: kitRes.status,
+            ownerPreview: kitRes.featureFlags?.ownerPreview,
+            print: kitRes.featureFlags?.teachingKitPrintCenter,
+          },
+          seen,
+        };
+      }, { ownerToken, ownerEmail: OWNER_EMAIL, planId: FIXTURE_ID });
+      ok(ownerMemberClient.signedIn === OWNER_EMAIL, "owner member currentUser is owner email");
+      ok(ownerMemberClient.preview === true, "owner member + admin unlock activates preview");
+      ok(ownerMemberClient.flags?.teachingKitViewer === true, "owner member client flags elevate viewer");
+      if (!(ownerMemberClient.kitRes?.ok === true && ownerMemberClient.kitRes?.ownerPreview === true)) {
+        console.error("owner member kit debug:", JSON.stringify(ownerMemberClient, null, 2));
+      }
+      ok(ownerMemberClient.kitRes?.ok === true && ownerMemberClient.kitRes?.ownerPreview === true,
+        "owner member + admin unlock kit fetch ok");
+      ok(ownerMemberClient.kitRes?.print === true, "owner member + admin unlock print flag elevated");
+      ok(
+        ownerMemberClient.seen.some((row) => row.hasAdminQuery || /Bearer admin_/i.test(row.authPrefix)),
+        "owner member + admin unlock attaches admin token",
+      );
+      await ownerMemberPage.close();
+
       // Pro client session cannot elevate
       const customerPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       await customerPage.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });

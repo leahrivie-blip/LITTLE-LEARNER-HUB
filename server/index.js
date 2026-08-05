@@ -17785,7 +17785,10 @@ async function resolveTeachingKitCallerEmail(request, url) {
     const allowHeaderIdentity = process.env.NODE_ENV === "test"
       || String(process.env.DATABASE_PROVIDER || "").toLowerCase() === "local-json";
     if (allowHeaderIdentity) {
-      const headerEmail = normalizeEmail(request.headers["x-llh-user-email"] || "");
+      // Browsers may concatenate duplicate X-LLH-User-Email values with commas
+      // ("a@x, a@x"). Take the first segment so Owner Preview matching still works.
+      const headerRaw = String(request.headers["x-llh-user-email"] || "").trim();
+      const headerEmail = normalizeEmail(headerRaw.split(",")[0] || "");
       if (headerEmail) identity = { uid: `local-${headerEmail}`, email: headerEmail };
     }
   }
@@ -17793,6 +17796,7 @@ async function resolveTeachingKitCallerEmail(request, url) {
 
   const adminToken = extractAdminToken(request, url);
   if (!adminToken) return "";
+  // extractAdminToken returns any Bearer value; only real admin sessions elevate.
   const session = adminSessionStore.validate(adminToken);
   return session?.email ? normalizeEmail(session.email) : "";
 }

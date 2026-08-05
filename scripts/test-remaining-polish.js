@@ -14,7 +14,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260805-tk-owner-preview-r1";
+const SHELL = "20260805-tk-owner-preview-r2";
 const PORT = 19810 + Math.floor(Math.random() * 40);
 const STORE = path.join(os.tmpdir(), `llh-remaining-polish-${crypto.randomBytes(4).toString("hex")}.json`);
 
