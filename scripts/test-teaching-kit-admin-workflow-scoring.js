@@ -612,18 +612,14 @@ async function main() {
     // Safe fixture removal.
     await removeFixture(ownerToken);
 
-    const reportPath = path.join(ARTIFACT_DIR, "REPORT.md");
-    fs.writeFileSync(reportPath, [
-      "# Teaching Kit Admin Workflow + Scoring Report",
-      "",
-      `Assertions passed: ${passed}`,
-      `Fixture: ${FIXTURE_TITLE} (\`${FIXTURE_ID}\`) — created in temp store and removed after tests.`,
-      "Farm Animals sentinel unchanged. Customer Teaching Kit flags remain off.",
-      "",
-      "## Screenshots",
-      `- Desktop: ${path.join(ARTIFACT_DIR, "admin-workflow-desktop.png")}`,
-      `- Mobile: ${path.join(ARTIFACT_DIR, "admin-workflow-mobile.png")}`,
-      "",
+    const resultsPath = path.join(ARTIFACT_DIR, "RESULTS.txt");
+    fs.writeFileSync(resultsPath, [
+      `PASS ${passed}`,
+      `Fixture: ${FIXTURE_TITLE} (${FIXTURE_ID}) removed after tests`,
+      "Farm Animals sentinel unchanged",
+      "Customer Teaching Kit flags remain off",
+      `Desktop: ${path.join(ARTIFACT_DIR, "admin-workflow-desktop.png")}`,
+      `Mobile: ${path.join(ARTIFACT_DIR, "admin-workflow-mobile.png")}`,
     ].join("\n"));
 
     console.log(`PASS ${passed} teaching-kit-admin-workflow-scoring`);
