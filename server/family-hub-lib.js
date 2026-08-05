@@ -175,6 +175,9 @@ function publicFamilyDocument(doc = {}) {
   const status = String(doc.status || "needed").trim() || "needed";
   const signed = Boolean(doc.signedAt) || /^(signed|completed|on_file|on file|reviewed)\b/i.test(status);
   const bodyText = String(doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "").trim();
+  const fieldsSchema = doc.fieldsSchema && typeof doc.fieldsSchema === "object" ? doc.fieldsSchema : null;
+  const answers = doc.answers && typeof doc.answers === "object" ? doc.answers : {};
+  const connections = Array.isArray(doc.connections) ? doc.connections : [];
   return {
     id: String(doc.id || ""),
     childId: String(doc.childId || ""),
@@ -184,6 +187,10 @@ function publicFamilyDocument(doc = {}) {
     statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
     notes: String(doc.notes || doc.summary || "").trim(),
     bodyText: bodyText.slice(0, 12000),
+    fieldsSchema,
+    answers,
+    connections,
+    catalogId: String(doc.catalogId || "").trim(),
     dueDate: String(doc.dueDate || "").trim(),
     updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
     signedAt: String(doc.signedAt || "").trim(),

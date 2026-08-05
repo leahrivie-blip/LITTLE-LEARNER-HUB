@@ -31,6 +31,7 @@ const analyticsStore = require("./analytics-store.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
+const curriculumProductionSync = require("./curriculum-production-sync.js");
 const enrichmentMedia = require("./enrichment-media.js");
 const enrichmentAi = require("./enrichment-ai.js");
 const seo = require("./seo.js");
@@ -174,6 +175,30 @@ const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
 const EMAIL_AUTOMATIONS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.EMAIL_AUTOMATIONS_ENABLED || "false").trim().toLowerCase(),
 );
+/** Testing kill-switch: block all outbound email even if a provider key is present. */
+const DISABLE_OUTBOUND_EMAIL = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_OUTBOUND_EMAIL || "false").trim().toLowerCase(),
+);
+
+function isOutboundEmailDisabled() {
+  return DISABLE_OUTBOUND_EMAIL;
+}
+
+function outboundEmailPublicStatus() {
+  const status = supportEmailConfigStatus();
+  const disabled = isOutboundEmailDisabled();
+  const ready = Boolean(status.ready) && !disabled;
+  return {
+    ready,
+    disabled,
+    providerReady: Boolean(status.ready),
+    reason: disabled
+      ? "Outbound email is disabled on this testing site. Use copyable invite and reset links instead."
+      : (status.ready
+        ? "Email delivery is configured."
+        : "Email delivery is not configured. Use copyable invite and reset links instead."),
+  };
+}
 const SUPPORT_POSTAL_ADDRESS = String(process.env.SUPPORT_POSTAL_ADDRESS || "").trim();
 const EMAIL_UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || ADMIN_ACCESS_CODE;
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
@@ -3787,9 +3812,15 @@ function startPostgresReconnectLoop() {
       try {
         const store = readStore();
         const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
-        if (oneShot.applied) {
+        const testingOwner = tempPasswordAuth.ensureTestingOwnerLogin(store);
+        if (oneShot.applied || testingOwner.applied) {
           await writeStoreAsync(store);
-          console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
+          if (oneShot.applied) {
+            console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
+          }
+          if (testingOwner.applied) {
+            console.log(`[temp-password] testing owner login ensured after reconnect for ${testingOwner.email}`);
+          }
         }
       } catch (error) {
         console.warn("[temp-password] reconnect apply skipped:", error.message);
@@ -3909,9 +3940,15 @@ async function initializeStorage() {
     // One-user sealed temp-password apply (hash only). Never logs plaintext.
     const store = readStore();
     const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
-    if (oneShot.applied) {
+    const testingOwner = tempPasswordAuth.ensureTestingOwnerLogin(store);
+    if (oneShot.applied || testingOwner.applied) {
       await writeStoreAsync(store);
-      console.log(`[temp-password] one-shot applied for ${oneShot.email} (expires ${oneShot.expiresAt})`);
+      if (oneShot.applied) {
+        console.log(`[temp-password] one-shot applied for ${oneShot.email} (expires ${oneShot.expiresAt})`);
+      }
+      if (testingOwner.applied) {
+        console.log(`[temp-password] testing owner login ensured for ${testingOwner.email}`);
+      }
     }
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
@@ -6928,13 +6965,15 @@ Rules:
     form: base + `
 
 YOU ARE BUILDING A CHILDCARE FORM DRAFT.
-Create a clean, professional form the provider can print or customize immediately.
+Create a clean, professional form the provider can print, share digitally, or refine iteratively.
 
 Rules:
 - Use the program name when provided.
 - Include clearly labeled sections, blank lines or fields for required information, and signature areas when appropriate.
 - Keep the form factual, practical, and complete.
 - Do not add sections the provider did not request — focus on what was asked.
+- If the provider asks to refine an existing draft (make shorter, add allergy questions, friendlier language, add signatures, make fields required, translate to Spanish, add emergency contacts, add pickup information), apply ONLY that change and keep the rest of the form intact.
+- Prefer parent-friendly plain language over legal jargon.
 - Remind providers to review for state licensing requirements before use.`,
 
     assessment: base + `
@@ -8196,6 +8235,8 @@ async function handlePasswordResetRequest(request, response) {
     return;
   }
   let delivery = "not_ready";
+  let resetUrl = "";
+  let expiresAt = "";
   try {
     const result = await sendPasswordResetEmail(email);
     if (result?.reason === "provider_not_ready") delivery = "not_ready";
@@ -8207,14 +8248,48 @@ async function handlePasswordResetRequest(request, response) {
     console.warn("[email] Password reset email failed:", error.message);
     delivery = "failed";
   }
-  // Always return a generic success body so callers cannot enumerate accounts.
-  // `delivery` lets the client keep Firebase/demo paths when Resend is not ready.
+
+  // Testing-safe recovery: mint a one-time reset link for this SITE_URL only when
+  // outbound email cannot send (no Firebase / email disabled on testing).
+  const emailStatus = outboundEmailPublicStatus();
+  const testingAuth = isHomeDaycareHubTestingEnabled() || !firebaseConfigStatus().ready;
+  if (testingAuth && delivery !== "sent") {
+    try {
+      const store = readStore();
+      const user = store.users?.[email];
+      if (user) {
+        const tokenData = emailAuth.createToken(store, {
+          email,
+          purpose: "password_reset",
+          ttlMs: emailAuth.PASSWORD_RESET_TTL_MS,
+          meta: { testingManualLink: true },
+        });
+        if (tokenData?.token) {
+          await writeStoreAsync(store);
+          resetUrl = `${appBaseUrl()}/?view=reset-password&resetToken=${encodeURIComponent(tokenData.token)}`;
+          expiresAt = tokenData.expiresAt || "";
+          delivery = "manual_link";
+        }
+      }
+    } catch (error) {
+      console.warn("[auth] testing manual reset link failed:", error.message);
+    }
+  }
+
   jsonResponse(response, 200, {
     ok: true,
     delivery,
-    message: delivery === "not_ready"
-      ? "Server password-reset email is not ready yet. Use Firebase Auth recovery or try again after Resend is configured."
-      : "If that email is in Little Learner Hub, a password reset link has been sent.",
+    emailDeliveryReady: emailStatus.ready,
+    outboundEmailDisabled: emailStatus.disabled,
+    resetUrl: resetUrl || undefined,
+    expiresAt: expiresAt || undefined,
+    message: delivery === "sent"
+      ? "If that email is in Little Learner Hub, a password reset link has been sent."
+      : (delivery === "manual_link"
+        ? "Email delivery is off on this testing site. Copy the reset link below and open it on the testing site only."
+        : (emailStatus.disabled || delivery === "not_ready"
+          ? "Email delivery is off on this testing site. If this account exists here, use the testing reset link when shown, or Message Support."
+          : "If that email is in Little Learner Hub, a password reset link has been sent.")),
   });
 }
 
@@ -8381,6 +8456,18 @@ async function handlePasswordLogin(request, response) {
   }
   const verified = tempPasswordAuth.verifyServerPasswordLogin(user, password);
   if (!verified.ok) {
+    if (
+      HOME_DAYCARE_HUB_TESTING
+      && tempPasswordAuth.isTestingOwnerEmail(email)
+      && tempPasswordAuth.matchesRetiredTestingOwnerPassword(password)
+    ) {
+      authAuditLog("password_login_failed", { email, reason: "retired_testing_password" });
+      jsonResponse(response, 401, {
+        error: "That old testing password no longer works (Chrome may have saved it after a data-breach warning). Clear the saved password, then use the new testing password from the latest testing note.",
+        code: "testing_password_rotated",
+      });
+      return;
+    }
     if (verified.clearExpiredTemp) {
       store.users[email] = tempPasswordAuth.clearTempPasswordFields(user, {
         keepServerPasswordAuth: Boolean(user.passwordHash || user.serverPasswordAuth),
@@ -8585,10 +8672,33 @@ async function handleAdminLogin(request, response) {
     });
     return;
   }
-  const valid = isConfiguredAdminEmail(email)
+  const envValid = isConfiguredAdminEmail(email)
     && timingSafeEqualText(password, String(ADMIN_PASSWORD).trim())
     && timingSafeEqualText(code, String(ADMIN_ACCESS_CODE).trim());
+  // Testing site only: sealed owner password hash for both password + access code
+  // so Admin unlock still works if Render ADMIN_* env values are out of sync.
+  const testingOwnerValid = HOME_DAYCARE_HUB_TESTING
+    && tempPasswordAuth.isTestingOwnerEmail(email)
+    && isConfiguredAdminEmail(email)
+    && tempPasswordAuth.matchesTestingOwnerPassword(password)
+    && tempPasswordAuth.matchesTestingOwnerPassword(code);
+  const valid = envValid || testingOwnerValid;
   if (!valid) {
+    if (
+      HOME_DAYCARE_HUB_TESTING
+      && tempPasswordAuth.isTestingOwnerEmail(email)
+      && (
+        tempPasswordAuth.matchesRetiredTestingOwnerPassword(password)
+        || tempPasswordAuth.matchesRetiredTestingOwnerPassword(code)
+      )
+    ) {
+      adminSessionStore.recordFailedAttempt(email);
+      jsonResponse(response, 401, {
+        error: "That old testing password/code no longer works. Clear Chrome’s saved password, then use the new testing password for both Owner Password and Admin Access Code.",
+        code: "testing_password_rotated",
+      });
+      return;
+    }
     adminSessionStore.recordFailedAttempt(email);
     jsonResponse(response, 401, {
       error: "Owner email, password, and admin access code must all match. These are the three Admin unlock fields (not your regular member sign-in password).",
@@ -14155,7 +14265,9 @@ async function handleFamilyHubHouseholdsList(request, response) {
   jsonResponse(response, 200, {
     ok: true,
     households: listFamilyHouseholdsForOwner(store, ownerEmail).map(publicFamilyHousehold),
-    emailDeliveryReady: supportEmailConfigStatus().ready,
+    emailDeliveryReady: outboundEmailPublicStatus().ready,
+    outboundEmailDisabled: outboundEmailPublicStatus().disabled,
+    emailDeliveryNote: outboundEmailPublicStatus().reason,
     smsDeliveryReady: false,
     storage,
     testingHandoff: supportEmailConfigStatus().ready
@@ -15700,6 +15812,13 @@ async function handleHdhTesterInvitesList(request, response) {
     return;
   }
   const store = ensureHdhTesterInviteCollections(readStore());
+  const user = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  // Owner/director only — teachers/assistants must not manage tester invites.
+  // Independent invited testers also cannot invite others (matches UI hide).
+  if (!canManageStaffInvites(user) || user.hdhIndependentTester === true) {
+    jsonResponse(response, 403, { error: "Only owners and directors can manage tester invites." });
+    return;
+  }
   let appOrigin = "";
   try {
     const raw = String(request.headers.origin || "").trim()
@@ -15711,7 +15830,9 @@ async function handleHdhTesterInvitesList(request, response) {
   jsonResponse(response, 200, {
     ok: true,
     invites: listHdhTesterInvitesForOwner(store, identity.email).map((invite) => publicHdhTesterInvite(invite, { appOrigin })),
-    emailDeliveryReady: supportEmailConfigStatus().ready,
+    emailDeliveryReady: outboundEmailPublicStatus().ready,
+    outboundEmailDisabled: outboundEmailPublicStatus().disabled,
+    emailDeliveryNote: outboundEmailPublicStatus().reason,
     testingOnly: true,
   });
 }
@@ -15724,6 +15845,14 @@ async function handleHdhTesterInviteCreate(request, response) {
   } catch (error) {
     jsonResponse(response, 401, { error: error.message || "Please log in before inviting a tester." });
     return;
+  }
+  {
+    const storeGate = readStore();
+    const user = storeGate.users?.[identity.email] || { email: identity.email, role: "owner" };
+    if (!canManageStaffInvites(user) || user.hdhIndependentTester === true) {
+      jsonResponse(response, 403, { error: "Only owners and directors can invite testers." });
+      return;
+    }
   }
   let body;
   try {
@@ -15757,7 +15886,12 @@ async function handleHdhTesterInviteCreate(request, response) {
   const token = crypto.randomBytes(24).toString("hex");
   const now = new Date();
   const childName = String(body.childName || "Demo Child").trim() || "Demo Child";
-  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
+  // Prefer configured SITE_URL on testing so invite links never open production.
+  const requestedOrigin = String(body.appOrigin || "").replace(/\/$/, "");
+  const siteOrigin = String(SITE_URL || "").replace(/\/$/, "");
+  const origin = (isHomeDaycareHubTestingEnabled() && siteOrigin)
+    ? siteOrigin
+    : (requestedOrigin || siteOrigin || "https://little-learner-hub-testing.onrender.com");
   const acceptUrl = `${origin}/?testerInvite=${encodeURIComponent(token)}`;
   const invite = {
     id: `tester-invite-${Date.now().toString(36)}`,
@@ -15773,7 +15907,8 @@ async function handleHdhTesterInviteCreate(request, response) {
   };
   store.hdhTesterInvites[token] = invite;
 
-  let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };
+  const emailPublic = outboundEmailPublicStatus();
+  let emailResult = { sent: false, configured: emailPublic.ready, disabled: emailPublic.disabled };
   try {
     emailResult = await sendEmail({
       to: email,
@@ -15803,19 +15938,40 @@ async function handleHdhTesterInviteCreate(request, response) {
       `,
     });
   } catch (error) {
-    emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: error.message };
+    emailResult = {
+      sent: false,
+      configured: emailPublic.ready,
+      disabled: emailPublic.disabled,
+      error: error.message,
+    };
   }
   invite.emailSent = Boolean(emailResult.sent);
   invite.emailError = emailResult.error || "";
   store.hdhTesterInvites[token] = invite;
+  const inviteInstructions = [
+    `You're invited to test Little Learner Hub (testing site only).`,
+    ``,
+    `1. Open this link on the testing site:`,
+    acceptUrl,
+    ``,
+    `2. Sign up or log in with exactly: ${email}`,
+    `3. Accept the invite — you'll get your own Teacher tools and starter child ("${childName}").`,
+    `4. Message Leah inside Messages if you need help.`,
+    ``,
+    `This invite expires on ${invite.expiresAt.slice(0, 10)}.`,
+    `Do not use the production website with this link.`,
+  ].join("\n");
   await respondAfterPersist(store, response, 200, {
     ok: true,
     invite: publicHdhTesterInvite(invite, { appOrigin: origin }),
     acceptUrl,
+    instructions: inviteInstructions,
     email: emailResult,
+    emailDeliveryReady: emailPublic.ready,
+    outboundEmailDisabled: emailPublic.disabled,
     message: emailResult.sent
       ? "Tester invite created and email sent."
-      : "Tester invite created. Share the accept link manually (email may be off on testing).",
+      : "Tester invite ready. Email delivery is off on testing — copy the invite link and instructions below.",
   }, "Could not save tester invite.");
 }
 
@@ -16037,6 +16193,11 @@ async function handleHdhTesterInviteRevoke(request, response, inviteId) {
     return;
   }
   const store = ensureHdhTesterInviteCollections(readStore());
+  const user = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  if (!canManageStaffInvites(user) || user.hdhIndependentTester === true) {
+    jsonResponse(response, 403, { error: "Only owners and directors can revoke tester invites." });
+    return;
+  }
   const match = Object.entries(store.hdhTesterInvites).find(([, invite]) => (
     invite.id === inviteId && normalizeEmail(invite.invitedByEmail) === normalizeEmail(identity.email)
   ));
@@ -16492,7 +16653,9 @@ async function handleStaffInvitesList(request, response) {
     ok: true,
     invites: listProgramInvites(store, ownerEmail).map((invite) => publicStaffInvite(invite, { appOrigin })),
     members: listProgramMembers(store, ownerEmail),
-    emailDeliveryReady: supportEmailConfigStatus().ready,
+    emailDeliveryReady: outboundEmailPublicStatus().ready,
+    outboundEmailDisabled: outboundEmailPublicStatus().disabled,
+    emailDeliveryNote: outboundEmailPublicStatus().reason,
   });
 }
 
@@ -18078,6 +18241,27 @@ async function sendEmail(opts = {}) {
     .map((value) => String(value || "").trim())
     .filter(Boolean);
 
+  if (isOutboundEmailDisabled()) {
+    const result = {
+      sent: false,
+      configured: false,
+      provider: status.provider || "disabled",
+      messageId: "",
+      disabled: true,
+      reason: "outbound_email_disabled",
+    };
+    logEmailDelivery({
+      eventType,
+      to: toList,
+      messageId: "",
+      timestamp,
+      success: false,
+      error: "outbound_email_disabled",
+      provider: status.provider || "",
+    });
+    return result;
+  }
+
   if (!status.ready) {
     const result = { sent: false, configured: false, provider: status.provider, messageId: "" };
     logEmailDelivery({
@@ -18910,6 +19094,312 @@ function handleAdminCurriculumBackupNew(request, response, url) {
   }
   const store = readStore();
   jsonResponse(response, 200, buildNewCurriculumBackupPayload(store));
+}
+
+function productionCurriculumSourceUrl() {
+  return String(process.env.PRODUCTION_CURRICULUM_SOURCE_URL || "https://littlelearnershubbyleah.com")
+    .trim()
+    .replace(/\/$/, "");
+}
+
+function productionCurriculumSourceDatabaseUrl() {
+  return String(process.env.PRODUCTION_CURRICULUM_SOURCE_DATABASE_URL || "").trim();
+}
+
+async function fetchJsonFromUrl(urlString, { headers = {}, timeoutMs = 45000 } = {}) {
+  const lib = urlString.startsWith("https:") ? require("node:https") : require("node:http");
+  return new Promise((resolve, reject) => {
+    const req = lib.get(urlString, { headers, timeout: timeoutMs }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        let json = null;
+        try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+        resolve({ status: res.statusCode || 0, json, text });
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error(`Timed out fetching ${urlString}`));
+    });
+  });
+}
+
+async function loadProductionCurriculumSnapshot() {
+  const dbUrl = productionCurriculumSourceDatabaseUrl();
+  if (dbUrl) {
+    const { Client } = require("pg");
+    const client = new Client({
+      connectionString: dbUrl,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 20000,
+    });
+    await client.connect();
+    try {
+      await client.query("BEGIN READ ONLY");
+      const result = await client.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+      const curriculum = result.rows[0]?.data?.siteContent?.curriculum || {};
+      await client.query("ROLLBACK");
+      return {
+        mode: "database",
+        curriculum: curriculumProductionSync.normalizeCurriculum(curriculum),
+        sourceHost: (() => { try { return new URL(dbUrl).hostname; } catch { return "database"; } })(),
+      };
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+
+  const token = String(process.env.PRODUCTION_CURRICULUM_ADMIN_TOKEN || "").trim();
+  if (!token) {
+    const error = new Error(
+      "Configure PRODUCTION_CURRICULUM_SOURCE_DATABASE_URL (read-only) or PRODUCTION_CURRICULUM_ADMIN_TOKEN to pull full production curriculum.",
+    );
+    error.code = "production_curriculum_source_unconfigured";
+    throw error;
+  }
+  const base = productionCurriculumSourceUrl();
+  const res = await fetchJsonFromUrl(`${base}/api/admin/curriculum/backup/full?adminToken=${encodeURIComponent(token)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status !== 200) {
+    throw new Error(`Production curriculum backup failed (HTTP ${res.status}).`);
+  }
+  const curriculum = res.json?.curriculum?.siteContent?.curriculum
+    || res.json?.siteContent?.curriculum
+    || {};
+  return {
+    mode: "http_backup",
+    curriculum: curriculumProductionSync.normalizeCurriculum(curriculum),
+    sourceHost: base,
+  };
+}
+
+async function handleAdminCurriculumProductionSyncStatus(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Production curriculum sync is available on the testing site only." });
+    return;
+  }
+  const store = peekStore();
+  const localCurriculum = curriculumProductionSync.normalizeCurriculum(readSiteCurriculum(store));
+  const meta = store.curriculumProductionSync || {};
+  let productionPublic = null;
+  try {
+    const inv = await fetchJsonFromUrl(`${productionCurriculumSourceUrl()}/api/public/home-inventory`);
+    if (inv.status === 200 && inv.json?.ok) productionPublic = inv.json;
+  } catch { /* optional */ }
+
+  let comparison = null;
+  let sourceConfigured = Boolean(productionCurriculumSourceDatabaseUrl() || process.env.PRODUCTION_CURRICULUM_ADMIN_TOKEN);
+  if (sourceConfigured) {
+    try {
+      const source = await loadProductionCurriculumSnapshot();
+      comparison = curriculumProductionSync.compareCurriculum(source.curriculum, localCurriculum);
+    } catch (error) {
+      sourceConfigured = false;
+      jsonResponse(response, 200, {
+        ok: true,
+        testingOnly: true,
+        sourceConfigured: false,
+        sourceError: error.message || String(error),
+        summary: curriculumProductionSync.buildSyncStatusSummary({
+          productionLessonCount: productionPublic?.lessonPlanCount || 0,
+          testingLessonCount: localCurriculum.lessonPlans.length,
+          missing: [],
+          outdated: [],
+          conflicts: [],
+          duplicateProductionIds: [],
+          duplicateTestingIds: [],
+          testerOnly: [],
+          status: "needs_sync",
+        }, {
+          lastSyncedAt: meta.lastSyncedAt || null,
+          productionPublicLessonCount: productionPublic?.lessonPlanCount || null,
+        }),
+      });
+      return;
+    }
+  }
+
+  const summary = curriculumProductionSync.buildSyncStatusSummary(
+    comparison || {
+      productionLessonCount: productionPublic?.lessonPlanCount || 0,
+      testingLessonCount: localCurriculum.lessonPlans.length,
+      missing: [],
+      outdated: [],
+      conflicts: [],
+      duplicateProductionIds: [],
+      duplicateTestingIds: [],
+      testerOnly: [],
+      status: (productionPublic?.lessonPlanCount || 0) === localCurriculum.lessonPlans.length ? "in_sync" : "needs_sync",
+    },
+    {
+      lastSyncedAt: meta.lastSyncedAt || null,
+      productionPublicLessonCount: productionPublic?.lessonPlanCount || null,
+      sourceConfigured,
+    },
+  );
+
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    sourceConfigured,
+    summary,
+    comparison: comparison
+      ? {
+          missingCount: comparison.missing.length,
+          outdatedCount: comparison.outdated.length,
+          conflictCount: comparison.conflicts.length,
+          conflicts: comparison.conflicts.slice(0, 20),
+          missingSample: comparison.missing.slice(0, 20),
+        }
+      : null,
+  });
+}
+
+async function handleAdminCurriculumProductionSync(request, response) {
+  const body = await readJson(request).catch(() => ({}));
+  const adminToken = extractAdminTokenFromBody(request, body) || extractAdminToken(request) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Production curriculum sync is available on the testing site only." });
+    return;
+  }
+
+  const dryRun = body?.dryRun !== false && body?.apply !== true;
+  let source;
+  try {
+    source = await loadProductionCurriculumSnapshot();
+  } catch (error) {
+    jsonResponse(response, 400, {
+      error: error.message || "Production curriculum source is not configured.",
+      code: error.code || "production_curriculum_source_unconfigured",
+    });
+    return;
+  }
+
+  // Never allow source host to match this service's own DB host.
+  try {
+    const localDb = String(process.env.PRODUCTION_DATABASE_URL || process.env.TESTING_DATABASE_URL || "");
+    if (source.mode === "database" && localDb) {
+      const sourceHost = new URL(productionCurriculumSourceDatabaseUrl()).hostname;
+      const localHost = new URL(localDb).hostname;
+      if (sourceHost && localHost && sourceHost === localHost) {
+        jsonResponse(response, 400, { error: "Refusing sync: production source database matches this testing database host." });
+        return;
+      }
+    }
+  } catch { /* ignore parse issues; continue with other guards */ }
+
+  const store = await readStoreFresh();
+  const testingCurriculum = curriculumProductionSync.normalizeCurriculum(readSiteCurriculum(store));
+  const productionCountBefore = source.curriculum.lessonPlans.length;
+  const plan = curriculumProductionSync.planCurriculumSync(source.curriculum, testingCurriculum);
+
+  if (plan.aborted) {
+    jsonResponse(response, 409, {
+      ok: false,
+      aborted: true,
+      message: plan.message,
+      reason: plan.reason,
+      summary: curriculumProductionSync.buildSyncStatusSummary(plan.comparison, {
+        lastSyncedAt: store.curriculumProductionSync?.lastSyncedAt || null,
+      }),
+      conflicts: plan.comparison.conflicts,
+      failedImports: plan.failedImports,
+    });
+    return;
+  }
+
+  if (dryRun) {
+    jsonResponse(response, 200, {
+      ok: true,
+      dryRun: true,
+      message: plan.message,
+      summary: curriculumProductionSync.buildSyncStatusSummary(plan.comparison, {
+        lastSyncedAt: store.curriculumProductionSync?.lastSyncedAt || null,
+      }),
+      imported: plan.imported,
+      updated: plan.updated,
+      failedImports: plan.failedImports,
+      activitiesUpserted: plan.activitiesUpserted,
+      resourcesUpserted: plan.resourcesUpserted,
+      seriesUpserted: plan.seriesUpserted,
+      productionLessonCount: productionCountBefore,
+      testingLessonCount: testingCurriculum.lessonPlans.length,
+    });
+    return;
+  }
+
+  // Backup testing curriculum into store audit trail before write.
+  const backupId = `curriculum_sync_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  store.curriculumSyncBackups = Array.isArray(store.curriculumSyncBackups) ? store.curriculumSyncBackups : [];
+  store.curriculumSyncBackups.unshift({
+    id: backupId,
+    at: new Date().toISOString(),
+    lessonPlanCount: testingCurriculum.lessonPlans.length,
+    activityCount: testingCurriculum.activities.length,
+    curriculum: testingCurriculum,
+  });
+  store.curriculumSyncBackups = store.curriculumSyncBackups.slice(0, 10);
+
+  const beforeIds = new Set(testingCurriculum.lessonPlans.map((p) => String(p.id || "")).filter(Boolean));
+  const writeResult = writeSiteCurriculum(store, plan.nextCurriculum, { updatedAt: plan.syncedAt });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, { error: "Curriculum wipe guard blocked the sync write." });
+    return;
+  }
+  const afterIds = new Set(plan.nextCurriculum.lessonPlans.map((p) => String(p.id || "")).filter(Boolean));
+  for (const id of beforeIds) {
+    if (!afterIds.has(id)) {
+      jsonResponse(response, 500, { error: `Safety abort: lesson ${id} would disappear.` });
+      return;
+    }
+  }
+
+  store.curriculumProductionSync = {
+    lastSyncedAt: plan.syncedAt,
+    lastBackupId: backupId,
+    productionLessonCount: productionCountBefore,
+    testingLessonCount: plan.nextCurriculum.lessonPlans.length,
+    importedCount: plan.imported.length,
+    updatedCount: plan.updated.length,
+    sourceMode: source.mode,
+    sourceHost: source.sourceHost,
+    status: "in_sync",
+  };
+
+  await writeStoreAsync(store);
+
+  const after = curriculumProductionSync.compareCurriculum(source.curriculum, plan.nextCurriculum);
+  jsonResponse(response, 200, {
+    ok: true,
+    dryRun: false,
+    message: `Synced production curriculum into testing. Imported ${plan.imported.length}, updated ${plan.updated.length}.`,
+    backupId,
+    summary: curriculumProductionSync.buildSyncStatusSummary(after, {
+      lastSyncedAt: plan.syncedAt,
+    }),
+    imported: plan.imported,
+    updated: plan.updated,
+    failedImports: plan.failedImports,
+    activitiesUpserted: plan.activitiesUpserted,
+    resourcesUpserted: plan.resourcesUpserted,
+    seriesUpserted: plan.seriesUpserted,
+    productionLessonCount: productionCountBefore,
+    testingLessonCount: plan.nextCurriculum.lessonPlans.length,
+    productionUnmodified: true,
+  });
 }
 
 async function handleAdminCurriculumWipe(request, response) {
@@ -23676,16 +24166,22 @@ function handleClientConfig(request, response) {
     measurementId: FIREBASE_MEASUREMENT_ID,
   };
   const meta = metaCapi.publicClientMetaConfig();
+  const firebaseStatus = firebaseConfigStatus();
+  const emailPublic = outboundEmailPublicStatus();
   const config = {
     adminEmail: ADMIN_EMAIL,
     firebase,
-    firebaseStatus: firebaseConfigStatus(),
+    firebaseStatus,
+    // Stable auth mode for the client: local when Firebase is not configured.
+    authMode: firebaseStatus.ready ? "firebase" : "local",
+    outboundEmail: emailPublic,
     push: {
       supported: Boolean(pushService && pushService.configured()),
       publicKey: pushService ? pushService.publicKey() : "",
     },
     homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
     aiGuideEnabled: isAiGuideEnabled(),
+    siteUrl: SITE_URL || "",
     meta,
   };
   response.writeHead(200, {
@@ -27505,6 +28001,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/restore-audit") return handleAdminCurriculumRestoreAudit(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/new") return handleAdminCurriculumBackupNew(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/full") return handleAdminCurriculumBackupFull(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/production-sync/status") {
+      return await handleAdminCurriculumProductionSyncStatus(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/production-sync") {
+      return await handleAdminCurriculumProductionSync(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") {
       // Kept behind ALLOW_CURRICULUM_WIPE=true; returns 404 when disabled.
       return await handleAdminCurriculumWipe(request, response);

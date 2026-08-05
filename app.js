@@ -1091,16 +1091,20 @@ const formGroups = {
     "Enrollment Packet", "Child Information Form", "Emergency Contact Form", "Authorized Pickup Form",
     "Child Enrollment Agreement", "Family Information Sheet", "Child Pick-Up Password Form", "Getting to Know Your Child",
     "Photo Release Form", "Transportation Permission", "Field Trip Permission", "Water Play Permission",
+    "Custody Information", "Child Schedule Form", "Insect Repellent Permission", "Nap Permission",
+    "Potty Training Information", "Walking Field Trip Permission",
   ],
   "Medical Forms": [
     "Medication Authorization", "Allergy Form", "Health Record", "Illness Report",
     "Immunization Record", "Sunscreen Authorization", "Topical Ointment Authorization", "Special Health Care Plan",
     "Injury Report", "Medication Log", "Fever Return Form", "Food Substitution Form",
+    "Medical Information Form", "Physician Information Form", "Asthma Action Plan", "Seizure Plan", "Diabetes Plan",
   ],
   "Daily Forms": [
     "Daily Report", "Incident Report", "Behavior Report", "Infant Daily Sheet",
     "Toddler Daily Sheet", "Preschool Daily Sheet", "Nap Log", "Diaper Change Log",
     "Potty Training Log", "Meal Tracking Sheet", "Mood and Behavior Tracker", "Daily Cleaning Checklist",
+    "Bottle Log", "Infant Daily Report",
   ],
   "Business Forms": [
     "Tuition Agreement", "Payment Tracker", "Tax Receipt", "Late Payment Notice", "Withdrawal Form",
@@ -1111,18 +1115,23 @@ const formGroups = {
     "Parent Handbook", "Newsletter Template", "Permission Slip", "Field Trip Form",
     "Parent Conference Form", "Parent Communication Log", "Supply Request Note", "Policy Update Notice",
     "Welcome Letter", "Transition Note", "Late Pick-Up Notice", "Positive Behavior Note", "Development Update",
+    "Parent Survey", "Schedule Change Request", "Event RSVP",
   ],
   "Safety Forms": [
     "Emergency Drill Log", "Fire Drill Record", "Tornado Drill Record", "Lockdown Drill Record",
     "Playground Safety Checklist", "Safe Sleep Checklist", "Transportation Safety Checklist", "Visitor Sign-In Sheet",
+    "Medication Audit Log", "Refrigerator Temperature Log", "Freezer Temperature Log", "Vehicle Inspection Checklist",
   ],
   "Program Planning Forms": [
     "Monthly Planning Sheet", "Weekly Planning Sheet", "Theme Planning Form", "Activity Planning Template",
     "Observation Planning Sheet", "Child Goal Planning Form", "Portfolio Checklist", "Materials Inventory",
+    "Developmental Assessment Form", "Behavior Support Plan",
   ],
   "Staff Forms": [
     "Staff Information Sheet", "Substitute Provider Checklist", "Training Log", "Staff Schedule",
     "Volunteer Agreement", "Confidentiality Agreement",
+    "Employment Application", "Staff Emergency Contact", "CPR Record", "Background Check Record",
+    "Staff Evaluation", "Time Off Request",
   ],
 };
 const freeFormGroups = new Set([
@@ -2452,6 +2461,29 @@ const firebaseAuthConfig = {
   appId: "",
 };
 const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthConfig.authDomain && firebaseAuthConfig.projectId && firebaseAuthConfig.appId);
+/** Local email/password is the primary auth path when Firebase is not configured (testing). */
+function isLocalAuthPrimary() {
+  const mode = String(window.LLH_CONFIG?.authMode || "").trim().toLowerCase();
+  if (mode === "local") return true;
+  if (mode === "firebase") return false;
+  return !firebaseAuthEnabled;
+}
+function isOutboundEmailDisabled() {
+  const outbound = window.LLH_CONFIG?.outboundEmail;
+  if (outbound && typeof outbound === "object") {
+    if (outbound.disabled === true) return true;
+    if (outbound.ready === false) return true;
+  }
+  return isLocalAuthPrimary();
+}
+function outboundEmailStatusNote() {
+  const outbound = window.LLH_CONFIG?.outboundEmail;
+  if (outbound?.reason) return String(outbound.reason);
+  if (isOutboundEmailDisabled()) {
+    return "Email delivery is disabled on this testing site. Use copyable invite and reset links instead.";
+  }
+  return "Email delivery is configured.";
+}
 const authProviderName = "Email & password";
 let firebaseAuthClient = null;
 // Numeric caps apply to legacy library resources only. Curriculum lesson plans and activities
@@ -8286,7 +8318,16 @@ function saveFormsProgramTemplates(templates) {
   return templates;
 }
 
-function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
+function saveAiFormAsProgramTemplate({
+  title,
+  category,
+  body,
+  packFormId = "",
+  resourceId = "",
+  fieldsSchema = null,
+  catalogId = "",
+  connections = [],
+} = {}) {
   const text = String(body || "").trim();
   if (!text) throw new Error("Generate or edit a draft before saving a template.");
   const template = {
@@ -8296,6 +8337,9 @@ function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", r
     body: text,
     packFormId: String(packFormId || "").trim(),
     resourceId: String(resourceId || "").trim(),
+    catalogId: String(catalogId || "").trim(),
+    fieldsSchema: fieldsSchema && typeof fieldsSchema === "object" ? fieldsSchema : null,
+    connections: Array.isArray(connections) ? connections : [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -8400,6 +8444,10 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     packFormId: formSpec.packFormId || "",
     resourceId: formSpec.resourceId || "",
     templateId: formSpec.templateId || "",
+    catalogId: formSpec.catalogId || "",
+    fieldsSchema: formSpec.fieldsSchema && typeof formSpec.fieldsSchema === "object" ? formSpec.fieldsSchema : null,
+    connections: Array.isArray(formSpec.connections) ? formSpec.connections : [],
+    answers: formSpec.answers && typeof formSpec.answers === "object" ? formSpec.answers : {},
     status,
     statusLabel: homeDaycarePackDocumentStatusLabel(status),
     notes: String(formSpec.notes || "").trim(),
@@ -14173,7 +14221,8 @@ function setAuthMode(mode) {
     const intentNote = document.querySelector("#authFoundingContinueNote");
     if (intentNote) intentNote.hidden = true;
     title.textContent = "Reset your password";
-    submitButton.textContent = "Send Reset Email";
+    // On testing (email off / local auth), never promise an email send.
+    submitButton.textContent = isOutboundEmailDisabled() ? "Get Reset Link" : "Send Reset Email";
     forgotButton.style.display = "none";
     switchButton.textContent = "Back to login";
     renderSignupWizardStep();
@@ -14227,11 +14276,28 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
 
 async function loginWithServerPassword(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
-  const response = await fetch("/api/auth/password-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: cleanEmail, password }),
-  });
+  // Keep local-primary login snappy — do not hang for several seconds on a slow 401.
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutMs = isLocalAuthPrimary() ? 2500 : 12000;
+  const timer = controller ? setTimeout(() => {
+    try { controller.abort(); } catch (_err) { /* ignore */ }
+  }, timeoutMs) : null;
+  let response;
+  try {
+    response = await fetch("/api/auth/password-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail, password }),
+      signal: controller?.signal,
+    });
+  } catch (error) {
+    if (timer) clearTimeout(timer);
+    if (error?.name === "AbortError") {
+      throw new Error("Sign-in is taking longer than usual. Please try again.");
+    }
+    throw error;
+  }
+  if (timer) clearTimeout(timer);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error || "The email or password did not match. Please try again.");
@@ -14292,10 +14358,28 @@ async function syncPasswordAfterFirebaseAuth(password, source = "firebase_login"
   }
 }
 
+async function loginWithLocalPassword(email, password) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const account = accounts()[cleanEmail];
+  if (!account) return null;
+  if (account.passwordHash) {
+    const hash = await localPasswordHash(password);
+    if (hash !== account.passwordHash) {
+      throw new Error("The email or password did not match. Please try again.");
+    }
+  }
+  return {
+    email: cleanEmail,
+    verified: account.emailVerified,
+    mustChangePassword: accountRequiresPasswordChange(account),
+    source: "local",
+  };
+}
+
 async function loginWithProvider(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
-  if (firebaseAuthEnabled) {
+  if (firebaseAuthEnabled && !isLocalAuthPrimary()) {
     try {
       // Re-resolve client so Keep me signed in applies the right Firebase persistence.
       firebaseAuthClient = null;
@@ -14329,14 +14413,51 @@ async function loginWithProvider(email, password) {
       }
     }
   }
+
+  // Local-primary testing path: prefer the on-device password hash first so login
+  // does not wait on a known-unavailable server/Firebase configuration.
+  const localAccount = accounts()[cleanEmail];
+  if (localAccount?.passwordHash) {
+    try {
+      return await loginWithLocalPassword(cleanEmail, password);
+    } catch (localError) {
+      // Fall through to server recovery / temp-password path.
+      try {
+        return await loginWithServerPassword(cleanEmail, password);
+      } catch (_serverError) {
+        throw localError;
+      }
+    }
+  }
+
   try {
     return await loginWithServerPassword(cleanEmail, password);
   } catch (serverError) {
+    const serverMsg = String(serverError?.message || "");
+    // Never fall back to a local password hash when the server says the account is disabled.
+    if (/disabled|contact support/i.test(serverMsg)) throw serverError;
+    try {
+      const local = await loginWithLocalPassword(cleanEmail, password);
+      if (local) return local;
+    } catch (_localError) { /* keep server error */ }
     const account = accounts()[cleanEmail];
-    if (!account) throw serverError;
+    if (!account) {
+      if (/firebase|resend|not configured|provider/i.test(serverMsg)) {
+        throw new Error("The email or password did not match. Please try again.");
+      }
+      throw serverError;
+    }
+    if (String(account.accountStatus || "").toLowerCase() === "disabled" || account.disabled === true) {
+      throw new Error("This account has been disabled. Please contact support.");
+    }
     if (account.passwordHash) {
       const hash = await localPasswordHash(password);
-      if (hash !== account.passwordHash) throw serverError;
+      if (hash !== account.passwordHash) {
+        if (/firebase|resend|not configured|provider/i.test(serverMsg)) {
+          throw new Error("The email or password did not match. Please try again.");
+        }
+        throw serverError;
+      }
     }
     return { email: cleanEmail, verified: account.emailVerified, mustChangePassword: accountRequiresPasswordChange(account) };
   }
@@ -14384,8 +14505,12 @@ async function completeForcedPasswordChange(newPassword, confirmPassword) {
 async function sendPasswordReset(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
-  console.info("[auth] password_reset_request", { email: cleanEmail, firebase: firebaseAuthEnabled });
-  if (firebaseAuthEnabled) {
+  console.info("[auth] password_reset_request", {
+    email: cleanEmail,
+    firebase: firebaseAuthEnabled,
+    localPrimary: isLocalAuthPrimary(),
+  });
+  if (firebaseAuthEnabled && !isLocalAuthPrimary()) {
     const client = await getFirebaseAuthClient();
     const resetUrl = window.location.origin && window.location.origin !== "null"
       ? `${window.location.origin}${window.location.pathname}`
@@ -14396,13 +14521,18 @@ async function sendPasswordReset(email) {
         handleCodeInApp: false,
       });
       console.info("[auth] password_reset_email_sent", { email: cleanEmail });
-      return "Password reset email sent. Please check your inbox (and spam folder). The link usually stays valid for about an hour — request another if it expires.";
+      return {
+        message: "Password reset email sent. Please check your inbox (and spam folder).",
+        delivery: "sent",
+        resetUrl: "",
+      };
     } catch (error) {
       console.error("[auth] password_reset_email_failed", { email: cleanEmail, code: error?.code, message: error?.message });
-      throw error;
+      throw new Error("Could not start password reset. Please try again or Message Support.");
     }
   }
-  // Gated server Resend path — only used when Firebase is off and Resend+DNS are ready.
+
+  // Local / testing path — never pretend email was sent when delivery is off.
   try {
     const response = await fetch("/api/auth/request-password-reset", {
       method: "POST",
@@ -14411,11 +14541,25 @@ async function sendPasswordReset(email) {
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok && data.delivery === "sent") {
-      return data.message || "If that email is in Little Learner Hub, a password reset link has been sent.";
+      return {
+        message: data.message || "If that email is in Little Learner Hub, a password reset link has been sent.",
+        delivery: "sent",
+        resetUrl: "",
+      };
+    }
+    if (response.ok && data.delivery === "manual_link" && data.resetUrl) {
+      return {
+        message: data.message || outboundEmailStatusNote(),
+        delivery: "manual_link",
+        resetUrl: String(data.resetUrl || ""),
+        expiresAt: data.expiresAt || "",
+      };
     }
   } catch (error) {
     console.warn("[auth] server_password_reset_unavailable", error);
   }
+
+  // Same-browser fallback for local-only accounts that never synced to the server.
   const token = `demo-reset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   localStorage.setItem("llhDemoResetToken", JSON.stringify({
     email: cleanEmail,
@@ -14423,8 +14567,13 @@ async function sendPasswordReset(email) {
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }));
+  const localResetUrl = `${window.location.origin}/?view=reset-password&demoReset=1`;
   console.info("[auth] password_reset_demo_token_created", { email: cleanEmail });
-  return "If that email is on file, you can continue with a reset link. Check your inbox and spam folder, or Message Support if nothing arrives.";
+  return {
+    message: "Email delivery is off on this testing site. Continue on this device to set a new password, or Message Support.",
+    delivery: "local_demo",
+    resetUrl: localResetUrl,
+  };
 }
 
 async function resendVerificationEmail() {
@@ -14943,6 +15092,9 @@ function renderTeacherTodayPage() {
     : "";
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
   const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
+  const allergyBanner = typeof window !== "undefined" && window.FormsCenter?.allergyBannerHtml
+    ? window.FormsCenter.allergyBannerHtml(records)
+    : "";
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: "Today",
@@ -14954,6 +15106,7 @@ function renderTeacherTodayPage() {
         <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
         <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
       </div>
+      ${allergyBanner}
       ${lessonHtml}
       ${attentionHtml}
       <section class="work-hub-section">
@@ -36745,10 +36898,23 @@ function renderFamilyHubFormsPanel(data) {
       icon: "forms",
     });
   }
-  return `
+  // Attach structured schemas from provider Documents when available (same-browser testing).
+  const enriched = documents.map((doc) => {
+    try {
+      if (doc.fieldsSchema?.fields?.length) return doc;
+      if (typeof childStore === "function") {
+        const local = (childStore("Documents") || []).find((item) => String(item.id) === String(doc.id));
+        if (local?.fieldsSchema?.fields?.length) {
+          return { ...doc, fieldsSchema: local.fieldsSchema, answers: local.answers || doc.answers || {}, connections: local.connections || [] };
+        }
+      }
+    } catch (_e) { /* ignore */ }
+    return doc;
+  });
+  const baseHtml = `
     <div class="fh-panel-stack">
       <p class="fh-meta">Review each form, then sign. Your provider sees the update right away in Forms &amp; Records.</p>
-      ${documents.map((doc) => {
+      ${enriched.map((doc) => {
         const canSign = Boolean(doc.canAcknowledge);
         const signedMeta = doc.signedAt
           ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
@@ -36774,6 +36940,15 @@ function renderFamilyHubFormsPanel(data) {
       }).join("")}
     </div>
   `;
+  try {
+    if (typeof window !== "undefined" && window.FormsCenter?.enhanceFamilyHubFormsHtml) {
+      return window.FormsCenter.enhanceFamilyHubFormsHtml(baseHtml, { ...data, documents: enriched });
+    }
+    if (typeof window !== "undefined" && window.FormsEcosystem?.enhanceFamilyHubFormsHtml) {
+      return window.FormsEcosystem.enhanceFamilyHubFormsHtml(baseHtml, { ...data, documents: enriched });
+    }
+  } catch (_e) { /* fall through */ }
+  return baseHtml;
 }
 
 function renderFamilyHubMorePanel(data) {
@@ -37730,11 +37905,29 @@ function renderHomeDaycareStaffInvitePanel() {
   ];
   const testerInvites = hdhTesterInviteCache.invites || [];
   const invite = hdhTesterInviteResult;
+  const emailOffNote = isOutboundEmailDisabled()
+    ? `<p class="form-message testing-email-disabled-note" role="status"><strong>Email delivery is disabled on this testing site.</strong> Invites create a copyable testing-site link — nothing is emailed, and links never open production.</p>`
+    : "";
+  const inviteInstructions = invite?.acceptUrl
+    ? [
+      `You're invited to test Little Learner Hub (testing site only).`,
+      ``,
+      `1. Open this link on the testing site:`,
+      invite.acceptUrl,
+      ``,
+      `2. Sign up or log in with exactly: ${invite.email || "the invited email"}`,
+      `3. Accept the invite — you'll get your own Teacher tools and starter child ("${invite.childName || "Demo Child"}").`,
+      `4. Message Leah inside Messages if you need help.`,
+      ``,
+      `Do not use the production website with this link.`,
+    ].join("\n")
+    : "";
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
       <p class="eyebrow">Staff invites</p>
       <h3>Invite a tester (own account + own kid)</h3>
       <p class="muted-copy">Each tester gets their <strong>own</strong> Teacher account and their <strong>own</strong> starter child — not your kids, not a shared program. They can use Hub, forms, lessons, calendar, and daily logs. <strong>No Admin.</strong> They Message Leah in Messages.</p>
+      ${emailOffNote}
       <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
         <div class="form-grid-two">
           <label>Tester email
@@ -37744,23 +37937,25 @@ function renderHomeDaycareStaffInvitePanel() {
             <input name="childName" maxlength="60" placeholder="Demo Child" />
           </label>
         </div>
-        <button class="primary-button" type="submit">Invite tester</button>
+        <button class="primary-button" type="submit">Create tester invite</button>
         <p class="form-note">Creates an independent testing account for them. Their data stays private to their login.</p>
         <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result hdh-staff-invite-result" role="status">
           <strong>Tester invite ready for ${escapeHtml(invite.email || "tester")}</strong>
-          <p class="muted-copy">They must use this exact email. Share the accept link:</p>
-          <p><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
+          <p class="muted-copy">${invite.emailSent ? "Invite email sent." : "Email was not sent (disabled on testing). Share the link manually:"}</p>
+          <p class="hdh-code-wrap"><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
           <ol class="hdh-tester-path">
-            <li>They open the link on the testing site.</li>
+            <li>They open the link on the <strong>testing site only</strong>.</li>
             <li>Sign Up or log in with <strong>${escapeHtml(invite.email || "that email")}</strong>.</li>
-            <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools.</li>
+            <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools. Testing Pro applies automatically.</li>
+            <li>Multi-Role Tester appears only if Admin enables it for that tester.</li>
             <li>To reach you: <strong>Messages → Message Leah</strong> (not Admin).</li>
           </ol>
           <div class="account-actions-row">
-            <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy accept link</button>
+            <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy Invite Link</button>
+            <button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(inviteInstructions)}">Copy Instructions</button>
           </div>
         </div>
       ` : ""}
@@ -37771,10 +37966,10 @@ function renderHomeDaycareStaffInvitePanel() {
             <article class="hdh-forms-pack-item">
               <div>
                 <strong>${escapeHtml(item.email || "Tester")}</strong>
-                <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}</p>
+                <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}${item.emailSent ? " · email sent" : " · link only"}</p>
               </div>
               <div class="hdh-forms-pack-actions">
-                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
+                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy Invite Link</button>` : ""}
                 ${item.status === "pending" ? `<button class="ghost-button" type="button" data-hdh-tester-invite-revoke="${escapeHtml(item.id)}">Revoke</button>` : ""}
               </div>
             </article>
@@ -38066,12 +38261,17 @@ function renderHomeDaycareHubPage(options = {}) {
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
+        ${typeof window !== "undefined" && window.FormsCenter?.hubHtml
+          ? window.FormsCenter.hubHtml()
+          : `${typeof window !== "undefined" && window.FormsEcosystem?.dashboardHtml ? window.FormsEcosystem.dashboardHtml() : ""}
+        ${typeof window !== "undefined" && window.FormsEcosystem?.libraryHtml ? window.FormsEcosystem.libraryHtml() : ""}
+        ${typeof window !== "undefined" && window.FormsEcosystem?.aiBuilderHtml ? window.FormsEcosystem.aiBuilderHtml() : ""}`}
         ${renderFormsAttentionPanel()}
         ${renderProgramFormTemplatesPanel()}
         <section class="section-block" id="hdhFormsPackPanel">
-          <p class="eyebrow">Built-in library</p>
+          <p class="eyebrow">Starter pack</p>
           <h3>Home daycare forms pack</h3>
-          <p class="muted-copy">Enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
+          <p class="muted-copy">Core enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
           ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
           ${firstChild ? `
             <div class="account-actions-row" style="margin-top:14px;">
@@ -41048,9 +41248,10 @@ function renderChildFormsRecordsTab(child, records) {
         <div>
           <p class="eyebrow">Forms &amp; Records</p>
           <h3>Child file for ${escapeHtml(child.name)}</h3>
-          <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
+          <p class="muted-copy">Enrollment, medical, emergency, permissions, medications, and immunizations — one file, one timeline.</p>
         </div>
       </div>
+      ${typeof window !== "undefined" && window.FormsCenter?.childStatusHtml ? window.FormsCenter.childStatusHtml(child) : ""}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-forms-filters" aria-label="Search and filter forms">
         <label>Search
@@ -44235,16 +44436,19 @@ function attendanceForm(childId) {
 function mealTrackingForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().meals || [], "lunch", childId, 6);
   const activeDate = dlcActiveDate();
+  const child = (childRecords().children || []).find((item) => String(item.id) === String(childId));
+  const allergyWarning = String(child?.allergies || "").trim();
   return `
     <form id="mealTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
+      ${allergyWarning ? `<p class="fc-allergy-card" role="alert"><strong>Allergy warning</strong><br>${escapeHtml(allergyWarning)}</p>` : ""}
       <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
       ${renderMealPresetControls(`mealPresetSelect-${childId}`)}
       <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes"></textarea></label>
-      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes"></textarea></label>
+      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes">${escapeHtml(allergyWarning)}</textarea></label>
       ${renderSuggestionDataList(`mealTrackingSuggestions-${childId}`, suggestions)}
       <button class="primary-button" type="submit">Save Meals</button>
     </form>
@@ -44755,6 +44959,14 @@ function runFormSignedAutomation(doc = {}) {
       source: "form_signed",
     });
   }
+  // Forms Center / ecosystem: one form updates profile, timeline, alerts, Family Hub.
+  try {
+    if (typeof window !== "undefined" && window.FormsCenter && typeof window.FormsCenter.onFormSigned === "function") {
+      window.FormsCenter.onFormSigned(doc);
+    } else if (typeof window !== "undefined" && window.FormsEcosystem && typeof window.FormsEcosystem.onFormSigned === "function") {
+      window.FormsEcosystem.onFormSigned(doc);
+    }
+  } catch (_fe) { /* non-blocking */ }
   appendOpsAlert({
     type: "form_signed",
     title: `Form signed${doc.title ? `: ${doc.title}` : ""}`,
@@ -49074,6 +49286,17 @@ function renderAdminOwnerOverview() {
         </div>
         <p class="muted-copy">Test programs / providers / parents are created through Family Hub invites and staff invites — not shown outside Admin.</p>
       </div>
+      <div class="admin-testing-center-block admin-curriculum-sync-block" id="adminCurriculumSyncBlock" data-admin-curriculum-sync>
+        <p class="admin-testing-center-label">Production curriculum</p>
+        <p class="muted-copy">Pull new or updated lesson plans from production into this testing sandbox. Never deletes testing data and never writes to production.</p>
+        <div id="adminCurriculumSyncStatus" class="admin-curriculum-sync-status" aria-live="polite">
+          <p class="muted-copy">Loading sync status…</p>
+        </div>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Curriculum sync">
+          <button type="button" class="primary-button" data-admin-testing-action="sync-production-curriculum">Sync Production Curriculum</button>
+          <button type="button" class="ghost-button" data-admin-testing-action="refresh-curriculum-sync-status">Refresh status</button>
+        </div>
+      </div>
       <p class="admin-preview-active-chip" data-admin-preview-active-chip>
         Active: <strong>${escapeHtml(previewMode)}</strong>
         · role <strong>${escapeHtml(getUserRole())}</strong>
@@ -49233,6 +49456,114 @@ function renderAdminOwnerOverview() {
   `;
   bindAdminOwnerDrilldownControls(target);
   ensureAdminBackToTop();
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    refreshAdminCurriculumSyncStatus().catch(() => {});
+  }
+}
+
+function formatAdminCurriculumSyncTime(value) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function renderAdminCurriculumSyncStatusHtml(payload = {}) {
+  const summary = payload.summary || {};
+  const production = summary.productionLessonCount ?? summary.productionPublicLessonCount ?? "—";
+  const testing = summary.testingLessonCount ?? "—";
+  const status = summary.statusLabel || "Status unavailable";
+  const lastSynced = formatAdminCurriculumSyncTime(summary.lastSyncedAt);
+  const sourceNote = payload.sourceConfigured === false
+    ? `<p class="form-note">Full sync source is not configured on this service yet. Counts below use the public production inventory when available.</p>`
+    : "";
+  const conflictNote = summary.conflictCount
+    ? `<p class="form-note">Conflicts: ${Number(summary.conflictCount)} — sync is blocked until resolved.</p>`
+    : "";
+  return `
+    <ul class="admin-curriculum-sync-metrics">
+      <li>Production: <strong>${escapeHtml(String(production))}</strong> lesson plans</li>
+      <li>Testing: <strong>${escapeHtml(String(testing))}</strong> lesson plans</li>
+      <li>Last synced: <strong>${escapeHtml(lastSynced)}</strong></li>
+      <li>Status: <strong>${escapeHtml(status)}</strong></li>
+    </ul>
+    ${sourceNote}
+    ${conflictNote}
+  `;
+}
+
+async function refreshAdminCurriculumSyncStatus() {
+  const host = document.querySelector("#adminCurriculumSyncStatus");
+  if (!host) return null;
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && !isHomeDaycareHubTestingEnabled()) {
+    host.innerHTML = `<p class="muted-copy">Curriculum sync is testing-site only.</p>`;
+    return null;
+  }
+  const token = typeof adminSessionToken === "function" ? adminSessionToken() : (adminSession()?.token || "");
+  if (!token) {
+    host.innerHTML = `<p class="muted-copy">Unlock Admin to load curriculum sync status.</p>`;
+    return null;
+  }
+  host.innerHTML = `<p class="muted-copy">Loading sync status…</p>`;
+  try {
+    const response = await fetch("/api/admin/curriculum/production-sync/status", {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not load sync status.");
+    host.innerHTML = renderAdminCurriculumSyncStatusHtml(data);
+    return data;
+  } catch (error) {
+    host.innerHTML = `<p class="muted-copy">${escapeHtml(error.message || "Could not load sync status.")}</p>`;
+    return null;
+  }
+}
+
+async function runAdminProductionCurriculumSync({ apply = true } = {}) {
+  const token = typeof adminSessionToken === "function" ? adminSessionToken() : (adminSession()?.token || "");
+  if (!token) {
+    showActionFeedback("Unlock Admin first.");
+    return null;
+  }
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && !isHomeDaycareHubTestingEnabled()) {
+    showActionFeedback("Curriculum sync is testing-site only.");
+    return null;
+  }
+  const host = document.querySelector("#adminCurriculumSyncStatus");
+  if (host) host.innerHTML = `<p class="muted-copy">${apply ? "Syncing from production…" : "Comparing with production…"}</p>`;
+  try {
+    const response = await fetch("/api/admin/curriculum/production-sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ apply: !!apply, dryRun: !apply }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      showActionFeedback(data?.message || "Sync blocked by a conflict.");
+      if (host) host.innerHTML = renderAdminCurriculumSyncStatusHtml(data);
+      return data;
+    }
+    if (!response.ok) throw new Error(data?.error || data?.message || "Curriculum sync failed.");
+    showActionFeedback(data?.message || (apply ? "Curriculum synced." : "Dry-run complete."));
+    if (host) host.innerHTML = renderAdminCurriculumSyncStatusHtml(data);
+    else await refreshAdminCurriculumSyncStatus();
+    return data;
+  } catch (error) {
+    showActionFeedback(error.message || "Curriculum sync failed.");
+    if (host) {
+      host.innerHTML = `<p class="muted-copy">${escapeHtml(error.message || "Curriculum sync failed.")}</p>`;
+    }
+    return null;
+  }
 }
 
 function ensureAdminBackToTop() {
@@ -52631,7 +52962,22 @@ function applyAdminSectionVisibility() {
     try {
       if (!landingApp) throw new Error("Admin landing workspace is missing from the page.");
       if (!ws) throw new Error("Admin workspace helpers failed to load.");
-      if (tab === "admin-home") ws.renderAdminHomeWorkspace(landingApp);
+      if (tab === "admin-home") {
+        ws.renderAdminHomeWorkspace(landingApp);
+        // Testing site: mount Owner Command Center (Testing Center + curriculum sync)
+        // inside the landing host so workspace grid layout stays intact.
+        if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+          const ownerPanel = document.querySelector(".admin-owner-panel");
+          const overview = document.querySelector("#adminOwnerOverview");
+          if (ownerPanel && overview && landingApp) {
+            ownerPanel.hidden = false;
+            if (overview.parentElement !== landingApp) {
+              landingApp.appendChild(ownerPanel);
+            }
+            renderAdminOwnerOverview();
+          }
+        }
+      }
       else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
       else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
       else if (tab === "website-home") ws.renderAdminWebsiteHome(landingApp);
@@ -61205,6 +61551,50 @@ function renderCancelSubscriptionPage() {
   `;
 }
 
+function showTestingPasswordResetPanel({ email = "", message = "", resetUrl = "", delivery = "" } = {}) {
+  let panel = document.querySelector("#testingPasswordResetPanel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "testingPasswordResetPanel";
+    panel.className = "modal open testing-password-reset-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "testingPasswordResetTitle");
+    document.body.appendChild(panel);
+  }
+  const instructions = [
+    "Password reset for the testing site",
+    email ? `Account: ${email}` : "",
+    "",
+    "Email delivery is disabled on testing.",
+    resetUrl ? "1. Copy the reset link below." : "1. Continue on this same device/browser.",
+    resetUrl ? "2. Open the link on the testing site only (not production)." : "2. Choose a new password on the next screen.",
+    "3. Sign in with your new password.",
+  ].filter(Boolean).join("\n");
+  panel.innerHTML = `
+    <div class="modal-card auth-modal-card">
+      <button class="close-button" type="button" data-testing-reset-close aria-label="Close">&times;</button>
+      <p class="eyebrow">Testing site recovery</p>
+      <h2 id="testingPasswordResetTitle">Reset without email</h2>
+      <p class="muted-copy">${escapeHtml(message || outboundEmailStatusNote())}</p>
+      ${resetUrl ? `<p class="hdh-code-wrap"><code class="hdh-code" id="testingResetLinkCode">${escapeHtml(resetUrl)}</code></p>` : ""}
+      <div class="account-actions-row">
+        ${resetUrl ? `<button class="primary-button" type="button" data-testing-reset-copy-link>Copy Reset Link</button>` : ""}
+        <button class="ghost-button" type="button" data-testing-reset-copy-instructions>Copy Instructions</button>
+        <button class="primary-button" type="button" data-testing-reset-continue>Continue to New Password</button>
+      </div>
+      <p class="form-note">This recovery path never opens the production website.</p>
+      <span class="form-message" id="testingPasswordResetMessage" aria-live="polite"></span>
+    </div>
+  `;
+  panel.dataset.instructions = instructions;
+  panel.dataset.resetUrl = resetUrl || "";
+  panel.classList.add("open");
+  panel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("auth-modal-open");
+  closeAuthModal();
+}
+
 function renderResetPasswordPage() {
   const message = document.querySelector("#resetPasswordMessage");
   if (!message) return;
@@ -61212,12 +61602,14 @@ function renderResetPasswordPage() {
   const resetToken = params.get("resetToken") || readPendingUrlSecret("resetToken");
   if (resetToken) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
-  } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
+  } else if (firebaseAuthEnabled && !isLocalAuthPrimary() && params.get("mode") === "resetPassword" && params.get("oobCode")) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
-  } else if (!firebaseAuthEnabled && localStorage.getItem("llhDemoResetToken")) {
-    setFormMessage(message, "Enter a new password to finish resetting your account.", true);
+  } else if (isLocalAuthPrimary() && (localStorage.getItem("llhDemoResetToken") || params.get("demoReset"))) {
+    setFormMessage(message, "Enter a new password to finish resetting your testing account.", true);
+  } else if (isOutboundEmailDisabled()) {
+    setFormMessage(message, "Email delivery is off on testing. Request a reset from Log In → Forgot password to get a copyable testing link.", true);
   } else {
-    setFormMessage(message, "Request a password reset email from the login screen first.");
+    setFormMessage(message, "Request a password reset from the login screen first.");
   }
 }
 
@@ -62494,6 +62886,14 @@ document.addEventListener("click", async (event) => {
     if (action === "reset-preview") {
       setAdminPreviewMode("Admin");
       showActionFeedback("View As reset to Admin.");
+      return;
+    }
+    if (action === "refresh-curriculum-sync-status") {
+      refreshAdminCurriculumSyncStatus();
+      return;
+    }
+    if (action === "sync-production-curriculum") {
+      runAdminProductionCurriculumSync({ apply: true });
       return;
     }
   }
@@ -64118,6 +64518,59 @@ document.addEventListener("click", async (event) => {
     } else {
       window.prompt("Copy this value:", text);
     }
+    return;
+  }
+
+  const testingResetClose = event.target.closest("[data-testing-reset-close]");
+  if (testingResetClose) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    panel?.classList.remove("open");
+    panel?.setAttribute("aria-hidden", "true");
+    if (!document.querySelector(".modal.open")) document.body.classList.remove("auth-modal-open");
+    return;
+  }
+  const testingResetCopyLink = event.target.closest("[data-testing-reset-copy-link]");
+  if (testingResetCopyLink) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    const text = panel?.dataset?.resetUrl || document.querySelector("#testingResetLinkCode")?.textContent || "";
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setFormMessage("#testingPasswordResetMessage", "Reset link copied.", true);
+        showActionFeedback("Reset link copied.");
+      }).catch(() => window.prompt("Copy this reset link:", text));
+    } else window.prompt("Copy this reset link:", text);
+    return;
+  }
+  const testingResetCopyInstructions = event.target.closest("[data-testing-reset-copy-instructions]");
+  if (testingResetCopyInstructions) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    const text = panel?.dataset?.instructions || "";
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setFormMessage("#testingPasswordResetMessage", "Instructions copied.", true);
+        showActionFeedback("Instructions copied.");
+      }).catch(() => window.prompt("Copy these instructions:", text));
+    } else window.prompt("Copy these instructions:", text);
+    return;
+  }
+  const testingResetContinue = event.target.closest("[data-testing-reset-continue]");
+  if (testingResetContinue) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    const resetUrl = panel?.dataset?.resetUrl || "";
+    panel?.classList.remove("open");
+    panel?.setAttribute("aria-hidden", "true");
+    if (!document.querySelector(".modal.open")) document.body.classList.remove("auth-modal-open");
+    if (resetUrl && /resetToken=/.test(resetUrl)) {
+      window.location.assign(resetUrl);
+      return;
+    }
+    setView("reset-password");
     return;
   }
 
@@ -69633,12 +70086,32 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     }
   }
   submitButton.disabled = true;
-  setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
+  setFormMessage(
+    "#authMessage",
+    currentAuthMode === "forgot"
+      ? (isOutboundEmailDisabled() ? "Preparing your testing reset link…" : "Sending your reset link…")
+      : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"),
+    true,
+  );
   try {
     if (currentAuthMode === "forgot") {
-      const message = await sendPasswordReset(email);
-      setFormMessage("#authMessage", message, true);
-      trackEvent("password_reset_requested");
+      const resetResult = await sendPasswordReset(email);
+      const resetPayload = typeof resetResult === "string"
+        ? { message: resetResult, delivery: "sent", resetUrl: "" }
+        : (resetResult || {});
+      const resetMessage = String(resetPayload.message || "Password reset started.");
+      setFormMessage("#authMessage", resetMessage, true);
+      trackEvent("password_reset_requested", { delivery: resetPayload.delivery || "" });
+      // Keep testers on an honest recovery path when email cannot send.
+      if (resetPayload.resetUrl || resetPayload.delivery === "manual_link" || resetPayload.delivery === "local_demo") {
+        showTestingPasswordResetPanel({
+          email,
+          message: resetMessage,
+          resetUrl: resetPayload.resetUrl || "",
+          delivery: resetPayload.delivery || "",
+        });
+        return;
+      }
       closeAuthModal();
       setView("reset-password");
       return;
@@ -71678,7 +72151,7 @@ document.addEventListener("submit", async (event) => {
     if (!email) return;
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = "Sending…";
+      submitBtn.textContent = "Creating invite…";
     }
     try {
       const result = await createHdhIndependentTesterInviteRequest({ email, childName });
@@ -71686,20 +72159,24 @@ document.addEventListener("submit", async (event) => {
         email,
         childName: result.invite?.childName || childName,
         acceptUrl: result.acceptUrl || result.invite?.acceptUrl || "",
+        emailSent: Boolean(result.email?.sent),
+        instructions: result.instructions || "",
       };
       if (message) {
         message.textContent = result.email?.sent
-          ? "Invite emailed. They can also use the copyable accept link below."
-          : (result.error || "Invite ready — copy the accept link and send it (email delivery may be off on testing).");
+          ? "Invite emailed. You can still copy the invite link below."
+          : (result.message || "Invite ready — email is off on testing. Copy the invite link and instructions below.");
       }
-      showActionFeedback("Tester invite ready — their own account + own kid. No Admin. They Message Leah in Messages.");
+      showActionFeedback(result.email?.sent
+        ? "Tester invite emailed — link also ready to copy."
+        : "Tester invite ready — copy the link (email not sent on testing).");
       renderHomeDaycareHubPage({ refreshHouseholds: false });
     } catch (error) {
-      if (message) message.textContent = error.message || "Could not send invite.";
+      if (message) message.textContent = error.message || "Could not create invite.";
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Invite tester";
+        submitBtn.textContent = "Create tester invite";
       }
     }
     return;
@@ -73007,6 +73484,9 @@ document.addEventListener("submit", async (event) => {
       packFormId: template.packFormId || "",
       resourceId: template.resourceId || "",
       templateId: template.id,
+      catalogId: template.catalogId || "",
+      fieldsSchema: template.fieldsSchema || null,
+      connections: template.connections || [],
       dueDate: data.dueDate || "",
       shareWithFamily: event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
       notes: "Assigned from program template.",
