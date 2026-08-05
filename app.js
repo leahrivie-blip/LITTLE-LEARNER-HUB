@@ -52964,13 +52964,16 @@ function applyAdminSectionVisibility() {
       if (!ws) throw new Error("Admin workspace helpers failed to load.");
       if (tab === "admin-home") {
         ws.renderAdminHomeWorkspace(landingApp);
-        // Testing site: keep Owner Command Center visible under Admin Home so
-        // Testing Center, View As, Testing Pro, and curriculum sync are not buried
-        // behind the calm landing-only layout.
+        // Testing site: mount Owner Command Center (Testing Center + curriculum sync)
+        // inside the landing host so workspace grid layout stays intact.
         if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
           const ownerPanel = document.querySelector(".admin-owner-panel");
-          if (ownerPanel) {
+          const overview = document.querySelector("#adminOwnerOverview");
+          if (ownerPanel && overview && landingApp) {
             ownerPanel.hidden = false;
+            if (overview.parentElement !== landingApp) {
+              landingApp.appendChild(ownerPanel);
+            }
             renderAdminOwnerOverview();
           }
         }
