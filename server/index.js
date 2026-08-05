@@ -3812,9 +3812,15 @@ function startPostgresReconnectLoop() {
       try {
         const store = readStore();
         const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
-        if (oneShot.applied) {
+        const testingOwner = tempPasswordAuth.ensureTestingOwnerLogin(store);
+        if (oneShot.applied || testingOwner.applied) {
           await writeStoreAsync(store);
-          console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
+          if (oneShot.applied) {
+            console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
+          }
+          if (testingOwner.applied) {
+            console.log(`[temp-password] testing owner login ensured after reconnect for ${testingOwner.email}`);
+          }
         }
       } catch (error) {
         console.warn("[temp-password] reconnect apply skipped:", error.message);
@@ -3934,9 +3940,15 @@ async function initializeStorage() {
     // One-user sealed temp-password apply (hash only). Never logs plaintext.
     const store = readStore();
     const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
-    if (oneShot.applied) {
+    const testingOwner = tempPasswordAuth.ensureTestingOwnerLogin(store);
+    if (oneShot.applied || testingOwner.applied) {
       await writeStoreAsync(store);
-      console.log(`[temp-password] one-shot applied for ${oneShot.email} (expires ${oneShot.expiresAt})`);
+      if (oneShot.applied) {
+        console.log(`[temp-password] one-shot applied for ${oneShot.email} (expires ${oneShot.expiresAt})`);
+      }
+      if (testingOwner.applied) {
+        console.log(`[temp-password] testing owner login ensured for ${testingOwner.email}`);
+      }
     }
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
@@ -8444,6 +8456,18 @@ async function handlePasswordLogin(request, response) {
   }
   const verified = tempPasswordAuth.verifyServerPasswordLogin(user, password);
   if (!verified.ok) {
+    if (
+      HOME_DAYCARE_HUB_TESTING
+      && tempPasswordAuth.isTestingOwnerEmail(email)
+      && tempPasswordAuth.matchesRetiredTestingOwnerPassword(password)
+    ) {
+      authAuditLog("password_login_failed", { email, reason: "retired_testing_password" });
+      jsonResponse(response, 401, {
+        error: "That old testing password no longer works (Chrome may have saved it after a data-breach warning). Clear the saved password, then use the new testing password from the latest testing note.",
+        code: "testing_password_rotated",
+      });
+      return;
+    }
     if (verified.clearExpiredTemp) {
       store.users[email] = tempPasswordAuth.clearTempPasswordFields(user, {
         keepServerPasswordAuth: Boolean(user.passwordHash || user.serverPasswordAuth),
@@ -8648,10 +8672,33 @@ async function handleAdminLogin(request, response) {
     });
     return;
   }
-  const valid = isConfiguredAdminEmail(email)
+  const envValid = isConfiguredAdminEmail(email)
     && timingSafeEqualText(password, String(ADMIN_PASSWORD).trim())
     && timingSafeEqualText(code, String(ADMIN_ACCESS_CODE).trim());
+  // Testing site only: sealed owner password hash for both password + access code
+  // so Admin unlock still works if Render ADMIN_* env values are out of sync.
+  const testingOwnerValid = HOME_DAYCARE_HUB_TESTING
+    && tempPasswordAuth.isTestingOwnerEmail(email)
+    && isConfiguredAdminEmail(email)
+    && tempPasswordAuth.matchesTestingOwnerPassword(password)
+    && tempPasswordAuth.matchesTestingOwnerPassword(code);
+  const valid = envValid || testingOwnerValid;
   if (!valid) {
+    if (
+      HOME_DAYCARE_HUB_TESTING
+      && tempPasswordAuth.isTestingOwnerEmail(email)
+      && (
+        tempPasswordAuth.matchesRetiredTestingOwnerPassword(password)
+        || tempPasswordAuth.matchesRetiredTestingOwnerPassword(code)
+      )
+    ) {
+      adminSessionStore.recordFailedAttempt(email);
+      jsonResponse(response, 401, {
+        error: "That old testing password/code no longer works. Clear Chrome’s saved password, then use the new testing password for both Owner Password and Admin Access Code.",
+        code: "testing_password_rotated",
+      });
+      return;
+    }
     adminSessionStore.recordFailedAttempt(email);
     jsonResponse(response, 401, {
       error: "Owner email, password, and admin access code must all match. These are the three Admin unlock fields (not your regular member sign-in password).",

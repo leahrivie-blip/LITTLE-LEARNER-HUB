@@ -224,10 +224,62 @@
         document.documentElement.classList.add("llh-boot-authenticated");
       } catch (error) { /* ignore */ }
     })();
-    // Home Screen / installed PWA: register the service worker before app.js.
-    // If a stale cached app.js crashes, this still pulls deploy updates + new shell.
+    // /admin must paint the Admin unlock shell even if app.js is still downloading/parsing.
+    (function () {
+      try {
+        if (/^\/admin\/?$/i.test(window.location.pathname || "")) {
+          document.documentElement.classList.add("llh-boot-admin-route");
+        }
+      } catch (error) { /* ignore */ }
+    })();
+    // Returning sessions: repair JSON llhUser blob + show loading gate while app.js loads.
+    (function () {
+      try {
+        if (document.documentElement.classList.contains("llh-boot-admin-route")) return;
+        var raw = localStorage.getItem("llhUser");
+        var fromLogin = /(?:\?|&)fromLogin=1(?:&|$)/.test(String(location.search || ""));
+        if (raw && String(raw).charAt(0) === "{") {
+          try {
+            var parsed = JSON.parse(raw);
+            var email = String((parsed && parsed.email) || "").trim().toLowerCase();
+            if (email) {
+              localStorage.setItem("llhUser", email);
+              if (parsed.plan) localStorage.setItem("llhPlan", String(parsed.plan));
+              raw = email;
+            } else {
+              localStorage.removeItem("llhUser");
+              raw = "";
+            }
+          } catch (repairError) {
+            localStorage.removeItem("llhUser");
+            raw = "";
+          }
+        }
+        if (!raw && !fromLogin) return;
+        if (raw) document.documentElement.classList.add("llh-boot-authenticated");
+        if (raw || fromLogin) {
+          document.documentElement.classList.add("llh-boot-hub-loading");
+          window.__LLH_SHOW_HUB_LOADING_GATE = true;
+        }
+      } catch (error) { /* ignore */ }
+    })();
+    // Service worker: on the TESTING host, always unregister + clear caches.
     (function () {
       if (!("serviceWorker" in navigator)) return;
+      var host = String(location.hostname || "");
+      var isTesting = /little-learner-hub-testing/i.test(host) || host === "localhost" || host === "127.0.0.1";
+      if (isTesting) {
+        window.__LLH_SW_DISABLED_FOR_TESTING = true;
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (reg) { reg.unregister(); });
+        }).catch(function () {});
+        if (window.caches && caches.keys) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) { caches.delete(key); });
+          }).catch(function () {});
+        }
+        return;
+      }
       window.__LLH_SW_EARLY_REGISTERED = true;
       navigator.serviceWorker.register("/service-worker.js").then(function (registration) {
         if (registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -259,9 +311,81 @@
     html.llh-boot-authenticated body:not(.app-boot-ready) .view:not(.active-view) { display: none !important; }
     html.llh-boot-authenticated body:not(.app-boot-ready) .view.active-view { display: block !important; }
     html.llh-boot-authenticated body:not(.app-boot-ready).home-view { /* prevent marketing chrome flash */ }
+
+    /* /admin deep link: show Admin unlock immediately — never wait on multi-MB app.js. */
+    html.llh-boot-admin-route #view-home { display: none !important; }
+    html.llh-boot-admin-route #view-admin {
+      display: block !important;
+      visibility: visible !important;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: clamp(16px, 3vw, 40px) clamp(16px, 4vw, 48px);
+      box-sizing: border-box;
+    }
+    html.llh-boot-admin-route #adminLockPanel {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    html.llh-boot-admin-route .admin-lock-content {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 420px);
+      gap: clamp(18px, 3vw, 32px);
+      align-items: start;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+    html.llh-boot-admin-route #adminUnlockForm {
+      display: grid !important;
+      gap: 12px;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+    html.llh-boot-admin-route body:not(.app-boot-ready) .view:not(#view-admin) { display: none !important; }
+    html.llh-boot-admin-route .sidebar { display: none !important; }
+    html.llh-boot-admin-route .app-shell { grid-template-columns: 1fr !important; }
+    @media (max-width: 900px) {
+      html.llh-boot-admin-route .admin-lock-content { grid-template-columns: 1fr !important; }
+    }
+    .llh-hub-loading-gate {
+      position: fixed; inset: 0; z-index: 10050;
+      display: grid; place-items: center;
+      background: rgba(247, 250, 252, 0.92);
+      backdrop-filter: blur(6px);
+    }
+    .llh-hub-loading-gate[hidden] { display: none !important; }
+    .llh-hub-loading-card {
+      width: min(420px, calc(100vw - 32px));
+      padding: 28px 24px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid rgba(36,48,71,.1);
+      box-shadow: 0 16px 40px rgba(26,43,74,.12);
+      text-align: center;
+    }
   </style>
   </head>
   <body>
+    <div id="llhHubLoadingGate" class="llh-hub-loading-gate" hidden role="status" aria-live="polite">
+      <div class="llh-hub-loading-card">
+        <p class="eyebrow">Little Learner Hub</p>
+        <strong id="llhHubLoadingTitle">Opening your hub…</strong>
+        <p id="llhHubLoadingDetail">Signed in — loading your workspace. This can take a moment on the first open.</p>
+      </div>
+    </div>
+    <script>
+      (function () {
+        try {
+          if (!window.__LLH_SHOW_HUB_LOADING_GATE) return;
+          var gate = document.getElementById("llhHubLoadingGate");
+          if (gate) gate.hidden = false;
+          document.body.classList.add("llh-boot-hub-loading");
+        } catch (error) { /* ignore */ }
+      })();
+    </script>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Main navigation">
         <div class="brand">
@@ -1242,8 +1366,38 @@
             <h2>Admin Content Manager</h2>
             <p>Edit public website content, lesson plans, reviews, founder details, images, and legacy file uploads from one mobile-friendly dashboard.</p>
           </div>
-          <section id="adminLockPanel" class="section-block admin-lock-panel"></section>
-          <div id="adminProtectedContent">
+          <section id="adminLockPanel" class="section-block admin-lock-panel">
+            <!-- Static early unlock shell: works before app.js finishes (testing /admin). -->
+            <div class="admin-lock-content" data-llh-early-admin-shell>
+              <div>
+                <p class="eyebrow">Private Owner Area</p>
+                <h3>Admin dashboard is protected</h3>
+                <p>Log in as the owner to view accounts, uploads, support tickets, AI usage, billing activity, leads, and private website analytics.</p>
+              </div>
+              <form id="adminUnlockForm" class="admin-unlock-form" data-llh-early-admin-form>
+                <label>
+                  Owner Email
+                  <input name="adminEmail" type="email" required placeholder="owner@example.com" autocomplete="username" />
+                </label>
+                <label>
+                  Owner Password
+                  <input name="adminPassword" type="password" required placeholder="Owner password" autocomplete="current-password" />
+                </label>
+                <label>
+                  Admin Access Code
+                  <input name="adminCode" type="password" required placeholder="Enter owner code" autocomplete="off" />
+                </label>
+                <label class="checkbox-row admin-trust-device-row">
+                  <input type="checkbox" name="trustDevice" id="adminTrustDeviceInput" checked />
+                  <span>Trust this device — keep Admin unlocked on this phone, tablet, or computer</span>
+                </label>
+                <button class="primary-button" type="submit">Unlock Admin</button>
+                <p class="form-note">On the testing site you can unlock here even while the full app is still loading. Use your owner email + password, and enter the <strong>same password</strong> again in Admin Access Code. If Chrome warns about a data breach, clear the old saved password and use the current testing password. Bookmark <code>/admin</code>.</p>
+                <span id="adminUnlockMessage" class="form-message"></span>
+              </form>
+            </div>
+          </section>
+          <div id="adminProtectedContent" hidden>
           <div class="admin-workspace-shell">
           <nav id="adminSectionNav" class="admin-workspace-sidebar admin-section-nav" aria-label="Admin sections"></nav>
           <div class="admin-workspace-main" id="adminWorkspaceMain">
@@ -2500,8 +2654,9 @@
     <script src="/api/client-config.js" defer></script>
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/admin-analytics-diagnostics.js?v=20260804-analytics-diag-phase8-r1" defer></script>
+    <script src="scripts/llh-lazy-loader.js?v=20260805-testing-full-integration-r1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260805-testing-full-integration-r1" defer></script>
-    <script src="app.js?v=20260805-testing-full-integration-r1" defer></script>
+    <script src="scripts/llh-boot-critical.js?v=20260805-testing-full-integration-r1" defer></script>
     <script src="scripts/forms-ecosystem.js?v=20260805-testing-full-integration-r1" defer></script>
     <script src="scripts/forms-center.js?v=20260805-testing-full-integration-r1" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
