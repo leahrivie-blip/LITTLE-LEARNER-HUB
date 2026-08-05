@@ -746,6 +746,8 @@
   };
 
   global.LLHMultiRoleTester = api;
+  // Alias used by Admin Control Center / stabilization hooks.
+  global.MultiRoleTester = api;
   // Convenience globals used by app.js hooks
   global.canUseMultiRoleTester = canUseMultiRoleTester;
   global.getMultiRoleTesterViewRole = getActiveViewRoleKey;

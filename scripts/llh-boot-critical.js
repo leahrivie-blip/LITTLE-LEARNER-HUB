@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260805-testing-stabilization-r24";
+  const APP_SRC = "app.js?v=20260805-testing-stabilization-r25";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -181,6 +181,8 @@
     if (isAdminRoute()) return;
     try {
       document.documentElement.classList.remove("llh-boot-authenticated");
+      document.body?.classList.add("home-view");
+      document.body?.classList.remove("user-authenticated");
       const home = document.getElementById("view-home");
       if (home && !document.body.classList.contains("app-boot-ready")) {
         home.classList.add("active-view");

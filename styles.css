@@ -27616,3 +27616,9 @@ body.work-mode-nav #memberUpdateBanner {
   display: none !important;
 }
 
+
+/* Guest marketing homepage: hide duplicate topbar CTAs even before app.js sets home-view. */
+body:not(.user-authenticated):not(.llh-early-signed-in) .topbar #signinButton,
+body:not(.user-authenticated):not(.llh-early-signed-in) .topbar #signupButton {
+  display: none !important;
+}

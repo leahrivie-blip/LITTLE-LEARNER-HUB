@@ -36107,6 +36107,17 @@ function syncFamilyHubParentChrome() {
       el.setAttribute("aria-hidden", "true");
     });
   } catch (_error) { /* ignore */ }
+  // Refresh membership badge so Parent never still shows "Owner Access Active".
+  // Do not call updateAuthButtons() here — it re-enters nav sync → this function.
+  try {
+    const signUp = document.querySelector("#signupButton");
+    if (signUp && typeof membershipDisplayStatus === "function" && (parentMode || typeof isLoggedIn === "function" && isLoggedIn())) {
+      const accessStatus = membershipDisplayStatus(typeof currentAccount === "function" ? currentAccount() : null);
+      const accessLabel = accessStatus?.planLabel || accessStatus?.label || "";
+      if (accessLabel) signUp.textContent = `${accessLabel} Active`;
+      if (parentMode) signUp.dataset.view = "family-hub";
+    }
+  } catch (_error) { /* ignore */ }
 }
 
 function readTesterFamilyHubInvite() {
