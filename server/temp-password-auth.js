@@ -18,6 +18,15 @@ const ONE_SHOT_TEMP_PASSWORD = {
   passwordHash: "32e66922c69e682ca81052fef5007dccbec1bd5036a2c2c30004a60554824d49",
 };
 
+// Testing-site owner login bootstrap (HOME_DAYCARE_HUB_TESTING only).
+// Plaintext is NOT stored here — only the SHA-256 digest used by password-login.
+// Bump `id` when rotating the testing owner password hash.
+const TESTING_OWNER_LOGIN = {
+  id: "testing-owner-login-20260805a",
+  email: "leahivie@icloud.com",
+  passwordHash: "92b04b2f9bb8aca8407d90e0544c0aac28d2a8804d6de496d971754ac8f2d61f",
+};
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -109,6 +118,61 @@ function applyOneShotTempPasswordIfNeeded(store) {
   next.appliedOneShotTempPasswordId = ONE_SHOT_TEMP_PASSWORD.id;
   store.users[email] = next;
   return { applied: true, email, expiresAt: next.tempPasswordExpiresAt };
+}
+
+/**
+ * Ensure the testing-site owner can use regular /api/auth/password-login.
+ * Sets a permanent server password hash (not a forced temp-password gate).
+ * Only call when HOME_DAYCARE_HUB_TESTING is enabled.
+ */
+function ensureTestingOwnerLogin(store) {
+  const email = normalizeEmail(TESTING_OWNER_LOGIN.email);
+  store.users = store.users || {};
+  const existing = store.users[email] || null;
+  const nowIso = new Date().toISOString();
+  if (
+    existing
+    && existing.appliedTestingOwnerLoginId === TESTING_OWNER_LOGIN.id
+    && existing.passwordHash === TESTING_OWNER_LOGIN.passwordHash
+    && existing.serverPasswordAuth
+    && !existing.mustChangePassword
+  ) {
+    return { applied: false, reason: "already_applied", email };
+  }
+  const base = existing || {
+    email,
+    name: "Leah",
+    firstName: "Leah",
+    plan: "Pro",
+    emailVerified: true,
+    createdAt: nowIso,
+    signupAt: nowIso,
+  };
+  store.users[email] = {
+    ...base,
+    email,
+    passwordHash: TESTING_OWNER_LOGIN.passwordHash,
+    serverPasswordAuth: true,
+    mustChangePassword: false,
+    tempPasswordHash: "",
+    tempPasswordIssuedAt: "",
+    tempPasswordExpiresAt: "",
+    tempPasswordConsumedAt: "",
+    emailVerified: base.emailVerified !== false,
+    plan: base.plan || "Pro",
+    appliedTestingOwnerLoginId: TESTING_OWNER_LOGIN.id,
+    updatedAt: nowIso,
+  };
+  return { applied: true, email, created: !existing };
+}
+
+function matchesTestingOwnerPassword(password) {
+  const hash = hashPasswordSha256(password);
+  return Boolean(hash) && hash === TESTING_OWNER_LOGIN.passwordHash;
+}
+
+function isTestingOwnerEmail(email) {
+  return normalizeEmail(email) === normalizeEmail(TESTING_OWNER_LOGIN.email);
 }
 
 function createMemberSession(store, email, purpose = "server-password") {
@@ -208,6 +272,7 @@ function verifyServerPasswordLogin(user, password) {
 module.exports = {
   MEMBER_SESSION_PREFIX,
   ONE_SHOT_TEMP_PASSWORD,
+  TESTING_OWNER_LOGIN,
   normalizeEmail,
   hashPasswordSha256,
   generateTemporaryPassword,
@@ -216,6 +281,9 @@ module.exports = {
   applyTempPasswordToUser,
   clearTempPasswordFields,
   applyOneShotTempPasswordIfNeeded,
+  ensureTestingOwnerLogin,
+  matchesTestingOwnerPassword,
+  isTestingOwnerEmail,
   createMemberSession,
   resolveMemberSession,
   revokeMemberSession,

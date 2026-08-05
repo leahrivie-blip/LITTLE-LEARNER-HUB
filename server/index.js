@@ -3796,11 +3796,20 @@ function startPostgresReconnectLoop() {
       console.log("[store] Postgres reconnect restored authentic store");
       try {
         const store = readStore();
+        let dirty = false;
         const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
         if (oneShot.applied) {
-          await writeStoreAsync(store);
+          dirty = true;
           console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
         }
+        if (HOME_DAYCARE_HUB_TESTING) {
+          const ownerLogin = tempPasswordAuth.ensureTestingOwnerLogin(store);
+          if (ownerLogin.applied) {
+            dirty = true;
+            console.log(`[testing-auth] owner password login ensured for ${ownerLogin.email}`);
+          }
+        }
+        if (dirty) await writeStoreAsync(store);
       } catch (error) {
         console.warn("[temp-password] reconnect apply skipped:", error.message);
       }
@@ -3918,11 +3927,20 @@ async function initializeStorage() {
   try {
     // One-user sealed temp-password apply (hash only). Never logs plaintext.
     const store = readStore();
+    let dirty = false;
     const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
     if (oneShot.applied) {
-      await writeStoreAsync(store);
+      dirty = true;
       console.log(`[temp-password] one-shot applied for ${oneShot.email} (expires ${oneShot.expiresAt})`);
     }
+    if (HOME_DAYCARE_HUB_TESTING) {
+      const ownerLogin = tempPasswordAuth.ensureTestingOwnerLogin(store);
+      if (ownerLogin.applied) {
+        dirty = true;
+        console.log(`[testing-auth] owner password login ensured for ${ownerLogin.email}`);
+      }
+    }
+    if (dirty) await writeStoreAsync(store);
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
   }
@@ -8364,6 +8382,10 @@ async function handlePasswordLogin(request, response) {
   }
   const store = readStore();
   store.users = store.users || {};
+  // Testing site: keep owner regular-login hash in sync even if boot seed has not run yet.
+  if (HOME_DAYCARE_HUB_TESTING && tempPasswordAuth.isTestingOwnerEmail(email)) {
+    tempPasswordAuth.ensureTestingOwnerLogin(store);
+  }
   let user = store.users[email];
   // During a Postgres outage the durable user row may be unavailable. Still allow
   // the sealed one-shot recovery hash for this exact member so she can get in and
@@ -8595,9 +8617,19 @@ async function handleAdminLogin(request, response) {
     });
     return;
   }
-  const valid = isConfiguredAdminEmail(email)
+  const envValid = isConfiguredAdminEmail(email)
+    && Boolean(ADMIN_PASSWORD)
+    && Boolean(ADMIN_ACCESS_CODE)
     && timingSafeEqualText(password, ADMIN_PASSWORD)
     && timingSafeEqualText(code, ADMIN_ACCESS_CODE);
+  // Testing site only: allow the sealed owner password hash for both password + access code
+  // so Leah can unlock Admin even when Render ADMIN_* env vars are out of sync.
+  const testingOwnerValid = HOME_DAYCARE_HUB_TESTING
+    && tempPasswordAuth.isTestingOwnerEmail(email)
+    && isConfiguredAdminEmail(email)
+    && tempPasswordAuth.matchesTestingOwnerPassword(password)
+    && tempPasswordAuth.matchesTestingOwnerPassword(code);
+  const valid = envValid || testingOwnerValid;
   if (!valid) {
     adminSessionStore.recordFailedAttempt(email);
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
