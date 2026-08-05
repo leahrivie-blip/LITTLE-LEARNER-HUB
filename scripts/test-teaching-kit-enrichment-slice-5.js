@@ -468,7 +468,12 @@ async function main() {
     const summaryText = await page.locator(".tk-enrich-publish-summary").innerText();
     assert(/Farm Animals/i.test(await page.locator("[data-publish-modal]").innerText()), "confirmation names lesson");
     assert(/photo|tip|linked activit/i.test(summaryText), "confirmation lists change impact");
-    assert(/rollback|prior published|snapshot/i.test(summaryText), "confirmation mentions prior version");
+    // Copy evolved with #540 publish summary ("Current published version" /
+    // "None yet — first enrichment publish") while still documenting version history.
+    assert(
+      /rollback|prior published|snapshot|current published version|first enrichment publish/i.test(summaryText),
+      "confirmation mentions prior version",
+    );
     await page.screenshot({
       path: path.join(ARTIFACT_DIR, "tk-enrich-slice5-publish-confirm-farm-animals.png"),
       fullPage: true,

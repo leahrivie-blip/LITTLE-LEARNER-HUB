@@ -114,10 +114,16 @@
           text(act.setup || patch.setup),
           text(act.steps || patch.steps),
           text(act.objective || patch.objective),
+          text(act.adaptations || patch.adaptations),
+          text(act.extraSupport || patch.extraSupport),
+          text(act.mixedAgeAdaptations || patch.mixedAgeAdaptations),
+          text(act.safetyNotes || patch.safetyNotes),
+          text(act.materials || patch.materials),
           ...asArray(patch.teacherTips),
+          ...asArray(act.teacherTips),
           ...asArray(patch.observationPrompts),
-          text(patch.indoorAlternatives || act.indoorAlternatives),
-          text(patch.outdoorAlternatives || act.outdoorAlternatives),
+          text(patch.indoorAlternatives || act.indoorAlternatives || act.indoorAlternative),
+          text(patch.outdoorAlternatives || act.outdoorAlternatives || act.outdoorOption),
           text(patch.imageBriefSetup),
           text(patch.imageBriefExample),
         ];
@@ -137,6 +143,8 @@
     message,
     suggestion = "",
     blocking = false,
+    navigateTo = "",
+    publishGate = "",
   }) {
     return {
       id: `${code}-${section}`,
@@ -147,6 +155,8 @@
       message,
       suggestion,
       blocking: blocking === true || severity === "blocking",
+      navigateTo: text(navigateTo),
+      publishGate: text(publishGate) || (blocking || severity === "blocking" ? "hard_blocker" : "quality"),
       status: "pending", // pending | ignored | improved
       actions: ["improve_with_ai", "ignore", "edit_manually"],
     };
@@ -177,6 +187,17 @@
     "weak_teacher_prep",
     "missing_materials",
     "domain_imbalance",
+    "missing_weekday_focus",
+    "missing_activity_instructions",
+    "missing_safety_guidance",
+    "placeholder_text",
+    "copyright_concern",
+    "missing_printables",
+    "missing_example_images",
+    "incomplete_toolkit",
+    "incomplete_books",
+    "incomplete_songs",
+    "image_brief_not_image",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
@@ -230,19 +251,32 @@
     const highCount = activeFindings.filter((f) => f.severity === "high" || f.blocking).length;
     const medium = activeFindings.filter((f) => f.severity === "medium").length;
     const low = activeFindings.filter((f) => f.severity === "low").length;
+    // Educational quality score — never call this "100% quality" from field presence alone.
+    // Do not double-count blockers inside highCount — keep relative ranking meaningful.
+    const nonBlockingHigh = activeFindings.filter((f) => f.severity === "high" && !f.blocking).length;
     const overallScore = Math.max(
       0,
-      Math.min(100, 100 - blockingIssues.length * 18 - highCount * 10 - medium * 5 - low * 2),
+      Math.min(100, 100 - blockingIssues.length * 7 - nonBlockingHigh * 4 - medium * 2 - low * 1),
     );
     const completionPercent = Number(reportBase.completionPercent) || 0;
+    const premiumReadinessPercent = Number(reportBase.premiumReadinessPercent != null
+      ? reportBase.premiumReadinessPercent
+      : completionPercent) || 0;
     let publishReadiness = PUBLISH_READINESS.BLOCKED;
-    if (!blockingIssues.length && completionPercent >= 90 && overallScore >= 75 && highCount === 0) {
+    // Publish Ready requires zero hard blockers AND premium asset readiness (real images/printables).
+    if (
+      !blockingIssues.length
+      && premiumReadinessPercent >= 90
+      && overallScore >= 75
+      && highCount === 0
+    ) {
       publishReadiness = PUBLISH_READINESS.READY;
     } else if (!blockingIssues.length) {
       publishReadiness = PUBLISH_READINESS.NEEDS_REVIEW;
     }
     let overallLabel = "Not ready";
     if (publishReadiness === PUBLISH_READINESS.READY) overallLabel = "Publish ready";
+    else if (blockingIssues.length) overallLabel = "Blocked";
     else if (publishReadiness === PUBLISH_READINESS.NEEDS_REVIEW && overallScore >= 75) overallLabel = "Almost ready";
     else if (overallScore >= 50) overallLabel = "Needs work";
 
@@ -251,18 +285,21 @@
       findings,
       overallScore,
       overallLabel,
+      completionPercent,
+      premiumReadinessPercent,
       blockingIssues: blockingIssues.map((f) => ({
         code: f.code,
         message: f.message,
         suggestion: f.suggestion,
         publishGate: f.publishGate || "quality",
+        navigateTo: f.navigateTo || "",
       })),
       warnings: activeFindings
         .filter((f) => f.severity === "high" || f.severity === "medium")
         .map((f) => ({ code: f.code, message: f.message, severity: f.severity })),
       publishReadiness,
       publishReadinessLabel: publishReadinessLabel(publishReadiness),
-      blocksPublish: publishReadiness === PUBLISH_READINESS.BLOCKED,
+      blocksPublish: publishReadiness === PUBLISH_READINESS.BLOCKED || blockingIssues.length > 0,
       reviewRequired: true,
       autoPublished: false,
       autoChanged: false,
@@ -410,18 +447,32 @@
     let missingIndoor = 0;
     let missingObs = 0;
     let missingTips = 0;
-    let imageBriefs = 0;
+    let realImages = 0;
+    let imageBriefsOnly = 0;
+    let missingRealSetup = 0;
+    let missingRealExample = 0;
     list.forEach((act) => {
       const key = text(act.id || act.itemId);
       const patch = draftActs[key] || {};
-      if (!text(patch.outdoorAlternatives || act.outdoorAlternatives) && !/outdoor|sidewalk|garden|yard/i.test(body)) {
+      if (!text(patch.outdoorAlternatives || act.outdoorAlternatives || act.outdoorOption) && !/outdoor|sidewalk|garden|yard/i.test(body)) {
         missingOutdoor += 1;
       }
-      if (!text(patch.indoorAlternatives || act.indoorAlternatives)) missingIndoor += 1;
+      if (!text(patch.indoorAlternatives || act.indoorAlternatives || act.indoorAlternative)) missingIndoor += 1;
       if (!asArray(patch.observationPrompts).length && !text(act.observationOpportunities)) missingObs += 1;
       if (!asArray(patch.teacherTips).length) missingTips += 1;
-      if (text(patch.imageBriefSetup) || text(patch.imageBriefExample) || act.setupImageUrl || act.exampleImageUrl) {
-        imageBriefs += 1;
+      const setupUrl = text(patch.setupImageUrl || act.setupImageUrl || act.setupPhotoUrl);
+      const exampleUrl = text(patch.exampleImageUrl || act.exampleImageUrl || act.examplePhotoUrl);
+      const setupBrief = text(patch.imageBriefSetup);
+      const exampleBrief = text(patch.imageBriefExample);
+      if (setupUrl) realImages += 1;
+      else {
+        missingRealSetup += 1;
+        if (setupBrief) imageBriefsOnly += 1;
+      }
+      if (exampleUrl) realImages += 1;
+      else {
+        missingRealExample += 1;
+        if (exampleBrief) imageBriefsOnly += 1;
       }
     });
     if (!list.length) {
@@ -477,16 +528,32 @@
         suggestion: "List setup steps, materials staging, and one observation focus.",
       }));
     }
-    const toolkitBits = asArray(week.teacherToolkit?.prepChecklist).length
-      + asArray(week.teacherToolkit?.observationFocus).length
-      + (text(week.teacherToolkit?.notes) ? 1 : 0);
-    if (toolkitBits < 2) {
+    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+      ? week.teacherToolkit
+      : (plan?.teachingKit?.teacherToolkit || {});
+    const toolkitScore = (
+      (text(toolkit.teacherPreparation) || text(week.teacherPreparation) ? 1 : 0)
+      + (asArray(toolkit.teacherTips || toolkit.tips).length ? 1 : 0)
+      + (asArray(toolkit.setupCleanupShortcuts).length ? 1 : 0)
+      + (asArray(toolkit.observationPrompts).length || asArray(toolkit.observationFocus).length ? 1 : 0)
+      + (asArray(toolkit.documentationPrompts).length ? 1 : 0)
+      + (text(toolkit.mixedAgeAdaptations) ? 1 : 0)
+      + (text(toolkit.extraSupportAdaptations || toolkit.extraSupport) ? 1 : 0)
+      + (text(toolkit.challengeExtensions || toolkit.extensions) ? 1 : 0)
+      + (text(toolkit.safetyInclusionNotes || toolkit.safetyNotes) ? 1 : 0)
+      + (text(toolkit.endOfWeekReflection) ? 1 : 0)
+      + (text(toolkit.familyConnection) || text(week.familyConnection) || text(plan?.familyConnection) ? 1 : 0)
+      + (asArray(toolkit.materialSubstitutions || toolkit.substitutions).length ? 1 : 0)
+    );
+    if (toolkitScore < 6) {
       findings.push(finding({
         code: "incomplete_toolkit",
         section: "toolkit",
-        severity: "medium",
-        message: "Teacher toolkit is incomplete.",
-        suggestion: "Add prep checklist + observation focus notes.",
+        severity: "blocking",
+        blocking: true,
+        message: `Teacher Toolkit is incomplete (${toolkitScore}/12 structured areas). Thin prep notes alone are not enough.`,
+        suggestion: "Add preparation, tips, substitutions, adaptations, observation/documentation prompts, safety/inclusion, and end-of-week reflection.",
+        navigateTo: "week:toolkit",
       }));
     }
     if (missingTips) {
@@ -530,47 +597,134 @@
       }));
     }
 
-    // Books / songs / printables / images
-    const books = asArray(week.books).length || asArray(plan?.books).length;
-    const songs = asArray(week.songs).length || asArray(plan?.songs).length;
-    const printables = asArray(plan?.resourceIds).length
-      || asArray(week.printableIdeas).length
-      || asArray(week.printablePacks).length
+    // Books / songs / printables / images — title-only / idea-only / brief-only never count as complete.
+    const bookEntries = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
+    const songEntries = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
+    const enrichApi = loadEnrichment();
+    const completeBooks = bookEntries.filter((book) => (
+      enrichApi?.bookRecordComplete ? enrichApi.bookRecordComplete(book) : (text(book?.title) && text(book?.author)
+        && (asArray(book?.afterReadingQuestions || book?.questions || book?.readAloudQuestions).length
+          || asArray(book?.beforeReadingQuestions).length))
+    ));
+    const completeSongs = songEntries.filter((song) => (
+      enrichApi?.songRecordComplete ? enrichApi.songRecordComplete(song) : (text(song?.title)
+        && text(song?.rightsStatus || song?.copyrightStatus)
+        && (text(song?.motions) || text(song?.teacherDirections)))
+    ));
+    const linkedPrintables = asArray(plan?.resourceIds).length
+      || asArray(week.printableIds).length
       || (week.linkedMasterResources && Object.keys(week.linkedMasterResources).length);
-    if (!books) {
+    const printableIdeasOnly = !linkedPrintables && (
+      asArray(week.printableIdeas).length || asArray(week.printablePacks).length
+    );
+
+    if (!bookEntries.length) {
       findings.push(finding({
         code: "missing_books",
         section: "books",
-        severity: "high",
+        severity: "blocking",
+        blocking: true,
         message: "Books are missing.",
-        suggestion: "Recommend 1–3 age-fit books with before/during/after talk prompts (no copyrighted text).",
+        suggestion: "Add 1–3 age-fit books with why-it-fits plus before/during/after prompts (no copied book text).",
+        navigateTo: "week:books",
+      }));
+    } else if (completeBooks.length < bookEntries.length) {
+      findings.push(finding({
+        code: "incomplete_books",
+        section: "books",
+        severity: "blocking",
+        blocking: true,
+        message: `${bookEntries.length - completeBooks.length} book(s) are title/author-only and missing discussion guides.`,
+        suggestion: "Require why-it-fits, before/during/after questions, vocabulary connection, and a substitute title.",
+        navigateTo: "week:books",
       }));
     }
-    if (!songs) {
+    if (!songEntries.length) {
       findings.push(finding({
         code: "missing_songs",
         section: "songs",
-        severity: "high",
+        severity: "blocking",
+        blocking: true,
         message: "Songs are missing.",
-        suggestion: "Add original or public-domain style songs only — never copyrighted lyrics.",
+        suggestion: "Add songs with rights status, motions, and teaching directions. Lyrics only when legally allowed.",
+        navigateTo: "week:songs",
+      }));
+    } else if (completeSongs.length < songEntries.length) {
+      findings.push(finding({
+        code: "incomplete_songs",
+        section: "songs",
+        severity: "blocking",
+        blocking: true,
+        message: `${songEntries.length - completeSongs.length} song(s) are title-only or missing rights/teaching metadata.`,
+        suggestion: "Require copyright classification, motions, teaching directions, weekday, and age adaptation.",
+        navigateTo: "week:songs",
       }));
     }
-    if (!printables) {
+    if (!linkedPrintables) {
       findings.push(finding({
         code: "missing_printables",
         section: "printables",
-        severity: "medium",
-        message: "Printables are missing.",
-        suggestion: "Link a reusable printable pack or add editable matching/vocab cards.",
+        severity: "blocking",
+        blocking: true,
+        message: printableIdeasOnly
+          ? "Printable ideas exist, but no actual printable file/resource is linked."
+          : "Printables are missing — ideas alone never count as print-ready.",
+        suggestion: "Link a real printable resource (file or generated pack) with preview and print access.",
+        navigateTo: "week:printables",
       }));
     }
-    if (list.length && imageBriefs < Math.min(list.length, 2)) {
+    if (list.length && (missingRealSetup > 0 || missingRealExample > 0)) {
       findings.push(finding({
         code: "missing_example_images",
         section: "example_images",
-        severity: "medium",
-        message: "Example/setup image briefs are missing for most activities.",
-        suggestion: "Add classroom-achievable setup + finished-example briefs (approval still required).",
+        severity: "blocking",
+        blocking: true,
+        message: `${missingRealSetup} setup photo(s) and ${missingRealExample} finished-example photo(s) still missing as real images.`,
+        suggestion: "Upload or generate actual images with caption + alt text. Image briefs do not count as photos.",
+        navigateTo: "activities:images",
+      }));
+    }
+    if (imageBriefsOnly > 0) {
+      findings.push(finding({
+        code: "image_brief_not_image",
+        section: "example_images",
+        severity: "blocking",
+        blocking: true,
+        message: `${imageBriefsOnly} image brief(s) are present but do not count as setup/finished photos.`,
+        suggestion: "Convert briefs into reviewed, loadable images before Publish Ready.",
+        navigateTo: "activities:images",
+      }));
+    }
+
+    // Weekday focus — "Theme focus coming soon" is a hard blocker.
+    const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+    const placeholderDays = [];
+    const missingFocusDays = [];
+    weekdays.forEach((day) => {
+      const dayPlan = plan?.dailyPlans?.[day] || {};
+      const focus = text(dayPlan.theme || dayPlan.focus || dayPlan.objectives || week?.dailyFocus?.[day]);
+      if (!focus) missingFocusDays.push(day);
+      else if (/coming soon|theme focus coming soon|placeholder|tbd|todo/i.test(focus)) placeholderDays.push(day);
+    });
+    if (missingFocusDays.length || placeholderDays.length) {
+      findings.push(finding({
+        code: "missing_weekday_focus",
+        section: "weekly_plan",
+        severity: "blocking",
+        blocking: true,
+        message: `Weekday focus incomplete${missingFocusDays.length ? ` (missing: ${missingFocusDays.join(", ")})` : ""}${placeholderDays.length ? ` (placeholder: ${placeholderDays.join(", ")})` : ""}.`,
+        suggestion: "Replace “Theme focus coming soon” with a unique daily focus and teacher-facing details for each weekday.",
+        navigateTo: "week:weekly_plan",
+      }));
+    }
+    if (/coming soon|lorem ipsum|\[insert|\btbd\b|\btodo\b/i.test(body)) {
+      findings.push(finding({
+        code: "placeholder_text",
+        section: "completeness",
+        severity: "blocking",
+        blocking: true,
+        message: "Placeholder or “coming soon” text is still present in the kit.",
+        suggestion: "Remove placeholders before Publish Ready.",
       }));
     }
 
@@ -641,6 +795,181 @@
       }));
     }
 
+    // Daily materials (weekday focus already enforced above with placeholder hard blockers).
+    const dailyPlans = plan?.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
+    const missingDailyMaterials = weekdays.filter((day) => {
+      const dayPlan = dailyPlans[day] || {};
+      return !text(dayPlan.materials);
+    });
+    if (missingDailyMaterials.length >= 3 && list.length) {
+      findings.push(finding({
+        code: "missing_daily_materials",
+        section: "materials",
+        severity: "medium",
+        message: `Daily materials missing for ${missingDailyMaterials.length} weekdays.`,
+        suggestion: "List Monday–Friday materials separately from the master week list.",
+      }));
+    }
+
+    // Duplicate materials (safe normalize — report only)
+    try {
+      const materialsApi = (typeof require === "function" ? require("./teaching-kit-materials.js") : null)
+        || (root && root.LLHTeachingKitMaterials);
+      if (materialsApi?.normalizeMaterialInventory) {
+        const allLabels = [
+          ...String(week.weeklyMaterials || plan?.weeklyMaterials || "").split(/[\n,;]+/),
+          ...weekdays.flatMap((day) => String(dailyPlans[day]?.materials || "").split(/[\n,;]+/)),
+          ...list.flatMap((act) => String(act.materials || "").split(/[\n,;]+/)),
+        ].map((item) => text(item)).filter(Boolean);
+        const inv = materialsApi.normalizeMaterialInventory(allLabels, "quality");
+        if (inv.duplicatesRemoved >= 3) {
+          findings.push(finding({
+            code: "duplicate_materials",
+            section: "materials",
+            severity: "medium",
+            message: `${inv.duplicatesRemoved} duplicate or near-duplicate material labels detected.`,
+            suggestion: "Normalize casing and synonyms (e.g. Hay/hay, Basket/baskets) without deleting distinct supplies.",
+          }));
+        }
+      }
+    } catch (_materialsError) {
+      /* optional helper */
+    }
+
+    // Activity instructions / adaptations / images / safety
+    let missingInstructions = 0;
+    let missingAdaptations = 0;
+    let missingImageAlts = 0;
+    let missingObsActivity = 0;
+    list.forEach((act) => {
+      if (!text(act.steps) && !text(act.setup)) missingInstructions += 1;
+      if (!text(act.adaptations) && !text(act.extraSupport) && !text(act.mixedAgeAdaptations)) missingAdaptations += 1;
+      if (!text(act.observationOpportunities) && !text(act.observationIdeas) && !asArray(act.observationIdeas).length) {
+        missingObsActivity += 1;
+      }
+      const hasImg = text(act.exampleImageUrl || act.examplePhotoUrl || act.setupImageUrl || act.setupPhotoUrl);
+      const hasAlt = text(act.exampleImageAlt || act.exampleAlt || act.setupImageAlt || act.setupAlt);
+      if (hasImg && !hasAlt) missingImageAlts += 1;
+      const draftAct = draftActs[act.id] || {};
+      const draftImg = text(draftAct.exampleImageUrl || draftAct.setupImageUrl);
+      const draftAlt = text(draftAct.exampleImageAlt || draftAct.setupImageAlt);
+      if (draftImg && !draftAlt) missingImageAlts += 1;
+    });
+    if (missingInstructions) {
+      findings.push(finding({
+        code: "missing_activity_instructions",
+        section: "activities",
+        severity: "high",
+        message: `${missingInstructions} activit${missingInstructions === 1 ? "y" : "ies"} missing setup/steps.`,
+        suggestion: "Add classroom-ready preparation and step-by-step directions for each activity.",
+      }));
+    }
+    if (missingAdaptations && list.length >= 2) {
+      findings.push(finding({
+        code: "missing_adaptations",
+        section: "activities",
+        severity: "medium",
+        message: `${missingAdaptations} activit${missingAdaptations === 1 ? "y" : "ies"} missing support/challenge/mixed-age adaptations.`,
+        suggestion: "Add differentiation that is specific to the activity — avoid repeated boilerplate.",
+      }));
+    }
+    if (missingImageAlts) {
+      findings.push(finding({
+        code: "missing_image_alt",
+        section: "example_images",
+        severity: "medium",
+        message: `${missingImageAlts} image(s) missing useful alt text.`,
+        suggestion: "Describe what teachers should see in the setup or finished example.",
+      }));
+    }
+
+    // Boilerplate / generic prompts / raw labels / placeholders
+    const genericPromptMatches = body.match(/can you show me or tell me about/gi) || [];
+    if (genericPromptMatches.length >= 3) {
+      findings.push(finding({
+        code: "generic_prompts",
+        section: "vocabulary",
+        severity: "medium",
+        message: `Repeated generic prompt wording appears ${genericPromptMatches.length} times.`,
+        suggestion: "Vary prompts (What do you notice? How are these alike? What sound might it make?).",
+      }));
+    }
+    const boilerplateSnippets = [
+      /offer extra support as needed/gi,
+      /supervise children closely at all times/gi,
+      /adapt for mixed ages as appropriate/gi,
+      /clean up materials when finished/gi,
+    ];
+    let boilerplateHits = 0;
+    boilerplateSnippets.forEach((re) => {
+      const hits = body.match(re) || [];
+      if (hits.length >= 2) boilerplateHits += hits.length;
+    });
+    if (boilerplateHits >= 4) {
+      findings.push(finding({
+        code: "repeated_boilerplate",
+        section: "activities",
+        severity: "high",
+        message: "Repeated boilerplate adaptation/safety language appears across activities.",
+        suggestion: "Replace generic paragraphs with activity-specific guidance (materials, supervision, and next steps).",
+      }));
+    }
+    if (/circle_time|fine_motor|gross_motor|process_art|invitation_to_play/i.test(body)) {
+      findings.push(finding({
+        code: "raw_internal_labels",
+        section: "activities",
+        severity: "medium",
+        message: "Raw internal category labels (e.g. circle_time) appear in teacher-facing text.",
+        suggestion: "Use customer-facing labels such as “Circle Time”.",
+      }));
+    }
+    // Placeholder text already hard-blocked above (stricter #540 wording). Keep copyright + safety gates.
+    if (/©|all rights reserved|disney|peppa|frozen lyrics|copyrighted lyrics/i.test(body)) {
+      findings.push(finding({
+        code: "copyright_concern",
+        section: "songs",
+        severity: "blocking",
+        blocking: true,
+        message: "Possible copyrighted lyrics or protected media references detected.",
+        suggestion: "Store full lyrics only for original or verified public-domain/traditional songs.",
+      }));
+    }
+
+    // Latex-free guidance for milking / glove activities
+    if (/rubber glove|pinhole|milk(ing)? (cow|station|activity)/i.test(body)
+      && !/latex-free|nitrile|vinyl/i.test(body)) {
+      findings.push(finding({
+        code: "missing_safety_guidance",
+        section: "safety",
+        severity: "blocking",
+        blocking: true,
+        message: "Milking / glove activity needs latex-free materials, sanitation, and supervision notes.",
+        suggestion: "Require a latex-free glove or safer equivalent, sanitize before/after, and note close supervision.",
+      }));
+    }
+
+    // Print sections with no resources (when enrichment claims printables)
+    if (asArray(week.printableIdeas).length && !asArray(plan?.resourceIds).length) {
+      findings.push(finding({
+        code: "empty_print_section",
+        section: "printables",
+        severity: "medium",
+        message: "Printable ideas are listed but no printable resources are linked.",
+        suggestion: "Link real printables or remove empty print claims before approval.",
+      }));
+    }
+
+    // Excessive setup / unrealistic daily scheduling
+    if (/90 minutes? prep|2 hours? prep|all morning setup/i.test(body)) {
+      findings.push(finding({
+        code: "excessive_setup",
+        section: "realistic",
+        severity: "medium",
+        message: "Setup time may be unrealistic for a typical childcare morning.",
+        suggestion: "Keep Monday prep near 10–20 minutes with shortcuts and substitutions.",
+      }));
+    }
+
     // Apply ignored statuses before and after elevation so newly added gate
     // findings (e.g. completeness_too_low) respect qualityReviewIgnored.
     findings.forEach((f) => {
@@ -676,6 +1005,17 @@
       });
     }
 
+    let premiumReadinessPercent = completionPercent;
+    try {
+      if (enrich?.computeReadinessScores) {
+        premiumReadinessPercent = Number(
+          enrich.computeReadinessScores(plan, list, draft).premiumReadinessPercent,
+        ) || completionPercent;
+      }
+    } catch (_error) {
+      premiumReadinessPercent = completionPercent;
+    }
+
     return finalizePublishGate({
       planId: text(plan?.id),
       title: text(plan?.title),
@@ -683,11 +1023,12 @@
       ageBand: band,
       completionPercent,
       enrichmentFillPercent: completionPercent,
+      premiumReadinessPercent,
       contentCompletionPercent: contentCompletionPercent || completionPercent,
       weekdayCoverageLabel,
       contentCompletionLabel: weekdayCoverageLabel
-        ? `${weekdayCoverageLabel} · enrichment fill ${completionPercent}%`
-        : `Enrichment fill ${completionPercent}%`,
+        ? `${weekdayCoverageLabel} · structural ${completionPercent}% · premium ${premiumReadinessPercent}%`
+        : `Structural ${completionPercent}% · premium readiness ${premiumReadinessPercent}%`,
       sectionScores,
       strengths,
       missing,
@@ -824,8 +1165,14 @@
           : 0,
         blockingLessons: rows.filter((r) => r.blockingCount > 0).length,
       },
-      highestQuality: [...rows].sort((a, b) => b.qualityScore - a.qualityScore).slice(0, 15),
-      lowestQuality: [...rows].sort((a, b) => a.qualityScore - b.qualityScore).slice(0, 15),
+      highestQuality: [...rows].sort((a, b) => (
+        (b.qualityScore - a.qualityScore)
+        || ((a.blockingCount || 0) - (b.blockingCount || 0))
+      )).slice(0, 15),
+      lowestQuality: [...rows].sort((a, b) => (
+        (a.qualityScore - b.qualityScore)
+        || ((b.blockingCount || 0) - (a.blockingCount || 0))
+      )).slice(0, 15),
       needingReview: rows.filter((r) => r.needsReview).slice(0, 40),
       missingBooks: rows.filter((r) => r.missingBooks).slice(0, 40),
       missingSongs: rows.filter((r) => r.missingSongs).slice(0, 40),

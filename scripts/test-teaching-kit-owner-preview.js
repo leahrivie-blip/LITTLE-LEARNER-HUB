@@ -107,6 +107,38 @@ async function main() {
   ok(teachingKit.isTeachingKitOwnerPreviewEmail(OWNER_EMAIL) === true, "owner email allowed");
   ok(teachingKit.isTeachingKitOwnerPreviewEmail("leahrivie@icloud.com") === false, "owner alias blocked");
   ok(teachingKit.isTeachingKitOwnerPreviewEmail("other-admin@example.com") === false, "other admin blocked");
+  ok(
+    teachingKit.isTeachingKitOwnerPreviewAuthorized({
+      email: OWNER_EMAIL,
+      adminEmail: OWNER_EMAIL,
+      hasOwnerAdminSession: true,
+    }) === true,
+    "dual gate: owner identity + owner admin authorized",
+  );
+  ok(
+    teachingKit.isTeachingKitOwnerPreviewAuthorized({
+      email: OWNER_EMAIL,
+      adminEmail: "",
+      hasOwnerAdminSession: false,
+    }) === false,
+    "dual gate: owner email alone not authorized",
+  );
+  ok(
+    teachingKit.isTeachingKitOwnerPreviewAuthorized({
+      email: "pro-member@example.com",
+      adminEmail: OWNER_EMAIL,
+      hasOwnerAdminSession: true,
+    }) === false,
+    "dual gate: non-owner identity blocked even with owner admin",
+  );
+  ok(
+    teachingKit.isTeachingKitOwnerPreviewAuthorized({
+      email: OWNER_EMAIL,
+      adminEmail: "other-admin@example.com",
+      hasOwnerAdminSession: false,
+    }) === false,
+    "dual gate: owner identity without owner admin blocked",
+  );
   const off = teachingKit.defaultTeachingKitFeatureFlags();
   ok(teachingKit.isTeachingKitApiEnabled(off) === false, "API disabled when flags off");
   ok(teachingKit.isTeachingKitApiEnabledForRequest(off, { ownerPreview: true }) === true, "API enabled for owner preview");
@@ -118,10 +150,12 @@ async function main() {
   ok(appJs.includes("isOwnerTeachingKitPreviewActive"), "client owner preview helper");
   ok(appJs.includes("TEACHING_KIT_OWNER_PREVIEW_EMAIL"), "client owner email constant");
   ok(appJs.includes("teaching-kit-owner-preview"), "owner preview body class");
+  ok(appJs.includes("hasOwnerAdmin"), "client dual-gate requires owner admin");
   const viewerJs = fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-viewer.js"), "utf8");
   ok(viewerJs.includes("data-tk-owner-preview-banner"), "owner preview banner in viewer");
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
-  ok(serverJs.includes("resolveTeachingKitCallerEmail"), "server caller email resolver");
+  ok(serverJs.includes("resolveTeachingKitCallerContext"), "server caller context resolver");
+  ok(serverJs.includes("isTeachingKitOwnerPreviewAuthorized"), "server dual-gate authorization");
   ok(serverJs.includes("ownerPreview: true"), "server echoes ownerPreview");
 
   fs.writeFileSync(STORE_PATH, JSON.stringify({
@@ -250,8 +284,8 @@ async function main() {
       "signed-in non-owner wins over owner admin token (shared browser)",
     );
 
-    // Owner member identity unlocks
-    const ownerMember = await requestJson(
+    // Owner member identity alone (no admin session) must NOT unlock while flags are off.
+    const ownerMemberAlone = await requestJson(
       "GET",
       `/api/curriculum/lesson-plans/${FIXTURE_ID}/teaching-kit`,
       null,
@@ -260,7 +294,22 @@ async function main() {
         "x-llh-user-email": OWNER_EMAIL,
       },
     );
-    ok(ownerMember.status === 200, `owner member kit: ${ownerMember.status}`);
+    ok(
+      ownerMemberAlone.status === 404 && ownerMemberAlone.json?.code === "teaching_kit_disabled",
+      "owner member identity alone blocked without admin permission",
+    );
+
+    // Owner member identity + owner admin token unlocks (dual gate).
+    const ownerMember = await requestJson(
+      "GET",
+      `/api/curriculum/lesson-plans/${FIXTURE_ID}/teaching-kit?adminToken=${encodeURIComponent(ownerToken)}`,
+      null,
+      {
+        Authorization: `Bearer test:${OWNER_EMAIL}`,
+        "x-llh-user-email": OWNER_EMAIL,
+      },
+    );
+    ok(ownerMember.status === 200, `owner member+admin kit: ${ownerMember.status}`);
     ok(ownerMember.json?.featureFlags?.teachingKitViewer === true, "owner response viewer true");
     ok(ownerMember.json?.featureFlags?.teachingKitPrintCenter === true, "owner response print true");
     ok(ownerMember.json?.featureFlags?.teachingKitAttachments === true, "owner response attachments true");
@@ -268,7 +317,7 @@ async function main() {
     ok(ownerMember.json?.teachingKit?.locked === false, "owner kit unlocked");
     ok(Boolean(ownerMember.json?.teachingKit?.companion), "owner kit has companion");
 
-    // Owner admin session (no member identity) unlocks
+    // Owner admin session (no member identity) unlocks — admin email supplies identity.
     const ownerAdmin = await requestJson(
       "GET",
       `/api/curriculum/lesson-plans/${FIXTURE_ID}/teaching-kit`,

@@ -65,11 +65,18 @@
    */
   const DASHBOARD_STAGES = Object.freeze([
     "Legacy",
+    "Draft Started",
+    "AI Draft Ready",
+    "In Review",
+    "Needs Changes",
+    "Ready for Owner Review",
+    "Publish Ready",
+    "Published",
+    "Archived",
+    // Back-compat aliases
     "In Progress",
     "Needs Review",
     "Ready",
-    "Published",
-    "Archived",
   ]);
 
   /**
@@ -233,6 +240,23 @@
   }
 
   /**
+   * Server Owner Preview / Teaching Kit owner-admin gate — requires BOTH:
+   * 1) authenticated identity email === leahivie@icloud.com
+   * 2) valid owner/admin session for that same email
+   * Email alone (member login without admin) must not unlock TK while customer flags are off.
+   * Admin session alone for a different email must not unlock TK admin tools.
+   */
+  function isTeachingKitOwnerPreviewAuthorized(options = {}) {
+    const email = String(options.email || "").trim().toLowerCase();
+    const adminEmail = String(options.adminEmail || "").trim().toLowerCase();
+    const hasOwnerAdminSession = options.hasOwnerAdminSession === true
+      || (Boolean(options.adminTokenValid) && isTeachingKitOwnerPreviewEmail(adminEmail));
+    return isTeachingKitOwnerPreviewEmail(email)
+      && hasOwnerAdminSession
+      && isTeachingKitOwnerPreviewEmail(adminEmail || email);
+  }
+
+  /**
    * Owner Preview: elevate Viewer / Print / Attachments for the allowlisted owner
    * email only. Does not mutate stored site-content flags and does not grant access
    * to other Admins, Founding, Pro, Free, or staff roles.
@@ -332,15 +356,33 @@
     }
     if (value.teacherToolkit && typeof value.teacherToolkit === "object" && !Array.isArray(value.teacherToolkit)) {
       const toolkit = value.teacherToolkit;
+      const listField = (raw, maxItems = 24, maxLen = 280) => (Array.isArray(raw)
+        ? raw.map((item) => clampShortText(item, maxLen)).filter(Boolean).slice(0, maxItems)
+        : []);
       out.teacherToolkit = {
-        prepChecklist: Array.isArray(toolkit.prepChecklist)
-          ? toolkit.prepChecklist.map((item) => clampShortText(item, 280)).filter(Boolean).slice(0, 24)
-          : [],
-        observationFocus: Array.isArray(toolkit.observationFocus)
-          ? toolkit.observationFocus.map((item) => clampShortText(item, 280)).filter(Boolean).slice(0, 24)
-          : [],
+        prepChecklist: listField(toolkit.prepChecklist),
+        observationFocus: listField(toolkit.observationFocus),
         notes: clampShortText(toolkit.notes, 4000),
         teacherPreparation: clampShortText(toolkit.teacherPreparation, 4000),
+        teacherTips: listField(toolkit.teacherTips || toolkit.tips),
+        setupCleanupShortcuts: listField(toolkit.setupCleanupShortcuts || toolkit.setupShortcuts),
+        dailyMaterialsSummary: clampShortText(toolkit.dailyMaterialsSummary, 2000),
+        masterMaterialsChecklist: listField(toolkit.masterMaterialsChecklist || toolkit.masterMaterials, 40),
+        materialSubstitutions: listField(toolkit.materialSubstitutions || toolkit.substitutions),
+        vocabulary: listField(toolkit.vocabulary, 40, 120),
+        observationPrompts: listField(toolkit.observationPrompts),
+        documentationPrompts: listField(toolkit.documentationPrompts || toolkit.milestonePrompts),
+        mixedAgeAdaptations: clampShortText(toolkit.mixedAgeAdaptations, 2000),
+        extraSupportAdaptations: clampShortText(toolkit.extraSupportAdaptations || toolkit.extraSupport, 2000),
+        challengeExtensions: clampShortText(toolkit.challengeExtensions || toolkit.extensions, 2000),
+        smallGroupOptions: clampShortText(toolkit.smallGroupOptions, 2000),
+        largeGroupOptions: clampShortText(toolkit.largeGroupOptions, 2000),
+        indoorAlternatives: clampShortText(toolkit.indoorAlternatives, 2000),
+        outdoorOptions: clampShortText(toolkit.outdoorOptions, 2000),
+        familyConnection: clampShortText(toolkit.familyConnection, 2000),
+        safetyInclusionNotes: clampShortText(toolkit.safetyInclusionNotes || toolkit.safetyNotes, 2000),
+        endOfWeekReflection: clampShortText(toolkit.endOfWeekReflection, 2000),
+        suggestedQuestions: listField(toolkit.suggestedQuestions || toolkit.questionsToAsk),
       };
     }
     return out;
@@ -425,6 +467,7 @@
     isTeachingKitApiEnabled,
     TEACHING_KIT_OWNER_PREVIEW_EMAIL,
     isTeachingKitOwnerPreviewEmail,
+    isTeachingKitOwnerPreviewAuthorized,
     effectiveCustomerTeachingKitFlags,
     isTeachingKitApiEnabledForRequest,
     isOwnerOnlyTeachingKitPreview,

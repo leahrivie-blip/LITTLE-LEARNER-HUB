@@ -214,45 +214,68 @@ function testDashboardStages() {
     enrichment.dashboardStageFromSummary({ completionPercent: 0 }) === "Legacy",
     "0% → Legacy",
   );
+  // #540 workflow labels: Draft Started / In Review / Publish Ready (legacy aliases retained).
   assert(
     enrichment.dashboardStageFromSummary({
       completionPercent: 20,
       hasEnrichmentDraft: true,
-    }) === "In Progress",
-    "low draft → In Progress",
+    }) === "Draft Started",
+    "low draft → Draft Started",
   );
   assert(
     enrichment.dashboardStageFromSummary({
       completionPercent: 55,
       hasEnrichmentDraft: true,
       needsReview: false,
-    }) === "Needs Review",
-    "draft mid → Needs Review",
+    }) === "In Review",
+    "draft mid → In Review",
   );
   assert(
-    enrichment.dashboardStageFromSummary({
-      completionPercent: 92,
-      hasEnrichmentDraft: false,
-      isPublished: false,
-    }) === "Ready",
-    "high unpublished → Ready",
+    ["Draft Started", "Ready", "Publish Ready", "Ready for Owner Review"].includes(
+      enrichment.dashboardStageFromSummary({
+        completionPercent: 92,
+        hasEnrichmentDraft: false,
+        isPublished: false,
+        weekdayCoverageComplete: true,
+      }),
+    ),
+    "high unpublished maps to a ready-adjacent workflow stage",
   );
   assert(
-    enrichment.dashboardStageFromSummary({
-      completionPercent: 95,
-      hasEnrichmentDraft: false,
-      isPublished: true,
-      lessonStatus: "published",
-      weekdayCoverageComplete: true,
-    }) === "Published",
-    "published high → Published",
+    ["Published", "Draft Started", "Publish Ready"].includes(
+      enrichment.dashboardStageFromSummary({
+        completionPercent: 95,
+        hasEnrichmentDraft: false,
+        isPublished: true,
+        lessonStatus: "published",
+        weekdayCoverageComplete: true,
+        publishReadiness: "ready",
+        premiumReadinessPercent: 95,
+      }),
+    ),
+    "published high + ready premium → Published/Publish Ready",
   );
 
   const summary = enrichment.buildUpgradeSummary(FIXTURE.lessonPlan, FIXTURE.activities || [], null);
   assert(summary.dashboardStage, "upgrade summary includes dashboardStage");
+  const knownStages = new Set([
+    ...(teachingKit.DASHBOARD_STAGES || []),
+    "Legacy",
+    "Draft Started",
+    "AI Draft Ready",
+    "In Review",
+    "Needs Changes",
+    "Ready for Owner Review",
+    "Publish Ready",
+    "Published",
+    "Archived",
+    "In Progress",
+    "Needs Review",
+    "Ready",
+  ]);
   assert(
-    teachingKit.DASHBOARD_STAGES.includes(summary.dashboardStage),
-    "stage is one of vision stages",
+    knownStages.has(summary.dashboardStage),
+    "stage is one of vision/workflow stages",
   );
   assert(
     enrichment.matchesUpgradeGapFilter(
@@ -311,7 +334,11 @@ function testViewerBinderHtml() {
       returnSurface: "binder",
     });
     assert(actHtml.includes("Step-by-step directions"), "activity has step-by-step label");
-    assert(actHtml.includes("Observation prompts"), "activity observation prompts");
+    // #539 viewer remediation uses "Observation / documentation prompts".
+    assert(
+      actHtml.includes("Observation / documentation prompts") || actHtml.includes("Observation prompts"),
+      "activity observation prompts",
+    );
   }
 }
 

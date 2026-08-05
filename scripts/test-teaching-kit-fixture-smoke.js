@@ -549,19 +549,35 @@ async function main() {
       ok(Boolean(withSnapshot[0].versionId), "single snapshot still versioned for compare");
     }
 
-    // 22–23) Rollback restores exact prior (v1) published tip.
+    // 22–23) Rollback restores prior (v1) publish snapshot into a NEW DRAFT only.
+    // Customer-visible published content stays on v2 until an explicit Publish.
+    // (API requires expectedUpdatedAt; editor always sends it — smoke must too.)
+    const v1HistoryEntry = withSnapshot.find((entry) => {
+      const tip = ((entry.snapshot?.dailyPlans?.monday?.items || [])[0]?.teacherTips || [])[0] || "";
+      const actTip = (entry.snapshot?.activities || []).find((a) => (a.itemId || a.id) === "qa-smoke-act-1");
+      const fromAct = Array.isArray(actTip?.teacherTips) ? actTip.teacherTips[0] : "";
+      return String(tip).includes("version one") || String(fromAct).includes("version one");
+    }) || withSnapshot.find((entry, idx, arr) => idx === arr.length - 1);
+    ok(Boolean(v1HistoryEntry?.versionId), "v1 history version available for rollback");
     res = await requestJson("POST", "/api/admin/curriculum/enrichment-rollback", {
       adminToken,
       planId: FIXTURE_PLAN_ID,
+      versionId: v1HistoryEntry.versionId,
+      expectedUpdatedAt: stamp,
       publishedBy: "qa-fixture-smoke",
     }, auth);
-    ok(res.status === 200 && (res.json?.ok || res.json?.rolledBack), `rollback: ${res.status}`);
+    ok(res.status === 200 && (res.json?.ok || res.json?.rolledBack), `rollback: ${res.status} ${res.json?.code || res.json?.error || ""}`);
+    ok(res.json?.restoredIntoDraft === true || res.json?.customerVisibleUnchanged === true,
+      "rollback restores into draft without auto-publishing");
     stamp = res.json.siteContentUpdatedAt || stamp;
     plan = findPlan(res.json.curriculum, FIXTURE_PLAN_ID);
-    const tipAfterRollback = ((plan?.dailyPlans?.monday?.items || [])[0]?.teacherTips || [])[0] || "";
+    const tipAfterRollback = tipFromPlan(plan, "qa-smoke-act-1");
     ok(String(tipAfterRollback).includes("version one"),
-      `rollback restored v1 tip (got "${tipAfterRollback}")`);
-    ok(!String(tipAfterRollback).includes("version two"), "rollback removed v2 tip");
+      `rollback restored v1 tip into draft (got "${tipAfterRollback}")`);
+    ok(!String(tipAfterRollback).includes("version two"), "rollback draft tip is not v2");
+    const publishedTipAfterRollback = ((plan?.dailyPlans?.monday?.items || [])[0]?.teacherTips || [])[0] || "";
+    ok(String(publishedTipAfterRollback).includes("version two"),
+      `customer-visible published tip remains v2 after rollback (got "${publishedTipAfterRollback}")`);
 
     // 24–25) Discard draft; published content remains.
     const discardTip = "QA tip that must be discarded from draft only.";
@@ -579,7 +595,7 @@ async function main() {
     }, auth);
     ok(res.status === 200, `draft before discard: ${res.status}`);
     stamp = res.json.siteContentUpdatedAt;
-    const publishedTipBeforeDiscard = ((findPlan(res.json.curriculum, FIXTURE_PLAN_ID)?.dailyPlans?.monday?.items || [])[0]?.teacherTips || [])[0] || tipAfterRollback;
+    const publishedTipBeforeDiscard = ((findPlan(res.json.curriculum, FIXTURE_PLAN_ID)?.dailyPlans?.monday?.items || [])[0]?.teacherTips || [])[0] || publishedTipAfterRollback;
 
     res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken,

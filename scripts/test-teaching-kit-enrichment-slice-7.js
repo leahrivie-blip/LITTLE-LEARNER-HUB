@@ -456,11 +456,12 @@ async function main() {
     assert(polish.tabs.includes("true"), "mode tabs expose aria-selected");
     assert(polish.stagePrev === false && polish.chromePrev === true, "nav not duplicated in stage");
 
-    // A11y: Escape closes AI tray
-    await page.evaluate(() => {
-      document.querySelector('[data-ai-suggest="activity"]')?.click();
-    });
-    await page.waitForSelector("[data-ai-tray][aria-modal='true']", { timeout: 10000 });
+    // A11y: Escape closes AI tray.
+    // #540: opening never auto-starts AI — owner must Prepare AI Draft + confirm.
+    page.once("dialog", (dialog) => dialog.accept());
+    const prepareBtn = page.locator('[data-ai-suggest="lesson"], [data-ai-suggest="activity"]').first();
+    await prepareBtn.click({ timeout: 10000 });
+    await page.waitForSelector("[data-ai-tray][aria-modal='true']", { timeout: 15000 });
     await page.keyboard.press("Escape");
     await page.waitForSelector("[data-ai-tray]", { state: "detached", timeout: 5000 });
 

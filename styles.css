@@ -24529,6 +24529,117 @@ body.nuo-open #freePlanReminderBar {
   padding: 4px 0 8px;
 }
 
+/* Teaching Kit viewer remediation — modal layout, sticky chrome, print center */
+.resource-viewer-modal.lesson-workspace-mode.open:has(.teaching-kit-workspace) {
+  background: rgba(24, 28, 32, 0.72);
+  z-index: 240;
+}
+.resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .resource-viewer-card {
+  width: min(980px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+}
+.resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .resource-viewer-body,
+.resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .lesson-workspace-article {
+  min-height: 0;
+  overflow: hidden;
+}
+.teaching-kit-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+}
+.teaching-kit-workspace .lesson-workspace-topchrome {
+  flex: 0 0 auto;
+  z-index: 8;
+  background: #fff;
+}
+.teaching-kit-workspace .tk-panels,
+.teaching-kit-workspace .tk-panel-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 12px;
+}
+.teaching-kit-workspace .tk-workspace-sticky-actions,
+.teaching-kit-workspace .lesson-workspace-action-bars {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, #fff 30%);
+  border-top: 1px solid rgba(213, 227, 240, 0.95);
+  padding: 10px 4px calc(10px + env(safe-area-inset-bottom, 0px));
+  margin-top: 0;
+}
+.teaching-kit-workspace .tk-panels {
+  padding-bottom: 8px;
+}
+.teaching-kit-workspace .tk-build-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+.teaching-kit-workspace .tk-build-summary {
+  position: sticky;
+  top: 8px;
+}
+.teaching-kit-workspace .tk-check-inline.is-disabled,
+.teaching-kit-workspace .tk-check-inline.is-disabled span {
+  opacity: 0.72;
+  color: #5c6b62;
+}
+.teaching-kit-workspace .tk-photo-missing,
+.teaching-kit-workspace .tk-field-empty {
+  border: 1px dashed #c5d4cb;
+  background: #f7faf8;
+  color: #3f5348;
+  border-radius: 12px;
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.teaching-kit-workspace .tk-empty-state {
+  border: 1px dashed #c5d4cb;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fbf9;
+}
+.teaching-kit-workspace .tk-btn,
+.teaching-kit-workspace .tk-ops-tab,
+.teaching-kit-workspace .tk-binder-section-tab,
+.teaching-kit-workspace .tk-day {
+  min-height: 44px;
+}
+body.teaching-kit-owner-preview #siteFooter,
+body.teaching-kit-owner-preview .site-footer,
+body.teaching-kit-owner-preview .feedback-fab,
+body.teaching-kit-owner-preview [data-feedback-launcher] {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+@media (max-width: 900px) {
+  .teaching-kit-workspace .tk-build-layout {
+    grid-template-columns: 1fr;
+  }
+  .teaching-kit-workspace .tk-build-summary {
+    position: static;
+  }
+  .teaching-kit-workspace {
+    max-height: 100dvh;
+  }
+  .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .lesson-workspace-action-bars,
+  .teaching-kit-workspace .tk-workspace-sticky-actions {
+    position: sticky;
+    bottom: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .tk-banner,
   .tk-grid-2,
@@ -25328,6 +25439,41 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 }
 .tk-enrich-summary-stepper .is-active { color: #1f6b4a; font-weight: 700; }
 .tk-enrich-summary-stepper .is-done { color: #24312a; }
+.tk-enrich-score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 0.65rem;
+  margin: 0.55rem 0 0.75rem;
+  font-size: 0.8rem;
+}
+.tk-enrich-score-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.28rem 0.4rem;
+  background: rgba(31, 107, 74, 0.06);
+  border-radius: 6px;
+}
+.tk-enrich-score-grid span { color: rgba(36, 49, 42, 0.65); }
+.tk-quality-hard-blockers {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(168, 60, 40, 0.35);
+  border-radius: 8px;
+  background: rgba(168, 60, 40, 0.06);
+}
+.tk-quality-hard-blockers ul {
+  margin: 0.35rem 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+.tk-quality-hard-blockers li { margin: 0.35rem 0; }
+.tk-quality-hard-blockers .ghost-button {
+  text-align: left;
+  white-space: normal;
+  color: #8a3018;
+  text-decoration: underline;
+}
 .tk-enrich-summary-list {
   margin: 0.65rem 0 0;
 }

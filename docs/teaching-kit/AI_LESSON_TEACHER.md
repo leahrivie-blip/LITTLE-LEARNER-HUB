@@ -15,14 +15,14 @@ When an admin clicks **Upgrade Lesson**, the workspace is not an empty editor. T
 
 ## Workflow
 
-1. **Upgrade Lesson** opens the Enrichment Editor.
+1. **Upgrade Lesson** opens the Enrichment Editor (load only — **never** auto-starts AI, consumes usage, creates a proposal, autosaves, or changes scores/timestamps).
 2. Local analysis scores every Teaching Kit area: Complete / Needs Improvement / Missing.
-3. **Prepare AI Draft** (auto-starts when gaps exist and admin token is present) calls `POST /api/admin/curriculum/enrichment-ai-suggest` with `scope: "lesson"`.
+3. **Prepare AI Draft** runs only after the owner presses the button and confirms: *“Prepare an AI draft for this lesson? Existing published content will remain unchanged. Suggestions will stay in review until you accept them.”* It then calls `POST /api/admin/curriculum/enrichment-ai-suggest` with `scope: "lesson"`.
 4. Server generates a lesson pack (week + first activities), filters to gap sections only, and returns suggestions **without writing the store**.
 5. Side-by-side review: Accept / Reject / Edit before accept · Accept all · Reject all · Accept selected.
 6. Accepted rows apply **additively** into `enrichmentDraft` only.
-7. Completion % / analysis panel refresh after each accept.
-8. **Save draft** / **Publish…** remain explicit admin actions.
+7. Structural completion % / premium readiness / analysis panel refresh after each accept.
+8. **Save draft** / **Publish…** remain explicit owner actions (Publish disabled while hard blockers remain unless owner override).
 
 Never overwrites published content without approval. Never deletes legacy content. Never auto-publishes.
 

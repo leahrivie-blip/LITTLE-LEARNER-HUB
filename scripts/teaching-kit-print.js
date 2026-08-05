@@ -94,6 +94,51 @@
     return { ok: true, reason: "ok" };
   }
 
+  /**
+   * Which Print Center parts have real content. Used to disable empty options
+   * and skip blank print sections.
+   */
+  function evaluatePrintPartAvailability(kit, options = {}) {
+    const companion = kit && kit.companion ? kit.companion : {};
+    const removed = options.removedActivityIds || {};
+    const activities = (companion.activities || []).filter((item) => !removed[item.id]);
+    const books = companion.books || [];
+    const songs = companion.songs || [];
+    const vocab = companion.vocabulary || [];
+    const printables = companion.printables || [];
+    const setup = companion.mondayMorningSetup || {};
+    const family = text(companion.parentConnection?.readyToSendMessage);
+    const daysWithContent = WEEKDAYS.filter((day) => {
+      const model = companion.days?.[day];
+      return Boolean(model && ((model.activities || []).length || text(model.focus) || (model.schedule || []).length));
+    });
+    const obsCount = activities.reduce((sum, act) => sum + (act.observationIdeas || []).length, 0)
+      || WEEKDAYS.reduce((sum, day) => sum + ((companion.days?.[day]?.observations || []).length), 0);
+    const photoCount = activities.filter((act) => act.hasExamplePhoto || act.hasSetupPhoto
+      || act.examplePhotoUrl || act.setupPhotoUrl || act.exampleImageUrl || act.setupImageUrl).length;
+
+    function row(available, count, reason) {
+      return { available: Boolean(available), count: Number(count) || 0, reason: reason || "" };
+    }
+
+    return {
+      cover: row(true, 1, ""),
+      setup: row(
+        (setup.materials || []).length || (setup.prepTasks || []).length,
+        (setup.materials || []).length,
+        "Monday Setup materials/prep not authored yet",
+      ),
+      daily: row(daysWithContent.length, daysWithContent.length, "No daily classroom pages with content yet"),
+      activities: row(activities.length, activities.length, "No activities to print"),
+      songsBooks: row(books.length + songs.length, books.length + songs.length, "No songs or books yet"),
+      vocabulary: row(vocab.length, vocab.length, "No vocabulary yet"),
+      family: row(Boolean(family), family ? 1 : 0, "No family connection message yet"),
+      observations: row(obsCount, obsCount, "No observation prompts yet"),
+      printables: row(printables.length, printables.length, "No printables linked yet"),
+      images: row(photoCount, photoCount, "No example/setup photos yet"),
+    };
+  }
+
   function normalizePaperSize(value) {
     const id = text(value).toLowerCase();
     return PAPER_SIZES.some((item) => item.id === id) ? id : "letter";
@@ -313,15 +358,17 @@
     if (!activities.length) return "";
     let html = dividerHtml("Activities", "Activity Cards", selection);
     activities.forEach((activity) => {
-      const photos = selection.includeImages
-        ? `<div class="tk-print-photo-row tk-print-keep">
-            <div class="tk-print-photo">${activity.examplePhotoUrl
-              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example" loading="eager" decoding="async" />`
-              : `<div class="tk-print-photo-ph">Example photo</div>`}<span>Example</span></div>
-            <div class="tk-print-photo">${activity.setupPhotoUrl
-              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup" loading="eager" decoding="async" />`
-              : `<div class="tk-print-photo-ph">Setup photo</div>`}<span>Setup</span></div>
-          </div>`
+      const exampleUrl = activity.examplePhotoUrl || activity.exampleImageUrl || "";
+      const setupUrl = activity.setupPhotoUrl || activity.setupImageUrl || "";
+      const photoBits = [];
+      if (selection.includeImages && exampleUrl) {
+        photoBits.push(`<div class="tk-print-photo"><img src="${escapeHtml(exampleUrl)}" alt="${escapeHtml(activity.exampleAlt || `Finished example for ${activity.title || "activity"}`)}" loading="eager" decoding="async" /><span>Example</span></div>`);
+      }
+      if (selection.includeImages && setupUrl) {
+        photoBits.push(`<div class="tk-print-photo"><img src="${escapeHtml(setupUrl)}" alt="${escapeHtml(activity.setupAlt || `Setup for ${activity.title || "activity"}`)}" loading="eager" decoding="async" /><span>Setup</span></div>`);
+      }
+      const photos = photoBits.length
+        ? `<div class="tk-print-photo-row tk-print-keep">${photoBits.join("")}</div>`
         : "";
       const body = `
         <p class="tk-print-muted">${escapeHtml(activity.activityCategory || "")}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_LABELS[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
@@ -363,24 +410,25 @@
   function songsBooksHtml(kit, selection) {
     const books = kit?.companion?.books || [];
     const songs = kit?.companion?.songs || [];
+    if (!books.length && !songs.length) return "";
     const body = `
       <h3>Books</h3>
       ${books.map((book) => `
         <div class="tk-print-block">
           <strong>${escapeHtml(book.title)}</strong>${book.author ? ` — ${escapeHtml(book.author)}` : ""}
-          ${(book.readAloudQuestions || []).length
-            ? `<p><em>Read-aloud questions:</em> ${escapeHtml(book.readAloudQuestions.join(" · "))}</p>`
+          ${(book.readAloudQuestions || book.afterReadingQuestions || []).length
+            ? `<p><em>Read-aloud questions:</em> ${escapeHtml((book.readAloudQuestions || book.afterReadingQuestions).join(" · "))}</p>`
             : ""}
         </div>
-      `).join("") || `<p class="tk-print-muted">None listed</p>`}
+      `).join("") || ""}
       <h3>Songs</h3>
       ${songs.map((song) => `
         <div class="tk-print-block">
           <strong>${escapeHtml(song.title)}</strong>
-          ${song.lyrics ? `<p><em>${escapeHtml(song.lyrics)}</em></p>` : ""}
+          ${song.lyricsPrintable && song.lyrics ? `<p><em>${escapeHtml(song.lyrics)}</em></p>` : ""}
           ${song.motions ? `<p>Motions: ${escapeHtml(song.motions)}</p>` : ""}
         </div>
-      `).join("") || `<p class="tk-print-muted">None listed</p>`}
+      `).join("") || ""}
     `;
     return dividerHtml("Songs & Books", "Songs & Books", selection)
       + page("Songs & Books", "Songs & Books", body, selection.footerLabel);
@@ -388,6 +436,7 @@
 
   function vocabularyHtml(kit, selection) {
     const words = kit?.companion?.vocabulary || [];
+    if (!words.length) return "";
     const body = listHtml(words.map((word) => {
       const bits = [word.word];
       if (word.definition) bits.push(word.definition);
@@ -401,9 +450,10 @@
   function familyHtml(kit, selection) {
     const message = kit?.companion?.parentConnection?.readyToSendMessage || "";
     const points = kit?.companion?.parentConnection?.pickupTalkingPoints || [];
+    if (!message && !points.length) return "";
     const body = `
       <h3>Ready-to-send family message</h3>
-      <div class="tk-print-message">${escapeHtml(message || "None listed")}</div>
+      <div class="tk-print-message">${escapeHtml(message)}</div>
       <h3>Pickup talking points</h3>
       ${listHtml(points)}
     `;
@@ -424,6 +474,7 @@
         (model?.observations || []).forEach((idea) => prompts.push(`${DAY_LABELS[day]}: ${idea}`));
       });
     }
+    if (!prompts.length) return "";
     const body = listHtml(prompts);
     return dividerHtml("Observe", "Observation Prompts", selection)
       + page("Observe", "Observation Prompts", body, selection.footerLabel);
@@ -431,15 +482,19 @@
 
   function printablesHtml(kit, selection) {
     const printables = kit?.companion?.printables || [];
-    const body = printables.length
-      ? printables.map((item) => `
+    if (!printables.length) return "";
+    const body = printables.map((item) => `
           <div class="tk-print-block">
             <strong>${escapeHtml(item.title)}</strong>
             <p>Used in week: ${escapeHtml((item.usedInWeek || []).map((slot) => `${slot.dayLabel || slot.day} · ${slot.moment}`).join("; ") || "See weekly plan")}</p>
           </div>
-        `).join("")
-      : `<p class="tk-print-muted">No linked printables for this kit.</p>`;
+        `).join("");
     return page("Setup", "Printables — Where Used in the Week", body, selection.footerLabel);
+  }
+
+  function setupHtmlIfAvailable(kit, selection, availability) {
+    if (availability.setup && availability.setup.available === false) return "";
+    return setupHtml(kit, selection);
   }
 
   function buildBinderPrintHtml(kit, options) {
@@ -447,14 +502,27 @@
       return { ok: false, reason: "unavailable", html: "", pageCount: 0 };
     }
     const selection = normalizeSelection(kit, options);
-    const parts = selection.parts;
+    const availability = evaluatePrintPartAvailability(kit, {
+      removedActivityIds: options && options.removedActivityIds,
+    });
+    // Never emit blank sections — force-disable unavailable parts even if UI checked them.
+    const parts = { ...selection.parts };
+    Object.keys(PART_LABELS).forEach((key) => {
+      if (parts[key] && availability[key] && availability[key].available === false) {
+        parts[key] = false;
+      }
+    });
+    if (selection.includeImages && availability.images && availability.images.available === false) {
+      selection.includeImages = false;
+    }
+    selection.parts = parts;
     const chunks = [];
     chunks.push(pageSizeStyleTag(selection.paperSize));
     if (selection.watermark) {
       chunks.push(`<div class="tk-print-watermark" aria-hidden="true">${escapeHtml(selection.watermark)}</div>`);
     }
     if (parts.cover) chunks.push(coverHtml(kit, selection));
-    if (parts.setup) chunks.push(setupHtml(kit, selection));
+    if (parts.setup) chunks.push(setupHtmlIfAvailable(kit, selection, availability));
     if (parts.daily) chunks.push(dailyHtml(kit, selection));
     if (parts.activities) chunks.push(activitiesHtml(kit, selection));
     if (parts.songsBooks) chunks.push(songsBooksHtml(kit, selection));
@@ -500,6 +568,7 @@
     pageSizeCss,
     pageSizeStyleTag,
     evaluatePrintAuthorization,
+    evaluatePrintPartAvailability,
     buildBinderPrintHtml,
   };
 });

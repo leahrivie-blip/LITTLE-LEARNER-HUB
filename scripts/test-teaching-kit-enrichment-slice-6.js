@@ -450,12 +450,22 @@ async function main() {
 
     async function openAiTray(page) {
       await dismissOverlays(page);
-      await page.evaluate(() => {
+      // Explicit AI only — never rely on auto-open. Confirm must be accepted (or skipped).
+      await page.evaluate(async () => {
+        window.confirm = () => true;
+        if (window.LLHTeachingKitEnrichmentEditor?.requestAiSuggestions) {
+          await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
+            scope: "activity",
+            simulate: "fixture",
+            skipConfirm: true,
+          });
+          return;
+        }
         const buttons = [...document.querySelectorAll('[data-ai-suggest="activity"]')];
         const btn = buttons[buttons.length - 1] || buttons[0];
         if (btn) btn.click();
       });
-      await page.waitForSelector("[data-ai-tray]", { timeout: 10000 });
+      await page.waitForSelector("[data-ai-tray]", { timeout: 15000 });
     }
 
     async function openEditor(page, viewport, enrichmentDraft) {
@@ -518,10 +528,11 @@ async function main() {
     assert(features.aiSuggest === true, "aiSuggest enabled");
     assert(features.publish === true, "publish still available but unused by AI");
 
-    // Close auto complete-kit tray first (must reset editor state), then open activity AI suggest.
+    // Opening Upgrade Lesson must not auto-start AI. Dismiss only if a tray is present.
     const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
     await dismissEnrichmentAiTray(page);
-    assert(!(await page.locator("[data-ai-tray]").count()), "auto AI tray closed before activity suggest");
+    assert(!(await page.locator("[data-ai-tray]").count()), "no AI tray after open (auto-AI disabled)");
+    await page.evaluate(() => { window.confirm = () => true; });
     await openAiTray(page);
     await page.waitForSelector(".tk-enrich-ai-card", { timeout: 15000 });
     const trayText = await page.locator("[data-ai-tray]").innerText();

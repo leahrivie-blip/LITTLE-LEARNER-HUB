@@ -13,7 +13,7 @@
       { "title": "Rain", "author": "Sample Author", "notes": "Before: What do you wear in the rain?\nDuring: What sound does rain make?\nAfter: Can you show me dripping fingers?" }
     ],
     "songs": [
-      { "title": "Pitter Patter Raindrops", "notes": "Lyrics: Pitter patter raindrops, falling all around.\nMotions: tap fingers → wiggle arms → crouch small" }
+      { "title": "Pitter Patter Raindrops", "rightsStatus": "original", "allowPrintLyrics": true, "notes": "Lyrics: Pitter patter raindrops, falling all around.\nMotions: tap fingers → wiggle arms → crouch small" }
     ],
     "weeklyMaterials": "Sensory bin\nWater\nCups\nTowels\nRain picture cards",
     "vocabularyWords": "Rain — water that falls from clouds. Ask: What do we wear in the rain?\nPuddle — a small pool of water. Ask: Can we stomp gently?",
