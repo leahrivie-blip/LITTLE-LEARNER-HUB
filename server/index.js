@@ -8415,6 +8415,18 @@ async function handlePasswordLogin(request, response) {
   }
   const verified = tempPasswordAuth.verifyServerPasswordLogin(user, password);
   if (!verified.ok) {
+    if (
+      HOME_DAYCARE_HUB_TESTING
+      && tempPasswordAuth.isTestingOwnerEmail(email)
+      && tempPasswordAuth.matchesRetiredTestingOwnerPassword(password)
+    ) {
+      authAuditLog("password_login_failed", { email, reason: "retired_testing_password" });
+      jsonResponse(response, 401, {
+        error: "That old testing password no longer works (Chrome may have saved it after a data-breach warning). Clear the saved password, then use the new testing password from the latest testing note.",
+        code: "testing_password_rotated",
+      });
+      return;
+    }
     if (verified.clearExpiredTemp) {
       store.users[email] = tempPasswordAuth.clearTempPasswordFields(user, {
         keepServerPasswordAuth: Boolean(user.passwordHash || user.serverPasswordAuth),
@@ -8631,6 +8643,21 @@ async function handleAdminLogin(request, response) {
     && tempPasswordAuth.matchesTestingOwnerPassword(code);
   const valid = envValid || testingOwnerValid;
   if (!valid) {
+    if (
+      HOME_DAYCARE_HUB_TESTING
+      && tempPasswordAuth.isTestingOwnerEmail(email)
+      && (
+        tempPasswordAuth.matchesRetiredTestingOwnerPassword(password)
+        || tempPasswordAuth.matchesRetiredTestingOwnerPassword(code)
+      )
+    ) {
+      adminSessionStore.recordFailedAttempt(email);
+      jsonResponse(response, 401, {
+        error: "That old testing password/code no longer works. Clear Chrome’s saved password, then use the new testing password for both Owner Password and Admin Access Code.",
+        code: "testing_password_rotated",
+      });
+      return;
+    }
     adminSessionStore.recordFailedAttempt(email);
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
     return;

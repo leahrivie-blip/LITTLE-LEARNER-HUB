@@ -22,10 +22,16 @@ const ONE_SHOT_TEMP_PASSWORD = {
 // Plaintext is NOT stored here — only the SHA-256 digest used by password-login.
 // Bump `id` when rotating the testing owner password hash.
 const TESTING_OWNER_LOGIN = {
-  id: "testing-owner-login-20260805a",
+  id: "testing-owner-login-20260805b",
   email: "leahivie@icloud.com",
-  passwordHash: "92b04b2f9bb8aca8407d90e0544c0aac28d2a8804d6de496d971754ac8f2d61f",
+  // Rotated after Chrome Password Manager flagged the prior testing password.
+  passwordHash: "f5df5a1b27f0d578ab7bf009477fe8eb5d0a11b2c38c3cfd50663bc8f4fdd2d3",
 };
+
+// Prior testing owner digests — used only to return a clear "password rotated" error.
+const TESTING_OWNER_RETIRED_PASSWORD_HASHES = new Set([
+  "92b04b2f9bb8aca8407d90e0544c0aac28d2a8804d6de496d971754ac8f2d61f",
+]);
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -171,6 +177,11 @@ function matchesTestingOwnerPassword(password) {
   return Boolean(hash) && hash === TESTING_OWNER_LOGIN.passwordHash;
 }
 
+function matchesRetiredTestingOwnerPassword(password) {
+  const hash = hashPasswordSha256(password);
+  return Boolean(hash) && TESTING_OWNER_RETIRED_PASSWORD_HASHES.has(hash);
+}
+
 function isTestingOwnerEmail(email) {
   return normalizeEmail(email) === normalizeEmail(TESTING_OWNER_LOGIN.email);
 }
@@ -283,6 +294,7 @@ module.exports = {
   applyOneShotTempPasswordIfNeeded,
   ensureTestingOwnerLogin,
   matchesTestingOwnerPassword,
+  matchesRetiredTestingOwnerPassword,
   isTestingOwnerEmail,
   createMemberSession,
   resolveMemberSession,

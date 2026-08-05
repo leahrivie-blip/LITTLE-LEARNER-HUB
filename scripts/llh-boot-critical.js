@@ -12,13 +12,38 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r7";
+  const APP_SRC = "app.js?v=20260804-js-split-r8";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
   let earlyAdminWired = false;
   let earlyAuthWired = false;
   let authMode = "login";
+
+  async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 20000) {
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller
+      ? window.setTimeout(() => {
+        try { controller.abort(); } catch (_error) { /* ignore */ }
+      }, timeoutMs)
+      : 0;
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller ? controller.signal : options.signal,
+      });
+      let data = {};
+      try { data = await response.json(); } catch (_error) { data = {}; }
+      return { response, data };
+    } catch (error) {
+      if (error && (error.name === "AbortError" || /abort/i.test(String(error.message || "")))) {
+        throw new Error("Login is taking too long. Check your connection and try again.");
+      }
+      throw error;
+    } finally {
+      if (timer) window.clearTimeout(timer);
+    }
+  }
 
   function isAdminRoute() {
     try {
@@ -203,13 +228,11 @@
   }
 
   async function earlyAdminLogin(email, password, code) {
-    const response = await fetch("/api/admin/login", {
+    const { response, data } = await fetchJsonWithTimeout("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ email, password, code }),
-    });
-    let data = {};
-    try { data = await response.json(); } catch (_error) { data = {}; }
+    }, 20000);
     if (!response.ok) throw new Error(data.error || data.message || "Admin login failed.");
     return data;
   }
@@ -329,12 +352,19 @@
       return;
     }
     setEarlyAuthMode(mode);
+    ensureTestingAuthHint();
     document.body.classList.add("auth-modal-open");
     modal.hidden = false;
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     setStatus("");
     const email = document.getElementById("emailInput");
+    // On testing, discourage Chrome from autofilling a retired breached password.
+    const pass = document.getElementById("passwordInput");
+    if (isTestingHost() && pass && mode !== "signup") {
+      pass.setAttribute("autocomplete", "new-password");
+      try { pass.value = ""; } catch (_error) { /* ignore */ }
+    }
     window.setTimeout(() => { try { email?.focus(); } catch (_e) { /* ignore */ } }, 50);
   }
 
@@ -358,13 +388,11 @@
   }
 
   async function earlyPasswordLogin(email, password) {
-    const response = await fetch("/api/auth/password-login", {
+    const { response, data } = await fetchJsonWithTimeout("/api/auth/password-login", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ email, password }),
-    });
-    let data = {};
-    try { data = await response.json(); } catch (_error) { data = {}; }
+    }, 20000);
     if (!response.ok) throw new Error(data.error || "The email or password did not match. Please try again.");
     return data;
   }
@@ -383,6 +411,35 @@
     }
   }
 
+  function paintEarlySignedIn(email) {
+    const clean = String(email || "").trim().toLowerCase();
+    try {
+      document.documentElement.classList.add("llh-boot-authenticated");
+      document.body?.classList.add("llh-early-signed-in");
+    } catch (_error) { /* ignore */ }
+    const loginBtn = document.getElementById("openLoginBtn");
+    const signupBtn = document.getElementById("openSignupBtn");
+    if (loginBtn) {
+      loginBtn.textContent = clean ? `Signed in · ${clean}` : "Signed in";
+      loginBtn.setAttribute("aria-label", "Signed in");
+    }
+    if (signupBtn) signupBtn.hidden = true;
+    setStatus(`Signed in as ${clean || "member"}. Loading your hub…`);
+  }
+
+  function ensureTestingAuthHint() {
+    if (!isTestingHost()) return;
+    const form = document.getElementById("authForm");
+    if (!form || form.querySelector("[data-llh-testing-auth-hint]")) return;
+    const hint = document.createElement("p");
+    hint.className = "form-note";
+    hint.dataset.llhTestingAuthHint = "1";
+    hint.textContent = "Testing tip: if Chrome says a password was found in a data breach, that is Chrome’s warning about an old saved password — not this site rejecting you. Clear the saved password, type the current testing password, then try again.";
+    const message = document.getElementById("authMessage");
+    if (message && message.parentNode) message.parentNode.insertBefore(hint, message);
+    else form.appendChild(hint);
+  }
+
   function wireEarlyAuth() {
     if (earlyAuthWired) return;
     earlyAuthWired = true;
@@ -391,6 +448,7 @@
     window.openAuthModal = window.openAuthModal || openEarlyAuthModal;
     window.closeAuthModal = window.closeAuthModal || closeEarlyAuthModal;
     window.LLHEarlyAuth = { open: openEarlyAuthModal, close: closeEarlyAuthModal };
+    ensureTestingAuthHint();
 
     document.getElementById("closeModal")?.addEventListener("click", (event) => {
       event.preventDefault();
@@ -452,9 +510,11 @@
         const data = await earlyPasswordLogin(email, password);
         saveEarlyMemberSession(email, data);
         setAuthMessage("Signed in — opening your hub…", true);
+        paintEarlySignedIn(email);
+        // Let the success message paint before the multi-MB app.js parse freezes the tab.
+        await new Promise((resolve) => window.setTimeout(resolve, 50));
         closeEarlyAuthModal();
-        setStatus("Signed in — loading your hub…");
-        startCoreAppLoad({ reason: "login" });
+        window.setTimeout(() => startCoreAppLoad({ reason: "login" }), 100);
         const started = Date.now();
         const timer = window.setInterval(() => {
           if (document.body.classList.contains("app-boot-ready") && typeof window.setView === "function") {
