@@ -1127,3 +1127,313 @@ body.llh-admin-control-center #view-admin .admin-testing-center.admin-preview-pa
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Admin Depth ops managers (Programs / Staff / Children / Families) ───── */
+body.llh-admin-control-center .admin-ops-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 0.8fr) minmax(180px, 1.2fr) auto;
+  gap: 10px 12px;
+  align-items: end;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 14px;
+  background: var(--admin-cc-panel);
+}
+
+body.llh-admin-control-center .admin-ops-toolbar label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--admin-cc-muted);
+}
+
+body.llh-admin-control-center .admin-ops-toolbar input,
+body.llh-admin-control-center .admin-ops-toolbar select,
+body.llh-admin-control-center .admin-ops-form input,
+body.llh-admin-control-center .admin-ops-form select,
+body.llh-admin-control-center .admin-ops-form textarea,
+body.llh-admin-control-center .admin-ops-form-field textarea {
+  width: 100%;
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--admin-cc-ink);
+  font: inherit;
+}
+
+body.llh-admin-control-center .admin-ops-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+body.llh-admin-control-center .admin-ops-flash {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(61, 155, 122, 0.12);
+  color: #1f5d48;
+  font-size: 0.9rem;
+}
+
+body.llh-admin-control-center .admin-ops-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+body.llh-admin-control-center .admin-ops-metric {
+  padding: 12px 14px;
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 14px;
+  background: var(--admin-cc-panel);
+  display: grid;
+  gap: 4px;
+}
+
+body.llh-admin-control-center .admin-ops-metric span,
+body.llh-admin-control-center .admin-ops-metric small {
+  color: var(--admin-cc-muted);
+  font-size: 0.78rem;
+}
+
+body.llh-admin-control-center .admin-ops-metric strong {
+  font-size: 1.35rem;
+  color: var(--admin-cc-ink);
+  line-height: 1.1;
+}
+
+body.llh-admin-control-center .admin-ops-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.05fr) minmax(300px, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+
+body.llh-admin-control-center .admin-ops-list-panel,
+body.llh-admin-control-center .admin-ops-detail-panel {
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 16px;
+  background: var(--admin-cc-panel);
+  padding: 14px;
+  min-width: 0;
+}
+
+body.llh-admin-control-center .admin-ops-list-panel h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+body.llh-admin-control-center .admin-ops-table-wrap {
+  overflow: auto;
+  max-height: min(70vh, 720px);
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 12px;
+}
+
+body.llh-admin-control-center .admin-ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+body.llh-admin-control-center .admin-ops-table th,
+body.llh-admin-control-center .admin-ops-table td {
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--admin-cc-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+body.llh-admin-control-center .admin-ops-table th {
+  position: sticky;
+  top: 0;
+  background: #f7f9fb;
+  z-index: 1;
+  font-size: 0.78rem;
+  color: var(--admin-cc-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+body.llh-admin-control-center .admin-ops-table tbody tr {
+  cursor: pointer;
+}
+
+body.llh-admin-control-center .admin-ops-table tbody tr:hover,
+body.llh-admin-control-center .admin-ops-table tbody tr.is-selected {
+  background: rgba(61, 155, 122, 0.08);
+}
+
+body.llh-admin-control-center .admin-ops-sub {
+  color: var(--admin-cc-muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+body.llh-admin-control-center .admin-ops-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #eef2f6;
+  color: #334155;
+  margin: 0 4px 4px 0;
+}
+
+body.llh-admin-control-center .admin-ops-pill--ok {
+  background: rgba(61, 155, 122, 0.16);
+  color: #145a43;
+}
+
+body.llh-admin-control-center .admin-ops-pill--warn {
+  background: rgba(196, 140, 40, 0.16);
+  color: #7a4d08;
+}
+
+body.llh-admin-control-center .admin-ops-pill--bad {
+  background: rgba(180, 60, 60, 0.14);
+  color: #8a1f1f;
+}
+
+body.llh-admin-control-center .admin-ops-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+body.llh-admin-control-center .admin-ops-tab {
+  border: 1px solid var(--admin-cc-line);
+  background: #f7f9fb;
+  color: var(--admin-cc-ink);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+body.llh-admin-control-center .admin-ops-tab.is-active {
+  background: var(--admin-cc-accent-soft);
+  border-color: rgba(61, 155, 122, 0.45);
+  color: #145a43;
+  font-weight: 650;
+}
+
+body.llh-admin-control-center .admin-ops-form {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+body.llh-admin-control-center .admin-ops-form label,
+body.llh-admin-control-center .admin-ops-form-field {
+  display: grid;
+  gap: 4px;
+  font-size: 0.84rem;
+  color: var(--admin-cc-muted);
+}
+
+body.llh-admin-control-center .admin-ops-inline-form {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: end;
+}
+
+body.llh-admin-control-center .admin-ops-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+body.llh-admin-control-center .admin-ops-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+body.llh-admin-control-center .admin-ops-activity li {
+  padding: 10px 12px;
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+body.llh-admin-control-center .admin-ops-activity li span {
+  display: block;
+  color: var(--admin-cc-muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+body.llh-admin-control-center .admin-ops-activity li p {
+  margin: 6px 0 0;
+  color: var(--admin-cc-ink);
+  font-size: 0.9rem;
+}
+
+body.llh-admin-control-center .admin-ops-related {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--admin-cc-ink);
+}
+
+body.llh-admin-control-center .admin-ops-related li {
+  margin: 4px 0;
+}
+
+body.llh-admin-control-center .admin-ops-empty {
+  padding: 18px 12px;
+  text-align: center;
+  color: var(--admin-cc-muted);
+}
+
+body.llh-admin-control-center .admin-ops-empty strong {
+  display: block;
+  color: var(--admin-cc-ink);
+  margin-bottom: 4px;
+}
+
+body.llh-admin-control-center .admin-ops-note,
+body.llh-admin-control-center .admin-ops-stats-grid article {
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfcfd;
+  margin: 0 0 10px;
+}
+
+body.llh-admin-control-center .admin-ops-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+body.llh-admin-control-center .admin-ops-bulk-row,
+body.llh-admin-control-center .admin-ops-inline-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+@media (max-width: 980px) {
+  body.llh-admin-control-center .admin-ops-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  body.llh-admin-control-center .admin-ops-layout {
+    grid-template-columns: 1fr;
+  }
+}

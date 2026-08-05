@@ -414,48 +414,62 @@
   }
 
   function renderPrograms(target) {
+    if (global.AdminOpsManagers?.renderPrograms) {
+      global.AdminOpsManagers.renderPrograms(target);
+      return;
+    }
     renderPlaceholder(target, {
       eyebrow: "Programs",
       title: "Programs",
-      detail: "Program overview for the testing sandbox. Seed demo data from Testing Center or inspect accounts in Users.",
+      detail: "Program manager is still loading. Refresh Admin, then open Programs again.",
       actions: [
-        { tab: "users", label: "Open Users", primary: true },
-        { tab: "staff", label: "Staff" },
-        { tab: "admin-classrooms", label: "Classrooms" },
+        { tab: "programs", label: "Retry", primary: true },
         { tab: "dashboard", label: "Testing Center" },
       ],
     });
   }
 
   function renderStaff(target) {
+    if (global.AdminOpsManagers?.renderStaff) {
+      global.AdminOpsManagers.renderStaff(target);
+      return;
+    }
     renderPlaceholder(target, {
       eyebrow: "Programs",
       title: "Staff",
-      detail: "Staff and role access for testing programs. Use Multi-Role Tester for instant role simulation.",
+      detail: "Staff manager is still loading. Refresh Admin, then open Staff again.",
       actions: [
-        { tab: "users", label: "Open Users", primary: true },
+        { tab: "staff", label: "Retry", primary: true },
         { tab: "dashboard", label: "Multi-Role Tester", focus: "view-as" },
       ],
     });
   }
 
   function renderChildren(target) {
+    if (global.AdminOpsManagers?.renderChildren) {
+      global.AdminOpsManagers.renderChildren(target);
+      return;
+    }
     renderPlaceholder(target, {
       eyebrow: "Programs",
       title: "Children",
-      detail: "Child records used in testing. Seed demo children from Testing Center without leaving Admin.",
+      detail: "Children manager is still loading. Refresh Admin, then open Children again.",
       actions: [
-        { tab: "dashboard", label: "Seed demo children", primary: true },
-        { tab: "admin-families", label: "Families" },
+        { tab: "admin-children", label: "Retry", primary: true },
+        { tab: "dashboard", label: "Testing Center" },
       ],
     });
   }
 
   function renderClassrooms(target) {
+    if (global.AdminOpsManagers?.renderClassrooms) {
+      global.AdminOpsManagers.renderClassrooms(target);
+      return;
+    }
     renderPlaceholder(target, {
       eyebrow: "Programs",
       title: "Classrooms",
-      detail: "Classroom structure for testing programs.",
+      detail: "Classroom manager is still loading. Refresh Admin, then try again.",
       actions: [
         { tab: "programs", label: "Programs", primary: true },
         { tab: "dashboard", label: "Open Testing Center" },
@@ -464,14 +478,17 @@
   }
 
   function renderFamilies(target) {
+    if (global.AdminOpsManagers?.renderFamilies) {
+      global.AdminOpsManagers.renderFamilies(target);
+      return;
+    }
     renderPlaceholder(target, {
       eyebrow: "Programs",
       title: "Families",
-      detail: "Family Hub and parent-linked testing accounts. Invite testers or open View As Parent from Testing Center.",
+      detail: "Families manager is still loading. Refresh Admin, then open Families again.",
       actions: [
-        { tab: "add-tester", label: "Invite Tester", primary: true },
-        { tab: "dashboard", label: "Multi-Role / View As Parent", focus: "view-as" },
-        { tab: "users", label: "Users" },
+        { tab: "admin-families", label: "Retry", primary: true },
+        { tab: "add-tester", label: "Invite Tester" },
       ],
     });
   }
@@ -630,13 +647,16 @@
     tasks.push(
       fetchJson("/api/admin/notifications?limit=20")
         .then((data) => {
-          stats.unread = String(data.unreadCount ?? (data.items || []).filter((i) => !i.readAt).length ?? "0");
+          const items = data.items || data.notifications || [];
+          const unread = data.unreadCount ?? items.filter((i) => !i.readAt && !i.read).length;
+          stats.unread = String(unread ?? "0");
         })
         .catch(() => {
           try {
-            stats.unread = String(global.adminNotificationState?.unreadCount ?? "—");
+            const fallback = global.adminNotificationState?.unreadCount;
+            stats.unread = fallback == null ? "0" : String(fallback);
           } catch (_error) {
-            stats.unread = "—";
+            stats.unread = "0";
           }
         }),
     );

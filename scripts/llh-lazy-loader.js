@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260805-admin-control-center-r22";
+  const VERSION = "20260805-admin-control-center-r23";
   const loadedUrls = new Set();
   const loading = new Map();
   const packReady = new Map();
@@ -45,6 +45,7 @@
       "scripts/admin-analytics-diagnostics.js",
       "admin-workspace.js",
       "admin-insights.js",
+      "scripts/admin-ops-managers.js",
       "scripts/admin-control-center.js",
     ],
     exports: [

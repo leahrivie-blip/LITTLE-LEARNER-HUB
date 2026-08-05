@@ -16360,6 +16360,317 @@ async function handleHdhStaffTrainingDelete(request, response, trainingId) {
   jsonResponse(response, 200, { ok: true });
 }
 
+/** Testing-only Admin Depth overlays (waitlist, capacity, staff compliance, activity). */
+function ensureAdminOpsManagers(store) {
+  store.adminOpsManagers = store.adminOpsManagers && typeof store.adminOpsManagers === "object"
+    ? store.adminOpsManagers
+    : {};
+  return store;
+}
+
+function defaultAdminOpsOverlay() {
+  return {
+    capacity: { licensedCapacity: 0, agesServed: "", notes: "" },
+    licensing: {
+      licenseNumber: "",
+      authority: "",
+      expiresAt: "",
+      status: "unknown",
+      notes: "",
+    },
+    waitlist: [],
+    staffCompliance: {},
+    activity: [],
+    updatedAt: "",
+  };
+}
+
+function readAdminOpsOverlay(store, ownerEmail) {
+  ensureAdminOpsManagers(store);
+  const key = normalizeEmail(ownerEmail);
+  const raw = store.adminOpsManagers[key] && typeof store.adminOpsManagers[key] === "object"
+    ? store.adminOpsManagers[key]
+    : {};
+  const base = defaultAdminOpsOverlay();
+  return {
+    ...base,
+    ...raw,
+    capacity: { ...base.capacity, ...(raw.capacity || {}) },
+    licensing: { ...base.licensing, ...(raw.licensing || {}) },
+    waitlist: Array.isArray(raw.waitlist) ? raw.waitlist : [],
+    staffCompliance: raw.staffCompliance && typeof raw.staffCompliance === "object" ? raw.staffCompliance : {},
+    activity: Array.isArray(raw.activity) ? raw.activity.slice(0, 80) : [],
+    updatedAt: raw.updatedAt || "",
+  };
+}
+
+function sanitizeAdminOpsOverlayPatch(body = {}) {
+  const next = {};
+  if (body.capacity && typeof body.capacity === "object") {
+    next.capacity = {
+      licensedCapacity: Math.max(0, Number(body.capacity.licensedCapacity) || 0),
+      agesServed: String(body.capacity.agesServed || "").trim().slice(0, 200),
+      notes: String(body.capacity.notes || "").trim().slice(0, 2000),
+    };
+  }
+  if (body.licensing && typeof body.licensing === "object") {
+    next.licensing = {
+      licenseNumber: String(body.licensing.licenseNumber || "").trim().slice(0, 120),
+      authority: String(body.licensing.authority || "").trim().slice(0, 160),
+      expiresAt: String(body.licensing.expiresAt || "").trim().slice(0, 40),
+      status: String(body.licensing.status || "unknown").trim().slice(0, 40),
+      notes: String(body.licensing.notes || "").trim().slice(0, 2000),
+    };
+  }
+  if (Array.isArray(body.waitlist)) {
+    next.waitlist = body.waitlist.slice(0, 200).map((item, index) => ({
+      id: String(item?.id || `wait-${Date.now()}-${index}`).slice(0, 80),
+      childName: String(item?.childName || "Child").trim().slice(0, 120) || "Child",
+      guardianName: String(item?.guardianName || "").trim().slice(0, 120),
+      email: normalizeEmail(item?.email || ""),
+      phone: String(item?.phone || "").trim().slice(0, 40),
+      desiredStart: String(item?.desiredStart || "").trim().slice(0, 40),
+      classroom: String(item?.classroom || "").trim().slice(0, 80),
+      status: String(item?.status || "waiting").trim().slice(0, 40) || "waiting",
+      notes: String(item?.notes || "").trim().slice(0, 1000),
+      createdAt: String(item?.createdAt || new Date().toISOString()).slice(0, 40),
+      priority: Math.max(0, Number(item?.priority) || 0),
+    }));
+  }
+  if (body.staffCompliance && typeof body.staffCompliance === "object") {
+    const compliance = {};
+    Object.entries(body.staffCompliance).slice(0, 200).forEach(([email, row]) => {
+      const key = normalizeEmail(email);
+      if (!key || !row || typeof row !== "object") return;
+      compliance[key] = {
+        backgroundCheckStatus: String(row.backgroundCheckStatus || "unknown").trim().slice(0, 40),
+        backgroundCheckExpiresAt: String(row.backgroundCheckExpiresAt || "").trim().slice(0, 40),
+        permissionsNotes: String(row.permissionsNotes || "").trim().slice(0, 1000),
+        timeOff: Array.isArray(row.timeOff)
+          ? row.timeOff.slice(0, 40).map((entry, i) => ({
+            id: String(entry?.id || `pto-${i}`).slice(0, 80),
+            startDate: String(entry?.startDate || "").trim().slice(0, 40),
+            endDate: String(entry?.endDate || "").trim().slice(0, 40),
+            status: String(entry?.status || "requested").trim().slice(0, 40),
+            notes: String(entry?.notes || "").trim().slice(0, 500),
+          }))
+          : [],
+        notes: String(row.notes || "").trim().slice(0, 1000),
+      };
+    });
+    next.staffCompliance = compliance;
+  }
+  if (Array.isArray(body.activity)) {
+    next.activity = body.activity.slice(0, 80).map((item, index) => ({
+      id: String(item?.id || `act-${Date.now()}-${index}`).slice(0, 80),
+      at: String(item?.at || new Date().toISOString()).slice(0, 40),
+      area: String(item?.area || "ops").trim().slice(0, 40),
+      action: String(item?.action || "update").trim().slice(0, 160),
+      detail: String(item?.detail || "").trim().slice(0, 500),
+      relatedId: String(item?.relatedId || "").trim().slice(0, 80),
+    }));
+  }
+  return next;
+}
+
+function buildAdminOpsProgramSummaries(store) {
+  const users = store.users || {};
+  const programs = [];
+  Object.values(users).forEach((user) => {
+    if (!user || typeof user !== "object") return;
+    const email = normalizeEmail(user.email || "");
+    if (!email) return;
+    if (user.linkedProgramOwnerEmail && normalizeEmail(user.linkedProgramOwnerEmail) !== email) return;
+    const role = String(user.role || "owner").toLowerCase();
+    if (role && role !== "owner" && role !== "director" && user.accountType === "parent") return;
+    const settings = user.programSettings && typeof user.programSettings === "object" ? user.programSettings : {};
+    const name = settings.programName
+      || user.businessName
+      || user.daycareName
+      || user.programName
+      || email;
+    let childCount = 0;
+    try {
+      const context = programOwnership.resolveProgramContext(store, {
+        email,
+        uid: user.firebaseUid || user.uid || "",
+      });
+      if (context.ok) {
+        const saved = programOwnership.readProgramChildData(store, context);
+        const profiles = Array.isArray(saved?.data?.Profiles) ? saved.data.Profiles : [];
+        childCount = profiles.filter((p) => p && !p.archived).length;
+      }
+    } catch (_error) { /* ignore */ }
+    const members = listProgramMembers(store, email);
+    const invites = listProgramInvites(store, email).filter((i) => i.status === "pending");
+    const households = isHomeDaycareHubTestingEnabled()
+      ? listFamilyHouseholdsForOwner(store, email)
+      : [];
+    programs.push({
+      ownerEmail: email,
+      programName: name,
+      programType: settings.programType || user.accountType || "",
+      plan: user.membershipPlan || user.plan || "",
+      childCount,
+      staffCount: members.length + 1,
+      pendingInvites: invites.length,
+      familyHubCount: households.length,
+      city: settings.city || user.city || "",
+      state: settings.state || user.state || "",
+      updatedAt: user.updatedAt || settings.updatedAt || "",
+    });
+  });
+  return programs.sort((a, b) => String(a.programName || "").localeCompare(String(b.programName || "")));
+}
+
+function buildAdminOpsBundle(store, ownerEmail) {
+  const email = normalizeEmail(ownerEmail);
+  const user = store.users?.[email] || { email, role: "owner" };
+  const settings = user.programSettings && typeof user.programSettings === "object" ? user.programSettings : {};
+  const identity = { email, uid: user.firebaseUid || user.uid || "" };
+  let childData = null;
+  let classrooms = [];
+  let programId = "";
+  try {
+    const context = programOwnership.resolveProgramContext(store, identity);
+    if (context.ok) {
+      programId = context.programId || "";
+      const saved = programOwnership.readProgramChildData(store, context);
+      childData = saved?.data || null;
+      const schedule = programOwnership.readProgramSchedule(store, context, scheduleLib);
+      classrooms = Array.isArray(schedule?.classrooms) ? schedule.classrooms : [];
+    }
+  } catch (_error) {
+    childData = null;
+  }
+  const profiles = Array.isArray(childData?.Profiles) ? childData.Profiles : [];
+  const attendance = Array.isArray(childData?.Attendance) ? childData.Attendance : [];
+  const goals = Array.isArray(childData?.Goals) ? childData.Goals : [];
+  const documents = Array.isArray(childData?.Documents) ? childData.Documents : [];
+  const overlays = readAdminOpsOverlay(store, email);
+  const trainings = isHomeDaycareHubTestingEnabled()
+    ? listStaffTrainingsForOwner(ensureHomeDaycareHubCollections(store), email).map(publicStaffTraining)
+    : [];
+  const households = isHomeDaycareHubTestingEnabled()
+    ? listFamilyHouseholdsForOwner(ensureFamilyHubCollections(store), email).map(publicFamilyHousehold)
+    : [];
+  const packets = isHomeDaycareHubTestingEnabled()
+    ? listFormPacketsForOwner(ensureHomeDaycareHubCollections(store), email).map(publicFormPacket)
+    : [];
+  return {
+    ok: true,
+    testingOnly: true,
+    ownerEmail: email,
+    programId,
+    program: {
+      name: settings.programName || user.businessName || user.daycareName || "Program",
+      settings,
+      accountType: user.accountType || "",
+      plan: user.membershipPlan || user.plan || "",
+      role: user.role || "owner",
+    },
+    classrooms,
+    children: {
+      profiles,
+      attendance,
+      goals,
+      documents,
+      observations: Array.isArray(childData?.Observations) ? childData.Observations : [],
+      supportPlans: Array.isArray(childData?.SupportPlans) ? childData.SupportPlans : [],
+    },
+    staff: {
+      members: listProgramMembers(store, email),
+      invites: listProgramInvites(store, email).map((invite) => publicStaffInvite(invite)),
+      trainings,
+    },
+    families: {
+      households,
+      packets,
+    },
+    ops: overlays,
+    programs: buildAdminOpsProgramSummaries(store),
+  };
+}
+
+async function handleAdminOpsManagersGet(request, response, url) {
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Admin ops managers are only available on the testing site." });
+    return;
+  }
+  const token = extractAdminToken(request, url);
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const session = adminSessionStore.validate(token) || {};
+  const ownerEmail = normalizeEmail(url.searchParams.get("ownerEmail") || session.email || "");
+  if (!ownerEmail) {
+    jsonResponse(response, 400, { error: "ownerEmail is required." });
+    return;
+  }
+  const store = ensureAdminOpsManagers(peekStore());
+  jsonResponse(response, 200, buildAdminOpsBundle(store, ownerEmail));
+}
+
+async function handleAdminOpsManagersPatch(request, response) {
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Admin ops managers are only available on the testing site." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid ops managers payload." });
+    return;
+  }
+  const token = extractAdminTokenFromBody(request, body);
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const session = adminSessionStore.validate(token) || {};
+  const ownerEmail = normalizeEmail(body.ownerEmail || session.email || "");
+  if (!ownerEmail) {
+    jsonResponse(response, 400, { error: "ownerEmail is required." });
+    return;
+  }
+  const store = ensureAdminOpsManagers(readStore());
+  const current = readAdminOpsOverlay(store, ownerEmail);
+  const patch = sanitizeAdminOpsOverlayPatch(body);
+  const activityEntry = body.logActivity && typeof body.logActivity === "object"
+    ? {
+      id: `act-${Date.now()}`,
+      at: new Date().toISOString(),
+      area: String(body.logActivity.area || "ops").slice(0, 40),
+      action: String(body.logActivity.action || "Updated").slice(0, 160),
+      detail: String(body.logActivity.detail || "").slice(0, 500),
+      relatedId: String(body.logActivity.relatedId || "").slice(0, 80),
+    }
+    : null;
+  const next = {
+    ...current,
+    ...patch,
+    capacity: patch.capacity || current.capacity,
+    licensing: patch.licensing || current.licensing,
+    waitlist: patch.waitlist || current.waitlist,
+    staffCompliance: patch.staffCompliance
+      ? { ...current.staffCompliance, ...patch.staffCompliance }
+      : current.staffCompliance,
+    activity: activityEntry
+      ? [activityEntry, ...(patch.activity || current.activity)].slice(0, 80)
+      : (patch.activity || current.activity),
+    updatedAt: new Date().toISOString(),
+  };
+  store.adminOpsManagers[ownerEmail] = next;
+  await respondAfterPersist(store, response, 200, {
+    ok: true,
+    testingOnly: true,
+    ownerEmail,
+    ops: next,
+  }, "Could not save admin ops overlays.");
+}
+
 async function handleHdhPacketsList(request, response) {
   if (!requireHomeDaycareHubTesting(response)) return;
   let identity;
@@ -28147,6 +28458,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/cancel-subscription") return await handleCancelSubscription(request, response);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/ops-managers") return await handleAdminOpsManagersGet(request, response, url);
+    if ((request.method === "POST" || request.method === "PATCH") && url.pathname === "/api/admin/ops-managers") {
+      return await handleAdminOpsManagersPatch(request, response);
+    }
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return await handleAdminAnalytics(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/notifications") return await handleAdminNotificationsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/notifications/mark-read") return await handleAdminNotificationsMarkRead(request, response);
