@@ -162,6 +162,7 @@
     el.textContent = text || "";
     const shellActive = Boolean(
       document.body?.classList.contains("llh-testing-member-shell")
+      || document.body?.classList.contains("llh-testing-admin-shell")
       || document.body?.classList.contains("llh-hub-frame-visible")
     );
     // Never cover the interactive signed-in testing shell with the blocking gate.
@@ -292,32 +293,160 @@
     return lockPanel.querySelector("#adminUnlockForm");
   }
 
-  function paintEarlyUnlockedBar(session) {
+  function lockTestingAdmin() {
+    try {
+      localStorage.removeItem("llhAdminSession");
+      localStorage.removeItem("llhAdminUnlocked");
+      localStorage.removeItem("llhAdminPreviewMode");
+      localStorage.removeItem("llhAdminRememberDevice");
+    } catch (_error) { /* ignore */ }
+    window.location.replace("/admin");
+  }
+
+  function adminAuthHeaders() {
+    const headers = { Accept: "application/json" };
+    try {
+      const raw = localStorage.getItem("llhAdminSession");
+      const session = raw ? JSON.parse(raw) : null;
+      if (session?.token) headers.Authorization = `Bearer ${session.token}`;
+    } catch (_error) { /* ignore */ }
+    return headers;
+  }
+
+  function paintEarlyUnlockedBar(session, options = {}) {
     const lockPanel = document.getElementById("adminLockPanel");
     if (!lockPanel) return;
-    const email = (session && session.email) || rememberedAdminEmail() || "owner";
+    const email = escapeHtml((session && session.email) || rememberedAdminEmail() || "owner");
+    const detail = options.detail || (isTestingHost()
+      ? "Testing Admin shell is ready — full app.js dashboard is not required."
+      : "Loading dashboard tools now…");
     lockPanel.hidden = false;
     lockPanel.innerHTML = `
       <div class="admin-unlocked-bar" data-llh-early-admin-unlocked>
         <div>
           <p class="eyebrow">Private Owner Area</p>
           <strong>Admin unlocked for ${email}</strong>
-          <span>Loading dashboard tools now…</span>
+          <span>${escapeHtml(detail)}</span>
         </div>
         <button class="ghost-button" type="button" id="llhEarlyAdminLockButton">Lock Admin</button>
       </div>
     `;
     const lockBtn = document.getElementById("llhEarlyAdminLockButton");
     if (lockBtn) {
-      lockBtn.addEventListener("click", () => {
-        try {
-          localStorage.removeItem("llhAdminSession");
-          localStorage.removeItem("llhAdminUnlocked");
-          localStorage.removeItem("llhAdminPreviewMode");
-          localStorage.removeItem("llhAdminRememberDevice");
-        } catch (_error) { /* ignore */ }
-        window.location.reload();
-      });
+      lockBtn.addEventListener("click", () => lockTestingAdmin());
+    }
+  }
+
+  function enterTestingAdminShell(session) {
+    const email = String(session?.email || rememberedAdminEmail() || "").trim().toLowerCase();
+    hideHubLoadingGate();
+    setStatus("");
+    try {
+      document.documentElement.classList.add("llh-boot-admin-route");
+      document.body?.classList.add("llh-testing-admin-shell", "user-authenticated");
+      document.body?.classList.remove("home-view", "llh-boot-hub-loading");
+      document.documentElement.classList.remove("llh-boot-hub-loading");
+    } catch (_error) { /* ignore */ }
+
+    paintEarlyUnlockedBar(session || { email }, {
+      detail: "Owner tools are available below without waiting on the heavy dashboard bundle.",
+    });
+    showAdminViewEarly();
+
+    const protectedContent = document.getElementById("adminProtectedContent");
+    if (protectedContent) protectedContent.hidden = false;
+
+    const host = document.getElementById("adminWorkspaceMain")
+      || document.getElementById("adminContentManagerApp")
+      || protectedContent;
+    if (!host) return;
+
+    let panel = document.getElementById("llhTestingAdminShell");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "llhTestingAdminShell";
+      panel.className = "llh-testing-admin-panel";
+      panel.setAttribute("data-llh-testing-admin-shell", "1");
+      host.prepend(panel);
+    }
+    panel.innerHTML = `
+      <p class="eyebrow">Testing Admin</p>
+      <h3>Admin is unlocked${email ? ` for ${escapeHtml(email)}` : ""}</h3>
+      <p>This lightweight owner shell stays usable on the testing site. It does not freeze the tab on the multi‑MB app bundle.</p>
+      <div class="llh-testing-member-actions">
+        <button type="button" class="primary-button" data-llh-admin-shell="refresh">Refresh status</button>
+        <a class="ghost-button" data-llh-admin-shell="member" href="/">Member hub</a>
+        <button type="button" class="ghost-button" data-llh-admin-shell="lock">Lock Admin</button>
+      </div>
+      <div class="llh-shell-body" data-llh-admin-shell-body>
+        <p class="form-note">Loading owner status…</p>
+      </div>
+    `;
+    panel.querySelector('[data-llh-admin-shell="refresh"]')?.addEventListener("click", () => {
+      loadTestingAdminShellData();
+    });
+    panel.querySelector('[data-llh-admin-shell="lock"]')?.addEventListener("click", () => {
+      lockTestingAdmin();
+    });
+    loadTestingAdminShellData();
+  }
+
+  async function loadTestingAdminShellData() {
+    const body = document.querySelector("[data-llh-admin-shell-body]");
+    if (body) body.innerHTML = `<p class="form-note">Loading owner status…</p>`;
+    const headers = adminAuthHeaders();
+    try {
+      const [sessionRes, readyRes, contentRes, commsRes] = await Promise.all([
+        fetchJsonWithTimeout("/api/admin/session", { headers }, 15000).catch(() => null),
+        fetchJsonWithTimeout("/api/launch-readiness", { headers: { Accept: "application/json" } }, 15000).catch(() => null),
+        fetchJsonWithTimeout("/api/site-content", { headers: { Accept: "application/json" } }, 20000).catch(() => null),
+        fetchJsonWithTimeout("/api/admin/communications", { headers }, 15000).catch(() => null),
+      ]);
+
+      const sessionOk = Boolean(sessionRes?.response?.ok && sessionRes.data?.valid);
+      const blockers = Array.isArray(readyRes?.data?.blockers) ? readyRes.data.blockers : [];
+      const library = contentRes?.data?.siteContent?.curriculumLibrary || {};
+      const plans = Array.isArray(library.lessonPlans) ? library.lessonPlans.length : 0;
+      const activities = Array.isArray(library.activities) ? library.activities.length : 0;
+      const communications = Array.isArray(commsRes?.data?.communications)
+        ? commsRes.data.communications
+        : [];
+      const recent = communications.slice(0, 5).map((item) => `
+        <li>
+          <strong>${escapeHtml(item.subject || item.type || item.kind || "Message")}</strong>
+          <span>${escapeHtml(item.createdAt || item.updatedAt || item.status || "")}</span>
+        </li>
+      `).join("");
+
+      if (body) {
+        body.innerHTML = `
+          <div class="llh-shell-card-grid">
+            <article class="llh-shell-card">
+              <strong>Admin session</strong>
+              <span>${sessionOk ? "Valid owner session" : "Session check failed — try unlock again"}</span>
+            </article>
+            <article class="llh-shell-card">
+              <strong>Launch readiness</strong>
+              <span>${blockers.length ? `Blockers: ${escapeHtml(blockers.join(", "))}` : "No blockers reported"}</span>
+            </article>
+            <article class="llh-shell-card">
+              <strong>Curriculum library</strong>
+              <span>${plans} lesson plans · ${activities} activities</span>
+            </article>
+            <article class="llh-shell-card">
+              <strong>Communications</strong>
+              <span>${communications.length} recent item${communications.length === 1 ? "" : "s"}</span>
+            </article>
+          </div>
+          <h4 style="margin-top:16px">Recent communications</h4>
+          <ul class="llh-shell-schedule-list">${recent || "<li>No communications yet.</li>"}</ul>
+          <p class="form-note">Legacy upload form below remains available. Full visual Admin widgets that live inside app.js are skipped on testing so this page stays responsive.</p>
+        `;
+      }
+    } catch (error) {
+      if (body) {
+        body.innerHTML = `<p class="form-note">${escapeHtml(error?.message || "Could not load admin status.")}</p>`;
+      }
     }
   }
 
@@ -360,12 +489,20 @@
       try {
         const session = await earlyAdminLogin(email, password, code);
         saveEarlyAdminSession(session, trustDevice);
-        paintEarlyUnlockedBar(session);
-        setStatus("Admin unlocked — loading dashboard…");
-        // Only NOW load the heavy app + admin packs.
-        startCoreAppLoad({ reason: "admin-unlocked" });
-        prefetchAdminPack();
-        waitForSetViewAdmin();
+        if (isTestingHost()) {
+          // Testing: never freeze /admin on multi-MB app.js after unlock.
+          enterTestingAdminShell(session);
+          if (message) {
+            message.textContent = "Admin unlocked.";
+            message.classList.add("success");
+          }
+        } else {
+          paintEarlyUnlockedBar(session);
+          setStatus("Admin unlocked — loading dashboard…");
+          startCoreAppLoad({ reason: "admin-unlocked" });
+          prefetchAdminPack();
+          waitForSetViewAdmin();
+        }
       } catch (error) {
         if (message) {
           message.textContent = error.message || "Admin login failed.";
@@ -1032,11 +1169,16 @@
       showAdminViewEarly();
       wireEarlyAdminUnlock();
       if (isAdminSessionStored()) {
-        paintEarlyUnlockedBar(JSON.parse(localStorage.getItem("llhAdminSession") || "{}"));
-        setStatus("Admin session found — loading dashboard…");
-        startCoreAppLoad({ reason: "admin-session" });
-        prefetchAdminPack();
-        waitForSetViewAdmin();
+        const session = JSON.parse(localStorage.getItem("llhAdminSession") || "{}");
+        if (isTestingHost()) {
+          enterTestingAdminShell(session);
+        } else {
+          paintEarlyUnlockedBar(session);
+          setStatus("Admin session found — loading dashboard…");
+          startCoreAppLoad({ reason: "admin-session" });
+          prefetchAdminPack();
+          waitForSetViewAdmin();
+        }
       } else {
         // CRITICAL: do NOT start app.js / Teaching Kit until unlock.
         setStatus("");
@@ -1115,6 +1257,7 @@
     wireEarlyAdminUnlock,
     openEarlyAuthModal,
     enterTestingMemberShell,
+    enterTestingAdminShell,
     startBackgroundHubFrame,
     revealHubFrame,
   };
