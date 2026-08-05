@@ -630,11 +630,11 @@
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
               <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
-              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (flagged off)"}</button>
+              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (unavailable)"}</button>
               <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
                 ? "Opens a professional binder print layout. Trial exports use the existing watermarked allowance path."
-                : "Enable <strong>teachingKitPrintCenter</strong> locally to print. Selection still works for preview."}</p>
+                : "Print Center is not available for this session. Binder preview still works."}</p>
             </article>
           </div>
         </div>
@@ -938,8 +938,15 @@
       : String(kit.plan || "");
     const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
     const theme = chrome.theme || kit.theme || "";
+    const ownerPreview = chrome.ownerPreview === true;
+    const ownerPreviewBanner = ownerPreview ? `
+          <div class="tk-owner-preview-banner" data-tk-owner-preview-banner role="status">
+            <strong>Owner preview only</strong>
+            <p class="tk-muted">You are previewing the Teaching Kit (Viewer, Print Center, and Attachments) on your owner account. Every other account still uses the current lesson experience until customer flags are enabled.</p>
+          </div>
+        ` : "";
     return `
-      <div class="lesson-workspace teaching-kit-workspace" data-lesson-workspace data-teaching-kit-workspace>
+      <div class="lesson-workspace teaching-kit-workspace${ownerPreview ? " is-owner-preview" : ""}" data-lesson-workspace data-teaching-kit-workspace${ownerPreview ? " data-tk-owner-preview=\"1\"" : ""}>
         <div class="lesson-workspace-topchrome">
           <header class="lesson-workspace-header">
             <button type="button" class="lesson-workspace-back ghost-button" data-lesson-workspace-back>${escapeHtml(chrome.backLabel || "Back")}</button>
@@ -950,10 +957,12 @@
                 ${planLabel ? `<span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>` : ""}
                 ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
                 <span class="tag tk-mode-tag">Teaching Kit</span>
+                ${ownerPreview ? `<span class="tag tk-owner-preview-tag">Owner preview</span>` : ""}
               </p>
             </div>
             ${chrome.saveButtonHtml || ""}
           </header>
+          ${ownerPreviewBanner}
           <nav class="lesson-workspace-tabs tk-ops-nav" role="tablist" aria-label="Teaching Kit sections">
             ${SURFACES.map((item) => `
               <button type="button" role="tab" class="lesson-workspace-tab tk-ops-tab${navSurface === item.id ? " is-active" : ""}" data-tk-goto="${item.id}" aria-selected="${navSurface === item.id ? "true" : "false"}">${escapeHtml(item.label)}</button>

@@ -24445,6 +24445,32 @@ body.nuo-open #freePlanReminderBar {
 }
 .tk-empty-banner strong { display: block; margin-bottom: 4px; }
 .tk-empty-line { margin: 4px 0 0; }
+.tk-owner-preview-banner {
+  border: 1px solid #d7e4da;
+  background: linear-gradient(135deg, #f3faf5 0%, #fffaf2 100%);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin: 0 0 10px;
+}
+.tk-owner-preview-banner strong {
+  display: block;
+  color: #244f38;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+.tk-owner-preview-banner .tk-muted {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.tk-owner-preview-tag {
+  background: #e7f2eb;
+  color: #244f38;
+  border: 1px solid #c5dccb;
+}
+.teaching-kit-workspace.is-owner-preview .lesson-workspace-topchrome {
+  padding-bottom: 2px;
+}
 .tk-loading-banner {
   display: flex;
   gap: 12px;

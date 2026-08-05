@@ -26366,12 +26366,55 @@ function lessonWorkspaceChromeHtml(resource) {
   `;
 }
 
+/** Owner Preview allowlist — must match server teaching-kit.js exactly. */
+const TEACHING_KIT_OWNER_PREVIEW_EMAIL = "leahivie@icloud.com";
+
+/**
+ * Owner Preview for leahivie@icloud.com only.
+ * Other Admins, Founding, Pro, Free, and staff roles stay on the classic experience
+ * while store customer TK flags remain false.
+ */
+function isOwnerTeachingKitPreviewActive() {
+  try {
+    const ownerEmail = TEACHING_KIT_OWNER_PREVIEW_EMAIL;
+    const signedIn = String(typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
+    if (signedIn && signedIn !== ownerEmail) return false;
+    if (signedIn === ownerEmail) return true;
+    // Admin unlock alone is not enough unless the admin session is the owner
+    // and no other customer account is signed in on this browser.
+    const sessionEmail = String(typeof adminSession === "function" ? (adminSession()?.email || "") : "").trim().toLowerCase();
+    return typeof isAdminUnlocked === "function"
+      && isAdminUnlocked()
+      && sessionEmail === ownerEmail
+      && Boolean(adminSession()?.token);
+  } catch (_error) {
+    return false;
+  }
+}
+
+function effectiveTeachingKitCustomerFlags() {
+  const stored = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  const ownerPreview = isOwnerTeachingKitPreviewActive();
+  const viewerOn = stored.teachingKitViewer === true || ownerPreview;
+  const printOn = stored.teachingKitPrintCenter === true || ownerPreview;
+  const attachmentsOn = stored.teachingKitAttachments === true || ownerPreview;
+  const ownerOnly = ownerPreview
+    && stored.teachingKitViewer !== true
+    && stored.teachingKitPrintCenter !== true;
+  return {
+    teachingKitViewer: viewerOn,
+    teachingKitPrintCenter: printOn,
+    teachingKitAttachments: attachmentsOn,
+    ownerPreview: ownerOnly,
+  };
+}
+
 async function fetchTeachingKitForPlan(planId, query = {}) {
   const targetId = String(planId || "").trim();
   if (!targetId || !canUseLaunchBackend()) {
     return { ok: false, reason: !targetId ? "missing-id" : "backend-unavailable", teachingKit: null, featureFlags: null };
   }
-  const clientFlags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  const clientFlags = effectiveTeachingKitCustomerFlags();
   if (clientFlags.teachingKitViewer !== true) {
     return { ok: false, reason: "flag_off", teachingKit: null, featureFlags: clientFlags };
   }
@@ -26380,7 +26423,14 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   if (Array.isArray(query.readyMaterials) && query.readyMaterials.length) {
     params.set("readyMaterials", query.readyMaterials.join(","));
   }
-  const cacheKey = `kit:${targetId}:${params.toString()}`;
+  const ownerPreview = isOwnerTeachingKitPreviewActive();
+  const signedIn = String(typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
+  const ownerAdminToken = ownerPreview
+    && signedIn !== TEACHING_KIT_OWNER_PREVIEW_EMAIL
+    ? String(adminSession()?.token || "").trim()
+    : "";
+  // Cache key includes owner-preview so owner/customer responses never collide.
+  const cacheKey = `kit:${targetId}:${params.toString()}:op=${ownerPreview ? "1" : "0"}`;
   if (teachingKitContentCache.has(cacheKey)) {
     return { ok: true, reason: "cache", ...teachingKitContentCache.get(cacheKey) };
   }
@@ -26388,7 +26438,14 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   const headers = {
     ...(await siteContentRequestHeaders()),
     ...(authHeaders && typeof authHeaders === "object" ? authHeaders : {}),
+    // Prefer member identity headers for the signed-in owner; admin token only when
+    // browsing with owner Admin unlock and no other member session.
+    ...(ownerAdminToken ? { Authorization: `Bearer ${ownerAdminToken}` } : {}),
+    ...(signedIn === TEACHING_KIT_OWNER_PREVIEW_EMAIL
+      ? { "x-llh-user-email": TEACHING_KIT_OWNER_PREVIEW_EMAIL }
+      : {}),
   };
+  if (ownerAdminToken) params.set("adminToken", ownerAdminToken);
   const qs = params.toString();
   const response = await fetch(
     `${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}/${curriculumAccessConfig.teachingKitEndpointSuffix}${qs ? `?${qs}` : ""}`,
@@ -26439,8 +26496,9 @@ function lessonWorkspaceTeachingKitChrome(viewerResource) {
 }
 
 async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
-  // Skip network entirely when Teaching Kit customer viewer is off (avoids Free-lesson 404s).
-  const clientFlags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  // Skip network when Viewer is off for this session. Owner Preview
+  // (leahivie@icloud.com only) elevates without flipping store flags.
+  const clientFlags = effectiveTeachingKitCustomerFlags();
   if (clientFlags.teachingKitViewer !== true) {
     return { enhanced: false, reason: "viewer_flag_off" };
   }
@@ -26463,6 +26521,7 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
   const existingSheet = body.querySelector(".lesson-workspace-action-sheet");
   const chrome = lessonWorkspaceTeachingKitChrome(viewerResource);
   chrome.actionSheetHtml = existingSheet ? existingSheet.outerHTML : "";
+  chrome.ownerPreview = clientFlags.ownerPreview === true;
 
   // Non-destructive loading hint (delayed) so flag-off 404s do not flash a skeleton.
   let loadingHint = null;
@@ -26511,25 +26570,37 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
   }
 
   activeTeachingKitPayload = result.teachingKit;
-  activeTeachingKitFlags = result.featureFlags || null;
+  // Prefer API effective flags (includes ownerPreview); fall back to client elevation.
+  activeTeachingKitFlags = {
+    ...clientFlags,
+    ...(result.featureFlags || {}),
+  };
   clearLoadingHint();
 
   const enhanced = await api.enhanceLessonWorkspace({
     body,
     teachingKit: result.teachingKit,
-    featureFlags: result.featureFlags,
-    chrome,
+    featureFlags: activeTeachingKitFlags,
+    chrome: {
+      ...chrome,
+      ownerPreview: chrome.ownerPreview || result.featureFlags?.ownerPreview === true,
+    },
     onCopy: (message) => {
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(message).catch(() => {});
       }
     },
     onPrint: (selection) => {
-      void printTeachingKitBinder(viewerResource, result.teachingKit, selection, result.featureFlags);
+      void printTeachingKitBinder(viewerResource, result.teachingKit, selection, activeTeachingKitFlags);
     },
   });
   if (enhanced.enhanced) {
     body.classList.add("teaching-kit-mode");
+    if (activeTeachingKitFlags.ownerPreview === true) {
+      body.classList.add("teaching-kit-owner-preview");
+    } else {
+      body.classList.remove("teaching-kit-owner-preview");
+    }
     if (typeof enhanced.unbind === "function") {
       teachingKitWorkspaceUnbind = enhanced.unbind;
     }

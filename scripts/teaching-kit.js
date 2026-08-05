@@ -221,6 +221,45 @@
       || isTeachingKitFlagEnabled(flags, "teachingKitPrintCenter");
   }
 
+  /**
+   * Owner Preview allowlist — Teaching Kit Viewer / Print Center / Attachments
+   * may be exercised by this email only while store customer flags stay false.
+   * Do not expand to other admin aliases or roles without an explicit product decision.
+   */
+  const TEACHING_KIT_OWNER_PREVIEW_EMAIL = "leahivie@icloud.com";
+
+  function isTeachingKitOwnerPreviewEmail(email) {
+    return String(email || "").trim().toLowerCase() === TEACHING_KIT_OWNER_PREVIEW_EMAIL;
+  }
+
+  /**
+   * Owner Preview: elevate Viewer / Print / Attachments for the allowlisted owner
+   * email only. Does not mutate stored site-content flags and does not grant access
+   * to other Admins, Founding, Pro, Free, or staff roles.
+   */
+  function effectiveCustomerTeachingKitFlags(flags, options = {}) {
+    const base = normalizedTeachingKitFeatureFlags(flags);
+    if (options && options.ownerPreview === true) {
+      return {
+        ...base,
+        teachingKitViewer: true,
+        teachingKitPrintCenter: true,
+        teachingKitAttachments: true,
+      };
+    }
+    return base;
+  }
+
+  /** Kit read API for a request: global flags OR Owner Preview session. */
+  function isTeachingKitApiEnabledForRequest(flags, options = {}) {
+    return isTeachingKitApiEnabled(flags) || (options && options.ownerPreview === true);
+  }
+
+  /** True when store customer flags are off but Owner Preview is elevating them. */
+  function isOwnerOnlyTeachingKitPreview(flags, options = {}) {
+    return Boolean(options && options.ownerPreview === true) && !isTeachingKitApiEnabled(flags);
+  }
+
   function clampShortText(value, max) {
     const text = String(value == null ? "" : value).trim();
     if (!text) return "";
@@ -384,6 +423,11 @@
     isTeachingKitQualityReviewEnabled,
     isTeachingKitAiAssistEnabled,
     isTeachingKitApiEnabled,
+    TEACHING_KIT_OWNER_PREVIEW_EMAIL,
+    isTeachingKitOwnerPreviewEmail,
+    effectiveCustomerTeachingKitFlags,
+    isTeachingKitApiEnabledForRequest,
+    isOwnerOnlyTeachingKitPreview,
     normalizedTeachingKitOverlay,
     resolveTeachingKitRenderMode,
     sectionIds,

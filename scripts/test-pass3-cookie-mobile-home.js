@@ -31,8 +31,8 @@ function main() {
   ok(indexHtml.includes('aria-label="Little Learner Hub"'), "mobile brand accessible name");
   ok(indexHtml.includes("Have a classroom win to share?"), "reviews section no longer Coming Soon dominated");
   ok(!/Member ratings[\s\S]{0,40}coming soon/i.test(indexHtml), "coming soon reviews copy removed");
-  ok(sw.includes("20260804-trial-length-audit-r1"), "shell cache bumped");
-  ok(manifest.version === "20260804-trial-length-audit-r1", "manifest version bumped");
+  ok(sw.includes("20260805-tk-owner-preview-r1"), "shell cache bumped");
+  ok(manifest.version === "20260805-tk-owner-preview-r1", "manifest version bumped");
 
   console.log(`PASS pass3 cookie/mobile/home (${passed} asserts)`);
 }
