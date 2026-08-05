@@ -147,9 +147,10 @@ const SURFACES = [
   { key: "activities", nav: "activities", view: "activities" },
   { key: "calendar", nav: "calendar", view: "calendar" },
   { key: "children", nav: "children", view: "children" },
-  { key: "daily-logs", nav: "child-tools-daily-logs", view: "child-tools-daily-logs" },
+  // Nav keys alias to real view hosts (see VIEW_ALIASES in app.js).
+  { key: "daily-logs", nav: "child-tools-daily-logs", view: "children" },
   { key: "docs", nav: "ai", view: "ai" },
-  { key: "behavior", nav: "behavior-support", view: "behavior-support" },
+  { key: "behavior", nav: "behavior-support", view: "support-center" },
   { key: "messages", nav: "messages", view: "messages" },
   { key: "settings", nav: "settings", view: "settings" },
   { key: "billing", nav: "billing", view: "billing", optional: true },
