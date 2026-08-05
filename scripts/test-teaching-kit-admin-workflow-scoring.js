@@ -415,6 +415,51 @@ async function main() {
     }, { Authorization: `Bearer ${otherToken}` });
     assert(draftDenied.status === 403, `other admin draft denied: ${draftDenied.status}`);
 
+    // Broader owner-gate matrix: remaining TK write/AI endpoints + unauth/forged.
+    const otherAuth = { Authorization: `Bearer ${otherToken}` };
+    const photoDenied = await requestJson("POST", "/api/admin/curriculum/enrichment-photos/upload", {
+      adminToken: otherToken,
+      lessonPlanId: FIXTURE_ID,
+      activityKey: "qa-act-1",
+      field: "setupImageUrl",
+      fileData: "data:image/png;base64,aaaa",
+    }, otherAuth);
+    assert(photoDenied.status === 403, `other admin photo upload denied: ${photoDenied.status}`);
+    const rollbackDenied = await requestJson("POST", "/api/admin/curriculum/enrichment-rollback", {
+      adminToken: otherToken,
+      planId: FIXTURE_ID,
+      expectedUpdatedAt: seeded.updatedAt,
+    }, otherAuth);
+    assert(rollbackDenied.status === 403, `other admin rollback denied: ${rollbackDenied.status}`);
+    const assistantDenied = await requestJson("POST", "/api/admin/curriculum/ai-teacher-assistant", {
+      adminToken: otherToken,
+      action: "teacher_chat",
+      planId: FIXTURE_ID,
+      message: "hello",
+    }, otherAuth);
+    assert(assistantDenied.status === 403, `other admin assistant denied: ${assistantDenied.status}`);
+    const directorDenied = await requestJson("POST", "/api/admin/curriculum/director", {
+      adminToken: otherToken,
+      action: "snapshot",
+    }, otherAuth);
+    assert(directorDenied.status === 403, `other admin director denied: ${directorDenied.status}`);
+
+    const loggedOut = await requestJson("POST", "/api/admin/curriculum/enrichment-ai-suggest", {
+      planId: FIXTURE_ID,
+      scope: "lesson",
+      simulate: "fixture",
+      email: OWNER.email,
+    });
+    assert(loggedOut.status === 401, `logged-out AI denied: ${loggedOut.status}`);
+    const forgedEmail = await requestJson("POST", "/api/admin/curriculum/quality-review", {
+      adminToken: otherToken,
+      email: OWNER.email,
+      adminEmail: OWNER.email,
+      action: "review_lesson",
+      planId: FIXTURE_ID,
+    }, otherAuth);
+    assert(forgedEmail.status === 403, `forged owner email on other-admin token denied: ${forgedEmail.status}`);
+
     // Customer Teaching Kit still disabled.
     const customerTk = await requestJson("GET", `/api/curriculum/lesson-plans/${FIXTURE_ID}/teaching-kit`);
     assert(customerTk.status === 404, "customer TK disabled for fixture");
