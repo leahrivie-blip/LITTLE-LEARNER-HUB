@@ -5,20 +5,30 @@
  * - Never leave testers on a blank shell.
  * - /admin unlock form works with ZERO dependency on app.js.
  * - Log In / Start Free open the existing #authModal immediately (no app.js wait).
- * - Do NOT auto-download/parse multi-MB app.js or Teaching Kit on first paint —
- *   that freezes the main thread and makes buttons look dead.
- * - Load app.js only after unlock / successful early login / explicit nav need.
+ * - Do NOT auto-download/parse multi-MB app.js on the top-level testing page —
+ *   that freezes the main thread so login looks broken ("Opening your hub…" forever).
+ * - After member login: show a lightweight signed-in shell immediately, and load
+ *   the full app.js workspace in a background iframe so the parent tab stays usable.
  */
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r12";
+  const APP_SRC = "app.js?v=20260804-js-split-r13";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
   let earlyAdminWired = false;
   let earlyAuthWired = false;
   let authMode = "login";
+  let hubFrameWatchTimer = 0;
+
+  function isHubBootFrame() {
+    try {
+      return new URLSearchParams(window.location.search || "").get("hubBoot") === "1";
+    } catch (_error) {
+      return false;
+    }
+  }
 
   async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 20000) {
     const controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -124,10 +134,20 @@
     const el = ensureStatusNode();
     el.hidden = !text;
     el.textContent = text || "";
-    if (text && (readStoredMemberEmail() || document.documentElement.classList.contains("llh-boot-authenticated"))) {
+    const shellActive = Boolean(
+      document.body?.classList.contains("llh-testing-member-shell")
+      || document.body?.classList.contains("llh-hub-frame-visible")
+    );
+    // Never cover the interactive signed-in testing shell with the blocking gate.
+    if (
+      text
+      && !shellActive
+      && !isHubBootFrame()
+      && (readStoredMemberEmail() || document.documentElement.classList.contains("llh-boot-authenticated"))
+    ) {
       showHubLoadingGate("Opening your hub…", text);
     }
-    if (!text) hideHubLoadingGate();
+    if (!text || shellActive) hideHubLoadingGate();
   }
 
   function revealHomeIfStuck() {
@@ -678,6 +698,160 @@
     window.requestAnimationFrame(() => window.requestAnimationFrame(begin));
   }
 
+  function clearFromLoginParam() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      if (!params.has("fromLogin") && !params.has("hubBoot")) return;
+      params.delete("fromLogin");
+      const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash || ""}`;
+      window.history.replaceState({}, "", clean);
+    } catch (_error) { /* ignore */ }
+  }
+
+  function showTestingView(viewId) {
+    const targetId = viewId === "admin" ? "view-admin" : `view-${viewId}`;
+    document.querySelectorAll(".view").forEach((view) => {
+      const on = view.id === targetId;
+      view.classList.toggle("active-view", on);
+      if (on) {
+        view.hidden = false;
+        view.style.display = "";
+      } else {
+        view.classList.remove("active-view");
+      }
+    });
+    const home = document.getElementById("view-home");
+    if (home && targetId !== "view-home") {
+      home.style.display = "none";
+    }
+  }
+
+  function signOutTestingMember() {
+    try {
+      localStorage.removeItem("llhUser");
+      localStorage.removeItem("llhMemberSessionToken");
+      localStorage.removeItem("llhUserName");
+    } catch (_error) { /* ignore */ }
+    window.location.replace("/");
+  }
+
+  function enterTestingMemberShell(email, options = {}) {
+    const clean = String(email || "").trim().toLowerCase();
+    hideHubLoadingGate();
+    setStatus("");
+    try {
+      document.documentElement.classList.remove("llh-boot-hub-loading");
+      document.body?.classList.remove("llh-boot-hub-loading", "home-view");
+      document.body?.classList.add("user-authenticated", "llh-testing-member-shell");
+      document.documentElement.classList.add("llh-boot-authenticated");
+    } catch (_error) { /* ignore */ }
+
+    showTestingView("calendar");
+    const host = document.getElementById("mainCalendarApp");
+    if (host) {
+      host.innerHTML = `
+        <div class="llh-testing-member-panel" data-llh-testing-member-shell>
+          <p class="eyebrow">Signed in</p>
+          <h3>Welcome back${clean ? `, ${clean}` : ""}</h3>
+          <p>Your login worked. Full workspace tools load in the background so this tab stays usable.</p>
+          <div class="llh-testing-member-actions">
+            <button type="button" class="primary-button" data-llh-shell-action="show-workspace" ${options.workspaceReady ? "" : "disabled"}>
+              ${options.workspaceReady ? "Open full workspace" : "Preparing full workspace…"}
+            </button>
+            <button type="button" class="ghost-button" data-llh-shell-action="admin">Open Admin</button>
+            <button type="button" class="ghost-button" data-llh-shell-action="signout">Sign out</button>
+          </div>
+          <p class="form-note" data-llh-shell-status>Status: ${options.statusText || "Loading full calendar & lesson tools in the background…"}</p>
+        </div>
+      `;
+      host.querySelector("[data-llh-shell-action='show-workspace']")?.addEventListener("click", () => {
+        revealHubFrame();
+      });
+      host.querySelector("[data-llh-shell-action='admin']")?.addEventListener("click", () => {
+        window.location.href = "/admin";
+      });
+      host.querySelector("[data-llh-shell-action='signout']")?.addEventListener("click", () => {
+        signOutTestingMember();
+      });
+    }
+    clearFromLoginParam();
+    paintEarlySignedIn(clean);
+    // paintEarlySignedIn may set a status string — keep the interactive shell uncovered.
+    hideHubLoadingGate();
+    setStatus("");
+  }
+
+  function updateTestingMemberShellStatus(text, workspaceReady) {
+    const status = document.querySelector("[data-llh-shell-status]");
+    if (status && text) status.textContent = `Status: ${text}`;
+    const btn = document.querySelector("[data-llh-shell-action='show-workspace']");
+    if (btn) {
+      btn.disabled = !workspaceReady;
+      btn.textContent = workspaceReady ? "Open full workspace" : "Preparing full workspace…";
+    }
+  }
+
+  function revealHubFrame() {
+    const frame = document.getElementById("llhHubFrame");
+    if (!frame) return false;
+    try {
+      const w = frame.contentWindow;
+      if (!w || !w.document?.body?.classList.contains("app-boot-ready") || typeof w.setView !== "function") {
+        return false;
+      }
+      try {
+        w.setView("calendar", {
+          fromBoot: true,
+          fromAuthLanding: true,
+          allowDuringBootVerification: true,
+          replaceHistory: true,
+        });
+      } catch (_error) { /* ignore */ }
+      frame.hidden = false;
+      document.body.classList.add("llh-hub-frame-visible");
+      hideHubLoadingGate();
+      setStatus("");
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function startBackgroundHubFrame() {
+    if (!isTestingHost() || isHubBootFrame()) return;
+    if (document.getElementById("llhHubFrame")) return;
+    updateTestingMemberShellStatus("Loading full calendar & lesson tools in the background…", false);
+    const frame = document.createElement("iframe");
+    frame.id = "llhHubFrame";
+    frame.title = "Little Learner Hub workspace";
+    frame.setAttribute("aria-hidden", "true");
+    frame.hidden = true;
+    // Same-origin iframe shares localStorage; loads app.js off the parent main thread.
+    frame.src = `${window.location.pathname || "/"}?hubBoot=1`;
+    document.body.appendChild(frame);
+
+    const started = Date.now();
+    if (hubFrameWatchTimer) window.clearInterval(hubFrameWatchTimer);
+    hubFrameWatchTimer = window.setInterval(() => {
+      if (revealHubFrame()) {
+        window.clearInterval(hubFrameWatchTimer);
+        hubFrameWatchTimer = 0;
+        updateTestingMemberShellStatus("Full workspace is ready.", true);
+        // Auto-open once ready so login feels complete without an extra click.
+        return;
+      }
+      const elapsed = Date.now() - started;
+      if (elapsed > 15000 && elapsed < 16000) {
+        updateTestingMemberShellStatus("Still preparing full tools — you can use Admin or wait here.", false);
+      }
+      if (elapsed > 120000) {
+        window.clearInterval(hubFrameWatchTimer);
+        hubFrameWatchTimer = 0;
+        updateTestingMemberShellStatus("Full tools are taking too long. Use Open Admin, or refresh and try again.", false);
+      }
+    }, 500);
+  }
+
   function queueAuth(mode) {
     wireEarlyAuth();
     openEarlyAuthModal(mode);
@@ -753,6 +927,17 @@
       } catch (_error) { /* ignore */ }
     }
 
+    // iframe workspace boot: load app.js here only (never nest another iframe).
+    if (isHubBootFrame()) {
+      try {
+        document.documentElement.classList.add("llh-hub-boot-frame");
+        document.body?.classList.add("llh-hub-boot-frame");
+      } catch (_error) { /* ignore */ }
+      setStatus("Starting workspace…");
+      startCoreAppLoad({ reason: "hub-boot-frame" });
+      return;
+    }
+
     if (isAdminRoute()) {
       showAdminViewEarly();
       wireEarlyAdminUnlock();
@@ -769,39 +954,22 @@
       return;
     }
 
-    // Returning / just-logged-in member: must load the hub (otherwise login closes
-    // onto the marketing home and nothing else happens on the testing host).
+    // Returning / just-logged-in member on testing:
+    // Show a usable signed-in shell immediately. Load multi-MB app.js in a
+    // background iframe so the parent tab does not freeze on "Opening your hub…".
+    if (memberEmail && isTestingHost()) {
+      enterTestingMemberShell(memberEmail, {
+        fromLogin: /(?:\?|&)fromLogin=1(?:&|$)/.test(String(window.location.search || "")),
+      });
+      startBackgroundHubFrame();
+      return;
+    }
+
+    // Non-testing signed-in boot (production path): load app in-page.
     if (memberEmail) {
       paintEarlySignedIn(memberEmail);
       setStatus("Signed in — opening your hub…");
       startCoreAppLoad({ reason: "returning-session" });
-      const started = Date.now();
-      const timer = window.setInterval(() => {
-        if (document.body.classList.contains("app-boot-ready") && typeof window.setView === "function") {
-          window.clearInterval(timer);
-          setStatus("");
-          try {
-            const params = new URLSearchParams(window.location.search || "");
-            const fromLogin = params.get("fromLogin") === "1";
-            window.setView("calendar", {
-              fromBoot: true,
-              fromAuthLanding: fromLogin,
-              allowDuringBootVerification: true,
-              replaceHistory: true,
-            });
-            if (fromLogin) {
-              params.delete("fromLogin");
-              const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash || ""}`;
-              try { window.history.replaceState({}, "", clean); } catch (_e) { /* ignore */ }
-            }
-          } catch (_error) { /* ignore */ }
-          return;
-        }
-        if (Date.now() - started > 90000) {
-          window.clearInterval(timer);
-          setStatus("Signed in. Refresh if your hub does not open.");
-        }
-      }, 300);
       return;
     }
 
@@ -859,5 +1027,8 @@
     showAdminViewEarly,
     wireEarlyAdminUnlock,
     openEarlyAuthModal,
+    enterTestingMemberShell,
+    startBackgroundHubFrame,
+    revealHubFrame,
   };
 })();
