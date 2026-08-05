@@ -117,6 +117,22 @@ body:has(#view-admin.active-view) .llh-public-nav {
   min-width: 0;
 }
 
+/* Testing Admin Home: Testing Center mounts under calm landing without crushing. */
+#view-admin #adminWorkspaceLandingApp .admin-owner-panel--embedded-home {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 20px 0 0;
+  box-sizing: border-box;
+  clear: both;
+}
+
+#view-admin #adminWorkspaceLandingApp .admin-owner-panel--embedded-home .admin-testing-center,
+#view-admin #adminWorkspaceLandingApp .admin-owner-panel--embedded-home .admin-owner-header {
+  width: 100%;
+  max-width: 100%;
+}
+
 #view-admin .admin-sub-nav {
   display: flex;
   flex-wrap: wrap;

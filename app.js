@@ -52955,6 +52955,18 @@ function applyAdminSectionVisibility() {
     const landingApp = document.querySelector("#adminWorkspaceLandingApp");
     if (landingPanel) landingPanel.hidden = false;
     const ws = window.AdminWorkspace;
+    // Never destroy Testing Center: if the owner panel was mounted inside the
+    // landing host, park it back under the workspace main before wiping HTML.
+    const ownerPanelToPark = document.querySelector(".admin-owner-panel");
+    const workspaceMain = document.querySelector("#adminWorkspaceMain");
+    if (ownerPanelToPark && workspaceMain && ownerPanelToPark.parentElement === landingApp) {
+      if (landingPanel && landingPanel.parentElement === workspaceMain) {
+        landingPanel.insertAdjacentElement("afterend", ownerPanelToPark);
+      } else {
+        workspaceMain.appendChild(ownerPanelToPark);
+      }
+      ownerPanelToPark.hidden = true;
+    }
     // Clear prior section content so failed navigations never leave a stale screen.
     if (landingApp) {
       landingApp.innerHTML = `<p class="muted-copy" data-admin-section-loading>Loading ${escapeHtml(tab)}…</p>`;
@@ -52971,7 +52983,8 @@ function applyAdminSectionVisibility() {
           const overview = document.querySelector("#adminOwnerOverview");
           if (ownerPanel && overview && landingApp) {
             ownerPanel.hidden = false;
-            if (overview.parentElement !== landingApp) {
+            ownerPanel.classList.add("admin-owner-panel--embedded-home");
+            if (ownerPanel.parentElement !== landingApp) {
               landingApp.appendChild(ownerPanel);
             }
             renderAdminOwnerOverview();
@@ -53052,7 +53065,21 @@ function applyAdminSectionVisibility() {
     if (tab === "resource-categories") renderAdminResourceCategoriesManager();
   } else if (tab === "dashboard") {
     const el = document.querySelector(".admin-owner-panel");
-    if (el) el.hidden = false;
+    const landingApp = document.querySelector("#adminWorkspaceLandingApp");
+    const workspaceMain = document.querySelector("#adminWorkspaceMain");
+    const landingPanel = document.querySelector(".admin-workspace-landing-panel");
+    if (el && workspaceMain && el.parentElement === landingApp) {
+      if (landingPanel && landingPanel.parentElement === workspaceMain) {
+        landingPanel.insertAdjacentElement("afterend", el);
+      } else {
+        workspaceMain.appendChild(el);
+      }
+    }
+    if (el) {
+      el.classList.remove("admin-owner-panel--embedded-home");
+      el.hidden = false;
+      renderAdminOwnerOverview();
+    }
   } else if (tab === "resources") {
     const el = document.querySelector(".admin-layout");
     if (el) el.hidden = false;
