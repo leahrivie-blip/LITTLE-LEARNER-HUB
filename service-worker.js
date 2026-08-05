@@ -1,17 +1,17 @@
 const CACHE_NAME = "llh-shell-v188-testing-full-integration-r8";
-const SHELL_VERSION = "20260805-testing-stabilization-r25";
+const SHELL_VERSION = "20260805-testing-stabilization-r26";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260805-testing-stabilization-r25",
-  "/styles/llh-admin-workspace.css?v=20260805-testing-stabilization-r25",
+  "/styles.css?v=20260805-testing-stabilization-r26",
+  "/styles/llh-admin-workspace.css?v=20260805-testing-stabilization-r26",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260802-request-idea-final",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260805-testing-stabilization-r25",
+  "/styles/llh-messaging.css?v=20260805-testing-stabilization-r26",
   "/styles/llh-comms.css?v=20260730-hdh-own-tester-kid",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid",
@@ -45,13 +45,13 @@ const APP_SHELL = [
   "/scripts/teaching-kit-quality-review-ui.js?v=20260803-tk-quality-review",
   "/scripts/teaching-kit-enrichment-editor.js?v=20260803-tk-quality-review",
   "/scripts/teaching-kit-authoring.js?v=20260803-tk-authoring",
-  "/app.js?v=20260805-testing-stabilization-r25",
-  "/scripts/forms-ecosystem.js?v=20260805-testing-stabilization-r25",
-  "/scripts/forms-center.js?v=20260805-testing-stabilization-r25",
+  "/app.js?v=20260805-testing-stabilization-r26",
+  "/scripts/forms-ecosystem.js?v=20260805-testing-stabilization-r26",
+  "/scripts/forms-center.js?v=20260805-testing-stabilization-r26",
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260803-nuo-onboarding-r4",
-  "/scripts/admin-ops-managers.js?v=20260805-testing-stabilization-r25",
-  "/scripts/admin-control-center.js?v=20260805-testing-stabilization-r25",
+  "/scripts/admin-ops-managers.js?v=20260805-testing-stabilization-r26",
+  "/scripts/admin-control-center.js?v=20260805-testing-stabilization-r26",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",
   "/comms-center.js?v=20260804-perf-bounded-r1",
   "/site.webmanifest",

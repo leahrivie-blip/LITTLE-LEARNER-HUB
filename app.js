@@ -16140,16 +16140,28 @@ async function renderMessagesPage(options = {}) {
 }
 
 async function refreshMessagesData() {
-  const headers = await messagingAuthHeaders();
+  const headerTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("auth headers timed out")), 8000));
+  let headers = null;
+  try {
+    headers = await Promise.race([messagingAuthHeaders(), headerTimeout]);
+  } catch (error) {
+    console.warn("Messages auth headers failed", error);
+    headers = null;
+  }
   if (!headers) {
     messagesViewState.conversation = [];
     messagesViewState.inbox = [];
+    messagesViewState.loaded = true;
     return;
   }
   try {
+    const fetchTimeout = (url) => Promise.race([
+      fetch(url, { headers, cache: "no-store" }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("messages fetch timed out")), 8000)),
+    ]);
     const [convoRes, inboxRes] = await Promise.all([
-      fetch("/api/messages/conversation", { headers, cache: "no-store" }),
-      fetch("/api/messages/inbox", { headers, cache: "no-store" }),
+      fetchTimeout("/api/messages/conversation"),
+      fetchTimeout("/api/messages/inbox"),
     ]);
     const convoData = convoRes.ok ? await convoRes.json().catch(() => ({})) : {};
     const inboxData = inboxRes.ok ? await inboxRes.json().catch(() => ({})) : {};
@@ -16157,6 +16169,8 @@ async function refreshMessagesData() {
     messagesViewState.inbox = Array.isArray(inboxData.items) ? inboxData.items : [];
   } catch (error) {
     console.warn("Could not load messages", error);
+    if (!Array.isArray(messagesViewState.conversation)) messagesViewState.conversation = [];
+    if (!Array.isArray(messagesViewState.inbox)) messagesViewState.inbox = [];
   }
   messagesViewState.loaded = true;
 }
@@ -18759,7 +18773,9 @@ function membershipDisplayStatus(account = currentAccount()) {
         ? "Teacher"
         : effectiveRole === USER_ROLES.ASSISTANT
           ? "Assistant"
-          : "Program";
+          : effectiveRole === USER_ROLES.OWNER
+            ? "Owner"
+            : "Program";
     return {
       ...product,
       key: "role_view",
@@ -47937,11 +47953,14 @@ function applyAdminPreviewToPlatform() {
   }
 
   // After View As, jump to that role's natural home (Owner≠Teacher≠Parent).
-  if (isWorkModeNavEnabled() && isAdminPreviewSimulating()) {
-    const role = workModeRole();
-    const landing = workModeLandingView(role);
-    if (activeView === "admin" || activeView === "home" || activeView === "today" || activeView === "calendar") {
-      if (adminPreviewMode() !== "Parent") {
+  if (isAdminPreviewSimulating()) {
+    if (adminPreviewMode() === "Parent" && isHomeDaycareHubTestingEnabled()) {
+      try { syncFamilyHubParentChrome(); } catch (_error) { /* ignore */ }
+      setView("family-hub", { skipAccessRedirect: true, fromAdminPreview: true });
+    } else if (isWorkModeNavEnabled()) {
+      const role = workModeRole();
+      const landing = workModeLandingView(role);
+      if (activeView === "admin" || activeView === "home" || activeView === "today" || activeView === "calendar") {
         setView(landing, { allowDashboard: true, skipAccessRedirect: true, fromAdminPreview: true });
       }
     }
