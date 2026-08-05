@@ -557,13 +557,13 @@
       box-sizing: border-box;
     }
     @media (min-width: 901px) {
-      html.llh-boot-admin-route #view-admin {
+      html.llh-boot-admin-route body:not(.llh-testing-admin-shell) #view-admin {
         min-height: calc(100vh - 40px);
         display: flex !important;
         flex-direction: column;
         justify-content: center;
       }
-      html.llh-boot-admin-route #view-admin > .page-title {
+      html.llh-boot-admin-route body:not(.llh-testing-admin-shell) #view-admin > .page-title {
         margin-top: 0;
       }
     }
