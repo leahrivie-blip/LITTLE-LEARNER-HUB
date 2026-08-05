@@ -338,6 +338,8 @@
     "test:auth-modal-button-audit": "node scripts/test-auth-modal-button-audit.js",
     "test:teaching-kit-phase1-qa": "NODE_ENV=test node scripts/test-teaching-kit-phase1-qa.js",
     "test:teaching-kit-owner-preview": "NODE_ENV=test node scripts/test-teaching-kit-owner-preview.js",
+    "test:tk-owner-preview-pass1-live": "node scripts/live-owner-preview-pass1.js",
+    "test:tk-owner-preview-pass2-live": "node scripts/live-owner-preview-pass2-regression.js",
     "test:teaching-kit-production-smoke": "NODE_ENV=test node scripts/test-teaching-kit-production-smoke.js",
     "test:profiles-logs-docs": "NODE_ENV=test node scripts/test-profiles-logs-docs.js",
     "test:messaging-nav-banner": "NODE_ENV=test node scripts/test-messaging-nav-banner.js",

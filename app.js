@@ -26425,9 +26425,16 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   }
   const ownerPreview = isOwnerTeachingKitPreviewActive();
   const signedIn = String(typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
+  // When Owner Preview is active, attach the owner Admin session token even if
+  // leahivie@icloud.com is also signed in as a member. Production ignores
+  // x-llh-user-email / Bearer test: fallbacks, so skipping the admin token here
+  // previously 404'd the exact owner walkthrough. Shared-browser safety stays in
+  // isOwnerTeachingKitPreviewActive() (non-owner signed-in → preview off → no token).
+  const ownerSession = typeof adminSession === "function" ? adminSession() : null;
+  const ownerSessionEmail = String(ownerSession?.email || "").trim().toLowerCase();
   const ownerAdminToken = ownerPreview
-    && signedIn !== TEACHING_KIT_OWNER_PREVIEW_EMAIL
-    ? String(adminSession()?.token || "").trim()
+    && ownerSessionEmail === TEACHING_KIT_OWNER_PREVIEW_EMAIL
+    ? String(ownerSession?.token || "").trim()
     : "";
   // Cache key includes owner-preview so owner/customer responses never collide.
   const cacheKey = `kit:${targetId}:${params.toString()}:op=${ownerPreview ? "1" : "0"}`;
@@ -26438,14 +26445,20 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   const headers = {
     ...(await siteContentRequestHeaders()),
     ...(authHeaders && typeof authHeaders === "object" ? authHeaders : {}),
-    // Prefer member identity headers for the signed-in owner; admin token only when
-    // browsing with owner Admin unlock and no other member session.
-    ...(ownerAdminToken ? { Authorization: `Bearer ${ownerAdminToken}` } : {}),
-    ...(signedIn === TEACHING_KIT_OWNER_PREVIEW_EMAIL
-      ? { "x-llh-user-email": TEACHING_KIT_OWNER_PREVIEW_EMAIL }
-      : {}),
   };
-  if (ownerAdminToken) params.set("adminToken", ownerAdminToken);
+  // Fetch combines duplicate case-insensitive header names with commas. Multiple
+  // X-LLH-User-Email sources would become "a@x, a@x" and fail owner matching
+  // while still blocking the admin-token fallback. Set identity once.
+  delete headers["x-llh-user-email"];
+  delete headers["X-LLH-User-Email"];
+  if (signedIn) headers["X-LLH-User-Email"] = signedIn;
+  // Owner Admin token wins Authorization so production can resolve Owner Preview
+  // when member Firebase/session tokens are absent. Non-owner member sessions
+  // never reach this branch (preview inactive).
+  if (ownerAdminToken) {
+    headers.Authorization = `Bearer ${ownerAdminToken}`;
+    params.set("adminToken", ownerAdminToken);
+  }
   const qs = params.toString();
   const response = await fetch(
     `${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}/${curriculumAccessConfig.teachingKitEndpointSuffix}${qs ? `?${qs}` : ""}`,
