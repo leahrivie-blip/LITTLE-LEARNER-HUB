@@ -108,10 +108,10 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260805-testing-full-integration-r7" />
-  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260805-testing-full-integration-r7" />
+  <link rel="stylesheet" href="styles.css?v=20260805-testing-full-integration-r8" />
+  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260805-testing-full-integration-r8" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260805-testing-full-integration-r7" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260805-testing-full-integration-r8" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
   <!-- Meta Pixel: loaded from META_PIXEL_ID via server (never hardcoded).
        defer so stylesheet + body parsing are not blocked by this sync tag. -->
@@ -124,7 +124,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260805-testing-full-integration-r7";
+      var SHELL_VERSION = "20260805-testing-full-integration-r8";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -2654,11 +2654,11 @@
     <script src="/api/client-config.js" defer></script>
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/admin-analytics-diagnostics.js?v=20260804-analytics-diag-phase8-r1" defer></script>
-    <script src="scripts/llh-lazy-loader.js?v=20260805-testing-full-integration-r7" defer></script>
-    <script src="scripts/multi-role-tester.js?v=20260805-testing-full-integration-r7" defer></script>
-    <script src="scripts/llh-boot-critical.js?v=20260805-testing-full-integration-r7" defer></script>
-    <script src="scripts/forms-ecosystem.js?v=20260805-testing-full-integration-r7" defer></script>
-    <script src="scripts/forms-center.js?v=20260805-testing-full-integration-r7" defer></script>
+    <script src="scripts/llh-lazy-loader.js?v=20260805-testing-full-integration-r8" defer></script>
+    <script src="scripts/multi-role-tester.js?v=20260805-testing-full-integration-r8" defer></script>
+    <script src="scripts/llh-boot-critical.js?v=20260805-testing-full-integration-r8" defer></script>
+    <script src="scripts/forms-ecosystem.js?v=20260805-testing-full-integration-r8" defer></script>
+    <script src="scripts/forms-center.js?v=20260805-testing-full-integration-r8" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260804-settings-honesty-phase9-r1" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
