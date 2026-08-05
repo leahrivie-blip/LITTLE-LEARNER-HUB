@@ -503,19 +503,30 @@
     `;
   }
 
-  async function fetchJson(url, timeoutMs = 30000) {
+  async function fetchJson(url, timeoutMs = 30000, retries = 1) {
     const token = adminToken();
     const headers = { Accept: "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
-    const fetchPromise = fetch(url, { cache: "no-store", headers }).then(async (response) => {
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
-      return data;
-    });
-    const timeoutPromise = new Promise((_, reject) => {
-      window.setTimeout(() => reject(new Error(`Timed out loading ${url}`)), timeoutMs);
-    });
-    return Promise.race([fetchPromise, timeoutPromise]);
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        const fetchPromise = fetch(url, { cache: "no-store", headers }).then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
+          return data;
+        });
+        const timeoutPromise = new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error(`Timed out loading ${url}`)), timeoutMs);
+        });
+        return await Promise.race([fetchPromise, timeoutPromise]);
+      } catch (error) {
+        lastError = error;
+        if (attempt < retries) {
+          await new Promise((resolve) => window.setTimeout(resolve, 600 * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError || new Error(`Failed to load ${url}`);
   }
 
   async function loadCommandCenterStats() {
@@ -696,10 +707,19 @@
       deploy: shellVersion(),
       unread: "…",
     }, true);
-    loadCommandCenterStats().then((stats) => {
-      if (activeTab() !== "admin-home") return;
-      paintCommandCenter(target, stats, false);
-    });
+    // Wait for Admin boot/analytics traffic to settle so metric fetches are not starved.
+    const run = () => {
+      loadCommandCenterStats().then((stats) => {
+        if (activeTab() !== "admin-home") return;
+        if (!target.isConnected) return;
+        paintCommandCenter(target, stats, false);
+      });
+    };
+    if (document.body?.classList?.contains("app-boot-ready")) {
+      window.setTimeout(run, 250);
+    } else {
+      window.setTimeout(run, 1200);
+    }
   }
 
   function tryRenderLanding(tab, target) {
