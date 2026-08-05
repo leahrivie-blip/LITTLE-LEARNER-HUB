@@ -479,6 +479,26 @@
         try {
           window.setView("admin", { allowDuringBootVerification: true, fromBoot: true });
         } catch (_error) { /* ignore */ }
+        // Testing: land on full Testing Center (dashboard tab) so View As / sync
+        // are full-width and immediately usable after unlock.
+        if (isTestingHost()) {
+          const openTestingCenter = () => {
+            try {
+              if (typeof window.setAdminSectionTab === "function") {
+                window.setAdminSectionTab("dashboard");
+                return true;
+              }
+            } catch (_error) { /* ignore */ }
+            return false;
+          };
+          if (!openTestingCenter()) {
+            let tries = 0;
+            const tabTimer = window.setInterval(() => {
+              tries += 1;
+              if (openTestingCenter() || tries > 40) window.clearInterval(tabTimer);
+            }, 250);
+          }
+        }
         if (document.body.classList.contains("app-boot-ready")) setStatus("");
         return;
       }
