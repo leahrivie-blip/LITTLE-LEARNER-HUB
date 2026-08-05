@@ -36087,11 +36087,12 @@ function isFamilyHubParentMode() {
   try {
     if (typeof getHdhTesterPersona === "function" && getHdhTesterPersona().role === "parent") return true;
   } catch (_error) { /* ignore */ }
-  const onFamilyHub = Boolean(document.querySelector("#view-family-hub.active-view"));
-  if (!getFamilyHubSessionToken()) return onFamilyHub;
-  // Pure parent session, or provider intentionally previewing as parent.
+  // Merely having Family Hub open must NOT trap Owner/Director/Teacher into parent
+  // isolation after leaving View As Parent.
+  if (!getFamilyHubSessionToken()) return false;
+  // Pure parent session (magic link / code login) — no provider login.
   if (!isLoggedIn()) return true;
-  return getHdhTesterPersona().role === "parent" || onFamilyHub;
+  return getHdhTesterPersona().role === "parent";
 }
 
 function syncFamilyHubParentChrome() {
@@ -47960,9 +47961,17 @@ function applyAdminPreviewToPlatform() {
     } else if (isWorkModeNavEnabled()) {
       const role = workModeRole();
       const landing = workModeLandingView(role);
-      if (activeView === "admin" || activeView === "home" || activeView === "today" || activeView === "calendar") {
-        setView(landing, { allowDashboard: true, skipAccessRedirect: true, fromAdminPreview: true });
+      const active = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || activeView;
+      if (active === "admin" || active === "home" || active === "today" || active === "calendar" || active === "family-hub") {
+        setView(landing, { allowDashboard: true, skipAccessRedirect: true, fromAdminPreview: true, allowParentLeaveFamilyHub: true });
       }
+    }
+  } else if (adminPreviewMode() === "Admin" || !isAdminPreviewSimulating()) {
+    // Leaving Parent View As back to Admin/Owner must escape Family Hub chrome.
+    try { syncFamilyHubParentChrome(); } catch (_error) { /* ignore */ }
+    const active = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || "";
+    if (active === "family-hub" && isLoggedIn() && isWorkModeNavEnabled()) {
+      setView(workModeLandingView(), { allowDashboard: true, skipAccessRedirect: true, allowParentLeaveFamilyHub: true, fromAdminPreview: true });
     }
   }
 
