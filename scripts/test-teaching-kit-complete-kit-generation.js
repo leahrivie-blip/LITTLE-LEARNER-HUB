@@ -456,12 +456,23 @@ async function main() {
       document.body.appendChild(host);
 
       // Use empty draft so Prepare AI Draft regenerates full kit for UI review.
+      // Opening must NOT auto-start AI — call Prepare AI Draft explicitly after confirm.
       const emptyPlan = {
         ...payload.plan,
         enrichmentDraft: { activities: {}, week: {} },
       };
       window.curriculumLessonPlanById = (id) => (id === emptyPlan.id ? emptyPlan : null);
+      window.confirm = () => true;
       window.LLHTeachingKitEnrichmentEditor.open(emptyPlan.id);
+      await new Promise((r) => setTimeout(r, 200));
+      if (document.querySelector("[data-ai-tray]")) {
+        throw new Error("Opening must not auto-start AI complete-kit generation");
+      }
+      await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
+        scope: "lesson",
+        simulate: "fixture",
+        skipConfirm: true,
+      });
 
       for (let i = 0; i < 80; i += 1) {
         await new Promise((r) => setTimeout(r, 100));

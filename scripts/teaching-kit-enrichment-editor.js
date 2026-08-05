@@ -529,7 +529,43 @@
     }
   }
 
-  async function requestAiSuggestions({ scope = "activity", simulate = "" } = {}) {
+  function confirmAiAction(scope) {
+    const label = scope === "lesson"
+      ? "Prepare an AI draft for this lesson? Existing published content will remain unchanged. Suggestions will stay in review until you accept them."
+      : scope === "week"
+        ? "Generate AI suggestions for the week fields only? Existing published content will remain unchanged. Suggestions stay in review until you accept them."
+        : "Generate AI suggestions for this activity? Existing published content will remain unchanged. Suggestions stay in review until you accept them.";
+    if (typeof window !== "undefined" && typeof window.confirm === "function") {
+      return window.confirm(label);
+    }
+    return true;
+  }
+
+  async function requestAiSuggestions({ scope = "activity", simulate = "", skipConfirm = false } = {}) {
+    // Guard against double-clicks / concurrent full-lesson generations (before confirm).
+    if (state._aiInFlight || (state.aiTray.phase === "loading" && state.aiTray.abortController)) {
+      state.statusText = "AI is already preparing suggestions. Wait for this run to finish, or press Cancel.";
+      renderChromeOnly();
+      return;
+    }
+    state._aiInFlight = true;
+    try {
+      if (!skipConfirm && !confirmAiAction(scope)) {
+        state.statusText = "AI canceled — no suggestions generated. Draft and published content unchanged.";
+        renderChromeOnly();
+        return;
+      }
+      if (scope === "lesson") {
+        await requestCompleteLessonDraft({ simulate });
+        return;
+      }
+      await requestAiSuggestionsScoped({ scope, simulate });
+    } finally {
+      state._aiInFlight = false;
+    }
+  }
+
+  async function requestAiSuggestionsScoped({ scope = "activity", simulate = "" } = {}) {
     if (scope === "lesson") {
       await requestCompleteLessonDraft({ simulate });
       return;
@@ -977,22 +1013,22 @@
     if (first?.dayOfWeek) state.previewDay = String(first.dayOfWeek);
     const analysis = refreshLessonAnalysis();
     const gaps = analysis?.gapSectionIds?.length || 0;
+    // Opening Upgrade Lesson is read-only load only — never auto-run AI, consume usage,
+    // create proposals, autosave, or change scores/timestamps.
     state.statusText = gaps
-      ? `AI Lesson Teacher found ${gaps} area(s) to improve. Prepare a draft for side-by-side review — nothing publishes automatically.`
-      : "Lesson analysis looks complete. You can still prepare an AI draft for weak spots, or edit manually.";
+      ? `Local analysis found ${gaps} area(s) to improve. Review the summary, then press Prepare AI Draft only when you want suggestions. Nothing runs until you confirm.`
+      : "Lesson loaded. Edit manually, or press Prepare AI Draft when you want AI suggestions. Opening never starts AI.";
     state._focusReturn = document.activeElement;
     state.recoveryOpen = false;
     state.compareOpen = false;
+    state.aiConfirmOpen = false;
+    state.aiConfirmScope = "";
     document.body.classList.add("tk-enrich-open");
     window.removeEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("beforeunload", onBeforeUnload);
     render();
     requestAnimationFrame(() => {
       document.querySelector("[data-enrich-exit]")?.focus?.();
-      // Auto-prepare a gap-fill draft when opening Upgrade Lesson (admin token required).
-      if (gaps > 0 && adminToken()) {
-        void requestAiSuggestions({ scope: "lesson" });
-      }
     });
   }
 
@@ -1436,8 +1472,8 @@
         <div class="tk-lesson-teacher-head">
           <div>
             <p class="eyebrow">AI Lesson Teacher</p>
-            <strong>Workflow ${esc(analysis.dashboardStage || "Legacy")} · Content ${analysis.completionPercent}%${analysis.weekdayCoverage ? ` · ${esc(analysis.weekdayCoverage.label)}` : ""}</strong>
-            <p class="muted-copy">Scores completeness only (not educational quality). Existing approved content is preserved.</p>
+            <strong>Workflow ${esc(analysis.dashboardStage || "Legacy")} · Structural ${analysis.completionPercent}%${analysis.weekdayCoverage ? ` · ${esc(analysis.weekdayCoverage.label)}` : ""}</strong>
+            <p class="muted-copy">Local analysis only — opening never starts AI. Press Prepare AI Draft and confirm to generate suggestions. Existing approved content is preserved.</p>
           </div>
           <div class="tk-lesson-teacher-actions">
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
@@ -1467,16 +1503,19 @@
 
   function renderUpgradeSummary(plan, activities) {
     const summary = api().buildUpgradeSummary(plan, activities, state.draft);
+    const scores = summary.readinessScores || {};
+    const workflow = summary.canonicalStatus?.workflow || summary.dashboardStage || summary.completenessLabel;
     const rows = [
       ["incomplete", "Incomplete activities", String(summary.incompleteActivities), summary.incompleteActivities > 0],
-      ["setup", "Missing setup photos", String(summary.missingSetupPhotos), summary.missingSetupPhotos > 0],
+      ["setup", "Missing setup photos (real images)", String(summary.missingSetupPhotos), summary.missingSetupPhotos > 0],
       ["example", "Missing finished example photos", String(summary.missingExamplePhotos), summary.missingExamplePhotos > 0],
+      ["briefs", "Image briefs (not photos)", String(summary.imageBriefsNotImages || 0), (summary.imageBriefsNotImages || 0) > 0],
       ["tips", "Missing teacher tips", String(summary.missingTeacherTips), summary.missingTeacherTips > 0],
       ["observations", "Missing observation prompts", String(summary.missingObservationPrompts), summary.missingObservationPrompts > 0],
       ["family", "Missing family connections", yn(summary.missingFamilyConnection), summary.missingFamilyConnection],
-      ["printables", "Missing printables", yn(summary.missingPrintables), summary.missingPrintables],
-      ["books", "Missing books", yn(summary.missingBooks), summary.missingBooks],
-      ["songs", "Missing songs", yn(summary.missingSongs), summary.missingSongs],
+      ["printables", "Missing linked printables", yn(summary.missingPrintables), summary.missingPrintables],
+      ["books", "Incomplete books", String(summary.incompleteBooks != null ? summary.incompleteBooks : (summary.missingBooks ? "Yes" : "0")), summary.missingBooks || (summary.incompleteBooks || 0) > 0],
+      ["songs", "Incomplete songs", String(summary.incompleteSongs != null ? summary.incompleteSongs : (summary.missingSongs ? "Yes" : "0")), summary.missingSongs || (summary.incompleteSongs || 0) > 0],
       ["toolkit", "Missing teacher toolkit", yn(summary.missingTeacherToolkit), summary.missingTeacherToolkit],
       ["vocabulary", "Missing vocabulary", yn(summary.missingVocabulary), summary.missingVocabulary],
       ["objectives", "Missing learning objectives", yn(summary.missingLearningObjectives), summary.missingLearningObjectives],
@@ -1484,24 +1523,36 @@
       ["ai", "AI Ready", summary.aiReady ? "Ready" : "Not ready", !summary.aiReady],
     ];
     const canRollback = Array.isArray(plan.enrichmentPublishHistory) && plan.enrichmentPublishHistory.length > 0;
+    const structural = summary.enrichmentFillPercent ?? summary.completionPercent ?? 0;
+    const premium = summary.premiumReadinessPercent ?? 0;
     return `
       <aside class="tk-enrich-summary ${state.summaryOpen ? "is-open" : "is-collapsed"}" data-upgrade-summary>
         <div class="tk-enrich-summary-head">
           <div>
             <p class="eyebrow">Upgrade Summary</p>
-            <strong>${esc(summary.dashboardStage || summary.completenessLabel)}</strong>
-            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${summary.enrichmentFillPercent ?? summary.completionPercent}% enrichment fill · content ${summary.contentCompletionPercent ?? summary.completionPercent}%</p>
+            <strong data-workflow-status>${esc(workflow)}</strong>
+            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${structural}% structural completion · ${premium}% premium readiness</p>
           </div>
           <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
         </div>
         ${state.summaryOpen ? `
-          <div class="tk-enrich-summary-stepper" aria-hidden="true">
-            <span class="${summary.dashboardStage === "Legacy" ? "is-active" : "is-done"}">Legacy</span>
-            <span class="${summary.dashboardStage === "In Progress" || summary.dashboardStage === "Needs Review" ? "is-active" : ((summary.contentCompletionPercent ?? summary.completionPercent) >= 50 ? "is-done" : "")}">In Progress</span>
-            <span class="${summary.dashboardStage === "Ready" || summary.dashboardStage === "Published" || summary.dashboardStage === "Complete" ? "is-active" : ""}">Ready</span>
-            <span class="${summary.dashboardStage === "Published" ? "is-active" : ""}">Published</span>
+          <div class="tk-enrich-score-grid" data-readiness-scores>
+            <div><span>Structural</span><strong>${scores.structuralCompleteness ?? structural}%</strong></div>
+            <div><span>Educational</span><strong>${scores.educationalQuality ?? "—"}%</strong></div>
+            <div><span>Activities</span><strong>${scores.activityCompleteness ?? "—"}%</strong></div>
+            <div><span>Weekdays</span><strong>${scores.weekdayCompleteness ?? "—"}%</strong></div>
+            <div><span>Resources</span><strong>${scores.resourceCompleteness ?? "—"}%</strong></div>
+            <div><span>Images</span><strong>${scores.imageReadiness ?? "—"}%</strong></div>
+            <div><span>Print</span><strong>${scores.printReadiness ?? "—"}%</strong></div>
+            <div><span>Premium readiness</span><strong data-premium-readiness>${premium}%</strong></div>
           </div>
-          <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.contentCompletionPercent ?? summary.completionPercent}%"></i></div>
+          <div class="tk-enrich-summary-stepper" aria-hidden="true">
+            <span class="${/Legacy/i.test(workflow) ? "is-active" : "is-done"}">Legacy</span>
+            <span class="${/Draft Started|AI Draft|In Review|Needs Changes|In Progress|Needs Review/i.test(workflow) ? "is-active" : (structural >= 50 ? "is-done" : "")}">In Review</span>
+            <span class="${/Publish Ready|Ready for Owner|Ready|Complete/i.test(workflow) ? "is-active" : ""}">Publish Ready</span>
+            <span class="${/Published/i.test(workflow) ? "is-active" : ""}">Published</span>
+          </div>
+          <div class="tk-enrich-bar" aria-hidden="true" title="Premium readiness"><i style="width:${premium}%"></i></div>
           <dl class="tk-enrich-summary-list">
             ${rows.map(([jump, label, value, warn]) => `
               <div class="tk-enrich-summary-row ${warn ? "is-missing" : "is-ready"}">
@@ -1526,7 +1577,7 @@
             <button type="button" class="ghost-button" data-enrich-rollback>Rollback Last Publish</button>
             <p class="muted-copy">Loads the prior publish backup into a new draft. Providers keep seeing the current published kit until you Publish.</p>
           ` : ""}
-          <p class="muted-copy tk-enrich-summary-note">Guidance only — never blocks saving a draft. Nothing publishes automatically.</p>
+          <p class="muted-copy tk-enrich-summary-note">Structural % is field fill only. Publish Ready requires zero hard blockers and real images/printables. Draft save is never blocked.</p>
         ` : ""}
       </aside>
     `;
@@ -1537,6 +1588,10 @@
     const n = activities.length;
     const idx = Math.min(state.activityIndex, Math.max(0, n - 1));
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
+    const summary = api().buildUpgradeSummary(plan, activities, state.draft);
+    const premium = summary.premiumReadinessPercent ?? 0;
+    const workflow = summary.canonicalStatus?.workflow || summary.dashboardStage || label;
+    const blocked = Boolean(state.qualityReport?.blocksPublish);
     return `
       <header class="tk-enrich-chrome">
         <div class="tk-enrich-chrome-top">
@@ -1549,20 +1604,21 @@
           <div class="tk-enrich-progress-block">
             <div class="tk-enrich-stepper">
               <span class="${percent < 50 ? "is-active" : "is-done"}">Legacy</span>
-              <span class="${percent >= 50 && percent < 90 ? "is-active" : percent >= 90 ? "is-done" : ""}">Enriched</span>
-              <span class="${percent >= 90 ? "is-active" : ""}">Complete</span>
+              <span class="${percent >= 50 && premium < 90 ? "is-active" : premium >= 90 ? "is-done" : ""}">In Review</span>
+              <span class="${premium >= 90 && !blocked ? "is-active" : ""}">Publish Ready</span>
             </div>
             <div class="tk-enrich-percent-row">
-              <strong>Overall ${percent}%</strong>
-              <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${percent}%"></i></div>
-              <span class="tag">${esc(label)}</span>
+              <strong title="Structural completion (field fill)">Completion ${percent}%</strong>
+              <span class="muted-copy" data-premium-readiness-chrome title="Premium Teaching Kit readiness">Readiness ${premium}%</span>
+              <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${premium}%"></i></div>
+              <span class="tag" data-workflow-status-chrome>${esc(workflow)}</span>
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
-            <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
+            <button type="button" class="primary-button" data-enrich-publish ${blocked ? "title=\"Resolve hard blockers or use owner override\"" : ""}>Publish…</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
         </div>
@@ -2065,7 +2121,7 @@
 
   function renderQualityReportBlock(report) {
     if (!report) {
-      return `<p class="muted-copy">Run Quality Review before publishing. AI generates a report — it never auto-edits or auto-publishes.</p>`;
+      return `<p class="muted-copy">Run Quality Review before publishing. Report only — it never auto-edits or auto-publishes. Field presence alone is never “100% quality.”</p>`;
     }
     const findings = (report.findings || []).filter((f) => f.status !== "ignored");
     const readiness = report.publishReadinessLabel
@@ -2073,19 +2129,35 @@
     const readinessClass = report.blocksPublish
       ? "is-danger"
       : (report.publishReadiness === "ready" ? "is-ready" : "is-warn");
+    const blockers = report.blockingIssues || [];
     return `
       <section class="tk-quality-report" data-quality-report>
         <div class="tk-quality-report-score">
-          <strong title="Educational quality score">${esc(String(report.overallScore))}%</strong>
+          <strong title="Educational quality score (not field presence)">${esc(String(report.overallScore))}%</strong>
           <span class="tag" title="Educational quality">${esc(report.overallLabel)}</span>
           <span class="tag ${readinessClass}" data-publish-readiness="${esc(report.publishReadiness || "")}">${esc(readiness)}</span>
-          <span class="muted-copy" title="Enrichment field fill — not weekday coverage">${esc(String(report.weekdayCoverageLabel || report.contentCompletionLabel || `Enrichment fill ${report.completionPercent ?? "—"}%`))}</span>
+          <span class="muted-copy" title="Structural vs premium">Structural ${report.completionPercent ?? "—"}% · Premium ${report.premiumReadinessPercent ?? "—"}%</span>
           ${report.blocksPublish
-            ? `<span class="tag is-danger">Blocked</span>`
+            ? `<span class="tag is-danger">Hard blockers: ${blockers.length}</span>`
             : (report.publishReadiness === "needs_review"
               ? `<span class="tag is-warn">Warnings</span>`
               : `<span class="tag is-ready">No blockers</span>`)}
         </div>
+        ${blockers.length ? `
+          <div class="tk-quality-hard-blockers" data-hard-blockers>
+            <h5>Hard publish blockers</h5>
+            <ul>
+              ${blockers.map((b) => `
+                <li>
+                  <button type="button" class="ghost-button" data-blocker-navigate="${esc(b.navigateTo || b.code)}" data-blocker-section="${esc(b.code)}">
+                    ${esc(b.message)}
+                  </button>
+                  ${b.suggestion ? `<p class="muted-copy">${esc(b.suggestion)}</p>` : ""}
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+        ` : ""}
         <div class="tk-quality-report-grid">
           <div>
             <h5>Strengths</h5>
@@ -2105,14 +2177,11 @@
               <div class="form-actions">
                 <button type="button" class="primary-button" data-quality-improve="${esc(f.id)}">Improve with AI</button>
                 <button type="button" class="ghost-button" data-quality-ignore="${esc(f.id)}" data-quality-code="${esc(f.code)}">Ignore</button>
-                <button type="button" class="ghost-button" data-quality-edit-manual="${esc(f.section)}">Edit manually</button>
+                <button type="button" class="ghost-button" data-quality-edit-manual="${esc(f.section)}" data-blocker-navigate="${esc(f.navigateTo || "")}">Edit manually</button>
               </div>
             </li>
           `).join("") || `<li class="muted-copy">No open issues.</li>`}
         </ul>
-        ${(report.blockingIssues || []).length ? `
-          <p class="muted-copy"><strong>Blocking before publish:</strong> ${(report.blockingIssues || []).map((b) => esc(b.message)).join(" · ")}</p>
-        ` : ""}
       </section>
     `;
   }
@@ -2120,27 +2189,36 @@
   function renderPublishModal(plan, activities) {
     if (!state.publishOpen) return "";
     const summary = api().summarizePublishChanges(plan, activities, state.draft);
+    const upgrade = api().buildUpgradeSummary(plan, activities, state.draft);
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
     const qualityOn = isQualityReviewFlagEnabled();
     const report = state.qualityReport;
     const blocked = qualityOn && report?.blocksPublish;
     const readiness = report?.publishReadinessLabel
       || (blocked ? "Blocked" : (report?.publishReadiness === "ready" ? "Ready" : "Needs Review"));
+    const acceptedAi = Number(state.draft?.acceptedAiSuggestionCount || state._acceptedAiCount || 0);
+    const manualEdits = Number(state.draft?.manualEditCount || (state.dirty ? 1 : 0));
+    const warningCount = (report?.warnings || []).length;
+    const blockerCount = (report?.blockingIssues || []).length;
     return `
       <div class="tk-enrich-modal" data-publish-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-publish-title">
         <button type="button" class="tk-enrich-modal-backdrop" data-publish-cancel aria-label="Cancel publish"></button>
         <div class="tk-enrich-modal-card tk-enrich-publish-card" tabindex="-1">
           <div class="tk-enrich-publish-scroll">
             <h3 id="tk-enrich-publish-title">Publish enrichment for this lesson?</h3>
-            <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. The current published version is kept for rollback.</p>
+            <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. AI cannot publish. Save Draft never publishes. Cancel leaves everything unchanged.</p>
             <ul class="tk-enrich-publish-summary">
+              <li><strong>Current published version:</strong> ${historyCount ? `${historyCount} snapshot(s) on file` : "None yet — first enrichment publish"}</li>
+              <li><strong>Draft version:</strong> ${esc(upgrade.draftOrPublished)} · structural ${upgrade.completionPercent ?? "—"}% · premium ${upgrade.premiumReadinessPercent ?? "—"}%</li>
+              <li><strong>Sections changing:</strong> ${summary.photoChanges} photo(s), ${summary.tipChanges} tip(s), ${summary.linkedActivitiesAffected} linked activit${summary.linkedActivitiesAffected === 1 ? "y" : "ies"}</li>
+              <li><strong>Accepted AI suggestions (session):</strong> ${acceptedAi}</li>
+              <li><strong>Manual edits pending:</strong> ${manualEdits ? "Yes" : "None flagged"}</li>
+              <li><strong>Remaining warnings:</strong> ${warningCount}</li>
+              <li><strong>Hard blockers:</strong> ${blockerCount}${blocked ? " — Publish disabled until resolved or owner override" : ""}</li>
+              <li><strong>Images added/removed:</strong> ${summary.photoChanges} photo field update(s)</li>
+              <li><strong>Printables:</strong> ${upgrade.missingPrintables ? "Still missing linked printable resources" : "Linked printable resources present"}</li>
+              <li><strong>Customer-visible result:</strong> ${summary.isPublished ? "Providers see enrichment only after this publish succeeds" : "Lesson is not published/featured yet"}</li>
               <li><strong>Publish readiness:</strong> <span data-publish-readiness-label>${esc(qualityOn ? readiness : "Quality Review off")}</span></li>
-              <li><strong>What will change:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
-              <li><strong>Linked activities affected:</strong> ${summary.linkedActivitiesAffected}</li>
-              <li><strong>Updates a published lesson?</strong> ${summary.isPublished ? "Yes — providers see enrichment only after this publish succeeds" : "No — lesson is not published/featured yet"}</li>
-              <li><strong>Content completion:</strong> ${esc(summary.labelBefore)} ${summary.completionBefore}% → ${esc(summary.labelAfter)} ${summary.completionAfter}% (enrichment fill; weekday coverage checked separately)</li>
-              <li><strong>Prior published version:</strong> ${historyCount ? `${historyCount} snapshot(s) already saved` : "Will be preserved on first publish"}</li>
-              <li><strong>Draft photos:</strong> Become provider-visible only after a successful publish (private draft URLs are never exposed)</li>
             </ul>
             ${qualityOn ? `
               <div class="tk-quality-publish-gate">
@@ -2168,7 +2246,7 @@
           </div>
           <div class="form-actions tk-enrich-publish-actions">
             <button type="button" class="ghost-button" data-publish-cancel autofocus>Cancel</button>
-            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "" : ""}>${blocked ? "Publish with owner override" : "Publish updates to providers"}</button>
+            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "data-requires-override=\"true\"" : ""}>${blocked ? "Publish with owner override" : "Publish updates to providers"}</button>
           </div>
         </div>
       </div>
@@ -2586,14 +2664,49 @@
     if (!plan || !percentEl) return;
     const activities = getActivities(plan);
     const percent = recomputePercent(plan, activities);
-    const label = api().completenessLabelFromPercent(percent, null);
-    percentEl.textContent = `Overall ${percent}%`;
+    const summary = api().buildUpgradeSummary(plan, activities, state.draft);
+    const premium = summary.premiumReadinessPercent ?? percent;
+    const workflow = summary.canonicalStatus?.workflow || summary.dashboardStage
+      || api().completenessLabelFromPercent(percent, null);
+    percentEl.textContent = `Completion ${percent}%`;
+    const readinessEl = chrome.querySelector("[data-premium-readiness-chrome]");
+    if (readinessEl) readinessEl.textContent = `Readiness ${premium}%`;
     const bar = chrome.querySelector(".tk-enrich-bar i");
-    if (bar) bar.style.width = `${percent}%`;
+    if (bar) bar.style.width = `${premium}%`;
     const tag = chrome.querySelector(".tk-enrich-percent-row .tag");
-    if (tag) tag.textContent = label;
+    if (tag) tag.textContent = workflow;
     const summaryPct = document.querySelector("[data-upgrade-summary] .tk-enrich-bar i");
-    if (summaryPct) summaryPct.style.width = `${percent}%`;
+    if (summaryPct) summaryPct.style.width = `${premium}%`;
+  }
+
+  function navigateToEnrichmentTarget(target) {
+    const raw = String(target || "").trim();
+    if (!raw) return;
+    const plan = getPlan();
+    const activities = getActivities(plan);
+    if (/^week:/i.test(raw) || /books|songs|printables|toolkit|family|vocabulary|objectives|materials|weekly_plan/i.test(raw)) {
+      state.mode = "week";
+      render();
+      const section = raw.replace(/^week:/i, "").toLowerCase();
+      const node = document.querySelector(`[data-week-section="${section}"], [data-enrich-week-${section}], [name*="${section}"], #tk-week-${section}`);
+      node?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (/activities|images|setup|example/i.test(raw)) {
+      state.mode = "activities";
+      const draftActs = state.draft.activities || {};
+      const targetIdx = activities.findIndex((a) => {
+        const view = api().activityEnrichmentView(a, draftActs[draftKey(a)]);
+        return !view.setupImageUrl || !view.exampleImageUrl;
+      });
+      if (targetIdx >= 0) state.activityIndex = targetIdx;
+      render();
+      document.querySelector("[data-enrich-setup-image], [data-enrich-example-image], [data-activity-images]")
+        ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      return;
+    }
+    state.mode = "activities";
+    render();
   }
 
   function focusActiveDialog() {
@@ -2857,19 +2970,24 @@
         render();
         return;
       }
+      const blockerNav = event.target.closest("[data-blocker-navigate]");
+      if (blockerNav) {
+        navigateToEnrichmentTarget(blockerNav.getAttribute("data-blocker-navigate") || "");
+        return;
+      }
       const summaryJump = event.target.closest("[data-summary-jump]");
       if (summaryJump) {
         const jump = summaryJump.getAttribute("data-summary-jump");
         const plan = getPlan();
         const activities = getActivities(plan);
-        const weekJumps = new Set(["family", "printables", "books", "songs", "vocabulary", "objectives", "materials"]);
-        if (weekJumps.has(jump)) {
+        const weekJumps = new Set(["family", "printables", "books", "songs", "vocabulary", "objectives", "materials", "toolkit", "briefs"]);
+        if (weekJumps.has(jump) && jump !== "briefs") {
           state.mode = "week";
         } else {
           state.mode = "activities";
           const draftActs = state.draft.activities || {};
           let target = -1;
-          if (jump === "setup") {
+          if (jump === "setup" || jump === "briefs") {
             target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).setupImageUrl);
           } else if (jump === "example") {
             target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).exampleImageUrl);
@@ -3462,9 +3580,15 @@
       }
       if (event.target.closest("[data-ai-suggest]")) {
         const scopeBtn = event.target.closest("[data-ai-suggest]");
+        if (scopeBtn.disabled || scopeBtn.getAttribute("aria-busy") === "true") return;
         const raw = String(scopeBtn.getAttribute("data-ai-suggest") || "activity");
         const scope = raw === "week" || raw === "lesson" ? raw : "activity";
-        await requestAiSuggestions({ scope });
+        scopeBtn.setAttribute("aria-busy", "true");
+        try {
+          await requestAiSuggestions({ scope });
+        } finally {
+          scopeBtn.removeAttribute("aria-busy");
+        }
         return;
       }
       if (event.target.closest("[data-ai-cancel]")) {
@@ -3473,7 +3597,8 @@
       }
       if (event.target.closest("[data-ai-retry]")) {
         const scope = state.aiTray.scope || "activity";
-        await requestAiSuggestions({ scope });
+        // Retry is an explicit owner action after a failed/canceled run — no second confirm.
+        await requestAiSuggestions({ scope, skipConfirm: true });
         return;
       }
       if (event.target.closest("[data-ai-discard-all]") || event.target.closest("[data-ai-reject-all]")) {

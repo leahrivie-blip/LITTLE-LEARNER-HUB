@@ -137,6 +137,8 @@
     message,
     suggestion = "",
     blocking = false,
+    navigateTo = "",
+    publishGate = "",
   }) {
     return {
       id: `${code}-${section}`,
@@ -147,6 +149,8 @@
       message,
       suggestion,
       blocking: blocking === true || severity === "blocking",
+      navigateTo: text(navigateTo),
+      publishGate: text(publishGate) || (blocking || severity === "blocking" ? "hard_blocker" : "quality"),
       status: "pending", // pending | ignored | improved
       actions: ["improve_with_ai", "ignore", "edit_manually"],
     };
@@ -177,6 +181,12 @@
     "weak_teacher_prep",
     "missing_materials",
     "domain_imbalance",
+    "missing_printables",
+    "missing_example_images",
+    "incomplete_toolkit",
+    "missing_weekday_focus",
+    "placeholder_text",
+    "image_brief_not_image",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
@@ -230,19 +240,30 @@
     const highCount = activeFindings.filter((f) => f.severity === "high" || f.blocking).length;
     const medium = activeFindings.filter((f) => f.severity === "medium").length;
     const low = activeFindings.filter((f) => f.severity === "low").length;
+    // Educational quality score — never call this "100% quality" from field presence alone.
     const overallScore = Math.max(
       0,
       Math.min(100, 100 - blockingIssues.length * 18 - highCount * 10 - medium * 5 - low * 2),
     );
     const completionPercent = Number(reportBase.completionPercent) || 0;
+    const premiumReadinessPercent = Number(reportBase.premiumReadinessPercent != null
+      ? reportBase.premiumReadinessPercent
+      : completionPercent) || 0;
     let publishReadiness = PUBLISH_READINESS.BLOCKED;
-    if (!blockingIssues.length && completionPercent >= 90 && overallScore >= 75 && highCount === 0) {
+    // Publish Ready requires zero hard blockers AND premium asset readiness (real images/printables).
+    if (
+      !blockingIssues.length
+      && premiumReadinessPercent >= 90
+      && overallScore >= 75
+      && highCount === 0
+    ) {
       publishReadiness = PUBLISH_READINESS.READY;
     } else if (!blockingIssues.length) {
       publishReadiness = PUBLISH_READINESS.NEEDS_REVIEW;
     }
     let overallLabel = "Not ready";
     if (publishReadiness === PUBLISH_READINESS.READY) overallLabel = "Publish ready";
+    else if (blockingIssues.length) overallLabel = "Blocked";
     else if (publishReadiness === PUBLISH_READINESS.NEEDS_REVIEW && overallScore >= 75) overallLabel = "Almost ready";
     else if (overallScore >= 50) overallLabel = "Needs work";
 
@@ -251,18 +272,21 @@
       findings,
       overallScore,
       overallLabel,
+      completionPercent,
+      premiumReadinessPercent,
       blockingIssues: blockingIssues.map((f) => ({
         code: f.code,
         message: f.message,
         suggestion: f.suggestion,
         publishGate: f.publishGate || "quality",
+        navigateTo: f.navigateTo || "",
       })),
       warnings: activeFindings
         .filter((f) => f.severity === "high" || f.severity === "medium")
         .map((f) => ({ code: f.code, message: f.message, severity: f.severity })),
       publishReadiness,
       publishReadinessLabel: publishReadinessLabel(publishReadiness),
-      blocksPublish: publishReadiness === PUBLISH_READINESS.BLOCKED,
+      blocksPublish: publishReadiness === PUBLISH_READINESS.BLOCKED || blockingIssues.length > 0,
       reviewRequired: true,
       autoPublished: false,
       autoChanged: false,
@@ -410,18 +434,32 @@
     let missingIndoor = 0;
     let missingObs = 0;
     let missingTips = 0;
-    let imageBriefs = 0;
+    let realImages = 0;
+    let imageBriefsOnly = 0;
+    let missingRealSetup = 0;
+    let missingRealExample = 0;
     list.forEach((act) => {
       const key = text(act.id || act.itemId);
       const patch = draftActs[key] || {};
-      if (!text(patch.outdoorAlternatives || act.outdoorAlternatives) && !/outdoor|sidewalk|garden|yard/i.test(body)) {
+      if (!text(patch.outdoorAlternatives || act.outdoorAlternatives || act.outdoorOption) && !/outdoor|sidewalk|garden|yard/i.test(body)) {
         missingOutdoor += 1;
       }
-      if (!text(patch.indoorAlternatives || act.indoorAlternatives)) missingIndoor += 1;
+      if (!text(patch.indoorAlternatives || act.indoorAlternatives || act.indoorAlternative)) missingIndoor += 1;
       if (!asArray(patch.observationPrompts).length && !text(act.observationOpportunities)) missingObs += 1;
       if (!asArray(patch.teacherTips).length) missingTips += 1;
-      if (text(patch.imageBriefSetup) || text(patch.imageBriefExample) || act.setupImageUrl || act.exampleImageUrl) {
-        imageBriefs += 1;
+      const setupUrl = text(patch.setupImageUrl || act.setupImageUrl || act.setupPhotoUrl);
+      const exampleUrl = text(patch.exampleImageUrl || act.exampleImageUrl || act.examplePhotoUrl);
+      const setupBrief = text(patch.imageBriefSetup);
+      const exampleBrief = text(patch.imageBriefExample);
+      if (setupUrl) realImages += 1;
+      else {
+        missingRealSetup += 1;
+        if (setupBrief) imageBriefsOnly += 1;
+      }
+      if (exampleUrl) realImages += 1;
+      else {
+        missingRealExample += 1;
+        if (exampleBrief) imageBriefsOnly += 1;
       }
     });
     if (!list.length) {
@@ -477,16 +515,32 @@
         suggestion: "List setup steps, materials staging, and one observation focus.",
       }));
     }
-    const toolkitBits = asArray(week.teacherToolkit?.prepChecklist).length
-      + asArray(week.teacherToolkit?.observationFocus).length
-      + (text(week.teacherToolkit?.notes) ? 1 : 0);
-    if (toolkitBits < 2) {
+    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+      ? week.teacherToolkit
+      : (plan?.teachingKit?.teacherToolkit || {});
+    const toolkitScore = (
+      (text(toolkit.teacherPreparation) || text(week.teacherPreparation) ? 1 : 0)
+      + (asArray(toolkit.teacherTips || toolkit.tips).length ? 1 : 0)
+      + (asArray(toolkit.setupCleanupShortcuts).length ? 1 : 0)
+      + (asArray(toolkit.observationPrompts).length || asArray(toolkit.observationFocus).length ? 1 : 0)
+      + (asArray(toolkit.documentationPrompts).length ? 1 : 0)
+      + (text(toolkit.mixedAgeAdaptations) ? 1 : 0)
+      + (text(toolkit.extraSupportAdaptations || toolkit.extraSupport) ? 1 : 0)
+      + (text(toolkit.challengeExtensions || toolkit.extensions) ? 1 : 0)
+      + (text(toolkit.safetyInclusionNotes || toolkit.safetyNotes) ? 1 : 0)
+      + (text(toolkit.endOfWeekReflection) ? 1 : 0)
+      + (text(toolkit.familyConnection) || text(week.familyConnection) || text(plan?.familyConnection) ? 1 : 0)
+      + (asArray(toolkit.materialSubstitutions || toolkit.substitutions).length ? 1 : 0)
+    );
+    if (toolkitScore < 6) {
       findings.push(finding({
         code: "incomplete_toolkit",
         section: "toolkit",
-        severity: "medium",
-        message: "Teacher toolkit is incomplete.",
-        suggestion: "Add prep checklist + observation focus notes.",
+        severity: "blocking",
+        blocking: true,
+        message: `Teacher Toolkit is incomplete (${toolkitScore}/12 structured areas). Thin prep notes alone are not enough.`,
+        suggestion: "Add preparation, tips, substitutions, adaptations, observation/documentation prompts, safety/inclusion, and end-of-week reflection.",
+        navigateTo: "week:toolkit",
       }));
     }
     if (missingTips) {
@@ -530,47 +584,134 @@
       }));
     }
 
-    // Books / songs / printables / images
-    const books = asArray(week.books).length || asArray(plan?.books).length;
-    const songs = asArray(week.songs).length || asArray(plan?.songs).length;
-    const printables = asArray(plan?.resourceIds).length
-      || asArray(week.printableIdeas).length
-      || asArray(week.printablePacks).length
+    // Books / songs / printables / images — title-only / idea-only / brief-only never count as complete.
+    const bookEntries = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
+    const songEntries = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
+    const enrichApi = loadEnrichment();
+    const completeBooks = bookEntries.filter((book) => (
+      enrichApi?.bookRecordComplete ? enrichApi.bookRecordComplete(book) : (text(book?.title) && text(book?.author)
+        && (asArray(book?.afterReadingQuestions || book?.questions || book?.readAloudQuestions).length
+          || asArray(book?.beforeReadingQuestions).length))
+    ));
+    const completeSongs = songEntries.filter((song) => (
+      enrichApi?.songRecordComplete ? enrichApi.songRecordComplete(song) : (text(song?.title)
+        && text(song?.rightsStatus || song?.copyrightStatus)
+        && (text(song?.motions) || text(song?.teacherDirections)))
+    ));
+    const linkedPrintables = asArray(plan?.resourceIds).length
+      || asArray(week.printableIds).length
       || (week.linkedMasterResources && Object.keys(week.linkedMasterResources).length);
-    if (!books) {
+    const printableIdeasOnly = !linkedPrintables && (
+      asArray(week.printableIdeas).length || asArray(week.printablePacks).length
+    );
+
+    if (!bookEntries.length) {
       findings.push(finding({
         code: "missing_books",
         section: "books",
-        severity: "high",
+        severity: "blocking",
+        blocking: true,
         message: "Books are missing.",
-        suggestion: "Recommend 1–3 age-fit books with before/during/after talk prompts (no copyrighted text).",
+        suggestion: "Add 1–3 age-fit books with why-it-fits plus before/during/after prompts (no copied book text).",
+        navigateTo: "week:books",
+      }));
+    } else if (completeBooks.length < bookEntries.length) {
+      findings.push(finding({
+        code: "incomplete_books",
+        section: "books",
+        severity: "blocking",
+        blocking: true,
+        message: `${bookEntries.length - completeBooks.length} book(s) are title/author-only and missing discussion guides.`,
+        suggestion: "Require why-it-fits, before/during/after questions, vocabulary connection, and a substitute title.",
+        navigateTo: "week:books",
       }));
     }
-    if (!songs) {
+    if (!songEntries.length) {
       findings.push(finding({
         code: "missing_songs",
         section: "songs",
-        severity: "high",
+        severity: "blocking",
+        blocking: true,
         message: "Songs are missing.",
-        suggestion: "Add original or public-domain style songs only — never copyrighted lyrics.",
+        suggestion: "Add songs with rights status, motions, and teaching directions. Lyrics only when legally allowed.",
+        navigateTo: "week:songs",
+      }));
+    } else if (completeSongs.length < songEntries.length) {
+      findings.push(finding({
+        code: "incomplete_songs",
+        section: "songs",
+        severity: "blocking",
+        blocking: true,
+        message: `${songEntries.length - completeSongs.length} song(s) are title-only or missing rights/teaching metadata.`,
+        suggestion: "Require copyright classification, motions, teaching directions, weekday, and age adaptation.",
+        navigateTo: "week:songs",
       }));
     }
-    if (!printables) {
+    if (!linkedPrintables) {
       findings.push(finding({
         code: "missing_printables",
         section: "printables",
-        severity: "medium",
-        message: "Printables are missing.",
-        suggestion: "Link a reusable printable pack or add editable matching/vocab cards.",
+        severity: "blocking",
+        blocking: true,
+        message: printableIdeasOnly
+          ? "Printable ideas exist, but no actual printable file/resource is linked."
+          : "Printables are missing — ideas alone never count as print-ready.",
+        suggestion: "Link a real printable resource (file or generated pack) with preview and print access.",
+        navigateTo: "week:printables",
       }));
     }
-    if (list.length && imageBriefs < Math.min(list.length, 2)) {
+    if (list.length && (missingRealSetup > 0 || missingRealExample > 0)) {
       findings.push(finding({
         code: "missing_example_images",
         section: "example_images",
-        severity: "medium",
-        message: "Example/setup image briefs are missing for most activities.",
-        suggestion: "Add classroom-achievable setup + finished-example briefs (approval still required).",
+        severity: "blocking",
+        blocking: true,
+        message: `${missingRealSetup} setup photo(s) and ${missingRealExample} finished-example photo(s) still missing as real images.`,
+        suggestion: "Upload or generate actual images with caption + alt text. Image briefs do not count as photos.",
+        navigateTo: "activities:images",
+      }));
+    }
+    if (imageBriefsOnly > 0) {
+      findings.push(finding({
+        code: "image_brief_not_image",
+        section: "example_images",
+        severity: "blocking",
+        blocking: true,
+        message: `${imageBriefsOnly} image brief(s) are present but do not count as setup/finished photos.`,
+        suggestion: "Convert briefs into reviewed, loadable images before Publish Ready.",
+        navigateTo: "activities:images",
+      }));
+    }
+
+    // Weekday focus — "Theme focus coming soon" is a hard blocker.
+    const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+    const placeholderDays = [];
+    const missingFocusDays = [];
+    weekdays.forEach((day) => {
+      const dayPlan = plan?.dailyPlans?.[day] || {};
+      const focus = text(dayPlan.theme || dayPlan.focus || dayPlan.objectives || week?.dailyFocus?.[day]);
+      if (!focus) missingFocusDays.push(day);
+      else if (/coming soon|theme focus coming soon|placeholder|tbd|todo/i.test(focus)) placeholderDays.push(day);
+    });
+    if (missingFocusDays.length || placeholderDays.length) {
+      findings.push(finding({
+        code: "missing_weekday_focus",
+        section: "weekly_plan",
+        severity: "blocking",
+        blocking: true,
+        message: `Weekday focus incomplete${missingFocusDays.length ? ` (missing: ${missingFocusDays.join(", ")})` : ""}${placeholderDays.length ? ` (placeholder: ${placeholderDays.join(", ")})` : ""}.`,
+        suggestion: "Replace “Theme focus coming soon” with a unique daily focus and teacher-facing details for each weekday.",
+        navigateTo: "week:weekly_plan",
+      }));
+    }
+    if (/coming soon|lorem ipsum|\[insert|\btbd\b|\btodo\b/i.test(body)) {
+      findings.push(finding({
+        code: "placeholder_text",
+        section: "completeness",
+        severity: "blocking",
+        blocking: true,
+        message: "Placeholder or “coming soon” text is still present in the kit.",
+        suggestion: "Remove placeholders before Publish Ready.",
       }));
     }
 
@@ -676,6 +817,17 @@
       });
     }
 
+    let premiumReadinessPercent = completionPercent;
+    try {
+      if (enrich?.computeReadinessScores) {
+        premiumReadinessPercent = Number(
+          enrich.computeReadinessScores(plan, list, draft).premiumReadinessPercent,
+        ) || completionPercent;
+      }
+    } catch (_error) {
+      premiumReadinessPercent = completionPercent;
+    }
+
     return finalizePublishGate({
       planId: text(plan?.id),
       title: text(plan?.title),
@@ -683,11 +835,12 @@
       ageBand: band,
       completionPercent,
       enrichmentFillPercent: completionPercent,
+      premiumReadinessPercent,
       contentCompletionPercent: contentCompletionPercent || completionPercent,
       weekdayCoverageLabel,
       contentCompletionLabel: weekdayCoverageLabel
-        ? `${weekdayCoverageLabel} · enrichment fill ${completionPercent}%`
-        : `Enrichment fill ${completionPercent}%`,
+        ? `${weekdayCoverageLabel} · structural ${completionPercent}% · premium ${premiumReadinessPercent}%`
+        : `Structural ${completionPercent}% · premium readiness ${premiumReadinessPercent}%`,
       sectionScores,
       strengths,
       missing,

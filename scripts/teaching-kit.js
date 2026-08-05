@@ -233,6 +233,23 @@
   }
 
   /**
+   * Server Owner Preview / Teaching Kit owner-admin gate — requires BOTH:
+   * 1) authenticated identity email === leahivie@icloud.com
+   * 2) valid owner/admin session for that same email
+   * Email alone (member login without admin) must not unlock TK while customer flags are off.
+   * Admin session alone for a different email must not unlock TK admin tools.
+   */
+  function isTeachingKitOwnerPreviewAuthorized(options = {}) {
+    const email = String(options.email || "").trim().toLowerCase();
+    const adminEmail = String(options.adminEmail || "").trim().toLowerCase();
+    const hasOwnerAdminSession = options.hasOwnerAdminSession === true
+      || (Boolean(options.adminTokenValid) && isTeachingKitOwnerPreviewEmail(adminEmail));
+    return isTeachingKitOwnerPreviewEmail(email)
+      && hasOwnerAdminSession
+      && isTeachingKitOwnerPreviewEmail(adminEmail || email);
+  }
+
+  /**
    * Owner Preview: elevate Viewer / Print / Attachments for the allowlisted owner
    * email only. Does not mutate stored site-content flags and does not grant access
    * to other Admins, Founding, Pro, Free, or staff roles.
@@ -425,6 +442,7 @@
     isTeachingKitApiEnabled,
     TEACHING_KIT_OWNER_PREVIEW_EMAIL,
     isTeachingKitOwnerPreviewEmail,
+    isTeachingKitOwnerPreviewAuthorized,
     effectiveCustomerTeachingKitFlags,
     isTeachingKitApiEnabledForRequest,
     isOwnerOnlyTeachingKitPreview,

@@ -169,79 +169,201 @@
     return n;
   }
 
+  const PLACEHOLDER_RE = /coming soon|theme focus coming soon|lorem ipsum|\btodo\b|\btbd\b|placeholder|\[insert/i;
+
+  function isPlaceholderText(value) {
+    return PLACEHOLDER_RE.test(text(value));
+  }
+
+  function meaningfulText(value, minWords = 3) {
+    const raw = text(value);
+    if (!raw || isPlaceholderText(raw)) return false;
+    return raw.split(/\s+/).filter(Boolean).length >= minWords;
+  }
+
+  function imageReadinessState(url, brief) {
+    if (text(url)) return "image_uploaded";
+    if (text(brief)) return "image_brief_ready";
+    return "image_missing";
+  }
+
+  function bookRecordComplete(book) {
+    if (!book || typeof book !== "object") return false;
+    if (!text(book.title) || !text(book.author)) return false;
+    const questions = asArray(book.beforeReadingQuestions).length
+      + asArray(book.duringReadingPrompts).length
+      + asArray(book.afterReadingQuestions || book.questions || book.readAloudQuestions).length;
+    return Boolean(text(book.whyThisBook || book.whyItFits) || questions > 0)
+      && questions > 0;
+  }
+
+  function songRecordComplete(song) {
+    if (!song || typeof song !== "object") return false;
+    if (!text(song.title)) return false;
+    const rights = text(song.rightsStatus || song.copyrightStatus).toLowerCase();
+    if (!rights) return false;
+    return Boolean(text(song.motions) || text(song.teacherDirections) || text(song.whenToUse));
+  }
+
+  function toolkitRecordComplete(toolkit, week) {
+    const t = toolkit && typeof toolkit === "object" ? toolkit : {};
+    const requiredText = [
+      text(t.teacherPreparation) || text(week?.teacherPreparation),
+      text(t.mixedAgeAdaptations),
+      text(t.extraSupportAdaptations || t.extraSupport),
+      text(t.challengeExtensions || t.extensions),
+      text(t.safetyInclusionNotes || t.safetyNotes),
+      text(t.endOfWeekReflection),
+      text(t.familyConnection) || text(week?.familyConnection),
+    ].filter((v) => meaningfulText(v, 4));
+    const requiredLists = [
+      asArray(t.teacherTips || t.tips),
+      asArray(t.setupCleanupShortcuts),
+      asArray(t.observationPrompts).length ? asArray(t.observationPrompts) : asArray(t.observationFocus),
+      asArray(t.documentationPrompts),
+      asArray(t.materialSubstitutions || t.substitutions),
+    ].filter((list) => list.length > 0);
+    return requiredText.length >= 4 && requiredLists.length >= 3;
+  }
+
+  function hasLinkedPrintable(plan, week) {
+    return Boolean(asArray(plan?.resourceIds).length || asArray(week?.printableIds).length);
+  }
+
   /**
-   * Weighted completion % for the entire Teaching Kit (published + enrichment draft).
-   * Counts AI drafts (including image briefs) so the dashboard reflects full-kit progress.
-   * Guidance only — never blocks draft save. Completeness, not pedagogy quality.
+   * Multi-dimension readiness scores for premium Teaching Kit quality.
+   * Image briefs and printable ideas never count as finished assets.
+   * Guidance for draft save — hard blockers live in quality-review / publish gate.
    */
-  function computeCompletionPercent(plan, activities, enrichmentDraft) {
+  function computeReadinessScores(plan, activities, enrichmentDraft) {
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
     const list = flattenLessonActivities(plan, activities);
-
-    let photoScore = 0;
-    let tipScore = 0;
-    let optionScore = 0;
-    let depthScore = 0;
-    if (list.length) {
-      let photoUnits = 0;
-      let tipUnits = 0;
-      let optionUnits = 0;
-      let depthUnits = 0;
-      list.forEach((act) => {
-        const key = text(act.id) || text(act.itemId);
-        const patch = draftActs[key] || {};
-        const view = activityEnrichmentView(act, patch);
-        const setupVisual = view.setupImageUrl || text(patch.imageBriefSetup);
-        const exampleVisual = view.exampleImageUrl || text(patch.imageBriefExample);
-        photoUnits += (setupVisual ? 0.5 : 0) + (exampleVisual ? 0.5 : 0);
-        tipUnits += view.teacherTips.length ? 1 : 0;
-        optionUnits += (view.substitutions.length || view.settingTags.length
-          || text(patch.indoorAlternatives) || text(patch.outdoorAlternatives)) ? 1 : 0;
-        depthUnits += (
-          (view.observationPrompts.length ? 0.25 : 0)
-          + (text(patch.setup || act.setup) ? 0.25 : 0)
-          + (text(patch.steps || act.steps) ? 0.25 : 0)
-          + (text(patch.adaptations) || text(patch.extensions) ? 0.25 : 0)
-        );
-      });
-      photoScore = photoUnits / list.length;
-      tipScore = tipUnits / list.length;
-      optionScore = optionUnits / list.length;
-      depthScore = depthUnits / list.length;
-    }
-
-    const hasCover = Boolean(text(plan?.coverImageUrl));
-    const hasOverview = Boolean(text(week.weeklyOverview) || text(plan?.weeklyOverview));
-    const hasObjectives = Boolean(text(week.objectives) || text(plan?.objectives));
-    const weekStory = Math.min(1, (hasCover ? 0.25 : 0) + (hasOverview ? 0.5 : 0) + (hasObjectives ? 0.25 : 0));
     const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
     const songs = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
-    const booksSongs = Math.min(1, (books.length ? 0.5 : 0) + (songs.length ? 0.5 : 0));
-    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object" ? week.teacherToolkit : {};
-    const familyObs = Math.min(1, (
-      (text(plan?.familyConnection) || text(week.familyConnection) ? 0.4 : 0)
-      + (text(plan?.observationOpportunities) || asArray(toolkit.observationFocus).length ? 0.3 : 0)
-      + (asArray(toolkit.prepChecklist).length || text(week.teacherPreparation) ? 0.3 : 0)
-    ));
-    const printables = (
-      asArray(plan?.resourceIds).length
-      || asArray(week.printableIds).length
-      || asArray(week.printableIdeas).length
-    ) ? 1 : 0;
+    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+      ? week.teacherToolkit
+      : (plan?.teachingKit?.teacherToolkit || {});
 
-    const percent = (
-      weekStory * 12
-      + booksSongs * 10
-      + familyObs * 10
-      + photoScore * 24
-      + tipScore * 12
-      + printables * 8
-      + optionScore * 10
-      + depthScore * 14
-    );
-    return clampPercent(percent);
+    let setupImages = 0;
+    let exampleImages = 0;
+    let imageBriefsOnly = 0;
+    let activityCompleteUnits = 0;
+    let tipUnits = 0;
+    let depthUnits = 0;
+    list.forEach((act) => {
+      const key = text(act.id) || text(act.itemId);
+      const patch = draftActs[key] || {};
+      const view = activityEnrichmentView(act, patch);
+      const setupState = imageReadinessState(view.setupImageUrl, patch.imageBriefSetup || view.imageBriefSetup);
+      const exampleState = imageReadinessState(view.exampleImageUrl, patch.imageBriefExample || view.imageBriefExample);
+      if (setupState === "image_uploaded") setupImages += 1;
+      else if (setupState === "image_brief_ready") imageBriefsOnly += 1;
+      if (exampleState === "image_uploaded") exampleImages += 1;
+      else if (exampleState === "image_brief_ready") imageBriefsOnly += 1;
+      tipUnits += view.teacherTips.length ? 1 : 0;
+      const depth = (
+        (meaningfulText(view.setup || act.setup, 4) ? 0.2 : 0)
+        + (meaningfulText(view.steps || act.steps, 4) ? 0.2 : 0)
+        + (view.observationPrompts.length ? 0.2 : 0)
+        + (meaningfulText(view.adaptations || patch.adaptations, 4) ? 0.2 : 0)
+        + (meaningfulText(view.extensions || patch.extensions, 3) ? 0.2 : 0)
+      );
+      depthUnits += depth;
+      if (activityStatus(act, patch) === ACTIVITY_STATUS.complete) activityCompleteUnits += 1;
+    });
+    const n = Math.max(1, list.length);
+    const imageReadiness = clampPercent(((setupImages + exampleImages) / (n * 2)) * 100);
+    const activityCompleteness = clampPercent((activityCompleteUnits / n) * 100);
+
+    const weekdayFocusDays = ["monday", "tuesday", "wednesday", "thursday", "friday"].filter((day) => {
+      const dayPlan = plan?.dailyPlans?.[day] || {};
+      const focus = text(dayPlan.theme || dayPlan.focus || dayPlan.objectives);
+      return focus && !isPlaceholderText(focus);
+    });
+    const weekdayCompleteness = clampPercent((weekdayFocusDays.length / 5) * 100);
+
+    const completeBooks = books.filter(bookRecordComplete).length;
+    const completeSongs = songs.filter(songRecordComplete).length;
+    const resourceCompleteness = clampPercent((
+      (books.length ? (completeBooks / books.length) : 0) * 35
+      + (songs.length ? (completeSongs / songs.length) : 0) * 35
+      + (hasLinkedPrintable(plan, week) ? 30 : 0)
+    ));
+    const printReadiness = hasLinkedPrintable(plan, week) ? 100 : (asArray(week.printableIdeas).length ? 15 : 0);
+
+    const structural = clampPercent((
+      (text(plan?.title) ? 10 : 0)
+      + (text(plan?.age) ? 8 : 0)
+      + (text(plan?.theme) ? 8 : 0)
+      + (meaningfulText(week.weeklyOverview || plan?.weeklyOverview, 12) ? 14 : 0)
+      + (meaningfulText(week.objectives || plan?.objectives, 8) ? 14 : 0)
+      + (text(plan?.vocabularyWords) ? 10 : 0)
+      + (text(plan?.weeklyMaterials) || text(week.weeklyMaterials) ? 10 : 0)
+      + (text(week.familyConnection || plan?.familyConnection) ? 8 : 0)
+      + (text(week.teacherPreparation) || asArray(toolkit.prepChecklist).length ? 9 : 0)
+      + (toolkitRecordComplete(toolkit, week) ? 9 : 0)
+    ));
+
+    const educational = clampPercent((
+      (tipUnits / n) * 25
+      + (depthUnits / n) * 45
+      + (completeBooks ? 15 : (books.length ? 5 : 0))
+      + (completeSongs ? 15 : (songs.length ? 5 : 0))
+    ));
+
+    // Structural text fill only — NEVER treat image briefs / printable ideas as assets.
+    const structuralCompletionPercent = clampPercent((
+      structural * 0.35
+      + activityCompleteness * 0.2
+      + weekdayCompleteness * 0.15
+      + educational * 0.15
+      + resourceCompleteness * 0.15
+    ));
+    // Premium readiness requires real images + linked printables + complete resources.
+    const premiumReadinessPercent = clampPercent((
+      structural * 0.2
+      + activityCompleteness * 0.15
+      + weekdayCompleteness * 0.1
+      + educational * 0.15
+      + imageReadiness * 0.2
+      + printReadiness * 0.1
+      + resourceCompleteness * 0.1
+    ));
+
+    return {
+      structuralCompleteness: structural,
+      educationalQuality: educational,
+      activityCompleteness,
+      weekdayCompleteness,
+      resourceCompleteness,
+      imageReadiness,
+      printReadiness,
+      structuralCompletionPercent,
+      premiumReadinessPercent,
+      // Back-compat: completionPercent is structural/text progress only (not publish gate).
+      completionPercent: structuralCompletionPercent,
+      setupImages,
+      exampleImages,
+      imageBriefsOnly,
+      completeBooks,
+      completeSongs,
+      bookCount: books.length,
+      songCount: songs.length,
+      hasLinkedPrintable: hasLinkedPrintable(plan, week),
+      hasPrintableIdeasOnly: !hasLinkedPrintable(plan, week) && asArray(week.printableIdeas).length > 0,
+      toolkitComplete: toolkitRecordComplete(toolkit, week),
+      weekdayFocusDays,
+    };
+  }
+
+  /**
+   * Structural/text completion % (not premium publish readiness).
+   * Image briefs and printable ideas do NOT inflate this toward Publish Ready.
+   */
+  function computeCompletionPercent(plan, activities, enrichmentDraft) {
+    return computeReadinessScores(plan, activities, enrichmentDraft).completionPercent;
   }
 
   function completenessLabelFromPercent(percent, explicit) {
@@ -274,10 +396,12 @@
       return status.workflowStatusFromParts({
         lessonStatus: summary.lessonStatus || (summary.isPublished ? "published" : "draft"),
         enrichmentFillPercent: summary.completionPercent,
+        premiumReadinessPercent: summary.premiumReadinessPercent,
         hasEnrichmentDraft: summary.hasEnrichmentDraft,
         coverageComplete,
         needsReview: summary.needsReview,
         publishReadiness: summary.publishReadiness,
+        hasAiProposal: summary.hasAiProposal,
       });
     }
     const percent = clampPercent(summary.completionPercent);
@@ -601,7 +725,8 @@
     const draftActs = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
     const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
     const list = flattenLessonActivities(plan, activities);
-    const percent = computeCompletionPercent(plan, list, draft);
+    const readiness = computeReadinessScores(plan, list, draft);
+    const percent = readiness.completionPercent;
     const label = completenessLabelFromPercent(percent, null);
 
     let incompleteActivities = 0;
@@ -611,6 +736,7 @@
     let missingObservationPrompts = 0;
     let missingActivityObjectives = 0;
     let missingActivityMaterials = 0;
+    let imageBriefsNotImages = 0;
 
     list.forEach((act) => {
       const key = activityKey(act);
@@ -620,6 +746,8 @@
       const view = activityEnrichmentView(act, patch);
       if (!view.setupImageUrl) missingSetupPhotos += 1;
       if (!view.exampleImageUrl) missingExamplePhotos += 1;
+      if (!view.setupImageUrl && text(patch?.imageBriefSetup || view.imageBriefSetup)) imageBriefsNotImages += 1;
+      if (!view.exampleImageUrl && text(patch?.imageBriefExample || view.imageBriefExample)) imageBriefsNotImages += 1;
       if (!view.teacherTips.length) missingTeacherTips += 1;
       if (!hasObservationPrompts(act, patch)) missingObservationPrompts += 1;
       if (!hasActivityObjective(act, patch)) missingActivityObjectives += 1;
@@ -627,30 +755,11 @@
     });
 
     const missingFamilyConnection = !(text(plan?.familyConnection) || text(week.familyConnection));
-    const missingPrintables = !(
-      asArray(plan?.resourceIds).length
-      || asArray(week.printableIds).length
-      || asArray(week.printableIdeas).length
-    );
-    const missingBooks = !(asArray(plan?.books).length || asArray(week.books).length);
-    const missingSongs = !(asArray(plan?.songs).length || asArray(week.songs).length);
-    const publishedToolkit = plan?.teachingKit?.teacherToolkit && typeof plan.teachingKit.teacherToolkit === "object"
-      ? plan.teachingKit.teacherToolkit
-      : {};
-    const draftToolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
-      ? week.teacherToolkit
-      : {};
-    const missingTeacherToolkit = !(
-      asArray(draftToolkit.prepChecklist).length
-      || asArray(publishedToolkit.prepChecklist).length
-      || asArray(draftToolkit.observationFocus).length
-      || asArray(publishedToolkit.observationFocus).length
-      || text(draftToolkit.notes)
-      || text(publishedToolkit.notes)
-      || text(week.teacherPreparation)
-      || text(draftToolkit.teacherPreparation)
-      || text(publishedToolkit.teacherPreparation)
-    );
+    // Printable ideas alone never clear the printable gap — need linked resources.
+    const missingPrintables = !hasLinkedPrintable(plan, week);
+    const missingBooks = readiness.completeBooks === 0;
+    const missingSongs = readiness.completeSongs === 0;
+    const missingTeacherToolkit = !readiness.toolkitComplete;
     const aiReady = Boolean(text(plan?.title)) && (
       list.length > 0 || Boolean(text(plan?.weeklyOverview) || text(week.weeklyOverview))
     );
@@ -701,8 +810,14 @@
         label: "weekday coverage unavailable",
         percent: 0,
       };
-    const needsReview = (isPublished && (hasEnrichmentDraft || percent < 90))
-      || (percent >= 90 && !weekdayCoverage.coverageComplete);
+    const needsReview = (isPublished && (hasEnrichmentDraft || readiness.premiumReadinessPercent < 90))
+      || (percent >= 90 && !weekdayCoverage.coverageComplete)
+      || missingSetupPhotos > 0
+      || missingExamplePhotos > 0
+      || missingPrintables
+      || missingBooks
+      || missingSongs
+      || !readiness.toolkitComplete;
     const missingExamples = missingSetupPhotos > 0 || missingExamplePhotos > 0;
     const contentCompletionPercent = weekdayCoverage.coverageComplete
       ? percent
@@ -711,6 +826,8 @@
       completionPercent: percent,
       enrichmentFillPercent: percent,
       contentCompletionPercent,
+      premiumReadinessPercent: readiness.premiumReadinessPercent,
+      readinessScores: readiness,
       completenessLabel: label,
       weekdayCoverage,
       weekdayCoverageComplete: Boolean(weekdayCoverage.coverageComplete),
@@ -719,12 +836,17 @@
       incompleteActivities,
       missingSetupPhotos,
       missingExamplePhotos,
+      imageBriefsNotImages,
       missingTeacherTips,
       missingObservationPrompts,
       missingFamilyConnection,
       missingPrintables,
+      hasPrintableIdeasOnly: readiness.hasPrintableIdeasOnly,
       missingBooks,
       missingSongs,
+      incompleteBooks: Math.max(0, readiness.bookCount - readiness.completeBooks),
+      incompleteSongs: Math.max(0, readiness.songCount - readiness.completeSongs),
+      missingTeacherToolkit,
       missingVocabulary,
       missingLearningObjectives: missingWeekObjectives || missingActivityObjectives > 0,
       missingWeekObjectives,
@@ -742,7 +864,6 @@
       missingPhotos: missingExamples,
       missingExamples,
       missingObservations: missingObservationPrompts > 0,
-      missingTeacherToolkit,
       aiReady,
     };
     baseSummary.dashboardStage = dashboardStageFromSummary(baseSummary);
@@ -1091,6 +1212,13 @@
     activityStatusLabel,
     firstIncompleteActivityIndex,
     computeCompletionPercent,
+    computeReadinessScores,
+    imageReadinessState,
+    bookRecordComplete,
+    songRecordComplete,
+    toolkitRecordComplete,
+    hasLinkedPrintable,
+    isPlaceholderText,
     completenessLabelFromPercent,
     dashboardStageFromSummary,
     dashboardStageSlug,
