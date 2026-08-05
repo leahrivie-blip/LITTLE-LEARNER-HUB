@@ -412,7 +412,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ email, password, code }),
-    }, 20000);
+    }, 60000);
     if (!response.ok) throw new Error(data.error || data.message || "Admin login failed.");
     return data;
   }
