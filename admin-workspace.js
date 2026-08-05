@@ -189,6 +189,7 @@
           <button class="ghost-button" type="button" data-admin-quick="inbox">Read messages</button>
           <button class="ghost-button" type="button" data-admin-quick="homepage">Edit homepage</button>
           <button class="ghost-button" type="button" data-admin-quick="announcement">Create announcement</button>
+          <button class="ghost-button" type="button" data-admin-landing-tab="dashboard">Open Testing Center</button>
         </div>
       </section>
       <p class="muted-copy" style="margin-top:12px;">
