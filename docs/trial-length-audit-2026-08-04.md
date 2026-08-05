@@ -43,16 +43,16 @@ Standard introductory checkout (`trial7day: true`) still sets `subscription_data
 
 | Email | Type | Promo | Stripe start | Stripe end | Local end match | Days rem (Admin=Customer) |
 |-------|------|-------|--------------|------------|-----------------|---------------------------|
-| taylordenson8@gmail.com | Promo-Extended | TRY1MONTH | 2026-07-31 | 2026-08-30 | yes | ~26 |
-| rosschrissy686@yahoo.com | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
-| laurelj13@icloud.com | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
-| duran.kassandra17@gmail.com | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
-| oliviaberry0929@yahoo.com | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
-| alyanagonzalez642@gmail.com | Promo-Extended | TRY1MONTH | 2026-07-27 | 2026-08-26 | yes | ~22 |
-| ajanssen6218@gmail.com | Promo-Extended | TRY1MONTH | 2026-07-20 | 2026-08-19 | yes | ~15 |
-| alexxarae@live.com | Promo-Extended | TRYPRO3 | 2026-06-24 | 2026-09-22 | yes | ~49 |
-| leslienicole2424@gmail.com | Promo-Extended | TRYPRO3 | 2026-06-24 | 2026-09-22 | yes | ~49 |
-| bjoffutt97@gmail.com | Promo-Extended | TRYPRO3 | 2026-06-18 | 2026-09-16 | yes | ~43 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-31 | 2026-08-30 | yes | ~26 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-29 | 2026-08-28 | yes | ~24 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-27 | 2026-08-26 | yes | ~22 |
+| [redacted-email] | Promo-Extended | TRY1MONTH | 2026-07-20 | 2026-08-19 | yes | ~15 |
+| [redacted-email] | Promo-Extended | TRYPRO3 | 2026-06-24 | 2026-09-22 | yes | ~49 |
+| [redacted-email] | Promo-Extended | TRYPRO3 | 2026-06-24 | 2026-09-22 | yes | ~49 |
+| [redacted-email] | Promo-Extended | TRYPRO3 | 2026-06-18 | 2026-09-16 | yes | ~43 |
 | llh.prod.flag.trial…@littlelearnershubbyleah.com | Manually Extended / test | none | (no Stripe trial) | local ~2026-08-10 | n/a | ~6 |
 
 **Affected customer accounts showing ~1 month:** **7** (`TRY1MONTH`).  

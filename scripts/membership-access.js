@@ -368,12 +368,16 @@ function classifyMembershipTrialOffer(user, nowMs = Date.now()) {
 
   if (manualMarked) {
     key = "manually_extended";
-    label = "Manually Extended Trial";
+    label = "Correct Manual Extension";
     extensionSource = "manual_admin";
   } else if (promoCode || /promo|free month|day free|try1month|trypro/i.test(promoLabel)) {
     key = "promo_extended";
-    label = "Promo-Extended Trial";
+    label = "Correct Promo-Extended Trial";
     extensionSource = "promo_code";
+  } else if (lengthDays != null && lengthDays >= 28 && lengthDays <= 31) {
+    key = "unexpected_30day";
+    label = "Unexpected 30-Day Trial";
+    extensionSource = "unexpected_30day";
   } else if (lengthDays != null && lengthDays > STANDARD_TRIAL_DAYS + 1) {
     key = "legacy";
     label = "Legacy Trial";

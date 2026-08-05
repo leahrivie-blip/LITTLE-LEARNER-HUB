@@ -101,7 +101,7 @@ function startServer() {
       ADMIN_EMAIL: "admin-final@test.local",
       ADMIN_PASSWORD: "admin-final-pass",
       ADMIN_ACCESS_CODE: "admin-final-code",
-      PROMO_FREE_TRIAL_CODE: "TRY1MONTH",
+      PROMO_FREE_TRIAL_CODE: "ENVPROMO30",
       PROMO_FREE_TRIAL_DAYS: "30",
       EMAIL_AUTOMATIONS_ENABLED: "false",
     },
@@ -255,11 +255,11 @@ async function runAdminAudit(page, baseUrl) {
     record("inbox-archive-confirm", false, "no archive button");
   }
 
-  // Promo duplicate TRY1MONTH — client + server guard
+  // Promo duplicate ENVPROMO30 — client + server guard (env promo)
   await page.locator('[data-admin-group="website"]').click();
   await page.locator('[data-admin-landing-tab="promo-codes"]').click();
   await page.waitForSelector("#adminPromoCodeForm", { timeout: 20000 });
-  await page.fill('#adminPromoCodeForm input[name="code"]', "TRY1MONTH");
+  await page.fill('#adminPromoCodeForm input[name="code"]', "ENVPROMO30");
   await page.fill('#adminPromoCodeForm input[name="trialDays"]', "30");
   await page.fill('#adminPromoCodeForm input[name="label"]', "Duplicate attempt");
   await page.locator("#adminPromoCodeForm button[type='submit']").click();
@@ -269,7 +269,7 @@ async function runAdminAudit(page, baseUrl) {
     { timeout: 8000 },
   );
   const promoError = await page.evaluate(() => document.querySelector("#adminPromoCodesApp")?.textContent || "");
-  record("promo-rejects-try1month", /environment promo|duplicate/i.test(promoError));
+  record("promo-rejects-env-duplicate", /environment promo|duplicate/i.test(promoError));
 
   // System Health — no false Working on failed checks
   await page.locator('[data-admin-group="system-health"]').click();
@@ -352,8 +352,9 @@ async function main() {
     await seedInboxFixtures(port);
     const token = await adminToken(port);
     const promoBefore = await requestJson(port, "GET", `/api/admin/promo-codes?adminToken=${token}`);
-    const try1Count = (promoBefore.json.promoCodes || []).filter((p) => p.code === "TRY1MONTH").length;
-    record("promo-try1month-unchanged-before-audit", try1Count >= 1, `stored=${try1Count}`);
+    const activeTry1 = (promoBefore.json.promoCodes || []).filter((p) => p.code === "TRY1MONTH" && String(p.status).toLowerCase() === "active").length;
+    record("promo-try1month-not-active-before-audit", activeTry1 === 0, `activeTry1=${activeTry1}`);
+    record("promo-env-configured", promoBefore.json.envPromo?.code === "ENVPROMO30", `env=${promoBefore.json.envPromo?.code || ""}`);
 
     const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
     await runAdminAudit(page, baseUrl);
@@ -370,8 +371,8 @@ async function main() {
     }
 
     const promoAfter = await requestJson(port, "GET", `/api/admin/promo-codes?adminToken=${token}`);
-    const try1After = (promoAfter.json.promoCodes || []).filter((p) => p.code === "TRY1MONTH").length;
-    record("promo-try1month-unchanged-after-audit", try1After === try1Count, `before=${try1Count} after=${try1After}`);
+    const activeTry1After = (promoAfter.json.promoCodes || []).filter((p) => p.code === "TRY1MONTH" && String(p.status).toLowerCase() === "active").length;
+    record("promo-try1month-not-active-after-audit", activeTry1After === 0, `activeTry1=${activeTry1After}`);
   } finally {
     await browser.close();
     child.kill("SIGTERM");

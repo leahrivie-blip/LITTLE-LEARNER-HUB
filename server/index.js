@@ -10,6 +10,7 @@ const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
+const trialClassification = require("../scripts/trial-classification.js");
 const teachingKit = require("../scripts/teaching-kit.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
@@ -84,10 +85,15 @@ const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 let storageBootReady = false;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRY1MONTH").trim();
-const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 30);
+// No default 30-day promo. Set PROMO_FREE_TRIAL_CODE + PROMO_FREE_TRIAL_DAYS only for an intentional future promotion.
+const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "").trim();
+const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 0);
 const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "";
 const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "";
+/** Canonical introductory Pro trial length (card required). Promo codes may grant longer trials. */
+const STANDARD_TRIAL_DAYS = trialClassification.STANDARD_TRIAL_DAYS;
+const STANDARD_TRIAL_LABEL = trialClassification.STANDARD_TRIAL_LABEL;
+const RETIRED_SIGNUP_PROMO_CODES = new Set(["TRY1MONTH"]);
 const STRIPE_CHECKOUT_SIMULATION = process.env.NODE_ENV === "test"
   && ["1", "true", "yes"].includes(String(process.env.LLH_STRIPE_CHECKOUT_SIMULATION || "").toLowerCase());
 const STRIPE_AUTOMATIC_TAX = String(process.env.STRIPE_AUTOMATIC_TAX || "").toLowerCase() === "true"
@@ -524,28 +530,32 @@ function promoCodeRecords(store = peekStore()) {
   return Array.isArray(store.promoCodes) ? store.promoCodes : [];
 }
 
+/**
+ * Archive retired signup promos (TRY1MONTH) so they cannot be redeemed by new signups.
+ * Keep the row for historical reporting. Do not seed any new active 30-day default.
+ * Existing customers who already redeemed keep their Stripe/local trial dates untouched.
+ */
 function seedDefaultPromoCodes(store) {
   if (!store || typeof store !== "object") return false;
   store.promoCodes = Array.isArray(store.promoCodes) ? store.promoCodes : [];
   store.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
   let changed = false;
-  const try1 = normalizePromoCode("TRY1MONTH");
-  if (try1 && !store.promoCodes.some((item) => normalizePromoCode(item?.code) === try1)) {
-    store.promoCodes.unshift({
-      id: "promo_try1month_default",
-      code: try1,
-      label: "1 Month Free — card required, then membership continues",
-      trialDays: 30,
-      status: "active",
-      expiresAt: "",
-      expiresLabel: "",
-      maxRedemptions: null,
-      notes: "Default 1-month free promo for creators/influencers. Locks Founding Member pricing when spots remain.",
-      source: "default",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    changed = true;
+  const nowIso = new Date().toISOString();
+  for (const item of store.promoCodes) {
+    const code = normalizePromoCode(item?.code);
+    if (!RETIRED_SIGNUP_PROMO_CODES.has(code)) continue;
+    const status = String(item?.status || "active").toLowerCase();
+    if (status === "active") {
+      item.status = "archived";
+      item.updatedAt = nowIso;
+      item.archivedAt = item.archivedAt || nowIso;
+      item.disabledReason = "retired_from_signup_flow";
+      const note = "Archived: disabled for new signups. Historical redemptions and promised trials are preserved.";
+      if (!String(item.notes || "").includes("disabled for new signups")) {
+        item.notes = [String(item.notes || "").trim(), note].filter(Boolean).join(" ").slice(0, 500);
+      }
+      changed = true;
+    }
   }
   return changed;
 }
@@ -603,6 +613,10 @@ function checkoutPromoForCode(value, store = peekStore()) {
   seedDefaultPromoCodes(store);
   const enteredCode = normalizePromoCode(value);
   if (!enteredCode) return { valid: false, code: "" };
+  // Retired signup promos cannot be redeemed by new checkouts (historical trials unchanged).
+  if (RETIRED_SIGNUP_PROMO_CODES.has(enteredCode)) {
+    return { valid: false, code: enteredCode, retired: true };
+  }
 
   // Prefer admin-managed promo codes in the store.
   const storePromo = promoCodeRecords(store).find((item) => (
@@ -3902,6 +3916,16 @@ async function initializeStorage() {
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
   }
+  try {
+    // Archive retired signup promos (e.g. TRY1MONTH) without touching existing customer trials.
+    const store = peekStore();
+    if (seedDefaultPromoCodes(store)) {
+      await writeStoreAsync(store);
+      console.log("[promo] archived retired signup promo code(s) for new redemptions; historical trials unchanged");
+    }
+  } catch (error) {
+    console.warn("[promo] retired-promo archive skipped:", error.message);
+  }
   if (!shouldSkipStartupCurriculumSeed()) {
   try {
     const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
@@ -5523,7 +5547,7 @@ function statusForPlan(planKey, stripeSubscriptionId, status) {
   const normalizedStatus = String(status || "Active").trim();
   const lower = normalizedStatus.toLowerCase();
   const stripeSubscriptionStatus = lower.includes("trial") ? "trialing" : "active";
-  const periodDays = lower.includes("trial") ? 7 : 30;
+  const periodDays = lower.includes("trial") ? STANDARD_TRIAL_DAYS : 30;
   const periodEndIso = new Date(Date.now() + periodDays * 86400000).toISOString();
   return {
     plan: config.plan,
@@ -5741,9 +5765,20 @@ function applyCheckoutMembershipUpgrade(email, {
   const checkoutTrialUpdates = {};
   const statusLabel = promoTrialDays > 0 ? "trialing" : "Active";
   if (promoTrialDays > 0) {
+    const isStandardIntro = Number(promoTrialDays) === STANDARD_TRIAL_DAYS
+      && (!promoCode || String(promoLabel || "").includes("7-Day"));
     checkoutTrialUpdates.trialStatus = "In Trial";
     checkoutTrialUpdates.trialStart = new Date().toISOString();
     checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
+    checkoutTrialUpdates.trialSource = isStandardIntro
+      ? trialClassification.STANDARD_TRIAL_KIND
+      : trialClassification.PROMO_TRIAL_KIND;
+    checkoutTrialUpdates.trialExtensionSource = isStandardIntro
+      ? STANDARD_TRIAL_LABEL
+      : (promoCode
+        ? `Promo code ${normalizePromoCode(promoCode)}${promoLabel ? ` (${promoLabel})` : ""}`
+        : (promoLabel || `${promoTrialDays}-day promo trial`));
+    checkoutTrialUpdates.promoTrialDays = promoTrialDays;
     // Card-required intro trial is consumed as soon as Checkout completes — even before the first paid invoice.
     checkoutTrialUpdates.introductoryTrialConsumed = true;
     // Seed server-authoritative trial export allowance (3 watermarked premium exports).
@@ -8759,6 +8794,8 @@ async function handlePromoValidation(request, response, url) {
         ? `That promo code expired ${promo.expiresLabel || ""}.`.trim()
         : promo.exhausted
           ? "That promo code has reached its redemption limit."
+          : promo.retired
+            ? "That promo code is no longer available for new signups. Standard Pro trials are 7 days with a card on file."
           : "That promo code is not active. Check the code and try again.",
     });
     return;
@@ -8831,8 +8868,11 @@ async function handleCheckout(request, response) {
     });
     return;
   }
-  const promo = checkoutPromoForCode(body.promoCode, store);
   const trial7day = body.trial7day === true;
+  // Standard intro trial wins over promo if both are somehow sent — prevents accidental 30-day trials.
+  const promo = trial7day
+    ? { valid: false, code: "", ignoredBecauseStandardTrial: Boolean(normalizePromoCode(body.promoCode)) }
+    : checkoutPromoForCode(body.promoCode, store);
   // One introductory 7-day trial per account / Stripe customer (flag ambiguous duplicates for Admin).
   if (trial7day) {
     const alreadyTrialedAccount = membershipAccess.membershipHasTrialHistory(existingUser)
@@ -8884,17 +8924,19 @@ async function handleCheckout(request, response) {
       }
     }
   }
-  if (normalizePromoCode(body.promoCode) && !promo.valid) {
+  if (!trial7day && normalizePromoCode(body.promoCode) && !promo.valid) {
     jsonResponse(response, 400, {
       error: promo.expired
         ? `That promo code expired ${promo.expiresLabel || ""}.`.trim()
         : promo.exhausted
           ? "That promo code has reached its redemption limit."
+          : promo.retired
+            ? "That promo code is no longer available for new signups. Standard Pro trials are 7 days with a card on file."
           : "That promo code is not active. Check the code and try again.",
     });
     return;
   }
-  if (promo.valid && promoUsedByAccount(email, promo.code, store)) {
+  if (!trial7day && promo.valid && promoUsedByAccount(email, promo.code, store)) {
     jsonResponse(response, 409, { error: "This account has already used that promo code." });
     return;
   }
@@ -8971,22 +9013,26 @@ async function handleCheckout(request, response) {
       sessionParams["metadata[promoCode]"] = promo.code;
       sessionParams["metadata[promoLabel]"] = promo.label;
       sessionParams["metadata[promoTrialDays]"] = String(promo.trialDays);
+      sessionParams["metadata[trialSource]"] = trialClassification.PROMO_TRIAL_KIND;
       sessionParams["subscription_data[metadata][promoCode]"] = promo.code;
       sessionParams["subscription_data[metadata][promoLabel]"] = promo.label;
       sessionParams["subscription_data[metadata][promoTrialDays]"] = String(promo.trialDays);
+      sessionParams["subscription_data[metadata][trialSource]"] = trialClassification.PROMO_TRIAL_KIND;
       sessionParams["subscription_data[trial_period_days]"] = String(promo.trialDays);
       // Card is collected at Checkout; if it is somehow missing at trial end, cancel instead of leaving an unpaid sub.
       sessionParams["subscription_data[trial_settings][end_behavior][missing_payment_method]"] = "cancel";
     } else if (trial7day) {
       // Stripe Checkout collects a card now (payment_method_collection=always), starts a 7-day
       // trial at $0, then automatically invoices/charges Pro Monthly when the trial ends.
-      sessionParams["subscription_data[trial_period_days]"] = "7";
-      sessionParams["metadata[promoTrialDays]"] = "7";
+      sessionParams["subscription_data[trial_period_days]"] = String(STANDARD_TRIAL_DAYS);
+      sessionParams["metadata[promoTrialDays]"] = String(STANDARD_TRIAL_DAYS);
       sessionParams["metadata[trial7day]"] = "true";
-      sessionParams["metadata[promoLabel]"] = "7-Day Pro Trial";
-      sessionParams["subscription_data[metadata][promoTrialDays]"] = "7";
+      sessionParams["metadata[trialSource]"] = trialClassification.STANDARD_TRIAL_KIND;
+      sessionParams["metadata[promoLabel]"] = STANDARD_TRIAL_LABEL;
+      sessionParams["subscription_data[metadata][promoTrialDays]"] = String(STANDARD_TRIAL_DAYS);
       sessionParams["subscription_data[metadata][trial7day]"] = "true";
-      sessionParams["subscription_data[metadata][promoLabel]"] = "7-Day Pro Trial";
+      sessionParams["subscription_data[metadata][trialSource]"] = trialClassification.STANDARD_TRIAL_KIND;
+      sessionParams["subscription_data[metadata][promoLabel]"] = STANDARD_TRIAL_LABEL;
       sessionParams["subscription_data[trial_settings][end_behavior][missing_payment_method]"] = "cancel";
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
@@ -9004,8 +9050,13 @@ async function handleCheckout(request, response) {
       pendingPlan: planKey,
       subscriptionStatus: "Checkout Started",
       pendingPromoCode: promo.valid ? promo.code : "",
-      pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? 7 : 0,
-      pendingPromoLabel: promo.valid ? promo.label : trial7day ? "7-Day Pro Trial" : "",
+      pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? STANDARD_TRIAL_DAYS : 0,
+      pendingPromoLabel: promo.valid ? promo.label : trial7day ? STANDARD_TRIAL_LABEL : "",
+      pendingTrialSource: promo.valid
+        ? trialClassification.PROMO_TRIAL_KIND
+        : trial7day
+          ? trialClassification.STANDARD_TRIAL_KIND
+          : "",
       foundingSpotReleasable: planKey === "founding" && Boolean(promo.valid || trial7day),
     }, { deferPersist: true });
     try {
@@ -9020,7 +9071,7 @@ async function handleCheckout(request, response) {
     }
     const initiateEventId = String(body.metaEventId || body.eventId || session.id || "").trim().slice(0, 200);
     const checkoutValue = metaCapi.planValueUsd(planKey);
-    const trialDaysForMeta = trial7day ? 7 : (promo.valid ? Number(promo.trialDays || 0) : 0);
+    const trialDaysForMeta = trial7day ? STANDARD_TRIAL_DAYS : (promo.valid ? Number(promo.trialDays || 0) : 0);
     jsonResponse(response, 200, {
       url: session.url,
       id: session.id,
@@ -9036,7 +9087,7 @@ async function handleCheckout(request, response) {
         foundingReserved: planKey === "founding",
         locksFoundingPrice: planKey === "founding",
       } : null,
-      trial: trial7day ? { applied: true, trialDays: 7, label: "7-Day Pro Trial" } : null,
+      trial: trial7day ? { applied: true, trialDays: STANDARD_TRIAL_DAYS, label: STANDARD_TRIAL_LABEL } : null,
       founding: foundingStatusPayload(readStore()),
       paymentMethodRequired: true,
     });
@@ -9705,6 +9756,16 @@ function membershipSummaryForUser(user, storeRef = null) {
     subscriptionStartedAt: user?.subscriptionStartedAt || "",
     trialStart: user?.trialStart || "",
     trialEnd: user?.trialEnd || "",
+    ...(() => {
+      const trialMeta = trialClassification.classifyTrialSource(user || {});
+      return {
+        trialSource: trialMeta.kind,
+        trialSourceLabel: trialMeta.label,
+        trialExtensionSource: trialMeta.extensionSource,
+        trialDurationDays: trialMeta.durationDays,
+        trialDaysRemaining: trialMeta.daysRemaining,
+      };
+    })(),
     currentPeriodEnd: user?.currentPeriodEnd || "",
     accessEndsAt: user?.accessEndsAt || "",
     nextRenewalDate: user?.cancelAtPeriodEnd ? "" : (user?.currentPeriodEnd || ""),
@@ -12054,6 +12115,113 @@ function handleAdminPromoCodesList(request, response, url) {
       checkoutResolution: "Stored active promo wins at checkout; environment promo is fallback only when no matching stored code is active.",
       envRedemptionCountNote: "Environment row display count reflects promoRedemptions for that code — same ledger as stored codes.",
     },
+  });
+}
+
+async function handleAdminTrialAudit(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = peekStore();
+  const users = Object.values(store.users || {});
+  const auditsByEmail = {};
+  for (const entry of (store.membershipAudit || [])) {
+    const email = normalizeEmail(entry?.email);
+    if (!email) continue;
+    if (!auditsByEmail[email]) auditsByEmail[email] = [];
+    auditsByEmail[email].push(entry);
+  }
+  const audit = trialClassification.auditTrialAccounts(users, { auditsByEmail });
+  // Optionally enrich with live Stripe trial_end (read-only). Never mutate customer data here.
+  const enrich = String(url.searchParams.get("enrichStripe") || "") === "1"
+    && isConfiguredValue(STRIPE_SECRET_KEY)
+    && !STRIPE_CHECKOUT_SIMULATION;
+  if (enrich) {
+    for (const row of audit.rows) {
+      if (!row.stripeSubscriptionId) continue;
+      try {
+        const sub = await stripeGet(`subscriptions/${encodeURIComponent(row.stripeSubscriptionId)}`);
+        if (sub?.trial_end) {
+          row.stripeTrialEnd = new Date(sub.trial_end * 1000).toISOString();
+          const localMs = row.localTrialEnd ? Date.parse(row.localTrialEnd) : NaN;
+          const stripeMs = Date.parse(row.stripeTrialEnd);
+          row.localMatchesStripe = Number.isFinite(localMs) && Number.isFinite(stripeMs)
+            && Math.abs(localMs - stripeMs) < 36 * 3600 * 1000;
+          const stripeDays = sub.trial_start && sub.trial_end
+            ? Math.round((sub.trial_end - sub.trial_start) / 86400)
+            : null;
+          row.stripeTrialDurationDays = stripeDays;
+          const stripePromo = normalizePromoCode(
+            sub?.metadata?.promoCode || sub?.metadata?.promo_code || "",
+          );
+          if (stripePromo && !row.promoCode) {
+            row.promoCode = stripePromo;
+            row.extensionSource = row.extensionSource && row.extensionSource !== "—"
+              ? row.extensionSource
+              : `Promo code ${stripePromo} (Stripe metadata)`;
+          }
+          if (row.localMatchesStripe === false) {
+            row.kind = trialClassification.MISMATCH_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.MISMATCH_KIND];
+            row.finalClassification = row.kindLabel;
+            row.verdict = "stripe_local_mismatch";
+            row.correct = false;
+            row.affected = false;
+          } else if (stripePromo && (
+            row.kind === trialClassification.UNKNOWN_TRIAL_KIND
+            || row.kind === trialClassification.LEGACY_TRIAL_KIND
+            || row.kind === trialClassification.UNEXPECTED_30_KIND
+          )) {
+            row.kind = trialClassification.PROMO_TRIAL_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.PROMO_TRIAL_KIND];
+            row.finalClassification = row.kindLabel;
+            row.verdict = "correct_promo";
+            row.correct = true;
+            row.affected = false;
+          } else if (stripeDays === STANDARD_TRIAL_DAYS && (
+            row.kind === trialClassification.UNKNOWN_TRIAL_KIND
+            || row.kind === trialClassification.UNEXPECTED_30_KIND
+          )) {
+            row.kind = trialClassification.STANDARD_TRIAL_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.STANDARD_TRIAL_KIND];
+            row.finalClassification = row.kindLabel;
+            row.affected = false;
+            row.verdict = "correct_standard";
+            row.correct = true;
+          } else if (stripeDays != null && stripeDays >= 28 && stripeDays <= 31 && !row.promoCode
+            && row.kind !== trialClassification.PROMO_TRIAL_KIND
+            && row.kind !== trialClassification.MANUAL_TRIAL_KIND) {
+            row.kind = trialClassification.UNEXPECTED_30_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.UNEXPECTED_30_KIND];
+            row.finalClassification = row.kindLabel;
+            row.affected = true;
+            row.verdict = "affected_unexpected_30day";
+            row.correct = false;
+          }
+        }
+      } catch (error) {
+        row.stripeEnrichError = String(error.message || error).slice(0, 160);
+      }
+    }
+    audit.summary.standard7day = audit.rows.filter((r) => r.kind === trialClassification.STANDARD_TRIAL_KIND).length;
+    audit.summary.promoExtended = audit.rows.filter((r) => r.kind === trialClassification.PROMO_TRIAL_KIND).length;
+    audit.summary.manuallyExtended = audit.rows.filter((r) => r.kind === trialClassification.MANUAL_TRIAL_KIND).length;
+    audit.summary.legacy = audit.rows.filter((r) => r.kind === trialClassification.LEGACY_TRIAL_KIND).length;
+    audit.summary.affectedUnexpected30day = audit.rows.filter((r) => r.affected || r.kind === trialClassification.UNEXPECTED_30_KIND).length;
+    audit.summary.unexpected30day = audit.rows.filter((r) => r.kind === trialClassification.UNEXPECTED_30_KIND).length;
+    audit.summary.stripeLocalMismatch = audit.rows.filter((r) => r.kind === trialClassification.MISMATCH_KIND || r.localMatchesStripe === false).length;
+    audit.summary.localStripeMismatch = audit.summary.stripeLocalMismatch;
+    audit.summary.try1monthCount = audit.rows.filter((r) => String(r.promoCode || "").toUpperCase() === "TRY1MONTH").length;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    standardTrialDays: STANDARD_TRIAL_DAYS,
+    enrichedFromStripe: Boolean(enrich),
+    note: "Read-only audit. Does not shorten or modify any trial. Stripe is source of truth for billing; local trialEnd drives Admin countdown.",
+    summary: audit.summary,
+    trials: audit.rows,
   });
 }
 
@@ -17028,6 +17196,10 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
         trialStatus: user.trialStatus || "No Trial",
         trialStart: user.trialStart || "",
         trialEnd: user.trialEnd || "",
+        promoCodeUsed: user.promoCodeUsed || "",
+        promoLabelUsed: user.promoLabelUsed || "",
+        trialSource: user.trialSource || "",
+        trialExtensionSource: user.trialExtensionSource || "",
         stripeCustomerId: user.stripeCustomerId || "",
         stripeSubscriptionId: user.stripeSubscriptionId || "",
         subscriptionStatus: user.subscriptionStatus || "Free Plan",
@@ -17371,10 +17543,13 @@ async function handleAdminMembershipUpdate(request, response) {
     merged.trialStatus = "In Trial";
     merged.accessEndsAt = merged.trialEnd;
     // Provenance for Admin labels — distinct from promo-extended and standard 7-day trials.
+    merged.trialSource = trialClassification.MANUAL_TRIAL_KIND;
     merged.trialExtensionSource = "manual_admin";
     merged.trialExtendedManually = true;
     merged.trialExtendedAt = new Date().toISOString();
+    merged.trialManuallyExtendedAt = merged.trialExtendedAt;
     merged.manualTrialExtensionDays = Number(merged.manualTrialExtensionDays || 0) + extendBy;
+    merged.trialExtendedDaysTotal = Number(merged.trialExtendedDaysTotal || 0) + extendBy;
     if (!merged.plan || merged.plan === "Free") merged.plan = "Pro";
     if (!merged.subscriptionStatus || String(merged.subscriptionStatus).toLowerCase().includes("free")) {
       merged.subscriptionStatus = "Trialing — Access Ends " + merged.trialEnd.slice(0, 10);
@@ -22606,7 +22781,9 @@ function handleBillingReadiness(request, response) {
   const allPricesConfigured = Object.values(planPriceIds).every(Boolean);
   const freeTrialPaidFlow = {
     ready: stripe.checkoutReady,
-    trialFlowReady,
+    trialFlowReady: stripe.checkoutReady && allPricesConfigured,
+    standardTrialDays: STANDARD_TRIAL_DAYS,
+    standardTrialLabel: STANDARD_TRIAL_LABEL,
     promoCodeConfigured: isConfiguredValue(PROMO_FREE_TRIAL_CODE),
     promoTrialDays: trialFlowReady ? promo.trialDays : 0,
     promoExpiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,
@@ -22616,9 +22793,10 @@ function handleBillingReadiness(request, response) {
       ? "Add Stripe keys and price IDs to .env before checkout is possible."
       : !allPricesConfigured
         ? "Some plan price IDs are not configured. Add STRIPE_PRICE_FOUNDING_MONTHLY, STRIPE_PRICE_PRO_MONTHLY, and STRIPE_PRICE_PRO_ANNUAL."
-        : trialFlowReady
-          ? `Checkout → trial → paid flow ready. Free trial: ${promo.trialDays} days via promo code ${PROMO_FREE_TRIAL_CODE}.`
-          : "Promo trial flow is not active. Set PROMO_FREE_TRIAL_CODE and PROMO_FREE_TRIAL_DAYS to enable it.",
+        : `Standard intro trial is ${STANDARD_TRIAL_DAYS} days (card required) via trial7day checkout. `
+          + (trialFlowReady
+            ? `Separate promo path: ${promo.trialDays} days via code ${PROMO_FREE_TRIAL_CODE}.`
+            : "Promo extended-trial path is inactive unless PROMO_FREE_TRIAL_CODE/DAYS are set."),
   };
 
   // 5. Cancellations work
@@ -27493,6 +27671,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/store-backups/download") return await handleAdminStoreBackupDownload(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/store-restore") return await handleAdminStoreRestore(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/promo-codes") return handleAdminPromoCodesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/trial-audit") return await handleAdminTrialAudit(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/promo-codes") return await handleAdminPromoCodeSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/promo-code-delete") return await handleAdminPromoCodeDelete(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/user-detail") return handleAdminUserDetail(request, response, url);
