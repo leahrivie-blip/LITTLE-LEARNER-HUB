@@ -13,6 +13,12 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  const materialsApi = (typeof require === "function"
+    ? (() => { try { return require("./teaching-kit-materials.js"); } catch (_e) { return null; } })()
+    : null)
+    || (typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitMaterials : null)
+    || null;
+
   const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
   const DAY_LABELS = Object.freeze({
     monday: "Monday",
@@ -102,13 +108,27 @@
     const title = text(entry.title);
     if (!title) return null;
     const notes = text(entry.notes);
-    const questionLines = bulletLines(notes);
+    const questionLines = bulletLines(entry.questions || entry.readAloudQuestions || notes);
+    const before = bulletLines(entry.beforeReadingQuestions || entry.beforeQuestions);
+    const during = bulletLines(entry.duringReadingPrompts || entry.duringQuestions);
+    const after = bulletLines(entry.afterReadingQuestions || entry.afterQuestions);
     return {
       title,
       author: text(entry.author),
       notes,
+      suggestedWeekday: text(entry.suggestedWeekday || entry.dayOfWeek || entry.day),
+      whyThisBook: text(entry.whyThisBook || entry.whyItFits) || (questionLines.length ? "" : notes),
+      beforeReadingQuestions: before,
+      duringReadingPrompts: during,
+      afterReadingQuestions: after.length ? after : questionLines,
       readAloudQuestions: questionLines,
-      whyThisBook: questionLines.length ? "" : notes,
+      vocabularyConnections: bulletLines(entry.vocabularyConnections || entry.vocabulary),
+      extensionIdea: text(entry.extensionIdea || entry.extension),
+      alternativeBooks: asArray(entry.alternativeBooks || entry.substitutes).map(text).filter(Boolean),
+      libraryNote: text(entry.libraryNote || entry.libraryAvailability),
+      // Covers only when explicitly provided as an approved reference — never invent.
+      coverImageUrl: text(entry.coverImageUrl || entry.coverUrl),
+      coverImageAlt: text(entry.coverImageAlt),
     };
   }
 
@@ -117,24 +137,47 @@
     const title = text(entry.title);
     if (!title) return null;
     const notes = text(entry.notes);
-    let lyrics = "";
-    let motions = "";
-    const lyricsMatch = notes.match(/lyrics?:\s*([\s\S]*?)(?:motions?:|$)/i);
-    const motionsMatch = notes.match(/motions?:\s*([\s\S]*)$/i);
+    let lyrics = text(entry.lyrics);
+    let motions = text(entry.motions);
+    const lyricsMatch = !lyrics && notes.match(/lyrics?:\s*([\s\S]*?)(?:motions?:|$)/i);
+    const motionsMatch = !motions && notes.match(/motions?:\s*([\s\S]*)$/i);
     if (lyricsMatch) lyrics = text(lyricsMatch[1]);
     if (motionsMatch) motions = text(motionsMatch[1]);
     if (!lyrics && !motions && notes) {
       // Legacy: keep notes as teaching cue, never invent copyrighted lyrics.
       motions = notes;
     }
+    const rights = text(entry.rightsStatus || entry.copyrightStatus || entry.status).toLowerCase();
+    const canPrintLyrics = rights === "original"
+      || rights === "public-domain"
+      || rights === "public_domain"
+      || rights === "traditional"
+      || Boolean(entry.allowPrintLyrics);
     return {
       title,
       notes,
-      lyrics,
+      lyrics: canPrintLyrics ? lyrics : "",
+      lyricsPrintable: canPrintLyrics && Boolean(lyrics),
+      rightsStatus: text(entry.rightsStatus || entry.copyrightStatus) || (lyrics ? "unspecified" : "title-only"),
+      tune: text(entry.tune || entry.tuneInformation),
       motions,
-      whenToUse: "",
+      whenToUse: text(entry.whenToUse),
+      teacherDirections: text(entry.teacherDirections || entry.directions),
+      ageAdaptations: text(entry.ageAdaptations || entry.adaptations),
+      linkedWeekday: text(entry.linkedWeekday || entry.dayOfWeek || entry.day),
+      audioUrl: text(entry.audioUrl),
+      externalReference: text(entry.externalReference),
     };
   }
+
+  const VOCAB_PROMPT_PATTERNS = Object.freeze([
+    (word) => `What do you notice about the ${word}?`,
+    (word) => `How is a ${word} like something you already know?`,
+    (word) => `What sound, texture, or movement makes you think of a ${word}?`,
+    (word) => `Where might a ${word} live, sleep, or belong?`,
+    (word) => `How could we carefully care for or use a ${word}?`,
+    (word) => `What do you predict will happen next with the ${word}?`,
+  ]);
 
   function vocabularyEntries(value) {
     const raw = text(value);
@@ -148,17 +191,22 @@
       if (dash) {
         const definitionAndAsk = text(dash[2]);
         const askSplit = definitionAndAsk.split(/\bAsk:\s*/i);
+        const word = text(dash[1]);
+        const customAsk = askSplit[1] ? text(askSplit[1]) : "";
+        const genericAsk = /^can you show me or tell me about/i.test(customAsk);
         out.push({
-          word: text(dash[1]),
+          word,
           definition: text(askSplit[0]).replace(/\.$/, ""),
-          discussionIdea: askSplit[1] ? text(askSplit[1]) : "",
+          discussionIdea: customAsk && !genericAsk
+            ? customAsk
+            : VOCAB_PROMPT_PATTERNS[out.length % VOCAB_PROMPT_PATTERNS.length](word),
         });
         continue;
       }
       out.push({
         word: part,
         definition: "",
-        discussionIdea: `Can you show me or tell me about “${part}”?`,
+        discussionIdea: VOCAB_PROMPT_PATTERNS[out.length % VOCAB_PROMPT_PATTERNS.length](part),
       });
     }
     return out;
@@ -338,10 +386,35 @@
     return scored.slice(0, max).map(({ score, ...rest }) => rest);
   }
 
+  function humanizeCategoryLabel(value) {
+    const raw = text(value);
+    if (!raw) return "Open-Ended Exploration";
+    if (/[A-Z]/.test(raw) && !/_/.test(raw)) return raw;
+    return raw
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  }
+
   function mapActivityCard(entry, mapCategory) {
-    const source = entry.activity || entry.item || {};
+    // Daily-item authored fields are the source of truth when present; thin synced
+    // store activities must not wipe setupMinutes / groupSize / extraSupport / etc.
+    const activity = entry.activity && typeof entry.activity === "object" ? entry.activity : {};
+    const item = entry.item && typeof entry.item === "object" ? entry.item : {};
+    const source = { ...activity, ...item };
+    // Keep enrichment media from the activity record when the daily item omits URLs.
+    if (!text(source.setupImageUrl || source.setupPhotoUrl)) {
+      source.setupImageUrl = activity.setupImageUrl || activity.setupPhotoUrl || "";
+      source.setupMediaAssetId = activity.setupMediaAssetId || source.setupMediaAssetId;
+    }
+    if (!text(source.exampleImageUrl || source.examplePhotoUrl)) {
+      source.exampleImageUrl = activity.exampleImageUrl || activity.examplePhotoUrl || "";
+      source.exampleMediaAssetId = activity.exampleMediaAssetId || source.exampleMediaAssetId;
+    }
     const title = text(source.title) || "Activity";
-    const category = text(source.activityCategory) || "Open-Ended Exploration";
+    const categoryRaw = text(source.activityCategory) || "Open-Ended Exploration";
+    const category = humanizeCategoryLabel(categoryRaw);
     const materials = text(source.materials);
     const setup = text(source.setup);
     const steps = text(source.steps);
@@ -350,32 +423,75 @@
       asArray(source.learningGoals).map(text).filter(Boolean)[0] ||
       "";
     const minutes = estimateMinutesForActivity(source);
+    const explicitDuration = Number(source.durationMinutes || source.activityDurationMinutes);
+    const durationMinutes = Number.isFinite(explicitDuration) && explicitDuration > 0
+      ? explicitDuration
+      : minutes.total;
+    const explicitSetup = Number(source.setupMinutes);
+    const setupMinutes = Number.isFinite(explicitSetup) && explicitSetup >= 0
+      ? explicitSetup
+      : minutes.setup;
+    const examplePhotoUrl = text(source.exampleImageUrl || source.examplePhotoUrl);
+    const setupPhotoUrl = text(source.setupImageUrl || source.setupPhotoUrl);
+    const exampleCaption = text(source.exampleImageCaption || source.exampleCaption);
+    const setupCaption = text(source.setupImageCaption || source.setupCaption);
+    const exampleAlt = text(source.exampleImageAlt || source.exampleAlt)
+      || (examplePhotoUrl ? `Finished example for ${title}` : "");
+    const setupAlt = text(source.setupImageAlt || source.setupAlt)
+      || (setupPhotoUrl ? `Setup example for ${title}` : "");
+    let safetyNotes = text(source.safetyNotes);
+    const milkingCue = /milk|rubber glove|pinhole|latex/i.test(`${title} ${materials} ${steps} ${setup}`);
+    if (milkingCue && !/latex-free|nitrile|vinyl|sanit/i.test(safetyNotes)) {
+      const gloveNote = "Use a latex-free glove (nitrile or vinyl) or a safer milking prop. Sanitize before/after, supervise closely, and stop if any child has a known material sensitivity.";
+      safetyNotes = safetyNotes ? `${safetyNotes}\n${gloveNote}` : gloveNote;
+    }
     return {
       id: entry.id,
       sourceKey: entry.sourceKey,
       dayOfWeek: entry.dayOfWeek || text(source.dayOfWeek),
       title,
       activityCategory: category,
-      sectionId: mapCategory(category),
+      activityCategoryRaw: categoryRaw,
+      sectionId: mapCategory(categoryRaw),
       description: text(source.description),
-      examplePhotoUrl: text(source.exampleImageUrl || source.examplePhotoUrl),
-      setupPhotoUrl: text(source.setupImageUrl || source.setupPhotoUrl),
+      purpose: text(source.purpose || source.description),
+      examplePhotoUrl,
+      setupPhotoUrl,
+      // Preserve storage field names for enrichment round-trips / debugging.
+      exampleImageUrl: examplePhotoUrl,
+      setupImageUrl: setupPhotoUrl,
+      exampleCaption,
+      setupCaption,
+      exampleAlt,
+      setupAlt,
       materials: materialsList(materials),
       materialsText: materials,
       learningObjective,
+      developmentalDomains: asArray(source.developmentalDomains || source.domains).map(text).filter(Boolean),
+      setupMinutes,
+      activityDurationMinutes: durationMinutes,
+      groupSize: text(source.groupSize),
+      dailyPlacement: text(source.dailyPlacement || source.placement),
       teacherPrompts: teacherPromptsFrom(source),
       setup,
       steps,
+      preparation: text(source.preparation || source.prep || setup),
       cleanupTips: cleanupTipsFrom(source),
       observationIdeas: observationIdeasFrom(source),
       adaptations: text(source.adaptations),
-      extensions: text(source.extensions),
-      safetyNotes: text(source.safetyNotes),
+      extraSupport: text(source.extraSupport || source.differentiation),
+      extensions: text(source.extensions || source.challengeExtension),
+      mixedAgeAdaptations: text(source.mixedAgeAdaptations || source.mixedAge),
+      indoorAlternative: text(source.indoorAlternative || source.indoorAlternatives || source.indoor),
+      outdoorOption: text(source.outdoorOption || source.outdoorAlternatives || source.outdoor),
+      safetyNotes,
+      familyConnection: text(source.familyConnection),
+      printableInstructions: text(source.printableInstructions),
       vocabulary: vocabularyEntries(source.vocabulary),
-      estimatedMinutes: minutes,
-      hasExamplePhoto: Boolean(text(source.exampleImageUrl || source.examplePhotoUrl)),
-      hasSetupPhoto: Boolean(text(source.setupImageUrl || source.setupPhotoUrl)),
-      settingTags: settingTagsFrom(source),
+      estimatedMinutes: durationMinutes,
+      hasExamplePhoto: Boolean(examplePhotoUrl),
+      hasSetupPhoto: Boolean(setupPhotoUrl),
+      settingTags: settingTagsFrom(source).map(humanizeCategoryLabel),
       supplySubstitutions: supplySubstitutionsFrom(source),
       substituteCandidates: [],
     };
@@ -462,18 +578,25 @@
     });
 
     const readyMaterials = asArray(options && options.readyMaterials).map(text).filter(Boolean);
-    const readySet = new Set(readyMaterials.map(normalizeMaterialToken));
-    const missingMaterials = materials
-      .filter((item) => item.critical)
-      .filter((item) => {
-        if (!readySet.size) return true;
-        const token = normalizeMaterialToken(item.label);
-        for (const ready of readySet) {
-          if (ready === token || ready.includes(token) || token.includes(ready)) return false;
-        }
-        return true;
-      })
-      .map((item) => item.label);
+    const materialsExplain = materialsApi && materialsApi.explainMissingMaterials
+      ? materialsApi.explainMissingMaterials(materials, readyMaterials, { highlightCritical: true })
+      : null;
+    const missingMaterials = materialsExplain
+      ? (materialsExplain.mode === "missing" ? materialsExplain.missing : [])
+      : (() => {
+        const readySet = new Set(readyMaterials.map(normalizeMaterialToken));
+        if (!readySet.size) return [];
+        return materials
+          .filter((item) => item.critical)
+          .filter((item) => {
+            const token = normalizeMaterialToken(item.label);
+            for (const ready of readySet) {
+              if (ready === token || ready.includes(token) || token.includes(ready)) return false;
+            }
+            return true;
+          })
+          .map((item) => item.label);
+      })();
 
     const gather = prepTasks.find((task) => task.id === "prep-gather")?.minutes || 0;
     const stations = prepTasks.find((task) => task.id === "prep-stations")?.minutes || 0;
@@ -486,8 +609,24 @@
       materials,
       prepTasks,
       printChecklist: printChecklist.filter((item) => item.usedInWeek.length || item.id.startsWith("print-")),
-      missingMaterials: readySet.size ? missingMaterials : missingMaterials.slice(0, 5),
-      missingHighlighted: Boolean(readySet.size ? missingMaterials.length : materials.length),
+      missingMaterials,
+      missingHighlighted: Boolean(missingMaterials.length),
+      materialsStatus: materialsExplain || {
+        mode: readyMaterials.length ? (missingMaterials.length ? "missing" : "ready") : "gather",
+        summary: missingMaterials.length
+          ? `${missingMaterials.length} priority supplies still missing.`
+          : (materials.length ? "Gather listed supplies before Monday." : "No materials listed yet."),
+        fixHint: missingMaterials.length
+          ? "Locate or substitute each missing supply, then mark it ready."
+          : "Check off supplies as you pull them.",
+        items: (missingMaterials.length ? missingMaterials : materials.slice(0, 8).map((m) => m.label)).map((label) => ({
+          label,
+          status: missingMaterials.length ? "missing" : "to_gather",
+          howToFix: missingMaterials.length
+            ? `Locate or substitute “${label}”, then mark ready.`
+            : `Pull “${label}” onto your prep tray.`,
+        })),
+      },
       safetyNotes: uniqueStrings(
         WEEKDAYS.flatMap((day) => bulletLines(plan.dailyPlans?.[day]?.safetyNotes)),
         8,
@@ -727,12 +866,52 @@
         return { materials: ctx.weekMaterials };
       case "weekly_plan":
         return {
-          days: WEEKDAYS.map((day) => ({
-            day,
-            dayLabel: DAY_LABELS[day],
-            activityCount: ctx.activityCards.filter((card) => card.dayOfWeek === day).length,
-            focus: text(ctx.plan.dailyPlans?.[day]?.theme),
-          })),
+          days: WEEKDAYS.map((day) => {
+            const dayPlan = ctx.plan.dailyPlans?.[day] || {};
+            const dayClassroom = ctx.days?.[day] || {};
+            const dayActs = ctx.activityCards.filter((card) => card.dayOfWeek === day);
+            const focus = text(dayPlan.theme)
+              || text(dayPlan.focus)
+              || text(dayPlan.objectives)
+              || text(dayClassroom.focus)
+              || "";
+            return {
+              day,
+              dayLabel: DAY_LABELS[day],
+              activityCount: dayActs.length,
+              focus,
+              // Structured weekday fields — empty strings mean "not authored yet"
+              // (owner preview shows intentional empty; customers hide empty kits via quality gates).
+              dailyFocus: focus,
+              circleTime: text(dayPlan.circleTime) || asArray(dayPlan.circleTime).map(text).filter(Boolean).join("; "),
+              book: text((asArray(dayPlan.books).map(bookEntry).filter(Boolean)[0] || {}).title),
+              song: text((asArray(dayPlan.songs).map(songEntry).filter(Boolean)[0] || {}).title),
+              invitationToPlay: text(dayPlan.invitationToPlay || dayPlan.invitation),
+              activityLinks: dayActs.map((card) => ({ id: card.id, title: card.title })),
+              sensory: text(dayPlan.sensory || dayPlan.sensoryExperience),
+              fineMotor: text(dayPlan.fineMotor || dayPlan.fineMotorExperience),
+              grossMotor: text(dayPlan.grossMotor || dayPlan.grossMotorExperience),
+              artCreative: text(dayPlan.art || dayPlan.creative || dayPlan.artCreative),
+              smallGroup: text(dayPlan.smallGroup || dayPlan.smallGroupOption),
+              largeGroup: text(dayPlan.largeGroup || dayPlan.largeGroupOption),
+              indoorAlternative: text(dayPlan.indoorAlternative || dayPlan.indoor),
+              outdoorOption: text(dayPlan.outdoorPlay || dayPlan.outdoor || dayPlan.outdoorOption),
+              dailyMaterials: uniqueStrings([
+                ...materialsList(dayPlan.materials),
+                ...dayActs.flatMap((card) => card.materials || []),
+              ], 30),
+              teacherPreparation: text(dayPlan.teacherPreparation || dayPlan.prep),
+              suggestedQuestions: bulletLines(dayPlan.suggestedQuestions || dayPlan.questions),
+              observationFocus: bulletLines(dayPlan.observations || dayPlan.observationFocus),
+              transitionSupport: uniqueStrings([
+                ...asArray(dayPlan.transitions).map(text),
+                ...asArray(dayPlan.circleTime).map(text),
+              ], 10),
+              familyConnection: text(dayPlan.familyConnection),
+              teacherNotes: text(dayPlan.teacherNotes || dayPlan.notes),
+              incomplete: !focus,
+            };
+          }),
         };
       case "daily_activities":
         return { activities: ctx.activityCards };
@@ -766,13 +945,45 @@
         };
       case "teacher_toolkit": {
         const toolkit = ctx.teacherToolkit || {};
+        const materialsModel = ctx.materialsModel || null;
+        const list = (raw) => asArray(raw).map(text).filter(Boolean);
         return {
-          prepChecklist: asArray(toolkit.prepChecklist).map(text).filter(Boolean),
-          observationFocus: asArray(toolkit.observationFocus).map(text).filter(Boolean),
+          prepChecklist: list(toolkit.prepChecklist),
+          observationFocus: list(toolkit.observationFocus),
           notes: text(toolkit.notes),
           teacherPreparation: text(toolkit.teacherPreparation),
-          familyConnection: text(ctx.plan.familyConnection),
-          observationPrompts: bulletLines(ctx.plan.observationOpportunities),
+          teacherTips: list(toolkit.teacherTips || toolkit.tips),
+          setupCleanupShortcuts: list(toolkit.setupCleanupShortcuts || toolkit.setupShortcuts),
+          dailyMaterialsSummary: text(toolkit.dailyMaterialsSummary)
+            || (materialsModel
+              ? WEEKDAYS.map((day) => {
+                const row = materialsModel.byDay?.[day];
+                const mats = (row?.materials || []).join(", ");
+                return mats ? `${DAY_LABELS[day]}: ${mats}` : "";
+              }).filter(Boolean).join("\n")
+              : ""),
+          masterMaterialsChecklist: list(toolkit.masterMaterialsChecklist || toolkit.masterMaterials).length
+            ? list(toolkit.masterMaterialsChecklist || toolkit.masterMaterials)
+            : asArray(ctx.weekMaterials).map(text).filter(Boolean),
+          materialSubstitutions: list(toolkit.materialSubstitutions || toolkit.substitutions),
+          vocabulary: list(toolkit.vocabulary).length
+            ? list(toolkit.vocabulary)
+            : (ctx.vocabulary || []).map((word) => word.word || word).filter(Boolean),
+          observationPrompts: list(toolkit.observationPrompts).length
+            ? list(toolkit.observationPrompts)
+            : bulletLines(ctx.plan.observationOpportunities),
+          documentationPrompts: list(toolkit.documentationPrompts || toolkit.milestonePrompts),
+          mixedAgeAdaptations: text(toolkit.mixedAgeAdaptations),
+          extraSupportAdaptations: text(toolkit.extraSupportAdaptations || toolkit.extraSupport),
+          challengeExtensions: text(toolkit.challengeExtensions || toolkit.extensions),
+          smallGroupOptions: text(toolkit.smallGroupOptions),
+          largeGroupOptions: text(toolkit.largeGroupOptions),
+          indoorAlternatives: text(toolkit.indoorAlternatives),
+          outdoorOptions: text(toolkit.outdoorOptions),
+          familyConnection: text(toolkit.familyConnection) || text(ctx.plan.familyConnection),
+          safetyInclusionNotes: text(toolkit.safetyInclusionNotes || toolkit.safetyNotes),
+          endOfWeekReflection: text(toolkit.endOfWeekReflection),
+          suggestedQuestions: list(toolkit.suggestedQuestions || toolkit.questionsToAsk),
         };
       }
       default: {
@@ -794,14 +1005,33 @@
     if (Array.isArray(content.printables)) return content.printables.length > 0;
     if (Array.isArray(content.activitiesWithPhotos)) return content.activitiesWithPhotos.length > 0;
     if (Array.isArray(content.extensions)) return content.extensions.length > 0;
-    if (Array.isArray(content.prepChecklist)) {
-      // Teacher Toolkit: any toolkit field counts as content.
-      return content.prepChecklist.length > 0
+    if (Array.isArray(content.prepChecklist) || content.teacherPreparation != null || content.masterMaterialsChecklist) {
+      // Teacher Toolkit: any authored toolkit field counts as content.
+      return Boolean(
+        content.prepChecklist?.length > 0
         || (Array.isArray(content.observationFocus) && content.observationFocus.length > 0)
+        || (Array.isArray(content.teacherTips) && content.teacherTips.length > 0)
+        || (Array.isArray(content.setupCleanupShortcuts) && content.setupCleanupShortcuts.length > 0)
+        || (Array.isArray(content.masterMaterialsChecklist) && content.masterMaterialsChecklist.length > 0)
+        || (Array.isArray(content.materialSubstitutions) && content.materialSubstitutions.length > 0)
+        || (Array.isArray(content.vocabulary) && content.vocabulary.length > 0)
+        || (Array.isArray(content.observationPrompts) && content.observationPrompts.length > 0)
+        || (Array.isArray(content.documentationPrompts) && content.documentationPrompts.length > 0)
+        || (Array.isArray(content.suggestedQuestions) && content.suggestedQuestions.length > 0)
         || text(content.notes)
         || text(content.teacherPreparation)
+        || text(content.dailyMaterialsSummary)
+        || text(content.mixedAgeAdaptations)
+        || text(content.extraSupportAdaptations)
+        || text(content.challengeExtensions)
+        || text(content.smallGroupOptions)
+        || text(content.largeGroupOptions)
+        || text(content.indoorAlternatives)
+        || text(content.outdoorOptions)
         || text(content.familyConnection)
-        || (Array.isArray(content.observationPrompts) && content.observationPrompts.length > 0);
+        || text(content.safetyInclusionNotes)
+        || text(content.endOfWeekReflection),
+      );
     }
     if (Array.isArray(content.days)) return content.days.some((day) => day.activityCount > 0 || day.focus);
     if (text(content.weeklyOverview)) return true;
@@ -812,17 +1042,22 @@
     return false;
   }
 
-  function buildProviderBinder(sections, plan, overlay) {
+  function buildProviderBinder(sections, plan, overlay, options = {}) {
+    const includeEmptyTabs = Boolean(options.includeEmptyBinderTabs || options.includeEmptySections || options.ownerPreview);
     const bySectionId = new Map(asArray(sections).map((section) => [section.id, section]));
     const tabs = BINDER_TABS.map((tab) => {
       const sectionId = PROVIDER_BINDER_SECTION_MAP[tab.id] || tab.id;
       const section = bySectionId.get(sectionId);
-      const visible = Boolean(section && section.visible);
+      const hasContent = Boolean(section && section.visible);
+      // Owner preview keeps every binder tab (intentional empty states).
+      // Customer / default: hide truly empty sections.
+      const visible = includeEmptyTabs ? true : hasContent;
       return {
         id: tab.id,
         label: tab.label,
         sectionId,
         visible,
+        empty: !hasContent,
         itemCount: section ? Number(section.itemCount || 0) : 0,
       };
     }).filter((tab) => tab.visible);
@@ -887,12 +1122,22 @@
     const books = uniqueByTitle(asArray(safePlan.books).map(bookEntry).filter(Boolean));
     const songs = uniqueByTitle(asArray(safePlan.songs).map(songEntry).filter(Boolean));
     const printables = buildPrintables(safePlan, resources, activityCards);
-    const weekMaterials = collectWeekMaterials(safePlan, activityCards);
+    const materialsModel = materialsApi && materialsApi.buildMaterialsModel
+      ? materialsApi.buildMaterialsModel(safePlan, activityCards)
+      : null;
+    const weekMaterials = materialsModel
+      ? materialsModel.master
+      : collectWeekMaterials(safePlan, activityCards);
 
     const overlay =
       safePlan.teachingKit && typeof safePlan.teachingKit === "object" && !Array.isArray(safePlan.teachingKit)
         ? safePlan.teachingKit
         : null;
+
+    const days = {};
+    WEEKDAYS.forEach((day) => {
+      days[day] = buildDayClassroom(safePlan, day, activityCards, vocabulary);
+    });
 
     const ctx = {
       plan: safePlan,
@@ -902,6 +1147,8 @@
       songs,
       printables,
       weekMaterials,
+      days,
+      materialsModel,
       teacherToolkit: overlay && overlay.teacherToolkit && typeof overlay.teacherToolkit === "object"
         ? overlay.teacherToolkit
         : null,
@@ -944,14 +1191,13 @@
       readyMaterials,
     });
 
-    const days = {};
-    WEEKDAYS.forEach((day) => {
-      days[day] = buildDayClassroom(safePlan, day, activityCards, vocabulary);
-    });
-
     const today = days[selectedDay];
     const openEverything = buildOpenEverything(today, printables);
-    const providerBinder = buildProviderBinder(sections, safePlan, overlay);
+    const providerBinder = buildProviderBinder(sections, safePlan, overlay, {
+      includeEmptyBinderTabs: includeEmpty,
+      includeEmptySections: includeEmpty,
+      ownerPreview: Boolean(options && options.ownerPreview),
+    });
 
     return {
       schemaVersion: 1,
@@ -978,6 +1224,7 @@
           "binder",
         ],
         mondayMorningSetup,
+        materialsModel,
         days,
         today,
         openEverything,

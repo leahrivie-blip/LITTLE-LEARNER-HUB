@@ -85,13 +85,73 @@
     return (kit?.sections || []).find((section) => section.id === sectionId) || null;
   }
 
-  function visibleBinderTabs(kit) {
+  const BINDER_TAB_LABELS = Object.freeze({
+    overview: "Overview",
+    weekly_plan: "Weekly Plan",
+    activities: "Activities",
+    printables: "Printables",
+    songs: "Songs",
+    books: "Books",
+    examples: "Example Images",
+    teacher_toolkit: "Teacher Toolkit",
+  });
+
+  function isOwnerPreviewKit(kit, chrome) {
+    return Boolean(
+      (chrome && chrome.ownerPreview === true)
+      || kit?.featureFlags?.ownerPreview === true
+      || (typeof document !== "undefined" && document.body?.classList?.contains("teaching-kit-owner-preview")),
+    );
+  }
+
+  function emptyBinderStateHtml(sectionLabel, ownerPreview) {
+    if (ownerPreview) {
+      return `
+        <div class="tk-empty-state" data-tk-empty-state="1" role="status">
+          <strong>${escapeHtml(sectionLabel)} — not added yet</strong>
+          <p class="tk-muted">Owner preview: this binder tab stays visible so you can see what still needs authoring. Customers will not see empty sections.</p>
+        </div>
+      `;
+    }
+    return `<p class="tk-muted">No ${escapeHtml(sectionLabel.toLowerCase())} in this kit yet.</p>`;
+  }
+
+  function photoSlotHtml(url, alt, caption, ownerPreview, kind) {
+    const src = text(url);
+    const label = kind === "setup" ? "Setup photo" : "Example photo";
+    if (src) {
+      return `
+        <div class="tk-photo${kind === "setup" ? " tk-photo-setup" : ""}">
+          <img class="tk-photo-img" src="${escapeHtml(src)}" alt="${escapeHtml(alt || label)}" loading="lazy" decoding="async" data-tk-lazy="1" data-tk-photo-fallback="${escapeHtml(label)} unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />
+          <div class="tk-photo-caption">${escapeHtml(caption || label)}</div>
+        </div>
+      `;
+    }
+    if (ownerPreview) {
+      return `
+        <div class="tk-photo${kind === "setup" ? " tk-photo-setup" : ""}">
+          <div class="tk-photo-placeholder tk-photo-missing" data-tk-image-missing="${escapeHtml(kind)}">Image not added yet</div>
+          <div class="tk-photo-caption">${escapeHtml(label)}</div>
+        </div>
+      `;
+    }
+    return "";
+  }
+
+  function visibleBinderTabs(kit, chrome) {
+    const ownerPreview = isOwnerPreviewKit(kit, chrome);
     const provider = kit?.companion?.providerBinder || kit?.companion?.binder || {};
     const fromProvider = Array.isArray(provider.providerTabs)
       ? provider.providerTabs
       : (Array.isArray(provider.tabs) ? provider.tabs : []);
     if (fromProvider.length) {
-      return fromProvider.filter((tab) => tab.visible !== false);
+      return fromProvider
+        .filter((tab) => tab.visible !== false || ownerPreview)
+        .map((tab) => ({
+          ...tab,
+          label: BINDER_TAB_LABELS[tab.id] || tab.label,
+          empty: tab.empty === true || Number(tab.itemCount || 0) === 0,
+        }));
     }
     // Fallback: derive from kit.sections using vision order.
     return BINDER_SECTION_ORDER.map((id) => {
@@ -106,22 +166,15 @@
         teacher_toolkit: "teacher_toolkit",
       };
       const section = sectionById(kit, map[id] || id);
-      if (!section || !section.visible) return null;
+      const hasContent = Boolean(section && (section.visible || section.content));
+      if (!hasContent && !ownerPreview) return null;
       return {
         id,
-        label: ({
-          overview: "Overview",
-          weekly_plan: "Weekly Plan",
-          activities: "Activities",
-          printables: "Printables",
-          songs: "Songs",
-          books: "Books",
-          examples: "Example Images",
-          teacher_toolkit: "Teacher Toolkit",
-        })[id] || section.label,
-        sectionId: section.id,
+        label: BINDER_TAB_LABELS[id] || section?.label || id,
+        sectionId: section?.id || map[id] || id,
         visible: true,
-        itemCount: section.itemCount || 0,
+        empty: !hasContent,
+        itemCount: section?.itemCount || 0,
       };
     }).filter(Boolean);
   }
@@ -238,8 +291,16 @@
 
   function setupSurfaceHtml(kit, state) {
     const setup = kit.companion?.mondayMorningSetup || {};
+    const materialsModel = kit.companion?.materialsModel || null;
     const missing = setup.missingMaterials || [];
+    const status = setup.materialsStatus || {};
     const breakdown = setup.prepBreakdown || {};
+    const listedCount = (setup.materials || []).length;
+    const statusChip = missing.length
+      ? `<span class="tk-chip tk-chip-danger">${escapeHtml(String(missing.length))} missing</span>`
+      : (status.mode === "gather"
+        ? `<span class="tk-chip">${escapeHtml(String(listedCount))} to gather</span>`
+        : `<span class="tk-chip tk-chip-ok">Ready</span>`);
     return `
       <section class="tk-surface" data-tk-panel="setup">
         <div class="tk-banner-time">
@@ -249,17 +310,35 @@
             <p class="tk-muted">Gather ${escapeHtml(String(breakdown.gather || 0))} min · stations ${escapeHtml(String(breakdown.stations || 0))} min · print ${escapeHtml(String(breakdown.print || 0))} min</p>
           </div>
           <div class="tk-chips">
-            <span class="tk-chip tk-chip-ok">${escapeHtml(String(Math.max(0, (setup.materials || []).length - missing.length)))} listed</span>
-            ${missing.length ? `<span class="tk-chip tk-chip-danger">${escapeHtml(String(missing.length))} missing</span>` : `<span class="tk-chip tk-chip-ok">Ready</span>`}
+            <span class="tk-chip tk-chip-ok">${escapeHtml(String(listedCount))} listed</span>
+            ${statusChip}
           </div>
         </div>
-        ${missing.length ? `
-          <div class="tk-banner-missing">
-            <div>
-              <strong>Needs attention before the week begins</strong>
-              <p class="tk-muted tk-danger-text">${escapeHtml(missing.join(" · "))}</p>
-            </div>
+        <div class="tk-banner-missing ${missing.length ? "" : "tk-banner-info"}">
+          <div>
+            <strong>${escapeHtml(missing.length ? "Needs attention before the week begins" : "Materials status")}</strong>
+            <p class="tk-muted${missing.length ? " tk-danger-text" : ""}">${escapeHtml(status.summary || (missing.length ? missing.join(" · ") : "Gather listed supplies before Monday."))}</p>
+            ${status.fixHint ? `<p class="tk-muted"><strong>How to fix:</strong> ${escapeHtml(status.fixHint)}</p>` : ""}
+            ${(status.items || []).length ? `
+              <ul class="tk-list tk-missing-list">
+                ${(status.items || []).slice(0, 12).map((item) => `
+                  <li><strong>${escapeHtml(item.label)}</strong> — ${escapeHtml(item.howToFix || item.status || "")}</li>
+                `).join("")}
+              </ul>
+            ` : ""}
           </div>
+        </div>
+        ${materialsModel ? `
+          <article class="tk-card">
+            <h4>Materials by day</h4>
+            <p class="tk-muted">Master week list is normalized (duplicates collapsed safely). Daily and activity lists stay attached below.</p>
+            <p class="tk-muted"><strong>Master (week):</strong> ${escapeHtml((materialsModel.master || []).join(" · ") || "None listed")}</p>
+            ${["monday", "tuesday", "wednesday", "thursday", "friday"].map((day) => {
+              const row = materialsModel.byDay?.[day];
+              return `<p class="tk-muted"><strong>${escapeHtml(row?.dayLabel || day)}:</strong> ${escapeHtml((row?.materials || []).join(" · ") || "None listed")}</p>`;
+            }).join("")}
+            ${materialsModel.duplicatesCollapsed ? `<p class="tk-muted">Collapsed ${escapeHtml(String(materialsModel.duplicatesCollapsed))} clear duplicate label${materialsModel.duplicatesCollapsed === 1 ? "" : "s"}.</p>` : ""}
+          </article>
         ` : ""}
         <div class="tk-grid-2">
           <div class="tk-stack">
@@ -450,44 +529,50 @@
     `;
   }
 
-  function activitySurfaceHtml(kit, state) {
+  function activityBackLabel(state) {
+    if (state.returnSurface === "binder") return "Back to Binder";
+    if (state.returnSurface === "build") return "Back to Build / Print";
+    if (state.returnSurface === "setup") return "Back to Monday Setup";
+    return "Back to Today";
+  }
+
+  function activitySurfaceHtml(kit, state, chrome) {
     const activity = activityById(kit, state.activityId);
+    const ownerPreview = isOwnerPreviewKit(kit, chrome);
     if (!activity) {
-      return `<section class="tk-surface" data-tk-panel="activity"><p class="tk-muted">Activity not found.</p><button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="today">Back to Today</button></section>`;
+      return `<section class="tk-surface" data-tk-panel="activity"><p class="tk-muted">Activity not found.</p><button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="${escapeHtml(state.returnSurface || "today")}">${escapeHtml(activityBackLabel(state))}</button></section>`;
     }
     const showSub = state.showSubstitute;
+    const backTarget = ["binder", "build", "setup", "today", "start"].includes(state.returnSurface)
+      ? state.returnSurface
+      : "today";
+    const photoPair = [
+      photoSlotHtml(activity.examplePhotoUrl || activity.exampleImageUrl, activity.exampleAlt, activity.exampleCaption || "Example photo", ownerPreview, "example"),
+      photoSlotHtml(activity.setupPhotoUrl || activity.setupImageUrl, activity.setupAlt, activity.setupCaption || "Setup photo", ownerPreview, "setup"),
+    ].filter(Boolean).join("");
     return `
       <section class="tk-surface" data-tk-panel="activity">
         <div class="tk-activity-chrome">
-          <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-goto="${escapeHtml(state.returnSurface === "build" ? "build" : "today")}">${state.returnSurface === "build" ? "Back to Build / Print" : "Back to Today"}</button>
+          <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-goto="${escapeHtml(backTarget)}">${escapeHtml(activityBackLabel({ returnSurface: backTarget }))}</button>
           <button type="button" class="tk-btn tk-btn-accent tk-btn-sm" data-tk-toggle-substitute aria-expanded="${showSub ? "true" : "false"}">Substitute This Activity</button>
         </div>
         <h3 class="tk-activity-title">${escapeHtml(activity.title)}</h3>
         <p class="tk-muted">${escapeHtml(activity.activityCategory || "")}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_SHORT[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
-        <div class="tk-photo-pair">
-          <div class="tk-photo">
-            ${activity.examplePhotoUrl
-              ? `<img class="tk-photo-img" src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" loading="lazy" decoding="async" data-tk-lazy="1" data-tk-photo-fallback="Example photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
-              : `<div class="tk-photo-placeholder">Example photo</div>`}
-            <div class="tk-photo-caption">Example photo</div>
-          </div>
-          <div class="tk-photo tk-photo-setup">
-            ${activity.setupPhotoUrl
-              ? `<img class="tk-photo-img" src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" loading="lazy" decoding="async" data-tk-lazy="1" data-tk-photo-fallback="Setup photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
-              : `<div class="tk-photo-placeholder">Setup photo</div>`}
-            <div class="tk-photo-caption">Setup photo</div>
-          </div>
-        </div>
+        ${photoPair ? `<div class="tk-photo-pair">${photoPair}</div>` : (ownerPreview ? `<div class="tk-photo-pair">${photoSlotHtml("", "", "Example photo", true, "example")}${photoSlotHtml("", "", "Setup photo", true, "setup")}</div>` : "")}
         <div class="tk-grid-2">
           <div class="tk-stack">
-            <article class="tk-card"><h4>Materials</h4><p class="tk-muted">${escapeHtml((activity.materials || []).join(" · ") || activity.materialsText || "None listed")}</p></article>
-            <article class="tk-card"><h4>Setup</h4><p class="tk-muted tk-pre">${escapeHtml(activity.setup || "No setup notes yet.")}</p></article>
-            <article class="tk-card"><h4>Step-by-step directions</h4><p class="tk-muted tk-pre">${escapeHtml(activity.steps || "No steps listed yet.")}</p></article>
+            ${activity.purpose ? `<article class="tk-card"><h4>Purpose</h4><p class="tk-muted tk-pre">${escapeHtml(activity.purpose)}</p></article>` : (ownerPreview ? `<article class="tk-card tk-field-empty"><h4>Purpose</h4><p class="tk-muted">Not added yet.</p></article>` : "")}
+            <article class="tk-card"><h4>Learning objective</h4><p class="tk-muted">${escapeHtml(activity.learningObjective || (ownerPreview ? "Not added yet." : "None listed"))}</p></article>
+            ${(activity.developmentalDomains || []).length ? `<article class="tk-card"><h4>Developmental domains</h4><p class="tk-muted">${escapeHtml(activity.developmentalDomains.join(" · "))}</p></article>` : ""}
+            <article class="tk-card"><h4>Timing &amp; grouping</h4><p class="tk-muted">Setup: ${escapeHtml(activity.setupMinutes != null ? `${activity.setupMinutes} min` : (ownerPreview ? "not set" : "—"))} · Duration: ${escapeHtml(activity.activityDurationMinutes != null ? `${activity.activityDurationMinutes} min` : (activity.estimatedMinutes ? `~${activity.estimatedMinutes} min` : "—"))} · Group: ${escapeHtml(activity.groupSize || "Flexible")} · Placement: ${escapeHtml(activity.dailyPlacement || "During the day")}</p></article>
+            <article class="tk-card"><h4>Exact materials</h4><p class="tk-muted">${escapeHtml((activity.materials || []).join(" · ") || activity.materialsText || (ownerPreview ? "Not added yet." : "None listed"))}</p></article>
+            <article class="tk-card"><h4>Preparation</h4><p class="tk-muted tk-pre">${escapeHtml(activity.preparation || activity.setup || (ownerPreview ? "Not added yet." : "No prep notes yet."))}</p></article>
+            <article class="tk-card"><h4>Step-by-step directions</h4><p class="tk-muted tk-pre">${escapeHtml(activity.steps || (ownerPreview ? "Not added yet." : "No steps listed yet."))}</p></article>
             <article class="tk-card">
-              <h4>Teacher prompts</h4>
+              <h4>Open-ended teacher prompts</h4>
               ${(activity.teacherPrompts || []).map((prompt) => `
                 <div class="tk-prompt"><strong>${escapeHtml(prompt.label || "Prompt")}</strong>${escapeHtml(prompt.text || "")}</div>
-              `).join("") || `<p class="tk-muted">None listed</p>`}
+              `).join("") || `<p class="tk-muted">${ownerPreview ? "Not added yet." : "None listed"}</p>`}
             </article>
             ${(activity.vocabulary || []).length ? `
               <article class="tk-card">
@@ -495,17 +580,22 @@
                 <p class="tk-muted">${escapeHtml((activity.vocabulary || []).map((word) => word.word || word).join(" · "))}</p>
               </article>
             ` : ""}
-            <article class="tk-card"><h4>Cleanup tips</h4><ul class="tk-list">${(activity.cleanupTips || []).map((tip) => `<li>${escapeHtml(tip)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul></article>
+            <article class="tk-card"><h4>Cleanup instructions</h4><ul class="tk-list">${(activity.cleanupTips || []).map((tip) => `<li>${escapeHtml(tip)}</li>`).join("") || `<li class="tk-muted">${ownerPreview ? "Not added yet." : "None listed"}</li>`}</ul></article>
           </div>
           <div class="tk-stack">
-            <article class="tk-card"><h4>Learning objective</h4><p class="tk-muted">${escapeHtml(activity.learningObjective || "None listed")}</p></article>
             <article class="tk-card tk-card-warn">
-              <h4>Observation prompts</h4>
-              <ul class="tk-list">${(activity.observationIdeas || []).map((idea) => `<li>${escapeHtml(idea)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul>
+              <h4>Observation / documentation prompts</h4>
+              <ul class="tk-list">${(activity.observationIdeas || []).map((idea) => `<li>${escapeHtml(idea)}</li>`).join("") || `<li class="tk-muted">${ownerPreview ? "Not added yet." : "None listed"}</li>`}</ul>
             </article>
+            ${activity.extraSupport || ownerPreview ? `<article class="tk-card"><h4>Differentiation — extra support</h4><p class="tk-muted tk-pre">${escapeHtml(activity.extraSupport || "Not added yet.")}</p></article>` : ""}
+            ${activity.extensions || ownerPreview ? `<article class="tk-card"><h4>Extension — additional challenge</h4><p class="tk-muted tk-pre">${escapeHtml(activity.extensions || "Not added yet.")}</p></article>` : ""}
+            ${activity.mixedAgeAdaptations || ownerPreview ? `<article class="tk-card"><h4>Mixed-age adaptations</h4><p class="tk-muted tk-pre">${escapeHtml(activity.mixedAgeAdaptations || "Not added yet.")}</p></article>` : ""}
             ${activity.adaptations ? `<article class="tk-card"><h4>Adaptations</h4><p class="tk-muted tk-pre">${escapeHtml(activity.adaptations)}</p></article>` : ""}
-            ${activity.safetyNotes ? `<article class="tk-card"><h4>Safety notes</h4><p class="tk-muted tk-pre">${escapeHtml(activity.safetyNotes)}</p></article>` : ""}
-            ${activity.extensions ? `<article class="tk-card"><h4>Family extension</h4><p class="tk-muted tk-pre">${escapeHtml(activity.extensions)}</p></article>` : ""}
+            ${activity.indoorAlternative || ownerPreview ? `<article class="tk-card"><h4>Indoor alternative</h4><p class="tk-muted tk-pre">${escapeHtml(activity.indoorAlternative || "Not added yet.")}</p></article>` : ""}
+            ${activity.outdoorOption || ownerPreview ? `<article class="tk-card"><h4>Outdoor option</h4><p class="tk-muted tk-pre">${escapeHtml(activity.outdoorOption || "Not added yet.")}</p></article>` : ""}
+            ${activity.safetyNotes || ownerPreview ? `<article class="tk-card"><h4>Safety notes</h4><p class="tk-muted tk-pre">${escapeHtml(activity.safetyNotes || "Not added yet.")}</p></article>` : ""}
+            ${activity.familyConnection || ownerPreview ? `<article class="tk-card"><h4>Family connection</h4><p class="tk-muted tk-pre">${escapeHtml(activity.familyConnection || "Not added yet.")}</p></article>` : ""}
+            ${activity.printableInstructions || ownerPreview ? `<article class="tk-card"><h4>Printable instructions</h4><p class="tk-muted tk-pre">${escapeHtml(activity.printableInstructions || "Not added yet.")}</p></article>` : ""}
             ${(activity.settingTags || []).length ? `
               <article class="tk-card">
                 <h4>Group / setting</h4>
@@ -542,7 +632,7 @@
     `;
   }
 
-  function buildSurfaceHtml(kit, state) {
+  function buildSurfaceHtml(kit, state, chrome) {
     const build = kit.companion?.buildMyKit || {};
     const removed = state.removedActivityIds || {};
     const activities = build.activities || [];
@@ -552,9 +642,16 @@
     const partLabels = printApi?.PART_LABELS || {};
     const parts = state.printParts || {};
     const printEnabled = Boolean(state.printCenterEnabled);
+    const ownerPreview = isOwnerPreviewKit(kit, chrome);
+    const availability = printApi?.evaluatePrintPartAvailability
+      ? printApi.evaluatePrintPartAvailability(kit, { removedActivityIds: removed, ownerPreview })
+      : {};
+    const photoCount = Number(kit.quality?.activitiesWithExamplePhoto || 0)
+      + Number(kit.quality?.activitiesWithSetupPhoto || 0);
+    const imagesAvailable = photoCount > 0;
     return `
-      <section class="tk-surface" data-tk-panel="build">
-        <div class="tk-grid-2">
+      <section class="tk-surface tk-build-surface" data-tk-panel="build">
+        <div class="tk-build-layout">
           <div class="tk-stack">
             <h3 class="tk-section-title">Build My Kit · Print Center</h3>
             <article class="tk-card">
@@ -570,18 +667,25 @@
             </article>
             <article class="tk-card">
               <h4>Sections</h4>
-              ${Object.keys(partLabels).map((key) => `
-                <label class="tk-check-inline">
-                  <input type="checkbox" data-tk-print-part="${escapeHtml(key)}" ${parts[key] ? "checked" : ""} />
-                  <span>${escapeHtml(partLabels[key])}</span>
-                </label>
-              `).join("")}
+              ${Object.keys(partLabels).map((key) => {
+                const meta = availability[key] || { available: true, count: null, reason: "" };
+                const available = meta.available !== false;
+                const checked = available && parts[key];
+                const countLabel = meta.count != null ? ` (${meta.count})` : "";
+                if (!available && !ownerPreview) return "";
+                return `
+                  <label class="tk-check-inline${available ? "" : " is-disabled"}">
+                    <input type="checkbox" data-tk-print-part="${escapeHtml(key)}" ${checked ? "checked" : ""} ${available ? "" : "disabled"} />
+                    <span>${escapeHtml(partLabels[key])}${escapeHtml(countLabel)}${available ? "" : ` — ${escapeHtml(meta.reason || "Not available yet")}`}</span>
+                  </label>
+                `;
+              }).join("")}
             </article>
             <article class="tk-card">
               <h4>Options</h4>
-              <label class="tk-check-inline">
-                <input type="checkbox" data-tk-print-option="includeImages" ${state.includeImages !== false ? "checked" : ""} />
-                <span>Include example / setup photos</span>
+              <label class="tk-check-inline${imagesAvailable ? "" : " is-disabled"}">
+                <input type="checkbox" data-tk-print-option="includeImages" ${imagesAvailable && state.includeImages !== false ? "checked" : ""} ${imagesAvailable ? "" : "disabled"} />
+                <span>Include example / setup photos${imagesAvailable ? ` (${photoCount})` : " — no photos added yet"}</span>
               </label>
               <label class="tk-check-inline">
                 <input type="checkbox" data-tk-print-option="inkSaver" ${state.inkSaver ? "checked" : ""} />
@@ -617,7 +721,7 @@
               `;
             }).join("") || `<p class="tk-muted">No activities in this kit yet — you can still print a cover and notes.</p>`}
           </div>
-          <div class="tk-stack">
+          <aside class="tk-stack tk-build-summary">
             <article class="tk-card">
               <h4>Binder always branded</h4>
               <ul class="tk-list">
@@ -625,6 +729,7 @@
                 <li>Color tab section dividers</li>
                 <li>Running header + numbered footer</li>
                 <li>US Letter or A4 classroom layout</li>
+                <li>Blank sections are skipped automatically</li>
               </ul>
             </article>
             <article class="tk-card tk-card-soft">
@@ -633,10 +738,10 @@
               <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (unavailable)"}</button>
               <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Opens a professional binder print layout. Trial exports use the existing watermarked allowance path."
+                ? "Opens a professional binder print layout. Unavailable sections stay disabled so blank pages are not generated."
                 : "Print Center is not available for this session. Binder preview still works."}</p>
             </article>
-          </div>
+          </aside>
         </div>
       </section>
     `;
@@ -683,25 +788,71 @@
 
     if (tabId === "weekly_plan") {
       const days = content.days || [];
+      const ownerPreview = isOwnerPreviewKit(kit);
+      function fieldRow(label, value) {
+        const v = text(value);
+        if (v) return `<p class="tk-muted"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(v)}</p>`;
+        if (ownerPreview) return `<p class="tk-muted tk-field-empty"><strong>${escapeHtml(label)}:</strong> Not added yet</p>`;
+        return "";
+      }
+      function listRow(label, items) {
+        const list = (items || []).map(text).filter(Boolean);
+        if (list.length) {
+          return `<div class="tk-muted"><strong>${escapeHtml(label)}:</strong><ul class="tk-list">${list.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`;
+        }
+        if (ownerPreview) return `<p class="tk-muted tk-field-empty"><strong>${escapeHtml(label)}:</strong> Not added yet</p>`;
+        return "";
+      }
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Weekly Plan</h3>
-          <p class="tk-muted">Monday through Friday at a glance.</p>
+          <p class="tk-muted">Monday through Friday — focus, materials, and teaching supports.</p>
           <div class="tk-week-grid">
             ${days.map((day) => `
-              <article class="tk-binder-block">
+              <article class="tk-binder-block${day.incomplete ? " is-incomplete" : ""}">
                 <h4>${escapeHtml(day.dayLabel || day.day)}</h4>
-                <p class="tk-muted">${escapeHtml(day.focus || "Theme focus coming soon")}</p>
+                ${day.focus
+                  ? `<p class="tk-muted"><strong>Daily focus:</strong> ${escapeHtml(day.focus)}</p>`
+                  : (ownerPreview
+                    ? `<p class="tk-muted tk-field-empty"><strong>Daily focus:</strong> Not added yet — Quality Review will block approval until set.</p>`
+                    : `<p class="tk-muted">Focus not set for this day.</p>`)}
                 <p class="tk-muted"><strong>${escapeHtml(String(day.activityCount || 0))}</strong> activities</p>
+                ${fieldRow("Circle time", day.circleTime)}
+                ${fieldRow("Book", day.book)}
+                ${fieldRow("Song", day.song)}
+                ${fieldRow("Invitation to play", day.invitationToPlay)}
+                ${fieldRow("Sensory", day.sensory)}
+                ${fieldRow("Fine motor", day.fineMotor)}
+                ${fieldRow("Gross motor", day.grossMotor)}
+                ${fieldRow("Art / creative", day.artCreative)}
+                ${fieldRow("Small group", day.smallGroup)}
+                ${fieldRow("Large group", day.largeGroup)}
+                ${fieldRow("Indoor alternative", day.indoorAlternative)}
+                ${fieldRow("Outdoor option", day.outdoorOption)}
+                ${listRow("Daily materials", day.dailyMaterials)}
+                ${fieldRow("Teacher preparation", day.teacherPreparation)}
+                ${listRow("Suggested questions", day.suggestedQuestions)}
+                ${listRow("Observation focus", day.observationFocus)}
+                ${listRow("Transition support", day.transitionSupport)}
+                ${fieldRow("Family connection", day.familyConnection)}
+                ${fieldRow("Teacher notes", day.teacherNotes)}
+                ${(day.activityLinks || []).length ? `
+                  <div class="tk-muted"><strong>Activity links:</strong>
+                    <div class="tk-chips">${(day.activityLinks || []).map((link) => `
+                      <button type="button" class="tk-chip tk-chip-btn" data-tk-open-activity="${escapeHtml(link.id)}" data-tk-from-binder="1">${escapeHtml(link.title)}</button>
+                    `).join("")}</div>
+                  </div>
+                ` : ""}
                 <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-day="${escapeHtml(day.day)}">Open Today view</button>
               </article>
-            `).join("") || `<p class="tk-muted">No weekly plan content yet.</p>`}
+            `).join("") || emptyBinderStateHtml("Weekly Plan", ownerPreview)}
           </div>
         </div>
       `;
     }
 
     if (tabId === "activities") {
+      const ownerPreview = isOwnerPreviewKit(kit);
       const activities = (content.activities || kit.companion?.activities || [])
         .filter((item) => !removed[item.id]);
       return `
@@ -709,12 +860,16 @@
           <h3 class="tk-section-title">Activities</h3>
           <p class="tk-muted">Reusable teaching resources — open any card for full directions.</p>
           <div class="tk-stack">
-            ${activities.map((activity) => `
+            ${activities.map((activity) => {
+              const thumb = activity.examplePhotoUrl || activity.exampleImageUrl || activity.setupPhotoUrl || activity.setupImageUrl;
+              return `
               <article class="tk-binder-activity">
                 <div class="tk-binder-activity-media">
-                  ${activity.examplePhotoUrl
-                    ? lazyImgHtml(activity.examplePhotoUrl, `Example for ${activity.title}`)
-                    : `<div class="tk-photo-placeholder tk-photo-placeholder-sm">Example</div>`}
+                  ${thumb
+                    ? lazyImgHtml(thumb, activity.exampleAlt || `Example for ${activity.title}`)
+                    : (ownerPreview
+                      ? `<div class="tk-photo-placeholder tk-photo-missing tk-photo-placeholder-sm" data-tk-image-missing="example">Image not added yet</div>`
+                      : "")}
                 </div>
                 <div>
                   <h4>${escapeHtml(activity.title)}</h4>
@@ -723,7 +878,8 @@
                   <button type="button" class="tk-btn tk-btn-secondary tk-btn-sm" data-tk-open-activity="${escapeHtml(activity.id)}" data-tk-from-binder="1">Open activity</button>
                 </div>
               </article>
-            `).join("") || `<p class="tk-muted">No activities in this kit yet.</p>`}
+            `;
+            }).join("") || emptyBinderStateHtml("Activities", ownerPreview)}
           </div>
         </div>
       `;
@@ -744,7 +900,7 @@
                   ? `<div class="tk-used-map">${printable.usedInWeek.map((slot) => `<span class="tk-used-pill">${escapeHtml(`${slot.dayLabel || slot.day} · ${slot.moment || ""}`)}</span>`).join("")}</div>`
                   : ""}
               </article>
-            `).join("") || `<p class="tk-muted">No printables linked yet.</p>`}
+            `).join("") || emptyBinderStateHtml("Printables", isOwnerPreviewKit(kit))}
           </div>
         </div>
       `;
@@ -752,6 +908,7 @@
 
     if (tabId === "songs") {
       const songs = content.songs || kit.companion?.songs || [];
+      const ownerPreview = isOwnerPreviewKit(kit);
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Songs</h3>
@@ -759,10 +916,16 @@
             ${songs.map((song) => `
               <article class="tk-binder-block">
                 <h4>${escapeHtml(song.title || "Song")}</h4>
-                ${song.lyrics ? `<p class="tk-muted tk-pre tk-lyrics">${escapeHtml(song.lyrics)}</p>` : ""}
+                ${song.rightsStatus ? `<p class="tk-muted"><strong>Rights:</strong> ${escapeHtml(song.rightsStatus)}</p>` : ""}
+                ${song.tune ? `<p class="tk-muted"><strong>Tune:</strong> ${escapeHtml(song.tune)}</p>` : ""}
+                ${song.whenToUse ? `<p class="tk-muted"><strong>When to use:</strong> ${escapeHtml(song.whenToUse)}</p>` : ""}
+                ${song.teacherDirections ? `<p class="tk-muted"><strong>Teacher directions:</strong> ${escapeHtml(song.teacherDirections)}</p>` : ""}
+                ${song.lyricsPrintable && song.lyrics ? `<p class="tk-muted tk-pre tk-lyrics">${escapeHtml(song.lyrics)}</p>` : (song.lyrics ? "" : (ownerPreview ? `<p class="tk-muted tk-field-empty">Lyrics not added (or not printable for rights reasons).</p>` : ""))}
                 ${song.motions ? `<p class="tk-muted"><strong>Motions:</strong> ${escapeHtml(song.motions)}</p>` : ""}
+                ${song.ageAdaptations ? `<p class="tk-muted"><strong>Age adaptations:</strong> ${escapeHtml(song.ageAdaptations)}</p>` : ""}
+                ${song.linkedWeekday ? `<p class="tk-muted"><strong>Linked day:</strong> ${escapeHtml(song.linkedWeekday)}</p>` : ""}
               </article>
-            `).join("") || `<p class="tk-muted">No songs listed yet.</p>`}
+            `).join("") || emptyBinderStateHtml("Songs", ownerPreview)}
           </div>
         </div>
       `;
@@ -770,6 +933,7 @@
 
     if (tabId === "books") {
       const books = content.books || kit.companion?.books || [];
+      const ownerPreview = isOwnerPreviewKit(kit);
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Books</h3>
@@ -778,85 +942,105 @@
               <article class="tk-binder-block">
                 <h4>${escapeHtml(book.title || "Book")}</h4>
                 ${book.author ? `<p class="tk-muted">by ${escapeHtml(book.author)}</p>` : ""}
-                ${(book.questions || book.readAloudQuestions || []).length
-                  ? `<ul class="tk-list">${(book.questions || book.readAloudQuestions).map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>`
-                  : ""}
+                ${book.suggestedWeekday ? `<p class="tk-muted"><strong>Suggested day:</strong> ${escapeHtml(book.suggestedWeekday)}</p>` : ""}
+                ${book.whyThisBook ? `<p class="tk-muted"><strong>Why it fits:</strong> ${escapeHtml(book.whyThisBook)}</p>` : ""}
+                ${(book.beforeReadingQuestions || []).length ? `<div class="tk-muted"><strong>Before reading</strong><ul class="tk-list">${book.beforeReadingQuestions.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul></div>` : ""}
+                ${(book.duringReadingPrompts || []).length ? `<div class="tk-muted"><strong>During reading</strong><ul class="tk-list">${book.duringReadingPrompts.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul></div>` : ""}
+                ${(book.afterReadingQuestions || book.questions || book.readAloudQuestions || []).length
+                  ? `<div class="tk-muted"><strong>After reading</strong><ul class="tk-list">${(book.afterReadingQuestions || book.questions || book.readAloudQuestions).map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul></div>`
+                  : (ownerPreview ? `<p class="tk-muted tk-field-empty">Discussion questions not added yet.</p>` : "")}
+                ${(book.vocabularyConnections || []).length ? `<p class="tk-muted"><strong>Vocabulary:</strong> ${escapeHtml(book.vocabularyConnections.join(" · "))}</p>` : ""}
+                ${book.extensionIdea ? `<p class="tk-muted"><strong>Extension:</strong> ${escapeHtml(book.extensionIdea)}</p>` : ""}
+                ${(book.alternativeBooks || []).length ? `<p class="tk-muted"><strong>Alternatives:</strong> ${escapeHtml(book.alternativeBooks.join(" · "))}</p>` : ""}
+                ${book.libraryNote ? `<p class="tk-muted"><strong>Library:</strong> ${escapeHtml(book.libraryNote)}</p>` : ""}
               </article>
-            `).join("") || `<p class="tk-muted">No books listed yet.</p>`}
+            `).join("") || emptyBinderStateHtml("Books", ownerPreview)}
           </div>
         </div>
       `;
     }
 
     if (tabId === "examples") {
+      const ownerPreview = isOwnerPreviewKit(kit);
       const withPhotos = content.activitiesWithPhotos
         || (kit.companion?.activities || []).filter((card) => card.hasExamplePhoto || card.hasSetupPhoto);
+      const allActs = kit.companion?.activities || [];
+      const gallerySource = withPhotos.length ? withPhotos : (ownerPreview ? allActs : []);
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Example Images</h3>
-          <p class="tk-muted">Classroom-achievable setup and finished examples. Images load as you scroll.</p>
+          <p class="tk-muted">Classroom-achievable setup and finished examples. Original Little Learner Hub assets only.</p>
           <div class="tk-example-gallery">
-            ${withPhotos.map((activity) => `
+            ${gallerySource.map((activity) => `
               <figure class="tk-example-card">
-                ${activity.examplePhotoUrl || activity.setupPhotoUrl
+                ${activity.examplePhotoUrl || activity.setupPhotoUrl || activity.exampleImageUrl || activity.setupImageUrl
                   ? lazyImgHtml(
-                    activity.examplePhotoUrl || activity.setupPhotoUrl,
-                    `Visual example for ${activity.title}`,
+                    activity.examplePhotoUrl || activity.exampleImageUrl || activity.setupPhotoUrl || activity.setupImageUrl,
+                    activity.exampleAlt || activity.setupAlt || `Visual example for ${activity.title}`,
                   )
-                  : `<div class="tk-photo-placeholder">No image</div>`}
+                  : `<div class="tk-photo-placeholder tk-photo-missing">${ownerPreview ? "Image not added yet" : "No image"}</div>`}
                 <figcaption>
                   <strong>${escapeHtml(activity.title)}</strong>
-                  <span class="tk-muted">${activity.hasSetupPhoto && activity.hasExamplePhoto ? "Setup + finished" : (activity.hasSetupPhoto ? "Setup" : "Finished example")}</span>
+                  <span class="tk-muted">${activity.hasSetupPhoto && activity.hasExamplePhoto ? "Setup + finished" : (activity.hasSetupPhoto ? "Setup" : (activity.hasExamplePhoto ? "Finished example" : (ownerPreview ? "Needs images" : "")))}</span>
                 </figcaption>
               </figure>
-            `).join("") || `<p class="tk-muted">No example images yet.</p>`}
+            `).join("") || emptyBinderStateHtml("Example Images", ownerPreview)}
           </div>
         </div>
       `;
     }
 
     if (tabId === "teacher_toolkit") {
-      const toolkit = content;
+      const toolkit = content || {};
+      const ownerPreview = isOwnerPreviewKit(kit);
+      const blocks = [
+        ["Teacher preparation", toolkit.teacherPreparation, "text"],
+        ["Teacher tips", toolkit.teacherTips, "list"],
+        ["Setup and cleanup shortcuts", toolkit.setupCleanupShortcuts, "list"],
+        ["Daily materials summary", toolkit.dailyMaterialsSummary, "text"],
+        ["Master materials checklist", toolkit.masterMaterialsChecklist, "list"],
+        ["Material substitutions", toolkit.materialSubstitutions, "list"],
+        ["Vocabulary", toolkit.vocabulary, "list"],
+        ["Observation focus", toolkit.observationFocus, "list"],
+        ["Observation prompts", toolkit.observationPrompts, "list"],
+        ["Documentation prompts (milestones)", toolkit.documentationPrompts, "list"],
+        ["Mixed-age adaptations", toolkit.mixedAgeAdaptations, "text"],
+        ["Extra-support adaptations", toolkit.extraSupportAdaptations, "text"],
+        ["Additional-challenge extensions", toolkit.challengeExtensions, "text"],
+        ["Small-group options", toolkit.smallGroupOptions, "text"],
+        ["Large-group options", toolkit.largeGroupOptions, "text"],
+        ["Indoor alternatives", toolkit.indoorAlternatives, "text"],
+        ["Outdoor options", toolkit.outdoorOptions, "text"],
+        ["Family connection", toolkit.familyConnection, "text"],
+        ["Safety and inclusion notes", toolkit.safetyInclusionNotes, "text"],
+        ["End-of-week reflection", toolkit.endOfWeekReflection, "text"],
+        ["Suggested questions to ask children", toolkit.suggestedQuestions, "list"],
+        ["Prep checklist", toolkit.prepChecklist, "list"],
+        ["Teacher notes", toolkit.notes, "text"],
+      ];
+      const rendered = blocks.map(([label, value, kind]) => {
+        if (kind === "list") {
+          const items = Array.isArray(value) ? value.filter(Boolean) : [];
+          if (!items.length) {
+            return ownerPreview
+              ? `<article class="tk-binder-block tk-field-empty"><h4>${escapeHtml(label)}</h4><p class="tk-muted">Not added yet.</p></article>`
+              : "";
+          }
+          return `<article class="tk-binder-block"><h4>${escapeHtml(label)}</h4><ul class="tk-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></article>`;
+        }
+        const v = text(value);
+        if (!v) {
+          return ownerPreview
+            ? `<article class="tk-binder-block tk-field-empty"><h4>${escapeHtml(label)}</h4><p class="tk-muted">Not added yet.</p></article>`
+            : "";
+        }
+        return `<article class="tk-binder-block"><h4>${escapeHtml(label)}</h4><p class="tk-muted tk-pre">${escapeHtml(v)}</p></article>`;
+      }).filter(Boolean).join("");
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Teacher Toolkit</h3>
-          <p class="tk-muted">Preparation, observation focus, and week notes — keep this tab handy.</p>
-          ${toolkit.teacherPreparation ? `
-            <article class="tk-binder-block">
-              <h4>Teacher preparation</h4>
-              <p class="tk-muted tk-pre">${escapeHtml(toolkit.teacherPreparation)}</p>
-            </article>
-          ` : ""}
-          ${(toolkit.prepChecklist || []).length ? `
-            <article class="tk-binder-block">
-              <h4>Prep checklist</h4>
-              <ul class="tk-list">${toolkit.prepChecklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-            </article>
-          ` : ""}
-          ${(toolkit.observationFocus || []).length ? `
-            <article class="tk-binder-block">
-              <h4>Observation focus</h4>
-              <ul class="tk-list">${toolkit.observationFocus.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-            </article>
-          ` : ""}
-          ${(toolkit.observationPrompts || []).length ? `
-            <article class="tk-binder-block">
-              <h4>Observation prompts</h4>
-              <ul class="tk-list">${toolkit.observationPrompts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-            </article>
-          ` : ""}
-          ${toolkit.familyConnection ? `
-            <article class="tk-binder-block">
-              <h4>Family connection</h4>
-              <p class="tk-muted tk-pre">${escapeHtml(toolkit.familyConnection)}</p>
-            </article>
-          ` : ""}
-          ${toolkit.notes ? `
-            <article class="tk-binder-block">
-              <h4>Teacher notes</h4>
-              <p class="tk-muted tk-pre">${escapeHtml(toolkit.notes)}</p>
-            </article>
-          ` : ""}
+          <p class="tk-muted">Preparation, adaptations, materials, observation, and week-end reflection — keep this tab handy while you teach.</p>
+          ${rendered || emptyBinderStateHtml("Teacher Toolkit", ownerPreview)}
         </div>
       `;
     }
@@ -864,10 +1048,10 @@
     return `<div class="tk-binder-section-body"><p class="tk-muted">Section unavailable.</p></div>`;
   }
 
-  function binderSurfaceHtml(kit, state) {
+  function binderSurfaceHtml(kit, state, chrome) {
     const binder = kit.companion?.providerBinder || kit.companion?.binder || {};
     const cover = binder.cover || {};
-    const tabs = visibleBinderTabs(kit);
+    const tabs = visibleBinderTabs(kit, chrome);
     const activeTab = tabs.some((tab) => tab.id === state.binderTab)
       ? state.binderTab
       : (tabs[0]?.id || "overview");
@@ -890,7 +1074,7 @@
         </header>
         <nav class="tk-binder-section-nav" role="tablist" aria-label="Teaching Kit binder sections">
           ${tabs.map((tab) => `
-            <button type="button" role="tab" class="tk-binder-section-tab${tab.id === activeTab ? " is-active" : ""}" data-tk-binder-tab="${escapeHtml(tab.id)}" aria-selected="${tab.id === activeTab ? "true" : "false"}">${escapeHtml(tab.label)}</button>
+            <button type="button" role="tab" class="tk-binder-section-tab${tab.id === activeTab ? " is-active" : ""}" data-tk-binder-tab="${escapeHtml(tab.id)}" aria-selected="${tab.id === activeTab ? "true" : "false"}">${escapeHtml(tab.label)}${tab.empty ? ` <span class="tk-tab-empty-mark" title="Empty in owner preview">·</span>` : ""}</button>
           `).join("") || `<span class="tk-muted">No binder sections with content yet.</span>`}
         </nav>
         <div class="tk-binder-section-panel" data-tk-binder-panel="${escapeHtml(activeTab)}">
@@ -909,21 +1093,21 @@
     `;
   }
 
-  function surfaceHtml(kit, state) {
+  function surfaceHtml(kit, state, chrome) {
     switch (state.surface) {
       case "setup":
-        return setupSurfaceHtml(kit, state);
+        return setupSurfaceHtml(kit, state, chrome);
       case "today":
-        return todaySurfaceHtml(kit, state);
+        return todaySurfaceHtml(kit, state, chrome);
       case "activity":
-        return activitySurfaceHtml(kit, state);
+        return activitySurfaceHtml(kit, state, chrome);
       case "build":
-        return buildSurfaceHtml(kit, state);
+        return buildSurfaceHtml(kit, state, chrome);
       case "binder":
-        return binderSurfaceHtml(kit, state);
+        return binderSurfaceHtml(kit, state, chrome);
       case "start":
       default:
-        return startSurfaceHtml(kit);
+        return startSurfaceHtml(kit, chrome);
     }
   }
 
@@ -971,12 +1155,14 @@
         </div>
         <div class="lesson-workspace-panels tk-panels">
           <div class="lesson-workspace-panel is-active tk-panel-host" data-tk-host>
-            ${surfaceHtml(kit, state)}
+            ${surfaceHtml(kit, state, chrome)}
           </div>
         </div>
-        ${chrome.actionBarsHtml || ""}
-        ${chrome.feedbackHtml || ""}
-        ${chrome.copyrightHtml || ""}
+        <div class="tk-workspace-sticky-actions" data-tk-sticky-actions>
+          ${chrome.actionBarsHtml || ""}
+        </div>
+        ${ownerPreview ? "" : (chrome.feedbackHtml || "")}
+        ${ownerPreview ? "" : (chrome.copyrightHtml || "")}
         ${chrome.actionSheetHtml || ""}
       </div>
     `;
@@ -1072,7 +1258,7 @@
       const host = root.querySelector("[data-tk-host]");
       if (host) {
         // Panel-only swap keeps chrome/listeners intact for snappy navigation.
-        host.innerHTML = surfaceHtml(kit, state);
+        host.innerHTML = surfaceHtml(kit, state, chrome);
         syncOpsNav(root, state);
         focusPanel(host);
         return;
@@ -1110,6 +1296,7 @@
 
       const part = event.target.closest("[data-tk-print-part]");
       if (part && part.matches("input")) {
+        if (part.disabled) return;
         const key = part.getAttribute("data-tk-print-part");
         if (key) {
           state.printParts = { ...(state.printParts || {}), [key]: Boolean(part.checked) };
@@ -1290,18 +1477,31 @@
     }
     if (!kitPayload.companion) return { enhanced: false, reason: "missing_companion" };
 
-    const state = defaultState(kitPayload, {
+    const kit = {
+      ...kitPayload,
+      featureFlags: {
+        ...(kitPayload.featureFlags || {}),
+        ...flags,
+      },
+    };
+    const state = defaultState(kit, {
       printCenterEnabled: flags.teachingKitPrintCenter === true || opts.printCenterEnabled === true,
       initialActivityId: opts.initialActivityId,
       initialSurface: opts.initialSurface,
       initialDay: opts.initialDay,
+      initialBinderTab: opts.initialBinderTab,
     });
-    const chrome = opts.chrome || {};
-    renderInto(body, kitPayload, state, chrome);
+    const chrome = {
+      ...(opts.chrome || {}),
+      ownerPreview: (opts.chrome && opts.chrome.ownerPreview === true)
+        || flags.ownerPreview === true
+        || kit.featureFlags?.ownerPreview === true,
+    };
+    renderInto(body, kit, state, chrome);
     const root = body.querySelector("[data-teaching-kit-workspace]");
     if (!root) return { enhanced: false, reason: "render_failed" };
     const unbind = bindWorkspace(root, {
-      kit: kitPayload,
+      kit,
       state,
       chrome,
       onCopy: opts.onCopy,

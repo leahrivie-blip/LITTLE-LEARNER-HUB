@@ -26371,6 +26371,7 @@ const TEACHING_KIT_OWNER_PREVIEW_EMAIL = "leahivie@icloud.com";
 
 /**
  * Owner Preview for leahivie@icloud.com only.
+ * Client hint only — server requires owner identity + valid owner admin session.
  * Other Admins, Founding, Pro, Free, and staff roles stay on the classic experience
  * while store customer TK flags remain false.
  */
@@ -26378,15 +26379,18 @@ function isOwnerTeachingKitPreviewActive() {
   try {
     const ownerEmail = TEACHING_KIT_OWNER_PREVIEW_EMAIL;
     const signedIn = String(typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
+    // A different signed-in member always wins — never elevate shared-browser sessions.
     if (signedIn && signedIn !== ownerEmail) return false;
-    if (signedIn === ownerEmail) return true;
-    // Admin unlock alone is not enough unless the admin session is the owner
-    // and no other customer account is signed in on this browser.
-    const sessionEmail = String(typeof adminSession === "function" ? (adminSession()?.email || "") : "").trim().toLowerCase();
-    return typeof isAdminUnlocked === "function"
+    const session = typeof adminSession === "function" ? adminSession() : null;
+    const sessionEmail = String(session?.email || "").trim().toLowerCase();
+    const hasOwnerAdmin = typeof isAdminUnlocked === "function"
       && isAdminUnlocked()
       && sessionEmail === ownerEmail
-      && Boolean(adminSession()?.token);
+      && Boolean(session?.token);
+    // Dual gate: owner admin permission required. Signed-in owner email alone is not enough.
+    if (!hasOwnerAdmin) return false;
+    // Owner admin unlock with no other member session, OR signed-in as the owner.
+    return !signedIn || signedIn === ownerEmail;
   } catch (_error) {
     return false;
   }
