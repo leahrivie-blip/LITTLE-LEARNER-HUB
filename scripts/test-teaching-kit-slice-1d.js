@@ -247,7 +247,11 @@ function testViewerUnitRender() {
   });
   assert(activityHtml.includes("Substitute This Activity"), "substitute control");
   assert(activityHtml.includes("Learning objective"), "activity objective");
-  assert(activityHtml.includes("Cleanup tips"), "cleanup tips");
+  // Viewer remediation (#539) renamed the activity card heading to "Cleanup instructions".
+  assert(
+    activityHtml.includes("Cleanup instructions") || activityHtml.includes("Cleanup tips"),
+    "cleanup tips",
+  );
 }
 
 async function main() {
