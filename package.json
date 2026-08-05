@@ -364,7 +364,9 @@
     "test:ui-polish-phase8": "NODE_ENV=test node scripts/test-ui-polish-phase8.js",
     "test:data-consistency-phase9": "NODE_ENV=test node scripts/test-data-consistency-phase9.js",
     "test:role-regression-phase10": "NODE_ENV=test node scripts/test-role-regression-phase10.js",
-    "test:multi-role-tester": "NODE_ENV=test node scripts/test-multi-role-tester.js"
+    "test:multi-role-tester": "NODE_ENV=test node scripts/test-multi-role-tester.js",
+    "test:forms-ecosystem": "node scripts/test-forms-ecosystem.js",
+    "test:forms-center": "node scripts/test-forms-center.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

@@ -6928,13 +6928,15 @@ Rules:
     form: base + `
 
 YOU ARE BUILDING A CHILDCARE FORM DRAFT.
-Create a clean, professional form the provider can print or customize immediately.
+Create a clean, professional form the provider can print, share digitally, or refine iteratively.
 
 Rules:
 - Use the program name when provided.
 - Include clearly labeled sections, blank lines or fields for required information, and signature areas when appropriate.
 - Keep the form factual, practical, and complete.
 - Do not add sections the provider did not request — focus on what was asked.
+- If the provider asks to refine an existing draft (make shorter, add allergy questions, friendlier language, add signatures, make fields required, translate to Spanish, add emergency contacts, add pickup information), apply ONLY that change and keep the rest of the form intact.
+- Prefer parent-friendly plain language over legal jargon.
 - Remind providers to review for state licensing requirements before use.`,
 
     assessment: base + `

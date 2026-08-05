@@ -1091,16 +1091,20 @@ const formGroups = {
     "Enrollment Packet", "Child Information Form", "Emergency Contact Form", "Authorized Pickup Form",
     "Child Enrollment Agreement", "Family Information Sheet", "Child Pick-Up Password Form", "Getting to Know Your Child",
     "Photo Release Form", "Transportation Permission", "Field Trip Permission", "Water Play Permission",
+    "Custody Information", "Child Schedule Form", "Insect Repellent Permission", "Nap Permission",
+    "Potty Training Information", "Walking Field Trip Permission",
   ],
   "Medical Forms": [
     "Medication Authorization", "Allergy Form", "Health Record", "Illness Report",
     "Immunization Record", "Sunscreen Authorization", "Topical Ointment Authorization", "Special Health Care Plan",
     "Injury Report", "Medication Log", "Fever Return Form", "Food Substitution Form",
+    "Medical Information Form", "Physician Information Form", "Asthma Action Plan", "Seizure Plan", "Diabetes Plan",
   ],
   "Daily Forms": [
     "Daily Report", "Incident Report", "Behavior Report", "Infant Daily Sheet",
     "Toddler Daily Sheet", "Preschool Daily Sheet", "Nap Log", "Diaper Change Log",
     "Potty Training Log", "Meal Tracking Sheet", "Mood and Behavior Tracker", "Daily Cleaning Checklist",
+    "Bottle Log", "Infant Daily Report",
   ],
   "Business Forms": [
     "Tuition Agreement", "Payment Tracker", "Tax Receipt", "Late Payment Notice", "Withdrawal Form",
@@ -1111,18 +1115,23 @@ const formGroups = {
     "Parent Handbook", "Newsletter Template", "Permission Slip", "Field Trip Form",
     "Parent Conference Form", "Parent Communication Log", "Supply Request Note", "Policy Update Notice",
     "Welcome Letter", "Transition Note", "Late Pick-Up Notice", "Positive Behavior Note", "Development Update",
+    "Parent Survey", "Schedule Change Request", "Event RSVP",
   ],
   "Safety Forms": [
     "Emergency Drill Log", "Fire Drill Record", "Tornado Drill Record", "Lockdown Drill Record",
     "Playground Safety Checklist", "Safe Sleep Checklist", "Transportation Safety Checklist", "Visitor Sign-In Sheet",
+    "Medication Audit Log", "Refrigerator Temperature Log", "Freezer Temperature Log", "Vehicle Inspection Checklist",
   ],
   "Program Planning Forms": [
     "Monthly Planning Sheet", "Weekly Planning Sheet", "Theme Planning Form", "Activity Planning Template",
     "Observation Planning Sheet", "Child Goal Planning Form", "Portfolio Checklist", "Materials Inventory",
+    "Developmental Assessment Form", "Behavior Support Plan",
   ],
   "Staff Forms": [
     "Staff Information Sheet", "Substitute Provider Checklist", "Training Log", "Staff Schedule",
     "Volunteer Agreement", "Confidentiality Agreement",
+    "Employment Application", "Staff Emergency Contact", "CPR Record", "Background Check Record",
+    "Staff Evaluation", "Time Off Request",
   ],
 };
 const freeFormGroups = new Set([
@@ -8286,7 +8295,16 @@ function saveFormsProgramTemplates(templates) {
   return templates;
 }
 
-function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
+function saveAiFormAsProgramTemplate({
+  title,
+  category,
+  body,
+  packFormId = "",
+  resourceId = "",
+  fieldsSchema = null,
+  catalogId = "",
+  connections = [],
+} = {}) {
   const text = String(body || "").trim();
   if (!text) throw new Error("Generate or edit a draft before saving a template.");
   const template = {
@@ -8296,6 +8314,9 @@ function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", r
     body: text,
     packFormId: String(packFormId || "").trim(),
     resourceId: String(resourceId || "").trim(),
+    catalogId: String(catalogId || "").trim(),
+    fieldsSchema: fieldsSchema && typeof fieldsSchema === "object" ? fieldsSchema : null,
+    connections: Array.isArray(connections) ? connections : [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -8400,6 +8421,10 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     packFormId: formSpec.packFormId || "",
     resourceId: formSpec.resourceId || "",
     templateId: formSpec.templateId || "",
+    catalogId: formSpec.catalogId || "",
+    fieldsSchema: formSpec.fieldsSchema && typeof formSpec.fieldsSchema === "object" ? formSpec.fieldsSchema : null,
+    connections: Array.isArray(formSpec.connections) ? formSpec.connections : [],
+    answers: formSpec.answers && typeof formSpec.answers === "object" ? formSpec.answers : {},
     status,
     statusLabel: homeDaycarePackDocumentStatusLabel(status),
     notes: String(formSpec.notes || "").trim(),
@@ -14943,6 +14968,9 @@ function renderTeacherTodayPage() {
     : "";
   const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
   const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
+  const allergyBanner = typeof window !== "undefined" && window.FormsCenter?.allergyBannerHtml
+    ? window.FormsCenter.allergyBannerHtml(records)
+    : "";
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: "Today",
@@ -14954,6 +14982,7 @@ function renderTeacherTodayPage() {
         <article class="work-pulse-card"><em>Naps</em><strong>${(records.naps || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
         <article class="work-pulse-card"><em>Activities</em><strong>${(records.activityLogs || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
       </div>
+      ${allergyBanner}
       ${lessonHtml}
       ${attentionHtml}
       <section class="work-hub-section">
@@ -36745,10 +36774,23 @@ function renderFamilyHubFormsPanel(data) {
       icon: "forms",
     });
   }
-  return `
+  // Attach structured schemas from provider Documents when available (same-browser testing).
+  const enriched = documents.map((doc) => {
+    try {
+      if (doc.fieldsSchema?.fields?.length) return doc;
+      if (typeof childStore === "function") {
+        const local = (childStore("Documents") || []).find((item) => String(item.id) === String(doc.id));
+        if (local?.fieldsSchema?.fields?.length) {
+          return { ...doc, fieldsSchema: local.fieldsSchema, answers: local.answers || doc.answers || {}, connections: local.connections || [] };
+        }
+      }
+    } catch (_e) { /* ignore */ }
+    return doc;
+  });
+  const baseHtml = `
     <div class="fh-panel-stack">
       <p class="fh-meta">Review each form, then sign. Your provider sees the update right away in Forms &amp; Records.</p>
-      ${documents.map((doc) => {
+      ${enriched.map((doc) => {
         const canSign = Boolean(doc.canAcknowledge);
         const signedMeta = doc.signedAt
           ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
@@ -36774,6 +36816,15 @@ function renderFamilyHubFormsPanel(data) {
       }).join("")}
     </div>
   `;
+  try {
+    if (typeof window !== "undefined" && window.FormsCenter?.enhanceFamilyHubFormsHtml) {
+      return window.FormsCenter.enhanceFamilyHubFormsHtml(baseHtml, { ...data, documents: enriched });
+    }
+    if (typeof window !== "undefined" && window.FormsEcosystem?.enhanceFamilyHubFormsHtml) {
+      return window.FormsEcosystem.enhanceFamilyHubFormsHtml(baseHtml, { ...data, documents: enriched });
+    }
+  } catch (_e) { /* fall through */ }
+  return baseHtml;
 }
 
 function renderFamilyHubMorePanel(data) {
@@ -38066,12 +38117,17 @@ function renderHomeDaycareHubPage(options = {}) {
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
+        ${typeof window !== "undefined" && window.FormsCenter?.hubHtml
+          ? window.FormsCenter.hubHtml()
+          : `${typeof window !== "undefined" && window.FormsEcosystem?.dashboardHtml ? window.FormsEcosystem.dashboardHtml() : ""}
+        ${typeof window !== "undefined" && window.FormsEcosystem?.libraryHtml ? window.FormsEcosystem.libraryHtml() : ""}
+        ${typeof window !== "undefined" && window.FormsEcosystem?.aiBuilderHtml ? window.FormsEcosystem.aiBuilderHtml() : ""}`}
         ${renderFormsAttentionPanel()}
         ${renderProgramFormTemplatesPanel()}
         <section class="section-block" id="hdhFormsPackPanel">
-          <p class="eyebrow">Built-in library</p>
+          <p class="eyebrow">Starter pack</p>
           <h3>Home daycare forms pack</h3>
-          <p class="muted-copy">Enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
+          <p class="muted-copy">Core enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
           ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
           ${firstChild ? `
             <div class="account-actions-row" style="margin-top:14px;">
@@ -41048,9 +41104,10 @@ function renderChildFormsRecordsTab(child, records) {
         <div>
           <p class="eyebrow">Forms &amp; Records</p>
           <h3>Child file for ${escapeHtml(child.name)}</h3>
-          <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
+          <p class="muted-copy">Enrollment, medical, emergency, permissions, medications, and immunizations — one file, one timeline.</p>
         </div>
       </div>
+      ${typeof window !== "undefined" && window.FormsCenter?.childStatusHtml ? window.FormsCenter.childStatusHtml(child) : ""}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-forms-filters" aria-label="Search and filter forms">
         <label>Search
@@ -44235,16 +44292,19 @@ function attendanceForm(childId) {
 function mealTrackingForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().meals || [], "lunch", childId, 6);
   const activeDate = dlcActiveDate();
+  const child = (childRecords().children || []).find((item) => String(item.id) === String(childId));
+  const allergyWarning = String(child?.allergies || "").trim();
   return `
     <form id="mealTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
+      ${allergyWarning ? `<p class="fc-allergy-card" role="alert"><strong>Allergy warning</strong><br>${escapeHtml(allergyWarning)}</p>` : ""}
       <label>Date<input name="date" type="date" value="${activeDate}" /></label>
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
       ${renderMealPresetControls(`mealPresetSelect-${childId}`)}
       <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes"></textarea></label>
-      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes"></textarea></label>
+      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes">${escapeHtml(allergyWarning)}</textarea></label>
       ${renderSuggestionDataList(`mealTrackingSuggestions-${childId}`, suggestions)}
       <button class="primary-button" type="submit">Save Meals</button>
     </form>
@@ -44755,6 +44815,14 @@ function runFormSignedAutomation(doc = {}) {
       source: "form_signed",
     });
   }
+  // Forms Center / ecosystem: one form updates profile, timeline, alerts, Family Hub.
+  try {
+    if (typeof window !== "undefined" && window.FormsCenter && typeof window.FormsCenter.onFormSigned === "function") {
+      window.FormsCenter.onFormSigned(doc);
+    } else if (typeof window !== "undefined" && window.FormsEcosystem && typeof window.FormsEcosystem.onFormSigned === "function") {
+      window.FormsEcosystem.onFormSigned(doc);
+    }
+  } catch (_fe) { /* non-blocking */ }
   appendOpsAlert({
     type: "form_signed",
     title: `Form signed${doc.title ? `: ${doc.title}` : ""}`,
@@ -73007,6 +73075,9 @@ document.addEventListener("submit", async (event) => {
       packFormId: template.packFormId || "",
       resourceId: template.resourceId || "",
       templateId: template.id,
+      catalogId: template.catalogId || "",
+      fieldsSchema: template.fieldsSchema || null,
+      connections: template.connections || [],
       dueDate: data.dueDate || "",
       shareWithFamily: event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
       notes: "Assigned from program template.",
