@@ -180,8 +180,8 @@
         }).join("")}
       </div>
       <div class="admin-sidebar-footer admin-cc-footer">
-        <button class="ghost-button admin-sidebar-btn" type="button" data-admin-lock>Lock Admin</button>
         <button class="primary-button admin-sidebar-btn" type="button" data-admin-return-site>Return to site</button>
+        <button class="ghost-button admin-sidebar-btn" type="button" data-admin-lock>Lock Admin</button>
       </div>
     `;
     return true;

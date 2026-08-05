@@ -75,6 +75,15 @@ body.llh-admin-control-center #view-admin .admin-cc-footer {
   bottom: 0;
   background: #fff;
   z-index: 2;
+  padding-top: 12px;
+  padding-bottom: 4px;
+  gap: 8px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-footer .primary-button,
+body.llh-admin-control-center #view-admin .admin-cc-footer .ghost-button {
+  width: 100%;
+  justify-content: center;
 }
 
 /* Hide leftover member/marketing chrome inside the Control Center shell */
