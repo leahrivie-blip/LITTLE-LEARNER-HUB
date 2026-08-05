@@ -53147,7 +53147,27 @@ function applyAdminSectionVisibility() {
     if (el) {
       el.classList.remove("admin-owner-panel--embedded-home");
       el.hidden = false;
+      const testingShell = typeof isHomeDaycareHubTestingEnabled === "function"
+        && isHomeDaycareHubTestingEnabled()
+        && document.body.classList.contains("llh-admin-control-center");
+      el.classList.toggle("admin-owner-panel--testing-focus", testingShell);
       renderAdminOwnerOverview();
+      if (testingShell) {
+        let intro = el.querySelector("[data-admin-cc-testing-intro]");
+        if (!intro) {
+          intro = document.createElement("header");
+          intro.className = "admin-cc-page-heading";
+          intro.setAttribute("data-admin-cc-testing-intro", "1");
+          el.prepend(intro);
+        }
+        intro.innerHTML = `
+          <div>
+            <p class="admin-cc-kicker">Testing</p>
+            <h2>Testing Center</h2>
+            <p class="admin-cc-lede">View As, Testing Pro, invites, seed data, and curriculum sync — all inside Admin.</p>
+          </div>
+        `;
+      }
     }
     window.AdminControlCenter?.applyFocusAfterRender?.();
   } else if (tab === "resources") {

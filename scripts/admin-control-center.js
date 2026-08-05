@@ -535,18 +535,20 @@
         .then((data) => {
           const totals = data.totals || {};
           const users = Array.isArray(data.users) ? data.users : [];
-          stats.users = String(totals.users ?? users.length ?? "—");
+          const userCount = users.length || Number(totals.users || totals.totalUsers || 0);
+          stats.users = String(userCount || "0");
           const testerish = users.filter((u) => {
             const plan = String(u.membershipPlan || u.plan || "").toLowerCase();
             const email = String(u.email || "").toLowerCase();
-            return /test|tester|preview/.test(email) || plan.includes("test");
+            const role = String(u.role || u.accountType || "").toLowerCase();
+            return /test|tester|preview/.test(email) || plan.includes("test") || /tester|parent|staff/.test(role);
           });
-          stats.activeTesters = String(testerish.length || totals.activeUsers || totals.active || "—");
+          stats.activeTesters = String(testerish.length || Number(totals.activeUsers || totals.active || 0) || "0");
           const feedback = Array.isArray(data.feedback) ? data.feedback : [];
-          const openFeedback = feedback.filter((f) => !/resolved|archived|closed/i.test(String(f.status || "")));
-          stats.feedback = String(openFeedback.length || feedback.length || totals.feedback || "0");
+          const openFeedback = feedback.filter((f) => !/resolved|archived|closed/i.test(String(f.status || "new")));
+          stats.feedback = String(openFeedback.length || Number(totals.feedback || 0) || "0");
           const tickets = Array.isArray(data.supportTickets) ? data.supportTickets : [];
-          const openTickets = tickets.filter((t) => !/resolved|closed|archived/i.test(String(t.status || "")));
+          const openTickets = tickets.filter((t) => !/resolved|closed|archived|complete/i.test(String(t.status || "open")));
           stats.openIssues = String(openTickets.length + openFeedback.length);
           const events = Array.isArray(data.recentEvents) ? data.recentEvents : [];
           const aiEvents = events.filter((e) => /ai|openai|prompt|form.builder|generate/i.test(String(e.name || e.type || "")));
