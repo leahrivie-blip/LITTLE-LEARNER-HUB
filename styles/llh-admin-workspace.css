@@ -86,7 +86,8 @@ body.llh-admin-control-center:has(#view-admin.active-view) #llhMetaCookieNotice,
 body.llh-admin-control-center:has(#view-admin.active-view) .llh-meta-cookie-banner,
 body.llh-admin-control-center:has(#view-admin.active-view) #adminModeBadge,
 body.llh-admin-control-center:has(#view-admin.active-view) [data-admin-mode-badge],
-body.llh-admin-control-center:has(#view-admin.active-view) .admin-mode-badge {
+body.llh-admin-control-center:has(#view-admin.active-view) .admin-mode-badge,
+body.llh-admin-control-center:has(#view-admin.active-view) .admin-preview-badge {
   display: none !important;
 }
 
