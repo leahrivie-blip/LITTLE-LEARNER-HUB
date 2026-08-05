@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260805-admin-control-center-r20";
+  const VERSION = "20260805-admin-control-center-r21";
   const loadedUrls = new Set();
   const loading = new Map();
   const packReady = new Map();

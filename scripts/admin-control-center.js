@@ -503,24 +503,19 @@
     `;
   }
 
-  async function fetchJson(url, timeoutMs = 12000) {
+  async function fetchJson(url, timeoutMs = 30000) {
     const token = adminToken();
     const headers = { Accept: "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
-    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0;
-    try {
-      const response = await fetch(url, {
-        cache: "no-store",
-        headers,
-        signal: controller?.signal,
-      });
+    const fetchPromise = fetch(url, { cache: "no-store", headers }).then(async (response) => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
       return data;
-    } finally {
-      if (timer) window.clearTimeout(timer);
-    }
+    });
+    const timeoutPromise = new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(`Timed out loading ${url}`)), timeoutMs);
+    });
+    return Promise.race([fetchPromise, timeoutPromise]);
   }
 
   async function loadCommandCenterStats() {
