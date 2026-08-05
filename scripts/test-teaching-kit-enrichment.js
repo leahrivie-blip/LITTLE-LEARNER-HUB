@@ -2,6 +2,10 @@
 /**
  * Teaching Kit Enrichment helpers — unit tests.
  * Run: node scripts/test-teaching-kit-enrichment.js
+ *
+ * Scoring expectations match structural vs premium readiness (#540):
+ * title-only books/songs and missing weekday focus keep structural % low;
+ * image briefs / printable ideas never inflate toward Publish Ready.
  */
 const assert = require("node:assert/strict");
 const enrichment = require("./teaching-kit-enrichment.js");
@@ -11,11 +15,13 @@ function samplePlan() {
     id: "cur-lp-test-enrich",
     title: "Farm Animals",
     age: "Preschool",
+    theme: "Farm",
     status: "published",
     plan: "Pro",
     coverImageUrl: "https://example.com/cover.jpg",
-    weeklyOverview: "A week of farm fun.",
+    weeklyOverview: "A week of farm fun with sorting, songs, and outdoor play.",
     objectives: "Explore farm animals through play and songs.",
+    vocabularyWords: "cow, barn, hay, sort",
     books: [{ title: "Big Red Barn" }],
     songs: [{ title: "Old MacDonald" }],
     familyConnection: "Ask about favorite animals.",
@@ -24,16 +30,66 @@ function samplePlan() {
     resourceIds: ["res-1"],
     dailyPlans: {
       monday: {
+        theme: "Color sorting at the barn",
         items: [
           { itemId: "m1", title: "Color Sorting Barn", activityCategory: "Fine Motor" },
           { itemId: "m2", title: "Barn Songs", activityCategory: "Music and Movement" },
         ],
       },
-      tuesday: { items: [{ itemId: "t1", title: "Sensory Hay", activityCategory: "Sensory" }] },
-      wednesday: { items: [{ itemId: "w1", title: "Farm Walk", activityCategory: "Gross Motor" }] },
-      thursday: { items: [{ itemId: "th1", title: "Animal Matching", activityCategory: "Matching" }] },
-      friday: { items: [{ itemId: "f1", title: "Family Farm Share", activityCategory: "Social-Emotional" }] },
+      tuesday: {
+        theme: "Sensory farm textures",
+        items: [{ itemId: "t1", title: "Sensory Hay", activityCategory: "Sensory" }],
+      },
+      wednesday: {
+        theme: "Gross motor farm walk",
+        items: [{ itemId: "w1", title: "Farm Walk", activityCategory: "Gross Motor" }],
+      },
+      thursday: {
+        theme: "Animal matching games",
+        items: [{ itemId: "th1", title: "Animal Matching", activityCategory: "Matching" }],
+      },
+      friday: {
+        theme: "Family farm share",
+        items: [{ itemId: "f1", title: "Family Farm Share", activityCategory: "Social-Emotional" }],
+      },
     },
+  };
+}
+
+function completeBook() {
+  return {
+    title: "Big Red Barn",
+    author: "Margaret Wise Brown",
+    whyThisBook: "Simple farm vocabulary and predictable rhythm for preschoolers.",
+    beforeReadingQuestions: ["What animals might live on a farm?"],
+    duringReadingPrompts: ["Point to the barn door."],
+    afterReadingQuestions: ["Which animal would you care for?"],
+  };
+}
+
+function completeSong() {
+  return {
+    title: "Old MacDonald",
+    rightsStatus: "public_domain",
+    motions: "Tap knees for each animal sound.",
+    whenToUse: "Circle time transition into farm play.",
+  };
+}
+
+function completeToolkit() {
+  return {
+    teacherPreparation: "Stage trays before arrival and preview tongs.",
+    mixedAgeAdaptations: "Toddlers sort two colors; older peers lead naming.",
+    extraSupportAdaptations: "Offer hand-over-hand for tongs as needed.",
+    challengeExtensions: "Invite children to invent a new sorting rule.",
+    safetyInclusionNotes: "Keep small pieces out of mouths; supervise tongs.",
+    endOfWeekReflection: "Which animal words showed up most in play?",
+    familyConnection: "Ask families which farm animals children talk about at home.",
+    teacherTips: ["Model one sort, then step back."],
+    setupCleanupShortcuts: ["Bins on low shelf", "Tongs in caddy"],
+    observationFocus: ["Uses animal words", "Takes turns"],
+    documentationPrompts: ["Photo of child sorting with peer"],
+    materialSubstitutions: [{ need: "hay", use: "shredded paper" }],
   };
 }
 
@@ -68,18 +124,26 @@ function main() {
   const firstIncomplete = enrichment.firstIncompleteActivityIndex(acts, draft.activities);
   assert.equal(firstIncomplete, 1, "skips first complete activity");
 
-  const pct0 = enrichment.computeCompletionPercent(plan, [], null);
-  // Week story / books / family / printables score without activity enrichment.
-  // Activity photo/tip/depth weights keep a published-but-unenriched plan below Enriched.
-  assert.ok(pct0 >= 30 && pct0 < 50, `baseline percent with week basics (${pct0})`);
+  const baselineScores = enrichment.computeReadinessScores(plan, [], null);
+  const pct0 = baselineScores.completionPercent;
+  // Title-only books/songs + incomplete toolkit keep structural % intentionally low (#540).
+  assert.ok(pct0 < 45, `baseline structural percent stays below Enriched (${pct0})`);
+  assert.equal(enrichment.completenessLabelFromPercent(pct0), "Legacy");
+  assert.ok(typeof baselineScores.premiumReadinessPercent === "number", "premium readiness exposed");
+  assert.ok(baselineScores.completeBooks === 0, "title-only books are incomplete");
+  assert.ok(baselineScores.completeSongs === 0, "title-only songs are incomplete");
+  assert.ok(baselineScores.imageBriefsOnly === 0, "no image briefs counted as assets at baseline");
 
-  const pctRich = enrichment.computeCompletionPercent(plan, [], {
+  const richDraft = {
     week: {
+      weeklyOverview: "A week of farm fun with sorting, songs, and outdoor play for preschoolers.",
+      objectives: "Explore farm animals through play, songs, and peer sorting talk.",
+      weeklyMaterials: "bins, animals, tongs, trays, cups",
       teacherPreparation: "Stage trays before arrival.",
-      teacherToolkit: {
-        prepChecklist: ["Set bins", "Print vocab cards"],
-        observationFocus: ["Uses animal words", "Takes turns"],
-      },
+      books: [completeBook()],
+      songs: [completeSong()],
+      teacherToolkit: completeToolkit(),
+      familyConnection: "Ask about favorite animals at home this week.",
     },
     activities: Object.fromEntries(acts.map((a) => [a.id, {
       setupImageUrl: "https://x.test/s.jpg",
@@ -91,12 +155,32 @@ function main() {
       setup: "Place bins at child height.",
       steps: "Invite children to sort and name animals.",
       adaptations: "Offer larger pieces for beginners.",
+      extensions: "Add a third sorting rule for older peers.",
       indoorAlternatives: "Table sort if weather blocks outdoor time.",
       outdoorAlternatives: "Take the sort mats outdoors.",
     }])),
-  });
-  assert.ok(pctRich >= 90, `rich enrichment near complete (${pctRich})`);
+  };
+  const richScores = enrichment.computeReadinessScores(plan, [], richDraft);
+  const pctRich = richScores.completionPercent;
+  assert.ok(pctRich >= 90, `rich structural enrichment near complete (${pctRich})`);
+  assert.ok(richScores.premiumReadinessPercent >= 90, `rich premium readiness (${richScores.premiumReadinessPercent})`);
   assert.equal(enrichment.completenessLabelFromPercent(pctRich), "Complete");
+  assert.equal(richScores.completeBooks, 1, "complete book records count");
+  assert.equal(richScores.completeSongs, 1, "complete song records count");
+  assert.equal(richScores.setupImages, 6, "uploaded setup images count");
+  assert.equal(richScores.exampleImages, 6, "uploaded example images count");
+
+  // Image briefs must not inflate structural completion toward Publish Ready.
+  const briefOnly = enrichment.computeReadinessScores(plan, [], {
+    week: { printableIdeas: ["Color cards"] },
+    activities: Object.fromEntries(acts.map((a) => [a.id, {
+      imageBriefSetup: "Two trays on a low table.",
+      imageBriefExample: "Child sorting red blocks.",
+    }])),
+  });
+  assert.ok(briefOnly.imageBriefsOnly > 0, "briefs detected");
+  assert.equal(briefOnly.imageReadiness, 0, "briefs do not raise image readiness");
+  assert.ok(briefOnly.completionPercent < 50, `briefs do not inflate structural % (${briefOnly.completionPercent})`);
 
   const hits = enrichment.buildJumpIndex(plan, [], null);
   assert.ok(hits.some((h) => h.type === "activity" && /Color Sorting/i.test(h.label)));
@@ -128,40 +212,21 @@ function main() {
   assert.equal(upgrade.missingSetupPhotos, 6);
   assert.equal(upgrade.missingExamplePhotos, 6);
   assert.equal(upgrade.missingTeacherTips, 6);
-  assert.equal(upgrade.missingBooks, false);
-  assert.equal(upgrade.missingSongs, false);
+  // Title-only catalog rows are incomplete under #540 resource rules.
+  assert.equal(upgrade.missingBooks, true);
+  assert.equal(upgrade.missingSongs, true);
   assert.equal(upgrade.missingPrintables, false);
   assert.equal(upgrade.missingFamilyConnection, false);
   assert.equal(upgrade.isPublished, true);
   assert.equal(upgrade.needsReview, true);
   assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "missing_photos"));
   assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "needs_review"));
-  assert.equal(enrichment.matchesUpgradeGapFilter(upgrade, "missing_books"), false);
+  assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "missing_books"));
 
   const richSummary = enrichment.buildUpgradeSummary(plan, [], {
     updatedAt: "2026-08-03T12:00:00.000Z",
     lastEditedBy: "owner@example.com",
-    week: {
-      teacherPreparation: "Stage trays before arrival.",
-      teacherToolkit: {
-        prepChecklist: ["Set bins", "Print vocab cards"],
-        observationFocus: ["Uses animal words"],
-      },
-    },
-    activities: Object.fromEntries(acts.map((a) => [a.id, {
-      setupImageUrl: "https://x.test/s.jpg",
-      exampleImageUrl: "https://x.test/e.jpg",
-      teacherTips: ["Ready"],
-      observationPrompts: ["Watch sorting"],
-      settingTags: ["indoor", "small_group"],
-      substitutions: [{ need: "hay", use: "paper" }],
-      vocabulary: ["barn", "cow"],
-      setup: "Place bins at child height.",
-      steps: "Invite children to sort and name animals.",
-      adaptations: "Offer larger pieces for beginners.",
-      indoorAlternatives: "Table sort if needed.",
-      outdoorAlternatives: "Take mats outdoors.",
-    }])),
+    ...richDraft,
   });
   assert.ok(richSummary.completionPercent >= 90, `rich summary percent (${richSummary.completionPercent})`);
   assert.equal(richSummary.incompleteActivities, 0);
@@ -183,7 +248,7 @@ function main() {
     vocabulary: ["cow"],
   }), "in_progress");
 
-  console.log(`OK teaching-kit-enrichment (${pct0}% baseline → ${pctRich}% rich; upgrade summary ready)`);
+  console.log(`OK teaching-kit-enrichment (${pct0}% baseline → ${pctRich}% rich; structural/premium scoring ready)`);
 }
 
 main();
