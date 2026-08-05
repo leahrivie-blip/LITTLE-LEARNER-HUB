@@ -6604,7 +6604,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","forms-center","curriculum-sync","add-tester","programs","staff","admin-children","admin-classrooms","tester-activity","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","forms-center","forms-ai-builder","curriculum-sync","add-tester","programs","staff","admin-children","admin-classrooms","admin-families","tester-activity","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -6659,12 +6659,14 @@ const adminGroupForTab = {
   "taxonomy-audit": "content",
   "dashboard": "advanced",
   "forms-center": "content",
+  "forms-ai-builder": "content",
   "curriculum-sync": "advanced",
   "add-tester": "advanced",
   "programs": "users",
   "staff": "users",
   "admin-children": "users",
   "admin-classrooms": "users",
+  "admin-families": "users",
   "tester-activity": "advanced",
   "analytics": "advanced",
   "support": "advanced",
@@ -6735,12 +6737,14 @@ const adminTabLabels = {
   "taxonomy-audit": "Taxonomy Audit",
   "dashboard": "Testing Center",
   "forms-center": "Forms Center",
+  "forms-ai-builder": "AI Form Builder",
   "curriculum-sync": "Curriculum Sync",
-  "add-tester": "Add Tester",
+  "add-tester": "Invite Tester",
   "programs": "Programs",
   "staff": "Staff",
   "admin-children": "Children",
   "admin-classrooms": "Classrooms",
+  "admin-families": "Families",
   "tester-activity": "Tester Activity",
   "analytics": "Analytics",
   "marketing-analytics": "Marketing Analytics",
@@ -6811,7 +6815,7 @@ const adminTabLabels = {
   "usage": "Usage",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
-const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home", "forms-center", "curriculum-sync", "add-tester", "programs", "staff", "admin-children", "admin-classrooms", "tester-activity"]);
+const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home", "forms-center", "forms-ai-builder", "curriculum-sync", "add-tester", "programs", "staff", "admin-children", "admin-classrooms", "admin-families", "tester-activity"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
    Desktop side-nav remains from 1101px up (covers iPad portrait/landscape).
    Desktop can also collapse via #sidebarToggle; preference persists. */

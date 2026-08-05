@@ -18,12 +18,26 @@ body:has(#view-admin.active-view) .fh-preview-banner {
   display: none !important;
 }
 
-/* ── Testing Admin Control Center (desktop-first shell) ───────────────────── */
+/* ── Testing Admin Control Center (separate product shell) ───────────────── */
+:root {
+  --admin-cc-sidebar: #15202b;
+  --admin-cc-sidebar-ink: #e8eef4;
+  --admin-cc-sidebar-muted: #93a4b5;
+  --admin-cc-accent: #3d9b7a;
+  --admin-cc-accent-soft: rgba(61, 155, 122, 0.18);
+  --admin-cc-canvas: #eef1f4;
+  --admin-cc-panel: #ffffff;
+  --admin-cc-line: #d7dee6;
+  --admin-cc-ink: #17212b;
+  --admin-cc-muted: #5b6b7a;
+}
+
 body.llh-admin-control-center:has(#view-admin.active-view) .app-shell {
   max-width: none;
   width: 100%;
   padding: 0;
   margin: 0;
+  background: var(--admin-cc-canvas);
 }
 
 body.llh-admin-control-center:has(#view-admin.active-view) .app-shell > .main,
@@ -32,17 +46,16 @@ body.llh-admin-control-center:has(#view-admin.active-view) #view-admin {
   max-width: none;
   margin: 0;
   padding: 0;
+  background: var(--admin-cc-canvas);
 }
 
 body.llh-admin-control-center #view-admin.admin-control-center-active .admin-workspace-shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 272px minmax(0, 1fr);
   gap: 0;
   min-height: 100vh;
   align-items: stretch;
-  background:
-    radial-gradient(1200px 600px at 0% 0%, rgba(47, 111, 78, 0.07), transparent 55%),
-    linear-gradient(180deg, #f4f7f5 0%, #eef2f4 100%);
+  background: var(--admin-cc-canvas);
 }
 
 body.llh-admin-control-center #view-admin .admin-workspace-sidebar.admin-control-center-nav {
@@ -53,11 +66,12 @@ body.llh-admin-control-center #view-admin .admin-workspace-sidebar.admin-control
   overflow: hidden;
   border-radius: 0;
   border: none;
-  border-right: 1px solid #d5ddd8;
-  background: #ffffff;
-  box-shadow: 4px 0 24px rgba(20, 40, 30, 0.04);
-  padding: 18px 14px 12px;
-  gap: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--admin-cc-sidebar);
+  color: var(--admin-cc-sidebar-ink);
+  box-shadow: none;
+  padding: 22px 14px 14px;
+  gap: 14px;
   z-index: 20;
 }
 
@@ -66,6 +80,7 @@ body.llh-admin-control-center #view-admin .admin-cc-nav-body {
   min-height: 0;
   overflow: auto;
   padding-right: 2px;
+  gap: 2px;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-footer {
@@ -73,17 +88,42 @@ body.llh-admin-control-center #view-admin .admin-cc-footer {
   margin-top: auto;
   position: sticky;
   bottom: 0;
-  background: #fff;
+  background: var(--admin-cc-sidebar);
   z-index: 2;
-  padding-top: 12px;
-  padding-bottom: 4px;
+  padding-top: 14px;
+  padding-bottom: 2px;
   gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-body.llh-admin-control-center #view-admin .admin-cc-footer .primary-button,
-body.llh-admin-control-center #view-admin .admin-cc-footer .ghost-button {
+body.llh-admin-control-center #view-admin .admin-cc-footer .ghost-button,
+body.llh-admin-control-center #view-admin .admin-cc-footer .admin-sidebar-btn {
   width: 100%;
   justify-content: center;
+  color: var(--admin-cc-sidebar-ink);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: transparent;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-footer .ghost-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-return-link {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--admin-cc-sidebar-muted);
+  font: inherit;
+  font-size: 0.86rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 6px 4px 2px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-return-link:hover {
+  color: #fff;
 }
 
 /* Hide leftover member/marketing chrome inside the Control Center shell */
@@ -96,20 +136,40 @@ body.llh-admin-control-center:has(#view-admin.active-view) .llh-meta-cookie-bann
 body.llh-admin-control-center:has(#view-admin.active-view) #adminModeBadge,
 body.llh-admin-control-center:has(#view-admin.active-view) [data-admin-mode-badge],
 body.llh-admin-control-center:has(#view-admin.active-view) .admin-mode-badge,
-body.llh-admin-control-center:has(#view-admin.active-view) .admin-preview-badge {
+body.llh-admin-control-center:has(#view-admin.active-view) .admin-preview-badge,
+body.llh-admin-control-center:has(#view-admin.active-view) .page-title,
+body.llh-admin-control-center:has(#view-admin.active-view) #view-admin > .section-heading {
   display: none !important;
 }
 
+body.llh-admin-control-center #view-admin .admin-cc-brand {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 14px;
+  margin-bottom: 4px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-brand-kicker {
+  margin: 0 0 4px;
+  color: var(--admin-cc-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 body.llh-admin-control-center #view-admin .admin-cc-brand strong {
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
+  display: block;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+  color: #fff;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-brand span {
   display: block;
-  margin-top: 4px;
-  color: #5a6b62;
-  font-size: 0.82rem;
+  margin-top: 6px;
+  color: var(--admin-cc-sidebar-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-topbar-mobile {
@@ -117,7 +177,7 @@ body.llh-admin-control-center #view-admin .admin-cc-topbar-mobile {
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-group {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-group-toggle {
@@ -125,92 +185,241 @@ body.llh-admin-control-center #view-admin .admin-cc-group-toggle {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #3d5248;
+  color: var(--admin-cc-sidebar-muted);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-group-toggle:hover {
-  background: rgba(47, 111, 78, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-group-items {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 2px 0 8px 4px;
+  padding: 2px 0 10px 2px;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-item {
-  border-radius: 10px;
+  border-radius: 9px;
   padding: 9px 12px;
-  color: #24332c;
+  color: var(--admin-cc-sidebar-ink);
+  border-color: transparent;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-item:hover {
-  background: rgba(47, 111, 78, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-item.active {
-  background: rgba(47, 111, 78, 0.14);
-  border-color: rgba(47, 111, 78, 0.28);
-  color: #1f4d35;
+  background: var(--admin-cc-accent-soft);
+  border-color: rgba(61, 155, 122, 0.35);
+  color: #fff;
   font-weight: 650;
+  box-shadow: inset 3px 0 0 var(--admin-cc-accent);
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-item .admin-nav-badge {
+  background: #e35d5d;
 }
 
 body.llh-admin-control-center #view-admin .admin-workspace-main {
   min-width: 0;
-  padding: 28px 32px 48px;
+  padding: 32px 40px 56px;
   max-width: none;
+  color: var(--admin-cc-ink);
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-page-heading {
-  margin-bottom: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin: 0 0 28px;
+  max-width: 1280px;
 }
 
-body.llh-admin-control-center #view-admin .admin-cc-page-heading h3 {
-  margin: 4px 0 8px;
-  font-size: clamp(1.55rem, 2.2vw, 2rem);
-  letter-spacing: -0.02em;
+body.llh-admin-control-center #view-admin .admin-cc-kicker {
+  margin: 0 0 8px;
+  color: var(--admin-cc-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-body.llh-admin-control-center #view-admin .admin-cc-home-grid {
+body.llh-admin-control-center #view-admin .admin-cc-page-heading h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.85rem, 2.6vw, 2.35rem);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--admin-cc-ink);
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-lede {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--admin-cc-muted);
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0 0 22px;
+  max-width: 1280px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metric,
+body.llh-admin-control-center #view-admin .admin-cc-metric-btn {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 14px;
+  background: var(--admin-cc-panel);
+  box-shadow: 0 1px 0 rgba(23, 33, 43, 0.03);
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metric-btn {
+  cursor: pointer;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metric-btn:hover {
+  border-color: #b9c7b8;
+  box-shadow: 0 8px 24px rgba(23, 33, 43, 0.06);
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metric-label {
+  color: var(--admin-cc-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metric-value {
+  font-size: 1.7rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-metric-detail {
+  color: var(--admin-cc-muted);
+  font-size: 0.88rem;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-home-split {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 16px;
+  max-width: 1280px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-panel {
+  padding: 22px 24px;
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 16px;
+  background: var(--admin-cc-panel);
+  max-width: 1280px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-panel h3 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-dl {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-dl > div {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eef2f5;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-dl > div:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-dl dt {
+  margin: 0;
+  color: var(--admin-cc-muted);
+  font-size: 0.9rem;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-dl dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-dl code {
+  font-size: 0.84rem;
+  word-break: break-all;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-quick-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 8px;
 }
 
-body.llh-admin-control-center #view-admin .admin-cc-home-card {
-  padding: 20px 22px;
-  border: 1px solid #d7e0da;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 28px rgba(24, 48, 36, 0.05);
+body.llh-admin-control-center #view-admin .admin-cc-quick {
+  border: 1px solid var(--admin-cc-line);
+  border-radius: 10px;
+  background: #f7f9fb;
+  padding: 12px 14px;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--admin-cc-ink);
 }
 
-body.llh-admin-control-center #view-admin .admin-cc-home-card h4 {
-  margin: 6px 0 8px;
-  font-size: 1.15rem;
+body.llh-admin-control-center #view-admin .admin-cc-quick:hover {
+  border-color: #b7c9be;
+  background: #eef7f2;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-action-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 12px;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-forms-host,
 body.llh-admin-control-center #view-admin .admin-cc-sync-panel {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 body.llh-admin-control-center #view-admin .admin-users-panel,
@@ -221,7 +430,7 @@ body.llh-admin-control-center #view-admin .admin-feedback-panel,
 body.llh-admin-control-center #view-admin .admin-analytics-panel,
 body.llh-admin-control-center #view-admin .admin-messages-panel,
 body.llh-admin-control-center #view-admin .admin-workspace-landing-panel {
-  max-width: 1200px;
+  max-width: 1280px;
 }
 
 body.llh-admin-control-center #view-admin .admin-owner-panel,
@@ -239,8 +448,25 @@ body.llh-admin-control-center #view-admin .account-actions-row {
   gap: 10px;
 }
 
-body.llh-admin-control-center #view-admin .admin-cc-footer .primary-button {
-  justify-content: center;
+/* Soften crowded owner dashboard chrome inside the new shell */
+body.llh-admin-control-center #view-admin .admin-owner-panel {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+body.llh-admin-control-center #view-admin .admin-testing-center.admin-preview-panel {
+  gap: 18px;
+}
+
+@media (max-width: 1280px) {
+  body.llh-admin-control-center #view-admin .admin-cc-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.llh-admin-control-center #view-admin .admin-cc-home-split {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -255,7 +481,7 @@ body.llh-admin-control-center #view-admin .admin-cc-footer .primary-button {
     max-height: none;
     z-index: 40;
     border-right: none;
-    border-bottom: 1px solid #d5ddd8;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     padding: 12px;
   }
 
@@ -289,9 +515,10 @@ body.llh-admin-control-center #view-admin .admin-cc-footer .primary-button {
   }
 
   body.llh-admin-control-center #view-admin .admin-cc-menu-toggle {
-    border: 1px solid #c9d4cd;
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 10px;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
     padding: 8px 12px;
     font: inherit;
     font-weight: 600;
@@ -301,18 +528,20 @@ body.llh-admin-control-center #view-admin .admin-cc-footer .primary-button {
   body.llh-admin-control-center #view-admin .admin-cc-mobile-title {
     display: grid;
     gap: 2px;
+    color: #fff;
   }
 
   body.llh-admin-control-center #view-admin .admin-cc-mobile-title span {
-    color: #5a6b62;
+    color: var(--admin-cc-sidebar-muted);
     font-size: 0.8rem;
   }
 
   body.llh-admin-control-center #view-admin .admin-workspace-main {
-    padding: 18px 16px 36px;
+    padding: 20px 16px 40px;
   }
 
-  body.llh-admin-control-center #view-admin .admin-cc-home-grid {
+  body.llh-admin-control-center #view-admin .admin-cc-metrics,
+  body.llh-admin-control-center #view-admin .admin-cc-quick-grid {
     grid-template-columns: 1fr;
   }
 }
