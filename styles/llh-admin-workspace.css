@@ -50,15 +50,44 @@ body.llh-admin-control-center #view-admin .admin-workspace-sidebar.admin-control
   top: 0;
   height: 100vh;
   max-height: 100vh;
-  overflow: auto;
+  overflow: hidden;
   border-radius: 0;
   border: none;
   border-right: 1px solid #d5ddd8;
   background: #ffffff;
   box-shadow: 4px 0 24px rgba(20, 40, 30, 0.04);
-  padding: 18px 14px 20px;
-  gap: 12px;
+  padding: 18px 14px 12px;
+  gap: 10px;
   z-index: 20;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-nav-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+body.llh-admin-control-center #view-admin .admin-cc-footer {
+  flex: 0 0 auto;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 2;
+}
+
+/* Hide leftover member/marketing chrome inside the Control Center shell */
+body.llh-admin-control-center:has(#view-admin.active-view) #adminLockPanel,
+body.llh-admin-control-center:has(#view-admin.active-view) .admin-unlocked-bar,
+body.llh-admin-control-center:has(#view-admin.active-view) [data-llh-early-admin-unlocked],
+body.llh-admin-control-center:has(#view-admin.active-view) #llhCookieBanner,
+body.llh-admin-control-center:has(#view-admin.active-view) #llhMetaCookieNotice,
+body.llh-admin-control-center:has(#view-admin.active-view) .llh-meta-cookie-banner,
+body.llh-admin-control-center:has(#view-admin.active-view) #adminModeBadge,
+body.llh-admin-control-center:has(#view-admin.active-view) [data-admin-mode-badge],
+body.llh-admin-control-center:has(#view-admin.active-view) .admin-mode-badge {
+  display: none !important;
 }
 
 body.llh-admin-control-center #view-admin .admin-cc-brand strong {
