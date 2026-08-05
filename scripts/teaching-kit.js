@@ -65,11 +65,18 @@
    */
   const DASHBOARD_STAGES = Object.freeze([
     "Legacy",
+    "Draft Started",
+    "AI Draft Ready",
+    "In Review",
+    "Needs Changes",
+    "Ready for Owner Review",
+    "Publish Ready",
+    "Published",
+    "Archived",
+    // Back-compat aliases
     "In Progress",
     "Needs Review",
     "Ready",
-    "Published",
-    "Archived",
   ]);
 
   /**

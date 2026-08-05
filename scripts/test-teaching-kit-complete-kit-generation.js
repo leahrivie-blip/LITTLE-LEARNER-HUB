@@ -277,12 +277,16 @@ function testFullCoverageAndBatching() {
   const analysis = lessonTeacher.analyzeLessonCompleteness(plan, acts, applied.draft);
   assert(analysis.draftReadyActivities === 8, "all activities draft-ready");
   assert(analysis.counts.missing === 0 || analysis.gapSectionIds.length <= 2, "few/no major gaps after full accept");
-  const percent = enrichment.computeCompletionPercent(plan, acts, applied.draft);
-  assert(percent >= 70, `full draft completion reflects kit (${percent})`);
-  assert(percent < 100 || analysis.imagesBriefOnly >= 0, "brief-based images allowed");
+  const scores = enrichment.computeReadinessScores(plan, acts, applied.draft);
+  const percent = scores.completionPercent;
+  const thin = enrichment.computeCompletionPercent(plan, acts, { activities: {}, week: {} });
+  // #540: image briefs + printable ideas do not inflate structural/premium readiness.
+  assert(percent > thin, `full draft raises structural % above thin (${percent} > ${thin})`);
+  assert(scores.imageBriefsOnly > 0, "AI kit still supplies image briefs");
+  assert(scores.imageReadiness === 0, "briefs alone do not count as uploaded images");
+  assert(percent < 90, `brief-only kit stays below Complete structural label (${percent})`);
 
   // Thin legacy content alone must not look fully complete.
-  const thin = enrichment.computeCompletionPercent(plan, acts, { activities: {}, week: {} });
   assert(thin < 90, `thin lesson not reported complete (${thin})`);
 }
 
