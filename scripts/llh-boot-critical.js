@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r16";
+  const APP_SRC = "app.js?v=20260804-js-split-r17";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -346,6 +346,11 @@
       document.body?.classList.add("llh-testing-admin-shell", "user-authenticated");
       document.body?.classList.remove("home-view", "llh-boot-hub-loading");
       document.documentElement.classList.remove("llh-boot-hub-loading");
+      document.title = "Admin · Little Learner Hub";
+      const signupBtn = document.getElementById("signupButton");
+      if (signupBtn) signupBtn.hidden = true;
+      const loginBtn = document.getElementById("loginButton");
+      if (loginBtn) loginBtn.hidden = true;
     } catch (_error) { /* ignore */ }
 
     paintEarlyUnlockedBar(session || { email }, {
@@ -960,9 +965,9 @@
         <h3>Welcome back${testingShellState.email ? `, ${escapeHtml(testingShellState.email)}` : ""}</h3>
         <p>Your testing hub is ready. Use the buttons or left navigation — this workspace does not wait on the heavy app bundle.</p>
         <div class="llh-testing-member-actions">
-          <button type="button" class="primary-button" data-llh-shell-action="calendar">Calendar</button>
-          <button type="button" class="ghost-button" data-llh-shell-action="lessons">Lesson Plans</button>
-          <button type="button" class="ghost-button" data-llh-shell-action="messages">Messages</button>
+          <button type="button" class="${tab === "calendar" ? "primary-button" : "ghost-button"}" data-llh-shell-action="calendar" aria-current="${tab === "calendar" ? "page" : "false"}">Calendar</button>
+          <button type="button" class="${tab === "lessons" ? "primary-button" : "ghost-button"}" data-llh-shell-action="lessons" aria-current="${tab === "lessons" ? "page" : "false"}">Lesson Plans</button>
+          <button type="button" class="${tab === "messages" ? "primary-button" : "ghost-button"}" data-llh-shell-action="messages" aria-current="${tab === "messages" ? "page" : "false"}">Messages</button>
           <button type="button" class="ghost-button" data-llh-shell-action="admin">Open Admin</button>
           <button type="button" class="ghost-button" data-llh-shell-action="signout">Sign out</button>
         </div>
@@ -990,6 +995,14 @@
   function openTestingShellTab(tab) {
     const allowed = new Set(["calendar", "lessons", "messages"]);
     testingShellState.tab = allowed.has(tab) ? tab : "calendar";
+    try {
+      const titles = {
+        calendar: "Calendar · Little Learner Hub",
+        lessons: "Lesson Plans · Little Learner Hub",
+        messages: "Messages · Little Learner Hub",
+      };
+      document.title = titles[testingShellState.tab] || titles.calendar;
+    } catch (_error) { /* ignore */ }
     renderTestingShellPanel();
     if (testingShellState.tab === "messages" && !testingShellState.messages) {
       loadTestingShellMessages();
@@ -1045,6 +1058,11 @@
       document.body?.classList.remove("llh-boot-hub-loading", "home-view");
       document.body?.classList.add("user-authenticated", "llh-testing-member-shell");
       document.documentElement.classList.add("llh-boot-authenticated");
+      document.title = "Welcome · Little Learner Hub";
+      const signupBtn = document.getElementById("signupButton");
+      if (signupBtn) signupBtn.hidden = true;
+      const loginBtn = document.getElementById("loginButton");
+      if (loginBtn) loginBtn.hidden = true;
     } catch (_error) { /* ignore */ }
 
     clearFromLoginParam();

@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r16" />
+  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r17" />
   <!-- Do NOT preload app.js on testing — parsing it freezes buttons. Boot-critical loads on demand. -->
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
@@ -360,40 +360,72 @@
       color: #4a5a70;
       line-height: 1.45;
     }
-    .llh-testing-member-panel {
-      max-width: 560px;
-      margin: 24px auto;
-      padding: 28px 24px;
+    /* Testing member / admin shells — responsive across phone, tablet, desktop */
+    .llh-testing-member-panel,
+    .llh-testing-admin-panel {
+      width: 100%;
+      max-width: min(1120px, 100%);
+      margin: 0;
+      padding: clamp(16px, 2.5vw, 28px);
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.96);
       border: 1px solid rgba(36, 48, 71, 0.1);
       box-shadow: 0 16px 40px rgba(26, 43, 74, 0.1);
+      box-sizing: border-box;
     }
-    .llh-testing-member-panel h3 { margin: 0 0 8px; color: #1f2a3d; }
-    .llh-testing-member-panel > p { color: #4a5a70; line-height: 1.45; }
+    .llh-testing-member-panel h3,
+    .llh-testing-admin-panel h3 {
+      margin: 0 0 8px;
+      color: #1f2a3d;
+      font-size: clamp(1.25rem, 2vw, 1.6rem);
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .llh-testing-member-panel > p,
+    .llh-testing-admin-panel > p {
+      color: #4a5a70;
+      line-height: 1.45;
+      max-width: 62ch;
+    }
     .llh-testing-member-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin: 18px 0 10px;
+      margin: 18px 0 14px;
+    }
+    .llh-testing-member-actions .primary-button,
+    .llh-testing-member-actions .ghost-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 14px;
+      text-decoration: none;
+      box-sizing: border-box;
+      white-space: nowrap;
     }
     .llh-shell-body { margin-top: 8px; text-align: left; }
     .llh-shell-body h4 { margin: 0 0 8px; color: #1f2a3d; }
     .llh-shell-card-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+      gap: 12px;
       margin-top: 12px;
     }
     .llh-shell-card {
       display: grid;
       gap: 4px;
-      padding: 12px;
+      padding: 14px;
       border-radius: 12px;
       border: 1px solid rgba(36, 48, 71, 0.1);
       background: #f7fafc;
+      min-width: 0;
     }
-    .llh-shell-card strong { color: #1f2a3d; font-size: 0.95rem; }
+    .llh-shell-card strong {
+      color: #1f2a3d;
+      font-size: 0.95rem;
+      overflow-wrap: anywhere;
+    }
     .llh-shell-card span { color: #5a6b82; font-size: 0.85rem; }
     .llh-shell-schedule-list {
       list-style: none;
@@ -409,25 +441,191 @@
       border-radius: 12px;
       background: #f7fafc;
       border: 1px solid rgba(36, 48, 71, 0.08);
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     body.llh-testing-member-shell #view-home { display: none !important; }
     body.llh-testing-member-shell #view-calendar {
       display: block !important;
       visibility: visible !important;
+      width: 100%;
+      max-width: none;
+      padding: clamp(12px, 2vw, 28px) clamp(16px, 3vw, 36px) clamp(28px, 4vw, 48px);
+      box-sizing: border-box;
     }
-    .llh-testing-admin-panel {
-      max-width: 920px;
-      margin: 0 0 20px;
-      padding: 24px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.96);
-      border: 1px solid rgba(36, 48, 71, 0.1);
-      box-shadow: 0 16px 40px rgba(26, 43, 74, 0.1);
+    /* Shell has its own welcome header — hide duplicate Calendar title chrome */
+    body.llh-testing-member-shell #view-calendar > .page-title,
+    body.llh-testing-member-shell #platformInstallCardHost {
+      display: none !important;
     }
-    .llh-testing-admin-panel h3 { margin: 0 0 8px; color: #1f2a3d; }
+    body.llh-testing-member-shell #mainCalendarApp {
+      width: 100%;
+      max-width: min(1120px, 100%);
+    }
+    body.llh-testing-member-shell #signupButton,
+    body.llh-testing-member-shell #loginButton,
+    body.llh-testing-member-shell [data-action="start-free"],
+    body.llh-testing-member-shell .lp-mobile-sticky-cta {
+      display: none !important;
+    }
     body.llh-testing-admin-shell #adminProtectedContent { display: block !important; }
     body.llh-testing-admin-shell #llhHubLoadingGate[hidden],
     html.llh-boot-admin-route #llhHubLoadingGate[hidden] { display: none !important; }
+    /* Admin unlock/setup: full-width main (no member sidebar crowding the form) */
+    html.llh-boot-admin-route .app-shell,
+    body.llh-testing-admin-shell .app-shell {
+      grid-template-columns: 1fr !important;
+    }
+    html.llh-boot-admin-route .sidebar,
+    body.llh-testing-admin-shell .sidebar {
+      display: none !important;
+    }
+    /* Keep testing Admin focused: hide unfinished legacy widgets that look broken without app.js */
+    body.llh-testing-admin-shell #adminSectionNav,
+    body.llh-testing-admin-shell #adminWorkspaceMain > :not(#llhTestingAdminShell),
+    body.llh-testing-admin-shell .admin-workspace-shell > .admin-layout,
+    body.llh-testing-admin-shell #adminProtectedContent .admin-layout {
+      display: none !important;
+    }
+    html.llh-boot-admin-route #view-admin,
+    body.llh-testing-admin-shell #view-admin {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: clamp(16px, 3vw, 40px) clamp(16px, 4vw, 48px) clamp(32px, 5vw, 56px);
+      box-sizing: border-box;
+    }
+    html.llh-boot-admin-route #view-admin > .page-title {
+      max-width: 40rem;
+      margin-bottom: clamp(12px, 2vw, 20px);
+    }
+    html.llh-boot-admin-route #view-admin > .page-title h2 {
+      font-size: clamp(1.55rem, 2.4vw, 2.1rem);
+      line-height: 1.2;
+    }
+    body.llh-testing-admin-shell #view-admin > .page-title {
+      display: none !important;
+    }
+    html.llh-boot-admin-route .admin-lock-panel,
+    body.llh-testing-admin-shell .admin-lock-panel {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    /* Restore two-column unlock layout on desktop (do not force display:block) */
+    html.llh-boot-admin-route .admin-lock-content,
+    body.llh-testing-admin-shell .admin-unlocked-bar {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 400px);
+      gap: clamp(16px, 2.5vw, 28px);
+      align-items: start;
+      width: 100%;
+      max-width: 960px;
+      margin-left: auto;
+      margin-right: auto;
+      box-sizing: border-box;
+    }
+    body.llh-testing-admin-shell .admin-unlocked-bar {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(36, 48, 71, 0.1);
+      background: rgba(255, 255, 255, 0.96);
+      margin-bottom: 16px;
+    }
+    html.llh-boot-admin-route .admin-unlock-form {
+      display: grid !important;
+      gap: 12px;
+      padding: clamp(16px, 2vw, 22px);
+      border-radius: 16px;
+      border: 1px solid rgba(36, 48, 71, 0.1);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 12px 32px rgba(26, 43, 74, 0.08);
+      box-sizing: border-box;
+    }
+    html.llh-boot-admin-route .admin-unlock-form input,
+    html.llh-boot-admin-route .admin-unlock-form .primary-button {
+      max-width: 100%;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    html.llh-boot-admin-route .admin-unlock-form .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      text-align: left;
+      font-weight: 600;
+      white-space: normal;
+    }
+    html.llh-boot-admin-route .admin-unlock-form .checkbox-row input {
+      width: auto;
+      flex: 0 0 auto;
+      margin-top: 3px;
+    }
+    html.llh-boot-admin-route .admin-unlock-form .form-note {
+      font-size: 0.9rem;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    body.llh-testing-admin-shell #adminProtectedContent,
+    body.llh-testing-admin-shell .admin-workspace-shell,
+    body.llh-testing-admin-shell #adminWorkspaceMain {
+      display: block !important;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    @media (max-width: 900px) {
+      html.llh-boot-admin-route .admin-lock-content,
+      body.llh-testing-admin-shell .admin-unlocked-bar {
+        grid-template-columns: 1fr !important;
+      }
+      body.llh-testing-admin-shell .admin-unlocked-bar .ghost-button {
+        width: 100%;
+      }
+      .llh-testing-member-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      .llh-testing-member-actions .primary-button,
+      .llh-testing-member-actions [data-llh-shell-action="admin"],
+      .llh-testing-member-actions [data-llh-admin-shell="member"] {
+        grid-column: 1 / -1;
+      }
+    }
+    @media (max-width: 560px) {
+      .llh-testing-member-actions {
+        grid-template-columns: 1fr;
+      }
+      .llh-testing-member-actions .primary-button,
+      .llh-testing-member-actions .ghost-button {
+        width: 100%;
+        white-space: normal;
+      }
+      .llh-shell-card-grid {
+        grid-template-columns: 1fr;
+      }
+      html.llh-boot-admin-route #view-admin .page-title h2 {
+        font-size: 1.45rem;
+      }
+      html.llh-boot-admin-route .admin-unlock-form {
+        padding: 14px;
+      }
+    }
+    @media (min-width: 1100px) {
+      .llh-shell-card-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      body.llh-testing-admin-shell .llh-shell-card-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      body.llh-testing-member-shell #view-calendar {
+        padding-top: 28px;
+      }
+    }
     #llhHubFrame {
       position: fixed;
       inset: 0;
@@ -452,15 +650,19 @@
       display: block !important;
       visibility: visible !important;
     }
-    html.llh-boot-admin-route #adminLockPanel,
-    html.llh-boot-admin-route #adminUnlockForm,
-    html.llh-boot-admin-route .admin-lock-content {
+    html.llh-boot-admin-route #adminLockPanel {
       display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+    html.llh-boot-admin-route .admin-lock-content {
       visibility: visible !important;
       opacity: 1 !important;
     }
     html.llh-boot-admin-route #adminUnlockForm {
       display: grid !important;
+      visibility: visible !important;
+      opacity: 1 !important;
     }
     html.llh-boot-admin-route body:not(.app-boot-ready) .view:not(#view-admin) { display: none !important; }
   </style>
@@ -2710,7 +2912,7 @@
     </div>
 
     <!-- Critical boot path only. Teaching Kit / Admin / analytics / heavy exporters lazy-load. -->
-    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r16" defer></script>
+    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r17" defer></script>
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260803-tk-enrich-preserve" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid" defer></script>
@@ -2775,7 +2977,7 @@
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260804-multi-role-tester-r1" defer></script>
     <!-- Last critical script: paints first, then injects app.js -->
-    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r16" defer></script>
+    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r17" defer></script>
     <!-- Lazy packs (llh-lazy-loader.js): teachingKit, curriculumAdmin, admin, exports, comms, adminSurface -->
   </body>
 </html>
