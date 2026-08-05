@@ -1671,6 +1671,22 @@ function normalizedCurriculumBookEntry(value) {
     notes: curriculumSentinel.isSentinelValue(entry.notes)
       ? ""
       : normalizedMultilineText(entry.notes, 1000),
+    // Teaching Kit binder fields (additive — empty keeps classic book rows unchanged).
+    suggestedWeekday: normalizedShortText(entry.suggestedWeekday || entry.dayOfWeek || entry.day, 20),
+    whyThisBook: normalizedMultilineText(entry.whyThisBook || entry.whyItFits, 2000),
+    beforeReadingQuestions: normalizedCurriculumTextList(entry.beforeReadingQuestions || entry.beforeQuestions, 12, 400),
+    duringReadingPrompts: normalizedCurriculumTextList(entry.duringReadingPrompts || entry.duringQuestions, 12, 400),
+    afterReadingQuestions: normalizedCurriculumTextList(
+      entry.afterReadingQuestions || entry.afterQuestions || entry.questions || entry.readAloudQuestions,
+      12,
+      400,
+    ),
+    vocabularyConnections: normalizedCurriculumTextList(entry.vocabularyConnections || entry.vocabulary, 16, 80),
+    extensionIdea: normalizedMultilineText(entry.extensionIdea || entry.extension, 1000),
+    alternativeBooks: normalizedCurriculumTextList(entry.alternativeBooks || entry.substitutes, 8, 180),
+    libraryNote: normalizedMultilineText(entry.libraryNote || entry.libraryAvailability, 500),
+    coverImageUrl: sanitizedLessonCoverUrl(entry.coverImageUrl || entry.coverUrl || ""),
+    coverImageAlt: normalizedShortText(entry.coverImageAlt, 240),
   };
 }
 
@@ -1681,12 +1697,72 @@ function normalizedCurriculumSongEntry(value) {
   }
   const title = normalizedShortText(entry.title, 180);
   if (!title || curriculumSentinel.isSentinelValue(title)) return null;
+  const rights = normalizedShortText(entry.rightsStatus || entry.copyrightStatus || entry.status, 40).toLowerCase();
+  const canPrintLyrics = rights === "original"
+    || rights === "public-domain"
+    || rights === "public_domain"
+    || rights === "traditional"
+    || entry.allowPrintLyrics === true;
   return {
     title,
     notes: curriculumSentinel.isSentinelValue(entry.notes)
       ? ""
       : normalizedMultilineText(entry.notes, 1000),
+    // Teaching Kit song metadata (additive). Full lyrics only when legally allowed.
+    rightsStatus: normalizedShortText(entry.rightsStatus || entry.copyrightStatus, 40),
+    tune: normalizedShortText(entry.tune || entry.tuneInformation, 180),
+    motions: normalizedMultilineText(entry.motions, 2000),
+    whenToUse: normalizedMultilineText(entry.whenToUse, 500),
+    teacherDirections: normalizedMultilineText(entry.teacherDirections || entry.directions, 2000),
+    ageAdaptations: normalizedMultilineText(entry.ageAdaptations || entry.adaptations, 2000),
+    linkedWeekday: normalizedShortText(entry.linkedWeekday || entry.dayOfWeek || entry.day, 20),
+    audioUrl: normalizedShortText(entry.audioUrl, 500),
+    externalReference: normalizedShortText(entry.externalReference, 500),
+    allowPrintLyrics: canPrintLyrics,
+    lyrics: canPrintLyrics ? normalizedMultilineText(entry.lyrics, 4000) : "",
   };
+}
+
+function normalizedPlayActivityCategory(value) {
+  const raw = normalizedShortText(value, 80);
+  if (!raw) return "Open-Ended Exploration";
+  if (PLAY_ACTIVITY_CATEGORIES.has(raw)) return raw;
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases = {
+    circle_time: "Circle Time",
+    literacy: "Literacy",
+    early_literacy: "Literacy",
+    early_math: "Literacy",
+    sensory: "Sensory Play",
+    sensory_play: "Sensory Play",
+    fine_motor: "Fine Motor",
+    gross_motor: "Gross Motor",
+    music_and_movement: "Music & Movement",
+    music_movement: "Music & Movement",
+    art: "Art",
+    process_art: "Art",
+    stem: "STEM/Discovery",
+    stem_discovery: "STEM/Discovery",
+    science: "STEM/Discovery",
+    dramatic_play: "Dramatic Play",
+    outdoor: "Outdoor Play",
+    outdoor_play: "Outdoor Play",
+    invitation_to_play: "Open-Ended Exploration",
+    open_ended_exploration: "Open-Ended Exploration",
+    small_group: "Open-Ended Exploration",
+    large_group: "Open-Ended Exploration",
+  };
+  if (aliases[key]) return aliases[key];
+  const humanized = raw
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase())
+    .replace(/\bAnd\b/g, "&");
+  if (PLAY_ACTIVITY_CATEGORIES.has(humanized)) return humanized;
+  if (humanized === "Music And Movement") return "Music & Movement";
+  if (humanized === "Stem/Discovery" || humanized === "Stem Discovery") return "STEM/Discovery";
+  return "Open-Ended Exploration";
 }
 
 function generateCurriculumItemId() {
@@ -1709,7 +1785,8 @@ function normalizedCurriculumTextList(value, maxItems = 30, maxItemLength = 4000
 function normalizedCurriculumDailyPlanDay(value) {
   const entry = value && typeof value === "object" ? value : {};
   return {
-    theme: normalizedMultilineText(entry.theme, 2000),
+    theme: normalizedMultilineText(entry.theme || entry.focus || entry.dailyFocus, 2000),
+    focus: normalizedMultilineText(entry.focus || entry.dailyFocus || entry.theme, 2000),
     objectives: normalizedMultilineText(entry.objectives, 4000),
     learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
     materials: normalizedMultilineText(entry.materials, 4000),
@@ -1717,12 +1794,23 @@ function normalizedCurriculumDailyPlanDay(value) {
     books: normalizedList(entry.books, 20, normalizedCurriculumBookEntry),
     songs: normalizedList(entry.songs, 20, normalizedCurriculumSongEntry),
     circleTime: normalizedCurriculumTextList(entry.circleTime, 20, 4000),
+    invitationToPlay: normalizedMultilineText(entry.invitationToPlay || entry.invitation, 4000),
+    sensory: normalizedMultilineText(entry.sensory || entry.sensoryExperience, 4000),
+    fineMotor: normalizedMultilineText(entry.fineMotor || entry.fineMotorExperience, 4000),
+    grossMotor: normalizedMultilineText(entry.grossMotor || entry.grossMotorExperience, 4000),
+    art: normalizedMultilineText(entry.art || entry.creative || entry.artCreative, 4000),
+    smallGroup: normalizedMultilineText(entry.smallGroup || entry.smallGroupOption, 4000),
+    largeGroup: normalizedMultilineText(entry.largeGroup || entry.largeGroupOption, 4000),
+    indoorAlternative: normalizedMultilineText(entry.indoorAlternative || entry.indoor, 4000),
     transitions: normalizedCurriculumTextList(entry.transitions, 20, 4000),
-    outdoorPlay: normalizedMultilineText(entry.outdoorPlay, 4000),
+    outdoorPlay: normalizedMultilineText(entry.outdoorPlay || entry.outdoor || entry.outdoorOption, 4000),
+    teacherPreparation: normalizedMultilineText(entry.teacherPreparation || entry.prep, 4000),
+    suggestedQuestions: normalizedCurriculumTextList(entry.suggestedQuestions || entry.questions, 20, 400),
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
-    observations: normalizedCurriculumTextList(entry.observations, 20, 4000),
+    observations: normalizedCurriculumTextList(entry.observations || entry.observationFocus, 20, 4000),
     adaptations: normalizedMultilineText(entry.adaptations, 4000),
     safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
+    teacherNotes: normalizedMultilineText(entry.teacherNotes || entry.notes, 4000),
     items: [],
   };
 }
@@ -1731,33 +1819,49 @@ function normalizedCurriculumDailyPlanItem(value) {
   const entry = value && typeof value === "object" ? value : {};
   const title = normalizedShortText(entry.title, 180);
   if (!title) return null;
-  const category = normalizedShortText(entry.activityCategory, 80);
   let itemId = normalizedShortText(entry.itemId, 120);
   if (!itemId) itemId = generateCurriculumItemId();
   return {
     itemId,
     importKey: normalizedShortText(entry.importKey, 160),
-    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    activityCategory: normalizedPlayActivityCategory(entry.activityCategory),
     title,
     objective: normalizedMultilineText(entry.objective, 4000),
+    purpose: normalizedMultilineText(entry.purpose, 4000),
     description: normalizedMultilineText(entry.description, 4000),
     learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
+    developmentalDomains: normalizedList(entry.developmentalDomains || entry.domains, 12, (item) => normalizedShortText(item, 80)).filter(Boolean),
     materials: normalizedMultilineText(entry.materials, 4000),
     setup: normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT),
     steps: normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    preparation: normalizedMultilineText(entry.preparation || entry.prep, 4000),
     teacherRole: normalizedMultilineText(entry.teacherRole, 4000),
     teacherLanguage: normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT),
     learningGoals: normalizedList(entry.learningGoals, 20, (item) => normalizedMultilineText(item, 500)).filter(Boolean),
     observationOpportunities: normalizedMultilineText(entry.observationOpportunities, 4000),
     vocabulary: normalizedMultilineText(entry.vocabulary, 4000),
-    extensions: normalizedMultilineText(entry.extensions, 4000),
+    extensions: normalizedMultilineText(entry.extensions || entry.challengeExtension, 4000),
     adaptations: normalizedMultilineText(entry.adaptations, 4000),
+    extraSupport: normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000),
+    mixedAgeAdaptations: normalizedMultilineText(entry.mixedAgeAdaptations || entry.mixedAge, 4000),
     safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
     ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
+    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
+    printableInstructions: normalizedMultilineText(entry.printableInstructions, 4000),
+    setupMinutes: Number.isFinite(Number(entry.setupMinutes)) ? Math.max(0, Math.min(180, Math.round(Number(entry.setupMinutes)))) : null,
+    durationMinutes: Number.isFinite(Number(entry.durationMinutes || entry.activityDurationMinutes))
+      ? Math.max(0, Math.min(180, Math.round(Number(entry.durationMinutes || entry.activityDurationMinutes))))
+      : null,
+    groupSize: normalizedShortText(entry.groupSize, 80),
+    dailyPlacement: normalizedShortText(entry.dailyPlacement || entry.placement, 120),
     // Teaching Kit enrichment (additive — empty keeps legacy behavior).
     // Public enrichment media paths or HTTPS/data — never private admin draft URLs.
     setupImageUrl: sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
     exampleImageUrl: sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    exampleImageCaption: normalizedShortText(entry.exampleImageCaption || entry.exampleCaption, 240),
+    setupImageCaption: normalizedShortText(entry.setupImageCaption || entry.setupCaption, 240),
+    exampleImageAlt: normalizedShortText(entry.exampleImageAlt || entry.exampleAlt, 240),
+    setupImageAlt: normalizedShortText(entry.setupImageAlt || entry.setupAlt, 240),
     setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
     exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
     teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
@@ -1773,8 +1877,10 @@ function normalizedCurriculumDailyPlanItem(value) {
       return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
     }).filter(Boolean),
     // Complete Teaching Kit binder authoring (additive).
-    indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives, 4000),
-    outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives, 4000),
+    indoorAlternative: normalizedMultilineText(entry.indoorAlternative || entry.indoorAlternatives || entry.indoor, 4000),
+    outdoorOption: normalizedMultilineText(entry.outdoorOption || entry.outdoorAlternatives || entry.outdoor, 4000),
+    indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives || entry.indoorAlternative, 4000),
+    outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives || entry.outdoorOption, 4000),
     cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
   };
 }
@@ -17760,12 +17866,12 @@ function parseTeachingKitReadyMaterials(url) {
 }
 
 /**
- * Resolve the caller email for Teaching Kit Owner Preview.
- * Member identity wins over admin tokens so a shared-browser Admin unlock cannot
- * elevate a different signed-in account. Admin session email is used only when
- * no member identity is present.
+ * Resolve Teaching Kit caller identity for Owner Preview.
+ * Returns { email, adminEmail, hasOwnerAdminSession }.
+ * Owner Preview requires BOTH owner identity and a valid owner admin session
+ * (server-enforced). Member identity alone or foreign admin tokens never elevate.
  */
-async function resolveTeachingKitCallerEmail(request, url) {
+async function resolveTeachingKitCallerContext(request, url) {
   let identity = null;
   if (firebaseConfigStatus().ready) {
     try {
@@ -17785,20 +17891,51 @@ async function resolveTeachingKitCallerEmail(request, url) {
     const allowHeaderIdentity = process.env.NODE_ENV === "test"
       || String(process.env.DATABASE_PROVIDER || "").toLowerCase() === "local-json";
     if (allowHeaderIdentity) {
-      // Browsers may concatenate duplicate X-LLH-User-Email values with commas
-      // ("a@x, a@x"). Take the first segment so Owner Preview matching still works.
       const headerRaw = String(request.headers["x-llh-user-email"] || "").trim();
       const headerEmail = normalizeEmail(headerRaw.split(",")[0] || "");
       if (headerEmail) identity = { uid: `local-${headerEmail}`, email: headerEmail };
     }
   }
-  if (identity?.email) return normalizeEmail(identity.email);
 
-  const adminToken = extractAdminToken(request, url);
-  if (!adminToken) return "";
-  // extractAdminToken returns any Bearer value; only real admin sessions elevate.
-  const session = adminSessionStore.validate(adminToken);
-  return session?.email ? normalizeEmail(session.email) : "";
+  // Prefer a *validated* admin session token. extractAdminToken() returns the raw
+  // Authorization bearer first, which may be a member/test token — do not treat
+  // invalid bearer values as the admin session when a valid adminToken query exists.
+  const authHeader = String(request?.headers?.authorization || "");
+  const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const queryAdminToken = String(url?.searchParams?.get("adminToken") || "").trim();
+  let session = bearerToken ? adminSessionStore.validate(bearerToken) : null;
+  let adminToken = session ? bearerToken : "";
+  if (!session && queryAdminToken) {
+    session = adminSessionStore.validate(queryAdminToken);
+    if (session) adminToken = queryAdminToken;
+  }
+  void adminToken;
+  const adminEmail = session?.email ? normalizeEmail(session.email) : "";
+  const identityEmail = identity?.email ? normalizeEmail(identity.email) : "";
+
+  // Prefer member identity when present; otherwise fall back to admin session email
+  // only for pairing with the admin permission check (still requires both).
+  const email = identityEmail || adminEmail;
+  const hasOwnerAdminSession = Boolean(
+    adminEmail
+    && teachingKit.isTeachingKitOwnerPreviewEmail(adminEmail)
+    && session,
+  );
+
+  return {
+    email,
+    identityEmail,
+    adminEmail,
+    hasOwnerAdminSession,
+  };
+}
+
+/** @deprecated Use resolveTeachingKitCallerContext — kept for older call sites/tests. */
+async function resolveTeachingKitCallerEmail(request, url) {
+  const ctx = await resolveTeachingKitCallerContext(request, url);
+  return ctx.email || "";
 }
 
 /**
@@ -17818,8 +17955,13 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   const store = peekStore();
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const flags = normalizedFeatureFlags(siteContent.featureFlags);
-  const callerEmail = await resolveTeachingKitCallerEmail(request, url);
-  const ownerPreview = teachingKit.isTeachingKitOwnerPreviewEmail(callerEmail);
+  const caller = await resolveTeachingKitCallerContext(request, url);
+  // Dual gate: owner identity email + valid owner admin session. Email alone fails.
+  const ownerPreview = teachingKit.isTeachingKitOwnerPreviewAuthorized({
+    email: caller.identityEmail || caller.email,
+    adminEmail: caller.adminEmail,
+    hasOwnerAdminSession: caller.hasOwnerAdminSession,
+  });
   if (!teachingKit.isTeachingKitApiEnabledForRequest(flags, { ownerPreview })) {
     jsonResponse(response, 404, {
       error: "Teaching Kit is not available.",
@@ -17840,7 +17982,10 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   const mapperOptions = {
     day: CURRICULUM_WEEKDAYS.has(dayParam) ? dayParam : "monday",
     readyMaterials: parseTeachingKitReadyMaterials(url),
-    includeEmptySections: false,
+    // Owner preview shows intentional empty binder sections; customers hide empties.
+    includeEmptySections: ownerPreview === true,
+    includeEmptyBinderTabs: ownerPreview === true,
+    ownerPreview: ownerPreview === true,
   };
 
   const access = await resolveCurriculumAccessUser(request, url);

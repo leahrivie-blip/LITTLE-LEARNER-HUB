@@ -114,10 +114,16 @@
           text(act.setup || patch.setup),
           text(act.steps || patch.steps),
           text(act.objective || patch.objective),
+          text(act.adaptations || patch.adaptations),
+          text(act.extraSupport || patch.extraSupport),
+          text(act.mixedAgeAdaptations || patch.mixedAgeAdaptations),
+          text(act.safetyNotes || patch.safetyNotes),
+          text(act.materials || patch.materials),
           ...asArray(patch.teacherTips),
+          ...asArray(act.teacherTips),
           ...asArray(patch.observationPrompts),
-          text(patch.indoorAlternatives || act.indoorAlternatives),
-          text(patch.outdoorAlternatives || act.outdoorAlternatives),
+          text(patch.indoorAlternatives || act.indoorAlternatives || act.indoorAlternative),
+          text(patch.outdoorAlternatives || act.outdoorAlternatives || act.outdoorOption),
           text(patch.imageBriefSetup),
           text(patch.imageBriefExample),
         ];
@@ -177,6 +183,11 @@
     "weak_teacher_prep",
     "missing_materials",
     "domain_imbalance",
+    "missing_weekday_focus",
+    "missing_activity_instructions",
+    "missing_safety_guidance",
+    "placeholder_text",
+    "copyright_concern",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
@@ -638,6 +649,237 @@
         severity: "high",
         message: "Materials checklist is missing.",
         suggestion: "List ordinary materials teachers can stage in 10 minutes.",
+      }));
+    }
+
+    // Weekday focus + daily materials
+    const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+    const dailyPlans = plan?.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
+    const missingFocusDays = weekdays.filter((day) => {
+      const dayPlan = dailyPlans[day] || {};
+      return !text(dayPlan.theme || dayPlan.focus || dayPlan.objectives);
+    });
+    if (missingFocusDays.length && list.length) {
+      findings.push(finding({
+        code: "missing_weekday_focus",
+        section: "weekly_plan",
+        severity: "high",
+        message: `Missing daily focus for: ${missingFocusDays.join(", ")}.`,
+        suggestion: "Add a clear daily focus for each weekday before approval. Do not use “coming soon” placeholders.",
+      }));
+    }
+    const missingDailyMaterials = weekdays.filter((day) => {
+      const dayPlan = dailyPlans[day] || {};
+      return !text(dayPlan.materials);
+    });
+    if (missingDailyMaterials.length >= 3 && list.length) {
+      findings.push(finding({
+        code: "missing_daily_materials",
+        section: "materials",
+        severity: "medium",
+        message: `Daily materials missing for ${missingDailyMaterials.length} weekdays.`,
+        suggestion: "List Monday–Friday materials separately from the master week list.",
+      }));
+    }
+
+    // Duplicate materials (safe normalize — report only)
+    try {
+      const materialsApi = (typeof require === "function" ? require("./teaching-kit-materials.js") : null)
+        || (root && root.LLHTeachingKitMaterials);
+      if (materialsApi?.normalizeMaterialInventory) {
+        const allLabels = [
+          ...String(week.weeklyMaterials || plan?.weeklyMaterials || "").split(/[\n,;]+/),
+          ...weekdays.flatMap((day) => String(dailyPlans[day]?.materials || "").split(/[\n,;]+/)),
+          ...list.flatMap((act) => String(act.materials || "").split(/[\n,;]+/)),
+        ].map((item) => text(item)).filter(Boolean);
+        const inv = materialsApi.normalizeMaterialInventory(allLabels, "quality");
+        if (inv.duplicatesRemoved >= 3) {
+          findings.push(finding({
+            code: "duplicate_materials",
+            section: "materials",
+            severity: "medium",
+            message: `${inv.duplicatesRemoved} duplicate or near-duplicate material labels detected.`,
+            suggestion: "Normalize casing and synonyms (e.g. Hay/hay, Basket/baskets) without deleting distinct supplies.",
+          }));
+        }
+      }
+    } catch (_materialsError) {
+      /* optional helper */
+    }
+
+    // Activity instructions / adaptations / images / safety
+    let missingInstructions = 0;
+    let missingAdaptations = 0;
+    let missingImageAlts = 0;
+    let missingObsActivity = 0;
+    list.forEach((act) => {
+      if (!text(act.steps) && !text(act.setup)) missingInstructions += 1;
+      if (!text(act.adaptations) && !text(act.extraSupport) && !text(act.mixedAgeAdaptations)) missingAdaptations += 1;
+      if (!text(act.observationOpportunities) && !text(act.observationIdeas) && !asArray(act.observationIdeas).length) {
+        missingObsActivity += 1;
+      }
+      const hasImg = text(act.exampleImageUrl || act.examplePhotoUrl || act.setupImageUrl || act.setupPhotoUrl);
+      const hasAlt = text(act.exampleImageAlt || act.exampleAlt || act.setupImageAlt || act.setupAlt);
+      if (hasImg && !hasAlt) missingImageAlts += 1;
+      const draftAct = draftActs[act.id] || {};
+      const draftImg = text(draftAct.exampleImageUrl || draftAct.setupImageUrl);
+      const draftAlt = text(draftAct.exampleImageAlt || draftAct.setupImageAlt);
+      if (draftImg && !draftAlt) missingImageAlts += 1;
+    });
+    if (missingInstructions) {
+      findings.push(finding({
+        code: "missing_activity_instructions",
+        section: "activities",
+        severity: "high",
+        message: `${missingInstructions} activit${missingInstructions === 1 ? "y" : "ies"} missing setup/steps.`,
+        suggestion: "Add classroom-ready preparation and step-by-step directions for each activity.",
+      }));
+    }
+    if (missingAdaptations && list.length >= 2) {
+      findings.push(finding({
+        code: "missing_adaptations",
+        section: "activities",
+        severity: "medium",
+        message: `${missingAdaptations} activit${missingAdaptations === 1 ? "y" : "ies"} missing support/challenge/mixed-age adaptations.`,
+        suggestion: "Add differentiation that is specific to the activity — avoid repeated boilerplate.",
+      }));
+    }
+    if (missingImageAlts) {
+      findings.push(finding({
+        code: "missing_image_alt",
+        section: "example_images",
+        severity: "medium",
+        message: `${missingImageAlts} image(s) missing useful alt text.`,
+        suggestion: "Describe what teachers should see in the setup or finished example.",
+      }));
+    }
+
+    // Boilerplate / generic prompts / raw labels / placeholders
+    const genericPromptMatches = body.match(/can you show me or tell me about/gi) || [];
+    if (genericPromptMatches.length >= 3) {
+      findings.push(finding({
+        code: "generic_prompts",
+        section: "vocabulary",
+        severity: "medium",
+        message: `Repeated generic prompt wording appears ${genericPromptMatches.length} times.`,
+        suggestion: "Vary prompts (What do you notice? How are these alike? What sound might it make?).",
+      }));
+    }
+    const boilerplateSnippets = [
+      /offer extra support as needed/gi,
+      /supervise children closely at all times/gi,
+      /adapt for mixed ages as appropriate/gi,
+      /clean up materials when finished/gi,
+    ];
+    let boilerplateHits = 0;
+    boilerplateSnippets.forEach((re) => {
+      const hits = body.match(re) || [];
+      if (hits.length >= 2) boilerplateHits += hits.length;
+    });
+    if (boilerplateHits >= 4) {
+      findings.push(finding({
+        code: "repeated_boilerplate",
+        section: "activities",
+        severity: "high",
+        message: "Repeated boilerplate adaptation/safety language appears across activities.",
+        suggestion: "Replace generic paragraphs with activity-specific guidance (materials, supervision, and next steps).",
+      }));
+    }
+    if (/circle_time|fine_motor|gross_motor|process_art|invitation_to_play/i.test(body)) {
+      findings.push(finding({
+        code: "raw_internal_labels",
+        section: "activities",
+        severity: "medium",
+        message: "Raw internal category labels (e.g. circle_time) appear in teacher-facing text.",
+        suggestion: "Use customer-facing labels such as “Circle Time”.",
+      }));
+    }
+    if (/coming soon|lorem ipsum|TODO|TBD|placeholder|\[insert/i.test(body)) {
+      findings.push(finding({
+        code: "placeholder_text",
+        section: "completeness",
+        severity: "blocking",
+        blocking: true,
+        message: "Placeholder or “coming soon” text is still present.",
+        suggestion: "Remove placeholders and author the real content before approval.",
+      }));
+    }
+    if (/©|all rights reserved|disney|peppa|frozen lyrics|copyrighted lyrics/i.test(body)) {
+      findings.push(finding({
+        code: "copyright_concern",
+        section: "songs",
+        severity: "blocking",
+        blocking: true,
+        message: "Possible copyrighted lyrics or protected media references detected.",
+        suggestion: "Store full lyrics only for original or verified public-domain/traditional songs.",
+      }));
+    }
+
+    // Books discussion questions + song metadata
+    const bookEntries = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
+    const thinBooks = bookEntries.filter((book) => {
+      if (!book || typeof book !== "object") return true;
+      const questions = asArray(book.beforeReadingQuestions).length
+        + asArray(book.duringReadingPrompts).length
+        + asArray(book.afterReadingQuestions || book.questions || book.readAloudQuestions).length;
+      return questions < 1;
+    });
+    if (bookEntries.length && thinBooks.length) {
+      findings.push(finding({
+        code: "missing_book_questions",
+        section: "books",
+        severity: "medium",
+        message: `${thinBooks.length} book(s) missing discussion questions.`,
+        suggestion: "Add before/during/after prompts without copying book text.",
+      }));
+    }
+    const songEntries = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
+    const thinSongs = songEntries.filter((song) => {
+      if (!song || typeof song !== "object") return true;
+      return !text(song.rightsStatus || song.copyrightStatus) && !text(song.motions || song.whenToUse || song.teacherDirections);
+    });
+    if (songEntries.length && thinSongs.length) {
+      findings.push(finding({
+        code: "missing_song_metadata",
+        section: "songs",
+        severity: "medium",
+        message: `${thinSongs.length} song(s) missing rights status or teaching metadata.`,
+        suggestion: "Record rights status, motions, when to use, and teacher directions. Print lyrics only when legally allowed.",
+      }));
+    }
+
+    // Latex-free guidance for milking / glove activities
+    if (/rubber glove|pinhole|milk(ing)? (cow|station|activity)/i.test(body)
+      && !/latex-free|nitrile|vinyl/i.test(body)) {
+      findings.push(finding({
+        code: "missing_safety_guidance",
+        section: "safety",
+        severity: "blocking",
+        blocking: true,
+        message: "Milking / glove activity needs latex-free materials, sanitation, and supervision notes.",
+        suggestion: "Require a latex-free glove or safer equivalent, sanitize before/after, and note close supervision.",
+      }));
+    }
+
+    // Print sections with no resources (when enrichment claims printables)
+    if (asArray(week.printableIdeas).length && !asArray(plan?.resourceIds).length) {
+      findings.push(finding({
+        code: "empty_print_section",
+        section: "printables",
+        severity: "medium",
+        message: "Printable ideas are listed but no printable resources are linked.",
+        suggestion: "Link real printables or remove empty print claims before approval.",
+      }));
+    }
+
+    // Excessive setup / unrealistic daily scheduling
+    if (/90 minutes? prep|2 hours? prep|all morning setup/i.test(body)) {
+      findings.push(finding({
+        code: "excessive_setup",
+        section: "realistic",
+        severity: "medium",
+        message: "Setup time may be unrealistic for a typical childcare morning.",
+        suggestion: "Keep Monday prep near 10–20 minutes with shortcuts and substitutions.",
       }));
     }
 
