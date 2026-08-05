@@ -372,7 +372,8 @@
     "curriculum:sync-production": "node scripts/sync-production-curriculum.js",
     "test:curriculum-integrity-audit": "NODE_ENV=test node scripts/audit-curriculum-integrity.js --skip-browser",
     "curriculum:audit-integrity": "node scripts/audit-curriculum-integrity.js",
-    "curriculum:sync-production-media": "node scripts/sync-production-curriculum-media.js"
+    "curriculum:sync-production-media": "node scripts/sync-production-curriculum-media.js",
+    "test:testing-auth-invite-path": "NODE_ENV=test node scripts/test-testing-auth-invite-path.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
