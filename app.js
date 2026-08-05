@@ -5755,7 +5755,24 @@ let siteContentState = emptySiteContent();
 // loadCurriculumManagedActivities() calls isProUser() → currentAccount() → currentUser;
 // reading currentUser before this declaration throws a TDZ ReferenceError and aborts app.js.
 let currentPlan = localStorage.getItem("llhPlan") || "Free";
-let currentUser = localStorage.getItem("llhUser") || "";
+// llhUser must be a plain email string. Repair accidental JSON blobs from early testing boot.
+let currentUser = (() => {
+  const raw = localStorage.getItem("llhUser") || "";
+  if (!raw) return "";
+  const trimmed = String(raw).trim();
+  if (trimmed.charAt(0) !== "{") return trimmed;
+  try {
+    const parsed = JSON.parse(trimmed);
+    const email = String(parsed?.email || "").trim().toLowerCase();
+    if (email) {
+      localStorage.setItem("llhUser", email);
+      if (parsed?.plan) localStorage.setItem("llhPlan", String(parsed.plan));
+      return email;
+    }
+  } catch (_error) { /* ignore */ }
+  localStorage.removeItem("llhUser");
+  return "";
+})();
 // Paint last-known lesson cards immediately on installed-app cold starts.
 try {
   const bootCachedLibrary = (() => {

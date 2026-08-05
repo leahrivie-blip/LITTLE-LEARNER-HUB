@@ -12,7 +12,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r8";
+  const APP_SRC = "app.js?v=20260804-js-split-r9";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -397,13 +397,45 @@
     return data;
   }
 
+  /**
+   * app.js expects llhUser to be a plain email string (see loadAccountState).
+   * Earlier testing boot mistakenly stored a JSON object — repair that here.
+   */
+  function normalizeStoredMemberSession() {
+    try {
+      const raw = localStorage.getItem("llhUser");
+      if (!raw) return "";
+      const trimmed = String(raw).trim();
+      if (!trimmed.startsWith("{")) return trimmed.toLowerCase();
+      const parsed = JSON.parse(trimmed);
+      const email = String(parsed?.email || "").trim().toLowerCase();
+      if (!email) {
+        localStorage.removeItem("llhUser");
+        return "";
+      }
+      localStorage.setItem("llhUser", email);
+      if (parsed?.plan) {
+        try { localStorage.setItem("llhPlan", String(parsed.plan)); } catch (_e) { /* ignore */ }
+      }
+      return email;
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function readStoredMemberEmail() {
+    return normalizeStoredMemberSession();
+  }
+
   function saveEarlyMemberSession(email, data) {
     const clean = String(email || "").trim().toLowerCase();
-    localStorage.setItem("llhUser", JSON.stringify({
-      email: clean,
-      name: data?.name || clean.split("@")[0] || "Member",
-      plan: data?.plan || "free",
-    }));
+    // Must match app.js: llhUser is the email string, not a JSON blob.
+    localStorage.setItem("llhUser", clean);
+    const plan = String(data?.plan || localStorage.getItem("llhPlan") || "Pro").trim() || "Pro";
+    try { localStorage.setItem("llhPlan", plan); } catch (_error) { /* ignore */ }
+    if (data?.name) {
+      try { localStorage.setItem("llhUserName", String(data.name)); } catch (_error) { /* ignore */ }
+    }
     if (data?.memberSessionToken) {
       try {
         localStorage.setItem("llhMemberSessionToken", String(data.memberSessionToken));
@@ -416,15 +448,18 @@
     try {
       document.documentElement.classList.add("llh-boot-authenticated");
       document.body?.classList.add("llh-early-signed-in");
+      document.body?.classList.remove("home-view");
     } catch (_error) { /* ignore */ }
-    const loginBtn = document.getElementById("openLoginBtn");
-    const signupBtn = document.getElementById("openSignupBtn");
-    if (loginBtn) {
+    ["signinButton", "openLoginBtn"].forEach((id) => {
+      const loginBtn = document.getElementById(id);
+      if (!loginBtn) return;
       loginBtn.textContent = clean ? `Signed in · ${clean}` : "Signed in";
       loginBtn.setAttribute("aria-label", "Signed in");
-    }
-    if (signupBtn) signupBtn.hidden = true;
-    setStatus(`Signed in as ${clean || "member"}. Loading your hub…`);
+    });
+    document.querySelectorAll('[data-action="start-free"], #getStartedButton, #createAccountButton').forEach((el) => {
+      try { el.hidden = true; } catch (_error) { /* ignore */ }
+    });
+    setStatus(`Signed in as ${clean || "member"}. Opening your hub…`);
   }
 
   function ensureTestingAuthHint() {
@@ -511,25 +546,13 @@
         saveEarlyMemberSession(email, data);
         setAuthMessage("Signed in — opening your hub…", true);
         paintEarlySignedIn(email);
-        // Let the success message paint before the multi-MB app.js parse freezes the tab.
-        await new Promise((resolve) => window.setTimeout(resolve, 50));
-        closeEarlyAuthModal();
-        window.setTimeout(() => startCoreAppLoad({ reason: "login" }), 100);
-        const started = Date.now();
-        const timer = window.setInterval(() => {
-          if (document.body.classList.contains("app-boot-ready") && typeof window.setView === "function") {
-            window.clearInterval(timer);
-            setStatus("");
-            try {
-              window.setView("calendar", { fromBoot: true, allowDuringBootVerification: true });
-            } catch (_error) { /* ignore */ }
-            return;
-          }
-          if (Date.now() - started > 90000) {
-            window.clearInterval(timer);
-            setStatus("Signed in. Refresh if your hub does not open.");
-          }
-        }, 300);
+        // Hard handoff: reload so app.js boots with a real email session and lands
+        // on Calendar. Soft in-place load left testers on the marketing home screen.
+        await new Promise((resolve) => window.setTimeout(resolve, 80));
+        const next = new URL(window.location.href);
+        next.searchParams.set("fromLogin", "1");
+        window.location.replace(next.pathname + next.search + next.hash);
+        return;
       } catch (error) {
         setAuthMessage(error.message || "Login failed.");
       } finally {
@@ -653,6 +676,12 @@
   function onReady() {
     ensureStatusNode();
     wireEarlyAuth();
+    const memberEmail = normalizeStoredMemberSession();
+    if (memberEmail) {
+      try {
+        document.documentElement.classList.add("llh-boot-authenticated");
+      } catch (_error) { /* ignore */ }
+    }
 
     if (isAdminRoute()) {
       showAdminViewEarly();
@@ -670,12 +699,48 @@
       return;
     }
 
+    // Returning / just-logged-in member: must load the hub (otherwise login closes
+    // onto the marketing home and nothing else happens on the testing host).
+    if (memberEmail) {
+      paintEarlySignedIn(memberEmail);
+      setStatus("Signed in — opening your hub…");
+      startCoreAppLoad({ reason: "returning-session" });
+      const started = Date.now();
+      const timer = window.setInterval(() => {
+        if (document.body.classList.contains("app-boot-ready") && typeof window.setView === "function") {
+          window.clearInterval(timer);
+          setStatus("");
+          try {
+            const params = new URLSearchParams(window.location.search || "");
+            const fromLogin = params.get("fromLogin") === "1";
+            window.setView("calendar", {
+              fromBoot: true,
+              fromAuthLanding: fromLogin,
+              allowDuringBootVerification: true,
+              replaceHistory: true,
+            });
+            if (fromLogin) {
+              params.delete("fromLogin");
+              const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash || ""}`;
+              try { window.history.replaceState({}, "", clean); } catch (_e) { /* ignore */ }
+            }
+          } catch (_error) { /* ignore */ }
+          return;
+        }
+        if (Date.now() - started > 90000) {
+          window.clearInterval(timer);
+          setStatus("Signed in. Refresh if your hub does not open.");
+        }
+      }, 300);
+      return;
+    }
+
     revealHomeIfStuck();
     window.setTimeout(() => {
       if (!document.body.classList.contains("app-boot-ready")) revealHomeIfStuck();
     }, 2500);
 
-    // Homepage: do NOT auto-parse app.js on the testing host — it freezes buttons.
+    // Guest homepage on testing: do NOT auto-parse app.js — it freezes Log In.
     // Early auth modal handles Log In / Start Free without the big bundle.
     if (isTestingHost()) {
       setStatus("");
