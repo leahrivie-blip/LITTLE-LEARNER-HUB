@@ -3806,7 +3806,12 @@
         state.draft.week.weeklyOverview = event.target.value || "";
         markDirty();
       } else if (event.target.matches("[data-week-objectives]")) {
+        // Explicit manual edit claims draft ownership; blank does not copy legacy in.
         state.draft.week.objectives = event.target.value || "";
+        if (!state.draft.week.fieldOwnership || typeof state.draft.week.fieldOwnership !== "object") {
+          state.draft.week.fieldOwnership = {};
+        }
+        state.draft.week.fieldOwnership.objectives = true;
         markDirty();
       } else if (event.target.matches("[data-week-materials]")) {
         state.draft.week.weeklyMaterials = event.target.value || "";

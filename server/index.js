@@ -20650,6 +20650,7 @@ async function handlePermanentDeleteDisposableFixture(request, response) {
         mediaAssetId: mediaId,
         lessonPlanId: planId,
         reason: "disposable_fixture_permanent_delete",
+        sourceOperation: "fixture_delete",
       }));
     } catch (error) {
       cleanupLogs.push({ mediaAssetId: mediaId, error: error.message || String(error) });
@@ -21402,17 +21403,21 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
           : "Draft save for this lesson only; published content unchanged.",
       });
       await writeStoreAsync(store);
-      // After successful draft save, cleanup assets removed from this draft if unreferenced.
+      // Delayed cleanup only: enqueue possible orphans — never delete during draft save.
+      // Physical delete requires grace period + fresh authoritative ref scan (see process).
       const removedIds = enrichmentMedia.diffRemovedMediaAssetIds(previousDraft, draftPlan.enrichmentDraft);
+      const prunedHistoryIds = enrichmentMedia.assetIdsOnlyInDroppedHistory(previousHistory, nextHistory);
+      const cleanupCandidateIds = [...new Set([...removedIds, ...prunedHistoryIds])];
       const cleanupLogs = [];
-      for (const removedId of removedIds) {
-        cleanupLogs.push(await cleanupEnrichmentMediaAsset(store, {
-          mediaAssetId: removedId,
+      for (const removedId of cleanupCandidateIds) {
+        cleanupLogs.push(enrichmentMedia.enqueueCleanupCandidate(store, {
+          assetId: removedId,
           lessonPlanId: id,
-          reason: "draft_save_unreferenced",
+          sourceOperation: removedIds.includes(removedId) ? "draft_save" : "history_prune",
+          reason: removedIds.includes(removedId) ? "draft_save_unreferenced" : "history_prune_unreferenced",
         }));
       }
-      if (removedIds.length) await writeStoreAsync(store);
+      if (cleanupCandidateIds.length) await writeStoreAsync(store);
       const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
       jsonResponse(response, 200, {
         ok: true,
@@ -21422,6 +21427,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         siteContentUpdatedAt: store.siteContent.updatedAt,
         publishedUnchanged: true,
         mediaCleanup: cleanupLogs,
+        mediaCleanupMode: enrichmentMedia.cleanupModeFromEnv(),
       });
       return;
     }
@@ -22018,13 +22024,16 @@ async function deleteEnrichmentPhotoAsset(assetId, { force = false } = {}) {
 }
 
 /**
- * Ref-safe cleanup: never deletes assets still referenced, or published/shared assets.
- * Logs assetId, lessonPlanId, reason, timestamp.
+ * Enqueue a delayed cleanup candidate (no physical delete).
+ * Published/shared assets are never enqueued.
+ * Client-supplied reference lists are ignored — only server store state matters later.
  */
 async function cleanupEnrichmentMediaAsset(store, {
   mediaAssetId,
   lessonPlanId = "",
   reason = "cleanup",
+  sourceOperation = "manual_cleanup",
+  actor = "",
 } = {}) {
   const assetId = normalizedShortText(mediaAssetId, 120);
   const timestamp = new Date().toISOString();
@@ -22033,6 +22042,8 @@ async function cleanupEnrichmentMediaAsset(store, {
       assetId,
       lessonPlanId,
       reason,
+      sourceOperation,
+      actor,
       result: "rejected_invalid_id",
       timestamp,
     });
@@ -22043,41 +22054,68 @@ async function cleanupEnrichmentMediaAsset(store, {
       assetId,
       lessonPlanId,
       reason,
+      sourceOperation,
+      actor,
+      status: "skipped",
       result: "skipped_published_or_shared",
       timestamp,
     });
   }
-  const curriculum = readSiteCurriculum(store);
-  const refs = enrichmentMedia.collectCurriculumEnrichmentMediaRefs(curriculum);
+  // Fast cancel if currently referenced in this store snapshot (still only enqueue otherwise).
+  const refs = enrichmentMedia.collectStoreEnrichmentMediaRefs(store);
   const liveHits = refs.get(assetId) || [];
   if (liveHits.length) {
     return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
       assetId,
       lessonPlanId,
       reason,
+      sourceOperation,
+      actor,
+      status: "skipped",
       result: `skipped_still_referenced:${liveHits.map((h) => h.source).slice(0, 4).join(",")}`,
       timestamp,
     });
   }
-  try {
-    await deleteEnrichmentPhotoAsset(assetId);
-    if (store.enrichmentMediaRegistry) delete store.enrichmentMediaRegistry[assetId];
-    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
-      assetId,
-      lessonPlanId,
-      reason,
-      result: "deleted",
-      timestamp,
-    });
-  } catch (error) {
-    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
-      assetId,
-      lessonPlanId,
-      reason,
-      result: `error:${error.message || "delete_failed"}`,
-      timestamp,
-    });
-  }
+  const enqueued = enrichmentMedia.enqueueCleanupCandidate(store, {
+    assetId,
+    lessonPlanId,
+    sourceOperation,
+    reason,
+    now: timestamp,
+  });
+  return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
+    ...enqueued,
+    actor,
+  });
+}
+
+/**
+ * Process delayed cleanup candidates using a fresh authoritative store read.
+ * Default mode is dry-run (ENRICHMENT_MEDIA_CLEANUP_MODE); execute requires env opt-in.
+ */
+async function processEnrichmentMediaCleanupCandidates(store, {
+  actor = "",
+  mode = enrichmentMedia.cleanupModeFromEnv(),
+  graceMs = enrichmentMedia.cleanupGraceMsFromEnv(),
+  now = new Date(),
+} = {}) {
+  // Critical: re-load authoritative committed state so stale in-memory stores cannot delete.
+  const authoritativeStore = typeof readStore === "function" ? readStore() : store;
+  const result = await enrichmentMedia.processCleanupCandidates({
+    workingStore: store,
+    authoritativeStore,
+    now,
+    mode,
+    graceMs,
+    logPath: storePath,
+    deleteAssetFn: async (assetId) => {
+      await deleteEnrichmentPhotoAsset(assetId);
+    },
+  });
+  result.logs.forEach((log) => {
+    enrichmentMedia.logEnrichmentMediaCleanup(storePath, { ...log, actor });
+  });
+  return result;
 }
 
 async function handleAdminEnrichmentPhotoUpload(request, response) {
@@ -22277,20 +22315,21 @@ async function handleAdminEnrichmentPhotoDelete(request, response) {
   const mediaAssetId = normalizedShortText(body.mediaAssetId, 120);
   const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
   const reason = normalizedShortText(body.reason, 80) || "admin_delete";
+  const actor = normalizedShortText(body.adminEmail || "", 120);
   if (!enrichmentMedia.isEnrichmentMediaAssetId(mediaAssetId)) {
     jsonResponse(response, 400, { error: "Valid mediaAssetId is required.", code: "invalid_media_asset" });
     return;
   }
+  // Never trust client-provided reference lists — enqueue only after server ref check.
   const log = await cleanupEnrichmentMediaAsset(store, {
     mediaAssetId,
     lessonPlanId,
     reason,
+    sourceOperation: "manual_enqueue",
+    actor,
   });
-  if (log.result === "deleted") {
-    await writeStoreAsync(store);
-    jsonResponse(response, 200, { ok: true, mediaAssetId, deleted: true, cleanup: log });
-    return;
-  }
+  await writeStoreAsync(store);
+
   if (String(log.result || "").startsWith("skipped_still_referenced")) {
     jsonResponse(response, 409, {
       ok: false,
@@ -22313,12 +22352,69 @@ async function handleAdminEnrichmentPhotoDelete(request, response) {
     });
     return;
   }
+  if (log.result === "candidate_enqueued") {
+    // Optionally process immediately (still dry-run by default; execute only when env allows).
+    const processNow = body.processNow === true;
+    let processResult = null;
+    if (processNow) {
+      const envMode = enrichmentMedia.cleanupModeFromEnv();
+      processResult = await processEnrichmentMediaCleanupCandidates(store, {
+        actor,
+        mode: body.dryRun === true || envMode !== "execute" ? "dry-run" : "execute",
+        graceMs: body.ignoreGrace === true ? 0 : enrichmentMedia.cleanupGraceMsFromEnv(),
+      });
+      await writeStoreAsync(store);
+    }
+    jsonResponse(response, 200, {
+      ok: true,
+      mediaAssetId,
+      deleted: false,
+      candidateEnqueued: true,
+      cleanup: log,
+      processResult,
+      mediaCleanupMode: enrichmentMedia.cleanupModeFromEnv(),
+    });
+    return;
+  }
   jsonResponse(response, 400, {
     ok: false,
     mediaAssetId,
     deleted: false,
     code: "cleanup_rejected",
     cleanup: log,
+  });
+}
+
+async function handleAdminEnrichmentMediaCleanupProcess(request, response) {
+  const body = await readJson(request);
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+  const store = readStore();
+  const enrichFlags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+  const actor = normalizedShortText(body.adminEmail || "", 120);
+  // Production default is dry-run. Execute only when env ENRICHMENT_MEDIA_CLEANUP_MODE=execute
+  // AND the caller did not force dryRun:true.
+  const envMode = enrichmentMedia.cleanupModeFromEnv();
+  const effectiveMode = body.dryRun === true || envMode !== "execute" ? "dry-run" : "execute";
+  const graceMs = body.ignoreGrace === true ? 0 : enrichmentMedia.cleanupGraceMsFromEnv();
+  const result = await processEnrichmentMediaCleanupCandidates(store, {
+    actor,
+    mode: effectiveMode,
+    graceMs,
+  });
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    mode: result.mode,
+    graceMs: result.graceMs,
+    logs: result.logs,
+    candidateCount: Object.keys(store.enrichmentMediaCleanupCandidates || {}).length,
   });
 }
 
@@ -27696,6 +27792,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/upload") return await handleAdminEnrichmentPhotoUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/cleanup-process") {
+      return await handleAdminEnrichmentMediaCleanupProcess(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-suggest") return await handleAdminEnrichmentAiSuggest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-rollback") return await handleEnrichmentRollback(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/disposable-fixture/permanent-delete") {

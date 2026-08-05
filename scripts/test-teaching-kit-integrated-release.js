@@ -167,13 +167,22 @@ const FLAKY_RETRY = new Set([
   "enrichment-slice-7",
 ]);
 
+function suiteTimeoutMs(suite) {
+  // Release-candidate alone often exceeds 10 minutes (live-user-protection ~4m).
+  // Do not kill a healthy RC with the default 6-minute suite budget.
+  if (suite?.name === "release-candidate-regression") {
+    return Number(process.env.TK_RC_SUITE_TIMEOUT_MS || process.env.TK_SUITE_TIMEOUT_MS || 1200000);
+  }
+  return Number(process.env.TK_SUITE_TIMEOUT_MS || 360000);
+}
+
 function runOne(suite, { attempt = 1 } = {}) {
   const started = Date.now();
   const result = spawnSync(suite.cmd[0], suite.cmd.slice(1), {
     cwd: ROOT,
     encoding: "utf8",
     env: { ...process.env, NODE_ENV: "test", CI: "true" },
-    timeout: Number(process.env.TK_SUITE_TIMEOUT_MS || 360000),
+    timeout: suiteTimeoutMs(suite),
   });
   const row = {
     name: suite.name,

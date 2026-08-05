@@ -477,7 +477,9 @@ async function main() {
       { name: "mobile", width: 390, height: 844 },
     ]) {
       await bootEditor({ width: vp.width, height: vp.height });
-      await page.locator('[data-enrich-mode="preview"]').click({ force: true });
+      const { clickEnrichmentMode, ensureEnrichmentEditorOpen } = require("./test-helpers/tk-enrich-playwright.js");
+      await ensureEnrichmentEditorOpen(page);
+      await clickEnrichmentMode(page, "preview");
       await page.waitForSelector("[data-enrich-live-preview]", { timeout: 10000 });
       const overflow = await page.evaluate(() => {
         const shell = document.querySelector(".tk-enrich-shell");
