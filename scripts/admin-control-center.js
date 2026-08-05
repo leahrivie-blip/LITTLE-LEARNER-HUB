@@ -542,10 +542,12 @@
 
     tasks.push(
       fetchJson(`/api/admin/analytics?_=${Date.now()}`)
-        .then((data) => {
+        .then((payload) => {
+          const data = payload.analytics || payload;
           const totals = data.totals || {};
           const users = Array.isArray(data.users) ? data.users : [];
-          const userCount = users.length || Number(totals.users || totals.totalUsers || 0);
+          const userCount = users.length
+            || Number(totals.totalRegisteredUsers || totals.users || totals.totalUsers || 0);
           stats.users = String(userCount || "0");
           const testerish = users.filter((u) => {
             const plan = String(u.membershipPlan || u.plan || "").toLowerCase();
@@ -553,18 +555,35 @@
             const role = String(u.role || u.accountType || "").toLowerCase();
             return /test|tester|preview/.test(email) || plan.includes("test") || /tester|parent|staff/.test(role);
           });
-          stats.activeTesters = String(testerish.length || Number(totals.activeUsers || totals.active || 0) || "0");
+          stats.activeTesters = String(
+            testerish.length
+            || Number(totals.activeUsers || totals.activeUsersWeek || totals.active || 0)
+            || "0",
+          );
           const feedback = Array.isArray(data.feedback) ? data.feedback : [];
           const openFeedback = feedback.filter((f) => !/resolved|archived|closed/i.test(String(f.status || "new")));
-          stats.feedback = String(openFeedback.length || Number(totals.feedback || 0) || "0");
+          stats.feedback = String(
+            openFeedback.length
+            || Number(totals.openFeedback || totals.feedback || 0)
+            || "0",
+          );
           const tickets = Array.isArray(data.supportTickets) ? data.supportTickets : [];
           const openTickets = tickets.filter((t) => !/resolved|closed|archived|complete/i.test(String(t.status || "open")));
-          stats.openIssues = String(openTickets.length + openFeedback.length);
+          const openIssues = openTickets.length
+            + openFeedback.length
+            + Number(totals.openSupportTickets || 0)
+            + Number(totals.openBugReports || 0)
+            + Number(totals.openFeatureRequests || 0);
+          stats.openIssues = String(openIssues || "0");
           const events = Array.isArray(data.recentEvents) ? data.recentEvents : [];
           const aiEvents = events.filter((e) => /ai|openai|prompt|form.builder|generate/i.test(String(e.name || e.type || "")));
           stats.aiActivity = aiEvents.length
             ? `${aiEvents.length} recent AI events`
             : (events[0] ? `Last: ${events[0].name || "activity"}` : "No recent AI events");
+          if (!stats.testLessons || stats.testLessons === "—") {
+            const published = Number(totals.publishedLessonPlans || 0);
+            if (published) stats.testLessons = String(published);
+          }
         })
         .catch(() => {
           stats.users = "Unavailable";
