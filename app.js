@@ -6604,12 +6604,16 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","forms-center","curriculum-sync","add-tester","programs","staff","admin-children","admin-classrooms","tester-activity","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
 // Old Settings → Homepage tab removed; Site Editor is the only homepage editor. Redirect stale preference.
-const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage" ? "images" : (adminActiveSectionTabRaw === "dashboard" ? "admin-home" : adminActiveSectionTabRaw);
+// Testing keeps "dashboard" as Testing Center — do not remap it to Admin Home.
+const __llhTestingAdminAtBoot = Boolean(typeof window !== "undefined" && window.LLH_CONFIG && window.LLH_CONFIG.homeDaycareHubTesting);
+const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage"
+  ? "images"
+  : (adminActiveSectionTabRaw === "dashboard" && !__llhTestingAdminAtBoot ? "admin-home" : adminActiveSectionTabRaw);
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNormalized) ? adminActiveSectionTabNormalized : "admin-home";
 if (adminActiveSectionTab === "lesson-plans") adminActiveSectionTab = "curriculum-lesson-plans";
 if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-activities";
@@ -6654,6 +6658,14 @@ const adminGroupForTab = {
   "admin-settings": "advanced",
   "taxonomy-audit": "content",
   "dashboard": "advanced",
+  "forms-center": "content",
+  "curriculum-sync": "advanced",
+  "add-tester": "advanced",
+  "programs": "users",
+  "staff": "users",
+  "admin-children": "users",
+  "admin-classrooms": "users",
+  "tester-activity": "advanced",
   "analytics": "advanced",
   "support": "advanced",
   "feedback": "advanced",
@@ -6721,7 +6733,15 @@ const adminTabLabels = {
   "advanced-home": "Advanced Home",
   "admin-settings": "Settings",
   "taxonomy-audit": "Taxonomy Audit",
-  "dashboard": "Full Dashboard",
+  "dashboard": "Testing Center",
+  "forms-center": "Forms Center",
+  "curriculum-sync": "Curriculum Sync",
+  "add-tester": "Add Tester",
+  "programs": "Programs",
+  "staff": "Staff",
+  "admin-children": "Children",
+  "admin-classrooms": "Classrooms",
+  "tester-activity": "Tester Activity",
   "analytics": "Analytics",
   "marketing-analytics": "Marketing Analytics",
   "advisor": "AI Business Advisor",
@@ -6791,7 +6811,7 @@ const adminTabLabels = {
   "usage": "Usage",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
-const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home"]);
+const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home", "forms-center", "curriculum-sync", "add-tester", "programs", "staff", "admin-children", "admin-classrooms", "tester-activity"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
    Desktop side-nav remains from 1101px up (covers iPad portrait/landscape).
    Desktop can also collapse via #sidebarToggle; preference persists. */
@@ -18222,6 +18242,10 @@ function setView(view, options = {}) {
   nextSection.classList.add("active-view");
   document.body.classList.add("app-booted");
   ensureNavigationShellReady();
+  if (resolvedView !== "admin") {
+    document.body.classList.remove("llh-admin-control-center", "admin-cc-drawer-open");
+    document.querySelector("#view-admin")?.classList.remove("admin-control-center-active");
+  }
   if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
   document.body.classList.toggle("home-view", resolvedView === "home" && !isLoggedIn());
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
@@ -52874,8 +52898,35 @@ function setAdminGroup(groupId, options = {}) {
 function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
-  const currentGroup = adminActiveGroup || "admin-home";
   const unread = Number(adminNotificationState.unreadCount || 0);
+
+  // Testing-only: dedicated Admin Control Center sidebar (separate from member site nav).
+  if (
+    typeof isHomeDaycareHubTestingEnabled === "function"
+    && isHomeDaycareHubTestingEnabled()
+    && window.AdminControlCenter
+    && typeof window.AdminControlCenter.renderNav === "function"
+  ) {
+    window.AdminControlCenter.renderNav(nav, { activeTab: adminActiveSectionTab, unreadCount: unread });
+    if (typeof window.AdminControlCenter.wireNav === "function") {
+      window.AdminControlCenter.wireNav(nav);
+    }
+    if (typeof window.AdminWorkspace?.updateSidebarNotificationBadge === "function") {
+      window.AdminWorkspace.updateSidebarNotificationBadge();
+    }
+    return;
+  }
+
+  // If testing but control-center script is still loading, ensure it and fall back briefly.
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    if (window.LLHLazyLoader?.ensure) {
+      window.LLHLazyLoader.ensure("adminSurface").then(() => {
+        if (isAdminUnlocked() && window.AdminControlCenter) renderAdminSectionNav();
+      }).catch(() => {});
+    }
+  }
+
+  const currentGroup = adminActiveGroup || "admin-home";
   const sidebarItems = [
     { id: "admin-home", icon: "🏠", label: "Admin Home" },
     { id: "insights", icon: "🧭", label: "Insights" },
@@ -52890,6 +52941,9 @@ function renderAdminSectionNav() {
     { id: "advanced", icon: "🔧", label: "Advanced" },
     { id: "alerts", icon: "🔔", label: "Alerts", alertsOnly: true },
   ];
+  document.body.classList.remove("llh-admin-control-center");
+  document.querySelector("#view-admin")?.classList.remove("admin-control-center-active");
+  nav.classList.remove("admin-control-center-nav");
   nav.innerHTML = `
     <div class="admin-sidebar-brand">
       <strong>Little Learner Hub</strong>
@@ -52993,23 +53047,14 @@ function applyAdminSectionVisibility() {
     }
     try {
       if (!landingApp) throw new Error("Admin landing workspace is missing from the page.");
+      // Testing Control Center landings (Admin Home dashboard, Forms Center, Curriculum Sync, etc.)
+      if (window.AdminControlCenter?.tryRenderLanding?.(tab, landingApp)) {
+        window.AdminControlCenter.applyFocusAfterRender?.();
+        return;
+      }
       if (!ws) throw new Error("Admin workspace helpers failed to load.");
       if (tab === "admin-home") {
         ws.renderAdminHomeWorkspace(landingApp);
-        // Testing site: mount Owner Command Center (Testing Center + curriculum sync)
-        // inside the landing host so workspace grid layout stays intact.
-        if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
-          const ownerPanel = document.querySelector(".admin-owner-panel");
-          const overview = document.querySelector("#adminOwnerOverview");
-          if (ownerPanel && overview && landingApp) {
-            ownerPanel.hidden = false;
-            ownerPanel.classList.add("admin-owner-panel--embedded-home");
-            if (ownerPanel.parentElement !== landingApp) {
-              landingApp.appendChild(ownerPanel);
-            }
-            renderAdminOwnerOverview();
-          }
-        }
       }
       else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
       else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
@@ -53100,6 +53145,7 @@ function applyAdminSectionVisibility() {
       el.hidden = false;
       renderAdminOwnerOverview();
     }
+    window.AdminControlCenter?.applyFocusAfterRender?.();
   } else if (tab === "resources") {
     const el = document.querySelector(".admin-layout");
     if (el) el.hidden = false;
@@ -68171,6 +68217,8 @@ document.addEventListener("click", async (event) => {
 
   const adminLockButton = event.target.closest("[data-admin-lock], #adminLockButton");
   if (adminLockButton) {
+    document.body.classList.remove("llh-admin-control-center", "admin-cc-drawer-open");
+    document.querySelector("#view-admin")?.classList.remove("admin-control-center-active");
     event.preventDefault();
     const token = adminSession()?.token || "";
     // Best-effort server revoke so Lock Admin invalidates the session token.
@@ -70731,6 +70779,11 @@ document.addEventListener("click", async (event) => {
   const sectionNavBtn = event.target.closest("[data-admin-section-tab]");
   if (sectionNavBtn) {
     if (sectionNavBtn.dataset.adminSectionTab !== adminActiveSectionTab && !confirmDiscardAdminLessonChanges()) return;
+    const focus = sectionNavBtn.getAttribute("data-admin-cc-focus") || "";
+    try {
+      if (focus) sessionStorage.setItem("llhAdminCcFocus", focus);
+      else sessionStorage.removeItem("llhAdminCcFocus");
+    } catch (_error) { /* ignore */ }
     setAdminSectionTab(sectionNavBtn.dataset.adminSectionTab);
     return;
   }
