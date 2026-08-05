@@ -465,8 +465,17 @@
     body.llh-testing-member-shell #signupButton,
     body.llh-testing-member-shell #loginButton,
     body.llh-testing-member-shell [data-action="start-free"],
-    body.llh-testing-member-shell .lp-mobile-sticky-cta {
+    body.llh-testing-member-shell .lp-mobile-sticky-cta,
+    body.llh-testing-member-shell .llh-app-footer,
+    body.llh-testing-admin-shell .llh-app-footer,
+    html.llh-boot-admin-route .llh-app-footer {
       display: none !important;
+    }
+    body.llh-testing-member-shell .main {
+      min-height: 100vh;
+    }
+    body.llh-testing-member-shell #view-calendar {
+      min-height: calc(100vh - 120px);
     }
     body.llh-testing-admin-shell #adminProtectedContent { display: block !important; }
     body.llh-testing-admin-shell #llhHubLoadingGate[hidden],
@@ -517,14 +526,17 @@
     html.llh-boot-admin-route .admin-lock-content,
     body.llh-testing-admin-shell .admin-unlocked-bar {
       display: grid !important;
-      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 400px);
-      gap: clamp(16px, 2.5vw, 28px);
-      align-items: start;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 420px);
+      gap: clamp(18px, 3vw, 32px);
+      align-items: center;
       width: 100%;
-      max-width: 960px;
+      max-width: 1040px;
       margin-left: auto;
       margin-right: auto;
       box-sizing: border-box;
+    }
+    html.llh-boot-admin-route .admin-lock-panel {
+      max-width: 1040px;
     }
     body.llh-testing-admin-shell .admin-unlocked-bar {
       grid-template-columns: minmax(0, 1fr) auto;
@@ -538,12 +550,22 @@
     html.llh-boot-admin-route .admin-unlock-form {
       display: grid !important;
       gap: 12px;
-      padding: clamp(16px, 2vw, 22px);
-      border-radius: 16px;
-      border: 1px solid rgba(36, 48, 71, 0.1);
-      background: rgba(255, 255, 255, 0.98);
-      box-shadow: 0 12px 32px rgba(26, 43, 74, 0.08);
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
       box-sizing: border-box;
+    }
+    @media (min-width: 901px) {
+      html.llh-boot-admin-route #view-admin {
+        min-height: calc(100vh - 40px);
+        display: flex !important;
+        flex-direction: column;
+        justify-content: center;
+      }
+      html.llh-boot-admin-route #view-admin > .page-title {
+        margin-top: 0;
+      }
     }
     html.llh-boot-admin-route .admin-unlock-form input,
     html.llh-boot-admin-route .admin-unlock-form .primary-button {
@@ -592,7 +614,9 @@
       }
       .llh-testing-member-actions .primary-button,
       .llh-testing-member-actions [data-llh-shell-action="admin"],
-      .llh-testing-member-actions [data-llh-admin-shell="member"] {
+      .llh-testing-member-actions [data-llh-shell-action="signout"],
+      .llh-testing-member-actions [data-llh-admin-shell="member"],
+      .llh-testing-member-actions [data-llh-admin-shell="lock"] {
         grid-column: 1 / -1;
       }
     }
