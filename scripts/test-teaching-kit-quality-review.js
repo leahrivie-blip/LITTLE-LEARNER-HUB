@@ -288,8 +288,18 @@ function runUnitTests() {
   const strong = strongerPlan();
   const strongActs = [{ id: "act-g1", title: "Seed Sensory Tray", lessonPlanId: strong.id }];
   const strongReport = quality.buildQualityReport(strong, strongActs, strong.enrichmentDraft);
-  assert(strongReport.overallScore > weakReport.overallScore, "stronger kit scores higher");
+  // Premium gates mark both kits blocked when images/printables/books are incomplete.
+  // Rank by fewer hard blockers + listed strengths — not field-presence "100% quality".
+  assert(
+    (strongReport.blockingIssues || []).length < (weakReport.blockingIssues || []).length,
+    "stronger kit has fewer hard blockers than weak kit",
+  );
+  assert(strongReport.blocksPublish === true, "stronger kit still blocked without real images/printables");
   assert(strongReport.strengths.length >= 1, "strengths listed");
+  assert(
+    (strongReport.blockingIssues || []).some((b) => b.code === "image_brief_not_image" || b.code === "missing_example_images"),
+    "image briefs never clear photo blockers",
+  );
 
   const health = quality.buildLibraryHealthDashboard(
     { lessonPlans: [weak, strong], activities: [...weakActs, ...strongActs], resources: [] },

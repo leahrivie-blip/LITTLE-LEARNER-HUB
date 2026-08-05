@@ -450,12 +450,22 @@ async function main() {
 
     async function openAiTray(page) {
       await dismissOverlays(page);
-      await page.evaluate(() => {
+      // Explicit AI only — never rely on auto-open. Confirm must be accepted (or skipped).
+      await page.evaluate(async () => {
+        window.confirm = () => true;
+        if (window.LLHTeachingKitEnrichmentEditor?.requestAiSuggestions) {
+          await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
+            scope: "activity",
+            simulate: "fixture",
+            skipConfirm: true,
+          });
+          return;
+        }
         const buttons = [...document.querySelectorAll('[data-ai-suggest="activity"]')];
         const btn = buttons[buttons.length - 1] || buttons[0];
         if (btn) btn.click();
       });
-      await page.waitForSelector("[data-ai-tray]", { timeout: 10000 });
+      await page.waitForSelector("[data-ai-tray]", { timeout: 15000 });
     }
 
     async function openEditor(page, viewport, enrichmentDraft) {

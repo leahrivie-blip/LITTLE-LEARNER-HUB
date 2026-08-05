@@ -241,9 +241,11 @@
     const medium = activeFindings.filter((f) => f.severity === "medium").length;
     const low = activeFindings.filter((f) => f.severity === "low").length;
     // Educational quality score — never call this "100% quality" from field presence alone.
+    // Do not double-count blockers inside highCount — keep relative ranking meaningful.
+    const nonBlockingHigh = activeFindings.filter((f) => f.severity === "high" && !f.blocking).length;
     const overallScore = Math.max(
       0,
-      Math.min(100, 100 - blockingIssues.length * 18 - highCount * 10 - medium * 5 - low * 2),
+      Math.min(100, 100 - blockingIssues.length * 7 - nonBlockingHigh * 4 - medium * 2 - low * 1),
     );
     const completionPercent = Number(reportBase.completionPercent) || 0;
     const premiumReadinessPercent = Number(reportBase.premiumReadinessPercent != null
@@ -977,8 +979,14 @@
           : 0,
         blockingLessons: rows.filter((r) => r.blockingCount > 0).length,
       },
-      highestQuality: [...rows].sort((a, b) => b.qualityScore - a.qualityScore).slice(0, 15),
-      lowestQuality: [...rows].sort((a, b) => a.qualityScore - b.qualityScore).slice(0, 15),
+      highestQuality: [...rows].sort((a, b) => (
+        (b.qualityScore - a.qualityScore)
+        || ((a.blockingCount || 0) - (b.blockingCount || 0))
+      )).slice(0, 15),
+      lowestQuality: [...rows].sort((a, b) => (
+        (a.qualityScore - b.qualityScore)
+        || ((b.blockingCount || 0) - (a.blockingCount || 0))
+      )).slice(0, 15),
       needingReview: rows.filter((r) => r.needsReview).slice(0, 40),
       missingBooks: rows.filter((r) => r.missingBooks).slice(0, 40),
       missingSongs: rows.filter((r) => r.missingSongs).slice(0, 40),
