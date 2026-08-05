@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r10" />
+  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r12" />
   <!-- Do NOT preload app.js on testing — parsing it freezes buttons. Boot-critical loads on demand. -->
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
@@ -234,24 +234,32 @@
       try {
         if (document.documentElement.classList.contains("llh-boot-admin-route")) return;
         var raw = localStorage.getItem("llhUser");
-        if (!raw) return;
-        if (String(raw).charAt(0) === "{") {
+        var fromLogin = /(?:\?|&)fromLogin=1(?:&|$)/.test(String(location.search || ""));
+        if (raw && String(raw).charAt(0) === "{") {
           try {
             var parsed = JSON.parse(raw);
             var email = String((parsed && parsed.email) || "").trim().toLowerCase();
             if (email) {
               localStorage.setItem("llhUser", email);
               if (parsed.plan) localStorage.setItem("llhPlan", String(parsed.plan));
+              raw = email;
             } else {
               localStorage.removeItem("llhUser");
-              return;
+              raw = "";
             }
           } catch (repairError) {
             localStorage.removeItem("llhUser");
-            return;
+            raw = "";
           }
         }
-        document.documentElement.classList.add("llh-boot-authenticated");
+        if (!raw && !fromLogin) return;
+        if (raw) document.documentElement.classList.add("llh-boot-authenticated");
+        // Show the hub-loading gate immediately after login / for returning sessions
+        // so the marketing home never looks like a failed login while app.js parses.
+        if (raw || fromLogin) {
+          document.documentElement.classList.add("llh-boot-hub-loading");
+          window.__LLH_SHOW_HUB_LOADING_GATE = true;
+        }
       } catch (error) { /* ignore */ }
     })();
     // Service worker: on the TESTING host, always unregister + clear caches.
@@ -307,6 +315,51 @@
     html.llh-boot-authenticated body:not(.app-boot-ready) .view:not(.active-view) { display: none !important; }
     html.llh-boot-authenticated body:not(.app-boot-ready) .view.active-view { display: block !important; }
     html.llh-boot-authenticated body:not(.app-boot-ready).home-view { /* prevent marketing chrome flash */ }
+    /* After login: cover marketing home so sign-in never looks like a no-op. */
+    html.llh-boot-hub-loading #view-home,
+    body.llh-boot-hub-loading #view-home {
+      visibility: hidden !important;
+    }
+    .llh-hub-loading-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 10050;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(123, 168, 201, 0.28), transparent 45%),
+        radial-gradient(circle at 80% 0%, rgba(93, 184, 154, 0.22), transparent 40%),
+        linear-gradient(160deg, #f7fafc 0%, #eef5f8 45%, #e7f0ea 100%);
+    }
+    .llh-hub-loading-gate[hidden] { display: none !important; }
+    .llh-hub-loading-card {
+      width: min(92vw, 420px);
+      padding: 28px 24px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(36, 48, 71, 0.1);
+      box-shadow: 0 18px 50px rgba(26, 43, 74, 0.12);
+      text-align: center;
+    }
+    .llh-hub-loading-card .eyebrow {
+      margin: 0 0 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      color: #5a6b82;
+    }
+    .llh-hub-loading-card strong {
+      display: block;
+      font-size: 1.35rem;
+      color: #1f2a3d;
+      margin-bottom: 8px;
+    }
+    .llh-hub-loading-card p:last-child {
+      margin: 0;
+      color: #4a5a70;
+      line-height: 1.45;
+    }
     /* /admin deep link: show Admin unlock immediately — never wait on multi-MB app.js. */
     html.llh-boot-admin-route #view-home { display: none !important; }
     html.llh-boot-admin-route #view-admin {
@@ -327,6 +380,23 @@
   </style>
   </head>
   <body>
+    <div id="llhHubLoadingGate" class="llh-hub-loading-gate" hidden role="status" aria-live="polite">
+      <div class="llh-hub-loading-card">
+        <p class="eyebrow">Little Learner Hub</p>
+        <strong id="llhHubLoadingTitle">Opening your hub…</strong>
+        <p id="llhHubLoadingDetail">Signed in — loading your workspace. This can take a moment on the first open.</p>
+      </div>
+    </div>
+    <script>
+      (function () {
+        try {
+          if (!window.__LLH_SHOW_HUB_LOADING_GATE) return;
+          var gate = document.getElementById("llhHubLoadingGate");
+          if (gate) gate.hidden = false;
+          document.body.classList.add("llh-boot-hub-loading");
+        } catch (error) { /* ignore */ }
+      })();
+    </script>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Main navigation">
         <div class="brand">
@@ -2554,7 +2624,7 @@
     </div>
 
     <!-- Critical boot path only. Teaching Kit / Admin / analytics / heavy exporters lazy-load. -->
-    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r10" defer></script>
+    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r12" defer></script>
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260803-tk-enrich-preserve" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid" defer></script>
@@ -2619,7 +2689,7 @@
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260804-multi-role-tester-r1" defer></script>
     <!-- Last critical script: paints first, then injects app.js -->
-    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r10" defer></script>
+    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r12" defer></script>
     <!-- Lazy packs (llh-lazy-loader.js): teachingKit, curriculumAdmin, admin, exports, comms, adminSurface -->
   </body>
 </html>

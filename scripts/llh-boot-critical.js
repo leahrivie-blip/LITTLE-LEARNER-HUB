@@ -12,7 +12,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r10";
+  const APP_SRC = "app.js?v=20260804-js-split-r12";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -76,10 +76,58 @@
     return el;
   }
 
+  function ensureHubLoadingGate() {
+    let gate = document.getElementById("llhHubLoadingGate");
+    if (gate) return gate;
+    gate = document.createElement("div");
+    gate.id = "llhHubLoadingGate";
+    gate.className = "llh-hub-loading-gate";
+    gate.hidden = true;
+    gate.setAttribute("role", "status");
+    gate.setAttribute("aria-live", "polite");
+    gate.innerHTML = [
+      '<div class="llh-hub-loading-card">',
+      '<p class="eyebrow">Little Learner Hub</p>',
+      '<strong id="llhHubLoadingTitle">Opening your hub…</strong>',
+      '<p id="llhHubLoadingDetail">Signed in — loading your workspace. This can take a moment on the first open.</p>',
+      '</div>',
+    ].join("");
+    const shell = document.querySelector(".app-shell");
+    if (shell && shell.parentNode) shell.parentNode.insertBefore(gate, shell);
+    else (document.body || document.documentElement).appendChild(gate);
+    return gate;
+  }
+
+  function showHubLoadingGate(title, detail) {
+    const gate = ensureHubLoadingGate();
+    const titleEl = document.getElementById("llhHubLoadingTitle");
+    const detailEl = document.getElementById("llhHubLoadingDetail");
+    if (titleEl && title) titleEl.textContent = title;
+    if (detailEl && detail) detailEl.textContent = detail;
+    gate.hidden = false;
+    try {
+      document.documentElement.classList.add("llh-boot-hub-loading");
+      document.body?.classList.add("llh-boot-hub-loading");
+    } catch (_error) { /* ignore */ }
+  }
+
+  function hideHubLoadingGate() {
+    const gate = document.getElementById("llhHubLoadingGate");
+    if (gate) gate.hidden = true;
+    try {
+      document.documentElement.classList.remove("llh-boot-hub-loading");
+      document.body?.classList.remove("llh-boot-hub-loading");
+    } catch (_error) { /* ignore */ }
+  }
+
   function setStatus(text) {
     const el = ensureStatusNode();
     el.hidden = !text;
     el.textContent = text || "";
+    if (text && (readStoredMemberEmail() || document.documentElement.classList.contains("llh-boot-authenticated"))) {
+      showHubLoadingGate("Opening your hub…", text);
+    }
+    if (!text) hideHubLoadingGate();
   }
 
   function revealHomeIfStuck() {
@@ -579,31 +627,55 @@
     if (appLoadStarted) return;
     appLoadStarted = true;
     const reason = options.reason || "manual";
-    setStatus(reason === "admin-unlocked" || isAdminRoute()
+    const loadingText = reason === "admin-unlocked" || isAdminRoute()
       ? "Loading Admin tools…"
-      : "Loading Little Learner Hub…");
-    loadScript(APP_SRC)
-      .then(() => {
-        appScriptLoaded = true;
-        setStatus("Starting Little Learner Hub…");
-        return loadScript(ONBOARDING_SRC);
-      })
-      .then(() => {
-        // Re-bind full openAuthModal if app defined it.
-        window.setTimeout(() => {
-          if (document.body.classList.contains("app-boot-ready")) setStatus("");
-        }, 500);
-        window.setTimeout(() => {
-          if (!document.body.classList.contains("app-boot-ready")) {
-            setStatus("Still starting… buttons already work; full hub is catching up.");
+      : "Loading Little Learner Hub…";
+    // Paint the full-screen gate BEFORE inserting multi-MB app.js (parse freezes the tab).
+    showHubLoadingGate(
+      reason === "admin-unlocked" || isAdminRoute() ? "Opening Admin…" : "Opening your hub…",
+      loadingText
+    );
+    setStatus(loadingText);
+    try { void ensureHubLoadingGate().offsetHeight; } catch (_error) { /* ignore */ }
+
+    const begin = () => {
+      loadScript(APP_SRC)
+        .then(() => {
+          appScriptLoaded = true;
+          setStatus("Starting Little Learner Hub…");
+          return loadScript(ONBOARDING_SRC);
+        })
+        .then(() => {
+          // Re-bind full openAuthModal if app defined it.
+          window.setTimeout(() => {
+            if (document.body.classList.contains("app-boot-ready")) setStatus("");
+          }, 500);
+          window.setTimeout(() => {
+            if (!document.body.classList.contains("app-boot-ready")) {
+              setStatus("Still starting… your sign-in is saved; the hub is catching up.");
+            }
+          }, 20000);
+        })
+        .catch((error) => {
+          console.error("[llh-boot]", error);
+          const signedIn = Boolean(readStoredMemberEmail());
+          setStatus(signedIn
+            ? "Signed in — could not finish opening the hub. Please refresh."
+            : "Could not finish loading. Please refresh.");
+          if (signedIn) {
+            // Never dump a signed-in tester back onto the marketing home after login.
+            showHubLoadingGate(
+              "Signed in — refresh to continue",
+              "Your login worked. The hub bundle did not finish loading. Please refresh this page."
+            );
+            return;
           }
-        }, 20000);
-      })
-      .catch((error) => {
-        console.error("[llh-boot]", error);
-        setStatus("Could not finish loading. Please refresh.");
-        revealHomeIfStuck();
-      });
+          hideHubLoadingGate();
+          revealHomeIfStuck();
+        });
+      };
+    // Two frames so the overlay is visible before the main-thread parse freeze.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(begin));
   }
 
   function queueAuth(mode) {
@@ -767,6 +839,7 @@
   const observer = new MutationObserver(() => {
     if (document.body.classList.contains("app-boot-ready")) {
       setStatus("");
+      hideHubLoadingGate();
       observer.disconnect();
     }
   });
