@@ -79,7 +79,14 @@
 
   function accountHasMultiRolePermission(account = currentAccountSafe()) {
     if (!account) return false;
-    return account.multiRoleTester === true || account.hdhMultiRoleTester === true;
+    if (account.multiRoleTester === true || account.hdhMultiRoleTester === true) return true;
+    // Testing stabilization: platform owners and invite-accepted testers can Switch View.
+    try {
+      if (!isTestingSite()) return false;
+      if (typeof global.isSignedInPlatformOwner === "function" && global.isSignedInPlatformOwner()) return true;
+      if (account.testingInviteAcceptedAt || account.hdhIndependentTester) return true;
+    } catch (_error) { /* ignore */ }
+    return false;
   }
 
   function canUseMultiRoleTester() {

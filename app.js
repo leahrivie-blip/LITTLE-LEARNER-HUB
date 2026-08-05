@@ -6388,13 +6388,17 @@ async function runSignedInBootVerification() {
     });
     else await membershipSync;
   }
-  if (firebaseAuthEnabled) {
+  // Testing + Firebase: always pull program child data — including Bearer test: sessions.
+  // Skipping test tokens left member UI empty while Admin ops / Family Hub seed had children.
+  if (firebaseAuthEnabled || testingSoftBoot) {
     await withBootVerificationTimeout("Child data sync", async () => {
-      const headers = await firebaseAuthHeaders();
-      const hasCloudAuth = headers && !/^Bearer test:/i.test(String(headers.Authorization || ""));
-      if (!hasCloudAuth) return;
-      await syncChildDataFromBackend({ render: false });
+      await syncChildDataFromBackend({ render: false, force: testingSoftBoot });
     }).catch(() => {});
+  }
+  if (testingSoftBoot) {
+    await withBootVerificationTimeout("Demo program", () => ensureTestingDemoProgramConnected()).catch((error) => {
+      console.warn("Demo program connect soft-failed", error?.message || error);
+    });
   }
   await withBootVerificationTimeout("Founding status", () => syncFoundingStatus({ render: false })).catch(() => {});
   await withBootVerificationTimeout("Staff invite", () => maybeHandleStaffInviteFromUrl()).catch(() => {});
@@ -13792,6 +13796,7 @@ const USER_ROLES = Object.freeze({
   DIRECTOR: "director",
   TEACHER: "teacher",
   ASSISTANT: "assistant",
+  PARENT: "parent",
 });
 
 const PLATFORM_CAPABILITIES = Object.freeze([
@@ -13845,6 +13850,9 @@ const USER_ROLE_ALIASES = Object.freeze({
   assistant: USER_ROLES.ASSISTANT,
   "assistant / staff": USER_ROLES.ASSISTANT,
   staff: USER_ROLES.ASSISTANT,
+  parent: USER_ROLES.PARENT,
+  family: USER_ROLES.PARENT,
+  guardian: USER_ROLES.PARENT,
   "co-teacher": USER_ROLES.TEACHER,
   coteacher: USER_ROLES.TEACHER,
   "family helper": USER_ROLES.ASSISTANT,
@@ -13893,7 +13901,10 @@ function resolveUserRole(account = {}) {
 }
 
 function roleAllowsCapability(role, capability) {
+  const raw = String(role || "").trim().toLowerCase();
+  if (raw === USER_ROLES.PARENT || raw === "parent") return false;
   const r = normalizeUserRole(role);
+  if (r === USER_ROLES.PARENT) return false;
   switch (capability) {
     case "calendar":
     case "lesson_plans":
@@ -13903,8 +13914,10 @@ function roleAllowsCapability(role, capability) {
     case "documentation_helpers":
     case "reports":
     case "resources":
-    case "settings":
       return true;
+    case "settings":
+      // Program/settings/owner tools — not for Teacher or Assistant.
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
     case "forms":
     case "staff_management":
     case "permissions":
@@ -13934,17 +13947,22 @@ function accountTypeAllowsCapability(accountType, capability) {
 
 function canAccessCapability(account, capability, options = {}) {
   if (!capability || !PLATFORM_CAPABILITIES.includes(capability)) return false;
+  // Parent isolation always wins — even Admin unlock must not expose provider tools.
+  try {
+    if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) return false;
+  } catch (_error) { /* ignore */ }
   if (options.adminOverride === true) return true;
   if (!account) return false;
-  // Multi-Role Tester sandbox fence: never expose billing while simulating a role.
+  // Role overlays: never expose owner-only surfaces while simulating a non-owner role.
   try {
     if (typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating()) {
-      if (capability === "billing") return false;
+      if (capability === "billing" || capability === "permissions") return false;
     }
   } catch (_error) { /* ignore */ }
   const accountType = resolveAccountType(account);
-  // Prefer getUserRole so Admin View As (Owner/Director/Teacher/Assistant) updates nav/permissions instantly.
+  // Prefer getUserRole so Admin View As / Multi-Role Tester updates nav/permissions instantly.
   const role = typeof getUserRole === "function" ? getUserRole(account) : resolveUserRole(account);
+  if (String(role || "").toLowerCase() === USER_ROLES.PARENT) return false;
   if (!accountTypeAllowsCapability(accountType, capability)) return false;
   if (!roleAllowsCapability(role, capability)) return false;
   return true;
@@ -13984,11 +14002,17 @@ function getUserRole(account = currentAccount()) {
     if (typeof getMultiRoleTesterViewRole === "function") {
       const testerRole = String(getMultiRoleTesterViewRole() || "").trim().toLowerCase();
       if (testerRole === USER_ROLES.OWNER || testerRole === USER_ROLES.DIRECTOR
-        || testerRole === USER_ROLES.TEACHER || testerRole === USER_ROLES.ASSISTANT) {
+        || testerRole === USER_ROLES.TEACHER || testerRole === USER_ROLES.ASSISTANT
+        || testerRole === USER_ROLES.PARENT) {
         return testerRole;
       }
     }
   } catch (_error) { /* module boot race */ }
+  try {
+    if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) {
+      return USER_ROLES.PARENT;
+    }
+  } catch (_error) { /* ignore */ }
   if (!account) return USER_ROLES.OWNER;
   return resolveUserRole(account);
 }
@@ -14052,9 +14076,28 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
  * Platform feature gate (roles + account type).
  * Distinct from canAccess(resource) which gates Free vs Pro library content.
  */
+function isRolePermissionOverlayActive() {
+  try {
+    if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) return true;
+  } catch (_error) { /* ignore */ }
+  try {
+    if (typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating()) return true;
+  } catch (_error) { /* ignore */ }
+  try {
+    const preview = typeof adminPreviewMode === "function" ? String(adminPreviewMode() || "") : "";
+    if (preview && preview !== "Admin") return true;
+  } catch (_error) { /* ignore */ }
+  try {
+    const role = String(typeof getUserRole === "function" ? getUserRole() : "").trim().toLowerCase();
+    if (role && role !== USER_ROLES.OWNER) return true;
+  } catch (_error) { /* ignore */ }
+  return false;
+}
+
 function canAccessPlatformFeature(capability, account = currentAccount()) {
+  const overlay = isRolePermissionOverlayActive();
   return canAccessCapability(account, capability, {
-    adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+    adminOverride: !overlay && typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
   });
 }
 
@@ -14788,7 +14831,19 @@ function updateAuthButtons() {
           : null;
         const accessLabel = accessStatus?.planLabel || accessStatus?.label || billingPlanLabel();
         signUp.textContent = `${accessLabel} Active`;
-        signUp.dataset.view = "billing";
+        // Teachers/Assistants/Parents must never land on Billing from the badge.
+        const role = String(typeof getUserRole === "function" ? getUserRole() : "").toLowerCase();
+        const canOpenBilling = typeof canOpenViewForCurrentAccess === "function"
+          ? canOpenViewForCurrentAccess("billing")
+          : role === "owner";
+        if (canOpenBilling) signUp.dataset.view = "billing";
+        else if (role === "parent" || (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode())) {
+          signUp.dataset.view = "family-hub";
+        } else if (role === "teacher" || role === "assistant") {
+          signUp.dataset.view = "today";
+        } else {
+          signUp.dataset.view = "home";
+        }
         delete signUp.dataset.checkoutPlan;
       } else if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
         const primary = freePlanUpgradePrimaryCta();
@@ -14834,6 +14889,8 @@ function updateAuthButtons() {
 /** Map SPA views to platform capabilities for role/account-type guards. */
 const viewCapabilityRequirements = Object.freeze({
   staff: "staff_management",
+  business: "permissions",
+  settings: "settings",
   classrooms: "classrooms",
   families: "families",
   enrollment: "enrollment",
@@ -14841,6 +14898,8 @@ const viewCapabilityRequirements = Object.freeze({
   subscription: "billing",
   "billing-history": "billing",
   "cancel-subscription": "billing",
+  admin: "permissions",
+  "owner-tools": "permissions",
 });
 
 function capabilityRequiredForView(view) {
@@ -14848,6 +14907,31 @@ function capabilityRequiredForView(view) {
 }
 
 function canOpenViewForCurrentAccess(view) {
+  const resolved = typeof resolveSidebarView === "function" ? resolveSidebarView(view) : view;
+  try {
+    if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) {
+      const parentAllowed = new Set([
+        "family-hub", "home", "account", "auth", "login", "signup",
+        "messages", "forms", "calendar",
+      ]);
+      if (!parentAllowed.has(resolved) && !parentAllowed.has(view)) return false;
+    }
+  } catch (_error) { /* ignore */ }
+  try {
+    const role = String(typeof getUserRole === "function" ? getUserRole() : "").trim().toLowerCase();
+    if (role === USER_ROLES.TEACHER || role === USER_ROLES.ASSISTANT) {
+      const blocked = new Set(["business", "billing", "staff", "settings", "admin", "owner-tools", "enrollment", "subscription", "billing-history", "cancel-subscription"]);
+      if (blocked.has(resolved) || blocked.has(view)) return false;
+    }
+    if (role === USER_ROLES.DIRECTOR) {
+      const blocked = new Set(["billing", "admin", "owner-tools", "subscription", "billing-history", "cancel-subscription"]);
+      if (blocked.has(resolved) || blocked.has(view)) return false;
+    }
+    if (role === USER_ROLES.PARENT) {
+      const parentAllowed = new Set(["family-hub", "home", "account", "auth", "login", "signup", "messages", "forms", "calendar"]);
+      if (!parentAllowed.has(resolved) && !parentAllowed.has(view)) return false;
+    }
+  } catch (_error) { /* ignore */ }
   const capability = capabilityRequiredForView(view);
   if (!capability) return true;
   return canAccessPlatformFeature(capability);
@@ -14905,8 +14989,9 @@ function syncPlatformNavVisibility() {
   document.querySelectorAll("[data-nav-capability]").forEach((button) => {
     const capability = button.getAttribute("data-nav-capability");
     const permanentlyHidden = button.hasAttribute("data-nav-hidden");
+    const overlay = typeof isRolePermissionOverlayActive === "function" && isRolePermissionOverlayActive();
     const allowed = !permanentlyHidden && (!capability || canAccessCapability(account, capability, {
-      adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+      adminOverride: !overlay && typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
     }));
     button.hidden = !allowed;
     button.setAttribute("aria-hidden", allowed ? "false" : "true");
@@ -16031,7 +16116,21 @@ async function renderMessagesPage(options = {}) {
   }
   if (options.conversation) messagesViewState.tab = "conversation";
   section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhSkeletonHtml({ rows: 5, label: "Loading your messages…", variant: "messages" })}</div>`;
-  await Promise.all([refreshMessagesData(), refreshPushPreferenceState()]);
+  try {
+    if (window.LLHLazyLoader?.ensure) await window.LLHLazyLoader.ensure("comms");
+  } catch (_error) { /* continue with built-in messages UI */ }
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Messages timed out")), ms)),
+  ]);
+  try {
+    await withTimeout(Promise.all([refreshMessagesData(), refreshPushPreferenceState()]), 12000);
+  } catch (error) {
+    console.warn("Messages load failed", error);
+    messagesViewState.loaded = true;
+    if (!Array.isArray(messagesViewState.conversation)) messagesViewState.conversation = [];
+    if (!Array.isArray(messagesViewState.inbox)) messagesViewState.inbox = [];
+  }
   renderMessagesPageBody();
   // Opening the Messages page is the "read" action for the private thread —
   // matches "Mark messages read" without a separate required click.
@@ -18053,6 +18152,18 @@ function setView(view, options = {}) {
   ) {
     return setView("family-hub", { ...options, skipAccessRedirect: true });
   }
+  // Admin View As / Multi-Role Parent — Family Hub product only.
+  if (
+    !options.allowParentLeaveFamilyHub
+    && typeof isFamilyHubParentMode === "function"
+    && isFamilyHubParentMode()
+    && !["family-hub", "login", "signup", "auth"].includes(resolvedRequested)
+  ) {
+    try { syncFamilyHubParentChrome(); } catch (_error) { /* ignore */ }
+    if (resolvedRequested !== "family-hub") {
+      return setView("family-hub", { ...options, skipAccessRedirect: true });
+    }
+  }
   // AI Guide is testing-site only (AI_GUIDE_ENABLED).
   if (resolvedRequested === "ai-guide" && !isAiGuideEnabled()) {
     return setView(isLoggedIn() ? "ai" : "home", { ...options, skipAccessRedirect: true });
@@ -18167,7 +18278,35 @@ function setView(view, options = {}) {
     && !canOpenViewForCurrentAccess(resolvedView)
     && !canOpenViewForCurrentAccess(requestedView)
   ) {
+    try {
+      if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) {
+        return setView("family-hub", { ...options, skipAccessRedirect: true });
+      }
+      const role = String(typeof getUserRole === "function" ? getUserRole() : "").toLowerCase();
+      if (role === "teacher" || role === "assistant") {
+        return setView("today", { ...options, skipAccessRedirect: true, allowDashboard: true });
+      }
+    } catch (_error) { /* ignore */ }
     return setView("calendar", { ...options, skipAccessRedirect: true });
+  }
+  // Lazy-load feature packs so the cold homepage stays lean.
+  try {
+    if (window.LLHLazyLoader && typeof window.LLHLazyLoader.ensure === "function") {
+      const pack = typeof window.LLHLazyLoader.packForView === "function"
+        ? window.LLHLazyLoader.packForView(resolvedView)
+        : "";
+      if (pack) {
+        window.LLHLazyLoader.ensure(pack).catch((err) => console.warn("[setView] lazy pack", pack, err));
+      }
+      if (resolvedView === "messages") {
+        window.LLHLazyLoader.ensure("comms").catch(() => {});
+      }
+      if (resolvedView === "admin") {
+        window.LLHLazyLoader.ensure("adminSurface").catch(() => {});
+      }
+    }
+  } catch (_lazyErr) {
+    console.warn("[setView] lazy pack load failed", _lazyErr);
   }
   const proViews = {
     tools: "Provider business tools",
@@ -18587,6 +18726,54 @@ function isProUser() {
 function membershipDisplayStatus(account = currentAccount()) {
   const product = accountProductStatus(account);
   if (!currentUser) return product;
+  // Role overlays must never show "Owner Access Active" (Teacher/Assistant/Director/Parent).
+  let effectiveRole = "";
+  try {
+    effectiveRole = String(typeof getUserRole === "function" ? getUserRole(account) : "").trim().toLowerCase();
+  } catch (_error) { /* ignore */ }
+  const roleOverlay = (() => {
+    try {
+      if (typeof isRolePermissionOverlayActive === "function" && isRolePermissionOverlayActive()) return true;
+    } catch (_error) { /* ignore */ }
+    return Boolean(effectiveRole && effectiveRole !== USER_ROLES.OWNER);
+  })();
+  if (roleOverlay) {
+    if (effectiveRole === USER_ROLES.PARENT) {
+      return {
+        ...product,
+        key: "family_access",
+        adminKey: product.adminKey || "active",
+        label: "Family Access",
+        emoji: "🟢",
+        tone: "success",
+        hasProAccess: true,
+        banner: null,
+        cta: null,
+        detail: "Family Hub access for linked children.",
+        planLabel: "Family Access",
+      };
+    }
+    const roleLabel = effectiveRole === USER_ROLES.DIRECTOR
+      ? "Director"
+      : effectiveRole === USER_ROLES.TEACHER
+        ? "Teacher"
+        : effectiveRole === USER_ROLES.ASSISTANT
+          ? "Assistant"
+          : "Program";
+    return {
+      ...product,
+      key: "role_view",
+      adminKey: product.adminKey || "active",
+      label: `${roleLabel} View`,
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: `Viewing the hub as ${roleLabel}.`,
+      planLabel: `${roleLabel} View`,
+    };
+  }
   if (product.hasProAccess) return product;
   if (account?.programAccessViaOwner) {
     return {
@@ -30140,9 +30327,20 @@ function renderHome() {
   if (footerYear) footerYear.textContent = String(new Date().getFullYear());
   if (canUseLaunchBackend()) {
     syncFoundingStatus({ render: true }).catch(() => {});
+    // Never leave homepage previews on endless "Loading…"
+    const previewWatch = window.setTimeout(() => {
+      if (curriculumLibraryLoading) {
+        curriculumLibraryLoading = false;
+        curriculumLibraryLoadFailed = true;
+      }
+      if (document.querySelector("#view-home.landing-home") && !currentUser) {
+        renderHomePublicPreviews();
+      }
+    }, 10000);
     refreshPublicCurriculumLibrary()
       .catch(() => {})
       .then(() => {
+        window.clearTimeout(previewWatch);
         if (document.querySelector("#view-home.landing-home") && !currentUser) {
           renderHomePublicPreviews();
         }
@@ -35866,6 +36064,13 @@ function isFamilyHubParentMode() {
       return true;
     }
   } catch (_error) { /* ignore */ }
+  // Admin View As Parent must isolate even before a Family Hub session exists.
+  try {
+    if (typeof adminPreviewMode === "function" && adminPreviewMode() === "Parent") return true;
+  } catch (_error) { /* ignore */ }
+  try {
+    if (typeof getHdhTesterPersona === "function" && getHdhTesterPersona().role === "parent") return true;
+  } catch (_error) { /* ignore */ }
   const onFamilyHub = Boolean(document.querySelector("#view-family-hub.active-view"));
   if (!getFamilyHubSessionToken()) return onFamilyHub;
   // Pure parent session, or provider intentionally previewing as parent.
@@ -35886,6 +36091,22 @@ function syncFamilyHubParentChrome() {
       && getHdhTesterPersona().role === "parent";
     chrome.hidden = !showTester;
   }
+  // Hard-hide provider chrome parents must never see.
+  try {
+    ["workNavBusiness", "workNavStaff", "billingBadge", "upgradeButton", "sidebarFreeUpgradeCard"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (parentMode) {
+        el.hidden = true;
+        el.setAttribute("aria-hidden", "true");
+      }
+    });
+    document.querySelectorAll('[data-view="staff"], [data-view="business"], [data-view="billing"], [data-view="admin"]').forEach((el) => {
+      if (!parentMode) return;
+      el.hidden = true;
+      el.setAttribute("aria-hidden", "true");
+    });
+  } catch (_error) { /* ignore */ }
 }
 
 function readTesterFamilyHubInvite() {
@@ -36032,6 +36253,116 @@ function ensureTesterDemoChild() {
   saveChildStore("Profiles", next);
   return child;
 }
+
+/**
+ * Testing site only: make sure every new tester lands in a populated program
+ * (children, attendance, forms, calendar events) instead of empty "0 children".
+ */
+async function ensureTestingDemoProgramConnected() {
+  if (typeof isHomeDaycareHubTestingEnabled !== "function" || !isHomeDaycareHubTestingEnabled()) return null;
+  if (!currentUser || !canUseLaunchBackend()) return null;
+  // Prefer server program data.
+  try {
+    await syncChildDataFromBackend({ force: true, render: false });
+  } catch (_error) { /* continue to seed */ }
+  let children = (typeof childRecords === "function" ? childRecords().children : []) || [];
+  if (children.length) {
+    ensureTestingDemoProgramLocalExtras(children);
+    return { reused: true, childCount: children.length };
+  }
+  // Seed Family Hub demo (writes program child-data + schedule + messages).
+  try {
+    const headers = await staffAuthHeaders();
+    if (!headers) throw new Error("No auth headers for demo seed.");
+    const response = await fetch("/api/family-hub/seed-demo", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        appOrigin: window.location.origin,
+        programName: getProgramSettings()?.programName || "Sunshine Little Learners",
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Demo seed failed.");
+    await syncChildDataFromBackend({ force: true, render: false });
+    children = (childRecords().children || []);
+    ensureTestingDemoProgramLocalExtras(children, data?.demo);
+    if (data?.demo?.loginCode || data?.demo?.magicUrl) {
+      try {
+        saveTesterFamilyHubInvite({
+          token: String(data.demo.magicUrl || "").split("familyHub=")[1] || "",
+          email: data.demo.parentEmail || "",
+          loginCode: data.demo.loginCode || "",
+          magicUrl: data.demo.magicUrl || "",
+        });
+      } catch (_error) { /* ignore */ }
+    }
+    return { seeded: true, childCount: children.length, demo: data.demo || null };
+  } catch (error) {
+    console.warn("[demo-program]", error?.message || error);
+    ensureTesterDemoChild();
+    ensureTestingDemoProgramLocalExtras(childRecords().children || []);
+    return { seededLocal: true, childCount: (childRecords().children || []).length };
+  }
+}
+
+function ensureTestingDemoProgramLocalExtras(children = [], demo = null) {
+  if (!currentUser) return;
+  // Program name so the hub never feels untitled.
+  try {
+    const settings = getProgramSettings() || {};
+    if (!String(settings.programName || "").trim()) {
+      saveProgramSettings({
+        ...settings,
+        programName: "Sunshine Little Learners",
+        programType: settings.programType || "Home daycare",
+      });
+    }
+  } catch (_error) { /* ignore */ }
+  // Account greeting first name for platform owner / empty profiles.
+  try {
+    const account = currentAccount();
+    if (account && !String(account.firstName || "").trim()) {
+      const fallback = (typeof isSignedInPlatformOwner === "function" && isSignedInPlatformOwner()
+        && adminOwnerAccount?.name)
+        ? String(adminOwnerAccount.name).split(/\s+/)[0]
+        : "Provider";
+      updateAccount(currentUser, { firstName: fallback });
+    }
+  } catch (_error) { /* ignore */ }
+  // Ensure child profiles have classroom labels so Classroom hub isn't empty.
+  try {
+    const rooms = ["Toddlers", "Preschool"];
+    const profiles = (childStore("Profiles") || []).map((child, index) => {
+      if (child.classroom || child.room) return child;
+      return { ...child, classroom: rooms[index % rooms.length] };
+    });
+    if (profiles.length) saveChildStore("Profiles", profiles);
+  } catch (_error) { /* ignore */ }
+  // Seed schedule classrooms when empty so Classrooms page demonstrates itself.
+  try {
+    const api = window.LLHSchedule;
+    if (api && typeof api.readCache === "function" && typeof api.writeCache === "function") {
+      const email = typeof scheduleApiEmail === "function" ? scheduleApiEmail() : currentUser;
+      const doc = api.readCache(email) || api.emptyDoc?.() || { classrooms: [], items: [] };
+      if (!Array.isArray(doc.classrooms) || !doc.classrooms.length) {
+        const next = {
+          ...doc,
+          classrooms: [
+            { id: "demo-room-toddlers", name: "Toddlers", capacity: 8 },
+            { id: "demo-room-preschool", name: "Preschool", capacity: 12 },
+          ],
+        };
+        api.writeCache(email, next);
+        if (typeof scheduleDocCache !== "undefined") scheduleDocCache = next;
+      }
+    }
+  } catch (_error) { /* ignore */ }
+  void demo;
+  void children;
+}
+
+window.ensureTestingDemoProgramConnected = ensureTestingDemoProgramConnected;
 
 function renderHdhRoleSwitcher(activeRole = "", options = {}) {
   if (!isHomeDaycareHubTestingEnabled()) return "";
@@ -47479,6 +47810,7 @@ function adminPreviewUserRole() {
   if (preview === "Director") return USER_ROLES.DIRECTOR;
   if (preview === "Teacher") return USER_ROLES.TEACHER;
   if (preview === "Assistant") return USER_ROLES.ASSISTANT;
+  if (preview === "Parent") return USER_ROLES.PARENT;
   return "";
 }
 
@@ -47524,6 +47856,7 @@ function setAdminPreviewMode(mode) {
 }
 
 function applyAdminPreviewToPlatform() {
+  try { typeof syncFamilyHubParentChrome === "function" && syncFamilyHubParentChrome(); } catch (_error) { /* ignore */ }
   updateAuthButtons();
   updatePlanLabel();
   syncPlatformNavVisibility();
@@ -48079,9 +48412,21 @@ function displayUserName(user) {
 
 function accountDisplayFirstName(account = currentAccount()) {
   const first = String(account?.firstName || "").trim();
-  if (first && !/^undefined$/i.test(first)) return first;
+  if (first && !/^undefined$/i.test(first) && !/@/.test(first)) {
+    const emailLocal = String(account?.email || currentUser || "").split("@")[0].trim().toLowerCase();
+    if (first.toLowerCase() !== emailLocal) return first;
+  }
   const full = displayUserName(account);
-  return full.split(/\s+/)[0] || "Provider";
+  const token = String(full || "").split(/\s+/)[0] || "";
+  const emailLocal = String(account?.email || currentUser || "").split("@")[0].trim().toLowerCase();
+  if (token && token.toLowerCase() !== emailLocal && !/@/.test(token)) return token;
+  try {
+    if (typeof isSignedInPlatformOwner === "function" && isSignedInPlatformOwner()
+      && adminOwnerAccount?.name) {
+      return String(adminOwnerAccount.name).split(/\s+/)[0] || "there";
+    }
+  } catch (_error) { /* ignore */ }
+  return "there";
 }
 
 function adminIsWithinDays(iso, days) {
@@ -52903,11 +53248,11 @@ function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
   const unread = Number(adminNotificationState.unreadCount || 0);
+  const testingHost = typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled();
 
   // Testing-only: dedicated Admin Control Center sidebar (separate from member site nav).
   if (
-    typeof isHomeDaycareHubTestingEnabled === "function"
-    && isHomeDaycareHubTestingEnabled()
+    testingHost
     && window.AdminControlCenter
     && typeof window.AdminControlCenter.renderNav === "function"
   ) {
@@ -52921,13 +53266,59 @@ function renderAdminSectionNav() {
     return;
   }
 
-  // If testing but control-center script is still loading, ensure it and fall back briefly.
-  if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
-    if (window.LLHLazyLoader?.ensure) {
-      window.LLHLazyLoader.ensure("adminSurface").then(() => {
-        if (isAdminUnlocked() && window.AdminControlCenter) renderAdminSectionNav();
-      }).catch(() => {});
+  // Testing site: NEVER paint the legacy Content Manager shell. Keep a loading /
+  // retry surface until Admin Control Center (Testing Center, View As, Multi-Role) loads.
+  if (testingHost) {
+    if (!nav.querySelector("[data-acc-loading]")) {
+      nav.innerHTML = `
+        <div class="llh-admin-control-center" data-acc-loading="1">
+          <div class="admin-sidebar-brand">
+            <strong>Admin Control Center</strong>
+            <span>Loading Testing Center…</span>
+          </div>
+          <div class="admin-sidebar-nav" role="navigation" aria-label="Admin loading">
+            <p class="muted-copy" style="padding:12px 14px;margin:0">Testing Center, View As, and Multi-Role Tester will appear in a moment.</p>
+            <button class="admin-sidebar-btn" type="button" id="accRetryLoadBtn">Retry load</button>
+          </div>
+        </div>`;
+      document.getElementById("accRetryLoadBtn")?.addEventListener("click", () => {
+        Promise.resolve()
+          .then(async () => {
+            if (window.LLHLazyLoader?.ensure) await window.LLHLazyLoader.ensure("adminSurface");
+            const v = (window.LLHLazyLoader?.VERSION || window.LLH_CACHE_VERSION || "").toString();
+            const loadOne = (src) => new Promise((resolve) => {
+              if ([...document.scripts].some((s) => String(s.src || "").includes(src.split("?")[0]))) return resolve();
+              const el = document.createElement("script");
+              el.src = v ? `${src}?v=${encodeURIComponent(v)}` : src;
+              el.onload = () => resolve();
+              el.onerror = () => resolve();
+              document.head.appendChild(el);
+            });
+            await loadOne("scripts/admin-ops-managers.js");
+            await loadOne("scripts/admin-control-center.js");
+          })
+          .finally(() => renderAdminSectionNav());
+      });
     }
+    Promise.resolve()
+      .then(async () => {
+        try {
+          if (window.LLHLazyLoader?.ensure) await window.LLHLazyLoader.ensure("adminSurface");
+          const v = (window.LLHLazyLoader?.VERSION || "").toString();
+          const loadOne = (src) => new Promise((resolve) => {
+            if ([...document.scripts].some((s) => String(s.src || "").includes(src.split("?")[0]))) return resolve();
+            const el = document.createElement("script");
+            el.src = v ? `${src}?v=${encodeURIComponent(v)}` : src;
+            el.onload = () => resolve();
+            el.onerror = () => resolve();
+            document.head.appendChild(el);
+          });
+          await loadOne("scripts/admin-ops-managers.js");
+          await loadOne("scripts/admin-control-center.js");
+        } catch (_error) { /* ignore */ }
+        if (window.AdminControlCenter && isAdminUnlocked()) renderAdminSectionNav();
+      });
+    return;
   }
 
   const currentGroup = adminActiveGroup || "admin-home";
@@ -60870,6 +61261,13 @@ function shouldShowMemberUpdateBanner() {
   if (typeof NewUserOnboarding?.isActive === "function" && NewUserOnboarding.isActive()) return false;
   const site = typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null;
   if (site && site.memberUpdateBannerEnabled === false) return false;
+  // Testing work-mode: Teaching Kit promo banner competes with real program work.
+  try {
+    if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) return false;
+  } catch (_error) { /* ignore */ }
+  try {
+    if (document.body.classList.contains("work-mode-nav") || document.body.classList.contains("family-hub-parent-mode")) return false;
+  } catch (_error) { /* ignore */ }
   return true;
 }
 
@@ -62991,9 +63389,23 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const action = testingAction.getAttribute("data-admin-testing-action");
     if (action === "seed-demo") {
-      if (typeof ensureTesterDemoChild === "function") ensureTesterDemoChild();
-      showActionFeedback("Demo child ready in Children.");
-      setView("children");
+      showActionFeedback("Connecting demo program…");
+      Promise.resolve()
+        .then(() => (typeof ensureTestingDemoProgramConnected === "function"
+          ? ensureTestingDemoProgramConnected()
+          : null))
+        .then((result) => {
+          const count = Number(result?.childCount || (childRecords().children || []).length || 0);
+          showActionFeedback(count
+            ? `Demo program ready — ${count} children connected.`
+            : "Demo program seed finished.");
+          setView("children");
+        })
+        .catch((error) => {
+          if (typeof ensureTesterDemoChild === "function") ensureTesterDemoChild();
+          showActionFeedback(error?.message || "Could not fully seed demo program.");
+          setView("children");
+        });
       return;
     }
     if (action === "open-family-hub") {

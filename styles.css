@@ -22835,12 +22835,72 @@ body.hdh-tester-switching {
   padding-top: 0;
 }
 
-body.hdh-persona-parent .sidebar {
+body.hdh-persona-parent .sidebar,
+body.family-hub-parent-mode .sidebar {
+  display: none !important;
+}
+
+body.hdh-persona-parent .main,
+body.family-hub-parent-mode .main {
+  margin-left: 0;
+  max-width: 100%;
+}
+
+/* Parent isolation: hide provider / billing / admin chrome completely. */
+body.family-hub-parent-mode [data-view="staff"],
+body.family-hub-parent-mode [data-view="business"],
+body.family-hub-parent-mode [data-view="billing"],
+body.family-hub-parent-mode [data-view="admin"],
+body.family-hub-parent-mode [data-view="settings"],
+body.family-hub-parent-mode #billingBadge,
+body.family-hub-parent-mode #upgradeButton,
+body.family-hub-parent-mode #sidebarFreeUpgradeCard,
+body.family-hub-parent-mode #memberUpdateBanner,
+body.hdh-persona-parent [data-view="staff"],
+body.hdh-persona-parent [data-view="business"],
+body.hdh-persona-parent [data-view="billing"],
+body.hdh-persona-parent [data-view="admin"],
+body.hdh-persona-parent #memberUpdateBanner {
+  display: none !important;
+}
+
+/* Family Hub as its own product — full-width, mobile-first stacking. */
+body.family-hub-parent-mode .topbar .search-wrap,
+body.hdh-persona-parent .topbar .search-wrap {
   display: none;
 }
 
-body.hdh-persona-parent .main {
-  margin-left: 0;
+body.family-hub-parent-mode #view-family-hub,
+body.hdh-persona-parent #view-family-hub {
+  padding: 12px 14px 32px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (max-width: 719px) {
+  body.family-hub-parent-mode .main,
+  body.hdh-persona-parent .main {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  body.family-hub-parent-mode #view-family-hub,
+  body.hdh-persona-parent #view-family-hub {
+    padding: 10px 12px 28px;
+  }
+
+  body.family-hub-parent-mode .topbar,
+  body.hdh-persona-parent .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body.family-hub-parent-mode .account-actions #signupButton,
+  body.hdh-persona-parent .account-actions #signupButton {
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 719px) {
@@ -27539,3 +27599,20 @@ body.user-authenticated .main {
   margin: 0;
   font-size: 0.95rem;
 }
+
+
+/* Testing / marketing homepage: hero owns Log In + Start Free — hide duplicate topbar CTAs. */
+body.home-view:not(.user-authenticated) .topbar .account-actions {
+  display: none;
+}
+body.home-view:not(.user-authenticated).llh-testing-host .topbar .account-actions,
+body.home-view:not(.user-authenticated) .topbar #signinButton,
+body.home-view:not(.user-authenticated) .topbar #signupButton {
+  display: none !important;
+}
+
+/* Signed-in work-mode: hide marketing Teaching Kit promo competition. */
+body.work-mode-nav #memberUpdateBanner {
+  display: none !important;
+}
+

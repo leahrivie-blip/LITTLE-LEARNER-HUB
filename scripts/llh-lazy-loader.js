@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260805-admin-control-center-r23";
+  const VERSION = "20260805-testing-stabilization-r24";
   const loadedUrls = new Set();
   const loading = new Map();
   const packReady = new Map();
@@ -17,6 +17,12 @@
 
   const PACKS = {
     teachingKit: [
+      "scripts/lesson-plan-cover-catalog.js",
+      "scripts/lesson-plan-covers.js",
+      "scripts/curriculum-series.js",
+      "scripts/curriculum-standards.js",
+      "scripts/curriculum-lesson-viewer-render.js",
+      "scripts/free-curriculum-sample.js",
       "scripts/teaching-kit-mapper.js",
       "scripts/teaching-kit.js",
       "scripts/teaching-kit-status.js",
@@ -41,10 +47,16 @@
       "scripts/curriculum-lesson-import-v4.js",
       "scripts/curriculum-import-preview.js",
     ],
+    forms: [
+      "scripts/forms-ecosystem.js",
+      "scripts/forms-center.js",
+    ],
     admin: [
       "scripts/admin-analytics-diagnostics.js",
       "admin-workspace.js",
       "admin-insights.js",
+      "scripts/forms-ecosystem.js",
+      "scripts/forms-center.js",
       "scripts/admin-ops-managers.js",
       "scripts/admin-control-center.js",
     ],
@@ -124,6 +136,7 @@
   function labelForPack(name) {
     if (name === "teachingKit" || name === "adminSurface") return "Teaching Kit tools";
     if (name === "admin" || name === "curriculumAdmin") return "Admin tools";
+    if (name === "forms") return "Forms";
     if (name === "comms") return "Messages";
     if (name === "exports") return "export tools";
     return "extra tools";
@@ -149,8 +162,9 @@
     const v = String(view || "").trim();
     if (v === "admin" || v === "admin-preview") return "adminSurface";
     if (v === "messages" || v === "comms") return "comms";
-    // Teaching Kit authoring/viewer stacks — not the regular lesson library browse.
+    if (v === "forms" || v === "forms-center" || v === "forms-ai-builder") return "forms";
     if (v === "lesson-editor" || /teaching-kit/.test(v)) return "teachingKit";
+    if (v === "lessons" || v === "lesson-plans" || v === "activities" || v === "classroom") return "teachingKit";
     return "";
   }
 

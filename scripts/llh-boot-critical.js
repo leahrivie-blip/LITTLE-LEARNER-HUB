@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260805-admin-control-center-r23";
+  const APP_SRC = "app.js?v=20260805-testing-stabilization-r24";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -517,6 +517,14 @@
 
   function prefetchAdminPack() {
     try {
+      // Load Admin Control Center shell scripts immediately on /admin so unlock
+      // never falls back to the legacy Content Manager sidebar.
+      if (typeof window.LLHLazyLoader?.loadScript === "function") {
+        const v = window.LLHLazyLoader.VERSION || "";
+        const q = v ? `?v=${v}` : "";
+        window.LLHLazyLoader.loadScript(`scripts/admin-ops-managers.js${q}`).catch(() => {});
+        window.LLHLazyLoader.loadScript(`scripts/admin-control-center.js${q}`).catch(() => {});
+      }
       if (typeof window.LLHLazyLoader?.ensure === "function") {
         window.LLHLazyLoader.ensure("adminSurface").catch(() => {});
       }
