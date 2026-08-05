@@ -21,6 +21,15 @@
   let earlyAuthWired = false;
   let authMode = "login";
   let hubFrameWatchTimer = 0;
+  const testingShellState = {
+    email: "",
+    tab: "calendar",
+    scheduleItems: [],
+    lessons: [],
+    messages: null,
+    status: "",
+    loaded: false,
+  };
 
   function isHubBootFrame() {
     try {
@@ -28,6 +37,23 @@
     } catch (_error) {
       return false;
     }
+  }
+
+  function memberAuthHeaders() {
+    const headers = { Accept: "application/json" };
+    try {
+      const token = localStorage.getItem("llhMemberSessionToken");
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch (_error) { /* ignore */ }
+    return headers;
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 20000) {
@@ -735,8 +761,146 @@
     window.location.replace("/");
   }
 
-  function enterTestingMemberShell(email, options = {}) {
+  function markTestingNavActive(tab) {
+    document.querySelectorAll("#platformNav [data-view]").forEach((btn) => {
+      const on = btn.getAttribute("data-view") === tab;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-current", on ? "page" : "false");
+    });
+  }
+
+  function shellHost() {
+    return document.getElementById("mainCalendarApp") || document.getElementById("view-calendar");
+  }
+
+  function renderTestingShellPanel() {
+    const tab = testingShellState.tab || "calendar";
+    const host = shellHost();
+    if (!host) return;
+    // Keep one interactive host so tab switches never leave stale panels in hidden views.
+    showTestingView("calendar");
+    markTestingNavActive(tab === "lessons" || tab === "messages" ? tab : "calendar");
+
+    const items = testingShellState.scheduleItems || [];
+    const lessons = testingShellState.lessons || [];
+    let bodyHtml = "";
+    if (tab === "lessons") {
+      const cards = lessons.slice(0, 24).map((plan) => `
+        <article class="llh-shell-card">
+          <strong>${escapeHtml(plan.title || plan.name || "Lesson plan")}</strong>
+          <span>${escapeHtml([plan.age, plan.theme].filter(Boolean).join(" · ") || "Curriculum library")}</span>
+        </article>
+      `).join("");
+      bodyHtml = `
+        <h4>Lesson Plans</h4>
+        <p class="form-note">${lessons.length ? `Showing ${Math.min(24, lessons.length)} of ${lessons.length} plans from the library.` : "Loading lesson plans…"}</p>
+        <div class="llh-shell-card-grid">${cards || "<p>No lesson plans loaded yet.</p>"}</div>
+      `;
+    } else if (tab === "messages") {
+      const unread = testingShellState.messages?.unreadCount ?? testingShellState.messages?.unread ?? 0;
+      bodyHtml = `
+        <h4>Messages</h4>
+        <p>Inbox is ready for this testing session.</p>
+        <p class="form-note">Unread: ${escapeHtml(String(unread))}. Full conversation tools stay in the main app build; this panel confirms your signed-in session can reach messaging APIs.</p>
+      `;
+    } else {
+      const rows = items.slice(0, 20).map((item) => `
+        <li>
+          <strong>${escapeHtml(item.title || item.name || item.type || "Scheduled item")}</strong>
+          <span>${escapeHtml(item.date || item.day || item.startAt || item.when || "")}</span>
+        </li>
+      `).join("");
+      bodyHtml = `
+        <h4>Calendar</h4>
+        <p class="form-note">${items.length ? `${items.length} schedule item${items.length === 1 ? "" : "s"} on your account.` : "No schedule items yet — your calendar is ready to use. Add plans from Lesson Plans or Admin."}</p>
+        <ul class="llh-shell-schedule-list">${rows || "<li>Today is clear. Open Lesson Plans to browse the library.</li>"}</ul>
+      `;
+    }
+
+    host.innerHTML = `
+      <div class="llh-testing-member-panel" data-llh-testing-member-shell>
+        <p class="eyebrow">Signed in</p>
+        <h3>Welcome back${testingShellState.email ? `, ${escapeHtml(testingShellState.email)}` : ""}</h3>
+        <p>Your testing hub is ready. Use the buttons or left navigation — this workspace does not wait on the heavy app bundle.</p>
+        <div class="llh-testing-member-actions">
+          <button type="button" class="primary-button" data-llh-shell-action="calendar">Calendar</button>
+          <button type="button" class="ghost-button" data-llh-shell-action="lessons">Lesson Plans</button>
+          <button type="button" class="ghost-button" data-llh-shell-action="messages">Messages</button>
+          <button type="button" class="ghost-button" data-llh-shell-action="admin">Open Admin</button>
+          <button type="button" class="ghost-button" data-llh-shell-action="signout">Sign out</button>
+        </div>
+        <div class="llh-shell-body" data-llh-shell-body>${bodyHtml}</div>
+        <p class="form-note" data-llh-shell-status>${escapeHtml(testingShellState.status || "Ready.")}</p>
+      </div>
+    `;
+
+    host.querySelectorAll("[data-llh-shell-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const action = btn.getAttribute("data-llh-shell-action");
+        if (action === "admin") {
+          window.location.href = "/admin";
+          return;
+        }
+        if (action === "signout") {
+          signOutTestingMember();
+          return;
+        }
+        openTestingShellTab(action);
+      });
+    });
+  }
+
+  function openTestingShellTab(tab) {
+    const allowed = new Set(["calendar", "lessons", "messages"]);
+    testingShellState.tab = allowed.has(tab) ? tab : "calendar";
+    renderTestingShellPanel();
+    if (testingShellState.tab === "messages" && !testingShellState.messages) {
+      loadTestingShellMessages();
+    }
+  }
+
+  async function loadTestingShellData() {
+    testingShellState.status = "Loading your calendar and lesson library…";
+    renderTestingShellPanel();
+    try {
+      const [scheduleRes, contentRes] = await Promise.all([
+        fetchJsonWithTimeout("/api/schedule", { headers: memberAuthHeaders() }, 20000).catch(() => null),
+        fetchJsonWithTimeout("/api/site-content", { headers: { Accept: "application/json" } }, 20000).catch(() => null),
+      ]);
+      if (scheduleRes?.response?.ok) {
+        testingShellState.scheduleItems = Array.isArray(scheduleRes.data?.items) ? scheduleRes.data.items : [];
+      }
+      const library = contentRes?.data?.siteContent?.curriculumLibrary || contentRes?.data?.curriculumLibrary || {};
+      testingShellState.lessons = Array.isArray(library.lessonPlans) ? library.lessonPlans : [];
+      testingShellState.loaded = true;
+      testingShellState.status = `Ready · ${testingShellState.lessons.length} lesson plans available · ${testingShellState.scheduleItems.length} schedule items`;
+    } catch (error) {
+      testingShellState.status = error?.message || "Could not load library data. Admin and Sign out still work.";
+    }
+    renderTestingShellPanel();
+  }
+
+  async function loadTestingShellMessages() {
+    testingShellState.status = "Loading messages…";
+    renderTestingShellPanel();
+    try {
+      const { response, data } = await fetchJsonWithTimeout("/api/messages/center", {
+        headers: memberAuthHeaders(),
+      }, 20000);
+      if (!response.ok) throw new Error(data.error || "Could not load messages.");
+      testingShellState.messages = data;
+      testingShellState.status = `Messages ready · unread ${data.unreadCount ?? data.unread ?? 0}`;
+    } catch (error) {
+      testingShellState.messages = { unreadCount: 0 };
+      testingShellState.status = error?.message || "Messages unavailable right now.";
+    }
+    renderTestingShellPanel();
+  }
+
+  function enterTestingMemberShell(email) {
     const clean = String(email || "").trim().toLowerCase();
+    testingShellState.email = clean;
+    testingShellState.tab = "calendar";
     hideHubLoadingGate();
     setStatus("");
     try {
@@ -746,111 +910,22 @@
       document.documentElement.classList.add("llh-boot-authenticated");
     } catch (_error) { /* ignore */ }
 
-    showTestingView("calendar");
-    const host = document.getElementById("mainCalendarApp");
-    if (host) {
-      host.innerHTML = `
-        <div class="llh-testing-member-panel" data-llh-testing-member-shell>
-          <p class="eyebrow">Signed in</p>
-          <h3>Welcome back${clean ? `, ${clean}` : ""}</h3>
-          <p>Your login worked. Full workspace tools load in the background so this tab stays usable.</p>
-          <div class="llh-testing-member-actions">
-            <button type="button" class="primary-button" data-llh-shell-action="show-workspace" ${options.workspaceReady ? "" : "disabled"}>
-              ${options.workspaceReady ? "Open full workspace" : "Preparing full workspace…"}
-            </button>
-            <button type="button" class="ghost-button" data-llh-shell-action="admin">Open Admin</button>
-            <button type="button" class="ghost-button" data-llh-shell-action="signout">Sign out</button>
-          </div>
-          <p class="form-note" data-llh-shell-status>Status: ${options.statusText || "Loading full calendar & lesson tools in the background…"}</p>
-        </div>
-      `;
-      host.querySelector("[data-llh-shell-action='show-workspace']")?.addEventListener("click", () => {
-        revealHubFrame();
-      });
-      host.querySelector("[data-llh-shell-action='admin']")?.addEventListener("click", () => {
-        window.location.href = "/admin";
-      });
-      host.querySelector("[data-llh-shell-action='signout']")?.addEventListener("click", () => {
-        signOutTestingMember();
-      });
-    }
     clearFromLoginParam();
     paintEarlySignedIn(clean);
-    // paintEarlySignedIn may set a status string — keep the interactive shell uncovered.
     hideHubLoadingGate();
     setStatus("");
+    renderTestingShellPanel();
+    loadTestingShellData();
   }
 
-  function updateTestingMemberShellStatus(text, workspaceReady) {
+  // Kept as no-ops so older callsites/tests do not break; full app.js iframe boot was unreliable.
+  function updateTestingMemberShellStatus(text) {
+    testingShellState.status = text || testingShellState.status;
     const status = document.querySelector("[data-llh-shell-status]");
-    if (status && text) status.textContent = `Status: ${text}`;
-    const btn = document.querySelector("[data-llh-shell-action='show-workspace']");
-    if (btn) {
-      btn.disabled = !workspaceReady;
-      btn.textContent = workspaceReady ? "Open full workspace" : "Preparing full workspace…";
-    }
+    if (status && testingShellState.status) status.textContent = testingShellState.status;
   }
-
-  function revealHubFrame() {
-    const frame = document.getElementById("llhHubFrame");
-    if (!frame) return false;
-    try {
-      const w = frame.contentWindow;
-      if (!w || !w.document?.body?.classList.contains("app-boot-ready") || typeof w.setView !== "function") {
-        return false;
-      }
-      try {
-        w.setView("calendar", {
-          fromBoot: true,
-          fromAuthLanding: true,
-          allowDuringBootVerification: true,
-          replaceHistory: true,
-        });
-      } catch (_error) { /* ignore */ }
-      frame.hidden = false;
-      document.body.classList.add("llh-hub-frame-visible");
-      hideHubLoadingGate();
-      setStatus("");
-      return true;
-    } catch (_error) {
-      return false;
-    }
-  }
-
-  function startBackgroundHubFrame() {
-    if (!isTestingHost() || isHubBootFrame()) return;
-    if (document.getElementById("llhHubFrame")) return;
-    updateTestingMemberShellStatus("Loading full calendar & lesson tools in the background…", false);
-    const frame = document.createElement("iframe");
-    frame.id = "llhHubFrame";
-    frame.title = "Little Learner Hub workspace";
-    frame.setAttribute("aria-hidden", "true");
-    frame.hidden = true;
-    // Same-origin iframe shares localStorage; loads app.js off the parent main thread.
-    frame.src = `${window.location.pathname || "/"}?hubBoot=1`;
-    document.body.appendChild(frame);
-
-    const started = Date.now();
-    if (hubFrameWatchTimer) window.clearInterval(hubFrameWatchTimer);
-    hubFrameWatchTimer = window.setInterval(() => {
-      if (revealHubFrame()) {
-        window.clearInterval(hubFrameWatchTimer);
-        hubFrameWatchTimer = 0;
-        updateTestingMemberShellStatus("Full workspace is ready.", true);
-        // Auto-open once ready so login feels complete without an extra click.
-        return;
-      }
-      const elapsed = Date.now() - started;
-      if (elapsed > 15000 && elapsed < 16000) {
-        updateTestingMemberShellStatus("Still preparing full tools — you can use Admin or wait here.", false);
-      }
-      if (elapsed > 120000) {
-        window.clearInterval(hubFrameWatchTimer);
-        hubFrameWatchTimer = 0;
-        updateTestingMemberShellStatus("Full tools are taking too long. Use Open Admin, or refresh and try again.", false);
-      }
-    }, 500);
-  }
+  function revealHubFrame() { return false; }
+  function startBackgroundHubFrame() { /* intentionally disabled */ }
 
   function queueAuth(mode) {
     wireEarlyAuth();
@@ -865,6 +940,21 @@
 
   function queueNav(view) {
     if (!view) return;
+    // Signed-in testing shell: never kick off multi-MB app.js from sidebar clicks.
+    if (isTestingHost() && document.body.classList.contains("llh-testing-member-shell")) {
+      if (view === "admin") {
+        window.location.href = "/admin";
+        return;
+      }
+      if (view === "calendar" || view === "lessons" || view === "messages") {
+        openTestingShellTab(view);
+        return;
+      }
+      openTestingShellTab("calendar");
+      testingShellState.status = `“${view}” opens in the full app later — use Calendar, Lesson Plans, Messages, or Admin for now.`;
+      renderTestingShellPanel();
+      return;
+    }
     if (view === "admin") {
       showAdminViewEarly();
       wireEarlyAdminUnlock();
@@ -958,10 +1048,7 @@
     // Show a usable signed-in shell immediately. Load multi-MB app.js in a
     // background iframe so the parent tab does not freeze on "Opening your hub…".
     if (memberEmail && isTestingHost()) {
-      enterTestingMemberShell(memberEmail, {
-        fromLogin: /(?:\?|&)fromLogin=1(?:&|$)/.test(String(window.location.search || "")),
-      });
-      startBackgroundHubFrame();
+      enterTestingMemberShell(memberEmail);
       return;
     }
 
