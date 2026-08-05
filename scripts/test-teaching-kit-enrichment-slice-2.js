@@ -258,13 +258,9 @@ async function main() {
         { timeout: 30000 },
       );
       // Hide cookie/consent chrome so review screenshots show the Activity Studio clearly.
-      await page.evaluate(() => {
-        document.querySelectorAll(
-          "[class*='cookie'], [id*='cookie'], [class*='consent'], [id*='consent'], .llh-cookie, #cookieBanner",
-        ).forEach((el) => {
-          el.style.display = "none";
-        });
-      });
+      // Do not use [class*='cookie'] — it matches body.has-meta-cookie-notice and hides <body>.
+      const { hideCookieConsentChrome } = require("./test-helpers/tk-enrich-playwright.js");
+      await hideCookieConsentChrome(page);
 
       const result = await page.evaluate((payload) => {
         const plan = payload.lessonPlan;
@@ -326,18 +322,20 @@ async function main() {
 
       const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
       await dismissEnrichmentAiTray(page);
+      const { ensureEnrichmentEditorOpen } = require("./test-helpers/tk-enrich-playwright.js");
+      // Host uses display:none until body.tk-enrich-open; assert the product shell.
+      const shell = await ensureEnrichmentEditorOpen(page);
 
       const shotPath = path.join(ARTIFACT_DIR, vp.shot);
-      const host = page.locator("#adminTeachingKitEnrichmentHost");
-      await host.waitFor({ state: "visible", timeout: 10000 });
-      await host.screenshot({ path: shotPath });
+      await shell.screenshot({ path: shotPath });
       assert(fs.existsSync(shotPath) && fs.statSync(shotPath).size > 1000, `${vp.name}: screenshot written`);
 
       // Second crop focused on the Activity Studio stage (populated real fields).
       const studioShot = path.join(ARTIFACT_DIR, vp.shot.replace("farm-", "farm-studio-"));
       const stage = page.locator("[data-activity-studio]");
       if (await stage.count()) {
-        await stage.screenshot({ path: studioShot });
+        await stage.first().scrollIntoViewIfNeeded();
+        await stage.first().screenshot({ path: studioShot });
         assert(fs.existsSync(studioShot) && fs.statSync(studioShot).size > 800, `${vp.name}: studio screenshot written`);
       }
       await page.close();

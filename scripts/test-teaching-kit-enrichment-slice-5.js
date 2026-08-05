@@ -478,7 +478,8 @@ async function main() {
       path: path.join(ARTIFACT_DIR, "tk-enrich-slice5-publish-confirm-farm-animals.png"),
       fullPage: true,
     });
-    await page.click("[data-publish-cancel]");
+    const { clickPublishCancel } = require("./test-helpers/tk-enrich-playwright.js");
+    await clickPublishCancel(page);
     await page.waitForSelector("[data-publish-modal]", { state: "detached", timeout: 5000 }).catch(() => {});
 
     // Successful publish (API)

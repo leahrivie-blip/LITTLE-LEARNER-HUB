@@ -21403,16 +21403,20 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       });
       await writeStoreAsync(store);
       // After successful draft save, cleanup assets removed from this draft if unreferenced.
+      // History / undo / other lessons / published fields remain hard refs (reference-safe).
       const removedIds = enrichmentMedia.diffRemovedMediaAssetIds(previousDraft, draftPlan.enrichmentDraft);
+      // When the history cap drops old snapshots, reclaim assets that only lived there.
+      const prunedHistoryIds = enrichmentMedia.assetIdsOnlyInDroppedHistory(previousHistory, nextHistory);
+      const cleanupCandidateIds = [...new Set([...removedIds, ...prunedHistoryIds])];
       const cleanupLogs = [];
-      for (const removedId of removedIds) {
+      for (const removedId of cleanupCandidateIds) {
         cleanupLogs.push(await cleanupEnrichmentMediaAsset(store, {
           mediaAssetId: removedId,
           lessonPlanId: id,
-          reason: "draft_save_unreferenced",
+          reason: removedIds.includes(removedId) ? "draft_save_unreferenced" : "history_prune_unreferenced",
         }));
       }
-      if (removedIds.length) await writeStoreAsync(store);
+      if (cleanupCandidateIds.length) await writeStoreAsync(store);
       const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
       jsonResponse(response, 200, {
         ok: true,

@@ -296,11 +296,9 @@ async function main() {
       null,
       { timeout: 30000 },
     );
-    await page.evaluate(() => {
-      document.querySelectorAll(
-        "[class*='cookie'], [id*='cookie'], [class*='consent'], [id*='consent']",
-      ).forEach((el) => { el.style.display = "none"; });
-    });
+    // Do not use [class*='cookie'] — it matches body.has-meta-cookie-notice and hides <body>.
+    const { hideCookieConsentChrome } = require("./test-helpers/tk-enrich-playwright.js");
+    await hideCookieConsentChrome(page);
 
     const opened = await page.evaluate((payload) => {
       const plan = { ...payload.lessonPlan, enrichmentDraft: payload.enrichmentDraft, resourceIds: [] };
@@ -327,7 +325,13 @@ async function main() {
 
     const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
     await dismissEnrichmentAiTray(page);
-    await page.locator('[data-enrich-mode="preview"]').click({ force: true });
+    const {
+      clickEnrichmentMode,
+      clickPreviewViewport,
+      ensureEnrichmentEditorOpen,
+    } = require("./test-helpers/tk-enrich-playwright.js");
+    await ensureEnrichmentEditorOpen(page);
+    await clickEnrichmentMode(page, "preview");
     await page.waitForSelector("[data-enrich-live-preview][data-draft-preview='1'], .tk-enrich-draft-preview-label", {
       timeout: 15000,
     });
@@ -388,7 +392,8 @@ async function main() {
     ];
     for (const shot of shots) {
       await page.setViewportSize({ width: shot.width, height: shot.height });
-      await page.click(`[data-preview-viewport="${shot.viewport}"]`);
+      await ensureEnrichmentEditorOpen(page);
+      await clickPreviewViewport(page, shot.viewport);
       await page.waitForSelector(`.tk-enrich-preview-frame.is-${shot.viewport}`, { timeout: 5000 });
       await page.waitForFunction(() => {
         const text = document.querySelector("[data-enrich-live-preview]")?.innerText || "";

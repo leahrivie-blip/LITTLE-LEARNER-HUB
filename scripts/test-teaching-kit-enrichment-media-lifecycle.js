@@ -325,18 +325,21 @@ async function main() {
     });
     assert(draftSave.status === 200, "draft save B");
     expectedUpdatedAt = draftSave.json.siteContentUpdatedAt || expectedUpdatedAt;
-    assert(!localAssetExists(upA.json.mediaAssetId), "A removed after unreferenced");
+    // A remains while draft history can restore the prior version (reference-safe).
+    assert(localAssetExists(upA.json.mediaAssetId), "A retained while history references it");
     assert(localAssetExists(upB.json.mediaAssetId), "B retained");
+    const switchLogs = draftSave.json.mediaCleanup || [];
+    const aSkip = switchLogs.find((row) => row.assetId === upA.json.mediaAssetId);
+    assert(aSkip, "cleanup attempted for A");
+    assert(
+      String(aSkip.result || "").startsWith("skipped_still_referenced"),
+      `A skipped as still referenced (got ${aSkip.result})`,
+    );
+    assert(aSkip.reason === "draft_save_unreferenced", "cleanup log reason");
+    assert(aSkip.lessonPlanId === planPayload.id, "cleanup log lesson ID");
+    assert(aSkip.timestamp, "cleanup log timestamp");
 
-    const logs = readCleanupLog();
-    const aLog = logs.find((row) => row.assetId === upA.json.mediaAssetId && row.result === "deleted");
-    assert(aLog, "cleanup log has deleted A");
-    assert(aLog.lessonPlanId === planPayload.id, "cleanup log lesson ID");
-    assert(aLog.reason === "draft_save_unreferenced", "cleanup log reason");
-    assert(aLog.timestamp, "cleanup log timestamp");
-    assert(aLog.assetId === upA.json.mediaAssetId, "cleanup log asset ID");
-
-    // Removing photo reference immediately in draft payload
+    // Removing photo reference immediately in draft payload — B stays if history snapshotted it.
     draftSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken,
       expectedUpdatedAt,
@@ -359,7 +362,20 @@ async function main() {
     expectedUpdatedAt = draftSave.json.siteContentUpdatedAt || expectedUpdatedAt;
     const cleared = draftSave.json.lessonPlan.enrichmentDraft.activities[DISCOVERY_ID];
     assert(!cleared.setupMediaAssetId && !cleared.setupImageUrl, "draft reference removed immediately on save");
-    assert(!localAssetExists(upB.json.mediaAssetId), "B cleaned after remove");
+    const bCleanup = (draftSave.json.mediaCleanup || []).find((row) => row.assetId === upB.json.mediaAssetId);
+    assert(bCleanup, "cleanup attempted for B");
+    assert(
+      String(bCleanup.result || "").startsWith("skipped_still_referenced"),
+      `B retained while history can restore it (got ${bCleanup.result})`,
+    );
+    assert(localAssetExists(upB.json.mediaAssetId), "B still on disk for version restore");
+    const stillBlocked = await requestJson("POST", "/api/admin/curriculum/enrichment-photos/delete", {
+      adminToken,
+      mediaAssetId: upB.json.mediaAssetId,
+      lessonPlanId: planPayload.id,
+      reason: "lifecycle_test_history_ref",
+    }, { Authorization: `Bearer ${adminToken}` });
+    assert(stillBlocked.status === 409, "history-referenced B not force-deleted");
 
     // Draft privacy: public route 404 for draft_private; admin works only when asset exists
     const upC = await upload(adminToken, {

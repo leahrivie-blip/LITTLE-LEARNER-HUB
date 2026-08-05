@@ -468,15 +468,19 @@ async function main() {
     assert(replaceDraftSave.status === 200, "draft save after replace");
     expectedUpdatedAt = replaceDraftSave.json.siteContentUpdatedAt || expectedUpdatedAt;
     const cleanupLogs = replaceDraftSave.json.mediaCleanup || [];
+    // Auto draft history snapshots the previous draft for restore — replaced assets stay
+    // referenced by enrichmentPublishHistory until that version is pruned (reference-safe).
+    const oldCleanup = cleanupLogs.find((log) => log.assetId === uploadSetup.json.mediaAssetId);
+    assert(oldCleanup, "replace draft save reports cleanup attempt for old asset");
     assert(
-      cleanupLogs.some((log) => log.assetId === uploadSetup.json.mediaAssetId && log.result === "deleted"),
-      "replace draft save cleans old unused asset",
+      String(oldCleanup.result || "").startsWith("skipped_still_referenced"),
+      `replace keeps version-referenced asset (got ${oldCleanup.result})`,
     );
-    const gone = await requestBinary(
+    const stillThere = await requestBinary(
       "GET",
       `${uploadSetup.json.mediaUrl}&adminToken=${encodeURIComponent(adminToken)}`,
     );
-    assert(gone.status === 404, "removed photo fails safely (404)");
+    assert(stillThere.status === 200, "history-referenced photo remains readable for restore");
 
     // Broken-image fallback in UI + mobile upload via file chooser
     const { chromium } = require("playwright");

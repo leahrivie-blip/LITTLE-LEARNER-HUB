@@ -399,6 +399,8 @@ function collectCurriculumEnrichmentMediaRefs(curriculum) {
     collectAssetIdsFromValue(plan?.enrichmentDraft).forEach((id) => add(id, planId, "enrichmentDraft"));
     collectAssetIdsFromValue(plan?.dailyPlans).forEach((id) => add(id, planId, "dailyPlans"));
     collectAssetIdsFromValue(plan?.enrichmentPublishHistory).forEach((id) => add(id, planId, "enrichmentPublishHistory"));
+    // Discard undo stash is restoreable — keep those bytes until undo expires/clears.
+    collectAssetIdsFromValue(plan?.enrichmentDraftUndo).forEach((id) => add(id, planId, "enrichmentDraftUndo"));
     collectAssetIdsFromValue(plan?.setupImageUrl).forEach((id) => add(id, planId, "plan.setupImageUrl"));
     collectAssetIdsFromValue(plan?.exampleImageUrl).forEach((id) => add(id, planId, "plan.exampleImageUrl"));
   });
@@ -420,6 +422,23 @@ function diffRemovedMediaAssetIds(prevDraft, nextDraft) {
     if (!after.has(id)) removed.push(id);
   });
   return removed;
+}
+
+/**
+ * Asset ids present in history entries that were dropped by the ENRICHMENT_HISTORY_LIMIT cap
+ * when a new entry is prepended. Callers must still run ref-safe cleanup (other lessons /
+ * live drafts / remaining history / published fields may still reference them).
+ */
+function assetIdsOnlyInDroppedHistory(previousHistory, nextHistory) {
+  const prev = new Set();
+  const next = new Set();
+  collectAssetIdsFromValue(previousHistory).forEach((id) => prev.add(id));
+  collectAssetIdsFromValue(nextHistory).forEach((id) => next.add(id));
+  const dropped = [];
+  prev.forEach((id) => {
+    if (!next.has(id)) dropped.push(id);
+  });
+  return dropped;
 }
 
 function cleanupLogPathFromStorePath(storePath) {
@@ -507,6 +526,7 @@ module.exports = {
   collectDraftMediaAssetIds,
   collectCurriculumEnrichmentMediaRefs,
   diffRemovedMediaAssetIds,
+  assetIdsOnlyInDroppedHistory,
   cleanupLogPathFromStorePath,
   logEnrichmentMediaCleanup,
   promoteDraftPhotoUrlsToPublic,

@@ -409,6 +409,19 @@
       });
     }
 
+    // Legacy field ownership: when specificity filters drop fixture learning_objectives
+    // (e.g. stopword-heavy themes like "All About Me"), copy plan.objectives into the
+    // draft so production kits draft-own the field without mutating published lesson text.
+    if (!text(draft.week?.objectives) && text(plan?.objectives)) {
+      draft.week = { ...(draft.week || {}), objectives: text(plan.objectives) };
+    }
+    if (!text(draft.week?.weeklyMaterials) && text(plan?.weeklyMaterials)) {
+      draft.week = { ...(draft.week || {}), weeklyMaterials: text(plan.weeklyMaterials) };
+    }
+    if (!text(draft.week?.familyConnection) && text(plan?.familyConnection)) {
+      draft.week = { ...(draft.week || {}), familyConnection: text(plan.familyConnection) };
+    }
+
     draft.updatedAt = new Date().toISOString();
     draft.lastEditedBy = "curriculum-production";
 
