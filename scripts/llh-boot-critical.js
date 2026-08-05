@@ -12,7 +12,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r9";
+  const APP_SRC = "app.js?v=20260804-js-split-r10";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -549,9 +549,7 @@
         // Hard handoff: reload so app.js boots with a real email session and lands
         // on Calendar. Soft in-place load left testers on the marketing home screen.
         await new Promise((resolve) => window.setTimeout(resolve, 80));
-        const next = new URL(window.location.href);
-        next.searchParams.set("fromLogin", "1");
-        window.location.replace(next.pathname + next.search + next.hash);
+        window.location.replace(`${window.location.pathname || "/"}?fromLogin=1`);
         return;
       } catch (error) {
         setAuthMessage(error.message || "Login failed.");
