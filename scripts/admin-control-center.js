@@ -503,14 +503,24 @@
     `;
   }
 
-  async function fetchJson(url) {
+  async function fetchJson(url, timeoutMs = 12000) {
     const token = adminToken();
     const headers = { Accept: "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(url, { cache: "no-store", headers });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
-    return data;
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0;
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers,
+        signal: controller?.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
+      return data;
+    } finally {
+      if (timer) window.clearTimeout(timer);
+    }
   }
 
   async function loadCommandCenterStats() {
