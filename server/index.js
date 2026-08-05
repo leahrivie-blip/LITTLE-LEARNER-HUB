@@ -2087,6 +2087,19 @@ function normalizedCurriculumActivity(value) {
     indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives, 4000),
     outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives, 4000),
     cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
+    // Teaching Kit activity meta — keep in sync with daily-plan items so the
+    // viewer does not lose authored timing / grouping / differentiation.
+    purpose: normalizedMultilineText(entry.purpose, 4000),
+    extraSupport: normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000),
+    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
+    setupMinutes: Number.isFinite(Number(entry.setupMinutes))
+      ? Math.max(0, Math.min(180, Math.round(Number(entry.setupMinutes))))
+      : null,
+    durationMinutes: Number.isFinite(Number(entry.durationMinutes || entry.activityDurationMinutes))
+      ? Math.max(0, Math.min(180, Math.round(Number(entry.durationMinutes || entry.activityDurationMinutes))))
+      : null,
+    groupSize: normalizedShortText(entry.groupSize, 80),
+    dailyPlacement: normalizedShortText(entry.dailyPlacement || entry.placement, 120),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
@@ -3226,6 +3239,7 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       title: item.title,
       objective: item.objective,
       description: item.description,
+      purpose: item.purpose || existing?.purpose || "",
       learningDomains: item.learningDomains,
       materials: item.materials,
       setup: item.setup,
@@ -3237,8 +3251,16 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       vocabulary: item.vocabulary,
       extensions: item.extensions,
       adaptations: item.adaptations,
+      extraSupport: item.extraSupport || item.differentiation || existing?.extraSupport || "",
       safetyNotes: item.safetyNotes,
       ageModifications: item.ageModifications,
+      familyConnection: item.familyConnection || existing?.familyConnection || "",
+      setupMinutes: item.setupMinutes != null ? item.setupMinutes : existing?.setupMinutes,
+      durationMinutes: item.durationMinutes != null
+        ? item.durationMinutes
+        : (item.activityDurationMinutes != null ? item.activityDurationMinutes : existing?.durationMinutes),
+      groupSize: item.groupSize || existing?.groupSize || "",
+      dailyPlacement: item.dailyPlacement || item.placement || existing?.dailyPlacement || "",
       setupImageUrl: item.setupImageUrl || existing?.setupImageUrl || "",
       exampleImageUrl: item.exampleImageUrl || existing?.exampleImageUrl || "",
       setupMediaAssetId: item.setupMediaAssetId || existing?.setupMediaAssetId || "",

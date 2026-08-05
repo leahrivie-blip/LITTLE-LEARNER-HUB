@@ -534,6 +534,15 @@ async function main() {
     ok(mondayAct.activityCategory === "Circle Time", `humanized category: ${mondayAct.activityCategory}`);
     ok(mondayAct.exampleImageUrl === "" || mondayAct.hasExamplePhoto === false, "empty example image not inventing URL");
     ok(Object.prototype.hasOwnProperty.call(mondayAct, "exampleImageUrl") || Object.prototype.hasOwnProperty.call(mondayAct, "examplePhotoUrl"), "image fields preserved on card");
+    ok(Number(mondayAct.setupMinutes) === 3, `setupMinutes survives sync/map (got ${mondayAct.setupMinutes})`);
+    ok(
+      typeof mondayAct.activityDurationMinutes === "number" && Number.isFinite(mondayAct.activityDurationMinutes),
+      `duration is numeric minutes, not object (got ${typeof mondayAct.activityDurationMinutes})`,
+    );
+    ok(!String(mondayAct.activityDurationMinutes).includes("[object"), "duration never stringifies as [object Object]");
+    ok(/small group/i.test(mondayAct.groupSize || ""), `groupSize from daily item (got ${mondayAct.groupSize})`);
+    ok(/arrival/i.test(mondayAct.dailyPlacement || ""), `dailyPlacement from daily item (got ${mondayAct.dailyPlacement})`);
+    ok(/familiar animals/i.test(mondayAct.extraSupport || ""), "extraSupport from daily item survives sync/map");
 
     const milking = (kit.companion?.activities || []).find((act) => /Milking/i.test(act.title));
     ok(milking, "milking activity mapped");
@@ -724,7 +733,7 @@ async function main() {
             ok: Boolean(panel),
             back,
             missing,
-            text: panel?.innerText?.slice(0, 200) || "",
+            text: panel?.innerText || "",
           };
         });
         ok(openedActivity.ok, `${vp.name}: opened activity from binder`);
@@ -732,6 +741,18 @@ async function main() {
         ok(
           (openedActivity.missing || 0) >= 1 || /Image not added yet/i.test(openedActivity.text || ""),
           `${vp.name}: activity missing image state`,
+        );
+        ok(
+          !/\[object Object\]/i.test(openedActivity.text || ""),
+          `${vp.name}: activity detail has no [object Object] duration bug`,
+        );
+        ok(
+          /Setup:\s*\d+\s*min/i.test(openedActivity.text || ""),
+          `${vp.name}: activity detail shows numeric setup minutes`,
+        );
+        ok(
+          /Duration:\s*[~]?\d+\s*min/i.test(openedActivity.text || ""),
+          `${vp.name}: activity detail shows numeric duration minutes`,
         );
 
         await page.screenshot({

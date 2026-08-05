@@ -398,7 +398,20 @@
   }
 
   function mapActivityCard(entry, mapCategory) {
-    const source = entry.activity || entry.item || {};
+    // Daily-item authored fields are the source of truth when present; thin synced
+    // store activities must not wipe setupMinutes / groupSize / extraSupport / etc.
+    const activity = entry.activity && typeof entry.activity === "object" ? entry.activity : {};
+    const item = entry.item && typeof entry.item === "object" ? entry.item : {};
+    const source = { ...activity, ...item };
+    // Keep enrichment media from the activity record when the daily item omits URLs.
+    if (!text(source.setupImageUrl || source.setupPhotoUrl)) {
+      source.setupImageUrl = activity.setupImageUrl || activity.setupPhotoUrl || "";
+      source.setupMediaAssetId = activity.setupMediaAssetId || source.setupMediaAssetId;
+    }
+    if (!text(source.exampleImageUrl || source.examplePhotoUrl)) {
+      source.exampleImageUrl = activity.exampleImageUrl || activity.examplePhotoUrl || "";
+      source.exampleMediaAssetId = activity.exampleMediaAssetId || source.exampleMediaAssetId;
+    }
     const title = text(source.title) || "Activity";
     const categoryRaw = text(source.activityCategory) || "Open-Ended Exploration";
     const category = humanizeCategoryLabel(categoryRaw);
@@ -410,6 +423,14 @@
       asArray(source.learningGoals).map(text).filter(Boolean)[0] ||
       "";
     const minutes = estimateMinutesForActivity(source);
+    const explicitDuration = Number(source.durationMinutes || source.activityDurationMinutes);
+    const durationMinutes = Number.isFinite(explicitDuration) && explicitDuration > 0
+      ? explicitDuration
+      : minutes.total;
+    const explicitSetup = Number(source.setupMinutes);
+    const setupMinutes = Number.isFinite(explicitSetup) && explicitSetup >= 0
+      ? explicitSetup
+      : minutes.setup;
     const examplePhotoUrl = text(source.exampleImageUrl || source.examplePhotoUrl);
     const setupPhotoUrl = text(source.setupImageUrl || source.setupPhotoUrl);
     const exampleCaption = text(source.exampleImageCaption || source.exampleCaption);
@@ -447,8 +468,8 @@
       materialsText: materials,
       learningObjective,
       developmentalDomains: asArray(source.developmentalDomains || source.domains).map(text).filter(Boolean),
-      setupMinutes: Number(source.setupMinutes) || null,
-      activityDurationMinutes: Number(source.durationMinutes || source.activityDurationMinutes) || minutes,
+      setupMinutes,
+      activityDurationMinutes: durationMinutes,
       groupSize: text(source.groupSize),
       dailyPlacement: text(source.dailyPlacement || source.placement),
       teacherPrompts: teacherPromptsFrom(source),
@@ -467,7 +488,7 @@
       familyConnection: text(source.familyConnection),
       printableInstructions: text(source.printableInstructions),
       vocabulary: vocabularyEntries(source.vocabulary),
-      estimatedMinutes: minutes,
+      estimatedMinutes: durationMinutes,
       hasExamplePhoto: Boolean(examplePhotoUrl),
       hasSetupPhoto: Boolean(setupPhotoUrl),
       settingTags: settingTagsFrom(source).map(humanizeCategoryLabel),
