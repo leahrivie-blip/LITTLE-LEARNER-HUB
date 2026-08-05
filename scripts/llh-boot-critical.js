@@ -12,7 +12,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r5";
+  const APP_SRC = "app.js?v=20260804-js-split-r6";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -528,8 +528,12 @@
   function queueAuth(mode) {
     wireEarlyAuth();
     openEarlyAuthModal(mode);
-    // Warm the big bundle in the background AFTER modal is open so UI stays responsive.
-    window.setTimeout(() => startCoreAppLoad({ reason: mode }), 50);
+    // On testing, do NOT start parsing app.js while the modal is open — that freezes
+    // the main thread and makes Log In / Start Free look dead. Load only on submit
+    // (signup) or after successful early login.
+    if (!isTestingHost()) {
+      window.setTimeout(() => startCoreAppLoad({ reason: mode }), 50);
+    }
   }
 
   function queueNav(view) {
@@ -611,17 +615,23 @@
       if (!document.body.classList.contains("app-boot-ready")) revealHomeIfStuck();
     }, 2500);
 
-    // Homepage: do NOT auto-parse app.js. Buttons work via early auth.
-    // Warm the bundle only after idle so first interactions stay snappy.
+    // Homepage: do NOT auto-parse app.js on the testing host — it freezes buttons.
+    // Early auth modal handles Log In / Start Free without the big bundle.
+    if (isTestingHost()) {
+      setStatus("");
+      return;
+    }
+
+    // Production: warm the bundle after idle so first paint stays usable.
     const warm = () => {
       if (appLoadStarted) return;
       if (document.visibilityState === "hidden") return;
       startCoreAppLoad({ reason: "idle-warm" });
     };
     if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(warm, { timeout: isTestingHost() ? 12000 : 6000 });
+      window.requestIdleCallback(warm, { timeout: 8000 });
     } else {
-      window.setTimeout(warm, isTestingHost() ? 12000 : 6000);
+      window.setTimeout(warm, 8000);
     }
   }
 
