@@ -16116,15 +16116,19 @@ async function renderMessagesPage(options = {}) {
   }
   if (options.conversation) messagesViewState.tab = "conversation";
   section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhSkeletonHtml({ rows: 5, label: "Loading your messages…", variant: "messages" })}</div>`;
+  // Built-in Messages UI lives in app.js — do not await the heavy comms pack here
+  // (that can stall the Loading skeleton for tens of seconds on cold testing boots).
   try {
-    if (window.LLHLazyLoader?.ensure) await window.LLHLazyLoader.ensure("comms");
-  } catch (_error) { /* continue with built-in messages UI */ }
+    if (window.LLHLazyLoader?.ensure) {
+      window.LLHLazyLoader.ensure("comms").catch(() => {});
+    }
+  } catch (_error) { /* ignore */ }
   const withTimeout = (promise, ms) => Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error("Messages timed out")), ms)),
   ]);
   try {
-    await withTimeout(Promise.all([refreshMessagesData(), refreshPushPreferenceState()]), 12000);
+    await withTimeout(Promise.all([refreshMessagesData(), refreshPushPreferenceState()]), 9000);
   } catch (error) {
     console.warn("Messages load failed", error);
     messagesViewState.loaded = true;
