@@ -455,27 +455,12 @@ body.llh-admin-control-center #view-admin .admin-owner-panel {
   padding: 0;
 }
 
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-owner-header,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-global-search,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-quick-actions-card,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-command-center-card,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-analytics-state,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > details,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-metric-grid,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-metrics,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-owner-sections,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-back-to-top,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-content-health,
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > section:not(.admin-testing-center):not([data-admin-cc-testing-intro]) {
+body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus #adminOwnerOverview > :not(.admin-testing-center):not([data-admin-cc-testing-intro]) {
   display: none !important;
 }
 
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > [data-admin-cc-testing-intro],
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus > .admin-testing-center {
-  display: block !important;
-}
-
-body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus .admin-testing-center {
+body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus #adminOwnerOverview > .admin-testing-center {
+  display: flex !important;
   margin-top: 8px;
   padding: 22px 24px;
   border: 1px solid var(--admin-cc-line);
@@ -484,7 +469,7 @@ body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus .adm
 }
 
 body.llh-admin-control-center #view-admin .admin-owner-panel--testing-focus .admin-testing-center > div:first-child {
-  display: none;
+  display: none !important;
 }
 
 body.llh-admin-control-center #view-admin .admin-testing-center.admin-preview-panel {
