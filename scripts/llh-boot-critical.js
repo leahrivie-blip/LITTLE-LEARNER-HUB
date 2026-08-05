@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260805-admin-control-center-r9";
+  const APP_SRC = "app.js?v=20260805-admin-control-center-r10";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -418,17 +418,23 @@
   }
 
   function wireEarlyAdminUnlock() {
-    if (earlyAdminWired) return;
     const form = ensureEarlyAdminShell();
     if (!form) return;
-    earlyAdminWired = true;
+    // Always neutralize native GET navigation (credentials in the URL).
+    try {
+      form.setAttribute("method", "post");
+      form.setAttribute("action", "#");
+    } catch (_error) { /* ignore */ }
     const emailInput = form.querySelector('[name="adminEmail"]');
     if (emailInput && !emailInput.value) emailInput.value = rememberedAdminEmail();
 
+    // Re-bind if the unlock form node was replaced after an earlier wire.
+    if (form.dataset.llhEarlyAdminWired === "true" && earlyAdminWired) return;
+    form.dataset.llhEarlyAdminWired = "true";
+    earlyAdminWired = true;
+
     form.addEventListener("submit", async (event) => {
-      if (document.body.classList.contains("app-boot-ready") && typeof window.adminLogin === "function") {
-        return;
-      }
+      // Always stop native navigation first — never leak credentials into the URL.
       event.preventDefault();
       event.stopPropagation();
       const fd = new FormData(form);
@@ -479,23 +485,23 @@
         try {
           window.setView("admin", { allowDuringBootVerification: true, fromBoot: true });
         } catch (_error) { /* ignore */ }
-        // Testing: land on full Testing Center (dashboard tab) so View As / sync
-        // are full-width and immediately usable after unlock.
+        // Testing Control Center: land on Admin Home (clear dashboard). Testing Center
+        // stays one click away in the Admin sidebar.
         if (isTestingHost()) {
-          const openTestingCenter = () => {
+          const openAdminHome = () => {
             try {
               if (typeof window.setAdminSectionTab === "function") {
-                window.setAdminSectionTab("dashboard");
+                window.setAdminSectionTab("admin-home");
                 return true;
               }
             } catch (_error) { /* ignore */ }
             return false;
           };
-          if (!openTestingCenter()) {
+          if (!openAdminHome()) {
             let tries = 0;
             const tabTimer = window.setInterval(() => {
               tries += 1;
-              if (openTestingCenter() || tries > 40) window.clearInterval(tabTimer);
+              if (openAdminHome() || tries > 40) window.clearInterval(tabTimer);
             }, 250);
           }
         }
