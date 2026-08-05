@@ -550,7 +550,10 @@
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
     if (text(week.familyConnection)) nextPlan.familyConnection = text(week.familyConnection);
     if (text(week.weeklyOverview)) nextPlan.weeklyOverview = text(week.weeklyOverview);
-    if (text(week.objectives)) nextPlan.objectives = text(week.objectives);
+    // Only publish draft objectives when explicitly owned; blank never overwrites legacy.
+    if (week.fieldOwnership?.objectives === true && text(week.objectives)) {
+      nextPlan.objectives = text(week.objectives);
+    }
     if (text(week.weeklyMaterials)) nextPlan.weeklyMaterials = text(week.weeklyMaterials);
 
     const draftBooks = asArray(week.books)
@@ -1078,6 +1081,13 @@
           const next = text(sug.proposedValue || sug.proposedText);
           if (!next) return;
           draft.week[field] = appendDraftText(draft.week[field], next);
+          if (field === "objectives") {
+            // Accepted AI suggestion claims draft ownership (never silent replace on open).
+            if (!draft.week.fieldOwnership || typeof draft.week.fieldOwnership !== "object") {
+              draft.week.fieldOwnership = {};
+            }
+            draft.week.fieldOwnership.objectives = true;
+          }
           if (field === "teacherPreparation") {
             const toolkit = ensureWeekToolkit(draft);
             toolkit.teacherPreparation = appendDraftText(toolkit.teacherPreparation, next);

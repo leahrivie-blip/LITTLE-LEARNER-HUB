@@ -409,17 +409,14 @@
       });
     }
 
-    // Legacy field ownership: when specificity filters drop fixture learning_objectives
-    // (e.g. stopword-heavy themes like "All About Me"), copy plan.objectives into the
-    // draft so production kits draft-own the field without mutating published lesson text.
-    if (!text(draft.week?.objectives) && text(plan?.objectives)) {
-      draft.week = { ...(draft.week || {}), objectives: text(plan.objectives) };
-    }
-    if (!text(draft.week?.weeklyMaterials) && text(plan?.weeklyMaterials)) {
-      draft.week = { ...(draft.week || {}), weeklyMaterials: text(plan.weeklyMaterials) };
-    }
-    if (!text(draft.week?.familyConnection) && text(plan?.familyConnection)) {
-      draft.week = { ...(draft.week || {}), familyConnection: text(plan.familyConnection) };
+    // Do NOT copy legacy objectives into the draft, and do not treat automated
+    // batch-accept as ownership. Read-time fallback surfaces plan.objectives until
+    // a human edits the field or accepts an objectives suggestion in the editor.
+    if (draft.week && typeof draft.week === "object") {
+      delete draft.week.objectives;
+      if (draft.week.fieldOwnership && typeof draft.week.fieldOwnership === "object") {
+        delete draft.week.fieldOwnership.objectives;
+      }
     }
 
     draft.updatedAt = new Date().toISOString();
@@ -607,17 +604,48 @@
         || asArray(week.teacherToolkit.observationFocus).length
         || has(week.teacherToolkit.notes)
       )),
-      /** Draft-owned (not only legacy) — production targets these. */
+      /**
+       * Draft-owned fields required for production Complete.
+       * learningObjectives intentionally omitted — legacy plan.objectives remain
+       * visible via read-time fallback until an explicit edit or accepted suggestion
+       * sets week.fieldOwnership.objectives.
+       */
       draftOwned: {
         weeklyOverview: has(week.weeklyOverview),
-        learningObjectives: has(week.objectives),
         materials: has(week.weeklyMaterials),
         songs: list(week.songs),
         books: list(week.books),
         printableIdeas: list(week.printableIdeas),
         teacherToolkit: Boolean(week.teacherToolkit),
       },
+      objectivesOwnership: {
+        draftOwned: Boolean(week.fieldOwnership && week.fieldOwnership.objectives === true && has(week.objectives)),
+        effective: has(week.objectives) && week.fieldOwnership?.objectives === true
+          ? text(week.objectives)
+          : text(plan?.objectives),
+        legacy: text(plan?.objectives),
+      },
     };
+  }
+
+  function effectiveObjectives(plan, draft) {
+    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+    if (week.fieldOwnership?.objectives === true && text(week.objectives)) {
+      return text(week.objectives);
+    }
+    return text(plan?.objectives);
+  }
+
+  function markObjectivesDraftOwned(draft) {
+    const next = draft && typeof draft === "object" ? draft : { week: {}, activities: {} };
+    if (!next.week || typeof next.week !== "object") next.week = {};
+    next.week.fieldOwnership = {
+      ...(next.week.fieldOwnership && typeof next.week.fieldOwnership === "object"
+        ? next.week.fieldOwnership
+        : {}),
+      objectives: true,
+    };
+    return next;
   }
 
   return {
@@ -636,6 +664,8 @@
     upgradeOneLesson,
     summarizeProductionRun,
     kitSectionCoverage,
+    effectiveObjectives,
+    markObjectivesDraftOwned,
     defaultFlagsStillOff: () => {
       const flags = teachingKit.defaultTeachingKitFeatureFlags();
       return Object.keys(flags).every((key) => flags[key] === false);

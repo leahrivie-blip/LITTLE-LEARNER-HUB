@@ -318,25 +318,35 @@ async function main() {
     ok(!discardedFamily, `draft family cleared after discard (got "${discardedFamily}")`);
     ok((plan?.dailyPlans?.monday?.items || [])[0]?.teacherTips?.[0] === tip2, "discard left published tip2 intact");
 
-    // Rollback last publish on fixture → restores tip1 snapshot taken before publish B
+    // Rollback last publish on fixture → restores tip1 snapshot taken before publish B.
+    // Server requires expectedUpdatedAt once the store is stamped (409 otherwise).
     res = await requestJson("POST", "/api/admin/curriculum/enrichment-rollback", {
+      adminToken,
       planId: FIXTURE_PLAN_ID,
       publishedBy: "qa-nav-recovery",
+      expectedUpdatedAt: stamp,
     }, auth);
     ok(res.status === 200 && res.json?.ok, `rollback last: ${res.status} ${res.json?.error || ""}`);
     stamp = res.json.siteContentUpdatedAt || stamp;
     plan = findPlan(res.json.curriculum, FIXTURE_PLAN_ID);
-    const tipAfterRollback = (plan?.dailyPlans?.monday?.items || [])[0]?.teacherTips?.[0] || "";
-    ok(tipAfterRollback === tip1, `rollback restored tip1 (got "${tipAfterRollback}")`);
+    // Product contract: rollback restores into a NEW DRAFT only; published kit stays
+    // tip2 until an explicit Publish. Do not expect dailyPlans to rewind.
+    const tipPublishedAfterRollback = (plan?.dailyPlans?.monday?.items || [])[0]?.teacherTips?.[0] || "";
+    ok(tipPublishedAfterRollback === tip2, `published tip2 unchanged after rollback (got "${tipPublishedAfterRollback}")`);
+    const tipDraftAfterRollback = plan?.enrichmentDraft?.activities?.["qa-nav-act-1"]?.teacherTips?.[0] || "";
+    ok(tipDraftAfterRollback === tip1, `rollback restored tip1 into draft (got "${tipDraftAfterRollback}")`);
+    ok(res.json.restoredDraft === true || res.json.rolledBack === true, "rollback reports draft restore");
 
     // Restore specific version if history still has snapshots
     const history = plan?.enrichmentPublishHistory || [];
     const restoreTarget = history.find((entry) => entry.versionId && entry.snapshot) || null;
     if (restoreTarget) {
       res = await requestJson("POST", "/api/admin/curriculum/enrichment-rollback", {
+        adminToken,
         planId: FIXTURE_PLAN_ID,
         versionId: restoreTarget.versionId,
         publishedBy: "qa-nav-recovery",
+        expectedUpdatedAt: stamp,
       }, auth);
       ok(res.status === 200 && res.json?.ok, `restore version ${restoreTarget.versionId}: ${res.status}`);
       ok(res.json.restoredFromVersionId === restoreTarget.versionId

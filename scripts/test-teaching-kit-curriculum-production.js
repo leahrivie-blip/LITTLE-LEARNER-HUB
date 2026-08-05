@@ -15,7 +15,8 @@ const reusable = require("./teaching-kit-reusable-library.js");
 const production = require("./teaching-kit-curriculum-production.js");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 6530 + Math.floor(Math.random() * 200);
+const { allocateSafeTestPort } = require("./test-helpers/safe-test-port.js");
+const PORT = allocateSafeTestPort(6530, 200);
 const STORE_PATH = path.join(ROOT, `.tmp-tk-curriculum-production-${process.pid}.json`);
 const ARTIFACT_DIR = "/opt/cursor/artifacts";
 const ADMIN = {

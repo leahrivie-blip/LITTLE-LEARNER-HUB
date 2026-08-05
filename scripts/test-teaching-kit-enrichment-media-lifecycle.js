@@ -325,15 +325,15 @@ async function main() {
     });
     assert(draftSave.status === 200, "draft save B");
     expectedUpdatedAt = draftSave.json.siteContentUpdatedAt || expectedUpdatedAt;
-    // A remains while draft history can restore the prior version (reference-safe).
-    assert(localAssetExists(upA.json.mediaAssetId), "A retained while history references it");
+    // Delayed cleanup: replace enqueues a candidate; bytes stay for history restore.
+    assert(localAssetExists(upA.json.mediaAssetId), "A retained after replace save (no immediate delete)");
     assert(localAssetExists(upB.json.mediaAssetId), "B retained");
     const switchLogs = draftSave.json.mediaCleanup || [];
     const aSkip = switchLogs.find((row) => row.assetId === upA.json.mediaAssetId);
-    assert(aSkip, "cleanup attempted for A");
+    assert(aSkip, "cleanup candidate recorded for A");
     assert(
-      String(aSkip.result || "").startsWith("skipped_still_referenced"),
-      `A skipped as still referenced (got ${aSkip.result})`,
+      aSkip.result === "candidate_enqueued",
+      `A enqueued for delayed cleanup (got ${aSkip.result})`,
     );
     assert(aSkip.reason === "draft_save_unreferenced", "cleanup log reason");
     assert(aSkip.lessonPlanId === planPayload.id, "cleanup log lesson ID");
@@ -363,10 +363,10 @@ async function main() {
     const cleared = draftSave.json.lessonPlan.enrichmentDraft.activities[DISCOVERY_ID];
     assert(!cleared.setupMediaAssetId && !cleared.setupImageUrl, "draft reference removed immediately on save");
     const bCleanup = (draftSave.json.mediaCleanup || []).find((row) => row.assetId === upB.json.mediaAssetId);
-    assert(bCleanup, "cleanup attempted for B");
+    assert(bCleanup, "cleanup candidate recorded for B");
     assert(
-      String(bCleanup.result || "").startsWith("skipped_still_referenced"),
-      `B retained while history can restore it (got ${bCleanup.result})`,
+      bCleanup.result === "candidate_enqueued",
+      `B enqueued (not hard-deleted) on clear (got ${bCleanup.result})`,
     );
     assert(localAssetExists(upB.json.mediaAssetId), "B still on disk for version restore");
     const stillBlocked = await requestJson("POST", "/api/admin/curriculum/enrichment-photos/delete", {
@@ -374,6 +374,8 @@ async function main() {
       mediaAssetId: upB.json.mediaAssetId,
       lessonPlanId: planPayload.id,
       reason: "lifecycle_test_history_ref",
+      processNow: true,
+      ignoreGrace: true,
     }, { Authorization: `Bearer ${adminToken}` });
     assert(stillBlocked.status === 409, "history-referenced B not force-deleted");
 

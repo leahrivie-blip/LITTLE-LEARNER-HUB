@@ -377,41 +377,290 @@ function collectAssetIdsFromValue(value, into = new Set()) {
 }
 
 function collectDraftMediaAssetIds(draft) {
-  return collectAssetIdsFromValue(draft && draft.activities ? draft.activities : {});
+  // Full draft (activities + week toolkit/printables/cover/etc.), not activities alone.
+  return collectAssetIdsFromValue(draft || {});
+}
+
+const CLEANUP_CANDIDATE_STATUS = Object.freeze({
+  PENDING: "pending",
+  CANCELED: "canceled",
+  DELETED: "deleted",
+  DRY_RUN_WOULD_DELETE: "dry_run_would_delete",
+});
+
+/** Default grace before physical delete — 24h absorbs concurrent saves / undo / republish. */
+const DEFAULT_CLEANUP_GRACE_MS = 24 * 60 * 60 * 1000;
+
+function cleanupModeFromEnv(env = process.env) {
+  // Production default: dry-run until owner explicitly enables execute.
+  const mode = String(env.ENRICHMENT_MEDIA_CLEANUP_MODE || "dry-run").trim().toLowerCase();
+  return mode === "execute" ? "execute" : "dry-run";
+}
+
+function cleanupGraceMsFromEnv(env = process.env) {
+  const raw = env.ENRICHMENT_MEDIA_CLEANUP_GRACE_MS;
+  if (raw == null || raw === "") return DEFAULT_CLEANUP_GRACE_MS;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_CLEANUP_GRACE_MS;
+  return Math.floor(n);
+}
+
+function addRefHit(refs, assetId, lessonPlanId, source) {
+  const id = String(assetId || "").trim();
+  if (!isEnrichmentMediaAssetId(id)) return;
+  if (!refs.has(id)) refs.set(id, []);
+  refs.get(id).push({ lessonPlanId: lessonPlanId || "", source: source || "" });
+}
+
+function scanValueForRefs(refs, value, lessonPlanId, source) {
+  collectAssetIdsFromValue(value).forEach((id) => addRefHit(refs, id, lessonPlanId, source));
 }
 
 /**
- * Scan curriculum for enrichment media references (drafts, published fields, history).
+ * Centralized enrichment media reference index.
+ * Scans every store location that can own a tk-enrich-* asset.
  * Returns Map<assetId, Array<{ lessonPlanId, source }>>
  */
-function collectCurriculumEnrichmentMediaRefs(curriculum) {
+function collectStoreEnrichmentMediaRefs(store) {
   const refs = new Map();
-  const add = (assetId, lessonPlanId, source) => {
-    const id = String(assetId || "").trim();
-    if (!isEnrichmentMediaAssetId(id)) return;
-    if (!refs.has(id)) refs.set(id, []);
-    refs.get(id).push({ lessonPlanId: lessonPlanId || "", source: source || "" });
-  };
-  const plans = Array.isArray(curriculum?.lessonPlans) ? curriculum.lessonPlans : [];
-  const activities = Array.isArray(curriculum?.activities) ? curriculum.activities : [];
+  const siteContent = store?.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : (store && store.curriculum ? store : {});
+  const curriculum = siteContent.curriculum && typeof siteContent.curriculum === "object"
+    ? siteContent.curriculum
+    : (store?.curriculum && typeof store.curriculum === "object" ? store.curriculum : {});
+
+  const plans = Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [];
+  const activities = Array.isArray(curriculum.activities) ? curriculum.activities : [];
+  const curriculumResources = Array.isArray(curriculum.resources) ? curriculum.resources : [];
+
   plans.forEach((plan) => {
     const planId = plan?.id || "";
-    collectAssetIdsFromValue(plan?.enrichmentDraft).forEach((id) => add(id, planId, "enrichmentDraft"));
-    collectAssetIdsFromValue(plan?.dailyPlans).forEach((id) => add(id, planId, "dailyPlans"));
-    collectAssetIdsFromValue(plan?.enrichmentPublishHistory).forEach((id) => add(id, planId, "enrichmentPublishHistory"));
-    // Discard undo stash is restoreable — keep those bytes until undo expires/clears.
-    collectAssetIdsFromValue(plan?.enrichmentDraftUndo).forEach((id) => add(id, planId, "enrichmentDraftUndo"));
-    collectAssetIdsFromValue(plan?.setupImageUrl).forEach((id) => add(id, planId, "plan.setupImageUrl"));
-    collectAssetIdsFromValue(plan?.exampleImageUrl).forEach((id) => add(id, planId, "plan.exampleImageUrl"));
+    // Named high-value locations (explicit labels for logs / tests).
+    scanValueForRefs(refs, plan?.enrichmentDraft, planId, "enrichmentDraft");
+    scanValueForRefs(refs, plan?.dailyPlans, planId, "dailyPlans");
+    scanValueForRefs(refs, plan?.enrichmentPublishHistory, planId, "enrichmentPublishHistory");
+    scanValueForRefs(refs, plan?.enrichmentDraftUndo, planId, "enrichmentDraftUndo");
+    scanValueForRefs(refs, plan?.setupImageUrl, planId, "plan.setupImageUrl");
+    scanValueForRefs(refs, plan?.exampleImageUrl, planId, "plan.exampleImageUrl");
+    scanValueForRefs(refs, plan?.coverImageUrl || plan?.thumbnailUrl, planId, "plan.coverImage");
+    scanValueForRefs(refs, plan?.teachingKit, planId, "plan.teachingKit");
+    scanValueForRefs(refs, plan?.resources, planId, "plan.resources");
+    scanValueForRefs(refs, plan?.attachments, planId, "plan.attachments");
+    scanValueForRefs(refs, plan?.books, planId, "plan.books");
+    scanValueForRefs(refs, plan?.songs, planId, "plan.songs");
+    // Catch-all for future nested Teaching Kit media fields on the plan.
+    scanValueForRefs(refs, plan, planId, "plan.deep");
   });
+
   activities.forEach((act) => {
     const planId = act?.lessonPlanId || "";
-    collectAssetIdsFromValue(act?.setupImageUrl).forEach((id) => add(id, planId, "activity.setupImageUrl"));
-    collectAssetIdsFromValue(act?.exampleImageUrl).forEach((id) => add(id, planId, "activity.exampleImageUrl"));
-    collectAssetIdsFromValue(act?.setupMediaAssetId).forEach((id) => add(id, planId, "activity.setupMediaAssetId"));
-    collectAssetIdsFromValue(act?.exampleMediaAssetId).forEach((id) => add(id, planId, "activity.exampleMediaAssetId"));
+    scanValueForRefs(refs, act?.setupImageUrl, planId, "activity.setupImageUrl");
+    scanValueForRefs(refs, act?.exampleImageUrl, planId, "activity.exampleImageUrl");
+    scanValueForRefs(refs, act?.setupMediaAssetId, planId, "activity.setupMediaAssetId");
+    scanValueForRefs(refs, act?.exampleMediaAssetId, planId, "activity.exampleMediaAssetId");
+    scanValueForRefs(refs, act, planId, "activity.deep");
   });
+
+  curriculumResources.forEach((resource) => {
+    scanValueForRefs(refs, resource, resource?.lessonPlanId || resource?.id || "", "curriculum.resources");
+  });
+
+  // Top-level site collections (printables, library resources, reusable/master library).
+  scanValueForRefs(refs, siteContent.printables, "", "siteContent.printables");
+  scanValueForRefs(refs, siteContent.resources, "", "siteContent.resources");
+  scanValueForRefs(refs, siteContent.forms, "", "siteContent.forms");
+  scanValueForRefs(refs, siteContent.uploadedResources, "", "siteContent.uploadedResources");
+  scanValueForRefs(refs, siteContent.teachingKitAssistant?.reusableLibrary, "", "reusableLibrary");
+  scanValueForRefs(refs, siteContent.teachingKitAssistant, "", "teachingKitAssistant");
+  // Calendar / export snapshots that intentionally preserve media.
+  scanValueForRefs(refs, siteContent.calendarExports, "", "calendarExports");
+  scanValueForRefs(refs, siteContent.scheduleSnapshots, "", "scheduleSnapshots");
+  scanValueForRefs(refs, store?.calendarExports, "", "store.calendarExports");
+  scanValueForRefs(refs, store?.scheduleSnapshots, "", "store.scheduleSnapshots");
+
   return refs;
+}
+
+/**
+ * Backward-compatible curriculum-only scan (wraps the centralized store scanner).
+ */
+function collectCurriculumEnrichmentMediaRefs(curriculum) {
+  return collectStoreEnrichmentMediaRefs({ siteContent: { curriculum: curriculum || {} } });
+}
+
+function ensureCleanupCandidates(store) {
+  if (!store || typeof store !== "object") return {};
+  if (!store.enrichmentMediaCleanupCandidates || typeof store.enrichmentMediaCleanupCandidates !== "object") {
+    store.enrichmentMediaCleanupCandidates = {};
+  }
+  return store.enrichmentMediaCleanupCandidates;
+}
+
+/**
+ * Mark a possible orphan for delayed cleanup. Never deletes bytes.
+ */
+function enqueueCleanupCandidate(store, {
+  assetId,
+  lessonPlanId = "",
+  sourceOperation = "unknown",
+  reason = "cleanup",
+  now = new Date().toISOString(),
+} = {}) {
+  const id = String(assetId || "").trim();
+  const timestamp = String(now || new Date().toISOString());
+  if (!isEnrichmentMediaAssetId(id)) {
+    return {
+      assetId: id,
+      lessonPlanId,
+      reason,
+      sourceOperation,
+      status: "rejected_invalid_id",
+      result: "rejected_invalid_id",
+      timestamp,
+    };
+  }
+  const candidates = ensureCleanupCandidates(store);
+  const existing = candidates[id];
+  // Idempotent: keep earliest discovery time; refresh metadata.
+  const discoveredAt = existing?.discoveredAt || timestamp;
+  candidates[id] = {
+    assetId: id,
+    discoveredAt,
+    updatedAt: timestamp,
+    sourceOperation: String(sourceOperation || "unknown").slice(0, 80),
+    reason: String(reason || "cleanup").slice(0, 80),
+    lessonPlanId: String(lessonPlanId || "").slice(0, 160),
+    status: CLEANUP_CANDIDATE_STATUS.PENDING,
+  };
+  return {
+    assetId: id,
+    lessonPlanId: candidates[id].lessonPlanId,
+    reason: candidates[id].reason,
+    sourceOperation: candidates[id].sourceOperation,
+    status: CLEANUP_CANDIDATE_STATUS.PENDING,
+    result: "candidate_enqueued",
+    discoveredAt,
+    timestamp,
+  };
+}
+
+/**
+ * Process pending cleanup candidates after grace period.
+ * Always rebuilds the reference graph from `authoritativeStore` (fresh committed state).
+ * dry-run (default): never deletes files; records dry_run_would_delete.
+ */
+async function processCleanupCandidates({
+  workingStore,
+  authoritativeStore,
+  now = new Date(),
+  mode = cleanupModeFromEnv(),
+  graceMs = cleanupGraceMsFromEnv(),
+  deleteAssetFn,
+  logPath,
+} = {}) {
+  const store = workingStore && typeof workingStore === "object" ? workingStore : {};
+  const authStore = authoritativeStore && typeof authoritativeStore === "object"
+    ? authoritativeStore
+    : store;
+  const candidates = ensureCleanupCandidates(store);
+  const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const nowIso = new Date(nowMs).toISOString();
+  const refs = collectStoreEnrichmentMediaRefs(authStore);
+  const logs = [];
+  const dryRun = mode !== "execute";
+
+  for (const [assetId, row] of Object.entries(candidates)) {
+    if (!row || row.status !== CLEANUP_CANDIDATE_STATUS.PENDING) continue;
+    const discoveredMs = Date.parse(row.discoveredAt || "") || 0;
+    if (discoveredMs && nowMs - discoveredMs < graceMs) {
+      logs.push({
+        assetId,
+        lessonPlanId: row.lessonPlanId || "",
+        reason: row.reason || "",
+        sourceOperation: row.sourceOperation || "",
+        status: CLEANUP_CANDIDATE_STATUS.PENDING,
+        result: "waiting_grace_period",
+        timestamp: nowIso,
+      });
+      continue;
+    }
+
+    const liveHits = refs.get(assetId) || [];
+    if (liveHits.length) {
+      row.status = CLEANUP_CANDIDATE_STATUS.CANCELED;
+      row.canceledAt = nowIso;
+      row.cancelReason = `still_referenced:${liveHits.map((h) => h.source).slice(0, 4).join(",")}`;
+      row.updatedAt = nowIso;
+      const log = {
+        assetId,
+        lessonPlanId: row.lessonPlanId || "",
+        reason: row.reason || "",
+        sourceOperation: row.sourceOperation || "",
+        status: CLEANUP_CANDIDATE_STATUS.CANCELED,
+        result: `candidate_canceled:${row.cancelReason}`,
+        timestamp: nowIso,
+      };
+      logs.push(log);
+      if (logPath) logEnrichmentMediaCleanup(logPath, log);
+      continue;
+    }
+
+    if (dryRun) {
+      row.status = CLEANUP_CANDIDATE_STATUS.DRY_RUN_WOULD_DELETE;
+      row.updatedAt = nowIso;
+      row.dryRunAt = nowIso;
+      const log = {
+        assetId,
+        lessonPlanId: row.lessonPlanId || "",
+        reason: row.reason || "",
+        sourceOperation: row.sourceOperation || "",
+        status: CLEANUP_CANDIDATE_STATUS.DRY_RUN_WOULD_DELETE,
+        result: "dry_run_would_delete",
+        timestamp: nowIso,
+      };
+      logs.push(log);
+      if (logPath) logEnrichmentMediaCleanup(logPath, log);
+      // Return to pending so a later execute pass can still process (idempotent dry-run).
+      row.status = CLEANUP_CANDIDATE_STATUS.PENDING;
+      continue;
+    }
+
+    try {
+      if (typeof deleteAssetFn === "function") {
+        await deleteAssetFn(assetId);
+      }
+      if (store.enrichmentMediaRegistry) delete store.enrichmentMediaRegistry[assetId];
+      row.status = CLEANUP_CANDIDATE_STATUS.DELETED;
+      row.deletedAt = nowIso;
+      row.updatedAt = nowIso;
+      const log = {
+        assetId,
+        lessonPlanId: row.lessonPlanId || "",
+        reason: row.reason || "",
+        sourceOperation: row.sourceOperation || "",
+        status: CLEANUP_CANDIDATE_STATUS.DELETED,
+        result: "deleted",
+        timestamp: nowIso,
+      };
+      logs.push(log);
+      if (logPath) logEnrichmentMediaCleanup(logPath, log);
+    } catch (error) {
+      const log = {
+        assetId,
+        lessonPlanId: row.lessonPlanId || "",
+        reason: row.reason || "",
+        sourceOperation: row.sourceOperation || "",
+        status: CLEANUP_CANDIDATE_STATUS.PENDING,
+        result: `error:${error.message || "delete_failed"}`,
+        timestamp: nowIso,
+      };
+      logs.push(log);
+      if (logPath) logEnrichmentMediaCleanup(logPath, log);
+    }
+  }
+
+  return { mode: dryRun ? "dry-run" : "execute", graceMs, logs, candidates };
 }
 
 function diffRemovedMediaAssetIds(prevDraft, nextDraft) {
@@ -446,12 +695,16 @@ function cleanupLogPathFromStorePath(storePath) {
 }
 
 function logEnrichmentMediaCleanup(storePath, entry) {
+  // Names/ids only — never log file bytes, tokens, or lesson body text.
   const record = {
     event: "enrichment_media_cleanup",
     assetId: String(entry.assetId || ""),
     lessonPlanId: String(entry.lessonPlanId || ""),
     reason: String(entry.reason || ""),
+    sourceOperation: String(entry.sourceOperation || ""),
+    status: String(entry.status || ""),
     result: String(entry.result || ""),
+    actor: String(entry.actor || "").slice(0, 120),
     timestamp: String(entry.timestamp || new Date().toISOString()),
   };
   const line = JSON.stringify(record);
@@ -499,6 +752,8 @@ module.exports = {
   ALLOWED_MIME,
   FULL_MAX_EDGE,
   THUMB_MAX_EDGE,
+  CLEANUP_CANDIDATE_STATUS,
+  DEFAULT_CLEANUP_GRACE_MS,
   enrichmentMediaAssetId,
   enrichmentMediaUrl,
   publicEnrichmentMediaUrl,
@@ -525,6 +780,12 @@ module.exports = {
   collectAssetIdsFromValue,
   collectDraftMediaAssetIds,
   collectCurriculumEnrichmentMediaRefs,
+  collectStoreEnrichmentMediaRefs,
+  cleanupModeFromEnv,
+  cleanupGraceMsFromEnv,
+  ensureCleanupCandidates,
+  enqueueCleanupCandidate,
+  processCleanupCandidates,
   diffRemovedMediaAssetIds,
   assetIdsOnlyInDroppedHistory,
   cleanupLogPathFromStorePath,
