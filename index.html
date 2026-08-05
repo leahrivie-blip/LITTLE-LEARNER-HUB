@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r6" />
+  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r7" />
   <!-- Do NOT preload app.js on testing — parsing it freezes buttons. Boot-critical loads on demand. -->
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
@@ -539,7 +539,7 @@
             </div>
             <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
             <span id="freePlanBadge" class="free-plan-badge" hidden>Free Plan</span>
-            <button class="ghost-button" id="signinButton">Log in</button>
+            <button class="ghost-button" id="signinButton" type="button" data-action="open-login">Log in</button>
             <button class="primary-button" id="signupButton" type="button">Get Started — $19.99/month</button>
           </div>
         </header>
@@ -2536,7 +2536,7 @@
     </div>
 
     <!-- Critical boot path only. Teaching Kit / Admin / analytics / heavy exporters lazy-load. -->
-    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r6" defer></script>
+    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r7" defer></script>
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260803-tk-enrich-preserve" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid" defer></script>
@@ -2549,11 +2549,59 @@
     <script src="scripts/free-plan-grandfathering.js?v=20260804-free-ux-phase2-r1" defer></script>
     <div id="adminTeachingKitEnrichmentHost" aria-live="polite"></div>
     <div id="llhLazyStatus" class="llh-lazy-status" hidden role="status" aria-live="polite"></div>
+    <!-- Inline early auth click bridge: works even before deferred boot-critical runs. -->
+    <script>
+      (function () {
+        function openModal(mode) {
+          if (typeof window.LLHEarlyAuth?.open === "function") return window.LLHEarlyAuth.open(mode);
+          if (typeof window.openAuthModal === "function") return window.openAuthModal(mode);
+          var modal = document.getElementById("authModal");
+          if (!modal) return;
+          var signup = mode === "signup";
+          var title = document.getElementById("authTitle");
+          var submit = document.getElementById("authSubmitButton");
+          if (title) title.textContent = signup ? "Create your free account" : "Log in to Little Learner Hub";
+          if (submit) submit.textContent = signup ? "Continue" : "Log In";
+          var nameFields = document.getElementById("authNameFields");
+          if (nameFields) {
+            nameFields.classList.toggle("hidden-field", !signup);
+            nameFields.setAttribute("aria-hidden", signup ? "false" : "true");
+          }
+          document.body.classList.add("auth-modal-open");
+          modal.hidden = false;
+          modal.classList.add("open");
+          modal.setAttribute("aria-hidden", "false");
+        }
+        document.addEventListener("click", function (event) {
+          var t = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
+          if (!t) return;
+          var action = t.getAttribute("data-action");
+          if (action !== "open-login" && action !== "start-free") return;
+          // If full app already handles auth, do not interfere.
+          if (document.body.classList.contains("app-boot-ready") && typeof window.openAuthModal === "function") return;
+          event.preventDefault();
+          event.stopPropagation();
+          openModal(action === "start-free" ? "signup" : "login");
+        }, true);
+        var closeBtn = document.getElementById("closeModal");
+        if (closeBtn) {
+          closeBtn.addEventListener("click", function () {
+            if (document.body.classList.contains("app-boot-ready")) return;
+            var modal = document.getElementById("authModal");
+            document.body.classList.remove("auth-modal-open");
+            if (!modal) return;
+            modal.classList.remove("open");
+            modal.hidden = true;
+            modal.setAttribute("aria-hidden", "true");
+          });
+        }
+      })();
+    </script>
     <script src="/api/client-config.js" defer></script>
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260804-multi-role-tester-r1" defer></script>
     <!-- Last critical script: paints first, then injects app.js -->
-    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r6" defer></script>
+    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r7" defer></script>
     <!-- Lazy packs (llh-lazy-loader.js): teachingKit, curriculumAdmin, admin, exports, comms, adminSurface -->
   </body>
 </html>
