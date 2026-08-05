@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260805-testing-full-integration-r4";
+  const APP_SRC = "app.js?v=20260805-testing-full-integration-r5";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -795,6 +795,16 @@
               setStatus("Still starting… your sign-in is saved; the hub is catching up.");
             }
           }, 20000);
+          // Failsafe: if verification error UI is up, never keep the early overlay forever.
+          window.setTimeout(() => {
+            const errorGate = document.getElementById("appBootGate");
+            const errorVisible = errorGate && !errorGate.hidden;
+            if (errorVisible || document.body.classList.contains("app-booted")) {
+              if (!document.body.classList.contains("app-boot-ready")) {
+                hideHubLoadingGate();
+              }
+            }
+          }, 25000);
         })
         .catch((error) => {
           console.error("[llh-boot]", error);
@@ -1186,6 +1196,8 @@
 
   window.LLHBootCritical = {
     setStatus,
+    hideHubLoadingGate,
+    showHubLoadingGate,
     queueAuth,
     queueNav,
     startCoreAppLoad,

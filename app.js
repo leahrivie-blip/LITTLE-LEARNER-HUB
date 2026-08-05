@@ -6272,6 +6272,12 @@ function markAppBootReady() {
   document.body.classList.add("app-boot-ready");
   document.documentElement.classList.remove("llh-boot-authenticated");
   setAppBootGateMode("hidden");
+  try {
+    window.LLHBootCritical?.hideHubLoadingGate?.();
+    window.LLHBootCritical?.setStatus?.("");
+  } catch {
+    /* ignore */
+  }
   ensureNavigationShellReady();
   // Restore Free upgrade chrome only after verification finishes (no stack with boot gate).
   try {
@@ -6340,6 +6346,13 @@ function markAppBootFailed(error) {
   appBootError = String(error?.message || error || "Boot verification failed.");
   console.warn("App boot verification failed", appBootError);
   setAppBootGateMode("error", appBootError);
+  // Clear the early testing hub overlay so retry/sign-out UI is reachable.
+  try {
+    window.LLHBootCritical?.hideHubLoadingGate?.();
+    window.LLHBootCritical?.setStatus?.("");
+  } catch {
+    /* ignore */
+  }
 }
 
 function isAppBootInteractive() {
@@ -6362,11 +6375,18 @@ async function withBootVerificationTimeout(label, task, timeoutMs = APP_BOOT_VER
 
 async function runSignedInBootVerification() {
   if (!currentUser) return;
+  const testingSoftBoot = typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled();
   if (stripeCheckoutConfig.subscriptionStatusEndpoint) {
-    await withBootVerificationTimeout("Membership sync", async () => {
+    const membershipSync = withBootVerificationTimeout("Membership sync", async () => {
       const data = await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false });
       if (data === null) throw new Error("Membership could not be verified.");
     });
+    // Testing site: never hard-block the hub on Stripe/membership wake delays.
+    // Testers still get Testing Pro + role tools; membership can catch up after boot.
+    if (testingSoftBoot) await membershipSync.catch((error) => {
+      console.warn("Testing membership sync soft-failed during boot", error?.message || error);
+    });
+    else await membershipSync;
   }
   if (firebaseAuthEnabled) {
     await withBootVerificationTimeout("Child data sync", async () => {
