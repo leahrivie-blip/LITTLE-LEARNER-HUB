@@ -1,23 +1,38 @@
 /**
- * Tiny boot helpers that run before the large app.js finishes.
- * - Shows homepage HTML immediately (never leave testers on a blank shell)
- * - /admin: show unlock form immediately and login via API without waiting for app.js
- * - Queues Log In / Sign Up / primary nav until app helpers exist
- * - Loads app.js after first paint so marketing content is visible first
+ * Critical boot for testing / slow networks.
+ *
+ * Rules:
+ * - Never leave testers on a blank shell.
+ * - /admin unlock form works with ZERO dependency on app.js.
+ * - Log In / Start Free open the existing #authModal immediately (no app.js wait).
+ * - Do NOT auto-download/parse multi-MB app.js or Teaching Kit on first paint —
+ *   that freezes the main thread and makes buttons look dead.
+ * - Load app.js only after unlock / successful early login / explicit nav need.
  */
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260804-js-split-r4";
+  const APP_SRC = "app.js?v=20260804-js-split-r5";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
   let earlyAdminWired = false;
+  let earlyAuthWired = false;
+  let authMode = "login";
 
   function isAdminRoute() {
     try {
       return /^\/admin\/?$/i.test(window.location.pathname || "")
         || document.documentElement.classList.contains("llh-boot-admin-route");
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function isTestingHost() {
+    try {
+      const host = String(window.location.hostname || "");
+      return /little-learner-hub-testing/i.test(host) || host === "localhost" || host === "127.0.0.1";
     } catch (_error) {
       return false;
     }
@@ -69,6 +84,11 @@
         admin.classList.add("active-view");
         admin.removeAttribute("hidden");
         admin.style.display = "block";
+      }
+      const lock = document.getElementById("adminLockPanel");
+      if (lock) {
+        lock.hidden = false;
+        lock.style.display = "";
       }
       const protectedContent = document.getElementById("adminProtectedContent");
       if (protectedContent && !isAdminSessionStored()) {
@@ -122,8 +142,13 @@
     const lockPanel = document.getElementById("adminLockPanel");
     if (!lockPanel) return null;
     let form = lockPanel.querySelector("#adminUnlockForm");
-    if (form) return form;
+    if (form) {
+      lockPanel.hidden = false;
+      lockPanel.style.display = "";
+      return form;
+    }
     const emailValue = rememberedAdminEmail().replace(/"/g, "&quot;");
+    lockPanel.hidden = false;
     lockPanel.innerHTML = `
       <div class="admin-lock-content" data-llh-early-admin-shell>
         <div>
@@ -140,7 +165,7 @@
             <span>Trust this device — keep Admin unlocked</span>
           </label>
           <button class="primary-button" type="submit">Unlock Admin</button>
-          <p class="form-note">Works on the testing site even while the full app is still loading.</p>
+          <p class="form-note">Works even while the full app is still loading.</p>
           <span id="adminUnlockMessage" class="form-message"></span>
         </form>
       </div>
@@ -158,7 +183,7 @@
         <div>
           <p class="eyebrow">Private Owner Area</p>
           <strong>Admin unlocked for ${email}</strong>
-          <span>Full Admin tools finish loading in the background. Keep this tab open.</span>
+          <span>Loading dashboard tools now…</span>
         </div>
         <button class="ghost-button" type="button" id="llhEarlyAdminLockButton">Lock Admin</button>
       </div>
@@ -185,9 +210,7 @@
     });
     let data = {};
     try { data = await response.json(); } catch (_error) { data = {}; }
-    if (!response.ok) {
-      throw new Error(data.error || data.message || "Admin login failed.");
-    }
+    if (!response.ok) throw new Error(data.error || data.message || "Admin login failed.");
     return data;
   }
 
@@ -196,16 +219,10 @@
     const form = ensureEarlyAdminShell();
     if (!form) return;
     earlyAdminWired = true;
-
     const emailInput = form.querySelector('[name="adminEmail"]');
-    if (emailInput && !emailInput.value) {
-      emailInput.value = rememberedAdminEmail();
-    }
+    if (emailInput && !emailInput.value) emailInput.value = rememberedAdminEmail();
 
-    // Capture-phase handler so app.js's later submit listener does not block early unlock
-    // while the huge bundle is still parsing (or if it never finishes).
     form.addEventListener("submit", async (event) => {
-      // If full app already owns admin unlock, let it handle submit.
       if (document.body.classList.contains("app-boot-ready") && typeof window.adminLogin === "function") {
         return;
       }
@@ -227,25 +244,11 @@
         const session = await earlyAdminLogin(email, password, code);
         saveEarlyAdminSession(session, trustDevice);
         paintEarlyUnlockedBar(session);
-        setStatus("Admin unlocked — loading dashboard tools…");
-        startCoreAppLoad();
+        setStatus("Admin unlocked — loading dashboard…");
+        // Only NOW load the heavy app + admin packs.
+        startCoreAppLoad({ reason: "admin-unlocked" });
         prefetchAdminPack();
-        // When app.js finally boots, land on admin.
-        const started = Date.now();
-        const timer = window.setInterval(() => {
-          if (typeof window.setView === "function") {
-            window.clearInterval(timer);
-            try {
-              window.setView("admin", { allowDuringBootVerification: true, fromBoot: true });
-            } catch (_error) { /* ignore */ }
-            if (document.body.classList.contains("app-boot-ready")) setStatus("");
-            return;
-          }
-          if (Date.now() - started > 120000) {
-            window.clearInterval(timer);
-            setStatus("Admin is unlocked. Refresh if the full dashboard does not appear.");
-          }
-        }, 300);
+        waitForSetViewAdmin();
       } catch (error) {
         if (message) {
           message.textContent = error.message || "Admin login failed.";
@@ -257,12 +260,222 @@
     }, true);
   }
 
+  function waitForSetViewAdmin() {
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      if (typeof window.setView === "function") {
+        window.clearInterval(timer);
+        try {
+          window.setView("admin", { allowDuringBootVerification: true, fromBoot: true });
+        } catch (_error) { /* ignore */ }
+        if (document.body.classList.contains("app-boot-ready")) setStatus("");
+        return;
+      }
+      if (Date.now() - started > 120000) {
+        window.clearInterval(timer);
+        setStatus("Admin is unlocked. Refresh if the full dashboard does not appear.");
+      }
+    }, 300);
+  }
+
   function prefetchAdminPack() {
     try {
       if (typeof window.LLHLazyLoader?.ensure === "function") {
         window.LLHLazyLoader.ensure("adminSurface").catch(() => {});
       }
     } catch (_error) { /* ignore */ }
+  }
+
+  /* ─── Early auth modal (no app.js) ─── */
+
+  function authModal() {
+    return document.getElementById("authModal");
+  }
+
+  function setEarlyAuthMode(mode) {
+    authMode = mode === "signup" ? "signup" : "login";
+    const title = document.getElementById("authTitle");
+    const submit = document.getElementById("authSubmitButton");
+    const switchBtn = document.getElementById("switchAuthModeButton");
+    const nameFields = document.getElementById("authNameFields");
+    const business = document.getElementById("authBusinessFields");
+    const phone = document.getElementById("authPhoneField");
+    const wizard = document.getElementById("signupWizardProgress");
+    if (title) title.textContent = authMode === "signup" ? "Create your free account" : "Log in to Little Learner Hub";
+    if (submit) submit.textContent = authMode === "signup" ? "Continue" : "Log In";
+    if (switchBtn) switchBtn.textContent = authMode === "signup" ? "Already have an account? Log in" : "Create account";
+    const showSignup = authMode === "signup";
+    [nameFields, business, phone].forEach((el) => {
+      if (!el) return;
+      el.classList.toggle("hidden-field", !showSignup);
+      el.setAttribute("aria-hidden", showSignup ? "false" : "true");
+    });
+    if (wizard) {
+      wizard.classList.toggle("hidden-field", !showSignup);
+      wizard.setAttribute("aria-hidden", showSignup ? "false" : "true");
+    }
+    const pass = document.getElementById("passwordInput");
+    if (pass) pass.setAttribute("autocomplete", authMode === "signup" ? "new-password" : "current-password");
+  }
+
+  function openEarlyAuthModal(mode) {
+    // Prefer full app helper once ready.
+    if (typeof window.openAuthModal === "function" && document.body.classList.contains("app-boot-ready")) {
+      try { window.openAuthModal(mode); return; } catch (_error) { /* fall through */ }
+    }
+    const modal = authModal();
+    if (!modal) {
+      setStatus("Auth form missing — please refresh.");
+      return;
+    }
+    setEarlyAuthMode(mode);
+    document.body.classList.add("auth-modal-open");
+    modal.hidden = false;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    setStatus("");
+    const email = document.getElementById("emailInput");
+    window.setTimeout(() => { try { email?.focus(); } catch (_e) { /* ignore */ } }, 50);
+  }
+
+  function closeEarlyAuthModal() {
+    if (typeof window.closeAuthModal === "function" && document.body.classList.contains("app-boot-ready")) {
+      try { window.closeAuthModal(); return; } catch (_error) { /* fall through */ }
+    }
+    const modal = authModal();
+    document.body.classList.remove("auth-modal-open");
+    if (!modal) return;
+    modal.classList.remove("open");
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function setAuthMessage(text, ok) {
+    const el = document.getElementById("authMessage");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("success", !!ok);
+  }
+
+  async function earlyPasswordLogin(email, password) {
+    const response = await fetch("/api/auth/password-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    let data = {};
+    try { data = await response.json(); } catch (_error) { data = {}; }
+    if (!response.ok) throw new Error(data.error || "The email or password did not match. Please try again.");
+    return data;
+  }
+
+  function saveEarlyMemberSession(email, data) {
+    const clean = String(email || "").trim().toLowerCase();
+    localStorage.setItem("llhUser", JSON.stringify({
+      email: clean,
+      name: data?.name || clean.split("@")[0] || "Member",
+      plan: data?.plan || "free",
+    }));
+    if (data?.memberSessionToken) {
+      try {
+        localStorage.setItem("llhMemberSessionToken", String(data.memberSessionToken));
+      } catch (_error) { /* ignore */ }
+    }
+  }
+
+  function wireEarlyAuth() {
+    if (earlyAuthWired) return;
+    earlyAuthWired = true;
+
+    // Expose immediately so other scripts / queued clicks can open UI.
+    window.openAuthModal = window.openAuthModal || openEarlyAuthModal;
+    window.closeAuthModal = window.closeAuthModal || closeEarlyAuthModal;
+    window.LLHEarlyAuth = { open: openEarlyAuthModal, close: closeEarlyAuthModal };
+
+    document.getElementById("closeModal")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      closeEarlyAuthModal();
+    });
+
+    document.getElementById("switchAuthModeButton")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      setEarlyAuthMode(authMode === "signup" ? "login" : "signup");
+    });
+
+    const form = document.getElementById("authForm");
+    if (!form) return;
+    form.addEventListener("submit", async (event) => {
+      // Once full app owns auth, let it handle.
+      if (document.body.classList.contains("app-boot-ready") && typeof window.loginWithProvider === "function") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const email = String(document.getElementById("emailInput")?.value || "").trim().toLowerCase();
+      const password = String(document.getElementById("passwordInput")?.value || "");
+      const submit = document.getElementById("authSubmitButton");
+      if (!email || !password) {
+        setAuthMessage("Enter your email and password.");
+        return;
+      }
+      if (authMode === "signup") {
+        setAuthMessage("Starting account setup…", true);
+        if (submit) submit.disabled = true;
+        startCoreAppLoad({ reason: "signup" });
+        const started = Date.now();
+        const timer = window.setInterval(() => {
+          if (typeof window.openAuthModal === "function" && document.body.classList.contains("app-boot-ready")) {
+            window.clearInterval(timer);
+            if (submit) submit.disabled = false;
+            try {
+              window.openAuthModal("signup");
+              const emailEl = document.getElementById("emailInput");
+              const passEl = document.getElementById("passwordInput");
+              if (emailEl) emailEl.value = email;
+              if (passEl) passEl.value = password;
+              setAuthMessage("Finish creating your account below.", true);
+            } catch (_error) { /* ignore */ }
+            return;
+          }
+          if (Date.now() - started > 90000) {
+            window.clearInterval(timer);
+            if (submit) submit.disabled = false;
+            setAuthMessage("Still loading account tools. Please wait and try again.");
+          }
+        }, 300);
+        return;
+      }
+
+      if (submit) submit.disabled = true;
+      setAuthMessage("Signing in…", true);
+      try {
+        const data = await earlyPasswordLogin(email, password);
+        saveEarlyMemberSession(email, data);
+        setAuthMessage("Signed in — opening your hub…", true);
+        closeEarlyAuthModal();
+        setStatus("Signed in — loading your hub…");
+        startCoreAppLoad({ reason: "login" });
+        const started = Date.now();
+        const timer = window.setInterval(() => {
+          if (document.body.classList.contains("app-boot-ready") && typeof window.setView === "function") {
+            window.clearInterval(timer);
+            setStatus("");
+            try {
+              window.setView("calendar", { fromBoot: true, allowDuringBootVerification: true });
+            } catch (_error) { /* ignore */ }
+            return;
+          }
+          if (Date.now() - started > 90000) {
+            window.clearInterval(timer);
+            setStatus("Signed in. Refresh if your hub does not open.");
+          }
+        }, 300);
+      } catch (error) {
+        setAuthMessage(error.message || "Login failed.");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+    }, true);
   }
 
   function loadScript(src) {
@@ -281,63 +494,42 @@
     });
   }
 
-  function startCoreAppLoad() {
+  function startCoreAppLoad(options = {}) {
     if (appLoadStarted) return;
     appLoadStarted = true;
-    setStatus(isAdminRoute() ? "Loading Admin tools…" : "Loading Little Learner Hub…");
-    if (isAdminRoute()) prefetchAdminPack();
+    const reason = options.reason || "manual";
+    setStatus(reason === "admin-unlocked" || isAdminRoute()
+      ? "Loading Admin tools…"
+      : "Loading Little Learner Hub…");
     loadScript(APP_SRC)
       .then(() => {
         appScriptLoaded = true;
-        setStatus(isAdminRoute() ? "Starting Admin…" : "Starting Little Learner Hub…");
+        setStatus("Starting Little Learner Hub…");
         return loadScript(ONBOARDING_SRC);
       })
       .then(() => {
+        // Re-bind full openAuthModal if app defined it.
         window.setTimeout(() => {
           if (document.body.classList.contains("app-boot-ready")) setStatus("");
         }, 500);
         window.setTimeout(() => {
           if (!document.body.classList.contains("app-boot-ready")) {
-            setStatus(isAdminRoute()
-              ? "Admin unlock is ready above — full tools are still starting…"
-              : "Still starting… you can keep browsing this page.");
+            setStatus("Still starting… buttons already work; full hub is catching up.");
           }
         }, 20000);
-        window.setTimeout(() => {
-          if (!document.body.classList.contains("app-boot-ready") && !isAdminRoute()) setStatus("");
-        }, 45000);
-        if (isAdminRoute() && typeof window.setView === "function") {
-          try {
-            window.setView("admin", { allowDuringBootVerification: true, fromBoot: true });
-          } catch (_error) { /* ignore */ }
-        }
       })
       .catch((error) => {
         console.error("[llh-boot]", error);
-        setStatus(isAdminRoute()
-          ? "Could not finish loading Admin tools. You can still unlock above, then refresh."
-          : "Could not finish loading. Please refresh.");
-        if (!isAdminRoute()) revealHomeIfStuck();
+        setStatus("Could not finish loading. Please refresh.");
+        revealHomeIfStuck();
       });
   }
 
   function queueAuth(mode) {
-    setStatus("Loading Little Learner Hub…");
-    startCoreAppLoad();
-    const started = Date.now();
-    const timer = window.setInterval(() => {
-      if (typeof window.openAuthModal === "function") {
-        window.clearInterval(timer);
-        setStatus("");
-        try { window.openAuthModal(mode); } catch (_error) { /* ignore */ }
-        return;
-      }
-      if (Date.now() - started > 90000) {
-        window.clearInterval(timer);
-        setStatus("Loading is taking longer than usual. Please refresh and try again.");
-        revealHomeIfStuck();
-      }
-    }, 200);
+    wireEarlyAuth();
+    openEarlyAuthModal(mode);
+    // Warm the big bundle in the background AFTER modal is open so UI stays responsive.
+    window.setTimeout(() => startCoreAppLoad({ reason: mode }), 50);
   }
 
   function queueNav(view) {
@@ -345,9 +537,15 @@
     if (view === "admin") {
       showAdminViewEarly();
       wireEarlyAdminUnlock();
+      if (isAdminSessionStored()) {
+        startCoreAppLoad({ reason: "admin-nav" });
+        prefetchAdminPack();
+        waitForSetViewAdmin();
+      }
+      return;
     }
     setStatus("Loading Little Learner Hub…");
-    startCoreAppLoad();
+    startCoreAppLoad({ reason: "nav:" + view });
     const started = Date.now();
     const timer = window.setInterval(() => {
       if (typeof window.setView === "function" && document.body.classList.contains("app-boot-ready")) {
@@ -372,7 +570,6 @@
     const openLogin = event.target.closest?.("[data-action='open-login'], #signinButton");
     const startFree = event.target.closest?.("[data-action='start-free'], #getStartedButton, #createAccountButton");
     if (openLogin || startFree) {
-      if (typeof window.openAuthModal === "function") return;
       event.preventDefault();
       event.stopPropagation();
       queueAuth(startFree ? "signup" : "login");
@@ -391,18 +588,21 @@
 
   function onReady() {
     ensureStatusNode();
+    wireEarlyAuth();
+
     if (isAdminRoute()) {
       showAdminViewEarly();
       wireEarlyAdminUnlock();
       if (isAdminSessionStored()) {
         paintEarlyUnlockedBar(JSON.parse(localStorage.getItem("llhAdminSession") || "{}"));
         setStatus("Admin session found — loading dashboard…");
+        startCoreAppLoad({ reason: "admin-session" });
+        prefetchAdminPack();
+        waitForSetViewAdmin();
       } else {
-        setStatus("Admin unlock is ready — full tools load after you sign in.");
+        // CRITICAL: do NOT start app.js / Teaching Kit until unlock.
+        setStatus("");
       }
-      // On /admin, start the big bundle immediately (no double-rAF delay).
-      startCoreAppLoad();
-      prefetchAdminPack();
       return;
     }
 
@@ -410,11 +610,18 @@
     window.setTimeout(() => {
       if (!document.body.classList.contains("app-boot-ready")) revealHomeIfStuck();
     }, 2500);
-    const start = () => startCoreAppLoad();
-    if (typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(start));
+
+    // Homepage: do NOT auto-parse app.js. Buttons work via early auth.
+    // Warm the bundle only after idle so first interactions stay snappy.
+    const warm = () => {
+      if (appLoadStarted) return;
+      if (document.visibilityState === "hidden") return;
+      startCoreAppLoad({ reason: "idle-warm" });
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(warm, { timeout: isTestingHost() ? 12000 : 6000 });
     } else {
-      window.setTimeout(start, 0);
+      window.setTimeout(warm, isTestingHost() ? 12000 : 6000);
     }
   }
 
@@ -445,5 +652,6 @@
     revealHomeIfStuck,
     showAdminViewEarly,
     wireEarlyAdminUnlock,
+    openEarlyAuthModal,
   };
 })();

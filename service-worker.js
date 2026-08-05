@@ -1,66 +1,18 @@
-const CACHE_NAME = "llh-shell-v178-age-filter-phase10-r1";
-const SHELL_VERSION = "20260804-age-filter-phase10-r1";
+const CACHE_NAME = "llh-shell-v179-js-split-r5";
+const SHELL_VERSION = "20260804-js-split-r5";
 const OFFLINE_URL = "/offline.html";
-const NETWORK_TIMEOUT_MS = 2500;
+// Longer timeout so slow Render cold starts do not fall back to a stale HTML shell.
+const NETWORK_TIMEOUT_MS = 8000;
+// Keep precache minimal. Never precache index.html or app.js — those caused
+// mismatched Admin/homepage shells after deploys (release blocker on testing).
 const APP_SHELL = [
-  "/",
-  "/index.html",
   "/offline.html",
-  "/styles.css?v=20260804-age-filter-phase10-r1",
-  "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4",
-  "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260802-request-idea-final",
-  "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260802-request-idea-final",
-  "/styles/llh-comms.css?v=20260730-hdh-own-tester-kid",
-  "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid",
-  "/scripts/lesson-plan-covers.js?v=20260730-hdh-own-tester-kid",
-  "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
-  "/scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards",
-  "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
-  "/scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards",
-  "/scripts/curriculum-import-preview.js?v=20260716-curriculum-standards",
-  "/scripts/llh-copyright.js?v=20260717-more-menu",
-  "/scripts/curriculum-lesson-viewer-render.js?v=20260730-hdh-own-tester-kid",
-  "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
-  "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
-  "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
-  "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
-  "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/scripts/teaching-kit-mapper.js?v=20260803-tk-vision",
-  "/scripts/teaching-kit.js?v=20260803-tk-quality-review",
-  "/scripts/teaching-kit-print.js?v=20260803-teaching-kit-qa",
-  "/scripts/teaching-kit-viewer.js?v=20260803-tk-vision",
-  "/scripts/teaching-kit-enrichment.js?v=20260803-tk-upgrade-ws",
-  "/scripts/teaching-kit-upgrade-workspace.js?v=20260803-tk-upgrade-ws",
-  "/scripts/teaching-kit-ai-lesson-teacher.js?v=20260803-tk-complete-kit",
-  "/scripts/teaching-kit-reusable-library.js?v=20260803-tk-ai-assistant",
-  "/scripts/teaching-kit-ai-teacher-assistant.js?v=20260803-tk-ai-assistant",
-  "/scripts/teaching-kit-curriculum-director.js?v=20260803-tk-curriculum-director",
-  "/scripts/teaching-kit-curriculum-director-ui.js?v=20260803-tk-curriculum-director",
-  "/scripts/teaching-kit-quality-review.js?v=20260803-tk-quality-review",
-  "/scripts/teaching-kit-quality-review-ui.js?v=20260803-tk-quality-review",
-  "/scripts/teaching-kit-enrichment-editor.js?v=20260803-tk-quality-review",
-  "/scripts/teaching-kit-authoring.js?v=20260803-tk-authoring",
-  "/app.js?v=20260804-age-filter-phase10-r1",
-  "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
-  "/admin-workspace.js?v=20260803-nuo-onboarding-r4",
-  "/admin-insights.js?v=20260803-nuo-onboarding-r4",
-  "/comms-center.js?v=20260804-perf-bounded-r1",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
   "/images/icons/icon-192.png",
   "/images/icons/icon-512.png",
   "/images/icons/badge-72.png",
-  "/images/leah-founder.jpg",
-  "/images/lesson-covers/default.svg",
-  "/images/lesson-covers/generic-infant.svg",
-  "/images/lesson-covers/generic-toddler.svg",
-  "/images/lesson-covers/generic-preschool.svg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -88,6 +40,11 @@ self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+  if (event.data && event.data.type === "CLEAR_ALL_CACHES") {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    );
+  }
 });
 
 function isShellAssetRequest(requestUrl) {
@@ -106,7 +63,7 @@ function isShellAssetRequest(requestUrl) {
 function isNavigationRequest(request, requestUrl) {
   if (request.mode === "navigate") return true;
   const path = requestUrl.pathname;
-  return path === "/" || path.endsWith(".html");
+  return path === "/" || path.endsWith(".html") || path === "/admin" || path.startsWith("/admin/");
 }
 
 function networkWithTimeout(request, timeoutMs) {
@@ -128,7 +85,13 @@ function isValidShellAssetResponse(requestUrl, response) {
 }
 
 function putInCache(request, response) {
-  if (!isValidShellAssetResponse(new URL(request.url), response)) return;
+  const url = new URL(request.url);
+  // Never cache HTML navigations — always prefer live deploy HTML.
+  if (isNavigationRequest(request, url)) return;
+  // Never cache the giant app bundle or Teaching Kit / admin packs in SW.
+  if (/\/app\.js(?:\?|$)/.test(url.pathname + url.search)) return;
+  if (/teaching-kit|admin-workspace|admin-insights|comms-center/.test(url.pathname)) return;
+  if (!isValidShellAssetResponse(url, response)) return;
   const cloned = response.clone();
   caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned)).catch(() => {});
 }
@@ -166,18 +129,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // HTML navigations: try network quickly, then fall back to cached shell.
+  // HTML: network-only. Stale cached index.html was the Admin "only shows Admin" bug.
   if (isNavigationRequest(event.request, requestUrl)) {
     event.respondWith(
-      networkWithTimeout(event.request, NETWORK_TIMEOUT_MS)
-        .then((response) => {
-          putInCache(event.request, response);
-          return response;
-        })
-        .catch(() => caches.match(event.request).then((cached) => {
-          if (cached) return cached;
-          return caches.match("/index.html").then((shell) => shell || caches.match(OFFLINE_URL));
-        })),
+      fetch(event.request).catch(() => caches.match(OFFLINE_URL)),
     );
     return;
   }
