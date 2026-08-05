@@ -14,11 +14,18 @@
   const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
   const WORKFLOW_STATUSES = Object.freeze([
     "Legacy",
+    "Draft Started",
+    "AI Draft Ready",
+    "In Review",
+    "Needs Changes",
+    "Ready for Owner Review",
+    "Publish Ready",
+    "Published",
+    "Archived",
+    // Back-compat aliases used by older UI
     "In Progress",
     "Needs Review",
     "Ready",
-    "Published",
-    "Archived",
   ]);
   const BLOCKING_STATES = Object.freeze(["No blockers", "Warnings", "Blocked"]);
 
@@ -94,34 +101,45 @@
   function workflowStatusFromParts({
     lessonStatus = "",
     enrichmentFillPercent = 0,
+    premiumReadinessPercent = null,
     hasEnrichmentDraft = false,
     coverageComplete = false,
     needsReview = false,
     publishReadiness = "",
+    hasAiProposal = false,
   } = {}) {
     const cms = text(lessonStatus).toLowerCase() || "draft";
     if (cms === "archived") return "Archived";
 
     const fill = clampPercent(enrichmentFillPercent);
+    const premium = premiumReadinessPercent == null
+      ? fill
+      : clampPercent(premiumReadinessPercent);
     const readiness = text(publishReadiness).toLowerCase();
 
-    if (["published", "featured"].includes(cms) && !hasEnrichmentDraft && fill >= 90 && coverageComplete) {
+    // "Published" describes CMS published state — not Teaching Kit draft completeness.
+    if (["published", "featured"].includes(cms) && !hasEnrichmentDraft && readiness === "ready" && premium >= 90 && coverageComplete) {
       return "Published";
     }
-    if (readiness === "blocked") return "Needs Review";
-    if (fill >= 90 && !hasEnrichmentDraft && coverageComplete && readiness !== "needs_review") {
-      return "Ready";
+    if (readiness === "ready" && premium >= 90 && coverageComplete && !hasEnrichmentDraft) {
+      return "Publish Ready";
     }
-    // High fill without full weekday coverage, explicit review flags, or a substantial draft → Needs Review.
+    if (readiness === "ready" && hasEnrichmentDraft) {
+      return "Ready for Owner Review";
+    }
+    if (readiness === "blocked" || (needsReview && premium < 70)) {
+      return hasEnrichmentDraft ? "Needs Changes" : "Needs Changes";
+    }
+    if (hasAiProposal) return "AI Draft Ready";
     if (
       needsReview
       || readiness === "needs_review"
-      || (fill >= 90 && !coverageComplete)
+      || (fill >= 50 && !coverageComplete)
       || (hasEnrichmentDraft && fill >= 25)
     ) {
-      return "Needs Review";
+      return "In Review";
     }
-    if (fill > 0 || hasEnrichmentDraft) return "In Progress";
+    if (fill > 0 || hasEnrichmentDraft) return "Draft Started";
     return "Legacy";
   }
 
@@ -142,6 +160,13 @@
         ? summary.completionPercent
         : 0,
     );
+    const premiumReadinessPercent = clampPercent(
+      summary.premiumReadinessPercent != null
+        ? summary.premiumReadinessPercent
+        : (qualityReport?.premiumReadinessPercent != null
+          ? qualityReport.premiumReadinessPercent
+          : enrichmentFillPercent),
+    );
     // Never present enrichment fill as "100% complete" when weekdays are missing.
     const contentCompletionPercent = coverage.coverageComplete
       ? enrichmentFillPercent
@@ -158,32 +183,40 @@
     const workflow = workflowStatusFromParts({
       lessonStatus: summary.lessonStatus || plan?.status,
       enrichmentFillPercent,
+      premiumReadinessPercent,
       hasEnrichmentDraft: Boolean(summary.hasEnrichmentDraft),
       coverageComplete: coverage.coverageComplete,
       needsReview: Boolean(summary.needsReview) || blocking !== "No blockers",
-      publishReadiness: qualityReport?.publishReadiness,
+      publishReadiness: qualityReport?.publishReadiness || summary.publishReadiness,
+      hasAiProposal: Boolean(summary.hasAiProposal),
     });
 
     return {
       content: {
         enrichmentFillPercent,
         contentCompletionPercent,
+        premiumReadinessPercent,
         weekdayCoverage: coverage,
         label: coverage.coverageComplete
-          ? `${enrichmentFillPercent}% enrichment fill · ${coverage.label}`
-          : `${coverage.label} · ${enrichmentFillPercent}% enrichment fill`,
+          ? `${enrichmentFillPercent}% structural · ${premiumReadinessPercent}% premium readiness · ${coverage.label}`
+          : `${coverage.label} · ${enrichmentFillPercent}% structural · ${premiumReadinessPercent}% premium`,
       },
       quality: {
         score: qualityScore,
         label: qualityLabel,
       },
+      readiness: summary.readinessScores || null,
       workflow,
       blocking,
       primaryStatus: workflow,
       // Back-compat aliases for older UI
-      dashboardStage: workflow === "Published" ? "Published" : workflow,
+      dashboardStage: workflow === "Published" ? "Published"
+        : (workflow === "Publish Ready" || workflow === "Ready for Owner Review" ? "Ready"
+          : (workflow === "Draft Started" ? "In Progress"
+            : (workflow === "In Review" || workflow === "Needs Changes" || workflow === "AI Draft Ready" ? "Needs Review" : workflow))),
       completionPercent: contentCompletionPercent,
       enrichmentFillPercent,
+      premiumReadinessPercent,
     };
   }
 

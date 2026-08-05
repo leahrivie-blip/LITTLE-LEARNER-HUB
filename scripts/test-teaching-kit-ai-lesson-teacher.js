@@ -353,24 +353,23 @@ async function main() {
       document.body.innerHTML = "";
       document.body.appendChild(host);
 
-      // Open without racing a second request — open() auto-prepares when gaps exist.
+      // open() must NOT auto-prepare AI — only load + local analysis.
+      window.confirm = () => true;
       window.LLHTeachingKitEnrichmentEditor.open(emptyPlan.id);
+      await new Promise((r) => setTimeout(r, 250));
+      const autoTray = document.querySelector("[data-ai-tray]");
+      if (autoTray) {
+        throw new Error("Opening Upgrade Lesson must not auto-open the AI tray");
+      }
+      await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
+        scope: "lesson",
+        simulate: "fixture",
+        skipConfirm: true,
+      });
       for (let i = 0; i < 40; i += 1) {
         await new Promise((r) => setTimeout(r, 100));
-        const trayReady = document.querySelector("[data-ai-tray] [data-ai-review-list], [data-ai-tray] [data-ai-error], [data-ai-tray] [data-ai-loading]");
-        const phaseReady = document.querySelector("[data-ai-review-list]");
-        if (phaseReady) break;
-        if (trayReady && document.querySelector("[data-ai-error]")) break;
-      }
-      if (!document.querySelector("[data-ai-review-list]")) {
-        await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
-          scope: "lesson",
-          simulate: "fixture",
-        });
-        for (let i = 0; i < 30; i += 1) {
-          await new Promise((r) => setTimeout(r, 100));
-          if (document.querySelector("[data-ai-review-list]")) break;
-        }
+        if (document.querySelector("[data-ai-review-list]")) break;
+        if (document.querySelector("[data-ai-error]")) break;
       }
 
       const analysisPanel = document.querySelector("[data-lesson-analysis]");
@@ -438,9 +437,11 @@ async function main() {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(async () => {
+      window.confirm = () => true;
       await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
         scope: "lesson",
         simulate: "fixture",
+        skipConfirm: true,
       });
       await new Promise((r) => setTimeout(r, 200));
     });

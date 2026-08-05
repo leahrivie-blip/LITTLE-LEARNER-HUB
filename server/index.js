@@ -12643,6 +12643,42 @@ function validAdminToken(token) {
 }
 
 /**
+ * Teaching Kit owner-admin gate for enrichment AI / drafts / quality / publish.
+ * Production (and when LLH_ENFORCE_TK_OWNER_ADMIN=1): session email must be
+ * leahivie@icloud.com. Legacy enrichment harnesses may set
+ * LLH_ENFORCE_TK_OWNER_ADMIN=0 under NODE_ENV=test.
+ */
+function shouldEnforceTeachingKitOwnerAdmin() {
+  if (String(process.env.LLH_ENFORCE_TK_OWNER_ADMIN || "").trim() === "0") {
+    return process.env.NODE_ENV !== "test";
+  }
+  if (String(process.env.LLH_ENFORCE_TK_OWNER_ADMIN || "").trim() === "1") return true;
+  return process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+}
+
+function requireTeachingKitOwnerAdminSession(request, body, response) {
+  const token = extractAdminTokenFromBody(request, body);
+  const session = adminSessionStore.validate(token);
+  if (!session) {
+    jsonResponse(response, 401, {
+      error: "Admin access is required for Teaching Kit owner tools.",
+      code: "admin_required",
+    });
+    return null;
+  }
+  if (!shouldEnforceTeachingKitOwnerAdmin()) return session;
+  const email = normalizeEmail(session.email || "");
+  if (!teachingKit.isTeachingKitOwnerPreviewEmail(email)) {
+    jsonResponse(response, 403, {
+      error: "Teaching Kit editor, drafts, AI, and quality tools are restricted to the owner account.",
+      code: "teaching_kit_owner_required",
+    });
+    return null;
+  }
+  return session;
+}
+
+/**
  * Read-only, admin-gated, sanitized monitoring endpoint for the Phase 2 client
  * migration — reports HOW MANY requests still used the legacy query/body token
  * fields since this process booted, never the token values themselves. Intended
@@ -19284,10 +19320,7 @@ function enrichmentAiDedupeKey(planId, activityKey, scope, batchKey = "") {
 async function handleAdminEnrichmentAiSuggest(request, response) {
   const started = Date.now();
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required for enrichment AI suggestions." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const siteContent = store.siteContent && typeof store.siteContent === "object"
     ? store.siteContent
@@ -19620,10 +19653,7 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
 
 async function handleAdminEnrichmentAiInsertLog(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitAiAssistEnabled(flags)) {
@@ -19662,10 +19692,7 @@ async function handleAdminEnrichmentAiInsertLog(request, response) {
  */
 async function handleAdminAiTeacherAssistant(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitAiAssistEnabled(flags)) {
@@ -19985,10 +20012,7 @@ async function handleAdminAiTeacherAssistant(request, response) {
  */
 async function handleAdminCurriculumDirector(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitCurriculumDirectorEnabled(flags)) {
@@ -20283,10 +20307,7 @@ async function handleAdminCurriculumDirector(request, response) {
  */
 async function handleAdminCurriculumQualityReview(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitQualityReviewEnabled(flags)) {
@@ -20658,10 +20679,7 @@ async function handlePermanentDeleteDisposableFixture(request, response) {
 
 async function handleEnrichmentRollback(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = await readStore();
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(flags)) {
@@ -20920,6 +20938,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     now,
     body,
   } = ctx;
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
   if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
     jsonResponse(response, 404, {
@@ -21241,6 +21260,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
 
     // Teaching Kit Enrichment Editor — draft-only save (published member view unchanged).
     if (saveMode === "enrichment_draft") {
+      if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
       const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
       if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
         jsonResponse(response, 404, {
@@ -22062,10 +22082,7 @@ async function cleanupEnrichmentMediaAsset(store, {
 
 async function handleAdminEnrichmentPhotoUpload(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required to upload enrichment photos." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const siteContent = store.siteContent && typeof store.siteContent === "object"
     ? store.siteContent
@@ -22247,10 +22264,7 @@ async function handlePublicEnrichmentPhotoMedia(request, response, assetId, url)
 
 async function handleAdminEnrichmentPhotoDelete(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
-    jsonResponse(response, 401, { error: "Admin access is required to delete enrichment photos." });
-    return;
-  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
   const store = readStore();
   const enrichFlags = normalizedFeatureFlags(store.siteContent?.featureFlags);
   if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {

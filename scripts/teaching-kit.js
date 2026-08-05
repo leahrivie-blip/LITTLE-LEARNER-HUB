@@ -233,11 +233,11 @@
   }
 
   /**
-   * Server Owner Preview gate — requires BOTH:
+   * Server Owner Preview / Teaching Kit owner-admin gate — requires BOTH:
    * 1) authenticated identity email === leahivie@icloud.com
    * 2) valid owner/admin session for that same email
    * Email alone (member login without admin) must not unlock TK while customer flags are off.
-   * Admin session alone for a different email must not unlock TK.
+   * Admin session alone for a different email must not unlock TK admin tools.
    */
   function isTeachingKitOwnerPreviewAuthorized(options = {}) {
     const email = String(options.email || "").trim().toLowerCase();
