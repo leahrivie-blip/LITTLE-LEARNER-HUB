@@ -36560,6 +36560,26 @@ async function saveChildDataToBackend(options = {}) {
         }
       }
       for (const id of ackIds) {
+        const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
+        const result = results.find((item) => String(item.clientMutationId || "") === id);
+        // After refresh, local stores may lack queued creates — merge ack'd records so a later
+        // owner snapshot cannot wipe cloud rows that only existed in the durable queue.
+        if (entry?.storeKey && entry.op !== "delete") {
+          const recordId = String(result?.recordId || entry.record?.id || entry.recordId || "");
+          if (recordId) {
+            const list = childStore(entry.storeKey);
+            const idx = list.findIndex((row) => String(row.id || "") === recordId);
+            const merged = {
+              ...(entry.record && typeof entry.record === "object" ? entry.record : {}),
+              id: recordId,
+              revision: Number(result?.revision) || Number(entry.record?.revision) || 1,
+            };
+            const next = idx >= 0
+              ? list.map((row, i) => (i === idx ? { ...row, ...merged } : row))
+              : [...list, merged];
+            saveChildStoreLocalOnly(entry.storeKey, next);
+          }
+        }
         childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== id);
         await removePersistedChildDataMutation(id);
       }
@@ -38006,6 +38026,10 @@ function ensureTesterDemoChild() {
  */
 async function ensureTestingDemoProgramConnected() {
   if (typeof isHomeDaycareHubTestingEnabled !== "function" || !isHomeDaycareHubTestingEnabled()) return null;
+  // Automated regression can opt out so empty-program UX remains testable on the testing host.
+  try {
+    if (sessionStorage.getItem("llhSkipTestingDemoSeed") === "1") return null;
+  } catch (_error) { /* ignore */ }
   if (!currentUser || !canUseLaunchBackend()) return null;
   // Prefer server program data.
   try {

@@ -898,7 +898,12 @@ async function main() {
       });
       openContexts.push(other.context);
       const iso = await other.page.evaluate(async () => {
+        // Testing branch may auto-seed Family Hub demo into an empty owner program on boot.
+        // Replace the full local snapshot so we prove this owner cannot see Owner A's program data.
         saveChildStore("Profiles", [{ id: "child-zoe", name: "Zoe Other", classroomId: "room-z", classroom: "Z" }]);
+        ["Attendance", "Meals", "Naps", "Diapers", "ActivityLogs", "Communications", "Photos", "Reports", "Observations"]
+          .forEach((key) => saveChildStore(key, []));
+        clearTimeout(typeof childCloudSaveTimer !== "undefined" ? childCloudSaveTimer : 0);
         await saveChildDataToBackend({ force: true });
         const mine = await (await fetch("/api/child-data", {
           headers: {
@@ -909,10 +914,15 @@ async function main() {
         return {
           ids: (mine.data?.Profiles || []).map((p) => p.id),
           meals: (mine.data?.Meals || []).length,
+          leakedAva: (mine.data?.Profiles || []).some((p) => p.id === "child-ava"),
+          leakedOwnerAMeals: (mine.data?.Meals || []).some((m) => /child-ava|child-ben|Beans|Offline pasta/i.test(JSON.stringify(m))),
+          programId: mine.programId || "",
         };
       });
       assert.deepEqual(iso.ids, ["child-zoe"]);
       assert.equal(iso.meals, 0);
+      assert.equal(iso.leakedAva, false);
+      assert.equal(iso.leakedOwnerAMeals, false);
       pass("11 cross-program isolation");
       await other.context.close();
       openContexts.pop();

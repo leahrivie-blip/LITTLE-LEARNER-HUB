@@ -74,7 +74,11 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260805-tk-owner-preview-r2"/);
+  // Shell version is branch-specific (testing vs production). Require index + SW to match.
+  const swHtml = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
+  const shellFromSw = swHtml.match(/SHELL_VERSION\s*=\s*"([^"]+)"/)?.[1] || "";
+  assert.ok(shellFromSw, "service-worker.js must declare SHELL_VERSION");
+  assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${shellFromSw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   assert.match(indexHtml, /data-work-nav-root/);
   assert.match(indexHtml, /data-work-nav="business"/);
   assert.match(indexHtml, /data-work-nav="daily-logs"/);
@@ -160,6 +164,8 @@ async function main() {
         name: "Admin",
         token: "test-admin-token",
       }));
+      // Keep the owner program empty so Phase 1 setup-guide UX is measurable on the testing host.
+      try { sessionStorage.setItem("llhSkipTestingDemoSeed", "1"); } catch (_e) { /* ignore */ }
     }, { email: OWNER });
 
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
