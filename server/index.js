@@ -8950,10 +8950,19 @@ async function handlePromoValidation(request, response, url) {
 }
 
 async function handleCheckout(request, response) {
-  if (!requireStripe(response)) return;
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
   const store = readStore();
+  const existingUser = store.users?.[email] || {};
+  // Role denial before Stripe so linked staff never reach Checkout infrastructure.
+  if (email && !userMayManageBilling({ ...existingUser, email })) {
+    jsonResponse(response, 403, {
+      error: "Billing is managed by the program owner.",
+      code: "billing_owner_only",
+    });
+    return;
+  }
+  if (!requireStripe(response)) return;
   seedDefaultPromoCodes(store);
   purgeExpiredFoundingReservations(store, { persist: true });
   let requestedPlan = body.plan || "monthly";
@@ -8965,7 +8974,6 @@ async function handleCheckout(request, response) {
     });
     return;
   }
-  const existingUser = store.users?.[email] || {};
   // Block a second Checkout while the account already has paid/trial/manual Pro access.
   // Prevents double billing from duplicate clicks or returning to the upgrade page.
   if (membershipAccess.membershipHasProAccess(existingUser)) {
@@ -9753,6 +9761,23 @@ function membershipUserIsFounding(user) {
   return membershipAccess.membershipFoundingActive(user);
 }
 
+/**
+ * Billing ownership is owner-only. Linked program staff (and any non-owner role)
+ * must not open Checkout or the Stripe Customer Portal for the subscription.
+ */
+function userMayManageBilling(user = {}) {
+  if (!user || typeof user !== "object") return false;
+  if (user.programAccessViaOwner) return false;
+  const role = String(user.role || "owner").trim().toLowerCase();
+  if (role === "teacher" || role === "assistant" || role === "director" || role === "parent") {
+    return false;
+  }
+  const linkedOwner = normalizeEmail(user.linkedProgramOwnerEmail || "");
+  const email = normalizeEmail(user.email || "");
+  if (linkedOwner && email && linkedOwner !== email) return false;
+  return role === "owner" || !role;
+}
+
 function membershipHasProAccess(user, storeRef = null) {
   if (membershipAccess.membershipHasProAccess(user)) return true;
   // Directors/staff inherit the program owner's paid/Founding access.
@@ -10101,9 +10126,17 @@ async function handlePortal(request, response) {
     jsonResponse(response, error.statusCode || 401, { error: error.message || "Please log in before managing billing." });
     return;
   }
-  if (!requireStripe(response)) return;
   const store = readStore();
   const user = store.users?.[email];
+  // Role denial before Stripe so staff never reach billing infrastructure.
+  if (!userMayManageBilling(user || { email, role: "owner" })) {
+    jsonResponse(response, 403, {
+      error: "Billing is managed by the program owner.",
+      code: "billing_owner_only",
+    });
+    return;
+  }
+  if (!requireStripe(response)) return;
   if (!user?.stripeCustomerId) {
     jsonResponse(response, 400, { error: "No Stripe customer found for this account yet." });
     return;

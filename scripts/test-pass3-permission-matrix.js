@@ -494,6 +494,22 @@ async function runPersonaDevice(page, baseUrl, key, persona, device) {
   for (const flow of NAV_FLOWS) {
     try {
       await dismissFreePlanNudgeIfPresent(page);
+      // Teachers/assistants must not have Settings in primary nav (capability + role guard).
+      if ((key === "teacher" || key === "assistant") && flow.nav === "settings") {
+        const settingsNav = await page.evaluate(() => {
+          const nodes = [...document.querySelectorAll('.sidebar .nav-link[data-view="settings"]')];
+          return nodes.map((node) => ({
+            visible: !node.hidden
+              && node.getAttribute("aria-hidden") !== "true"
+              && node.offsetParent !== null,
+            work: node.hasAttribute("data-work-nav"),
+            legacy: node.hasAttribute("data-legacy-settings-nav"),
+          }));
+        });
+        assert.ok(settingsNav.every((n) => !n.visible), "teacher/assistant must not show Settings nav");
+        record(key, device.label, `nav-${flow.label}`, "pass", "settings nav correctly hidden");
+        continue;
+      }
       await clickSidebarNav(page, flow.nav, flow.view);
       assertSingleView(await evaluateShell(page), flow.label);
       record(key, device.label, `nav-${flow.label}`, "pass");
@@ -506,40 +522,102 @@ async function runPersonaDevice(page, baseUrl, key, persona, device) {
     }
   }
 
-  // Re-evaluate settings-gated billing after landing on settings.
+  // Settings / billing access — role-specific expected paths.
   try {
-    await clickSidebarNav(page, "settings", "settings");
-    const settingsPerms = await evaluatePermissions(page);
     if (key === "teacher" || key === "assistant") {
-      assert.equal(settingsPerms.capabilityResults.billing, false);
-      assert.equal(settingsPerms.billingCard, false, "teacher/assistant must not see billing settings row");
-      assert.ok(settingsPerms.billingManagedByOwner, "billing managed by owner copy");
-      record(key, device.label, "settings-billing-gated", "pass");
-    } else if (key === "director") {
-      assert.equal(settingsPerms.capabilityResults.billing, false);
-      assert.equal(settingsPerms.capabilityResults.staff_management, true);
-      assert.equal(settingsPerms.capabilityResults.enrollment, true);
-      assert.equal(settingsPerms.billingCard, false);
-      record(key, device.label, "settings-billing-gated", "pass");
-    } else if (key === "center-owner") {
-      assert.equal(settingsPerms.capabilityResults.billing, true);
-      assert.equal(settingsPerms.capabilityResults.classrooms, true);
-      assert.ok(settingsPerms.billingCard, "center owner billing settings row");
-      record(key, device.label, "settings-billing-owner", "pass");
-    } else if (key === "free") {
-      // Free owners can open Membership & Billing (not a paid portal incorrectly required).
-      assert.equal(settingsPerms.capabilityResults.billing, true);
-      assert.ok(settingsPerms.billingCard, "free owner membership/billing entry");
-      const portalOnly = await page.evaluate(() => {
-        const text = document.querySelector("#view-settings")?.innerText || "";
-        return /Customer Portal|Manage billing in Stripe|Open billing portal/i.test(text)
-          && !/Membership & Billing|Compare Plans|what's included with Free/i.test(text);
+      // Intended model: no Settings hub access. Prove denial + Account-only personal path.
+      const denial = await page.evaluate(() => {
+        const before = document.querySelector(".active-view")?.id || "";
+        if (typeof setView === "function") setView("settings");
+        const afterSettings = document.querySelector(".active-view")?.id || "";
+        if (typeof setView === "function") setView("billing");
+        const afterBilling = document.querySelector(".active-view")?.id || "";
+        if (typeof setView === "function") setView("program-settings");
+        const afterProgram = document.querySelector(".active-view")?.id || "";
+        if (typeof setView === "function") setView("staff");
+        const afterStaff = document.querySelector(".active-view")?.id || "";
+        if (typeof setView === "function") setView("account", { skipAccessRedirect: false });
+        if (typeof renderAccountPage === "function") renderAccountPage();
+        const afterAccount = document.querySelector(".active-view")?.id || "";
+        const upgradeBtn = document.querySelector("#accountUpgradeButton");
+        const upgradeVisible = Boolean(
+          upgradeBtn
+          && !upgradeBtn.hidden
+          && upgradeBtn.style.display !== "none"
+          && upgradeBtn.offsetParent !== null,
+        );
+        const accountText = document.querySelector("#view-account")?.innerText || "";
+        return {
+          before,
+          afterSettings,
+          afterBilling,
+          afterProgram,
+          afterStaff,
+          afterAccount,
+          canOpenSettings: typeof canOpenViewForCurrentAccess === "function" ? canOpenViewForCurrentAccess("settings") : null,
+          canOpenBilling: typeof canOpenViewForCurrentAccess === "function" ? canOpenViewForCurrentAccess("billing") : null,
+          canOpenProgramSettings: typeof canOpenViewForCurrentAccess === "function" ? canOpenViewForCurrentAccess("program-settings") : null,
+          canOpenStaff: typeof canOpenViewForCurrentAccess === "function" ? canOpenViewForCurrentAccess("staff") : null,
+          canSettingsCap: typeof canAccessCapability === "function" ? canAccessCapability(currentAccount(), "settings") : null,
+          canBillingCap: typeof canAccessCapability === "function" ? canAccessCapability(currentAccount(), "billing") : null,
+          upgradeVisible,
+          accountManagedCopy: /managed by the program owner/i.test(accountText),
+          accountOpen: afterAccount === "view-account",
+          renderThrew: false,
+        };
       });
-      assert.equal(portalOnly, false, "Free must not be forced into billing portal as required");
-      record(key, device.label, "settings-billing-free", "pass");
+      assert.equal(denial.canSettingsCap, false, "settings capability denied");
+      assert.equal(denial.canBillingCap, false, "billing capability denied");
+      assert.equal(denial.canOpenSettings, false);
+      assert.equal(denial.canOpenBilling, false);
+      assert.equal(denial.canOpenProgramSettings, false, "program-settings deep link denied");
+      assert.equal(denial.canOpenStaff, false);
+      assert.notEqual(denial.afterSettings, "view-settings", "settings deep link must not stay on Settings");
+      assert.notEqual(denial.afterBilling, "view-billing", "billing deep link must not open Billing");
+      assert.notEqual(denial.afterProgram, "view-program-settings", "program-settings deep link must not open");
+      assert.notEqual(denial.afterStaff, "view-staff", "staff deep link must not open");
+      assert.equal(denial.accountOpen, true, "Account remains available for personal profile");
+      assert.equal(denial.upgradeVisible, false, "Account must not show Upgrade/Manage Billing CTA");
+      assert.equal(denial.accountManagedCopy, true, "Account explains billing is owner-managed");
+      // Capture role Settings/Account denial evidence for the report.
+      await page.screenshot({
+        path: path.join(ARTIFACT_DIR, `settings-denied-${key}-${device.label}.png`),
+        fullPage: true,
+      }).catch(() => {});
+      record(key, device.label, "settings-billing-gated", "pass", "settings/billing/program admin denied; Account only");
     } else {
-      assert.equal(settingsPerms.capabilityResults.billing, true);
-      record(key, device.label, "settings-billing-owner", "pass");
+      await clickSidebarNav(page, "settings", "settings");
+      const settingsPerms = await evaluatePermissions(page);
+      if (key === "director") {
+        assert.equal(settingsPerms.capabilityResults.billing, false);
+        assert.equal(settingsPerms.capabilityResults.staff_management, true);
+        assert.equal(settingsPerms.capabilityResults.enrollment, true);
+        assert.equal(settingsPerms.billingCard, false);
+        record(key, device.label, "settings-billing-gated", "pass");
+      } else if (key === "center-owner") {
+        assert.equal(settingsPerms.capabilityResults.billing, true);
+        assert.equal(settingsPerms.capabilityResults.classrooms, true);
+        assert.ok(settingsPerms.billingCard, "center owner billing settings row");
+        record(key, device.label, "settings-billing-owner", "pass");
+      } else if (key === "free") {
+        // Free owners can open Membership & Billing (not a paid portal incorrectly required).
+        assert.equal(settingsPerms.capabilityResults.billing, true);
+        assert.ok(settingsPerms.billingCard, "free owner membership/billing entry");
+        const portalOnly = await page.evaluate(() => {
+          const text = document.querySelector("#view-settings")?.innerText || "";
+          return /Customer Portal|Manage billing in Stripe|Open billing portal/i.test(text)
+            && !/Membership & Billing|Compare Plans|what's included with Free/i.test(text);
+        });
+        assert.equal(portalOnly, false, "Free must not be forced into billing portal as required");
+        record(key, device.label, "settings-billing-free", "pass");
+      } else {
+        assert.equal(settingsPerms.capabilityResults.billing, true);
+        record(key, device.label, "settings-billing-owner", "pass");
+      }
+      await page.screenshot({
+        path: path.join(ARTIFACT_DIR, `settings-${key}-${device.label}.png`),
+        fullPage: true,
+      }).catch(() => {});
     }
   } catch (error) {
     record(key, device.label, "settings-billing", "fail", error.message);
