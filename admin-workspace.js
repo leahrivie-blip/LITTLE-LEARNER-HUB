@@ -636,8 +636,28 @@
     bindLandingTabs(target);
   }
 
+  function teachingKitFlagCheckbox(id, label, checked, help) {
+    return `
+      <label class="admin-tk-flag-row" style="display:flex;gap:10px;align-items:flex-start;margin:0 0 10px;">
+        <input type="checkbox" data-tk-flag="${escapeHtml(id)}" ${checked ? "checked" : ""} style="margin-top:4px;" />
+        <span>
+          <strong>${escapeHtml(label)}</strong>
+          <span class="muted-copy" style="display:block;">${escapeHtml(help)}</span>
+        </span>
+      </label>
+    `;
+  }
+
   function renderAdminSettingsLanding(target) {
     if (!target) return;
+    const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+    const customerViewer = flags.teachingKitViewer === true;
+    const customerPrint = flags.teachingKitPrintCenter === true;
+    const customerAttachments = flags.teachingKitAttachments === true;
+    const ownerEnrichment = flags.teachingKitEnrichmentEditor === true;
+    const ownerAuthoring = flags.teachingKitAuthoring === true;
+    const ownerDirector = flags.teachingKitCurriculumDirector === true;
+    const ownerQuality = flags.teachingKitQualityReview === true;
     target.innerHTML = `
       <div class="section-heading">
         <div>
@@ -663,9 +683,74 @@
           <button type="button" class="ghost-button" data-admin-lock aria-label="Lock Admin">Lock Admin</button>
         </article>
       </div>
+
+      <section class="admin-home-card" style="margin-top:18px;" data-tk-flag-settings>
+        <h4>Teaching Kit feature flags</h4>
+        <p class="muted-copy">Owner/admin only. These controls update stored site settings without a code deploy. Customer access and authoring tools are kept separate on purpose.</p>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,.08);">
+          <h5 style="margin:0 0 6px;">Customer Teaching Kit access</h5>
+          <p class="muted-copy" style="margin-bottom:10px;">When off, Free / Trial / Pro / Founding members keep the classic lesson experience. Do not turn these on until kits are ready to ship.</p>
+          ${teachingKitFlagCheckbox("teachingKitViewer", "Teaching Kit Viewer", customerViewer, "Lets signed-in customers open the Teaching Kit lesson workspace.")}
+          ${teachingKitFlagCheckbox("teachingKitPrintCenter", "Teaching Kit Print Center", customerPrint, "Lets customers use binder Print / Save PDF from the Teaching Kit.")}
+          ${teachingKitFlagCheckbox("teachingKitAttachments", "Teaching Kit Attachments", customerAttachments, "Lets customers use attachment surfaces inside the Teaching Kit.")}
+        </div>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,.08);">
+          <h5 style="margin:0 0 6px;">Owner / Admin authoring tools</h5>
+          <p class="muted-copy" style="margin-bottom:10px;">Only the authenticated owner/admin unlock can use these. They never grant customer Teaching Kit access by themselves.</p>
+          ${teachingKitFlagCheckbox("teachingKitEnrichmentEditor", "Enrichment Editor (Upgrade Lesson)", ownerEnrichment, "Opens Upgrade Lesson / enrichment drafting for owner admin.")}
+          ${teachingKitFlagCheckbox("teachingKitAuthoring", "Binder Authoring", ownerAuthoring, "Enables binder authoring helpers inside owner admin.")}
+          ${teachingKitFlagCheckbox("teachingKitCurriculumDirector", "Curriculum Director", ownerDirector, "Enables Curriculum Director tools for owner admin.")}
+          ${teachingKitFlagCheckbox("teachingKitQualityReview", "Quality Review", ownerQuality, "Enables pre-publish quality review tools for owner admin.")}
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;">
+          <button type="button" class="primary-button" data-tk-flags-save>Save Teaching Kit flags</button>
+          <p class="form-note" data-tk-flags-message style="margin:0;">Changes merge into existing settings — lesson plans and drafts are not deleted.</p>
+        </div>
+      </section>
+
       <p class="form-note">Device-trust toggles and workspace preference editors are not available on this page yet, so they are not listed here.</p>
     `;
     bindLandingTabs(target);
+    const saveBtn = target.querySelector("[data-tk-flags-save]");
+    if (saveBtn) {
+      saveBtn.addEventListener("click", async () => {
+        const message = target.querySelector("[data-tk-flags-message]");
+        const read = (key) => Boolean(target.querySelector(`[data-tk-flag="${key}"]`)?.checked);
+        const patch = {
+          teachingKitViewer: read("teachingKitViewer"),
+          teachingKitPrintCenter: read("teachingKitPrintCenter"),
+          teachingKitAttachments: read("teachingKitAttachments"),
+          teachingKitEnrichmentEditor: read("teachingKitEnrichmentEditor"),
+          teachingKitAuthoring: read("teachingKitAuthoring"),
+          teachingKitCurriculumDirector: read("teachingKitCurriculumDirector"),
+          teachingKitQualityReview: read("teachingKitQualityReview"),
+        };
+        if (typeof window.saveTeachingKitFeatureFlags !== "function") {
+          if (message) message.textContent = "Save helper is unavailable. Reload Admin and try again.";
+          return;
+        }
+        saveBtn.disabled = true;
+        if (message) message.textContent = "Saving Teaching Kit flags…";
+        try {
+          await window.saveTeachingKitFeatureFlags(patch);
+          if (message) message.textContent = "Saved. Customer access and owner authoring tools updated.";
+          if (typeof showActionFeedback === "function") {
+            showActionFeedback("Teaching Kit feature flags saved.");
+          }
+          renderAdminSettingsLanding(target);
+        } catch (error) {
+          if (message) message.textContent = error?.message || "Could not save Teaching Kit flags.";
+          if (typeof showActionFeedback === "function") {
+            showActionFeedback(error?.message || "Could not save Teaching Kit flags.");
+          }
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
   }
 
   function renderAdminTaxonomyAudit(target) {
