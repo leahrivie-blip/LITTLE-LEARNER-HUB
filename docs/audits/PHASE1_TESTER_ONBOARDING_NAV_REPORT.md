@@ -73,6 +73,17 @@ Under `/opt/cursor/artifacts/nav-role-experience/screenshots/`:
 | Teacher | Today + waiting guide | Daily tools + More | Home/Business/Families/Forms/Settings/Admin/TK |
 | Assistant | Today + waiting guide | Daily tools + Messages + More | Families/Business/Forms/Settings/Admin/TK |
 
+## Greeting safety (follow-up)
+
+Owner Home previously greeted with the email local-part (`nav.role.owner`). Fixed via `workModeGreetingTitle()` fallback:
+
+1. Valid first name  
+2. Program name  
+3. Friendly role label (Owner / Director / Teacher / Assistant)  
+4. Bare time greeting (`Good morning`)
+
+Internal keys, emails, `undefined`/`null`, blank punctuation, and fixture identifiers are rejected by `isSafeUserFacingDisplayName()`.
+
 ## Residual / out of Phase 1
 
 - Retry buttons on every failed network request (broader than nav; Phase 2+ Daily Logs will harden save/retry)
