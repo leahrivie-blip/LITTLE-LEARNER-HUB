@@ -560,6 +560,24 @@ let dlcSelectedOutputs = ["daily-report", "parent-message", "observation", "port
 let dlcParentSummaryDrafts = {};
 let dlcManualSection = ""; // which accordion section is expanded in manual mode
 let dlcDashboardDate = ""; // date shown on Daily Logs dashboard (empty = today)
+let dlcClassroomFilter = "all"; // "all" | classroomId | classroom name key
+let dlcSaveStatus = { state: "idle", message: "" }; // idle | saving | pending | saved | failed | offline | conflict
+let dlcUndoStack = []; // recent reversible Daily Logs writes
+let dlcQuickActionLockUntil = 0; // debounce repeated taps while supervising children
+let dlcFormSubmitLockUntil = 0; // debounce repeated form submits
+let dlcPendingReportPreview = null; // { childId, recordId, kind, text } — draft until Share
+let childDataMutationQueue = []; // pending idempotent cloud mutations (memory mirror of durable store)
+let childDataMutationInFlight = false;
+let dlcConflictState = null; // human-readable conflict review state
+let childDataMutationQueueScope = ""; // `${userId}::${programId}` for durable queue
+let childDataMutationIdbAvailable = null; // null unknown | true | false
+let dlcExpiredQueueNotice = null; // { count, at, storeKeys[], scopeKey } — no child names/ids
+const CHILD_MUTATION_IDB_NAME = "llh-child-mutations-v2";
+const CHILD_MUTATION_IDB_STORE = "pending";
+const CHILD_MUTATION_AUDIT_STORE = "cleanupAudit";
+const CHILD_MUTATION_IDB_VERSION = 3;
+const CHILD_MUTATION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days retention
+const CHILD_MUTATION_LS_LEGACY_PREFIX = "llhChildMutations:"; // legacy only — never write; purge on load
 let lessonPlanWorkflowState = {
   step: 1,
   generating: false,
@@ -4171,7 +4189,7 @@ async function finishSignupWithPlan(planChoice) {
     if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
       beginNewUserOnboardingAfterFreeSignup();
     } else {
-      setView("calendar", { fromAuthLanding: true });
+      setView(defaultAuthLandingView(), { fromAuthLanding: true, allowDashboard: true });
     }
     return;
   }
@@ -15066,6 +15084,128 @@ function workModeLandingView(role = workModeRole()) {
   return "home";
 }
 
+/** Post-login / access-denied landing for testing work-mode (never force Calendar). */
+function defaultAuthLandingView() {
+  if (isWorkModeNavEnabled()) return workModeLandingView();
+  return "calendar";
+}
+
+/** Reject internal keys, emails, test ids, and blank punctuation from user-facing greetings. */
+function isSafeUserFacingDisplayName(value, { allowProgram = false } = {}) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return false;
+  if (/^(undefined|null|nan|true|false)$/i.test(raw)) return false;
+  if (/@/.test(raw)) return false;
+  if (/^(nav|llh|i18n|t|app|common|errors?|locale|msg)\.[a-z0-9_.-]+$/i.test(raw)) return false;
+  // Dotted machine identifiers such as nav.role.owner or account.display.name
+  if (/^[a-z0-9_-]+(?:\.[a-z0-9_-]+){2,}$/i.test(raw)) return false;
+  if (/^[\s.,;:!?\-_'"…·•]+$/.test(raw)) return false;
+  if (!/[A-Za-zÀ-ÿ]/.test(raw)) return false;
+  if (!allowProgram && /^(your program|your center)$/i.test(raw)) return false;
+  if (allowProgram && /^(your program|your center)$/i.test(raw)) return false;
+  // Disposable / fixture local-parts must never greet the user.
+  if (/^(test|tester|demo|dummy|fixture|smoke|sample)([._-]|$)/i.test(raw)) return false;
+  if (/\b(example\.com|test\.local|localhost)\b/i.test(raw)) return false;
+  return true;
+}
+
+function workModeTimeOfDayGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function workModeFriendlyRoleLabel(role = workModeRole()) {
+  if (role === "director") return "Director";
+  if (role === "teacher") return "Teacher";
+  if (role === "assistant") return "Assistant";
+  return "Owner";
+}
+
+/**
+ * Greeting fallback:
+ * 1) valid first name → 2) program name → 3) friendly role label → 4) bare time greeting
+ * Never shows internal keys, emails, undefined/null, or test identifiers.
+ */
+function workModeGreetingTitle(account = currentAccount(), role = workModeRole(), date = new Date()) {
+  const base = workModeTimeOfDayGreeting(date);
+  const first = String(account?.firstName || "").trim();
+  if (isSafeUserFacingDisplayName(first)) return `${base}, ${first}`;
+
+  const named = String(account?.name || account?.displayName || account?.fullName || "").trim();
+  const namedFirst = named.split(/\s+/).filter(Boolean)[0] || "";
+  if (isSafeUserFacingDisplayName(namedFirst)) return `${base}, ${namedFirst}`;
+
+  const program = String(
+    account?.programSettings?.programName
+    || (typeof getProgramSettings === "function" ? getProgramSettings()?.programName : "")
+    || account?.businessName
+    || account?.programName
+    || account?.daycareName
+    || "",
+  ).trim();
+  if (isSafeUserFacingDisplayName(program, { allowProgram: true })) return `${base}, ${program}`;
+
+  const roleLabel = workModeFriendlyRoleLabel(role);
+  if (isSafeUserFacingDisplayName(roleLabel)) return `${base}, ${roleLabel}`;
+  return base;
+}
+
+function workModeActiveChildCount() {
+  try {
+    return getActiveChildren(childRecords()).length;
+  } catch (_error) {
+    return 0;
+  }
+}
+
+function workModeProgramLabel() {
+  const settings = typeof getProgramSettings === "function" ? getProgramSettings() : {};
+  const name = String(settings?.programName || currentAccount()?.businessName || "").trim();
+  if (name) return name;
+  const type = typeof getAccountType === "function" ? getAccountType() : "";
+  if (type === ACCOUNT_TYPES.CENTER) return "your center";
+  return "your program";
+}
+
+function workModeSetupGuideHtml({ role = workModeRole() } = {}) {
+  const isStaff = role === "teacher" || role === "assistant";
+  const program = workModeProgramLabel();
+  const type = typeof getAccountType === "function" ? getAccountType() : ACCOUNT_TYPES.HOME_DAYCARE;
+  const typeLabel = type === ACCOUNT_TYPES.CENTER ? "center" : "home daycare";
+  return `
+    <section class="work-hub-section work-setup-guide" data-work-setup-guide>
+      <h3>${isStaff ? "Waiting for children" : "Set up your program first"}</h3>
+      <p class="muted-copy">
+        ${isStaff
+    ? `No children are assigned yet for ${escapeHtml(program)}. Ask your owner or director to add children — then use <strong>Today</strong> and <strong>Daily Logs</strong> for the care day.`
+    : `This ${escapeHtml(typeLabel)} sandbox is empty. Finish these steps before daily classroom work (check-in, meals, naps).`}
+      </p>
+      <ol class="work-setup-steps">
+        ${isStaff ? `
+          <li>Confirm your role badge shows Teacher or Assistant.</li>
+          <li>Open <strong>Children</strong> once a child is assigned.</li>
+          <li>Use <strong>Today</strong> → Daily Logs for attendance and care notes.</li>
+        ` : `
+          <li><button type="button" class="text-button" data-view="settings" data-settings-anchor="program">Name your program</button> in Settings (optional but helpful).</li>
+          <li><button type="button" class="text-button" data-view="children">Add your first child</button> — use disposable test names only.</li>
+          <li>Then open <strong>Daily Logs</strong> to practice check-in and care notes.</li>
+          <li>Use <strong>Families</strong> later to invite a disposable parent household.</li>
+        `}
+      </ol>
+      <div class="work-hub-grid">
+        ${isStaff
+    ? workHubTile({ view: "children", title: "Children", detail: "See assigned children when ready", primary: true })
+    : `${workHubTile({ view: "children", title: "Add a child", detail: "Start your disposable roster", primary: true })}
+           ${workHubTile({ view: "settings", title: "Program settings", detail: "Name & preferences" })}
+           ${workHubTile({ view: "classroom", title: "Classroom tools", detail: "Available after you add children" })}`}
+      </div>
+      <p class="work-hub-note muted-copy">Setup prepares the program. Daily Logs is for the care day once children exist.</p>
+    </section>
+  `;
+}
+
 function syncWorkModeNav() {
   const enabled = isWorkModeNavEnabled();
   const role = workModeRole();
@@ -15149,6 +15289,11 @@ function renderOwnerHomeDashboard() {
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
   const children = getActiveChildren(records);
+  const emptyProgram = children.length === 0;
+  const accountType = typeof getAccountType === "function" ? getAccountType() : ACCOUNT_TYPES.HOME_DAYCARE;
+  const typeEyebrow = accountType === ACCOUNT_TYPES.CENTER
+    ? (workModeRole() === "director" ? "Center · Director Home" : "Center · Owner Home")
+    : (workModeRole() === "director" ? "Home daycare · Director Home" : "Home daycare · Owner Home");
   const attendance = (records.attendance || []).filter((a) => a.date === today);
   const checkedIn = attendance.filter((a) => {
     const status = String(a.status || "").toLowerCase();
@@ -15168,13 +15313,11 @@ function renderOwnerHomeDashboard() {
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
     ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
     : "No rooms checked in yet";
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const name = accountDisplayFirstName(currentAccount());
-  const program = getProgramSettings()?.programName || "your program";
+  const greetingTitle = workModeGreetingTitle(currentAccount(), workModeRole());
+  const program = workModeProgramLabel();
   const childById = Object.fromEntries(children.map((c) => [c.id, c]));
   const attention = typeof buildActionOnlyAttentionCards === "function" ? buildActionOnlyAttentionCards() : [];
-  const attentionHtml = attention.length
+  const attentionHtml = !emptyProgram && attention.length
     ? `<section class="work-hub-section">
         <h3>Needs attention</h3>
         <div class="work-hub-grid">
@@ -15182,13 +15325,30 @@ function renderOwnerHomeDashboard() {
         </div>
       </section>`
     : "";
-  const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
+  const lessonHtml = !emptyProgram && typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
 
   homeSection.innerHTML = workHubShell({
-    eyebrow: "Home",
-    title: `${greeting}, ${name}`,
-    subtitle: `${program} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
-    body: `
+    eyebrow: typeEyebrow,
+    title: greetingTitle,
+    subtitle: emptyProgram
+      ? `${program} · Start with program setup, then use Daily Logs for the care day.`
+      : `${program} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+    body: emptyProgram ? `
+      ${workModeSetupGuideHtml({ role: workModeRole() })}
+      <section class="work-hub-section">
+        <h3>Daily tools (after setup)</h3>
+        <p class="muted-copy">These stay available in the menu — use them once you have children.</p>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Check-in, meals, naps, notes" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Week schedule" })}
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Browse & assign" })}
+          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity library" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing drafts" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Support & family threads" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Paperwork library" })}
+        </div>
+      </section>
+    ` : `
       <div class="work-pulse-grid" aria-label="Today at a glance">
         <article class="work-pulse-card"><em>Checked in</em><strong>${checkedIn}</strong><span>of ${children.length} children</span></article>
         <article class="work-pulse-card"><em>Classroom count</em><strong>${ratio.checkedIn}</strong><span>${escapeHtml(roomRatioText)}</span></article>
@@ -15197,12 +15357,17 @@ function renderOwnerHomeDashboard() {
       </div>
 
       <section class="work-hub-section">
-        <h3>Next actions</h3>
+        <h3>What to do next</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
-          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule" })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
-          ${workHubTile({ view: "families", title: "Families", detail: "Messages & Family Hub" })}
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Browse & assign" })}
+          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity library" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing drafts" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Inbox & support" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Paperwork" })}
+          ${workHubTile({ view: "families", title: "Families", detail: "Family Hub & invites" })}
         </div>
       </section>
 
@@ -15230,6 +15395,7 @@ function renderTeacherTodayPage() {
   const records = childRecords();
   const today = typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10);
   const children = getActiveChildren(records);
+  const emptyProgram = children.length === 0;
   const checkedIn = (records.attendance || []).filter((a) => a.date === today && !a.pickup && String(a.status || "").toLowerCase() !== "absent").length;
   const ratio = typeof classroomRatioSnapshot === "function" ? classroomRatioSnapshot(records, today) : { checkedIn, byRoom: {} };
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
@@ -15238,19 +15404,35 @@ function renderTeacherTodayPage() {
   const attention = typeof buildActionOnlyAttentionCards === "function"
     ? buildActionOnlyAttentionCards().filter((card) => !["business", "forms"].includes(card.view) || card.title.toLowerCase().includes("incident") || card.title.toLowerCase().includes("report"))
     : [];
-  const attentionHtml = attention.length
+  const attentionHtml = !emptyProgram && attention.length
     ? `<section class="work-hub-section"><h3>Needs you now</h3><div class="work-hub-grid">${attention.map((card) => workHubTile(card)).join("")}</div></section>`
     : "";
-  const lessonHtml = typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
-  const eodReady = typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
-  const allergyBanner = typeof window !== "undefined" && window.FormsCenter?.allergyBannerHtml
+  const lessonHtml = !emptyProgram && typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
+  const eodReady = !emptyProgram && typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
+  const allergyBanner = !emptyProgram && typeof window !== "undefined" && window.FormsCenter?.allergyBannerHtml
     ? window.FormsCenter.allergyBannerHtml(records)
     : "";
+  const greetingTitle = workModeGreetingTitle(currentAccount(), role);
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
-    title: "Today",
-    subtitle: "Everything happening in your classroom today — optimized for the care day, not the business office.",
-    body: `
+    title: greetingTitle,
+    subtitle: emptyProgram
+      ? "No children assigned yet — setup happens with your owner. Daily classroom tools appear here once you have a roster."
+      : "Everything happening in your classroom today — care day tools only (not Business or Admin).",
+    body: emptyProgram ? `
+      ${workModeSetupGuideHtml({ role })}
+      <section class="work-hub-section">
+        <h3>Your daily menu</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Ready when children are assigned" })}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Schedule" })}
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Browse plans" })}
+          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity library" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI drafts" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Inbox & support" })}
+        </div>
+      </section>
+    ` : `
       <div class="work-pulse-grid">
         <article class="work-pulse-card"><em>Children here</em><strong>${checkedIn}</strong><span>${escapeHtml(roomRatioText)}</span></article>
         <article class="work-pulse-card"><em>Meals</em><strong>${(records.meals || []).filter((m) => m.date === today).length}</strong><span>logged</span></article>
@@ -15261,29 +15443,25 @@ function renderTeacherTodayPage() {
       ${lessonHtml}
       ${attentionHtml}
       <section class="work-hub-section">
-        <h3>Run the day</h3>
+        <h3>What to do next</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
-          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts`, primary: true }) : ""}
-          ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open assigned plan" })}
-          ${workHubTile({ view: "activities", title: "Suggested activities", detail: "Activity Center" })}
-          ${workHubTile({ view: "calendar", title: "Today's Schedule", detail: "Calendar & events" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
+          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts` }) : ""}
+          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule" })}
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Open assigned plan" })}
+          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "Observation & report drafts" })}
+          ${workHubTile({ view: "messages", title: "Messages", detail: "Parent & support threads" })}
+          ${workHubTile({ view: "children", title: role === "teacher" ? "My Children" : "Children", detail: "Assigned children" })}
         </div>
       </section>
       <section class="work-hub-section">
         <h3>Quick capture</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
-          ${workHubTile({ view: role === "assistant" ? "messages" : "families", title: "Quick Message", detail: "Parent update" })}
-          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
-        </div>
-      </section>
-      <section class="work-hub-section">
-        <h3>My children & classroom</h3>
-        <div class="work-hub-grid">
-          ${workHubTile({ view: "children", title: role === "teacher" ? "My Children" : "Children", detail: "Assigned children" })}
-          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Plans, materials, schedule" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile & report" })}
+          ${workHubTile({ view: "messages", title: "Quick Message", detail: "Parent update" })}
+          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Draft from your facts", attrs: 'data-quick-doc-type="incident-report"' })}
         </div>
       </section>
     `,
@@ -15407,10 +15585,10 @@ function renderBusinessHubPage() {
           ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
           ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
-          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+          ${workHubTile({ view: "staff", title: "Users & Staff", detail: "Account & access invites" })}
         </div>
       </section>
-      ${adminUnlocked ? `
+      ${adminUnlocked && !isIndependentHdhTesterAccount() && !isLinkedProgramStaffAccount() ? `
       <section class="work-hub-section">
         <h3>Admin only</h3>
         <div class="work-hub-grid">
@@ -15425,17 +15603,24 @@ function renderMoreHubPage() {
   const section = document.querySelector("#view-more");
   if (!section) return;
   const role = workModeRole();
+  const canSettings = role === "owner" || role === "director";
+  const canForms = canOpenViewForCurrentAccess("forms");
   section.innerHTML = workHubShell({
     eyebrow: "More",
     title: "More",
-    subtitle: "Secondary tools for your role — kept out of the daily path on purpose.",
+    subtitle: "Secondary tools — kept out of the daily path on purpose. Use Home/Today to return anytime.",
     body: `
       <div class="work-hub-grid">
-        ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
-        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
+        ${workHubTile({ view: workModeLandingView(role), title: role === "teacher" || role === "assistant" ? "Back to Today" : "Back to Home", detail: "Return to your start screen", primary: true })}
+        ${canSettings ? workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" }) : ""}
+        ${workHubTile({ view: "messages", title: "Messages", detail: "Inbox & support" })}
+        ${canForms ? workHubTile({ view: "forms", title: "Forms", detail: "Paperwork library" }) : ""}
+        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
+        ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Browse library" })}
+        ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
+        ${workHubTile({ view: "calendar", title: "Calendar", detail: "Week schedule" })}
         ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
         ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
-        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
         ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
         ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
       </div>
@@ -15448,20 +15633,27 @@ function syncUniversalQuickAdd() {
   const show = isWorkModeNavEnabled();
   if (!show) {
     fab?.remove();
-    document.body.classList.remove("work-quick-add-open");
+    document.body.classList.remove("work-quick-add-open", "work-quick-add-visible");
     return;
   }
+  document.body.classList.add("work-quick-add-visible");
+  const role = workModeRole();
+  const canFamilies = canOpenViewForCurrentAccess("families");
+  const canForms = canOpenViewForCurrentAccess("forms");
+  const messageView = canFamilies ? "families" : "messages";
   if (!fab) {
     fab = document.createElement("div");
     fab.id = "workQuickAdd";
     fab.className = "work-quick-add";
-    fab.innerHTML = `
+    document.body.appendChild(fab);
+  }
+  fab.innerHTML = `
       <div class="work-quick-add-sheet" data-work-quick-sheet hidden>
         <p class="work-quick-add-title">Quick add</p>
         <div class="work-quick-add-grid">
           <button type="button" data-view="ai" data-quick-doc-type="observation">Observation</button>
           <button type="button" data-view="ai" data-quick-doc-type="incident-report">Incident</button>
-          <button type="button" data-view="families">Parent Message</button>
+          <button type="button" data-view="${messageView}">Parent Message</button>
           <button type="button" data-view="child-tools-daily-logs">Photo</button>
           <button type="button" data-view="child-tools-daily-logs">Meal</button>
           <button type="button" data-view="child-tools-daily-logs">Nap</button>
@@ -15469,13 +15661,12 @@ function syncUniversalQuickAdd() {
           <button type="button" data-view="ai" data-quick-doc-type="daily-log">Daily Note</button>
           <button type="button" data-view="child-tools-daily-logs">Activity</button>
           <button type="button" data-view="calendar">Calendar Note</button>
-          <button type="button" data-view="forms">Form</button>
+          ${canForms ? '<button type="button" data-view="forms">Form</button>' : ""}
+          ${role === "owner" || role === "director" ? "" : ""}
         </div>
       </div>
       <button type="button" class="work-quick-add-fab" data-work-quick-toggle aria-expanded="false" aria-label="Quick add">+</button>
     `;
-    document.body.appendChild(fab);
-  }
 }
 
 function toggleUniversalQuickAdd(force) {
@@ -18186,7 +18377,12 @@ function setView(view, options = {}) {
     && (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount())
     && !options.allowAdminForLinkedStaff
   ) {
-    return setView("messages", { ...options, skipAccessRedirect: true });
+    return setView(defaultAuthLandingView(), {
+      ...options,
+      skipAccessRedirect: true,
+      allowDashboard: true,
+      fromAuthLanding: true,
+    });
   }
   // Home Daycare Hub is testing-site only (HOME_DAYCARE_HUB_TESTING).
   if (resolvedRequested === "home-daycare-hub" && !isHomeDaycareHubTestingEnabled() && !options.allowHomeDaycareHubPreview) {
@@ -18227,7 +18423,12 @@ function setView(view, options = {}) {
     && !staffMaySeeHdhView(resolvedRequested)
     && !options.skipAccessRedirect
   ) {
-    return setView("calendar", { ...options, skipAccessRedirect: true });
+    return setView(defaultAuthLandingView(), {
+      ...options,
+      skipAccessRedirect: true,
+      allowDashboard: true,
+      fromAuthLanding: true,
+    });
   }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
@@ -18334,12 +18535,13 @@ function setView(view, options = {}) {
       if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) {
         return setView("family-hub", { ...options, skipAccessRedirect: true });
       }
-      const role = String(typeof getUserRole === "function" ? getUserRole() : "").toLowerCase();
-      if (role === "teacher" || role === "assistant") {
-        return setView("today", { ...options, skipAccessRedirect: true, allowDashboard: true });
-      }
     } catch (_error) { /* ignore */ }
-    return setView("calendar", { ...options, skipAccessRedirect: true });
+    return setView(defaultAuthLandingView(), {
+      ...options,
+      skipAccessRedirect: true,
+      allowDashboard: true,
+      fromAuthLanding: true,
+    });
   }
   // Lazy-load feature packs so the cold homepage stays lean.
   try {
@@ -19239,28 +19441,831 @@ function quickActionTime() {
 
 /** Prefer the Daily Logs dashboard date when logging from that workspace. */
 function dlcActiveDate() {
-  return dlcDashboardDate || new Date().toISOString().slice(0, 10);
+  return dlcDashboardDate || programLocalDate();
+}
+
+function dlcRecorderLabel() {
+  try {
+    const account = typeof currentAccount === "function" ? currentAccount() : null;
+    const first = String(account?.firstName || "").trim();
+    if (typeof isSafeUserFacingDisplayName === "function" && isSafeUserFacingDisplayName(first)) return first;
+    const role = typeof workModeFriendlyRoleLabel === "function"
+      ? workModeFriendlyRoleLabel(typeof workModeRole === "function" ? workModeRole() : "owner")
+      : "Provider";
+    return role;
+  } catch (_error) {
+    return "Provider";
+  }
+}
+
+function dlcSetSaveStatus(state, message = "") {
+  dlcSaveStatus = { state: state || "idle", message: String(message || "") };
+  const el = document.querySelector("[data-dlc-save-status]");
+  if (!el) return;
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  const shown = offline && !["failed", "conflict"].includes(state) ? "offline" : (state || "idle");
+  el.hidden = shown === "idle" && !offline;
+  el.dataset.state = shown;
+  const textEl = el.querySelector(".dlc-status-text");
+  const text = message || ({
+    saving: "Saving…",
+    pending: "Waiting for connection…",
+    saved: "Saved to cloud",
+    failed: "Sync failed — Retry sync or Discard failed change",
+    offline: "Waiting for connection — not saved to cloud yet",
+    conflict: "Needs review because another person updated it",
+  }[shown] || "");
+  if (textEl) textEl.textContent = text;
+  else el.textContent = text;
+}
+
+function dlcPushUndo(entry) {
+  if (!entry || !entry.storeKey || !entry.recordId) return;
+  dlcUndoStack = [{ ...entry, at: Date.now() }, ...dlcUndoStack].slice(0, 12);
+}
+
+function dlcCanUndo() {
+  return dlcUndoStack.some((item) => Date.now() - (item.at || 0) < 5 * 60 * 1000);
+}
+
+function dlcUndoLastEntry() {
+  const next = dlcUndoStack.find((item) => Date.now() - (item.at || 0) < 5 * 60 * 1000);
+  if (!next) {
+    showActionFeedback("Nothing recent to undo.");
+    return false;
+  }
+  dlcUndoStack = dlcUndoStack.filter((item) => item !== next);
+  const storeKey = next.storeKey;
+  if (next.kind === "attendance-update" && next.before) {
+    saveChildStore(storeKey, childStore(storeKey).map((item) => (
+      item.id === next.recordId ? { ...next.before } : item
+    )));
+  } else {
+    saveChildStore(storeKey, childStore(storeKey).filter((item) => item.id !== next.recordId));
+  }
+  dlcSetSaveStatus("saved", "Undone");
+  showActionFeedback("Last entry undone.");
+  renderChildManagement();
+  return true;
+}
+
+function dlcClassroomOptions(records = childRecords()) {
+  const rooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const fromRooms = rooms.map((room) => ({
+    id: String(room.id || ""),
+    label: String(room.name || "Classroom").trim() || "Classroom",
+  })).filter((room) => room.id);
+  const fromChildren = getActiveChildren(records)
+    .map((child) => ({
+      id: String(child.classroomId || child.classroom || "").trim(),
+      label: childProfileClassroomLabel(child),
+    }))
+    .filter((room) => room.id && room.label && room.label !== "Classroom not set");
+  const seen = new Set();
+  return [...fromRooms, ...fromChildren].filter((room) => {
+    if (seen.has(room.id)) return false;
+    seen.add(room.id);
+    return true;
+  });
+}
+
+function dlcChildrenForDashboard(records = childRecords()) {
+  const list = getActiveChildren(records);
+  if (!dlcClassroomFilter || dlcClassroomFilter === "all") return list;
+  const key = String(dlcClassroomFilter);
+  return list.filter((child) => (
+    String(child.classroomId || "") === key
+    || String(child.classroom || "") === key
+  ));
+}
+
+function dlcCheckedInChildIds(records = childRecords(), today = dlcActiveDate()) {
+  return dlcChildrenForDashboard(records)
+    .filter((child) => getChildAttendanceState(child, records, today) === "checked_in")
+    .map((child) => child.id);
+}
+
+function dlcRecordTypeLabel(storeKey = "", record = {}) {
+  const key = String(storeKey || "");
+  if (key === "Attendance") return "Attendance";
+  if (key === "Meals") {
+    if (record.type === "Bottle" || /bottle/i.test(String(record.title || ""))) return "Bottle";
+    return "Meal";
+  }
+  if (key === "Naps") return "Nap";
+  if (key === "Diapers") {
+    if (/potty/i.test(String(record.type || ""))) return "Potty";
+    return "Diaper / Potty";
+  }
+  if (key === "ActivityLogs") return "Activity";
+  if (key === "Communications") {
+    const type = String(record.type || "");
+    if (/mood/i.test(type)) return "Mood";
+    if (/incident/i.test(type)) return "Incident";
+    if (/note/i.test(type)) return "Note";
+    return type || "Note";
+  }
+  if (key === "Observations") return "Observation";
+  if (key === "Photos") return "Photo";
+  if (key === "Reports") return "Report";
+  return key || "Record";
+}
+
+function dlcConflictFieldDefs(storeKey = "") {
+  const time = (value) => (value ? (formatDlcClock(value) || String(value)) : "—");
+  const text = (value) => {
+    const cleaned = String(value ?? "").trim();
+    return cleaned || "—";
+  };
+  const map = {
+    Attendance: [
+      { key: "status", label: "Status", format: text },
+      { key: "checkIn", label: "Check-in time", format: time, aliases: ["dropoff"] },
+      { key: "checkOut", label: "Check-out time", format: time, aliases: ["pickup"] },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Meals: [
+      { key: "breakfast", label: "Breakfast", format: text },
+      { key: "lunch", label: "Lunch", format: text },
+      { key: "snack", label: "Snack", format: text },
+      { key: "type", label: "Type", format: text },
+      { key: "amount", label: "Amount", format: text },
+      { key: "time", label: "Time", format: time },
+      { key: "notes", label: "Notes", format: text },
+    ],
+    Naps: [
+      { key: "napStart", label: "Nap start", format: time },
+      { key: "napEnd", label: "Nap end", format: time },
+      { key: "notes", label: "Notes", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Diapers: [
+      { key: "type", label: "Type", format: text },
+      { key: "time", label: "Time", format: time },
+      { key: "notes", label: "Notes", format: text },
+    ],
+    ActivityLogs: [
+      { key: "activity", label: "Activity", format: text },
+      { key: "area", label: "Learning area", format: text },
+      { key: "notes", label: "Notes", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Communications: [
+      { key: "type", label: "Note type", format: text },
+      { key: "mood", label: "Mood", format: text },
+      { key: "message", label: "Message", format: text },
+      { key: "notes", label: "Notes", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Observations: [
+      { key: "text", label: "Observation", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Photos: [
+      { key: "caption", label: "Caption", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Reports: [
+      { key: "message", label: "Report text", format: text },
+      { key: "summary", label: "Summary", format: text },
+      { key: "status", label: "Status", format: text },
+    ],
+  };
+  return map[storeKey] || [
+    { key: "summary", label: "Details", format: text },
+    { key: "notes", label: "Notes", format: text },
+    { key: "message", label: "Message", format: text },
+  ];
+}
+
+function dlcRecordFieldValue(record = {}, field) {
+  if (!record || !field) return "";
+  if (record[field.key] != null && String(record[field.key]).trim() !== "") return record[field.key];
+  for (const alias of field.aliases || []) {
+    if (record[alias] != null && String(record[alias]).trim() !== "") return record[alias];
+  }
+  return "";
+}
+
+function dlcConflictDiffRows(localRecord = {}, serverRecord = {}, storeKey = "") {
+  return dlcConflictFieldDefs(storeKey).map((field) => {
+    const yours = dlcRecordFieldValue(localRecord, field);
+    const latest = dlcRecordFieldValue(serverRecord, field);
+    const yoursText = field.format(yours);
+    const latestText = field.format(latest);
+    if (yoursText === latestText) return null;
+    return {
+      key: field.key,
+      label: field.label,
+      yours: yoursText,
+      latest: latestText,
+    };
+  }).filter(Boolean);
+}
+
+function dlcBuildConflictViewModel(entry = {}, result = {}) {
+  const storeKey = result.storeKey || entry.storeKey || "";
+  const localRecord = entry.record || result.localAttempt || {};
+  const serverRecord = result.serverRecord || entry.conflictServerRecord || null;
+  const childId = localRecord.childId || serverRecord?.childId || entry.childId || "";
+  const childLabel = typeof childName === "function" ? childName(childId) : (childId || "Child");
+  const recordType = dlcRecordTypeLabel(storeKey, localRecord || serverRecord || {});
+  const deleted = !serverRecord || result.code === "not_found";
+  const diffs = deleted ? [] : dlcConflictDiffRows(localRecord, serverRecord, storeKey);
+  return {
+    clientMutationId: entry.clientMutationId || result.clientMutationId || "",
+    storeKey,
+    childId,
+    childLabel: childLabel || "Child",
+    recordType,
+    deleted,
+    diffs,
+    localRecord,
+    serverRecord,
+    explanation: deleted
+      ? "The latest saved version of this record is no longer available. Another staff member may have removed it."
+      : "Another staff member updated this record while you were saving. Nothing was overwritten.",
+  };
+}
+
+function dlcRenderConflictPanel(model) {
+  if (!model) return "";
+  const diffRows = model.deleted
+    ? `<p class="muted-copy">This ${escapeHtml(model.recordType).toLowerCase()} is no longer on the latest saved day sheet.</p>`
+    : (model.diffs.length
+      ? `<div class="dlc-conflict-diff-list">${model.diffs.map((row) => `
+          <div class="dlc-conflict-diff-row">
+            <strong>${escapeHtml(row.label)}</strong>
+            <div class="dlc-conflict-diff-values">
+              <div><span class="dlc-conflict-diff-label">Your change</span><p>${escapeHtml(row.yours)}</p></div>
+              <div><span class="dlc-conflict-diff-label">Latest saved information</span><p>${escapeHtml(row.latest)}</p></div>
+            </div>
+          </div>
+        `).join("")}</div>`
+      : `<p class="muted-copy">The saved details already match your change. You can keep the latest saved version.</p>`);
+  return `
+    <section class="dlc-conflict-panel" data-dlc-conflict-panel data-dlc-conflict-id="${escapeHtml(model.clientMutationId)}">
+      <p class="eyebrow">Needs review</p>
+      <h4>${escapeHtml(model.childLabel)} · ${escapeHtml(model.recordType)}</h4>
+      <p class="muted-copy">${escapeHtml(model.explanation)}</p>
+      ${diffRows}
+      <div class="account-actions-row dlc-conflict-actions">
+        <button type="button" class="primary-button" data-dlc-conflict-reload="${escapeHtml(model.clientMutationId)}">Keep latest saved version</button>
+        ${model.deleted ? "" : `<button type="button" class="ghost-button" data-dlc-conflict-retry="${escapeHtml(model.clientMutationId)}">Apply my change to the latest version</button>`}
+        <button type="button" class="ghost-button" data-dlc-conflict-edit="${escapeHtml(model.clientMutationId)}">Review and edit</button>
+        <button type="button" class="ghost-button" data-dlc-conflict-discard="${escapeHtml(model.clientMutationId)}">Cancel</button>
+      </div>
+    </section>
+  `;
+}
+
+function dlcRenderSaveStatusBar() {
+  const state = dlcSaveStatus?.state || "idle";
+  const message = dlcSaveStatus?.message || "";
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  const pendingCount = childDataMutationQueue.filter((item) => item.status === "pending" || !item.status).length;
+  const shownState = dlcConflictState
+    ? "conflict"
+    : (offline && !["failed", "conflict"].includes(state)
+      ? "offline"
+      : (pendingCount && ["idle", "saved"].includes(state) ? "pending" : state));
+  const statusLabels = {
+    saving: "Saving…",
+    pending: pendingCount ? `Waiting for connection (${pendingCount})` : "Waiting for connection…",
+    saved: "Saved to cloud",
+    failed: "Sync failed",
+    offline: "Waiting for connection",
+    conflict: "Needs review because another person updated it",
+  };
+  let text = message || statusLabels[shownState] || "";
+  if (dlcConflictState) {
+    text = "Needs review because another person updated it";
+  } else if (offline && !["failed", "conflict"].includes(state)) {
+    text = `Waiting for connection (${pendingCount || 1}) — not saved to cloud yet`;
+  } else if (childDataMutationIdbAvailable === false && pendingCount) {
+    text = "Offline saving is unavailable in this browser — stay online to sync";
+  }
+  const failedIds = childDataMutationQueue.filter((item) => item.status === "failed").slice(0, 5);
+  const failedList = failedIds.length ? `
+    <ul class="dlc-pending-fail-list">
+      ${failedIds.map((item) => `
+        <li>
+          <span>Sync failed · ${escapeHtml(dlcRecordTypeLabel(item.storeKey, item.record || {}))}</span>
+          <button type="button" class="ghost-button" data-dlc-mutation-retry="${escapeHtml(item.clientMutationId)}">Retry sync</button>
+          <button type="button" class="ghost-button" data-dlc-mutation-discard="${escapeHtml(item.clientMutationId)}">Discard failed change</button>
+        </li>
+      `).join("")}
+    </ul>
+  ` : "";
+  const pendingCancel = pendingCount && !dlcConflictState ? `
+    <button type="button" class="ghost-button" data-dlc-cancel-pending>Cancel pending change</button>
+  ` : "";
+  const expiredNotice = dlcExpiredQueueNotice && dlcExpiredQueueNotice.count
+    ? `
+    <div class="dlc-status-bar" data-dlc-expired-notice data-state="failed">
+      <span class="dlc-status-text">${escapeHtml(
+        dlcExpiredQueueNotice.count === 1
+          ? "1 unsynced care update expired after 14 days and was removed. Review today’s logs and re-enter anything still needed."
+          : `${dlcExpiredQueueNotice.count} unsynced care updates expired after 14 days and were removed. Review today’s logs and re-enter anything still needed.`,
+      )}</span>
+      <button type="button" class="ghost-button" data-dlc-expired-dismiss>Got it</button>
+    </div>`
+    : "";
+  return `
+    <div class="dlc-status-bar" data-dlc-save-status data-state="${escapeHtml(shownState)}" ${shownState === "idle" && !offline && !pendingCount ? "hidden" : ""}>
+      <span class="dlc-status-text">${escapeHtml(text)}</span>
+      ${shownState === "failed" || shownState === "pending" || shownState === "offline"
+        ? `<button type="button" class="ghost-button" data-dlc-retry-render>Retry sync</button>`
+        : ""}
+      ${pendingCancel}
+      ${dlcCanUndo() && !pendingCount ? `<button type="button" class="ghost-button" data-dlc-undo>Cancel last local change</button>` : ""}
+    </div>
+    ${expiredNotice}
+    ${failedList}
+    ${dlcConflictState ? dlcRenderConflictPanel(dlcConflictState) : ""}
+  `;
+}
+
+function dlcGuardFormSubmit(form) {
+  const now = Date.now();
+  if (now < dlcFormSubmitLockUntil) {
+    showActionFeedback("Hang on — that save is still finishing.");
+    return false;
+  }
+  dlcFormSubmitLockUntil = now + 900;
+  const btn = form?.querySelector?.('button[type="submit"]');
+  if (btn) {
+    btn.disabled = true;
+    window.setTimeout(() => { btn.disabled = false; }, 900);
+  }
+  return true;
+}
+
+function programTimezone() {
+  const settings = typeof getProgramSettings === "function" ? (getProgramSettings() || {}) : {};
+  const configured = String(settings.timezone || settings.timeZone || "").trim();
+  if (configured) return configured;
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+  } catch (_error) {
+    return "America/New_York";
+  }
+}
+
+/** Calendar date (YYYY-MM-DD) in the program timezone — handles midnight / DST boundaries. */
+function programLocalDate(dateInput = new Date()) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: programTimezone(),
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  } catch (_error) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function programLocalTime(dateInput = new Date()) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: programTimezone(),
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(date);
+    const hour = parts.find((part) => part.type === "hour")?.value || "00";
+    const minute = parts.find((part) => part.type === "minute")?.value || "00";
+    return `${hour}:${minute}`;
+  } catch (_error) {
+    return new Date().toTimeString().slice(0, 5);
+  }
+}
+
+function attendanceCheckInOf(session = {}) {
+  return String(session.checkIn || session.dropoff || "").trim();
+}
+
+function attendanceCheckOutOf(session = {}) {
+  return String(session.checkOut || session.pickup || "").trim();
+}
+
+function isAbsentAttendance(session = {}) {
+  return String(session.status || "").toLowerCase() === "absent";
+}
+
+function getChildAttendanceSessions(childOrId, records = childRecords(), today = dlcActiveDate()) {
+  const childId = typeof childOrId === "string" ? childOrId : childOrId?.id;
+  return (records.attendance || [])
+    .filter((item) => item.childId === childId && item.date === today)
+    .sort((a, b) => {
+      const aTime = attendanceCheckInOf(a) || String(a.createdAt || "");
+      const bTime = attendanceCheckInOf(b) || String(b.createdAt || "");
+      return aTime.localeCompare(bTime) || String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    });
+}
+
+function getOpenAttendanceSession(childOrId, records = childRecords(), today = dlcActiveDate()) {
+  const sessions = getChildAttendanceSessions(childOrId, records, today);
+  return sessions.find((session) => !isAbsentAttendance(session) && attendanceCheckInOf(session) && !attendanceCheckOutOf(session)) || null;
+}
+
+function attendanceSessionMinutes(session = {}) {
+  const start = attendanceCheckInOf(session);
+  const end = attendanceCheckOutOf(session);
+  if (!start || !end) return 0;
+  const startMin = dlcTimeToMinutes(start);
+  let endMin = dlcTimeToMinutes(end);
+  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || startMin === Number.MAX_SAFE_INTEGER) return 0;
+  // Overnight care: checkout next calendar morning still on same program "care day".
+  if (endMin < startMin) endMin += 24 * 60;
+  return Math.max(0, endMin - startMin);
+}
+
+function totalAttendanceMinutes(childOrId, records = childRecords(), today = dlcActiveDate()) {
+  const sessions = getChildAttendanceSessions(childOrId, records, today).filter((session) => !isAbsentAttendance(session));
+  return sessions.reduce((sum, session) => {
+    if (attendanceCheckOutOf(session)) return sum + attendanceSessionMinutes(session);
+    // Open session counts through "now" in program timezone.
+    const openProxy = {
+      ...session,
+      checkOut: programLocalTime(),
+      pickup: programLocalTime(),
+    };
+    return sum + attendanceSessionMinutes(openProxy);
+  }, 0);
+}
+
+function formatAttendanceDuration(totalMinutes = 0) {
+  const mins = Math.max(0, Math.round(Number(totalMinutes) || 0));
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (!hours) return `${rem}m`;
+  return rem ? `${hours}h ${rem}m` : `${hours}h`;
+}
+
+function pushAttendanceHistory(session, change, beforePatch = {}, afterPatch = {}) {
+  const history = Array.isArray(session.history) ? session.history.slice(-40) : [];
+  history.push({
+    at: new Date().toISOString(),
+    by: dlcRecorderLabel(),
+    byEmail: String(currentUser || ""),
+    change,
+    before: beforePatch,
+    after: afterPatch,
+  });
+  return history;
+}
+
+function writeAttendanceRecordUpdate(updated, { before = null, skipUndo = false, label = "Attendance" } = {}) {
+  const attendance = childStore("Attendance");
+  const clientMutationId = newClientMutationId();
+  const baseRevision = Number(updated.revision) || 1;
+  const baseSnapshot = before && typeof before === "object" ? { ...before } : null;
+  const next = {
+    ...updated,
+    clientMutationId,
+    revision: baseRevision,
+    updatedAt: new Date().toISOString(),
+    recordedBy: updated.recordedBy || dlcRecorderLabel(),
+    recordedByEmail: updated.recordedByEmail || String(currentUser || ""),
+  };
+  saveChildStore("Attendance", attendance.map((item) => (item.id === next.id ? next : item)));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey: "Attendance",
+    clientMutationId,
+    baseRevision,
+    record: next,
+    baseSnapshot,
+    childId: next.childId,
+  });
+  if (!skipUndo && before) {
+    dlcPushUndo({
+      kind: "attendance-update",
+      storeKey: "Attendance",
+      recordId: next.id,
+      before,
+      childId: next.childId,
+      label,
+    });
+  }
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  dlcSetSaveStatus(offline ? "offline" : "pending", offline ? "Waiting for connection…" : `${label} — saving to cloud…`);
+  if (typeof runAttendanceAutomation === "function") runAttendanceAutomation(next);
+  return next;
 }
 
 /**
- * Attendance state for one child on a date.
+ * Session-aware attendance API.
+ * Same-day return visits create a NEW session instead of overwriting the first.
+ */
+function upsertDailyLogAttendance(childId, data = {}, options = {}) {
+  if (!childId) return null;
+  const today = data.date || dlcActiveDate();
+  const records = { attendance: childStore("Attendance") };
+  const sessions = getChildAttendanceSessions(childId, records, today);
+  const recorder = dlcRecorderLabel();
+  const status = String(data.status || "Present").trim() || "Present";
+  const isAbsent = status.toLowerCase() === "absent";
+  const time = String(data.dropoff || data.checkIn || data.pickup || data.checkOut || programLocalTime()).trim();
+  const tz = programTimezone();
+
+  if (isAbsent) {
+    // Mark day absent: close any open session into history, store one absent marker.
+    const open = getOpenAttendanceSession(childId, records, today);
+    if (open) {
+      writeAttendanceRecordUpdate({
+        ...open,
+        checkOut: time || programLocalTime(),
+        pickup: time || programLocalTime(),
+        summary: `${attendanceCheckInOf(open)}–${time || programLocalTime()} (closed before absent)`,
+        history: pushAttendanceHistory(open, "closed-before-absent", {
+          checkOut: attendanceCheckOutOf(open),
+        }, { checkOut: time || programLocalTime() }),
+      }, { before: open, skipUndo: options.skipUndo, label: "Session closed" });
+    }
+    const existingAbsent = sessions.find((session) => isAbsentAttendance(session));
+    if (existingAbsent) {
+      dlcSetSaveStatus("saved", "Already marked absent");
+      return existingAbsent;
+    }
+    return appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      timezone: tz,
+      status: "Absent",
+      checkIn: "",
+      checkOut: "",
+      dropoff: "",
+      pickup: "",
+      sessionIndex: 0,
+      title: `Absent | ${today}`,
+      summary: "Absent",
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+      recordedBy: recorder,
+      history: [],
+    }, options);
+  }
+
+  const wantsCheckOut = Boolean(data.pickup || data.checkOut || data.forceCheckOut);
+  const wantsCheckIn = Boolean(data.dropoff || data.checkIn || data.forceCheckIn)
+    || data.forceCheckIn
+    || (!wantsCheckOut && !data.forceCheckOut);
+  const open = getOpenAttendanceSession(childId, records, today);
+
+  // Close the open session first (same-day return visits keep prior sessions intact).
+  if (wantsCheckOut && open && !(wantsCheckIn && (data.dropoff || data.checkIn) && !data.forceCheckOut)) {
+    const checkOut = String(data.pickup || data.checkOut || time).trim();
+    const before = { ...open };
+    return writeAttendanceRecordUpdate({
+      ...open,
+      status: "Present",
+      checkOut,
+      pickup: checkOut,
+      dropoff: attendanceCheckInOf(open),
+      checkIn: attendanceCheckInOf(open),
+      timezone: open.timezone || tz,
+      summary: `${attendanceCheckInOf(open)}–${checkOut}`,
+      history: pushAttendanceHistory(open, "check-out", { checkOut: "" }, { checkOut }),
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+    }, { before, skipUndo: options.skipUndo, label: "Checked out" });
+  }
+
+  // Pure checkout with no open session (and no new check-in times) — no-op.
+  if (wantsCheckOut && !open && !(data.dropoff || data.checkIn || data.forceCheckIn)) {
+    dlcSetSaveStatus("saved", "Already checked out");
+    return sessions.filter((session) => !isAbsentAttendance(session)).slice(-1)[0] || null;
+  }
+
+  if (open && wantsCheckIn && !wantsCheckOut) {
+    // Quick-action forceCheckIn = ignore duplicate taps (do not rewrite times).
+    // Form edits without forceCheckIn may correct an incorrect check-in (audit trail preserved).
+    if (!data.forceCheckIn && (data.dropoff || data.checkIn)) {
+      const nextIn = String(data.dropoff || data.checkIn).trim();
+      if (nextIn && nextIn !== attendanceCheckInOf(open)) {
+        const before = { ...open };
+        return writeAttendanceRecordUpdate({
+          ...open,
+          checkIn: nextIn,
+          dropoff: nextIn,
+          timezone: open.timezone || tz,
+          summary: `Present at ${nextIn}`,
+          history: pushAttendanceHistory(open, "edit-check-in", {
+            checkIn: attendanceCheckInOf(open),
+          }, { checkIn: nextIn }),
+        }, { before, skipUndo: options.skipUndo, label: "Check-in time corrected" });
+      }
+    }
+    dlcSetSaveStatus("saved", "Already checked in");
+    return open;
+  }
+
+  if (open && wantsCheckIn && wantsCheckOut) {
+    // Form submitted both times while still checked in: close current session only.
+    const checkOut = String(data.pickup || data.checkOut || time).trim();
+    const before = { ...open };
+    return writeAttendanceRecordUpdate({
+      ...open,
+      status: "Present",
+      checkOut,
+      pickup: checkOut,
+      dropoff: attendanceCheckInOf(open),
+      checkIn: attendanceCheckInOf(open),
+      timezone: open.timezone || tz,
+      summary: `${attendanceCheckInOf(open)}–${checkOut}`,
+      history: pushAttendanceHistory(open, "check-out", { checkOut: "" }, { checkOut }),
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+    }, { before, skipUndo: options.skipUndo, label: "Checked out" });
+  }
+
+  // New session (including same-day return after a completed checkout).
+  if (!open && (wantsCheckIn || (data.dropoff || data.checkIn))) {
+    const checkIn = String(data.dropoff || data.checkIn || time).trim() || programLocalTime();
+    const checkOut = String(data.pickup || data.checkOut || "").trim();
+    const presentCount = sessions.filter((session) => !isAbsentAttendance(session)).length;
+    return appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      timezone: tz,
+      status: "Present",
+      checkIn,
+      checkOut,
+      dropoff: checkIn,
+      pickup: checkOut,
+      sessionIndex: presentCount + 1,
+      title: `Attendance session ${presentCount + 1} | ${today}`,
+      summary: checkOut ? `${checkIn}–${checkOut}` : `Present at ${checkIn}`,
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+      recordedBy: recorder,
+      history: [{
+        at: new Date().toISOString(),
+        by: recorder,
+        byEmail: String(currentUser || ""),
+        change: checkOut ? "check-in-out" : "check-in",
+        before: {},
+        after: checkOut ? { checkIn, checkOut } : { checkIn },
+      }],
+    }, options);
+  }
+  return null;
+}
+
+function renderDlcReportPreviewCard(childId = "") {
+  const preview = dlcPendingReportPreview;
+  if (!preview || (childId && preview.childId !== childId)) return "";
+  const { childLabel, familyLabel } = dlcFamilyLabelForChild(preview.childId);
+  const kindLabel = preview.kind === "weekly-summary"
+    ? "weekly summary"
+    : preview.kind === "parent-message"
+      ? "parent message"
+      : "daily report";
+  const plain = dlcStripParentFacingMarkdown(preview.text || "");
+  return `
+    <section class="section-block dlc-report-preview" data-dlc-report-preview data-dlc-report-child="${escapeHtml(preview.childId || "")}" data-dlc-report-kind="${escapeHtml(preview.kind || "daily-report")}">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">AI Draft — not shared yet</p>
+          <h4>Preview ${escapeHtml(kindLabel)} for ${escapeHtml(childLabel)}</h4>
+          <p class="muted-copy">Child: <strong>${escapeHtml(childLabel)}</strong> · Record type: <strong>${escapeHtml(kindLabel)}</strong> · Family: <strong>${escapeHtml(familyLabel)}</strong>. Edit if needed. Nothing is sent or shown to families until you choose Share with Family.</p>
+        </div>
+      </div>
+      <label class="dlc-form-label">Draft text (editable)
+        <textarea class="dlc-report-preview-text" data-dlc-report-preview-text rows="10">${escapeHtml(plain)}</textarea>
+      </label>
+      <div class="account-actions-row dlc-report-preview-actions">
+        <button class="primary-button" type="button" data-dlc-report-share="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Share with ${escapeHtml(familyLabel)}</button>
+        <button class="ghost-button" type="button" data-dlc-report-keep-internal="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Keep Internal</button>
+        <button class="ghost-button" type="button" data-dlc-report-discard="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Discard draft</button>
+      </div>
+    </section>
+  `;
+}
+
+function dlcFamilyLabelForChild(childId) {
+  const child = (typeof childRecords === "function" ? childRecords().children : [])
+    .find((item) => item.id === childId) || {};
+  const childLabel = String(child.name || childName?.(childId) || "this child").trim() || "this child";
+  const family = String(child.parentInfo || "").trim()
+    || String(child.familyName || "").trim()
+    || String(child.parentEmail || "").trim()
+    || "their linked family";
+  return { childLabel, familyLabel: family };
+}
+
+function dlcStripParentFacingMarkdown(text = "") {
+  return String(text || "")
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*\n?/g, "").replace(/```/g, ""))
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "• ")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+
+async function dlcFinalizeReportPreview(recordId, { share = false, discard = false, storeKey = "Reports" } = {}) {
+  const key = storeKey || "Reports";
+  const items = childStore(key);
+  const record = items.find((item) => item.id === recordId);
+  if (!record) {
+    dlcPendingReportPreview = null;
+    showActionFeedback("Draft not found.");
+    return false;
+  }
+  if (discard) {
+    const confirmed = await confirmAction({
+      title: "Discard draft?",
+      message: "This deletes the draft report. It was never shared with families.",
+      confirmLabel: "Discard",
+      danger: true,
+    });
+    if (!confirmed) return false;
+    saveChildStore(key, items.filter((item) => item.id !== recordId));
+    dlcPendingReportPreview = null;
+    showActionFeedback("Draft discarded.");
+    renderChildManagement();
+    return true;
+  }
+  const editedRaw = String(document.querySelector("[data-dlc-report-preview-text]")?.value || record.message || "").trim();
+  const edited = dlcStripParentFacingMarkdown(editedRaw);
+  if (!edited) {
+    showActionFeedback("Add report text before saving.");
+    return false;
+  }
+  if (share) {
+    const { childLabel, familyLabel } = dlcFamilyLabelForChild(record.childId);
+    const confirmed = await confirmAction({
+      title: `Share ${childLabel}'s report?`,
+      message: `This will make the report visible to ${familyLabel} in Family Hub for ${childLabel}. Nothing is emailed automatically. Cancel leaves zero family-visible changes.`,
+      confirmLabel: `Share with ${familyLabel}`,
+      cancelLabel: "Cancel — keep internal",
+    });
+    if (!confirmed) {
+      showActionFeedback("Share canceled. Draft stayed internal — no family-visible changes.");
+      return false;
+    }
+  }
+  const baseRevision = Number(record.revision) || 1;
+  const baseSnapshot = { ...record };
+  const next = {
+    ...record,
+    message: edited,
+    summary: edited.slice(0, 200),
+    shareWithFamily: Boolean(share),
+    status: share ? "shared" : "draft",
+    revision: baseRevision,
+    updatedAt: new Date().toISOString(),
+  };
+  const clientMutationId = newClientMutationId();
+  next.clientMutationId = clientMutationId;
+  saveChildStore(key, items.map((item) => (item.id === recordId ? next : item)));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey: key,
+    clientMutationId,
+    baseRevision,
+    record: next,
+    baseSnapshot,
+    childId: next.childId,
+  });
+  if (share && typeof maybeNotifyFamilyHubSharedRecord === "function") {
+    maybeNotifyFamilyHubSharedRecord(key, next).catch(() => {});
+  }
+  dlcPendingReportPreview = null;
+  showActionFeedback(share
+    ? "Shared with Family Hub — preview stayed under your control until you confirmed."
+    : "Kept internal. Families cannot see this draft.");
+  renderChildManagement();
+  return true;
+}
+
+/**
+ * Attendance state for one child on a date (multi-session aware).
  * "not_arrived" | "checked_in" | "checked_out" | "absent"
  */
 function getChildAttendanceState(child, records, today = dlcActiveDate()) {
-  const attendance = (records.attendance || [])
-    .filter((item) => item.childId === child.id && item.date === today)
-    .slice(-1)[0];
-  if (!attendance) return "not_arrived";
-  if (String(attendance.status || "").toLowerCase() === "absent") return "absent";
-  if (attendance.pickup) return "checked_out";
-  if (attendance.dropoff || String(attendance.status || "").toLowerCase() === "present") return "checked_in";
+  const sessions = getChildAttendanceSessions(child, records, today);
+  if (!sessions.length) return "not_arrived";
+  if (sessions.some((session) => isAbsentAttendance(session)) && !sessions.some((session) => !isAbsentAttendance(session))) {
+    return "absent";
+  }
+  if (getOpenAttendanceSession(child, records, today)) return "checked_in";
+  if (sessions.some((session) => !isAbsentAttendance(session) && attendanceCheckOutOf(session))) return "checked_out";
+  if (sessions.some((session) => !isAbsentAttendance(session) && attendanceCheckInOf(session))) return "checked_in";
   return "not_arrived";
 }
 
+/** Latest meaningful attendance row (open session preferred, else last present session). */
 function getChildAttendanceRecord(child, records, today = dlcActiveDate()) {
-  return (records.attendance || [])
-    .filter((item) => item.childId === child.id && item.date === today)
-    .slice(-1)[0] || null;
+  const open = getOpenAttendanceSession(child, records, today);
+  if (open) return open;
+  const sessions = getChildAttendanceSessions(child, records, today).filter((session) => !isAbsentAttendance(session));
+  return sessions.slice(-1)[0] || getChildAttendanceSessions(child, records, today).slice(-1)[0] || null;
 }
 
 function formatDlcClock(value) {
@@ -19273,95 +20278,38 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
   if (!child) return;
   const today = options.date || dlcActiveDate();
   const time = options.time || quickActionTime();
+  const recorder = dlcRecorderLabel();
   if (actionId === "check-in") {
-    const attendance = childStore("Attendance");
-    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
-    if (existing) {
-      let updated = null;
-      saveChildStore("Attendance", attendance.map((item) => {
-        if (item.id !== existing.id) return item;
-        updated = {
-          ...item,
-          status: "Present",
-          dropoff: item.dropoff || time,
-          pickup: "",
-          summary: `Present at ${item.dropoff || time}`,
-          shareWithFamily: item.shareWithFamily !== false,
-        };
-        return updated;
-      }));
-      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-      return;
-    }
-    appendChildRecord("Attendance", {
-      childId,
+    upsertDailyLogAttendance(childId, {
       date: today,
       status: "Present",
+      checkIn: time,
       dropoff: time,
-      title: `Attendance | ${today}`,
-      summary: `Present at ${time}`,
+      forceCheckIn: true,
       shareWithFamily: true,
-    });
+      recordedBy: recorder,
+    }, options);
     return;
   }
   if (actionId === "check-out") {
-    const attendance = childStore("Attendance");
-    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
-    if (existing) {
-      let updated = null;
-      saveChildStore("Attendance", attendance.map((item) => {
-        if (item.id !== existing.id) return item;
-        updated = {
-          ...item,
-          status: item.status === "Absent" ? "Present" : (item.status || "Present"),
-          pickup: time,
-          summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
-          shareWithFamily: item.shareWithFamily !== false,
-        };
-        return updated;
-      }));
-      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-      return;
-    }
-    appendChildRecord("Attendance", {
-      childId,
+    upsertDailyLogAttendance(childId, {
       date: today,
       status: "Present",
+      checkOut: time,
       pickup: time,
-      title: `Attendance | ${today}`,
-      summary: `Checked out at ${time}`,
+      forceCheckOut: true,
       shareWithFamily: true,
-    });
+      recordedBy: recorder,
+    }, options);
     return;
   }
   if (actionId === "absent") {
-    const attendance = childStore("Attendance");
-    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
-    if (existing) {
-      let updated = null;
-      saveChildStore("Attendance", attendance.map((item) => {
-        if (item.id !== existing.id) return item;
-        updated = {
-          ...item,
-          status: "Absent",
-          dropoff: "",
-          pickup: "",
-          summary: "Absent",
-          shareWithFamily: item.shareWithFamily !== false,
-        };
-        return updated;
-      }));
-      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-      return;
-    }
-    appendChildRecord("Attendance", {
-      childId,
+    upsertDailyLogAttendance(childId, {
       date: today,
       status: "Absent",
-      title: `Attendance | ${today}`,
-      summary: "Absent",
       shareWithFamily: true,
-    });
+      recordedBy: recorder,
+    }, options);
     return;
   }
   if (actionId === "ate-all" || actionId === "ate-most") {
@@ -24068,7 +25016,15 @@ function lessonWorkspaceBackButtonLabel() {
 }
 
 function fallbackBackLabel(view) {
-  if (view === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
+  if (view === "home") {
+    if (isWorkModeNavEnabled()) {
+      return workModeRole() === "teacher" || workModeRole() === "assistant"
+        ? "← Back to Today"
+        : "← Back to Home";
+    }
+    return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
+  }
+  if (view === "today") return "← Back to Today";
   if (view === "calendar") return "← Back to Calendar";
   if (view === "planner") return "← Back to Calendar";
   if (view === "curriculum-planner") return "← Back to Curriculum Planner";
@@ -29708,6 +30664,12 @@ function renderManagedAnnouncementBanner() {
     textEl.textContent = "";
     return;
   }
+  // Work-mode tester shell: keep marketing announcements off the daily workspace.
+  if (typeof isWorkModeNavEnabled === "function" && isWorkModeNavEnabled()) {
+    banner.hidden = true;
+    textEl.textContent = "";
+    return;
+  }
   const content = effectiveSiteContent();
   const ann = content.announcement || {};
   const dismissed = sessionStorage.getItem("llhAnnouncementDismissed") === ann.text;
@@ -29810,13 +30772,10 @@ function renderUserDashboard() {
   homeSection.classList.add("user-dashboard-view");
 
   const now = new Date();
-  const hour = now.getHours();
-  let greeting;
-  if (hour < 12) greeting = "Good morning";
-  else if (hour < 17) greeting = "Good afternoon";
-  else greeting = "Good evening";
+  const greetingTitle = typeof workModeGreetingTitle === "function"
+    ? workModeGreetingTitle(currentAccount(), typeof workModeRole === "function" ? workModeRole() : "owner", now)
+    : workModeTimeOfDayGreeting(now);
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const accountName = accountDisplayFirstName(currentAccount());
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
 
@@ -29849,7 +30808,7 @@ function renderUserDashboard() {
     <div class="user-dashboard llh-dashboard-clean">
       <div class="dashboard-welcome">
         <div class="dashboard-welcome-text">
-          <h2>${escapeHtml(greeting)}, ${escapeHtml(accountName)}</h2>
+          <h2>${escapeHtml(greetingTitle)}</h2>
           <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}${statusBadge ? ` · ${statusBadge}` : ""}</p>
         </div>
       </div>
@@ -34945,16 +35904,735 @@ async function firebaseAuthHeaders() {
   };
 }
 
+function newClientMutationId() {
+  return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function childDataActorIdentity() {
+  const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
+  let userId = String(
+    account.firebaseUid
+    || account.uid
+    || account.userId
+    || account.serverUserId
+    || "",
+  ).trim();
+  try {
+    if (!userId && typeof firebaseAuthClient !== "undefined" && firebaseAuthClient?.auth?.currentUser?.uid) {
+      userId = String(firebaseAuthClient.auth.currentUser.uid);
+    }
+  } catch (_error) { /* ignore */ }
+  // Test/local sessions without Firebase still need an immutable actor key — never use bare email as the scope.
+  if (!userId && currentUser) {
+    const stable = String(account.localActorId || "").trim();
+    if (stable) userId = stable;
+    else {
+      userId = `actor_${Array.from(String(currentUser).toLowerCase()).reduce((sum, ch) => sum + ch.charCodeAt(0), 0).toString(36)}_${String(currentUser).length}`;
+      try {
+        if (typeof updateAccount === "function") updateAccount(currentUser, { localActorId: userId });
+      } catch (_error) { /* ignore */ }
+    }
+  }
+  const programId = String(account.programId || account.linkedProgramId || "").trim() || "program_unassigned";
+  return {
+    userId,
+    programId,
+    scopeKey: userId && programId ? `${userId}::${programId}` : "",
+  };
+}
+
+function purgeLegacyChildMutationLocalStorage() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(CHILD_MUTATION_LS_LEGACY_PREFIX)) keys.push(key);
+    }
+    keys.forEach((key) => localStorage.removeItem(key));
+  } catch (_error) { /* ignore */ }
+}
+
+function openChildMutationIdb() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("indexedDB unavailable"));
+      return;
+    }
+    const req = indexedDB.open(CHILD_MUTATION_IDB_NAME, CHILD_MUTATION_IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      // Never wipe pending on upgrade — other scopes may still hold unsynced work.
+      if (!db.objectStoreNames.contains(CHILD_MUTATION_IDB_STORE)) {
+        const store = db.createObjectStore(CHILD_MUTATION_IDB_STORE, { keyPath: "clientMutationId" });
+        store.createIndex("scopeKey", "scopeKey", { unique: false });
+        store.createIndex("userId", "userId", { unique: false });
+        store.createIndex("programId", "programId", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(CHILD_MUTATION_AUDIT_STORE)) {
+        const audit = db.createObjectStore(CHILD_MUTATION_AUDIT_STORE, { keyPath: "id", autoIncrement: true });
+        audit.createIndex("scopeKey", "scopeKey", { unique: false });
+        audit.createIndex("at", "at", { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("indexedDB open failed"));
+  });
+}
+
+async function idbPutMutation(entry) {
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CHILD_MUTATION_IDB_STORE, "readwrite");
+    tx.objectStore(CHILD_MUTATION_IDB_STORE).put(entry);
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function idbDeleteMutation(clientMutationId) {
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CHILD_MUTATION_IDB_STORE, "readwrite");
+    tx.objectStore(CHILD_MUTATION_IDB_STORE).delete(String(clientMutationId || ""));
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function idbListMutationsForScope(scopeKey) {
+  const key = String(scopeKey || "").trim();
+  if (!key) return [];
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CHILD_MUTATION_IDB_STORE, "readonly");
+    const store = tx.objectStore(CHILD_MUTATION_IDB_STORE);
+    const index = store.index("scopeKey");
+    const req = index.getAll(key);
+    req.onsuccess = () => { db.close(); resolve(Array.isArray(req.result) ? req.result : []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function idbListAllMutations() {
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CHILD_MUTATION_IDB_STORE, "readonly");
+    const req = tx.objectStore(CHILD_MUTATION_IDB_STORE).getAll();
+    req.onsuccess = () => { db.close(); resolve(Array.isArray(req.result) ? req.result : []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function idbPutCleanupAudit(event = {}) {
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(CHILD_MUTATION_AUDIT_STORE)) {
+      db.close();
+      resolve(false);
+      return;
+    }
+    const tx = db.transaction(CHILD_MUTATION_AUDIT_STORE, "readwrite");
+    tx.objectStore(CHILD_MUTATION_AUDIT_STORE).add(event);
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function idbListCleanupAuditsForScope(scopeKey) {
+  const key = String(scopeKey || "").trim();
+  if (!key) return [];
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(CHILD_MUTATION_AUDIT_STORE)) {
+      db.close();
+      resolve([]);
+      return;
+    }
+    const tx = db.transaction(CHILD_MUTATION_AUDIT_STORE, "readonly");
+    const index = tx.objectStore(CHILD_MUTATION_AUDIT_STORE).index("scopeKey");
+    const req = index.getAll(key);
+    req.onsuccess = () => { db.close(); resolve(Array.isArray(req.result) ? req.result : []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+function mutationEntryQueuedAtMs(entry = {}) {
+  return Date.parse(String(entry.queuedAt || ""));
+}
+
+function mutationEntryIsExpired(entry = {}, nowMs = Date.now()) {
+  const queuedAt = mutationEntryQueuedAtMs(entry);
+  if (!Number.isFinite(queuedAt)) return true;
+  return nowMs - queuedAt > CHILD_MUTATION_MAX_AGE_MS;
+}
+
+function mutationEntryIsWithinRetention(entry = {}, nowMs = Date.now()) {
+  const queuedAt = mutationEntryQueuedAtMs(entry);
+  if (!Number.isFinite(queuedAt)) return false;
+  return nowMs - queuedAt <= CHILD_MUTATION_MAX_AGE_MS;
+}
+
+function buildMutationCleanupAudit({
+  scopeKey = "",
+  userId = "",
+  programId = "",
+  reason = "expired",
+  entries = [],
+} = {}) {
+  const storeKeys = [...new Set(entries.map((item) => String(item.storeKey || "")).filter(Boolean))].sort();
+  return {
+    at: new Date().toISOString(),
+    scopeKey: String(scopeKey || ""),
+    userId: String(userId || ""),
+    programId: String(programId || ""),
+    reason: String(reason || "expired"),
+    count: entries.length,
+    storeKeys,
+    // Non-sensitive only — never child names, record bodies, or free-text notes.
+  };
+}
+
+async function recordMutationCleanupAudit(event) {
+  try {
+    await idbPutCleanupAudit(event);
+  } catch (_error) { /* best-effort audit */ }
+}
+
+async function expireMutationEntries(entries = [], {
+  notifyScopeKey = "",
+  reason = "expired",
+} = {}) {
+  if (!entries.length) return null;
+  const byScope = new Map();
+  entries.forEach((item) => {
+    const key = String(item.scopeKey || `${item.userId || ""}::${item.programId || ""}`);
+    if (!byScope.has(key)) byScope.set(key, []);
+    byScope.get(key).push(item);
+  });
+  let noticeForCurrent = null;
+  for (const [scopeKey, scopeEntries] of byScope.entries()) {
+    const sample = scopeEntries[0] || {};
+    const audit = buildMutationCleanupAudit({
+      scopeKey,
+      userId: sample.userId || "",
+      programId: sample.programId || "",
+      reason,
+      entries: scopeEntries,
+    });
+    await recordMutationCleanupAudit(audit);
+    for (const item of scopeEntries) {
+      if (item.clientMutationId) await removePersistedChildDataMutation(item.clientMutationId);
+    }
+    if (notifyScopeKey && scopeKey === notifyScopeKey) {
+      noticeForCurrent = {
+        count: audit.count,
+        at: audit.at,
+        storeKeys: audit.storeKeys,
+        scopeKey,
+        reason,
+      };
+    }
+  }
+  return noticeForCurrent;
+}
+
+async function persistChildDataMutationEntry(entry) {
+  if (childDataMutationIdbAvailable === false) {
+    throw new Error("IndexedDB unavailable");
+  }
+  try {
+    await idbPutMutation(entry);
+    childDataMutationIdbAvailable = true;
+  } catch (error) {
+    childDataMutationIdbAvailable = false;
+    throw error;
+  }
+}
+
+async function removePersistedChildDataMutation(clientMutationId) {
+  if (childDataMutationIdbAvailable === false) return;
+  try {
+    await idbDeleteMutation(clientMutationId);
+  } catch (_error) { /* ignore */ }
+}
+
+/**
+ * Explicit expiration policy: remove only entries older than 14 days.
+ * Never deletes another scope merely because the signed-in scope differs.
+ * UI notice is shown only for the authorized scope that owns the expired rows.
+ */
+async function purgeExpiredChildMutations({ currentScopeKey = "", nowMs = Date.now() } = {}) {
+  let all = [];
+  try {
+    all = await idbListAllMutations();
+  } catch (_error) {
+    return null;
+  }
+  const expired = all.filter((item) => item && mutationEntryIsExpired(item, nowMs));
+  if (!expired.length) return null;
+  return expireMutationEntries(expired, {
+    notifyScopeKey: currentScopeKey,
+    reason: "expired",
+  });
+}
+
+async function loadChildDataMutationQueue() {
+  purgeLegacyChildMutationLocalStorage();
+  const identity = childDataActorIdentity();
+  childDataMutationQueueScope = identity.scopeKey;
+  if (!identity.scopeKey) {
+    childDataMutationQueue = [];
+    return [];
+  }
+  let entries = [];
+  try {
+    entries = await idbListMutationsForScope(identity.scopeKey);
+    childDataMutationIdbAvailable = true;
+  } catch (_error) {
+    childDataMutationIdbAvailable = false;
+    childDataMutationQueue = [];
+    return [];
+  }
+  const keep = [];
+  const invalid = [];
+  for (const item of entries || []) {
+    // Defense in depth: never load another account/program into memory.
+    // Do NOT delete foreign-scope rows here — they stay isolated until expiration policy runs.
+    if (!item || item.userId !== identity.userId || item.programId !== identity.programId) continue;
+    if (item.scopeKey && item.scopeKey !== identity.scopeKey) continue;
+    if (!item.clientMutationId) {
+      invalid.push(item);
+      continue;
+    }
+    if (mutationEntryIsExpired(item)) {
+      invalid.push(item);
+      continue;
+    }
+    keep.push(item);
+  }
+  if (invalid.length) {
+    const notice = await expireMutationEntries(invalid, {
+      notifyScopeKey: identity.scopeKey,
+      reason: invalid.every((item) => !item.clientMutationId) ? "invalid" : "expired",
+    });
+    if (notice?.count) dlcExpiredQueueNotice = notice;
+  }
+  // Explicit cross-scope expiration only — never a sign-in side effect that drops valid foreign queues.
+  const otherNotice = await purgeExpiredChildMutations({ currentScopeKey: identity.scopeKey });
+  if (!dlcExpiredQueueNotice && otherNotice?.count) dlcExpiredQueueNotice = otherNotice;
+  childDataMutationQueue = keep.sort((a, b) => String(a.queuedAt || "").localeCompare(String(b.queuedAt || "")));
+  return childDataMutationQueue;
+}
+
+function clearChildDataMutationMemory() {
+  childDataMutationQueue = [];
+  childDataMutationQueueScope = "";
+  dlcConflictState = null;
+  childDataMutationInFlight = false;
+  // Keep dlcExpiredQueueNotice only while the same authorized scope is active; clear on logout.
+  dlcExpiredQueueNotice = null;
+}
+
+function dismissExpiredQueueNotice() {
+  dlcExpiredQueueNotice = null;
+  if (typeof renderChildManagement === "function") {
+    try { renderChildManagement(); } catch (_e) { /* ignore */ }
+  }
+}
+
+function hasUnsyncedChildDataMutations() {
+  return childDataMutationQueue.some((item) => ["pending", "failed", "conflict"].includes(item.status || "pending"));
+}
+
+function intendedFieldsForRecord(storeKey, record = {}, baseSnapshot = null) {
+  const defs = dlcConflictFieldDefs(storeKey);
+  if (!baseSnapshot) {
+    return defs.map((field) => field.key).filter((key) => {
+      const value = dlcRecordFieldValue(record, { key, aliases: defs.find((d) => d.key === key)?.aliases });
+      return String(value || "").trim() !== "";
+    });
+  }
+  return defs.map((field) => field.key).filter((key) => {
+    const def = defs.find((item) => item.key === key);
+    const next = String(dlcRecordFieldValue(record, def) || "").trim();
+    const prev = String(dlcRecordFieldValue(baseSnapshot, def) || "").trim();
+    return next !== prev;
+  });
+}
+
+function rebaseLocalChangeOntoServer(entry) {
+  const server = entry.conflictServerRecord;
+  if (!server) return null;
+  const local = entry.record || {};
+  const fields = Array.isArray(entry.intendedFields) && entry.intendedFields.length
+    ? entry.intendedFields
+    : intendedFieldsForRecord(entry.storeKey, local, entry.baseSnapshot || null);
+  const rebased = { ...server };
+  const defs = dlcConflictFieldDefs(entry.storeKey);
+  fields.forEach((key) => {
+    const def = defs.find((item) => item.key === key) || { key };
+    const value = dlcRecordFieldValue(local, def);
+    rebased[key] = value;
+    (def.aliases || []).forEach((alias) => {
+      if (local[alias] != null) rebased[alias] = local[alias];
+    });
+  });
+  // Attendance aliases stay aligned.
+  if (entry.storeKey === "Attendance") {
+    if (rebased.checkIn != null) rebased.dropoff = rebased.checkIn;
+    if (rebased.checkOut != null) rebased.pickup = rebased.checkOut;
+  }
+  const serverRev = Number(server.revision) || 1;
+  rebased.id = server.id;
+  rebased.revision = serverRev;
+  rebased.history = Array.isArray(local.history) ? local.history : server.history;
+  rebased.updatedAt = new Date().toISOString();
+  return { record: rebased, baseRevision: serverRev, intendedFields: fields };
+}
+
+function enqueueChildDataMutation(mutation = {}) {
+  const identity = childDataActorIdentity();
+  if (!identity.scopeKey || !currentUser) return "";
+  if (childDataMutationQueueScope && childDataMutationQueueScope !== identity.scopeKey) {
+    clearChildDataMutationMemory();
+    childDataMutationQueueScope = identity.scopeKey;
+    void loadChildDataMutationQueue();
+  } else if (!childDataMutationQueueScope) {
+    childDataMutationQueueScope = identity.scopeKey;
+  }
+  if (childDataMutationIdbAvailable === false) {
+    dlcSetSaveStatus("failed", "Offline saving is unavailable in this browser. Stay online and retry.");
+    showActionFeedback("Offline saving is unavailable here. Your entry is still on screen — retry while online.");
+    return "";
+  }
+  const clientMutationId = String(mutation.clientMutationId || newClientMutationId());
+  const record = mutation.record && typeof mutation.record === "object" ? { ...mutation.record } : mutation.record;
+  // Creates pass baseRevision: undefined explicitly.
+  // Only infer from record.revision when this is an edit (baseSnapshot present).
+  let baseRevision;
+  if (Object.prototype.hasOwnProperty.call(mutation, "baseRevision")) {
+    const n = Number(mutation.baseRevision);
+    baseRevision = Number.isFinite(n) ? n : undefined;
+  } else if (mutation.baseSnapshot && record && record.revision != null && record.revision !== "") {
+    const n = Number(record.revision);
+    baseRevision = Number.isFinite(n) ? n : undefined;
+  }
+  const childId = String(mutation.childId || record?.childId || (mutation.storeKey === "Profiles" ? record?.id : "") || "").trim();
+  const recordId = String(mutation.recordId || record?.id || "").trim();
+  const entry = {
+    op: mutation.op || "upsert",
+    storeKey: mutation.storeKey,
+    clientMutationId,
+    baseRevision,
+    recordId: recordId || undefined,
+    record,
+    baseSnapshot: mutation.baseSnapshot || null,
+    intendedFields: Array.isArray(mutation.intendedFields)
+      ? mutation.intendedFields
+      : intendedFieldsForRecord(mutation.storeKey, record || {}, mutation.baseSnapshot || null),
+    childId,
+    userId: identity.userId,
+    programId: identity.programId,
+    scopeKey: identity.scopeKey,
+    queuedAt: mutation.queuedAt || new Date().toISOString(),
+    status: mutation.status || "pending",
+  };
+  childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
+  childDataMutationQueue.push(entry);
+  void persistChildDataMutationEntry(entry).catch(() => {
+    childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
+    dlcSetSaveStatus("failed", "Offline saving is unavailable in this browser. Stay online and retry.");
+  });
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  dlcSetSaveStatus(
+    offline ? "offline" : "pending",
+    offline ? "Waiting for connection — not saved to cloud yet" : "Saving…",
+  );
+  return clientMutationId;
+}
+
+function applyServerRecordFromConflict(storeKey, serverRecord) {
+  if (!storeKey || !serverRecord?.id) return;
+  const list = childStore(storeKey);
+  const idx = list.findIndex((item) => String(item.id || "") === String(serverRecord.id));
+  const next = idx >= 0
+    ? list.map((item, i) => (i === idx ? { ...serverRecord } : item))
+    : [...list, serverRecord];
+  saveChildStoreLocalOnly(storeKey, next);
+}
+
+async function discardChildDataMutation(clientMutationId) {
+  const id = String(clientMutationId || "");
+  childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== id);
+  await removePersistedChildDataMutation(id);
+  if (dlcConflictState?.clientMutationId === id) dlcConflictState = null;
+  if (!childDataMutationQueue.length) dlcSetSaveStatus("idle", "");
+  else dlcSetSaveStatus("pending", "Waiting for connection…");
+}
+
+async function cancelOldestPendingMutation() {
+  const pending = childDataMutationQueue.find((item) => (item.status || "pending") === "pending");
+  if (!pending) {
+    showActionFeedback("No pending change to cancel.");
+    return false;
+  }
+  await discardChildDataMutation(pending.clientMutationId);
+  showActionFeedback("Pending change canceled. It was not saved to the cloud.");
+  if (typeof renderChildManagement === "function") renderChildManagement();
+  return true;
+}
+
+async function retryChildDataMutation(clientMutationId, { rebase = false } = {}) {
+  const id = String(clientMutationId || "");
+  const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
+  if (!entry) return false;
+  if (rebase) {
+    const rebased = rebaseLocalChangeOntoServer(entry);
+    if (!rebased) {
+      showActionFeedback("The latest saved version is unavailable. Keep latest or cancel.");
+      return false;
+    }
+    await discardChildDataMutation(id);
+    enqueueChildDataMutation({
+      op: entry.op || "upsert",
+      storeKey: entry.storeKey,
+      clientMutationId: newClientMutationId(),
+      baseRevision: rebased.baseRevision,
+      record: rebased.record,
+      intendedFields: rebased.intendedFields,
+      baseSnapshot: entry.conflictServerRecord,
+      childId: entry.childId,
+      status: "pending",
+    });
+  } else {
+    entry.status = "pending";
+    entry.lastError = "";
+    await persistChildDataMutationEntry(entry).catch(() => {});
+  }
+  dlcConflictState = null;
+  await saveChildDataToBackend({ force: true });
+  if (typeof renderChildManagement === "function") renderChildManagement();
+  return true;
+}
+
+async function resolveDlcConflict(clientMutationId, action) {
+  const id = String(clientMutationId || "");
+  const entry = childDataMutationQueue.find((item) => item.clientMutationId === id) || null;
+  if (action === "discard") {
+    await discardChildDataMutation(id);
+    showActionFeedback("Canceled. The cloud record was not changed.");
+    if (typeof renderChildManagement === "function") renderChildManagement();
+    return;
+  }
+  if (action === "reload") {
+    if (entry?.conflictServerRecord && entry.storeKey) {
+      applyServerRecordFromConflict(entry.storeKey, entry.conflictServerRecord);
+    }
+    await discardChildDataMutation(id);
+    showActionFeedback("Kept the latest saved version.");
+    if (typeof renderChildManagement === "function") renderChildManagement();
+    return;
+  }
+  if (action === "edit") {
+    if (entry?.childId) {
+      selectedChildId = entry.childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+    }
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "individual";
+    dailyLogsChildTab = "overview";
+    showActionFeedback("Review the child’s day, then save your correction again.");
+    if (typeof renderChildManagement === "function") renderChildManagement();
+    return;
+  }
+  if (action === "retry") {
+    await retryChildDataMutation(id, { rebase: true });
+    showActionFeedback("Applying your change onto the latest saved version…");
+  }
+}
+
+async function promptLogoutWithUnsyncedWork() {
+  if (!hasUnsyncedChildDataMutations()) return "continue";
+  const syncNow = await confirmAction({
+    title: "Unsynced care updates",
+    message: "Some Daily Logs changes are not saved to the cloud yet. Sync now before signing out? Choose Cancel to stay signed in.",
+    confirmLabel: "Sync now",
+    cancelLabel: "Stay signed in",
+  });
+  if (!syncNow) return "stay";
+  try {
+    await saveChildDataToBackend({ force: true, retryFailed: true });
+  } catch (_error) { /* continue to discard prompt if still unsynced */ }
+  if (!hasUnsyncedChildDataMutations()) return "continue";
+  const discard = await confirmAction({
+    title: "Discard unsynced changes?",
+    message: "Sync could not finish. Discard unsynced changes and sign out? This cannot be undone.",
+    confirmLabel: "Discard unsynced changes",
+    cancelLabel: "Stay signed in",
+    danger: true,
+  });
+  if (!discard) return "stay";
+  const ids = childDataMutationQueue.map((item) => item.clientMutationId);
+  for (const id of ids) await discardChildDataMutation(id);
+  return "continue";
+}
+
 async function saveChildDataToBackend(options = {}) {
-  if (!currentUser || !canUseLaunchBackend()) return;
-  if (childCloudSyncing && !options.force) return;
+  if (!currentUser || !canUseLaunchBackend()) return null;
+  const identity = childDataActorIdentity();
+  if (childDataMutationQueueScope !== identity.scopeKey) {
+    await loadChildDataMutationQueue();
+  }
+  if ((childCloudSyncing || childDataMutationInFlight) && !options.force) return null;
   const headers = await staffAuthHeaders();
-  if (!headers) return;
-  await fetch("/api/child-data", {
+  if (!headers) {
+    dlcSetSaveStatus("failed", "Session expired — sign in again to sync");
+    childDataMutationQueue = childDataMutationQueue.map((item) => (
+      (item.status || "pending") === "pending" ? { ...item, status: "failed", lastError: "auth_required" } : item
+    ));
+    await Promise.all(childDataMutationQueue.map((item) => persistChildDataMutationEntry(item).catch(() => {})));
+    return null;
+  }
+  // Never flush another account/program’s queue.
+  const scoped = childDataMutationQueue.filter((item) => (
+    item.userId === identity.userId && item.programId === identity.programId
+  ));
+  childDataMutationQueue = scoped;
+  const mutations = scoped
+    .filter((item) => item.status !== "conflict")
+    .filter((item) => item.status !== "failed" || options.retryFailed)
+    .slice(0, 200)
+    .map((item) => ({
+      op: item.op || "upsert",
+      storeKey: item.storeKey,
+      clientMutationId: item.clientMutationId,
+      baseRevision: item.baseRevision,
+      recordId: item.recordId,
+      childId: item.childId || item.record?.childId,
+      record: item.record,
+    }));
+  const roleKey = String(currentUser?.role || (typeof currentAccount === "function" ? currentAccount()?.role : "") || "").toLowerCase();
+  const classroomStaffOnly = roleKey === "teacher" || roleKey === "assistant";
+  if (mutations.length) {
+    childDataMutationInFlight = true;
+    dlcSetSaveStatus("saving", "Saving…");
+    try {
+      const response = await fetch("/api/child-data", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ mutations }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      const results = Array.isArray(payload.results) ? payload.results : [];
+      const ackIds = [];
+      for (const result of results) {
+        const id = String(result.clientMutationId || "");
+        if (!id) continue;
+        if (result.ok || result.duplicate) {
+          ackIds.push(id);
+          continue;
+        }
+        if (result.conflict || result.code === "stale_revision" || result.code === "not_found") {
+          const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
+          if (entry) {
+            entry.status = "conflict";
+            entry.lastError = result.error || "stale_revision";
+            entry.conflictServerRecord = result.serverRecord || null;
+            await persistChildDataMutationEntry(entry).catch(() => {});
+            dlcConflictState = dlcBuildConflictViewModel(entry, result);
+          }
+          continue;
+        }
+        if (result.authFailed || result.code === "forbidden" || response.status === 401 || response.status === 403) {
+          const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
+          if (entry) {
+            entry.status = "failed";
+            entry.lastError = result.error || "forbidden";
+            await persistChildDataMutationEntry(entry).catch(() => {});
+          }
+          continue;
+        }
+        const failedEntry = childDataMutationQueue.find((item) => item.clientMutationId === id);
+        if (failedEntry) {
+          failedEntry.status = "failed";
+          failedEntry.lastError = result.error || "save_failed";
+          await persistChildDataMutationEntry(failedEntry).catch(() => {});
+        }
+      }
+      for (const id of ackIds) {
+        const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
+        const result = results.find((item) => String(item.clientMutationId || "") === id);
+        // After refresh, local stores may lack queued creates — merge ack'd records so a later
+        // owner snapshot cannot wipe cloud rows that only existed in the durable queue.
+        if (entry?.storeKey && entry.op !== "delete") {
+          const recordId = String(result?.recordId || entry.record?.id || entry.recordId || "");
+          if (recordId) {
+            const list = childStore(entry.storeKey);
+            const idx = list.findIndex((row) => String(row.id || "") === recordId);
+            const merged = {
+              ...(entry.record && typeof entry.record === "object" ? entry.record : {}),
+              id: recordId,
+              revision: Number(result?.revision) || Number(entry.record?.revision) || 1,
+            };
+            const next = idx >= 0
+              ? list.map((row, i) => (i === idx ? { ...row, ...merged } : row))
+              : [...list, merged];
+            saveChildStoreLocalOnly(entry.storeKey, next);
+          }
+        }
+        childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== id);
+        await removePersistedChildDataMutation(id);
+      }
+      if (payload.updatedAt) localStorage.setItem(childCloudUpdatedKey(), payload.updatedAt);
+
+      results.filter((item) => item.ok && item.revision && item.recordId && item.storeKey).forEach((item) => {
+        const list = childStore(item.storeKey);
+        const idx = list.findIndex((row) => String(row.id || "") === String(item.recordId));
+        if (idx >= 0 && Number(list[idx].revision || 1) !== Number(item.revision)) {
+          const next = list.slice();
+          next[idx] = { ...next[idx], revision: item.revision };
+          saveChildStoreLocalOnly(item.storeKey, next);
+        }
+      });
+
+      if (dlcConflictState) {
+        dlcSetSaveStatus("conflict", "Needs review because another person updated it");
+      } else if (childDataMutationQueue.some((item) => item.status === "failed")) {
+        dlcSetSaveStatus("failed", "Sync failed");
+      } else if (childDataMutationQueue.length) {
+        dlcSetSaveStatus(
+          typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "pending",
+          "Waiting for connection…",
+        );
+      } else if (response.status === 401 || response.status === 403) {
+        dlcSetSaveStatus("failed", "Session expired or permission removed — sign in again");
+      } else if (!response.ok && response.status !== 409) {
+        dlcSetSaveStatus("failed", payload?.error || "Sync failed");
+      } else {
+        dlcSetSaveStatus("saved", "Saved to cloud");
+      }
+      // Cancel a pending full-snapshot save so it cannot LWW-clobber fresher mutation results.
+      clearTimeout(childCloudSaveTimer);
+      return payload;
+    } finally {
+      childDataMutationInFlight = false;
+    }
+  }
+  if (classroomStaffOnly) {
+    return { ok: true, skipped: true, reason: "no_pending_mutations" };
+  }
+  const response = await fetch("/api/child-data", {
     method: "POST",
     headers,
     body: JSON.stringify({ data: childDataSnapshot() }),
   });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    dlcSetSaveStatus("failed", payload?.error || "Sync failed");
+    throw new Error(payload?.error || `Child data save failed (${response.status})`);
+  }
+  dlcSetSaveStatus("saved", "Saved to cloud");
+  return response.json().catch(() => ({ ok: true }));
 }
 
 function queueChildDataCloudSave() {
@@ -35065,8 +36743,30 @@ async function syncChildDataFromBackend(options = {}) {
       syncChildDataFromBackend(options).catch((error) => console.warn("Queued child data sync did not complete", error));
     }
   }
+  // After sync, restore durable pending mutations for this account and flush.
+  try {
+    await loadChildDataMutationQueue();
+    if (childDataMutationQueue.length) {
+      await saveChildDataToBackend({ force: true, retryFailed: true });
+    }
+  } catch (error) {
+    console.warn("Pending child-data mutation flush did not complete", error);
+  }
   return applied;
 }
+
+window.addEventListener("online", () => {
+  if (!currentUser || !canUseLaunchBackend()) return;
+  dlcSetSaveStatus("pending", "Connection restored — syncing…");
+  loadChildDataMutationQueue()
+    .then(() => saveChildDataToBackend({ force: true, retryFailed: true }))
+    .then(() => {
+      if (typeof renderChildManagement === "function" && document.querySelector("#view-children.active-view, #view-child-tools-daily-logs.active-view, [data-dlc-save-status]")) {
+        try { renderChildManagement(); } catch (_e) { /* ignore */ }
+      }
+    })
+    .catch((error) => console.warn("Online mutation flush failed", error));
+});
 
 function saveChildStore(key, value) {
   saveChildStoreLocalOnly(key, value);
@@ -36326,6 +38026,10 @@ function ensureTesterDemoChild() {
  */
 async function ensureTestingDemoProgramConnected() {
   if (typeof isHomeDaycareHubTestingEnabled !== "function" || !isHomeDaycareHubTestingEnabled()) return null;
+  // Automated regression can opt out so empty-program UX remains testable on the testing host.
+  try {
+    if (sessionStorage.getItem("llhSkipTestingDemoSeed") === "1") return null;
+  } catch (_error) { /* ignore */ }
   if (!currentUser || !canUseLaunchBackend()) return null;
   // Prefer server program data.
   try {
@@ -42419,11 +44123,16 @@ function renderDlcChildStatusCard(child, records, today) {
   const state = getChildAttendanceState(child, records, today);
   const meta = attendanceStateMeta(state);
   const attendance = getChildAttendanceRecord(child, records, today);
+  const sessions = getChildAttendanceSessions(child, records, today).filter((session) => !isAbsentAttendance(session));
+  const totalMins = totalAttendanceMinutes(child, records, today);
+  const checkIn = attendanceCheckInOf(attendance || {});
+  const checkOut = attendanceCheckOutOf(attendance || {});
   const reminders = buildDailyLogReminders(child, records, today).slice(0, 2);
-  const detail = state === "checked_in" && attendance?.dropoff
-    ? `Checked In ${formatDlcClock(attendance.dropoff)}`
-    : state === "checked_out" && attendance?.pickup
-      ? `Checked Out ${formatDlcClock(attendance.pickup)}${attendance.dropoff ? ` · In ${formatDlcClock(attendance.dropoff)}` : ""}`
+  const sessionLabel = sessions.length > 1 ? ` · ${sessions.length} visits · ${formatAttendanceDuration(totalMins)}` : (sessions.length === 1 && checkOut ? ` · ${formatAttendanceDuration(totalMins)}` : "");
+  const detail = state === "checked_in" && checkIn
+    ? `Checked In ${formatDlcClock(checkIn)}${sessionLabel}`
+    : state === "checked_out" && checkOut
+      ? `Checked Out ${formatDlcClock(checkOut)}${checkIn ? ` · In ${formatDlcClock(checkIn)}` : ""}${sessionLabel}`
       : state === "absent"
         ? "Marked Absent"
         : "Not checked in yet";
@@ -42513,24 +44222,39 @@ function renderDlcClassroomOverview(activeChildren, records, today) {
 function renderDlcDashboard(records) {
   const today = dlcDashboardDate || new Date().toISOString().slice(0, 10);
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-  const activeChildren = getActiveChildren(records);
+  const allActiveChildren = getActiveChildren(records);
+  const classroomOptions = dlcClassroomOptions(records);
+  const activeChildren = dlcChildrenForDashboard(records);
   const hiddenChildren = getHiddenChildren(records);
   const presentChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_in");
   const checkedOutChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_out");
   const absentChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "absent");
   const waitingChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "not_arrived");
+  const filterActive = dlcClassroomFilter && dlcClassroomFilter !== "all";
 
   return `
     <div class="dlc-dashboard dlc-dashboard-attendance">
+      ${dlcRenderSaveStatusBar()}
       <div class="dlc-dashboard-date-row">
         <div>
           <p class="eyebrow">Daily Logs</p>
           <p class="dlc-dashboard-date-label" aria-live="polite">${escapeHtml(dateLabel)}</p>
-          <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
+          <p class="dlc-sub">See every child here. Check in/out, log care, then preview family reports before sharing — nothing sends automatically.</p>
         </div>
-        <div class="dlc-dashboard-date-picker">
-          <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
-          <input id="dlcDashboardDateInput" class="dlc-date-input" type="date" value="${today}" data-dlc-dashboard-date />
+        <div class="dlc-dashboard-filters">
+          <div class="dlc-dashboard-date-picker">
+            <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
+            <input id="dlcDashboardDateInput" class="dlc-date-input" type="date" value="${today}" data-dlc-dashboard-date />
+          </div>
+          <div class="dlc-dashboard-room-picker">
+            <label class="dlc-date-picker-label" for="dlcClassroomFilter">Classroom</label>
+            <select id="dlcClassroomFilter" class="dlc-inline-select" data-dlc-classroom-filter>
+              <option value="all" ${!filterActive ? "selected" : ""}>All children (${allActiveChildren.length})</option>
+              ${classroomOptions.map((room) => `
+                <option value="${escapeHtml(room.id)}" ${String(dlcClassroomFilter) === String(room.id) ? "selected" : ""}>${escapeHtml(room.label)}</option>
+              `).join("")}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -42538,19 +44262,32 @@ function renderDlcDashboard(records) {
 
       <div class="dlc-home-toolbar">
         <button class="primary-button" data-daily-logs-section="group" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Log</button>
+        <button class="ghost-button" data-dlc-select-present type="button" ${presentChildren.length ? "" : "disabled aria-disabled=\"true\""}>Log present group (${presentChildren.length})</button>
         <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Activity</button>
         <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Meal</button>
-        <button class="ghost-button" data-dlc-print-all type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Print All Reports</button>
+        <button class="ghost-button" data-dlc-print-all type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Print / Preview Reports</button>
       </div>
+      <p class="dlc-sub dlc-privacy-note">Family-facing reports are drafts until you preview and choose Share with Family. Internal Only entries stay private.</p>
 
-      ${activeChildren.length ? `
-        ${renderDlcAttendanceSection("Not Arrived", waitingChildren, records, today, "Everyone has an attendance status.", { compactEmpty: false })}
-        ${renderDlcAttendanceSection("Present", presentChildren, records, today, "No children checked in yet.", { compactEmpty: true })}
-        ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.", { compactEmpty: true })}
-        ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.", { compactEmpty: true })}
+      ${allActiveChildren.length ? `
+        ${activeChildren.length ? `
+          ${renderDlcAttendanceSection("Not Arrived", waitingChildren, records, today, "Everyone in this view has an attendance status.", { compactEmpty: false })}
+          ${renderDlcAttendanceSection("Present", presentChildren, records, today, "No children checked in yet — tap Check In on a child card.", { compactEmpty: true })}
+          ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.", { compactEmpty: true })}
+          ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.", { compactEmpty: true })}
+        ` : `
+          <div class="section-block empty-state" data-dlc-empty-filter>
+            <h3>No children in this classroom</h3>
+            <p>Choose another classroom filter, or assign children to rooms under Children / Classrooms.</p>
+            <button class="primary-button" data-dlc-classroom-filter-value="all" type="button">Show all children</button>
+          </div>
+        `}
       ` : `
-        <div class="section-block empty-state">
-          <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to start today's logs.</p>
+        <div class="section-block empty-state" data-dlc-empty-roster>
+          <h3>Add children to start Daily Logs</h3>
+          <p>Create disposable child profiles first. Then check them in here and log meals, naps, and care notes without opening each profile.</p>
+          <button class="primary-button" data-child-view="add" type="button">Add a child</button>
+          <button class="ghost-button" data-view="children" type="button">Open Children</button>
         </div>
       `}
 
@@ -43202,16 +44939,17 @@ function dlcActivityKey(text) {
 }
 
 function dlcChildDaySnapshot(child, records, today) {
+  const list = (key) => (Array.isArray(records?.[key]) ? records[key] : []);
   return {
-    attendance: records.attendance.filter((item) => item.childId === child.id && item.date === today),
-    meals: records.meals.filter((item) => item.childId === child.id && item.date === today),
-    naps: records.naps.filter((item) => item.childId === child.id && item.date === today),
-    diapers: records.diapers.filter((item) => item.childId === child.id && item.date === today),
-    activities: records.activityLogs.filter((item) => item.childId === child.id && item.date === today),
-    communications: records.communications.filter((item) => item.childId === child.id && item.date === today),
-    reports: records.reports.filter((item) => item.childId === child.id && item.date === today),
-    observations: records.observations.filter((item) => item.childId === child.id && item.date === today),
-    photos: (records.photos || []).filter((item) => item.childId === child.id && item.date === today),
+    attendance: list("attendance").filter((item) => item.childId === child.id && item.date === today),
+    meals: list("meals").filter((item) => item.childId === child.id && item.date === today),
+    naps: list("naps").filter((item) => item.childId === child.id && item.date === today),
+    diapers: list("diapers").filter((item) => item.childId === child.id && item.date === today),
+    activities: list("activityLogs").filter((item) => item.childId === child.id && item.date === today),
+    communications: list("communications").filter((item) => item.childId === child.id && item.date === today),
+    reports: list("reports").filter((item) => item.childId === child.id && item.date === today),
+    observations: list("observations").filter((item) => item.childId === child.id && item.date === today),
+    photos: list("photos").filter((item) => item.childId === child.id && item.date === today),
   };
 }
 
@@ -43255,8 +44993,13 @@ function buildGroundedDayFactsForAi(child, records, today = dlcActiveDate()) {
   ));
   const activityNames = snapshot.activities.map((item) => item.activity || item.title || item.summary).filter(Boolean);
   const attendanceLines = snapshot.attendance.map((item) => (
-    [item.status || "Present", item.dropoff && `Arrived ${item.dropoff}`, item.pickup && `Departed ${item.pickup}`, item.summary]
-      .filter(Boolean).join(" · ")
+    [
+      item.status || "Present",
+      item.sessionIndex ? `Visit ${item.sessionIndex}` : "",
+      attendanceCheckInOf(item) && `Arrived ${attendanceCheckInOf(item)}`,
+      attendanceCheckOutOf(item) && `Departed ${attendanceCheckOutOf(item)}`,
+      item.summary,
+    ].filter(Boolean).join(" · ")
   ));
   const noteLines = snapshot.communications
     .filter((item) => !/incident/i.test(String(item.type || "")))
@@ -43299,48 +45042,63 @@ function dlcParentSummaryDraftKey(childId, today) {
 function buildDailyLogTimelineEntries(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const entries = [];
+  const stamp = (item, partial) => ({
+    ...partial,
+    shared: item.shareWithFamily !== false,
+    recordedBy: item.recordedBy || item.recordedByEmail || "",
+    recordId: item.id || "",
+    createdAt: item.createdAt || "",
+  });
   snapshot.attendance.forEach((item) => {
     if (String(item.status || "").toLowerCase() === "absent") {
-      entries.push({ time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
+      entries.push(stamp(item, { time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "" }));
       return;
     }
-    if (item.dropoff) entries.push({ time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
-    if (item.pickup) entries.push({ time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
+    const inAt = attendanceCheckInOf(item);
+    const outAt = attendanceCheckOutOf(item);
+    const visit = item.sessionIndex ? `Visit ${item.sessionIndex}` : (item.status || "Present");
+    if (inAt) entries.push(stamp(item, { time: inAt, title: "Checked In", detail: visit }));
+    if (outAt) entries.push(stamp(item, { time: outAt, title: "Checked Out", detail: visit }));
   });
   snapshot.meals.forEach((item) => {
     const baseTime = dlcRecordTime(item);
-    if (item.breakfast) entries.push({ time: baseTime, title: "Breakfast", detail: item.breakfast, shared: item.shareWithFamily !== false });
-    if (item.lunch) entries.push({ time: baseTime, title: "Lunch", detail: item.lunch, shared: item.shareWithFamily !== false });
-    if (item.snack) entries.push({ time: baseTime, title: "Snack", detail: item.snack, shared: item.shareWithFamily !== false });
-    if (!item.breakfast && !item.lunch && !item.snack) entries.push({ time: baseTime, title: "Meal", detail: item.summary || item.notes || "Meal logged", shared: item.shareWithFamily !== false });
+    if (item.type === "Bottle" || /bottle/i.test(item.title || "")) {
+      entries.push(stamp(item, { time: baseTime, title: "Bottle", detail: item.amount || item.summary || item.notes || "Bottle logged" }));
+      return;
+    }
+    if (item.breakfast) entries.push(stamp(item, { time: baseTime, title: "Breakfast", detail: item.breakfast }));
+    if (item.lunch) entries.push(stamp(item, { time: baseTime, title: "Lunch", detail: item.lunch }));
+    if (item.snack) entries.push(stamp(item, { time: baseTime, title: "Snack", detail: item.snack }));
+    if (!item.breakfast && !item.lunch && !item.snack) {
+      entries.push(stamp(item, { time: baseTime, title: "Meal", detail: item.summary || item.notes || "Meal logged" }));
+    }
   });
   snapshot.naps.forEach((item) => {
-    if (item.napStart) entries.push({ time: item.napStart, title: "Nap Started", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
-    if (item.napEnd) entries.push({ time: item.napEnd, title: "Nap Ended", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
-    if (!item.napStart && !item.napEnd) entries.push({ time: dlcRecordTime(item), title: "Nap", detail: item.summary || "Nap logged", shared: item.shareWithFamily !== false });
+    if (item.napStart) entries.push(stamp(item, { time: item.napStart, title: "Nap Started", detail: item.duration || item.notes || "" }));
+    if (item.napEnd) entries.push(stamp(item, { time: item.napEnd, title: "Nap Ended", detail: item.duration || item.notes || "" }));
+    if (!item.napStart && !item.napEnd) entries.push(stamp(item, { time: dlcRecordTime(item), title: "Nap", detail: item.summary || "Nap logged" }));
   });
   snapshot.diapers.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: item.type || "Diaper / Potty", detail: item.notes || "", shared: item.shareWithFamily !== false });
+    entries.push(stamp(item, { time: dlcRecordTime(item), title: item.type || "Diaper / Potty", detail: item.notes || "" }));
   });
   snapshot.activities.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: item.activity || "Activity", detail: item.notes || item.area || "", shared: item.shareWithFamily !== false });
+    entries.push(stamp(item, { time: dlcRecordTime(item), title: item.activity || "Activity", detail: item.notes || item.area || "" }));
   });
   snapshot.communications.forEach((item) => {
     const type = String(item.type || "");
     if (["Behavior Note", "Mood Note", "Incident Report", "Parent Summary", "Parent Message", "Teacher Note", "General Note", "Daily Log"].includes(type)) {
-      entries.push({ time: dlcRecordTime(item), title: type, detail: item.summary || item.message || "", shared: item.shareWithFamily !== false });
+      entries.push(stamp(item, { time: dlcRecordTime(item), title: type, detail: item.summary || item.message || "" }));
     }
   });
   snapshot.observations.forEach((item) => {
-    entries.push({
+    entries.push(stamp(item, {
       time: dlcRecordTime(item),
       title: "Observation",
       detail: item.text || item.summary || item.developmentArea || "",
-      shared: item.shareWithFamily !== false,
-    });
+    }));
   });
   snapshot.photos.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
+    entries.push(stamp(item, { time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log" }));
   });
   return entries
     .sort((a, b) => dlcTimeToMinutes(a.time) - dlcTimeToMinutes(b.time) || String(a.title).localeCompare(String(b.title)))
@@ -44083,29 +45841,38 @@ function dlcStartDashboardSpeechInput() {
 }
 
 function renderDailyLogsGroupUpdate(records) {
-  const children = getActiveChildren(records);
+  const children = dlcChildrenForDashboard(records);
+  const today = dlcActiveDate();
+  const presentIds = new Set(dlcCheckedInChildIds(records, today));
   if (!children.length) {
     return `
       <section class="section-block empty-state">
-        <h3>No active child profiles.</h3>
-        <p>Add a child profile first to use Group Log.</p>
+        <h3>No children available for Group Log</h3>
+        <p>Add child profiles (or clear the classroom filter) before logging a group update.</p>
         <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+        <button class="ghost-button" data-dlc-classroom-filter-value="all" type="button">Show all children</button>
       </section>
     `;
   }
   const groupActions = [
-    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast for selected children." },
-    { id: "meals", label: "Add Lunch", emoji: "🍽️", description: "Log lunch for selected children." },
+    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast and how much was eaten." },
+    { id: "meals", label: "Add Lunch", emoji: "🍽️", description: "Log lunch and amounts for selected children." },
     { id: "snacks", label: "Add Snack", emoji: "🍎", description: "Log a snack for selected children." },
+    { id: "bottle", label: "Add Bottle", emoji: "🍼", description: "Log bottle amounts for infants/toddlers." },
+    { id: "naps", label: "Add Nap", emoji: "😴", description: "Log nap start/end for the group, with individual edits later." },
+    { id: "diapers", label: "Add Diaper / Potty", emoji: "🧷", description: "Log diaper or potty events for selected children." },
+    { id: "mood", label: "Add Mood", emoji: "🙂", description: "Record mood notes for selected children." },
     { id: "activities", label: "Add Activity", emoji: "🎨", description: "Log one activity once for multiple children." },
-    { id: "announcement", label: "Add Announcement", emoji: "📢", description: "Save a parent announcement for selected children." },
-    { id: "reminder", label: "Add Reminder", emoji: "🔔", description: "Save a parent reminder for selected children." },
+    { id: "note", label: "Add General Note", emoji: "📝", description: "Save an internal or shared note for the group." },
+    { id: "announcement", label: "Add Announcement", emoji: "📢", description: "Draft a parent announcement — review before sharing." },
+    { id: "reminder", label: "Add Reminder", emoji: "🔔", description: "Draft a parent reminder — nothing sends automatically." },
   ];
   if (!dailyLogsGroupAction) {
     return `
       <div class="dlc-section">
+        ${dlcRenderSaveStatusBar()}
         <h3>Group Log</h3>
-        <p class="dlc-sub">Write once, apply to multiple children. Perfect for shared meals and activities.</p>
+        <p class="dlc-sub">Write once, apply to one child, several children, or everyone currently checked in. You can still open any child later for exceptions.</p>
         <div class="dlc-group-actions">
           ${groupActions.map((action) => `
             <button class="dlc-group-action-btn" data-dlc-group-action="${action.id}" type="button">
@@ -44119,31 +45886,40 @@ function renderDailyLogsGroupUpdate(records) {
     `;
   }
   const action = groupActions.find((a) => a.id === dailyLogsGroupAction) || groupActions[0];
-  const today = dlcActiveDate();
+  const defaultChecked = presentIds.size
+    ? (child) => presentIds.has(child.id)
+    : () => true;
   return `
     <div class="dlc-section">
+      ${dlcRenderSaveStatusBar()}
       <div class="dlc-section-header">
         <h3>${action.emoji} ${action.label}</h3>
         <button class="ghost-button" data-dlc-group-action="" type="button">← All Actions</button>
       </div>
-      <p class="dlc-sub">${action.description} Select which children to include, then save once.</p>
+      <p class="dlc-sub">${action.description} Prefer the checked-in group, then uncheck exceptions before saving.</p>
       <form id="groupUpdateForm" class="dlc-group-form" data-group-action="${action.id}">
         <input name="date" type="hidden" value="${today}" />
         <input name="action" type="hidden" value="${action.id}" />
         <fieldset class="dlc-children-select">
           <legend>Apply to</legend>
+          <div class="dlc-group-select-tools">
+            <button type="button" class="ghost-button" data-dlc-group-select="present">Present only (${presentIds.size})</button>
+            <button type="button" class="ghost-button" data-dlc-group-select="all">All in view</button>
+            <button type="button" class="ghost-button" data-dlc-group-select="none">Clear</button>
+          </div>
           <div class="dlc-children-grid">
             ${children.map((child) => `
               <label class="dlc-child-check">
-                <input type="checkbox" name="childIds" value="${child.id}" checked />
+                <input type="checkbox" name="childIds" value="${child.id}" ${defaultChecked(child) ? "checked" : ""} />
                 <span>${escapeHtml(child.name)}</span>
-                <span class="dlc-child-age">${escapeHtml(childAgeLabel(child))}</span>
+                <span class="dlc-child-age">${escapeHtml(childAgeLabel(child))}${presentIds.has(child.id) ? " · Present" : ""}</span>
               </label>
             `).join("")}
           </div>
         </fieldset>
         ${renderGroupActionFields(action.id, today)}
-        ${renderDlcShareFields(action.id === "announcement" || action.id === "reminder")}
+        ${renderDlcShareFields(["announcement", "reminder", "activities", "meals", "breakfast", "snacks", "bottle", "naps", "diapers", "mood"].includes(action.id))}
+        <p class="form-note">Saving creates draft records only. Family Hub is never messaged automatically from Group Log.</p>
         <button class="primary-button" type="submit">Save to Selected Children</button>
       </form>
     </div>
@@ -44151,33 +45927,96 @@ function renderDailyLogsGroupUpdate(records) {
 }
 
 function renderGroupActionFields(actionId, today) {
+  const amountOptions = `
+    <label class="dlc-form-label">Amount eaten
+      <select name="amount">
+        <option value="">Not specified</option>
+        <option>Ate all</option>
+        <option>Ate most</option>
+        <option>Ate some</option>
+        <option>Ate little</option>
+        <option>Refused</option>
+      </select>
+    </label>`;
   if (actionId === "meals" || actionId === "lunch") {
     return `
-      <label class="dlc-form-label">Lunch<input name="content" type="text" placeholder="e.g. Chicken nuggets, apples, milk" required /></label>
-      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional food notes" /></label>
+      <label class="dlc-form-label">Lunch<input name="content" type="text" placeholder="Only food that was offered/eaten" required /></label>
+      ${amountOptions}
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional food notes — no invented details" /></label>
     `;
   }
   if (actionId === "snacks") {
     return `
-      <label class="dlc-form-label">Snack<input name="content" type="text" placeholder="e.g. Crackers and cheese" required /></label>
+      <label class="dlc-form-label">Snack<input name="content" type="text" placeholder="Only food that was offered/eaten" required /></label>
+      ${amountOptions}
       <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional notes" /></label>
     `;
   }
   if (actionId === "breakfast") {
     return `
-      <label class="dlc-form-label">Breakfast<input name="content" type="text" placeholder="e.g. Oatmeal, fruit, milk" required /></label>
+      <label class="dlc-form-label">Breakfast<input name="content" type="text" placeholder="Only food that was offered/eaten" required /></label>
+      ${amountOptions}
       <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional notes" /></label>
+    `;
+  }
+  if (actionId === "bottle") {
+    return `
+      <label class="dlc-form-label">Bottle amount<input name="content" type="text" placeholder="e.g. 4 oz" required /></label>
+      <label class="dlc-form-label">Time<input name="time" type="time" value="${quickActionTime()}" /></label>
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional" /></label>
+    `;
+  }
+  if (actionId === "naps") {
+    return `
+      <label class="dlc-form-label">Nap start<input name="napStart" type="time" value="${quickActionTime()}" required /></label>
+      <label class="dlc-form-label">Nap end<input name="napEnd" type="time" /></label>
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional — edit individuals later for exceptions" /></label>
+    `;
+  }
+  if (actionId === "diapers") {
+    return `
+      <label class="dlc-form-label">Type
+        <select name="diaperType" required>
+          <option value="Wet">Wet</option>
+          <option value="Dirty">Dirty</option>
+          <option value="Both">Both</option>
+          <option value="Potty - Success">Potty - Success</option>
+          <option value="Potty - Attempt">Potty - Attempt</option>
+          <option value="Diaper Change">Diaper Change</option>
+        </select>
+      </label>
+      <label class="dlc-form-label">Time<input name="time" type="time" value="${quickActionTime()}" /></label>
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional" /></label>
+    `;
+  }
+  if (actionId === "mood") {
+    return `
+      <label class="dlc-form-label">Mood
+        <select name="mood" required>
+          <option>Happy</option>
+          <option>Calm</option>
+          <option>Tired</option>
+          <option>Fussy</option>
+          <option>Sad</option>
+        </select>
+      </label>
+      <label class="dlc-form-label">Note<textarea name="content" rows="2" placeholder="Optional observation — avoid labels or diagnoses"></textarea></label>
     `;
   }
   if (actionId === "activities") {
     return `
       <label class="dlc-form-label">Activity<input name="content" type="text" placeholder="e.g. Painting, circle time, outdoor play" required /></label>
-      <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="Learning goals or notes"></textarea></label>
+      <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="What you observed — no invented milestones"></textarea></label>
+    `;
+  }
+  if (actionId === "note") {
+    return `
+      <label class="dlc-form-label">General note<textarea name="content" rows="3" placeholder="Facts from the care day…" required></textarea></label>
     `;
   }
   if (actionId === "announcement" || actionId === "reminder") {
     return `
-      <label class="dlc-form-label">Message<textarea name="content" rows="3" placeholder="Type your announcement or reminder here…" required></textarea></label>
+      <label class="dlc-form-label">Message<textarea name="content" rows="3" placeholder="Draft only — preview before sharing with families" required></textarea></label>
     `;
   }
   return `<label class="dlc-form-label">Note<textarea name="content" rows="2" placeholder="Add details…"></textarea></label>`;
@@ -44355,6 +46194,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
                 <div class="dlc-timeline-content">
                   <strong>${escapeHtml(entry.title)}</strong>
                   <span>${escapeHtml(entry.detail || "")}</span>
+                  <span class="dlc-timeline-meta">${escapeHtml(dlcVisibilityLabel(entry.shared !== false))} · ${escapeHtml(entry.recordedBy || "Provider")}</span>
                 </div>
               </div>
             `).join("")}
@@ -44367,19 +46207,20 @@ function renderDailyLogsOverviewTab(child, records, today) {
           <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
         </section>
       ` : ""}
+      ${renderDlcReportPreviewCard(child.id)}
       <section class="section-block dlc-end-day-ai">
         <div class="section-heading">
           <div>
             <p class="eyebrow">End of day</p>
             <h4>Turn today’s logs into family updates</h4>
-            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented.</p>
+            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented. Drafts stay internal until you preview and share.</p>
           </div>
         </div>
         <div class="account-actions-row">
           <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
           <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
           <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
-          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
+          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report draft</button>
         </div>
         ${(() => {
           const lesson = typeof weekLessonForChild === "function" ? weekLessonForChild(child) : null;
@@ -45020,8 +46861,48 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record, options = {}) {
   const items = childStore(key);
-  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
-  saveChildStore(key, [...items, saved]);
+  const clientMutationId = String(record?.clientMutationId || newClientMutationId());
+  const saved = {
+    id: record?.id || `${key}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    createdAt: new Date().toISOString(),
+    ...record,
+    clientMutationId,
+    revision: 1,
+    recordedBy: String(record?.recordedBy || dlcRecorderLabel()).trim() || dlcRecorderLabel(),
+    recordedByEmail: String(record?.recordedByEmail || currentUser || "").trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    dlcSetSaveStatus("saving", "Saving to cloud…");
+    saveChildStore(key, [...items, saved]);
+    if (!options.skipMutationQueue) {
+      enqueueChildDataMutation({
+        op: "upsert",
+        storeKey: key,
+        clientMutationId,
+        baseRevision: undefined, // create / append-only
+        record: saved,
+      });
+    }
+    if (!options.skipUndo) {
+      dlcPushUndo({
+        kind: "append",
+        storeKey: key,
+        recordId: saved.id,
+        childId: saved.childId || "",
+        label: saved.title || saved.summary || key,
+      });
+    }
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    // Local write is durable on-device; cloud ack happens asynchronously — never claim cloud-saved yet.
+    dlcSetSaveStatus(
+      offline ? "offline" : "pending",
+      offline ? "Waiting for connection — not saved to cloud yet" : "Saving to cloud…",
+    );
+  } catch (error) {
+    dlcSetSaveStatus("failed", error?.message || "Save failed");
+    throw error;
+  }
   if (!options.skipRender) {
     if (activePortfolioChildId) {
       renderChildPortfolioPage(activePortfolioChildId);
@@ -45938,8 +47819,21 @@ async function deleteChildRecordPermanently(storeKey, recordId) {
     danger: true,
   });
   if (!confirmed) return false;
+  const existing = childStore(storeKey).find((item) => item.id === recordId) || null;
+  const baseRevision = Number(existing?.revision) || 1;
+  const clientMutationId = newClientMutationId();
   saveChildStore(storeKey, childStore(storeKey).filter((item) => item.id !== recordId));
-  showActionFeedback("Entry deleted.");
+  enqueueChildDataMutation({
+    op: "delete",
+    storeKey,
+    clientMutationId,
+    baseRevision,
+    recordId,
+    childId: existing?.childId || (storeKey === "Profiles" ? recordId : ""),
+    record: existing ? { id: recordId, childId: existing.childId, revision: baseRevision } : { id: recordId },
+    baseSnapshot: existing,
+  });
+  showActionFeedback("Entry deleted — saving to cloud…");
   renderChildManagement();
   return true;
 }
@@ -46113,10 +48007,10 @@ function showAfterActionPrompt(trigger, childId) {
   );
 }
 
-async function buildDailyReportFromChild(childId, quickNote) {
+async function buildDailyReportFromChild(childId, quickNote, options = {}) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
-  if (!child) return;
+  if (!child) return null;
   const today = dlcActiveDate();
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
@@ -46144,17 +48038,35 @@ async function buildDailyReportFromChild(childId, quickNote) {
       "Use only these logged facts. Do not invent missing details.",
     ].filter(Boolean).join("\n"),
   });
-  const report = result.output;
-
-  appendChildRecord("Reports", {
+  const report = dlcStripParentFacingMarkdown(String(result.output || "").trim());
+  // Always save as an internal draft first — never auto-share or notify families.
+  const saved = appendChildRecord("Reports", {
     childId,
     title: `Daily Report | ${today}`,
     date: today,
+    type: "Daily Report",
+    status: "draft",
+    aiDraft: true,
     summary: report.slice(0, 200),
     message: report,
-    shareWithFamily: true,
-  });
-  return report;
+    shareWithFamily: false,
+  }, { skipNotify: true });
+  dlcPendingReportPreview = {
+    childId,
+    recordId: saved.id,
+    storeKey: "Reports",
+    kind: "daily-report",
+    text: report,
+  };
+  if (options.openPreview !== false) {
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "individual";
+    dailyLogsChildTab = "overview";
+    renderChildManagement();
+  }
+  return { report, record: saved };
 }
 
 function exportChildPortfolio(childId) {
@@ -46336,29 +48248,40 @@ function printTextDocument(title, text) {
     window.print();
     return;
   }
+  const plain = dlcStripParentFacingMarkdown(text);
   printWindow.document.write(`
     <html>
       <head>
         <title>${escapeHtml(title)}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style>
-          @page { margin: 0.55in; }
-          body { font-family: Arial, sans-serif; line-height: 1.6; padding: 32px; color: #2f2a25; }
-          .brand { color: #386062; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
-          h1.doc-title { color: #386062; margin: 6px 0 24px; font-size: 28px; }
-          h2 { color: #386062; font-size: 20px; margin: 22px 0 6px; border-bottom: 1px solid #d5e3f0; padding-bottom: 4px; }
-          h3 { color: #386062; font-size: 17px; margin: 18px 0 5px; }
-          h4 { color: #536280; font-size: 15px; margin: 14px 0 4px; }
-          p { margin: 0 0 10px; font-size: 14px; }
-          ul, ol { margin: 0 0 10px; padding-left: 22px; }
-          li { margin-bottom: 4px; font-size: 14px; }
+          @page { size: Letter; margin: 0.6in; }
+          * { box-sizing: border-box; }
+          body { font-family: Georgia, "Times New Roman", serif; line-height: 1.55; padding: 0; margin: 0; color: #2f2a25; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+          .sheet { padding: 24px; max-width: 7.5in; margin: 0 auto; }
+          .brand { color: #386062; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-family: system-ui, sans-serif; }
+          h1.doc-title { color: #386062; margin: 6px 0 18px; font-size: 24px; line-height: 1.25; }
+          h2 { color: #386062; font-size: 18px; margin: 18px 0 6px; border-bottom: 1px solid #d5e3f0; padding-bottom: 4px; }
+          h3 { color: #386062; font-size: 16px; margin: 14px 0 5px; }
+          h4 { color: #536280; font-size: 14px; margin: 12px 0 4px; }
+          p, .doc-body { margin: 0 0 10px; font-size: 13px; white-space: pre-wrap; }
+          ul, ol { margin: 0 0 10px; padding-left: 20px; }
+          li { margin-bottom: 4px; font-size: 13px; }
           strong { font-weight: 700; }
           em { font-style: italic; }
+          @media screen and (max-width: 640px) {
+            .sheet { padding: 16px; }
+            h1.doc-title { font-size: 20px; }
+            p, .doc-body, li { font-size: 14px; }
+          }
         </style>
       </head>
       <body>
-        <div class="brand">Little Learner Hub</div>
-        <h1 class="doc-title">${escapeHtml(title)}</h1>
-        <div class="doc-body">${renderMarkdown(text)}</div>
+        <div class="sheet">
+          <div class="brand">Little Learner Hub</div>
+          <h1 class="doc-title">${escapeHtml(title)}</h1>
+          <div class="doc-body">${escapeHtml(plain).replace(/\n/g, "<br>")}</div>
+        </div>
       </body>
     </html>
   `);
@@ -61347,6 +63270,8 @@ function shouldShowMemberUpdateBanner() {
   if (document.body.classList.contains("auth-modal-open")) return false;
   if (document.querySelector("#authModal.open, .modal.open[data-checkout], #resourceViewerModal.open")) return false;
   if (document.querySelector("[data-enrich-editor].is-open, .tk-enrich-shell, .lesson-editor-view.active-view")) return false;
+  // Testing work-mode: do not cover the provider workspace with product update chrome.
+  if (typeof isWorkModeNavEnabled === "function" && isWorkModeNavEnabled()) return false;
   const activeView = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || "";
   if (["", "home"].includes(activeView) && !isLoggedIn()) return false;
   if (["signup", "login", "payment-success", "checkout", "plans"].includes(activeView)) return false;
@@ -63324,12 +65249,25 @@ async function signOut() {
       if (maybePromptMultiRoleSessionEnd("logout")) return;
     }
   } catch (_error) { /* continue logout */ }
+  // Warn before clearing session when child-data mutations are still unsynced.
+  try {
+    if (typeof promptLogoutWithUnsyncedWork === "function") {
+      const logoutChoice = await promptLogoutWithUnsyncedWork();
+      if (logoutChoice === "stay") {
+        showActionFeedback("Still signed in — finish syncing when ready.");
+        return;
+      }
+    }
+  } catch (_error) { /* continue logout */ }
   // Best-effort: revoke this device's push subscription BEFORE clearing the
   // session so the next person to use this browser never receives pushes
   // meant for this account. In-app data is unaffected either way.
   await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
   const signingOutEmail = String(currentUser || "").trim();
+  // Drop in-memory pending mutations so the next account never sees them.
+  // Durable queue stays in IndexedDB scoped by userId+programId (never email).
+  clearChildDataMutationMemory();
   try { localStorage.removeItem("llhMultiRoleTesterView"); } catch (_error) { /* ignore */ }
   if (firebaseAuthEnabled) {
     try {
@@ -65963,10 +67901,158 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const dlcUndoBtn = event.target.closest("[data-dlc-undo]");
+  if (dlcUndoBtn) {
+    event.preventDefault();
+    dlcUndoLastEntry();
+    return;
+  }
+
+  const dlcRetryBtn = event.target.closest("[data-dlc-retry-render]");
+  if (dlcRetryBtn) {
+    event.preventDefault();
+    dlcSetSaveStatus("saving", "Saving to cloud…");
+    saveChildDataToBackend({ force: true, retryFailed: true })
+      .then(() => {
+        if (typeof renderChildManagement === "function") renderChildManagement();
+      })
+      .catch((error) => {
+        dlcSetSaveStatus("failed", error?.message || "Retry failed");
+        if (typeof renderChildManagement === "function") renderChildManagement();
+      });
+    return;
+  }
+
+  const dlcConflictReload = event.target.closest("[data-dlc-conflict-reload]");
+  if (dlcConflictReload) {
+    event.preventDefault();
+    resolveDlcConflict(dlcConflictReload.dataset.dlcConflictReload, "reload");
+    return;
+  }
+  const dlcConflictRetry = event.target.closest("[data-dlc-conflict-retry]");
+  if (dlcConflictRetry) {
+    event.preventDefault();
+    resolveDlcConflict(dlcConflictRetry.dataset.dlcConflictRetry, "retry");
+    return;
+  }
+  const dlcConflictDiscard = event.target.closest("[data-dlc-conflict-discard]");
+  if (dlcConflictDiscard) {
+    event.preventDefault();
+    resolveDlcConflict(dlcConflictDiscard.dataset.dlcConflictDiscard, "discard");
+    return;
+  }
+  const dlcConflictEdit = event.target.closest("[data-dlc-conflict-edit]");
+  if (dlcConflictEdit) {
+    event.preventDefault();
+    resolveDlcConflict(dlcConflictEdit.dataset.dlcConflictEdit, "edit");
+    return;
+  }
+  const dlcCancelPending = event.target.closest("[data-dlc-cancel-pending]");
+  if (dlcCancelPending) {
+    event.preventDefault();
+    cancelOldestPendingMutation();
+    return;
+  }
+  const dlcExpiredDismiss = event.target.closest("[data-dlc-expired-dismiss]");
+  if (dlcExpiredDismiss) {
+    event.preventDefault();
+    dismissExpiredQueueNotice();
+    return;
+  }
+  const dlcMutationRetry = event.target.closest("[data-dlc-mutation-retry]");
+  if (dlcMutationRetry) {
+    event.preventDefault();
+    retryChildDataMutation(dlcMutationRetry.dataset.dlcMutationRetry, { rebase: false })
+      .then(() => renderChildManagement());
+    return;
+  }
+  const dlcMutationDiscard = event.target.closest("[data-dlc-mutation-discard]");
+  if (dlcMutationDiscard) {
+    event.preventDefault();
+    discardChildDataMutation(dlcMutationDiscard.dataset.dlcMutationDiscard)
+      .then(() => {
+        showActionFeedback("Pending change discarded.");
+        renderChildManagement();
+      });
+    return;
+  }
+
+  const dlcReportShareBtn = event.target.closest("[data-dlc-report-share]");
+  if (dlcReportShareBtn) {
+    event.preventDefault();
+    dlcFinalizeReportPreview(dlcReportShareBtn.dataset.dlcReportShare, {
+      share: true,
+      storeKey: dlcReportShareBtn.dataset.dlcReportStore || "Reports",
+    });
+    return;
+  }
+  const dlcReportKeepBtn = event.target.closest("[data-dlc-report-keep-internal]");
+  if (dlcReportKeepBtn) {
+    event.preventDefault();
+    dlcFinalizeReportPreview(dlcReportKeepBtn.dataset.dlcReportKeepInternal, {
+      share: false,
+      storeKey: dlcReportKeepBtn.dataset.dlcReportStore || "Reports",
+    });
+    return;
+  }
+  const dlcReportDiscardBtn = event.target.closest("[data-dlc-report-discard]");
+  if (dlcReportDiscardBtn) {
+    event.preventDefault();
+    dlcFinalizeReportPreview(dlcReportDiscardBtn.dataset.dlcReportDiscard, {
+      discard: true,
+      storeKey: dlcReportDiscardBtn.dataset.dlcReportStore || "Reports",
+    });
+    return;
+  }
+
+  const dlcClassroomFilterValueBtn = event.target.closest("[data-dlc-classroom-filter-value]");
+  if (dlcClassroomFilterValueBtn) {
+    event.preventDefault();
+    dlcClassroomFilter = dlcClassroomFilterValueBtn.dataset.dlcClassroomFilterValue || "all";
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcSelectPresentBtn = event.target.closest("[data-dlc-select-present]");
+  if (dlcSelectPresentBtn) {
+    event.preventDefault();
+    const presentIds = dlcCheckedInChildIds();
+    if (!presentIds.length) {
+      showActionFeedback("No children are checked in yet.");
+      return;
+    }
+    dailyLogsSection = "group";
+    dailyLogsGroupAction = "activities";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcGroupSelectBtn = event.target.closest("[data-dlc-group-select]");
+  if (dlcGroupSelectBtn) {
+    event.preventDefault();
+    const mode = dlcGroupSelectBtn.dataset.dlcGroupSelect || "all";
+    const presentIds = new Set(dlcCheckedInChildIds());
+    document.querySelectorAll("#groupUpdateForm input[name='childIds']").forEach((input) => {
+      if (mode === "all") input.checked = true;
+      else if (mode === "none") input.checked = false;
+      else if (mode === "present") input.checked = presentIds.has(input.value);
+    });
+    return;
+  }
+
   // One-tap attendance / timeline quick actions
   const dlcQuickActionBtn = event.target.closest("[data-dlc-quick-action]");
   if (dlcQuickActionBtn) {
     event.preventDefault();
+    const now = Date.now();
+    if (now < dlcQuickActionLockUntil) {
+      showActionFeedback("Hang on — last tap is still saving.");
+      return;
+    }
+    dlcQuickActionLockUntil = now + 450;
     const actionId = dlcQuickActionBtn.dataset.dlcQuickAction || "";
     const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
     if (!actionId || !childId) return;
@@ -66370,10 +68456,13 @@ document.addEventListener("click", async (event) => {
       try {
         const programSettings = getProgramSettings();
         if (kind === "daily-report") {
-          await buildDailyReportFromChild(childId, grounded.highlights);
-          if (statusEl) statusEl.textContent = "Daily report saved and shared with Family Hub.";
-          showActionFeedback("Daily report created from today’s logs.");
-        } else if (kind === "weekly-summary") {
+          await buildDailyReportFromChild(childId, grounded.highlights, { openPreview: true });
+          if (statusEl) statusEl.textContent = "Draft ready — preview below. Not shared yet.";
+          showActionFeedback("Daily report draft ready for preview.");
+          recordAiUse();
+          return;
+        }
+        if (kind === "weekly-summary") {
           const weekFacts = buildGroundedWeekFactsForAi(child, records, today);
           if (!weekFacts.factsText) {
             if (statusEl) statusEl.textContent = "Log a few days of care first — weekly AI only uses real facts.";
@@ -66390,40 +68479,64 @@ document.addEventListener("click", async (event) => {
             tone: programSettings.communicationTone || "Warm and friendly",
             providerNotes: weekFacts.factsText,
           });
-          appendChildRecord("Reports", {
+          const weeklyText = dlcStripParentFacingMarkdown(String(result.output || ""));
+          const saved = appendChildRecord("Reports", {
             childId,
             date: today,
             title: `Weekly Summary | ${today}`,
-            message: result.output,
-            summary: String(result.output || "").slice(0, 120),
+            message: weeklyText,
+            summary: weeklyText.slice(0, 120),
             type: "Weekly Summary",
-            shareWithFamily: true,
-          });
-          if (statusEl) statusEl.textContent = "Weekly summary saved and shared with Family Hub.";
-          showActionFeedback("Weekly summary created from logged facts.");
+            status: "draft",
+            aiDraft: true,
+            shareWithFamily: false,
+          }, { skipNotify: true });
+          dlcPendingReportPreview = {
+            childId,
+            recordId: saved.id,
+            storeKey: "Reports",
+            kind: "weekly-summary",
+            text: weeklyText,
+          };
+          if (statusEl) statusEl.textContent = "Weekly summary draft ready — preview below. Not shared yet.";
+          showActionFeedback("Weekly summary draft ready for preview.");
         } else {
+          if (!grounded.factsText) {
+            if (statusEl) statusEl.textContent = "Log care facts first — AI will not invent a day update.";
+            return;
+          }
           const result = await generateToolOutputWithBackend("parentMessage", {
             topic: "End of day update",
-            details: grounded.factsText || `${child.name} had a full day.`,
+            details: grounded.factsText,
             childName: child.name,
             age: childAgeGroupLabel(child),
             programName: programSettings.programName || "",
             classroom: grounded.classroom || child.classroom || "",
             date: today,
             tone: programSettings.communicationTone || "Warm and friendly",
-            providerNotes: grounded.factsText,
+            providerNotes: `${grounded.factsText}\nUse only these logged facts. Do not invent meals, naps, toileting, behavior, injuries, milestones, or family details.`,
           });
-          appendChildRecord("Communications", {
+          const parentText = dlcStripParentFacingMarkdown(String(result.output || ""));
+          const saved = appendChildRecord("Communications", {
             childId,
             date: today,
             type: "Parent Note",
             title: `Parent Update | ${today}`,
-            message: result.output,
-            summary: String(result.output || "").slice(0, 120),
-            shareWithFamily: true,
-          });
-          if (statusEl) statusEl.textContent = "Parent message saved and shared with Family Hub.";
-          showActionFeedback("Parent message created from today’s logs.");
+            message: parentText,
+            summary: parentText.slice(0, 120),
+            status: "draft",
+            aiDraft: true,
+            shareWithFamily: false,
+          }, { skipNotify: true });
+          dlcPendingReportPreview = {
+            childId,
+            recordId: saved.id,
+            storeKey: "Communications",
+            kind: "parent-message",
+            text: parentText,
+          };
+          if (statusEl) statusEl.textContent = "Parent message draft ready — preview below. Not shared yet.";
+          showActionFeedback("Parent message draft ready for preview.");
         }
         recordAiUse();
         childManagementMode = "daily-logs";
@@ -68689,10 +70802,14 @@ document.addEventListener("click", async (event) => {
     }
     const quickNote = document.querySelector("#dlcDailyReportNote")?.value?.trim() || "";
     try {
-      await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
+      buildDailyReportButton.disabled = true;
+      await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote, { openPreview: true });
       recordAiUse();
+      showActionFeedback("Report draft ready — preview before sharing. Nothing was sent.");
     } catch (error) {
       alert(error.message || "We couldn't create your document right now. Please try again.");
+    } finally {
+      buildDailyReportButton.disabled = false;
     }
     return;
   }
@@ -69925,6 +72042,12 @@ document.addEventListener("change", (event) => {
     childManagementMode = "daily-logs";
     renderChildManagement();
   }
+  if (event.target.matches("[data-dlc-classroom-filter]")) {
+    dlcClassroomFilter = event.target.value || "all";
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    renderChildManagement();
+  }
   if (event.target.matches("#dlcChildSelect")) {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
@@ -70840,9 +72963,9 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       const returnView = pendingAuthReturnView
         && canOpenViewForCurrentAccess(pendingAuthReturnView)
         ? pendingAuthReturnView
-        : "calendar";
+        : defaultAuthLandingView();
       pendingAuthReturnView = "";
-      setView(returnView, { fromAuthLanding: true });
+      setView(returnView, { fromAuthLanding: true, allowDashboard: true });
     } else {
       pendingAuthReturnView = "";
     }
@@ -70856,6 +72979,11 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     }, { lastLogin: true })).then(() => Promise.all([
       runAuthSyncWithTimeout("login membership sync", () => syncSubscriptionFromBackend(result.email, { forceRefresh: true })),
       runAuthSyncWithTimeout("login child sync", () => syncChildDataFromBackend()),
+      loadChildDataMutationQueue().then(() => (
+        childDataMutationQueue.length
+          ? saveChildDataToBackend({ force: true, retryFailed: true })
+          : null
+      )).catch(() => {}),
       loadUserAiUsage(result.email).catch(() => {}),
     ])).catch(() => {});
   } catch (error) {
@@ -70882,9 +73010,9 @@ document.querySelector("#forcePasswordForm")?.addEventListener("submit", async (
     const returnView = pendingAuthReturnView
       && canOpenViewForCurrentAccess(pendingAuthReturnView)
       ? pendingAuthReturnView
-      : "calendar";
+      : defaultAuthLandingView();
     pendingAuthReturnView = "";
-    setView(returnView, { fromAuthLanding: true });
+    setView(returnView, { fromAuthLanding: true, allowDashboard: true });
   } catch (error) {
     setFormMessage("#forcePasswordMessage", friendlyAuthError(error) || error.message || "Could not update password.");
     if (messageEl) messageEl.classList.remove("success");
@@ -73404,19 +75532,35 @@ document.addEventListener("submit", (event) => {
   }
   const date = form.date?.value || "";
   const details = form.details?.value || "";
-  saveChildStore(storeKey, childStore(storeKey).map((item) => {
-    if (item.id !== recordId) return item;
-    const next = { ...item, updatedAt: new Date().toISOString() };
-    if (date) next.date = date;
-    next[detailKey] = details;
-    if (detailKey !== "summary" && !next.summary) next.summary = details;
-    if (date && next.title && String(next.title).includes("|")) {
-      next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
-    }
-    return next;
-  }));
+  const items = childStore(storeKey);
+  const previous = items.find((item) => item.id === recordId);
+  if (!previous) {
+    closeChildRecordEditDialog(false);
+    showActionFeedback("That record is no longer available.");
+    return;
+  }
+  const baseRevision = Number(previous.revision) || 1;
+  const baseSnapshot = { ...previous };
+  const clientMutationId = newClientMutationId();
+  const next = { ...previous, updatedAt: new Date().toISOString(), clientMutationId, revision: baseRevision };
+  if (date) next.date = date;
+  next[detailKey] = details;
+  if (detailKey !== "summary" && !next.summary) next.summary = details;
+  if (date && next.title && String(next.title).includes("|")) {
+    next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
+  }
+  saveChildStore(storeKey, items.map((item) => (item.id === recordId ? next : item)));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey,
+    clientMutationId,
+    baseRevision,
+    record: next,
+    baseSnapshot,
+    childId: next.childId || (storeKey === "Profiles" ? next.id : ""),
+  });
   closeChildRecordEditDialog(true);
-  showActionFeedback("Entry updated.");
+  showActionFeedback("Entry updated — saving to cloud…");
   renderChildManagement();
 });
 
@@ -73434,18 +75578,20 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("submit", (event) => {
   if (!event.target.matches("#attendanceForm")) return;
   event.preventDefault();
+  if (!dlcGuardFormSubmit(event.target)) return;
   if (!isProUser()) {
     showProFeatureModal("Attendance tracking is a Pro feature.");
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Attendance", {
+  upsertDailyLogAttendance(data.childId, {
     ...data,
     title: `${data.date} | ${data.status}`,
     summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}`,
     shareWithFamily: true,
   });
   showAfterActionPrompt("attendance", data.childId);
+  renderChildManagement();
 });
 
 document.addEventListener("submit", (event) => {
@@ -73553,6 +75699,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#groupUpdateForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const actionId = data.action || "";
   // Announcements / reminders remain Pro; core group meals & activities are part of Daily Logs.
@@ -73562,25 +75709,127 @@ document.addEventListener("submit", (event) => {
   }
   const formData = new FormData(form);
   const childIds = formData.getAll("childIds");
-  const shareWithFamily = dlcFormShareFlag(form, actionId === "announcement" || actionId === "reminder");
-  if (!childIds.length) return;
+  const shareWithFamily = dlcFormShareFlag(form, ["announcement", "reminder"].includes(actionId));
+  if (!childIds.length) {
+    showActionFeedback("Select at least one child.");
+    return;
+  }
+  const today = data.date || dlcActiveDate();
+  const amount = String(data.amount || "").trim();
+  const savedIds = [];
+  const failed = [];
   childIds.forEach((childId) => {
-    const today = data.date || dlcActiveDate();
-    if (actionId === "meals" || actionId === "lunch") {
-      appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily });
-    } else if (actionId === "snacks") {
-      appendChildRecord("Meals", { childId, date: today, snack: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${data.content}`, shareWithFamily });
-    } else if (actionId === "breakfast") {
-      appendChildRecord("Meals", { childId, date: today, breakfast: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${data.content}`, shareWithFamily });
-    } else if (actionId === "activities") {
-      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily });
-    } else {
-      appendChildRecord("Communications", { childId, date: today, type: actionId === "reminder" ? "Parent Reminder" : "Announcement", message: data.content, title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`, summary: data.content, shareWithFamily });
+    try {
+      const opts = { skipRender: true };
+      if (actionId === "meals" || actionId === "lunch") {
+        const lunch = amount ? `${data.content} (${amount})` : data.content;
+        appendChildRecord("Meals", { childId, date: today, lunch, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${lunch}`, shareWithFamily }, opts);
+      } else if (actionId === "snacks") {
+        const snack = amount ? `${data.content} (${amount})` : data.content;
+        appendChildRecord("Meals", { childId, date: today, snack, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${snack}`, shareWithFamily }, opts);
+      } else if (actionId === "breakfast") {
+        const breakfast = amount ? `${data.content} (${amount})` : data.content;
+        appendChildRecord("Meals", { childId, date: today, breakfast, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${breakfast}`, shareWithFamily }, opts);
+      } else if (actionId === "bottle") {
+        appendChildRecord("Meals", {
+          childId,
+          date: today,
+          time: data.time || quickActionTime(),
+          type: "Bottle",
+          amount: data.content,
+          notes: data.notes || "",
+          title: `Bottle | ${today}`,
+          summary: `Bottle: ${data.content}`,
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "naps") {
+        appendChildRecord("Naps", {
+          childId,
+          date: today,
+          napStart: data.napStart || "",
+          napEnd: data.napEnd || "",
+          notes: data.notes || "",
+          title: `Nap | ${today}`,
+          summary: data.napEnd ? `Nap ${data.napStart || "?"}–${data.napEnd}` : `Nap started ${data.napStart || ""}`.trim(),
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "diapers") {
+        appendChildRecord("Diapers", {
+          childId,
+          date: today,
+          time: data.time || quickActionTime(),
+          type: data.diaperType || "Diaper Change",
+          notes: data.notes || "",
+          title: `${data.diaperType || "Diaper"} | ${today}`,
+          summary: data.diaperType || "Diaper / Potty",
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "mood") {
+        appendChildRecord("Communications", {
+          childId,
+          date: today,
+          type: "Mood Note",
+          mood: data.mood || "",
+          message: data.content || "",
+          title: `Mood | ${today}`,
+          summary: data.mood || "Mood noted",
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "note") {
+        appendChildRecord("Communications", {
+          childId,
+          date: today,
+          type: "General Note",
+          message: data.content || "",
+          title: `Note | ${today}`,
+          summary: data.content || "Note",
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "activities") {
+        appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily }, opts);
+      } else {
+        appendChildRecord("Communications", {
+          childId,
+          date: today,
+          type: actionId === "reminder" ? "Parent Reminder" : "Announcement",
+          message: data.content,
+          title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`,
+          summary: data.content,
+          shareWithFamily,
+        }, opts);
+      }
+      savedIds.push(childId);
+    } catch (error) {
+      failed.push({
+        childId,
+        name: typeof childName === "function" ? childName(childId) : childId,
+        error: error?.message || "Save failed",
+      });
     }
   });
   dailyLogsGroupAction = "";
+  dailyLogsSection = "home";
   renderChildManagement();
-  showActionFeedback("Group log saved to selected children.");
+  if (!savedIds.length) {
+    dlcSetSaveStatus("failed", "Group log failed for every selected child");
+    showActionFeedback(`Group log failed for all ${childIds.length} children. Nothing was marked saved.`);
+    return;
+  }
+  if (failed.length) {
+    dlcSetSaveStatus("failed", `Saved locally for ${savedIds.length} of ${childIds.length} — syncing…`);
+    showActionFeedback(`Saved for ${savedIds.length} of ${childIds.length} children. Failed: ${failed.map((item) => item.name).join(", ")}. Nothing was sent to families.`);
+    void saveChildDataToBackend({ force: true });
+    return;
+  }
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  dlcSetSaveStatus(
+    offline ? "offline" : "pending",
+    offline
+      ? `Group log on device for ${savedIds.length} — waiting for connection`
+      : `Group log on device for ${savedIds.length} — saving to cloud…`,
+  );
+  showActionFeedback(`Group log saved for ${savedIds.length} child${savedIds.length === 1 ? "" : "ren"}. Nothing was sent to families.`);
+  void saveChildDataToBackend({ force: true });
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -73594,11 +75843,22 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcAttendanceForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, false);
+  if (!childIds.length) {
+    showActionFeedback("Select at least one child.");
+    return;
+  }
   childIds.forEach((childId) => {
-    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status, shareWithFamily });
+    upsertDailyLogAttendance(childId, {
+      ...data,
+      childId,
+      title: `Attendance | ${data.date}`,
+      summary: data.status,
+      shareWithFamily,
+    }, { skipRender: true });
   });
   showAfterActionPrompt("attendance", childIds[0]);
   dlcManualSection = "";
@@ -73609,12 +75869,13 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcMealsForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
-  childIds.forEach((childId) => {
+  childIds.forEach((childId, index) => {
     const parts = [data.breakfast && `Breakfast: ${data.breakfast}`, data.lunch && `Lunch: ${data.lunch}`, data.snack && `Snack: ${data.snack}`].filter(Boolean);
-    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily });
+    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily }, { skipRender: index < childIds.length - 1 });
   });
   showAfterActionPrompt("meals", childIds[0]);
   dlcManualSection = "";
@@ -73625,6 +75886,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcBottleForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73641,6 +75903,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcNapForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73657,6 +75920,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcDiaperForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73673,6 +75937,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcActivityForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73689,6 +75954,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcMoodForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);

@@ -6,26 +6,30 @@
 
 ## Verdict
 
-**PASS** — Role-specific navigation is live. Owner, Teacher, and Assistant are intentionally not symmetrical.
+**PASS** — Role-specific navigation is live. Owner, Director, Teacher, and Assistant are intentionally not symmetrical.
 
 ## Results
 
 | Check | Result |
 |---|---|
-| Owner nav (Home/Children/Classroom/Families/Business/Settings) | PASS |
-| Owner Home dashboard | PASS |
-| Teacher nav (Today/My Children/Classroom/Families/More) | PASS |
-| Teacher Today dashboard | PASS |
-| Assistant nav (Today/Children/Classroom/Messages/More) | PASS |
+| Owner nav (Home/Daily Logs/Children/Calendar/Lessons/Messages/Forms/Families/Business/Settings) | PASS |
+| Owner Home dashboard + empty setup guide | PASS |
+| Greeting fallback (first name → program → role → generic) | PASS |
+| Director nav + Home (Business/Families/Forms; no Teacher Today) | PASS |
+| Teacher nav (Today/Daily Logs/…/Messages/More; no Business/Families/Settings) | PASS |
+| Teacher Today dashboard + empty setup guide | PASS |
+| Assistant nav (Today/…/Messages/More; no Families/Business) | PASS |
+| Mobile owner/teacher greetings (no horizontal overflow) | PASS |
 | Universal Quick Add | PASS |
 | Testing Pro / Testing Center APIs | PASS |
 
 ## Design principle
 
-Roles are **not** forced into the same structure. An owner's day (business pulse + alerts), a teacher's day (care loop), and a parent's day (warm Family Hub) each get a home optimized for what they do most often.
+Roles are **not** forced into the same structure. Login lands on role Home/Today. Empty programs get a setup path before Daily Logs. Heavy owner tools stay out of teacher screens.
 
-## Deferred polish
+## Phase 1 scope
 
-- Deeper child-profile tab rename pass (all child domains already open from Children)
-- Richer seed/reset suite for every test persona type
-- Production rollout of work-mode (currently testing-fence only)
+- Auth landing uses work-mode Home/Today
+- Empty-program setup guide
+- Daily nav: Daily Logs, Calendar, Lessons, Activities, Documentation Helpers, Messages
+- Teaching Kit Admin / Testing Center stay hidden from regular testers

@@ -13904,6 +13904,8 @@ async function resolveChildDataIdentity(request) {
   return resolveScheduleIdentity(request);
 }
 
+const childDataMutations = require("./child-data-mutations");
+
 async function handleChildData(request, response) {
   let identity;
   try {
@@ -13925,6 +13927,7 @@ async function handleChildData(request, response) {
       uid: identity.uid,
       programId: context.programId,
       ownerEmail: context.ownerEmail,
+      role: context.role || "",
       data: saved.data || null,
       updatedAt: saved.updatedAt || "",
       updatedByUid: saved.updatedByUid || "",
@@ -13935,10 +13938,51 @@ async function handleChildData(request, response) {
   }
   try {
     const body = await readJson(request);
+    const mutations = Array.isArray(body.mutations) ? body.mutations : [];
+    // Preferred path: idempotent per-record mutations (Daily Logs / multi-device safe).
+    if (mutations.length) {
+      const applied = childDataMutations.applyMutations(store, context, mutations);
+      if (applied.error && !applied.results) {
+        jsonResponse(response, 400, { error: applied.error || "Could not apply child-data mutations." });
+        return;
+      }
+      // Persist successful appends/updates even when sibling mutations conflict (409).
+      const idempotencyMap = store.programData[context.programId]?.childIdempotency || {};
+      programOwnership.writeProgramChildData(store, context, applied.data, { mirrorLegacy: true });
+      store.programData[context.programId].childIdempotency = idempotencyMap;
+      const status = applied.conflicts > 0 ? 409 : (applied.failed > 0 && applied.applied === 0 ? 403 : 200);
+      await respondAfterPersist(store, response, status, {
+        ok: Boolean(applied.ok),
+        mode: "mutations",
+        conflict: Boolean(applied.conflict),
+        updatedAt: applied.updatedAt,
+        programId: applied.programId,
+        ownerEmail: context.ownerEmail,
+        applied: applied.applied,
+        duplicates: applied.duplicates,
+        failed: applied.failed,
+        conflicts: applied.conflicts || 0,
+        results: applied.results,
+        error: applied.conflicts > 0
+          ? "One or more records were updated by someone else. Successful entries were kept; resolve conflicts to continue."
+          : (applied.failed > 0 && applied.applied === 0 ? "Could not save — permission denied." : undefined),
+      }, "Could not save child data.");
+      return;
+    }
+    // Legacy full-snapshot replace (owner/director only) — staff must use mutations.
+    const role = String(context.role || "").toLowerCase();
+    if (role === "teacher" || role === "assistant") {
+      jsonResponse(response, 400, {
+        error: "Staff accounts must save Daily Logs through idempotent mutations.",
+        code: "child_data_mutations_required",
+      });
+      return;
+    }
     const data = sanitizeChildDataPayload(body.data || {});
     const result = programOwnership.writeProgramChildData(store, context, data);
     await respondAfterPersist(store, response, 200, {
       ok: true,
+      mode: "snapshot",
       updatedAt: result.updatedAt,
       programId: result.programId,
       ownerEmail: context.ownerEmail,
