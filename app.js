@@ -566,6 +566,8 @@ let dlcUndoStack = []; // recent reversible Daily Logs writes
 let dlcQuickActionLockUntil = 0; // debounce repeated taps while supervising children
 let dlcFormSubmitLockUntil = 0; // debounce repeated form submits
 let dlcPendingReportPreview = null; // { childId, recordId, kind, text } — draft until Share
+let childDataMutationQueue = []; // pending idempotent cloud mutations
+let childDataMutationInFlight = false;
 let lessonPlanWorkflowState = {
   step: 1,
   generating: false,
@@ -18991,7 +18993,7 @@ function quickActionTime() {
 
 /** Prefer the Daily Logs dashboard date when logging from that workspace. */
 function dlcActiveDate() {
-  return dlcDashboardDate || new Date().toISOString().slice(0, 10);
+  return dlcDashboardDate || programLocalDate();
 }
 
 function dlcRecorderLabel() {
@@ -19125,79 +19127,364 @@ function dlcGuardFormSubmit(form) {
   return true;
 }
 
-/** Single upsert path for today's attendance (forms + quick actions). */
+function programTimezone() {
+  const settings = typeof getProgramSettings === "function" ? (getProgramSettings() || {}) : {};
+  const configured = String(settings.timezone || settings.timeZone || "").trim();
+  if (configured) return configured;
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+  } catch (_error) {
+    return "America/New_York";
+  }
+}
+
+/** Calendar date (YYYY-MM-DD) in the program timezone — handles midnight / DST boundaries. */
+function programLocalDate(dateInput = new Date()) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: programTimezone(),
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  } catch (_error) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function programLocalTime(dateInput = new Date()) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: programTimezone(),
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(date);
+    const hour = parts.find((part) => part.type === "hour")?.value || "00";
+    const minute = parts.find((part) => part.type === "minute")?.value || "00";
+    return `${hour}:${minute}`;
+  } catch (_error) {
+    return new Date().toTimeString().slice(0, 5);
+  }
+}
+
+function attendanceCheckInOf(session = {}) {
+  return String(session.checkIn || session.dropoff || "").trim();
+}
+
+function attendanceCheckOutOf(session = {}) {
+  return String(session.checkOut || session.pickup || "").trim();
+}
+
+function isAbsentAttendance(session = {}) {
+  return String(session.status || "").toLowerCase() === "absent";
+}
+
+function getChildAttendanceSessions(childOrId, records = childRecords(), today = dlcActiveDate()) {
+  const childId = typeof childOrId === "string" ? childOrId : childOrId?.id;
+  return (records.attendance || [])
+    .filter((item) => item.childId === childId && item.date === today)
+    .sort((a, b) => {
+      const aTime = attendanceCheckInOf(a) || String(a.createdAt || "");
+      const bTime = attendanceCheckInOf(b) || String(b.createdAt || "");
+      return aTime.localeCompare(bTime) || String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    });
+}
+
+function getOpenAttendanceSession(childOrId, records = childRecords(), today = dlcActiveDate()) {
+  const sessions = getChildAttendanceSessions(childOrId, records, today);
+  return sessions.find((session) => !isAbsentAttendance(session) && attendanceCheckInOf(session) && !attendanceCheckOutOf(session)) || null;
+}
+
+function attendanceSessionMinutes(session = {}) {
+  const start = attendanceCheckInOf(session);
+  const end = attendanceCheckOutOf(session);
+  if (!start || !end) return 0;
+  const startMin = dlcTimeToMinutes(start);
+  let endMin = dlcTimeToMinutes(end);
+  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || startMin === Number.MAX_SAFE_INTEGER) return 0;
+  // Overnight care: checkout next calendar morning still on same program "care day".
+  if (endMin < startMin) endMin += 24 * 60;
+  return Math.max(0, endMin - startMin);
+}
+
+function totalAttendanceMinutes(childOrId, records = childRecords(), today = dlcActiveDate()) {
+  const sessions = getChildAttendanceSessions(childOrId, records, today).filter((session) => !isAbsentAttendance(session));
+  return sessions.reduce((sum, session) => {
+    if (attendanceCheckOutOf(session)) return sum + attendanceSessionMinutes(session);
+    // Open session counts through "now" in program timezone.
+    const openProxy = {
+      ...session,
+      checkOut: programLocalTime(),
+      pickup: programLocalTime(),
+    };
+    return sum + attendanceSessionMinutes(openProxy);
+  }, 0);
+}
+
+function formatAttendanceDuration(totalMinutes = 0) {
+  const mins = Math.max(0, Math.round(Number(totalMinutes) || 0));
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (!hours) return `${rem}m`;
+  return rem ? `${hours}h ${rem}m` : `${hours}h`;
+}
+
+function pushAttendanceHistory(session, change, beforePatch = {}, afterPatch = {}) {
+  const history = Array.isArray(session.history) ? session.history.slice(-40) : [];
+  history.push({
+    at: new Date().toISOString(),
+    by: dlcRecorderLabel(),
+    byEmail: String(currentUser || ""),
+    change,
+    before: beforePatch,
+    after: afterPatch,
+  });
+  return history;
+}
+
+function writeAttendanceRecordUpdate(updated, { before = null, skipUndo = false, label = "Attendance" } = {}) {
+  const attendance = childStore("Attendance");
+  const clientMutationId = newClientMutationId();
+  const next = {
+    ...updated,
+    clientMutationId,
+    updatedAt: new Date().toISOString(),
+    recordedBy: updated.recordedBy || dlcRecorderLabel(),
+    recordedByEmail: updated.recordedByEmail || String(currentUser || ""),
+  };
+  saveChildStore("Attendance", attendance.map((item) => (item.id === next.id ? next : item)));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey: "Attendance",
+    clientMutationId,
+    record: next,
+  });
+  if (!skipUndo && before) {
+    dlcPushUndo({
+      kind: "attendance-update",
+      storeKey: "Attendance",
+      recordId: next.id,
+      before,
+      childId: next.childId,
+      label,
+    });
+  }
+  dlcSetSaveStatus("saved", label);
+  if (typeof runAttendanceAutomation === "function") runAttendanceAutomation(next);
+  return next;
+}
+
+/**
+ * Session-aware attendance API.
+ * Same-day return visits create a NEW session instead of overwriting the first.
+ */
 function upsertDailyLogAttendance(childId, data = {}, options = {}) {
   if (!childId) return null;
   const today = data.date || dlcActiveDate();
-  const attendance = childStore("Attendance");
-  const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
+  const records = { attendance: childStore("Attendance") };
+  const sessions = getChildAttendanceSessions(childId, records, today);
   const recorder = dlcRecorderLabel();
   const status = String(data.status || "Present").trim() || "Present";
   const isAbsent = status.toLowerCase() === "absent";
-  const nextFields = {
-    childId,
-    date: today,
-    status,
-    dropoff: isAbsent ? "" : String(data.dropoff || ""),
-    pickup: isAbsent ? "" : String(data.pickup || ""),
-    title: data.title || `Attendance | ${today}`,
-    summary: data.summary || (isAbsent ? "Absent" : status),
-    shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
-    recordedBy: recorder,
-    updatedAt: new Date().toISOString(),
-  };
-  if (existing) {
-    const before = { ...existing };
-    let updated = null;
-    saveChildStore("Attendance", attendance.map((item) => {
-      if (item.id !== existing.id) return item;
-      updated = {
-        ...item,
-        ...nextFields,
-        id: item.id,
-        createdAt: item.createdAt,
-        dropoff: isAbsent ? "" : (nextFields.dropoff || item.dropoff || ""),
-        pickup: isAbsent ? "" : (nextFields.pickup || (data.clearPickup ? "" : item.pickup) || ""),
-      };
-      return updated;
-    }));
-    if (updated && !options.skipUndo) {
-      dlcPushUndo({
-        kind: "attendance-update",
-        storeKey: "Attendance",
-        recordId: updated.id,
-        before,
-        childId,
-        label: "Attendance",
-      });
+  const time = String(data.dropoff || data.checkIn || data.pickup || data.checkOut || programLocalTime()).trim();
+  const tz = programTimezone();
+
+  if (isAbsent) {
+    // Mark day absent: close any open session into history, store one absent marker.
+    const open = getOpenAttendanceSession(childId, records, today);
+    if (open) {
+      writeAttendanceRecordUpdate({
+        ...open,
+        checkOut: time || programLocalTime(),
+        pickup: time || programLocalTime(),
+        summary: `${attendanceCheckInOf(open)}–${time || programLocalTime()} (closed before absent)`,
+        history: pushAttendanceHistory(open, "closed-before-absent", {
+          checkOut: attendanceCheckOutOf(open),
+        }, { checkOut: time || programLocalTime() }),
+      }, { before: open, skipUndo: options.skipUndo, label: "Session closed" });
     }
-    if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-    dlcSetSaveStatus("saved", "Attendance updated");
-    return updated;
+    const existingAbsent = sessions.find((session) => isAbsentAttendance(session));
+    if (existingAbsent) {
+      dlcSetSaveStatus("saved", "Already marked absent");
+      return existingAbsent;
+    }
+    return appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      timezone: tz,
+      status: "Absent",
+      checkIn: "",
+      checkOut: "",
+      dropoff: "",
+      pickup: "",
+      sessionIndex: 0,
+      title: `Absent | ${today}`,
+      summary: "Absent",
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+      recordedBy: recorder,
+      history: [],
+    }, options);
   }
-  return appendChildRecord("Attendance", nextFields, options);
+
+  const wantsCheckOut = Boolean(data.pickup || data.checkOut || data.forceCheckOut);
+  const wantsCheckIn = Boolean(data.dropoff || data.checkIn || data.forceCheckIn)
+    || data.forceCheckIn
+    || (!wantsCheckOut && !data.forceCheckOut);
+  const open = getOpenAttendanceSession(childId, records, today);
+
+  // Close the open session first (same-day return visits keep prior sessions intact).
+  if (wantsCheckOut && open && !(wantsCheckIn && (data.dropoff || data.checkIn) && !data.forceCheckOut)) {
+    const checkOut = String(data.pickup || data.checkOut || time).trim();
+    const before = { ...open };
+    return writeAttendanceRecordUpdate({
+      ...open,
+      status: "Present",
+      checkOut,
+      pickup: checkOut,
+      dropoff: attendanceCheckInOf(open),
+      checkIn: attendanceCheckInOf(open),
+      timezone: open.timezone || tz,
+      summary: `${attendanceCheckInOf(open)}–${checkOut}`,
+      history: pushAttendanceHistory(open, "check-out", { checkOut: "" }, { checkOut }),
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+    }, { before, skipUndo: options.skipUndo, label: "Checked out" });
+  }
+
+  // Pure checkout with no open session (and no new check-in times) — no-op.
+  if (wantsCheckOut && !open && !(data.dropoff || data.checkIn || data.forceCheckIn)) {
+    dlcSetSaveStatus("saved", "Already checked out");
+    return sessions.filter((session) => !isAbsentAttendance(session)).slice(-1)[0] || null;
+  }
+
+  if (open && wantsCheckIn && !wantsCheckOut) {
+    // Quick-action forceCheckIn = ignore duplicate taps (do not rewrite times).
+    // Form edits without forceCheckIn may correct an incorrect check-in (audit trail preserved).
+    if (!data.forceCheckIn && (data.dropoff || data.checkIn)) {
+      const nextIn = String(data.dropoff || data.checkIn).trim();
+      if (nextIn && nextIn !== attendanceCheckInOf(open)) {
+        const before = { ...open };
+        return writeAttendanceRecordUpdate({
+          ...open,
+          checkIn: nextIn,
+          dropoff: nextIn,
+          timezone: open.timezone || tz,
+          summary: `Present at ${nextIn}`,
+          history: pushAttendanceHistory(open, "edit-check-in", {
+            checkIn: attendanceCheckInOf(open),
+          }, { checkIn: nextIn }),
+        }, { before, skipUndo: options.skipUndo, label: "Check-in time corrected" });
+      }
+    }
+    dlcSetSaveStatus("saved", "Already checked in");
+    return open;
+  }
+
+  if (open && wantsCheckIn && wantsCheckOut) {
+    // Form submitted both times while still checked in: close current session only.
+    const checkOut = String(data.pickup || data.checkOut || time).trim();
+    const before = { ...open };
+    return writeAttendanceRecordUpdate({
+      ...open,
+      status: "Present",
+      checkOut,
+      pickup: checkOut,
+      dropoff: attendanceCheckInOf(open),
+      checkIn: attendanceCheckInOf(open),
+      timezone: open.timezone || tz,
+      summary: `${attendanceCheckInOf(open)}–${checkOut}`,
+      history: pushAttendanceHistory(open, "check-out", { checkOut: "" }, { checkOut }),
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+    }, { before, skipUndo: options.skipUndo, label: "Checked out" });
+  }
+
+  // New session (including same-day return after a completed checkout).
+  if (!open && (wantsCheckIn || (data.dropoff || data.checkIn))) {
+    const checkIn = String(data.dropoff || data.checkIn || time).trim() || programLocalTime();
+    const checkOut = String(data.pickup || data.checkOut || "").trim();
+    const presentCount = sessions.filter((session) => !isAbsentAttendance(session)).length;
+    return appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      timezone: tz,
+      status: "Present",
+      checkIn,
+      checkOut,
+      dropoff: checkIn,
+      pickup: checkOut,
+      sessionIndex: presentCount + 1,
+      title: `Attendance session ${presentCount + 1} | ${today}`,
+      summary: checkOut ? `${checkIn}–${checkOut}` : `Present at ${checkIn}`,
+      shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+      recordedBy: recorder,
+      history: [{
+        at: new Date().toISOString(),
+        by: recorder,
+        byEmail: String(currentUser || ""),
+        change: checkOut ? "check-in-out" : "check-in",
+        before: {},
+        after: checkOut ? { checkIn, checkOut } : { checkIn },
+      }],
+    }, options);
+  }
+  return null;
 }
 
 function renderDlcReportPreviewCard(childId = "") {
   const preview = dlcPendingReportPreview;
   if (!preview || (childId && preview.childId !== childId)) return "";
+  const { childLabel, familyLabel } = dlcFamilyLabelForChild(preview.childId);
+  const kindLabel = preview.kind === "weekly-summary"
+    ? "weekly summary"
+    : preview.kind === "parent-message"
+      ? "parent message"
+      : "daily report";
+  const plain = dlcStripParentFacingMarkdown(preview.text || "");
   return `
-    <section class="section-block dlc-report-preview" data-dlc-report-preview>
+    <section class="section-block dlc-report-preview" data-dlc-report-preview data-dlc-report-child="${escapeHtml(preview.childId || "")}" data-dlc-report-kind="${escapeHtml(preview.kind || "daily-report")}">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Draft — not shared yet</p>
-          <h4>Preview parent-facing ${escapeHtml(preview.kind === "weekly-summary" ? "weekly summary" : preview.kind === "parent-message" ? "message" : "report")}</h4>
-          <p class="muted-copy">Edit if needed. Nothing is sent or shown to families until you choose Share with Family.</p>
+          <p class="eyebrow">AI Draft — not shared yet</p>
+          <h4>Preview ${escapeHtml(kindLabel)} for ${escapeHtml(childLabel)}</h4>
+          <p class="muted-copy">Child: <strong>${escapeHtml(childLabel)}</strong> · Record type: <strong>${escapeHtml(kindLabel)}</strong> · Family: <strong>${escapeHtml(familyLabel)}</strong>. Edit if needed. Nothing is sent or shown to families until you choose Share with Family.</p>
         </div>
       </div>
-      <textarea class="dlc-report-preview-text" data-dlc-report-preview-text rows="10">${escapeHtml(preview.text || "")}</textarea>
+      <label class="dlc-form-label">Draft text (editable)
+        <textarea class="dlc-report-preview-text" data-dlc-report-preview-text rows="10">${escapeHtml(plain)}</textarea>
+      </label>
       <div class="account-actions-row dlc-report-preview-actions">
-        <button class="primary-button" type="button" data-dlc-report-share="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Share with Family</button>
+        <button class="primary-button" type="button" data-dlc-report-share="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Share with ${escapeHtml(familyLabel)}</button>
         <button class="ghost-button" type="button" data-dlc-report-keep-internal="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Keep Internal</button>
         <button class="ghost-button" type="button" data-dlc-report-discard="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Discard draft</button>
       </div>
     </section>
   `;
+}
+
+function dlcFamilyLabelForChild(childId) {
+  const child = (typeof childRecords === "function" ? childRecords().children : [])
+    .find((item) => item.id === childId) || {};
+  const childLabel = String(child.name || childName?.(childId) || "this child").trim() || "this child";
+  const family = String(child.parentInfo || "").trim()
+    || String(child.familyName || "").trim()
+    || String(child.parentEmail || "").trim()
+    || "their linked family";
+  return { childLabel, familyLabel: family };
+}
+
+function dlcStripParentFacingMarkdown(text = "") {
+  return String(text || "")
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*\n?/g, "").replace(/```/g, ""))
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "• ")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/\r\n/g, "\n")
+    .trim();
 }
 
 async function dlcFinalizeReportPreview(recordId, { share = false, discard = false, storeKey = "Reports" } = {}) {
@@ -19223,18 +19510,24 @@ async function dlcFinalizeReportPreview(recordId, { share = false, discard = fal
     renderChildManagement();
     return true;
   }
-  const edited = String(document.querySelector("[data-dlc-report-preview-text]")?.value || record.message || "").trim();
+  const editedRaw = String(document.querySelector("[data-dlc-report-preview-text]")?.value || record.message || "").trim();
+  const edited = dlcStripParentFacingMarkdown(editedRaw);
   if (!edited) {
     showActionFeedback("Add report text before saving.");
     return false;
   }
   if (share) {
+    const { childLabel, familyLabel } = dlcFamilyLabelForChild(record.childId);
     const confirmed = await confirmAction({
-      title: "Share with Family Hub?",
-      message: "Linked families will be able to see this draft. Nothing is emailed automatically. Other households never see it.",
-      confirmLabel: "Share with Family",
+      title: `Share ${childLabel}'s report?`,
+      message: `This will make the report visible to ${familyLabel} in Family Hub for ${childLabel}. Nothing is emailed automatically. Cancel leaves zero family-visible changes.`,
+      confirmLabel: `Share with ${familyLabel}`,
+      cancelLabel: "Cancel — keep internal",
     });
-    if (!confirmed) return false;
+    if (!confirmed) {
+      showActionFeedback("Share canceled. Draft stayed internal — no family-visible changes.");
+      return false;
+    }
   }
   const next = {
     ...record,
@@ -19244,7 +19537,15 @@ async function dlcFinalizeReportPreview(recordId, { share = false, discard = fal
     status: share ? "shared" : "draft",
     updatedAt: new Date().toISOString(),
   };
+  const clientMutationId = newClientMutationId();
+  next.clientMutationId = clientMutationId;
   saveChildStore(key, items.map((item) => (item.id === recordId ? next : item)));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey: key,
+    clientMutationId,
+    record: next,
+  });
   if (share && typeof maybeNotifyFamilyHubSharedRecord === "function") {
     maybeNotifyFamilyHubSharedRecord(key, next).catch(() => {});
   }
@@ -19257,24 +19558,27 @@ async function dlcFinalizeReportPreview(recordId, { share = false, discard = fal
 }
 
 /**
- * Attendance state for one child on a date.
+ * Attendance state for one child on a date (multi-session aware).
  * "not_arrived" | "checked_in" | "checked_out" | "absent"
  */
 function getChildAttendanceState(child, records, today = dlcActiveDate()) {
-  const attendance = (records.attendance || [])
-    .filter((item) => item.childId === child.id && item.date === today)
-    .slice(-1)[0];
-  if (!attendance) return "not_arrived";
-  if (String(attendance.status || "").toLowerCase() === "absent") return "absent";
-  if (attendance.pickup) return "checked_out";
-  if (attendance.dropoff || String(attendance.status || "").toLowerCase() === "present") return "checked_in";
+  const sessions = getChildAttendanceSessions(child, records, today);
+  if (!sessions.length) return "not_arrived";
+  if (sessions.some((session) => isAbsentAttendance(session)) && !sessions.some((session) => !isAbsentAttendance(session))) {
+    return "absent";
+  }
+  if (getOpenAttendanceSession(child, records, today)) return "checked_in";
+  if (sessions.some((session) => !isAbsentAttendance(session) && attendanceCheckOutOf(session))) return "checked_out";
+  if (sessions.some((session) => !isAbsentAttendance(session) && attendanceCheckInOf(session))) return "checked_in";
   return "not_arrived";
 }
 
+/** Latest meaningful attendance row (open session preferred, else last present session). */
 function getChildAttendanceRecord(child, records, today = dlcActiveDate()) {
-  return (records.attendance || [])
-    .filter((item) => item.childId === child.id && item.date === today)
-    .slice(-1)[0] || null;
+  const open = getOpenAttendanceSession(child, records, today);
+  if (open) return open;
+  const sessions = getChildAttendanceSessions(child, records, today).filter((session) => !isAbsentAttendance(session));
+  return sessions.slice(-1)[0] || getChildAttendanceSessions(child, records, today).slice(-1)[0] || null;
 }
 
 function formatDlcClock(value) {
@@ -19289,156 +19593,36 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
   const time = options.time || quickActionTime();
   const recorder = dlcRecorderLabel();
   if (actionId === "check-in") {
-    const attendance = childStore("Attendance");
-    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
-    if (existing) {
-      // Already checked in and not checked out — ignore duplicate taps.
-      if (
-        String(existing.status || "").toLowerCase() !== "absent"
-        && (existing.dropoff || String(existing.status || "").toLowerCase() === "present")
-        && !existing.pickup
-      ) {
-        dlcSetSaveStatus("saved", "Already checked in");
-        return;
-      }
-      let updated = null;
-      const before = { ...existing };
-      saveChildStore("Attendance", attendance.map((item) => {
-        if (item.id !== existing.id) return item;
-        updated = {
-          ...item,
-          status: "Present",
-          dropoff: item.dropoff || time,
-          pickup: "",
-          summary: `Present at ${item.dropoff || time}`,
-          shareWithFamily: item.shareWithFamily !== false,
-          recordedBy: recorder,
-          updatedAt: new Date().toISOString(),
-        };
-        return updated;
-      }));
-      if (updated) {
-        dlcPushUndo({
-          kind: "attendance-update",
-          storeKey: "Attendance",
-          recordId: updated.id,
-          before,
-          childId,
-          label: "Check-in",
-        });
-        dlcSetSaveStatus("saved", "Checked in");
-      }
-      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-      return;
-    }
-    appendChildRecord("Attendance", {
-      childId,
+    upsertDailyLogAttendance(childId, {
       date: today,
       status: "Present",
+      checkIn: time,
       dropoff: time,
-      title: `Attendance | ${today}`,
-      summary: `Present at ${time}`,
+      forceCheckIn: true,
       shareWithFamily: true,
       recordedBy: recorder,
-    });
+    }, options);
     return;
   }
   if (actionId === "check-out") {
-    const attendance = childStore("Attendance");
-    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
-    if (existing) {
-      if (existing.pickup && String(existing.status || "").toLowerCase() !== "absent") {
-        dlcSetSaveStatus("saved", "Already checked out");
-        return;
-      }
-      let updated = null;
-      const before = { ...existing };
-      saveChildStore("Attendance", attendance.map((item) => {
-        if (item.id !== existing.id) return item;
-        updated = {
-          ...item,
-          status: item.status === "Absent" ? "Present" : (item.status || "Present"),
-          pickup: time,
-          summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
-          shareWithFamily: item.shareWithFamily !== false,
-          recordedBy: recorder,
-          updatedAt: new Date().toISOString(),
-        };
-        return updated;
-      }));
-      if (updated) {
-        dlcPushUndo({
-          kind: "attendance-update",
-          storeKey: "Attendance",
-          recordId: updated.id,
-          before,
-          childId,
-          label: "Check-out",
-        });
-        dlcSetSaveStatus("saved", "Checked out");
-      }
-      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-      return;
-    }
-    appendChildRecord("Attendance", {
-      childId,
+    upsertDailyLogAttendance(childId, {
       date: today,
       status: "Present",
+      checkOut: time,
       pickup: time,
-      title: `Attendance | ${today}`,
-      summary: `Checked out at ${time}`,
+      forceCheckOut: true,
       shareWithFamily: true,
       recordedBy: recorder,
-    });
+    }, options);
     return;
   }
   if (actionId === "absent") {
-    const attendance = childStore("Attendance");
-    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
-    if (existing) {
-      if (String(existing.status || "").toLowerCase() === "absent") {
-        dlcSetSaveStatus("saved", "Already marked absent");
-        return;
-      }
-      let updated = null;
-      const before = { ...existing };
-      saveChildStore("Attendance", attendance.map((item) => {
-        if (item.id !== existing.id) return item;
-        updated = {
-          ...item,
-          status: "Absent",
-          dropoff: "",
-          pickup: "",
-          summary: "Absent",
-          shareWithFamily: item.shareWithFamily !== false,
-          recordedBy: recorder,
-          updatedAt: new Date().toISOString(),
-        };
-        return updated;
-      }));
-      if (updated) {
-        dlcPushUndo({
-          kind: "attendance-update",
-          storeKey: "Attendance",
-          recordId: updated.id,
-          before,
-          childId,
-          label: "Absent",
-        });
-        dlcSetSaveStatus("saved", "Marked absent");
-      }
-      if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
-      return;
-    }
-    appendChildRecord("Attendance", {
-      childId,
+    upsertDailyLogAttendance(childId, {
       date: today,
       status: "Absent",
-      title: `Attendance | ${today}`,
-      summary: "Absent",
       shareWithFamily: true,
       recordedBy: recorder,
-    });
+    }, options);
     return;
   }
   if (actionId === "ate-all" || actionId === "ate-most") {
@@ -35026,16 +35210,77 @@ async function firebaseAuthHeaders() {
   };
 }
 
+function newClientMutationId() {
+  return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function enqueueChildDataMutation(mutation = {}) {
+  const clientMutationId = String(mutation.clientMutationId || newClientMutationId());
+  const entry = {
+    ...mutation,
+    clientMutationId,
+    queuedAt: new Date().toISOString(),
+  };
+  // Drop exact duplicate ids still waiting to flush.
+  childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
+  childDataMutationQueue.push(entry);
+  return clientMutationId;
+}
+
 async function saveChildDataToBackend(options = {}) {
-  if (!currentUser || !canUseLaunchBackend()) return;
-  if (childCloudSyncing && !options.force) return;
+  if (!currentUser || !canUseLaunchBackend()) return null;
+  if ((childCloudSyncing || childDataMutationInFlight) && !options.force) return null;
   const headers = await staffAuthHeaders();
-  if (!headers) return;
-  await fetch("/api/child-data", {
+  if (!headers) return null;
+  const mutations = childDataMutationQueue.slice(0, 200);
+  const roleKey = String(currentUser?.role || (typeof currentAccount === "function" ? currentAccount()?.role : "") || "").toLowerCase();
+  const classroomStaffOnly = roleKey === "teacher" || roleKey === "assistant";
+  // Prefer idempotent mutations when available (Daily Logs / multi-device).
+  if (mutations.length) {
+    childDataMutationInFlight = true;
+    try {
+      const response = await fetch("/api/child-data", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ mutations }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        dlcSetSaveStatus("failed", payload?.error || "Cloud save failed");
+        throw new Error(payload?.error || `Child data save failed (${response.status})`);
+      }
+      const doneIds = new Set(
+        (payload.results || [])
+          .filter((item) => item.ok || item.duplicate)
+          .map((item) => item.clientMutationId)
+          .filter(Boolean),
+      );
+      childDataMutationQueue = childDataMutationQueue.filter((item) => !doneIds.has(item.clientMutationId));
+      if (payload.updatedAt) localStorage.setItem(childCloudUpdatedKey(), payload.updatedAt);
+      dlcSetSaveStatus(
+        typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "saved",
+        payload.duplicates ? "Saved (retry ignored duplicates)" : "Saved",
+      );
+      return payload;
+    } finally {
+      childDataMutationInFlight = false;
+    }
+  }
+  // Classroom staff must never full-snapshot replace (last-writer-wins clobber risk).
+  if (classroomStaffOnly) {
+    return { ok: true, skipped: true, reason: "no_pending_mutations" };
+  }
+  // Owner/director legacy snapshot path when no mutation queue remains.
+  const response = await fetch("/api/child-data", {
     method: "POST",
     headers,
     body: JSON.stringify({ data: childDataSnapshot() }),
   });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload?.error || `Child data save failed (${response.status})`);
+  }
+  return response.json().catch(() => ({ ok: true }));
 }
 
 function queueChildDataCloudSave() {
@@ -42300,11 +42545,16 @@ function renderDlcChildStatusCard(child, records, today) {
   const state = getChildAttendanceState(child, records, today);
   const meta = attendanceStateMeta(state);
   const attendance = getChildAttendanceRecord(child, records, today);
+  const sessions = getChildAttendanceSessions(child, records, today).filter((session) => !isAbsentAttendance(session));
+  const totalMins = totalAttendanceMinutes(child, records, today);
+  const checkIn = attendanceCheckInOf(attendance || {});
+  const checkOut = attendanceCheckOutOf(attendance || {});
   const reminders = buildDailyLogReminders(child, records, today).slice(0, 2);
-  const detail = state === "checked_in" && attendance?.dropoff
-    ? `Checked In ${formatDlcClock(attendance.dropoff)}`
-    : state === "checked_out" && attendance?.pickup
-      ? `Checked Out ${formatDlcClock(attendance.pickup)}${attendance.dropoff ? ` · In ${formatDlcClock(attendance.dropoff)}` : ""}`
+  const sessionLabel = sessions.length > 1 ? ` · ${sessions.length} visits · ${formatAttendanceDuration(totalMins)}` : (sessions.length === 1 && checkOut ? ` · ${formatAttendanceDuration(totalMins)}` : "");
+  const detail = state === "checked_in" && checkIn
+    ? `Checked In ${formatDlcClock(checkIn)}${sessionLabel}`
+    : state === "checked_out" && checkOut
+      ? `Checked Out ${formatDlcClock(checkOut)}${checkIn ? ` · In ${formatDlcClock(checkIn)}` : ""}${sessionLabel}`
       : state === "absent"
         ? "Marked Absent"
         : "Not checked in yet";
@@ -43111,16 +43361,17 @@ function dlcActivityKey(text) {
 }
 
 function dlcChildDaySnapshot(child, records, today) {
+  const list = (key) => (Array.isArray(records?.[key]) ? records[key] : []);
   return {
-    attendance: records.attendance.filter((item) => item.childId === child.id && item.date === today),
-    meals: records.meals.filter((item) => item.childId === child.id && item.date === today),
-    naps: records.naps.filter((item) => item.childId === child.id && item.date === today),
-    diapers: records.diapers.filter((item) => item.childId === child.id && item.date === today),
-    activities: records.activityLogs.filter((item) => item.childId === child.id && item.date === today),
-    communications: records.communications.filter((item) => item.childId === child.id && item.date === today),
-    reports: records.reports.filter((item) => item.childId === child.id && item.date === today),
-    observations: records.observations.filter((item) => item.childId === child.id && item.date === today),
-    photos: (records.photos || []).filter((item) => item.childId === child.id && item.date === today),
+    attendance: list("attendance").filter((item) => item.childId === child.id && item.date === today),
+    meals: list("meals").filter((item) => item.childId === child.id && item.date === today),
+    naps: list("naps").filter((item) => item.childId === child.id && item.date === today),
+    diapers: list("diapers").filter((item) => item.childId === child.id && item.date === today),
+    activities: list("activityLogs").filter((item) => item.childId === child.id && item.date === today),
+    communications: list("communications").filter((item) => item.childId === child.id && item.date === today),
+    reports: list("reports").filter((item) => item.childId === child.id && item.date === today),
+    observations: list("observations").filter((item) => item.childId === child.id && item.date === today),
+    photos: list("photos").filter((item) => item.childId === child.id && item.date === today),
   };
 }
 
@@ -43164,8 +43415,13 @@ function buildGroundedDayFactsForAi(child, records, today = dlcActiveDate()) {
   ));
   const activityNames = snapshot.activities.map((item) => item.activity || item.title || item.summary).filter(Boolean);
   const attendanceLines = snapshot.attendance.map((item) => (
-    [item.status || "Present", item.dropoff && `Arrived ${item.dropoff}`, item.pickup && `Departed ${item.pickup}`, item.summary]
-      .filter(Boolean).join(" · ")
+    [
+      item.status || "Present",
+      item.sessionIndex ? `Visit ${item.sessionIndex}` : "",
+      attendanceCheckInOf(item) && `Arrived ${attendanceCheckInOf(item)}`,
+      attendanceCheckOutOf(item) && `Departed ${attendanceCheckOutOf(item)}`,
+      item.summary,
+    ].filter(Boolean).join(" · ")
   ));
   const noteLines = snapshot.communications
     .filter((item) => !/incident/i.test(String(item.type || "")))
@@ -43220,8 +43476,11 @@ function buildDailyLogTimelineEntries(child, records, today) {
       entries.push(stamp(item, { time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "" }));
       return;
     }
-    if (item.dropoff) entries.push(stamp(item, { time: item.dropoff, title: "Checked In", detail: item.status || "Present" }));
-    if (item.pickup) entries.push(stamp(item, { time: item.pickup, title: "Checked Out", detail: "" }));
+    const inAt = attendanceCheckInOf(item);
+    const outAt = attendanceCheckOutOf(item);
+    const visit = item.sessionIndex ? `Visit ${item.sessionIndex}` : (item.status || "Present");
+    if (inAt) entries.push(stamp(item, { time: inAt, title: "Checked In", detail: visit }));
+    if (outAt) entries.push(stamp(item, { time: outAt, title: "Checked Out", detail: visit }));
   });
   snapshot.meals.forEach((item) => {
     const baseTime = dlcRecordTime(item);
@@ -45021,16 +45280,27 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record, options = {}) {
   const items = childStore(key);
+  const clientMutationId = String(record?.clientMutationId || newClientMutationId());
   const saved = {
-    id: `${key}-${Date.now()}`,
+    id: record?.id || `${key}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     createdAt: new Date().toISOString(),
     ...record,
+    clientMutationId,
     recordedBy: String(record?.recordedBy || dlcRecorderLabel()).trim() || dlcRecorderLabel(),
     recordedByEmail: String(record?.recordedByEmail || currentUser || "").trim(),
+    updatedAt: new Date().toISOString(),
   };
   try {
     dlcSetSaveStatus("saving", "Saving…");
     saveChildStore(key, [...items, saved]);
+    if (!options.skipMutationQueue) {
+      enqueueChildDataMutation({
+        op: "upsert",
+        storeKey: key,
+        clientMutationId,
+        record: saved,
+      });
+    }
     if (!options.skipUndo) {
       dlcPushUndo({
         kind: "append",
@@ -46162,7 +46432,7 @@ async function buildDailyReportFromChild(childId, quickNote, options = {}) {
       "Use only these logged facts. Do not invent missing details.",
     ].filter(Boolean).join("\n"),
   });
-  const report = String(result.output || "").trim();
+  const report = dlcStripParentFacingMarkdown(String(result.output || "").trim());
   // Always save as an internal draft first — never auto-share or notify families.
   const saved = appendChildRecord("Reports", {
     childId,
@@ -46170,6 +46440,7 @@ async function buildDailyReportFromChild(childId, quickNote, options = {}) {
     date: today,
     type: "Daily Report",
     status: "draft",
+    aiDraft: true,
     summary: report.slice(0, 200),
     message: report,
     shareWithFamily: false,
@@ -46371,29 +46642,40 @@ function printTextDocument(title, text) {
     window.print();
     return;
   }
+  const plain = dlcStripParentFacingMarkdown(text);
   printWindow.document.write(`
     <html>
       <head>
         <title>${escapeHtml(title)}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style>
-          @page { margin: 0.55in; }
-          body { font-family: Arial, sans-serif; line-height: 1.6; padding: 32px; color: #2f2a25; }
-          .brand { color: #386062; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
-          h1.doc-title { color: #386062; margin: 6px 0 24px; font-size: 28px; }
-          h2 { color: #386062; font-size: 20px; margin: 22px 0 6px; border-bottom: 1px solid #d5e3f0; padding-bottom: 4px; }
-          h3 { color: #386062; font-size: 17px; margin: 18px 0 5px; }
-          h4 { color: #536280; font-size: 15px; margin: 14px 0 4px; }
-          p { margin: 0 0 10px; font-size: 14px; }
-          ul, ol { margin: 0 0 10px; padding-left: 22px; }
-          li { margin-bottom: 4px; font-size: 14px; }
+          @page { size: Letter; margin: 0.6in; }
+          * { box-sizing: border-box; }
+          body { font-family: Georgia, "Times New Roman", serif; line-height: 1.55; padding: 0; margin: 0; color: #2f2a25; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+          .sheet { padding: 24px; max-width: 7.5in; margin: 0 auto; }
+          .brand { color: #386062; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-family: system-ui, sans-serif; }
+          h1.doc-title { color: #386062; margin: 6px 0 18px; font-size: 24px; line-height: 1.25; }
+          h2 { color: #386062; font-size: 18px; margin: 18px 0 6px; border-bottom: 1px solid #d5e3f0; padding-bottom: 4px; }
+          h3 { color: #386062; font-size: 16px; margin: 14px 0 5px; }
+          h4 { color: #536280; font-size: 14px; margin: 12px 0 4px; }
+          p, .doc-body { margin: 0 0 10px; font-size: 13px; white-space: pre-wrap; }
+          ul, ol { margin: 0 0 10px; padding-left: 20px; }
+          li { margin-bottom: 4px; font-size: 13px; }
           strong { font-weight: 700; }
           em { font-style: italic; }
+          @media screen and (max-width: 640px) {
+            .sheet { padding: 16px; }
+            h1.doc-title { font-size: 20px; }
+            p, .doc-body, li { font-size: 14px; }
+          }
         </style>
       </head>
       <body>
-        <div class="brand">Little Learner Hub</div>
-        <h1 class="doc-title">${escapeHtml(title)}</h1>
-        <div class="doc-body">${renderMarkdown(text)}</div>
+        <div class="sheet">
+          <div class="brand">Little Learner Hub</div>
+          <h1 class="doc-title">${escapeHtml(title)}</h1>
+          <div class="doc-body">${escapeHtml(plain).replace(/\n/g, "<br>")}</div>
+        </div>
       </body>
     </html>
   `);
@@ -66107,14 +66389,16 @@ document.addEventListener("click", async (event) => {
             tone: programSettings.communicationTone || "Warm and friendly",
             providerNotes: weekFacts.factsText,
           });
+          const weeklyText = dlcStripParentFacingMarkdown(String(result.output || ""));
           const saved = appendChildRecord("Reports", {
             childId,
             date: today,
             title: `Weekly Summary | ${today}`,
-            message: result.output,
-            summary: String(result.output || "").slice(0, 120),
+            message: weeklyText,
+            summary: weeklyText.slice(0, 120),
             type: "Weekly Summary",
             status: "draft",
+            aiDraft: true,
             shareWithFamily: false,
           }, { skipNotify: true });
           dlcPendingReportPreview = {
@@ -66122,30 +66406,36 @@ document.addEventListener("click", async (event) => {
             recordId: saved.id,
             storeKey: "Reports",
             kind: "weekly-summary",
-            text: String(result.output || ""),
+            text: weeklyText,
           };
           if (statusEl) statusEl.textContent = "Weekly summary draft ready — preview below. Not shared yet.";
           showActionFeedback("Weekly summary draft ready for preview.");
         } else {
+          if (!grounded.factsText) {
+            if (statusEl) statusEl.textContent = "Log care facts first — AI will not invent a day update.";
+            return;
+          }
           const result = await generateToolOutputWithBackend("parentMessage", {
             topic: "End of day update",
-            details: grounded.factsText || `${child.name} had a full day.`,
+            details: grounded.factsText,
             childName: child.name,
             age: childAgeGroupLabel(child),
             programName: programSettings.programName || "",
             classroom: grounded.classroom || child.classroom || "",
             date: today,
             tone: programSettings.communicationTone || "Warm and friendly",
-            providerNotes: grounded.factsText,
+            providerNotes: `${grounded.factsText}\nUse only these logged facts. Do not invent meals, naps, toileting, behavior, injuries, milestones, or family details.`,
           });
+          const parentText = dlcStripParentFacingMarkdown(String(result.output || ""));
           const saved = appendChildRecord("Communications", {
             childId,
             date: today,
             type: "Parent Note",
             title: `Parent Update | ${today}`,
-            message: result.output,
-            summary: String(result.output || "").slice(0, 120),
+            message: parentText,
+            summary: parentText.slice(0, 120),
             status: "draft",
+            aiDraft: true,
             shareWithFamily: false,
           }, { skipNotify: true });
           dlcPendingReportPreview = {
@@ -66153,7 +66443,7 @@ document.addEventListener("click", async (event) => {
             recordId: saved.id,
             storeKey: "Communications",
             kind: "parent-message",
-            text: String(result.output || ""),
+            text: parentText,
           };
           if (statusEl) statusEl.textContent = "Parent message draft ready — preview below. Not shared yet.";
           showActionFeedback("Parent message draft ready for preview.");
@@ -73284,90 +73574,112 @@ document.addEventListener("submit", (event) => {
   }
   const today = data.date || dlcActiveDate();
   const amount = String(data.amount || "").trim();
-  childIds.forEach((childId, index) => {
-    const skipRender = index < childIds.length - 1;
-    if (actionId === "meals" || actionId === "lunch") {
-      const lunch = amount ? `${data.content} (${amount})` : data.content;
-      appendChildRecord("Meals", { childId, date: today, lunch, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${lunch}`, shareWithFamily }, { skipRender });
-    } else if (actionId === "snacks") {
-      const snack = amount ? `${data.content} (${amount})` : data.content;
-      appendChildRecord("Meals", { childId, date: today, snack, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${snack}`, shareWithFamily }, { skipRender });
-    } else if (actionId === "breakfast") {
-      const breakfast = amount ? `${data.content} (${amount})` : data.content;
-      appendChildRecord("Meals", { childId, date: today, breakfast, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${breakfast}`, shareWithFamily }, { skipRender });
-    } else if (actionId === "bottle") {
-      appendChildRecord("Meals", {
+  const savedIds = [];
+  const failed = [];
+  childIds.forEach((childId) => {
+    try {
+      const opts = { skipRender: true };
+      if (actionId === "meals" || actionId === "lunch") {
+        const lunch = amount ? `${data.content} (${amount})` : data.content;
+        appendChildRecord("Meals", { childId, date: today, lunch, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${lunch}`, shareWithFamily }, opts);
+      } else if (actionId === "snacks") {
+        const snack = amount ? `${data.content} (${amount})` : data.content;
+        appendChildRecord("Meals", { childId, date: today, snack, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${snack}`, shareWithFamily }, opts);
+      } else if (actionId === "breakfast") {
+        const breakfast = amount ? `${data.content} (${amount})` : data.content;
+        appendChildRecord("Meals", { childId, date: today, breakfast, amount, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${breakfast}`, shareWithFamily }, opts);
+      } else if (actionId === "bottle") {
+        appendChildRecord("Meals", {
+          childId,
+          date: today,
+          time: data.time || quickActionTime(),
+          type: "Bottle",
+          amount: data.content,
+          notes: data.notes || "",
+          title: `Bottle | ${today}`,
+          summary: `Bottle: ${data.content}`,
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "naps") {
+        appendChildRecord("Naps", {
+          childId,
+          date: today,
+          napStart: data.napStart || "",
+          napEnd: data.napEnd || "",
+          notes: data.notes || "",
+          title: `Nap | ${today}`,
+          summary: data.napEnd ? `Nap ${data.napStart || "?"}–${data.napEnd}` : `Nap started ${data.napStart || ""}`.trim(),
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "diapers") {
+        appendChildRecord("Diapers", {
+          childId,
+          date: today,
+          time: data.time || quickActionTime(),
+          type: data.diaperType || "Diaper Change",
+          notes: data.notes || "",
+          title: `${data.diaperType || "Diaper"} | ${today}`,
+          summary: data.diaperType || "Diaper / Potty",
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "mood") {
+        appendChildRecord("Communications", {
+          childId,
+          date: today,
+          type: "Mood Note",
+          mood: data.mood || "",
+          message: data.content || "",
+          title: `Mood | ${today}`,
+          summary: data.mood || "Mood noted",
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "note") {
+        appendChildRecord("Communications", {
+          childId,
+          date: today,
+          type: "General Note",
+          message: data.content || "",
+          title: `Note | ${today}`,
+          summary: data.content || "Note",
+          shareWithFamily,
+        }, opts);
+      } else if (actionId === "activities") {
+        appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily }, opts);
+      } else {
+        appendChildRecord("Communications", {
+          childId,
+          date: today,
+          type: actionId === "reminder" ? "Parent Reminder" : "Announcement",
+          message: data.content,
+          title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`,
+          summary: data.content,
+          shareWithFamily,
+        }, opts);
+      }
+      savedIds.push(childId);
+    } catch (error) {
+      failed.push({
         childId,
-        date: today,
-        time: data.time || quickActionTime(),
-        type: "Bottle",
-        amount: data.content,
-        notes: data.notes || "",
-        title: `Bottle | ${today}`,
-        summary: `Bottle: ${data.content}`,
-        shareWithFamily,
-      }, { skipRender });
-    } else if (actionId === "naps") {
-      appendChildRecord("Naps", {
-        childId,
-        date: today,
-        napStart: data.napStart || "",
-        napEnd: data.napEnd || "",
-        notes: data.notes || "",
-        title: `Nap | ${today}`,
-        summary: data.napEnd ? `Nap ${data.napStart || "?"}–${data.napEnd}` : `Nap started ${data.napStart || ""}`.trim(),
-        shareWithFamily,
-      }, { skipRender });
-    } else if (actionId === "diapers") {
-      appendChildRecord("Diapers", {
-        childId,
-        date: today,
-        time: data.time || quickActionTime(),
-        type: data.diaperType || "Diaper Change",
-        notes: data.notes || "",
-        title: `${data.diaperType || "Diaper"} | ${today}`,
-        summary: data.diaperType || "Diaper / Potty",
-        shareWithFamily,
-      }, { skipRender });
-    } else if (actionId === "mood") {
-      appendChildRecord("Communications", {
-        childId,
-        date: today,
-        type: "Mood Note",
-        mood: data.mood || "",
-        message: data.content || "",
-        title: `Mood | ${today}`,
-        summary: data.mood || "Mood noted",
-        shareWithFamily,
-      }, { skipRender });
-    } else if (actionId === "note") {
-      appendChildRecord("Communications", {
-        childId,
-        date: today,
-        type: "General Note",
-        message: data.content || "",
-        title: `Note | ${today}`,
-        summary: data.content || "Note",
-        shareWithFamily,
-      }, { skipRender });
-    } else if (actionId === "activities") {
-      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily }, { skipRender });
-    } else {
-      appendChildRecord("Communications", {
-        childId,
-        date: today,
-        type: actionId === "reminder" ? "Parent Reminder" : "Announcement",
-        message: data.content,
-        title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`,
-        summary: data.content,
-        shareWithFamily,
-      }, { skipRender });
+        name: typeof childName === "function" ? childName(childId) : childId,
+        error: error?.message || "Save failed",
+      });
     }
   });
   dailyLogsGroupAction = "";
   dailyLogsSection = "home";
   renderChildManagement();
-  showActionFeedback(`Group log saved for ${childIds.length} child${childIds.length === 1 ? "" : "ren"}. Nothing was sent to families.`);
+  if (!savedIds.length) {
+    dlcSetSaveStatus("failed", "Group log failed for every selected child");
+    showActionFeedback(`Group log failed for all ${childIds.length} children. Nothing was marked saved.`);
+    return;
+  }
+  if (failed.length) {
+    dlcSetSaveStatus("failed", `Saved ${savedIds.length} of ${childIds.length}`);
+    showActionFeedback(`Saved for ${savedIds.length} of ${childIds.length} children. Failed: ${failed.map((item) => item.name).join(", ")}. Nothing was sent to families.`);
+    return;
+  }
+  dlcSetSaveStatus("saved", `Group log saved (${savedIds.length})`);
+  showActionFeedback(`Group log saved for ${savedIds.length} child${savedIds.length === 1 ? "" : "ren"}. Nothing was sent to families.`);
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -73424,6 +73736,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcBottleForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73440,6 +73753,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcNapForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73456,6 +73770,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcDiaperForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73472,6 +73787,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcActivityForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
@@ -73488,6 +73804,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcMoodForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
