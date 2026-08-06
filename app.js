@@ -5899,6 +5899,21 @@ function mergeIncomingPublicSiteContent(incoming) {
     // Public /api/site-content never includes admin curriculum — preserve loaded admin payload.
     merged.curriculum = prior.curriculum;
   }
+  // Public site-content only carries customer-safe TK flags. Preserve owner/admin
+  // authoring flags already loaded from /api/admin/site-content so a public refresh
+  // cannot disable Enrichment Editor / Authoring / Director / Quality Review in Admin.
+  const priorFlags = prior.featureFlags && typeof prior.featureFlags === "object" ? prior.featureFlags : {};
+  const nextFlags = next.featureFlags && typeof next.featureFlags === "object" ? next.featureFlags : {};
+  merged.featureFlags = {
+    playBasedCurriculum: true,
+    teachingKitViewer: nextFlags.teachingKitViewer === true,
+    teachingKitPrintCenter: nextFlags.teachingKitPrintCenter === true,
+    teachingKitAttachments: nextFlags.teachingKitAttachments === true,
+    teachingKitEnrichmentEditor: priorFlags.teachingKitEnrichmentEditor === true,
+    teachingKitAuthoring: priorFlags.teachingKitAuthoring === true,
+    teachingKitCurriculumDirector: priorFlags.teachingKitCurriculumDirector === true,
+    teachingKitQualityReview: priorFlags.teachingKitQualityReview === true,
+  };
   return merged;
 }
 
@@ -51501,6 +51516,43 @@ async function savePlayBasedCurriculumFeatureFlag() {
     // no-op: curriculum remains enabled in the client regardless
   }
 }
+
+/**
+ * Owner/admin Settings — merge Teaching Kit feature flags only.
+ * Never replaces the full featureFlags object and never touches curriculum.
+ */
+async function saveTeachingKitFeatureFlags(patch = {}) {
+  if (!isAdminUnlocked() || !adminSession()?.token) {
+    throw new Error("Owner admin unlock is required to change Teaching Kit flags.");
+  }
+  // Reload first so we merge against the freshest store document (conflict-safe).
+  await loadAdminSiteContent();
+  const nextContent = nextSiteContentDraft();
+  const allowed = [
+    "teachingKitViewer",
+    "teachingKitPrintCenter",
+    "teachingKitAttachments",
+    "teachingKitEnrichmentEditor",
+    "teachingKitAuthoring",
+    "teachingKitCurriculumDirector",
+    "teachingKitQualityReview",
+  ];
+  const current = { ...(nextContent.featureFlags || {}) };
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) {
+      current[key] = patch[key] === true;
+    }
+  }
+  current.playBasedCurriculum = true;
+  nextContent.featureFlags = current;
+  nextContent.playBasedCurriculum = true;
+  // Curriculum must never ride along on a flag-only save.
+  delete nextContent.curriculum;
+  delete nextContent.curriculumLibrary;
+  await saveAdminSiteContent(nextContent);
+  return effectiveSiteContent()?.featureFlags || current;
+}
+window.saveTeachingKitFeatureFlags = saveTeachingKitFeatureFlags;
 
 async function exportCurriculumBackup() {
   const token = adminSession()?.token || "";
