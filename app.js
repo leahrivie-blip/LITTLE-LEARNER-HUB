@@ -26461,7 +26461,6 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   // never reach this branch (preview inactive).
   if (ownerAdminToken) {
     headers.Authorization = `Bearer ${ownerAdminToken}`;
-    params.set("adminToken", ownerAdminToken);
   }
   const qs = params.toString();
   const response = await fetch(
@@ -55203,7 +55202,10 @@ async function renderAdminFreeStarterLibrarySection() {
   target.innerHTML = `<p class="messages-loading">Loading Free Starter Library…</p>`;
   try {
     const token = adminSession()?.token || localStorage.getItem("llhAdminToken") || "";
-    const res = await fetch(`/api/admin/free-starter-library?adminToken=${encodeURIComponent(token)}`);
+    const res = await fetch("/api/admin/free-starter-library", {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load Free Starter Library.");
     const lib = data.freeStarterLibrary || {};
@@ -55253,9 +55255,11 @@ async function renderAdminFreeStarterLibrarySection() {
       try {
         const saveRes = await fetch("/api/admin/free-starter-library", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
-            adminToken: token,
             lessonPlanIds: ids,
             confirm: mode === "save",
             adminEmail: adminSession()?.email || "",
@@ -55288,7 +55292,10 @@ async function renderAdminTrialUsageSection() {
   target.innerHTML = `<p class="messages-loading">Loading trial usage…</p>`;
   try {
     const token = adminSession()?.token || localStorage.getItem("llhAdminToken") || "";
-    const res = await fetch(`/api/admin/trial-usage?adminToken=${encodeURIComponent(token)}`);
+    const res = await fetch("/api/admin/trial-usage", {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load trial usage.");
     const users = Array.isArray(data.users) ? data.users : [];

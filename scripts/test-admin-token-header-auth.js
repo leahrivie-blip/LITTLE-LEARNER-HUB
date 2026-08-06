@@ -165,9 +165,20 @@ function assertClientMigrationComplete() {
 function assertTokenNeverPrinted() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
-  // The one pre-existing debug log intentionally only prints a short, non-reconstructable
-  // prefix — verify it stays that way (slice(0, N) with a small N), not the full token.
-  assert.match(appJs, /tokenPrefix: token \? `\$\{String\(token\)\.slice\(0, 12\)\}…` : ""/);
+  // Client diagnostics must never print a raw token. Accept either the historical
+  // short non-reconstructable prefix, or boolean hasToken-only logging.
+  const hasPrefixLog = /tokenPrefix:\s*token\s*\?\s*`\$\{String\(token\)\.slice\(0,\s*12\)\}…`\s*:\s*""/.test(appJs);
+  const hasBooleanTokenLog = /hasToken\s*=\s*!!token/.test(appJs) || /"\| hasToken ="\s*,\s*!!token/.test(appJs);
+  assert.ok(
+    hasPrefixLog || hasBooleanTokenLog,
+    "admin token diagnostics must use a short prefix or boolean hasToken — never the raw token",
+  );
+  // Must not interpolate a raw token into a template console string.
+  assert.doesNotMatch(
+    appJs,
+    /console\.(log|warn|error)\(`[^`]*\$\{token\}/,
+    "no console template in app.js may interpolate a raw token",
+  );
   // Server must never pass a raw token variable as a console.log/warn/error argument
   // (as opposed to a hardcoded string that merely contains the word "token", which is
   // fine — e.g. "token valid"). The legacy-usage endpoint only ever returns counts

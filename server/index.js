@@ -22222,8 +22222,7 @@ async function handleAdminEnrichmentPhotoMedia(request, response, assetId, url) 
     textResponse(response, 404, "Photo not found.");
     return;
   }
-  const adminToken = extractAdminToken(request, url)
-    || normalizedShortText(url.searchParams.get("adminToken"), 500);
+  const adminToken = extractAdminToken(request, url);
   if (!validAdminToken(adminToken)) {
     // Draft photos are never public — fail closed.
     textResponse(response, 404, "Photo not found.");
@@ -23737,7 +23736,7 @@ async function handleTrialCurriculumExportGeneratePdf(request, response, url) {
 }
 
 function handleAdminTrialUsage(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -23791,7 +23790,7 @@ function handleAdminTrialUsage(request, response, url) {
 }
 
 function handleAdminFreeStarterLibraryGet(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -23813,7 +23812,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
     jsonResponse(response, 400, { error: "Invalid JSON body." });
     return;
   }
-  const adminToken = String(body.adminToken || "").trim();
+  const adminToken = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -23887,7 +23886,7 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
  *   available to claim) — the same "remaining" shown publicly.
  */
 function handleAdminFoundingBreakdown(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
