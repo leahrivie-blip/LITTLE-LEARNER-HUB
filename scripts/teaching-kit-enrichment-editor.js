@@ -1018,8 +1018,8 @@
     // Opening Upgrade Lesson is read-only load only — never auto-run AI, consume usage,
     // create proposals, autosave, or change scores/timestamps.
     state.statusText = gaps
-      ? `Local analysis found ${gaps} area(s) to improve. Review the summary, then press Prepare AI Draft only when you want suggestions. Nothing runs until you confirm.`
-      : "Lesson loaded. Edit manually, or press Prepare AI Draft when you want AI suggestions. Opening never starts AI.";
+      ? `${gaps} area(s) to improve · Prepare AI Draft when ready (never auto-runs).`
+      : "Lesson loaded · edit manually, or Prepare AI Draft when ready.";
     state._focusReturn = document.activeElement;
     state.recoveryOpen = false;
     state.compareOpen = false;
