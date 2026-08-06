@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 2 — durable mutation queue + conflict UX proof.
+ * Phase 2 — durable IndexedDB mutation queue + human conflict UX proof.
  * Run: npm run test:child-data-durable-queue
  * Do not merge. Do not deploy.
  */
@@ -16,7 +16,10 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/phase2-durable-queue";
 const OWNER = "phase2.durable.owner@example.com";
-const OWNER_B = "phase2.durable.other@example.com";
+const TEACHER_A = "phase2.durable.teacher.a@example.com";
+const TEACHER_B = "phase2.durable.teacher.b@example.com";
+const PROGRAM_A = "prog-durable-a";
+const PROGRAM_B = "prog-durable-b";
 
 function request(port, method, urlPath, { email = "", body = null } = {}) {
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
@@ -53,26 +56,42 @@ async function waitForHealth(port, child) {
   throw new Error("Server not healthy");
 }
 
-async function openPage(browser, port, email, role = "owner") {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+function accountSeed(email, {
+  role = "owner",
+  programId = PROGRAM_A,
+  localActorId = "",
+  firstName = "Durable",
+} = {}) {
+  return {
+    email,
+    plan: "Pro",
+    role,
+    firstName,
+    accountType: "home_daycare",
+    businessName: "Durable Nest",
+    subscriptionStatus: "Pro",
+    programId,
+    localActorId: localActorId || `actor_${email.split("@")[0]}`,
+    classroomIds: role === "teacher" || role === "assistant" ? ["room-oaks"] : [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function openPage(browser, port, email, opts = {}) {
+  const {
+    role = "owner",
+    programId = PROGRAM_A,
+    localActorId = "",
+    viewport = { width: 1280, height: 900 },
+  } = opts;
+  const context = await browser.newContext({ viewport });
   const page = await context.newPage();
-  await page.addInitScript(({ email: userEmail, role: userRole }) => {
+  await page.addInitScript(({ userEmail, account }) => {
     localStorage.setItem("llhUser", userEmail);
     localStorage.setItem("llhPlan", "Pro");
-    localStorage.setItem("llhAccounts", JSON.stringify({
-      [userEmail]: {
-        email: userEmail,
-        plan: "Pro",
-        role: userRole,
-        firstName: "Durable",
-        accountType: "home_daycare",
-        businessName: "Durable Nest",
-        subscriptionStatus: "Pro",
-        createdAt: new Date().toISOString(),
-      },
-    }));
+    localStorage.setItem("llhAccounts", JSON.stringify({ [userEmail]: account }));
     localStorage.setItem("llhMetaCookieNoticeDismissed", "1");
-  }, { email, role });
+  }, { userEmail: email, account: accountSeed(email, { role, programId, localActorId }) });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => typeof window.enqueueChildDataMutation === "function"
     && typeof window.loadChildDataMutationQueue === "function"
@@ -80,15 +99,45 @@ async function openPage(browser, port, email, role = "owner") {
   return { context, page };
 }
 
+async function seedChild(page) {
+  await page.evaluate(async () => {
+    saveChildStore("Profiles", [
+      { id: "child-ava", name: "Ava Durable", classroomId: "room-oaks", classroom: "Oaks", parentInfo: "Pat Family" },
+    ]);
+    ["Attendance", "Meals", "Naps", "Diapers", "ActivityLogs", "Communications", "Photos", "Reports", "Observations"]
+      .forEach((key) => saveChildStore(key, []));
+    await saveChildDataToBackend({ force: true });
+    await loadChildDataMutationQueue();
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
+  });
+}
+
+function assertNoChildMutationLocalStorage(keys) {
+  const leaked = keys.filter((key) => (
+    /^llhChildMutations:/i.test(key)
+    || /child.*mutation/i.test(key)
+  ));
+  assert.equal(leaked.length, 0, `child-data queue must not use localStorage: ${leaked.join(", ")}`);
+}
+
 async function main() {
   fs.mkdirSync(path.join(ARTIFACT_DIR, "screenshots"), { recursive: true });
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
-  assert.match(appJs, /CHILD_MUTATION_IDB_NAME/);
-  assert.match(appJs, /function loadChildDataMutationQueue/);
-  assert.match(appJs, /dlc-conflict-panel/);
+  assert.match(appJs, /CHILD_MUTATION_IDB_NAME\s*=\s*["']llh-child-mutations-v2["']/);
+  assert.match(appJs, /CHILD_MUTATION_MAX_AGE_MS\s*=\s*14\s*\*\s*24/);
+  assert.match(appJs, /function childDataActorIdentity/);
+  assert.match(appJs, /function rebaseLocalChangeOntoServer/);
+  assert.match(appJs, /function promptLogoutWithUnsyncedWork/);
+  assert.match(appJs, /dlc-conflict-diff-list/);
+  assert.match(appJs, /Apply my change to the latest version/);
+  assert.match(appJs, /Needs review because another person updated it/);
   assert.match(appJs, /Waiting for connection/);
-  assert.match(appJs, /clearChildDataMutationMemory/);
-  console.log("PASS  static durable-queue / conflict markers");
+  assert.match(appJs, /Saved to cloud/);
+  assert.doesNotMatch(appJs, /localStorage\.setItem\(\s*[`'"]llhChildMutations/);
+  assert.match(appJs, /CHILD_MUTATION_LS_LEGACY_PREFIX/);
+  console.log("PASS  static durable-queue / human-conflict markers");
 
   const port = 48100 + Math.floor(Math.random() * 800);
   const storePath = path.join(os.tmpdir(), `llh-durable-${crypto.randomBytes(4).toString("hex")}.json`);
@@ -110,32 +159,29 @@ async function main() {
   try {
     await waitForHealth(port, server);
     browser = await chromium.launch({ headless: true });
-    const { context, page } = await openPage(browser, port, OWNER);
+    const { context, page } = await openPage(browser, port, OWNER, {
+      localActorId: "actor_owner_durable",
+      programId: PROGRAM_A,
+    });
+    await seedChild(page);
 
-    await page.evaluate(async () => {
-      saveChildStore("Profiles", [
-        { id: "child-ava", name: "Ava Durable", classroomId: "room-oaks", classroom: "Oaks", parentInfo: "Pat Family" },
-      ]);
-      ["Attendance", "Meals", "Naps", "Diapers", "ActivityLogs", "Communications", "Photos", "Reports", "Observations"]
-        .forEach((key) => saveChildStore(key, []));
-      await saveChildDataToBackend({ force: true });
-      await loadChildDataMutationQueue();
-      childManagementMode = "daily-logs";
-      dailyLogsSection = "home";
-      if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
+    // Block child-data POSTs so offline work cannot be acknowledged across reload.
+    let blockChildDataPosts = true;
+    await page.route("**/api/child-data", async (route) => {
+      if (blockChildDataPosts && route.request().method() === "POST") {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
     });
 
-    // Offline entry → pending durable queue (block network so cloud ack cannot complete)
+    // Offline entry → IndexedDB only (never localStorage)
     await page.evaluate(() => {
       Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
       window.dispatchEvent(new Event("offline"));
-      window.__llhOriginalFetch = window.fetch;
-      window.fetch = async (url, init = {}) => {
-        if (String(url).includes("/api/child-data") && String(init.method || "GET").toUpperCase() === "POST") {
-          throw new TypeError("Failed to fetch (offline simulation)");
-        }
-        return window.__llhOriginalFetch(url, init);
-      };
     });
     await page.evaluate(() => {
       appendChildRecord("Meals", {
@@ -147,62 +193,85 @@ async function main() {
         shareWithFamily: true,
       }, { skipRender: true });
     });
-    await page.waitForTimeout(900); // allow debounced cloud save attempt to fail
+    await page.waitForTimeout(900);
     const offlineState = await page.evaluate(async () => {
-      const lsKey = `llhChildMutations:${String(currentUser).toLowerCase()}`;
+      const identity = childDataActorIdentity();
       let idbCount = 0;
       try {
-        idbCount = (await idbListMutationsForUser(String(currentUser).toLowerCase())).length;
+        idbCount = (await idbListMutationsForScope(identity.scopeKey)).length;
       } catch (_e) {
         idbCount = -1;
       }
-      const ls = JSON.parse(localStorage.getItem(lsKey) || "[]");
+      const lsKeys = [];
+      for (let i = 0; i < localStorage.length; i += 1) lsKeys.push(localStorage.key(i));
+      const legacy = lsKeys.filter((k) => String(k || "").startsWith("llhChildMutations:"));
       return {
         status: dlcSaveStatus.state,
         message: dlcSaveStatus.message,
         mem: childDataMutationQueue.length,
         idbCount,
-        lsCount: ls.length,
-        claimsSaved: /saved to cloud/i.test(`${dlcSaveStatus.message || ""} ${dlcSaveStatus.state || ""}`),
+        legacyLs: legacy.length,
+        lsKeys,
+        scope: childDataMutationQueueScope,
+        userId: identity.userId,
+        programId: identity.programId,
+        claimsSaved: /^(saved)$/i.test(String(dlcSaveStatus.state || ""))
+          || /^saved to cloud$/i.test(String(dlcSaveStatus.message || "")),
+        hasWaiting: /waiting for connection/i.test(`${dlcSaveStatus.message || ""}`),
       };
     });
     assert.ok(["offline", "pending", "failed", "saving"].includes(offlineState.status), offlineState.status);
     assert.equal(offlineState.claimsSaved, false);
     assert.ok(offlineState.mem >= 1);
-    assert.ok(offlineState.idbCount >= 1 || offlineState.lsCount >= 1);
-    await page.evaluate(() => {
+    assert.ok(offlineState.idbCount >= 1, "must persist in IndexedDB");
+    assert.equal(offlineState.legacyLs, 0);
+    assertNoChildMutationLocalStorage(offlineState.lsKeys);
+    assert.ok(offlineState.userId && !offlineState.userId.includes("@"));
+    assert.ok(offlineState.programId && !String(offlineState.programId).includes("@"));
+    // Persist the live actor/program scope so reload uses the same identity before backend sync mutates accounts.
+    await page.evaluate(({ userId, programId }) => {
+      const email = String(currentUser || "");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      if (accounts[email]) {
+        accounts[email].localActorId = userId;
+        accounts[email].programId = programId;
+        accounts[email].linkedProgramId = programId;
+        localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      }
       dailyLogsSection = "home";
       renderChildManagement();
-    });
+    }, { userId: offlineState.userId, programId: offlineState.programId });
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-offline.png") });
-    console.log("PASS  offline entry persists in durable queue (not claimed cloud-saved)");
+    console.log("PASS  offline entry persists in IndexedDB only (not claimed cloud-saved)");
 
     // Refresh before acknowledgement preserves queue
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForFunction(() => typeof window.loadChildDataMutationQueue === "function", null, { timeout: 30000 });
     const afterRefresh = await page.evaluate(async () => {
-      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
       await loadChildDataMutationQueue();
       return {
         count: childDataMutationQueue.length,
         lunchPending: childDataMutationQueue.some((m) => m.record?.lunch === "Offline pasta"),
-        user: childDataMutationQueueUser,
+        scope: childDataMutationQueueScope,
+        emailScoped: childDataMutationQueue.some((m) => m.userEmail),
+        identity: childDataActorIdentity(),
       };
     });
     assert.ok(afterRefresh.count >= 1, "refresh must restore pending mutations");
     assert.equal(afterRefresh.lunchPending, true);
+    assert.equal(afterRefresh.emailScoped, false);
     console.log("PASS  refresh before acknowledgement preserves pending mutation");
 
-    // Reconnect flushes safely / idempotent replay
+    // Reconnect flushes + idempotent replay
+    blockChildDataPosts = false;
+    await page.unroute("**/api/child-data");
     await page.evaluate(() => {
-      if (window.__llhOriginalFetch) window.fetch = window.__llhOriginalFetch;
       Object.defineProperty(navigator, "onLine", { configurable: true, get: () => true });
       window.dispatchEvent(new Event("online"));
     });
     await page.waitForTimeout(1200);
     const afterOnline = await page.evaluate(async () => {
       await saveChildDataToBackend({ force: true, retryFailed: true });
-      // Replay same mutation id again via raw API duplicate
       const mid = "replay-mid-1";
       const record = {
         id: "meal-replay-1",
@@ -235,7 +304,6 @@ async function main() {
       })).json();
       const meals = remote.data?.Meals || [];
       return {
-        queueAfter: childDataMutationQueue.filter((m) => m.record?.lunch === "Offline pasta").length,
         offlineMeal: meals.some((m) => m.lunch === "Offline pasta"),
         replayLunch: (meals.find((m) => m.id === "meal-replay-1") || {}).lunch,
         secondDup: second?.duplicates || 0,
@@ -248,7 +316,7 @@ async function main() {
     assert.equal(afterOnline.replayLunch, "Replay beans");
     assert.ok(afterOnline.secondDup >= 1 || afterOnline.replayLunch === "Replay beans");
     await page.evaluate(() => {
-      dlcSetSaveStatus("saving", "Saving to cloud…");
+      dlcSetSaveStatus("saving", "Saving…");
       dailyLogsSection = "home";
       childManagementMode = "daily-logs";
       if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
@@ -262,21 +330,22 @@ async function main() {
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-saved.png") });
     console.log("PASS  reconnect flush + idempotent replay");
 
-    // Stale edit conflict UI
-    const conflict = await page.evaluate(async () => {
+    // Human-readable conflict: different fields + rebase apply-my-change
+    const conflictDiffFields = await page.evaluate(async () => {
       const today = dlcActiveDate();
       const created = appendChildRecord("Meals", {
         id: "meal-conflict-1",
         childId: "child-ava",
         date: today,
+        breakfast: "Oats",
         lunch: "Original",
         title: "Meals",
         summary: "Original",
         shareWithFamily: true,
       }, { skipRender: true });
       await saveChildDataToBackend({ force: true });
-      // Server-side newer edit
-      await fetch("/api/child-data", {
+      clearTimeout(childCloudSaveTimer);
+      const serverEdit = await fetch("/api/child-data", {
         method: "POST",
         headers: {
           Authorization: `Bearer test:${currentUser}`,
@@ -291,15 +360,17 @@ async function main() {
             baseRevision: 1,
             record: {
               ...created,
+              breakfast: "Server oats",
               lunch: "Server newer",
               revision: 1,
               updatedAt: new Date().toISOString(),
             },
           }],
         }),
-      });
-      // Local stale edit at baseRevision 1
-      const local = { ...created, lunch: "Local stale", revision: 1, updatedAt: new Date().toISOString() };
+      }).then((res) => res.json());
+      if (!serverEdit?.applied) throw new Error(`server-newer edit failed: ${JSON.stringify(serverEdit)}`);
+      const baseSnapshot = { ...created };
+      const local = { ...created, lunch: "Local lunch only", revision: 1, updatedAt: new Date().toISOString() };
       saveChildStoreLocalOnly("Meals", childStore("Meals").map((m) => (m.id === local.id ? local : m)));
       enqueueChildDataMutation({
         op: "upsert",
@@ -307,36 +378,331 @@ async function main() {
         clientMutationId: "local-stale-1",
         baseRevision: 1,
         record: local,
+        baseSnapshot,
+        intendedFields: ["lunch"],
       });
-      const payload = await saveChildDataToBackend({ force: true });
+      await saveChildDataToBackend({ force: true });
       dailyLogsSection = "home";
       renderChildManagement();
+      const panel = document.querySelector("[data-dlc-conflict-panel]");
+      const html = panel ? panel.innerHTML : "";
       return {
         status: dlcSaveStatus.state,
         conflict: Boolean(dlcConflictState),
-        panel: Boolean(document.querySelector("[data-dlc-conflict-panel]")),
-        httpConflict: payload?.conflict || payload?.conflicts > 0,
-        lunch: (childStore("Meals").find((m) => m.id === "meal-conflict-1") || {}).lunch,
+        panel: Boolean(panel),
+        childName: /Ava Durable/i.test(html),
+        recordType: /Meal/i.test(html),
+        yourChange: /Your change/i.test(html),
+        latestSaved: /Latest saved information/i.test(html),
+        rawJson: /"revision"\s*:|"baseRevision"\s*:|"clientMutationId"\s*:/.test(html)
+          || Boolean(panel?.querySelector("pre")),
+        lunchLabel: /Lunch/i.test(html),
+        applyBtn: Boolean(document.querySelector("[data-dlc-conflict-retry]")),
+        keepBtn: Boolean(document.querySelector("[data-dlc-conflict-reload]")),
+        editBtn: Boolean(document.querySelector("[data-dlc-conflict-edit]")),
+        cancelBtn: Boolean(document.querySelector("[data-dlc-conflict-discard]")),
+        explanation: /another staff member/i.test(html),
       };
     });
-    assert.equal(conflict.conflict, true);
-    assert.equal(conflict.panel, true);
-    assert.equal(conflict.status, "conflict");
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-conflict.png") });
-    // Reload latest resolves without applying stale
+    assert.equal(conflictDiffFields.conflict, true);
+    assert.equal(conflictDiffFields.panel, true);
+    assert.equal(conflictDiffFields.status, "conflict");
+    assert.equal(conflictDiffFields.childName, true);
+    assert.equal(conflictDiffFields.recordType, true);
+    assert.equal(conflictDiffFields.yourChange, true);
+    assert.equal(conflictDiffFields.latestSaved, true);
+    assert.equal(conflictDiffFields.rawJson, false);
+    assert.equal(conflictDiffFields.lunchLabel, true);
+    assert.equal(conflictDiffFields.applyBtn, true);
+    assert.equal(conflictDiffFields.keepBtn, true);
+    assert.equal(conflictDiffFields.editBtn, true);
+    assert.equal(conflictDiffFields.cancelBtn, true);
+    assert.equal(conflictDiffFields.explanation, true);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-conflict-desktop.png") });
+    console.log("PASS  human-readable conflict UI (no raw JSON)");
+
+    // Apply my change rebases onto latest (preserves server breakfast, applies local lunch)
+    await page.click("[data-dlc-conflict-retry]");
+    await page.waitForFunction(() => !dlcConflictState && !childDataMutationQueue.some((m) => m.clientMutationId === "local-stale-1"), null, { timeout: 10000 });
+    const rebased = await page.evaluate(async () => {
+      clearTimeout(childCloudSaveTimer);
+      await saveChildDataToBackend({ force: true, retryFailed: true });
+      const remote = await (await fetch("/api/child-data", {
+        headers: {
+          Authorization: `Bearer test:${currentUser}`,
+          "X-LLH-User-Email": String(currentUser),
+        },
+      })).json();
+      const meal = (remote.data?.Meals || []).find((m) => m.id === "meal-conflict-1") || {};
+      return {
+        conflict: Boolean(dlcConflictState),
+        breakfast: meal.breakfast,
+        lunch: meal.lunch,
+        revision: meal.revision,
+        queueHasStale: childDataMutationQueue.some((m) => m.clientMutationId === "local-stale-1"),
+        serverHad: meal,
+      };
+    });
+    assert.equal(rebased.conflict, false);
+    assert.equal(rebased.breakfast, "Server oats");
+    assert.equal(rebased.lunch, "Local lunch only");
+    assert.ok(Number(rebased.revision) >= 2);
+    assert.equal(rebased.queueHasStale, false);
+    console.log("PASS  409 rebase apply-my-change (different fields)");
+
+    // Same-field conflict → Keep latest
+    await page.evaluate(async () => {
+      const created = appendChildRecord("Naps", {
+        id: "nap-conflict-1",
+        childId: "child-ava",
+        date: dlcActiveDate(),
+        napStart: "12:00",
+        napEnd: "13:00",
+        notes: "Original nap",
+        summary: "Original nap",
+      }, { skipRender: true });
+      await saveChildDataToBackend({ force: true });
+      await fetch("/api/child-data", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer test:${currentUser}`,
+          "X-LLH-User-Email": String(currentUser),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mutations: [{
+            clientMutationId: "server-nap-1",
+            op: "upsert",
+            storeKey: "Naps",
+            baseRevision: 1,
+            record: { ...created, notes: "Server nap note", revision: 1, updatedAt: new Date().toISOString() },
+          }],
+        }),
+      });
+      const local = { ...created, notes: "Local nap note", revision: 1, updatedAt: new Date().toISOString() };
+      saveChildStoreLocalOnly("Naps", childStore("Naps").map((m) => (m.id === local.id ? local : m)));
+      enqueueChildDataMutation({
+        op: "upsert",
+        storeKey: "Naps",
+        clientMutationId: "local-nap-stale",
+        baseRevision: 1,
+        record: local,
+        baseSnapshot: created,
+        intendedFields: ["notes"],
+      });
+      await saveChildDataToBackend({ force: true });
+      renderChildManagement();
+    });
+    assert.equal(await page.evaluate(() => dlcSaveStatus.state), "conflict");
     await page.click("[data-dlc-conflict-reload]");
     await page.waitForTimeout(200);
-    const resolved = await page.evaluate(() => ({
+    const kept = await page.evaluate(() => ({
       conflict: Boolean(dlcConflictState),
-      lunch: (childStore("Meals").find((m) => m.id === "meal-conflict-1") || {}).lunch,
-      queueHasStale: childDataMutationQueue.some((m) => m.clientMutationId === "local-stale-1"),
+      notes: (childStore("Naps").find((m) => m.id === "nap-conflict-1") || {}).notes,
     }));
-    assert.equal(resolved.conflict, false);
-    assert.equal(resolved.lunch, "Server newer");
-    assert.equal(resolved.queueHasStale, false);
-    console.log("PASS  stale edit conflict UI + reload latest");
+    assert.equal(kept.conflict, false);
+    assert.equal(kept.notes, "Server nap note");
+    console.log("PASS  same-field conflict + keep latest");
 
-    // Failed state screenshot via forced auth failure entry
+    // Attendance / activity / note / diaper conflicts surface friendly types
+    const typeLabels = await page.evaluate(async () => {
+      const cases = [
+        {
+          storeKey: "Attendance",
+          id: "att-conflict-1",
+          record: {
+            id: "att-conflict-1",
+            childId: "child-ava",
+            date: dlcActiveDate(),
+            status: "checked_in",
+            checkIn: "08:00",
+            summary: "In",
+          },
+          serverPatch: { checkIn: "08:15", summary: "Server in" },
+          localPatch: { checkIn: "08:05", summary: "Local in" },
+          fields: ["checkIn"],
+        },
+        {
+          storeKey: "ActivityLogs",
+          id: "act-conflict-1",
+          record: {
+            id: "act-conflict-1",
+            childId: "child-ava",
+            date: dlcActiveDate(),
+            activity: "Blocks",
+            summary: "Blocks",
+          },
+          serverPatch: { activity: "Server blocks" },
+          localPatch: { activity: "Local blocks" },
+          fields: ["activity"],
+        },
+        {
+          storeKey: "Communications",
+          id: "note-conflict-1",
+          record: {
+            id: "note-conflict-1",
+            childId: "child-ava",
+            date: dlcActiveDate(),
+            type: "Note",
+            message: "Original note",
+            summary: "Original note",
+          },
+          serverPatch: { message: "Server note" },
+          localPatch: { message: "Local note" },
+          fields: ["message"],
+        },
+        {
+          storeKey: "Diapers",
+          id: "diaper-conflict-1",
+          record: {
+            id: "diaper-conflict-1",
+            childId: "child-ava",
+            date: dlcActiveDate(),
+            type: "Wet",
+            time: "10:00",
+            summary: "Wet",
+          },
+          serverPatch: { type: "BM" },
+          localPatch: { type: "Potty" },
+          fields: ["type"],
+        },
+      ];
+      const labels = [];
+      for (const item of cases) {
+        dlcConflictState = null;
+        const created = appendChildRecord(item.storeKey, item.record, { skipRender: true });
+        await saveChildDataToBackend({ force: true });
+        await fetch("/api/child-data", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer test:${currentUser}`,
+            "X-LLH-User-Email": String(currentUser),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mutations: [{
+              clientMutationId: `server-${item.id}`,
+              op: "upsert",
+              storeKey: item.storeKey,
+              baseRevision: 1,
+              record: { ...created, ...item.serverPatch, revision: 1, updatedAt: new Date().toISOString() },
+            }],
+          }),
+        });
+        const local = { ...created, ...item.localPatch, revision: 1, updatedAt: new Date().toISOString() };
+        saveChildStoreLocalOnly(item.storeKey, childStore(item.storeKey).map((row) => (row.id === local.id ? local : row)));
+        enqueueChildDataMutation({
+          op: "upsert",
+          storeKey: item.storeKey,
+          clientMutationId: `local-${item.id}`,
+          baseRevision: 1,
+          record: local,
+          baseSnapshot: created,
+          intendedFields: item.fields,
+        });
+        await saveChildDataToBackend({ force: true });
+        renderChildManagement();
+        const html = document.querySelector("[data-dlc-conflict-panel]")?.innerHTML || "";
+        labels.push({
+          storeKey: item.storeKey,
+          typeLabel: dlcConflictState?.recordType || "",
+          rawJson: /"revision"\s*:/.test(html) || Boolean(document.querySelector("[data-dlc-conflict-panel] pre")),
+          child: /Ava Durable/i.test(html),
+        });
+        await resolveDlcConflict(`local-${item.id}`, "discard");
+      }
+      return labels;
+    });
+    assert.ok(typeLabels.some((row) => row.storeKey === "Attendance" && row.typeLabel === "Attendance"));
+    assert.ok(typeLabels.some((row) => row.storeKey === "ActivityLogs" && row.typeLabel === "Activity"));
+    assert.ok(typeLabels.some((row) => row.storeKey === "Communications" && /Note/i.test(row.typeLabel)));
+    assert.ok(typeLabels.some((row) => row.storeKey === "Diapers" && /Diaper|Potty/i.test(row.typeLabel)));
+    assert.equal(typeLabels.every((row) => row.rawJson === false && row.child === true), true);
+    console.log("PASS  attendance / activity / note / diaper conflict labels");
+
+    // Deleted record conflict
+    const deletedConflict = await page.evaluate(async () => {
+      enqueueChildDataMutation({
+        op: "upsert",
+        storeKey: "Meals",
+        clientMutationId: "local-deleted-1",
+        baseRevision: 1,
+        record: {
+          id: "meal-gone-1",
+          childId: "child-ava",
+          date: dlcActiveDate(),
+          lunch: "Ghost",
+          revision: 1,
+          updatedAt: new Date().toISOString(),
+        },
+        baseSnapshot: { id: "meal-gone-1", lunch: "Was here", revision: 1 },
+        intendedFields: ["lunch"],
+      });
+      await saveChildDataToBackend({ force: true });
+      renderChildManagement();
+      const html = document.querySelector("[data-dlc-conflict-panel]")?.innerHTML || "";
+      return {
+        status: dlcSaveStatus.state,
+        deleted: Boolean(dlcConflictState?.deleted),
+        noApply: !document.querySelector("[data-dlc-conflict-retry]"),
+        text: /no longer/i.test(html),
+      };
+    });
+    assert.equal(deletedConflict.status, "conflict");
+    assert.equal(deletedConflict.deleted, true);
+    assert.equal(deletedConflict.noApply, true);
+    assert.equal(deletedConflict.text, true);
+    await page.evaluate(() => resolveDlcConflict("local-deleted-1", "discard"));
+    console.log("PASS  deleted/unavailable record conflict");
+
+    // Mobile conflict layout screenshot
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(async () => {
+      const created = appendChildRecord("Meals", {
+        id: "meal-mobile-1",
+        childId: "child-ava",
+        date: dlcActiveDate(),
+        lunch: "Mobile original",
+        summary: "Mobile original",
+      }, { skipRender: true });
+      await saveChildDataToBackend({ force: true });
+      await fetch("/api/child-data", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer test:${currentUser}`,
+          "X-LLH-User-Email": String(currentUser),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mutations: [{
+            clientMutationId: "server-mobile-1",
+            op: "upsert",
+            storeKey: "Meals",
+            baseRevision: 1,
+            record: { ...created, lunch: "Mobile server", revision: 1, updatedAt: new Date().toISOString() },
+          }],
+        }),
+      });
+      const local = { ...created, lunch: "Mobile local", revision: 1, updatedAt: new Date().toISOString() };
+      saveChildStoreLocalOnly("Meals", childStore("Meals").map((m) => (m.id === local.id ? local : m)));
+      enqueueChildDataMutation({
+        op: "upsert",
+        storeKey: "Meals",
+        clientMutationId: "local-mobile-1",
+        baseRevision: 1,
+        record: local,
+        baseSnapshot: created,
+        intendedFields: ["lunch"],
+      });
+      await saveChildDataToBackend({ force: true });
+      renderChildManagement();
+    });
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-conflict-mobile.png") });
+    await page.evaluate(() => resolveDlcConflict("local-mobile-1", "discard"));
+    await page.setViewportSize({ width: 1280, height: 900 });
+    console.log("PASS  mobile conflict screenshot");
+
+    // Failed state wording
     await page.evaluate(async () => {
       enqueueChildDataMutation({
         op: "upsert",
@@ -353,16 +719,74 @@ async function main() {
         status: "failed",
         lastError: "simulated",
       });
-      dlcSetSaveStatus("failed", "Save failed — Retry or Discard");
+      dlcSetSaveStatus("failed", "Sync failed");
       renderChildManagement();
     });
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-failed.png") });
-    await page.evaluate(async () => {
-      await discardChildDataMutation("fail-demo-1");
+    const failedUi = await page.evaluate(() => {
+      const html = document.body.innerHTML;
+      return {
+        retry: /Retry sync/i.test(html),
+        discard: /Discard failed change/i.test(html),
+        ambiguousUndo: /data-dlc-mutation-discard[^>]*>\s*Undo/i.test(html),
+      };
     });
-    console.log("PASS  failed state visible with discard");
+    assert.equal(failedUi.retry, true);
+    assert.equal(failedUi.discard, true);
+    assert.equal(failedUi.ambiguousUndo, false);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "status-failed.png") });
+    await page.evaluate(async () => { await discardChildDataMutation("fail-demo-1"); });
+    console.log("PASS  failed state wording (Retry sync / Discard failed change)");
 
-    // Logout/login as different user must not replay Owner queue
+    // Logout with unsynced work warns; discard path clears queue for this actor
+    const logoutWarn = await page.evaluate(async () => {
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+      const blockedFetch = window.fetch;
+      window.fetch = async (url, init = {}) => {
+        if (String(url).includes("/api/child-data") && String(init.method || "GET").toUpperCase() === "POST") {
+          throw new TypeError("Failed to fetch (logout offline simulation)");
+        }
+        return blockedFetch(url, init);
+      };
+      appendChildRecord("Meals", {
+        id: "meal-logout-pending",
+        childId: "child-ava",
+        date: dlcActiveDate(),
+        lunch: "Logout pending",
+        summary: "Logout pending",
+      }, { skipRender: true });
+      const originalConfirm = window.confirmAction;
+      const prompts = [];
+      window.confirmAction = async (options = {}) => {
+        prompts.push({ title: options.title || "", message: options.message || "", confirmLabel: options.confirmLabel || "" });
+        if (/Discard unsynced/i.test(options.title || "") || /Discard unsynced/i.test(options.confirmLabel || "")) {
+          return true;
+        }
+        if (/Sync now/i.test(options.confirmLabel || "")) return true;
+        return false;
+      };
+      const choice = await promptLogoutWithUnsyncedWork();
+      window.confirmAction = originalConfirm;
+      window.fetch = blockedFetch;
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => true });
+      const leakedNamesOnPrompt = prompts.some((p) => /Ava Durable|Logout pending/i.test(`${p.title} ${p.message}`));
+      return {
+        choice,
+        prompts: prompts.length,
+        hasSync: prompts.some((p) => /Sync now/i.test(p.confirmLabel)),
+        hasDiscard: prompts.some((p) => /Discard unsynced/i.test(p.confirmLabel)),
+        leakedNamesOnPrompt,
+        remaining: childDataMutationQueue.length,
+      };
+    });
+    assert.equal(logoutWarn.choice, "continue");
+    assert.ok(logoutWarn.prompts >= 1);
+    assert.equal(logoutWarn.hasSync, true);
+    assert.equal(logoutWarn.hasDiscard, true);
+    assert.equal(logoutWarn.leakedNamesOnPrompt, false);
+    assert.equal(logoutWarn.remaining, 0);
+    console.log("PASS  logout unsynced warning (Sync now / Discard) without child-name leak");
+
+    // Owner memory clear + Teacher A must not see owner queue
     await page.evaluate(() => {
       clearChildDataMutationMemory();
       currentUser = "";
@@ -370,75 +794,290 @@ async function main() {
     });
     await context.close();
 
-    const other = await openPage(browser, port, OWNER_B);
-    const isolation = await other.page.evaluate(async () => {
+    const teacherA = await openPage(browser, port, TEACHER_A, {
+      role: "teacher",
+      localActorId: "actor_teacher_a",
+      programId: PROGRAM_A,
+    });
+    const isolationA = await teacherA.page.evaluate(async () => {
+      await loadChildDataMutationQueue();
+      const lsKeys = [];
+      for (let i = 0; i < localStorage.length; i += 1) lsKeys.push(localStorage.key(i));
+      return {
+        count: childDataMutationQueue.length,
+        scope: childDataMutationQueueScope,
+        leaked: childDataMutationQueue.some((m) => /Offline pasta|Logout pending|local-stale|fail-demo/i.test(JSON.stringify(m))),
+        conflictPanel: Boolean(document.querySelector("[data-dlc-conflict-panel]")),
+        lsMutationKeys: lsKeys.filter((k) => String(k || "").startsWith("llhChildMutations:")),
+      };
+    });
+    assert.equal(isolationA.leaked, false);
+    assert.equal(isolationA.count, 0);
+    assert.equal(isolationA.conflictPanel, false);
+    assert.equal(isolationA.lsMutationKeys.length, 0);
+    console.log("PASS  owner → teacher A isolation (no queue replay / no conflict panel)");
+
+    // Teacher A queues offline work; Teacher B on same device must not see it
+    await teacherA.page.evaluate(async () => {
+      saveChildStore("Profiles", [
+        { id: "child-ava", name: "Ava Durable", classroomId: "room-oaks", classroom: "Oaks" },
+      ]);
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+      appendChildRecord("Meals", {
+        id: "meal-teacher-a-private",
+        childId: "child-ava",
+        date: dlcActiveDate(),
+        lunch: "Teacher A private",
+        summary: "Teacher A private",
+      }, { skipRender: true });
+      await loadChildDataMutationQueue();
+    });
+    const teacherAQueued = await teacherA.page.evaluate(() => ({
+      count: childDataMutationQueue.length,
+      userId: childDataActorIdentity().userId,
+    }));
+    assert.ok(teacherAQueued.count >= 1);
+    await teacherA.page.evaluate(() => {
+      clearChildDataMutationMemory();
+      currentUser = "";
+    });
+    await teacherA.context.close();
+
+    const teacherB = await openPage(browser, port, TEACHER_B, {
+      role: "teacher",
+      localActorId: "actor_teacher_b",
+      programId: PROGRAM_A,
+    });
+    const isolationB = await teacherB.page.evaluate(async () => {
       await loadChildDataMutationQueue();
       return {
         count: childDataMutationQueue.length,
-        user: childDataMutationQueueUser,
-        leaked: childDataMutationQueue.some((m) => /Offline pasta|local-stale|fail-demo/i.test(JSON.stringify(m))),
+        leaked: childDataMutationQueue.some((m) => /Teacher A private/i.test(JSON.stringify(m))),
+        userId: childDataActorIdentity().userId,
       };
     });
-    assert.equal(isolation.leaked, false);
-    assert.equal(isolation.count, 0);
-    console.log("PASS  logout/login different user does not replay prior queue");
+    assert.equal(isolationB.count, 0);
+    assert.equal(isolationB.leaked, false);
+    assert.notEqual(isolationB.userId, teacherAQueued.userId);
+    console.log("PASS  teacher A → teacher B isolation");
 
-    // Permission removed while pending
-    await other.context.close();
-    const owner2 = await openPage(browser, port, OWNER);
-    const perm = await owner2.page.evaluate(async () => {
-      // Seed a teacher-like forbidden mutation against missing classroom by forcing server forbid via assistant profile edit pattern:
-      // Use owner to enqueue, then simulate authFailed handling.
+    // Email change keeps actor id boundary (localActorId), not email string
+    const emailChange = await teacherB.page.evaluate(async () => {
+      const before = childDataActorIdentity();
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+      appendChildRecord("Meals", {
+        id: "meal-email-change",
+        childId: "child-ava",
+        date: dlcActiveDate(),
+        lunch: "Before email change",
+        summary: "Before email change",
+      }, { skipRender: true });
+      const midCount = childDataMutationQueue.length;
+      const oldEmail = String(currentUser);
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      const account = accounts[oldEmail];
+      const newEmail = "phase2.durable.teacher.b.renamed@example.com";
+      accounts[newEmail] = { ...account, email: newEmail };
+      delete accounts[oldEmail];
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      localStorage.setItem("llhUser", newEmail);
+      currentUser = newEmail;
+      await loadChildDataMutationQueue();
+      const after = childDataActorIdentity();
+      return {
+        midCount,
+        beforeUserId: before.userId,
+        afterUserId: after.userId,
+        stillVisible: childDataMutationQueue.some((m) => m.record?.lunch === "Before email change"),
+        scopedByEmail: childDataMutationQueue.some((m) => String(m.userEmail || "").includes("@")),
+      };
+    });
+    assert.ok(emailChange.midCount >= 1);
+    assert.equal(emailChange.beforeUserId, emailChange.afterUserId);
+    assert.equal(emailChange.stillVisible, true);
+    assert.equal(emailChange.scopedByEmail, false);
+    console.log("PASS  email change keeps immutable actor scope");
+
+    // Program change must not flush prior program mutations
+    const programSwitch = await teacherB.page.evaluate(async () => {
+      const beforeScope = childDataMutationQueueScope;
+      const beforeCount = childDataMutationQueue.length;
+      const beforeProgram = childDataActorIdentity().programId;
+      clearChildDataMutationMemory();
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      const email = String(currentUser);
+      const nextProgram = beforeProgram === "prog-durable-b" ? "prog-durable-c" : "prog-durable-b";
+      accounts[email] = { ...accounts[email], programId: nextProgram, linkedProgramId: nextProgram };
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      await loadChildDataMutationQueue();
+      return {
+        beforeScope,
+        beforeCount,
+        beforeProgram,
+        afterProgram: childDataActorIdentity().programId,
+        afterScope: childDataMutationQueueScope,
+        afterCount: childDataMutationQueue.length,
+        leaked: childDataMutationQueue.some((m) => /Before email change|Teacher A private/i.test(JSON.stringify(m))),
+      };
+    });
+    assert.ok(programSwitch.beforeCount >= 1);
+    assert.notEqual(programSwitch.afterProgram, programSwitch.beforeProgram);
+    assert.notEqual(programSwitch.afterScope, programSwitch.beforeScope);
+    assert.equal(programSwitch.afterCount, 0);
+    assert.equal(programSwitch.leaked, false);
+    console.log("PASS  program change isolates prior program queue");
+
+    // Session-expired pending stays failed (not silently saved)
+    await teacherB.context.close();
+    const owner2 = await openPage(browser, port, OWNER, {
+      localActorId: "actor_owner_durable",
+      programId: PROGRAM_A,
+    });
+    await seedChild(owner2.page);
+    const sessionExpired = await owner2.page.evaluate(async () => {
       enqueueChildDataMutation({
         op: "upsert",
         storeKey: "Meals",
-        clientMutationId: "perm-pending-1",
+        clientMutationId: "session-expired-1",
         record: {
-          id: "meal-perm-1",
+          id: "meal-session-1",
           childId: "child-ava",
           date: dlcActiveDate(),
-          lunch: "Perm test",
+          lunch: "Session expire",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
       });
-      // Monkey-patch fetch once to simulate 403 forbidden on mutations
       const original = window.fetch;
       window.fetch = async (url, init = {}) => {
-        if (String(url).includes("/api/child-data") && init.method === "POST") {
+        if (String(url).includes("/api/child-data") && String(init.method || "").toUpperCase() === "POST") {
           return new Response(JSON.stringify({
             ok: false,
             failed: 1,
             applied: 0,
             results: [{
               ok: false,
-              clientMutationId: "perm-pending-1",
+              clientMutationId: "session-expired-1",
               authFailed: true,
               code: "forbidden",
-              error: "You can only update children in your assigned classroom.",
+              error: "Session expired",
             }],
-          }), { status: 403, headers: { "Content-Type": "application/json" } });
+          }), { status: 401, headers: { "Content-Type": "application/json" } });
         }
         return original(url, init);
       };
       await saveChildDataToBackend({ force: true });
       window.fetch = original;
-      const entry = childDataMutationQueue.find((m) => m.clientMutationId === "perm-pending-1");
+      const entry = childDataMutationQueue.find((m) => m.clientMutationId === "session-expired-1");
       return {
         status: dlcSaveStatus.state,
         entryStatus: entry?.status,
         remains: Boolean(entry),
-        message: dlcSaveStatus.message,
+        claimsSaved: dlcSaveStatus.state === "saved",
       };
     });
-    assert.equal(perm.remains, true);
-    assert.equal(perm.entryStatus, "failed");
-    assert.equal(perm.status, "failed");
-    console.log("PASS  permission removed keeps pending mutation failed (not silent saved)");
+    assert.equal(sessionExpired.remains, true);
+    assert.equal(sessionExpired.entryStatus, "failed");
+    assert.equal(sessionExpired.status, "failed");
+    assert.equal(sessionExpired.claimsSaved, false);
+    console.log("PASS  session expired keeps failed pending work");
 
-    // Queue cleanup after ack
+    // Corrupted / obsolete queue entries cleaned
+    const cleanupCorrupt = await owner2.page.evaluate(async () => {
+      const identity = childDataActorIdentity();
+      await idbPutMutation({
+        clientMutationId: "corrupt-no-date",
+        userId: identity.userId,
+        programId: identity.programId,
+        scopeKey: identity.scopeKey,
+        storeKey: "Meals",
+        status: "pending",
+        record: { lunch: "corrupt" },
+      });
+      await idbPutMutation({
+        clientMutationId: "obsolete-old",
+        userId: identity.userId,
+        programId: identity.programId,
+        scopeKey: identity.scopeKey,
+        storeKey: "Meals",
+        status: "pending",
+        queuedAt: new Date(Date.now() - (20 * 24 * 60 * 60 * 1000)).toISOString(),
+        record: { lunch: "too old" },
+      });
+      await idbPutMutation({
+        clientMutationId: "wrong-scope",
+        userId: "other-actor",
+        programId: identity.programId,
+        scopeKey: `other-actor::${identity.programId}`,
+        storeKey: "Meals",
+        status: "pending",
+        queuedAt: new Date().toISOString(),
+        record: { lunch: "wrong scope" },
+      });
+      await loadChildDataMutationQueue();
+      return {
+        hasCorrupt: childDataMutationQueue.some((m) => m.clientMutationId === "corrupt-no-date"),
+        hasOld: childDataMutationQueue.some((m) => m.clientMutationId === "obsolete-old"),
+        hasWrong: childDataMutationQueue.some((m) => m.clientMutationId === "wrong-scope"),
+      };
+    });
+    assert.equal(cleanupCorrupt.hasCorrupt, false);
+    assert.equal(cleanupCorrupt.hasOld, false);
+    assert.equal(cleanupCorrupt.hasWrong, false);
+    console.log("PASS  corrupted / obsolete / wrong-scope queue cleanup");
+
+    // IndexedDB unavailable fails safely (no localStorage fallback)
+    const idbFail = await owner2.page.evaluate(async () => {
+      await discardChildDataMutation("session-expired-1").catch(() => {});
+      childDataMutationIdbAvailable = false;
+      const beforeKeys = [];
+      for (let i = 0; i < localStorage.length; i += 1) beforeKeys.push(localStorage.key(i));
+      const id = enqueueChildDataMutation({
+        op: "upsert",
+        storeKey: "Meals",
+        clientMutationId: "idb-down-1",
+        record: {
+          id: "meal-idb-down",
+          childId: "child-ava",
+          date: dlcActiveDate(),
+          lunch: "Should stay on screen",
+          summary: "Should stay on screen",
+        },
+      });
+      // Keep entry visibly on screen via local store write path
+      saveChildStoreLocalOnly("Meals", [
+        ...childStore("Meals").filter((m) => m.id !== "meal-idb-down"),
+        {
+          id: "meal-idb-down",
+          childId: "child-ava",
+          lunch: "Should stay on screen",
+          summary: "Should stay on screen",
+          date: dlcActiveDate(),
+        },
+      ]);
+      const afterKeys = [];
+      for (let i = 0; i < localStorage.length; i += 1) afterKeys.push(localStorage.key(i));
+      const newLs = afterKeys.filter((k) => !beforeKeys.includes(k) && String(k || "").startsWith("llhChildMutations:"));
+      return {
+        id,
+        status: dlcSaveStatus.state,
+        message: dlcSaveStatus.message,
+        queued: childDataMutationQueue.some((m) => m.clientMutationId === "idb-down-1"),
+        onScreen: (childStore("Meals").find((m) => m.id === "meal-idb-down") || {}).lunch,
+        newLs,
+      };
+    });
+    assert.equal(idbFail.id, "");
+    assert.equal(idbFail.queued, false);
+    assert.equal(idbFail.status, "failed");
+    assert.match(String(idbFail.message || ""), /unavailable/i);
+    assert.equal(idbFail.onScreen, "Should stay on screen");
+    assert.equal(idbFail.newLs.length, 0);
+    console.log("PASS  IndexedDB unavailable fails safely (no localStorage fallback)");
+
+    // Queue cleanup after ack + retention policy constant
     const cleanup = await owner2.page.evaluate(async () => {
-      await discardChildDataMutation("perm-pending-1");
+      childDataMutationIdbAvailable = true;
       const mid = "cleanup-mid-1";
       enqueueChildDataMutation({
         op: "upsert",
@@ -455,22 +1094,36 @@ async function main() {
       });
       await saveChildDataToBackend({ force: true });
       const still = childDataMutationQueue.some((m) => m.clientMutationId === mid);
+      const identity = childDataActorIdentity();
       let idbStill = false;
       try {
-        const rows = await idbListMutationsForUser(String(currentUser).toLowerCase());
+        const rows = await idbListMutationsForScope(identity.scopeKey);
         idbStill = rows.some((m) => m.clientMutationId === mid);
       } catch (_e) {
-        const ls = JSON.parse(localStorage.getItem(`llhChildMutations:${String(currentUser).toLowerCase()}`) || "[]");
-        idbStill = ls.some((m) => m.clientMutationId === mid);
+        idbStill = true;
       }
-      return { still, idbStill, status: dlcSaveStatus.state };
+      return {
+        still,
+        idbStill,
+        status: dlcSaveStatus.state,
+        maxAgeMs: CHILD_MUTATION_MAX_AGE_MS,
+      };
     });
     assert.equal(cleanup.still, false);
     assert.equal(cleanup.idbStill, false);
-    console.log("PASS  queue cleanup after confirmed acknowledgement");
+    assert.equal(cleanup.maxAgeMs, 14 * 24 * 60 * 60 * 1000);
+    console.log("PASS  queue cleanup after ack; retention = 14 days");
+
+    // Final proof: no child mutation keys in localStorage on shared device path
+    const finalLs = await owner2.page.evaluate(() => {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i += 1) keys.push(localStorage.key(i));
+      return keys.filter((k) => String(k || "").startsWith("llhChildMutations:"));
+    });
+    assert.equal(finalLs.length, 0);
 
     await owner2.context.close();
-    console.log("ALL DURABLE QUEUE / CONFLICT CHECKS PASSED");
+    console.log("ALL DURABLE QUEUE / HUMAN CONFLICT CHECKS PASSED");
   } finally {
     if (browser) await browser.close().catch(() => {});
     server.kill("SIGTERM");

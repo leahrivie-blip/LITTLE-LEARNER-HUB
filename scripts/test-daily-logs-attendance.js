@@ -329,19 +329,22 @@ async function main() {
           updatedAt: new Date().toISOString(),
           clientMutationId: mid,
         };
-        childDataMutationQueue = [{
+        // Must go through enqueue so userId/programId scope is attached.
+        enqueueChildDataMutation({
           op: "upsert",
           storeKey: "Meals",
           clientMutationId: mid,
+          baseRevision: undefined,
           record,
-        }];
+        });
         const first = await saveChildDataToBackend({ force: true });
-        childDataMutationQueue = [{
+        enqueueChildDataMutation({
           op: "upsert",
           storeKey: "Meals",
           clientMutationId: mid,
+          baseRevision: undefined,
           record: { ...record, lunch: "SHOULD NOT WIN" },
-        }];
+        });
         const second = await saveChildDataToBackend({ force: true });
         const meals = (await (await fetch("/api/child-data", {
           headers: { Authorization: `Bearer test:${currentUser}`, "X-LLH-User-Email": String(currentUser) },
