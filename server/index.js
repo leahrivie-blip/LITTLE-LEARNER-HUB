@@ -17836,9 +17836,13 @@ async function handlePublicSiteContent(request, response, url) {
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
       playBasedCurriculum: true,
-      // Teaching Kit flags stay server/admin-normalized only in Slice 1A.
-      // Do not expose featureFlags on the public site-content payload until a
-      // later viewer slice needs them (preserves existing public API shape).
+      // Customer Teaching Kit flags only (viewer / print / attachments).
+      // Required so the browser can mount TK when store flags are enabled.
+      // Owner/admin tooling flags stay admin-only and are never public.
+      featureFlags: {
+        playBasedCurriculum: true,
+        ...teachingKit.publicCustomerTeachingKitFeatureFlags(featureFlags),
+      },
       freePlanAccess,
       freeStarterLibrary: {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,

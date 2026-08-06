@@ -299,7 +299,8 @@ async function main() {
     const publicDraft = await requestJson("GET", "/api/site-content");
     assert(publicDraft.status === 200, "Public site-content failed");
     assert(!("curriculum" in publicDraft.json.siteContent), "Public API must omit curriculum");
-    assert(!("featureFlags" in publicDraft.json.siteContent), "Public API must omit featureFlags");
+    assert(publicDraft.json.siteContent.featureFlags?.teachingKitViewer === false, "Public customer TK flags default false");
+    assert(!("teachingKitEnrichmentEditor" in (publicDraft.json.siteContent.featureFlags || {})), "Public API must omit admin TK tooling flags");
     assert(publicDraft.json.siteContent.playBasedCurriculum === true, "Play-based curriculum is permanently on");
     assert(Array.isArray(publicDraft.json.siteContent.curriculumLibrary?.lessonPlans), "curriculumLibrary required");
     assert(!(publicDraft.json.siteContent.curriculumLibrary.lessonPlans || []).some((p) => p.id === lessonPlanId), "Draft lesson must not appear in public library");
@@ -384,7 +385,8 @@ async function main() {
     assert(publicOn.status === 200, "Public site-content failed");
     assert(publicOn.json.siteContent.playBasedCurriculum === true, "Public flag should be true");
     assert(!("curriculum" in publicOn.json.siteContent), "Public API must still omit full curriculum");
-    assert(!("featureFlags" in publicOn.json.siteContent), "Public API must still omit featureFlags object");
+    assert(publicOn.json.siteContent.featureFlags?.playBasedCurriculum === true, "Public featureFlags include playBasedCurriculum");
+    assert(!("teachingKitEnrichmentEditor" in (publicOn.json.siteContent.featureFlags || {})), "Public API must still omit admin TK tooling flags");
     const library = publicOn.json.siteContent.curriculumLibrary;
     assert(library, "curriculumLibrary missing");
     assert(Array.isArray(library.lessonPlans) && library.lessonPlans.some((p) => p.id === lessonPlanId), "Published lesson missing from library DTO");

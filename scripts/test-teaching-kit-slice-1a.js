@@ -276,11 +276,15 @@ async function main() {
     await waitForHealth(child);
     adminToken = await adminLogin();
 
-    // Public site-content must omit featureFlags (unchanged public payload for Slice 1A).
+    // Public site-content exposes customer-safe TK flags only (defaults false).
     const publicBefore = await requestJson("GET", "/api/site-content");
     assert(publicBefore.status === 200, "site-content ok");
-    assert(!("featureFlags" in (publicBefore.json?.siteContent || {})),
-      "public site-content must omit featureFlags in Slice 1A");
+    const publicFlagsBefore = publicBefore.json?.siteContent?.featureFlags || {};
+    assert(publicFlagsBefore.teachingKitViewer === false, "public teachingKitViewer default false");
+    assert(publicFlagsBefore.teachingKitPrintCenter === false, "public teachingKitPrintCenter default false");
+    assert(publicFlagsBefore.teachingKitAttachments === false, "public teachingKitAttachments default false");
+    assert(!("teachingKitEnrichmentEditor" in publicFlagsBefore), "public omits enrichment editor flag");
+    assert(!("teachingKitAuthoring" in publicFlagsBefore), "public omits authoring flag");
     assert(publicBefore.json?.siteContent?.playBasedCurriculum === true, "playBasedCurriculum still true");
 
     seedAccessUsers();
@@ -432,10 +436,14 @@ async function main() {
     assert(normalizedFlags.teachingKitPrintCenter === false, "numeric flag normalized false server-side");
     assert(normalizedFlags.teachingKitAttachments === true, "explicit true preserved server-side");
 
-    // Public payload still omits featureFlags after admin flag writes.
+    // Public payload mirrors customer-safe flags after admin flag writes.
     const publicAfter = await requestJson("GET", "/api/site-content");
-    assert(!("featureFlags" in (publicAfter.json?.siteContent || {})),
-      "public site-content still omits featureFlags after admin flag save");
+    const publicFlagsAfter = publicAfter.json?.siteContent?.featureFlags || {};
+    assert(publicFlagsAfter.teachingKitAttachments === true,
+      "public site-content mirrors customer attachments flag after admin save");
+    assert(publicFlagsAfter.teachingKitViewer === false, "public viewer stays false");
+    assert(!("teachingKitEnrichmentEditor" in publicFlagsAfter),
+      "public still omits enrichment editor after admin flag save");
 
     // Reset flags to false (Slice 1A must not leave enablement in temp store)
     const resetGet = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);

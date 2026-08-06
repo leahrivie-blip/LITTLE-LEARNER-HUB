@@ -308,8 +308,9 @@ async function main() {
   }
 
   const publicSc = await httpJson(`${PROD}/api/site-content`);
-  if (!publicSc.json?.siteContent?.featureFlags) pass("public site-content omits featureFlags");
-  else fail("public site-content omits featureFlags");
+  const publicFlags = publicSc.json?.siteContent?.featureFlags || {};
+  if (!("teachingKitEnrichmentEditor" in publicFlags)) pass("public site-content omits enrichment editor flag");
+  else fail("public site-content omits enrichment editor flag");
 
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   try {

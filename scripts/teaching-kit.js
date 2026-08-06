@@ -274,6 +274,20 @@
     return base;
   }
 
+  /**
+   * Public site-content may expose only customer Teaching Kit flags.
+   * Never include owner/admin tooling flags (enrichment, authoring, director, quality).
+   * The browser client gates TK mounting on these booleans from /api/site-content.
+   */
+  function publicCustomerTeachingKitFeatureFlags(flags) {
+    const normalized = normalizedTeachingKitFeatureFlags(flags);
+    return {
+      teachingKitViewer: normalized.teachingKitViewer === true,
+      teachingKitPrintCenter: normalized.teachingKitPrintCenter === true,
+      teachingKitAttachments: normalized.teachingKitAttachments === true,
+    };
+  }
+
   /** Kit read API for a request: global flags OR Owner Preview session. */
   function isTeachingKitApiEnabledForRequest(flags, options = {}) {
     return isTeachingKitApiEnabled(flags) || (options && options.ownerPreview === true);
@@ -469,6 +483,7 @@
     isTeachingKitOwnerPreviewEmail,
     isTeachingKitOwnerPreviewAuthorized,
     effectiveCustomerTeachingKitFlags,
+    publicCustomerTeachingKitFeatureFlags,
     isTeachingKitApiEnabledForRequest,
     isOwnerOnlyTeachingKitPreview,
     normalizedTeachingKitOverlay,

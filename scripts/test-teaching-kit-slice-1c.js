@@ -323,10 +323,12 @@ async function main() {
     assert(enabledFlags.teachingKitViewer === true, "viewer flag enabled in admin store");
     assert(enabledFlags.teachingKitPrintCenter === false, "print flag remains false");
 
-    // Public site-content still omits featureFlags and does not grow kit payloads
+    // Public site-content mirrors customer-safe flags and does not grow kit payloads
     const publicContent = await requestJson("GET", "/api/site-content");
-    assert(!("featureFlags" in (publicContent.json?.siteContent || {})),
-      "public site-content omits featureFlags");
+    const publicFlags = publicContent.json?.siteContent?.featureFlags || {};
+    assert(publicFlags.teachingKitViewer === true, "public site-content mirrors viewer flag");
+    assert(publicFlags.teachingKitPrintCenter === false, "public print flag remains false");
+    assert(!("teachingKitEnrichmentEditor" in publicFlags), "public omits enrichment editor flag");
     const libraryPlans = publicContent.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
     assert(!libraryPlans.some((plan) => plan && plan.companion),
       "site-content library does not include teaching kit companion payloads");
