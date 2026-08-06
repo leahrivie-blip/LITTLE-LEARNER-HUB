@@ -1,14 +1,15 @@
 # Phase 2 Daily Logs — Complete Proof Report
 
-**Environment:** Disposable local test server (`HOME_DAYCARE_HUB_TESTING`)
-**Branch:** `cursor/phase2-daily-logs-attendance-9026`
-**PR:** #548 (draft) — do not merge, do not deploy
+**Environment:** Disposable local test server (`HOME_DAYCARE_HUB_TESTING`)  
+**Integration branch:** `cursor/phase1-2-testing-integration-9026`  
+**Integration PR:** #549 (targets testing branch only)  
+**Superseded draft:** #548 (closed; history preserved — do not merge separately)
 
 ## Verdict
 
-- Automated proof checks: **PASS** (15/15)
-- Merge #548: **NO-GO** (awaiting owner approval after review of this proof)
-- Place Phase 1–2 on testing site: **NO-GO** (awaiting owner approval; agent must not deploy)
+- Automated proof checks: **PASS** (15/15) on the Phase 1–2 testing integration commit
+- Merge #548 separately: **NO-GO** (superseded by #549)
+- Place Phase 1–2 on testing site: via **#549 only** (not `main`, not production)
 
 ## Product files changed
 
