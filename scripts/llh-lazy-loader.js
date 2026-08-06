@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260805-testing-stabilization-r28";
+  const VERSION = "20260805-testing-stabilization-r29";
   const loadedUrls = new Set();
   const loading = new Map();
   const packReady = new Map();
@@ -22,6 +22,7 @@
       "scripts/curriculum-series.js",
       "scripts/curriculum-standards.js",
       "scripts/curriculum-lesson-viewer-render.js",
+      "scripts/curriculum-lesson-import-parser.js",
       "scripts/free-curriculum-sample.js",
       "scripts/teaching-kit-mapper.js",
       "scripts/teaching-kit.js",

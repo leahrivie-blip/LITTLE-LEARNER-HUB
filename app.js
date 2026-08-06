@@ -9779,13 +9779,24 @@ function parseCurriculumLessonPlanBulkImport(text, options = {}) {
 
 function formatCurriculumLessonPlanImportText(plan = {}) {
   const api = curriculumImportApi();
-  if (!api) throw new Error("CurriculumLessonImportParser is not loaded.");
+  if (!api) {
+    // Teaching Kit / import parser may still be lazy-loading — never hard-fail browse.
+    try {
+      if (window.LLHLazyLoader?.ensure) window.LLHLazyLoader.ensure("curriculumAdmin").catch(() => {});
+    } catch (_error) { /* ignore */ }
+    return String(plan?.importText || plan?.content || plan?.description || plan?.title || "");
+  }
   return api.formatCurriculumLessonPlanImport(plan);
 }
 
 function formatCurriculumImportActivity(activity = {}) {
   const api = curriculumImportApi();
-  if (!api) throw new Error("CurriculumLessonImportParser is not loaded.");
+  if (!api) {
+    try {
+      if (window.LLHLazyLoader?.ensure) window.LLHLazyLoader.ensure("curriculumAdmin").catch(() => {});
+    } catch (_error) { /* ignore */ }
+    return activity && typeof activity === "object" ? { ...activity } : {};
+  }
   return api.formatImportActivity(activity);
 }
 
@@ -16115,9 +16126,17 @@ async function renderMessagesPage(options = {}) {
     return;
   }
   if (options.conversation) messagesViewState.tab = "conversation";
-  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhSkeletonHtml({ rows: 5, label: "Loading your messages…", variant: "messages" })}</div>`;
-  // Built-in Messages UI lives in app.js — do not await the heavy comms pack here
-  // (that can stall the Loading skeleton for tens of seconds on cold testing boots).
+  // Paint the real Messages shell immediately — never leave testers on a blank skeleton.
+  messagesViewState.loadError = "";
+  renderMessagesPageBody();
+  const statusHost = section.querySelector(".messages-tab-panel") || section.querySelector(".messages-page-shell");
+  if (statusHost && !messagesViewState.loaded) {
+    const note = document.createElement("p");
+    note.className = "muted-copy messages-loading-note";
+    note.setAttribute("role", "status");
+    note.textContent = "Refreshing messages…";
+    statusHost.prepend(note);
+  }
   try {
     if (window.LLHLazyLoader?.ensure) {
       window.LLHLazyLoader.ensure("comms").catch(() => {});
@@ -16128,10 +16147,12 @@ async function renderMessagesPage(options = {}) {
     new Promise((_, reject) => setTimeout(() => reject(new Error("Messages timed out")), ms)),
   ]);
   try {
-    await withTimeout(Promise.all([refreshMessagesData(), refreshPushPreferenceState()]), 9000);
+    await withTimeout(Promise.all([refreshMessagesData(), refreshPushPreferenceState()]), 8000);
+    messagesViewState.loadError = "";
   } catch (error) {
     console.warn("Messages load failed", error);
     messagesViewState.loaded = true;
+    messagesViewState.loadError = "Messages took too long to load. Check your connection and retry.";
     if (!Array.isArray(messagesViewState.conversation)) messagesViewState.conversation = [];
     if (!Array.isArray(messagesViewState.inbox)) messagesViewState.inbox = [];
   }
@@ -16268,6 +16289,7 @@ function renderMessagesPageBody() {
   const section = document.querySelector("#view-messages");
   if (!section) return;
   const tab = messagesViewState.tab;
+  const loadError = String(messagesViewState.loadError || "");
   section.innerHTML = `
     <div class="messages-page-shell">
       <div class="page-title">
@@ -16275,6 +16297,7 @@ function renderMessagesPageBody() {
         <h2>Message Support</h2>
         <p>Start a conversation with Leah anytime — support questions, feature requests, bug reports, or a quick hello. Updates and announcements also land here.</p>
       </div>
+      ${loadError ? `<div class="llh-access-banner" role="alert"><p>${escapeHtml(loadError)}</p><button class="primary-button" type="button" data-messages-retry>Retry messages</button></div>` : ""}
       <div class="messages-tabs" role="tablist">
         <button type="button" class="messages-tab${tab === "conversation" ? " active" : ""}" data-messages-tab="conversation" role="tab" aria-selected="${tab === "conversation"}">Conversation with Leah</button>
         <button type="button" class="messages-tab${tab === "updates" ? " active" : ""}" data-messages-tab="updates" role="tab" aria-selected="${tab === "updates"}">Updates &amp; Announcements${messagesViewState.inbox.some((i) => !i.notification.read) ? ' <span class="messages-tab-dot"></span>' : ""}</button>
@@ -47958,10 +47981,18 @@ function applyAdminPreviewToPlatform() {
   }
 
   // After View As, jump to that role's natural home (Owner≠Teacher≠Parent).
+  // Parent: switchHdhTesterRole("parent") owns navigation AFTER household session exists
+  // so testers never land on a code prompt when auto-seed succeeds.
   if (isAdminPreviewSimulating()) {
     if (adminPreviewMode() === "Parent" && isHomeDaycareHubTestingEnabled()) {
       try { syncFamilyHubParentChrome(); } catch (_error) { /* ignore */ }
-      setView("family-hub", { skipAccessRedirect: true, fromAdminPreview: true });
+      try {
+        const section = document.querySelector("#view-family-hub");
+        if (section && !getFamilyHubSessionToken()) {
+          section.innerHTML = `<div class="messages-page-shell"><p class="eyebrow">Family Hub</p><h2>Connecting parent household…</h2><p class="muted-copy">Creating a tester household so you do not need a login code.</p></div>`;
+          setView("family-hub", { skipAccessRedirect: true, fromAdminPreview: true });
+        }
+      } catch (_error) { /* switchHdhTesterRole will navigate */ }
     } else if (isWorkModeNavEnabled()) {
       const role = workModeRole();
       const landing = workModeLandingView(role);
