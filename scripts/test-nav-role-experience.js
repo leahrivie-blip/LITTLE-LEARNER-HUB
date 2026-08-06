@@ -86,6 +86,8 @@ async function main() {
   assert.match(appJs, /function isWorkModeNavEnabled/);
   assert.match(appJs, /function defaultAuthLandingView/);
   assert.match(appJs, /function workModeSetupGuideHtml/);
+  assert.match(appJs, /function workModeGreetingTitle/);
+  assert.match(appJs, /function isSafeUserFacingDisplayName/);
   assert.match(appJs, /function renderOwnerHomeDashboard/);
   assert.match(appJs, /function renderTeacherTodayPage/);
   assert.match(appJs, /function renderClassroomHubPage/);
@@ -94,6 +96,7 @@ async function main() {
   assert.match(appJs, /function syncUniversalQuickAdd/);
   assert.match(appJs, /Admin Testing Center|Testing Center/);
   assert.match(appJs, /defaultAuthLandingView\(\)/);
+  assert.match(appJs, /workModeGreetingTitle\(/);
   assert.match(stylesCss, /\.work-hub-page/);
   assert.match(stylesCss, /\.work-quick-add-fab/);
   assert.match(stylesCss, /\.work-setup-guide/);
@@ -119,7 +122,17 @@ async function main() {
     quickAdd: false,
     testingCenter: false,
     mobileNav: false,
+    greetingFallback: false,
   };
+
+  function assertSafeGreeting(title, label) {
+    assert.match(title, /^Good (morning|afternoon|evening)(, .+)?$/i, `${label} greeting shape: ${title}`);
+    assert.doesNotMatch(title, /nav\.role\.owner/i, `${label} must not show email local-part`);
+    assert.doesNotMatch(title, /@/, `${label} must not show email`);
+    assert.doesNotMatch(title, /\b(undefined|null)\b/i, `${label} must not show undefined/null`);
+    assert.doesNotMatch(title, /,\s*$/, `${label} must not end with bare comma`);
+    assert.doesNotMatch(title, /,\s*[,.·•-]+\s*$/, `${label} must not use blank punctuation`);
+  }
 
   try {
     await waitForHealth(port, server);
@@ -200,7 +213,8 @@ async function main() {
     assert.equal(owner.hasFamilies, true);
     assert.equal(owner.quickAdd, true);
     assert.equal(owner.setupGuide, true, "Empty program must show setup guide");
-    assert.ok(/Good (morning|afternoon|evening)/i.test(owner.homeTitle), `owner home title: ${owner.homeTitle}`);
+    assertSafeGreeting(owner.homeTitle, "Owner Home");
+    assert.match(owner.homeTitle, /,\s*Owner$/i, `owner role-label fallback expected, got: ${owner.homeTitle}`);
     results.ownerNav = true;
     results.ownerHome = true;
     results.quickAdd = true;
@@ -208,8 +222,8 @@ async function main() {
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home.png") });
 
-    async function applyRole(page, role) {
-      return page.evaluate((nextRole) => {
+    async function applyRole(page, role, profile = {}) {
+      return page.evaluate(({ nextRole, profile: nextProfile }) => {
         const email = localStorage.getItem("llhUser");
         localStorage.removeItem("llhMultiRoleTesterView");
         localStorage.removeItem("llhAdminPreviewMode");
@@ -221,20 +235,112 @@ async function main() {
           if (typeof setHdhTesterPersona === "function") setHdhTesterPersona({ role: nextRole === "assistant" ? "staff-helper" : nextRole === "teacher" ? "teacher" : "teacher" });
         } catch (_e) { /* ignore */ }
         const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
-        accounts[email] = {
-          ...(accounts[email] || { email }),
+        const prev = accounts[email] || { email };
+        const nextAccount = {
+          ...prev,
           role: nextRole,
-          accountType: accounts[email]?.accountType || "home_daycare",
-          plan: accounts[email]?.plan || "Pro",
+          accountType: nextProfile.accountType || prev.accountType || "home_daycare",
+          plan: prev.plan || "Pro",
+          firstName: Object.prototype.hasOwnProperty.call(nextProfile, "firstName") ? nextProfile.firstName : "",
+          lastName: Object.prototype.hasOwnProperty.call(nextProfile, "lastName") ? nextProfile.lastName : "",
+          name: Object.prototype.hasOwnProperty.call(nextProfile, "name") ? nextProfile.name : "",
+          displayName: Object.prototype.hasOwnProperty.call(nextProfile, "displayName") ? nextProfile.displayName : "",
+          fullName: Object.prototype.hasOwnProperty.call(nextProfile, "fullName") ? nextProfile.fullName : "",
+          businessName: Object.prototype.hasOwnProperty.call(nextProfile, "businessName") ? nextProfile.businessName : "",
+          programName: Object.prototype.hasOwnProperty.call(nextProfile, "programName") ? nextProfile.programName : "",
+          programSettings: Object.prototype.hasOwnProperty.call(nextProfile, "programSettings")
+            ? nextProfile.programSettings
+            : { ...(prev.programSettings || {}), programName: "" },
         };
+        accounts[email] = nextAccount;
         localStorage.setItem("llhAccounts", JSON.stringify(accounts));
-        if (typeof updateAccount === "function") updateAccount(email, { role: nextRole, accountType: "home_daycare" });
+        if (typeof updateAccount === "function") {
+          updateAccount(email, {
+            role: nextRole,
+            accountType: nextAccount.accountType,
+            firstName: nextAccount.firstName,
+            lastName: nextAccount.lastName,
+            name: nextAccount.name,
+            displayName: nextAccount.displayName,
+            fullName: nextAccount.fullName,
+            businessName: nextAccount.businessName,
+            programName: nextAccount.programName,
+            programSettings: nextAccount.programSettings,
+          });
+        }
         if (typeof loadAccountState === "function") loadAccountState(email);
         if (typeof syncWorkModeNav === "function") syncWorkModeNav();
         if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
         return { role: typeof getUserRole === "function" ? getUserRole() : "", work: typeof workModeRole === "function" ? workModeRole() : "" };
-      }, role);
+      }, { nextRole: role, profile });
     }
+
+    // Greeting fallback matrix (desktop evaluate + rendered titles)
+    const greetingMatrix = await page.evaluate(() => {
+      const morning = new Date("2026-08-06T09:00:00");
+      const cases = [];
+      const push = (id, account, role, expected) => {
+        const title = workModeGreetingTitle(account, role, morning);
+        cases.push({
+          id,
+          title,
+          expected,
+          safeFirst: isSafeUserFacingDisplayName(account.firstName || ""),
+          rejectsKey: !isSafeUserFacingDisplayName("nav.role.owner"),
+          rejectsUndefined: !isSafeUserFacingDisplayName("undefined"),
+          rejectsEmail: !isSafeUserFacingDisplayName("leah@example.com"),
+          rejectsBlank: !isSafeUserFacingDisplayName(" , "),
+        });
+      };
+      push("valid-first-name", { firstName: "Leah" }, "owner", "Good morning, Leah");
+      push("missing-name-role-owner", { firstName: "", businessName: "", programSettings: {} }, "owner", "Good morning, Owner");
+      push("program-name-fallback", { firstName: "", businessName: "Sunshine Nest", programSettings: { programName: "Sunshine Nest" } }, "owner", "Good morning, Sunshine Nest");
+      push("role-director", { firstName: "" }, "director", "Good morning, Director");
+      push("role-teacher", { firstName: "" }, "teacher", "Good morning, Teacher");
+      push("role-assistant", { firstName: "" }, "assistant", "Good morning, Assistant");
+      push("missing-translation-key", { firstName: "nav.role.owner", name: "i18n.greeting.name" }, "owner", "Good morning, Owner");
+      push("rejects-nullish", { firstName: "null", name: "undefined" }, "owner", "Good morning, Owner");
+      push("generic-when-role-unsafe", { firstName: "" }, "not-a-role", "Good morning, Owner");
+      return cases;
+    });
+    for (const row of greetingMatrix) {
+      assert.equal(row.title, row.expected, `greeting ${row.id}: ${row.title}`);
+      assert.equal(row.rejectsKey, true);
+      assert.equal(row.rejectsUndefined, true);
+      assert.equal(row.rejectsEmail, true);
+      assert.equal(row.rejectsBlank, true);
+    }
+    results.greetingFallback = true;
+    console.log("PASS  Greeting fallback matrix");
+
+    // Rendered first-name greeting (Owner Home)
+    await applyRole(page, "owner", { firstName: "Leah", lastName: "Tester" });
+    const namedOwner = await page.evaluate(() => {
+      setView("home", { allowDashboard: true, skipAccessRedirect: true });
+      return document.querySelector("#view-home h2")?.textContent || "";
+    });
+    assertSafeGreeting(namedOwner, "Named Owner Home");
+    assert.match(namedOwner, /,\s*Leah$/);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home-named.png") });
+
+    // Program-name fallback rendered
+    await applyRole(page, "owner", {
+      firstName: "",
+      businessName: "Maple Room Care",
+      programSettings: { programName: "Maple Room Care" },
+    });
+    const programOwner = await page.evaluate(() => {
+      setView("home", { allowDashboard: true, skipAccessRedirect: true });
+      return document.querySelector("#view-home h2")?.textContent || "";
+    });
+    assertSafeGreeting(programOwner, "Program Owner Home");
+    assert.match(programOwner, /,\s*Maple Room Care$/);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home-program.png") });
+
+    // Reset to clean role-label owner for remaining nav checks
+    await applyRole(page, "owner", { firstName: "", businessName: "", programSettings: { programName: "" } });
+    await page.evaluate(() => setView("home", { allowDashboard: true, skipAccessRedirect: true }));
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home.png") });
 
     // Teacher shell — authenticated teacher account (not Admin View As simulation)
     const teacherApplied = await applyRole(page, "teacher");
@@ -272,7 +378,8 @@ async function main() {
     assert.equal(teacher.hasDailyLogs, true);
     assert.equal(teacher.hasMore, true);
     assert.equal(teacher.setupGuide, true, "Teacher empty roster shows waiting/setup guide");
-    assert.match(teacher.todayTitle, /Today/i);
+    assertSafeGreeting(teacher.todayTitle, "Teacher Today");
+    assert.match(teacher.todayTitle, /,\s*Teacher$/i);
     results.teacherNav = true;
     results.teacherToday = true;
     console.log("PASS  Teacher nav + Today (distinct from Owner)");
@@ -297,10 +404,7 @@ async function main() {
         hasForms: work.includes("forms"),
         hasSettings: work.includes("settings"),
         setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
-        eyebrow: document.querySelector(".work-hub-page .eyebrow, .work-hub-eyebrow, [data-work-eyebrow]")?.textContent
-          || document.querySelector("#view-home .muted-copy, #view-home p")?.textContent
-          || "",
-        homeHtml: document.querySelector("#view-home")?.innerText?.slice(0, 240) || "",
+        homeTitle: document.querySelector("#view-home h2")?.textContent || "",
       };
     });
     assert.equal(director.role, "director");
@@ -313,6 +417,8 @@ async function main() {
     assert.equal(director.hasForms, true);
     assert.equal(director.hasSettings, true);
     assert.equal(director.setupGuide, true);
+    assertSafeGreeting(director.homeTitle, "Director Home");
+    assert.match(director.homeTitle, /,\s*Director$/i);
     results.directorNav = true;
     console.log("PASS  Director nav + Home");
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "director-home.png") });
@@ -331,6 +437,7 @@ async function main() {
         hasBusiness: work.includes("business"),
         hasDailyLogs: work.includes("daily-logs"),
         setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
+        todayTitle: document.querySelector("#view-today h2")?.textContent || "",
       };
     });
     assert.equal(assistant.role, "assistant");
@@ -339,13 +446,15 @@ async function main() {
     assert.equal(assistant.hasBusiness, false);
     assert.equal(assistant.hasDailyLogs, true);
     assert.equal(assistant.setupGuide, true);
+    assertSafeGreeting(assistant.todayTitle, "Assistant Today");
+    assert.match(assistant.todayTitle, /,\s*Assistant$/i);
     results.assistantNav = true;
     console.log("PASS  Assistant nav (Messages, no Families/Business)");
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "assistant-today.png") });
 
     // Mobile owner shell — no horizontal overflow on work nav / setup guide
     await page.setViewportSize({ width: 390, height: 844 });
-    await applyRole(page, "owner");
+    await applyRole(page, "owner", { firstName: "Leah" });
     await page.evaluate(() => setView("home", { allowDashboard: true, skipAccessRedirect: true }));
     await page.waitForTimeout(250);
     const mobile = await page.evaluate(() => {
@@ -354,14 +463,24 @@ async function main() {
         overflowX: doc.scrollWidth > doc.clientWidth + 2,
         setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
         workVisible: [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).length,
+        homeTitle: document.querySelector("#view-home h2")?.textContent || "",
       };
     });
     assert.equal(mobile.overflowX, false, "Mobile owner home must not horizontally overflow");
     assert.equal(mobile.setupGuide, true);
     assert.ok(mobile.workVisible >= 8, `expected daily work nav items, got ${mobile.workVisible}`);
+    assertSafeGreeting(mobile.homeTitle, "Mobile Owner Home");
+    assert.match(mobile.homeTitle, /,\s*Leah$/);
     results.mobileNav = true;
     console.log("PASS  Mobile owner home (no horizontal overflow)");
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home-mobile.png"), fullPage: true });
+
+    await applyRole(page, "teacher");
+    await page.evaluate(() => setView("today", { skipAccessRedirect: true }));
+    await page.waitForTimeout(200);
+    const mobileTeacherTitle = await page.evaluate(() => document.querySelector("#view-today h2")?.textContent || "");
+    assertSafeGreeting(mobileTeacherTitle, "Mobile Teacher Today");
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "teacher-today-mobile.png"), fullPage: true });
     await page.setViewportSize({ width: 1280, height: 900 });
 
     // Hubs exist (restore owner account)
@@ -406,7 +525,7 @@ async function main() {
     "## Verdict",
     "",
     results.ownerNav && results.teacherNav && results.assistantNav && results.directorNav
-      && results.ownerHome && results.teacherToday && results.mobileNav
+      && results.ownerHome && results.teacherToday && results.mobileNav && results.greetingFallback
       ? "**PASS** — Role-specific navigation is live. Owner, Director, Teacher, and Assistant are intentionally not symmetrical."
       : "**FAIL** — Role navigation checks did not all pass.",
     "",
@@ -416,11 +535,12 @@ async function main() {
     `|---|---|`,
     `| Owner nav (Home/Daily Logs/Children/Calendar/Lessons/Messages/Forms/Families/Business/Settings) | ${results.ownerNav ? "PASS" : "FAIL"} |`,
     `| Owner Home dashboard + empty setup guide | ${results.ownerHome ? "PASS" : "FAIL"} |`,
+    `| Greeting fallback (first name → program → role → generic) | ${results.greetingFallback ? "PASS" : "FAIL"} |`,
     `| Director nav + Home (Business/Families/Forms; no Teacher Today) | ${results.directorNav ? "PASS" : "FAIL"} |`,
     `| Teacher nav (Today/Daily Logs/…/Messages/More; no Business/Families/Settings) | ${results.teacherNav ? "PASS" : "FAIL"} |`,
     `| Teacher Today dashboard + empty setup guide | ${results.teacherToday ? "PASS" : "FAIL"} |`,
     `| Assistant nav (Today/…/Messages/More; no Families/Business) | ${results.assistantNav ? "PASS" : "FAIL"} |`,
-    `| Mobile owner home (no horizontal overflow) | ${results.mobileNav ? "PASS" : "FAIL"} |`,
+    `| Mobile owner/teacher greetings (no horizontal overflow) | ${results.mobileNav ? "PASS" : "FAIL"} |`,
     `| Universal Quick Add | ${results.quickAdd ? "PASS" : "FAIL"} |`,
     `| Testing Pro / Testing Center APIs | ${results.testingCenter ? "PASS" : "FAIL"} |`,
     "",

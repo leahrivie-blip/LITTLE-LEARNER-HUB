@@ -14,11 +14,12 @@
 |---|---|
 | Owner nav (Home/Daily Logs/Children/Calendar/Lessons/Messages/Forms/Families/Business/Settings) | PASS |
 | Owner Home dashboard + empty setup guide | PASS |
+| Greeting fallback (first name → program → role → generic) | PASS |
 | Director nav + Home (Business/Families/Forms; no Teacher Today) | PASS |
 | Teacher nav (Today/Daily Logs/…/Messages/More; no Business/Families/Settings) | PASS |
 | Teacher Today dashboard + empty setup guide | PASS |
 | Assistant nav (Today/…/Messages/More; no Families/Business) | PASS |
-| Mobile owner home (no horizontal overflow) | PASS |
+| Mobile owner/teacher greetings (no horizontal overflow) | PASS |
 | Universal Quick Add | PASS |
 | Testing Pro / Testing Center APIs | PASS |
 

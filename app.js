@@ -14772,6 +14772,68 @@ function defaultAuthLandingView() {
   return "calendar";
 }
 
+/** Reject internal keys, emails, test ids, and blank punctuation from user-facing greetings. */
+function isSafeUserFacingDisplayName(value, { allowProgram = false } = {}) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return false;
+  if (/^(undefined|null|nan|true|false)$/i.test(raw)) return false;
+  if (/@/.test(raw)) return false;
+  if (/^(nav|llh|i18n|t|app|common|errors?|locale|msg)\.[a-z0-9_.-]+$/i.test(raw)) return false;
+  // Dotted machine identifiers such as nav.role.owner or account.display.name
+  if (/^[a-z0-9_-]+(?:\.[a-z0-9_-]+){2,}$/i.test(raw)) return false;
+  if (/^[\s.,;:!?\-_'"…·•]+$/.test(raw)) return false;
+  if (!/[A-Za-zÀ-ÿ]/.test(raw)) return false;
+  if (!allowProgram && /^(your program|your center)$/i.test(raw)) return false;
+  if (allowProgram && /^(your program|your center)$/i.test(raw)) return false;
+  // Disposable / fixture local-parts must never greet the user.
+  if (/^(test|tester|demo|dummy|fixture|smoke|sample)([._-]|$)/i.test(raw)) return false;
+  if (/\b(example\.com|test\.local|localhost)\b/i.test(raw)) return false;
+  return true;
+}
+
+function workModeTimeOfDayGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function workModeFriendlyRoleLabel(role = workModeRole()) {
+  if (role === "director") return "Director";
+  if (role === "teacher") return "Teacher";
+  if (role === "assistant") return "Assistant";
+  return "Owner";
+}
+
+/**
+ * Greeting fallback:
+ * 1) valid first name → 2) program name → 3) friendly role label → 4) bare time greeting
+ * Never shows internal keys, emails, undefined/null, or test identifiers.
+ */
+function workModeGreetingTitle(account = currentAccount(), role = workModeRole(), date = new Date()) {
+  const base = workModeTimeOfDayGreeting(date);
+  const first = String(account?.firstName || "").trim();
+  if (isSafeUserFacingDisplayName(first)) return `${base}, ${first}`;
+
+  const named = String(account?.name || account?.displayName || account?.fullName || "").trim();
+  const namedFirst = named.split(/\s+/).filter(Boolean)[0] || "";
+  if (isSafeUserFacingDisplayName(namedFirst)) return `${base}, ${namedFirst}`;
+
+  const program = String(
+    account?.programSettings?.programName
+    || (typeof getProgramSettings === "function" ? getProgramSettings()?.programName : "")
+    || account?.businessName
+    || account?.programName
+    || account?.daycareName
+    || "",
+  ).trim();
+  if (isSafeUserFacingDisplayName(program, { allowProgram: true })) return `${base}, ${program}`;
+
+  const roleLabel = workModeFriendlyRoleLabel(role);
+  if (isSafeUserFacingDisplayName(roleLabel)) return `${base}, ${roleLabel}`;
+  return base;
+}
+
 function workModeActiveChildCount() {
   try {
     return getActiveChildren(childRecords()).length;
@@ -14933,9 +14995,7 @@ function renderOwnerHomeDashboard() {
   const roomRatioText = Object.keys(ratio.byRoom || {}).length
     ? Object.entries(ratio.byRoom).map(([room, count]) => `${room}: ${count}`).slice(0, 3).join(" · ")
     : "No rooms checked in yet";
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const name = accountDisplayFirstName(currentAccount());
+  const greetingTitle = workModeGreetingTitle(currentAccount(), workModeRole());
   const program = workModeProgramLabel();
   const childById = Object.fromEntries(children.map((c) => [c.id, c]));
   const attention = typeof buildActionOnlyAttentionCards === "function" ? buildActionOnlyAttentionCards() : [];
@@ -14951,7 +15011,7 @@ function renderOwnerHomeDashboard() {
 
   homeSection.innerHTML = workHubShell({
     eyebrow: typeEyebrow,
-    title: `${greeting}, ${name}`,
+    title: greetingTitle,
     subtitle: emptyProgram
       ? `${program} · Start with program setup, then use Daily Logs for the care day.`
       : `${program} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
@@ -15031,9 +15091,10 @@ function renderTeacherTodayPage() {
     : "";
   const lessonHtml = !emptyProgram && typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
   const eodReady = !emptyProgram && typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
+  const greetingTitle = workModeGreetingTitle(currentAccount(), role);
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
-    title: "Today",
+    title: greetingTitle,
     subtitle: emptyProgram
       ? "No children assigned yet — setup happens with your owner. Daily classroom tools appear here once you have a roster."
       : "Everything happening in your classroom today — care day tools only (not Business or Admin).",
@@ -29513,13 +29574,10 @@ function renderUserDashboard() {
   homeSection.classList.add("user-dashboard-view");
 
   const now = new Date();
-  const hour = now.getHours();
-  let greeting;
-  if (hour < 12) greeting = "Good morning";
-  else if (hour < 17) greeting = "Good afternoon";
-  else greeting = "Good evening";
+  const greetingTitle = typeof workModeGreetingTitle === "function"
+    ? workModeGreetingTitle(currentAccount(), typeof workModeRole === "function" ? workModeRole() : "owner", now)
+    : workModeTimeOfDayGreeting(now);
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const accountName = accountDisplayFirstName(currentAccount());
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
 
@@ -29552,7 +29610,7 @@ function renderUserDashboard() {
     <div class="user-dashboard llh-dashboard-clean">
       <div class="dashboard-welcome">
         <div class="dashboard-welcome-text">
-          <h2>${escapeHtml(greeting)}, ${escapeHtml(accountName)}</h2>
+          <h2>${escapeHtml(greetingTitle)}</h2>
           <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}${statusBadge ? ` · ${statusBadge}` : ""}</p>
         </div>
       </div>
