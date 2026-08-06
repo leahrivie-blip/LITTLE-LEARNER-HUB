@@ -298,24 +298,44 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
               Today
             </button>
+            <button class="nav-link" data-view="child-tools-daily-logs" data-work-nav="daily-logs" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3h8v4H8zM6 7h12v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span>
+              Daily Logs
+            </button>
             <button class="nav-link" data-view="children" data-work-nav="children" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
               <span data-work-label-owner>Children</span>
               <span data-work-label-teacher hidden>My Children</span>
               <span data-work-label-assistant hidden>Children</span>
             </button>
-            <button class="nav-link" data-view="classroom" data-work-nav="classroom" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14"/><path d="M7 21v-8h4v8M13 21v-5h4v5"/></svg></span>
-              Classroom
+            <button class="nav-link" data-view="calendar" data-work-nav="calendar" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+              Calendar
             </button>
-            <button class="nav-link" data-view="families" data-work-nav="families" data-work-roles="owner,director,teacher" type="button" hidden>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
-              Families
+            <button class="nav-link" data-view="lessons" data-work-nav="lessons" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h10a3 3 0 0 1 3 3v11H7a3 3 0 0 0-3 3z"/><path d="M20 5h-3v14h3a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/></svg></span>
+              Lesson Plans
             </button>
-            <button class="nav-link" data-view="messages" data-work-nav="messages" data-work-roles="assistant" id="messagesWorkNavLink" type="button" hidden>
+            <button class="nav-link" data-view="activities" data-work-nav="activities" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg></span>
+              Activities
+            </button>
+            <button class="nav-link" data-view="ai" data-work-nav="ai" data-work-roles="owner,director,teacher,assistant" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/><circle cx="12" cy="12" r="3"/></svg></span>
+              Documentation Helpers
+            </button>
+            <button class="nav-link" data-view="messages" data-work-nav="messages" data-work-roles="owner,director,teacher,assistant" id="messagesWorkNavLink" type="button" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
               Messages
               <span class="nav-unread-badge" id="messagesWorkNavBadge" hidden>0</span>
+            </button>
+            <button class="nav-link" data-view="forms" data-work-nav="forms" data-work-roles="owner,director" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h10v18H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg></span>
+              Forms
+            </button>
+            <button class="nav-link" data-view="families" data-work-nav="families" data-work-roles="owner,director" type="button" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Families
             </button>
             <button class="nav-link" data-view="business" data-work-nav="business" data-work-roles="owner,director" type="button" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
