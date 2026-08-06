@@ -13980,24 +13980,30 @@ async function handleChildData(request, response) {
     // Preferred path: idempotent per-record mutations (Daily Logs / multi-device safe).
     if (mutations.length) {
       const applied = childDataMutations.applyMutations(store, context, mutations);
-      if (!applied.ok) {
+      if (applied.error && !applied.results) {
         jsonResponse(response, 400, { error: applied.error || "Could not apply child-data mutations." });
         return;
       }
-      // Preserve mutation idempotency map across the legacy mirror write.
+      // Persist successful appends/updates even when sibling mutations conflict (409).
       const idempotencyMap = store.programData[context.programId]?.childIdempotency || {};
       programOwnership.writeProgramChildData(store, context, applied.data, { mirrorLegacy: true });
       store.programData[context.programId].childIdempotency = idempotencyMap;
-      await respondAfterPersist(store, response, 200, {
-        ok: true,
+      const status = applied.conflicts > 0 ? 409 : (applied.failed > 0 && applied.applied === 0 ? 403 : 200);
+      await respondAfterPersist(store, response, status, {
+        ok: Boolean(applied.ok),
         mode: "mutations",
+        conflict: Boolean(applied.conflict),
         updatedAt: applied.updatedAt,
         programId: applied.programId,
         ownerEmail: context.ownerEmail,
         applied: applied.applied,
         duplicates: applied.duplicates,
         failed: applied.failed,
+        conflicts: applied.conflicts || 0,
         results: applied.results,
+        error: applied.conflicts > 0
+          ? "One or more records were updated by someone else. Successful entries were kept; resolve conflicts to continue."
+          : (applied.failed > 0 && applied.applied === 0 ? "Could not save — permission denied." : undefined),
       }, "Could not save child data.");
       return;
     }
