@@ -564,6 +564,8 @@ let dlcClassroomFilter = "all"; // "all" | classroomId | classroom name key
 let dlcSaveStatus = { state: "idle", message: "" }; // idle | saving | saved | failed | offline
 let dlcUndoStack = []; // recent reversible Daily Logs writes
 let dlcQuickActionLockUntil = 0; // debounce repeated taps while supervising children
+let dlcFormSubmitLockUntil = 0; // debounce repeated form submits
+let dlcPendingReportPreview = null; // { childId, recordId, kind, text } — draft until Share
 let lessonPlanWorkflowState = {
   step: 1,
   generating: false,
@@ -19547,6 +19549,152 @@ function dlcRenderSaveStatusBar() {
       ${dlcCanUndo() ? `<button type="button" class="ghost-button" data-dlc-undo>Undo</button>` : ""}
     </div>
   `;
+}
+
+function dlcGuardFormSubmit(form) {
+  const now = Date.now();
+  if (now < dlcFormSubmitLockUntil) {
+    showActionFeedback("Hang on — that save is still finishing.");
+    return false;
+  }
+  dlcFormSubmitLockUntil = now + 900;
+  const btn = form?.querySelector?.('button[type="submit"]');
+  if (btn) {
+    btn.disabled = true;
+    window.setTimeout(() => { btn.disabled = false; }, 900);
+  }
+  return true;
+}
+
+/** Single upsert path for today's attendance (forms + quick actions). */
+function upsertDailyLogAttendance(childId, data = {}, options = {}) {
+  if (!childId) return null;
+  const today = data.date || dlcActiveDate();
+  const attendance = childStore("Attendance");
+  const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
+  const recorder = dlcRecorderLabel();
+  const status = String(data.status || "Present").trim() || "Present";
+  const isAbsent = status.toLowerCase() === "absent";
+  const nextFields = {
+    childId,
+    date: today,
+    status,
+    dropoff: isAbsent ? "" : String(data.dropoff || ""),
+    pickup: isAbsent ? "" : String(data.pickup || ""),
+    title: data.title || `Attendance | ${today}`,
+    summary: data.summary || (isAbsent ? "Absent" : status),
+    shareWithFamily: data.shareWithFamily !== false && data.shareWithFamily !== "false",
+    recordedBy: recorder,
+    updatedAt: new Date().toISOString(),
+  };
+  if (existing) {
+    const before = { ...existing };
+    let updated = null;
+    saveChildStore("Attendance", attendance.map((item) => {
+      if (item.id !== existing.id) return item;
+      updated = {
+        ...item,
+        ...nextFields,
+        id: item.id,
+        createdAt: item.createdAt,
+        dropoff: isAbsent ? "" : (nextFields.dropoff || item.dropoff || ""),
+        pickup: isAbsent ? "" : (nextFields.pickup || (data.clearPickup ? "" : item.pickup) || ""),
+      };
+      return updated;
+    }));
+    if (updated && !options.skipUndo) {
+      dlcPushUndo({
+        kind: "attendance-update",
+        storeKey: "Attendance",
+        recordId: updated.id,
+        before,
+        childId,
+        label: "Attendance",
+      });
+    }
+    if (updated && typeof runAttendanceAutomation === "function") runAttendanceAutomation(updated);
+    dlcSetSaveStatus("saved", "Attendance updated");
+    return updated;
+  }
+  return appendChildRecord("Attendance", nextFields, options);
+}
+
+function renderDlcReportPreviewCard(childId = "") {
+  const preview = dlcPendingReportPreview;
+  if (!preview || (childId && preview.childId !== childId)) return "";
+  return `
+    <section class="section-block dlc-report-preview" data-dlc-report-preview>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Draft — not shared yet</p>
+          <h4>Preview parent-facing ${escapeHtml(preview.kind === "weekly-summary" ? "weekly summary" : preview.kind === "parent-message" ? "message" : "report")}</h4>
+          <p class="muted-copy">Edit if needed. Nothing is sent or shown to families until you choose Share with Family.</p>
+        </div>
+      </div>
+      <textarea class="dlc-report-preview-text" data-dlc-report-preview-text rows="10">${escapeHtml(preview.text || "")}</textarea>
+      <div class="account-actions-row dlc-report-preview-actions">
+        <button class="primary-button" type="button" data-dlc-report-share="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Share with Family</button>
+        <button class="ghost-button" type="button" data-dlc-report-keep-internal="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Keep Internal</button>
+        <button class="ghost-button" type="button" data-dlc-report-discard="${escapeHtml(preview.recordId)}" data-dlc-report-store="${escapeHtml(preview.storeKey || "Reports")}">Discard draft</button>
+      </div>
+    </section>
+  `;
+}
+
+async function dlcFinalizeReportPreview(recordId, { share = false, discard = false, storeKey = "Reports" } = {}) {
+  const key = storeKey || "Reports";
+  const items = childStore(key);
+  const record = items.find((item) => item.id === recordId);
+  if (!record) {
+    dlcPendingReportPreview = null;
+    showActionFeedback("Draft not found.");
+    return false;
+  }
+  if (discard) {
+    const confirmed = await confirmAction({
+      title: "Discard draft?",
+      message: "This deletes the draft report. It was never shared with families.",
+      confirmLabel: "Discard",
+      danger: true,
+    });
+    if (!confirmed) return false;
+    saveChildStore(key, items.filter((item) => item.id !== recordId));
+    dlcPendingReportPreview = null;
+    showActionFeedback("Draft discarded.");
+    renderChildManagement();
+    return true;
+  }
+  const edited = String(document.querySelector("[data-dlc-report-preview-text]")?.value || record.message || "").trim();
+  if (!edited) {
+    showActionFeedback("Add report text before saving.");
+    return false;
+  }
+  if (share) {
+    const confirmed = await confirmAction({
+      title: "Share with Family Hub?",
+      message: "Linked families will be able to see this draft. Nothing is emailed automatically. Other households never see it.",
+      confirmLabel: "Share with Family",
+    });
+    if (!confirmed) return false;
+  }
+  const next = {
+    ...record,
+    message: edited,
+    summary: edited.slice(0, 200),
+    shareWithFamily: Boolean(share),
+    status: share ? "shared" : "draft",
+    updatedAt: new Date().toISOString(),
+  };
+  saveChildStore(key, items.map((item) => (item.id === recordId ? next : item)));
+  if (share && typeof maybeNotifyFamilyHubSharedRecord === "function") {
+    maybeNotifyFamilyHubSharedRecord(key, next).catch(() => {});
+  }
+  dlcPendingReportPreview = null;
+  showActionFeedback(share
+    ? "Shared with Family Hub — preview stayed under your control until you confirmed."
+    : "Kept internal. Families cannot see this draft.");
+  renderChildManagement();
+  return true;
 }
 
 /**
@@ -44870,19 +45018,20 @@ function renderDailyLogsOverviewTab(child, records, today) {
           <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
         </section>
       ` : ""}
+      ${renderDlcReportPreviewCard(child.id)}
       <section class="section-block dlc-end-day-ai">
         <div class="section-heading">
           <div>
             <p class="eyebrow">End of day</p>
             <h4>Turn today’s logs into family updates</h4>
-            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented.</p>
+            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented. Drafts stay internal until you preview and share.</p>
           </div>
         </div>
         <div class="account-actions-row">
           <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
           <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
           <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
-          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
+          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report draft</button>
         </div>
         ${(() => {
           const lesson = typeof weekLessonForChild === "function" ? weekLessonForChild(child) : null;
@@ -46641,10 +46790,10 @@ function showAfterActionPrompt(trigger, childId) {
   );
 }
 
-async function buildDailyReportFromChild(childId, quickNote) {
+async function buildDailyReportFromChild(childId, quickNote, options = {}) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
-  if (!child) return;
+  if (!child) return null;
   const today = dlcActiveDate();
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
@@ -46672,17 +46821,34 @@ async function buildDailyReportFromChild(childId, quickNote) {
       "Use only these logged facts. Do not invent missing details.",
     ].filter(Boolean).join("\n"),
   });
-  const report = result.output;
-
-  appendChildRecord("Reports", {
+  const report = String(result.output || "").trim();
+  // Always save as an internal draft first — never auto-share or notify families.
+  const saved = appendChildRecord("Reports", {
     childId,
     title: `Daily Report | ${today}`,
     date: today,
+    type: "Daily Report",
+    status: "draft",
     summary: report.slice(0, 200),
     message: report,
-    shareWithFamily: true,
-  });
-  return report;
+    shareWithFamily: false,
+  }, { skipNotify: true });
+  dlcPendingReportPreview = {
+    childId,
+    recordId: saved.id,
+    storeKey: "Reports",
+    kind: "daily-report",
+    text: report,
+  };
+  if (options.openPreview !== false) {
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "individual";
+    dailyLogsChildTab = "overview";
+    renderChildManagement();
+  }
+  return { report, record: saved };
 }
 
 function exportChildPortfolio(childId) {
@@ -66508,6 +66674,34 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const dlcReportShareBtn = event.target.closest("[data-dlc-report-share]");
+  if (dlcReportShareBtn) {
+    event.preventDefault();
+    dlcFinalizeReportPreview(dlcReportShareBtn.dataset.dlcReportShare, {
+      share: true,
+      storeKey: dlcReportShareBtn.dataset.dlcReportStore || "Reports",
+    });
+    return;
+  }
+  const dlcReportKeepBtn = event.target.closest("[data-dlc-report-keep-internal]");
+  if (dlcReportKeepBtn) {
+    event.preventDefault();
+    dlcFinalizeReportPreview(dlcReportKeepBtn.dataset.dlcReportKeepInternal, {
+      share: false,
+      storeKey: dlcReportKeepBtn.dataset.dlcReportStore || "Reports",
+    });
+    return;
+  }
+  const dlcReportDiscardBtn = event.target.closest("[data-dlc-report-discard]");
+  if (dlcReportDiscardBtn) {
+    event.preventDefault();
+    dlcFinalizeReportPreview(dlcReportDiscardBtn.dataset.dlcReportDiscard, {
+      discard: true,
+      storeKey: dlcReportDiscardBtn.dataset.dlcReportStore || "Reports",
+    });
+    return;
+  }
+
   const dlcClassroomFilterValueBtn = event.target.closest("[data-dlc-classroom-filter-value]");
   if (dlcClassroomFilterValueBtn) {
     event.preventDefault();
@@ -66959,10 +67153,13 @@ document.addEventListener("click", async (event) => {
       try {
         const programSettings = getProgramSettings();
         if (kind === "daily-report") {
-          await buildDailyReportFromChild(childId, grounded.highlights);
-          if (statusEl) statusEl.textContent = "Daily report saved and shared with Family Hub.";
-          showActionFeedback("Daily report created from today’s logs.");
-        } else if (kind === "weekly-summary") {
+          await buildDailyReportFromChild(childId, grounded.highlights, { openPreview: true });
+          if (statusEl) statusEl.textContent = "Draft ready — preview below. Not shared yet.";
+          showActionFeedback("Daily report draft ready for preview.");
+          recordAiUse();
+          return;
+        }
+        if (kind === "weekly-summary") {
           const weekFacts = buildGroundedWeekFactsForAi(child, records, today);
           if (!weekFacts.factsText) {
             if (statusEl) statusEl.textContent = "Log a few days of care first — weekly AI only uses real facts.";
@@ -66979,17 +67176,25 @@ document.addEventListener("click", async (event) => {
             tone: programSettings.communicationTone || "Warm and friendly",
             providerNotes: weekFacts.factsText,
           });
-          appendChildRecord("Reports", {
+          const saved = appendChildRecord("Reports", {
             childId,
             date: today,
             title: `Weekly Summary | ${today}`,
             message: result.output,
             summary: String(result.output || "").slice(0, 120),
             type: "Weekly Summary",
-            shareWithFamily: true,
-          });
-          if (statusEl) statusEl.textContent = "Weekly summary saved and shared with Family Hub.";
-          showActionFeedback("Weekly summary created from logged facts.");
+            status: "draft",
+            shareWithFamily: false,
+          }, { skipNotify: true });
+          dlcPendingReportPreview = {
+            childId,
+            recordId: saved.id,
+            storeKey: "Reports",
+            kind: "weekly-summary",
+            text: String(result.output || ""),
+          };
+          if (statusEl) statusEl.textContent = "Weekly summary draft ready — preview below. Not shared yet.";
+          showActionFeedback("Weekly summary draft ready for preview.");
         } else {
           const result = await generateToolOutputWithBackend("parentMessage", {
             topic: "End of day update",
@@ -67002,17 +67207,25 @@ document.addEventListener("click", async (event) => {
             tone: programSettings.communicationTone || "Warm and friendly",
             providerNotes: grounded.factsText,
           });
-          appendChildRecord("Communications", {
+          const saved = appendChildRecord("Communications", {
             childId,
             date: today,
             type: "Parent Note",
             title: `Parent Update | ${today}`,
             message: result.output,
             summary: String(result.output || "").slice(0, 120),
-            shareWithFamily: true,
-          });
-          if (statusEl) statusEl.textContent = "Parent message saved and shared with Family Hub.";
-          showActionFeedback("Parent message created from today’s logs.");
+            status: "draft",
+            shareWithFamily: false,
+          }, { skipNotify: true });
+          dlcPendingReportPreview = {
+            childId,
+            recordId: saved.id,
+            storeKey: "Communications",
+            kind: "parent-message",
+            text: String(result.output || ""),
+          };
+          if (statusEl) statusEl.textContent = "Parent message draft ready — preview below. Not shared yet.";
+          showActionFeedback("Parent message draft ready for preview.");
         }
         recordAiUse();
         childManagementMode = "daily-logs";
@@ -69278,10 +69491,14 @@ document.addEventListener("click", async (event) => {
     }
     const quickNote = document.querySelector("#dlcDailyReportNote")?.value?.trim() || "";
     try {
-      await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
+      buildDailyReportButton.disabled = true;
+      await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote, { openPreview: true });
       recordAiUse();
+      showActionFeedback("Report draft ready — preview before sharing. Nothing was sent.");
     } catch (error) {
       alert(error.message || "We couldn't create your document right now. Please try again.");
+    } finally {
+      buildDailyReportButton.disabled = false;
     }
     return;
   }
@@ -74029,18 +74246,20 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("submit", (event) => {
   if (!event.target.matches("#attendanceForm")) return;
   event.preventDefault();
+  if (!dlcGuardFormSubmit(event.target)) return;
   if (!isProUser()) {
     showProFeatureModal("Attendance tracking is a Pro feature.");
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Attendance", {
+  upsertDailyLogAttendance(data.childId, {
     ...data,
     title: `${data.date} | ${data.status}`,
     summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}`,
     shareWithFamily: true,
   });
   showAfterActionPrompt("attendance", data.childId);
+  renderChildManagement();
 });
 
 document.addEventListener("submit", (event) => {
@@ -74148,6 +74367,7 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#groupUpdateForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const actionId = data.action || "";
   // Announcements / reminders remain Pro; core group meals & activities are part of Daily Logs.
@@ -74261,11 +74481,22 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcAttendanceForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, false);
+  if (!childIds.length) {
+    showActionFeedback("Select at least one child.");
+    return;
+  }
   childIds.forEach((childId) => {
-    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status, shareWithFamily });
+    upsertDailyLogAttendance(childId, {
+      ...data,
+      childId,
+      title: `Attendance | ${data.date}`,
+      summary: data.status,
+      shareWithFamily,
+    }, { skipRender: true });
   });
   showAfterActionPrompt("attendance", childIds[0]);
   dlcManualSection = "";
@@ -74276,12 +74507,13 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#dlcMealsForm")) return;
   event.preventDefault();
   const form = event.target;
+  if (!dlcGuardFormSubmit(form)) return;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
-  childIds.forEach((childId) => {
+  childIds.forEach((childId, index) => {
     const parts = [data.breakfast && `Breakfast: ${data.breakfast}`, data.lunch && `Lunch: ${data.lunch}`, data.snack && `Snack: ${data.snack}`].filter(Boolean);
-    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily });
+    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily }, { skipRender: index < childIds.length - 1 });
   });
   showAfterActionPrompt("meals", childIds[0]);
   dlcManualSection = "";

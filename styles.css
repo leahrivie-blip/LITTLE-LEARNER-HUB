@@ -9786,6 +9786,29 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   color: var(--ink-muted);
 }
 
+.dlc-report-preview {
+  border: 1px solid rgba(47, 111, 159, 0.28);
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(238, 246, 250, 0.95), rgba(255, 252, 248, 0.98));
+}
+
+.dlc-report-preview-text {
+  width: 100%;
+  min-height: 180px;
+  margin: 10px 0 14px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.dlc-report-preview-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .dlc-att-primary,
 .dlc-att-card-actions .primary-button,
 .dlc-att-card-actions .ghost-button {

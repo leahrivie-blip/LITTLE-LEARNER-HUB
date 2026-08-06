@@ -101,19 +101,27 @@ function unitTests() {
   assert.match(appJs, /function dlcCheckedInChildIds/);
   assert.match(appJs, /function dlcUndoLastEntry/);
   assert.match(appJs, /function dlcSetSaveStatus/);
+  assert.match(appJs, /function upsertDailyLogAttendance/);
+  assert.match(appJs, /function dlcGuardFormSubmit/);
+  assert.match(appJs, /function dlcFinalizeReportPreview/);
+  assert.match(appJs, /function renderDlcReportPreviewCard/);
   assert.match(appJs, /data-dlc-classroom-filter/);
   assert.match(appJs, /data-dlc-undo/);
   assert.match(appJs, /data-dlc-select-present/);
+  assert.match(appJs, /data-dlc-report-share/);
+  assert.match(appJs, /Draft — not shared yet/);
   assert.match(appJs, /Log present group/);
   assert.match(appJs, /Nothing was sent to families/);
   assert.match(appJs, /recordedBy/);
   assert.match(appJs, /dlcQuickActionLockUntil/);
   assert.match(appJs, /Already checked in/);
+  assert.match(appJs, /shareWithFamily: false/);
   assert.match(appJs, /id: "bottle"/);
   assert.match(appJs, /id: "naps"/);
   assert.match(appJs, /id: "diapers"/);
   assert.match(appJs, /id: "mood"/);
   assert.match(stylesCss, /\.dlc-status-bar/);
+  assert.match(stylesCss, /\.dlc-report-preview/);
   assert.match(stylesCss, /min-height: 44px/);
   console.log("PASS  static + unit attendance helpers");
 }
@@ -334,6 +342,79 @@ async function main() {
     assert.equal(undone.ok, true);
     assert.equal(undone.after, undone.before - 1);
     console.log("PASS  undo recent entry");
+
+    // Attendance form path must upsert (not append duplicates)
+    const upsert = await page.evaluate(() => {
+      const today = dlcActiveDate();
+      saveChildStore("Attendance", childStore("Attendance").filter((a) => a.childId !== "child-ben"));
+      upsertDailyLogAttendance("child-ben", {
+        date: today,
+        status: "Present",
+        dropoff: "08:00",
+        shareWithFamily: true,
+      }, { skipRender: true });
+      upsertDailyLogAttendance("child-ben", {
+        date: today,
+        status: "Present",
+        dropoff: "08:05",
+        pickup: "15:00",
+        shareWithFamily: true,
+      }, { skipRender: true });
+      const rows = childStore("Attendance").filter((a) => a.childId === "child-ben" && a.date === today);
+      return {
+        count: rows.length,
+        dropoff: rows[0]?.dropoff,
+        pickup: rows[0]?.pickup,
+      };
+    });
+    assert.equal(upsert.count, 1, "attendance upsert must keep one row per child/day");
+    assert.equal(upsert.pickup, "15:00");
+    console.log("PASS  attendance upsert (form path helper)");
+
+    // Report draft stays internal until Share confirm
+    const draft = await page.evaluate(async () => {
+      const today = dlcActiveDate();
+      const saved = appendChildRecord("Reports", {
+        childId: "child-ava",
+        date: today,
+        title: `Daily Report | ${today}`,
+        type: "Daily Report",
+        status: "draft",
+        message: "Ava painted and rested after lunch.",
+        summary: "Ava painted and rested after lunch.",
+        shareWithFamily: false,
+      }, { skipNotify: true, skipRender: true });
+      dlcPendingReportPreview = {
+        childId: "child-ava",
+        recordId: saved.id,
+        storeKey: "Reports",
+        kind: "daily-report",
+        text: saved.message,
+      };
+      selectedChildId = "child-ava";
+      dailyLogsSection = "individual";
+      dailyLogsChildTab = "overview";
+      renderChildManagement();
+      return {
+        previewVisible: Boolean(document.querySelector("[data-dlc-report-preview]")),
+        recordId: saved.id,
+      };
+    });
+    assert.equal(draft.previewVisible, true);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "daily-logs-report-draft.png") });
+    const keptInternal = await page.evaluate(async (recordId) => {
+      await dlcFinalizeReportPreview(recordId, { share: false, storeKey: "Reports" });
+      const record = childStore("Reports").find((r) => r.id === recordId);
+      return {
+        shared: record?.shareWithFamily === true,
+        status: record?.status || "",
+        previewGone: !document.querySelector("[data-dlc-report-preview]"),
+      };
+    }, draft.recordId);
+    assert.equal(keptInternal.shared, false);
+    assert.equal(keptInternal.status, "draft");
+    assert.equal(keptInternal.previewGone, true);
+    console.log("PASS  report draft stays internal until share");
 
     // Mobile: no horizontal overflow on dashboard
     await page.setViewportSize({ width: 390, height: 844 });
