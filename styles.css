@@ -25272,12 +25272,21 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-queue-item.is-active {
   background: rgba(31, 107, 74, 0.1);
 }
+.tk-enrich-queue-item > span:last-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .tk-enrich-queue-item strong {
   display: block;
   font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: break-word;
 }
 .tk-enrich-queue-item small {
+  display: block;
+  margin-top: 0.15rem;
   color: rgba(36, 49, 42, 0.55);
+  line-height: 1.3;
 }
 .tk-enrich-status-dot {
   width: 0.65rem;
