@@ -198,7 +198,7 @@ function applyMutations(store, context, mutations = []) {
             serverRecord: existing,
             at: new Date().toISOString(),
           };
-          if (clientMutationId) idem[clientMutationId] = { ...conflict, duplicate: false };
+          // Do not idempotency-cache conflicts — a rebased retry must re-evaluate revisions.
           results.push(conflict);
           continue;
         }
@@ -335,7 +335,7 @@ function applyMutations(store, context, mutations = []) {
         },
         at: new Date().toISOString(),
       };
-      if (clientMutationId) idem[clientMutationId] = { ...conflict, duplicate: false };
+      // Do not idempotency-cache conflicts — keep reviewable until client rebases with a new id.
       results.push(conflict);
       continue;
     }

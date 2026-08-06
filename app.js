@@ -568,7 +568,8 @@ let dlcFormSubmitLockUntil = 0; // debounce repeated form submits
 let dlcPendingReportPreview = null; // { childId, recordId, kind, text } — draft until Share
 let childDataMutationQueue = []; // pending idempotent cloud mutations (memory mirror of durable store)
 let childDataMutationInFlight = false;
-let dlcConflictState = null; // human-readable conflict review state
+let dlcConflictState = null; // human-readable conflict review state (primary / most recent)
+let childDataMutationPersistChain = Promise.resolve(); // serializes IDB puts so refresh keeps queue
 let childDataMutationQueueScope = ""; // `${userId}::${programId}` for durable queue
 let childDataMutationIdbAvailable = null; // null unknown | true | false
 let dlcExpiredQueueNotice = null; // { count, at, storeKeys[], scopeKey } — no child names/ids
@@ -19514,15 +19515,58 @@ function dlcUndoLastEntry() {
   }
   dlcUndoStack = dlcUndoStack.filter((item) => item !== next);
   const storeKey = next.storeKey;
-  if (next.kind === "attendance-update" && next.before) {
-    saveChildStore(storeKey, childStore(storeKey).map((item) => (
-      item.id === next.recordId ? { ...next.before } : item
-    )));
-  } else {
-    saveChildStore(storeKey, childStore(storeKey).filter((item) => item.id !== next.recordId));
+  const recordId = String(next.recordId || "");
+  const pending = childDataMutationQueue.find((item) => (
+    String(item.recordId || item.record?.id || "") === recordId
+    && ["pending", "failed"].includes(item.status || "pending")
+  ));
+  // Prefer discarding an unsynced write over claiming cloud “saved”.
+  if (pending) {
+    void discardChildDataMutation(pending.clientMutationId);
   }
-  dlcSetSaveStatus("saved", "Undone");
-  showActionFeedback("Last entry undone.");
+  if (next.kind === "attendance-update" && next.before) {
+    const restored = { ...next.before };
+    const current = childStore(storeKey).find((item) => item.id === recordId) || null;
+    saveChildStoreLocalOnly(storeKey, childStore(storeKey).map((item) => (
+      item.id === next.recordId ? restored : item
+    )));
+    if (!pending && current) {
+      // Cloud still has the post-edit revision — enqueue a restore onto that base.
+      const baseRevision = Number(current.revision) || 1;
+      enqueueChildDataMutation({
+        op: "upsert",
+        storeKey,
+        clientMutationId: newClientMutationId(),
+        baseRevision,
+        record: { ...restored, revision: baseRevision },
+        baseSnapshot: current,
+        childId: next.childId || restored.childId || "",
+      });
+    }
+  } else {
+    const existing = childStore(storeKey).find((item) => item.id === recordId) || null;
+    saveChildStoreLocalOnly(storeKey, childStore(storeKey).filter((item) => item.id !== next.recordId));
+    if (!pending && existing) {
+      enqueueChildDataMutation({
+        op: "delete",
+        storeKey,
+        clientMutationId: newClientMutationId(),
+        baseRevision: Number(existing.revision) || 1,
+        recordId,
+        childId: next.childId || existing.childId || "",
+        record: { id: recordId, childId: existing.childId, revision: Number(existing.revision) || 1 },
+        baseSnapshot: existing,
+      });
+    }
+  }
+  const stillPending = hasUnsyncedChildDataMutations();
+  dlcSetSaveStatus(
+    stillPending ? "pending" : "idle",
+    stillPending ? "Undo queued — saving to cloud…" : "Undone locally",
+  );
+  showActionFeedback(pending
+    ? "Last entry undone (not yet saved to cloud)."
+    : "Last entry undone — syncing to cloud…");
   renderChildManagement();
   return true;
 }
@@ -19742,7 +19786,8 @@ function dlcRenderSaveStatusBar() {
   const message = dlcSaveStatus?.message || "";
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
   const pendingCount = childDataMutationQueue.filter((item) => item.status === "pending" || !item.status).length;
-  const shownState = dlcConflictState
+  const queuedConflictCount = childDataMutationQueue.filter((item) => item.status === "conflict").length;
+  const shownState = (dlcConflictState || queuedConflictCount)
     ? "conflict"
     : (offline && !["failed", "conflict"].includes(state)
       ? "offline"
@@ -19756,14 +19801,29 @@ function dlcRenderSaveStatusBar() {
     conflict: "Needs review because another person updated it",
   };
   let text = message || statusLabels[shownState] || "";
-  if (dlcConflictState) {
-    text = "Needs review because another person updated it";
+  if (dlcConflictState || queuedConflictCount) {
+    text = queuedConflictCount > 1
+      ? `${queuedConflictCount} updates need review because another person changed them`
+      : "Needs review because another person updated it";
   } else if (offline && !["failed", "conflict"].includes(state)) {
     text = `Waiting for connection (${pendingCount || 1}) — not saved to cloud yet`;
   } else if (childDataMutationIdbAvailable === false && pendingCount) {
     text = "Offline saving is unavailable in this browser — stay online to sync";
   }
   const failedIds = childDataMutationQueue.filter((item) => item.status === "failed").slice(0, 5);
+  const conflictEntries = childDataMutationQueue.filter((item) => item.status === "conflict").slice(0, 5);
+  const conflictModels = conflictEntries.map((entry) => (
+    entry.clientMutationId === dlcConflictState?.clientMutationId
+      ? dlcConflictState
+      : dlcBuildConflictViewModel(entry, {
+        serverRecord: entry.conflictServerRecord,
+        code: entry.lastError || "stale_revision",
+      })
+  )).filter(Boolean);
+  const conflictCount = conflictModels.length;
+  if (conflictCount > 1) {
+    text = `${conflictCount} updates need review because another person changed them`;
+  }
   const failedList = failedIds.length ? `
     <ul class="dlc-pending-fail-list">
       ${failedIds.map((item) => `
@@ -19775,7 +19835,7 @@ function dlcRenderSaveStatusBar() {
       `).join("")}
     </ul>
   ` : "";
-  const pendingCancel = pendingCount && !dlcConflictState ? `
+  const pendingCancel = pendingCount && !conflictCount ? `
     <button type="button" class="ghost-button" data-dlc-cancel-pending>Cancel pending change</button>
   ` : "";
   const expiredNotice = dlcExpiredQueueNotice && dlcExpiredQueueNotice.count
@@ -19790,17 +19850,17 @@ function dlcRenderSaveStatusBar() {
     </div>`
     : "";
   return `
-    <div class="dlc-status-bar" data-dlc-save-status data-state="${escapeHtml(shownState)}" ${shownState === "idle" && !offline && !pendingCount ? "hidden" : ""}>
+    <div class="dlc-status-bar" data-dlc-save-status data-state="${escapeHtml(shownState)}" ${shownState === "idle" && !offline && !pendingCount && !conflictCount ? "hidden" : ""}>
       <span class="dlc-status-text">${escapeHtml(text)}</span>
       ${shownState === "failed" || shownState === "pending" || shownState === "offline"
         ? `<button type="button" class="ghost-button" data-dlc-retry-render>Retry sync</button>`
         : ""}
       ${pendingCancel}
-      ${dlcCanUndo() && !pendingCount ? `<button type="button" class="ghost-button" data-dlc-undo>Cancel last local change</button>` : ""}
+      ${dlcCanUndo() && !pendingCount && !conflictCount ? `<button type="button" class="ghost-button" data-dlc-undo>Cancel last local change</button>` : ""}
     </div>
     ${expiredNotice}
     ${failedList}
-    ${dlcConflictState ? dlcRenderConflictPanel(dlcConflictState) : ""}
+    ${conflictModels.map((model) => dlcRenderConflictPanel(model)).join("")}
   `;
 }
 
@@ -36238,7 +36298,18 @@ async function loadChildDataMutationQueue() {
   // Explicit cross-scope expiration only — never a sign-in side effect that drops valid foreign queues.
   const otherNotice = await purgeExpiredChildMutations({ currentScopeKey: identity.scopeKey });
   if (!dlcExpiredQueueNotice && otherNotice?.count) dlcExpiredQueueNotice = otherNotice;
-  childDataMutationQueue = keep.sort((a, b) => String(a.queuedAt || "").localeCompare(String(b.queuedAt || "")));
+  // Preserve in-memory entries still writing to IndexedDB (refresh/load race).
+  const keepIds = new Set(keep.map((item) => item.clientMutationId));
+  const memoryOnly = childDataMutationQueue.filter((item) => (
+    item
+    && item.clientMutationId
+    && item.userId === identity.userId
+    && item.programId === identity.programId
+    && !keepIds.has(item.clientMutationId)
+    && !mutationEntryIsExpired(item)
+  ));
+  childDataMutationQueue = [...keep, ...memoryOnly]
+    .sort((a, b) => String(a.queuedAt || "").localeCompare(String(b.queuedAt || "")));
   return childDataMutationQueue;
 }
 
@@ -36357,16 +36428,29 @@ function enqueueChildDataMutation(mutation = {}) {
   };
   childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
   childDataMutationQueue.push(entry);
-  void persistChildDataMutationEntry(entry).catch(() => {
-    childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
-    dlcSetSaveStatus("failed", "Offline saving is unavailable in this browser. Stay online and retry.");
-  });
+  // Serialize IDB puts so a hard refresh after local write still finds the queue.
+  childDataMutationPersistChain = childDataMutationPersistChain
+    .then(() => persistChildDataMutationEntry(entry))
+    .catch(() => {
+      childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
+      dlcSetSaveStatus("failed", "Offline saving is unavailable in this browser. Stay online and retry.");
+    });
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
   dlcSetSaveStatus(
     offline ? "offline" : "pending",
     offline ? "Waiting for connection — not saved to cloud yet" : "Saving…",
   );
   return clientMutationId;
+}
+
+/** Await durable IDB writes for the in-memory queue (pagehide / flush barrier). */
+async function flushChildDataMutationPersists() {
+  try {
+    await childDataMutationPersistChain;
+  } catch (_error) { /* persist failures already surface via status */ }
+  await Promise.all(
+    childDataMutationQueue.map((item) => persistChildDataMutationEntry(item).catch(() => {})),
+  );
 }
 
 function applyServerRecordFromConflict(storeKey, serverRecord) {
@@ -36404,6 +36488,10 @@ async function retryChildDataMutation(clientMutationId, { rebase = false } = {})
   const id = String(clientMutationId || "");
   const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
   if (!entry) return false;
+  // Conflicted ids must rebase onto a new mutation id — never re-ACK as duplicate.
+  if ((entry.status === "conflict" || entry.conflictServerRecord) && !rebase) {
+    return retryChildDataMutation(id, { rebase: true });
+  }
   if (rebase) {
     const rebased = rebaseLocalChangeOntoServer(entry);
     if (!rebased) {
@@ -36546,19 +36634,21 @@ async function saveChildDataToBackend(options = {}) {
       for (const result of results) {
         const id = String(result.clientMutationId || "");
         if (!id) continue;
-        if (result.ok || result.duplicate) {
-          ackIds.push(id);
-          continue;
-        }
+        // Conflicts must win over duplicate replay — cached conflict + duplicate:true
+        // must never ACK-remove a staff change that still needs review.
         if (result.conflict || result.code === "stale_revision" || result.code === "not_found") {
           const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
           if (entry) {
             entry.status = "conflict";
-            entry.lastError = result.error || "stale_revision";
+            entry.lastError = result.error || result.code || "stale_revision";
             entry.conflictServerRecord = result.serverRecord || null;
             await persistChildDataMutationEntry(entry).catch(() => {});
             dlcConflictState = dlcBuildConflictViewModel(entry, result);
           }
+          continue;
+        }
+        if (result.ok || (result.duplicate && result.ok !== false && !result.conflict)) {
+          ackIds.push(id);
           continue;
         }
         if (result.authFailed || result.code === "forbidden" || response.status === 401 || response.status === 403) {
@@ -44073,11 +44163,27 @@ function renderChildToolsContent(child, records) {
 
 // Returns children not hidden/archived from active daily workflows.
 // Linked staff with classroomIds only see children assigned to those rooms.
+function childMatchesStaffClassroom(child, roomIds = []) {
+  if (!Array.isArray(roomIds) || !roomIds.length) return false;
+  const childRoomId = String(child?.classroomId || "").trim();
+  const childRoomName = String(child?.classroom || "").trim();
+  return (childRoomId && roomIds.includes(childRoomId))
+    || (childRoomName && roomIds.includes(childRoomName));
+}
+
 function getActiveChildren(records) {
   let list = (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
-  const roomIds = staffAssignedClassroomIds();
-  if (roomIds.length && typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount()) {
-    list = list.filter((c) => roomIds.includes(String(c.classroomId || "")));
+  // Read role from account only — avoid getUserRole()/USER_ROLES (this helper is hoisted and
+  // can run during early boot before USER_ROLES initializes).
+  const account = typeof currentAccount === "function" ? currentAccount() : null;
+  const role = String(account?.role || "").trim().toLowerCase();
+  // Owner/Director see the full program (matches server assertActorMayTouchChild).
+  if (role === "owner" || role === "director") return list;
+  if (typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount(account)) {
+    const roomIds = staffAssignedClassroomIds(account);
+    // Match server: unassigned teachers/assistants see nobody; assigned match room id OR name.
+    if (!roomIds.length) return [];
+    list = list.filter((c) => childMatchesStaffClassroom(c, roomIds));
   }
   return list;
 }
@@ -47858,10 +47964,30 @@ async function deleteChildRecordPermanently(storeKey, recordId) {
 
 async function archiveChildRecord(storeKey, recordId, shouldArchive = true) {
   if (!storeKey || !recordId) return false;
-  saveChildStore(storeKey, childStore(storeKey).map((item) => (
-    item.id === recordId ? { ...item, archived: shouldArchive, updatedAt: new Date().toISOString() } : item
+  const existing = childStore(storeKey).find((item) => item.id === recordId) || null;
+  if (!existing) return false;
+  const baseRevision = Number(existing.revision) || 1;
+  const clientMutationId = newClientMutationId();
+  const next = {
+    ...existing,
+    archived: shouldArchive,
+    clientMutationId,
+    revision: baseRevision,
+    updatedAt: new Date().toISOString(),
+  };
+  saveChildStoreLocalOnly(storeKey, childStore(storeKey).map((item) => (
+    item.id === recordId ? next : item
   )));
-  showActionFeedback(shouldArchive ? "Entry archived." : "Entry reactivated.");
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey,
+    clientMutationId,
+    baseRevision,
+    record: next,
+    baseSnapshot: existing,
+    childId: existing.childId || (storeKey === "Profiles" ? recordId : ""),
+  });
+  showActionFeedback(shouldArchive ? "Entry archived — saving to cloud…" : "Entry reactivated — saving to cloud…");
   renderChildManagement();
   return true;
 }
@@ -47878,12 +48004,32 @@ async function setChildRecordFamilyShare(storeKey, recordId, shared) {
     });
     if (!confirmed) return false;
   }
-  saveChildStore(storeKey, childStore(storeKey).map((item) => (
-    item.id === recordId ? { ...item, shareWithFamily: Boolean(shared), updatedAt: new Date().toISOString() } : item
+  const existing = childStore(storeKey).find((item) => item.id === recordId) || null;
+  if (!existing) return false;
+  const baseRevision = Number(existing.revision) || 1;
+  const clientMutationId = newClientMutationId();
+  const next = {
+    ...existing,
+    shareWithFamily: Boolean(shared),
+    clientMutationId,
+    revision: baseRevision,
+    updatedAt: new Date().toISOString(),
+  };
+  saveChildStoreLocalOnly(storeKey, childStore(storeKey).map((item) => (
+    item.id === recordId ? next : item
   )));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey,
+    clientMutationId,
+    baseRevision,
+    record: next,
+    baseSnapshot: existing,
+    childId: existing.childId || "",
+  });
   showActionFeedback(shared
-    ? "Shared with Family Hub — families can see this when they’re invited."
-    : (storeKey === "Photos" ? "Removed from the parent view." : "Stopped sharing with Family Hub."));
+    ? "Shared with Family Hub — saving to cloud…"
+    : (storeKey === "Photos" ? "Removed from parent view — saving to cloud…" : "Stopped sharing — saving to cloud…"));
   renderChildManagement();
   return true;
 }
@@ -71719,11 +71865,24 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("popstate", handleLessonNavPopState);
 
 window.addEventListener("beforeunload", (event) => {
+  const unsyncedCare = typeof hasUnsyncedChildDataMutations === "function" && hasUnsyncedChildDataMutations();
+  if (unsyncedCare) {
+    void flushChildDataMutationPersists();
+    event.preventDefault();
+    event.returnValue = "Care updates are still syncing. Leave anyway?";
+    return;
+  }
   if (!adminLessonHasUnsavedChanges() && !isAnyAdminManagedFormDirty() && !userLessonEditorDirty) return;
   event.preventDefault();
   event.returnValue = userLessonEditorDirty
     ? "You have unsaved changes. Save before leaving?"
     : adminLessonUnsavedWarning;
+});
+
+window.addEventListener("pagehide", () => {
+  if (typeof flushChildDataMutationPersists === "function") {
+    void flushChildDataMutationPersists();
+  }
 });
 
 let llhSearchTrackTimer = null;
@@ -77304,6 +77463,9 @@ document.addEventListener("submit", async (event) => {
 // backgrounded, closed" — foreground refresh catches up on anything a push
 // may have missed while backgrounded, with no push required at all).
 document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && typeof flushChildDataMutationPersists === "function") {
+    void flushChildDataMutationPersists();
+  }
   if (document.visibilityState === "visible" && isLoggedIn()) refreshNotificationBell();
 });
 
