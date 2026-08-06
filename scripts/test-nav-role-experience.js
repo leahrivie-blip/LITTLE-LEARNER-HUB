@@ -77,24 +77,32 @@ async function main() {
   assert.match(indexHtml, /SHELL_VERSION = "20260805-tk-owner-preview-r2"/);
   assert.match(indexHtml, /data-work-nav-root/);
   assert.match(indexHtml, /data-work-nav="business"/);
+  assert.match(indexHtml, /data-work-nav="daily-logs"/);
+  assert.match(indexHtml, /data-work-nav="calendar"/);
+  assert.match(indexHtml, /data-work-nav="lessons"/);
   assert.match(indexHtml, /id="view-classroom"/);
   assert.match(indexHtml, /id="view-today"/);
   assert.match(indexHtml, /id="view-business"/);
   assert.match(appJs, /function isWorkModeNavEnabled/);
+  assert.match(appJs, /function defaultAuthLandingView/);
+  assert.match(appJs, /function workModeSetupGuideHtml/);
   assert.match(appJs, /function renderOwnerHomeDashboard/);
   assert.match(appJs, /function renderTeacherTodayPage/);
   assert.match(appJs, /function renderClassroomHubPage/);
   assert.match(appJs, /function renderFamiliesHubPage/);
   assert.match(appJs, /function renderBusinessHubPage/);
   assert.match(appJs, /function syncUniversalQuickAdd/);
-  assert.match(appJs, /Admin Testing Center/);
+  assert.match(appJs, /Admin Testing Center|Testing Center/);
+  assert.match(appJs, /defaultAuthLandingView\(\)/);
   assert.match(stylesCss, /\.work-hub-page/);
   assert.match(stylesCss, /\.work-quick-add-fab/);
+  assert.match(stylesCss, /\.work-setup-guide/);
   // Roles must not be forced into one identical nav list
   assert.match(indexHtml, /data-work-roles="owner,director"/);
   assert.match(indexHtml, /data-work-roles="teacher,assistant"/);
-  assert.match(indexHtml, /data-work-roles="assistant"/);
   assert.match(appJs, /workModeLandingView/);
+  // Teachers must not get Families nav (capability dead-end)
+  assert.doesNotMatch(indexHtml, /data-work-nav="families"[^>]*data-work-roles="[^"]*teacher/);
   console.log("PASS  static nav/role markers");
 
   const port = 46000 + Math.floor(Math.random() * 1000);
@@ -105,10 +113,12 @@ async function main() {
     ownerNav: false,
     teacherNav: false,
     assistantNav: false,
+    directorNav: false,
     ownerHome: false,
     teacherToday: false,
     quickAdd: false,
     testingCenter: false,
+    mobileNav: false,
   };
 
   try {
@@ -156,13 +166,21 @@ async function main() {
         enabled: isWorkModeNavEnabled(),
         role: workModeRole(),
         landing: workModeLandingView(),
+        authLanding: defaultAuthLandingView(),
         loggedIn: isLoggedIn(),
         work,
         hasHome: work.includes("home"),
         hasBusiness: work.includes("business"),
         hasToday: work.includes("today"),
+        hasDailyLogs: work.includes("daily-logs"),
+        hasCalendar: work.includes("calendar"),
+        hasLessons: work.includes("lessons"),
+        hasMessages: work.includes("messages"),
+        hasForms: work.includes("forms"),
+        hasFamilies: work.includes("families"),
         quickAdd: Boolean(document.querySelector("#workQuickAdd")),
         homeTitle: document.querySelector("#view-home h2")?.textContent || "",
+        setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
         legacyHidden: document.querySelector("[data-legacy-nav='true']")?.hidden === true
           || getComputedStyle(document.querySelector("[data-legacy-nav='true']")).display === "none",
       };
@@ -170,10 +188,18 @@ async function main() {
     assert.equal(owner.enabled, true);
     assert.equal(owner.role, "owner");
     assert.equal(owner.landing, "home");
+    assert.equal(owner.authLanding, "home", "Login must land on Owner Home, not Calendar");
     assert.equal(owner.hasHome, true);
     assert.equal(owner.hasBusiness, true);
     assert.equal(owner.hasToday, false, "Owner must not use Teacher Today as primary nav");
+    assert.equal(owner.hasDailyLogs, true);
+    assert.equal(owner.hasCalendar, true);
+    assert.equal(owner.hasLessons, true);
+    assert.equal(owner.hasMessages, true);
+    assert.equal(owner.hasForms, true);
+    assert.equal(owner.hasFamilies, true);
     assert.equal(owner.quickAdd, true);
+    assert.equal(owner.setupGuide, true, "Empty program must show setup guide");
     assert.ok(/Good (morning|afternoon|evening)/i.test(owner.homeTitle), `owner home title: ${owner.homeTitle}`);
     results.ownerNav = true;
     results.ownerHome = true;
@@ -182,30 +208,70 @@ async function main() {
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home.png") });
 
-    // Teacher shell — intentionally different
+    async function applyRole(page, role) {
+      return page.evaluate((nextRole) => {
+        const email = localStorage.getItem("llhUser");
+        localStorage.removeItem("llhMultiRoleTesterView");
+        localStorage.removeItem("llhAdminPreviewMode");
+        try { if (typeof clearMultiRoleTesterView === "function") clearMultiRoleTesterView(); } catch (_e) { /* ignore */ }
+        try {
+          if (typeof LLHMultiRoleTester?.clearView === "function") LLHMultiRoleTester.clearView({ silent: true });
+        } catch (_e) { /* ignore */ }
+        try {
+          if (typeof setHdhTesterPersona === "function") setHdhTesterPersona({ role: nextRole === "assistant" ? "staff-helper" : nextRole === "teacher" ? "teacher" : "teacher" });
+        } catch (_e) { /* ignore */ }
+        const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+        accounts[email] = {
+          ...(accounts[email] || { email }),
+          role: nextRole,
+          accountType: accounts[email]?.accountType || "home_daycare",
+          plan: accounts[email]?.plan || "Pro",
+        };
+        localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+        if (typeof updateAccount === "function") updateAccount(email, { role: nextRole, accountType: "home_daycare" });
+        if (typeof loadAccountState === "function") loadAccountState(email);
+        if (typeof syncWorkModeNav === "function") syncWorkModeNav();
+        if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
+        return { role: typeof getUserRole === "function" ? getUserRole() : "", work: typeof workModeRole === "function" ? workModeRole() : "" };
+      }, role);
+    }
+
+    // Teacher shell — authenticated teacher account (not Admin View As simulation)
+    const teacherApplied = await applyRole(page, "teacher");
+    assert.equal(teacherApplied.work, "teacher", `teacher apply failed: ${JSON.stringify(teacherApplied)}`);
     const teacher = await page.evaluate(() => {
-      setAdminPreviewMode("Teacher");
-      syncPlatformNavVisibility();
       setView("today", { skipAccessRedirect: true });
       const work = [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).map((b) => b.getAttribute("data-work-nav"));
       return {
         role: workModeRole(),
         landing: workModeLandingView(),
+        authLanding: defaultAuthLandingView(),
         work,
         hasToday: work.includes("today"),
         hasBusiness: work.includes("business"),
         hasHome: work.includes("home"),
         hasMore: work.includes("more"),
+        hasFamilies: work.includes("families"),
+        hasForms: work.includes("forms"),
+        hasDailyLogs: work.includes("daily-logs"),
+        hasSettings: work.includes("settings"),
         todayTitle: document.querySelector("#view-today h2")?.textContent || "",
+        setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
         childrenLabel: document.querySelector("[data-work-label-teacher]")?.hidden === false,
       };
     });
     assert.equal(teacher.role, "teacher");
     assert.equal(teacher.landing, "today");
+    assert.equal(teacher.authLanding, "today");
     assert.equal(teacher.hasToday, true);
     assert.equal(teacher.hasBusiness, false, "Teacher must not see Business");
     assert.equal(teacher.hasHome, false, "Teacher Home is Today, not Owner Home");
+    assert.equal(teacher.hasFamilies, false, "Teacher must not see Families nav dead-end");
+    assert.equal(teacher.hasForms, false, "Forms stay owner/director");
+    assert.equal(teacher.hasSettings, false, "Settings stay owner/director");
+    assert.equal(teacher.hasDailyLogs, true);
     assert.equal(teacher.hasMore, true);
+    assert.equal(teacher.setupGuide, true, "Teacher empty roster shows waiting/setup guide");
     assert.match(teacher.todayTitle, /Today/i);
     results.teacherNav = true;
     results.teacherToday = true;
@@ -213,10 +279,49 @@ async function main() {
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "teacher-today.png") });
 
-    // Assistant — Messages instead of Families; no Business
+    // Director — Home + Business/Families/Forms; not Teacher Today
+    const directorApplied = await applyRole(page, "director");
+    assert.equal(directorApplied.work, "director", `director apply failed: ${JSON.stringify(directorApplied)}`);
+    const director = await page.evaluate(() => {
+      setView("home", { allowDashboard: true, skipAccessRedirect: true });
+      const work = [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).map((b) => b.getAttribute("data-work-nav"));
+      return {
+        role: workModeRole(),
+        landing: workModeLandingView(),
+        authLanding: defaultAuthLandingView(),
+        work,
+        hasHome: work.includes("home"),
+        hasToday: work.includes("today"),
+        hasBusiness: work.includes("business"),
+        hasFamilies: work.includes("families"),
+        hasForms: work.includes("forms"),
+        hasSettings: work.includes("settings"),
+        setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
+        eyebrow: document.querySelector(".work-hub-page .eyebrow, .work-hub-eyebrow, [data-work-eyebrow]")?.textContent
+          || document.querySelector("#view-home .muted-copy, #view-home p")?.textContent
+          || "",
+        homeHtml: document.querySelector("#view-home")?.innerText?.slice(0, 240) || "",
+      };
+    });
+    assert.equal(director.role, "director");
+    assert.equal(director.landing, "home");
+    assert.equal(director.authLanding, "home");
+    assert.equal(director.hasHome, true);
+    assert.equal(director.hasToday, false);
+    assert.equal(director.hasBusiness, true);
+    assert.equal(director.hasFamilies, true);
+    assert.equal(director.hasForms, true);
+    assert.equal(director.hasSettings, true);
+    assert.equal(director.setupGuide, true);
+    results.directorNav = true;
+    console.log("PASS  Director nav + Home");
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "director-home.png") });
+
+    // Assistant — Messages; no Families/Business
+    const assistantApplied = await applyRole(page, "assistant");
+    assert.equal(assistantApplied.work, "assistant", `assistant apply failed: ${JSON.stringify(assistantApplied)}`);
     const assistant = await page.evaluate(() => {
-      setAdminPreviewMode("Assistant");
-      syncPlatformNavVisibility();
+      setView("today", { skipAccessRedirect: true });
       const work = [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).map((b) => b.getAttribute("data-work-nav"));
       return {
         role: workModeRole(),
@@ -224,18 +329,44 @@ async function main() {
         hasFamilies: work.includes("families"),
         hasMessages: work.includes("messages"),
         hasBusiness: work.includes("business"),
+        hasDailyLogs: work.includes("daily-logs"),
+        setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
       };
     });
     assert.equal(assistant.role, "assistant");
     assert.equal(assistant.hasFamilies, false);
     assert.equal(assistant.hasMessages, true);
     assert.equal(assistant.hasBusiness, false);
+    assert.equal(assistant.hasDailyLogs, true);
+    assert.equal(assistant.setupGuide, true);
     results.assistantNav = true;
     console.log("PASS  Assistant nav (Messages, no Families/Business)");
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "assistant-today.png") });
 
-    // Hubs exist
+    // Mobile owner shell — no horizontal overflow on work nav / setup guide
+    await page.setViewportSize({ width: 390, height: 844 });
+    await applyRole(page, "owner");
+    await page.evaluate(() => setView("home", { allowDashboard: true, skipAccessRedirect: true }));
+    await page.waitForTimeout(250);
+    const mobile = await page.evaluate(() => {
+      const doc = document.documentElement;
+      return {
+        overflowX: doc.scrollWidth > doc.clientWidth + 2,
+        setupGuide: Boolean(document.querySelector("[data-work-setup-guide]")),
+        workVisible: [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).length,
+      };
+    });
+    assert.equal(mobile.overflowX, false, "Mobile owner home must not horizontally overflow");
+    assert.equal(mobile.setupGuide, true);
+    assert.ok(mobile.workVisible >= 8, `expected daily work nav items, got ${mobile.workVisible}`);
+    results.mobileNav = true;
+    console.log("PASS  Mobile owner home (no horizontal overflow)");
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    // Hubs exist (restore owner account)
+    await applyRole(page, "owner");
     await page.evaluate(() => {
-      setAdminPreviewMode("Owner");
       setView("classroom", { skipAccessRedirect: true });
     });
     await page.waitForTimeout(200);
@@ -274,31 +405,35 @@ async function main() {
     "",
     "## Verdict",
     "",
-    results.ownerNav && results.teacherNav && results.assistantNav && results.ownerHome && results.teacherToday
-      ? "**PASS** — Role-specific navigation is live. Owner, Teacher, and Assistant are intentionally not symmetrical."
+    results.ownerNav && results.teacherNav && results.assistantNav && results.directorNav
+      && results.ownerHome && results.teacherToday && results.mobileNav
+      ? "**PASS** — Role-specific navigation is live. Owner, Director, Teacher, and Assistant are intentionally not symmetrical."
       : "**FAIL** — Role navigation checks did not all pass.",
     "",
     "## Results",
     "",
     `| Check | Result |`,
     `|---|---|`,
-    `| Owner nav (Home/Children/Classroom/Families/Business/Settings) | ${results.ownerNav ? "PASS" : "FAIL"} |`,
-    `| Owner Home dashboard | ${results.ownerHome ? "PASS" : "FAIL"} |`,
-    `| Teacher nav (Today/My Children/Classroom/Families/More) | ${results.teacherNav ? "PASS" : "FAIL"} |`,
-    `| Teacher Today dashboard | ${results.teacherToday ? "PASS" : "FAIL"} |`,
-    `| Assistant nav (Today/Children/Classroom/Messages/More) | ${results.assistantNav ? "PASS" : "FAIL"} |`,
+    `| Owner nav (Home/Daily Logs/Children/Calendar/Lessons/Messages/Forms/Families/Business/Settings) | ${results.ownerNav ? "PASS" : "FAIL"} |`,
+    `| Owner Home dashboard + empty setup guide | ${results.ownerHome ? "PASS" : "FAIL"} |`,
+    `| Director nav + Home (Business/Families/Forms; no Teacher Today) | ${results.directorNav ? "PASS" : "FAIL"} |`,
+    `| Teacher nav (Today/Daily Logs/…/Messages/More; no Business/Families/Settings) | ${results.teacherNav ? "PASS" : "FAIL"} |`,
+    `| Teacher Today dashboard + empty setup guide | ${results.teacherToday ? "PASS" : "FAIL"} |`,
+    `| Assistant nav (Today/…/Messages/More; no Families/Business) | ${results.assistantNav ? "PASS" : "FAIL"} |`,
+    `| Mobile owner home (no horizontal overflow) | ${results.mobileNav ? "PASS" : "FAIL"} |`,
     `| Universal Quick Add | ${results.quickAdd ? "PASS" : "FAIL"} |`,
     `| Testing Pro / Testing Center APIs | ${results.testingCenter ? "PASS" : "FAIL"} |`,
     "",
     "## Design principle",
     "",
-    "Roles are **not** forced into the same structure. An owner's day (business pulse + alerts), a teacher's day (care loop), and a parent's day (warm Family Hub) each get a home optimized for what they do most often.",
+    "Roles are **not** forced into the same structure. Login lands on role Home/Today. Empty programs get a setup path before Daily Logs. Heavy owner tools stay out of teacher screens.",
     "",
-    "## Deferred polish",
+    "## Phase 1 scope",
     "",
-    "- Deeper child-profile tab rename pass (all child domains already open from Children)",
-    "- Richer seed/reset suite for every test persona type",
-    "- Production rollout of work-mode (currently testing-fence only)",
+    "- Auth landing uses work-mode Home/Today",
+    "- Empty-program setup guide",
+    "- Daily nav: Daily Logs, Calendar, Lessons, Activities, Documentation Helpers, Messages",
+    "- Teaching Kit Admin / Testing Center stay hidden from regular testers",
     "",
   ].join("\n");
 

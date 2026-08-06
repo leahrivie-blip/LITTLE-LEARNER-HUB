@@ -26461,6 +26461,43 @@ body.work-mode-nav [data-legacy-nav="true"] {
   padding: 12px 0;
 }
 
+.work-setup-guide {
+  border: 1px solid rgba(47, 111, 159, 0.22);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background:
+    linear-gradient(165deg, rgba(238, 246, 250, 0.95), rgba(255, 252, 248, 0.98));
+}
+
+.work-setup-steps {
+  margin: 0 0 14px 1.1rem;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  color: #243047;
+}
+
+.work-setup-steps .text-button {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2f6f9f;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+body.work-mode-nav #siteAnnouncementBanner,
+body.work-mode-nav #memberUpdateBanner {
+  display: none !important;
+}
+
+body.work-quick-add-visible .report-bug-fab {
+  bottom: 86px;
+}
+
 .work-quick-add {
   position: fixed;
   right: 18px;
