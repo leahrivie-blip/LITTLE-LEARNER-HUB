@@ -14960,11 +14960,29 @@ function canOpenViewForCurrentAccess(view) {
   try {
     const role = String(typeof getUserRole === "function" ? getUserRole() : "").trim().toLowerCase();
     if (role === USER_ROLES.TEACHER || role === USER_ROLES.ASSISTANT) {
-      const blocked = new Set(["business", "billing", "staff", "settings", "admin", "owner-tools", "enrollment", "subscription", "billing-history", "cancel-subscription"]);
+      const blocked = new Set([
+        "business",
+        "billing",
+        "staff",
+        "settings",
+        "admin",
+        "owner-tools",
+        "enrollment",
+        "subscription",
+        "billing-history",
+        "cancel-subscription",
+        // Deep-link / URL guards — program administration stays owner/director-only.
+        "program-settings",
+        "forms-settings",
+        "curriculum-settings",
+        "plans",
+        "upgrade",
+        "membership",
+      ]);
       if (blocked.has(resolved) || blocked.has(view)) return false;
     }
     if (role === USER_ROLES.DIRECTOR) {
-      const blocked = new Set(["billing", "admin", "owner-tools", "subscription", "billing-history", "cancel-subscription"]);
+      const blocked = new Set(["billing", "admin", "owner-tools", "subscription", "billing-history", "cancel-subscription", "plans", "upgrade", "membership"]);
       if (blocked.has(resolved) || blocked.has(view)) return false;
     }
     if (role === USER_ROLES.PARENT) {
@@ -64287,7 +64305,18 @@ function renderAccountPage() {
   const notifyBilling = document.querySelector("#notifyBilling");
   if (notifyDaily) notifyDaily.checked = settings.notifyDailyLogs !== false;
   if (notifyObs) notifyObs.checked = settings.notifyObservations !== false;
-  if (notifyBilling) notifyBilling.checked = Boolean(settings.notifyBilling);
+  if (notifyBilling) {
+    notifyBilling.checked = Boolean(settings.notifyBilling);
+    // Billing email preference is owner-only — hide for linked staff.
+    const billingNotifyRow = notifyBilling.closest("label, .settings-check-label, .form-row") || notifyBilling;
+    if (!canAccessPlatformFeature("billing")) {
+      billingNotifyRow.hidden = true;
+      notifyBilling.disabled = true;
+    } else {
+      billingNotifyRow.hidden = false;
+      notifyBilling.disabled = false;
+    }
+  }
 
   if (!currentUser) {
     emailLabel.textContent = "Guest";
@@ -64348,7 +64377,7 @@ function renderAccountPage() {
       programConnectionHost.hidden = false;
       programConnectionHost.innerHTML = `
         <p class="eyebrow">Shared program</p>
-        <p class="muted-copy">You are connected to <strong>${escapeHtml(account.linkedProgramOwnerEmail)}</strong> as ${escapeHtml(roleLabel(getUserRole(account)))}. Children, calendar, and documentation use the shared program. Each person keeps a separate login — there is no account switcher.</p>
+        <p class="muted-copy">You are connected to <strong>${escapeHtml(account.linkedProgramOwnerEmail)}</strong> as ${escapeHtml(roleDisplayLabel(getUserRole(account)))}. Children, calendar, and documentation use the shared program. Each person keeps a separate login — there is no account switcher.</p>
       `;
     } else if (canAccessPlatformFeature("staff_management", account)) {
       const teamMembers = Array.isArray(staffInviteRemoteCache.members) ? staffInviteRemoteCache.members : [];

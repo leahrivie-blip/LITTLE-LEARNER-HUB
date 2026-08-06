@@ -168,8 +168,11 @@ function roleAllowsCapability(role, capability) {
     case "documentation_helpers":
     case "reports":
     case "resources":
-    case "settings":
       return true;
+    case "settings":
+      // Program/settings hub — Owner/Director only (matches client app.js).
+      // Teachers/assistants use Account for personal profile; not Settings.
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
     case "forms":
     case "staff_management":
     case "permissions":
