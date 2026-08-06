@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260805-testing-stabilization-r30";
+  const APP_SRC = "app.js?v=20260805-testing-stabilization-r31";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;
@@ -34,6 +34,23 @@
   function isHubBootFrame() {
     try {
       return new URLSearchParams(window.location.search || "").get("hubBoot") === "1";
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  /** Invite / magic-link entry points need full app.js even on the testing guest homepage. */
+  function urlRequiresFullApp() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      return Boolean(
+        params.get("familyHub")
+        || params.get("testerInvite")
+        || params.get("staffInvite")
+        || params.get("resetToken")
+        || params.get("magicToken")
+        || params.get("inviteToken"),
+      );
     } catch (_error) {
       return false;
     }
@@ -1189,6 +1206,14 @@
     window.setTimeout(() => {
       if (!document.body.classList.contains("app-boot-ready")) revealHomeIfStuck();
     }, 2500);
+
+    // Guest magic-link / invite URLs must load app.js so Family Hub / tester accept
+    // panels can run. Keep the lean guest homepage for plain visits (Log In stays snappy).
+    if (isTestingHost() && urlRequiresFullApp()) {
+      setStatus("Opening your invite…");
+      startCoreAppLoad({ reason: "invite-url" });
+      return;
+    }
 
     // Guest homepage on testing: do NOT auto-parse app.js — it freezes Log In.
     // Early auth modal handles Log In / Start Free without the big bundle.
