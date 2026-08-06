@@ -571,8 +571,11 @@ let childDataMutationInFlight = false;
 let dlcConflictState = null; // human-readable conflict review state
 let childDataMutationQueueScope = ""; // `${userId}::${programId}` for durable queue
 let childDataMutationIdbAvailable = null; // null unknown | true | false
+let dlcExpiredQueueNotice = null; // { count, at, storeKeys[], scopeKey } — no child names/ids
 const CHILD_MUTATION_IDB_NAME = "llh-child-mutations-v2";
 const CHILD_MUTATION_IDB_STORE = "pending";
+const CHILD_MUTATION_AUDIT_STORE = "cleanupAudit";
+const CHILD_MUTATION_IDB_VERSION = 3;
 const CHILD_MUTATION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days retention
 const CHILD_MUTATION_LS_LEGACY_PREFIX = "llhChildMutations:"; // legacy only — never write; purge on load
 let lessonPlanWorkflowState = {
@@ -19760,6 +19763,17 @@ function dlcRenderSaveStatusBar() {
   const pendingCancel = pendingCount && !dlcConflictState ? `
     <button type="button" class="ghost-button" data-dlc-cancel-pending>Cancel pending change</button>
   ` : "";
+  const expiredNotice = dlcExpiredQueueNotice && dlcExpiredQueueNotice.count
+    ? `
+    <div class="dlc-status-bar" data-dlc-expired-notice data-state="failed">
+      <span class="dlc-status-text">${escapeHtml(
+        dlcExpiredQueueNotice.count === 1
+          ? "1 unsynced care update expired after 14 days and was removed. Review today’s logs and re-enter anything still needed."
+          : `${dlcExpiredQueueNotice.count} unsynced care updates expired after 14 days and were removed. Review today’s logs and re-enter anything still needed.`,
+      )}</span>
+      <button type="button" class="ghost-button" data-dlc-expired-dismiss>Got it</button>
+    </div>`
+    : "";
   return `
     <div class="dlc-status-bar" data-dlc-save-status data-state="${escapeHtml(shownState)}" ${shownState === "idle" && !offline && !pendingCount ? "hidden" : ""}>
       <span class="dlc-status-text">${escapeHtml(text)}</span>
@@ -19769,6 +19783,7 @@ function dlcRenderSaveStatusBar() {
       ${pendingCancel}
       ${dlcCanUndo() && !pendingCount ? `<button type="button" class="ghost-button" data-dlc-undo>Cancel last local change</button>` : ""}
     </div>
+    ${expiredNotice}
     ${failedList}
     ${dlcConflictState ? dlcRenderConflictPanel(dlcConflictState) : ""}
   `;
@@ -35946,16 +35961,21 @@ function openChildMutationIdb() {
       reject(new Error("indexedDB unavailable"));
       return;
     }
-    const req = indexedDB.open(CHILD_MUTATION_IDB_NAME, 2);
+    const req = indexedDB.open(CHILD_MUTATION_IDB_NAME, CHILD_MUTATION_IDB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (db.objectStoreNames.contains(CHILD_MUTATION_IDB_STORE)) {
-        db.deleteObjectStore(CHILD_MUTATION_IDB_STORE);
+      // Never wipe pending on upgrade — other scopes may still hold unsynced work.
+      if (!db.objectStoreNames.contains(CHILD_MUTATION_IDB_STORE)) {
+        const store = db.createObjectStore(CHILD_MUTATION_IDB_STORE, { keyPath: "clientMutationId" });
+        store.createIndex("scopeKey", "scopeKey", { unique: false });
+        store.createIndex("userId", "userId", { unique: false });
+        store.createIndex("programId", "programId", { unique: false });
       }
-      const store = db.createObjectStore(CHILD_MUTATION_IDB_STORE, { keyPath: "clientMutationId" });
-      store.createIndex("scopeKey", "scopeKey", { unique: false });
-      store.createIndex("userId", "userId", { unique: false });
-      store.createIndex("programId", "programId", { unique: false });
+      if (!db.objectStoreNames.contains(CHILD_MUTATION_AUDIT_STORE)) {
+        const audit = db.createObjectStore(CHILD_MUTATION_AUDIT_STORE, { keyPath: "id", autoIncrement: true });
+        audit.createIndex("scopeKey", "scopeKey", { unique: false });
+        audit.createIndex("at", "at", { unique: false });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error || new Error("indexedDB open failed"));
@@ -35996,10 +36016,127 @@ async function idbListMutationsForScope(scopeKey) {
   });
 }
 
-function mutationEntryIsExpired(entry = {}) {
-  const queuedAt = Date.parse(String(entry.queuedAt || ""));
+async function idbListAllMutations() {
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CHILD_MUTATION_IDB_STORE, "readonly");
+    const req = tx.objectStore(CHILD_MUTATION_IDB_STORE).getAll();
+    req.onsuccess = () => { db.close(); resolve(Array.isArray(req.result) ? req.result : []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function idbPutCleanupAudit(event = {}) {
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(CHILD_MUTATION_AUDIT_STORE)) {
+      db.close();
+      resolve(false);
+      return;
+    }
+    const tx = db.transaction(CHILD_MUTATION_AUDIT_STORE, "readwrite");
+    tx.objectStore(CHILD_MUTATION_AUDIT_STORE).add(event);
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function idbListCleanupAuditsForScope(scopeKey) {
+  const key = String(scopeKey || "").trim();
+  if (!key) return [];
+  const db = await openChildMutationIdb();
+  return new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(CHILD_MUTATION_AUDIT_STORE)) {
+      db.close();
+      resolve([]);
+      return;
+    }
+    const tx = db.transaction(CHILD_MUTATION_AUDIT_STORE, "readonly");
+    const index = tx.objectStore(CHILD_MUTATION_AUDIT_STORE).index("scopeKey");
+    const req = index.getAll(key);
+    req.onsuccess = () => { db.close(); resolve(Array.isArray(req.result) ? req.result : []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+function mutationEntryQueuedAtMs(entry = {}) {
+  return Date.parse(String(entry.queuedAt || ""));
+}
+
+function mutationEntryIsExpired(entry = {}, nowMs = Date.now()) {
+  const queuedAt = mutationEntryQueuedAtMs(entry);
   if (!Number.isFinite(queuedAt)) return true;
-  return Date.now() - queuedAt > CHILD_MUTATION_MAX_AGE_MS;
+  return nowMs - queuedAt > CHILD_MUTATION_MAX_AGE_MS;
+}
+
+function mutationEntryIsWithinRetention(entry = {}, nowMs = Date.now()) {
+  const queuedAt = mutationEntryQueuedAtMs(entry);
+  if (!Number.isFinite(queuedAt)) return false;
+  return nowMs - queuedAt <= CHILD_MUTATION_MAX_AGE_MS;
+}
+
+function buildMutationCleanupAudit({
+  scopeKey = "",
+  userId = "",
+  programId = "",
+  reason = "expired",
+  entries = [],
+} = {}) {
+  const storeKeys = [...new Set(entries.map((item) => String(item.storeKey || "")).filter(Boolean))].sort();
+  return {
+    at: new Date().toISOString(),
+    scopeKey: String(scopeKey || ""),
+    userId: String(userId || ""),
+    programId: String(programId || ""),
+    reason: String(reason || "expired"),
+    count: entries.length,
+    storeKeys,
+    // Non-sensitive only — never child names, record bodies, or free-text notes.
+  };
+}
+
+async function recordMutationCleanupAudit(event) {
+  try {
+    await idbPutCleanupAudit(event);
+  } catch (_error) { /* best-effort audit */ }
+}
+
+async function expireMutationEntries(entries = [], {
+  notifyScopeKey = "",
+  reason = "expired",
+} = {}) {
+  if (!entries.length) return null;
+  const byScope = new Map();
+  entries.forEach((item) => {
+    const key = String(item.scopeKey || `${item.userId || ""}::${item.programId || ""}`);
+    if (!byScope.has(key)) byScope.set(key, []);
+    byScope.get(key).push(item);
+  });
+  let noticeForCurrent = null;
+  for (const [scopeKey, scopeEntries] of byScope.entries()) {
+    const sample = scopeEntries[0] || {};
+    const audit = buildMutationCleanupAudit({
+      scopeKey,
+      userId: sample.userId || "",
+      programId: sample.programId || "",
+      reason,
+      entries: scopeEntries,
+    });
+    await recordMutationCleanupAudit(audit);
+    for (const item of scopeEntries) {
+      if (item.clientMutationId) await removePersistedChildDataMutation(item.clientMutationId);
+    }
+    if (notifyScopeKey && scopeKey === notifyScopeKey) {
+      noticeForCurrent = {
+        count: audit.count,
+        at: audit.at,
+        storeKeys: audit.storeKeys,
+        scopeKey,
+        reason,
+      };
+    }
+  }
+  return noticeForCurrent;
 }
 
 async function persistChildDataMutationEntry(entry) {
@@ -36022,6 +36159,26 @@ async function removePersistedChildDataMutation(clientMutationId) {
   } catch (_error) { /* ignore */ }
 }
 
+/**
+ * Explicit expiration policy: remove only entries older than 14 days.
+ * Never deletes another scope merely because the signed-in scope differs.
+ * UI notice is shown only for the authorized scope that owns the expired rows.
+ */
+async function purgeExpiredChildMutations({ currentScopeKey = "", nowMs = Date.now() } = {}) {
+  let all = [];
+  try {
+    all = await idbListAllMutations();
+  } catch (_error) {
+    return null;
+  }
+  const expired = all.filter((item) => item && mutationEntryIsExpired(item, nowMs));
+  if (!expired.length) return null;
+  return expireMutationEntries(expired, {
+    notifyScopeKey: currentScopeKey,
+    reason: "expired",
+  });
+}
+
 async function loadChildDataMutationQueue() {
   purgeLegacyChildMutationLocalStorage();
   const identity = childDataActorIdentity();
@@ -36040,15 +36197,32 @@ async function loadChildDataMutationQueue() {
     return [];
   }
   const keep = [];
+  const invalid = [];
   for (const item of entries || []) {
+    // Defense in depth: never load another account/program into memory.
+    // Do NOT delete foreign-scope rows here — they stay isolated until expiration policy runs.
     if (!item || item.userId !== identity.userId || item.programId !== identity.programId) continue;
     if (item.scopeKey && item.scopeKey !== identity.scopeKey) continue;
-    if (mutationEntryIsExpired(item) || !item.clientMutationId) {
-      await removePersistedChildDataMutation(item.clientMutationId);
+    if (!item.clientMutationId) {
+      invalid.push(item);
+      continue;
+    }
+    if (mutationEntryIsExpired(item)) {
+      invalid.push(item);
       continue;
     }
     keep.push(item);
   }
+  if (invalid.length) {
+    const notice = await expireMutationEntries(invalid, {
+      notifyScopeKey: identity.scopeKey,
+      reason: invalid.every((item) => !item.clientMutationId) ? "invalid" : "expired",
+    });
+    if (notice?.count) dlcExpiredQueueNotice = notice;
+  }
+  // Explicit cross-scope expiration only — never a sign-in side effect that drops valid foreign queues.
+  const otherNotice = await purgeExpiredChildMutations({ currentScopeKey: identity.scopeKey });
+  if (!dlcExpiredQueueNotice && otherNotice?.count) dlcExpiredQueueNotice = otherNotice;
   childDataMutationQueue = keep.sort((a, b) => String(a.queuedAt || "").localeCompare(String(b.queuedAt || "")));
   return childDataMutationQueue;
 }
@@ -36058,6 +36232,15 @@ function clearChildDataMutationMemory() {
   childDataMutationQueueScope = "";
   dlcConflictState = null;
   childDataMutationInFlight = false;
+  // Keep dlcExpiredQueueNotice only while the same authorized scope is active; clear on logout.
+  dlcExpiredQueueNotice = null;
+}
+
+function dismissExpiredQueueNotice() {
+  dlcExpiredQueueNotice = null;
+  if (typeof renderChildManagement === "function") {
+    try { renderChildManagement(); } catch (_e) { /* ignore */ }
+  }
 }
 
 function hasUnsyncedChildDataMutations() {
@@ -67747,6 +67930,12 @@ document.addEventListener("click", async (event) => {
   if (dlcCancelPending) {
     event.preventDefault();
     cancelOldestPendingMutation();
+    return;
+  }
+  const dlcExpiredDismiss = event.target.closest("[data-dlc-expired-dismiss]");
+  if (dlcExpiredDismiss) {
+    event.preventDefault();
+    dismissExpiredQueueNotice();
     return;
   }
   const dlcMutationRetry = event.target.closest("[data-dlc-mutation-retry]");

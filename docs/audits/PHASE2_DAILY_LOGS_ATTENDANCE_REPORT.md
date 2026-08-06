@@ -1,135 +1,98 @@
-# Phase 2 Daily Logs — Complete Proof Report (human conflict UX + IndexedDB queue)
+# Phase 2 Daily Logs — Final Merge-Readiness Report
 
 **Environment:** Disposable local test server (`HOME_DAYCARE_HUB_TESTING`)  
 **Branch:** `cursor/phase2-daily-logs-attendance-9026`  
-**PR:** #548 (draft) — do not merge, do not deploy
+**PR:** #548 (draft) — do not merge, do not deploy until owner approval  
 
-## Verdict
+Testing host (reference only, not deployed by this PR): `https://little-learner-hub-testing.onrender.com`
 
-- Automated proof checks: **PASS**
-- Merge #548: **NO-GO** (awaiting owner approval)
-- Place Phase 1–2 on testing site: **NO-GO** (awaiting owner approval; agent must not deploy)
+## Final GO / NO-GO
 
-## What this follow-up closed
-
-1. **Human-readable conflict UI** — no raw JSON, IDs, revisions, or timestamps shown to providers.
-2. **IndexedDB-only durable queue** — no child-data localStorage fallback; scoped by immutable `userId` + `programId` (+ `childId` on entries).
-3. **Logout / account-switch safety** — warn + Sync now / Stay signed in / Discard (explicit); cross-account and cross-program isolation.
-4. **Clear statuses/actions** — Saving / Saved to cloud / Waiting for connection / Sync failed / Needs review…; Cancel pending / Discard failed / Retry sync.
-5. **Apply my change rebases** intended fields onto the latest server record with a fresh `baseRevision` (never resends the stale revision blindly).
-
-## Concurrency model
-
-- **Creates are append-only.** New record ids insert; two staff adding different meals/naps/notes both survive.
-- **Edits are revision-checked.** Updates must send explicit envelope `baseRevision` matching the server revision.
-- **Stale edits → conflict** (`stale_revision`) with `serverRecord` — never silent LWW.
-- **Deleted/unavailable edits → conflict** (`not_found`) when envelope `baseRevision` is present but the row is gone — no silent recreate.
-- Auth and classroom restrictions are rechecked on every mutation, including retries.
-
-## Durable queue design
-
-| Item | Policy |
+| Decision | Verdict |
 |---|---|
-| Storage | IndexedDB only — DB `llh-child-mutations-v2`, store `pending` |
-| localStorage | **Never write** child mutations. Legacy `llhChildMutations:*` keys are purged on load only |
-| Scope | `scopeKey = userId::programId` (immutable actor id + program id). Email is not the security boundary |
-| Entry fields | `clientMutationId`, `op`, `storeKey`, `record`, `baseRevision`, `baseSnapshot`, `intendedFields`, `childId`, `userId`, `programId`, `scopeKey`, `queuedAt`, `status` |
-| Retention / expiration | **14 days** from `queuedAt` (`CHILD_MUTATION_MAX_AGE_MS`). Missing/invalid `queuedAt` → removed. Wrong scope → ignored |
-| IDB unavailable | Fail visibly (“Offline saving is unavailable…”); keep entry on screen when possible; allow online retry; **no** silent localStorage fallback |
-| Flush | Online event, login, after child-data sync. Ack’d mutations removed from memory + IDB |
-| Saved wording | Never “Saved to cloud” before server acknowledgement |
+| Merge readiness after this check | **GO for owner-approved merge into the testing path** (see merge order below) |
+| Agent merge now | **NO-GO** — stop for approval |
+| Agent deploy now | **NO-GO** — stop for approval |
 
-## Conflict-resolution UX
+## Temporary files
 
-Panel shows:
-
-- Child’s name · record type (Meal, Attendance, Nap, Activity, Note, Diaper/Potty, …)
-- Explanation that another staff member updated the record
-- Only differing fields with friendly labels and formatted times
-- **Your change** vs **Latest saved information**
-
-Actions:
-
-1. **Keep latest saved version** — apply `serverRecord` locally, discard conflicting mutation  
-2. **Apply my change to the latest version** — rebase `intendedFields` onto server record, new `clientMutationId`, `baseRevision = server.revision`  
-3. **Review and edit** — open Daily Logs for that child  
-4. **Cancel** — drop pending mutation; cloud unchanged  
-
-Deleted records hide “Apply my change” and explain the record is no longer available.
-
-## Logout / shared-device safety
-
-Before logout, if unsynced child-data changes exist:
-
-1. Offer **Sync now** (or Cancel = **Stay signed in**)
-2. If still unsynced → require explicit **Discard unsynced changes** confirmation
-3. Prompts do **not** list child names or queued record details
-
-After logout / account switch:
-
-- In-memory queue cleared
-- Next account loads only its own `userId::programId` IDB scope
-- Email change keeps the same `localActorId` / Firebase uid scope
-- Program change loads a different scope (prior program mutations do not flush)
-
-## Exact files changed
-
-- `app.js` — human conflict UI, rebase apply, IDB v2 scope by userId/programId, logout unsynced prompt, status/action copy, edit/delete via mutations, cancel pending snapshot clobber after mutation flush
-- `server/child-data-mutations.js` — `not_found` for explicit-baseRevision edits of missing rows
-- `styles.css` — human conflict diff layout (desktop + mobile)
-- `scripts/test-child-data-durable-queue.js` — expanded isolation / conflict / IDB / logout suite
-- `scripts/test-child-data-mutations.js` — `not_found` unit coverage
-- `scripts/test-daily-logs-attendance.js` — enqueue-scoped idempotency proof
-- `docs/audits/PHASE2_DAILY_LOGS_ATTENDANCE_REPORT.md` — this report
-
-## Complete test results
-
-| Suite | Result |
+| Item | Status |
 |---|---|
-| `npm run test:child-data-mutations` | PASS |
-| `npm run test:child-data-durable-queue` | PASS |
-| `npm run test:daily-logs-attendance` | PASS (15/15) |
-| `npm run test:nav-role-experience` | PASS |
-| `npm run check` | PASS |
+| `scripts/_tmp-conflict-screenshots.js` | Removed before prior push; **not present** in branch tip (`git ls-files` clean) |
+| Other `_tmp*` screenshot scripts | None in tree |
+| Generated disposable test data | Confined to temp JSON stores under `/tmp` during tests; not committed |
+| Debug logging added by this work | None |
 
-Durable-queue coverage includes:
+Permanent regression tests kept: `scripts/test-child-data-durable-queue.js`, `scripts/test-child-data-mutations.js`, `scripts/test-daily-logs-attendance.js`, plus existing nav/permission suites.
 
-- Two staff editing different fields + rebase proof  
-- Same-field conflict + keep latest  
-- Attendance / meals / naps / activities / notes / diaper-potty conflict labels  
-- Deleted/unavailable record conflict  
-- Mobile conflict layout  
-- No child-mutation keys in localStorage  
-- Owner → teacher and teacher A → teacher B isolation  
-- Email change keeps actor scope  
-- Program change isolates prior queue  
-- Session expired / permission failed pending work  
-- Corrupted / obsolete / wrong-scope cleanup  
-- IndexedDB unavailable fail-safe  
-- Logout unsynced warning without child-name leak  
-- Queue cleanup after ack; **14-day** retention  
+## Queue isolation (cross-account / cross-program)
 
-## Screenshots
+- Durable store: IndexedDB `llh-child-mutations-v2` / `pending`, scoped by immutable `userId::programId`.
+- Signing in as another user/program **loads only that scope**, never displays or replays another scope.
+- **Valid foreign-scope rows are not deleted** on sign-in. IDB upgrade no longer wipes `pending`.
+- Foreign scopes are touched only by the **explicit 14-day expiration policy** (`purgeExpiredChildMutations`).
+- Switching back to the original authorized account recovers still-valid queued work (proven).
 
-Artifacts: `/opt/cursor/artifacts/phase2-durable-queue/screenshots/`
+## 14-day expiration policy
 
-- `status-conflict-desktop.png` — human-readable conflict (child name, Meal, Your change / Latest saved, actions)
-- `status-conflict-mobile.png` — same flow on mobile viewport
-- `status-saving.png` / `status-offline.png` / `status-failed.png` / `status-saved.png`
+| When | What happens |
+|---|---|
+| Age **≤ 14 days** (`now - queuedAt <= CHILD_MUTATION_MAX_AGE_MS`) | Kept |
+| Age **> 14 days** | Eligible for expiration |
+| Invalid / missing `queuedAt` | Treated as cleanup candidate (`invalid` / `expired`) |
 
-Prior Daily Logs desktop/mobile proof: `/opt/cursor/artifacts/phase2-daily-logs-proof/screenshots/`.
+Before deletion:
 
-## Remaining limitations (later phases — acceptable)
+1. Write a **non-sensitive** audit row to IndexedDB store `cleanupAudit`: `{ at, scopeKey, userId, programId, reason, count, storeKeys[] }` — **no child names, ids, or record bodies**.
+2. If the expired rows belong to the **currently authorized scope**, show:  
+   “N unsynced care updates expired after 14 days and were removed. Review today’s logs and re-enter anything still needed.” with **Got it**.
+3. Other accounts never see another account’s expired notice or child details.
+
+Boundary proof: exact 14d kept; 14d+1ms removed; audit + notice for owning scope only.
+
+## PR relationship and merge order
+
+| Question | Answer |
+|---|---|
+| Does #548 contain all commits from #546? | **Yes.** `origin/cursor/phase1-tester-onboarding-nav-9026` is an ancestor of #548 HEAD. |
+| Is merging only #548 sufficient for Phase 1+2 code? | **Code-wise yes** (#548 includes Phase 1 commits). **GitHub merge target today is the Phase 1 branch**, not `main`. |
+| #546 first or close as superseded? | **Preferred:** merge **#546 → `main` first**, then retarget/merge **#548 → `main`**. **Alternative:** close #546 as superseded, retarget #548 to `main`, merge #548 once. **Do not** merge both PRs separately while they share the same Phase 1 commits. |
+| Conflicts with current `main`? | **None** — dry-run `git merge` of #548 into `main` completed cleanly. |
+| Exact testing-service branch | Testing host is `little-learner-hub-testing`. Repo docs state merging to **`main` may auto-update that service if it tracks `main`**. This PR’s current GitHub base is `cursor/phase1-tester-onboarding-nav-9026`, so merging #548 as-is does **not** land on `main` until retargeted or stacked after #546. |
+| Does merging trigger automatic testing deploy? | **Possibly, if** the testing Render service auto-deploys from `main` (documented behavior). **Merging #548 into the Phase 1 branch alone does not deploy production.** Agent must not deploy. Pause/confirm testing auto-deploy before merging to `main` if you need a gated testing release. |
+
+## Exact files changed (this merge-readiness follow-up)
+
+- `app.js` — audited expiration, foreign-scope preservation, expired-user notice, non-destructive IDB v3 upgrade + `cleanupAudit` store
+- `scripts/test-child-data-durable-queue.js` — isolation / switch-back / 14-day boundary / audit proofs
+- `docs/audits/PHASE2_DAILY_LOGS_ATTENDANCE_REPORT.md` — this report  
+
+(Prior #548 commits also cover human conflict UI, IndexedDB-only queue, logout safety, server `not_found`, styles, mutations/daily-logs tests.)
+
+## Final regression proof
+
+| Suite | Result | Counts |
+|---|---|---|
+| `npm run check` | PASS | syntax checks |
+| `npm run test:nav-role-experience` | PASS | 9/9 scenario groups |
+| `npm run test:pass3-permission-matrix` | PASS | **176/176** |
+| `npm run test:daily-logs-attendance` | PASS | **15/15** |
+| `npm run test:child-data-mutations` | PASS | unit + API |
+| `npm run test:child-data-durable-queue` | PASS | **22** named proofs (incl. concurrent rebase, logout/switch, cross-program, mobile conflict, multi-type conflict labels, expiration, switch-back) |
+
+Conflict UI verified for **Attendance, Meal, Nap, Activity, Note, Diaper/Potty** (not Meal-only).
+
+Screenshots: `/opt/cursor/artifacts/phase2-durable-queue/screenshots/`  
+(`status-conflict-desktop.png`, `status-conflict-mobile.png`, saving/offline/failed/saved)
+
+## Remaining known limitations (acceptable later phases)
 
 - Live AI testing until a testing key is available  
 - Real Family Hub parent-session testing  
 - Physical printer testing  
-- Field-level CRDT merge inside a single record (revision conflicts require explicit resolve)  
-- Owner full-snapshot path still exists for some non-mutation writes; mutation flush cancels pending snapshot timers to reduce LWW clobber risk  
+- Owner full-snapshot path still exists for some non-mutation writes (mutation flush cancels pending snapshot timers)  
+- Field-level CRDT merge inside one record is not implemented (explicit conflict resolve required)  
 
-## GO / NO-GO
+## Stop
 
-| Decision | Verdict |
-|---|---|
-| Merge PR #548 | **NO-GO** — stop for approval |
-| Deploy Phase 1–2 to testing site | **NO-GO** — stop for approval |
+Awaiting owner approval. **No merge. No deployment.**

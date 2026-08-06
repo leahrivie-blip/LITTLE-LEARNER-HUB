@@ -127,16 +127,20 @@ async function main() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert.match(appJs, /CHILD_MUTATION_IDB_NAME\s*=\s*["']llh-child-mutations-v2["']/);
   assert.match(appJs, /CHILD_MUTATION_MAX_AGE_MS\s*=\s*14\s*\*\s*24/);
+  assert.match(appJs, /CHILD_MUTATION_AUDIT_STORE/);
   assert.match(appJs, /function childDataActorIdentity/);
   assert.match(appJs, /function rebaseLocalChangeOntoServer/);
   assert.match(appJs, /function promptLogoutWithUnsyncedWork/);
+  assert.match(appJs, /function purgeExpiredChildMutations/);
   assert.match(appJs, /dlc-conflict-diff-list/);
   assert.match(appJs, /Apply my change to the latest version/);
   assert.match(appJs, /Needs review because another person updated it/);
+  assert.match(appJs, /expired after 14 days/);
   assert.match(appJs, /Waiting for connection/);
   assert.match(appJs, /Saved to cloud/);
   assert.doesNotMatch(appJs, /localStorage\.setItem\(\s*[`'"]llhChildMutations/);
   assert.match(appJs, /CHILD_MUTATION_LS_LEGACY_PREFIX/);
+  assert.match(appJs, /Never wipe pending on upgrade/);
   console.log("PASS  static durable-queue / human-conflict markers");
 
   const port = 48100 + Math.floor(Math.random() * 800);
@@ -929,7 +933,7 @@ async function main() {
 
     // Session-expired pending stays failed (not silently saved)
     await teacherB.context.close();
-    const owner2 = await openPage(browser, port, OWNER, {
+    let owner2 = await openPage(browser, port, OWNER, {
       localActorId: "actor_owner_durable",
       programId: PROGRAM_A,
     });
@@ -982,9 +986,11 @@ async function main() {
     assert.equal(sessionExpired.claimsSaved, false);
     console.log("PASS  session expired keeps failed pending work");
 
-    // Corrupted / obsolete queue entries cleaned
+    // Expired/invalid current-scope cleanup with audit + notice; foreign valid scope preserved
     const cleanupCorrupt = await owner2.page.evaluate(async () => {
+      dlcExpiredQueueNotice = null;
       const identity = childDataActorIdentity();
+      const otherScope = `other-actor::${identity.programId}`;
       await idbPutMutation({
         clientMutationId: "corrupt-no-date",
         userId: identity.userId,
@@ -1002,29 +1008,210 @@ async function main() {
         storeKey: "Meals",
         status: "pending",
         queuedAt: new Date(Date.now() - (20 * 24 * 60 * 60 * 1000)).toISOString(),
-        record: { lunch: "too old" },
+        record: { lunch: "too old", childId: "child-secret" },
       });
       await idbPutMutation({
-        clientMutationId: "wrong-scope",
+        clientMutationId: "wrong-scope-valid",
         userId: "other-actor",
         programId: identity.programId,
-        scopeKey: `other-actor::${identity.programId}`,
+        scopeKey: otherScope,
         storeKey: "Meals",
         status: "pending",
         queuedAt: new Date().toISOString(),
-        record: { lunch: "wrong scope" },
+        record: { lunch: "wrong scope still valid", childId: "child-other" },
       });
       await loadChildDataMutationQueue();
+      dailyLogsSection = "home";
+      childManagementMode = "daily-logs";
+      if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
+      renderChildManagement();
+      const foreignStill = await idbListMutationsForScope(otherScope);
+      const audits = await idbListCleanupAuditsForScope(identity.scopeKey);
+      const noticeHtml = document.querySelector("[data-dlc-expired-notice]")?.innerHTML || "";
       return {
         hasCorrupt: childDataMutationQueue.some((m) => m.clientMutationId === "corrupt-no-date"),
         hasOld: childDataMutationQueue.some((m) => m.clientMutationId === "obsolete-old"),
-        hasWrong: childDataMutationQueue.some((m) => m.clientMutationId === "wrong-scope"),
+        hasWrongInMemory: childDataMutationQueue.some((m) => m.clientMutationId === "wrong-scope-valid"),
+        foreignPreserved: foreignStill.some((m) => m.clientMutationId === "wrong-scope-valid"),
+        noticeCount: dlcExpiredQueueNotice?.count || 0,
+        noticeHasChild: /child-secret|Ava Durable|too old/i.test(JSON.stringify(dlcExpiredQueueNotice || {})),
+        noticeUi: /expired after 14 days/i.test(noticeHtml),
+        noticeUiChildLeak: /child-secret|Ava Durable/i.test(noticeHtml),
+        auditCount: audits.filter((a) => a.reason === "expired" || a.reason === "invalid").length,
+        auditHasChildBody: audits.some((a) => /child-secret|too old|lunch/i.test(JSON.stringify(a))),
       };
     });
     assert.equal(cleanupCorrupt.hasCorrupt, false);
     assert.equal(cleanupCorrupt.hasOld, false);
-    assert.equal(cleanupCorrupt.hasWrong, false);
-    console.log("PASS  corrupted / obsolete / wrong-scope queue cleanup");
+    assert.equal(cleanupCorrupt.hasWrongInMemory, false);
+    assert.equal(cleanupCorrupt.foreignPreserved, true, "must not delete another scope merely because current scope differs");
+    assert.ok(cleanupCorrupt.noticeCount >= 1);
+    assert.equal(cleanupCorrupt.noticeHasChild, false);
+    assert.equal(cleanupCorrupt.noticeUi, true);
+    assert.equal(cleanupCorrupt.noticeUiChildLeak, false);
+    assert.ok(cleanupCorrupt.auditCount >= 1);
+    assert.equal(cleanupCorrupt.auditHasChildBody, false);
+    console.log("PASS  expired cleanup audits + notice; foreign valid scope preserved");
+
+    // 14-day boundary: keep at exactly 14d; expire 1ms after (frozen clock for helpers + durable load)
+    const retentionBoundary = await owner2.page.evaluate(async () => {
+      dlcExpiredQueueNotice = null;
+      const identity = childDataActorIdentity();
+      const now = Date.now();
+      const keepId = "retain-boundary-keep";
+      const expireId = "retain-boundary-expire";
+      const keepQueuedAt = new Date(now - CHILD_MUTATION_MAX_AGE_MS).toISOString(); // age == 14d → keep
+      const expireQueuedAt = new Date(now - CHILD_MUTATION_MAX_AGE_MS - 1).toISOString(); // age == 14d+1ms → expire
+      // Frozen-clock helper proof (exact boundary, no wall-clock drift).
+      const withinHelper = mutationEntryIsWithinRetention({ queuedAt: keepQueuedAt }, now);
+      const exactlyExpiredHelper = mutationEntryIsExpired({ queuedAt: keepQueuedAt }, now); // false at equality
+      const expiredHelper = mutationEntryIsExpired({ queuedAt: expireQueuedAt }, now);
+      await idbPutMutation({
+        clientMutationId: keepId,
+        userId: identity.userId,
+        programId: identity.programId,
+        scopeKey: identity.scopeKey,
+        storeKey: "Naps",
+        status: "pending",
+        queuedAt: keepQueuedAt,
+        record: { id: "nap-keep", summary: "keep" },
+      });
+      await idbPutMutation({
+        clientMutationId: expireId,
+        userId: identity.userId,
+        programId: identity.programId,
+        scopeKey: identity.scopeKey,
+        storeKey: "Naps",
+        status: "pending",
+        queuedAt: expireQueuedAt,
+        record: { id: "nap-expire", summary: "expire" },
+      });
+      // Freeze Date.now during load/purge so equality boundary is deterministic.
+      const realNow = Date.now;
+      Date.now = () => now;
+      try {
+        await loadChildDataMutationQueue();
+      } finally {
+        Date.now = realNow;
+      }
+      const still = await idbListMutationsForScope(identity.scopeKey);
+      return {
+        kept: still.some((m) => m.clientMutationId === keepId)
+          || childDataMutationQueue.some((m) => m.clientMutationId === keepId),
+        expiredGone: !still.some((m) => m.clientMutationId === expireId)
+          && !childDataMutationQueue.some((m) => m.clientMutationId === expireId),
+        notice: Boolean(dlcExpiredQueueNotice?.count),
+        withinHelper,
+        exactlyExpiredHelper,
+        expiredHelper,
+      };
+    });
+    assert.equal(retentionBoundary.withinHelper, true);
+    assert.equal(retentionBoundary.exactlyExpiredHelper, false);
+    assert.equal(retentionBoundary.expiredHelper, true);
+    assert.equal(retentionBoundary.kept, true);
+    assert.equal(retentionBoundary.expiredGone, true);
+    assert.equal(retentionBoundary.notice, true);
+    await owner2.page.evaluate(() => {
+      dismissExpiredQueueNotice();
+      // Drop the retained boundary fixture so later ack cleanup stays isolated.
+      return discardChildDataMutation("retain-boundary-keep");
+    });
+    console.log("PASS  14-day retention boundary (keep at 14d, expire after)");
+
+    // Switch-back recovers still-valid original scope queue (same device / same IndexedDB)
+    const switchBack = await owner2.page.evaluate(async () => {
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      const teacherAEmail = "phase2.durable.teacher.a@example.com";
+      const teacherBEmail = "phase2.durable.teacher.b@example.com";
+      accounts[teacherAEmail] = {
+        email: teacherAEmail,
+        plan: "Pro",
+        role: "teacher",
+        firstName: "TeacherA",
+        accountType: "home_daycare",
+        businessName: "Durable Nest",
+        subscriptionStatus: "Pro",
+        programId: childDataActorIdentity().programId,
+        localActorId: "actor_teacher_a_switch",
+        classroomIds: ["room-oaks"],
+        createdAt: new Date().toISOString(),
+      };
+      accounts[teacherBEmail] = {
+        email: teacherBEmail,
+        plan: "Pro",
+        role: "teacher",
+        firstName: "TeacherB",
+        accountType: "home_daycare",
+        businessName: "Durable Nest",
+        subscriptionStatus: "Pro",
+        programId: childDataActorIdentity().programId,
+        localActorId: "actor_teacher_b_switch",
+        classroomIds: ["room-oaks"],
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+
+      // Sign in as Teacher A and queue offline work
+      currentUser = teacherAEmail;
+      localStorage.setItem("llhUser", teacherAEmail);
+      clearChildDataMutationMemory();
+      await loadChildDataMutationQueue();
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+      appendChildRecord("Meals", {
+        id: "meal-switchback-a",
+        childId: "child-ava",
+        date: dlcActiveDate(),
+        lunch: "Switchback preserve",
+        summary: "Switchback preserve",
+      }, { skipRender: true });
+      const afterA = {
+        count: childDataMutationQueue.length,
+        scope: childDataMutationQueueScope,
+        userId: childDataActorIdentity().userId,
+      };
+
+      // Switch to Teacher B on the same device — must not load/replay/delete A's valid queue
+      clearChildDataMutationMemory();
+      currentUser = teacherBEmail;
+      localStorage.setItem("llhUser", teacherBEmail);
+      await loadChildDataMutationQueue();
+      const whileB = {
+        count: childDataMutationQueue.length,
+        leaked: childDataMutationQueue.some((m) => /Switchback preserve/i.test(JSON.stringify(m))),
+        noticeLeak: /Switchback preserve|Ava Durable/i.test(JSON.stringify(dlcExpiredQueueNotice || {})),
+        aStillInIdb: (await idbListMutationsForScope(afterA.scope)).some((m) => m.record?.lunch === "Switchback preserve"),
+      };
+
+      // Switch back to Teacher A — still-valid queue recovers
+      clearChildDataMutationMemory();
+      currentUser = teacherAEmail;
+      localStorage.setItem("llhUser", teacherAEmail);
+      await loadChildDataMutationQueue();
+      const recovered = {
+        count: childDataMutationQueue.length,
+        lunch: childDataMutationQueue.some((m) => m.record?.lunch === "Switchback preserve"),
+        scope: childDataMutationQueueScope,
+      };
+      const ids = childDataMutationQueue.map((m) => m.clientMutationId);
+      for (const id of ids) await discardChildDataMutation(id);
+
+      // Restore owner session for remaining checks
+      clearChildDataMutationMemory();
+      currentUser = "phase2.durable.owner@example.com";
+      localStorage.setItem("llhUser", currentUser);
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => true });
+      await loadChildDataMutationQueue();
+      return { afterA, whileB, recovered };
+    });
+    assert.ok(switchBack.afterA.count >= 1);
+    assert.equal(switchBack.whileB.count, 0);
+    assert.equal(switchBack.whileB.leaked, false);
+    assert.equal(switchBack.whileB.noticeLeak, false);
+    assert.equal(switchBack.whileB.aStillInIdb, true);
+    assert.ok(switchBack.recovered.count >= 1);
+    assert.equal(switchBack.recovered.lunch, true);
+    console.log("PASS  switch-back recovers still-valid original scope queue");
 
     // IndexedDB unavailable fails safely (no localStorage fallback)
     const idbFail = await owner2.page.evaluate(async () => {
