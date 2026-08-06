@@ -9732,6 +9732,98 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   flex-direction: column;
   gap: 20px;
   padding: 0 0 32px;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.dlc-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(47, 111, 159, 0.22);
+  background: rgba(238, 246, 250, 0.95);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.dlc-status-bar[data-state="saving"] { border-color: rgba(138, 109, 29, 0.35); background: #fff8e8; }
+.dlc-status-bar[data-state="saved"] { border-color: rgba(47, 171, 96, 0.35); background: #f0fbf4; }
+.dlc-status-bar[data-state="failed"] { border-color: rgba(176, 60, 60, 0.4); background: #fff1f1; }
+.dlc-status-bar[data-state="offline"] { border-color: rgba(100, 100, 100, 0.35); background: #f4f4f4; }
+
+.dlc-dashboard-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.dlc-dashboard-room-picker,
+.dlc-dashboard-date-picker {
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 180px);
+}
+
+.dlc-privacy-note {
+  margin: -8px 0 0;
+}
+
+.dlc-group-select-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dlc-timeline-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.dlc-att-primary,
+.dlc-att-card-actions .primary-button,
+.dlc-att-card-actions .ghost-button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.daily-logs-page,
+.dlc-dashboard,
+.dlc-section {
+  overflow-x: clip;
+}
+
+@media (max-width: 720px) {
+  .dlc-child-cards-grid,
+  .dlc-att-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dlc-home-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dlc-home-toolbar .primary-button,
+  .dlc-home-toolbar .ghost-button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .dlc-stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dlc-dashboard-date-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .dlc-dashboard-date-row {
