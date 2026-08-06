@@ -38033,6 +38033,13 @@ async function maybeHandleFamilyHubInviteFromUrl() {
     panel.appendChild(card);
     document.body.appendChild(panel);
     document.body.classList.add("family-hub-invite-open");
+    // Testing lean-boot loading gate can sit above the invite dialog and swallow taps.
+    try {
+      document.getElementById("llhHubLoadingGate")?.setAttribute("hidden", "");
+      document.getElementById("llhLazyStatus") && (document.getElementById("llhLazyStatus").hidden = true);
+      window.LLHBootCritical?.hideHubLoadingGate?.();
+      window.LLHBootCritical?.setStatus?.("");
+    } catch (_error) { /* ignore */ }
     queueMicrotask(() => {
       card.querySelector("[data-redeem-family-hub], .primary-button, .ghost-button")?.focus?.();
     });
