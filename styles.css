@@ -23425,8 +23425,10 @@ body.nuo-open .llh-meta-cookie-notice,
 body.resource-viewer-open .llh-meta-cookie-notice,
 body.lesson-workspace-open .llh-meta-cookie-notice,
 body.lesson-editor-view .llh-meta-cookie-notice,
+body.tk-enrich-open .llh-meta-cookie-notice,
 body.auth-modal-open #llhMetaCookieNotice,
-body.resource-viewer-open #llhMetaCookieNotice {
+body.resource-viewer-open #llhMetaCookieNotice,
+body.tk-enrich-open #llhMetaCookieNotice {
   display: none !important;
   pointer-events: none !important;
 }
@@ -24938,6 +24940,17 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 body.tk-enrich-open {
   overflow: hidden;
 }
+/* Cookie / promo banners must not cover the editor reading surface */
+body.tk-enrich-open .cookie-banner,
+body.tk-enrich-open #cookieBanner,
+body.tk-enrich-open [data-cookie-banner],
+body.tk-enrich-open .llh-cookie-banner,
+body.tk-enrich-open .site-cookie-banner,
+body.tk-enrich-open .llh-meta-cookie-notice,
+body.tk-enrich-open #llhMetaCookieNotice {
+  display: none !important;
+  pointer-events: none !important;
+}
 body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   display: block;
   position: fixed;
@@ -24946,7 +24959,7 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   bottom: 0;
   /* Leave admin section sidebar usable on desktop */
   left: min(16.5rem, 28vw);
-  z-index: 12000;
+  z-index: 13050;
   background: #f7f3ec;
   color: #24312a;
   overflow: auto;
@@ -24976,7 +24989,10 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   z-index: 2;
   background: linear-gradient(180deg, #fbf8f2 0%, #f3eee4 100%);
   border-bottom: 1px solid rgba(36, 49, 42, 0.12);
-  padding: 0.75rem 1rem 0;
+  padding: 0.45rem 1rem 0;
+}
+.tk-enrich-chrome .tk-enrich-published-banner {
+  margin-top: 0.35rem;
 }
 .tk-enrich-chrome-top,
 .tk-enrich-chrome-sub,
@@ -24986,27 +25002,57 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-percent-row {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.45rem;
   flex-wrap: wrap;
 }
 .tk-enrich-chrome-nav {
-  flex: 1 1 14rem;
+  flex: 1 1 12rem;
   min-width: 0;
 }
 .tk-enrich-chrome-title {
   font-weight: 700;
   color: #24312a;
-  max-width: 18rem;
+  max-width: min(28rem, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 1.02rem;
+}
+/* Keep the reading surface tall — helper copy lives in tooltips / docs */
+.tk-enrich-workflow-note,
+.tk-enrich-chrome-secondary {
+  display: none !important;
+}
+.tk-enrich-chrome-actions .ghost-button,
+.tk-enrich-chrome-actions .primary-button,
+.tk-enrich-chrome-nav .ghost-button,
+.tk-enrich-counter .ghost-button {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 1100px) {
+  .tk-enrich-stepper {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .tk-enrich-chrome-actions .ghost-button[data-enrich-next-lesson],
+  .tk-enrich-chrome-actions .ghost-button[data-summary-toggle] {
+    display: none;
+  }
+  .tk-enrich-published-banner {
+    font-size: 0.82rem;
+    padding: 0.4rem 0.55rem;
+  }
 }
 .tk-enrich-chrome-top {
   justify-content: space-between;
+  gap: 0.45rem 0.75rem;
 }
 .tk-enrich-chrome-sub {
   justify-content: space-between;
-  margin-top: 0.55rem;
+  margin-top: 0.4rem;
 }
 .tk-enrich-jump-links {
   display: flex;
@@ -25062,22 +25108,23 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   max-width: 14rem;
 }
 .tk-enrich-published-banner {
-  margin: 0.65rem 0 0;
-  padding: 0.65rem 0.8rem;
+  margin: 0.4rem 0 0;
+  padding: 0.4rem 0.65rem;
   background: #fff7e8;
   border: 1px solid rgba(176, 120, 24, 0.35);
-  border-radius: 0.55rem;
-  font-size: 0.92rem;
+  border-radius: 0.5rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
 }
 .tk-enrich-modes {
   display: flex;
   gap: 0.25rem;
-  margin-top: 0.75rem;
+  margin-top: 0.4rem;
 }
 .tk-enrich-modes button {
   border: 0;
   background: transparent;
-  padding: 0.55rem 0.9rem;
+  padding: 0.4rem 0.8rem;
   border-bottom: 2px solid transparent;
   cursor: pointer;
   color: rgba(36, 49, 42, 0.6);
@@ -25095,22 +25142,65 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 }
 .tk-enrich-body {
   flex: 1;
-  padding: 0.85rem 1rem 1.5rem;
+  padding: 0.85rem 1.1rem 2.25rem;
+  min-width: 0;
 }
 .tk-enrich-activity-layout {
   display: grid;
-  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr) minmax(14rem, 22rem);
-  gap: 0.85rem;
+  /* Center stage is the reading/editing surface — never let side panels crush it. */
+  grid-template-columns: minmax(11.5rem, 14rem) minmax(0, 1fr);
+  gap: 1.1rem;
   align-items: start;
+}
+.tk-enrich-activity-layout > .tk-enrich-live {
+  /* Live Preview tab is the full preview path; side pane only on very wide screens. */
+  display: none;
+}
+.tk-enrich-stage-wrap {
+  min-width: 0;
 }
 .tk-enrich-queue,
 .tk-enrich-live,
 .tk-enrich-stage,
 .tk-enrich-card-block {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(36, 49, 42, 0.1);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
+  border-radius: 0.8rem;
+  padding: 1.05rem 1.15rem;
+  min-width: 0;
+}
+.tk-enrich-stage {
+  /* Keep tip cards / photo grids readable */
+  min-width: 0;
+}
+.tk-enrich-stage textarea,
+.tk-enrich-card-block textarea,
+.tk-enrich-week-layout textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 4.75rem;
+  margin: 0.35rem 0 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #24312a;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.tk-enrich-stage label.muted-copy,
+.tk-enrich-card-block > label.muted-copy,
+.tk-enrich-week-layout label.muted-copy {
+  display: block;
+  margin: 0.65rem 0 0.2rem;
+  line-height: 1.4;
+}
+.tk-enrich-card-block > .muted-copy {
+  margin: 0 0 0.55rem;
+  line-height: 1.45;
 }
 .tk-enrich-day-chips,
 .tk-enrich-chips {
@@ -25135,12 +25225,36 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   border-color: #1f6b4a;
   color: #fff;
 }
+.tk-enrich-queue {
+  position: sticky;
+  top: 0.75rem;
+  max-height: calc(100vh - 1.5rem);
+  overflow: auto;
+  align-self: start;
+}
 .tk-enrich-queue-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: calc(100vh - 14rem);
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
+}
+.tk-enrich-queue h3,
+.tk-enrich-queue h4 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+@media (max-width: 900px) {
+  .tk-enrich-queue {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .tk-enrich-queue-list {
+    max-height: 11rem;
+    overflow: auto;
+  }
 }
 .tk-enrich-queue-item {
   width: 100%;
@@ -25218,22 +25332,48 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   margin-top: 0.4rem;
 }
 .tk-enrich-card-block {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
+}
+.tk-enrich-card-block > h4,
+.tk-enrich-card-block > h3,
+.tk-enrich-card-head h4 {
+  margin: 0 0 0.55rem;
+  font-size: 1.02rem;
+  line-height: 1.35;
 }
 .tk-enrich-card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+.tk-enrich-tip-list,
+.tk-enrich-sub-list {
+  display: grid;
+  gap: 0.45rem;
 }
 .tk-enrich-tip-card {
   display: flex;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
-  background: rgba(247, 243, 236, 0.9);
-  border-radius: 0.45rem;
-  margin-bottom: 0.35rem;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  background: rgba(247, 243, 236, 0.95);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  border-radius: 0.55rem;
+  margin-bottom: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.tk-enrich-tip-card > span,
+.tk-enrich-tip-card > p,
+.tk-enrich-tip-card > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .tk-enrich-tip-card button {
   border: 0;
@@ -25241,16 +25381,27 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   cursor: pointer;
   font-size: 1.1rem;
   line-height: 1;
+  flex: 0 0 auto;
+  padding: 0.1rem 0.25rem;
 }
 .tk-enrich-inline-add {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.45rem;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  align-items: center;
 }
 .tk-enrich-inline-add input {
-  flex: 1 1 8rem;
+  flex: 1 1 10rem;
   min-width: 0;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.5rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
 .tk-enrich-stage-nav {
   display: flex;
@@ -25331,9 +25482,13 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   outline: 2px solid #1f6b4a;
   outline-offset: 2px;
 }
-@media (max-width: 980px) {
+/* Side live preview only when there is true room for a readable stage + preview */
+@media (min-width: 1600px) {
+  .tk-enrich-activity-layout {
+    grid-template-columns: minmax(13rem, 15rem) minmax(32rem, 1.5fr) minmax(16rem, 20rem);
+  }
   .tk-enrich-activity-layout > .tk-enrich-live {
-    display: none; /* use Live Preview tab on smaller screens — fewer scrolls */
+    display: block;
   }
 }
 .tk-enrich-modal-card {
@@ -25379,17 +25534,15 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-lib-badge {
   background: rgba(31, 107, 74, 0.1);
 }
-@media (max-width: 1100px) {
-  .tk-enrich-activity-layout {
-    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
-  }
-  .tk-enrich-live:not(.is-wide) {
-    display: none;
-  }
-}
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .tk-enrich-activity-layout {
     grid-template-columns: 1fr;
+  }
+  .tk-enrich-activity-layout > .tk-enrich-live {
+    display: none;
+  }
+  .tk-enrich-stage {
+    min-width: 0;
   }
   .tk-enrich-photo-grid {
     grid-template-columns: 1fr;
@@ -25402,21 +25555,30 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 /* —— Upgrade Summary panel —— */
 .tk-enrich-main {
   display: grid;
-  grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
-  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
   align-items: start;
-  padding: 0 1rem 1.25rem;
+  padding: 0 1.15rem 1.75rem;
+}
+.tk-enrich-main:has(.tk-enrich-summary.is-open) {
+  grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
 }
 .tk-enrich-main .tk-enrich-body {
   padding: 0;
+  min-width: 0;
 }
 .tk-enrich-summary {
   position: sticky;
   top: 0.75rem;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(36, 49, 42, 0.12);
   border-radius: 0.75rem;
-  padding: 0.75rem 0.8rem;
+  padding: 0.9rem 1rem;
+  max-height: calc(100vh - 1.5rem);
+  overflow: auto;
+}
+.tk-enrich-summary.is-collapsed {
+  display: none;
 }
 .tk-enrich-summary-head {
   display: flex;
@@ -25480,10 +25642,11 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-summary-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.45rem;
-  padding: 0.28rem 0;
+  gap: 0.55rem;
+  padding: 0.45rem 0;
   border-top: 1px solid rgba(36, 49, 42, 0.08);
-  font-size: 0.86rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 .tk-enrich-summary-row dt,
 .tk-enrich-summary-row dd {
@@ -25689,6 +25852,18 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   align-items: flex-start;
   margin-bottom: 0.75rem;
 }
+.tk-enrich-stage-head > div:first-child {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.tk-enrich-stage-head h3 {
+  overflow-wrap: break-word;
+}
+@media (max-width: 1100px) {
+  .tk-enrich-stage-head [data-ai-suggest="lesson"] {
+    display: none;
+  }
+}
 .tk-enrich-ai-modal .tk-enrich-ai-card-shell {
   max-width: min(720px, 96vw);
   max-height: min(88vh, 900px);
@@ -25764,7 +25939,7 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 
 /* AI Lesson Teacher analysis + review */
 .tk-lesson-teacher-panel {
-  margin: 0 0 1rem;
+  margin: 0 0 0.85rem;
   padding: 0.95rem 1.05rem;
   border: 1px solid rgba(36, 49, 42, 0.12);
   border-radius: 0.75rem;
@@ -25801,22 +25976,46 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-lesson-teacher-counts .is-complete strong { color: #2f6b45; }
 .tk-lesson-teacher-counts .is-needs strong { color: #8a6a22; }
 .tk-lesson-teacher-counts .is-missing strong { color: #8a3b32; }
+.tk-lesson-teacher-panel.is-collapsed {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.7rem;
+}
+.tk-lesson-teacher-panel.is-collapsed .eyebrow,
+.tk-lesson-teacher-panel.is-collapsed .muted-copy,
+.tk-lesson-teacher-panel.is-collapsed .tk-lesson-teacher-counts,
+.tk-lesson-teacher-panel.is-collapsed .tk-lesson-teacher-sections,
+.tk-lesson-teacher-panel.is-collapsed .tk-lesson-teacher-actions .primary-button {
+  display: none;
+}
+.tk-lesson-teacher-panel.is-collapsed .tk-lesson-teacher-head {
+  align-items: center;
+  gap: 0.5rem;
+}
+.tk-lesson-teacher-panel.is-collapsed .tk-lesson-teacher-head strong {
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
 .tk-lesson-teacher-sections {
   list-style: none;
-  margin: 0.65rem 0 0.35rem;
+  margin: 0.75rem 0 0.35rem;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.4rem 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.65rem;
 }
 .tk-lesson-teacher-sections li {
   display: grid;
-  gap: 0.1rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.45rem;
-  background: rgba(255, 255, 255, 0.72);
+  gap: 0.25rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(36, 49, 42, 0.08);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .tk-lesson-teacher-sections li strong {
   font-size: 0.82rem;
@@ -25873,20 +26072,55 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   color: #24312a;
 }
 
-/* AI Teacher Assistant */
+/* AI Teacher Assistant — collapsed by default so activity editing stays readable */
 .tk-assistant-panel {
-  margin: 0 0 1rem;
-  padding: 0.95rem 1.05rem;
+  margin: 0 0 0.85rem;
+  padding: 0.5rem 0.85rem 0.55rem;
   border: 1px solid rgba(36, 49, 42, 0.12);
   border-radius: 0.75rem;
   background: linear-gradient(155deg, #f3f7f4 0%, #eef3f0 50%, #f6f1ea 100%);
+}
+.tk-assistant-panel[open] {
+  padding: 0.75rem 0.95rem 0.95rem;
+}
+.tk-assistant-panel > summary.tk-assistant-head {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  user-select: none;
+}
+.tk-assistant-panel > summary.tk-assistant-head::-webkit-details-marker {
+  display: none;
+}
+.tk-assistant-panel > summary.tk-assistant-head::after {
+  content: "Show";
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1f6b4a;
+  white-space: nowrap;
+}
+.tk-assistant-panel[open] > summary.tk-assistant-head::after {
+  content: "Hide";
+}
+.tk-assistant-panel:not([open]) .tk-assistant-head .eyebrow {
+  display: none;
+}
+.tk-assistant-panel:not([open]) .tk-assistant-head strong {
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 650;
 }
 .tk-assistant-head .eyebrow { margin: 0 0 0.2rem; }
 .tk-assistant-head strong {
   display: block;
   font-family: "Fraunces", Georgia, serif;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   color: #24312a;
+  line-height: 1.35;
 }
 .tk-assistant-tabs {
   display: flex;
@@ -25924,11 +26158,15 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-assistant-action-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.55rem;
+  margin: 0.55rem 0;
 }
 .tk-assistant-action-grid .ghost-button,
 .tk-assistant-action-grid .primary-button {
-  font-size: 0.86rem;
+  font-size: 0.9rem;
+  min-height: 2.4rem;
+  white-space: normal;
+  line-height: 1.25;
 }
 .tk-assistant-chat-log {
   display: grid;
@@ -26214,21 +26452,37 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   padding-left: 1.1rem;
 }
 .tk-enrich-recovery-toolbar {
+  margin: 0.3rem 0 0.1rem;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.5rem;
+  background: rgba(250, 248, 243, 0.95);
+}
+.tk-enrich-recovery-toolbar > summary {
+  cursor: pointer;
+  font-weight: 650;
+  list-style: none;
+  padding: 0.25rem 0;
+}
+.tk-enrich-recovery-toolbar > summary::-webkit-details-marker {
+  display: none;
+}
+.tk-enrich-recovery-toolbar > summary::before {
+  content: "▸ ";
+  color: rgba(36, 49, 42, 0.55);
+}
+.tk-enrich-recovery-toolbar[open] > summary::before {
+  content: "▾ ";
+}
+.tk-enrich-recovery-toolbar-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.65rem;
-  margin: 0.55rem 0 0.25rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(36, 49, 42, 0.12);
-  border-radius: 0.55rem;
-  background: rgba(250, 248, 243, 0.95);
-}
-.tk-enrich-recovery-toolbar > strong {
-  margin-right: 0.25rem;
+  padding: 0.35rem 0 0.25rem;
 }
 @media (max-width: 720px) {
-  .tk-enrich-recovery-toolbar {
+  .tk-enrich-recovery-toolbar-actions {
     flex-direction: column;
     align-items: stretch;
   }
