@@ -138,6 +138,40 @@ function unitTests() {
   assert.equal(pruned.removedFeatureRequests, 1);
   assert.ok(store.users["real@gmail.com"]);
   assert.equal(store.users["matrix-free@test.local"], undefined);
+
+  const invitedStore = {
+    users: {
+      "test.provider@gmail.com": {
+        email: "test.provider@gmail.com",
+        passwordHash: "abc",
+        serverPasswordAuth: true,
+      },
+      "smoke.orphan@gmail.com": { email: "smoke.orphan@gmail.com" },
+    },
+    hdhTesterInvites: {
+      tok1: { email: "test.provider@gmail.com", status: "pending" },
+    },
+    featureRequests: [],
+  };
+  const keepInvited = guard.pruneEphemeralTestAccountsFromStore(invitedStore, { DATABASE_PROVIDER: "postgres" });
+  assert.ok(invitedStore.users["test.provider@gmail.com"], "pending invited tester must persist");
+  assert.equal(invitedStore.users["smoke.orphan@gmail.com"], undefined);
+  assert.equal(keepInvited.keptProtectedTesters, 1);
+  assert.equal(keepInvited.removedUsers, 1);
+
+  const flaggedStore = {
+    users: {
+      "qa.helper@gmail.com": {
+        email: "qa.helper@gmail.com",
+        hdhIndependentTester: true,
+        passwordHash: "xyz",
+      },
+    },
+    featureRequests: [],
+  };
+  const keepFlagged = guard.pruneEphemeralTestAccountsFromStore(flaggedStore, { DATABASE_PROVIDER: "postgres" });
+  assert.ok(flaggedStore.users["qa.helper@gmail.com"], "hdhIndependentTester must persist");
+  assert.equal(keepFlagged.keptProtectedTesters, 1);
   console.log("PASS unit guard rules");
 }
 

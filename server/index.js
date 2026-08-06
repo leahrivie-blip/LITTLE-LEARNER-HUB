@@ -8636,6 +8636,22 @@ async function handleSyncPasswordAfterFirebase(request, response) {
     lastSeenAt: new Date().toISOString(),
   };
   await writeStoreAsync(store);
+  // Postgres write prunes ephemeral QA emails. If this account was dropped, do not
+  // report success — otherwise clients think login will work after a browser restart.
+  const persisted = (peekStore()?.users || {})[email] || (storeCache?.users || {})[email];
+  if (newPassword && !persisted?.passwordHash) {
+    authAuditLog("firebase_password_sync_not_persisted", {
+      email,
+      reason: "ephemeral_test_account_pruned_or_missing",
+      source: body.source || "firebase_sync",
+    });
+    jsonResponse(response, 503, {
+      ok: false,
+      error: "Could not save your password for this email. Use a real personal email (avoid addresses with words like test, smoke, qa, or demo).",
+      code: "password_not_persisted",
+    });
+    return;
+  }
   authAuditLog("firebase_password_sync_success", {
     email,
     clearedRecoveryFlags: true,
@@ -8646,7 +8662,7 @@ async function handleSyncPasswordAfterFirebase(request, response) {
     ok: true,
     email,
     mustChangePassword: false,
-    ...tempPasswordAuth.publicAuthFlags(store.users[email]),
+    ...tempPasswordAuth.publicAuthFlags(persisted || store.users[email]),
   });
 }
 

@@ -71,6 +71,36 @@ function shouldRejectTestAccountPersistence(email, env = process.env) {
 }
 
 /**
+ * Invited Home Daycare Hub testers must persist on the testing Postgres store even when
+ * their email local-part contains QA-like tokens (e.g. "test.provider@…"). Without this,
+ * invite accept / password sync can return ok while the account is pruned before write,
+ * so login after a fresh browser fails.
+ */
+function isProtectedTesterAccount(user = {}) {
+  if (!user || typeof user !== "object") return false;
+  return Boolean(
+    user.hdhIndependentTester
+    || user.hdhTesterInvitedByEmail
+    || user.testingInviteAcceptedAt
+    || user.multiRoleTester,
+  );
+}
+
+function invitedTesterEmailsFromStore(store = {}) {
+  const out = new Set();
+  const invites = store?.hdhTesterInvites;
+  if (!invites || typeof invites !== "object") return out;
+  for (const invite of Object.values(invites)) {
+    const email = normalizeEmail(invite?.email);
+    if (!email) continue;
+    const status = String(invite?.status || "").toLowerCase();
+    if (status && status !== "pending" && status !== "accepted") continue;
+    out.add(email);
+  }
+  return out;
+}
+
+/**
  * Remove ephemeral test users (and their fake feature requests) from a store object.
  * Safe no-op when persistence of test accounts is allowed.
  */
@@ -79,15 +109,22 @@ function pruneEphemeralTestAccountsFromStore(store, env = process.env) {
     removedUsers: 0,
     removedFeatureRequests: 0,
     removedEmails: [],
+    keptProtectedTesters: 0,
   };
   if (!store || typeof store !== "object") return result;
   if (shouldPersistEphemeralTestAccounts(env)) return result;
 
+  const invitedEmails = invitedTesterEmailsFromStore(store);
   const users = store.users;
   if (users && typeof users === "object" && !Array.isArray(users)) {
     for (const key of Object.keys(users)) {
-      const email = normalizeEmail(users[key]?.email || key);
+      const row = users[key];
+      const email = normalizeEmail(row?.email || key);
       if (!shouldRejectTestAccountPersistence(email, env)) continue;
+      if (isProtectedTesterAccount(row) || invitedEmails.has(email)) {
+        result.keptProtectedTesters += 1;
+        continue;
+      }
       delete users[key];
       result.removedUsers += 1;
       result.removedEmails.push(email);
@@ -131,6 +168,8 @@ module.exports = {
   TEST_EMAIL_DOMAINS,
   normalizeEmail,
   isEphemeralTestAccountEmail,
+  isProtectedTesterAccount,
+  invitedTesterEmailsFromStore,
   shouldPersistEphemeralTestAccounts,
   shouldRejectTestAccountPersistence,
   pruneEphemeralTestAccountsFromStore,
