@@ -332,7 +332,9 @@ async function main() {
     ok(store.siteContent?.featureFlags?.teachingKitAttachments !== true, "store attachments still false");
 
     const publicSc = await requestJson("GET", "/api/site-content");
-    ok(!publicSc.json?.siteContent?.featureFlags, "public site-content omits featureFlags");
+    const publicFlags = publicSc.json?.siteContent?.featureFlags || {};
+    ok(publicFlags.teachingKitViewer !== true, "public viewer remains off while owner preview uses admin session");
+    ok(!("teachingKitEnrichmentEditor" in publicFlags), "public omits enrichment editor flag");
 
     const browser = await chromium.launch({ headless: true });
     try {

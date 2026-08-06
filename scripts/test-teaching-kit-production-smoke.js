@@ -93,7 +93,14 @@ async function main() {
 
   const site = await requestJson("GET", "/api/site-content");
   assert(site.status === 200 && site.json?.siteContent, "site-content loads");
-  assert(!("featureFlags" in (site.json.siteContent || {})), "public site-content omits featureFlags");
+  const publicFlags = site.json.siteContent?.featureFlags || {};
+  assert(!("teachingKitEnrichmentEditor" in publicFlags), "public site-content omits enrichment editor flag");
+  assert(!("teachingKitAuthoring" in publicFlags), "public site-content omits authoring flag");
+  assert(
+    typeof publicFlags.teachingKitViewer === "boolean"
+      || publicFlags.teachingKitViewer === undefined,
+    "public teachingKitViewer is boolean when present",
+  );
 
   const plans = site.json.siteContent?.curriculumLibrary?.lessonPlans || [];
   assert(plans.length > 0, `lesson plans present (${plans.length})`);

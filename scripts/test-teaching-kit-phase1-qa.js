@@ -480,8 +480,9 @@ async function main() {
       "default flags off → teaching kit disabled");
 
     const publicContent = await requestJson("GET", "/api/site-content");
-    assert(!("featureFlags" in (publicContent.json?.siteContent || {})),
-      "public site-content omits featureFlags");
+    const publicFlagsDefault = publicContent.json?.siteContent?.featureFlags || {};
+    assert(publicFlagsDefault.teachingKitViewer === false, "public viewer default false");
+    assert(!("teachingKitEnrichmentEditor" in publicFlagsDefault), "public omits enrichment editor flag");
 
     await setFlags(adminToken, {
       teachingKitViewer: true,
