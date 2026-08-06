@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const APP_SRC = "app.js?v=20260805-testing-stabilization-r29";
+  const APP_SRC = "app.js?v=20260805-testing-stabilization-r30";
   const ONBOARDING_SRC = "scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1";
   let appLoadStarted = false;
   let appScriptLoaded = false;

@@ -9754,7 +9754,12 @@ function curriculumImportDraftFromParsed(parsedData) {
 
 function parseCurriculumImportListLines(text, options = {}) {
   const api = curriculumImportApi();
-  if (!api) throw new Error("CurriculumLessonImportParser is not loaded.");
+  if (!api) {
+    try {
+      if (window.LLHLazyLoader?.ensure) window.LLHLazyLoader.ensure("curriculumAdmin").catch(() => {});
+    } catch (_error) { /* ignore */ }
+    return [];
+  }
   return api.parseCurriculumImportListLines(text, options);
 }
 
@@ -14919,6 +14924,12 @@ function capabilityRequiredForView(view) {
 
 function canOpenViewForCurrentAccess(view) {
   const resolved = typeof resolveSidebarView === "function" ? resolveSidebarView(view) : view;
+  // Independent invited testers never get Admin — even though their sandbox role is owner.
+  try {
+    if ((resolved === "admin" || view === "admin") && typeof isIndependentHdhTesterAccount === "function" && isIndependentHdhTesterAccount()) {
+      return false;
+    }
+  } catch (_error) { /* ignore */ }
   try {
     if (typeof isFamilyHubParentMode === "function" && isFamilyHubParentMode()) {
       const parentAllowed = new Set([
@@ -74905,6 +74916,12 @@ document.addEventListener("click", async (event) => {
     && !event.target.closest("#notificationBellPanel")
   ) {
     toggleNotificationBellPanel(false);
+  }
+  const messagesRetryBtn = event.target.closest("[data-messages-retry]");
+  if (messagesRetryBtn) {
+    event.preventDefault();
+    renderMessagesPage({ conversation: messagesViewState.tab === "conversation" });
+    return;
   }
   const messagesTabBtn = event.target.closest("[data-messages-tab]");
   if (messagesTabBtn) {
