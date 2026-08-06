@@ -257,7 +257,35 @@ function applyMutations(store, context, mutations = []) {
     const idx = list.findIndex((item) => String(item.id || "") === String(record.id));
 
     // Append-only create path — different event ids never overwrite each other.
+    // Explicit envelope baseRevision means "edit existing"; if the row is gone → not_found.
+    // Do not treat record.revision alone as edit intent (creates often carry revision: 1 locally).
     if (idx < 0) {
+      const explicitBase = raw?.baseRevision != null && raw.baseRevision !== ""
+        ? Number(raw.baseRevision)
+        : NaN;
+      if (Number.isFinite(explicitBase)) {
+        const missing = {
+          ok: false,
+          conflict: true,
+          clientMutationId,
+          storeKey,
+          op: "upsert",
+          recordId: String(record.id),
+          code: "not_found",
+          error: "This record is no longer available. Another staff member may have removed it.",
+          serverRecord: null,
+          localAttempt: {
+            id: record.id,
+            revision: record.revision,
+            updatedAt: record.updatedAt,
+            summary: record.summary || record.title || "",
+          },
+          at: new Date().toISOString(),
+        };
+        // Do not idempotency-cache not_found — the record might be restored or id reused intentionally later.
+        results.push(missing);
+        continue;
+      }
       const created = {
         ...record,
         id: String(record.id),

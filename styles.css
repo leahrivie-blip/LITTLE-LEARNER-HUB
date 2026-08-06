@@ -9764,24 +9764,67 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   background: #fffaf0;
 }
 
-.dlc-conflict-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin: 10px 0 12px;
+.dlc-conflict-panel h4 {
+  margin: 4px 0 8px;
+  font-size: 1.05rem;
 }
 
-.dlc-conflict-pre {
-  margin: 6px 0 0;
-  padding: 10px;
-  max-height: 180px;
-  overflow: auto;
-  border-radius: 10px;
+.dlc-conflict-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dlc-conflict-diff-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.dlc-conflict-diff-row {
+  padding: 10px 12px;
+  border-radius: 12px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  font-size: 0.78rem;
-  white-space: pre-wrap;
+}
+
+.dlc-conflict-diff-row > strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.92rem;
+}
+
+.dlc-conflict-diff-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dlc-conflict-diff-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b5b45;
+  margin-bottom: 4px;
+}
+
+.dlc-conflict-diff-values p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
   word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .dlc-conflict-diff-values {
+    grid-template-columns: 1fr;
+  }
+
+  .dlc-conflict-actions .primary-button,
+  .dlc-conflict-actions .ghost-button {
+    width: 100%;
+  }
 }
 
 .dlc-pending-fail-list {

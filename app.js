@@ -568,11 +568,13 @@ let dlcFormSubmitLockUntil = 0; // debounce repeated form submits
 let dlcPendingReportPreview = null; // { childId, recordId, kind, text } — draft until Share
 let childDataMutationQueue = []; // pending idempotent cloud mutations (memory mirror of durable store)
 let childDataMutationInFlight = false;
-let dlcConflictState = null; // { clientMutationId, storeKey, localRecord, serverRecord, error }
-let childDataMutationQueueUser = ""; // email scope for durable queue
-const CHILD_MUTATION_IDB_NAME = "llh-child-mutations-v1";
+let dlcConflictState = null; // human-readable conflict review state
+let childDataMutationQueueScope = ""; // `${userId}::${programId}` for durable queue
+let childDataMutationIdbAvailable = null; // null unknown | true | false
+const CHILD_MUTATION_IDB_NAME = "llh-child-mutations-v2";
 const CHILD_MUTATION_IDB_STORE = "pending";
-const CHILD_MUTATION_LS_PREFIX = "llhChildMutations:"; // localStorage fallback when IDB unavailable
+const CHILD_MUTATION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days retention
+const CHILD_MUTATION_LS_LEGACY_PREFIX = "llhChildMutations:"; // legacy only — never write; purge on load
 let lessonPlanWorkflowState = {
   step: 1,
   generating: false,
@@ -19025,12 +19027,12 @@ function dlcSetSaveStatus(state, message = "") {
   el.dataset.state = shown;
   const textEl = el.querySelector(".dlc-status-text");
   const text = message || ({
-    saving: "Saving to cloud…",
+    saving: "Saving…",
     pending: "Waiting for connection…",
     saved: "Saved to cloud",
-    failed: "Save failed — Retry or Discard",
+    failed: "Sync failed — Retry sync or Discard failed change",
     offline: "Waiting for connection — not saved to cloud yet",
-    conflict: "Conflict — another staff member saved a newer version",
+    conflict: "Needs review because another person updated it",
   }[shown] || "");
   if (textEl) textEl.textContent = text;
   else el.textContent = text;
@@ -19102,62 +19104,220 @@ function dlcCheckedInChildIds(records = childRecords(), today = dlcActiveDate())
     .map((child) => child.id);
 }
 
+function dlcRecordTypeLabel(storeKey = "", record = {}) {
+  const key = String(storeKey || "");
+  if (key === "Attendance") return "Attendance";
+  if (key === "Meals") {
+    if (record.type === "Bottle" || /bottle/i.test(String(record.title || ""))) return "Bottle";
+    return "Meal";
+  }
+  if (key === "Naps") return "Nap";
+  if (key === "Diapers") {
+    if (/potty/i.test(String(record.type || ""))) return "Potty";
+    return "Diaper / Potty";
+  }
+  if (key === "ActivityLogs") return "Activity";
+  if (key === "Communications") {
+    const type = String(record.type || "");
+    if (/mood/i.test(type)) return "Mood";
+    if (/incident/i.test(type)) return "Incident";
+    if (/note/i.test(type)) return "Note";
+    return type || "Note";
+  }
+  if (key === "Observations") return "Observation";
+  if (key === "Photos") return "Photo";
+  if (key === "Reports") return "Report";
+  return key || "Record";
+}
+
+function dlcConflictFieldDefs(storeKey = "") {
+  const time = (value) => (value ? (formatDlcClock(value) || String(value)) : "—");
+  const text = (value) => {
+    const cleaned = String(value ?? "").trim();
+    return cleaned || "—";
+  };
+  const map = {
+    Attendance: [
+      { key: "status", label: "Status", format: text },
+      { key: "checkIn", label: "Check-in time", format: time, aliases: ["dropoff"] },
+      { key: "checkOut", label: "Check-out time", format: time, aliases: ["pickup"] },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Meals: [
+      { key: "breakfast", label: "Breakfast", format: text },
+      { key: "lunch", label: "Lunch", format: text },
+      { key: "snack", label: "Snack", format: text },
+      { key: "type", label: "Type", format: text },
+      { key: "amount", label: "Amount", format: text },
+      { key: "time", label: "Time", format: time },
+      { key: "notes", label: "Notes", format: text },
+    ],
+    Naps: [
+      { key: "napStart", label: "Nap start", format: time },
+      { key: "napEnd", label: "Nap end", format: time },
+      { key: "notes", label: "Notes", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Diapers: [
+      { key: "type", label: "Type", format: text },
+      { key: "time", label: "Time", format: time },
+      { key: "notes", label: "Notes", format: text },
+    ],
+    ActivityLogs: [
+      { key: "activity", label: "Activity", format: text },
+      { key: "area", label: "Learning area", format: text },
+      { key: "notes", label: "Notes", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Communications: [
+      { key: "type", label: "Note type", format: text },
+      { key: "mood", label: "Mood", format: text },
+      { key: "message", label: "Message", format: text },
+      { key: "notes", label: "Notes", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Observations: [
+      { key: "text", label: "Observation", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Photos: [
+      { key: "caption", label: "Caption", format: text },
+      { key: "summary", label: "Summary", format: text },
+    ],
+    Reports: [
+      { key: "message", label: "Report text", format: text },
+      { key: "summary", label: "Summary", format: text },
+      { key: "status", label: "Status", format: text },
+    ],
+  };
+  return map[storeKey] || [
+    { key: "summary", label: "Details", format: text },
+    { key: "notes", label: "Notes", format: text },
+    { key: "message", label: "Message", format: text },
+  ];
+}
+
+function dlcRecordFieldValue(record = {}, field) {
+  if (!record || !field) return "";
+  if (record[field.key] != null && String(record[field.key]).trim() !== "") return record[field.key];
+  for (const alias of field.aliases || []) {
+    if (record[alias] != null && String(record[alias]).trim() !== "") return record[alias];
+  }
+  return "";
+}
+
+function dlcConflictDiffRows(localRecord = {}, serverRecord = {}, storeKey = "") {
+  return dlcConflictFieldDefs(storeKey).map((field) => {
+    const yours = dlcRecordFieldValue(localRecord, field);
+    const latest = dlcRecordFieldValue(serverRecord, field);
+    const yoursText = field.format(yours);
+    const latestText = field.format(latest);
+    if (yoursText === latestText) return null;
+    return {
+      key: field.key,
+      label: field.label,
+      yours: yoursText,
+      latest: latestText,
+    };
+  }).filter(Boolean);
+}
+
+function dlcBuildConflictViewModel(entry = {}, result = {}) {
+  const storeKey = result.storeKey || entry.storeKey || "";
+  const localRecord = entry.record || result.localAttempt || {};
+  const serverRecord = result.serverRecord || entry.conflictServerRecord || null;
+  const childId = localRecord.childId || serverRecord?.childId || entry.childId || "";
+  const childLabel = typeof childName === "function" ? childName(childId) : (childId || "Child");
+  const recordType = dlcRecordTypeLabel(storeKey, localRecord || serverRecord || {});
+  const deleted = !serverRecord || result.code === "not_found";
+  const diffs = deleted ? [] : dlcConflictDiffRows(localRecord, serverRecord, storeKey);
+  return {
+    clientMutationId: entry.clientMutationId || result.clientMutationId || "",
+    storeKey,
+    childId,
+    childLabel: childLabel || "Child",
+    recordType,
+    deleted,
+    diffs,
+    localRecord,
+    serverRecord,
+    explanation: deleted
+      ? "The latest saved version of this record is no longer available. Another staff member may have removed it."
+      : "Another staff member updated this record while you were saving. Nothing was overwritten.",
+  };
+}
+
+function dlcRenderConflictPanel(model) {
+  if (!model) return "";
+  const diffRows = model.deleted
+    ? `<p class="muted-copy">This ${escapeHtml(model.recordType).toLowerCase()} is no longer on the latest saved day sheet.</p>`
+    : (model.diffs.length
+      ? `<div class="dlc-conflict-diff-list">${model.diffs.map((row) => `
+          <div class="dlc-conflict-diff-row">
+            <strong>${escapeHtml(row.label)}</strong>
+            <div class="dlc-conflict-diff-values">
+              <div><span class="dlc-conflict-diff-label">Your change</span><p>${escapeHtml(row.yours)}</p></div>
+              <div><span class="dlc-conflict-diff-label">Latest saved information</span><p>${escapeHtml(row.latest)}</p></div>
+            </div>
+          </div>
+        `).join("")}</div>`
+      : `<p class="muted-copy">The saved details already match your change. You can keep the latest saved version.</p>`);
+  return `
+    <section class="dlc-conflict-panel" data-dlc-conflict-panel data-dlc-conflict-id="${escapeHtml(model.clientMutationId)}">
+      <p class="eyebrow">Needs review</p>
+      <h4>${escapeHtml(model.childLabel)} · ${escapeHtml(model.recordType)}</h4>
+      <p class="muted-copy">${escapeHtml(model.explanation)}</p>
+      ${diffRows}
+      <div class="account-actions-row dlc-conflict-actions">
+        <button type="button" class="primary-button" data-dlc-conflict-reload="${escapeHtml(model.clientMutationId)}">Keep latest saved version</button>
+        ${model.deleted ? "" : `<button type="button" class="ghost-button" data-dlc-conflict-retry="${escapeHtml(model.clientMutationId)}">Apply my change to the latest version</button>`}
+        <button type="button" class="ghost-button" data-dlc-conflict-edit="${escapeHtml(model.clientMutationId)}">Review and edit</button>
+        <button type="button" class="ghost-button" data-dlc-conflict-discard="${escapeHtml(model.clientMutationId)}">Cancel</button>
+      </div>
+    </section>
+  `;
+}
+
 function dlcRenderSaveStatusBar() {
   const state = dlcSaveStatus?.state || "idle";
   const message = dlcSaveStatus?.message || "";
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-  const pendingCount = childDataMutationQueue.filter((item) => !item.ackAt).length;
+  const pendingCount = childDataMutationQueue.filter((item) => item.status === "pending" || !item.status).length;
   const shownState = dlcConflictState
     ? "conflict"
     : (offline && !["failed", "conflict"].includes(state)
       ? "offline"
       : (pendingCount && ["idle", "saved"].includes(state) ? "pending" : state));
   const statusLabels = {
-    saving: "Saving to cloud…",
-    pending: pendingCount ? `${pendingCount} change${pendingCount === 1 ? "" : "s"} waiting to sync` : "Waiting for connection…",
+    saving: "Saving…",
+    pending: pendingCount ? `Waiting for connection (${pendingCount})` : "Waiting for connection…",
     saved: "Saved to cloud",
-    failed: "Save failed",
+    failed: "Sync failed",
     offline: "Waiting for connection",
-    conflict: "Conflict — review before saving again",
+    conflict: "Needs review because another person updated it",
   };
   let text = message || statusLabels[shownState] || "";
   if (dlcConflictState) {
-    text = dlcConflictState.error || "Conflict — another staff member saved a newer version";
+    text = "Needs review because another person updated it";
   } else if (offline && !["failed", "conflict"].includes(state)) {
     text = `Waiting for connection (${pendingCount || 1}) — not saved to cloud yet`;
+  } else if (childDataMutationIdbAvailable === false && pendingCount) {
+    text = "Offline saving is unavailable in this browser — stay online to sync";
   }
-  const conflictCard = dlcConflictState ? `
-    <section class="dlc-conflict-panel" data-dlc-conflict-panel>
-      <p class="eyebrow">Conflict — not overwritten</p>
-      <p class="muted-copy">${escapeHtml(dlcConflictState.error || "Someone else saved a newer version of this record.")}</p>
-      <div class="dlc-conflict-columns">
-        <div>
-          <strong>Your edit</strong>
-          <pre class="dlc-conflict-pre">${escapeHtml(JSON.stringify(dlcConflictState.localRecord || {}, null, 2).slice(0, 1200))}</pre>
-        </div>
-        <div>
-          <strong>Newer saved version</strong>
-          <pre class="dlc-conflict-pre">${escapeHtml(JSON.stringify(dlcConflictState.serverRecord || {}, null, 2).slice(0, 1200))}</pre>
-        </div>
-      </div>
-      <div class="account-actions-row">
-        <button type="button" class="primary-button" data-dlc-conflict-reload="${escapeHtml(dlcConflictState.clientMutationId || "")}">Reload latest</button>
-        <button type="button" class="ghost-button" data-dlc-conflict-retry="${escapeHtml(dlcConflictState.clientMutationId || "")}">Retry my change</button>
-        <button type="button" class="ghost-button" data-dlc-conflict-discard="${escapeHtml(dlcConflictState.clientMutationId || "")}">Cancel / Discard</button>
-      </div>
-    </section>
-  ` : "";
-  const failedIds = childDataMutationQueue.filter((item) => item.status === "failed" || item.status === "conflict").slice(0, 5);
+  const failedIds = childDataMutationQueue.filter((item) => item.status === "failed").slice(0, 5);
   const failedList = failedIds.length ? `
     <ul class="dlc-pending-fail-list">
       ${failedIds.map((item) => `
         <li>
-          <span>${escapeHtml(item.storeKey || "Record")} · ${escapeHtml(item.status || "failed")}</span>
-          <button type="button" class="ghost-button" data-dlc-mutation-retry="${escapeHtml(item.clientMutationId)}">Retry</button>
-          <button type="button" class="ghost-button" data-dlc-mutation-discard="${escapeHtml(item.clientMutationId)}">Discard</button>
+          <span>Sync failed · ${escapeHtml(dlcRecordTypeLabel(item.storeKey, item.record || {}))}</span>
+          <button type="button" class="ghost-button" data-dlc-mutation-retry="${escapeHtml(item.clientMutationId)}">Retry sync</button>
+          <button type="button" class="ghost-button" data-dlc-mutation-discard="${escapeHtml(item.clientMutationId)}">Discard failed change</button>
         </li>
       `).join("")}
     </ul>
+  ` : "";
+  const pendingCancel = pendingCount && !dlcConflictState ? `
+    <button type="button" class="ghost-button" data-dlc-cancel-pending>Cancel pending change</button>
   ` : "";
   return `
     <div class="dlc-status-bar" data-dlc-save-status data-state="${escapeHtml(shownState)}" ${shownState === "idle" && !offline && !pendingCount ? "hidden" : ""}>
@@ -19165,10 +19325,11 @@ function dlcRenderSaveStatusBar() {
       ${shownState === "failed" || shownState === "pending" || shownState === "offline"
         ? `<button type="button" class="ghost-button" data-dlc-retry-render>Retry sync</button>`
         : ""}
-      ${dlcCanUndo() ? `<button type="button" class="ghost-button" data-dlc-undo>Undo</button>` : ""}
+      ${pendingCancel}
+      ${dlcCanUndo() && !pendingCount ? `<button type="button" class="ghost-button" data-dlc-undo>Cancel last local change</button>` : ""}
     </div>
     ${failedList}
-    ${conflictCard}
+    ${dlcConflictState ? dlcRenderConflictPanel(dlcConflictState) : ""}
   `;
 }
 
@@ -19309,6 +19470,7 @@ function writeAttendanceRecordUpdate(updated, { before = null, skipUndo = false,
   const attendance = childStore("Attendance");
   const clientMutationId = newClientMutationId();
   const baseRevision = Number(updated.revision) || 1;
+  const baseSnapshot = before && typeof before === "object" ? { ...before } : null;
   const next = {
     ...updated,
     clientMutationId,
@@ -19324,6 +19486,8 @@ function writeAttendanceRecordUpdate(updated, { before = null, skipUndo = false,
     clientMutationId,
     baseRevision,
     record: next,
+    baseSnapshot,
+    childId: next.childId,
   });
   if (!skipUndo && before) {
     dlcPushUndo({
@@ -19594,6 +19758,7 @@ async function dlcFinalizeReportPreview(recordId, { share = false, discard = fal
     }
   }
   const baseRevision = Number(record.revision) || 1;
+  const baseSnapshot = { ...record };
   const next = {
     ...record,
     message: edited,
@@ -19612,6 +19777,8 @@ async function dlcFinalizeReportPreview(recordId, { share = false, discard = fal
     clientMutationId,
     baseRevision,
     record: next,
+    baseSnapshot,
+    childId: next.childId,
   });
   if (share && typeof maybeNotifyFamilyHubSharedRecord === "function") {
     maybeNotifyFamilyHubSharedRecord(key, next).catch(() => {});
@@ -35281,8 +35448,48 @@ function newClientMutationId() {
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function childMutationQueueStorageKey(email = currentUser) {
-  return `${CHILD_MUTATION_LS_PREFIX}${String(email || "").trim().toLowerCase()}`;
+function childDataActorIdentity() {
+  const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
+  let userId = String(
+    account.firebaseUid
+    || account.uid
+    || account.userId
+    || account.serverUserId
+    || "",
+  ).trim();
+  try {
+    if (!userId && typeof firebaseAuthClient !== "undefined" && firebaseAuthClient?.auth?.currentUser?.uid) {
+      userId = String(firebaseAuthClient.auth.currentUser.uid);
+    }
+  } catch (_error) { /* ignore */ }
+  // Test/local sessions without Firebase still need an immutable actor key — never use bare email as the scope.
+  if (!userId && currentUser) {
+    const stable = String(account.localActorId || "").trim();
+    if (stable) userId = stable;
+    else {
+      userId = `actor_${Array.from(String(currentUser).toLowerCase()).reduce((sum, ch) => sum + ch.charCodeAt(0), 0).toString(36)}_${String(currentUser).length}`;
+      try {
+        if (typeof updateAccount === "function") updateAccount(currentUser, { localActorId: userId });
+      } catch (_error) { /* ignore */ }
+    }
+  }
+  const programId = String(account.programId || account.linkedProgramId || "").trim() || "program_unassigned";
+  return {
+    userId,
+    programId,
+    scopeKey: userId && programId ? `${userId}::${programId}` : "",
+  };
+}
+
+function purgeLegacyChildMutationLocalStorage() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(CHILD_MUTATION_LS_LEGACY_PREFIX)) keys.push(key);
+    }
+    keys.forEach((key) => localStorage.removeItem(key));
+  } catch (_error) { /* ignore */ }
 }
 
 function openChildMutationIdb() {
@@ -35291,13 +35498,16 @@ function openChildMutationIdb() {
       reject(new Error("indexedDB unavailable"));
       return;
     }
-    const req = indexedDB.open(CHILD_MUTATION_IDB_NAME, 1);
+    const req = indexedDB.open(CHILD_MUTATION_IDB_NAME, 2);
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(CHILD_MUTATION_IDB_STORE)) {
-        const store = db.createObjectStore(CHILD_MUTATION_IDB_STORE, { keyPath: "clientMutationId" });
-        store.createIndex("userEmail", "userEmail", { unique: false });
+      if (db.objectStoreNames.contains(CHILD_MUTATION_IDB_STORE)) {
+        db.deleteObjectStore(CHILD_MUTATION_IDB_STORE);
       }
+      const store = db.createObjectStore(CHILD_MUTATION_IDB_STORE, { keyPath: "clientMutationId" });
+      store.createIndex("scopeKey", "scopeKey", { unique: false });
+      store.createIndex("userId", "userId", { unique: false });
+      store.createIndex("programId", "programId", { unique: false });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error || new Error("indexedDB open failed"));
@@ -35324,117 +35534,191 @@ async function idbDeleteMutation(clientMutationId) {
   });
 }
 
-async function idbListMutationsForUser(email) {
-  const userEmail = String(email || "").trim().toLowerCase();
-  if (!userEmail) return [];
+async function idbListMutationsForScope(scopeKey) {
+  const key = String(scopeKey || "").trim();
+  if (!key) return [];
   const db = await openChildMutationIdb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(CHILD_MUTATION_IDB_STORE, "readonly");
     const store = tx.objectStore(CHILD_MUTATION_IDB_STORE);
-    const index = store.index("userEmail");
-    const req = index.getAll(userEmail);
+    const index = store.index("scopeKey");
+    const req = index.getAll(key);
     req.onsuccess = () => { db.close(); resolve(Array.isArray(req.result) ? req.result : []); };
     req.onerror = () => { db.close(); reject(req.error); };
   });
 }
 
-function lsReadMutationQueue(email) {
-  try {
-    const raw = localStorage.getItem(childMutationQueueStorageKey(email));
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_error) {
-    return [];
-  }
-}
-
-function lsWriteMutationQueue(email, entries) {
-  try {
-    localStorage.setItem(childMutationQueueStorageKey(email), JSON.stringify(entries || []));
-  } catch (_error) { /* quota / private mode */ }
+function mutationEntryIsExpired(entry = {}) {
+  const queuedAt = Date.parse(String(entry.queuedAt || ""));
+  if (!Number.isFinite(queuedAt)) return true;
+  return Date.now() - queuedAt > CHILD_MUTATION_MAX_AGE_MS;
 }
 
 async function persistChildDataMutationEntry(entry) {
+  if (childDataMutationIdbAvailable === false) {
+    throw new Error("IndexedDB unavailable");
+  }
   try {
     await idbPutMutation(entry);
-  } catch (_error) {
-    const email = entry.userEmail || String(currentUser || "").trim().toLowerCase();
-    const list = lsReadMutationQueue(email).filter((item) => item.clientMutationId !== entry.clientMutationId);
-    list.push(entry);
-    lsWriteMutationQueue(email, list);
+    childDataMutationIdbAvailable = true;
+  } catch (error) {
+    childDataMutationIdbAvailable = false;
+    throw error;
   }
 }
 
-async function removePersistedChildDataMutation(clientMutationId, email = currentUser) {
+async function removePersistedChildDataMutation(clientMutationId) {
+  if (childDataMutationIdbAvailable === false) return;
   try {
     await idbDeleteMutation(clientMutationId);
-  } catch (_error) { /* fall through to LS */ }
-  const userEmail = String(email || "").trim().toLowerCase();
-  lsWriteMutationQueue(userEmail, lsReadMutationQueue(userEmail).filter((item) => item.clientMutationId !== clientMutationId));
+  } catch (_error) { /* ignore */ }
 }
 
-async function loadChildDataMutationQueue(email = currentUser) {
-  const userEmail = String(email || "").trim().toLowerCase();
-  childDataMutationQueueUser = userEmail;
-  if (!userEmail) {
+async function loadChildDataMutationQueue() {
+  purgeLegacyChildMutationLocalStorage();
+  const identity = childDataActorIdentity();
+  childDataMutationQueueScope = identity.scopeKey;
+  if (!identity.scopeKey) {
     childDataMutationQueue = [];
     return [];
   }
   let entries = [];
   try {
-    entries = await idbListMutationsForUser(userEmail);
+    entries = await idbListMutationsForScope(identity.scopeKey);
+    childDataMutationIdbAvailable = true;
   } catch (_error) {
-    entries = lsReadMutationQueue(userEmail);
+    childDataMutationIdbAvailable = false;
+    childDataMutationQueue = [];
+    return [];
   }
-  // Never mix another account's pending writes into this session.
-  childDataMutationQueue = (entries || [])
-    .filter((item) => String(item.userEmail || "").toLowerCase() === userEmail)
-    .sort((a, b) => String(a.queuedAt || "").localeCompare(String(b.queuedAt || "")));
+  const keep = [];
+  for (const item of entries || []) {
+    if (!item || item.userId !== identity.userId || item.programId !== identity.programId) continue;
+    if (item.scopeKey && item.scopeKey !== identity.scopeKey) continue;
+    if (mutationEntryIsExpired(item) || !item.clientMutationId) {
+      await removePersistedChildDataMutation(item.clientMutationId);
+      continue;
+    }
+    keep.push(item);
+  }
+  childDataMutationQueue = keep.sort((a, b) => String(a.queuedAt || "").localeCompare(String(b.queuedAt || "")));
   return childDataMutationQueue;
 }
 
 function clearChildDataMutationMemory() {
   childDataMutationQueue = [];
-  childDataMutationQueueUser = "";
+  childDataMutationQueueScope = "";
   dlcConflictState = null;
   childDataMutationInFlight = false;
 }
 
+function hasUnsyncedChildDataMutations() {
+  return childDataMutationQueue.some((item) => ["pending", "failed", "conflict"].includes(item.status || "pending"));
+}
+
+function intendedFieldsForRecord(storeKey, record = {}, baseSnapshot = null) {
+  const defs = dlcConflictFieldDefs(storeKey);
+  if (!baseSnapshot) {
+    return defs.map((field) => field.key).filter((key) => {
+      const value = dlcRecordFieldValue(record, { key, aliases: defs.find((d) => d.key === key)?.aliases });
+      return String(value || "").trim() !== "";
+    });
+  }
+  return defs.map((field) => field.key).filter((key) => {
+    const def = defs.find((item) => item.key === key);
+    const next = String(dlcRecordFieldValue(record, def) || "").trim();
+    const prev = String(dlcRecordFieldValue(baseSnapshot, def) || "").trim();
+    return next !== prev;
+  });
+}
+
+function rebaseLocalChangeOntoServer(entry) {
+  const server = entry.conflictServerRecord;
+  if (!server) return null;
+  const local = entry.record || {};
+  const fields = Array.isArray(entry.intendedFields) && entry.intendedFields.length
+    ? entry.intendedFields
+    : intendedFieldsForRecord(entry.storeKey, local, entry.baseSnapshot || null);
+  const rebased = { ...server };
+  const defs = dlcConflictFieldDefs(entry.storeKey);
+  fields.forEach((key) => {
+    const def = defs.find((item) => item.key === key) || { key };
+    const value = dlcRecordFieldValue(local, def);
+    rebased[key] = value;
+    (def.aliases || []).forEach((alias) => {
+      if (local[alias] != null) rebased[alias] = local[alias];
+    });
+  });
+  // Attendance aliases stay aligned.
+  if (entry.storeKey === "Attendance") {
+    if (rebased.checkIn != null) rebased.dropoff = rebased.checkIn;
+    if (rebased.checkOut != null) rebased.pickup = rebased.checkOut;
+  }
+  const serverRev = Number(server.revision) || 1;
+  rebased.id = server.id;
+  rebased.revision = serverRev;
+  rebased.history = Array.isArray(local.history) ? local.history : server.history;
+  rebased.updatedAt = new Date().toISOString();
+  return { record: rebased, baseRevision: serverRev, intendedFields: fields };
+}
+
 function enqueueChildDataMutation(mutation = {}) {
-  const userEmail = String(currentUser || "").trim().toLowerCase();
-  if (!userEmail) return "";
-  if (childDataMutationQueueUser && childDataMutationQueueUser !== userEmail) {
-    // Sync path: load from localStorage fallback immediately; IDB hydrate happens async.
-    childDataMutationQueueUser = userEmail;
-    const lsEntries = lsReadMutationQueue(userEmail);
-    if (lsEntries.length && !childDataMutationQueue.length) {
-      childDataMutationQueue = lsEntries.filter((item) => String(item.userEmail || "").toLowerCase() === userEmail);
-    }
-    void loadChildDataMutationQueue(userEmail);
-  } else if (!childDataMutationQueueUser) {
-    childDataMutationQueueUser = userEmail;
+  const identity = childDataActorIdentity();
+  if (!identity.scopeKey || !currentUser) return "";
+  if (childDataMutationQueueScope && childDataMutationQueueScope !== identity.scopeKey) {
+    clearChildDataMutationMemory();
+    childDataMutationQueueScope = identity.scopeKey;
+    void loadChildDataMutationQueue();
+  } else if (!childDataMutationQueueScope) {
+    childDataMutationQueueScope = identity.scopeKey;
+  }
+  if (childDataMutationIdbAvailable === false) {
+    dlcSetSaveStatus("failed", "Offline saving is unavailable in this browser. Stay online and retry.");
+    showActionFeedback("Offline saving is unavailable here. Your entry is still on screen — retry while online.");
+    return "";
   }
   const clientMutationId = String(mutation.clientMutationId || newClientMutationId());
   const record = mutation.record && typeof mutation.record === "object" ? { ...mutation.record } : mutation.record;
-  const baseRevision = mutation.baseRevision != null
-    ? Number(mutation.baseRevision)
-    : (record && record.revision != null ? Number(record.revision) : undefined);
+  // Creates pass baseRevision: undefined explicitly.
+  // Only infer from record.revision when this is an edit (baseSnapshot present).
+  let baseRevision;
+  if (Object.prototype.hasOwnProperty.call(mutation, "baseRevision")) {
+    const n = Number(mutation.baseRevision);
+    baseRevision = Number.isFinite(n) ? n : undefined;
+  } else if (mutation.baseSnapshot && record && record.revision != null && record.revision !== "") {
+    const n = Number(record.revision);
+    baseRevision = Number.isFinite(n) ? n : undefined;
+  }
+  const childId = String(mutation.childId || record?.childId || (mutation.storeKey === "Profiles" ? record?.id : "") || "").trim();
+  const recordId = String(mutation.recordId || record?.id || "").trim();
   const entry = {
-    ...mutation,
-    record,
+    op: mutation.op || "upsert",
+    storeKey: mutation.storeKey,
     clientMutationId,
-    baseRevision: Number.isFinite(baseRevision) ? baseRevision : mutation.baseRevision,
-    userEmail,
+    baseRevision,
+    recordId: recordId || undefined,
+    record,
+    baseSnapshot: mutation.baseSnapshot || null,
+    intendedFields: Array.isArray(mutation.intendedFields)
+      ? mutation.intendedFields
+      : intendedFieldsForRecord(mutation.storeKey, record || {}, mutation.baseSnapshot || null),
+    childId,
+    userId: identity.userId,
+    programId: identity.programId,
+    scopeKey: identity.scopeKey,
     queuedAt: mutation.queuedAt || new Date().toISOString(),
     status: mutation.status || "pending",
   };
   childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
   childDataMutationQueue.push(entry);
-  void persistChildDataMutationEntry(entry);
+  void persistChildDataMutationEntry(entry).catch(() => {
+    childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== clientMutationId);
+    dlcSetSaveStatus("failed", "Offline saving is unavailable in this browser. Stay online and retry.");
+  });
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
   dlcSetSaveStatus(
     offline ? "offline" : "pending",
-    offline ? "Waiting for connection — not saved to cloud yet" : "Saving to cloud…",
+    offline ? "Waiting for connection — not saved to cloud yet" : "Saving…",
   );
   return clientMutationId;
 }
@@ -35455,38 +35739,47 @@ async function discardChildDataMutation(clientMutationId) {
   await removePersistedChildDataMutation(id);
   if (dlcConflictState?.clientMutationId === id) dlcConflictState = null;
   if (!childDataMutationQueue.length) dlcSetSaveStatus("idle", "");
-  else dlcSetSaveStatus("pending", `${childDataMutationQueue.length} change(s) still waiting`);
+  else dlcSetSaveStatus("pending", "Waiting for connection…");
 }
 
-async function retryChildDataMutation(clientMutationId, { useServerBase = false } = {}) {
+async function cancelOldestPendingMutation() {
+  const pending = childDataMutationQueue.find((item) => (item.status || "pending") === "pending");
+  if (!pending) {
+    showActionFeedback("No pending change to cancel.");
+    return false;
+  }
+  await discardChildDataMutation(pending.clientMutationId);
+  showActionFeedback("Pending change canceled. It was not saved to the cloud.");
+  if (typeof renderChildManagement === "function") renderChildManagement();
+  return true;
+}
+
+async function retryChildDataMutation(clientMutationId, { rebase = false } = {}) {
   const id = String(clientMutationId || "");
   const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
   if (!entry) return false;
-  if (useServerBase && entry.conflictServerRecord) {
-    const serverRev = Number(entry.conflictServerRecord.revision) || 1;
-    const mergedRecord = {
-      ...entry.conflictServerRecord,
-      ...entry.record,
-      id: entry.conflictServerRecord.id,
-      revision: serverRev,
-      history: Array.isArray(entry.record?.history)
-        ? entry.record.history
-        : entry.conflictServerRecord.history,
-    };
-    // New mutation id so server auth + revision are rechecked (old conflict id stays idempotent).
+  if (rebase) {
+    const rebased = rebaseLocalChangeOntoServer(entry);
+    if (!rebased) {
+      showActionFeedback("The latest saved version is unavailable. Keep latest or cancel.");
+      return false;
+    }
     await discardChildDataMutation(id);
     enqueueChildDataMutation({
       op: entry.op || "upsert",
       storeKey: entry.storeKey,
       clientMutationId: newClientMutationId(),
-      baseRevision: serverRev,
-      record: mergedRecord,
+      baseRevision: rebased.baseRevision,
+      record: rebased.record,
+      intendedFields: rebased.intendedFields,
+      baseSnapshot: entry.conflictServerRecord,
+      childId: entry.childId,
       status: "pending",
     });
   } else {
     entry.status = "pending";
     entry.lastError = "";
-    await persistChildDataMutationEntry(entry);
+    await persistChildDataMutationEntry(entry).catch(() => {});
   }
   dlcConflictState = null;
   await saveChildDataToBackend({ force: true });
@@ -35499,7 +35792,7 @@ async function resolveDlcConflict(clientMutationId, action) {
   const entry = childDataMutationQueue.find((item) => item.clientMutationId === id) || null;
   if (action === "discard") {
     await discardChildDataMutation(id);
-    showActionFeedback("Conflict discarded. Cloud data was not overwritten.");
+    showActionFeedback("Canceled. The cloud record was not changed.");
     if (typeof renderChildManagement === "function") renderChildManagement();
     return;
   }
@@ -35508,38 +35801,78 @@ async function resolveDlcConflict(clientMutationId, action) {
       applyServerRecordFromConflict(entry.storeKey, entry.conflictServerRecord);
     }
     await discardChildDataMutation(id);
-    showActionFeedback("Loaded the newer saved version. Your conflicting edit was not applied.");
+    showActionFeedback("Kept the latest saved version.");
+    if (typeof renderChildManagement === "function") renderChildManagement();
+    return;
+  }
+  if (action === "edit") {
+    if (entry?.childId) {
+      selectedChildId = entry.childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+    }
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "individual";
+    dailyLogsChildTab = "overview";
+    showActionFeedback("Review the child’s day, then save your correction again.");
     if (typeof renderChildManagement === "function") renderChildManagement();
     return;
   }
   if (action === "retry") {
-    await retryChildDataMutation(id, { useServerBase: true });
-    showActionFeedback("Retrying your change on top of the latest version…");
+    await retryChildDataMutation(id, { rebase: true });
+    showActionFeedback("Applying your change onto the latest saved version…");
   }
+}
+
+async function promptLogoutWithUnsyncedWork() {
+  if (!hasUnsyncedChildDataMutations()) return "continue";
+  const syncNow = await confirmAction({
+    title: "Unsynced care updates",
+    message: "Some Daily Logs changes are not saved to the cloud yet. Sync now before signing out? Choose Cancel to stay signed in.",
+    confirmLabel: "Sync now",
+    cancelLabel: "Stay signed in",
+  });
+  if (!syncNow) return "stay";
+  try {
+    await saveChildDataToBackend({ force: true, retryFailed: true });
+  } catch (_error) { /* continue to discard prompt if still unsynced */ }
+  if (!hasUnsyncedChildDataMutations()) return "continue";
+  const discard = await confirmAction({
+    title: "Discard unsynced changes?",
+    message: "Sync could not finish. Discard unsynced changes and sign out? This cannot be undone.",
+    confirmLabel: "Discard unsynced changes",
+    cancelLabel: "Stay signed in",
+    danger: true,
+  });
+  if (!discard) return "stay";
+  const ids = childDataMutationQueue.map((item) => item.clientMutationId);
+  for (const id of ids) await discardChildDataMutation(id);
+  return "continue";
 }
 
 async function saveChildDataToBackend(options = {}) {
   if (!currentUser || !canUseLaunchBackend()) return null;
-  const userEmail = String(currentUser || "").trim().toLowerCase();
-  if (childDataMutationQueueUser !== userEmail) {
-    await loadChildDataMutationQueue(userEmail);
+  const identity = childDataActorIdentity();
+  if (childDataMutationQueueScope !== identity.scopeKey) {
+    await loadChildDataMutationQueue();
   }
   if ((childCloudSyncing || childDataMutationInFlight) && !options.force) return null;
   const headers = await staffAuthHeaders();
   if (!headers) {
-    dlcSetSaveStatus("failed", "Session expired — sign in again to sync pending saves");
+    dlcSetSaveStatus("failed", "Session expired — sign in again to sync");
     childDataMutationQueue = childDataMutationQueue.map((item) => (
-      item.status === "pending" ? { ...item, status: "failed", lastError: "auth_required" } : item
+      (item.status || "pending") === "pending" ? { ...item, status: "failed", lastError: "auth_required" } : item
     ));
-    await Promise.all(childDataMutationQueue.map((item) => persistChildDataMutationEntry(item)));
+    await Promise.all(childDataMutationQueue.map((item) => persistChildDataMutationEntry(item).catch(() => {})));
     return null;
   }
-  const flushable = childDataMutationQueue
-    .filter((item) => item.status !== "conflict" || options.includeConflicts)
-    .filter((item) => item.status !== "failed" || options.retryFailed)
-    .slice(0, 200);
-  const mutations = (options.retryFailed ? childDataMutationQueue.filter((item) => item.status === "failed" || item.status === "pending") : flushable)
+  // Never flush another account/program’s queue.
+  const scoped = childDataMutationQueue.filter((item) => (
+    item.userId === identity.userId && item.programId === identity.programId
+  ));
+  childDataMutationQueue = scoped;
+  const mutations = scoped
     .filter((item) => item.status !== "conflict")
+    .filter((item) => item.status !== "failed" || options.retryFailed)
     .slice(0, 200)
     .map((item) => ({
       op: item.op || "upsert",
@@ -35554,7 +35887,7 @@ async function saveChildDataToBackend(options = {}) {
   const classroomStaffOnly = roleKey === "teacher" || roleKey === "assistant";
   if (mutations.length) {
     childDataMutationInFlight = true;
-    dlcSetSaveStatus("saving", "Saving to cloud…");
+    dlcSetSaveStatus("saving", "Saving…");
     try {
       const response = await fetch("/api/child-data", {
         method: "POST",
@@ -35571,20 +35904,14 @@ async function saveChildDataToBackend(options = {}) {
           ackIds.push(id);
           continue;
         }
-        if (result.conflict || result.code === "stale_revision") {
+        if (result.conflict || result.code === "stale_revision" || result.code === "not_found") {
           const entry = childDataMutationQueue.find((item) => item.clientMutationId === id);
           if (entry) {
             entry.status = "conflict";
             entry.lastError = result.error || "stale_revision";
             entry.conflictServerRecord = result.serverRecord || null;
-            await persistChildDataMutationEntry(entry);
-            dlcConflictState = {
-              clientMutationId: id,
-              storeKey: result.storeKey || entry.storeKey,
-              localRecord: entry.record || result.localAttempt || {},
-              serverRecord: result.serverRecord || {},
-              error: result.error || "Conflict — newer version exists",
-            };
+            await persistChildDataMutationEntry(entry).catch(() => {});
+            dlcConflictState = dlcBuildConflictViewModel(entry, result);
           }
           continue;
         }
@@ -35593,7 +35920,7 @@ async function saveChildDataToBackend(options = {}) {
           if (entry) {
             entry.status = "failed";
             entry.lastError = result.error || "forbidden";
-            await persistChildDataMutationEntry(entry);
+            await persistChildDataMutationEntry(entry).catch(() => {});
           }
           continue;
         }
@@ -35601,16 +35928,15 @@ async function saveChildDataToBackend(options = {}) {
         if (failedEntry) {
           failedEntry.status = "failed";
           failedEntry.lastError = result.error || "save_failed";
-          await persistChildDataMutationEntry(failedEntry);
+          await persistChildDataMutationEntry(failedEntry).catch(() => {});
         }
       }
       for (const id of ackIds) {
         childDataMutationQueue = childDataMutationQueue.filter((item) => item.clientMutationId !== id);
-        await removePersistedChildDataMutation(id, userEmail);
+        await removePersistedChildDataMutation(id);
       }
       if (payload.updatedAt) localStorage.setItem(childCloudUpdatedKey(), payload.updatedAt);
 
-      // Apply server revisions from successful upserts onto local rows.
       results.filter((item) => item.ok && item.revision && item.recordId && item.storeKey).forEach((item) => {
         const list = childStore(item.storeKey);
         const idx = list.findIndex((row) => String(row.id || "") === String(item.recordId));
@@ -35622,21 +35948,23 @@ async function saveChildDataToBackend(options = {}) {
       });
 
       if (dlcConflictState) {
-        dlcSetSaveStatus("conflict", dlcConflictState.error);
+        dlcSetSaveStatus("conflict", "Needs review because another person updated it");
       } else if (childDataMutationQueue.some((item) => item.status === "failed")) {
-        dlcSetSaveStatus("failed", payload.error || "Some changes could not be saved");
+        dlcSetSaveStatus("failed", "Sync failed");
       } else if (childDataMutationQueue.length) {
         dlcSetSaveStatus(
           typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "pending",
-          `${childDataMutationQueue.length} change(s) still waiting`,
+          "Waiting for connection…",
         );
       } else if (response.status === 401 || response.status === 403) {
         dlcSetSaveStatus("failed", "Session expired or permission removed — sign in again");
       } else if (!response.ok && response.status !== 409) {
-        dlcSetSaveStatus("failed", payload?.error || "Cloud save failed");
+        dlcSetSaveStatus("failed", payload?.error || "Sync failed");
       } else {
-        dlcSetSaveStatus("saved", payload.duplicates ? "Saved to cloud (retry ignored duplicates)" : "Saved to cloud");
+        dlcSetSaveStatus("saved", "Saved to cloud");
       }
+      // Cancel a pending full-snapshot save so it cannot LWW-clobber fresher mutation results.
+      clearTimeout(childCloudSaveTimer);
       return payload;
     } finally {
       childDataMutationInFlight = false;
@@ -35645,7 +35973,6 @@ async function saveChildDataToBackend(options = {}) {
   if (classroomStaffOnly) {
     return { ok: true, skipped: true, reason: "no_pending_mutations" };
   }
-  // Owner/director legacy snapshot path when no mutation queue remains.
   const response = await fetch("/api/child-data", {
     method: "POST",
     headers,
@@ -35653,7 +35980,7 @@ async function saveChildDataToBackend(options = {}) {
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    dlcSetSaveStatus("failed", payload?.error || "Cloud save failed");
+    dlcSetSaveStatus("failed", payload?.error || "Sync failed");
     throw new Error(payload?.error || `Child data save failed (${response.status})`);
   }
   dlcSetSaveStatus("saved", "Saved to cloud");
@@ -35770,7 +36097,7 @@ async function syncChildDataFromBackend(options = {}) {
   }
   // After sync, restore durable pending mutations for this account and flush.
   try {
-    await loadChildDataMutationQueue(currentUser);
+    await loadChildDataMutationQueue();
     if (childDataMutationQueue.length) {
       await saveChildDataToBackend({ force: true, retryFailed: true });
     }
@@ -35783,7 +36110,7 @@ async function syncChildDataFromBackend(options = {}) {
 window.addEventListener("online", () => {
   if (!currentUser || !canUseLaunchBackend()) return;
   dlcSetSaveStatus("pending", "Connection restored — syncing…");
-  loadChildDataMutationQueue(currentUser)
+  loadChildDataMutationQueue()
     .then(() => saveChildDataToBackend({ force: true, retryFailed: true }))
     .then(() => {
       if (typeof renderChildManagement === "function" && document.querySelector("#view-children.active-view, #view-child-tools-daily-logs.active-view, [data-dlc-save-status]")) {
@@ -46629,8 +46956,21 @@ async function deleteChildRecordPermanently(storeKey, recordId) {
     danger: true,
   });
   if (!confirmed) return false;
+  const existing = childStore(storeKey).find((item) => item.id === recordId) || null;
+  const baseRevision = Number(existing?.revision) || 1;
+  const clientMutationId = newClientMutationId();
   saveChildStore(storeKey, childStore(storeKey).filter((item) => item.id !== recordId));
-  showActionFeedback("Entry deleted.");
+  enqueueChildDataMutation({
+    op: "delete",
+    storeKey,
+    clientMutationId,
+    baseRevision,
+    recordId,
+    childId: existing?.childId || (storeKey === "Profiles" ? recordId : ""),
+    record: existing ? { id: recordId, childId: existing.childId, revision: baseRevision } : { id: recordId },
+    baseSnapshot: existing,
+  });
+  showActionFeedback("Entry deleted — saving to cloud…");
   renderChildManagement();
   return true;
 }
@@ -63711,14 +64051,24 @@ async function signOut() {
       if (maybePromptMultiRoleSessionEnd("logout")) return;
     }
   } catch (_error) { /* continue logout */ }
+  // Warn before clearing session when child-data mutations are still unsynced.
+  try {
+    if (typeof promptLogoutWithUnsyncedWork === "function") {
+      const logoutChoice = await promptLogoutWithUnsyncedWork();
+      if (logoutChoice === "stay") {
+        showActionFeedback("Still signed in — finish syncing when ready.");
+        return;
+      }
+    }
+  } catch (_error) { /* continue logout */ }
   // Best-effort: revoke this device's push subscription BEFORE clearing the
   // session so the next person to use this browser never receives pushes
   // meant for this account. In-app data is unaffected either way.
   await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
   const signingOutEmail = String(currentUser || "").trim();
-  // Drop in-memory pending mutations so the next account never replays them.
-  // Durable queue remains scoped by email in IndexedDB / localStorage.
+  // Drop in-memory pending mutations so the next account never sees them.
+  // Durable queue stays in IndexedDB scoped by userId+programId (never email).
   clearChildDataMutationMemory();
   try { localStorage.removeItem("llhMultiRoleTesterView"); } catch (_error) { /* ignore */ }
   if (firebaseAuthEnabled) {
@@ -66318,10 +66668,22 @@ document.addEventListener("click", async (event) => {
     resolveDlcConflict(dlcConflictDiscard.dataset.dlcConflictDiscard, "discard");
     return;
   }
+  const dlcConflictEdit = event.target.closest("[data-dlc-conflict-edit]");
+  if (dlcConflictEdit) {
+    event.preventDefault();
+    resolveDlcConflict(dlcConflictEdit.dataset.dlcConflictEdit, "edit");
+    return;
+  }
+  const dlcCancelPending = event.target.closest("[data-dlc-cancel-pending]");
+  if (dlcCancelPending) {
+    event.preventDefault();
+    cancelOldestPendingMutation();
+    return;
+  }
   const dlcMutationRetry = event.target.closest("[data-dlc-mutation-retry]");
   if (dlcMutationRetry) {
     event.preventDefault();
-    retryChildDataMutation(dlcMutationRetry.dataset.dlcMutationRetry, { useServerBase: false })
+    retryChildDataMutation(dlcMutationRetry.dataset.dlcMutationRetry, { rebase: false })
       .then(() => renderChildManagement());
     return;
   }
@@ -71316,7 +71678,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     }, { lastLogin: true })).then(() => Promise.all([
       runAuthSyncWithTimeout("login membership sync", () => syncSubscriptionFromBackend(result.email, { forceRefresh: true })),
       runAuthSyncWithTimeout("login child sync", () => syncChildDataFromBackend()),
-      loadChildDataMutationQueue(result.email).then(() => (
+      loadChildDataMutationQueue().then(() => (
         childDataMutationQueue.length
           ? saveChildDataToBackend({ force: true, retryFailed: true })
           : null
@@ -73860,19 +74222,35 @@ document.addEventListener("submit", (event) => {
   }
   const date = form.date?.value || "";
   const details = form.details?.value || "";
-  saveChildStore(storeKey, childStore(storeKey).map((item) => {
-    if (item.id !== recordId) return item;
-    const next = { ...item, updatedAt: new Date().toISOString() };
-    if (date) next.date = date;
-    next[detailKey] = details;
-    if (detailKey !== "summary" && !next.summary) next.summary = details;
-    if (date && next.title && String(next.title).includes("|")) {
-      next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
-    }
-    return next;
-  }));
+  const items = childStore(storeKey);
+  const previous = items.find((item) => item.id === recordId);
+  if (!previous) {
+    closeChildRecordEditDialog(false);
+    showActionFeedback("That record is no longer available.");
+    return;
+  }
+  const baseRevision = Number(previous.revision) || 1;
+  const baseSnapshot = { ...previous };
+  const clientMutationId = newClientMutationId();
+  const next = { ...previous, updatedAt: new Date().toISOString(), clientMutationId, revision: baseRevision };
+  if (date) next.date = date;
+  next[detailKey] = details;
+  if (detailKey !== "summary" && !next.summary) next.summary = details;
+  if (date && next.title && String(next.title).includes("|")) {
+    next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
+  }
+  saveChildStore(storeKey, items.map((item) => (item.id === recordId ? next : item)));
+  enqueueChildDataMutation({
+    op: "upsert",
+    storeKey,
+    clientMutationId,
+    baseRevision,
+    record: next,
+    baseSnapshot,
+    childId: next.childId || (storeKey === "Profiles" ? next.id : ""),
+  });
   closeChildRecordEditDialog(true);
-  showActionFeedback("Entry updated.");
+  showActionFeedback("Entry updated — saving to cloud…");
   renderChildManagement();
 });
 

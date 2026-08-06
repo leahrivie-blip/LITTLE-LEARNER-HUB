@@ -240,6 +240,26 @@ function unitTests() {
   // Nap/diaper from earlier still present — meal conflict did not wipe other stores.
   assert.equal(store.programData["prog-a"].child.data.Naps.some((n) => n.id === "nap-a"), true);
 
+  // Edit targeting a deleted / missing record → not_found conflict (no silent recreate).
+  const missing = mutations.applyMutations(store, teacherCtx, [{
+    clientMutationId: "mid-missing-1",
+    op: "upsert",
+    storeKey: "Meals",
+    baseRevision: 1,
+    record: {
+      id: "meal-was-deleted",
+      childId: "child-ava",
+      lunch: "Ghost edit",
+      updatedAt: "2026-08-06T12:40:00.000Z",
+    },
+  }]);
+  assert.equal(missing.conflicts, 1);
+  assert.equal(missing.results[0].code, "not_found");
+  assert.equal(
+    store.programData["prog-a"].child.data.Meals.some((m) => m.id === "meal-was-deleted"),
+    false,
+  );
+
   console.log("PASS  child-data-mutations unit (idempotency + classroom auth + revision conflicts)");
 }
 
