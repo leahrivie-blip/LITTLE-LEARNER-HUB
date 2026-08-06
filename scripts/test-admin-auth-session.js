@@ -30,8 +30,10 @@ test("server preserves legacy adminSessions field across stale writeStore clones
   // scaffolding so a rollback to older code still finds a consistent shape.
   assert.match(serverJs, /function mergeStorePreserveAdminSessions\(/);
   assert.match(serverJs, /preserve adminSessions/);
-  assert.match(serverJs, /mergeStorePreserveAdminSessions\(mergeStorePreferNewerSiteContent\(store\)\)/);
-  assert.match(serverJs, /storeCache = mergeStorePreserveEmailCampaigns\(mergeStorePreserveAdminSessions\(store\)\)/);
+  assert.match(serverJs, /function applyStoreWriteMerges\(/);
+  assert.match(serverJs, /next = mergeStorePreserveAdminSessions\(next\)/);
+  assert.match(serverJs, /next = mergeStorePreserveEmailCampaigns\(next\)/);
+  assert.match(serverJs, /const nextStore = applyStoreWriteMerges\(store\)/);
 });
 
 test("admin sessions are stored in a dedicated store, not the shared application document", () => {

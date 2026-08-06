@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v185-trial-length-audit-r1";
+const CACHE_NAME = "llh-shell-v187-tk-owner-preview-r2";
 const SHELL_VERSION = "20260805-tk-owner-preview-r2";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
