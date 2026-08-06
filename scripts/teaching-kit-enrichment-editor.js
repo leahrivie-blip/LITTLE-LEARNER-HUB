@@ -32,7 +32,7 @@
     compareOpen: false,
     historyDiffVersionId: "",
     statusText: "",
-    summaryOpen: true,
+    summaryOpen: false,
     previewViewport: "desktop", // desktop | tablet | mobile
     previewDay: "monday",
     previewUnbind: null,
@@ -42,7 +42,7 @@
     saveQueued: false,
     lastSaveError: "",
     lessonAnalysis: null,
-    analysisOpen: true,
+    analysisOpen: false,
     assistant: {
       tab: "improve", // improve | chat | toolkit | library | quality | images
       chatInput: "",
@@ -1003,8 +1003,10 @@
       : { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
     if (!state.draft.activities) state.draft.activities = {};
     if (!state.draft.week) state.draft.week = {};
-    state.summaryOpen = true;
-    state.analysisOpen = true;
+    // Open focused on the activity studio — summary/analysis panels are one click away.
+    // Both open by default crushed the editable column and made tip cards unreadable.
+    state.summaryOpen = false;
+    state.analysisOpen = false;
     state.previewViewport = "desktop";
     state.previewDay = "monday";
     const activities = getActivities(plan);
@@ -1016,8 +1018,8 @@
     // Opening Upgrade Lesson is read-only load only — never auto-run AI, consume usage,
     // create proposals, autosave, or change scores/timestamps.
     state.statusText = gaps
-      ? `Local analysis found ${gaps} area(s) to improve. Review the summary, then press Prepare AI Draft only when you want suggestions. Nothing runs until you confirm.`
-      : "Lesson loaded. Edit manually, or press Prepare AI Draft when you want AI suggestions. Opening never starts AI.";
+      ? `${gaps} area(s) to improve · Prepare AI Draft when ready (never auto-runs).`
+      : "Lesson loaded · edit manually, or Prepare AI Draft when ready.";
     state._focusReturn = document.activeElement;
     state.recoveryOpen = false;
     state.compareOpen = false;
@@ -1444,13 +1446,13 @@
       `;
     }
     return `
-      <section class="tk-assistant-panel" data-ai-teacher-assistant>
-        <div class="tk-assistant-head">
+      <details class="tk-assistant-panel" data-ai-teacher-assistant>
+        <summary class="tk-assistant-head">
           <div>
             <p class="eyebrow">AI Teacher Assistant</p>
-            <strong>Experienced preschool teacher tools for ${esc(plan.title || "this lesson")}</strong>
+            <strong>Optional AI tools for ${esc(plan.title || "this lesson")}</strong>
           </div>
-        </div>
+        </summary>
         <nav class="tk-assistant-tabs" aria-label="AI Teacher Assistant">
           ${tabs.map(([id, label]) => `
             <button type="button" class="${tab === id ? "is-active" : ""}" data-assistant-tab="${id}">${esc(label)}</button>
@@ -1458,7 +1460,7 @@
         </nav>
         <div class="tk-assistant-body">${body}</div>
         ${state.assistant.status ? `<p class="muted-copy tk-assistant-status">${esc(state.assistant.status)}</p>` : ""}
-      </section>
+      </details>
     `;
   }
 
@@ -1473,10 +1475,10 @@
           <div>
             <p class="eyebrow">AI Lesson Teacher</p>
             <strong>Workflow ${esc(analysis.dashboardStage || "Legacy")} · Structural ${analysis.completionPercent}%${analysis.weekdayCoverage ? ` · ${esc(analysis.weekdayCoverage.label)}` : ""}</strong>
-            <p class="muted-copy">Local analysis only — opening never starts AI. Press Prepare AI Draft and confirm to generate suggestions. Existing approved content is preserved.</p>
+            ${state.analysisOpen ? `<p class="muted-copy">Local analysis only — opening never starts AI. Press Prepare AI Draft and confirm to generate suggestions. Existing approved content is preserved.</p>` : ""}
           </div>
           <div class="tk-lesson-teacher-actions">
-            <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
+            ${state.analysisOpen ? `<button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>` : ""}
             <button type="button" class="ghost-button" data-analysis-toggle>${state.analysisOpen ? "Hide scores" : "Show scores"}</button>
           </div>
         </div>
@@ -1596,9 +1598,8 @@
       <header class="tk-enrich-chrome">
         <div class="tk-enrich-chrome-top">
           <div class="tk-enrich-chrome-nav">
-            <button type="button" class="ghost-button" data-enrich-exit data-enrich-back-to-list>← Back to List</button>
-            <button type="button" class="ghost-button" data-enrich-close title="Close editor">Close</button>
-            <button type="button" class="ghost-button" data-enrich-cancel title="Leave without saving">Cancel</button>
+            <button type="button" class="ghost-button" data-enrich-exit data-enrich-back-to-list>← Back</button>
+            <button type="button" class="ghost-button tk-enrich-chrome-secondary" data-enrich-close title="Close editor">Close</button>
             <span class="tk-enrich-chrome-title">${esc(plan.title || "Lesson")}</span>
           </div>
           <div class="tk-enrich-progress-block">
@@ -1622,30 +1623,25 @@
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
         </div>
-        <div class="tk-enrich-recovery-toolbar" data-enrich-recovery-toolbar aria-label="Version history and recovery">
-          <strong>History &amp; Recovery</strong>
-          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-history data-tk-recovery-toolbar>Version History (${historyCount})</button>
-          <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-compare>Compare versions</button>
-          <button type="button" class="ghost-button" data-enrich-rollback ${historyCount ? "" : "disabled"}>Rollback Last Publish</button>
-          <button type="button" class="ghost-button" data-enrich-discard-draft>Discard Draft</button>
-          <button type="button" class="ghost-button" data-enrich-undo-discard ${plan?.enrichmentDraftUndo?.draft ? "" : "disabled"}>Undo Discard</button>
-          <span class="muted-copy">Rollback restores into a draft — Publish required before providers see changes.</span>
-        </div>
-        <p class="muted-copy tk-enrich-workflow-note">Workflow: Analyze → Prepare AI Draft → Side-by-side review → Edit → Publish → Next lesson. Published content is never overwritten without your approval.</p>
+        <details class="tk-enrich-recovery-toolbar" data-enrich-recovery-toolbar>
+          <summary>History &amp; Recovery${historyCount ? ` (${historyCount})` : ""}</summary>
+          <div class="tk-enrich-recovery-toolbar-actions" aria-label="Version history and recovery">
+            <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-history data-tk-recovery-toolbar>Version History (${historyCount})</button>
+            <button type="button" class="ghost-button" data-enrich-recovery data-enrich-open-compare>Compare versions</button>
+            <button type="button" class="ghost-button" data-enrich-rollback ${historyCount ? "" : "disabled"}>Rollback Last Publish</button>
+            <button type="button" class="ghost-button" data-enrich-discard-draft>Discard Draft</button>
+            <button type="button" class="ghost-button" data-enrich-undo-discard ${plan?.enrichmentDraftUndo?.draft ? "" : "disabled"}>Undo Discard</button>
+            <span class="muted-copy">Rollback restores into a draft — Publish required before providers see changes.</span>
+          </div>
+        </details>
         <div class="tk-enrich-chrome-sub">
           <div class="tk-enrich-counter">
             <strong>Activity ${n ? idx + 1 : 0} of ${n}</strong>
-            <button type="button" class="ghost-button" data-enrich-prev ${idx <= 0 ? "disabled" : ""}>← Previous</button>
+            <button type="button" class="ghost-button" data-enrich-prev ${idx <= 0 ? "disabled" : ""}>← Prev</button>
             <button type="button" class="ghost-button" data-enrich-next ${idx >= n - 1 ? "disabled" : ""}>Next →</button>
+            <button type="button" class="ghost-button" data-enrich-jump-toggle>Jump…</button>
           </div>
-          <nav class="tk-enrich-jump-links" aria-label="Editor section shortcuts">
-            <button type="button" class="ghost-button" data-enrich-save-draft>Save</button>
-            <button type="button" class="ghost-button" data-enrich-scroll-target="quality">Review</button>
-            <button type="button" class="ghost-button" data-enrich-scroll-target="history">History</button>
-            <button type="button" class="ghost-button" data-enrich-exit>Exit</button>
-          </nav>
           <div class="tk-enrich-jump">
-            <button type="button" class="ghost-button" data-enrich-jump-toggle>Jump to…</button>
             ${state.jumpOpen ? `
               <div class="tk-enrich-jump-panel">
                 <input type="search" data-enrich-jump-input placeholder="Activity, book, song, printable…" value="${esc(state.jumpQuery)}" />
