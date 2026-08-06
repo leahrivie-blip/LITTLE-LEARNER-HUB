@@ -15409,13 +15409,10 @@ function renderTeacherTodayPage() {
     : "";
   const lessonHtml = !emptyProgram && typeof todayAssignedLessonCardHtml === "function" ? todayAssignedLessonCardHtml() : "";
   const eodReady = !emptyProgram && typeof childrenReadyForEndOfDayReport === "function" ? childrenReadyForEndOfDayReport(records, today).length : 0;
-<<<<<<< HEAD
   const allergyBanner = !emptyProgram && typeof window !== "undefined" && window.FormsCenter?.allergyBannerHtml
     ? window.FormsCenter.allergyBannerHtml(records)
     : "";
-=======
   const greetingTitle = workModeGreetingTitle(currentAccount(), role);
->>>>>>> ad5f392 (Fix work-mode greeting fallbacks so internal keys never display)
   section.innerHTML = workHubShell({
     eyebrow: role === "assistant" ? "Assistant · Today" : "Teacher · Today",
     title: greetingTitle,
