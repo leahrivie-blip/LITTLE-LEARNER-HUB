@@ -50,6 +50,8 @@ Artifacts: `/opt/cursor/artifacts/phase3-daily-logs-classroom/`
 
 ## What still needs manual review on testing
 
+Fill results in **[PHASE3_MANUAL_REVIEW_WORKSHEET.md](./PHASE3_MANUAL_REVIEW_WORKSHEET.md)** (compact case sheets). Hold next phase and production until that worksheet is complete and explicitly approved.
+
 1. **Two staff devices, same child** — Teacher A edits lunch while Teacher B edits notes; confirm conflict panels and Keep latest / Apply my change feel clear on phone.
 2. **Hard refresh mid-save on a slow network** — enter a meal, refresh immediately; confirm status recovers to pending/sync without losing the entry.
 3. **Director with linked staff account** — confirm Director still sees all rooms after deploy.
