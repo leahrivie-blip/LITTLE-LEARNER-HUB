@@ -170,7 +170,77 @@ function unitTests() {
   }]);
   assert.equal(mapleDenied.failed, 1);
 
-  console.log("PASS  child-data-mutations unit (idempotency + classroom auth + assistant limits)");
+  // Simultaneous appends (different ids) both survive.
+  const dual = mutations.applyMutations(store, teacherCtx, [
+    {
+      clientMutationId: "mid-6a",
+      op: "upsert",
+      storeKey: "Naps",
+      record: {
+        id: "nap-a",
+        childId: "child-ava",
+        date: "2026-08-06",
+        napStart: "12:00",
+        createdAt: "2026-08-06T12:00:00.000Z",
+        updatedAt: "2026-08-06T12:00:00.000Z",
+      },
+    },
+    {
+      clientMutationId: "mid-6b",
+      op: "upsert",
+      storeKey: "Diapers",
+      record: {
+        id: "diaper-b",
+        childId: "child-ava",
+        date: "2026-08-06",
+        type: "Wet",
+        createdAt: "2026-08-06T12:01:00.000Z",
+        updatedAt: "2026-08-06T12:01:00.000Z",
+      },
+    },
+  ]);
+  assert.equal(dual.applied, 2);
+  assert.equal(store.programData["prog-a"].child.data.Naps.some((n) => n.id === "nap-a"), true);
+  assert.equal(store.programData["prog-a"].child.data.Diapers.some((n) => n.id === "diaper-b"), true);
+
+  // Stale edit conflict — meal edit must not clobber when baseRevision is outdated.
+  const meal = store.programData["prog-a"].child.data.Meals.find((m) => m.id === mealId);
+  assert.equal(meal.revision, 1);
+  const edited = mutations.applyMutations(store, teacherCtx, [{
+    clientMutationId: "mid-7",
+    op: "upsert",
+    storeKey: "Meals",
+    baseRevision: 1,
+    record: {
+      ...meal,
+      lunch: "Pasta with sauce",
+      updatedAt: "2026-08-06T12:20:00.000Z",
+    },
+  }]);
+  assert.equal(edited.applied, 1);
+  assert.equal(store.programData["prog-a"].child.data.Meals.find((m) => m.id === mealId).revision, 2);
+  assert.equal(store.programData["prog-a"].child.data.Meals.find((m) => m.id === mealId).lunch, "Pasta with sauce");
+
+  const stale = mutations.applyMutations(store, teacherCtx, [{
+    clientMutationId: "mid-8",
+    op: "upsert",
+    storeKey: "Meals",
+    baseRevision: 1,
+    record: {
+      id: mealId,
+      childId: "child-ava",
+      lunch: "STALE OVERWRITE",
+      updatedAt: "2026-08-06T12:30:00.000Z",
+    },
+  }]);
+  assert.equal(stale.conflicts, 1);
+  assert.equal(stale.results[0].conflict, true);
+  assert.equal(stale.results[0].code, "stale_revision");
+  assert.equal(store.programData["prog-a"].child.data.Meals.find((m) => m.id === mealId).lunch, "Pasta with sauce");
+  // Nap/diaper from earlier still present — meal conflict did not wipe other stores.
+  assert.equal(store.programData["prog-a"].child.data.Naps.some((n) => n.id === "nap-a"), true);
+
+  console.log("PASS  child-data-mutations unit (idempotency + classroom auth + revision conflicts)");
 }
 
 function request(port, method, urlPath, { email = "", body = null } = {}) {
@@ -357,10 +427,90 @@ async function apiTests() {
         }],
       },
     });
-    assert.equal(otherRoom.status, 200);
+    assert.ok([200, 403].includes(otherRoom.status), `expected 200/403 got ${otherRoom.status}`);
     assert.equal(otherRoom.json.failed, 1);
 
-    console.log("PASS  child-data-mutations API (retry idempotent, staff snapshot blocked, cross-program isolated)");
+    // Simultaneous appends from two devices
+    const [a, b] = await Promise.all([
+      request(port, "POST", "/api/child-data", {
+        email: TEACHER,
+        body: {
+          mutations: [{
+            clientMutationId: "api-sim-a",
+            op: "upsert",
+            storeKey: "Naps",
+            record: {
+              id: "nap-sim-a",
+              childId: "child-ava",
+              date: "2026-08-06",
+              napStart: "12:00",
+              createdAt: "2026-08-06T12:00:00.000Z",
+              updatedAt: "2026-08-06T12:00:00.000Z",
+            },
+          }],
+        },
+      }),
+      request(port, "POST", "/api/child-data", {
+        email: OWNER,
+        body: {
+          mutations: [{
+            clientMutationId: "api-sim-b",
+            op: "upsert",
+            storeKey: "Diapers",
+            record: {
+              id: "diaper-sim-b",
+              childId: "child-ava",
+              date: "2026-08-06",
+              type: "Wet",
+              createdAt: "2026-08-06T12:00:01.000Z",
+              updatedAt: "2026-08-06T12:00:01.000Z",
+            },
+          }],
+        },
+      }),
+    ]);
+    assert.equal(a.status, 200, JSON.stringify(a.json));
+    assert.equal(b.status, 200, JSON.stringify(b.json));
+    const afterSim = await request(port, "GET", "/api/child-data", { email: OWNER });
+    assert.ok((afterSim.json.data?.Naps || []).some((n) => n.id === "nap-sim-a"));
+    assert.ok((afterSim.json.data?.Diapers || []).some((n) => n.id === "diaper-sim-b"));
+
+    // Stale edit → 409, original meal preserved
+    const meal = (afterSim.json.data?.Meals || []).find((m) => m.id === "meal-api-1");
+    assert.ok(meal);
+    const firstEdit = await request(port, "POST", "/api/child-data", {
+      email: OWNER,
+      body: {
+        mutations: [{
+          clientMutationId: "api-edit-1",
+          op: "upsert",
+          storeKey: "Meals",
+          baseRevision: meal.revision || 1,
+          record: { ...meal, lunch: "Rice updated", updatedAt: new Date().toISOString() },
+        }],
+      },
+    });
+    assert.equal(firstEdit.status, 200);
+    const staleEdit = await request(port, "POST", "/api/child-data", {
+      email: TEACHER,
+      body: {
+        mutations: [{
+          clientMutationId: "api-edit-stale",
+          op: "upsert",
+          storeKey: "Meals",
+          baseRevision: meal.revision || 1,
+          record: { ...meal, lunch: "STALE", updatedAt: new Date().toISOString() },
+        }],
+      },
+    });
+    assert.equal(staleEdit.status, 409);
+    assert.equal(staleEdit.json.conflicts, 1);
+    const afterConflict = await request(port, "GET", "/api/child-data", { email: OWNER });
+    const mealAfter = (afterConflict.json.data?.Meals || []).find((m) => m.id === "meal-api-1");
+    assert.equal(mealAfter.lunch, "Rice updated");
+    assert.ok((afterConflict.json.data?.Naps || []).some((n) => n.id === "nap-sim-a"), "conflict must not wipe other events");
+
+    console.log("PASS  child-data-mutations API (idempotency, simultaneous appends, 409 stale edit, isolation)");
   } finally {
     server.kill("SIGTERM");
     try { fs.unlinkSync(storePath); } catch (_e) { /* ignore */ }

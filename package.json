@@ -159,6 +159,7 @@
     "test:staff-invite-flow": "NODE_ENV=test node scripts/test-staff-invite-flow.js",
     "test:daily-logs-attendance": "node scripts/test-daily-logs-attendance.js",
     "test:child-data-mutations": "node scripts/test-child-data-mutations.js",
+    "test:child-data-durable-queue": "node scripts/test-child-data-durable-queue.js",
     "test:child-data-sync": "node scripts/test-child-data-sync.js",
     "test:child-documents-tab": "node scripts/test-child-documents-tab.js",
     "test:home-daycare-hub-step-a": "node scripts/test-home-daycare-hub-step-a.js",
