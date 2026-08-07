@@ -15,8 +15,9 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/forms-ecosystem";
 const SHOT_DIR = path.join(ARTIFACT_DIR, "screenshots");
-const SHELL = "20260804-forms-center";
 const OWNER = "forms.eco.owner@example.com";
+const SHELL = (fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8").match(/SHELL_VERSION = "([^"]+)"/) || [])[1]
+  || "unknown";
 
 function ensureDirs() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
@@ -68,8 +69,10 @@ async function main() {
   const ecoJs = fs.readFileSync(path.join(ROOT, "scripts/forms-ecosystem.js"), "utf8");
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-  assert.match(indexHtml, /forms-ecosystem\.js\?v=20260804-forms-(?:ecosystem|center)/);
-  assert.match(sw, /SHELL_VERSION = "20260804-forms-(?:ecosystem|center)"/);
+  assert.match(sw, /SHELL_VERSION = "2026080[45]-[^"]+"/);
+  assert.ok(indexHtml.includes(`SHELL_VERSION = "${SHELL}"`), "index.html shell must match service-worker");
+  assert.match(sw, /forms-ecosystem\.js\?v=2026080[45]-[^"]+/);
+  assert.match(fs.readFileSync(path.join(ROOT, "scripts/llh-lazy-loader.js"), "utf8"), /forms-ecosystem\.js/);
   assert.match(ecoJs, /FormsEcosystem/);
   assert.match(ecoJs, /FIELD_TYPES/);
   assert.match(ecoJs, /REFINE_ACTIONS/);

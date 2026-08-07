@@ -98,7 +98,7 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-(workflow-integration|nav-role-experience)"/);
+  assert.match(indexHtml, /SHELL_VERSION = "2026080[45]-(workflow-integration|nav-role-experience|testing-stabilization-r\d+)"/);
   assert.match(appJs, /function hasTestingProEntitlement/);
   assert.match(appJs, /shareWithFamily:\s*true/);
   assert.match(appJs, /data-admin-testing-center/);

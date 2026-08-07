@@ -53,7 +53,7 @@
 | Issue | Severity | Notes |
 |---|---|---|
 | Phase 3 Case 1 & 5 phone gates | Production blocker | Not confirmed code bugs; automation PASSED |
-| Forms shell-version pin tests | Low | Outdated `SHELL_VERSION` regex vs `20260805-testing-stabilization-r32` |
+| Forms/FH shell-version pin tests | Fixed (this PR) | Accept current `testing-stabilization-r*` shell; forms scripts via lazy-loader + SW cache |
 | Homepage-smoke / some UX pins | Low | Occasional flakiness noted in Phase 4 E2E QA |
 | Family Hub still testing-fenced | Intentional | Not customer-ready; do not enable in production |
 

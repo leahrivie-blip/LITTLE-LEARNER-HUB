@@ -79,7 +79,7 @@ async function main() {
   fs.mkdirSync(path.join(ARTIFACT_DIR, "screenshots"), { recursive: true });
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-(ecosystem-phase3|ecosystem-spine|workflow-integration|nav-role-experience)"/);
+  assert.match(indexHtml, /SHELL_VERSION = "2026080[45]-(ecosystem-phase3|ecosystem-spine|workflow-integration|nav-role-experience|testing-stabilization-r\d+)"/);
   assert.match(appJs, /function buildGroundedDayFactsForAi/);
   assert.match(appJs, /function canUseEmbeddedWorkflowAi/);
   assert.match(appJs, /function maybeSuggestGoalFromObservation/);

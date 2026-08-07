@@ -15,8 +15,9 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/forms-center";
 const SHOT_DIR = path.join(ARTIFACT_DIR, "screenshots");
-const SHELL = "20260804-forms-center";
 const OWNER = "forms.center.owner@example.com";
+const SHELL = (fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8").match(/SHELL_VERSION = "([^"]+)"/) || [])[1]
+  || "unknown";
 
 function ensureDirs() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
@@ -66,8 +67,10 @@ async function main() {
   const centerJs = fs.readFileSync(path.join(ROOT, "scripts/forms-center.js"), "utf8");
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-  assert.match(indexHtml, /forms-center\.js\?v=20260804-forms-center/);
-  assert.match(sw, /SHELL_VERSION = "20260804-forms-center"/);
+  assert.match(sw, /SHELL_VERSION = "2026080[45]-[^"]+"/);
+  assert.ok(indexHtml.includes(`SHELL_VERSION = "${SHELL}"`), "index.html shell must match service-worker");
+  assert.match(sw, /forms-center\.js\?v=2026080[45]-[^"]+/);
+  assert.match(fs.readFileSync(path.join(ROOT, "scripts/llh-lazy-loader.js"), "utf8"), /forms-center\.js/);
   assert.match(centerJs, /FormsCenter/);
   assert.match(centerJs, /CENTER_SECTIONS/);
   assert.match(centerJs, /ENROLLMENT_PACKET_DEFAULTS/);
