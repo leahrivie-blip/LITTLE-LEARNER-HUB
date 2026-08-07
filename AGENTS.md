@@ -4,6 +4,13 @@
 
 Little Learner Hub is a single Node.js service (no build step) that serves a static childcare-provider web app (`index.html`, `app.js`, `styles.css`) plus a JSON API from `server/index.js`.
 
+### Teaching Kit content upgrades (CRITICAL)
+- Canonical rules: `docs/teaching-kit/CONTENT_UPGRADE_RULES.md` (Cursor rule: `.cursor/rules/teaching-kit-content-upgrade.mdc`).
+- Do **not** redesign binder layout, generate/replace cover or activity images, generate printables, or publish AI placeholder artwork.
+- Upgrade lessons non-destructively into the existing Teaching Kit structure. Leave **Printable Needed** / **Image Needed** placeholders for the owner.
+- Flag weak covers with a detailed owner prompt — never auto-replace cover art.
+- Activities must be age-appropriate and inspired by current ECE best practices (not short-lived trends).
+
 ### Running the app (dev)
 - Start with `npm run start` (equivalent to `node server/index.js`). It listens on `http://localhost:4242`.
 - Health check: `GET /api/health`. Launch readiness: `GET /api/launch-readiness`.
