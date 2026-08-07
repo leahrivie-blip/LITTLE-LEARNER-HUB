@@ -3967,6 +3967,13 @@ function signupPlanCopy() {
   ["paidBenefits", "trustPoints", "freeIncludes"].forEach((key) => {
     if (!Array.isArray(merged[key]) || !merged[key].length) merged[key] = DEFAULT_SIGNUP_PLAN_COPY[key];
   });
+  if (earlyUserPricingEnabled()) {
+    merged.soldOutNote = `Early User Special: ${offeredProMonthlyLabel()} (regularly ${regularProMonthlyLabel()}).`;
+    merged.proTitle = earlyUserOfferHeadline();
+    merged.proSubtitle = earlyUserSupportingCopy();
+    merged.proCta = `Choose Early User — ${offeredProMonthlyLabel()}`;
+    merged.proBadge = "Early User Special";
+  }
   return merged;
 }
 
@@ -4032,17 +4039,21 @@ function renderSignupPlanChooser() {
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
+  const earlyUser = earlyUserPricingEnabled();
   const proCard = `
-    <article class="signup-plan-card signup-plan-card--pro signup-plan-card--secondary${soldOut ? " signup-plan-card--pro-featured signup-plan-card--featured" : ""}" data-pricing-card="pro-monthly">
-      <span class="signup-plan-badge">${escapeHtml(soldOut ? "Recommended" : copy.proBadge)}</span>
-      <h3>${escapeHtml(copy.proTitle)}</h3>
-      <p class="signup-plan-subtitle">${escapeHtml(copy.proSubtitle)}</p>
-      <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
+    <article class="signup-plan-card signup-plan-card--pro signup-plan-card--secondary${soldOut ? " signup-plan-card--pro-featured signup-plan-card--featured" : ""}${earlyUser ? " signup-plan-card--early-user" : ""}" data-pricing-card="${earlyUser ? "early-user" : "pro-monthly"}">
+      <span class="signup-plan-badge">${escapeHtml(earlyUser ? earlyUserOfferHeadline() : (soldOut ? "Recommended" : copy.proBadge))}</span>
+      <h3>${escapeHtml(earlyUser ? earlyUserOfferHeadline() : copy.proTitle)}</h3>
+      <p class="signup-plan-subtitle">${escapeHtml(earlyUser ? earlyUserSupportingCopy() : copy.proSubtitle)}</p>
+      ${earlyUser ? `<p class="signup-plan-price-compare"><s>${escapeHtml(regularProMonthlyLabel())}</s></p>` : ""}
+      <p class="signup-plan-price"><strong>${escapeHtml(earlyUser ? offeredProMonthlyAmount() : "$19.99")}</strong><span>/month</span></p>
+      ${earlyUser ? `<p class="signup-plan-lock">${escapeHtml(earlyUserLockCopy())}</p>` : ""}
       ${signupPlanListHtml(copy.paidBenefits)}
-      ${soldOut
+      ${soldOut && !earlyUser
         ? ""
-        : `<p class="signup-plan-provider-note muted-copy">${escapeHtml(copy.proRationale)}</p>`}
-      <button class="primary-button" type="button" data-signup-choose-plan="monthly">${escapeHtml(copy.proCta)}</button>
+        : `<p class="signup-plan-provider-note muted-copy">${escapeHtml(earlyUser ? (foundingStatusCache.earlyUserAvailabilityCopy || "Early User Pricing — available for a limited time") : copy.proRationale)}</p>`}
+      <button class="primary-button" type="button" data-signup-choose-plan="${earlyUser ? "early_user" : "monthly"}">${escapeHtml(earlyUser ? `Choose Early User — ${offeredProMonthlyLabel()}` : copy.proCta)}</button>
+      ${earlyUser ? `<button class="ghost-button" type="button" data-signup-choose-plan="monthly" style="margin-top:8px;">Prefer Regular Pro — ${escapeHtml(regularProMonthlyLabel())}</button>` : ""}
     </article>
   `;
   trackEvent("pricing_cards_shown", {
@@ -4051,7 +4062,9 @@ function renderSignupPlanChooser() {
     foundingShown: !soldOut,
     foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
-    primaryCard: soldOut ? "pro-monthly" : "founding",
+    earlyUserPricingEnabled: earlyUser,
+    primaryCard: soldOut ? (earlyUser ? "early-user" : "pro-monthly") : "founding",
+    offer: earlyUser ? "early_user" : (soldOut ? "pro_monthly" : "founding"),
   });
   target.innerHTML = `
     <div id="signupPlanChooserMain" class="signup-plan-chooser-main" data-signup-variant="${escapeHtml(copy.variant)}">
@@ -4115,7 +4128,12 @@ async function finishSignupWithPlan(planChoice) {
     ? (grandfatherApi?.modeForNewSignup?.(freePlanAccessExtra()) || "curated")
     : "";
   updateAccount(email, {
-    selectedPlanAtSignup: planChoice === "founding" ? "Founding" : planChoice === "monthly" ? "Pro" : "Free",
+    selectedPlanAtSignup: planChoice === "founding"
+      ? "Founding"
+      : (planChoice === "monthly" || planChoice === "early_user")
+        ? "Pro"
+        : "Free",
+    preferredCheckoutPlan: planChoice === "early_user" ? "early_user" : (planChoice === "monthly" ? "monthly" : (planChoice === "founding" ? "founding" : "")),
     onboardingPersona: signupPersonaChoice || "",
     ...(freeLessonAccessMode ? { freeLessonAccessMode, signupAt: new Date().toISOString() } : {}),
   });
@@ -4145,6 +4163,10 @@ async function finishSignupWithPlan(planChoice) {
   }
   if (planChoice === "founding") {
     await startCheckoutWithFoundingGuard("founding", "signup");
+    return;
+  }
+  if (planChoice === "early_user") {
+    await startCheckout("early_user", "signup");
     return;
   }
   await startCheckoutWithFoundingGuard("monthly", "signup");
@@ -4573,12 +4595,15 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   const isDraft = um._draft === true;
   const offerFounding = canSeePaidUpgradeOffer() && foundingOpenForAcquisition();
   const offerPro = canSeePaidUpgradeOffer() && !foundingOpenForAcquisition();
+  const offerEarlyUser = offerPro && earlyUserPricingEnabled();
   const unlockLines = lockedContentUnlockLines();
   const upgradePopupBody = offerFounding
     ? `Lock in $9.99/month while your membership remains continuously active. ${freeUpgradeSupportingText()}`
-    : (offerPro
-      ? "You're on Free with 10 starter plans. Pro unlocks the full library, unlimited printing, and every planning tool — $19.99/month."
-      : ((!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage));
+    : (offerEarlyUser
+      ? `You're on Free with 10 starter plans. ${earlyUserOfferHeadline()}: ${offeredProMonthlyLabel()} (regularly ${regularProMonthlyLabel()}). ${earlyUserLockCopy()}`
+      : (offerPro
+        ? `You're on Free with 10 starter plans. Pro unlocks the full library, unlimited printing, and every planning tool — ${regularProMonthlyLabel()}.`
+        : ((!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : membershipTrialCoreCopy())));
   const proTrialBtnText = offerFounding || offerPro
     ? freeUpgradePrimaryButtonLabel({ short: true })
     : ((!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Trial");
@@ -4590,38 +4615,49 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   if (type === "limit") {
     const limitHeadline = offerFounding
       ? "⭐ Upgrade to Pro"
-      : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "This is included in Pro");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : "Included in Pro";
+      : (offerEarlyUser
+        ? earlyUserOfferHeadline()
+        : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "This is included in Pro"));
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : (offerEarlyUser ? "Early User Special" : "Included in Pro");
     if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
       <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
-      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
+      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be ${escapeHtml(regularProMonthlyLabel())}</p>` : ""}
+      ${offerEarlyUser ? `<p class="founding-upgrade-compare"><s>${escapeHtml(regularProMonthlyLabel())}</s> · <strong>Early User Price ${escapeHtml(offeredProMonthlyLabel())}</strong></p><p class="muted-copy">${escapeHtml(earlyUserSupportingCopy())}</p>` : ""}
     `;
   } else {
     const popupHeadline = offerFounding
       ? "⭐ Upgrade to Pro"
-      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is included in Pro");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Included in Pro";
+      : (offerEarlyUser
+        ? earlyUserOfferHeadline()
+        : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is included in Pro"));
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : (offerEarlyUser ? "Early User Special" : "Included in Pro");
     if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
       <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
-      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
+      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be ${escapeHtml(regularProMonthlyLabel())}</p>` : ""}
+      ${offerEarlyUser ? `<p class="founding-upgrade-compare"><s>${escapeHtml(regularProMonthlyLabel())}</s> · <strong>Early User Price ${escapeHtml(offeredProMonthlyLabel())}</strong></p><p class="muted-copy">${escapeHtml(earlyUserSupportingCopy())}</p>` : ""}
     `;
   }
   if (upgradeBtn) {
     if (offerFounding) {
-      upgradeBtn.textContent = "Upgrade to Pro — $19.99/month";
+      upgradeBtn.textContent = `Upgrade to Pro — ${regularProMonthlyLabel()}`;
       upgradeBtn.dataset.checkoutPlan = "founding";
       upgradeBtn.dataset.upgradeMode = "founding";
       upgradeBtn.removeAttribute("data-start-pro-trial");
+    } else if (offerEarlyUser) {
+      upgradeBtn.textContent = `Upgrade to Early User — ${offeredProMonthlyLabel()}`;
+      upgradeBtn.dataset.checkoutPlan = "early_user";
+      upgradeBtn.dataset.upgradeMode = "early_user";
+      upgradeBtn.removeAttribute("data-start-pro-trial");
     } else if (offerPro) {
-      upgradeBtn.textContent = "Upgrade to Pro Monthly — $19.99/month";
+      upgradeBtn.textContent = `Upgrade to Pro Monthly — ${regularProMonthlyLabel()}`;
       upgradeBtn.dataset.checkoutPlan = "monthly";
       upgradeBtn.dataset.upgradeMode = "monthly";
       upgradeBtn.removeAttribute("data-start-pro-trial");
@@ -4632,7 +4668,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       upgradeBtn.removeAttribute("data-start-pro-trial");
     } else {
       upgradeBtn.textContent = proTrialBtnText.includes("Trial")
-        ? "Start 7-Day Pro Trial — then $19.99/month"
+        ? `Start 7-Day Pro Trial — then ${offeredProMonthlyLabel()}`
         : proTrialBtnText;
       upgradeBtn.dataset.checkoutPlan = "";
       upgradeBtn.dataset.upgradeMode = "trial";
@@ -4766,16 +4802,24 @@ function billingPlanLabel(plan = currentPlan, account = plan === currentPlan ? c
   if (account && accountIsInTrial(account)) return "Trial";
   const normalizedPlan = normalizeBillingPlan(plan, account);
   if (normalizedPlan === "Founding") return "Founding Member";
-  if (normalizedPlan === "Pro") return "Pro";
+  if (normalizedPlan === "Pro") {
+    if (accountIsEarlyUser(account)) return "Pro — Early User";
+    if (account?.subscriptionCadence === "annual") return "Pro Annual";
+    return "Pro";
+  }
   return "Free";
 }
 
 function billingPriceLabel(account = currentAccount()) {
   const plan = normalizeBillingPlan(account?.plan || currentPlan, account);
   if (account && !accountHasPaidBilling(account)) return "$0/month";
+  // Prefer Stripe-synced stored price so Early User / Founding / Annual stay accurate.
+  const stored = String(account?.monthlyPrice || "").trim();
+  if (stored && stored !== "$0/month") return stored;
   if (plan === "Founding" || (account?.foundingMemberActive && accountHasPaidBilling(account))) return "$9.99/month";
   if (account?.subscriptionCadence === "annual") return "$199/year";
-  if (plan === "Pro") return "$19.99/month";
+  if (accountIsEarlyUser(account)) return "$13.99/month";
+  if (plan === "Pro") return regularProMonthlyLabel();
   return "$0/month";
 }
 
@@ -5107,22 +5151,31 @@ function syncPublicFoundingOfferUi() {
   // Acquisition surfaces treat Founding as closed even if inventory remains.
   const soldOut = !foundingOpenForAcquisition();
   const remaining = foundingSpotsRemaining();
-  const spotsMsg = soldOut
-    ? "Pro is $19.99/month."
-    : foundingSpotsLeftMessage(remaining);
-  const spotsWithRegular = soldOut
-    ? "Pro is $19.99/month (or $199/year) for the full all-in-one childcare platform."
-    : `${spotsMsg} Regular price will be $19.99/month.`;
+  const earlyUser = earlyUserPricingEnabled();
+  const spotsMsg = earlyUser
+    ? `Early User Special: ${offeredProMonthlyLabel()} (regularly ${regularProMonthlyLabel()}).`
+    : (soldOut
+      ? `Pro is ${regularProMonthlyLabel()}.`
+      : foundingSpotsLeftMessage(remaining));
+  const spotsWithRegular = earlyUser
+    ? `${earlyUserOfferHeadline()}: ${offeredProMonthlyLabel()}. Regular Pro is ${regularProMonthlyLabel()} or $199/year.`
+    : (soldOut
+      ? `Pro is ${regularProMonthlyLabel()} (or $199/year) for the full all-in-one childcare provider platform.`
+      : `${spotsMsg} Regular price will be ${regularProMonthlyLabel()}.`);
 
   // Keep every Founding count surface on the same server-provided message.
   document.querySelectorAll("[data-founding-spots-copy]").forEach((node) => {
     if (!node || node.closest(".llh-founding-card .lp-price-note")) return;
     if (node.matches("#homePricing .lp-section-sub")) {
-      node.textContent = "Start free, or upgrade to Pro at $19.99/month.";
+      node.textContent = earlyUser
+        ? `Start free, or lock in Early User Pricing at ${offeredProMonthlyLabel()}.`
+        : `Start free, or upgrade to Pro at ${regularProMonthlyLabel()}.`;
       return;
     }
     if (node.matches(".lp-pro-highlight-badge")) {
-      node.textContent = soldOut ? "Full Access" : (remaining <= 2 ? spotsMsg : "Most Popular · Best Value");
+      node.textContent = earlyUser
+        ? earlyUserOfferHeadline()
+        : (soldOut ? "Full Access" : (remaining <= 2 ? spotsMsg : "Most Popular · Best Value"));
       return;
     }
     // Free reminder/sidebar: keep Pro-first copy from refreshFreePlanUpgradeChrome (no Founding pressure).
@@ -5136,7 +5189,7 @@ function syncPublicFoundingOfferUi() {
     if (node.closest("#llhFoundingAnnounceBanner")) {
       node.textContent = soldOut
         ? spotsMsg
-        : `${spotsMsg} Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is $19.99/month.`;
+        : `${spotsMsg} Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is ${regularProMonthlyLabel()}.`;
       return;
     }
     node.textContent = spotsMsg;
@@ -5161,17 +5214,20 @@ function syncPublicFoundingOfferUi() {
     const cta = foundingCard.querySelector("[data-checkout-plan]");
     const note = foundingCard.querySelector(".lp-price-note");
     if (soldOut) {
-      if (title) title.textContent = "Pro Monthly";
-      if (amountStrong) amountStrong.textContent = "$19.99";
+      if (title) title.textContent = earlyUser ? earlyUserOfferHeadline() : "Pro Monthly";
+      if (amountStrong) amountStrong.textContent = earlyUser ? offeredProMonthlyAmount() : "$19.99";
       if (amountSpan) amountSpan.textContent = "/month";
       if (cta) {
-        cta.dataset.checkoutPlan = "monthly";
-        cta.textContent = "Choose Pro Monthly";
+        cta.dataset.checkoutPlan = primaryPaidOffer();
+        cta.textContent = earlyUser ? `Choose Early User — ${offeredProMonthlyLabel()}` : "Choose Pro Monthly";
       }
       if (note) {
-        note.innerHTML = "Pro Monthly is $19.99/month. Pro Annual is $199/year. Cancel anytime.";
+        note.innerHTML = earlyUser
+          ? `<s>${escapeHtml(regularProMonthlyLabel())}</s> · <strong>Early User Price ${escapeHtml(offeredProMonthlyLabel())}</strong>. ${escapeHtml(earlyUserLockCopy())} Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly — ${escapeHtml(regularProMonthlyLabel())}</button>`
+          : `Pro Monthly is ${escapeHtml(regularProMonthlyLabel())}. Pro Annual is $199/year. Cancel anytime.`;
       }
       foundingCard.classList.add("llh-founding-card--sold-out");
+      foundingCard.classList.toggle("llh-early-user-card", earlyUser);
     } else {
       if (title) title.textContent = "Founding Member";
       if (amountStrong) amountStrong.textContent = "$9.99";
@@ -5181,24 +5237,67 @@ function syncPublicFoundingOfferUi() {
         cta.textContent = "Lock In $9.99 Pricing";
       }
       if (note) {
-        note.innerHTML = `${escapeHtml(spotsMsg)} $9.99/month locked while your Founding Membership remains continuously active. Future regular pricing: $19.99/month. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button>`;
+        note.innerHTML = `${escapeHtml(spotsMsg)} $9.99/month locked while your Founding Membership remains continuously active. Future regular pricing: ${escapeHtml(regularProMonthlyLabel())}. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button>`;
       }
       foundingCard.classList.remove("llh-founding-card--sold-out");
+      foundingCard.classList.remove("llh-early-user-card");
     }
   }
+
+  // Homepage / marketing Pro price card (non-founding card).
+  const proCard = document.querySelector(".lp-pro-card");
+  if (proCard) {
+    const title = proCard.querySelector(".lp-price-header h3");
+    const amountStrong = proCard.querySelector(".lp-price-amount strong");
+    const amountSpan = proCard.querySelector(".lp-price-amount span");
+    const note = proCard.querySelector(".lp-price-note");
+    const cta = proCard.querySelector("[data-checkout-plan], #signupButton, .primary-button");
+    if (earlyUser) {
+      if (title) title.textContent = earlyUserOfferHeadline();
+      if (amountStrong) amountStrong.textContent = offeredProMonthlyAmount();
+      if (amountSpan) amountSpan.textContent = "/month";
+      if (note) {
+        note.innerHTML = `<span class="lp-price-compare"><s>Regularly ${escapeHtml(regularProMonthlyLabel())}</s></span> · Early User Price <strong>${escapeHtml(offeredProMonthlyLabel())}</strong>. ${escapeHtml(earlyUserLockCopy())}`;
+      }
+    } else {
+      if (title && /early user/i.test(title.textContent || "")) title.textContent = "Pro Monthly";
+      if (amountStrong) amountStrong.textContent = "$19.99";
+      if (amountSpan) amountSpan.textContent = "/month";
+      if (note && note.matches("[data-founding-price-note]")) {
+        note.textContent = `Pro Monthly is ${regularProMonthlyLabel()}. Pro Annual is $199/year. Cancel anytime.`;
+      }
+    }
+    if (cta && cta.matches("[data-checkout-plan]")) {
+      cta.dataset.checkoutPlan = primaryPaidOffer();
+    }
+  }
+
+  const signupButton = document.querySelector("#signupButton");
+  if (signupButton && /\$\d+\.\d{2}\/month/i.test(signupButton.textContent || "")) {
+    signupButton.textContent = earlyUser
+      ? `Get Started — ${offeredProMonthlyLabel()}`
+      : `Get Started — ${regularProMonthlyLabel()}`;
+  }
+
+  document.querySelectorAll("#proModalUpgrade").forEach((btn) => {
+    if (!btn) return;
+    btn.textContent = earlyUser
+      ? `Upgrade to Early User — ${offeredProMonthlyLabel()}`
+      : `Upgrade to Pro Monthly — ${regularProMonthlyLabel()}`;
+  });
 
   // Remap every public founding checkout control when sold out — server still rejects
   // $9.99, but the UI must not advertise a closed offer.
   document.querySelectorAll("[data-checkout-plan='founding']").forEach((button) => {
     if (!button || button.closest("#signupPlanChooser")) return;
     if (soldOut) {
-      button.dataset.checkoutPlan = "monthly";
+      button.dataset.checkoutPlan = primaryPaidOffer();
       if (/Get Started/i.test(button.textContent || "")) {
-        button.textContent = "Get Started — $19.99/month";
+        button.textContent = `Get Started — ${offeredProMonthlyLabel()}`;
       } else if (/Upgrade/i.test(button.textContent || "")) {
-        button.textContent = "Upgrade to Pro";
+        button.textContent = earlyUser ? `Upgrade to Early User — ${offeredProMonthlyLabel()}` : "Upgrade to Pro";
       } else {
-        button.textContent = "Choose Pro Monthly";
+        button.textContent = earlyUser ? `Choose Early User — ${offeredProMonthlyLabel()}` : "Choose Pro Monthly";
       }
     }
   });
@@ -5209,7 +5308,9 @@ function syncPublicFoundingOfferUi() {
   const finalCtaBody = document.querySelector("#homeFinalCta .lp-cta-body");
   if (finalCtaBody) {
     finalCtaBody.textContent = soldOut
-      ? "Browse lesson plans and activities, create a free account, or upgrade to Pro at $19.99/month."
+      ? (earlyUser
+        ? `Browse lesson plans and activities, create a free account, or lock in Early User Pricing at ${offeredProMonthlyLabel()}.`
+        : `Browse lesson plans and activities, create a free account, or upgrade to Pro at ${regularProMonthlyLabel()}.`)
       : "Browse lesson plans and activities, or create a free account to get started.";
   }
 
@@ -5602,13 +5703,78 @@ function planFromCheckoutType(type) {
 function checkoutAmount(type) {
   if (type === "founding") return "$9.99/month";
   if (type === "annual") return "$199/year";
-  return "$19.99/month";
+  if (type === "early_user") return offeredProMonthlyLabel();
+  return regularProMonthlyLabel();
 }
 
 function checkoutPlanName(type) {
   if (type === "founding") return "Founding Member";
   if (type === "annual") return "Pro Annual";
+  if (type === "early_user") return "Pro — Early User";
   return "Pro Monthly";
+}
+
+function earlyUserPricingEnabled() {
+  return Boolean(foundingStatusCache?.earlyUserPricingEnabled);
+}
+
+function regularProMonthlyLabel() {
+  return String(foundingStatusCache?.regularMonthlyPrice || "$19.99/month");
+}
+
+function offeredProMonthlyLabel() {
+  if (earlyUserPricingEnabled()) {
+    return String(foundingStatusCache?.earlyUserPrice || "$13.99/month");
+  }
+  return regularProMonthlyLabel();
+}
+
+function offeredProMonthlyAmount() {
+  return String(offeredProMonthlyLabel()).replace(/\/month$/i, "");
+}
+
+function accountIsEarlyUser(account = currentAccount()) {
+  if (!account) return false;
+  if (String(account.billingOffer || "").trim().toLowerCase() === "early_user") return true;
+  if (String(account.priceLock || "").trim() === "Early User") return true;
+  return false;
+}
+
+function earlyUserOfferHeadline() {
+  return String(foundingStatusCache?.earlyUserOfferName || "Early User Special");
+}
+
+function earlyUserLockCopy() {
+  return String(foundingStatusCache?.earlyUserLockCopy || "Lock in $13.99/month while your subscription remains active.");
+}
+
+function earlyUserSupportingCopy() {
+  return String(foundingStatusCache?.earlyUserSupportingCopy
+    || "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.");
+}
+
+function trialAfterChargeCopy() {
+  return earlyUserPricingEnabled()
+    ? `after 7 days you are charged Early User Pricing (${offeredProMonthlyLabel()}) unless you cancel first`
+    : `after 7 days you are charged Pro Monthly (${regularProMonthlyLabel()}) unless you cancel first`;
+}
+
+function membershipTrialCoreCopy() {
+  return `Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — ${trialAfterChargeCopy()}.`;
+}
+
+function membershipProMonthlyCopy() {
+  if (earlyUserPricingEnabled()) {
+    return `Early User Special: ${offeredProMonthlyLabel()} (regularly ${regularProMonthlyLabel()}). ${earlyUserLockCopy()}`;
+  }
+  return `Pro includes unlimited curriculum access, printing and downloads for ${regularProMonthlyLabel()}.`;
+}
+
+function membershipProCardCopy() {
+  if (earlyUserPricingEnabled()) {
+    return `Pro includes the complete lesson-plan and activity libraries, new content added weekly, AI documentation helpers, child profiles, and unlimited curriculum printing and downloads. ${earlyUserOfferHeadline()}: ${offeredProMonthlyLabel()} (regularly ${regularProMonthlyLabel()}).`;
+  }
+  return `Pro includes the complete lesson-plan and activity libraries, new content added weekly, AI documentation helpers, child profiles, and unlimited curriculum printing and downloads for ${regularProMonthlyLabel()}.`;
 }
 
 function normalizedCheckoutPromoCode() {
@@ -60118,7 +60284,9 @@ function foundingOpenForAcquisition() {
 
 /** Primary paid plan offered to guests and Free users. */
 function primaryPaidOffer() {
-  return foundingOpenForAcquisition() ? "founding" : "monthly";
+  if (foundingOpenForAcquisition()) return "founding";
+  if (earlyUserPricingEnabled()) return "early_user";
+  return "monthly";
 }
 
 function isFoundingUpgradeBannerDismissed() {
@@ -60297,14 +60465,22 @@ function freeUpgradePrimaryButtonLabel(options = {}) {
   if (foundingOpenForAcquisition()) {
     return short
       ? "⭐ Upgrade to Pro"
-      : "⭐ Upgrade to Pro – $19.99/month";
+      : `⭐ Upgrade to Pro – ${regularProMonthlyLabel()}`;
   }
-  return short ? "Upgrade to Pro" : "Upgrade to Pro – $19.99/month";
+  if (earlyUserPricingEnabled()) {
+    return short
+      ? "Lock in Early User Price"
+      : `Early User Special — ${offeredProMonthlyLabel()}`;
+  }
+  return short ? "Upgrade to Pro" : `Upgrade to Pro – ${regularProMonthlyLabel()}`;
 }
 
 function freeUpgradeSupportingText() {
   if (foundingOpenForAcquisition()) {
     return `${MEMBERSHIP_COPY.foundingCard} ${foundingSpotsLeftMessage()}`;
+  }
+  if (earlyUserPricingEnabled()) {
+    return membershipProCardCopy();
   }
   return MEMBERSHIP_COPY.proCard;
 }
@@ -60336,8 +60512,16 @@ function planComparisonTableHtml() {
     ["Lesson customization", "Not included", "Customize & save your versions"],
     ["Calendar planning", "About 30 days", "Unlimited"],
     ["Documentation Helpers", "Limited free docs", "Full helpers + higher monthly limits"],
-    ["Price", "$0", foundingOpen ? "$9.99/month locked while your membership remains continuously active" : "$19.99/month"],
-    ["Price lock", "—", foundingOpen ? "Never increases while continuously active" : "Standard Pro pricing"],
+    ["Price", "$0", foundingOpen
+      ? "$9.99/month locked while your membership remains continuously active"
+      : (earlyUserPricingEnabled()
+        ? `${offeredProMonthlyLabel()} Early User (regularly ${regularProMonthlyLabel()})`
+        : regularProMonthlyLabel())],
+    ["Price lock", "—", foundingOpen
+      ? "Never increases while continuously active"
+      : (earlyUserPricingEnabled()
+        ? "Locks in while your Early User subscription remains active"
+        : "Standard Pro pricing")],
   ];
   return `
     <section class="comparison-section plan-comparison-section" aria-label="Free vs ${escapeHtml(paidLabel)} comparison">
@@ -60625,16 +60809,21 @@ function foundingUpgradeBannerHtml(options = {}) {
   if (!force && (isFoundingUpgradeBannerDismissed() || isFreeUpgradeQuietPeriodActive())) return "";
   // Free chrome uses Pro messaging. Founding acquisition copy stays on Pricing/signup only.
   const checkoutPlan = preferredPaidCheckoutPlan() === "founding" ? "monthly" : preferredPaidCheckoutPlan();
-  const ctaLabel = "Upgrade to Pro";
-  const title = "Upgrade to Pro – $19.99/month";
+  const earlyUser = earlyUserPricingEnabled();
+  const ctaLabel = earlyUser ? "Lock in Early User Price" : "Upgrade to Pro";
+  const title = earlyUser
+    ? `${earlyUserOfferHeadline()} — ${offeredProMonthlyLabel()}`
+    : `Upgrade to Pro – ${regularProMonthlyLabel()}`;
   const body = lockedContentUnlockLines().slice(0, 4).join(" ");
+  const priceStrong = earlyUser ? offeredProMonthlyAmount() : "$19.99";
   return `
-    <section class="founding-upgrade-banner founding-upgrade-banner--${escapeHtml(variant)} is-sold-out" role="region" aria-label="Pro upgrade offer" data-free-upgrade-banner="pro">
+    <section class="founding-upgrade-banner founding-upgrade-banner--${escapeHtml(variant)} is-sold-out${earlyUser ? " is-early-user" : ""}" role="region" aria-label="Pro upgrade offer" data-free-upgrade-banner="pro">
       <div class="founding-upgrade-banner-copy">
-        <p class="founding-upgrade-badge">Pro</p>
+        <p class="founding-upgrade-badge">${earlyUser ? "Early User Special" : "Pro"}</p>
         <h3>${escapeHtml(title)}</h3>
         <p class="founding-upgrade-body">${escapeHtml(body)}</p>
-        <p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>
+        <p class="founding-upgrade-price">${earlyUser ? `<s>${escapeHtml(regularProMonthlyLabel())}</s> ` : ""}<strong>${escapeHtml(priceStrong)}</strong><span>/month</span></p>
+        ${earlyUser ? `<p class="muted-copy">${escapeHtml(earlyUserLockCopy())}</p>` : ""}
       </div>
       <div class="founding-upgrade-banner-actions">
         <button class="primary-button founding-upgrade-cta" type="button" data-checkout-plan="${checkoutPlan}">${escapeHtml(ctaLabel)}</button>
@@ -60766,21 +60955,28 @@ function pricingCard(planKey, options = {}) {
   const buttonClass = options.primary ? "primary-button" : "ghost-button";
   const buttonText = options.buttonText || "Choose Plan";
   const checkoutType = String(options.checkoutType || "");
-  const footnote = options.footnote
-    || (options.free
-      ? ""
-      : (checkoutType === "founding"
-        ? "Secure Stripe checkout · $9.99/month locked while your membership remains continuously active"
-        : (checkoutType === "annual"
-          ? "Secure Stripe checkout · billed annually"
-          : "Secure Stripe checkout · $19.99/month · Cancel anytime")));
+  const displayName = options.nameOverride || plan.name;
+  const displayPrice = options.priceOverride || plan.price;
+  const displayInterval = options.intervalOverride || plan.interval;
+  let footnote = options.footnote || "";
+  if (!footnote && !options.free) {
+    if (checkoutType === "founding") {
+      footnote = "Secure Stripe checkout · $9.99/month locked while your membership remains continuously active";
+    } else if (checkoutType === "annual") {
+      footnote = "Secure Stripe checkout · billed annually";
+    } else if (checkoutType === "early_user") {
+      footnote = "Secure Stripe checkout · Early User " + offeredProMonthlyLabel() + " · locks in while active";
+    } else {
+      footnote = "Secure Stripe checkout · " + regularProMonthlyLabel() + " · Cancel anytime";
+    }
+  }
   return `
     <article class="price-card ${options.featured ? "featured" : ""}${options.secondary ? " price-card--secondary" : ""}" data-pricing-card="${escapeHtml(options.pricingCardId || planKey.toLowerCase())}">
       ${options.eyebrow ? `<p class="eyebrow">${escapeHtml(options.eyebrow)}</p>` : ""}
-      <h3>${escapeHtml(plan.name)}</h3>
-      <p class="price">${plan.price}<span>${plan.interval}</span></p>
+      <h3>${escapeHtml(displayName)}</h3>
+      <p class="price">${escapeHtml(displayPrice)}<span>${escapeHtml(displayInterval)}</span></p>
       ${options.includesNote ? `<p class="price-card-includes-note">${escapeHtml(options.includesNote)}</p>` : ""}
-      ${featureListHtml(billingPlanFeatures(planKey))}
+      ${featureListHtml(options.featuresOverride || billingPlanFeatures(planKey))}
       ${options.rationale ? `<p class="price-card-rationale muted-copy">${escapeHtml(options.rationale)}</p>` : ""}
       <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${escapeHtml(checkoutType)}"`} type="button">${escapeHtml(buttonText)}</button>
       ${footnote ? `<p class="muted-copy">${escapeHtml(footnote)}</p>` : ""}
@@ -60840,6 +61036,7 @@ function renderPricingPage() {
   if (!target) return;
   const remaining = foundingSpotsRemaining();
   const soldOut = !foundingOpenForAcquisition();
+  const earlyUser = earlyUserPricingEnabled();
   if (!soldOut) {
     billingPlans.Founding.features = foundingPlanFeatureList();
   }
@@ -60848,21 +61045,21 @@ function renderPricingPage() {
     const eyebrow = plansTitle.querySelector(".eyebrow");
     const heading = plansTitle.querySelector("h2");
     const support = plansTitle.querySelector("p:not(.eyebrow)");
-    if (eyebrow) eyebrow.textContent = soldOut ? "Membership" : "⭐ Founding Member";
+    if (eyebrow) eyebrow.textContent = soldOut ? (earlyUser ? "Early User Special" : "Membership") : "⭐ Founding Member";
     if (heading) {
       heading.textContent = soldOut
-        ? "Choose your Little Learner Hub plan"
+        ? (earlyUser ? "Lock in Early User Pricing" : "Choose your Little Learner Hub plan")
         : "Upgrade to Pro";
     }
     if (support) {
       support.textContent = soldOut
-        ? `${MEMBERSHIP_COPY.proCard}`
+        ? membershipProCardCopy()
         : `${MEMBERSHIP_COPY.foundingCard} ${foundingSpotsLeftMessage(remaining)} ${MEMBERSHIP_COPY.freeCore}`;
     }
   }
   target.innerHTML = `
     ${contentGrowthStatsHtml()}
-    <p class="muted-copy" style="margin:0 0 12px;">${escapeHtml(MEMBERSHIP_COPY.trialCore)}</p>
+    <p class="muted-copy" style="margin:0 0 12px;">${escapeHtml(membershipTrialCoreCopy())}</p>
     ${foundingStatusCard()}
     ${promoCodePanel({ context: "plans" })}
     <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
@@ -60871,17 +61068,63 @@ function renderPricingPage() {
           featured: true, primary: true, eyebrow: "⭐ Founding Member — Recommended", checkoutType: "founding",
           buttonText: freeUpgradePrimaryButtonLabel(), includesNote: "$9.99/month locked while your membership remains continuously active · Includes all current and future Pro features", pricingCardId: "founding",
         })
-        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro Monthly", checkoutType: "monthly", buttonText: freeUpgradePrimaryButtonLabel(), pricingCardId: "pro-monthly" })}
-      ${pricingCard("Free", { free: true, buttonText: "Continue with Free", secondary: !soldOut })}
-      ${!soldOut
+        : pricingCard("ProMonthly", {
+          featured: true,
+          primary: true,
+          eyebrow: earlyUser ? earlyUserOfferHeadline() : "Pro Monthly",
+          checkoutType: earlyUser ? "early_user" : "monthly",
+          buttonText: freeUpgradePrimaryButtonLabel(),
+          pricingCardId: earlyUser ? "early-user" : "pro-monthly",
+          nameOverride: earlyUser ? earlyUserOfferHeadline() : undefined,
+          priceOverride: earlyUser ? offeredProMonthlyAmount() : undefined,
+          includesNote: earlyUser ? `${earlyUserLockCopy()} Regularly ${regularProMonthlyLabel()}.` : "",
+          featuresOverride: earlyUser
+            ? [
+              membershipProCardCopy(),
+              earlyUserLockCopy(),
+              `Regular Pro price: ${regularProMonthlyLabel()}`,
+              ...billingPlanFeatures("ProMonthly").slice(1),
+            ]
+            : undefined,
+        })}
+      ${pricingCard("Free", { free: true, buttonText: "Start Free", pricingCardId: "free" })}
+      ${pricingCard("ProAnnual", {
+        secondary: true,
+        eyebrow: "Pro Annual",
+        checkoutType: "annual",
+        buttonText: "Choose Pro Annual",
+        pricingCardId: "pro-annual",
+      })}
+      ${earlyUser && soldOut
         ? pricingCard("ProMonthly", {
-          secondary: true, eyebrow: "Pro Monthly", checkoutType: "monthly", buttonText: "Upgrade to Pro – $19.99/month",
-          rationale: "For providers who prefer regular Pro pricing instead of claiming a Founding spot.", pricingCardId: "pro-monthly",
+          secondary: true,
+          eyebrow: "Regular Pro Monthly",
+          checkoutType: "monthly",
+          buttonText: `Regular Pro — ${regularProMonthlyLabel()}`,
+          pricingCardId: "pro-monthly-regular",
+          nameOverride: "Pro Monthly",
+          priceOverride: "$19.99",
+          footnote: `Standard Pro pricing · ${regularProMonthlyLabel()} · Cancel anytime`,
         })
-        : ""}
-      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual", pricingCardId: "pro-annual" }) : ""}
+        : (!soldOut
+          ? pricingCard("ProMonthly", {
+            secondary: true, eyebrow: "Pro Monthly", checkoutType: "monthly", buttonText: `Upgrade to Pro – ${regularProMonthlyLabel()}`,
+            rationale: PRO_MONTHLY_RATIONALE, pricingCardId: "pro-monthly",
+          })
+          : "")}
     </div>
     ${planComparisonTableHtml()}
+  `;
+  trackEvent("pricing_cards_shown", {
+    context: "plans",
+    foundingShown: !soldOut,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
+    soldOut,
+    earlyUserPricingEnabled: earlyUser,
+    primaryCard: soldOut ? (earlyUser ? "early-user" : "pro-monthly") : "founding",
+    offer: earlyUser ? "early_user" : (soldOut ? "pro_monthly" : "founding"),
+  });
+  target.insertAdjacentHTML("beforeend", `
     <section class="section-block billing-links">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <button class="ghost-button" data-view="upgrade" type="button">Upgrade Page</button>
@@ -60889,14 +61132,7 @@ function renderPricingPage() {
       <button class="ghost-button" data-view="subscription" type="button">Subscription Status</button>
       <button class="ghost-button" data-view="billing-history" type="button">Billing History</button>
     </section>
-  `;
-  trackEvent("pricing_cards_shown", {
-    context: "pricing_page",
-    foundingShown: !soldOut,
-    foundingRemaining: foundingStatusLoaded() ? remaining : null,
-    soldOut,
-    primaryCard: soldOut ? "pro-monthly" : "founding",
-  });
+  `);
 }
 
 function renderUpgradePage() {
@@ -61827,12 +62063,16 @@ async function startCheckout(type, trackingContext = "checkout") {
   syncCheckoutPromoCodeFromInput(document);
   trackEvent("pricing_card_selected", {
     context: trackingContext,
-    card: type === "founding" ? "founding" : type === "annual" ? "pro-annual" : "pro-monthly",
+    card: type === "founding" ? "founding" : type === "annual" ? "pro-annual" : type === "early_user" ? "early-user" : "pro-monthly",
+    offer: type === "early_user" ? "early_user" : type === "founding" ? "founding" : type === "annual" ? "pro_annual" : "pro_monthly",
+    billing_price: type === "early_user" ? 13.99 : type === "founding" ? 9.99 : type === "annual" ? 199 : 19.99,
     foundingWasAvailable: foundingSpotsRemaining() > 0,
   });
   if (type === "founding") await syncFoundingStatus({ render: true });
   if (type === "founding" && foundingSpotsRemaining() <= 0) {
-    setFormMessage("#upgradeApp", "Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
+    setFormMessage("#upgradeApp", earlyUserPricingEnabled()
+      ? `Choose Early User Special (${offeredProMonthlyLabel()}), Pro Monthly (${regularProMonthlyLabel()}), or Pro Annual ($199/year) below.`
+      : `Choose Pro Monthly (${regularProMonthlyLabel()}) or Pro Annual ($199/year) below.`, false);
     setView("upgrade");
     return;
   }
@@ -61843,21 +62083,23 @@ async function startCheckout(type, trackingContext = "checkout") {
     ? "Pro membership"
     : checkoutType === "annual"
       ? "Pro Annual at $199/year"
-      : "Pro Monthly at $19.99/month";
+      : checkoutType === "early_user"
+        ? `Early User Special at ${offeredProMonthlyLabel()}`
+        : `Pro Monthly at ${regularProMonthlyLabel()}`;
   const promoConfirm = promoCode
     ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " You will continue at Pro pricing after the free month." : " You will continue at Pro pricing after the free month."}`
     : "";
   const membershipConfirm = checkoutType === "founding"
     ? `\n\n${MEMBERSHIP_COPY.foundingCard}`
-    : `\n\n${MEMBERSHIP_COPY.proCard}\n\nIf you start with a trial instead: ${MEMBERSHIP_COPY.trialCore}`;
+    : `\n\n${membershipProCardCopy()}\n\nIf you start with a trial instead: ${membershipTrialCoreCopy()}`;
   if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?${membershipConfirm}${promoConfirm}`)) {
-    if (checkoutType === "monthly" || checkoutType === "annual") {
+    if (checkoutType === "monthly" || checkoutType === "annual" || checkoutType === "early_user") {
       trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, context: trackingContext });
     }
     return;
   }
-  if (checkoutType === "monthly" || checkoutType === "annual") {
-    trackProUpgradeIntent("checkout_confirmed", { plan: checkoutType, context: trackingContext });
+  if (checkoutType === "monthly" || checkoutType === "annual" || checkoutType === "early_user") {
+    trackProUpgradeIntent("checkout_confirmed", { plan: checkoutType, offer: checkoutType === "early_user" ? "early_user" : "", context: trackingContext });
   }
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
@@ -61895,7 +62137,7 @@ async function startCheckout(type, trackingContext = "checkout") {
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
   // Internal analytics only — Meta InitiateCheckout fires after Stripe session create succeeds.
   trackEvent("checkout_start", { type: checkoutType, amount, promoCode: promoCode ? "entered" : "" });
-  addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : "Monthly"} Stripe checkout started${promoCode ? " with promo applied" : ""}`, amount);
+  addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : checkoutType === "early_user" ? "Early User" : "Monthly"} Stripe checkout started${promoCode ? " with promo applied" : ""}`, amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
     try {
@@ -61910,7 +62152,13 @@ async function startCheckout(type, trackingContext = "checkout") {
           promoCode,
           successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
-          priceKey: checkoutType === "founding" ? billingPlans.Founding.stripePriceKey : checkoutType === "annual" ? billingPlans.ProAnnual.stripePriceKey : billingPlans.ProMonthly.stripePriceKey,
+          priceKey: checkoutType === "founding"
+            ? billingPlans.Founding.stripePriceKey
+            : checkoutType === "annual"
+              ? billingPlans.ProAnnual.stripePriceKey
+              : checkoutType === "early_user"
+                ? "STRIPE_PRICE_EARLY_USER_MONTHLY"
+                : billingPlans.ProMonthly.stripePriceKey,
           metaEventId: initiateEventId,
           eventId: initiateEventId,
           fbp: metaIds.fbp,
@@ -61976,15 +62224,15 @@ async function startProTrial(options = {}) {
   }
   closeProFeatureModal();
   await syncFoundingStatus({ render: false });
-  const checkoutType = "monthly";
+  const checkoutType = earlyUserPricingEnabled() ? "early_user" : "monthly";
   const amount = checkoutAmount(checkoutType);
   if (!options.skipConfirm) {
-    if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) {
+    if (!window.confirm(`${membershipTrialCoreCopy()}\n\n${membershipProMonthlyCopy()}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges ${checkoutType === "early_user" ? "Early User Pricing" : "Pro Monthly"} automatically when the trial ends unless you cancel first.`)) {
       trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, trial7day: true });
       return;
     }
   }
-  trackProUpgradeIntent("pro_trial_confirmed", { plan: "monthly", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
+  trackProUpgradeIntent("pro_trial_confirmed", { plan: checkoutType, offer: checkoutType === "early_user" ? "early_user" : "", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
   const pending = {
     type: checkoutType,
     amount,

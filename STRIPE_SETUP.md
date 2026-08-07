@@ -8,6 +8,7 @@ Create these recurring prices in Stripe:
 
 - Founding Member: `$9.99/month`
 - Pro Monthly: `$19.99/month`
+- Pro Early User: `$13.99/month` (same Pro product / entitlement; separate Price ID)
 - Pro Annual: `$199/year`
 
 Copy the Stripe price IDs into your environment:
@@ -15,8 +16,17 @@ Copy the Stripe price IDs into your environment:
 ```bash
 STRIPE_PRICE_FOUNDING_MONTHLY=price_...
 STRIPE_PRICE_PRO_MONTHLY=price_...
+STRIPE_PRICE_EARLY_USER_MONTHLY=price_...
 STRIPE_PRICE_PRO_ANNUAL=price_...
+EARLY_USER_PRICING_ENABLED=false
 ```
+
+`EARLY_USER_PRICING_ENABLED` defaults to **false**. Keep it off until checkout verification passes.
+When enabled, new customers can select Early User ($13.99). Existing Early User
+subscriptions continue renewing at $13.99 even if the flag is later turned off —
+renewals depend on the Stripe Price ID, not the feature flag.
+
+Do **not** modify, archive, or replace the existing `$19.99` Pro Monthly Price.
 
 Suggested Stripe Dashboard setup:
 
