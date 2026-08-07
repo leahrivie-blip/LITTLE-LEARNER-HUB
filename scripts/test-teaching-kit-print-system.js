@@ -77,14 +77,15 @@ function testFarmAnimalsCompleteBinder() {
   ok(binder.documentMode === "entire_binder", "document mode entire_binder");
   ok(binder.pageCount >= 10, `binder has substantial pages (${binder.pageCount})`);
   ok(binder.pageCount <= 40, `binder not bloated by empty bands (${binder.pageCount})`);
-  ok(/Tab 1 — Overview|Overview/i.test(binder.html), "overview tab");
   ok(/Week at a Glance/i.test(binder.html), "week at a glance");
+  ok(/tk-print-wag-table/i.test(binder.html), "week at a glance uses grid table");
+  ok(/tk-print-activity-card/i.test(binder.html), "designed activity cards present");
+  ok(/tk-print-check/i.test(binder.html), "materials checklists present");
   ok(/Monday/.test(binder.html) && /Friday/.test(binder.html), "weekdays included");
   ok(/Farm Animal Discovery Basket/i.test(binder.html), "activity included");
   ok(/Teacher Toolkit/i.test(binder.html), "toolkit included");
   ok(/Monday Morning Setup/i.test(binder.html), "setup is toolkit subsection");
   ok(/Teacher Notes|Planning/i.test(binder.html), "teacher notes worksheet");
-  ok(/Table of Contents/i.test(binder.html), "toc present");
   assertNoForbidden(binder.html, "farm binder");
 
   const weekly = Print.buildFullWeeklyLessonPlanHtml(kit, { plan: fixture.lessonPlan });
@@ -153,7 +154,7 @@ function testPrintModesLimitSections() {
   });
   ok(activities.documentMode === "activities", "activities mode");
   ok(/Farm Animal Discovery Basket/i.test(activities.html), "activity present");
-  ok(!/Tab 1 — Overview/i.test(activities.html), "overview omitted in activities-only");
+  ok(!/<table class="tk-print-wag-table"/i.test(activities.html), "week grid omitted in activities-only");
 
   const materials = Print.buildBinderPrintHtml(kit, {
     preset: "materials_list",
@@ -167,7 +168,7 @@ function testPrintModesLimitSections() {
     plan: fixture.lessonPlan,
   });
   ok(/Songs/i.test(songs.html), "songs mode");
-  ok(!/Teacher Notes/i.test(songs.html), "songs mode omits teacher notes");
+  ok(!/tk-print-notes-grid|tk-print-write-line/i.test(songs.html), "songs mode omits teacher notes worksheet");
 }
 
 function testPresentLabels() {

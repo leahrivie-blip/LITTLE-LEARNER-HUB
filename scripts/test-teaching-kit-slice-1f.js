@@ -271,7 +271,12 @@ function testPrintPaperAndBreaksAndImages() {
 
   assert(letter.html.includes("tk-print-keep"), "keep-together blocks present");
   assert(letter.html.includes("tk-print-page-number"), "page number slots present");
-  assert(letter.html.includes("tk-print-photo-row"), "photo row present when images on");
+  assert(
+    letter.html.includes("tk-print-photo-row")
+    || letter.html.includes("tk-print-card-photos")
+    || letter.html.includes("tk-print-card-photo"),
+    "photo row present when images on",
+  );
 
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   assert(styles.includes("break-inside: avoid"), "print CSS avoids mid-block cuts");

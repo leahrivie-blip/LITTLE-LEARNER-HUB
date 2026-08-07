@@ -309,10 +309,10 @@ async function main() {
     assert(built.ok && (built.html.includes("Bugs &amp; Butterflies Binder") || built.html.includes("Bugs & Butterflies Binder")),
       "API kit prints with title");
     assert(
-      built.html.includes("Table of Contents")
-      || built.html.includes("Week at a Glance")
+      built.html.includes("Week at a Glance")
       || built.html.includes("Teacher Toolkit")
-      || built.html.includes("tk-print-divider"),
+      || built.html.includes("tk-print-wag-table")
+      || built.html.includes("tk-print-activity-card"),
       "professional binder sections present",
     );
 
