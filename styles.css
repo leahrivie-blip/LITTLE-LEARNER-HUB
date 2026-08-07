@@ -20674,6 +20674,31 @@ body.lesson-editor-view .main {
   gap: 8px;
 }
 
+.dlc-room-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.dlc-room-mode-btn {
+  min-height: 40px;
+  min-width: 72px;
+  font-size: 0.9rem;
+}
+
+.staff-assign-classroom-label {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+.staff-assign-classroom-select {
+  min-height: 40px;
+  max-width: 280px;
+}
+
 .dlc-att-primary {
   min-height: 44px;
   min-width: 120px;

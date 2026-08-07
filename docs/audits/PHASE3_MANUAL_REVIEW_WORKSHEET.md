@@ -3,7 +3,8 @@
 **Site:** https://little-learner-hub-testing.onrender.com  
 **Automated run build:** `52494c0` (includes Phase 3 `a066fd3` + worksheet docs)  
 **Production during run:** `ccd01fe` on `main` — **unchanged**  
-**Holds:** no Phase 4 · no production merge/deploy · Family Hub customer flags left off  
+**Holds:** Phase 3 physical-phone Cases 1 & 5 remain **MANUAL REQUIRED** (not waived) · no production merge/deploy · Family Hub customer flags left off · Phase 4 floor-ops may proceed on **testing only** while those phone checks stay open  
+
 
 **Automation script:** `npm run test:live-phase3-manual-review` → `scripts/live-phase3-manual-review-automate.js`  
 **Evidence:** `/opt/cursor/artifacts/phase3-manual-review/report.json` + `screenshots/`  
@@ -23,7 +24,8 @@
 | 6 | Owner logout with offline queue | Yes | **PASS** | No |
 
 **Overall automated checkpoint:** Ready for your remaining physical-device checks only.  
-**Production approval:** **not granted** · **Next phase: held**
+**Production approval:** **not granted** · Phase 3 is **not** production-approved.  
+**Phase 4 on testing:** allowed in parallel; does **not** clear Cases 1 & 5 MANUAL REQUIRED.
 
 ---
 

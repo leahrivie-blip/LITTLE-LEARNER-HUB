@@ -5594,6 +5594,15 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     if (typeof data?.subscription?.hdhIndependentTester === "boolean") {
       updates.hdhIndependentTester = data.subscription.hdhIndependentTester;
     }
+    // Phase 4: pull classroom assignment so Teachers see Daily Logs after Owner assigns a room.
+    if (Array.isArray(data?.subscription?.classroomIds)) {
+      updates.classroomIds = data.subscription.classroomIds
+        .map((id) => String(id || "").trim())
+        .filter(Boolean);
+    }
+    if (data?.subscription?.classroomName != null) {
+      updates.classroomName = String(data.subscription.classroomName || "").trim();
+    }
     // Drop undefined keys so sync never wipes program fields accidentally.
     Object.keys(updates).forEach((key) => {
       if (typeof updates[key] === "undefined") delete updates[key];
@@ -20394,7 +20403,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     appendChildRecord("Meals", { childId, date: today, lunch: actionId === "ate-all" ? "Ate all" : "Ate most", title: `Meals | ${today}`, summary: actionId === "ate-all" ? "Lunch: Ate all" : "Lunch: Ate most", shareWithFamily: true });
     return;
   }
-  if (actionId === "meal" || actionId === "breakfast" || actionId === "snack") {
+  if (actionId === "meal" || actionId === "breakfast" || actionId === "snack" || actionId === "room-meal") {
     const mealField = actionId === "breakfast" ? "breakfast" : actionId === "snack" ? "snack" : "lunch";
     appendChildRecord("Meals", {
       childId,
@@ -20411,12 +20420,18 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     appendChildRecord("Meals", { childId, date: today, time, type: "Bottle", amount: "Logged", title: `Bottle | ${today} at ${time}`, summary: "Bottle logged", shareWithFamily: true });
     return;
   }
-  if (["wet-diaper", "bm", "potty", "diaper"].includes(actionId)) {
-    const typeMap = { "wet-diaper": "Wet", bm: "Dirty", potty: "Potty - Success", diaper: "Diaper Change" };
+  if (["wet-diaper", "bm", "potty", "diaper", "room-diaper"].includes(actionId)) {
+    const typeMap = {
+      "wet-diaper": "Wet",
+      bm: "Dirty",
+      potty: "Potty - Success",
+      diaper: "Diaper Change",
+      "room-diaper": "Diaper Change",
+    };
     appendChildRecord("Diapers", { childId, date: today, time, type: typeMap[actionId], title: `${typeMap[actionId]} | ${today} at ${time}`, summary: typeMap[actionId], shareWithFamily: true });
     return;
   }
-  if (actionId === "nap-started" || actionId === "nap-ended" || actionId === "nap") {
+  if (actionId === "nap-started" || actionId === "nap-ended" || actionId === "nap" || actionId === "room-nap") {
     appendChildRecord("Naps", {
       childId,
       date: today,
@@ -20424,6 +20439,19 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       title: `Nap | ${today}`,
       summary: actionId === "nap-ended" ? `Nap ended at ${time}` : `Nap started at ${time}`,
       shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "room-note") {
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Note",
+      notes: "Quick room note",
+      title: `Note | ${today} at ${time}`,
+      summary: "Quick room note",
+      shareWithFamily: false,
     });
     return;
   }
@@ -40908,9 +40936,9 @@ function renderStaffManagementPage(options = {}) {
           <article class="platform-manage-row">
             <div>
               <strong>${escapeHtml(currentUser || "You")}</strong>
-              <p class="muted-copy">${escapeHtml(roleLabel(activeRole))} · active on this device · shared program data</p>
+              <p class="muted-copy">${escapeHtml(roleDisplayLabel(activeRole))} · active on this device · shared program data</p>
             </div>
-            <span class="tag">${escapeHtml(roleLabel(activeRole))}</span>
+            <span class="tag">${escapeHtml(roleDisplayLabel(activeRole))}</span>
           </article>
           ` : `
           <article class="platform-manage-row">
@@ -40921,15 +40949,29 @@ function renderStaffManagementPage(options = {}) {
             <span class="tag">Owner</span>
           </article>
           `}
-          ${members.map((member) => `
-            <article class="platform-manage-row">
+          ${members.map((member) => {
+            const memberRoomId = String(member.classroomId || "").trim();
+            const memberRoleLabel = roleDisplayLabel(member.role || "teacher");
+            const roomOptions = [
+              `<option value="">No classroom assigned yet</option>`,
+              ...classrooms.map((room) => `
+                <option value="${escapeHtml(room.id)}" ${room.id === memberRoomId ? "selected" : ""}>${escapeHtml(room.name || room.id)}</option>
+              `),
+            ].join("");
+            return `
+            <article class="platform-manage-row staff-member-assign-row" data-staff-member-email="${escapeHtml(member.email || "")}">
               <div>
                 <strong>${escapeHtml(member.email || "Staff")}</strong>
-                <p class="muted-copy">${escapeHtml(member.role || "teacher")} · active${member.classroomName ? ` · ${escapeHtml(member.classroomName)}` : ""}${member.joinedAt ? ` · joined ${escapeHtml(String(member.joinedAt).slice(0, 10))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(memberRoleLabel)} · active${member.classroomName ? ` · ${escapeHtml(member.classroomName)}` : " · classroom unassigned"}${member.joinedAt ? ` · joined ${escapeHtml(String(member.joinedAt).slice(0, 10))}` : ""}</p>
+                <label class="staff-assign-classroom-label">Classroom
+                  <select class="staff-assign-classroom-select" data-staff-assign-classroom="${escapeHtml(member.email || "")}" aria-label="Assign classroom for ${escapeHtml(member.email || "staff")}">
+                    ${roomOptions}
+                  </select>
+                </label>
               </div>
-              <span class="tag">Active</span>
-            </article>
-          `).join("")}
+              <span class="tag">${memberRoomId ? "Assigned" : "Unassigned"}</span>
+            </article>`;
+          }).join("")}
           ${invites.filter((invite) => invite.status === "pending").map((invite) => `
             <article class="platform-manage-row">
               <div>
@@ -44171,6 +44213,16 @@ function childMatchesStaffClassroom(child, roomIds = []) {
     || (childRoomName && roomIds.includes(childRoomName));
 }
 
+/** Linked teacher/assistant with no classroom assignment (Phase 4 empty-state). */
+function isUnassignedLinkedClassroomStaff(account = currentAccount()) {
+  if (typeof isLinkedProgramStaffAccount !== "function" || !isLinkedProgramStaffAccount(account)) {
+    return false;
+  }
+  const role = String(account?.role || "").trim().toLowerCase();
+  if (role === "owner" || role === "director") return false;
+  return staffAssignedClassroomIds(account).length === 0;
+}
+
 function getActiveChildren(records) {
   let list = (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
   // Read role from account only — avoid getUserRole()/USER_ROLES (this helper is hoisted and
@@ -44265,6 +44317,15 @@ function renderDlcChildStatusCard(child, records, today) {
     : state === "absent"
       ? `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`
       : `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`;
+  // Phase 4 room mode — one-tap care logs that stay on the roster (mutation queue intact).
+  const roomModeActions = state === "checked_in" ? `
+      <div class="dlc-room-mode-actions" aria-label="Room mode quick logs">
+        <button class="ghost-button dlc-room-mode-btn" data-dlc-quick-action="room-meal" data-dlc-quick-child="${child.id}" type="button">Meal</button>
+        <button class="ghost-button dlc-room-mode-btn" data-dlc-quick-action="room-diaper" data-dlc-quick-child="${child.id}" type="button">Diaper</button>
+        <button class="ghost-button dlc-room-mode-btn" data-dlc-quick-action="room-nap" data-dlc-quick-child="${child.id}" type="button">Nap</button>
+        <button class="ghost-button dlc-room-mode-btn" data-dlc-quick-action="room-note" data-dlc-quick-child="${child.id}" type="button">Note</button>
+      </div>
+    ` : "";
   return `
     <article class="dlc-child-card dlc-att-card ${meta.className}">
       <button class="dlc-att-card-main" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">
@@ -44283,6 +44344,7 @@ function renderDlcChildStatusCard(child, records, today) {
         ${state !== "absent" ? `<button class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" type="button">Absent</button>` : ""}
         <button class="ghost-button" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Day</button>
       </div>
+      ${roomModeActions}
     </article>
   `;
 }
@@ -44406,14 +44468,41 @@ function renderDlcDashboard(records) {
             <button class="primary-button" data-dlc-classroom-filter-value="all" type="button">Show all children</button>
           </div>
         `}
-      ` : `
-        <div class="section-block empty-state" data-dlc-empty-roster>
+      ` : (() => {
+        const programHasChildren = (records.children || []).some((c) => !c.hiddenFromActive && !c.archived);
+        const unassignedStaff = typeof isUnassignedLinkedClassroomStaff === "function" && isUnassignedLinkedClassroomStaff();
+        const canAddChildren = typeof canAccessPlatformFeature === "function" && canAccessPlatformFeature("child_profiles")
+          && !(typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount() && !canAccessPlatformFeature("staff_management"));
+        if (unassignedStaff) {
+          return `
+        <div class="section-block empty-state" data-dlc-empty-roster data-dlc-empty-reason="unassigned-staff">
+          <h3>Ask your owner to assign your classroom</h3>
+          <p>You’re signed in, but this account isn’t assigned to a classroom yet. Daily Logs stays empty until an owner or director assigns your room under Staff &amp; Permissions.</p>
+          <p class="muted-copy">You can’t add children or log care for other rooms from this account.</p>
+        </div>`;
+        }
+        if (programHasChildren) {
+          return `
+        <div class="section-block empty-state" data-dlc-empty-roster data-dlc-empty-reason="no-assigned-children">
+          <h3>No children in your assigned classrooms</h3>
+          <p>Children exist in this program, but none are in your assigned room yet. Ask your owner to move children into your classroom, or confirm your room assignment under Staff.</p>
+        </div>`;
+        }
+        if (canAddChildren) {
+          return `
+        <div class="section-block empty-state" data-dlc-empty-roster data-dlc-empty-reason="owner-empty">
           <h3>Add children to start Daily Logs</h3>
-          <p>Create disposable child profiles first. Then check them in here and log meals, naps, and care notes without opening each profile.</p>
+          <p>Create child profiles first. Then check them in here and log meals, naps, and care notes without opening each profile.</p>
           <button class="primary-button" data-child-view="add" type="button">Add a child</button>
           <button class="ghost-button" data-view="children" type="button">Open Children</button>
-        </div>
-      `}
+        </div>`;
+        }
+        return `
+        <div class="section-block empty-state" data-dlc-empty-roster data-dlc-empty-reason="staff-empty-program">
+          <h3>No children yet</h3>
+          <p>Ask your program owner to add children and assign your classroom. Then you can check in and log care here.</p>
+        </div>`;
+      })()}
 
       <details class="dlc-optional-ai section-block" ${activeChildren.length ? "" : "hidden"}>
         <summary>Optional: Organize a note with AI</summary>
@@ -68232,9 +68321,11 @@ document.addEventListener("click", async (event) => {
     const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
     if (!actionId || !childId) return;
     const afterTab = dlcQuickActionBtn.dataset.dlcAfterTab || "";
+    const roomModeActions = new Set(["room-meal", "room-diaper", "room-nap", "room-note"]);
     const formOnlyActions = new Set(["meal", "nap", "diaper", "activity", "photo", "observation", "incident", "parent-message", "daily-log"]);
     const isAttendance = ["check-in", "check-out", "absent"].includes(actionId);
-    if (isAttendance || !formOnlyActions.has(actionId)) {
+    const isRoomMode = roomModeActions.has(actionId);
+    if (isAttendance || isRoomMode || !formOnlyActions.has(actionId)) {
       saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate() });
       trackEvent(actionId === "check-in" || actionId === "check-out" || actionId === "absent" ? "daily_log_created" : "button_click", {
         action: actionId,
@@ -68242,7 +68333,8 @@ document.addEventListener("click", async (event) => {
         date: dlcActiveDate(),
       });
     }
-    if (afterTab && !isAttendance) {
+    // Room-mode logs stay on the roster (no tab navigation).
+    if (afterTab && !isAttendance && !isRoomMode) {
       selectedChildId = childId;
       localStorage.setItem("llhSelectedChild", selectedChildId);
       dailyLogsSection = "individual";
@@ -68262,6 +68354,10 @@ document.addEventListener("click", async (event) => {
       nap: "Opening naps…",
       diaper: "Opening diaper / potty…",
       activity: "Opening activities…",
+      "room-meal": "Meal logged",
+      "room-diaper": "Diaper logged",
+      "room-nap": "Nap started",
+      "room-note": "Note saved",
     };
     showActionFeedback(labels[actionId] || "Saved.");
     renderChildManagement();
@@ -76711,6 +76807,45 @@ document.addEventListener("input", (event) => {
       const len = input.value.length;
       input.setSelectionRange(len, len);
     }
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const staffAssignSelect = event.target.closest?.("[data-staff-assign-classroom]");
+  if (staffAssignSelect) {
+    if (typeof canAccessPlatformFeature === "function" && !canAccessPlatformFeature("staff_management")) return;
+    const memberEmail = String(staffAssignSelect.dataset.staffAssignClassroom || "").trim().toLowerCase();
+    const classroomId = String(staffAssignSelect.value || "").trim();
+    const classroomName = (typeof activeScheduleClassrooms === "function"
+      ? activeScheduleClassrooms()
+      : []
+    ).find((room) => room.id === classroomId)?.name || "";
+    if (!memberEmail) return;
+    staffAssignSelect.disabled = true;
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers || !canUseLaunchBackend()) {
+          throw new Error("Sign in with a connected account to assign classrooms.");
+        }
+        const response = await fetch("/api/staff/members/assign-classroom", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ memberEmail, classroomId, classroomName }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.error || "Could not assign classroom.");
+        await refreshStaffInvitesFromBackend();
+        renderStaffManagementPage({ refresh: false });
+        showActionFeedback(result.message || (classroomId ? "Classroom assigned." : "Classroom cleared."));
+      } catch (error) {
+        window.alert(error.message || "Could not assign classroom.");
+        renderStaffManagementPage({ refresh: false });
+      } finally {
+        staffAssignSelect.disabled = false;
+      }
+    })();
+    return;
   }
 });
 
