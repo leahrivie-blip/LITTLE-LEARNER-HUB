@@ -93,16 +93,18 @@
 
   function activityEnrichmentView(activity, draftActivity) {
     const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
-    const tips = asArray(d.teacherTips).length
+    // When the draft explicitly owns a list field (including empty []), never fall back to
+    // published content — otherwise deletes appear to "come back" on remount/view.
+    const tips = Object.prototype.hasOwnProperty.call(d, "teacherTips")
       ? asArray(d.teacherTips).map(text).filter(Boolean)
       : asArray(activity?.teacherTips).map(text).filter(Boolean);
-    const substitutions = asArray(d.substitutions).length
+    const substitutions = Object.prototype.hasOwnProperty.call(d, "substitutions")
       ? asArray(d.substitutions)
       : asArray(activity?.substitutions);
-    const settingTags = asArray(d.settingTags).length
+    const settingTags = Object.prototype.hasOwnProperty.call(d, "settingTags")
       ? asArray(d.settingTags).map(text).filter(Boolean)
       : asArray(activity?.settingTags).map(text).filter(Boolean);
-    const observationPrompts = asArray(d.observationPrompts).length
+    const observationPrompts = Object.prototype.hasOwnProperty.call(d, "observationPrompts")
       ? asArray(d.observationPrompts).map(text).filter(Boolean)
       : (text(activity?.observationOpportunities)
         ? text(activity.observationOpportunities).split(/\n+/).map(text).filter(Boolean)
@@ -131,6 +133,102 @@
       imageBriefSetup: text(d.imageBriefSetup),
       imageBriefExample: text(d.imageBriefExample),
     };
+  }
+
+  /**
+   * Decide how an autosave/draft-save success should update local editor state.
+   * Local edits always win while the user is actively editing (generation advanced).
+   * Never remount the editor from this resolution — chrome-only status updates are enough.
+   */
+  function resolveDraftSaveSuccess({
+    localDraft,
+    savedDraft,
+    editGenerationAtStart,
+    currentEditGeneration,
+  }) {
+    const localChangedDuringSave = Number(currentEditGeneration) !== Number(editGenerationAtStart);
+    if (localChangedDuringSave) {
+      return {
+        keepLocalDraft: true,
+        draft: localDraft,
+        dirty: true,
+        remount: false,
+        queueResave: true,
+        lastSavedDraft: savedDraft && typeof savedDraft === "object" ? savedDraft : null,
+      };
+    }
+    return {
+      keepLocalDraft: true,
+      // Keep the in-memory draft object (same generation as the verified save). Replacing it
+      // with a server echo forces remounts and can clobber in-flight DOM caret state.
+      draft: localDraft,
+      dirty: false,
+      remount: false,
+      queueResave: false,
+      lastSavedDraft: savedDraft && typeof savedDraft === "object" ? savedDraft : localDraft,
+    };
+  }
+
+  /** Structural digests so empty tip/vocab deletes are verified (not only non-empty strings). */
+  function draftVerificationDigests(draft) {
+    const digests = {};
+    const activities = draft?.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
+      ? draft.activities
+      : {};
+    Object.keys(activities).forEach((key) => {
+      const act = activities[key] && typeof activities[key] === "object" ? activities[key] : {};
+      const tipsOwned = Object.prototype.hasOwnProperty.call(act, "teacherTips");
+      const vocabOwned = Object.prototype.hasOwnProperty.call(act, "vocabulary");
+      const tips = tipsOwned ? asArray(act.teacherTips).map(text).filter(Boolean) : null;
+      const vocabulary = vocabOwned ? vocabularyListFrom(act.vocabulary) : null;
+      digests[key] = {
+        tipsOwned,
+        tipsCount: tips ? tips.length : -1,
+        tipsDigest: tips ? tips.join("\u0001") : "",
+        vocabOwned,
+        vocabCount: vocabulary ? vocabulary.length : -1,
+        vocabDigest: vocabulary ? vocabulary.join("\u0001") : "",
+        imageBriefSetup: text(act.imageBriefSetup),
+        imageBriefExample: text(act.imageBriefExample),
+        legacyTip: text(act.teacherTip || act.setupTip || act.tip),
+      };
+    });
+    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+    digests.__week = {
+      familyConnection: text(week.familyConnection),
+      weeklyOverview: text(week.weeklyOverview),
+      objectives: text(week.objectives),
+    };
+    return digests;
+  }
+
+  function draftEchoMatchesSent(sentDraft, savedDraft) {
+    const sent = draftVerificationDigests(sentDraft);
+    const saved = draftVerificationDigests(savedDraft);
+    return Object.keys(sent).every((key) => {
+      const left = sent[key];
+      const right = saved[key];
+      if (!left || !right) return false;
+      if (key === "__week") {
+        return left.familyConnection === right.familyConnection
+          && left.weeklyOverview === right.weeklyOverview
+          && left.objectives === right.objectives;
+      }
+      if (left.tipsOwned) {
+        if (!right.tipsOwned || left.tipsCount !== right.tipsCount || left.tipsDigest !== right.tipsDigest) {
+          return false;
+        }
+      }
+      if (left.vocabOwned) {
+        if (!right.vocabOwned || left.vocabCount !== right.vocabCount || left.vocabDigest !== right.vocabDigest) {
+          return false;
+        }
+      }
+      if (left.imageBriefSetup && left.imageBriefSetup !== right.imageBriefSetup) return false;
+      if (left.imageBriefExample && left.imageBriefExample !== right.imageBriefExample) return false;
+      if (left.legacyTip && left.legacyTip !== right.legacyTip) return false;
+      return true;
+    });
   }
 
   function activityStatus(activity, draftActivity) {
@@ -1242,5 +1340,8 @@
     summarizePublishChanges,
     applySuggestionsToDraft,
     clampPercent,
+    resolveDraftSaveSuccess,
+    draftVerificationDigests,
+    draftEchoMatchesSent,
   };
 });

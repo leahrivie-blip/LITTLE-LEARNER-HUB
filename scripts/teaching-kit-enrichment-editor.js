@@ -40,6 +40,10 @@
     lastSavedDraft: null,
     saveInFlight: false,
     saveQueued: false,
+    /** Monotonic local edit counter — autosave responses older than this must not overwrite. */
+    editGeneration: 0,
+    /** Request id of the in-flight autosave (ignored if a newer editGeneration exists). */
+    saveRequestId: 0,
     lastSaveError: "",
     lessonAnalysis: null,
     analysisOpen: false,
@@ -251,7 +255,13 @@
     return api().computeCompletionPercent(plan, activities, state.draft);
   }
 
+  function bumpEditGeneration() {
+    state.editGeneration += 1;
+    return state.editGeneration;
+  }
+
   function markDirty({ autosave = true } = {}) {
+    bumpEditGeneration();
     state.dirty = true;
     refreshLessonAnalysis();
     state.statusText = autosave ? "Unsaved changes…" : "AI suggestions in draft (not saved). Click Save draft when ready.";
@@ -279,27 +289,35 @@
 
   /** Markers used to verify the server echoed the draft we just saved. */
   function draftVerificationMarkers(draft) {
+    const digests = typeof api().draftVerificationDigests === "function"
+      ? api().draftVerificationDigests(draft)
+      : {};
     const markers = [];
-    const activities = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
-    Object.keys(activities).slice(0, 40).forEach((key) => {
-      const act = activities[key] || {};
-      const tip = String(act.teacherTip || act.setupTip || act.tip || "").trim();
-      if (tip) markers.push(`act:${key}:tip:${tip.slice(0, 80)}`);
-      const materials = String(act.materials || "").trim();
-      if (materials) markers.push(`act:${key}:mat:${materials.slice(0, 60)}`);
+    Object.keys(digests).forEach((key) => {
+      if (key === "__week") {
+        const week = digests[key];
+        if (week.familyConnection) markers.push(`week:family:${week.familyConnection.slice(0, 80)}`);
+        return;
+      }
+      const act = digests[key];
+      if (act.tipsOwned) markers.push(`act:${key}:tipsCount:${act.tipsCount}`);
+      if (act.tipsDigest) markers.push(`act:${key}:tips:${act.tipsDigest.slice(0, 80)}`);
+      if (act.vocabOwned) markers.push(`act:${key}:vocabCount:${act.vocabCount}`);
+      if (act.legacyTip) markers.push(`act:${key}:tip:${act.legacyTip.slice(0, 80)}`);
+      if (act.imageBriefSetup) markers.push(`act:${key}:briefSetup:${act.imageBriefSetup.slice(0, 60)}`);
     });
-    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
-    const family = String(week.familyConnection || "").trim();
-    if (family) markers.push(`week:family:${family.slice(0, 80)}`);
     return markers;
   }
 
-  function draftContainsMarkers(draft, markers) {
+  function draftContainsMarkers(savedDraft, markers, sentDraft = null) {
+    if (sentDraft && typeof api().draftEchoMatchesSent === "function") {
+      return api().draftEchoMatchesSent(sentDraft, savedDraft);
+    }
     if (!markers.length) {
       // Empty intentional save (metadata-only) is allowed when the local draft is also empty.
       return true;
     }
-    const haystack = JSON.stringify(draft || {});
+    const haystack = JSON.stringify(savedDraft || {});
     return markers.every((marker) => {
       const parts = marker.split(":");
       // act:<key>:tip:<text> or week:family:<text>
@@ -833,6 +851,9 @@
     state.draft.lastEditedBy = String(admin?.email || admin?.name || state.draft.lastEditedBy || "admin").trim();
     const draftSnapshot = JSON.parse(JSON.stringify(state.draft));
     const markers = draftVerificationMarkers(draftSnapshot);
+    const editGenerationAtStart = Number(state.editGeneration || 0);
+    const requestId = Number(state.saveRequestId || 0) + 1;
+    state.saveRequestId = requestId;
     state.saveInFlight = true;
     state.lastSaveError = "";
     if (!silent) {
@@ -857,6 +878,10 @@
         }),
       });
       const data = await response.json().catch(() => ({}));
+      // Stale response: a newer save request superseded this one.
+      if (requestId !== state.saveRequestId) {
+        return false;
+      }
       if (response.status === 409 && !_retry && (data.curriculum || data.code === "curriculum_conflict")) {
         state.saveInFlight = false;
         const overwrite = window.confirm(
@@ -889,25 +914,56 @@
         || (data.curriculum?.lessonPlans || []).find((item) => item.id === plan.id)
         || null;
       const savedDraft = savedPlan?.enrichmentDraft || null;
-      if (!draftContainsMarkers(savedDraft, markers)) {
+      if (!draftContainsMarkers(savedDraft, markers, draftSnapshot)) {
         throw new Error("Draft save verification failed — server did not keep your changes. Unsaved work is still in the editor.");
       }
       if (data.curriculum && typeof applyCurriculumState === "function") {
         applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
       }
-      // Rehydrate from the verified server draft so reload matches what we just saved.
-      state.draft = JSON.parse(JSON.stringify(savedDraft));
-      state.lastSavedDraft = JSON.parse(JSON.stringify(savedDraft));
-      state.dirty = false;
+
+      const resolution = typeof api().resolveDraftSaveSuccess === "function"
+        ? api().resolveDraftSaveSuccess({
+          localDraft: state.draft,
+          savedDraft,
+          editGenerationAtStart,
+          currentEditGeneration: state.editGeneration,
+        })
+        : {
+          draft: state.draft,
+          dirty: Number(state.editGeneration) !== editGenerationAtStart,
+          remount: false,
+          queueResave: Number(state.editGeneration) !== editGenerationAtStart,
+          lastSavedDraft: savedDraft,
+        };
+
+      // Local edits always win while actively editing. Never replace newer local text/items
+      // with an older autosave echo, and never remount the activity editor after save.
+      state.draft = resolution.draft;
+      if (resolution.lastSavedDraft) {
+        state.lastSavedDraft = JSON.parse(JSON.stringify(resolution.lastSavedDraft));
+      }
+      state.dirty = Boolean(resolution.dirty);
       state.lastSaveError = "";
-      // Only after successful draft save may unused replaced/removed assets be cleaned up.
-      await flushPendingMediaCleanup(plan.id);
+      // Only after a save that still matches the latest local generation may unused assets be cleaned up.
+      if (!resolution.queueResave) {
+        await flushPendingMediaCleanup(plan.id);
+      }
       state.statusText = silent
         ? `Draft autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
         : "Draft saved. Published lesson unchanged until you Publish.";
-      render();
+      // Chrome-only: preserve focus, caret, active activity, and scroll. Never scroll-to-top.
+      renderChromeOnly();
+      if (resolution.queueResave || state.saveQueued) {
+        // Local edits landed during this request — flush the newer snapshot before reporting clean.
+        state.saveQueued = false;
+        state.saveInFlight = false;
+        return saveDraft({ silent: true });
+      }
       return true;
     } catch (error) {
+      if (requestId !== state.saveRequestId) {
+        return false;
+      }
       // Failed draft save must not erase previously saved photos — keep lastSavedDraft refs
       // and do not flush pending cleanup (old assets may still be referenced server-side).
       // Keep dirty=true and local state.draft so the admin can retry without losing work.
@@ -917,10 +973,16 @@
       renderChromeOnly();
       return false;
     } finally {
-      state.saveInFlight = false;
-      if (state.saveQueued) {
+      if (requestId === state.saveRequestId) {
+        state.saveInFlight = false;
+      }
+      if (state.saveQueued && requestId === state.saveRequestId && !state.saveInFlight) {
         state.saveQueued = false;
-        if (state.dirty) void saveDraft({ silent: true });
+        if (state.dirty) {
+          setTimeout(() => {
+            void saveDraft({ silent: true });
+          }, 0);
+        }
       }
     }
   }
@@ -995,6 +1057,8 @@
     state.publishOpen = false;
     state.pendingCleanupAssetIds = [];
     resetAiTray();
+    state.editGeneration = 0;
+    state.saveRequestId = 0;
     state.lastSavedDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
       ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
       : null;
@@ -2675,6 +2739,110 @@
     if (summaryPct) summaryPct.style.width = `${premium}%`;
   }
 
+  /**
+   * Capture scroll / focus / caret so list add-remove remounts do not jump the page
+   * or steal the caret. Never force scroll-to-top.
+   */
+  function captureEditorUi() {
+    const el = host();
+    const active = typeof document !== "undefined" ? document.activeElement : null;
+    const within = Boolean(el && active && typeof el.contains === "function" && el.contains(active));
+    let focusSelector = "";
+    let selectionStart = null;
+    let selectionEnd = null;
+    if (within && active) {
+      const attrs = [
+        "data-image-brief-setup",
+        "data-image-brief-example",
+        "data-week-family",
+        "data-week-overview",
+        "data-week-objectives",
+        "data-week-materials",
+        "data-week-teacher-prep",
+        "data-week-toolkit-prep",
+        "data-week-toolkit-focus",
+        "data-assistant-improve-text",
+        "data-enrich-jump-input",
+      ];
+      for (let i = 0; i < attrs.length; i += 1) {
+        if (active.hasAttribute?.(attrs[i])) {
+          focusSelector = `[${attrs[i]}]`;
+          break;
+        }
+      }
+      if (!focusSelector && active.closest?.("[data-tip-add]")) focusSelector = "[data-tip-add] input";
+      else if (!focusSelector && active.closest?.("[data-vocab-add]")) focusSelector = "[data-vocab-add] input";
+      else if (!focusSelector && active.closest?.("[data-obs-add]")) focusSelector = "[data-obs-add] input";
+      else if (!focusSelector && active.closest?.("[data-sub-add]")) {
+        const name = active.getAttribute?.("name");
+        focusSelector = name ? `[data-sub-add] [name="${name}"]` : "[data-sub-add] input";
+      } else if (!focusSelector && active.id) {
+        focusSelector = `#${CSS.escape ? CSS.escape(active.id) : active.id}`;
+      }
+      if (typeof active.selectionStart === "number") {
+        selectionStart = active.selectionStart;
+        selectionEnd = active.selectionEnd;
+      }
+    }
+    return {
+      hostScrollTop: el?.scrollTop || 0,
+      shellScrollTop: el?.querySelector?.(".tk-enrich-shell")?.scrollTop || 0,
+      mainScrollTop: el?.querySelector?.(".tk-enrich-main")?.scrollTop || 0,
+      bodyScrollTop: el?.querySelector?.(".tk-enrich-body")?.scrollTop || 0,
+      stageScrollTop: el?.querySelector?.(".tk-enrich-stage")?.scrollTop || 0,
+      windowScrollX: typeof window !== "undefined" ? (window.scrollX || 0) : 0,
+      windowScrollY: typeof window !== "undefined" ? (window.scrollY || 0) : 0,
+      focusSelector,
+      selectionStart,
+      selectionEnd,
+      activityIndex: state.activityIndex,
+      mode: state.mode,
+    };
+  }
+
+  function restoreEditorUi(snap) {
+    if (!snap) return;
+    if (typeof snap.activityIndex === "number") state.activityIndex = snap.activityIndex;
+    if (snap.mode) state.mode = snap.mode;
+    const el = host();
+    const applyScroll = (node, value) => {
+      if (node && typeof value === "number") node.scrollTop = value;
+    };
+    applyScroll(el, snap.hostScrollTop);
+    applyScroll(el?.querySelector?.(".tk-enrich-shell"), snap.shellScrollTop);
+    applyScroll(el?.querySelector?.(".tk-enrich-main"), snap.mainScrollTop);
+    applyScroll(el?.querySelector?.(".tk-enrich-body"), snap.bodyScrollTop);
+    applyScroll(el?.querySelector?.(".tk-enrich-stage"), snap.stageScrollTop);
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
+      window.scrollTo(snap.windowScrollX || 0, snap.windowScrollY || 0);
+    }
+    if (!snap.focusSelector) return;
+    const node = el?.querySelector?.(snap.focusSelector);
+    if (!node) return;
+    try {
+      node.focus({ preventScroll: true });
+    } catch (_error) {
+      try { node.focus(); } catch (_inner) { /* ignore */ }
+    }
+    if (
+      typeof snap.selectionStart === "number"
+      && typeof snap.selectionEnd === "number"
+      && typeof node.setSelectionRange === "function"
+    ) {
+      try { node.setSelectionRange(snap.selectionStart, snap.selectionEnd); } catch (_error) { /* ignore */ }
+    }
+  }
+
+  function renderPreservingUi() {
+    const snap = captureEditorUi();
+    render();
+    // Restore on next frames so layout can settle without jumping to top.
+    restoreEditorUi(snap);
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => restoreEditorUi(snap));
+    }
+  }
+
   function navigateToEnrichmentTarget(target) {
     const raw = String(target || "").trim();
     if (!raw) return;
@@ -3342,7 +3510,7 @@
         else current.add(tag);
         draftAct.settingTags = [...current];
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       const tipRemove = event.target.closest("[data-tip-remove]");
@@ -3355,7 +3523,7 @@
         view.teacherTips.splice(Number(tipRemove.getAttribute("data-tip-remove")), 1);
         draftAct.teacherTips = view.teacherTips;
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       const subRemove = event.target.closest("[data-sub-remove]");
@@ -3368,7 +3536,7 @@
         view.substitutions.splice(Number(subRemove.getAttribute("data-sub-remove")), 1);
         draftAct.substitutions = view.substitutions;
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       const obsRemove = event.target.closest("[data-obs-remove]");
@@ -3381,7 +3549,7 @@
         view.observationPrompts.splice(Number(obsRemove.getAttribute("data-obs-remove")), 1);
         draftAct.observationPrompts = view.observationPrompts;
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       const vocabRemove = event.target.closest("[data-vocab-remove]");
@@ -3394,7 +3562,7 @@
         view.vocabulary.splice(Number(vocabRemove.getAttribute("data-vocab-remove")), 1);
         draftAct.vocabulary = view.vocabulary;
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       if (event.target.closest("[data-analysis-toggle]")) {
@@ -3862,7 +4030,7 @@
         const view = api().activityEnrichmentView(act, draftAct);
         draftAct.teacherTips = [...view.teacherTips, value].slice(0, 5);
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       if (event.target.matches("[data-sub-add]")) {
@@ -3877,7 +4045,7 @@
         const view = api().activityEnrichmentView(act, draftAct);
         draftAct.substitutions = [...view.substitutions, { need, use }].slice(0, 12);
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       if (event.target.matches("[data-obs-add]")) {
@@ -3891,7 +4059,7 @@
         const view = api().activityEnrichmentView(act, draftAct);
         draftAct.observationPrompts = [...view.observationPrompts, value].slice(0, 8);
         markDirty();
-        render();
+        renderPreservingUi();
         return;
       }
       if (event.target.matches("[data-vocab-add]")) {
@@ -3909,7 +4077,7 @@
           draftAct.vocabulary = view.vocabulary;
         }
         markDirty();
-        render();
+        renderPreservingUi();
       }
     });
 
@@ -4049,10 +4217,23 @@
       polish: true,
       preserveRemediation: true,
       draftSaveReliability: true,
+      draftAutosaveRaceGuard: true,
       slice: 7,
     }),
     getQualityReport: () => state.qualityReport,
     runSpecialistQualityReview,
     render,
+    /** Test / debug hooks — not used by production UI. */
+    __test: {
+      bumpEditGeneration,
+      getEditGeneration: () => state.editGeneration,
+      getSaveRequestId: () => state.saveRequestId,
+      captureEditorUi,
+      restoreEditorUi,
+      renderPreservingUi,
+      draftVerificationMarkers,
+      draftContainsMarkers,
+      resolveDraftSaveSuccess: (...args) => api().resolveDraftSaveSuccess(...args),
+    },
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);
