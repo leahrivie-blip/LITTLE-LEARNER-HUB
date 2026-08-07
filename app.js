@@ -15285,11 +15285,15 @@ function workHubTile(options = {}) {
     detail = "",
     primary = false,
     attrs = "",
+    badge = "",
   } = options;
   const viewAttr = view ? `data-view="${escapeHtml(view)}"` : "";
+  const badgeHtml = badge
+    ? `<em class="work-hub-tile-badge" aria-label="${escapeHtml(String(badge))}">${escapeHtml(String(badge))}</em>`
+    : "";
   return `
     <button class="work-hub-tile${primary ? " is-primary" : ""}" type="button" ${viewAttr} ${attrs}>
-      <strong>${escapeHtml(title)}</strong>
+      <strong>${escapeHtml(title)}${badgeHtml}</strong>
       ${detail ? `<span>${escapeHtml(detail)}</span>` : ""}
     </button>
   `;
@@ -15546,6 +15550,10 @@ function renderFamiliesHubPage() {
     return;
   }
   const canManage = role === "owner" || role === "director";
+  const pendingFh = Number(familyHubHouseholdCache?.pendingRequestCount) || 0;
+  const requestDetail = pendingFh
+    ? `${pendingFh} pending — open provider inbox`
+    : "Approve in provider inbox";
   section.innerHTML = workHubShell({
     eyebrow: "Families",
     title: "Families",
@@ -15554,7 +15562,13 @@ function renderFamiliesHubPage() {
       <section class="work-hub-section">
         <h3>Family Hub & messages</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
+          ${workHubTile({
+            view: "home-daycare-hub",
+            title: "Family Hub",
+            detail: pendingFh ? `${pendingFh} parent request${pendingFh === 1 ? "" : "s"} waiting` : "Invites, households, parent portal",
+            primary: true,
+            badge: pendingFh ? String(pendingFh) : "",
+          })}
           ${workHubTile({ view: "messages", title: "Messages", detail: "Provider inbox & parent threads" })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
           ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
@@ -15564,7 +15578,13 @@ function renderFamiliesHubPage() {
         <h3>Forms & requests</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "forms", title: "Forms", detail: "Assign & review parent forms" })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
+          ${workHubTile({
+            view: "home-daycare-hub",
+            title: "Absence & pickup requests",
+            detail: requestDetail,
+            primary: Boolean(pendingFh),
+            badge: pendingFh ? String(pendingFh) : "",
+          })}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
@@ -38569,6 +38589,9 @@ async function refreshFamilyHubHouseholds() {
   if (!response.ok) throw new Error(data?.error || "Could not load Family Hub households.");
   familyHubHouseholdCache = {
     households: Array.isArray(data.households) ? data.households : [],
+    pendingRequestCount: Number(data.pendingRequestCount) || 0,
+    actorRole: data.actorRole || "",
+    programOwnerEmail: data.programOwnerEmail || "",
     emailDeliveryReady: Boolean(data.emailDeliveryReady),
     testingHandoff: data.testingHandoff || "",
     storage: data.storage || null,
@@ -40629,18 +40652,26 @@ async function refreshHdhProviderInbox() {
     body.innerHTML = `<p class="muted-copy">${escapeHtml(data.error || "Inbox unavailable.")}</p>`;
     return;
   }
+  if (Number.isFinite(Number(data.pendingRequestCount))) {
+    familyHubHouseholdCache.pendingRequestCount = Number(data.pendingRequestCount) || 0;
+  }
   const notifications = Array.isArray(data.notifications) ? data.notifications : [];
   const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
-  if (!notifications.length && !pending.length) {
+  const recentDecided = Array.isArray(data.recentDecided) ? data.recentDecided : [];
+  if (!notifications.length && !pending.length && !recentDecided.length) {
     body.innerHTML = `<p class="muted-copy">No new signed forms or parent requests.</p>`;
     return;
   }
   body.innerHTML = `
     ${pending.length ? `
-      <div class="hdh-inbox-block">
+      <div class="hdh-inbox-block" data-hdh-pending-requests>
         <strong>Pending parent requests (${pending.length})</strong>
-        ${pending.slice(0, 6).map((req) => `
-          <div class="hdh-request-row">
+        <p class="muted-copy">Optional note is shared with the parent when you decide.</p>
+        <label class="hdh-request-note-label">Note for parent (optional)
+          <input type="text" maxlength="400" data-fh-request-note placeholder="e.g. Confirmed — Aunt Jo is on the pickup list" />
+        </label>
+        ${pending.slice(0, 8).map((req) => `
+          <div class="hdh-request-row" data-fh-request-id="${escapeHtml(req.id)}">
             <p class="muted-copy">${escapeHtml(req.householdLabel || "Family")} · ${escapeHtml(req.type || "request")}${req.date ? ` · ${escapeHtml(req.date)}` : ""}${req.details ? ` — ${escapeHtml(String(req.details).slice(0, 90))}` : ""}</p>
             <div class="account-actions-row">
               <button class="primary-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="approved">Approve</button>
@@ -40648,6 +40679,19 @@ async function refreshHdhProviderInbox() {
             </div>
           </div>
         `).join("")}
+      </div>
+    ` : ""}
+    ${recentDecided.length ? `
+      <div class="hdh-inbox-block" data-hdh-recent-decided>
+        <strong>Recently decided</strong>
+        <ul class="fh-today-list">
+          ${recentDecided.slice(0, 6).map((req) => `
+            <li>
+              <strong>${escapeHtml(req.status || "updated")}</strong>
+              <span>${escapeHtml(req.householdLabel || "Family")} · ${escapeHtml(req.type || "request")}${req.providerNote ? ` — ${escapeHtml(String(req.providerNote).slice(0, 80))}` : ""}${req.reviewedBy ? ` · by ${escapeHtml(req.reviewedBy)}` : ""}</span>
+            </li>
+          `).join("")}
+        </ul>
       </div>
     ` : ""}
     ${notifications.length ? `
@@ -47595,6 +47639,21 @@ function buildActionOnlyAttentionCards() {
       view: "forms",
       title: `${docsPending.length} form${docsPending.length === 1 ? "" : "s"} awaiting parent`,
       detail: "Follow up or resend from Forms",
+    });
+  }
+  const fhPending = Number(familyHubHouseholdCache?.pendingRequestCount) || 0;
+  if (
+    fhPending
+    && typeof isHomeDaycareHubTestingEnabled === "function"
+    && isHomeDaycareHubTestingEnabled()
+    && ["owner", "director"].includes(workModeRole())
+  ) {
+    cards.push({
+      view: "home-daycare-hub",
+      title: `${fhPending} Family Hub request${fhPending === 1 ? "" : "s"} to review`,
+      detail: "Approve or decline absence and pickup changes",
+      primary: true,
+      badge: String(fhPending),
     });
   }
   const eodReady = childrenReadyForEndOfDayReport(records, today);
@@ -67430,6 +67489,8 @@ document.addEventListener("click", async (event) => {
     const requestId = fhRequestStatus.dataset.fhRequestStatus;
     const next = fhRequestStatus.dataset.fhRequestNext || "approved";
     if (!requestId) return;
+    const noteInput = document.querySelector("[data-fh-request-note]");
+    const providerNote = String(noteInput?.value || "").trim().slice(0, 400);
     fhRequestStatus.disabled = true;
     (async () => {
       const headers = await staffAuthHeaders();
@@ -67437,7 +67498,7 @@ document.addEventListener("click", async (event) => {
       const response = await fetch(`/api/family-hub/requests/${encodeURIComponent(requestId)}`, {
         method: "PATCH",
         headers,
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify({ status: next, providerNote }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {

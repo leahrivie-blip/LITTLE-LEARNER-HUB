@@ -15,8 +15,9 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/forms-center";
 const SHOT_DIR = path.join(ARTIFACT_DIR, "screenshots");
-const SHELL = "20260804-forms-center";
 const OWNER = "forms.center.owner@example.com";
+const SHELL = (fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8").match(/SHELL_VERSION = "([^"]+)"/) || [])[1]
+  || "unknown";
 
 function ensureDirs() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
@@ -66,8 +67,10 @@ async function main() {
   const centerJs = fs.readFileSync(path.join(ROOT, "scripts/forms-center.js"), "utf8");
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-  assert.match(indexHtml, /forms-center\.js\?v=20260804-forms-center/);
-  assert.match(sw, /SHELL_VERSION = "20260804-forms-center"/);
+  assert.match(sw, /SHELL_VERSION = "2026080[45]-[^"]+"/);
+  assert.ok(indexHtml.includes(`SHELL_VERSION = "${SHELL}"`), "index.html shell must match service-worker");
+  assert.match(sw, /forms-center\.js\?v=2026080[45]-[^"]+/);
+  assert.match(fs.readFileSync(path.join(ROOT, "scripts/llh-lazy-loader.js"), "utf8"), /forms-center\.js/);
   assert.match(centerJs, /FormsCenter/);
   assert.match(centerJs, /CENTER_SECTIONS/);
   assert.match(centerJs, /ENROLLMENT_PACKET_DEFAULTS/);
@@ -114,18 +117,24 @@ async function main() {
     }, OWNER);
 
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForFunction(() => typeof setView === "function" && typeof FormsCenter !== "undefined" && typeof FormsEcosystem !== "undefined", null, { timeout: 60000 });
+    await page.waitForFunction(() => typeof setView === "function" && window.LLHLazyLoader?.ensure, null, { timeout: 60000 });
     await page.waitForFunction(() => {
       try {
         if (typeof isAppBootInteractive === "function") return isAppBootInteractive();
       } catch (_e) { /* ignore */ }
       return Boolean(document.body.classList.contains("app-booted"));
     }, null, { timeout: 60000 });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await window.LLHLazyLoader.ensure("forms");
       try { loadAccountState(localStorage.getItem("llhUser")); } catch (_e) { /* ignore */ }
       try { updateAuthButtons(); } catch (_e) { /* ignore */ }
       try { syncHomeDaycareHubNavVisibility(); } catch (_e) { /* ignore */ }
     });
+    await page.waitForFunction(
+      () => typeof FormsCenter !== "undefined" && typeof FormsEcosystem !== "undefined",
+      null,
+      { timeout: 60000 },
+    );
 
     const review = await page.evaluate(() => window.FormsCenter.reviewReport());
     assert.equal(review.sections.length, 10);

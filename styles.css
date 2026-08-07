@@ -26631,6 +26631,39 @@ body.work-mode-nav [data-legacy-nav="true"] {
   line-height: 1.35;
 }
 
+.work-hub-tile-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 700;
+  vertical-align: middle;
+  color: #1f3d56;
+  background: rgba(47, 111, 159, 0.18);
+}
+
+.hdh-request-note-label {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 14px;
+  font-size: 0.9rem;
+}
+
+.hdh-request-note-label input {
+  width: min(100%, 420px);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(36, 48, 71, 0.16);
+  font: inherit;
+}
+
+.hdh-inbox-block + .hdh-inbox-block,
+.hdh-inbox-block + .fh-today-list {
+  margin-top: 16px;
+}
+
 .work-pulse-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -15,8 +15,9 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/forms-ecosystem";
 const SHOT_DIR = path.join(ARTIFACT_DIR, "screenshots");
-const SHELL = "20260804-forms-center";
 const OWNER = "forms.eco.owner@example.com";
+const SHELL = (fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8").match(/SHELL_VERSION = "([^"]+)"/) || [])[1]
+  || "unknown";
 
 function ensureDirs() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
@@ -68,8 +69,10 @@ async function main() {
   const ecoJs = fs.readFileSync(path.join(ROOT, "scripts/forms-ecosystem.js"), "utf8");
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-  assert.match(indexHtml, /forms-ecosystem\.js\?v=20260804-forms-(?:ecosystem|center)/);
-  assert.match(sw, /SHELL_VERSION = "20260804-forms-(?:ecosystem|center)"/);
+  assert.match(sw, /SHELL_VERSION = "2026080[45]-[^"]+"/);
+  assert.ok(indexHtml.includes(`SHELL_VERSION = "${SHELL}"`), "index.html shell must match service-worker");
+  assert.match(sw, /forms-ecosystem\.js\?v=2026080[45]-[^"]+/);
+  assert.match(fs.readFileSync(path.join(ROOT, "scripts/llh-lazy-loader.js"), "utf8"), /forms-ecosystem\.js/);
   assert.match(ecoJs, /FormsEcosystem/);
   assert.match(ecoJs, /FIELD_TYPES/);
   assert.match(ecoJs, /REFINE_ACTIONS/);
@@ -116,7 +119,7 @@ async function main() {
     }, OWNER);
 
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForFunction(() => typeof setView === "function" && typeof FormsEcosystem !== "undefined", null, { timeout: 60000 });
+    await page.waitForFunction(() => typeof setView === "function" && window.LLHLazyLoader?.ensure, null, { timeout: 60000 });
     await page.waitForFunction(() => {
       try {
         if (typeof isAppBootInteractive === "function") return isAppBootInteractive();
@@ -124,11 +127,13 @@ async function main() {
       } catch (_e) { /* ignore */ }
       return Boolean(document.body.classList.contains("app-booted"));
     }, null, { timeout: 60000 });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await window.LLHLazyLoader.ensure("forms");
       try { if (typeof loadAccountState === "function") loadAccountState(localStorage.getItem("llhUser")); } catch (_e) { /* ignore */ }
       try { if (typeof updateAuthButtons === "function") updateAuthButtons(); } catch (_e) { /* ignore */ }
       try { if (typeof syncHomeDaycareHubNavVisibility === "function") syncHomeDaycareHubNavVisibility(); } catch (_e) { /* ignore */ }
     });
+    await page.waitForFunction(() => typeof FormsEcosystem !== "undefined", null, { timeout: 60000 });
 
     const audit = await page.evaluate(() => window.FormsEcosystem.auditReport());
     assert.ok(audit.catalogTotal >= 60, `expected >=60 catalog forms, got ${audit.catalogTotal}`);

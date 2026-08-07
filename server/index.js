@@ -14118,6 +14118,40 @@ function ensureFamilyHubCollections(store) {
   return store;
 }
 
+/**
+ * Resolve which program owner a provider actor acts for, and whether they may
+ * manage Family Hub (invite / approve requests / inbox). Linked Directors use
+ * the owner's households; Teachers/Assistants are denied management.
+ */
+function resolveFamilyHubProviderActor(identity, store) {
+  const actorEmail = normalizeEmail(identity?.email || "");
+  const user = (store.users && actorEmail && store.users[actorEmail]) || {};
+  const role = String(user.role || (user.linkedProgramOwnerEmail ? "teacher" : "owner")).trim().toLowerCase();
+  const linkedOwner = normalizeEmail(user.linkedProgramOwnerEmail || "");
+  const programOwnerEmail = linkedOwner || actorEmail;
+  const canManageFamilyHub = linkedOwner
+    ? role === "director"
+    : (role === "owner" || role === "director" || !role);
+  return { actorEmail, programOwnerEmail, role, canManageFamilyHub, linkedOwner };
+}
+
+function requireFamilyHubProviderManager(identity, store, response) {
+  const actor = resolveFamilyHubProviderActor(identity, store);
+  if (!actor.actorEmail) {
+    jsonResponse(response, 401, { error: "Please log in before managing Family Hub." });
+    return null;
+  }
+  if (!actor.canManageFamilyHub) {
+    jsonResponse(response, 403, { error: "Only owners and directors can manage Family Hub households and parent requests." });
+    return null;
+  }
+  if (!actor.programOwnerEmail) {
+    jsonResponse(response, 400, { error: "Could not resolve the program owner for Family Hub." });
+    return null;
+  }
+  return actor;
+}
+
 function familyHubMessagesForHousehold(store, householdId) {
   const id = String(householdId || "");
   return (store.familyHubMessages || [])
@@ -14358,11 +14392,21 @@ async function handleFamilyHubHouseholdsList(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const storage = getFamilyHubStorageStatus();
+  const pendingRequestCount = listFamilyHouseholdsForOwner(store, ownerEmail).reduce((sum, household) => (
+    sum + (Array.isArray(household.familyRequests)
+      ? household.familyRequests.filter((item) => String(item.status || "pending") === "pending").length
+      : 0)
+  ), 0);
   jsonResponse(response, 200, {
     ok: true,
     households: listFamilyHouseholdsForOwner(store, ownerEmail).map(publicFamilyHousehold),
+    pendingRequestCount,
+    actorRole: actor.role,
+    programOwnerEmail: ownerEmail,
     emailDeliveryReady: outboundEmailPublicStatus().ready,
     outboundEmailDisabled: outboundEmailPublicStatus().disabled,
     emailDeliveryNote: outboundEmailPublicStatus().reason,
@@ -14428,7 +14472,9 @@ async function handleFamilyHubHouseholdCreate(request, response) {
     })).filter((doc) => doc.childId)
     : [];
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const guardianEmails = familyHubLib.normalizeGuardianEmails(email, guardianEmail ? [guardianEmail] : []);
 
   // Duplicate active invite for same owner + primary email → replace with a fresh invite.
@@ -14602,7 +14648,9 @@ async function handleFamilyHubHouseholdChildrenPatch(request, response, househol
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const household = store.familyHouseholds?.[id];
   if (!household || normalizeEmail(household.ownerEmail) !== ownerEmail || household.status === "revoked") {
     jsonResponse(response, 404, { error: "Family Hub household not found." });
@@ -14662,7 +14710,9 @@ async function handleFamilyHubProviderNotificationsPost(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const childId = String(body?.childId || "").trim();
   const householdId = String(body?.householdId || "").trim();
   const title = String(body?.title || "Update from your teacher").trim() || "Update from your teacher";
@@ -15039,7 +15089,9 @@ async function handleFamilyHubProviderMessagePost(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const childId = String(body?.childId || "").trim();
   const householdId = String(body?.householdId || "").trim();
   const households = listFamilyHouseholdsForOwner(store, ownerEmail)
@@ -15066,7 +15118,8 @@ async function handleFamilyHubProviderMessagePost(request, response) {
     id: `fh-msg-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
     householdId: household.id,
     from: "provider",
-    authorName: String(body?.authorName || "Teacher").trim() || "Teacher",
+    authorName: String(body?.authorName || (actor.role === "director" ? "Director" : "Provider")).trim() || "Provider",
+    authorEmail: actor.actorEmail,
     body: text,
     createdAt: now,
     readByParent: false,
@@ -15491,7 +15544,9 @@ async function handleFamilyHubRequestStatusPatch(request, response, requestId) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const households = listFamilyHouseholdsForOwner(store, ownerEmail);
   let foundHousehold = null;
   let foundRequest = null;
@@ -15509,19 +15564,21 @@ async function handleFamilyHubRequestStatusPatch(request, response, requestId) {
     return;
   }
   const now = new Date().toISOString();
+  const providerNote = String(body?.providerNote || body?.note || "").trim().slice(0, 400);
   foundHousehold.familyRequests = (foundHousehold.familyRequests || []).map((item) => (
     String(item.id) === id
-      ? { ...item, status, updatedAt: now, reviewedBy: ownerEmail, providerNote: String(body?.note || "").trim().slice(0, 400) }
+      ? { ...item, status, updatedAt: now, reviewedBy: actor.actorEmail, providerNote }
       : item
   ));
   store.familyHouseholds[foundHousehold.id] = foundHousehold;
   store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
+  const noteSuffix = providerNote ? ` Note: ${providerNote}` : "";
   store.familyHubNotifications.unshift({
     id: `fh-ntf-req-${Date.now().toString(36)}`,
     householdId: foundHousehold.id,
     type: "request_update",
     title: status === "approved" ? "Request approved" : (status === "declined" ? "Request declined" : "Request updated"),
-    body: `${foundRequest.type || "Request"} for ${foundRequest.childName || "your child"} is ${status}.`,
+    body: `${foundRequest.type || "Request"} for ${foundRequest.childName || "your child"} is ${status}.${noteSuffix}`,
     href: "more",
     childId: foundRequest.childId || "",
     read: false,
@@ -15543,6 +15600,8 @@ async function handleFamilyHubRequestStatusPatch(request, response, requestId) {
     ok: true,
     testingOnly: true,
     request: familyHubLib.publicFamilyRequest(updated),
+    actorRole: actor.role,
+    programOwnerEmail: ownerEmail,
   });
 }
 
@@ -15556,7 +15615,9 @@ async function handleFamilyHubProviderInboxGet(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const households = listFamilyHouseholdsForOwner(store, ownerEmail)
     .filter((item) => item.status !== "revoked");
   const householdIds = new Set(households.map((item) => item.id));
@@ -15569,20 +15630,28 @@ async function handleFamilyHubProviderInboxGet(request, response) {
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, 60)
     .map(familyHubLib.publicFamilyNotification);
-  const pendingRequests = households.flatMap((household) => (
+  const allRequests = households.flatMap((household) => (
     (Array.isArray(household.familyRequests) ? household.familyRequests : [])
-      .filter((item) => String(item.status || "pending") === "pending")
       .map((item) => ({
         ...familyHubLib.publicFamilyRequest(item),
         householdId: household.id,
         householdLabel: household.label || household.email || "Family",
       }))
   ));
+  const pendingRequests = allRequests.filter((item) => String(item.status || "pending") === "pending");
+  const recentDecided = allRequests
+    .filter((item) => ["approved", "declined"].includes(String(item.status || "")))
+    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+    .slice(0, 20);
   jsonResponse(response, 200, {
     ok: true,
     testingOnly: true,
+    actorRole: actor.role,
+    programOwnerEmail: ownerEmail,
+    pendingRequestCount: pendingRequests.length,
     notifications,
     pendingRequests,
+    recentDecided,
     unread: notifications.filter((item) => !item.read).length,
   });
 }
@@ -15609,7 +15678,9 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const now = new Date().toISOString();
   let unlinked = 0;
   let revoked = 0;
@@ -15685,13 +15756,16 @@ async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
   const household = store.familyHouseholds[householdId];
-  if (!household || normalizeEmail(household.ownerEmail) !== normalizeEmail(identity.email)) {
+  if (!household || normalizeEmail(household.ownerEmail) !== actor.programOwnerEmail) {
     jsonResponse(response, 404, { error: "Household invite not found." });
     return;
   }
   household.status = "revoked";
   household.revokedAt = new Date().toISOString();
+  household.revokedBy = actor.actorEmail;
   store.familyHouseholds[householdId] = household;
   Object.values(store.familyMagicLinks).forEach((link) => {
     if (link.householdId === householdId) {
@@ -15747,7 +15821,9 @@ async function handleFamilyHubSeedDemo(request, response) {
   try { body = await readJson(request); } catch (_error) { body = {}; }
   const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const actor = requireFamilyHubProviderManager(identity, store, response);
+  if (!actor) return;
+  const ownerEmail = actor.programOwnerEmail;
   const seed = familyHubLib.buildFamilyHubDemoSeed({
     now: new Date(),
     origin,
