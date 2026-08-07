@@ -131,6 +131,8 @@ function unitTests() {
   record("plan display: Pro — Early User", membershipAccess.membershipPlanDisplay(earlyUser) === "Pro — Early User");
   record("hasProAccess for early_user", membershipAccess.membershipHasProAccess(earlyUser) === true);
   record("membershipIsEarlyUser helper", membershipAccess.membershipIsEarlyUser(earlyUser) === true);
+  record("access key early_user for analytics", membershipAccess.membershipCurrentAccessKey(earlyUser) === "early_user");
+  record("product status key active_early_user", membershipAccess.membershipProductStatus(earlyUser).key === "active_early_user");
 
   const standard = membershipAccess.stripeSubscriptionToMembershipUpdates({
     id: "sub_std",
@@ -140,6 +142,24 @@ function unitTests() {
     current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
   }, {});
   record("standard $19.99 still maps to Pro Monthly", standard.plan === "Pro" && standard.monthlyPrice === "$19.99/month" && standard.billingOffer !== "early_user");
+  record("standard access key remains pro (not early_user)", membershipAccess.membershipCurrentAccessKey(standard) === "pro");
+
+  // Existing $19.99 subscriber snapshot must not be rewritten by Early User helpers.
+  const existingPro = {
+    plan: "Pro",
+    monthlyPrice: "$19.99/month",
+    billingOffer: "pro_monthly",
+    priceLock: "",
+    stripeSubscriptionStatus: "active",
+    subscriptionStatus: "Pro Monthly Subscription Active",
+    subscriptionCadence: "monthly",
+  };
+  record("no auto-migration: existing $19.99 stays $19.99", existingPro.monthlyPrice === "$19.99/month" && !membershipAccess.membershipIsEarlyUser(existingPro));
+  record("no auto-migration: planKey for $19.99 sub stays monthly", membershipAccess.planKeyFromStripeSubscription({
+    status: "active",
+    metadata: { plan: "monthly" },
+    items: { data: [{ price: { id: "price_sim_pro_monthly", unit_amount: 1999 } }] },
+  }, existingPro) === "monthly");
 
   const founding = membershipAccess.stripeSubscriptionToMembershipUpdates({
     id: "sub_f",
@@ -167,8 +187,53 @@ function unitTests() {
   }, { billingOffer: "early_user", priceLock: "Early User" });
   record("renewal without flag still identifies early_user", renewed === "early_user");
 
+  // Incomplete Stripe payload renewal still preserves Early User via stored markers.
+  const sparseRenewal = membershipAccess.stripeSubscriptionToMembershipUpdates({
+    id: "sub_eu_renew",
+    status: "active",
+    metadata: {},
+    items: { data: [] },
+    current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
+  }, { billingOffer: "early_user", priceLock: "Early User", plan: "Pro", subscriptionCadence: "monthly" });
+  record("renewal webhook preserves billingOffer early_user", sparseRenewal.billingOffer === "early_user");
+  record("renewal webhook preserves $13.99", sparseRenewal.monthlyPrice === "$13.99/month");
+  record("renewal webhook preserves priceLock", sparseRenewal.priceLock === "Early User");
+
+  // Trial conversion / subscription update still Early User.
+  const trialConvert = membershipAccess.stripeSubscriptionToMembershipUpdates({
+    id: "sub_eu_trial",
+    status: "active",
+    metadata: { plan: "early_user" },
+    items: { data: [{ price: { id: "price_sim_early_user_monthly", unit_amount: 1399, nickname: "Early User Monthly", metadata: { offer: "early_user" } } }] },
+    current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
+  }, {
+    billingOffer: "early_user",
+    priceLock: "Early User",
+    stripeSubscriptionStatus: "trialing",
+    trialStatus: "In Trial",
+    plan: "Pro",
+  });
+  record("trial conversion preserves early_user offer", trialConvert.billingOffer === "early_user" && trialConvert.monthlyPrice === "$13.99/month");
+
+  const canceling = membershipAccess.stripeSubscriptionToMembershipUpdates({
+    id: "sub_eu_cancel",
+    status: "active",
+    cancel_at_period_end: true,
+    metadata: { plan: "early_user" },
+    items: { data: [{ price: { unit_amount: 1399, nickname: "Early User Monthly", metadata: { offer: "early_user" } } }] },
+    current_period_end: Math.floor(Date.now() / 1000) + 10 * 86400,
+  }, { billingOffer: "early_user", priceLock: "Early User" });
+  record("cancel-at-period-end keeps early_user while access remains", canceling.billingOffer === "early_user" && canceling.monthlyPrice === "$13.99/month");
+
   record("meta planValueUsd early_user=13.99", metaCapi.planValueUsd("early_user") === 13.99);
   record("meta planValueUsd monthly=19.99", metaCapi.planValueUsd("monthly") === 19.99);
+
+  // Analytics separation sanity
+  const accessKeys = [
+    membershipAccess.membershipCurrentAccessKey(earlyUser),
+    membershipAccess.membershipCurrentAccessKey(standard),
+  ];
+  record("analytics separates early_user vs pro keys", accessKeys[0] === "early_user" && accessKeys[1] === "pro");
 }
 
 async function apiTests() {
@@ -236,6 +301,7 @@ async function apiTests() {
       plan: "monthly",
     });
     record("flag ON: regular $19.99 checkout still available", regularStill.status === 200 && String(regularStill.json?.url || "").includes("price_sim_pro_monthly"));
+    record("in-flight session embeds early_user price id", String(euCheckout.json?.url || "").includes("price_sim_early_user_monthly"));
 
     // Browser UI when enabled
     const browser = await chromium.launch({ headless: true });
@@ -266,6 +332,78 @@ async function apiTests() {
     } finally {
       await browser.close();
     }
+  } finally {
+    await stopServer(child);
+  }
+
+  // Seed locked Early User + existing Pro after the ON server exits so disk store is authoritative.
+  {
+    const seedStore = fs.existsSync(STORE_PATH)
+      ? JSON.parse(fs.readFileSync(STORE_PATH, "utf8"))
+      : { users: {}, foundingMembers: [], promoCodes: [], promoRedemptions: [] };
+    seedStore.users = seedStore.users || {};
+    seedStore.users["inflight-early@test.local"] = {
+      email: "inflight-early@test.local",
+      plan: "Pro",
+      planDisplayName: "Pro — Early User",
+      monthlyPrice: "$13.99/month",
+      billingOffer: "early_user",
+      priceLock: "Early User",
+      subscriptionCadence: "monthly",
+      subscriptionStatus: "Pro Early User Subscription Active",
+      stripeSubscriptionStatus: "active",
+      stripeSubscriptionId: "sub_inflight_early",
+      stripeCustomerId: "cus_inflight_early",
+      subscriptionStartedAt: new Date().toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400).toISOString(),
+      accessEndsAt: new Date(Date.now() + 30 * 86400).toISOString(),
+      accountStatus: "Active",
+      createdAt: new Date().toISOString(),
+    };
+    seedStore.users["existing-pro@test.local"] = {
+      email: "existing-pro@test.local",
+      plan: "Pro",
+      monthlyPrice: "$19.99/month",
+      billingOffer: "pro_monthly",
+      priceLock: "",
+      subscriptionCadence: "monthly",
+      subscriptionStatus: "Pro Monthly Subscription Active",
+      stripeSubscriptionStatus: "active",
+      stripeSubscriptionId: "sub_existing_pro",
+      accountStatus: "Active",
+      createdAt: new Date().toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400).toISOString(),
+      accessEndsAt: new Date(Date.now() + 30 * 86400).toISOString(),
+    };
+    fs.writeFileSync(STORE_PATH, JSON.stringify(seedStore, null, 2));
+  }
+
+  // Flag OFF after Early User members already exist — lock + analytics must survive.
+  ({ child } = startServer({ EARLY_USER_PRICING_ENABLED: "false" }));
+  try {
+    await waitForHealth();
+    const storeAfter = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+    const locked = storeAfter.users?.["inflight-early@test.local"] || {};
+    const existing = storeAfter.users?.["existing-pro@test.local"] || {};
+    record("flag later OFF: Early User stays $13.99 in store", locked.monthlyPrice === "$13.99/month" && locked.billingOffer === "early_user");
+    record("flag later OFF: existing $19.99 untouched in store", existing.monthlyPrice === "$19.99/month" && existing.billingOffer === "pro_monthly");
+    record(
+      "flag later OFF: access keys stay separated",
+      membershipAccess.membershipCurrentAccessKey(locked) === "early_user"
+        && membershipAccess.membershipCurrentAccessKey(existing) === "pro",
+    );
+    // New acquisition remaps, but renewal identity does not.
+    const remapped = await requestJson("POST", "/api/create-checkout-session", {
+      email: "new-after-disable@test.local",
+      plan: "early_user",
+    });
+    record("flag later OFF: new early_user checkout remaps to monthly", remapped.status === 200 && (remapped.json?.plan === "monthly" || String(remapped.json?.url || "").includes("price_sim_pro_monthly")));
+    record(
+      "analytics earlyUserUsers counted separately",
+      membershipAccess.membershipCurrentAccessKey(locked) === "early_user"
+        && membershipAccess.membershipCurrentAccessKey(existing) === "pro",
+      "verified via membershipCurrentAccessKey",
+    );
   } finally {
     await stopServer(child);
   }

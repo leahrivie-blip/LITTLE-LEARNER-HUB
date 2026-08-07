@@ -1451,6 +1451,25 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
   const paidCount = overall.paidConversions.size;
   const spendForFilter = sourceFilter ? (spend.bySource[sourceFilter] || 0) : spend.total;
 
+  // Separate Early User vs regular Pro for discounted-subscriber visibility.
+  const offerBreakdown = {
+    early_user: 0,
+    pro_monthly: 0,
+    pro_annual: 0,
+    founding: 0,
+    other_paid: 0,
+  };
+  for (const user of users) {
+    if (!isActiveSubscriber(user)) continue;
+    const offer = String(user.billingOffer || "").trim().toLowerCase();
+    const priceLock = String(user.priceLock || "").trim();
+    if (offer === "early_user" || priceLock === "Early User") offerBreakdown.early_user += 1;
+    else if (offer === "founding" || user.foundingMemberActive) offerBreakdown.founding += 1;
+    else if (offer === "pro_annual" || String(user.subscriptionCadence || "").toLowerCase() === "annual") offerBreakdown.pro_annual += 1;
+    else if (offer === "pro_monthly" || String(user.plan || "").toLowerCase() === "pro") offerBreakdown.pro_monthly += 1;
+    else offerBreakdown.other_paid += 1;
+  }
+
   const stagePeople = {};
   for (const def of FUNNEL_STAGE_DEFS) {
     if (stageFilter && def.id !== stageFilter) continue;
@@ -1529,6 +1548,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
         ? "Costs use configured ad spend (MARKETING_AD_SPEND_* or store.marketingAdSpend)."
         : "Ad spend not configured — set MARKETING_AD_SPEND_* env vars to unlock cost metrics.",
     },
+    offerBreakdown,
     stagePeople,
     overallConversionRate: rate(paidCount, stages[0]?.count || 0),
     note: emailVerificationRequired

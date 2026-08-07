@@ -4923,17 +4923,20 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
     };
   }
   if (hasAccess) {
+    const earlyUser = accountIsEarlyUser(account) && account?.subscriptionCadence !== "annual";
     return {
-      key: "active_pro",
+      key: earlyUser ? "active_early_user" : "active_pro",
       adminKey: "active",
-      label: "Active Pro",
+      label: earlyUser ? "Active Early User" : "Active Pro",
       emoji: "🟢",
       tone: "success",
       hasProAccess: true,
       banner: null,
       cta: null,
-      detail: "Your Pro subscription is active.",
-      planLabel: "Pro",
+      detail: earlyUser
+        ? "Your Early User Pro subscription is active at $13.99/month."
+        : "Your Pro subscription is active.",
+      planLabel: earlyUser ? "Pro — Early User" : "Pro",
     };
   }
   if (hasHistory) {
@@ -48078,6 +48081,7 @@ const ADMIN_OWNER_METRIC_TITLES = {
   "free-users": "Free Users",
   "trial-users": "Trial Users",
   "pro-users": "Pro Users",
+  "early-user-users": "Early User Members",
   "founding-users": "Founding Members",
   "home-daycare": "Home Daycare Accounts",
   "centers": "Center Accounts",
@@ -48116,6 +48120,8 @@ function adminOwnerMetricMatches(account, metricKey) {
       return adminCurrentAccessKey(account) === "trial";
     case "pro-users":
       return adminCurrentAccessKey(account) === "pro";
+    case "early-user-users":
+      return adminCurrentAccessKey(account) === "early_user";
     case "founding-users":
     case "billing-founding":
       return adminMembershipFoundingActive(account);
@@ -48476,6 +48482,7 @@ function renderAdminCommandKpiStrip(totals = {}, accountRows = []) {
         ${adminMetric("Free", totals.freeUsers ?? "—", "", "free-users")}
         ${adminMetric("Trial", totals.trialUsers ?? "—", "", "trial-users")}
         ${adminMetric("Pro", totals.proUsers ?? "—", "", "pro-users")}
+        ${adminMetric("Early User", totals.earlyUserUsers ?? "—", "$13.99", "early-user-users")}
         ${adminMetric("Founding", totals.foundingMembers ?? "—", `${foundingSpotsRemaining()} left`, "founding-users")}
         ${adminMetric("Revenue MTD", adminMoneyLabel(totals.revenueThisMonth), "")}
         ${adminMetric("MRR", adminMoneyLabel(totals.monthlyRecurringRevenue), "")}
@@ -49338,6 +49345,7 @@ function renderAdminOwnerOverview() {
         ${adminMetric("Free", totals.freeUsers ?? "—", "", "free-users")}
         ${adminMetric("Trial", totals.trialUsers ?? "—", "", "trial-users")}
         ${adminMetric("Pro", totals.proUsers ?? "—", "", "pro-users")}
+        ${adminMetric("Early User", totals.earlyUserUsers ?? "—", "$13.99", "early-user-users")}
         ${adminMetric("Founding", totals.foundingMembers ?? "—", `${foundingSpotsRemaining()} spots left`, "founding-users")}
         ${adminMetric("Home Daycare", totals.homeDaycareAccounts ?? "—", "", "home-daycare")}
         ${adminMetric("Centers", totals.centerAccounts ?? "—", "", "centers")}
@@ -49841,6 +49849,7 @@ function localAnalyticsSummary() {
       freeUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "free").length,
       trialUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "trial").length,
       proUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "pro").length,
+      earlyUserUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "early_user").length,
       foundingMembers: accountRows.filter((account) => adminCurrentAccessKey(account) === "founding").length,
       paidUsers: paidUsers.length,
       activeSubscriptions: accountRows.filter((account) => adminBillingStatusKey(account) === "active").length,
@@ -50210,6 +50219,7 @@ function renderAdminAnalytics() {
       ${adminMetric("signup completions", totals.signups || 0, "Tracked signup events")}
       ${adminMetric("free users", totals.freeUsers || 0)}
       ${adminMetric("pro users", totals.proUsers || 0)}
+      ${adminMetric("early user members", totals.earlyUserUsers || 0, "$13.99")}
       ${adminMetric("founding members", totals.foundingMembers || 0)}
       ${adminMetric("billing active", totals.activeSubscriptions || 0)}
       ${adminMetric("active this month", totals.activeUsersMonth || 0, "Users who logged in or used the app")}
@@ -53502,7 +53512,10 @@ function adminMembershipPlanLabel(account) {
   if (!adminMembershipHasProAccess(account)) return "Free";
   if (adminMembershipInTrial(account)) return "Trial";
   if (adminMembershipFoundingActive(account)) return "Founding Member";
-  if (account.subscriptionCadence === "annual") return "Pro Annual";
+  if (account?.subscriptionCadence === "annual") return "Pro Annual";
+  if (typeof accountIsEarlyUser === "function" && accountIsEarlyUser(account)) return "Pro — Early User";
+  if (String(account?.billingOffer || "").trim().toLowerCase() === "early_user") return "Pro — Early User";
+  if (String(account?.priceLock || "").trim() === "Early User") return "Pro — Early User";
   return "Pro Monthly";
 }
 
@@ -53555,6 +53568,7 @@ function adminCurrentAccessKey(account) {
   const plan = adminMembershipPlanLabel(account);
   if (plan === "Trial") return "trial";
   if (plan === "Founding Member") return "founding";
+  if (plan === "Pro — Early User") return "early_user";
   if (plan === "Pro Monthly" || plan === "Pro Annual") return "pro";
   return "free";
 }
@@ -53576,10 +53590,14 @@ function adminBillingStatusKey(account) {
 
 function adminMembershipDisplayPrice(account) {
   if (account?.displayPrice) return account.displayPrice;
+  if (account?.monthlyPrice && String(account.monthlyPrice).trim() && String(account.monthlyPrice) !== "$0/month") {
+    return account.monthlyPrice;
+  }
   if (!adminMembershipHasProAccess(account)) return "$0/month";
   const label = adminMembershipPlanLabel(account);
   if (label === "Founding Member") return "$9.99/month";
   if (label === "Pro Annual") return "$199/year";
+  if (label === "Pro — Early User") return "$13.99/month";
   if (label === "Trial" || label === "Pro Monthly") return "$19.99/month";
   return account.monthlyPrice || "$0/month";
 }
@@ -53594,6 +53612,9 @@ function adminUserPlanBadge(account) {
   }
   if (status?.key === "inactive") return `<span class="aup-badge aup-badge--canceled">🔴 Subscription Inactive</span>`;
   if (status?.key === "active_founding") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
+  if (status?.key === "active_early_user" || (status?.key === "active_pro" && adminMembershipPlanLabel(account) === "Pro — Early User")) {
+    return `<span class="aup-badge aup-badge--pro" title="Early User billing $13.99/month">🌱 Pro — Early User</span>`;
+  }
   if (status?.key === "active_pro") {
     const label = adminMembershipPlanLabel(account);
     return `<span class="aup-badge aup-badge--pro">🔷 ${escapeHtml(label === "Pro Annual" ? "Pro Annual" : "Pro Monthly")}</span>`;
@@ -53602,6 +53623,9 @@ function adminUserPlanBadge(account) {
   const label = adminMembershipPlanLabel(account);
   if (label === "Founding Member") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
   if (label === "Trial") return `<span class="aup-badge aup-badge--trial">Trial</span>`;
+  if (label === "Pro — Early User") {
+    return `<span class="aup-badge aup-badge--pro" title="Early User billing $13.99/month">🌱 Pro — Early User</span>`;
+  }
   if (label === "Pro Annual" || label === "Pro Monthly") return `<span class="aup-badge aup-badge--pro">🔷 ${escapeHtml(label)}</span>`;
   const freeMode = typeof adminFreeLessonAccessLabel === "function" ? adminFreeLessonAccessLabel(account) : "";
   if (String(freeMode).startsWith("Legacy")) return `<span class="aup-badge aup-badge--free">Free · Early Supporter</span>`;
@@ -62335,11 +62359,23 @@ function completeCheckout() {
   let foundingMember = currentAccount()?.foundingMember || false;
   let foundingMemberNumber = currentAccount()?.foundingMemberNumber || null;
   let priceLock = "";
+  let billingOffer = "";
   let monthlyPrice = type === "annual" ? "$199/year" : "$19.99/month";
   let status = type === "annual" ? "Pro Annual Subscription Active" : "Pro Monthly Subscription Active";
   const trialDays = Number(pending.trialDays || 0);
   if (trialDays > 0) {
     status = `${status} - ${trialDays} Day Free Trial`;
+  }
+
+  if (type === "early_user") {
+    plan = "Pro";
+    cadence = "monthly";
+    priceLock = "Early User";
+    billingOffer = "early_user";
+    monthlyPrice = "$13.99/month";
+    status = trialDays > 0
+      ? `Pro Early User Subscription Trialing - ${trialDays} Day Free Trial`
+      : "Pro Early User Subscription Active";
   }
 
   if (type === "founding") {
@@ -62349,6 +62385,7 @@ function completeCheckout() {
       foundingMember = true;
       foundingMemberNumber = claim.memberNumber;
       priceLock = "Lifetime";
+      billingOffer = "founding";
       monthlyPrice = "$9.99/month";
       status = trialDays > 0
         ? `Founding Member Subscription Active - ${trialDays} Day Free Trial`
@@ -62367,6 +62404,7 @@ function completeCheckout() {
     foundingMember: plan === "Founding" || Boolean(currentAccount()?.foundingMemberHistorical || currentAccount()?.foundingMember),
     foundingMemberNumber,
     priceLock,
+    billingOffer: billingOffer || (type === "annual" ? "pro_annual" : type === "monthly" ? "pro_monthly" : billingOffer),
     monthlyPrice,
     stripeCustomerId: currentAccount()?.stripeCustomerId || `cus_test_${Date.now()}`,
     stripeSubscriptionId: currentAccount()?.stripeSubscriptionId || `sub_test_${Date.now()}`,
@@ -62388,7 +62426,15 @@ function completeCheckout() {
     markCheckoutPromoRedeemed(pending.promoCode, { trialDays, label: pending.promoLabel });
   }
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
-  trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution(), trial7day: trialDays > 0, fromOnboarding: completedFromOnboardingTrial });
+  trackEvent("checkout_success", {
+    plan,
+    monthlyPrice,
+    offer: billingOffer || (type === "early_user" ? "early_user" : type === "founding" ? "founding" : type === "annual" ? "pro_annual" : "pro_monthly"),
+    billingOffer: billingOffer || "",
+    attribution: currentAttribution(),
+    trial7day: trialDays > 0,
+    fromOnboarding: completedFromOnboardingTrial,
+  });
   localStorage.removeItem("llhPendingCheckout");
   checkoutPromoCode = "";
   localStorage.removeItem("llhCheckoutPromoCode");

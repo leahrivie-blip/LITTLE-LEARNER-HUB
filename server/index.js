@@ -6043,6 +6043,9 @@ function applyCheckoutMembershipUpgrade(email, {
       } else if (planKey === "annual") {
         type = "admin_new_annual";
         title = "New Pro Annual signup";
+      } else if (planKey === "early_user") {
+        type = "admin_new_early_user";
+        title = isTrial ? "New Early User trial started" : "New Early User signup";
       } else if (isTrial) {
         type = "admin_new_trial";
         title = "New trial started";
@@ -9938,9 +9941,15 @@ function membershipSummaryForUser(user, storeRef = null) {
     displayPrice: hasPro
       ? (inheritedPro
         ? (owner?.monthlyPrice
-          || (membershipAccess.membershipFoundingActive(owner) ? "$9.99/month" : (owner?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month")))
+          || (membershipAccess.membershipFoundingActive(owner) ? "$9.99/month"
+            : owner?.subscriptionCadence === "annual" ? "$199/year"
+              : membershipAccess.membershipIsEarlyUser(owner) ? "$13.99/month"
+                : "$19.99/month"))
         : (user?.monthlyPrice
-          || (membershipUserIsFounding(user) ? "$9.99/month" : user?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month")))
+          || (membershipUserIsFounding(user) ? "$9.99/month"
+            : user?.subscriptionCadence === "annual" ? "$199/year"
+              : membershipAccess.membershipIsEarlyUser(user) ? "$13.99/month"
+                : "$19.99/month")))
       : "$0/month",
     billingOffer: inheritedPro
       ? (owner?.billingOffer || "")
@@ -17264,6 +17273,7 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
     free: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "free").length,
     trial: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial").length,
     pro: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "pro").length,
+    early_user: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "early_user").length,
     founding: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "founding").length,
     pastDue: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "past_due").length,
   };
@@ -17309,8 +17319,10 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
   const monthlyRecurringRevenue = Number(paidUsers.reduce((total, user) => {
     const price = moneyNumber(user.monthlyPrice || user.displayPrice || "");
     if (price > 0) return total + (String(user.subscriptionCadence || "").toLowerCase().includes("year") ? Number((price / 12).toFixed(2)) : price);
-    if (membershipAccess.membershipCurrentAccessKey(user) === "founding") return total + 9.99;
-    if (membershipAccess.membershipCurrentAccessKey(user) === "pro") return total + 19.99;
+    const accessKey = membershipAccess.membershipCurrentAccessKey(user);
+    if (accessKey === "founding") return total + 9.99;
+    if (accessKey === "early_user") return total + 13.99;
+    if (accessKey === "pro") return total + 19.99;
     return total;
   }, 0).toFixed(2));
   const trialEndingSoon = trialUsers.filter((user) => {
@@ -17473,6 +17485,7 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
       freeUsers: currentAccessCounts.free,
       trialUsers: trialUsers.length,
       proUsers: currentAccessCounts.pro,
+      earlyUserUsers: currentAccessCounts.early_user,
       foundingMembers: currentAccessCounts.founding,
       homeDaycareAccounts,
       centerAccounts,

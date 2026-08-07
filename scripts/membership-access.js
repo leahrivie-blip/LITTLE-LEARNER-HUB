@@ -305,6 +305,8 @@ function membershipCurrentAccessKey(user, nowMs = Date.now()) {
   const plan = membershipPlanDisplay(user, nowMs);
   if (plan === "Trial") return "trial";
   if (plan === "Founding Member") return "founding";
+  // Early User is still Pro entitlement — keep a distinct key for analytics/admin counts.
+  if (plan === "Pro — Early User" || membershipIsEarlyUser(user)) return "early_user";
   if (plan === "Pro Monthly" || plan === "Pro Annual") return "pro";
   return "free";
 }
@@ -497,10 +499,11 @@ function membershipProductStatus(user, nowMs = Date.now()) {
 
   if (hasAccess) {
     const canceling = Boolean(user?.cancelAtPeriodEnd);
+    const isEarlyUser = membershipIsEarlyUser(user) && user?.subscriptionCadence !== "annual";
     return {
-      key: "active_pro",
+      key: isEarlyUser ? "active_early_user" : "active_pro",
       adminKey: "active",
-      label: "Active Pro",
+      label: isEarlyUser ? "Active Early User" : "Active Pro",
       emoji: "🟢",
       tone: "success",
       hasProAccess: true,
@@ -508,8 +511,10 @@ function membershipProductStatus(user, nowMs = Date.now()) {
       banner: null,
       cta: null,
       detail: canceling
-        ? `Pro access continues until ${user?.accessEndsAt || user?.currentPeriodEnd || "period end"}.`
-        : "Your Pro subscription is active.",
+        ? `${isEarlyUser ? "Early User" : "Pro"} access continues until ${user?.accessEndsAt || user?.currentPeriodEnd || "period end"}.`
+        : (isEarlyUser
+          ? "Your Early User Pro subscription is active at $13.99/month."
+          : "Your Pro subscription is active."),
       planLabel: membershipPlanDisplay(user, nowMs),
     };
   }
