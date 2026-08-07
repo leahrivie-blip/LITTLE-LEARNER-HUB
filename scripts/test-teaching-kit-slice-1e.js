@@ -263,7 +263,7 @@ function testPrintHtmlUnit() {
     ...teachingKitViewer.defaultState(kit, { printCenterEnabled: true }),
     surface: "build",
   });
-  assert(buildHtml.includes("Print Teaching Kit binder"), "print CTA when print center enabled");
+  assert(/Print \/ Download Binder Kit|Print Teaching Kit/i.test(buildHtml), "print CTA when print center enabled");
   assert(buildHtml.includes("data-tk-print-binder"), "print button hook");
   assert(buildHtml.includes("Print pack"), "presets UI");
 }
@@ -308,8 +308,13 @@ async function main() {
     });
     assert(built.ok && (built.html.includes("Bugs &amp; Butterflies Binder") || built.html.includes("Bugs & Butterflies Binder")),
       "API kit prints with title");
-    assert(built.html.includes("tk-print-divider") || built.html.includes("Section divider"),
-      "section dividers present");
+    assert(
+      built.html.includes("Week at a Glance")
+      || built.html.includes("Teacher Toolkit")
+      || built.html.includes("tk-print-wag-table")
+      || built.html.includes("tk-print-activity-card"),
+      "professional binder sections present",
+    );
 
     const { chromium } = require("playwright");
     browser = await chromium.launch({ headless: true });
@@ -318,6 +323,8 @@ async function main() {
       <!doctype html>
       <html><body>
         <div id="resourceViewerBody"></div>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-present.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-printable-model.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-viewer.js"></script>
       </body></html>

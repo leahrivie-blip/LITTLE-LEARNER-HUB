@@ -26071,16 +26071,48 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
     } else {
       const plan = normalizeCurriculumLessonPlanForRender(viewerResource._curriculumLessonPlan);
       const weekOfLabel = formatLessonWeekOfLabel(weekStartDate) || "";
-      const variantResource = {
-        ...viewerResource,
-        title: `${viewerResource.title} - ${safeVariant === "materials" ? "Materials List" : "Full Lesson Plan"}`,
-        customContent: safeVariant === "full"
-          ? buildLessonPlanDownloadText(plan, {
+      let fullPlanText = "";
+      if (safeVariant === "full") {
+        // Prefer shared Teaching Kit printable model when a companion kit is available.
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        const mapperApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitMapper : null;
+        let kitForPrint = activeTeachingKitPayload
+          && String(activeTeachingKitPayload.lessonPlanId || "") === String(plan?.id || viewerResource.id || "")
+          ? activeTeachingKitPayload
+          : null;
+        if (!kitForPrint && mapperApi?.mapLessonPlanToTeachingKit && plan) {
+          try {
+            const activities = typeof effectiveCurriculum === "function"
+              ? (effectiveCurriculum().activities || []).filter((item) => item && item.lessonPlanId === plan.id)
+              : [];
+            const resources = typeof effectiveCurriculum === "function"
+              ? (effectiveCurriculum().resources || [])
+              : [];
+            kitForPrint = mapperApi.mapLessonPlanToTeachingKit(plan, activities, resources, { day: "monday" });
+          } catch (_err) {
+            kitForPrint = null;
+          }
+        }
+        if (kitForPrint?.ok && kitForPrint.companion && typeof printApi?.buildFullWeeklyLessonPlanText === "function") {
+          fullPlanText = printApi.buildFullWeeklyLessonPlanText(kitForPrint, {
+            plan,
+            watermark,
+          });
+        }
+        if (!fullPlanText) {
+          fullPlanText = buildLessonPlanDownloadText(plan, {
             title: viewerResource.title,
             theme: plan.theme || viewerResource.theme || "",
             age: viewerResource.age || plan.age || "Preschool",
             weekOfLabel,
-          })
+          });
+        }
+      }
+      const variantResource = {
+        ...viewerResource,
+        title: `${viewerResource.title} - ${safeVariant === "materials" ? "Materials List" : "Full Lesson Plan"}`,
+        customContent: safeVariant === "full"
+          ? fullPlanText
           : lessonPlanVariantText(viewerResource, safeVariant),
         pdfFileName: `${slug(viewerResource.title)}-${variantLabel}.pdf`,
         trialWatermark: watermark,
@@ -26835,7 +26867,10 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
       }
     },
     onPrint: (selection) => {
-      void printTeachingKitBinder(viewerResource, result.teachingKit, selection, activeTeachingKitFlags);
+      void printTeachingKitBinder(viewerResource, result.teachingKit, {
+        ...selection,
+        plan: viewerResource?._curriculumLessonPlan || null,
+      }, activeTeachingKitFlags);
     },
   });
   if (enhanced.enhanced) {
@@ -26933,8 +26968,12 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
 
   const built = printApi.buildBinderPrintHtml(kitPayload, {
     ...selection,
+    plan: selection.plan || viewerResource?._curriculumLessonPlan || null,
     watermark,
     paperSize: selection.paperSize || "letter",
+    // Default binder print is the entire kit document — never the visible modal/tab.
+    documentMode: selection.documentMode
+      || (selection.preset && selection.preset !== "week_binder" ? undefined : "entire_binder"),
   });
   if (!built.ok) return { ok: false, reason: built.reason || "build_failed" };
 
@@ -26946,7 +26985,8 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
 
   const body = document.querySelector("#resourceViewerBody");
   if (!body) return { ok: false, reason: "missing_body" };
-  body.innerHTML = `<article class="printable-resource-page teaching-kit-print-article">${built.html}</article>`;
+  // Replace interactive Teaching Kit UI with a dedicated print document (no modal chrome).
+  body.innerHTML = `<article class="printable-resource-page teaching-kit-print-article" data-tk-print-document="${escapeHtml(built.documentMode || selection.preset || "entire_binder")}">${built.html}</article>`;
   if (watermark) applyTrialCurriculumWatermark(body, watermark);
 
   // Wait briefly for images so print preview is not blank/cut mid-load.

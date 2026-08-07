@@ -24859,9 +24859,16 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 }
 .teaching-kit-print-article,
 .tk-print-root {
-  color: #1f2a24;
+  --tk-purple-deep: #542e94;
+  --tk-purple: #6b46c1;
+  --tk-purple-soft: #f3eefd;
+  --tk-purple-line: #d1c2f0;
+  --tk-ink: #2d1b4e;
+  --tk-muted: #6b5f82;
+  color: var(--tk-ink);
   background: #fff;
   counter-reset: tk-page;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
 }
 .tk-print-page {
   position: relative;
@@ -24869,13 +24876,9 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   flex-direction: column;
   break-after: page;
   page-break-after: always;
-  break-inside: avoid-page;
-  padding: 12px 8px 18px;
-  min-height: 9.5in;
+  padding: 10px 6px 14px;
+  min-height: 0;
   box-sizing: border-box;
-}
-.tk-print-root[data-tk-paper="a4"] .tk-print-page {
-  min-height: 10.2in;
 }
 .tk-print-page:last-of-type {
   break-after: auto;
@@ -24884,148 +24887,471 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 .tk-print-running {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #2f6b4f;
-  margin-bottom: 10px;
+  color: #fff;
+  background: var(--tk-purple-deep);
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
   flex: 0 0 auto;
 }
+.tk-print-title-bar {
+  background: var(--tk-purple-soft);
+  border: 1px solid var(--tk-purple-line);
+  border-left: 6px solid var(--tk-purple);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+}
 .tk-print-page-title {
-  margin: 0 0 6px;
-  font-size: 1.35rem;
-  color: #1f4d38;
+  margin: 0;
+  font-size: 1.22rem;
+  color: var(--tk-purple-deep);
   break-after: avoid;
   page-break-after: avoid;
 }
-.tk-print-rule {
-  border: 0;
-  border-top: 2px solid #2f6b4f;
-  margin: 8px 0 14px;
-}
+.tk-print-rule { display: none; }
 .tk-print-body {
   flex: 1 1 auto;
   min-height: 0;
-  padding-bottom: 8px;
-  font-size: 11.5pt;
-  line-height: 1.45;
-}
-.tk-print-lede {
-  margin: 0 0 12px;
-  font-size: 1.02rem;
-  color: #314338;
-}
-.tk-print-meta {
-  margin: 0 0 10px;
-  color: #5c6b62;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-.tk-print-section {
-  margin: 0 0 14px;
-}
-.tk-print-section > h3 {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
-  color: #1f4d38;
-  break-after: avoid;
-  page-break-after: avoid;
+  padding-bottom: 6px;
+  font-size: 10.5pt;
+  line-height: 1.35;
 }
 .tk-print-footer {
   margin-top: auto;
-  padding-top: 12px;
+  padding: 8px 10px 0;
   display: flex;
   justify-content: space-between;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--tk-muted);
+  border-top: 1px solid var(--tk-purple-line);
+  flex: 0 0 auto;
+}
+.tk-print-page { counter-increment: tk-page; }
+.tk-print-page-number::after { content: counter(tk-page); }
+.tk-print-keep { break-inside: avoid; page-break-inside: avoid; }
+.tk-print-muted { color: var(--tk-muted); }
+.tk-print-tight { margin: 0; line-height: 1.35; }
+.tk-print-list,
+.tk-print-bullets,
+.tk-print-steps,
+.tk-print-check,
+.tk-print-cell-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+.tk-print-bullets li,
+.tk-print-list li {
+  position: relative;
+  padding-left: 14px;
+  margin: 3px 0;
+}
+.tk-print-bullets li::before,
+.tk-print-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tk-purple);
+}
+.tk-print-steps { counter-reset: tk-step; }
+.tk-print-steps li {
+  counter-increment: tk-step;
+  position: relative;
+  padding-left: 22px;
+  margin: 4px 0;
+}
+.tk-print-steps li::before {
+  content: counter(tk-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--tk-purple-soft);
+  color: var(--tk-purple-deep);
+  border: 1px solid var(--tk-purple-line);
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+.tk-print-check li {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 8px;
+  align-items: start;
+  margin: 3px 0;
+}
+.tk-print-check-box {
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border: 1.5px solid var(--tk-purple);
+  border-radius: 3px;
+  background: #fff;
+}
+.tk-print-panel {
+  border: 1px solid var(--tk-purple-line);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+  margin: 0;
+}
+.tk-print-panel-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tk-purple-soft);
+  color: var(--tk-purple-deep);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--tk-purple-line);
+}
+.tk-print-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--tk-purple-deep);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+.tk-print-panel-body { padding: 7px 8px; }
+.tk-print-badge-row,
+.tk-print-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.tk-print-badge,
+.tk-print-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--tk-purple-soft);
+  color: var(--tk-purple-deep);
+  border: 1px solid var(--tk-purple-line);
   font-size: 0.72rem;
   font-weight: 700;
-  color: #5c6b62;
-  flex: 0 0 auto;
-  break-inside: avoid;
-  page-break-inside: avoid;
 }
-.tk-print-page {
-  counter-increment: tk-page;
+.tk-print-snapshot-grid,
+.tk-print-day-sheet-grid,
+.tk-print-activity-grid,
+.tk-print-resource-grid,
+.tk-print-notes-grid,
+.tk-print-day-pair {
+  display: grid;
+  gap: 8px;
 }
-.tk-print-page-number::after {
-  content: counter(tk-page);
-}
-.tk-print-keep {
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-.tk-print-muted { color: #5c6b62; }
-.tk-print-list { margin: 6px 0 12px; padding-left: 18px; }
-.tk-print-list li { margin: 4px 0; }
-.tk-print-block { margin: 0 0 10px; }
-.tk-print-message {
-  border: 1px dashed #c9d7ce;
+.tk-print-snapshot-grid { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.tk-print-day-sheet-grid { grid-template-columns: 1fr 1fr; }
+.tk-print-activity-grid { grid-template-columns: 1fr 1fr; }
+.tk-print-resource-grid { grid-template-columns: 1fr 1fr; }
+.tk-print-day-pair { grid-template-columns: 1fr; gap: 12px; }
+.tk-print-stat-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
-  padding: 10px 12px;
-  margin: 8px 0 14px;
-  line-height: 1.45;
+  background: var(--tk-purple-deep);
+  color: #fff;
+  font-size: 0.85rem;
+}
+.tk-print-wag-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8.5pt;
+  margin-top: 4px;
+}
+.tk-print-wag-table th,
+.tk-print-wag-table td {
+  border: 1px solid var(--tk-purple-line);
+  padding: 5px 4px;
+  vertical-align: top;
+  background: #fff;
+}
+.tk-print-wag-table thead th {
+  background: var(--tk-purple-deep);
+  color: #fff;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.tk-print-wag-table tbody th {
+  background: var(--tk-purple-soft);
+  color: var(--tk-purple-deep);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  width: 0.85in;
+}
+.tk-print-cell-list li {
+  margin: 2px 0;
+  padding-left: 10px;
+  position: relative;
+}
+.tk-print-cell-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.4em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--tk-purple);
+}
+.tk-print-day-sheet {
+  border: 1px solid var(--tk-purple-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.tk-print-day-sheet-head {
+  background: linear-gradient(90deg, var(--tk-purple-deep), var(--tk-purple));
+  color: #fff;
+  padding: 8px 10px;
+}
+.tk-print-day-sheet-head h3 { margin: 0 0 2px; font-size: 1.05rem; }
+.tk-print-day-sheet-head p { margin: 0; opacity: 0.95; font-size: 0.86rem; }
+.tk-print-day-sheet-grid { padding: 8px; }
+.tk-print-activity-card {
+  border: 1px solid var(--tk-purple-line);
+  border-radius: 12px;
+  background: #fff;
+  margin: 0 0 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(84, 46, 148, 0.06);
+}
+.tk-print-activity-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--tk-purple-soft);
+  border-bottom: 1px solid var(--tk-purple-line);
+}
+.tk-print-activity-head h3 {
+  margin: 0 0 4px;
+  color: var(--tk-purple-deep);
+  font-size: 1.05rem;
+}
+.tk-print-objective {
+  margin: 4px 0 0;
+  color: var(--tk-ink);
+  font-size: 0.86rem;
+}
+.tk-print-activity-grid { padding: 8px; }
+.tk-print-card-photos {
+  display: flex;
+  gap: 6px;
+}
+.tk-print-card-photo {
+  margin: 0;
+  width: 0.95in;
+  border: 1px solid var(--tk-purple-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  text-align: center;
+}
+.tk-print-card-photo img {
+  display: block;
+  width: 100%;
+  height: 0.75in;
+  object-fit: cover;
+}
+.tk-print-card-photo figcaption {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--tk-purple-deep);
+  padding: 2px 0;
+  text-transform: uppercase;
+}
+.tk-print-resource-card {
+  border: 1px solid var(--tk-purple-line);
+  border-radius: 12px;
+  padding: 8px;
+  background: #fff;
+}
+.tk-print-resource-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 6px;
+}
+.tk-print-resource-card h3 {
+  margin: 0;
+  color: var(--tk-purple-deep);
+  font-size: 0.98rem;
+}
+.tk-print-resource-preview img {
+  width: 100%;
+  max-height: 1.4in;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--tk-purple-line);
+}
+.tk-print-resource-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--tk-muted);
+  font-size: 0.75rem;
+  margin: 4px 0;
+}
+.tk-print-section-banner {
+  display: inline-flex;
+  margin: 4px 0 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--tk-purple-deep);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 .tk-print-callout {
-  background: #fff6e8;
+  display: grid;
+  gap: 2px;
+  background: #fff8ef;
   border: 1px solid #f0dfc4;
+  border-left: 5px solid #d0893b;
   border-radius: 10px;
-  padding: 10px 12px;
-  margin: 8px 0 12px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
 }
-.tk-print-pre { white-space: pre-wrap; line-height: 1.45; }
 .tk-print-cover {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: linear-gradient(160deg, #1f4d38, #2f6b4f 60%, #3d7f5e);
+  background:
+    radial-gradient(circle at 85% 18%, rgba(255,255,255,0.18), transparent 28%),
+    linear-gradient(155deg, #3b1d6e 0%, #542e94 45%, #6b46c1 100%);
   color: #fff;
-  border-radius: 8px;
+  border-radius: 14px;
   padding: 28px 24px;
+  min-height: 9.2in;
 }
-.tk-print-cover .tk-print-footer { color: rgba(255,255,255,0.85); }
+.tk-print-cover .tk-print-footer {
+  color: rgba(255,255,255,0.88);
+  border-top-color: rgba(255,255,255,0.28);
+}
 .tk-print-brand {
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   font-size: 0.78rem;
   font-weight: 800;
-  opacity: 0.92;
+  opacity: 0.95;
 }
-.tk-print-cover h1 {
-  margin: 18px 0 10px;
-  font-size: 2.2rem;
-  line-height: 1.1;
-}
-.tk-print-subtitle,
-.tk-print-theme,
-.tk-print-preset,
-.tk-print-cover-note { opacity: 0.95; }
-.tk-print-tab-list {
-  margin: 18px 0;
-  padding-left: 18px;
+.tk-print-cover-kicker {
+  display: inline-flex;
+  margin: 14px 0 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.28);
+  font-size: 0.78rem;
   font-weight: 700;
 }
-.tk-print-divider {
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: 12px;
-  background: #f3faf6;
-  border-left: 14px solid #2f6b4f;
+.tk-print-cover h1 {
+  margin: 18px 0 14px;
+  font-size: 2.4rem;
+  line-height: 1.08;
 }
-.tk-print-divider[data-tk-print-tab="Setup"] { border-left-color: #c9783a; }
-.tk-print-divider[data-tk-print-tab="Activities"] { border-left-color: #3d6e8c; }
-.tk-print-divider[data-tk-print-tab="Families"] { border-left-color: #8a4b12; }
-.tk-print-divider[data-tk-print-tab="Observe"] { border-left-color: #5c6b62; }
-.tk-print-divider-tab {
-  display: inline-block;
-  background: #2f6b4f;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.tk-print-cover-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.tk-print-cover-meta-card {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.tk-print-cover-meta-card span {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 6px 10px;
-  border-radius: 999px;
+  opacity: 0.85;
+}
+.tk-print-cover-meta-card strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.98rem;
+}
+.tk-print-cover .tk-print-chip {
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  border-color: rgba(255,255,255,0.28);
+}
+.tk-print-cover-note { margin: 14px 0 0; opacity: 0.92; }
+.tk-print-cover-image {
+  margin: 14px 0 0;
+  max-width: 3.4in;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.35);
+}
+.tk-print-cover-image img {
+  display: block;
+  width: 100%;
+  max-height: 2.2in;
+  object-fit: cover;
+}
+.tk-print-notes-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+.tk-print-write-inline,
+.tk-print-write-line {
+  display: block;
+  border-bottom: 1.5px solid var(--tk-purple-line);
+  min-height: 1.1em;
+  margin: 8px 0;
+}
+.tk-print-notes-grid {
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 10px;
+}
+.tk-print-notes-card {
+  border: 1px solid var(--tk-purple-line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--tk-purple-soft);
+}
+.tk-print-notes-card h3 {
+  margin: 0 0 4px;
+  color: var(--tk-purple-deep);
+  font-size: 0.9rem;
 }
 .tk-print-photo-row {
   display: grid;
@@ -25034,29 +25360,27 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   margin: 10px 0 14px;
 }
 .tk-print-photo {
-  border: 1px solid #d9e2db;
+  border: 1px solid var(--tk-purple-line);
   border-radius: 10px;
   overflow: hidden;
   text-align: center;
   font-size: 0.75rem;
   font-weight: 700;
-  background: #f5f8f6;
+  background: var(--tk-purple-soft);
 }
 .tk-print-photo img {
   width: 100%;
-  max-width: 100%;
-  max-height: 2.35in;
+  max-height: 2.1in;
   height: auto;
   object-fit: contain;
-  object-position: center;
   display: block;
 }
 .tk-print-photo-ph {
-  min-height: 1.6in;
+  min-height: 1.4in;
   display: grid;
   place-items: center;
-  background: #e8f2ec;
-  color: #1f4d38;
+  background: var(--tk-purple-soft);
+  color: var(--tk-purple-deep);
 }
 .tk-print-watermark {
   position: fixed;
@@ -25064,32 +25388,63 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   text-align: center;
   font-size: 1.1rem;
   font-weight: 800;
-  color: rgba(31, 42, 36, 0.12);
+  color: rgba(84, 46, 148, 0.12);
   transform: rotate(-18deg);
   pointer-events: none;
   z-index: 5;
 }
 .tk-print-root.is-ink-saver .tk-print-cover,
-.tk-print-root.is-ink-saver .tk-print-divider {
+.tk-print-root.is-ink-saver .tk-print-running,
+.tk-print-root.is-ink-saver .tk-print-day-sheet-head,
+.tk-print-root.is-ink-saver .tk-print-section-banner,
+.tk-print-root.is-ink-saver .tk-print-stat-pill,
+.tk-print-root.is-ink-saver .tk-print-wag-table thead th {
   background: #fff !important;
   color: #111 !important;
   border: 1px solid #333;
 }
 .tk-print-root.is-ink-saver .tk-print-cover h1,
-.tk-print-root.is-ink-saver .tk-print-running,
-.tk-print-root.is-ink-saver .tk-print-page-title { color: #111 !important; }
+.tk-print-root.is-ink-saver .tk-print-page-title,
+.tk-print-root.is-ink-saver .tk-print-panel-label { color: #111 !important; }
+
+@media (max-width: 700px) {
+  .tk-print-snapshot-grid,
+  .tk-print-day-sheet-grid,
+  .tk-print-activity-grid,
+  .tk-print-resource-grid,
+  .tk-print-notes-grid,
+  .tk-print-cover-meta {
+    grid-template-columns: 1fr;
+  }
+}
 
 @media print {
   body.printing-teaching-kit .lesson-workspace-topchrome,
   body.printing-teaching-kit .lesson-workspace-action-bars,
   body.printing-teaching-kit .lesson-workspace-more-menu,
   body.printing-teaching-kit .lesson-workspace-action-sheet,
-  body.printing-teaching-kit .tk-ops-nav {
+  body.printing-teaching-kit .tk-ops-nav,
+  body.printing-teaching-kit .tk-ops-tabs,
+  body.printing-teaching-kit .tk-binder-section-nav,
+  body.printing-teaching-kit .tk-surface:not(.teaching-kit-print-article),
+  body.printing-teaching-kit .close-button,
+  body.printing-teaching-kit .resource-viewer-toolbar,
+  body.printing-teaching-kit #resourceViewerTitle,
+  body.printing-teaching-kit #resourceViewerCategory,
+  body.printing-teaching-kit #resourceViewerTags,
+  body.printing-teaching-kit [data-close-modal],
+  body.printing-teaching-kit button:not(.tk-print-root button),
+  body.printing-teaching-kit .modal-header,
+  body.printing-teaching-kit .resource-viewer-header {
     display: none !important;
   }
   body.printing-teaching-kit #resourceViewerModal .modal-card {
     box-shadow: none !important;
     border: 0 !important;
+  }
+  body.printing-teaching-kit .teaching-kit-print-article,
+  body.printing-teaching-kit .tk-print-root {
+    display: block !important;
   }
   body.printing-teaching-kit .tk-print-page {
     min-height: auto;
@@ -25098,11 +25453,14 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   body.printing-teaching-kit .tk-print-keep,
   body.printing-teaching-kit .tk-print-photo-row,
   body.printing-teaching-kit .tk-print-callout,
-  body.printing-teaching-kit .tk-print-block {
+  body.printing-teaching-kit .tk-print-block,
+  body.printing-teaching-kit .tk-print-day-card,
+  body.printing-teaching-kit .tk-print-activity-card {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  body.printing-teaching-kit .tk-print-photo img {
+  body.printing-teaching-kit .tk-print-photo img,
+  body.printing-teaching-kit .tk-print-cover-image img {
     max-height: 2.2in;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

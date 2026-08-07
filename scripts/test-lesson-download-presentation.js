@@ -69,7 +69,7 @@ function assertNoRawLabels(text, label) {
 async function main() {
   assert.equal(Present.presentLabel("copyrighted_title_only"), "Copyrighted title only");
   assert.equal(Present.presentLabel("AGE_MODIFICATIONS"), "Age adaptations");
-  assert.equal(Present.presentLabel("week_binder"), "Weekly Teaching Kit");
+  assert.equal(Present.presentLabel("week_binder"), "Entire Binder Kit");
 
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(SAMPLE, "utf8"));
   assert.ok(parsed.ok, `sample parse failed: ${(parsed.errors || []).join("; ")}`);

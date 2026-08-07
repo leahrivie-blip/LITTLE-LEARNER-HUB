@@ -271,7 +271,12 @@ function testPrintPaperAndBreaksAndImages() {
 
   assert(letter.html.includes("tk-print-keep"), "keep-together blocks present");
   assert(letter.html.includes("tk-print-page-number"), "page number slots present");
-  assert(letter.html.includes("tk-print-photo-row"), "photo row present when images on");
+  assert(
+    letter.html.includes("tk-print-photo-row")
+    || letter.html.includes("tk-print-card-photos")
+    || letter.html.includes("tk-print-card-photo"),
+    "photo row present when images on",
+  );
 
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   assert(styles.includes("break-inside: avoid"), "print CSS avoids mid-block cuts");
@@ -482,6 +487,8 @@ async function main() {
         <link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css" />
       </head><body>
         <div id="resourceViewerBody"></div>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-present.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-printable-model.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-viewer.js"></script>
       </body></html>
