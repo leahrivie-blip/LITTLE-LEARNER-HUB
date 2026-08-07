@@ -24034,7 +24034,7 @@ body.nuo-open #freePlanReminderBar {
 .tk-btn-lg { padding: 12px 16px; }
 .tk-banner-time,
 .tk-banner-missing,
-.tk-sticky-today {
+.tk-today-launcher {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -24046,7 +24046,77 @@ body.nuo-open #freePlanReminderBar {
 }
 .tk-banner-time { background: var(--tk-soft); border-color: #cfe3d7; }
 .tk-banner-missing { background: var(--tk-danger); border-color: #f0c4c4; }
-.tk-sticky-today { background: rgba(251, 253, 251, 0.96); position: sticky; top: 0; z-index: 2; }
+/* Compact launcher in normal flow — never sticky/fixed over Today content */
+.tk-today-launcher {
+  position: static;
+  z-index: auto;
+  background: #f7fbf8;
+  border-color: #cfe3d7;
+  margin: 0 0 12px;
+  min-width: 0;
+}
+.tk-today-launcher-copy {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.tk-today-launcher-title {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tk-today-launcher .tk-btn {
+  flex: 0 1 auto;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+.tk-start-actions .tk-btn-primary {
+  box-shadow: 0 6px 16px rgba(47, 107, 79, 0.18);
+}
+.tk-start-actions .tk-btn-ghost,
+.tk-start-actions .tk-btn-secondary {
+  opacity: 0.96;
+}
+.tk-card-title {
+  display: block;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--tk-ink);
+  overflow-wrap: anywhere;
+}
+.tk-card-meta {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--tk-muted);
+}
+.tk-detail {
+  border: 1px solid var(--tk-line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 12px;
+  margin: 8px 0;
+}
+.tk-detail > summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 10px 0;
+  list-style: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.tk-detail > summary::-webkit-details-marker { display: none; }
+.tk-detail-body {
+  padding: 0 0 12px;
+  border-top: 1px solid #e7eee9;
+}
+.tk-build-cta-stack {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
 .tk-eyebrow { font-size: 0.78rem; font-weight: 700; color: var(--tk-muted); }
 .tk-big { font-size: 1.3rem; font-weight: 800; color: var(--tk-brand-deep); }
 .tk-check-row {
@@ -24119,12 +24189,36 @@ body.nuo-open #freePlanReminderBar {
   border-radius: 18px;
   background: #f3faf6;
   padding: 14px;
+  position: static;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
-.tk-tray-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 10px; }
-.tk-tray-head h4 { margin: 0; }
+.tk-tray-inline {
+  margin: 0 0 14px;
+}
+.tk-tray-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.tk-tray-head h4 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tk-tray-head-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .tk-tray-item {
   display: grid;
-  grid-template-columns: 56px 1fr auto;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   background: #fff;
@@ -24132,6 +24226,11 @@ body.nuo-open #freePlanReminderBar {
   border-radius: 14px;
   padding: 10px;
   margin-bottom: 8px;
+  min-width: 0;
+}
+.tk-tray-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .tk-thumb {
   width: 56px;
@@ -24199,32 +24298,38 @@ body.nuo-open #freePlanReminderBar {
 .tk-toggle.is-on::after { left: 21px; }
 .tk-activity-chrome { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .tk-activity-title { margin: 0; font-size: 1.25rem; }
-.tk-photo-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tk-photo-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
 .tk-photo {
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--tk-line);
-  background: linear-gradient(135deg, rgba(47,107,79,0.18), rgba(201,120,58,0.18));
-  min-height: 150px;
+  background: #f5f8f6;
+  min-width: 0;
   display: grid;
-  align-content: stretch;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
-.tk-photo img {
+.tk-photo:empty { display: none; }
+.tk-photo img,
+.tk-photo-img,
+.tk-photo-placeholder {
   width: 100%;
-  max-height: 180px;
-  height: auto;
-  object-fit: contain;
+  aspect-ratio: 4 / 3;
+  max-height: 220px;
+  min-height: 120px;
+  object-fit: cover;
   object-position: center;
   display: block;
   background: #f5f8f6;
 }
 .tk-photo-placeholder {
-  min-height: 120px;
   display: grid;
   place-items: center;
   color: var(--tk-brand-deep);
   font-weight: 700;
   font-size: 0.85rem;
+  padding: 12px;
+  text-align: center;
+  object-fit: unset;
 }
 .tk-photo-caption {
   background: rgba(31,42,36,0.72);
@@ -24720,9 +24825,9 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
     padding-right: 8px;
     min-height: 44px;
   }
-  .tk-sticky-today { position: sticky; top: 52px; }
+  .tk-today-launcher { position: static; }
   .tk-binder-section-nav { top: 96px; }
-  .tk-tray-item { grid-template-columns: 44px 1fr; }
+  .tk-tray-item { grid-template-columns: 44px minmax(0, 1fr); }
   .tk-tray-item > .tk-btn,
   .tk-tray-item > .tk-chip { grid-column: 2; justify-self: start; }
   .teaching-kit-workspace,
@@ -24803,6 +24908,29 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   flex: 1 1 auto;
   min-height: 0;
   padding-bottom: 8px;
+  font-size: 11.5pt;
+  line-height: 1.45;
+}
+.tk-print-lede {
+  margin: 0 0 12px;
+  font-size: 1.02rem;
+  color: #314338;
+}
+.tk-print-meta {
+  margin: 0 0 10px;
+  color: #5c6b62;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.tk-print-section {
+  margin: 0 0 14px;
+}
+.tk-print-section > h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: #1f4d38;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 .tk-print-footer {
   margin-top: auto;

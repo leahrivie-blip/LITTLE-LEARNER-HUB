@@ -48,6 +48,43 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function presentApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPresent)
+      || (typeof require === "function" ? (() => { try { return require("./teaching-kit-present.js"); } catch (_e) { return null; } })()
+      : null);
+  }
+
+  function presentLabel(value, fallback) {
+    const api = presentApi();
+    return api?.presentLabel ? api.presentLabel(value, fallback) : (text(value) || text(fallback) || "");
+  }
+
+  function presentRights(value) {
+    const api = presentApi();
+    return api?.presentRightsStatus ? api.presentRightsStatus(value) : presentLabel(value, "");
+  }
+
+  function presentKind(value) {
+    const api = presentApi();
+    return api?.presentKind ? api.presentKind(value) : presentLabel(value, "Item");
+  }
+
+  function hasDisplayValue(value) {
+    const api = presentApi();
+    if (api?.hasDisplayValue) return api.hasDisplayValue(value);
+    return Boolean(text(value));
+  }
+
+  function detailBlockHtml(title, bodyHtml, { open = false, className = "" } = {}) {
+    if (!text(bodyHtml)) return "";
+    return `
+      <details class="tk-detail${className ? ` ${className}` : ""}"${open ? " open" : ""}>
+        <summary>${escapeHtml(title)}</summary>
+        <div class="tk-detail-body">${bodyHtml}</div>
+      </details>
+    `;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -273,14 +310,14 @@
               ])}
             </div>
           </div>
-          <div class="tk-stack">
-            <button type="button" class="tk-btn tk-btn-primary" data-tk-goto="setup">Open Monday Morning Setup</button>
+          <div class="tk-stack tk-start-actions">
+            <button type="button" class="tk-btn tk-btn-primary tk-btn-lg" data-tk-goto="setup">Open Monday Morning Setup</button>
             <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Open Today’s Classroom</button>
-            <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Open Digital Binder</button>
+            <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Open Digital Binder</button>
             <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print My Kit</button>
           </div>
         </div>
-        <div class="tk-grid-3">
+        <div class="tk-grid-3 tk-start-guide">
           <article class="tk-card"><h4>Before children arrive</h4><p class="tk-muted">Materials, prep tasks, supplies, and what to print.</p></article>
           <article class="tk-card"><h4>During the day</h4><p class="tk-muted">Schedule, activities, books, songs, transitions, notes.</p></article>
           <article class="tk-card"><h4>In your hands</h4><p class="tk-muted">A binder-ready kit you can customize before printing.</p></article>
@@ -412,34 +449,38 @@
       });
     }
 
+    const dayLabel = today.dayLabel || DAY_SHORT[day] || "Today";
     return `
       <section class="tk-surface" data-tk-panel="today">
-        <div class="tk-sticky-today">
-          <div>
-            <h3>${escapeHtml(today.dayLabel || DAY_SHORT[day] || "Today")} · leave this open</h3>
-            <p class="tk-muted">${escapeHtml(today.focus || kit.theme || "Classroom companion for the day")}</p>
-          </div>
-          <button type="button" class="tk-btn tk-btn-primary tk-btn-lg" data-tk-open-everything>${open ? "Close packet" : "Open Everything I Need Today"}</button>
-        </div>
         <div class="tk-day-strip" role="tablist" aria-label="Week days">
           ${WEEKDAYS.map((weekday) => `
             <button type="button" role="tab" class="tk-day${weekday === day ? " is-active" : ""}" data-tk-day="${weekday}" aria-selected="${weekday === day ? "true" : "false"}">${escapeHtml(DAY_SHORT[weekday])}</button>
           `).join("")}
         </div>
+        <div class="tk-today-launcher${open ? " is-open" : ""}" data-tk-today-launcher>
+          <div class="tk-today-launcher-copy">
+            <p class="tk-eyebrow">${escapeHtml(dayLabel)} classroom</p>
+            <h3 class="tk-today-launcher-title">${escapeHtml(today.focus || kit.theme || "Today’s plan")}</h3>
+          </div>
+          <button type="button" class="tk-btn ${open ? "tk-btn-secondary" : "tk-btn-primary"}" data-tk-open-everything aria-expanded="${open ? "true" : "false"}">${open ? "Close daily packet" : "Open Everything I Need Today"}</button>
+        </div>
         ${open ? `
-          <div class="tk-tray" data-tk-tray>
+          <div class="tk-tray tk-tray-inline" data-tk-tray>
             <div class="tk-tray-head">
-              <h4>Everything for ${escapeHtml(today.dayLabel || day)}</h4>
-              <span class="tk-chip tk-chip-ok">${escapeHtml(String(dayPacketItems.length))} items</span>
+              <h4>Daily packet · ${escapeHtml(dayLabel)}</h4>
+              <div class="tk-tray-head-actions">
+                <span class="tk-chip tk-chip-ok">${escapeHtml(String(dayPacketItems.length))} items</span>
+                <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-open-everything aria-label="Close daily packet">Close</button>
+              </div>
             </div>
             ${dayPacketItems.map((item) => `
               <div class="tk-tray-item">
                 <div class="tk-thumb" aria-hidden="true"></div>
-                <div>
-                  <strong>${escapeHtml(item.title)}</strong>
-                  <p class="tk-muted">${escapeHtml(item.detail || item.kind)}</p>
+                <div class="tk-tray-copy">
+                  <strong class="tk-card-title">${escapeHtml(item.title)}</strong>
+                  <p class="tk-muted tk-card-meta">${escapeHtml(item.detail || presentKind(item.kind))}</p>
                   ${item.usedInWeek && item.usedInWeek.length
-                    ? `<div class="tk-used-map">${item.usedInWeek.map((slot) => `<span class="tk-used-pill">${escapeHtml(`${slot.dayLabel || slot.day} · ${slot.moment}`)}</span>`).join("")}</div>`
+                    ? `<div class="tk-used-map">${item.usedInWeek.map((slot) => `<span class="tk-used-pill">${escapeHtml(`${presentLabel(slot.dayLabel || slot.day)} · ${presentLabel(slot.moment || "during day")}`)}</span>`).join("")}</div>`
                     : ""}
                   ${item.body ? `<div class="tk-message">${escapeHtml(item.body)}</div>` : ""}
                 </div>
@@ -447,7 +488,7 @@
                   ? `<button type="button" class="tk-btn tk-btn-secondary tk-btn-sm" data-tk-open-activity="${escapeHtml(item.id)}">Open</button>`
                   : item.kind === "parent_message"
                     ? `<button type="button" class="tk-btn tk-btn-primary tk-btn-sm" data-tk-copy-parent>Copy</button>`
-                    : `<span class="tk-chip">${escapeHtml(item.kind)}</span>`}
+                    : `<span class="tk-chip">${escapeHtml(presentKind(item.kind))}</span>`}
               </div>
             `).join("")}
           </div>
@@ -460,7 +501,7 @@
                 <div class="tk-slot">
                   <div class="tk-time">${escapeHtml(slot.time)}</div>
                   <div class="tk-what">${escapeHtml(slot.label)}</div>
-                  <div class="tk-kind">${escapeHtml(slot.kind)}</div>
+                  <div class="tk-kind">${escapeHtml(presentKind(slot.kind))}</div>
                 </div>
               `).join("") || `<p class="tk-muted">No schedule items for this day.</p>`}
             </div>
@@ -515,8 +556,8 @@
                 ${(today.activities || []).map((activity) => `
                   <div class="tk-activity-row">
                     <div>
-                      <strong>${escapeHtml(activity.title)}</strong>
-                      <p class="tk-muted">${escapeHtml(activity.activityCategory || activity.sectionId || "activity")}</p>
+                      <strong class="tk-card-title">${escapeHtml(activity.title)}</strong>
+                      <p class="tk-muted tk-card-meta">${escapeHtml(presentLabel(activity.activityCategory || activity.sectionId || "activity"))}</p>
                     </div>
                     <button type="button" class="tk-btn tk-btn-secondary tk-btn-sm" data-tk-open-activity="${escapeHtml(activity.id)}">Open</button>
                   </div>
@@ -557,12 +598,12 @@
           <button type="button" class="tk-btn tk-btn-accent tk-btn-sm" data-tk-toggle-substitute aria-expanded="${showSub ? "true" : "false"}">Substitute This Activity</button>
         </div>
         <h3 class="tk-activity-title">${escapeHtml(activity.title)}</h3>
-        <p class="tk-muted">${escapeHtml(activity.activityCategory || "")}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_SHORT[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
+        <p class="tk-muted tk-card-meta">${escapeHtml(presentLabel(activity.activityCategory || ""))}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_SHORT[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
         ${photoPair ? `<div class="tk-photo-pair">${photoPair}</div>` : (ownerPreview ? `<div class="tk-photo-pair">${photoSlotHtml("", "", "Example photo", true, "example")}${photoSlotHtml("", "", "Setup photo", true, "setup")}</div>` : "")}
         <div class="tk-grid-2">
           <div class="tk-stack">
-            ${activity.purpose ? `<article class="tk-card"><h4>Purpose</h4><p class="tk-muted tk-pre">${escapeHtml(activity.purpose)}</p></article>` : (ownerPreview ? `<article class="tk-card tk-field-empty"><h4>Purpose</h4><p class="tk-muted">Not added yet.</p></article>` : "")}
-            <article class="tk-card"><h4>Learning objective</h4><p class="tk-muted">${escapeHtml(activity.learningObjective || (ownerPreview ? "Not added yet." : "None listed"))}</p></article>
+            ${hasDisplayValue(activity.purpose) ? `<article class="tk-card"><h4>Purpose</h4><p class="tk-muted tk-pre">${escapeHtml(activity.purpose)}</p></article>` : (ownerPreview ? `<article class="tk-card tk-field-empty"><h4>Purpose</h4><p class="tk-muted">Not added yet.</p></article>` : "")}
+            ${hasDisplayValue(activity.learningObjective) || ownerPreview ? `<article class="tk-card"><h4>Learning objective</h4><p class="tk-muted">${escapeHtml(activity.learningObjective || (ownerPreview ? "Not added yet." : ""))}</p></article>` : ""}
             ${(activity.developmentalDomains || []).length ? `<article class="tk-card"><h4>Developmental domains</h4><p class="tk-muted">${escapeHtml(activity.developmentalDomains.join(" · "))}</p></article>` : ""}
             <article class="tk-card"><h4>Timing &amp; grouping</h4><p class="tk-muted">Setup: ${escapeHtml(activity.setupMinutes != null ? `${activity.setupMinutes} min` : (ownerPreview ? "not set" : "—"))} · Duration: ${escapeHtml(activity.activityDurationMinutes != null ? `${activity.activityDurationMinutes} min` : (activity.estimatedMinutes ? `~${activity.estimatedMinutes} min` : "—"))} · Group: ${escapeHtml(activity.groupSize || "Flexible")} · Placement: ${escapeHtml(activity.dailyPlacement || "During the day")}</p></article>
             <article class="tk-card"><h4>Exact materials</h4><p class="tk-muted">${escapeHtml((activity.materials || []).join(" · ") || activity.materialsText || (ownerPreview ? "Not added yet." : "None listed"))}</p></article>
@@ -734,12 +775,14 @@
             </article>
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
-              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
-              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (unavailable)"}</button>
-              <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
+              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Weekly Teaching Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
+              <div class="tk-build-cta-stack">
+                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit Binder" : "Print Teaching Kit Binder (unavailable)"}</button>
+                <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview Binder</button>
+              </div>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Opens a professional binder print layout. Unavailable sections stay disabled so blank pages are not generated."
-                : "Print Center is not available for this session. Binder preview still works."}</p>
+                ? "Print Teaching Kit Binder opens the classroom PDF. Preview Binder shows the on-screen binder first. Teacher Weekly Planner and Full Lesson Plan stay available from the action bar below."
+                : "Print Center is not available for this session. Binder preview and lesson downloads still work from the action bar."}</p>
             </article>
           </aside>
         </div>
@@ -916,14 +959,14 @@
             ${songs.map((song) => `
               <article class="tk-binder-block">
                 <h4>${escapeHtml(song.title || "Song")}</h4>
-                ${song.rightsStatus ? `<p class="tk-muted"><strong>Rights:</strong> ${escapeHtml(song.rightsStatus)}</p>` : ""}
-                ${song.tune ? `<p class="tk-muted"><strong>Tune:</strong> ${escapeHtml(song.tune)}</p>` : ""}
-                ${song.whenToUse ? `<p class="tk-muted"><strong>When to use:</strong> ${escapeHtml(song.whenToUse)}</p>` : ""}
-                ${song.teacherDirections ? `<p class="tk-muted"><strong>Teacher directions:</strong> ${escapeHtml(song.teacherDirections)}</p>` : ""}
-                ${song.lyricsPrintable && song.lyrics ? `<p class="tk-muted tk-pre tk-lyrics">${escapeHtml(song.lyrics)}</p>` : (song.lyrics ? "" : (ownerPreview ? `<p class="tk-muted tk-field-empty">Lyrics not added (or not printable for rights reasons).</p>` : ""))}
-                ${song.motions ? `<p class="tk-muted"><strong>Motions:</strong> ${escapeHtml(song.motions)}</p>` : ""}
-                ${song.ageAdaptations ? `<p class="tk-muted"><strong>Age adaptations:</strong> ${escapeHtml(song.ageAdaptations)}</p>` : ""}
-                ${song.linkedWeekday ? `<p class="tk-muted"><strong>Linked day:</strong> ${escapeHtml(song.linkedWeekday)}</p>` : ""}
+                ${song.rightsStatus ? `<p class="tk-muted tk-card-meta"><strong>Rights:</strong> ${escapeHtml(presentRights(song.rightsStatus))}</p>` : ""}
+                ${hasDisplayValue(song.tune) ? `<p class="tk-muted"><strong>Tune:</strong> ${escapeHtml(song.tune)}</p>` : ""}
+                ${hasDisplayValue(song.whenToUse) ? `<p class="tk-muted"><strong>When to use:</strong> ${escapeHtml(song.whenToUse)}</p>` : ""}
+                ${hasDisplayValue(song.teacherDirections) ? detailBlockHtml("Teacher directions", `<p class="tk-muted">${escapeHtml(song.teacherDirections)}</p>`) : ""}
+                ${song.lyricsPrintable && song.lyrics ? detailBlockHtml("Lyrics", `<p class="tk-muted tk-pre tk-lyrics">${escapeHtml(song.lyrics)}</p>`) : (song.lyrics ? "" : (ownerPreview ? `<p class="tk-muted tk-field-empty">Lyrics not added (or not printable for rights reasons).</p>` : ""))}
+                ${hasDisplayValue(song.motions) ? `<p class="tk-muted"><strong>Motions:</strong> ${escapeHtml(song.motions)}</p>` : ""}
+                ${hasDisplayValue(song.ageAdaptations) ? detailBlockHtml("Age adaptations", `<p class="tk-muted">${escapeHtml(song.ageAdaptations)}</p>`) : ""}
+                ${song.linkedWeekday ? `<p class="tk-muted tk-card-meta"><strong>Linked day:</strong> ${escapeHtml(presentLabel(song.linkedWeekday))}</p>` : ""}
               </article>
             `).join("") || emptyBinderStateHtml("Songs", ownerPreview)}
           </div>
@@ -1256,13 +1299,23 @@
       }
     }
 
-    function rerender() {
+    function rerender(options) {
+      const opts = options && typeof options === "object" ? options : {};
+      const scrollHost = root.querySelector("[data-tk-workspace-scroll]");
+      const savedScroll = opts.preserveScroll && scrollHost ? scrollHost.scrollTop : null;
       const host = root.querySelector("[data-tk-host]");
       if (host) {
         // Panel-only swap keeps chrome/listeners intact for snappy navigation.
         host.innerHTML = surfaceHtml(kit, state, chrome);
         syncOpsNav(root, state);
-        focusPanel(host);
+        if (!opts.preserveScroll) focusPanel(host);
+        if (savedScroll != null && scrollHost) {
+          scrollHost.scrollTop = savedScroll;
+          requestAnimationFrame(() => {
+            const again = root.querySelector("[data-tk-workspace-scroll]");
+            if (again) again.scrollTop = savedScroll;
+          });
+        }
         return;
       }
       const article = root.closest("article") || root;
@@ -1372,7 +1425,7 @@
         event.preventDefault();
         state.surface = "today";
         state.openEverything = !state.openEverything;
-        rerender();
+        rerender({ preserveScroll: true });
         return;
       }
 
@@ -1519,6 +1572,10 @@
     BINDER_SECTION_ORDER,
     WEEKDAYS,
     escapeHtml,
+    presentLabel,
+    presentRights,
+    presentKind,
+    hasDisplayValue,
     isSparseKit,
     visibleBinderTabs,
     loadingWorkspaceHtml,
