@@ -641,7 +641,16 @@
     const presets = printApi?.PRESETS || [];
     const partLabels = printApi?.PART_LABELS || {};
     const parts = state.printParts || {};
-    const printEnabled = Boolean(state.printCenterEnabled);
+    const kitLocked = Boolean(kit?.locked) || !kit?.companion;
+    const printEnabled = Boolean(state.printCenterEnabled) && !kitLocked;
+    const printHelp = kitLocked
+      ? "This Teaching Kit is locked. Upgrade to Pro (or start a trial) to print premium binders. Free members can print the 10 starter kits."
+      : (state.printCenterEnabled
+        ? "Opens a professional binder print layout. Unavailable sections stay disabled so blank pages are not generated. Free starters never use trial print allowance."
+        : "Print Center is not available for this session. Binder preview still works.");
+    const printButtonLabel = kitLocked
+      ? "Print Teaching Kit binder (Pro)"
+      : (state.printCenterEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (unavailable)");
     const ownerPreview = isOwnerPreviewKit(kit, chrome);
     const availability = printApi?.evaluatePrintPartAvailability
       ? printApi.evaluatePrintPartAvailability(kit, { removedActivityIds: removed, ownerPreview })
@@ -735,11 +744,9 @@
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
               <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
-              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (unavailable)"}</button>
+              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${escapeHtml(printButtonLabel)}</button>
               <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
-              <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Opens a professional binder print layout. Unavailable sections stay disabled so blank pages are not generated."
-                : "Print Center is not available for this session. Binder preview still works."}</p>
+              <p class="tk-muted tk-note" id="tk-print-help">${escapeHtml(printHelp)}</p>
             </article>
           </aside>
         </div>

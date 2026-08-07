@@ -2662,12 +2662,21 @@ function isPremiumHubCurriculumResource(resource) {
   return false;
 }
 
-function trialExportAuthHeaders() {
+async function trialExportAuthHeaders() {
+  // Prefer the same auth stack as Teaching Kit / curriculum (member session or Firebase).
   const headers = { "Content-Type": "application/json" };
   try {
-    const token = localStorage.getItem("llhFirebaseIdToken") || sessionStorage.getItem("llhFirebaseIdToken") || "";
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const authHeaders = typeof firebaseAuthHeaders === "function"
+      ? await firebaseAuthHeaders().catch(() => null)
+      : null;
+    if (authHeaders && typeof authHeaders === "object") Object.assign(headers, authHeaders);
   } catch { /* ignore */ }
+  if (!headers.Authorization) {
+    try {
+      const token = localStorage.getItem("llhFirebaseIdToken") || sessionStorage.getItem("llhFirebaseIdToken") || "";
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch { /* ignore */ }
+  }
   if (currentUser) headers["x-llh-user-email"] = String(currentUser);
   return headers;
 }
@@ -2675,7 +2684,7 @@ function trialExportAuthHeaders() {
 async function fetchTrialExportStatus() {
   if (!currentUser) return null;
   try {
-    const res = await fetch("/api/trial-curriculum-exports", { headers: trialExportAuthHeaders() });
+    const res = await fetch("/api/trial-curriculum-exports", { headers: await trialExportAuthHeaders() });
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -2689,6 +2698,7 @@ function newTrialExportIdempotencyKey(resource, action) {
 }
 
 async function confirmTrialCurriculumExport(resource, action = "print") {
+  // Free starters + provider-owned: never consume trial allowance (matches server).
   if (!isPremiumHubCurriculumResource(resource)) {
     return { allowed: true, counted: false, watermark: "" };
   }
@@ -2696,8 +2706,15 @@ async function confirmTrialCurriculumExport(resource, action = "print") {
   if (isProUser() && !accountIsInTrial()) {
     return { allowed: true, unlimited: true, watermark: "" };
   }
+  // Free (or any non-trial without Pro): cannot print/download premium hub curriculum.
+  // Do not client-allow Pro kits — server authorize is the source of truth for trials.
   if (!accountIsInTrial()) {
-    return { allowed: true, counted: false, watermark: "" };
+    showProFeatureModal?.({
+      headline: "Pro curriculum print & download",
+      body: "Free members can print and download the 10 starter Teaching Kits. Upgrade to Pro (or start a trial) to print the full premium library.",
+      preferTrial: true,
+    });
+    return { allowed: false, requiresUpgrade: true };
   }
   const before = MEMBERSHIP_COPY.trialBeforeExport;
   const confirmed = typeof confirmAction === "function"
@@ -2714,7 +2731,7 @@ async function confirmTrialCurriculumExport(resource, action = "print") {
   try {
     const res = await fetch("/api/trial-curriculum-exports/authorize", {
       method: "POST",
-      headers: trialExportAuthHeaders(),
+      headers: await trialExportAuthHeaders(),
       body: JSON.stringify({
         idempotencyKey,
         resourceType: resource.category === "Activity Center" || resource._curriculumActivity ? "activity" : "lesson-plan",
@@ -25735,7 +25752,7 @@ function downloadLessonPlanVariantPdf(printVariant = "week", options = {}) {
 async function downloadTrialPremiumPdfViaServer(resource, idempotencyKey) {
   const res = await fetch("/api/trial-curriculum-exports/generate-pdf", {
     method: "POST",
-    headers: trialExportAuthHeaders(),
+    headers: await trialExportAuthHeaders(),
     body: JSON.stringify({
       resourceId: resource.id || resource._curriculumLessonPlanId || "",
       idempotencyKey,
@@ -26460,14 +26477,12 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
   if (teachingKitContentCache.has(cacheKey)) {
     return { ok: true, reason: "cache", ...teachingKitContentCache.get(cacheKey) };
   }
+  // Avoid double firebaseAuthHeaders waits (siteContentRequestHeaders also calls it).
   const authHeaders = typeof firebaseAuthHeaders === "function" ? await firebaseAuthHeaders().catch(() => null) : null;
   const headers = {
-    ...(await siteContentRequestHeaders()),
+    Accept: "application/json",
     ...(authHeaders && typeof authHeaders === "object" ? authHeaders : {}),
   };
-  // Fetch combines duplicate case-insensitive header names with commas. Multiple
-  // X-LLH-User-Email sources would become "a@x, a@x" and fail owner matching
-  // while still blocking the admin-token fallback. Set identity once.
   delete headers["x-llh-user-email"];
   delete headers["X-LLH-User-Email"];
   if (signedIn) headers["X-LLH-User-Email"] = signedIn;
@@ -26479,10 +26494,31 @@ async function fetchTeachingKitForPlan(planId, query = {}) {
     params.set("adminToken", ownerAdminToken);
   }
   const qs = params.toString();
-  const response = await fetch(
-    `${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}/${curriculumAccessConfig.teachingKitEndpointSuffix}${qs ? `?${qs}` : ""}`,
-    { headers, cache: "no-store" },
-  );
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeoutMs = 8000;
+  const timeoutId = controller
+    ? window.setTimeout(() => {
+      try { controller.abort(); } catch { /* ignore */ }
+    }, timeoutMs)
+    : 0;
+  let response;
+  try {
+    response = await fetch(
+      `${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}/${curriculumAccessConfig.teachingKitEndpointSuffix}${qs ? `?${qs}` : ""}`,
+      { headers, cache: "no-store", signal: controller?.signal },
+    );
+  } catch (error) {
+    if (timeoutId) window.clearTimeout(timeoutId);
+    const aborted = error?.name === "AbortError" || /abort/i.test(String(error?.message || error || ""));
+    return {
+      ok: false,
+      reason: aborted ? "timeout" : "fetch-failed",
+      teachingKit: null,
+      featureFlags: null,
+      status: aborted ? 408 : 0,
+    };
+  }
+  if (timeoutId) window.clearTimeout(timeoutId);
   if (response.status === 404) {
     const data = await response.json().catch(() => ({}));
     return {
@@ -26836,8 +26872,18 @@ function applyLessonWorkspaceChrome(viewerResource) {
 }
 
 function resourceViewerBack() {
+  // Match the X control: prefer history.back for lesson nav, but never leave Back
+  // looking dead (guest Teaching Kit / public preview often miss popstate).
   if (shouldUseLessonNavHistoryBack()) {
+    const wasOpen = Boolean(document.querySelector("#resourceViewerModal.open"));
     window.history.back();
+    if (wasOpen) {
+      window.setTimeout(() => {
+        if (document.querySelector("#resourceViewerModal.open")) {
+          closeResourceViewer();
+        }
+      }, 120);
+    }
     return;
   }
   if (resourceViewerReturnToId) {
@@ -34480,26 +34526,32 @@ function applyChildDataSnapshot(snapshot = {}, updatedAt = "") {
 
 async function firebaseAuthHeaders() {
   if (!currentUser) return null;
+  // Prefer a live Firebase ID token when the Auth client has a current user so
+  // curriculum/Teaching Kit calls stay aligned with Firebase identity. Fall back to
+  // the server-minted member session (password-login / recovery) which production
+  // curriculum APIs also accept.
+  if (firebaseAuthEnabled) {
+    try {
+      const client = await getFirebaseAuthClient();
+      if (typeof client.auth.authStateReady === "function") {
+        try {
+          await Promise.race([
+            client.auth.authStateReady(),
+            delayMs(2500),
+          ]);
+        } catch (error) {
+          console.warn("Firebase authStateReady did not complete", error);
+        }
+      }
+      const token = await client.auth.currentUser?.getIdToken?.();
+      if (token) return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+    } catch (error) {
+      console.warn("Firebase auth headers unavailable", error);
+    }
+  }
   const memberToken = readMemberSessionToken();
   if (memberToken) {
     return { Authorization: `Bearer ${memberToken}`, "Content-Type": "application/json" };
-  }
-  if (firebaseAuthEnabled) {
-    const client = await getFirebaseAuthClient();
-    // Wait for Firebase to finish restoring a persisted session before reading the token.
-    // Without this, page refresh / early login sync often runs with no currentUser yet.
-    if (typeof client.auth.authStateReady === "function") {
-      try {
-        await Promise.race([
-          client.auth.authStateReady(),
-          delayMs(4000),
-        ]);
-      } catch (error) {
-        console.warn("Firebase authStateReady did not complete", error);
-      }
-    }
-    const token = await client.auth.currentUser?.getIdToken();
-    if (token) return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   }
   // Local/demo + tests: identify the signed-in account when Firebase/member session
   // isn't available. Server accepts these only for NODE_ENV=test / local-json.

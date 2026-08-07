@@ -5271,9 +5271,19 @@ async function resolveCurriculumAccessUser(request, url) {
     return { authorized: true, email: "", user: null, source: "admin" };
   }
   let identity = null;
-  if (firebaseConfigStatus().ready) {
+  let identitySource = "";
+  // Server-minted member sessions (password-login / forced-password-change) must unlock
+  // curriculum the same way Firebase JWTs do. Spoofable x-llh-user-email stays gated below.
+  const authHeaderForMember = String(request.headers.authorization || "");
+  const memberSession = tempPasswordAuth.resolveMemberSession(readStore(), authHeaderForMember);
+  if (memberSession?.email) {
+    identity = { uid: memberSession.uid || `member-${memberSession.email}`, email: memberSession.email };
+    identitySource = "member-session";
+  }
+  if (!identity && firebaseConfigStatus().ready) {
     try {
       identity = await verifyFirebaseUser(request);
+      if (identity?.email) identitySource = "firebase";
     } catch {
       identity = null;
     }
@@ -5282,7 +5292,10 @@ async function resolveCurriculumAccessUser(request, url) {
     const authHeader = String(request.headers.authorization || "");
     if (authHeader.startsWith("Bearer test:")) {
       const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
-      if (email) identity = { uid: `test-${email}`, email };
+      if (email) {
+        identity = { uid: `test-${email}`, email };
+        identitySource = "test";
+      }
     }
   }
   // Local/demo fallback so Free grandfathering can personalize curriculum without Firebase.
@@ -5291,7 +5304,10 @@ async function resolveCurriculumAccessUser(request, url) {
       || String(process.env.DATABASE_PROVIDER || "").toLowerCase() === "local-json";
     if (allowHeaderIdentity) {
       const headerEmail = normalizeEmail(request.headers["x-llh-user-email"] || "");
-      if (headerEmail) identity = { uid: `local-${headerEmail}`, email: headerEmail };
+      if (headerEmail) {
+        identity = { uid: `local-${headerEmail}`, email: headerEmail };
+        identitySource = "header";
+      }
     }
   }
   if (!identity?.email) {
@@ -5316,7 +5332,7 @@ async function resolveCurriculumAccessUser(request, url) {
     authorized: membershipHasProAccess(accessRecord),
     email: identity.email,
     user: accessRecord,
-    source: "user",
+    source: identitySource || "user",
   };
 }
 
@@ -17935,7 +17951,13 @@ function parseTeachingKitReadyMaterials(url) {
  */
 async function resolveTeachingKitCallerContext(request, url) {
   let identity = null;
-  if (firebaseConfigStatus().ready) {
+  const authHeaderEarly = String(request?.headers?.authorization || "");
+  // Match curriculum access: accept server-minted member sessions before Firebase.
+  const memberSession = tempPasswordAuth.resolveMemberSession(readStore(), authHeaderEarly);
+  if (memberSession?.email) {
+    identity = { uid: memberSession.uid || `member-${memberSession.email}`, email: memberSession.email };
+  }
+  if (!identity && firebaseConfigStatus().ready) {
     try {
       identity = await verifyFirebaseUser(request);
     } catch {
@@ -23497,15 +23519,6 @@ async function handleTrialCurriculumExportAuthorize(request, response, url) {
     });
     return;
   }
-  if (!membershipAccess.membershipUserInTrial(user)) {
-    jsonResponse(response, 403, {
-      ok: false,
-      allowed: false,
-      error: "Trial curriculum exports are only available during an active Pro trial.",
-      message: trialCurriculumExports.COPY.exhausted,
-    });
-    return;
-  }
 
   let body = {};
   try {
@@ -23519,6 +23532,8 @@ async function handleTrialCurriculumExportAuthorize(request, response, url) {
   const resourceId = String(body.resourceId || "").trim();
   const action = String(body.action || "export").trim();
   // Never trust client-owned flags — resolve Free / provider-owned on the server.
+  // Free starters + provider-owned must be allowed for Free members (and guests who
+  // are signed in) BEFORE the trial-only gate — FAQ promises Free can print starters.
   const isProviderOwned = isServerProviderOwnedCurriculum(store, email, resourceId);
   const isFreeCurriculum = resourceType === "lesson-plan" && isStoreCuratedFreeLessonPlan({ id: resourceId }, store);
 
@@ -23531,6 +23546,16 @@ async function handleTrialCurriculumExportAuthorize(request, response, url) {
       used: trialCurriculumExports.normalizeState(user.trialCurriculumExports).used,
       watermark: "",
       message: "Provider-owned and Free starter curriculum exports do not use trial allowance.",
+    });
+    return;
+  }
+
+  if (!membershipAccess.membershipUserInTrial(user)) {
+    jsonResponse(response, 403, {
+      ok: false,
+      allowed: false,
+      error: "Trial curriculum exports are only available during an active Pro trial.",
+      message: trialCurriculumExports.COPY.exhausted,
     });
     return;
   }
