@@ -9960,6 +9960,11 @@ function membershipSummaryForUser(user, storeRef = null) {
     internalAccessOverride: Boolean(user?.internalAccessOverride),
     multiRoleTester: Boolean(user?.multiRoleTester),
     hdhIndependentTester: Boolean(user?.hdhIndependentTester),
+    // Classroom assignment for linked staff (Phase 4) — client syncs on refresh.
+    classroomIds: Array.isArray(user?.classroomIds)
+      ? user.classroomIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : (user?.classroomId ? [String(user.classroomId).trim()].filter(Boolean) : []),
+    classroomName: String(user?.classroomName || "").trim(),
     membershipAuditRecent: audits,
   };
 }
@@ -17348,6 +17353,92 @@ async function handleStaffInviteAccept(request, response) {
       hdhVisibility,
     },
   }, "Could not save staff invite acceptance.");
+}
+
+/**
+ * Owner/Director assigns or reassigns a linked staff member's classroom after invite.
+ * Updates both programMembers and store.users so Daily Logs scope picks up on staff refresh.
+ */
+async function handleStaffMemberAssignClassroom(request, response) {
+  let identity;
+  try {
+    identity = await resolveStaffIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before assigning classrooms." });
+    return;
+  }
+  const store = ensureStaffInviteCollections(readStore());
+  const actor = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  if (!canManageStaffInvites(actor)) {
+    jsonResponse(response, 403, { error: "Only owners and directors can assign staff classrooms." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid classroom assignment payload." });
+    return;
+  }
+  const memberEmail = normalizeEmail(body.memberEmail || body.email || "");
+  const classroomId = String(body.classroomId || "").trim();
+  const classroomName = String(body.classroomName || "").trim();
+  if (!memberEmail) {
+    jsonResponse(response, 400, { error: "Select a staff member to assign." });
+    return;
+  }
+  const ownerEmail = normalizeEmail(actor.linkedProgramOwnerEmail || identity.email);
+  if (memberEmail === ownerEmail) {
+    jsonResponse(response, 400, { error: "Program owners do not need a classroom assignment." });
+    return;
+  }
+  const members = listProgramMembers(store, ownerEmail);
+  const memberIndex = members.findIndex((member) => normalizeEmail(member.email) === memberEmail);
+  if (memberIndex < 0) {
+    jsonResponse(response, 404, { error: "That staff member is not active on this program." });
+    return;
+  }
+  const memberRole = String(members[memberIndex].role || "").trim().toLowerCase();
+  if (memberRole === "director") {
+    // Directors see all rooms; still allow recording an optional home room for display.
+  }
+  const now = new Date().toISOString();
+  const nextMember = {
+    ...members[memberIndex],
+    classroomId,
+    classroomName,
+    classroomAssignedAt: now,
+    classroomAssignedBy: identity.email,
+  };
+  const nextMembers = members.slice();
+  nextMembers[memberIndex] = nextMember;
+  store.programMembers[programOwnerKey(ownerEmail)] = nextMembers;
+
+  store.users = store.users || {};
+  const existingUser = store.users[memberEmail] || { email: memberEmail };
+  store.users[memberEmail] = {
+    ...existingUser,
+    email: memberEmail,
+    classroomIds: classroomId ? [classroomId] : [],
+    classroomId: classroomId || "",
+    classroomName,
+    updatedAt: now,
+  };
+
+  await respondAfterPersist(store, response, 200, {
+    ok: true,
+    member: nextMember,
+    account: {
+      email: memberEmail,
+      role: store.users[memberEmail].role || nextMember.role,
+      classroomIds: classroomId ? [classroomId] : [],
+      classroomName,
+      linkedProgramOwnerEmail: store.users[memberEmail].linkedProgramOwnerEmail || ownerEmail,
+    },
+    message: classroomId
+      ? `Assigned ${memberEmail} to ${classroomName || classroomId}.`
+      : `Cleared classroom assignment for ${memberEmail}.`,
+  }, "Could not save classroom assignment.");
 }
 
 
@@ -28528,6 +28619,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/staff/invites") return await handleStaffInviteCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/staff/invites/peek") return await handleStaffInvitePeek(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/staff/invites/accept") return await handleStaffInviteAccept(request, response);
+    if (request.method === "POST" && url.pathname === "/api/staff/members/assign-classroom") {
+      return await handleStaffMemberAssignClassroom(request, response);
+    }
     if (request.method === "DELETE" && url.pathname.startsWith("/api/staff/invites/")) {
       const inviteId = decodeURIComponent(url.pathname.slice("/api/staff/invites/".length));
       return await handleStaffInviteRevoke(request, response, inviteId);
