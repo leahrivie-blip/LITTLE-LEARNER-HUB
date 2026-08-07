@@ -52,17 +52,19 @@
 
 ## Regression (run with this PR)
 
-```bash
-npm run check
-npm run test:family-hub-provider-inbox
-npm run test:family-hub-testing-readiness
-npm run test:pass3-permission-matrix
-npm run test:role-settings-auth-matrix
-npm run test:phase3-daily-logs-classroom
-npm run test:phase4-classroom-floor-ops
-```
+| Suite | Result |
+|---|---|
+| `npm run check` | PASS |
+| `npm run test:family-hub-provider-inbox` | PASS |
+| `npm run test:family-hub-testing-readiness` | PASS |
+| `npm run test:pass3-permission-matrix` | 176/176 PASS |
+| `npm run test:role-settings-auth-matrix` | PASS |
+| `npm run test:phase3-daily-logs-classroom` | 10/10 PASS |
+| `npm run test:phase4-classroom-floor-ops` | 10/10 PASS |
+| `npm run test:forms-center` | PASS (lazy-load harness fix) |
+| `npm run test:forms-ecosystem` | PASS (lazy-load harness fix) |
 
-Teaching Kit suites intentionally not re-audited (owned elsewhere). Stop if Daily Logs / permissions / queue / staff assign regress.
+Teaching Kit suites intentionally not re-audited (owned elsewhere).
 
 ---
 
