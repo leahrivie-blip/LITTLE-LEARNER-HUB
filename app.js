@@ -9385,7 +9385,19 @@ function curriculumLibraryResourceById(id) {
 }
 
 function buildLessonPlanTextFromCurriculum(plan) {
+  const presentApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPresent : null;
+  if (presentApi?.formatFullLessonPlanForDownload) {
+    return presentApi.formatFullLessonPlanForDownload(plan);
+  }
   return formatCurriculumLessonPlanImportText(plan);
+}
+
+function buildLessonPlanDownloadText(plan, options = {}) {
+  const presentApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPresent : null;
+  if (presentApi?.formatFullLessonPlanForDownload) {
+    return presentApi.formatFullLessonPlanForDownload(plan, options);
+  }
+  return buildLessonPlanTextFromCurriculum(plan);
 }
 
 function buildActivityTextFromCurriculum(activity) {
@@ -25167,7 +25179,14 @@ function lessonPlanVariantText(resource, printVariant = "week") {
       lines.push("Circle Time:", ...dayPlan.circleTime.map((item) => `- ${item}`));
     }
     if (items.length) {
-      lines.push("Activities:", ...items.map((item) => `- ${item.title || "Activity"}${item.activityCategory ? ` (${item.activityCategory})` : ""}`));
+      const presentApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPresent : null;
+      lines.push("Activities:", ...items.map((item) => {
+        const categoryRaw = item.activityCategory || "";
+        const category = presentApi?.presentLabel
+          ? presentApi.presentLabel(categoryRaw, "")
+          : categoryRaw;
+        return `- ${item.title || "Activity"}${category ? ` (${category})` : ""}`;
+      }));
     }
     if (dayPlan.familyConnection) lines.push("Family Connection:", dayPlan.familyConnection);
     lines.push("");
@@ -26051,14 +26070,21 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       );
     } else {
       const plan = normalizeCurriculumLessonPlanForRender(viewerResource._curriculumLessonPlan);
+      const weekOfLabel = formatLessonWeekOfLabel(weekStartDate) || "";
       const variantResource = {
         ...viewerResource,
         title: `${viewerResource.title} - ${safeVariant === "materials" ? "Materials List" : "Full Lesson Plan"}`,
         customContent: safeVariant === "full"
-          ? (viewerResource.customContent || buildLessonPlanTextFromCurriculum(plan))
+          ? buildLessonPlanDownloadText(plan, {
+            title: viewerResource.title,
+            theme: plan.theme || viewerResource.theme || "",
+            age: viewerResource.age || plan.age || "Preschool",
+            weekOfLabel,
+          })
           : lessonPlanVariantText(viewerResource, safeVariant),
         pdfFileName: `${slug(viewerResource.title)}-${variantLabel}.pdf`,
         trialWatermark: watermark,
+        _lessonPlanDownloadPresentation: safeVariant === "full",
       };
       const fullBlob = buildResourcePdfBlob(variantResource);
       if (!fullBlob) {
@@ -27229,19 +27255,35 @@ function resourcePdfText(resource) {
 function isPdfHeading(line) {
   const text = String(line || "").trim();
   if (!text || text.includes("___")) return false;
-  if (/^(Little Learner Hub|Category:|Age Group:|Access:|Format:|Tags:)/.test(text)) return false;
+  if (/^(Little Learner Hub|Category:|Age Group:|Age group:|Access:|Format:|Tags:|Theme:|Week of:)/i.test(text)) return false;
   if (text.length > 60) return false;
+  if (/^(Monday|Tuesday|Wednesday|Thursday|Friday)$/i.test(text)) return true;
   return /^[A-Z0-9][A-Za-z0-9 &'./():-]+$/.test(text)
     && !/[.!?]$/.test(text)
     && (text === text.toUpperCase() || !text.includes(":"));
 }
 
 function buildTextResourcePdfBlob(resource) {
-  const lines = resourcePdfText(resource).split("\n");
+  const rawLines = resourcePdfText(resource).split("\n");
   const isFormResource = resource.category === "Forms Library";
+  const isLessonPresentation = resource.category === "Lesson Plans" || resource._lessonPlanDownloadPresentation;
+  // Collapse stacked blank lines so lesson downloads don’t leave large empty bands.
+  const lines = [];
+  rawLines.forEach((line) => {
+    const trimmed = String(line || "").replace(/\s+$/g, "");
+    if (!trimmed.trim()) {
+      if (lines.length && lines[lines.length - 1] !== "") lines.push("");
+      return;
+    }
+    lines.push(trimmed);
+  });
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+
   const pages = [];
   let page = [];
   let y = 708;
+  const brand = isLessonPresentation ? "0.33 0.18 0.58" : "0.20 0.38 0.38";
+  const accent = isLessonPresentation ? "0.82 0.76 0.94" : "0.76 0.84 0.82";
   const add = (value, x, size = 10, font = "F1", color = "0 0 0") => {
     page.push(`${color} rg BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscapeText(value)}) Tj ET`);
   };
@@ -27251,16 +27293,17 @@ function buildTextResourcePdfBlob(resource) {
   const startPage = () => {
     page = [];
     y = 708;
-    page.push("0.20 0.38 0.38 rg 36 724 540 32 re f");
+    page.push(`${brand} rg 36 724 540 32 re f`);
     page.push(`1 1 1 rg BT /F2 12 Tf 50 736 Td (${pdfEscapeText("Little Learner Hub")}) Tj ET`);
     page.push(`0 0 0 rg BT /F2 16 Tf 50 704 Td (${pdfEscapeText(resource.title)}) Tj ET`);
     page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText([resource.category, resource.age, libraryPlanBadge(resource)].filter(Boolean).join(" | "))}) Tj ET`);
-    page.push("0.82 0.82 0.82 RG 1 w 50 676 m 544 676 l S");
+    page.push(`${accent} RG 1 w 50 676 m 544 676 l S`);
     y = 654;
   };
   const finishPage = () => {
     page.push(`0.35 0.35 0.35 rg BT /F1 7 Tf 50 38 Td (${pdfEscapeText(llhCopyrightPdfFooter())}) Tj ET`);
-    page.push(`0.35 0.35 0.35 rg BT /F1 7 Tf 50 26 Td (${pdfEscapeText("Review and customize for your program before use.")}) Tj ET`);
+    page.push(`0.35 0.35 0.35 rg BT /F1 7 Tf 50 26 Td (${pdfEscapeText(isLessonPresentation ? "Classroom use · Review and customize for your program." : "Review and customize for your program before use.")}) Tj ET`);
+    page.push(`0.35 0.35 0.35 rg BT /F1 7 Tf 500 26 Td (${pdfEscapeText(`Page ${pages.length + 1}`)}) Tj ET`);
     if (resource.trialWatermark) {
       page.push(...pdfTrialWatermarkCommands(resource.trialWatermark, { x: 50, y: 50, size: 7 }));
     }
@@ -27275,29 +27318,30 @@ function buildTextResourcePdfBlob(resource) {
   lines.forEach((rawLine) => {
     const original = pdfSafeText(rawLine).trimEnd();
     if (!original.trim()) {
-      y -= isFormResource ? 12 : 8;
+      y -= isFormResource ? 12 : (isLessonPresentation ? 6 : 8);
       ensureSpace(isFormResource ? 20 : 16);
       return;
     }
+    const dayHeading = /^(Monday|Tuesday|Wednesday|Thursday|Friday)$/i.test(original.trim());
     const heading = isPdfHeading(original);
     const checkbox = /^\[\s?\]\s+/.test(original);
     const writingLine = original.includes("____");
     const bullet = /^(-|\*)\s+/.test(original);
     const wrapped = wrapPdfText(original.replace(/^(-|\*)\s+/, "- "), heading ? 58 : 92);
     if (heading) {
-      ensureSpace(isFormResource ? 32 : 26);
+      ensureSpace(isFormResource ? 32 : (dayHeading ? 34 : 26));
       y -= isFormResource ? 6 : 4;
-      add(original, 50, isFormResource ? 13 : 12, "F2", "0.20 0.38 0.38");
-      addLine(50, y - 5, 544, y - 5, 1, "0.76 0.84 0.82");
-      y -= isFormResource ? 25 : 21;
+      add(original, 50, dayHeading ? 13 : (isFormResource ? 13 : 12), "F2", brand);
+      addLine(50, y - 5, 544, y - 5, 1, accent);
+      y -= isFormResource ? 25 : (dayHeading ? 22 : 20);
       return;
     }
     wrapped.forEach((lineText, index) => {
       ensureSpace(isFormResource ? 19 : 16);
       const x = bullet || checkbox ? 66 : 58;
-      add(lineText, x, isFormResource ? 10 : 9.5, "F1");
+      add(lineText, x, isFormResource ? 10 : (isLessonPresentation ? 10 : 9.5), "F1");
       if (writingLine && index === wrapped.length - 1) addLine(58, y - 5, 544, y - 5, 1, "0.62 0.62 0.62");
-      y -= isFormResource ? 17 : 14;
+      y -= isFormResource ? 17 : (isLessonPresentation ? 15 : 14);
     });
   });
   finishPage();
