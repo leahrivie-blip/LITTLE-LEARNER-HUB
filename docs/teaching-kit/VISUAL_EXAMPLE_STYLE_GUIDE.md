@@ -1,5 +1,7 @@
 # Visual Example Style Guide
 
+**Owner media:** During content upgrades, agents leave **Image Needed** briefs only — they do not generate or publish example images. Final artwork follows this guide and [CONTENT_UPGRADE_RULES.md](./CONTENT_UPGRADE_RULES.md) (including cover standards).
+
 Teaching Kit example images should never look obviously AI-generated. Everything should look **achievable in a real childcare classroom**.
 
 ---

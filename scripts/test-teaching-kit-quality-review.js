@@ -186,15 +186,44 @@ function strongerPlan() {
         weeklyMaterials: "cups, soil, seeds, spoons, magnifiers, paper, crayons",
         teacherPreparation: "Stage trays at child height, prepare rinse cloth, set observation clipboard near the garden table.",
         familyConnection: "At home, notice one plant together and name a part.",
-        printableIdeas: ["Garden vocabulary cards"],
+        printableIdeas: [
+          "Printable Needed: garden vocabulary cards",
+          "Printable Needed: seed sequencing cards",
+          "Printable Needed: parent handout — plant walk",
+        ],
+        coverImagePrompt: "Bright cartoon preschool cover: diverse children planting seeds in a sunny classroom garden tray, warm colors, clean modern illustrated style matching Little Learner Hub curriculum covers.",
         vocabCards: ["seed", "soil", "sprout", "leaf"],
-        books: [{ title: "The Tiny Seed (talk prompts only)" }],
-        songs: [{ title: "This Is the Way We Plant Our Seeds" }],
+        books: [{
+          title: "The Tiny Seed",
+          author: "Eric Carle",
+          whyThisBook: "Shows a seed’s journey in simple language children can retell.",
+          beforeReadingQuestions: ["What do plants need?"],
+          duringReadingPrompts: ["Where is the seed traveling?"],
+          afterReadingQuestions: ["Which plant part did you notice?"],
+        }],
+        songs: [{
+          title: "This Is the Way We Plant Our Seeds",
+          rightsStatus: "public_domain",
+          motions: "Pretend to dig, drop seed, water, and grow tall.",
+          teacherDirections: "Sing slowly and invite children to choose motions.",
+          whenToUse: "Circle time before the seed tray invitation.",
+        }],
         teacherToolkit: {
-          prepChecklist: ["Fill soil cups", "Set magnifiers"],
+          prepChecklist: ["Fill soil cups", "Set magnifiers", "Stage rinse cloth"],
           observationFocus: ["Uses a garden word", "Invites a peer"],
+          observationPrompts: ["Does the child name a plant part?", "Do they invite a friend to help water?"],
+          documentationPrompts: ["Note one new vocabulary word used in play."],
+          teacherTips: ["Offer tongs for seed sorting.", "Keep soil trays at child height."],
+          setupCleanupShortcuts: ["Pre-fill cups", "Keep wet wipes nearby"],
+          materialSubstitutions: ["Use paper cups if pots are unavailable"],
           notes: "Keep process open-ended.",
-          teacherPreparation: "Preview materials and model once.",
+          teacherPreparation: "Preview materials and model once before inviting children.",
+          mixedAgeAdaptations: "Toddlers explore soil with spoons; older peers plant and count seeds.",
+          extraSupportAdaptations: "Offer hand-under-hand help for pinching seeds.",
+          challengeExtensions: "Invite children to predict which cup will sprout first.",
+          safetyInclusionNotes: "No tasting soil; wash hands after messy play.",
+          endOfWeekReflection: "Which invitation invited the most language?",
+          familyConnection: "At home, notice one plant together and name a part.",
         },
         milestones: ["Language", "SEL", "Fine motor", "Cognition"],
       },
@@ -204,14 +233,24 @@ function strongerPlan() {
           observationPrompts: ["Does the child name a plant part?"],
           indoorAlternatives: "Window sill planting tray",
           outdoorAlternatives: "Sidewalk seed hunt",
-          imageBriefSetup: "Ordinary cups of soil on a low table in natural light.",
-          imageBriefExample: "Children pinching seeds into cups.",
+          imageBriefSetup: "Image Needed: Ordinary cups of soil on a low table in natural light.",
+          imageBriefExample: "Image Needed: Children pinching seeds into cups.",
           steps: "Invite children to explore soil texture, count seeds, pretend to water plants, paint leaves, and share feelings about growing.",
+          adaptations: "Offer larger spoons for emerging grasp.",
+          extensions: "Add a magnifying glass for noticing seed details.",
         },
       },
     },
     dailyPlans: {
-      monday: [{ id: "act-g1", title: "Seed Sensory Tray", category: "sensory" }],
+      monday: {
+        theme: "Seed explorers",
+        focus: "Explore seeds and soil through sensory play",
+        items: [{ id: "act-g1", title: "Seed Sensory Tray", category: "sensory" }],
+      },
+      tuesday: { theme: "Plant helpers", focus: "Watering and caring for plants with friends", items: [] },
+      wednesday: { theme: "Garden art", focus: "Process art with leaves and earth colors", items: [] },
+      thursday: { theme: "Outdoor noticing", focus: "Find plants outdoors and describe them", items: [] },
+      friday: { theme: "Share our garden", focus: "Retell the tiny seed story with props", items: [] },
     },
   };
 }
@@ -288,18 +327,27 @@ function runUnitTests() {
   const strong = strongerPlan();
   const strongActs = [{ id: "act-g1", title: "Seed Sensory Tray", lessonPlanId: strong.id }];
   const strongReport = quality.buildQualityReport(strong, strongActs, strong.enrichmentDraft);
-  // Premium gates mark both kits blocked when images/printables/books are incomplete.
+  // CONTENT_UPGRADE_RULES: image briefs + printable ideas satisfy content-upgrade media slots.
   // Rank by fewer hard blockers + listed strengths — not field-presence "100% quality".
   assert(
     (strongReport.blockingIssues || []).length < (weakReport.blockingIssues || []).length,
     "stronger kit has fewer hard blockers than weak kit",
   );
-  assert(strongReport.blocksPublish === true, "stronger kit still blocked without real images/printables");
   assert(strongReport.strengths.length >= 1, "strengths listed");
   assert(
-    (strongReport.blockingIssues || []).some((b) => b.code === "image_brief_not_image" || b.code === "missing_example_images"),
-    "image briefs never clear photo blockers",
+    !(strongReport.blockingIssues || []).some((b) => b.code === "image_brief_not_image" || b.code === "missing_example_images"),
+    "image briefs satisfy content-upgrade image slots (not hard blockers)",
   );
+  assert(
+    !(strongReport.blockingIssues || []).some((b) => b.code === "missing_printables"),
+    "printable ideas satisfy content-upgrade printable slots",
+  );
+  assert(
+    (strongReport.findings || []).some((f) => f.code === "images_owner_pending" || f.code === "printables_owner_pending"),
+    "owner-media-pending findings present for placeholders",
+  );
+  assert(strongReport.mediaSlotsSatisfied === true, "media slots satisfied via placeholders");
+  assert(strongReport.ownerMediaPending === true, "owner media pending when using placeholders");
 
   const health = quality.buildLibraryHealthDashboard(
     { lessonPlans: [weak, strong], activities: [...weakActs, ...strongActs], resources: [] },

@@ -74,6 +74,7 @@
     { id: "songs", label: "Songs" },
     { id: "printables", label: "Printables" },
     { id: "example_images", label: "Example images" },
+    { id: "cover", label: "Cover artwork" },
     { id: "toolkit", label: "Teacher toolkit completeness" },
     { id: "variety", label: "Activity variety" },
     { id: "safety", label: "Safety" },
@@ -197,7 +198,7 @@
     "incomplete_toolkit",
     "incomplete_books",
     "incomplete_songs",
-    "image_brief_not_image",
+    "cover_needs_owner_art",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
@@ -263,12 +264,15 @@
       ? reportBase.premiumReadinessPercent
       : completionPercent) || 0;
     let publishReadiness = PUBLISH_READINESS.BLOCKED;
-    // Publish Ready requires zero hard blockers AND premium asset readiness (real images/printables).
+    // Content-upgrade Publish Ready: zero educational hard blockers + solid quality score.
+    // Real images/printables are owner-created later (CONTENT_UPGRADE_RULES.md) — do not
+    // require premiumReadinessPercent >= 90 when placeholders/briefs satisfy media slots.
+    const ownerMediaPending = reportBase.ownerMediaPending === true;
     if (
       !blockingIssues.length
-      && premiumReadinessPercent >= 90
       && overallScore >= 75
       && highCount === 0
+      && (premiumReadinessPercent >= 90 || ownerMediaPending || reportBase.mediaSlotsSatisfied === true)
     ) {
       publishReadiness = PUBLISH_READINESS.READY;
     } else if (!blockingIssues.length) {
@@ -300,6 +304,8 @@
       publishReadiness,
       publishReadinessLabel: publishReadinessLabel(publishReadiness),
       blocksPublish: publishReadiness === PUBLISH_READINESS.BLOCKED || blockingIssues.length > 0,
+      ownerMediaPending,
+      mediaSlotsSatisfied: reportBase.mediaSlotsSatisfied === true,
       reviewRequired: true,
       autoPublished: false,
       autoChanged: false,
@@ -614,9 +620,6 @@
     const linkedPrintables = asArray(plan?.resourceIds).length
       || asArray(week.printableIds).length
       || (week.linkedMasterResources && Object.keys(week.linkedMasterResources).length);
-    const printableIdeasOnly = !linkedPrintables && (
-      asArray(week.printableIdeas).length || asArray(week.printablePacks).length
-    );
 
     if (!bookEntries.length) {
       findings.push(finding({
@@ -660,39 +663,94 @@
         navigateTo: "week:songs",
       }));
     }
-    if (!linkedPrintables) {
+    // Printables / images — CONTENT_UPGRADE_RULES.md: owner creates final media later.
+    // Content upgrade requires Printable Needed notes and Image Needed briefs (or real assets).
+    // Do NOT hard-block when placeholders/briefs exist; never require AI-generated assets.
+    const printableIdeaCount = asArray(week.printableIdeas).length
+      + asArray(week.printablePacks).length
+      + asArray(plan?.teachingKit?.printableIdeas).length;
+    // Count activities missing both URL and brief for setup or example.
+    let activitiesMissingImageNotes = 0;
+    list.forEach((act) => {
+      const key = text(act.id || act.itemId);
+      const patch = draftActs[key] || {};
+      const setupUrl = text(patch.setupImageUrl || act.setupImageUrl || act.setupPhotoUrl);
+      const exampleUrl = text(patch.exampleImageUrl || act.exampleImageUrl || act.examplePhotoUrl);
+      const setupBrief = text(patch.imageBriefSetup || act.imageBriefSetup);
+      const exampleBrief = text(patch.imageBriefExample || act.imageBriefExample);
+      if (!setupUrl && !setupBrief) activitiesMissingImageNotes += 1;
+      if (!exampleUrl && !exampleBrief) activitiesMissingImageNotes += 1;
+    });
+
+    if (!linkedPrintables && printableIdeaCount === 0) {
       findings.push(finding({
         code: "missing_printables",
         section: "printables",
         severity: "blocking",
         blocking: true,
-        message: printableIdeasOnly
-          ? "Printable ideas exist, but no actual printable file/resource is linked."
-          : "Printables are missing — ideas alone never count as print-ready.",
-        suggestion: "Link a real printable resource (file or generated pack) with preview and print access.",
+        message: "Printables section has no placeholders — add Printable Needed notes for the owner.",
+        suggestion: "List Printable Needed items (vocabulary cards, matching game, parent handout, etc.). Do not generate printable files.",
+        navigateTo: "week:printables",
+      }));
+    } else if (!linkedPrintables && printableIdeaCount > 0) {
+      findings.push(finding({
+        code: "printables_owner_pending",
+        section: "printables",
+        severity: "low",
+        message: `${printableIdeaCount} printable placeholder(s) noted for owner creation (no linked file yet).`,
+        suggestion: "Keep placeholders. Owner will create final printables — do not generate packs during content upgrade.",
         navigateTo: "week:printables",
       }));
     }
-    if (list.length && (missingRealSetup > 0 || missingRealExample > 0)) {
+
+    if (list.length && activitiesMissingImageNotes > 0) {
       findings.push(finding({
         code: "missing_example_images",
         section: "example_images",
         severity: "blocking",
         blocking: true,
-        message: `${missingRealSetup} setup photo(s) and ${missingRealExample} finished-example photo(s) still missing as real images.`,
-        suggestion: "Upload or generate actual images with caption + alt text. Image briefs do not count as photos.",
+        message: `${activitiesMissingImageNotes} image slot(s) have neither a real photo nor an Image Needed brief.`,
+        suggestion: "Add Image Needed prompts (setup + finished example) for the owner. Do not generate or publish AI images.",
+        navigateTo: "activities:images",
+      }));
+    } else if (list.length && (missingRealSetup > 0 || missingRealExample > 0 || imageBriefsOnly > 0)) {
+      findings.push(finding({
+        code: "images_owner_pending",
+        section: "example_images",
+        severity: "low",
+        message: `${imageBriefsOnly || (missingRealSetup + missingRealExample)} image brief(s)/slot(s) await owner artwork (content-upgrade placeholders OK).`,
+        suggestion: "Leave Image Needed briefs for the owner. Do not generate, replace, or publish AI placeholder artwork.",
         navigateTo: "activities:images",
       }));
     }
-    if (imageBriefsOnly > 0) {
+
+    // Cover standards — flag only; never generate/replace cover art during upgrades.
+    const coverUrl = text(
+      plan?.coverImageUrl
+      || plan?.coverUrl
+      || plan?.imageUrl
+      || plan?.lessonCoverUrl
+      || week.coverImageUrl
+      || plan?.teachingKit?.coverImageUrl,
+    );
+    const coverPrompt = text(week.coverImagePrompt || plan?.coverImagePrompt || plan?.teachingKit?.coverImagePrompt);
+    if (!coverUrl && !coverPrompt) {
       findings.push(finding({
-        code: "image_brief_not_image",
-        section: "example_images",
-        severity: "blocking",
-        blocking: true,
-        message: `${imageBriefsOnly} image brief(s) are present but do not count as setup/finished photos.`,
-        suggestion: "Convert briefs into reviewed, loadable images before Publish Ready.",
-        navigateTo: "activities:images",
+        code: "cover_needs_owner_art",
+        section: "cover",
+        severity: "high",
+        message: "Cover artwork is missing — flag for owner with a detailed cartoon-style cover prompt.",
+        suggestion: "Write a cover Image Needed prompt matching theme + age + consistent cartoon curriculum style. Do not generate or replace cover art.",
+        navigateTo: "week:overview",
+      }));
+    } else if (!coverUrl && coverPrompt) {
+      findings.push(finding({
+        code: "cover_owner_pending",
+        section: "cover",
+        severity: "low",
+        message: "Cover prompt is ready for owner illustration (no cover file linked yet).",
+        suggestion: "Leave final cover artwork for manual approval. Do not auto-generate covers.",
+        navigateTo: "week:overview",
       }));
     }
 
@@ -948,16 +1006,8 @@
       }));
     }
 
-    // Print sections with no resources (when enrichment claims printables)
-    if (asArray(week.printableIdeas).length && !asArray(plan?.resourceIds).length) {
-      findings.push(finding({
-        code: "empty_print_section",
-        section: "printables",
-        severity: "medium",
-        message: "Printable ideas are listed but no printable resources are linked.",
-        suggestion: "Link real printables or remove empty print claims before approval.",
-      }));
-    }
+    // Printable ideas without linked files are expected during content upgrade (owner media later).
+    // Covered by printables_owner_pending — do not re-flag as a medium gap.
 
     // Excessive setup / unrealistic daily scheduling
     if (/90 minutes? prep|2 hours? prep|all morning setup/i.test(body)) {
@@ -1016,6 +1066,16 @@
       premiumReadinessPercent = completionPercent;
     }
 
+    const hasPrintablePlaceholders = linkedPrintables || printableIdeaCount > 0;
+    const hasImagePlaceholders = !list.length || activitiesMissingImageNotes === 0;
+    const mediaSlotsSatisfied = hasPrintablePlaceholders && hasImagePlaceholders;
+    const ownerMediaPending = mediaSlotsSatisfied && (
+      (!linkedPrintables && printableIdeaCount > 0)
+      || imageBriefsOnly > 0
+      || (missingRealSetup + missingRealExample) > 0
+      || (!coverUrl && Boolean(coverPrompt))
+    );
+
     return finalizePublishGate({
       planId: text(plan?.id),
       title: text(plan?.title),
@@ -1034,6 +1094,8 @@
       missing,
       suggestedImprovements,
       findings,
+      mediaSlotsSatisfied,
+      ownerMediaPending,
       checkedAt: new Date().toISOString(),
     });
   }

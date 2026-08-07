@@ -1,0 +1,36 @@
+---
+description: Canonical Teaching Kit content upgrade rules — structure freeze, no AI images/printables, placeholder-only media
+alwaysApply: true
+---
+
+# Teaching Kit content upgrades
+
+Canonical rules: `docs/teaching-kit/CONTENT_UPGRADE_RULES.md`
+
+When upgrading or enriching lesson / Teaching Kit curriculum:
+
+## Forbidden
+
+- Redesigning, moving, renaming, or skipping Teaching Kit binder sections
+- Removing existing functionality
+- Generating or replacing cover images
+- Generating activity images or publishing AI placeholder artwork
+- Generating printable files or packs
+- Copying copyrighted book text or song lyrics
+- Destructive rewrites that drop legacy lesson content
+
+## Required
+
+- Non-destructive upgrades into the **existing** Teaching Kit structure
+- Age-appropriate activities only (infants ≠ preschool; toddlers ≠ kindergarten)
+- Complete educational sections (objectives, materials, prep, activities, books, songs, toolkit, family, observations, etc.)
+- Printables as **Printable Needed** placeholders / ideas only
+- Images as **Image Needed** briefs / prompts only (owner creates art later)
+- Weak covers: flag + detailed owner image prompt — never auto-replace artwork
+- Original activities inspired by current ECE best practices (not short-lived trends)
+- Before marking complete: review as a provider paying $19.99/month; fix anything incomplete, repetitive, or weak
+
+## Songs / books
+
+- Books: title, author, brief description, discussion ideas only
+- Songs: full lyrics only for original / public-domain; copyrighted songs → title + when to use (no lyrics)
