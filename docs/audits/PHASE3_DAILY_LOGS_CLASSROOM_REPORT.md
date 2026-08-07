@@ -50,7 +50,9 @@ Artifacts: `/opt/cursor/artifacts/phase3-daily-logs-classroom/`
 
 ## What still needs manual review on testing
 
-Fill results in **[PHASE3_MANUAL_REVIEW_WORKSHEET.md](./PHASE3_MANUAL_REVIEW_WORKSHEET.md)** (compact case sheets). Hold next phase and production until that worksheet is complete and explicitly approved.
+Fill results in **[PHASE3_MANUAL_REVIEW_WORKSHEET.md](./PHASE3_MANUAL_REVIEW_WORKSHEET.md)** (compact case sheets).  
+**2026-08-07:** Live automation covered all six scenarios (**6/6 PASS** on testing). Only physical-phone items remain for you — see worksheet “Remaining tests you personally need to perform.”  
+Hold next phase and production until you finish those and give explicit approval.
 
 1. **Two staff devices, same child** — Teacher A edits lunch while Teacher B edits notes; confirm conflict panels and Keep latest / Apply my change feel clear on phone.
 2. **Hard refresh mid-save on a slow network** — enter a meal, refresh immediately; confirm status recovers to pending/sync without losing the entry.
