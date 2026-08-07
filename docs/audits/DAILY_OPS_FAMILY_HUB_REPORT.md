@@ -69,9 +69,12 @@ Artifacts: `/opt/cursor/artifacts/daily-ops-family-hub/screenshots/`
 
 | Suite | Result |
 |---|---|
-| `npm run check` | (run in PR CI / agent) |
-| `npm run test:daily-ops-family-hub` | (run in agent) |
-| Related regressions (FH inbox, Phase 3 daily logs, tuition) | (run in agent) |
+| `npm run check` | PASS |
+| `npm run test:daily-ops-family-hub` | PASS |
+| `npm run test:daily-logs-attendance` | PASS (pins updated for new preview copy) |
+| `npm run test:phase3-daily-logs-classroom` | PASS |
+| `npm run test:family-hub-provider-inbox` | PASS |
+| `npm run test:family-tuition-billing-v1` | PASS |
 
 ---
 
