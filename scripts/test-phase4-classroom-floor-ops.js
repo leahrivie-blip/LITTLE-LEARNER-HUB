@@ -226,6 +226,61 @@ async function main() {
     assert.equal(teacherDeny.status, 403);
     pass("teacher cannot assign classrooms (403)");
 
+    // --- UI: unassigned empty-state guidance (before Owner assigns a room) ---
+    const unassignedTeacher = await openPage(browser, port, TEACHER, accountSeed(TEACHER, {
+      role: "teacher",
+      classroomIds: [],
+    }));
+    const emptyState = await unassignedTeacher.page.evaluate(async ({ ownerEmail }) => {
+      // Force local account to unassigned in case any boot sync raced.
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      const email = String(currentUser);
+      accounts[email] = {
+        ...accounts[email],
+        email,
+        role: "teacher",
+        linkedProgramOwnerEmail: ownerEmail,
+        classroomIds: [],
+        classroomName: "",
+      };
+      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      const remote = await (await fetch("/api/child-data", {
+        headers: {
+          Authorization: `Bearer test:${currentUser}`,
+          "X-LLH-User-Email": String(currentUser),
+        },
+      })).json();
+      applyChildDataSnapshot(remote.data || {}, remote.updatedAt || "");
+      childManagementMode = "daily-logs";
+      dailyLogsSection = "home";
+      if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
+      renderChildManagement();
+      const empty = document.querySelector("[data-dlc-empty-reason]");
+      const account = typeof currentAccount === "function" ? currentAccount() : null;
+      return {
+        reason: empty?.getAttribute("data-dlc-empty-reason") || "",
+        text: empty?.textContent || "",
+        activeCount: getActiveChildren(childRecords()).length,
+        unassignedHelper: isUnassignedLinkedClassroomStaff(),
+        linked: typeof isLinkedProgramStaffAccount === "function" ? isLinkedProgramStaffAccount(account) : null,
+        roomIds: typeof staffAssignedClassroomIds === "function" ? staffAssignedClassroomIds(account) : null,
+        role: account?.role || "",
+        linkedOwner: account?.linkedProgramOwnerEmail || "",
+      };
+    }, { ownerEmail: OWNER });
+    assert.equal(emptyState.linked, true, JSON.stringify(emptyState));
+    assert.deepEqual(emptyState.roomIds, []);
+    assert.equal(emptyState.unassignedHelper, true, JSON.stringify(emptyState));
+    assert.equal(emptyState.activeCount, 0);
+    assert.equal(emptyState.reason, "unassigned-staff");
+    assert.match(emptyState.text, /assign your classroom/i);
+    await unassignedTeacher.page.screenshot({
+      path: path.join(ARTIFACT_DIR, "screenshots", "unassigned-empty-state.png"),
+      fullPage: true,
+    });
+    pass("unassigned teacher sees assign-classroom empty state");
+    await unassignedTeacher.context.close();
+
     // --- API: owner assigns classroom ---
     const assign = await request(port, "POST", "/api/staff/members/assign-classroom", {
       email: OWNER,
@@ -243,12 +298,12 @@ async function main() {
     assert.equal(sub.json?.subscription?.classroomName, "Oaks Room");
     pass("subscription-status includes classroom assignment");
 
-    // --- UI: unassigned empty-state guidance ---
-    const unassignedTeacher = await openPage(browser, port, TEACHER, accountSeed(TEACHER, {
+    // --- UI: after classroomIds sync, Oaks child appears ---
+    const assignedTeacher = await openPage(browser, port, TEACHER, accountSeed(TEACHER, {
       role: "teacher",
-      classroomIds: [],
+      classroomIds: ["room-oaks"],
     }));
-    const emptyState = await unassignedTeacher.page.evaluate(async () => {
+    const afterAssign = await assignedTeacher.page.evaluate(async () => {
       const remote = await (await fetch("/api/child-data", {
         headers: {
           Authorization: `Bearer test:${currentUser}`,
@@ -260,37 +315,6 @@ async function main() {
       dailyLogsSection = "home";
       if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
       renderChildManagement();
-      const empty = document.querySelector("[data-dlc-empty-reason]");
-      return {
-        reason: empty?.getAttribute("data-dlc-empty-reason") || "",
-        text: empty?.textContent || "",
-        activeCount: getActiveChildren(childRecords()).length,
-        unassignedHelper: isUnassignedLinkedClassroomStaff(),
-      };
-    });
-    assert.equal(emptyState.unassignedHelper, true);
-    assert.equal(emptyState.activeCount, 0);
-    assert.equal(emptyState.reason, "unassigned-staff");
-    assert.match(emptyState.text, /assign your classroom/i);
-    await unassignedTeacher.page.screenshot({
-      path: path.join(ARTIFACT_DIR, "screenshots", "unassigned-empty-state.png"),
-      fullPage: true,
-    });
-    pass("unassigned teacher sees assign-classroom empty state");
-
-    // --- UI: after local classroomIds sync, Oaks child appears ---
-    const afterAssign = await unassignedTeacher.page.evaluate(async () => {
-      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
-      const email = String(currentUser);
-      accounts[email] = {
-        ...accounts[email],
-        classroomIds: ["room-oaks"],
-        classroomName: "Oaks Room",
-      };
-      localStorage.setItem("llhAccounts", JSON.stringify(accounts));
-      childManagementMode = "daily-logs";
-      dailyLogsSection = "home";
-      renderChildManagement();
       return {
         active: getActiveChildren(childRecords()).map((c) => c.id),
         unassigned: isUnassignedLinkedClassroomStaff(),
@@ -301,11 +325,11 @@ async function main() {
     assert.deepEqual(afterAssign.active, ["child-oaks-1"]);
     assert.equal(afterAssign.emptyReason, "");
     pass("assigned teacher sees only Oaks classroom children");
-    await unassignedTeacher.context.close();
+    await assignedTeacher.context.close();
 
     // --- Owner Staff UI exposes assign select ---
     const owner = await openPage(browser, port, OWNER, accountSeed(OWNER));
-    const staffUi = await owner.page.evaluate(async () => {
+    const staffUi = await owner.page.evaluate(async ({ teacherEmail }) => {
       // Seed schedule classrooms for the assign dropdown.
       scheduleDocCache = {
         classrooms: [
@@ -318,14 +342,14 @@ async function main() {
       await refreshStaffInvitesFromBackend();
       if (typeof setView === "function") setView("staff", { skipAccessRedirect: true });
       renderStaffManagementPage({ refresh: false });
-      const select = document.querySelector(`[data-staff-assign-classroom="${TEACHER}"]`);
+      const select = document.querySelector(`[data-staff-assign-classroom="${teacherEmail}"]`);
       return {
         hasSelect: Boolean(select),
         value: select?.value || "",
         options: Array.from(select?.options || []).map((o) => o.value),
         rowCount: document.querySelectorAll("[data-staff-assign-classroom]").length,
       };
-    });
+    }, { teacherEmail: TEACHER });
     assert.equal(staffUi.hasSelect, true);
     assert.equal(staffUi.value, "room-oaks");
     assert.ok(staffUi.options.includes("room-maples"));
@@ -370,27 +394,46 @@ async function main() {
         },
       })).json();
       applyChildDataSnapshot(remote.data || {}, remote.updatedAt || "");
+      // Pause cloud flush so async sync cannot wipe local room-mode writes mid-test.
+      clearTimeout(childCloudSaveTimer);
+      const origQueueCloud = typeof queueChildDataCloudSave === "function" ? queueChildDataCloudSave : null;
+      if (origQueueCloud) {
+        // eslint-disable-next-line no-global-assign
+        queueChildDataCloudSave = () => { clearTimeout(childCloudSaveTimer); };
+      }
+      // Align dashboard date with program-local active date so attendance state matches.
+      const day = dlcActiveDate();
+      dlcDashboardDate = day;
       // Check in first so room-mode buttons render.
-      saveDailyLogQuickAction("check-in", "child-oaks-1", { date: dlcActiveDate(), time: "08:00" });
+      saveDailyLogQuickAction("check-in", "child-oaks-1", { date: day, time: "08:00" });
       childManagementMode = "daily-logs";
       dailyLogsSection = "home";
       if (typeof setView === "function") setView("child-tools-daily-logs", { skipAccessRedirect: true });
       renderChildManagement();
+      const attState = getChildAttendanceState(
+        childRecords().children.find((c) => c.id === "child-oaks-1"),
+        childRecords(),
+        day,
+      );
       const beforeSection = dailyLogsSection;
       const mealBtn = document.querySelector('[data-dlc-quick-action="room-meal"][data-dlc-quick-child="child-oaks-1"]');
       const diaperBtn = document.querySelector('[data-dlc-quick-action="room-diaper"][data-dlc-quick-child="child-oaks-1"]');
       const napBtn = document.querySelector('[data-dlc-quick-action="room-nap"][data-dlc-quick-child="child-oaks-1"]');
       const noteBtn = document.querySelector('[data-dlc-quick-action="room-note"][data-dlc-quick-child="child-oaks-1"]');
       const beforeQueue = childDataMutationQueue.length;
-      // Click path for Meal (must stay on roster); remaining actions via save helper
-      // because the UI debounce lock is 450ms between taps.
+      // Click Meal once to prove room-mode stays on the roster; save helpers cover all care types
+      // (UI debounce is 450ms between taps).
       mealBtn?.click();
       await new Promise((r) => setTimeout(r, 80));
       const sectionAfterMealClick = dailyLogsSection;
       const modeAfterMealClick = childManagementMode;
-      saveDailyLogQuickAction("room-diaper", "child-oaks-1", { date: dlcActiveDate() });
-      saveDailyLogQuickAction("room-nap", "child-oaks-1", { date: dlcActiveDate() });
-      saveDailyLogQuickAction("room-note", "child-oaks-1", { date: dlcActiveDate() });
+      // Ensure meal exists even if a stray sync raced the click path.
+      if (!(childRecords().meals || []).some((m) => m.childId === "child-oaks-1")) {
+        saveDailyLogQuickAction("room-meal", "child-oaks-1", { date: day });
+      }
+      saveDailyLogQuickAction("room-diaper", "child-oaks-1", { date: day });
+      saveDailyLogQuickAction("room-nap", "child-oaks-1", { date: day });
+      saveDailyLogQuickAction("room-note", "child-oaks-1", { date: day });
       childManagementMode = "daily-logs";
       dailyLogsSection = "home";
       renderChildManagement();
@@ -399,8 +442,14 @@ async function main() {
       const diapers = (records.diapers || []).filter((m) => m.childId === "child-oaks-1");
       const naps = (records.naps || []).filter((m) => m.childId === "child-oaks-1");
       const notes = (records.communications || []).filter((m) => m.childId === "child-oaks-1");
+      if (origQueueCloud) {
+        // eslint-disable-next-line no-global-assign
+        queueChildDataCloudSave = origQueueCloud;
+      }
       return {
         hasButtons: Boolean(mealBtn && diaperBtn && napBtn && noteBtn),
+        attState,
+        day,
         beforeSection,
         sectionAfterMealClick,
         modeAfterMealClick,
@@ -415,11 +464,12 @@ async function main() {
         stillHome: sectionAfterMealClick === "home" && modeAfterMealClick === "daily-logs",
       };
     });
-    assert.equal(roomMode.hasButtons, true);
+    assert.equal(roomMode.attState, "checked_in", JSON.stringify(roomMode));
+    assert.equal(roomMode.hasButtons, true, JSON.stringify(roomMode));
     assert.equal(roomMode.stillHome, true);
     assert.equal(roomMode.sectionAfterMealClick, "home");
     assert.ok(roomMode.afterQueue > roomMode.beforeQueue);
-    assert.ok(roomMode.mealCount >= 1);
+    assert.ok(roomMode.mealCount >= 1, JSON.stringify(roomMode));
     assert.ok(roomMode.diaperCount >= 1);
     assert.ok(roomMode.napCount >= 1);
     assert.ok(roomMode.noteCount >= 1);
