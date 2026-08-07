@@ -306,6 +306,7 @@
     "test:founding-closeout-pricing": "NODE_ENV=test node scripts/test-founding-closeout-pricing.js",
     "test:early-user-pricing": "NODE_ENV=test node scripts/test-early-user-pricing.js",
     "test:early-user-e2e": "NODE_ENV=test node scripts/test-early-user-e2e-verification.js",
+    "verify:early-user-stripe-live": "node scripts/verify-early-user-stripe-live.js",
     "test:pro-conversion-funnel": "NODE_ENV=test node scripts/test-pro-conversion-funnel.js",
     "test:founding-vs-pro-confirmation-browser": "node scripts/test-founding-vs-pro-confirmation-browser.js",
     "dry-run:founding-member-email": "node scripts/founding-member-thank-you-dry-run.js",
