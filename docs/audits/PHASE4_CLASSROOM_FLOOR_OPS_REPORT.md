@@ -44,25 +44,24 @@ Phase 3 is **not** production-approved. Phase 4 does not remove or weaken those 
 
 ## Automated results
 
-*(filled after local regression run)*
-
 | Suite | Result |
 |---|---|
-| `npm run check` | |
-| `npm run test:phase4-classroom-floor-ops` | |
-| `npm run test:pass3-permission-matrix` | |
-| `npm run test:role-settings-auth-matrix` | |
-| `npm run test:daily-logs-attendance` | |
-| `npm run test:child-data-mutations` | |
-| `npm run test:child-data-durable-queue` | |
-| `npm run test:phase3-daily-logs-classroom` | |
-| `npm run test:nav-role-experience` | |
+| `npm run check` | **PASS** |
+| `npm run test:phase4-classroom-floor-ops` | **10/10 PASS** |
+| `npm run test:pass3-permission-matrix` | **176/176 PASS** |
+| `npm run test:role-settings-auth-matrix` | **PASS** |
+| `npm run test:daily-logs-attendance` | **15/15 PASS** |
+| `npm run test:child-data-mutations` | **PASS** |
+| `npm run test:child-data-durable-queue` | **PASS** |
+| `npm run test:phase3-daily-logs-classroom` | **10/10 PASS** |
+| `npm run test:nav-role-experience` | **PASS** |
 
+**Regressions:** none in Daily Logs, permissions, offline queue, or staff access.  
 Artifacts: `/opt/cursor/artifacts/phase4-classroom-floor-ops/`
 
 ## What still needs manual review
 
-1. Phase 3 Case 1 + Case 5 physical phone checks (blocking for Phase 3 production approval)  
+1. **Phase 3 Case 1 + Case 5** physical phone checks — still **MANUAL REQUIRED** (blocking for Phase 3 / production approval)  
 2. Owner assigns classroom in Staff UI on live testing; Teacher refreshes and sees room children  
 3. Room-mode taps on a real phone during floor ops (optional usability)
 
@@ -70,6 +69,7 @@ Artifacts: `/opt/cursor/artifacts/phase4-classroom-floor-ops/`
 
 | Decision | Verdict |
 |---|---|
-| Merge Phase 4 into **testing** branch | Pending regression results |
-| Production / `main` | **NO-GO** — wait for explicit approval |
-| Next phase after Phase 4 | Pending end-of-phase report |
+| Merge Phase 4 into **testing** branch | **GO** |
+| Production / `main` (`ccd01fe`) | **NO-GO** — wait for explicit approval |
+| Phase 3 production approval | **NO-GO** — physical-phone Cases 1 & 5 still open |
+| Next phase after Phase 4 | **GO for planning on testing only** after this merges to testing; **NO-GO for production** |
