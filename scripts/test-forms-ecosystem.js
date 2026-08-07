@@ -119,7 +119,7 @@ async function main() {
     }, OWNER);
 
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForFunction(() => typeof setView === "function" && typeof FormsEcosystem !== "undefined", null, { timeout: 60000 });
+    await page.waitForFunction(() => typeof setView === "function" && window.LLHLazyLoader?.ensure, null, { timeout: 60000 });
     await page.waitForFunction(() => {
       try {
         if (typeof isAppBootInteractive === "function") return isAppBootInteractive();
@@ -127,11 +127,13 @@ async function main() {
       } catch (_e) { /* ignore */ }
       return Boolean(document.body.classList.contains("app-booted"));
     }, null, { timeout: 60000 });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await window.LLHLazyLoader.ensure("forms");
       try { if (typeof loadAccountState === "function") loadAccountState(localStorage.getItem("llhUser")); } catch (_e) { /* ignore */ }
       try { if (typeof updateAuthButtons === "function") updateAuthButtons(); } catch (_e) { /* ignore */ }
       try { if (typeof syncHomeDaycareHubNavVisibility === "function") syncHomeDaycareHubNavVisibility(); } catch (_e) { /* ignore */ }
     });
+    await page.waitForFunction(() => typeof FormsEcosystem !== "undefined", null, { timeout: 60000 });
 
     const audit = await page.evaluate(() => window.FormsEcosystem.auditReport());
     assert.ok(audit.catalogTotal >= 60, `expected >=60 catalog forms, got ${audit.catalogTotal}`);

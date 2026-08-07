@@ -117,18 +117,24 @@ async function main() {
     }, OWNER);
 
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForFunction(() => typeof setView === "function" && typeof FormsCenter !== "undefined" && typeof FormsEcosystem !== "undefined", null, { timeout: 60000 });
+    await page.waitForFunction(() => typeof setView === "function" && window.LLHLazyLoader?.ensure, null, { timeout: 60000 });
     await page.waitForFunction(() => {
       try {
         if (typeof isAppBootInteractive === "function") return isAppBootInteractive();
       } catch (_e) { /* ignore */ }
       return Boolean(document.body.classList.contains("app-booted"));
     }, null, { timeout: 60000 });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await window.LLHLazyLoader.ensure("forms");
       try { loadAccountState(localStorage.getItem("llhUser")); } catch (_e) { /* ignore */ }
       try { updateAuthButtons(); } catch (_e) { /* ignore */ }
       try { syncHomeDaycareHubNavVisibility(); } catch (_e) { /* ignore */ }
     });
+    await page.waitForFunction(
+      () => typeof FormsCenter !== "undefined" && typeof FormsEcosystem !== "undefined",
+      null,
+      { timeout: 60000 },
+    );
 
     const review = await page.evaluate(() => window.FormsCenter.reviewReport());
     assert.equal(review.sections.length, 10);
