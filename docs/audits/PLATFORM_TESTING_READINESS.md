@@ -3,7 +3,8 @@
 **Branch:** `cursor/family-hub-testing-readiness-d3df` (and feature PRs into it)  
 **Rule:** Testing only. No production merge/deploy. Family Hub customer flags stay OFF.  
 **Teaching Kits / lesson plans:** Owned by another agent — do not audit or modify unless a change here breaks them.  
-**Updated:** 2026-08-07
+**Updated:** 2026-08-07  
+**Priority order (owner-approved):** 1 Tuition → 2 Daily ops→FH → 3 Forms spine → 4 Parent delivery. Stop after each milestone for approval.
 
 ---
 
@@ -28,23 +29,19 @@
 | Teacher/Assistant Settings + billing hardening | Settings ACL, billing owner-only | PR #552 |
 | Classroom hardening (Phase 3) | 6 scenarios automated; 2 phone gates open | Phase 3 reports |
 | Classroom floor ops (Phase 4) | Unassigned empty state, assign-classroom, room-mode care actions | PR #557 / `8016094` |
-| Family Hub provider request inbox + director ACL | Approve/decline with note, director acts as program owner, teacher 403, recent decided, Work/Families attention | This milestone |
+| Family Hub provider request inbox + director ACL | Approve/decline with note, director ACL, recent decided | PR #560 merged to testing `f676438` |
+| **Family Tuition Billing v1** | Invoices, sibling discount, late fees, balances, mark paid, parent pay (Checkout/sim), AI reminder, provider dashboard | `FAMILY_TUITION_BILLING_V1_REPORT.md` (awaiting testing merge approval) |
 
 ---
 
-## In progress / next candidates
+## Next (awaiting approval after Tuition merge)
 
 | Area | Gap | Priority |
 |---|---|---|
-| Parent email/push delivery | Magic-link handoff still often manual | High |
-| Forms e-sign / packet PDF on child file | Acknowledge ≠ legal e-sign | High |
-| Daily ops → Family Hub defaults | Some share paths exist; not default-complete | High |
-| Tuition billing for families | Membership billing only | Large / later |
-| Notifications (cross-role) | FH + ops alerts partial | Medium |
-| Admin Dashboard polish | Exists; needs regression pass | Medium |
-| Calendar family-facing defaults | Partial | Medium |
-| AI features regression | Exists; needs pass without Teaching Kit deep dive | Medium |
-| Mobile / performance / security sweeps | Ongoing | Medium |
+| Daily ops → Family Hub (one-tap daily report + share defaults) | Not complete | **2 — next after approval** |
+| Forms spine (due dates, e-sign, PDF, needs attention) | Incomplete | 3 |
+| Parent delivery reliability | Incomplete | 4 |
+| Activity/Lesson → Daily Log, enrollment, ratios, staff ACL, room mode polish | Horizon B | After Horizon A |
 
 ---
 
@@ -64,7 +61,8 @@
 1. `docs/audits/PHASE4_CLASSROOM_FLOOR_OPS_REPORT.md` — classroom floor ops  
 2. `docs/audits/PHASE4_E2E_QA_REVIEW.md` — Phase 4 E2E (NO-GO production)  
 3. `docs/audits/PHASE3_PHONE_GATES_BLOCKER_REPORT.md` — phone gates  
-4. `docs/audits/FAMILY_HUB_PROVIDER_INBOX_REPORT.md` — this milestone  
+4. `docs/audits/FAMILY_HUB_PROVIDER_INBOX_REPORT.md` — FH inbox  
+5. `docs/audits/FAMILY_TUITION_BILLING_V1_REPORT.md` — Family Tuition Billing v1  
 
 ---
 

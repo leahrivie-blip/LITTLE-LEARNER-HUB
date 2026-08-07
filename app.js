@@ -15585,6 +15585,9 @@ function renderFamiliesHubPage() {
             primary: Boolean(pendingFh),
             badge: pendingFh ? String(pendingFh) : "",
           })}
+          ${canManage && isHomeDaycareHubTestingEnabled()
+            ? workHubTile({ view: "family-tuition", title: "Family tuition", detail: "Invoices & balances" })
+            : ""}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
@@ -15600,6 +15603,221 @@ function renderFamiliesHubPage() {
   });
 }
 
+let familyTuitionDashboardCache = null;
+
+async function refreshFamilyTuitionDashboard() {
+  if (!isHomeDaycareHubTestingEnabled()) return null;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return null;
+  const response = await fetch("/api/family-tuition/dashboard", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load family tuition.");
+  familyTuitionDashboardCache = data;
+  return data;
+}
+
+function renderFamilyTuitionPage() {
+  const section = document.querySelector("#view-family-tuition");
+  if (!section) return;
+  if (!isHomeDaycareHubTestingEnabled()) {
+    section.innerHTML = `<section class="work-hub-page"><p class="muted-copy">Family tuition billing is available on the testing site only.</p></section>`;
+    return;
+  }
+  const role = workModeRole();
+  if (role !== "owner" && role !== "director") {
+    setView(workModeLandingView(role));
+    return;
+  }
+  section.innerHTML = workHubShell({
+    eyebrow: "Business · Testing",
+    title: "Family Tuition",
+    subtitle: "Invoice families, track balances, apply sibling discounts and late fees, and let parents pay online in Family Hub.",
+    body: `
+      <div data-ftu-dashboard>
+        <p class="muted-copy">Loading tuition dashboard…</p>
+      </div>
+    `,
+  });
+  refreshFamilyTuitionDashboard()
+    .then((data) => paintFamilyTuitionDashboard(data))
+    .catch((error) => {
+      const root = document.querySelector("[data-ftu-dashboard]");
+      if (root) root.innerHTML = `<p class="form-message" role="alert">${escapeHtml(error.message || "Could not load tuition.")}</p>`;
+    });
+}
+
+function paintFamilyTuitionDashboard(data) {
+  const root = document.querySelector("[data-ftu-dashboard]");
+  if (!root || !data) return;
+  const policy = data.policy || {};
+  const summary = data.summary || {};
+  const families = Array.isArray(data.families) ? data.families : [];
+  const invoices = Array.isArray(data.invoices) ? data.invoices : [];
+  const payments = Array.isArray(data.payments) ? data.payments : [];
+  root.innerHTML = `
+    <section class="work-hub-section">
+      <div class="work-pulse-grid" aria-label="Tuition at a glance">
+        <article class="work-pulse-card"><em>Outstanding</em><strong>$${escapeHtml(summary.outstandingDollars || "0.00")}</strong><span>${escapeHtml(String(summary.openInvoiceCount || 0))} open</span></article>
+        <article class="work-pulse-card"><em>Overdue</em><strong>$${escapeHtml(summary.overdueDollars || "0.00")}</strong><span>past grace</span></article>
+        <article class="work-pulse-card"><em>Collected</em><strong>$${escapeHtml(summary.collectedDollars || "0.00")}</strong><span>recorded payments</span></article>
+        <article class="work-pulse-card"><em>Families</em><strong>${escapeHtml(String(summary.householdCount || 0))}</strong><span>active households</span></article>
+      </div>
+    </section>
+
+    <section class="work-hub-section">
+      <h3>Tuition rates</h3>
+      <p class="muted-copy">Sibling discount applies to the 2nd+ child on each invoice. Late fees apply after the grace period.</p>
+      <form id="familyTuitionPolicyForm" class="panel-form ftu-policy-form">
+        <div class="form-grid-two">
+          <label>Default rate per child ($)
+            <input name="defaultRateDollars" type="number" min="0" step="0.01" value="${escapeHtml(policy.defaultRateDollars || "800.00")}" required />
+          </label>
+          <label>Billing cadence
+            <select name="billingCadence">
+              <option value="weekly" ${policy.billingCadence === "weekly" ? "selected" : ""}>Weekly</option>
+              <option value="biweekly" ${policy.billingCadence === "biweekly" ? "selected" : ""}>Biweekly</option>
+              <option value="monthly" ${policy.billingCadence === "monthly" || !policy.billingCadence ? "selected" : ""}>Monthly</option>
+            </select>
+          </label>
+          <label>Sibling discount (%)
+            <input name="siblingDiscountPercent" type="number" min="0" max="50" step="1" value="${escapeHtml(String(policy.siblingDiscountPercent ?? 10))}" />
+          </label>
+          <label>Late fee ($)
+            <input name="lateFeeDollars" type="number" min="0" step="0.01" value="${escapeHtml(policy.lateFeeDollars || "25.00")}" />
+          </label>
+          <label>Late-fee grace (days)
+            <input name="lateFeeGraceDays" type="number" min="0" max="60" value="${escapeHtml(String(policy.lateFeeGraceDays ?? 5))}" />
+          </label>
+          <label>Due day of month
+            <input name="dueDayOfMonth" type="number" min="1" max="28" value="${escapeHtml(String(policy.dueDayOfMonth ?? 1))}" />
+          </label>
+        </div>
+        <button class="primary-button" type="submit">Save rates</button>
+        <span class="form-message" id="familyTuitionPolicyMessage" aria-live="polite"></span>
+      </form>
+    </section>
+
+    <section class="work-hub-section">
+      <h3>Create invoice</h3>
+      <form id="familyTuitionInvoiceForm" class="panel-form ftu-invoice-form">
+        <label>Family household
+          <select name="householdId" required>
+            <option value="">Select a household…</option>
+            ${families.map((fam) => `
+              <option value="${escapeHtml(fam.householdId)}">${escapeHtml(fam.label || fam.parentEmail || "Family")} (${escapeHtml(String(fam.childCount || 0))} child${fam.childCount === 1 ? "" : "ren"})</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>Note (optional)
+          <input name="notes" maxlength="1000" placeholder="e.g. March tuition" />
+        </label>
+        <button class="primary-button" type="submit" ${families.length ? "" : "disabled"}>Create invoice</button>
+        <span class="form-message" id="familyTuitionInvoiceMessage" aria-live="polite"></span>
+      </form>
+      ${!families.length ? `<p class="muted-copy">Invite a Family Hub household first, then come back to bill them.</p>` : ""}
+    </section>
+
+    <section class="work-hub-section">
+      <h3>Family balances</h3>
+      ${families.length ? `
+        <div class="ftu-family-list">
+          ${families.map((fam) => `
+            <article class="hdh-forms-pack-item">
+              <div>
+                <strong>${escapeHtml(fam.label || "Family")}</strong>
+                <p class="muted-copy">${escapeHtml(fam.parentEmail || "")} · Balance $${escapeHtml(fam.balanceDollars || "0.00")}${Number(fam.overdueCents) > 0 ? ` · Overdue $${escapeHtml(fam.overdueDollars)}` : ""}</p>
+              </div>
+              <div class="hdh-forms-pack-actions">
+                <button class="ghost-button" type="button" data-ftu-reminder="${escapeHtml(fam.householdId)}">AI reminder draft</button>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+        <pre class="ftu-reminder-preview" data-ftu-reminder-preview hidden></pre>
+      ` : `<p class="muted-copy">No households yet.</p>`}
+    </section>
+
+    <section class="work-hub-section">
+      <h3>Invoices</h3>
+      ${invoices.length ? `
+        <ul class="work-simple-list ftu-invoice-list">
+          ${invoices.slice(0, 40).map((inv) => `
+            <li>
+              <strong>${escapeHtml(inv.number)} · ${escapeHtml(inv.householdLabel || "Family")}</strong>
+              <span>$${escapeHtml(inv.totalDollars)} · ${escapeHtml(inv.status)} · due ${escapeHtml(inv.dueAt || "—")}${inv.discountCents ? ` · sibling −$${escapeHtml(inv.discountDollars)}` : ""}${inv.lateFeeCents ? ` · late $${escapeHtml(inv.lateFeeDollars)}` : ""}</span>
+              <span class="ftu-invoice-actions">
+                ${["open", "overdue"].includes(inv.status) ? `
+                  <button class="ghost-button" type="button" data-ftu-mark-paid="${escapeHtml(inv.id)}">Mark paid</button>
+                  <button class="ghost-button" type="button" data-ftu-void="${escapeHtml(inv.id)}">Void</button>
+                ` : ""}
+              </span>
+            </li>
+          `).join("")}
+        </ul>
+      ` : `<p class="muted-copy">No invoices yet.</p>`}
+    </section>
+
+    <section class="work-hub-section">
+      <h3>Payment history</h3>
+      ${payments.length ? `
+        <ul class="work-simple-list">
+          ${payments.slice(0, 30).map((pay) => `
+            <li>
+              <strong>$${escapeHtml(pay.amountDollars)}</strong>
+              <span>${escapeHtml(pay.method)} · ${escapeHtml(String(pay.createdAt || "").slice(0, 16).replace("T", " "))}${pay.note ? ` — ${escapeHtml(pay.note)}` : ""}</span>
+            </li>
+          `).join("")}
+        </ul>
+      ` : `<p class="muted-copy">No payments recorded yet.</p>`}
+    </section>
+  `;
+}
+
+async function refreshFamilyHubParentBilling() {
+  const body = document.querySelector("[data-fh-billing-body]");
+  if (!body || !isHomeDaycareHubTestingEnabled()) return;
+  const token = typeof getFamilyHubSessionToken === "function" ? getFamilyHubSessionToken() : "";
+  if (!token) {
+    body.innerHTML = `<p class="muted-copy">Sign in to see tuition invoices.</p>`;
+    return;
+  }
+  const response = await fetch("/api/family-tuition/me", {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-LLH-Family-Session": token,
+    },
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    body.innerHTML = `<p class="muted-copy">${escapeHtml(data.error || "Billing unavailable.")}</p>`;
+    return;
+  }
+  const invoices = Array.isArray(data.invoices) ? data.invoices : [];
+  const open = invoices.filter((item) => ["open", "overdue"].includes(item.status));
+  body.innerHTML = `
+    <p class="fh-meta"><strong>Balance: $${escapeHtml(data.balanceDollars || "0.00")}</strong>${Number(data.overdueCents) > 0 ? ` · Overdue $${escapeHtml(data.overdueDollars)}` : ""}</p>
+    ${open.length ? open.slice(0, 6).map((inv) => `
+      <article class="fh-contact-card">
+        <strong>${escapeHtml(inv.number)}</strong>
+        <p class="fh-meta">$${escapeHtml(inv.balanceDollars)} due ${escapeHtml(inv.dueAt || "—")} · ${escapeHtml(inv.status)}</p>
+        <button class="primary-button" type="button" data-ftu-parent-pay="${escapeHtml(inv.id)}">Pay online</button>
+      </article>
+    `).join("") : `<p class="muted-copy">No open invoices. You’re all caught up.</p>`}
+    ${invoices.length ? `
+      <ul class="fh-today-list" style="margin-top:12px;">
+        ${invoices.slice(0, 8).map((inv) => `
+          <li>
+            <strong>${escapeHtml(inv.number)} · ${escapeHtml(inv.status)}</strong>
+            <span>$${escapeHtml(inv.totalDollars)} · paid $${escapeHtml(inv.amountPaidDollars)}</span>
+          </li>
+        `).join("")}
+      </ul>
+    ` : ""}
+  `;
+}
+
 function renderBusinessHubPage() {
   const section = document.querySelector("#view-business");
   if (!section) return;
@@ -15609,12 +15827,13 @@ function renderBusinessHubPage() {
     return;
   }
   const showBilling = role === "owner" && canAccessPlatformFeature("billing");
+  const showFamilyTuition = (role === "owner" || role === "director") && isHomeDaycareHubTestingEnabled();
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
   section.innerHTML = workHubShell({
     eyebrow: "Business",
     title: "Business",
     subtitle: role === "director"
-      ? "Director tools for running the program. Billing stays with the owner."
+      ? "Director tools for running the program. Platform membership billing stays with the owner."
       : "Owner tools — staff, enrollment, billing, licensing, and testing.",
     body: `
       <section class="work-hub-section">
@@ -15630,7 +15849,8 @@ function renderBusinessHubPage() {
       <section class="work-hub-section">
         <h3>Growth & compliance</h3>
         <div class="work-hub-grid">
-          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
+          ${showFamilyTuition ? workHubTile({ view: "family-tuition", title: "Family Tuition", detail: "Invoices, balances & online pay", primary: true }) : ""}
+          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Your LLH membership" }) : `<div class="work-hub-note muted-copy">Membership billing is owner-only.</div>`}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
           ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
           ${workHubTile({ view: "staff", title: "Users & Staff", detail: "Account & access invites" })}
@@ -18439,6 +18659,9 @@ function setView(view, options = {}) {
   if (resolvedRequested === "family-hub" && !isHomeDaycareHubTestingEnabled()) {
     return setView(isLoggedIn() ? "calendar" : "home", { ...options, skipAccessRedirect: true });
   }
+  if (resolvedRequested === "family-tuition" && !isHomeDaycareHubTestingEnabled()) {
+    return setView(isLoggedIn() ? "business" : "home", { ...options, skipAccessRedirect: true });
+  }
   // Pure parent sessions stay inside Family Hub (no provider/admin surfaces).
   if (
     getFamilyHubSessionToken()
@@ -18779,6 +19002,7 @@ function setView(view, options = {}) {
   if (resolvedView === "today") renderTeacherTodayPage();
   if (resolvedView === "classroom") renderClassroomHubPage();
   if (resolvedView === "business") renderBusinessHubPage();
+  if (resolvedView === "family-tuition") renderFamilyTuitionPage();
   if (resolvedView === "more") renderMoreHubPage();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "messages") renderMessagesPage(options);
@@ -39350,6 +39574,11 @@ function renderFamilyHubMorePanel(data) {
           </ul>
         ` : ""}
       </section>
+      <section class="fh-card" data-fh-billing-card>
+        <h3>Billing</h3>
+        <p class="fh-meta">Tuition invoices and payment history from your provider.</p>
+        <div data-fh-billing-body><p class="muted-copy">Loading billing…</p></div>
+      </section>
       <section class="fh-card">
         <h3>Emergency &amp; pickup contacts</h3>
         ${contacts.length
@@ -39706,6 +39935,7 @@ function paintFamilyHubParentPanel(panel) {
     });
     syncFamilyHubParentChrome();
     familyHubBindComposeKeyboard();
+    if (next === "more") refreshFamilyHubParentBilling().catch(() => {});
     return;
   }
   const panelHtml = {
@@ -39728,6 +39958,7 @@ function paintFamilyHubParentPanel(panel) {
   });
   syncFamilyHubParentChrome();
   familyHubBindComposeKeyboard();
+  if (next === "more") refreshFamilyHubParentBilling().catch(() => {});
   if (next === "messages") {
     const thread = document.querySelector("#familyHubMessageThread");
     if (thread) thread.scrollTop = thread.scrollHeight;
@@ -67514,6 +67745,127 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const ftuMarkPaid = event.target.closest("[data-ftu-mark-paid]");
+  if (ftuMarkPaid) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const invoiceId = ftuMarkPaid.dataset.ftuMarkPaid;
+    ftuMarkPaid.disabled = true;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/family-tuition/invoices/${encodeURIComponent(invoiceId)}/mark-paid`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ method: "manual" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not mark paid.");
+        ftuMarkPaid.disabled = false;
+        return;
+      }
+      const dash = await refreshFamilyTuitionDashboard().catch(() => null);
+      if (dash) paintFamilyTuitionDashboard(dash);
+      showActionFeedback("Payment recorded.");
+    })();
+    return;
+  }
+
+  const ftuVoid = event.target.closest("[data-ftu-void]");
+  if (ftuVoid) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const invoiceId = ftuVoid.dataset.ftuVoid;
+    ftuVoid.disabled = true;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/family-tuition/invoices/${encodeURIComponent(invoiceId)}/void`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({}),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not void invoice.");
+        ftuVoid.disabled = false;
+        return;
+      }
+      const dash = await refreshFamilyTuitionDashboard().catch(() => null);
+      if (dash) paintFamilyTuitionDashboard(dash);
+      showActionFeedback("Invoice voided.");
+    })();
+    return;
+  }
+
+  const ftuReminder = event.target.closest("[data-ftu-reminder]");
+  if (ftuReminder) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const householdId = ftuReminder.dataset.ftuReminder;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch("/api/family-tuition/reminder-draft", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ householdId, programName: workModeProgramLabel() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      const preview = document.querySelector("[data-ftu-reminder-preview]");
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not draft reminder.");
+        return;
+      }
+      if (preview) {
+        preview.hidden = false;
+        preview.textContent = `${data.draft?.subject || ""}\n\n${data.draft?.body || ""}`;
+      }
+      showActionFeedback("Reminder draft ready — copy and send to the family.");
+    })();
+    return;
+  }
+
+  const ftuParentPay = event.target.closest("[data-ftu-parent-pay]");
+  if (ftuParentPay) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const invoiceId = ftuParentPay.dataset.ftuParentPay;
+    const token = typeof getFamilyHubSessionToken === "function" ? getFamilyHubSessionToken() : "";
+    if (!token || !invoiceId) return;
+    ftuParentPay.disabled = true;
+    (async () => {
+      const response = await fetch("/api/family-tuition/pay", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-LLH-Family-Session": token,
+        },
+        body: JSON.stringify({ invoiceId, appOrigin: window.location.origin }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not start payment.");
+        ftuParentPay.disabled = false;
+        return;
+      }
+      if (data.simulated) {
+        await refreshFamilyHubParentBilling().catch(() => {});
+        showActionFeedback("Payment recorded (testing simulation).");
+        return;
+      }
+      if (data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+      showActionFeedback("Payment started.");
+    })();
+    return;
+  }
+
   const fhImproveWording = event.target.closest("[data-fh-improve-wording]");
   if (fhImproveWording) {
     event.preventDefault();
@@ -75058,6 +75410,82 @@ document.addEventListener("submit", async (event) => {
         submitBtn.textContent = "Create household invite";
       }
     }
+    return;
+  }
+
+  if (event.target.matches("#familyTuitionPolicyForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#familyTuitionPolicyMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    const payload = collectFormData(form);
+    if (submitBtn) submitBtn.disabled = true;
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers) return;
+        const response = await fetch("/api/family-tuition/policy", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            defaultRateDollars: payload.defaultRateDollars,
+            billingCadence: payload.billingCadence,
+            siblingDiscountPercent: payload.siblingDiscountPercent,
+            lateFeeDollars: payload.lateFeeDollars,
+            lateFeeGraceDays: payload.lateFeeGraceDays,
+            dueDayOfMonth: payload.dueDayOfMonth,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Could not save rates.");
+        if (message) message.textContent = "Tuition rates saved.";
+        const dash = await refreshFamilyTuitionDashboard().catch(() => null);
+        if (dash) paintFamilyTuitionDashboard(dash);
+        showActionFeedback("Tuition rates saved.");
+      } catch (error) {
+        if (message) message.textContent = error.message || "Could not save rates.";
+        showActionFeedback(error.message || "Could not save rates.");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    })();
+    return;
+  }
+
+  if (event.target.matches("#familyTuitionInvoiceForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#familyTuitionInvoiceMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    const payload = collectFormData(form);
+    if (submitBtn) submitBtn.disabled = true;
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers) return;
+        const response = await fetch("/api/family-tuition/invoices", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            householdId: payload.householdId,
+            notes: payload.notes || "",
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Could not create invoice.");
+        if (message) message.textContent = `Created ${data.invoice?.number || "invoice"}.`;
+        const dash = await refreshFamilyTuitionDashboard().catch(() => null);
+        if (dash) paintFamilyTuitionDashboard(dash);
+        showActionFeedback("Tuition invoice created.");
+      } catch (error) {
+        if (message) message.textContent = error.message || "Could not create invoice.";
+        showActionFeedback(error.message || "Could not create invoice.");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    })();
     return;
   }
 
