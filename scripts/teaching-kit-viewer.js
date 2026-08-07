@@ -775,13 +775,13 @@
             </article>
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
-              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Weekly Teaching Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
+              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
               <div class="tk-build-cta-stack">
-                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit Binder" : "Print Teaching Kit Binder (unavailable)"}</button>
+                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print / Download Binder Kit" : "Print / Download Binder Kit (unavailable)"}</button>
                 <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview Binder</button>
               </div>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Print Teaching Kit Binder opens the classroom PDF. Preview Binder shows the on-screen binder first. Teacher Weekly Planner and Full Lesson Plan stay available from the action bar below."
+                ? "Print / Download Binder Kit builds a complete printable document (not the open tab). Full Weekly Lesson Plan is a shorter practical plan from the action bar — different from the Entire Binder Kit."
                 : "Print Center is not available for this session. Binder preview and lesson downloads still work from the action bar."}</p>
             </article>
           </aside>
@@ -1128,7 +1128,7 @@
         <div class="tk-stack tk-binder-actions">
           <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print</button>
           ${state.printCenterEnabled
-            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print / Save PDF</button>`
+            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print / Download Binder Kit</button>`
             : ""}
           <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Back to Today</button>
         </div>

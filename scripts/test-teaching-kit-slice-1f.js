@@ -482,6 +482,8 @@ async function main() {
         <link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css" />
       </head><body>
         <div id="resourceViewerBody"></div>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-present.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-printable-model.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-viewer.js"></script>
       </body></html>

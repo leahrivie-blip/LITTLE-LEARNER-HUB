@@ -573,7 +573,9 @@ async function main() {
           <link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css" />
         </head><body>
           <div id="resourceViewerBody" style="max-width:100%;margin:0;padding:12px;"></div>
-          <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
+          <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-present.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-printable-model.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
           <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-viewer.js"></script>
         </body></html>
       `, { waitUntil: "domcontentloaded" });
@@ -627,6 +629,8 @@ async function main() {
         <link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css" />
       </head><body>
         <div id="resourceViewerBody"></div>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-present.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-printable-model.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-viewer.js"></script>
       </body></html>
@@ -689,6 +693,8 @@ async function main() {
       <!doctype html>
       <html><body>
         <div id="resourceViewerBody"></div>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-present.js"></script>
+        <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-printable-model.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-print.js"></script>
         <script src="http://127.0.0.1:${PORT}/scripts/teaching-kit-viewer.js"></script>
       </body></html>

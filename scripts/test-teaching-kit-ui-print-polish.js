@@ -146,7 +146,7 @@ async function main() {
   // Unit: presentation formatter
   ok(present.presentLabel("copyrighted_title_only") === "Copyrighted title only", "rights label humanized");
   ok(present.presentLabel("public_domain") === "Public domain", "public domain label");
-  ok(present.presentLabel("week_binder") === "Weekly Teaching Kit", "preset label");
+  ok(present.presentLabel("week_binder") === "Entire Binder Kit", "preset label");
   ok(present.presentLabel("AGE_MODIFICATIONS") === "Age adaptations", "screaming snake label");
   ok(present.presentLabel("OBSERVATION_OPPORTUNITIES") === "Observation opportunities", "observation label");
   ok(present.isDeveloperFacingCopy("ACTIVITY_NAME"), "developer token detected");
@@ -161,9 +161,9 @@ async function main() {
   ok(kit.ok === true, "mapper ok");
   const print = printApi.buildBinderPrintHtml(kit, { preset: "week_binder", paperSize: "letter" });
   ok(print.ok === true, "print html builds");
-  ok(/Weekly Teaching Kit/i.test(print.html), "print pack uses friendly preset label");
+  ok(/Entire Binder Kit/i.test(print.html), "print pack uses friendly preset label");
   ok(!/copyrighted_title_only|week_binder|AGE_MODIFICATIONS|OBSERVATION_OPPORTUNITIES/i.test(print.html), "print html has no raw enums");
-  ok(/Observation opportunities|Learning objective|Materials/i.test(print.html), "print uses friendly section titles");
+  ok(/Objective|Materials|What to watch for|Teacher Toolkit|Week at a Glance/i.test(print.html), "print uses friendly section titles");
 
   const todayHtml = viewer.surfaceHtml(kit, { ...viewer.defaultState(kit), surface: "today", openEverything: true }, {});
   ok(/tk-today-launcher/.test(todayHtml), "today launcher present");
@@ -179,7 +179,7 @@ async function main() {
     surface: "build",
     printCenterEnabled: true,
   }, {});
-  ok(/Weekly Teaching Kit|Ready to print/i.test(buildHtml), "build summary readable");
+  ok(/Entire Binder Kit|Ready to print/i.test(buildHtml), "build summary readable");
   ok(!/>\s*week_binder\s*</i.test(buildHtml), "build summary hides raw week_binder");
 
   fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, siteContent: {}, adminSessions: {} }, null, 2));
@@ -348,7 +348,7 @@ async function main() {
 
         await page.locator(`.tk-ops-tab[data-tk-goto="build"]`).click();
         const buildText = await page.locator("[data-tk-panel='build']").innerText();
-        ok(/Weekly Teaching Kit|Ready to print/i.test(buildText), `${vp.name}: build summary friendly`);
+        ok(/Entire Binder Kit|Ready to print/i.test(buildText), `${vp.name}: build summary friendly`);
         ok(!/\bweek_binder\b/i.test(buildText), `${vp.name}: build hides week_binder`);
 
         if (vp.name === "m390" || vp.name === "desktop") {

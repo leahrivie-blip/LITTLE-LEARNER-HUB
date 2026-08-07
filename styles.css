@@ -24869,9 +24869,9 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   flex-direction: column;
   break-after: page;
   page-break-after: always;
-  break-inside: avoid-page;
   padding: 12px 8px 18px;
-  min-height: 9.5in;
+  /* Avoid forcing huge blank bands; each section still page-breaks after. */
+  min-height: 0;
   box-sizing: border-box;
 }
 .tk-print-root[data-tk-paper="a4"] .tk-print-page {
@@ -24973,6 +24973,33 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   margin: 8px 0 12px;
 }
 .tk-print-pre { white-space: pre-wrap; line-height: 1.45; }
+.tk-print-toc { margin: 8px 0 14px; padding-left: 22px; }
+.tk-print-toc li { margin: 6px 0; }
+.tk-print-day-card {
+  border: 1px solid #d7e0d9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  background: #fff;
+}
+.tk-print-activity-card { margin: 0 0 14px; }
+.tk-print-cover-image {
+  margin: 0 0 14px;
+  max-width: 3.6in;
+}
+.tk-print-cover-image img {
+  display: block;
+  width: 100%;
+  max-height: 2.4in;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.tk-print-write-line {
+  border-bottom: 1px solid #c5d0c8;
+  min-height: 1.15em;
+  margin: 8px 0;
+}
+.tk-print-notes-row { margin: 0 0 12px; }
 .tk-print-cover {
   display: flex;
   flex-direction: column;
@@ -25084,12 +25111,28 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   body.printing-teaching-kit .lesson-workspace-action-bars,
   body.printing-teaching-kit .lesson-workspace-more-menu,
   body.printing-teaching-kit .lesson-workspace-action-sheet,
-  body.printing-teaching-kit .tk-ops-nav {
+  body.printing-teaching-kit .tk-ops-nav,
+  body.printing-teaching-kit .tk-ops-tabs,
+  body.printing-teaching-kit .tk-binder-section-nav,
+  body.printing-teaching-kit .tk-surface:not(.teaching-kit-print-article),
+  body.printing-teaching-kit .close-button,
+  body.printing-teaching-kit .resource-viewer-toolbar,
+  body.printing-teaching-kit #resourceViewerTitle,
+  body.printing-teaching-kit #resourceViewerCategory,
+  body.printing-teaching-kit #resourceViewerTags,
+  body.printing-teaching-kit [data-close-modal],
+  body.printing-teaching-kit button:not(.tk-print-root button),
+  body.printing-teaching-kit .modal-header,
+  body.printing-teaching-kit .resource-viewer-header {
     display: none !important;
   }
   body.printing-teaching-kit #resourceViewerModal .modal-card {
     box-shadow: none !important;
     border: 0 !important;
+  }
+  body.printing-teaching-kit .teaching-kit-print-article,
+  body.printing-teaching-kit .tk-print-root {
+    display: block !important;
   }
   body.printing-teaching-kit .tk-print-page {
     min-height: auto;
@@ -25098,11 +25141,14 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   body.printing-teaching-kit .tk-print-keep,
   body.printing-teaching-kit .tk-print-photo-row,
   body.printing-teaching-kit .tk-print-callout,
-  body.printing-teaching-kit .tk-print-block {
+  body.printing-teaching-kit .tk-print-block,
+  body.printing-teaching-kit .tk-print-day-card,
+  body.printing-teaching-kit .tk-print-activity-card {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  body.printing-teaching-kit .tk-print-photo img {
+  body.printing-teaching-kit .tk-print-photo img,
+  body.printing-teaching-kit .tk-print-cover-image img {
     max-height: 2.2in;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
