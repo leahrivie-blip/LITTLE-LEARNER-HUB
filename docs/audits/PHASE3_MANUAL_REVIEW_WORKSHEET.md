@@ -1,34 +1,44 @@
 # Phase 3 — Manual review worksheet (testing only)
 
 **Site:** https://little-learner-hub-testing.onrender.com  
-**Expected build:** `a066fd3` / `cursor/family-hub-testing-readiness-d3df`  
-**Production:** do not use · do not deploy · do not enable customer Family Hub flags  
-**Hold:** no next phase until this worksheet is complete and you give explicit approval
+**Automated run build:** `52494c0` (includes Phase 3 `a066fd3` + worksheet docs)  
+**Production during run:** `ccd01fe` on `main` — **unchanged**  
+**Holds:** no Phase 4 · no production merge/deploy · Family Hub customer flags left off  
 
-Confirm build before starting: open `/api/build-version` → `shortSha` should be `a066fd3` (or a later testing-only SHA that still includes Phase 3).
+**Automation script:** `npm run test:live-phase3-manual-review` → `scripts/live-phase3-manual-review-automate.js`  
+**Evidence:** `/opt/cursor/artifacts/phase3-manual-review/report.json` + `screenshots/`  
+**Automated result:** **6/6 PASS** (2026-08-07)
 
 ---
 
 ## Scorecard
 
-| # | Scenario | Pass/Fail | Reviewer | Date |
+| # | Scenario | Automated | Pass/Fail | Still needs you? |
 |---|---|---|---|---|
-| 1 | Two staff devices, same child | ☐ Pass ☐ Fail |  |  |
-| 2 | Hard refresh mid-save (slow network) | ☐ Pass ☐ Fail |  |  |
-| 3 | Linked Director sees all rooms | ☐ Pass ☐ Fail |  |  |
-| 4 | Unassigned Teacher empty Daily Logs | ☐ Pass ☐ Fail |  |  |
-| 5 | Assistant phone care + Settings denied | ☐ Pass ☐ Fail |  |  |
-| 6 | Owner logout with offline pending queue | ☐ Pass ☐ Fail |  |  |
+| 1 | Two staff devices, same child | Yes (2 sessions) | **PASS** | **MANUAL REQUIRED** — physical phone taps |
+| 2 | Hard refresh mid-save (slow network) | Yes (4s delayed POST + reload) | **PASS** | Optional real-mobile kill |
+| 3 | Linked Director sees all rooms | Yes | **PASS** | No |
+| 4 | Unassigned Teacher empty + isolation | Yes | **PASS** | Optional Staff UI assign |
+| 5 | Assistant phone rapid care + Settings | Yes (390×844 viewport) | **PASS** | **MANUAL REQUIRED** — physical phone under load |
+| 6 | Owner logout with offline queue | Yes | **PASS** | No |
 
-**Overall:** ☐ Ready to discuss production ☐ Needs fixes first ☐ Blocked  
-
-**Notes:** _______________________________________________
+**Overall automated checkpoint:** Ready for your remaining physical-device checks only.  
+**Production approval:** **not granted** · **Next phase: held**
 
 ---
 
-## How to record queue state
+## Remaining tests you personally need to perform
 
-In the browser console (testing site, signed in):
+1. **Case 1 — physical phone:** Open a real phone browser on testing, reproduce a conflict panel, confirm Keep latest / Apply my change are readable and tappable with fingers.  
+2. **Case 5 — physical phone under supervision load:** As Assistant on a real phone, do check-in + diaper + note quickly; confirm Settings still hidden and UI stays usable one-handed.
+
+Optional (not blocking): Case 2 OS-level app kill mid-save; Case 4 Owner assigns classroom via Staff UI then Teacher refreshes.
+
+---
+
+## How queue state was captured
+
+Automation used the live page helpers:
 
 ```js
 ({
@@ -41,10 +51,7 @@ In the browser console (testing site, signed in):
 })
 ```
 
-Paste the before/after JSON (or a short summary like `pending:1 → saved:0`) into each case.
-
-Artifact folder suggestion: `/opt/cursor/artifacts/phase3-manual-review/` or your local notes folder.  
-Use disposable `@yopmail.com` accounts; lock/revoke when done.
+Full before/after JSON is in `report.json` → `cases.caseN.queueBefore` / `queueAfter`.
 
 ---
 
@@ -52,17 +59,18 @@ Use disposable `@yopmail.com` accounts; lock/revoke when done.
 
 | Field | Record |
 |---|---|
-| Test account and role | A: _______________ (Teacher) · B: _______________ (Teacher/Director) |
-| Device and browser | A: _______________ · B: _______________ |
-| Online/offline state | ☐ both online |
-| Steps performed | 1. Both open same child Daily Logs. 2. A edits lunch / meal field and saves. 3. B edits a different field (notes) on the same record (or overlapping edit) and saves. 4. Resolve with **Keep latest** once and **Apply my change** once (separate trials OK). |
-| Expected result | Conflict panel is human-readable (child + record type, no raw JSON). Keep latest / Apply my change work. Phone layout usable. |
-| Actual result | |
-| Queue state before | |
-| Queue state after | |
-| Console errors | ☐ none ☐ list: |
-| Screenshots or video path | |
-| Pass/fail | ☐ Pass ☐ Fail |
+| Test account and role | Teacher A + Teacher B (disposable `@yopmail.com`, locked after run) — see `report.json` |
+| Device and browser | Playwright Chromium — A desktop 1280×800, B phone 390×844 (**headless**) |
+| Online/offline state | Both online |
+| Steps performed | Shared meal created; A saved lunch edit; B saved stale notes edit → conflict; Keep latest via `resolveDlcConflict`; second trial Apply/rebase |
+| Expected result | Human-readable conflict panel; Keep latest / Apply my change work |
+| Actual result | **PASS** — conflict surfaced with Keep/Apply; no raw JSON; final DB meal retained with attribution |
+| Queue state before | Empty on both sessions (see report) |
+| Queue state after | Conflict cleared after resolve; see `cases.case1.queueAfter` |
+| Console errors | None material (see report) |
+| Screenshots or video path | `screenshots/case1-teacherB-phone-conflict.png`, `case1-teacherA-desktop-after-edit.png`, `case1-teacherB-after-apply.png` |
+| Pass/fail | **PASS** (automated) |
+| MANUAL REQUIRED | Physical phone finger readability/tap targets |
 
 ---
 
@@ -70,17 +78,17 @@ Use disposable `@yopmail.com` accounts; lock/revoke when done.
 
 | Field | Record |
 |---|---|
-| Test account and role | |
-| Device and browser | |
-| Online/offline state | ☐ online · ☐ throttled / slow (DevTools Network throttle OK) |
-| Steps performed | 1. Open Daily Logs. 2. Add a meal (or check-in). 3. Immediately hard-refresh before “Saved to cloud”. 4. Wait for boot; check status bar + entry. |
-| Expected result | Entry not lost. Status returns to pending/saving then cloud-saved (or clear retry). No false “Saved to cloud” before sync. |
-| Actual result | |
-| Queue state before | |
-| Queue state after | |
-| Console errors | ☐ none ☐ list: |
-| Screenshots or video path | |
-| Pass/fail | ☐ Pass ☐ Fail |
+| Test account and role | Owner (disposable) |
+| Device and browser | Playwright Chromium desktop headless |
+| Online/offline state | Online with **real 4s delay** on POST `/api/child-data` (not mocked response body) |
+| Steps performed | Append meal → start cloud save → hard reload before ACK → reload queue → flush |
+| Expected result | Entry survives; recovers to sync/cloud-saved |
+| Actual result | **PASS** — local and/or queue preserved across refresh; meal present in cloud after flush |
+| Queue state before/after | See `cases.case2.queueBefore` / `queueAfter` |
+| Console errors | See report |
+| Screenshots or video path | `case2-before-refresh.png`, `case2-after-refresh.png` |
+| Pass/fail | **PASS** (automated) |
+| MANUAL REQUIRED | Optional: real mobile OS kill during save |
 
 ---
 
@@ -88,17 +96,17 @@ Use disposable `@yopmail.com` accounts; lock/revoke when done.
 
 | Field | Record |
 |---|---|
-| Test account and role | Director linked to owner program: _______________ |
-| Device and browser | |
-| Online/offline state | ☐ online |
-| Steps performed | 1. Sign in as linked Director. 2. Open Daily Logs. 3. Confirm children from multiple rooms appear (or classroom filter can show all). 4. Spot-check one log write. |
-| Expected result | Director sees full program children (not teacher-scoped). Settings OK; billing still owner-only if checked. |
-| Actual result | |
-| Queue state before | |
-| Queue state after | |
-| Console errors | ☐ none ☐ list: |
-| Screenshots or video path | |
-| Pass/fail | ☐ Pass ☐ Fail |
+| Test account and role | Linked Director (staff invite, no classroom scope) |
+| Device and browser | Playwright Chromium desktop headless |
+| Online/offline state | Online |
+| Steps performed | Sync child-data; open Daily Logs; confirm Oaks + Maples children; Settings/billing caps; write one meal |
+| Expected result | Full program visibility; settings OK; billing denied; write works |
+| Actual result | **PASS** — both rooms visible; billing false; settings true; meal in owner DB with director attribution |
+| Queue state before/after | See report |
+| Console errors | See report |
+| Screenshots or video path | `case3-director-daily-logs.png` |
+| Pass/fail | **PASS** (automated) |
+| MANUAL REQUIRED | None |
 
 ---
 
@@ -106,17 +114,17 @@ Use disposable `@yopmail.com` accounts; lock/revoke when done.
 
 | Field | Record |
 |---|---|
-| Test account and role | Teacher with **no** classroom assignment: _______________ |
-| Device and browser | |
-| Online/offline state | ☐ online |
-| Steps performed | 1. Sign in as unassigned Teacher. 2. Open Daily Logs / Today. 3. Confirm child list. 4. (Optional) Owner assigns a classroom; Teacher refreshes and rechecks. |
-| Expected result | No accidental “all children”. Empty / blocked state until assigned. After assign, only that room’s children. |
-| Actual result | |
-| Queue state before | |
-| Queue state after | |
-| Console errors | ☐ none ☐ list: |
-| Screenshots or video path | |
-| Pass/fail | ☐ Pass ☐ Fail |
+| Test account and role | Teacher invited with **empty** classroom assignment |
+| Device and browser | Playwright Chromium desktop headless |
+| Online/offline state | Online |
+| Steps performed | Open Daily Logs (0 active children); API write to Oaks child denied; local assign `room-oaks` → only Oaks visible |
+| Expected result | Empty until assigned; server deny; after assign room-scoped only |
+| Actual result | **PASS** — `activeCount=0`; write `forbidden`; after assign Oaks only |
+| Queue state before/after | See report |
+| DB / isolation | Denied meal absent from owner DB |
+| Screenshots or video path | `case4-unassigned-teacher-empty.png`, `case4-after-assign-ui.png` |
+| Pass/fail | **PASS** (automated) |
+| MANUAL REQUIRED | Optional: assign classroom via Owner Staff UI (not only local `classroomIds` patch) |
 
 ---
 
@@ -124,17 +132,17 @@ Use disposable `@yopmail.com` accounts; lock/revoke when done.
 
 | Field | Record |
 |---|---|
-| Test account and role | Assistant: _______________ |
-| Device and browser | ☐ phone width ~390 · browser: _______________ |
-| Online/offline state | ☐ online |
-| Steps performed | 1. Sign in on phone. 2. Check-in a child. 3. Log diaper + note quickly. 4. Confirm no Settings nav; Account still opens. 5. Confirm billing/upgrade not available. |
-| Expected result | Care actions work. Settings hidden/denied. No billing portal/checkout. Touch targets usable under load. |
-| Actual result | |
-| Queue state before | |
-| Queue state after | |
-| Console errors | ☐ none ☐ list: |
-| Screenshots or video path | |
-| Pass/fail | ☐ Pass ☐ Fail |
+| Test account and role | Assistant assigned to Oaks |
+| Device and browser | Playwright Chromium **phone viewport 390×844** headless |
+| Online/offline state | Online |
+| Steps performed | Double check-in; two diapers; one note; Settings/billing gates; portal/checkout 403 `billing_owner_only` |
+| Expected result | Care logs work; duplicate check-in controlled; Settings/billing denied |
+| Actual result | **PASS** — care rows in DB with assistant attribution; Settings hidden; billing APIs 403 |
+| Queue state before/after | See `cases.case5` |
+| Duplicates | Double check-in kept same attendance row / controlled sessions (see report `duplicates`) |
+| Screenshots or video path | `case5-assistant-phone-daily-logs.png` |
+| Pass/fail | **PASS** (automated) |
+| MANUAL REQUIRED | Physical phone under real supervision load |
 
 ---
 
@@ -142,27 +150,27 @@ Use disposable `@yopmail.com` accounts; lock/revoke when done.
 
 | Field | Record |
 |---|---|
-| Test account and role | Owner: _______________ |
-| Device and browser | |
-| Online/offline state | ☐ go offline after writing · ☐ back online for Sync now trial |
-| Steps performed | 1. Owner online → open Daily Logs. 2. Go offline. 3. Add a care entry. 4. Attempt logout. 5. Trial A: **Sync now** (after reconnect). Trial B (separate): **Discard unsynced**. |
-| Expected result | Logout warns about unsynced work (no child-name leak). Sync now flushes queue. Discard clears pending and allows logout. |
-| Actual result | |
-| Queue state before | |
-| Queue state after | |
-| Console errors | ☐ none ☐ list: |
-| Screenshots or video path | |
-| Pass/fail | ☐ Pass ☐ Fail |
+| Test account and role | Owner |
+| Device and browser | Playwright Chromium desktop headless |
+| Online/offline state | Offline writes; Sync now while offline (fails) → Discard; then offline write → online Sync now |
+| Steps performed | Matches product flow (`Sync now` cancel = stay; Discard only after failed sync) |
+| Expected result | No child-name leak; Discard clears queue; Sync now flushes when online |
+| Actual result | **PASS** — both prompts shown without name leak; discard cleared queue; sync-ok meal in cloud; discarded meal not in cloud |
+| Queue state before/after | See `cases.case6` |
+| Screenshots or video path | `case6-offline-pending.png`, `case6-trialA-prompts.png`, `case6-after-discard.png`, `case6-after-sync-now.png` |
+| Pass/fail | **PASS** (automated) |
+| MANUAL REQUIRED | None |
 
 ---
 
-## Sign-off (after all six)
+## Sign-off
 
 | Field | Record |
 |---|---|
-| Reviewer | |
-| Testing SHA confirmed | |
-| Production unchanged confirmed | ☐ yes (`main` / production SHA still not Phase 3) |
-| Customer Family Hub flags | ☐ left off |
-| Production approval | ☐ **not granted** · ☐ granted (date/note): _______________ |
-| Next phase | ☐ **held** until explicit approval |
+| Automated reviewer | Cursor agent live run 2026-08-07 |
+| Testing SHA confirmed | `52494c0` |
+| Production unchanged confirmed | **yes** — `ccd01fe` / `main` |
+| Customer Family Hub flags | **left off** |
+| Production approval | **not granted** |
+| Next phase | **held** until explicit approval |
+| Human reviewer (physical phone) | _______________ date _______________ |
