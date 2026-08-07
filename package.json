@@ -173,6 +173,7 @@
     "test:family-hub-phase2-acceptance": "node scripts/test-family-hub-phase2-acceptance.js",
     "test:family-hub-provider-inbox": "node scripts/test-family-hub-provider-inbox.js",
     "test:family-tuition-billing-v1": "node scripts/test-family-tuition-billing-v1.js",
+    "test:daily-ops-family-hub": "node scripts/test-daily-ops-family-hub.js",
     "test:ecosystem-phase3-acceptance": "node scripts/test-ecosystem-phase3-acceptance.js",
     "test:ecosystem-spine-acceptance": "node scripts/test-ecosystem-spine-acceptance.js",
     "test:provider-week-simulation": "node scripts/test-provider-week-simulation.js",

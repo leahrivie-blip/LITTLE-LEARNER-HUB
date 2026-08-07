@@ -14779,7 +14779,21 @@ async function handleFamilyHubProviderNotificationsPost(request, response) {
   }
   const now = new Date().toISOString();
   const created = [];
+  const skipped = [];
   targets.forEach((household) => {
+    const prefs = familyHubLib.defaultHouseholdSettings(household.settings || {});
+    if (type === "report" && prefs.notifyDailyReports === false) {
+      skipped.push(household.id);
+      return;
+    }
+    if (type === "photo" && prefs.notifyPhotos === false) {
+      skipped.push(household.id);
+      return;
+    }
+    if ((type === "message" || type === "update") && prefs.notifyMessages === false && href === "messages") {
+      skipped.push(household.id);
+      return;
+    }
     const notification = {
       id: `fh-ntf-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
       householdId: household.id,
@@ -14809,6 +14823,7 @@ async function handleFamilyHubProviderNotificationsPost(request, response) {
     ok: true,
     testingOnly: true,
     notified: created.length,
+    skipped: skipped.length,
     notifications: created,
   });
 }

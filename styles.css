@@ -9879,6 +9879,12 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   color: var(--ink-muted);
 }
 
+.fh-report-body {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  margin: 0.35rem 0 0;
+}
+
 .dlc-report-preview {
   border: 1px solid rgba(47, 111, 159, 0.28);
   border-radius: 16px;

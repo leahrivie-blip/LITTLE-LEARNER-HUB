@@ -30,16 +30,16 @@
 | Classroom hardening (Phase 3) | 6 scenarios automated; 2 phone gates open | Phase 3 reports |
 | Classroom floor ops (Phase 4) | Unassigned empty state, assign-classroom, room-mode care actions | PR #557 / `8016094` |
 | Family Hub provider request inbox + director ACL | Approve/decline with note, director ACL, recent decided | PR #560 merged to testing `f676438` |
-| **Family Tuition Billing v1** | Invoices, sibling discount, late fees, balances, mark paid, parent pay (Checkout/sim), AI reminder, provider dashboard | `FAMILY_TUITION_BILLING_V1_REPORT.md` (awaiting testing merge approval) |
+| **Family Tuition Billing v1** | Invoices, sibling discount, late fees, balances, mark paid, parent pay (Checkout/sim), AI reminder, provider dashboard | `FAMILY_TUITION_BILLING_V1_REPORT.md` (merged to testing) |
+| **Daily ops → Family Hub** | Draft Daily Report, improve wording, full body to parents, share defaults, section prefs, notifyDailyReports respect | `DAILY_OPS_FAMILY_HUB_REPORT.md` (awaiting testing merge approval) |
 
 ---
 
-## Next (awaiting approval after Tuition merge)
+## Next (awaiting approval after Daily ops → FH merge)
 
 | Area | Gap | Priority |
 |---|---|---|
-| Daily ops → Family Hub (one-tap daily report + share defaults) | Not complete | **2 — next after approval** |
-| Forms spine (due dates, e-sign, PDF, needs attention) | Incomplete | 3 |
+| Forms spine (due dates, e-sign, PDF, needs attention) | Incomplete | **3 — next after approval** |
 | Parent delivery reliability | Incomplete | 4 |
 | Activity/Lesson → Daily Log, enrollment, ratios, staff ACL, room mode polish | Horizon B | After Horizon A |
 
@@ -63,6 +63,7 @@
 3. `docs/audits/PHASE3_PHONE_GATES_BLOCKER_REPORT.md` — phone gates  
 4. `docs/audits/FAMILY_HUB_PROVIDER_INBOX_REPORT.md` — FH inbox  
 5. `docs/audits/FAMILY_TUITION_BILLING_V1_REPORT.md` — Family Tuition Billing v1  
+6. `docs/audits/DAILY_OPS_FAMILY_HUB_REPORT.md` — Daily ops → Family Hub  
 
 ---
 

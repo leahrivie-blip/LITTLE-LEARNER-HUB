@@ -2061,11 +2061,12 @@
                 <div class="settings-card-header-text">
                   <p class="eyebrow">Section 6</p>
                   <h3>Daily Report Preferences</h3>
-                  <p class="form-note">Choose which sections you usually want included in daily reports.</p>
+                  <p class="form-note">Choose which sections you usually want included in daily reports, and default Family Hub sharing for quick care logs.</p>
                 </div>
                 <span class="settings-card-toggle" aria-hidden="true">▾</span>
               </summary>
               <div class="settings-card-body">
+                <p class="form-note"><strong>Include in Daily Report drafts</strong></p>
                 <div class="settings-checkboxes">
                   <label class="settings-check-label"><input type="checkbox" name="dailyReportSections" value="Meals" /> Meals</label>
                   <label class="settings-check-label"><input type="checkbox" name="dailyReportSections" value="Snacks" /> Snacks</label>
@@ -2077,6 +2078,21 @@
                   <label class="settings-check-label"><input type="checkbox" name="dailyReportSections" value="Photos" /> Photos</label>
                   <label class="settings-check-label"><input type="checkbox" name="dailyReportSections" value="Teacher Notes" /> Teacher Notes</label>
                   <label class="settings-check-label"><input type="checkbox" name="dailyReportSections" value="Mood" /> Mood</label>
+                </div>
+                <p class="form-note" style="margin-top:1rem;"><strong>Default share with Family Hub</strong> (quick actions &amp; forms — you can still change per entry)</p>
+                <div class="settings-checkboxes" id="dlcShareDefaultsFields">
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_meals" checked /> Meals</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_naps" checked /> Naps</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_diapers" checked /> Diapers / Potty</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_bottles" checked /> Bottles</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_activities" checked /> Activities</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_mood" checked /> Mood</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_observations" checked /> Observations</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_photos" checked /> Photos</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_attendance" /> Attendance</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_notes" /> Teacher notes</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_parentMessage" checked /> Parent messages</label>
+                  <label class="settings-check-label"><input type="checkbox" name="dlcShareDefault_incidents" /> Incidents</label>
                 </div>
               </div>
             </details>
