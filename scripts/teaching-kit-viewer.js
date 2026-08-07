@@ -1153,16 +1153,18 @@
             `).join("")}
           </nav>
         </div>
-        <div class="lesson-workspace-panels tk-panels">
-          <div class="lesson-workspace-panel is-active tk-panel-host" data-tk-host>
-            ${surfaceHtml(kit, state, chrome)}
+        <div class="tk-workspace-scroll" data-tk-workspace-scroll>
+          <div class="lesson-workspace-panels tk-panels">
+            <div class="lesson-workspace-panel is-active tk-panel-host" data-tk-host>
+              ${surfaceHtml(kit, state, chrome)}
+            </div>
           </div>
+          <div class="tk-workspace-sticky-actions" data-tk-sticky-actions>
+            ${chrome.actionBarsHtml || ""}
+          </div>
+          ${ownerPreview ? "" : (chrome.feedbackHtml || "")}
+          ${ownerPreview ? "" : (chrome.copyrightHtml || "")}
         </div>
-        <div class="tk-workspace-sticky-actions" data-tk-sticky-actions>
-          ${chrome.actionBarsHtml || ""}
-        </div>
-        ${ownerPreview ? "" : (chrome.feedbackHtml || "")}
-        ${ownerPreview ? "" : (chrome.copyrightHtml || "")}
         ${chrome.actionSheetHtml || ""}
       </div>
     `;

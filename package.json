@@ -367,7 +367,8 @@
     "test:data-consistency-phase9": "NODE_ENV=test node scripts/test-data-consistency-phase9.js",
     "test:role-regression-phase10": "NODE_ENV=test node scripts/test-role-regression-phase10.js",
     "test:multi-role-tester": "NODE_ENV=test node scripts/test-multi-role-tester.js",
-    "test:teaching-kit-viewer-remediation": "NODE_ENV=test node scripts/test-teaching-kit-viewer-remediation.js"
+    "test:teaching-kit-viewer-remediation": "NODE_ENV=test node scripts/test-teaching-kit-viewer-remediation.js",
+    "test:teaching-kit-viewer-layout": "NODE_ENV=test node scripts/test-teaching-kit-viewer-layout.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
