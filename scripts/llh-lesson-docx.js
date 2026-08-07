@@ -265,6 +265,31 @@
     return text ? [text] : [];
   }
 
+  function presentApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPresent)
+      ? globalThis.LLHTeachingKitPresent
+      : null;
+  }
+
+  function presentLabel(value, fallback) {
+    const api = presentApi();
+    if (api?.presentLabel) return api.presentLabel(value, fallback);
+    return cleanText(value) || cleanText(fallback) || "";
+  }
+
+  function hasDisplayValue(value) {
+    const api = presentApi();
+    if (api?.hasDisplayValue) return api.hasDisplayValue(value);
+    if (Array.isArray(value)) return value.some((item) => cleanText(item));
+    return Boolean(cleanText(value));
+  }
+
+  function presentCopy(value) {
+    const api = presentApi();
+    if (api?.presentCopy) return api.presentCopy(value);
+    return cleanText(value);
+  }
+
   function normalizeDays(plan) {
     const daily = plan?.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
     return WEEKDAYS.map((day) => {
@@ -273,12 +298,24 @@
       return {
         day,
         label: DAY_LONG[day],
-        theme: cleanText(dayPlan.theme),
+        theme: presentCopy(dayPlan.theme),
+        objectives: presentCopy(dayPlan.objectives),
+        circleTime: Array.isArray(dayPlan.circleTime)
+          ? dayPlan.circleTime.map((item) => presentCopy(item)).filter(Boolean)
+          : (presentCopy(dayPlan.circleTime) ? [presentCopy(dayPlan.circleTime)] : []),
+        outdoorPlay: presentCopy(dayPlan.outdoorPlay),
         activities: items.map((item) => ({
-          title: cleanText(item?.title) || "Activity",
-          category: cleanText(item?.activityCategory) || "Activity",
-          description: cleanText(item?.description || item?.objective).slice(0, 160),
-          materials: cleanText(item?.materials).slice(0, 120),
+          title: presentCopy(item?.title) || "Activity",
+          category: presentLabel(item?.activityCategory || item?.category || "", "Activity"),
+          objective: presentCopy(item?.objective || item?.learningObjective),
+          description: presentCopy(item?.description),
+          materials: presentCopy(item?.materials),
+          setup: presentCopy(item?.setup),
+          steps: presentCopy(item?.steps || item?.directions),
+          teacherRole: presentCopy(item?.teacherRole),
+          observationOpportunities: presentCopy(item?.observationOpportunities),
+          ageModifications: presentCopy(item?.ageModifications || item?.adaptations),
+          safetyNotes: presentCopy(item?.safetyNotes),
         })),
       };
     });
@@ -322,7 +359,7 @@
         : [{ title: "Open exploration", category: "Daily plan", description: "Follow child interest with familiar materials." }];
       activities.slice(0, 5).forEach((activity) => {
         lines.push(activity.title);
-        if (activity.category) lines.push(`(${activity.category})`);
+        if (activity.category) lines.push(`(${presentLabel(activity.category, activity.category)})`);
         if (activity.description) lines.push(activity.description);
       });
       return tableCell(cellParagraphs(lines, { firstBold: true, size: 16, bodySize: 14 }), colWidth);
@@ -347,66 +384,102 @@
     return wrapDocument(`${header}${table}${paragraph("", { allowEmpty: true, spaceAfter: 80 })}${footerNote}`, landscapeSection());
   }
 
+  function pushLabeledBlock(parts, label, value, opts = {}) {
+    if (!hasDisplayValue(value)) return;
+    const heading = presentLabel(label, label);
+    parts.push(paragraph(heading, { size: opts.headingSize || 16, bold: true, spaceAfter: 30 }));
+    if (Array.isArray(value)) {
+      value.filter((item) => hasDisplayValue(item)).forEach((item) => {
+        parts.push(paragraph(`• ${presentCopy(item)}`, { size: opts.bodySize || 15, spaceAfter: 30 }));
+      });
+    } else {
+      String(presentCopy(value)).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).forEach((line) => {
+        parts.push(paragraph(line, { size: opts.bodySize || 15, spaceAfter: 30 }));
+      });
+    }
+  }
+
   function buildFullLessonDocumentXml(payload) {
     const plan = payload.plan || {};
-    const title = cleanText(payload.title || plan.title) || "Full Lesson Plan";
-    const theme = cleanText(payload.theme || plan.theme) || "Classroom Theme";
-    const age = cleanText(payload.age || plan.age) || "Preschool";
-    const weekOf = cleanText(payload.weekOfLabel) || "____________________";
+    const title = presentCopy(payload.title || plan.title) || "Full Lesson Plan";
+    const theme = presentCopy(payload.theme || plan.theme) || "Classroom Theme";
+    const age = presentCopy(payload.age || plan.age) || "Preschool";
+    const weekOf = presentCopy(payload.weekOfLabel) || "____________________";
     const days = normalizeDays(plan);
-    const domains = asStringArray(plan.learningDomains);
-    const objectives = asStringArray(plan.weeklyObjectives || plan.objectives).slice(0, 8);
-    const materials = cleanText(plan.weeklyMaterials);
-    const vocabulary = cleanText(plan.vocabularyWords);
+    const domains = asStringArray(plan.learningDomains).map((item) => presentLabel(item, item)).filter(Boolean);
+    const objectives = asStringArray(plan.weeklyObjectives || plan.objectives)
+      .map((item) => presentCopy(item))
+      .filter(Boolean)
+      .slice(0, 12);
+    const materials = presentCopy(plan.weeklyMaterials);
+    const vocabulary = presentCopy(plan.vocabularyWords);
+    const overview = presentCopy(plan.weeklyOverview);
+    const family = presentCopy(plan.familyConnection);
+    const observations = presentCopy(plan.observationOpportunities);
+    const adaptations = presentCopy(plan.adaptations);
+    const api = presentApi();
     const books = Array.isArray(plan.books)
-      ? plan.books.map((book) => cleanText(`${book.title || book}${book.author ? ` — ${book.author}` : ""}`)).filter(Boolean)
+      ? plan.books.map((book) => (api?.formatBookLine ? api.formatBookLine(book) : cleanText(`${book.title || book}${book.author ? ` — ${book.author}` : ""}`))).filter(Boolean)
       : [];
     const songs = Array.isArray(plan.songs)
-      ? plan.songs.map((song) => cleanText(song.title || song)).filter(Boolean)
+      ? plan.songs.map((song) => (api?.formatSongLine ? api.formatSongLine(song) : cleanText(song.title || song))).filter(Boolean)
       : [];
 
     const parts = [
       paragraph("Little Learner Hub · Full Lesson Plan", { size: 18, bold: true, color: "3A7ABF", spaceAfter: 40 }),
       paragraph(title, { size: 30, bold: true, color: "1A2B4A", spaceAfter: 80 }),
       paragraph(`Theme: ${theme}`, { size: 18, spaceAfter: 40 }),
-      paragraph(`Age Group: ${age}`, { size: 18, spaceAfter: 40 }),
-      paragraph(`Week Of: ${weekOf}`, { size: 18, spaceAfter: 160 }),
+      paragraph(`Age group: ${age}`, { size: 18, spaceAfter: 40 }),
+      paragraph(`Week of: ${weekOf}`, { size: 18, spaceAfter: 160 }),
       paragraph("Weekly Snapshot", { size: 22, bold: true, color: "3A7ABF", spaceAfter: 80 }),
     ];
+    pushLabeledBlock(parts, "Weekly overview", overview, { headingSize: 18, bodySize: 17 });
     if (domains.length) {
-      parts.push(paragraph("Learning Domains", { size: 18, bold: true, spaceAfter: 40 }));
+      parts.push(paragraph("Learning domains", { size: 18, bold: true, spaceAfter: 40 }));
       parts.push(paragraph(domains.join(" · "), { size: 17, spaceAfter: 100 }));
     }
     if (objectives.length) {
-      parts.push(paragraph("Weekly Objectives", { size: 18, bold: true, spaceAfter: 40 }));
+      parts.push(paragraph("Learning objectives", { size: 18, bold: true, spaceAfter: 40 }));
       objectives.forEach((item) => parts.push(paragraph(`• ${item}`, { size: 17, spaceAfter: 40 })));
-      parts.push(paragraph("", { allowEmpty: true, spaceAfter: 80 }));
+      parts.push(paragraph("", { allowEmpty: true, spaceAfter: 60 }));
     }
-    if (materials) {
-      parts.push(paragraph("Weekly Materials", { size: 18, bold: true, spaceAfter: 40 }));
-      parts.push(paragraph(materials, { size: 17, spaceAfter: 120 }));
-    }
+    pushLabeledBlock(parts, "Materials list", materials, { headingSize: 18, bodySize: 17 });
+    pushLabeledBlock(parts, "Vocabulary", vocabulary, { headingSize: 18, bodySize: 17 });
+    pushLabeledBlock(parts, "Family connection", family, { headingSize: 18, bodySize: 17 });
+    pushLabeledBlock(parts, "Observation opportunities", observations, { headingSize: 18, bodySize: 17 });
+    pushLabeledBlock(parts, "Adaptations", adaptations, { headingSize: 18, bodySize: 17 });
 
     parts.push(paragraph("Monday–Friday Plan", { size: 22, bold: true, color: "3A7ABF", spaceAfter: 100 }));
     days.forEach((day) => {
       parts.push(paragraph(day.label, { size: 20, bold: true, color: "1A2B4A", spaceAfter: 40 }));
       if (day.theme) parts.push(paragraph(`Theme: ${day.theme}`, { size: 16, color: "536280", spaceAfter: 40 }));
+      pushLabeledBlock(parts, "Daily objectives", day.objectives);
+      pushLabeledBlock(parts, "Circle time", day.circleTime);
+      pushLabeledBlock(parts, "Outdoor play", day.outdoorPlay);
       const activities = day.activities.length
         ? day.activities
         : [{ title: "Open exploration", category: "Daily plan", description: "Follow child interest with familiar classroom materials." }];
       activities.forEach((activity) => {
         parts.push(paragraph(activity.title, { size: 17, bold: true, spaceAfter: 20 }));
-        parts.push(paragraph(activity.category, { size: 14, color: "6B6560", spaceAfter: 20 }));
-        if (activity.description) parts.push(paragraph(activity.description, { size: 16, spaceAfter: 20 }));
-        if (activity.materials) parts.push(paragraph(`Materials: ${activity.materials}`, { size: 15, spaceAfter: 40 }));
+        if (activity.category) {
+          parts.push(paragraph(activity.category, { size: 14, color: "6B6560", spaceAfter: 20 }));
+        }
+        pushLabeledBlock(parts, "Objective", activity.objective);
+        pushLabeledBlock(parts, "Description", activity.description);
+        pushLabeledBlock(parts, "Materials", activity.materials);
+        pushLabeledBlock(parts, "Setup", activity.setup);
+        pushLabeledBlock(parts, "Directions", activity.steps);
+        pushLabeledBlock(parts, "Teacher role", activity.teacherRole);
+        pushLabeledBlock(parts, "Observation opportunities", activity.observationOpportunities);
+        pushLabeledBlock(parts, "Age adaptations", activity.ageModifications);
+        pushLabeledBlock(parts, "Safety notes", activity.safetyNotes);
+        parts.push(paragraph("", { allowEmpty: true, spaceAfter: 40 }));
       });
-      parts.push(paragraph("", { allowEmpty: true, spaceAfter: 80 }));
+      parts.push(paragraph("", { allowEmpty: true, spaceAfter: 60 }));
     });
 
-    parts.push(paragraph("Weekly Resources", { size: 22, bold: true, color: "3A7ABF", spaceAfter: 80 }));
-    if (vocabulary) {
-      parts.push(paragraph("Vocabulary", { size: 18, bold: true, spaceAfter: 40 }));
-      parts.push(paragraph(vocabulary, { size: 16, spaceAfter: 80 }));
+    if (vocabulary || books.length || songs.length) {
+      parts.push(paragraph("Weekly Resources", { size: 22, bold: true, color: "3A7ABF", spaceAfter: 80 }));
     }
     if (books.length) {
       parts.push(paragraph("Books", { size: 18, bold: true, spaceAfter: 40 }));

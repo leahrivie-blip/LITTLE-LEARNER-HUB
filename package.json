@@ -369,7 +369,8 @@
     "test:multi-role-tester": "NODE_ENV=test node scripts/test-multi-role-tester.js",
     "test:teaching-kit-viewer-remediation": "NODE_ENV=test node scripts/test-teaching-kit-viewer-remediation.js",
     "test:teaching-kit-viewer-layout": "NODE_ENV=test node scripts/test-teaching-kit-viewer-layout.js",
-    "test:teaching-kit-ui-print-polish": "NODE_ENV=test node scripts/test-teaching-kit-ui-print-polish.js"
+    "test:teaching-kit-ui-print-polish": "NODE_ENV=test node scripts/test-teaching-kit-ui-print-polish.js",
+    "test:lesson-download-presentation": "NODE_ENV=test node scripts/test-lesson-download-presentation.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

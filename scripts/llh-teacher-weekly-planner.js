@@ -20,6 +20,24 @@
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
+  function presentApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPresent)
+      ? globalThis.LLHTeachingKitPresent
+      : null;
+  }
+
+  function presentLabel(value, fallback) {
+    const api = presentApi();
+    if (api?.presentLabel) return api.presentLabel(value, fallback);
+    return cleanText(value) || cleanText(fallback) || "";
+  }
+
+  function presentCopy(value) {
+    const api = presentApi();
+    if (api?.presentCopy) return api.presentCopy(value);
+    return cleanText(value);
+  }
+
   function asStringArray(value) {
     if (Array.isArray(value)) {
       return value.map((entry) => cleanText(typeof entry === "string" ? entry : entry?.title || entry)).filter(Boolean);
@@ -148,14 +166,15 @@
 
       const activityCards = [];
       const pushCard = (title, detail, category = "Activity") => {
-        const head = cleanText(title);
+        const head = presentCopy(title) || cleanText(title);
         if (!head) return;
         if (activityCards.some((entry) => entry.title.toLowerCase() === head.toLowerCase())) return;
-        const body = firstSentence(detail || category, 100);
+        const categoryLabel = presentLabel(category, "Activity");
+        const body = firstSentence(presentCopy(detail) || categoryLabel, 100);
         activityCards.push({
           title: head,
           detail: body,
-          category: cleanText(category) || "Activity",
+          category: categoryLabel || "Activity",
           cell: cellBlock(head, body, "Materials out · model · guided play · clean-up cue"),
         });
       };
@@ -164,7 +183,7 @@
         pushCard(
           activityTitle(activity),
           activity.description || activity.objective || activity.learningGoals?.[0] || activity.category,
-          activity.category,
+          activity.category || activity.activityCategory,
         );
       });
       if (activityCards.length < 3) {
