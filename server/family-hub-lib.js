@@ -478,6 +478,8 @@ function publicFamilyRequest(item = {}) {
     createdAt: String(item.createdAt || "").trim(),
     createdBy: String(item.createdBy || "").trim(),
     updatedAt: String(item.updatedAt || "").trim(),
+    reviewedBy: String(item.reviewedBy || "").trim(),
+    providerNote: String(item.providerNote || "").trim(),
   };
 }
 
