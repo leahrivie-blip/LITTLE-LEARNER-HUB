@@ -198,7 +198,7 @@
     "incomplete_toolkit",
     "incomplete_books",
     "incomplete_songs",
-    "image_brief_not_image",
+    "cover_needs_owner_art",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
