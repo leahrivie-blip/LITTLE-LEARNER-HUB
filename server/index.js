@@ -5389,14 +5389,14 @@ function foundingStatusPayload(store = readStore()) {
     earlyUserPricingEnabled: earlyUserEnabled,
     earlyUserPrice: "$13.99/month",
     earlyUserPriceAmount: "13.99",
-    earlyUserOfferName: "Early User Special",
+    earlyUserOfferName: "Limited-Time Early User Price",
     earlyUserLockCopy: "Lock in $13.99/month while your subscription remains active.",
     earlyUserSupportingCopy: "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.",
-    earlyUserAvailabilityCopy: "Early User Pricing — available for a limited time",
+    earlyUserAvailabilityCopy: "Limited-Time Early User Price – $13.99/month",
     primaryPaidOffer: earlyUserEnabled ? "early_user" : "monthly",
     primaryMonthlyPrice: earlyUserEnabled ? "$13.99/month" : "$19.99/month",
     spotsLeftMessage: earlyUserEnabled
-      ? "Early User Special: $13.99/month (regularly $19.99/month)."
+      ? "Limited-Time Early User Price – $13.99/month (regularly $19.99/month)."
       : "Pro is $19.99/month.",
     acquisitionClosed: true,
   };
@@ -5411,7 +5411,7 @@ function foundingMemberNumberForEmail(store, email) {
 
 function foundingSoldOutMessage(store = peekStore()) {
   if (earlyUserPricingAvailable()) {
-    return "Choose Early User Special ($13.99/month), Pro Monthly ($19.99/month), or Pro Annual ($199/year).";
+    return "Choose Limited-Time Early User Price ($13.99/month), Pro Monthly ($19.99/month), or Pro Annual ($199/year).";
   }
   return "Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year).";
 }

@@ -280,6 +280,7 @@ async function apiTests() {
     record("flag ON: primaryPaidOffer=early_user", onFounding.primaryPaidOffer === "early_user", onFounding.primaryPaidOffer);
     record("flag ON: primaryMonthlyPrice=$13.99", onFounding.primaryMonthlyPrice === "$13.99/month", onFounding.primaryMonthlyPrice);
     record("flag ON: regularMonthlyPrice still $19.99", onFounding.regularMonthlyPrice === "$19.99/month", onFounding.regularMonthlyPrice);
+    record("flag ON: Limited-Time Early User Price copy", /Limited-Time Early User Price/i.test(String(onFounding.earlyUserAvailabilityCopy || onFounding.spotsLeftMessage || onFounding.earlyUserOfferName || "")));
 
     const euCheckout = await requestJson("POST", "/api/create-checkout-session", {
       email: "early-on@test.local",
@@ -316,6 +317,7 @@ async function apiTests() {
       await page.waitForTimeout(800);
       const desktopText = await page.locator("body").innerText();
       record("UI enabled: shows $13.99", /\$13\.99/.test(desktopText));
+      record("UI enabled: shows Limited-Time Early User Price", /Limited-Time Early User Price/i.test(desktopText));
       record("UI enabled: still mentions regular $19.99", /\$19\.99/.test(desktopText));
       await page.screenshot({ path: path.join(OUT_DIR, "desktop-pricing-early-user.png"), fullPage: true });
 
