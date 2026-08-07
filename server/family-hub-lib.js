@@ -89,12 +89,32 @@ function addDaysIso(iso, days) {
 }
 
 function publicSharedItem(item = {}, type = "item") {
+  const fullBody = String(
+    item.message
+    || item.body
+    || item.notes
+    || item.observationText
+    || item.text
+    || item.caption
+    || item.summary
+    || "",
+  ).trim();
+  const summary = String(
+    item.summary
+    || item.notes
+    || item.message
+    || item.observationText
+    || item.caption
+    || "",
+  ).trim();
   return {
     id: String(item.id || ""),
     type,
     childId: String(item.childId || ""),
     title: String(item.title || item.caption || item.summary || type).trim() || type,
-    summary: String(item.summary || item.notes || item.message || item.observationText || item.caption || "").trim(),
+    summary: summary.slice(0, 240) || fullBody.slice(0, 240),
+    // Full parent-facing text for reports/notes (not truncated to summary).
+    body: fullBody,
     date: String(item.date || item.createdAt || item.updatedAt || "").slice(0, 10),
     category: String(item.category || item.type || "").trim(),
     sourceType: String(item.type || item.category || "").trim(),
@@ -745,6 +765,7 @@ function buildFamilyHubDemoSeed({
         date: day,
         title: "Daily report",
         summary: "Ava had a bright morning outdoors and invited a friend to chalk with her. She ate most of her pasta and veggies at lunch, then rested well from 12:30–2:00. This afternoon she practiced sharing during block play — lovely day!",
+        message: "Ava had a bright morning outdoors and invited a friend to chalk with her. She ate most of her pasta and veggies at lunch, then rested well from 12:30–2:00. This afternoon she practiced sharing during block play — lovely day!",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -754,6 +775,7 @@ function buildFamilyHubDemoSeed({
         date: day,
         title: "Daily report",
         summary: "Milo stayed focused during letter practice and built a tall tower with blocks. He finished his rice bowl and yogurt snack, then rested quietly after lunch. Cheerful at pickup and asked if he can bring a favorite book tomorrow.",
+        message: "Milo stayed focused during letter practice and built a tall tower with blocks. He finished his rice bowl and yogurt snack, then rested quietly after lunch. Cheerful at pickup and asked if he can bring a favorite book tomorrow.",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
