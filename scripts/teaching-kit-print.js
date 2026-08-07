@@ -129,6 +129,13 @@
       parts: ["cover", "family", "vocabulary", "songsBooks"],
       daysMode: "none",
     }),
+    Object.freeze({
+      id: "selected_resources",
+      label: "Selected Resources",
+      documentMode: "selected_resources",
+      parts: ["cover"],
+      daysMode: "none",
+    }),
   ]);
 
   const PART_LABELS = Object.freeze({
@@ -399,6 +406,10 @@
       days,
       activities,
       activityId: text(opts.activityId),
+      selectedResources: opts.selectedResources && typeof opts.selectedResources === "object"
+        ? opts.selectedResources
+        : null,
+      adminPreview: opts.adminPreview === true,
       includeImages: opts.includeImages !== false,
       inkSaver: opts.inkSaver === true,
       paperSize: normalizePaperSize(opts.paperSize),
@@ -428,28 +439,33 @@
   }
 
   function coverFromModel(model, selection) {
-    const packLabel = selection.documentMode === "full_weekly" ? "Full Weekly Lesson Plan" : "Entire Binder Kit";
+    const mode = selection.documentMode || "entire_binder";
+    const packLabel = mode === "full_weekly"
+      ? "Full Weekly Lesson Plan"
+      : (model.packLabel || "Complete Teaching Kit");
+    const subtitle = mode === "entire_binder" || mode === "week_binder"
+      ? (model.packSubtitle || "Teacher Binder")
+      : presentLabel(mode, selection.presetLabel || "");
     const coverImg = selection.includeImages && model.coverImageUrl
-      ? `<div class="tk-print-cover-image"><img src="${escapeHtml(model.coverImageUrl)}" alt="${escapeHtml(model.coverImageAlt || model.title)}" loading="eager" decoding="async" /></div>`
+      ? `<div class="tk-print-cover-image"><img src="${escapeHtml(model.coverImageUrl)}" alt="${escapeHtml(model.coverImageAlt || model.title)}" loading="eager" decoding="async" onerror="this.closest('.tk-print-cover-image')?.remove()" /></div>`
+      : `<div class="tk-print-cover-fallback" aria-hidden="true"><span>Little Learner Hub</span></div>`;
+    const adminBanner = selection.adminPreview
+      ? `<div class="tk-print-admin-banner">ADMIN PREVIEW · Draft / preview only · Does not change production content</div>`
       : "";
-    const sectionPills = (model.sections || [])
-      .filter((section) => !["cover", "toc"].includes(section.id))
-      .map((section) => section.label);
     return `
       <section class="tk-print-page tk-print-cover" data-tk-print-tab="Cover">
+        ${adminBanner}
         <div class="tk-print-cover-inner">
           <p class="tk-print-brand">Little Learner Hub</p>
           <p class="tk-print-cover-kicker">${escapeHtml(packLabel)}</p>
           ${coverImg}
           <h1>${escapeHtml(model.title || "Teaching Kit")}</h1>
+          ${subtitle ? `<p class="tk-print-cover-subtitle">${escapeHtml(subtitle)}</p>` : ""}
           <div class="tk-print-cover-meta">
             ${model.age ? `<div class="tk-print-cover-meta-card"><span>Age</span><strong>${escapeHtml(model.age)}</strong></div>` : ""}
             ${model.theme ? `<div class="tk-print-cover-meta-card"><span>Theme</span><strong>${escapeHtml(model.theme)}</strong></div>` : ""}
             ${model.duration ? `<div class="tk-print-cover-meta-card"><span>Duration</span><strong>${escapeHtml(model.duration)}</strong></div>` : ""}
-            <div class="tk-print-cover-meta-card"><span>Activities</span><strong>${escapeHtml(String((model.activities || []).length))}</strong></div>
           </div>
-          ${chipRowHtml(sectionPills)}
-          <p class="tk-print-cover-note">Teacher binder pages · Empty sections are omitted automatically.</p>
         </div>
         <footer class="tk-print-footer">
           <span>${escapeHtml(selection.footerLabel)}</span>
@@ -457,6 +473,24 @@
         </footer>
       </section>
     `;
+  }
+
+  function tocBody(model) {
+    const rows = (model.sections || [])
+      .filter((section) => !["cover", "toc"].includes(section.id))
+      .map((section, index) => `
+        <li class="tk-print-toc-row">
+          <span class="tk-print-toc-num">${escapeHtml(String(index + 1))}</span>
+          <span class="tk-print-toc-label">${escapeHtml(section.label)}</span>
+        </li>
+      `);
+    if (!rows.length) return "";
+    return `<ol class="tk-print-toc">${rows.join("")}</ol>`;
+  }
+
+  function adminBannerHtml(selection) {
+    if (!selection.adminPreview) return "";
+    return `<div class="tk-print-admin-banner">ADMIN PREVIEW · Draft / preview only · Does not change production content</div>`;
   }
 
   function overviewSnapshotHtml(model) {
@@ -477,13 +511,32 @@
 
   function overviewBody(model) {
     const o = model.overview || {};
+    const vocab = (o.vocabulary || []).map((word) => word.word).filter(Boolean);
+    const prep = (o.teacherPrep || []).map((task) => {
+      const detail = task.detail ? ` — ${task.detail}` : "";
+      return `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}${detail}`;
+    });
     return [
-      overviewSnapshotHtml(model),
-      panelHtml("Master materials", checkboxListHtml(o.masterMaterials, 24), "M"),
-      panelHtml("Safety", bulletListHtml(o.safety, 5), "!"),
-      panelHtml("Watch for", bulletListHtml(o.observationFocus, 5), "W"),
-      panelHtml("Adaptations", bulletListHtml(toBullets(o.adaptations, 4), 4), "+"),
-      panelHtml("Family connection", bulletListHtml(toBullets(o.familyConnection, 3), 3), "F"),
+      model.description || o.description
+        ? panelHtml("Description", `<p class="tk-print-tight">${escapeHtml(shortText(model.description || o.description, 280))}</p>`, "i")
+        : "",
+      panelHtml("Weekly focus", `<p class="tk-print-tight">${escapeHtml(o.weeklyFocus || o.weeklyOverview || "")}</p>`, "*"),
+      panelHtml("Learning objectives", bulletListHtml(o.learningObjectives, 8), "O"),
+      panelHtml("Developmental domains", chipRowHtml(o.learningDomains), "D"),
+      panelHtml("Vocabulary", `<p class="tk-print-vocab-line">${escapeHtml(vocab.join(" · "))}</p>`, "Aa"),
+      panelHtml("Master materials", checkboxListHtml(o.masterMaterials, 30), "M"),
+      panelHtml("Teacher prep", checkboxListHtml(prep, 10), "T"),
+      panelHtml("Safety", bulletListHtml(o.safety, 6), "!"),
+      panelHtml("Adaptations / inclusion", bulletListHtml(toBullets(o.adaptations, 5), 5), "+"),
+      panelHtml("Observation focus", bulletListHtml(o.observationFocus, 5), "W"),
+      panelHtml("Family connection", bulletListHtml(toBullets(o.familyConnection, 4), 4), "F"),
+      model.theme || model.age || model.duration
+        ? panelHtml("Lesson facts", bulletListHtml([
+          model.theme ? `Theme: ${model.theme}` : "",
+          model.age ? `Age group: ${model.age}` : "",
+          model.duration ? `Duration: ${model.duration}` : "",
+        ].filter(Boolean), 4), "#")
+        : "",
     ].join("\n");
   }
 
@@ -520,42 +573,89 @@
     `;
   }
 
-  function dailyPlanBody(day) {
+  function dailyActivitySummaryHtml(summary, index) {
+    if (!summary || !summary.title) return "";
+    const materials = materialsList(summary.materials);
+    const steps = toBullets(summary.steps, 4);
+    const prompts = (summary.teacherPrompts || []).map((prompt) => text(prompt.text)).filter(Boolean);
+    return `
+      <article class="tk-print-day-activity tk-print-keep">
+        <header class="tk-print-day-activity-head">
+          <span class="tk-print-day-activity-index">Activity ${escapeHtml(String(index + 1))}</span>
+          <h4>${escapeHtml(summary.title)}</h4>
+          ${summary.category ? badgeHtml(summary.category) : ""}
+        </header>
+        ${hasDisplayValue(summary.description) ? `<p class="tk-print-tight">${escapeHtml(shortText(summary.description, 160))}</p>` : ""}
+        <div class="tk-print-day-activity-grid">
+          ${panelHtml("Materials", checkboxListHtml(materials, 6), "M")}
+          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(summary.setup, 120))}</p>`, "U")}
+          ${panelHtml("What children do", numberedListHtml(steps, 4), "1")}
+          ${panelHtml("Teacher prompts", bulletListHtml(prompts, 3), "P")}
+          ${panelHtml("Watch for", bulletListHtml(summary.observationIdeas, 3), "W")}
+          ${hasDisplayValue(summary.adaptations) ? panelHtml("Adaptations", bulletListHtml(toBullets(summary.adaptations, 2), 2), "+") : ""}
+        </div>
+      </article>
+    `;
+  }
+
+  function dailyPlanBody(day, options = {}) {
+    const detailed = options.detailed !== false;
     const scheduleBits = (day.schedule || []).map((slot) => `${slot.time ? `${slot.time} ` : ""}${slot.label}`).filter(Boolean);
+    const summaries = detailed
+      ? (day.activitySummaries || []).map((summary, index) => dailyActivitySummaryHtml(summary, index)).join("\n")
+      : "";
+    const activityFallback = !summaries
+      ? panelHtml("Activities", bulletListHtml(day.activityTitles || [], 8), "A")
+      : "";
     return `
       <article class="tk-print-day-sheet tk-print-keep">
         <header class="tk-print-day-sheet-head">
           <h3>${escapeHtml(day.dayLabel)}</h3>
-          ${day.focus ? `<p>${escapeHtml(shortText(day.focus, 120))}</p>` : ""}
+          ${day.focus ? `<p><strong>Daily focus:</strong> ${escapeHtml(shortText(day.focus, 160))}</p>` : ""}
         </header>
         <div class="tk-print-day-sheet-grid">
           ${panelHtml("Schedule", bulletListHtml(scheduleBits, 6), "S")}
-          ${panelHtml("Circle", bulletListHtml(day.circleTime, 4), "C")}
-          ${panelHtml("Books", bulletListHtml((day.books || []).map((book) => book.title), 3), "B")}
-          ${panelHtml("Songs", bulletListHtml((day.songs || []).map((song) => song.title), 3), "N")}
-          ${panelHtml("Activities", bulletListHtml(day.activityTitles || [], 6), "A")}
-          ${panelHtml("Materials", checkboxListHtml(day.materials, 8), "M")}
-          ${panelHtml("Watch for", bulletListHtml(day.observations, 4), "W")}
-          ${panelHtml("Family", bulletListHtml(toBullets(day.parentMessage, 2), 2), "F")}
+          ${panelHtml("Circle time", bulletListHtml(day.circleTime, 5), "C")}
+          ${panelHtml("Book of the day", bulletListHtml((day.books || []).map((book) => book.author ? `${book.title} — ${book.author}` : book.title), 3), "B")}
+          ${panelHtml("Song of the day", bulletListHtml((day.songs || []).map((song) => song.title), 3), "N")}
+          ${panelHtml("Invitation to play", bulletListHtml(toBullets(day.invitationToPlay, 3), 3), "I")}
+          ${panelHtml("Sensory", bulletListHtml(toBullets(day.sensory, 3), 3), "Se")}
+          ${panelHtml("Fine motor", bulletListHtml(toBullets(day.fineMotor, 3), 3), "Fm")}
+          ${panelHtml("Gross motor", bulletListHtml(toBullets(day.grossMotor, 3), 3), "Gm")}
+          ${panelHtml("Outdoor play", bulletListHtml(toBullets(day.outdoorPlay, 3), 3), "Out")}
+          ${panelHtml("Small group", bulletListHtml(toBullets(day.smallGroup, 3), 3), "Sg")}
+          ${panelHtml("Art", bulletListHtml(toBullets(day.art, 3), 3), "Art")}
+          ${panelHtml("STEM", bulletListHtml(toBullets(day.stem, 3), 3), "St")}
+          ${activityFallback}
+          ${panelHtml("Materials for this day", checkboxListHtml(day.materials, 12), "M")}
+          ${panelHtml("Teacher prep", checkboxListHtml(day.teacherPrep, 6), "T")}
+          ${panelHtml("Observation focus", bulletListHtml(day.observations, 5), "W")}
+          ${panelHtml("Teacher notes", bulletListHtml(toBullets(day.teacherNotes, 3), 3), "Tn")}
+          ${panelHtml("Family connection", bulletListHtml(toBullets(day.parentMessage, 3), 3), "F")}
         </div>
+        ${summaries ? `<div class="tk-print-day-activities"><div class="tk-print-section-banner">Activities (concise)</div>${summaries}</div>` : ""}
       </article>
     `;
   }
 
   function activityCardBody(activity, selection, compact) {
     const materials = materialsList(activity.materials?.length ? activity.materials : activity.materialsText);
-    const steps = toBullets(activity.steps, compact ? 5 : 7);
+    const steps = toBullets(activity.steps, compact ? 5 : 8);
     const tips = [
       ...toBullets(activity.teacherRole, 2),
       ...(activity.teacherPrompts || []).map((prompt) => text(prompt.text)).filter(Boolean),
-    ].slice(0, compact ? 3 : 5);
+    ].slice(0, compact ? 3 : 6);
     const watch = (activity.observationIdeas || []).slice(0, compact ? 3 : 5);
+    const metaBits = [
+      activity.estimatedMinutes ? `~${activity.estimatedMinutes} min` : "",
+      activity.groupSize || "",
+    ].filter(Boolean);
     const photoBits = [];
     if (selection.includeImages && activity.setupPhotoUrl) {
-      photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.setupPhotoUrl)}" alt="${escapeHtml(activity.setupAlt || `Setup for ${activity.title}`)}" loading="eager" decoding="async" /><figcaption>Setup</figcaption></figure>`);
+      photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.setupPhotoUrl)}" alt="${escapeHtml(activity.setupAlt || `Setup for ${activity.title}`)}" loading="eager" decoding="async" onerror="this.closest('figure')?.remove()" /><figcaption>Setup</figcaption></figure>`);
     }
     if (selection.includeImages && activity.examplePhotoUrl) {
-      photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.examplePhotoUrl)}" alt="${escapeHtml(activity.exampleAlt || `Example for ${activity.title}`)}" loading="eager" decoding="async" /><figcaption>Finished</figcaption></figure>`);
+      photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.examplePhotoUrl)}" alt="${escapeHtml(activity.exampleAlt || `Example for ${activity.title}`)}" loading="eager" decoding="async" onerror="this.closest('figure')?.remove()" /><figcaption>Finished</figcaption></figure>`);
     }
     return `
       <article class="tk-print-keep tk-print-activity-card">
@@ -565,59 +665,92 @@
             <div class="tk-print-badge-row">
               ${badgeHtml(activity.category)}
               ${badgeHtml(activity.dayLabel)}
+              ${metaBits.map((bit) => badgeHtml(bit)).join("")}
             </div>
-            ${hasDisplayValue(activity.objective) ? `<p class="tk-print-objective">${escapeHtml(shortText(activity.objective, 110))}</p>` : ""}
+            ${hasDisplayValue(activity.objective) ? `<p class="tk-print-objective">${escapeHtml(shortText(activity.objective, 120))}</p>` : ""}
+            ${!compact && (activity.developmentalDomains || []).length ? chipRowHtml(activity.developmentalDomains) : ""}
           </div>
           ${photoBits.length ? `<div class="tk-print-card-photos">${photoBits.join("")}</div>` : ""}
         </header>
         <div class="tk-print-activity-grid">
-          ${panelHtml("Materials", checkboxListHtml(materials, compact ? 6 : 10), "M")}
-          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(activity.setup, compact ? 110 : 160))}</p>`, "U")}
-          ${panelHtml("What to do", numberedListHtml(steps, compact ? 5 : 7), "1")}
-          ${panelHtml("Teacher tips", bulletListHtml(tips, compact ? 3 : 5), "P")}
-          ${panelHtml("What to watch for", bulletListHtml(watch, compact ? 3 : 5), "W")}
+          ${panelHtml("Materials", checkboxListHtml(materials, compact ? 6 : 12), "M")}
+          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(activity.setup, compact ? 110 : 180))}</p>`, "U")}
+          ${panelHtml("What to do", numberedListHtml(steps, compact ? 5 : 8), "1")}
+          ${panelHtml("Teacher prompts", bulletListHtml(tips, compact ? 3 : 6), "P")}
+          ${panelHtml("Observation opportunities", bulletListHtml(watch, compact ? 3 : 5), "W")}
+          ${!compact && hasDisplayValue(activity.adaptations) ? panelHtml("Adaptations", bulletListHtml(toBullets(activity.adaptations, 3), 3), "+") : ""}
           ${!compact && hasDisplayValue(activity.safetyNotes) ? panelHtml("Safety", bulletListHtml(toBullets(activity.safetyNotes, 2), 2), "!") : ""}
+          ${!compact && (activity.cleanupTips || []).length ? panelHtml("Cleanup", bulletListHtml(activity.cleanupTips, 4), "X") : ""}
+          ${!compact && hasDisplayValue(activity.familyExtension) ? panelHtml("Family extension", bulletListHtml(toBullets(activity.familyExtension, 2), 2), "F") : ""}
         </div>
       </article>
     `;
   }
 
-  function printablesBody(model) {
+  function printablesBody(model, selection) {
     const items = model.printables || [];
     if (!items.length) return "";
-    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>Titles and directions below. File pages are not merged into this PDF yet — download each printable from the Teaching Kit.</span></div>`;
+    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>Resource index below. Image printables appear full-page when available. PDF file pages are not merged into this binder yet — download those files separately from the Teaching Kit.</span></div>`;
     const cards = items.map((item) => `
       <article class="tk-print-resource-card tk-print-keep">
         <header>
           <h3>${escapeHtml(item.title)}</h3>
           ${badgeHtml(item.category || "Printable")}
         </header>
-        ${item.previewUrl ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" /></div>` : ""}
+        ${item.previewUrl && !item.embedAsImage ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>` : ""}
         <div class="tk-print-resource-meta">
           ${item.pageCount ? `<span>${escapeHtml(String(item.pageCount))} pages</span>` : ""}
           ${(item.usedInWeek || []).length ? `<span>${escapeHtml(item.usedInWeek.map((slot) => [slot.dayLabel, slot.moment].filter(Boolean).join(" · ")).join("; "))}</span>` : ""}
         </div>
-        ${hasDisplayValue(item.printingDirections) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 160))}</p>` : ""}
-        ${item.hasEmbeddedPages ? "" : `<p class="tk-print-muted">File pages not embedded in this PDF.</p>`}
+        ${hasDisplayValue(item.printingDirections) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 180))}</p>` : ""}
+        ${item.embedAsImage ? `<p class="tk-print-muted">Full printable image included on the following page.</p>` : `<p class="tk-print-muted">File pages not embedded in this PDF.</p>`}
       </article>
     `).join("");
     return note + `<div class="tk-print-resource-grid">${cards}</div>`;
   }
 
+  function printableImagePages(model, selection) {
+    if (!selection.includeImages) return "";
+    return (model.printables || [])
+      .filter((item) => item.embedAsImage && (item.previewUrl || item.fileUrl))
+      .map((item) => page(
+        "Printables",
+        item.title,
+        `<figure class="tk-print-printable-full tk-print-keep">
+          <img src="${escapeHtml(item.previewUrl || item.fileUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" onerror="this.closest('figure')?.classList.add('is-missing')" />
+          <figcaption>${escapeHtml(item.title)}${item.printingDirections ? ` · ${escapeHtml(shortText(item.printingDirections, 100))}` : ""}</figcaption>
+        </figure>`,
+        selection.footerLabel,
+        "tk-print-page-printable",
+      ))
+      .join("\n");
+  }
+
   function songsBody(model, lyricsOnly) {
     const songs = (model.songs || []).filter((song) => (lyricsOnly ? song.lyricsPrintable : true));
-    if (!songs.length) return "";
+    if (!songs.length) {
+      return lyricsOnly
+        ? `<p class="tk-print-muted">No songs with printable lyrics are available for this lesson (original, public-domain, or licensed only).</p>`
+        : "";
+    }
     return `<div class="tk-print-resource-grid">${songs.map((song) => `
       <article class="tk-print-resource-card tk-print-keep">
-        <header><h3>${escapeHtml(song.title)}</h3>${badgeHtml(song.rights || "Song")}</header>
+        <header>
+          <h3>${escapeHtml(song.title)}</h3>
+          ${badgeHtml(song.rights || "Song")}
+          ${(song.relatedDays || []).length ? badgeHtml((song.relatedDays || []).join(", ")) : (song.relatedDay ? badgeHtml(song.relatedDay) : "")}
+        </header>
+        ${hasDisplayValue(song.whenToUse) ? panelHtml("When to use", bulletListHtml(toBullets(song.whenToUse, 2), 2), "T") : ""}
         ${hasDisplayValue(song.notes) ? panelHtml("Teaching tips", bulletListHtml(toBullets(song.notes, 3), 3), "P") : ""}
-        ${hasDisplayValue(song.motions) ? panelHtml("Motions / props", bulletListHtml(toBullets(song.motions, 3), 3), "N") : ""}
-        ${song.lyricsPrintable && song.lyrics ? panelHtml("Lyrics", `<p class="tk-print-tight">${escapeHtml(song.lyrics)}</p>`, "L") : (lyricsOnly ? "" : `<p class="tk-print-muted">Lyrics not included (rights do not allow display).</p>`)}
+        ${hasDisplayValue(song.motions) ? panelHtml("Movements / actions", bulletListHtml(toBullets(song.motions, 4), 4), "N") : ""}
+        ${song.lyricsPrintable && song.lyrics
+          ? panelHtml("Lyrics", `<p class="tk-print-tight">${escapeHtml(song.lyrics)}</p>`, "L")
+          : (lyricsOnly ? "" : `<p class="tk-print-muted">Lyrics not included (rights do not allow display).</p>`)}
       </article>
     `).join("")}</div>`;
   }
 
-  function booksBody(model) {
+  function booksBody(model, selection) {
     const books = model.books || [];
     if (!books.length) return "";
     return `<div class="tk-print-resource-grid">${books.map((book) => `
@@ -625,10 +758,17 @@
         <header>
           <h3>${escapeHtml(book.title)}</h3>
           ${book.author ? badgeHtml(`by ${book.author}`) : badgeHtml("Book")}
+          ${(book.relatedDays || []).length ? badgeHtml((book.relatedDays || []).join(", ")) : (book.relatedDay ? badgeHtml(book.relatedDay) : "")}
         </header>
-        ${hasDisplayValue(book.whyThisBook) ? `<p class="tk-print-tight">${escapeHtml(shortText(book.whyThisBook, 140))}</p>` : ""}
-        ${panelHtml("Discussion prompts", bulletListHtml(book.readAloudQuestions, 4), "?")}
-        ${panelHtml("Extensions", bulletListHtml(book.extensionIdeas, 3), "+")}
+        ${selection?.includeImages && book.coverImageUrl
+          ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(book.coverImageUrl)}" alt="${escapeHtml(book.coverImageAlt || book.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>`
+          : ""}
+        ${hasDisplayValue(book.whyThisBook) ? panelHtml("Why this book", `<p class="tk-print-tight">${escapeHtml(shortText(book.whyThisBook, 180))}</p>`, "*") : ""}
+        ${(book.vocabularyConnections || []).length ? panelHtml("Vocabulary connections", chipRowHtml(book.vocabularyConnections), "Aa") : ""}
+        ${panelHtml("Before reading", bulletListHtml(book.beforeReadingQuestions, 3), "?")}
+        ${panelHtml("During reading", bulletListHtml(book.duringReadingPrompts, 4), "?")}
+        ${panelHtml("After reading", bulletListHtml(book.afterReadingQuestions || book.readAloudQuestions, 4), "?")}
+        ${panelHtml("Extension activity", bulletListHtml(book.extensionIdeas, 3), "+")}
       </article>
     `).join("")}</div>`;
   }
@@ -725,46 +865,47 @@
   function assembleEntireBinder(model, selection) {
     const sectionIds = new Set((model.sections || []).map((section) => section.id));
     const chunks = [];
-    // PAGE 1: branded cover
     chunks.push(coverFromModel(model, selection));
-    // PAGE 2: Week at a Glance grid (+ compact snapshot, not a prose essay)
-    if (sectionIds.has("weekAtAGlance") || sectionIds.has("overview")) {
-      const wag = [
-        sectionIds.has("overview") ? overviewSnapshotHtml(model) : "",
-        sectionIds.has("weekAtAGlance") ? weekGlanceBody(model) : "",
-      ].join("\n");
-      chunks.push(page("Week at a Glance", "Week at a Glance", wag, selection.footerLabel));
+    if (sectionIds.has("toc")) {
+      const toc = tocBody(model);
+      if (toc) chunks.push(page("Contents", "Table of Contents", adminBannerHtml(selection) + toc, selection.footerLabel));
     }
-    // PAGE 3+: daily plan sheets
+    if (sectionIds.has("overview")) {
+      chunks.push(page("Overview", "Overview", adminBannerHtml(selection) + overviewBody(model), selection.footerLabel));
+    }
+    if (sectionIds.has("weekAtAGlance")) {
+      const wag = weekGlanceBody(model);
+      if (wag) chunks.push(page("Weekly Plan", "Weekly Plan", adminBannerHtml(selection) + wag, selection.footerLabel));
+    }
     if (sectionIds.has("dailyPlans")) {
       (model.days || []).forEach((day) => {
-        const body = dailyPlanBody(day);
+        const body = dailyPlanBody(day, { detailed: true });
         if (!text(body.replace(/<[^>]+>/g, ""))) return;
-        chunks.push(page("Daily Plans", `${day.dayLabel} Plan`, body, selection.footerLabel));
+        chunks.push(page("Daily Plans", `${day.dayLabel}`, adminBannerHtml(selection) + body, selection.footerLabel));
       });
     }
     if (sectionIds.has("activities")) {
-      chunks.push(packActivityPages(model.activities || [], selection, "Activity Cards", false));
-    }
-    if (sectionIds.has("books") || sectionIds.has("songs")) {
-      const body = [
-        sectionIds.has("books") ? `<div class="tk-print-section-banner">Books</div>${booksBody(model)}` : "",
-        sectionIds.has("songs") ? `<div class="tk-print-section-banner">Songs</div>${songsBody(model, false)}` : "",
-      ].join("\n");
-      if (text(body.replace(/<[^>]+>/g, ""))) {
-        chunks.push(page("Resources", "Books & Songs", body, selection.footerLabel));
-      }
+      chunks.push(packActivityPages(model.activities || [], selection, "Activities", false));
     }
     if (sectionIds.has("printables")) {
-      chunks.push(page("Printables", "Printables", printablesBody(model), selection.footerLabel));
+      chunks.push(page("Printables", "Printables", printablesBody(model, selection), selection.footerLabel));
+      chunks.push(printableImagePages(model, selection));
     }
-    // Remaining example images only if not already placed on activity cards
+    if (sectionIds.has("songs")) {
+      const body = songsBody(model, false);
+      if (body) chunks.push(page("Songs", "Songs", body, selection.footerLabel));
+    }
+    if (sectionIds.has("books")) {
+      const body = booksBody(model, selection);
+      if (body) chunks.push(page("Books", "Book Guide", body, selection.footerLabel));
+    }
     if (sectionIds.has("examples") && selection.includeImages) {
       const leftovers = (model.examples || []).filter((image) => {
         const onCards = (model.activities || []).some((activity) => (
           activity.examplePhotoUrl === image.url || activity.setupPhotoUrl === image.url
         ));
-        return !onCards;
+        const onPrintable = (model.printables || []).some((item) => item.previewUrl === image.url || item.fileUrl === image.url);
+        return !onCards && !onPrintable;
       });
       if (leftovers.length) {
         chunks.push(page("Example Images", "Example Images", examplesBody({ examples: leftovers }), selection.footerLabel));
@@ -772,17 +913,6 @@
     }
     if (sectionIds.has("toolkit")) {
       chunks.push(page("Teacher Toolkit", "Teacher Toolkit", toolkitBody(model), selection.footerLabel));
-    }
-    if (sectionIds.has("overview")) {
-      chunks.push(page("Materials", "Materials & Guidance", [
-        panelHtml("Master materials", checkboxListHtml(model.overview?.masterMaterials, 30), "M"),
-        panelHtml("Safety", bulletListHtml(model.overview?.safety, 5), "!"),
-        panelHtml("Adaptations", bulletListHtml(toBullets(model.overview?.adaptations, 4), 4), "+"),
-        panelHtml("Family connection", bulletListHtml(toBullets(model.overview?.familyConnection, 3), 3), "F"),
-      ].join("\n"), selection.footerLabel));
-    }
-    if (sectionIds.has("teacherNotes")) {
-      chunks.push(page("Teacher Notes", "Teacher Notes / Planning", teacherNotesBody(), selection.footerLabel));
     }
     return chunks;
   }
@@ -799,7 +929,7 @@
       chunks.push(page("Week at a Glance", "Week at a Glance", wagPage, selection.footerLabel));
     }
     const dayEntries = (model.days || []).map((day) => {
-      const body = dailyPlanBody(day);
+      const body = dailyPlanBody(day, { detailed: false });
       if (!text(body.replace(/<[^>]+>/g, ""))) return null;
       return { label: day.dayLabel, html: body };
     }).filter(Boolean);
@@ -817,7 +947,7 @@
     }
     const refs = [
       panelHtml("Materials checklist", checkboxListHtml((model.overview?.masterMaterials || []).slice(0, 30), 30), "M"),
-      (model.books || []).length ? `<div class="tk-print-section-banner">Books</div>${booksBody(model)}` : "",
+      (model.books || []).length ? `<div class="tk-print-section-banner">Books</div>${booksBody(model, selection)}` : "",
       (model.songs || []).length ? `<div class="tk-print-section-banner">Songs</div>${songsBody(model, false)}` : "",
       panelHtml("Safety", bulletListHtml(model.overview?.safety, 4), "!"),
       panelHtml("Watch for", bulletListHtml(model.overview?.observationFocus, 4), "W"),
@@ -830,11 +960,93 @@
     return chunks;
   }
 
+  function assembleSelectedResources(model, selection) {
+    const selected = selection.selectedResources || {};
+    const chunks = [];
+    chunks.push(coverFromModel(model, selection));
+    const dayKeys = asSelectedList(selected.days);
+    const activityIds = new Set(asSelectedList(selected.activityIds));
+    const songTitles = new Set(asSelectedList(selected.songs).map((item) => item.toLowerCase()));
+    const bookTitles = new Set(asSelectedList(selected.books).map((item) => item.toLowerCase()));
+    const printableIds = new Set(asSelectedList(selected.printableIds));
+    const include = {
+      overview: selected.overview === true,
+      weekly: selected.weekly === true || selected.weekAtAGlance === true,
+      toolkit: selected.toolkit === true,
+      materials: selected.materials === true,
+      songs: selected.songs === true || songTitles.size > 0,
+      books: selected.books === true || bookTitles.size > 0,
+      activities: selected.activities === true || activityIds.size > 0,
+      printables: selected.printables === true || printableIds.size > 0,
+    };
+
+    if (include.overview) {
+      chunks.push(page("Overview", "Overview", overviewBody(model), selection.footerLabel));
+    }
+    if (include.weekly) {
+      const wag = weekGlanceBody(model, dayKeys.length ? dayKeys : null);
+      if (wag) chunks.push(page("Weekly Plan", "Weekly Plan", wag, selection.footerLabel));
+    }
+    if (dayKeys.length) {
+      (model.days || []).filter((day) => dayKeys.includes(day.day)).forEach((day) => {
+        chunks.push(page("Daily Plans", day.dayLabel, dailyPlanBody(day, { detailed: true }), selection.footerLabel));
+      });
+    }
+    if (include.activities) {
+      const acts = (model.activities || []).filter((item) => (
+        activityIds.size === 0 || activityIds.has(item.id) || activityIds.has(item.title)
+      ));
+      if (acts.length) chunks.push(packActivityPages(acts, selection, "Activities", false));
+    }
+    if (include.songs) {
+      const songs = songTitles.size
+        ? { songs: (model.songs || []).filter((song) => songTitles.has(String(song.title || "").toLowerCase())) }
+        : model;
+      const body = songsBody(songs, false);
+      if (body) chunks.push(page("Songs", "Songs", body, selection.footerLabel));
+    }
+    if (include.books) {
+      const books = bookTitles.size
+        ? { books: (model.books || []).filter((book) => bookTitles.has(String(book.title || "").toLowerCase())) }
+        : model;
+      const body = booksBody(books, selection);
+      if (body) chunks.push(page("Books", "Book Guide", body, selection.footerLabel));
+    }
+    if (include.printables) {
+      const printables = printableIds.size
+        ? { printables: (model.printables || []).filter((item) => printableIds.has(item.id) || printableIds.has(item.title)) }
+        : model;
+      if ((printables.printables || []).length) {
+        chunks.push(page("Printables", "Selected Printables", printablesBody(printables, selection), selection.footerLabel));
+        chunks.push(printableImagePages(printables, selection));
+      }
+    }
+    if (include.materials) {
+      chunks.push(page(
+        "Materials",
+        "Materials List",
+        panelHtml("Master materials", checkboxListHtml(model.overview?.masterMaterials, 40), "M"),
+        selection.footerLabel,
+      ));
+    }
+    if (include.toolkit) {
+      chunks.push(page("Teacher Toolkit", "Teacher Toolkit", toolkitBody(model), selection.footerLabel));
+    }
+    return chunks;
+  }
+
+  function asSelectedList(value) {
+    if (Array.isArray(value)) return value.map((item) => text(item)).filter(Boolean);
+    if (value === true) return [];
+    return [];
+  }
+
   function assembleMode(model, selection) {
     const mode = selection.documentMode || "entire_binder";
     const daysFilter = selection.days || [];
     if (mode === "entire_binder") return assembleEntireBinder(model, selection);
     if (mode === "full_weekly") return assembleFullWeekly(model, selection);
+    if (mode === "selected_resources") return assembleSelectedResources(model, selection);
 
     const chunks = [];
     if (selection.parts.cover !== false && mode !== "one_activity" && mode !== "song_lyrics") {
@@ -842,13 +1054,24 @@
     }
 
     if (mode === "overview" || mode === "weekly_overview") {
-      chunks.push(page("Overview", "Weekly Overview", overviewBody(model), selection.footerLabel));
+      const body = [
+        overviewBody(model),
+        weekGlanceBody(model),
+      ].join("\n");
+      chunks.push(page("Overview", "Weekly Overview", body, selection.footerLabel));
       return chunks;
     }
     if (mode === "one_day") {
       const dayKey = daysFilter[0] || "monday";
       const day = (model.days || []).find((item) => item.day === dayKey);
-      if (day) chunks.push(page("Daily Plans", `${day.dayLabel} Plan`, dailyPlanBody(day), selection.footerLabel));
+      if (day) {
+        chunks.push(page(
+          "Daily Plans",
+          `${model.title || "Lesson"} · ${day.dayLabel}`,
+          dailyPlanBody(day, { detailed: true }),
+          selection.footerLabel,
+        ));
+      }
       const dayActs = (model.activities || []).filter((item) => item.dayOfWeek === dayKey);
       if (dayActs.length) chunks.push(packActivityPages(dayActs, selection, "Activities", true));
       return chunks;
@@ -869,18 +1092,22 @@
     }
     if (mode === "song_lyrics") {
       const body = songsBody(model, true);
-      if (body) chunks.push(page("Song Lyrics", "Song Lyrics", body, selection.footerLabel));
+      if (body) chunks.push(page("Song Guide", "Song Lyrics / Song Guide", body, selection.footerLabel));
+      else chunks.push(page("Song Guide", "Song Guide", `<p class="tk-print-muted">No printable lyrics available for this lesson. Use the Songs pack for teaching tips and movements without full lyrics.</p>`, selection.footerLabel));
       return chunks;
     }
     if (mode === "books") {
-      chunks.push(page("Books", "Book Guide", booksBody(model), selection.footerLabel));
+      chunks.push(page("Books", "Book Guide", booksBody(model, selection), selection.footerLabel));
       return chunks;
     }
     if (mode === "materials") {
+      const dayKey = daysFilter[0];
+      const day = dayKey ? (model.days || []).find((item) => item.day === dayKey) : null;
+      const materials = day?.materials?.length ? day.materials : model.overview?.masterMaterials;
       chunks.push(page(
         "Materials",
-        "Materials List",
-        panelHtml("Master materials", checkboxListHtml(model.overview?.masterMaterials, 40), "M"),
+        day ? `${day.dayLabel} Materials` : "Materials List",
+        panelHtml(day ? `${day.dayLabel} materials` : "Master materials", checkboxListHtml(materials, 50), "M"),
         selection.footerLabel,
       ));
       return chunks;
@@ -891,7 +1118,10 @@
     }
     if (mode === "printables") {
       if ((model.printables || []).length) {
-        chunks.push(page("Printables", "Printable Resources", printablesBody(model), selection.footerLabel));
+        chunks.push(page("Printables", "Printable Resources", printablesBody(model, selection), selection.footerLabel));
+        chunks.push(printableImagePages(model, selection));
+      } else {
+        chunks.push(page("Printables", "Printable Resources", `<p class="tk-print-muted">No printables are included with this lesson yet.</p>`, selection.footerLabel));
       }
       return chunks;
     }
@@ -918,15 +1148,26 @@
 .tk-print-page-title{margin:0;color:var(--tk-purple-deep);font-size:1.22rem}
 .tk-print-cover{background:radial-gradient(circle at 85% 18%,rgba(255,255,255,.18),transparent 28%),linear-gradient(155deg,#3b1d6e 0%,#542e94 45%,#6b46c1 100%)!important;color:#fff!important;border-radius:14px;padding:28px 24px;min-height:9.2in;display:flex;flex-direction:column;justify-content:space-between}
 .tk-print-cover .tk-print-footer{color:rgba(255,255,255,.88);border-top:1px solid rgba(255,255,255,.28)}
+.tk-print-cover-subtitle{margin:6px 0 14px;font-size:1.05rem;opacity:.92;font-weight:600}
+.tk-print-cover-fallback{display:flex;align-items:center;justify-content:center;min-height:180px;border:1px dashed rgba(255,255,255,.45);border-radius:12px;margin:12px 0;opacity:.85;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
 .tk-print-cover-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tk-print-cover-meta-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:8px 10px}
+.tk-print-admin-banner{background:#7c2d12;color:#fff;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:.72rem;padding:7px 10px;border-radius:8px;margin:0 0 10px}
+.tk-print-toc{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.tk-print-toc-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--tk-purple-line);padding:8px 0}
+.tk-print-toc-num{width:28px;height:28px;border-radius:999px;background:var(--tk-purple-soft);color:var(--tk-purple-deep);display:inline-flex;align-items:center;justify-content:center;font-weight:800}
 .tk-print-panel{border:1px solid var(--tk-purple-line);border-radius:10px;overflow:hidden;background:#fff}
 .tk-print-panel-label{display:flex;gap:6px;align-items:center;background:var(--tk-purple-soft);color:var(--tk-purple-deep);font-size:.72rem;font-weight:800;text-transform:uppercase;padding:5px 8px}
 .tk-print-wag-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt}
 .tk-print-wag-table th,.tk-print-wag-table td{border:1px solid var(--tk-purple-line);padding:5px 4px;vertical-align:top}
 .tk-print-wag-table thead th{background:var(--tk-purple-deep);color:#fff}
-.tk-print-activity-card,.tk-print-day-sheet,.tk-print-resource-card{border:1px solid var(--tk-purple-line);border-radius:12px;overflow:hidden;background:#fff}
+.tk-print-activity-card,.tk-print-day-sheet,.tk-print-resource-card,.tk-print-day-activity{border:1px solid var(--tk-purple-line);border-radius:12px;overflow:hidden;background:#fff}
+.tk-print-day-activity{padding:10px;margin:10px 0}
+.tk-print-day-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tk-print-check-box{width:12px;height:12px;border:1.5px solid var(--tk-purple);border-radius:3px;display:inline-block}
+.tk-print-printable-full{margin:0;text-align:center}
+.tk-print-printable-full img{max-width:100%;max-height:8.5in;object-fit:contain}
+.tk-print-vocab-line{margin:0;line-height:1.5;font-weight:600}
 </style>`;
   }
 
@@ -997,7 +1238,9 @@
       sections: model.sections,
       capabilities: model.capabilities,
       source: model.source,
+      validation: model.validation || null,
     };
+    built.validation = model.validation || null;
     return built;
   }
 

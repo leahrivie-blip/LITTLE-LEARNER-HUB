@@ -25310,7 +25310,104 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   color: #fff;
   border-color: rgba(255,255,255,0.28);
 }
-.tk-print-cover-note { margin: 14px 0 0; opacity: 0.92; }
+.tk-print-cover-subtitle {
+  margin: 6px 0 14px;
+  font-size: 1.05rem;
+  opacity: 0.92;
+  font-weight: 600;
+}
+.tk-print-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 12px;
+  margin: 12px 0;
+  opacity: 0.85;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.tk-print-admin-banner,
+.tk-owner-preview-banner {
+  background: #7c2d12;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  padding: 7px 10px;
+  border-radius: 8px;
+  margin: 0 0 10px;
+}
+.tk-owner-preview-banner {
+  display: inline-block;
+}
+.tk-print-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.tk-print-toc-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--tk-purple-line, #d1c2f0);
+  padding: 8px 0;
+}
+.tk-print-toc-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--tk-purple-soft, #f3eefd);
+  color: var(--tk-purple-deep, #542e94);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+.tk-print-day-activity {
+  border: 1px solid var(--tk-purple-line, #d1c2f0);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 10px 0;
+  background: #fff;
+}
+.tk-print-day-activity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.tk-print-printable-full {
+  margin: 0;
+  text-align: center;
+}
+.tk-print-printable-full img {
+  max-width: 100%;
+  max-height: 8.5in;
+  object-fit: contain;
+}
+.tk-print-vocab-line {
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.tk-print-select-block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(84, 46, 148, 0.16);
+}
+.tk-select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(84, 46, 148, 0.28);
+  background: #fff;
+}
 .tk-print-cover-image {
   margin: 14px 0 0;
   max-width: 3.4in;

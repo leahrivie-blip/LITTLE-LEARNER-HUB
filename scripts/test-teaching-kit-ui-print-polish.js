@@ -161,9 +161,9 @@ async function main() {
   ok(kit.ok === true, "mapper ok");
   const print = printApi.buildBinderPrintHtml(kit, { preset: "week_binder", paperSize: "letter" });
   ok(print.ok === true, "print html builds");
-  ok(/Entire Binder Kit/i.test(print.html), "print pack uses friendly preset label");
+  ok(/Complete Teaching Kit|Teacher Binder|Entire Binder Kit/i.test(print.html), "print pack uses friendly preset label");
   ok(!/copyrighted_title_only|week_binder|AGE_MODIFICATIONS|OBSERVATION_OPPORTUNITIES/i.test(print.html), "print html has no raw enums");
-  ok(/Objective|Materials|What to watch for|Teacher Toolkit|Week at a Glance/i.test(print.html), "print uses friendly section titles");
+  ok(/Objective|Materials|Observation|Teacher Toolkit|Weekly Plan|Week at a Glance|Overview/i.test(print.html), "print uses friendly section titles");
 
   const todayHtml = viewer.surfaceHtml(kit, { ...viewer.defaultState(kit), surface: "today", openEverything: true }, {});
   ok(/tk-today-launcher/.test(todayHtml), "today launcher present");

@@ -705,6 +705,46 @@
                   </label>
                 `).join("") || `<p class="tk-muted">Print module not loaded.</p>`}
               </div>
+              ${state.printPreset === "today_pack" ? `
+                <div class="tk-print-select-block">
+                  <h4>Choose day</h4>
+                  <div class="tk-chip-row">
+                    ${WEEKDAYS.map((day) => `
+                      <label class="tk-radio-row">
+                        <input type="radio" name="tk-print-day" value="${day}" ${state.day === day ? "checked" : ""} data-tk-print-day="${day}" />
+                        <span>${escapeHtml(DAY_SHORT[day] || day)}</span>
+                      </label>
+                    `).join("")}
+                  </div>
+                </div>
+              ` : ""}
+              ${state.printPreset === "one_activity" ? `
+                <div class="tk-print-select-block">
+                  <h4>Choose activity</h4>
+                  <select class="tk-select" data-tk-print-activity>
+                    ${activities.map((item) => `
+                      <option value="${escapeHtml(item.id)}" ${state.printActivityId === item.id ? "selected" : ""}>${escapeHtml(item.title)}</option>
+                    `).join("")}
+                  </select>
+                </div>
+              ` : ""}
+              ${state.printPreset === "selected_resources" ? `
+                <div class="tk-print-select-block">
+                  <h4>Choose resources</h4>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="overview" ${state.selectedResources?.overview ? "checked" : ""} /> Overview</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="weekly" ${state.selectedResources?.weekly ? "checked" : ""} /> Weekly Plan</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="activities" ${state.selectedResources?.activities ? "checked" : ""} /> Activities</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="songs" ${state.selectedResources?.songs ? "checked" : ""} /> Songs</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="books" ${state.selectedResources?.books ? "checked" : ""} /> Book Guide</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="printables" ${state.selectedResources?.printables ? "checked" : ""} /> Printables</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="materials" ${state.selectedResources?.materials ? "checked" : ""} /> Materials List</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="toolkit" ${state.selectedResources?.toolkit ? "checked" : ""} /> Teacher Toolkit</label>
+                  ${WEEKDAYS.map((day) => `
+                    <label class="tk-check-inline"><input type="checkbox" data-tk-selected-day="${day}" ${(state.selectedResources?.days || []).includes(day) ? "checked" : ""} /> ${escapeHtml(DAY_SHORT[day] || day)} plan</label>
+                  `).join("")}
+                </div>
+              ` : ""}
+              ${ownerPreview ? `<p class="tk-owner-preview-banner" role="status">ADMIN PREVIEW — print outputs are labeled and do not publish changes.</p>` : ""}
             </article>
             <article class="tk-card">
               <h4>Sections</h4>
@@ -777,11 +817,12 @@
               <h4>Ready to print</h4>
               <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
               <div class="tk-build-cta-stack">
-                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print / Download Binder Kit" : "Print / Download Binder Kit (unavailable)"}</button>
-                <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview Binder</button>
+                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print binder" : "Print binder (unavailable)"}</button>
+                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Download PDF" : "Download PDF (unavailable)"}</button>
+                <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Preview Binder</button>
               </div>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Print / Download Binder Kit builds a complete printable document (not the open tab). Full Weekly Lesson Plan is a shorter practical plan from the action bar — different from the Entire Binder Kit."
+                ? "Print and Download use the same Complete Teaching Kit document (not the open tab). Choose a pack above, then print or save as PDF."
                 : "Print Center is not available for this session. Binder preview and lesson downloads still work from the action bar."}</p>
             </article>
           </aside>
@@ -1128,7 +1169,8 @@
         <div class="tk-stack tk-binder-actions">
           <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print</button>
           ${state.printCenterEnabled
-            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print / Download Binder Kit</button>`
+            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print binder</button>
+               <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder>Download PDF</button>`
             : ""}
           <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Back to Today</button>
         </div>
@@ -1255,6 +1297,18 @@
       includeImages: true,
       inkSaver: false,
       paperSize: "letter",
+      printActivityId: initialActivityId || "",
+      selectedResources: {
+        overview: false,
+        weekly: false,
+        activities: true,
+        songs: false,
+        books: false,
+        printables: false,
+        materials: false,
+        toolkit: false,
+        days: [],
+      },
     };
   }
 
@@ -1367,21 +1421,62 @@
         return;
       }
 
-      const printBtn = event.target.closest("[data-tk-print-binder]");
+      const printBtn = event.target.closest("[data-tk-print-binder], [data-tk-download-binder]");
       if (printBtn) {
         event.preventDefault();
         if (!state.printCenterEnabled) return;
         if (typeof ctx.onPrint === "function") {
+          const selectedResources = state.printPreset === "selected_resources"
+            ? {
+              ...(state.selectedResources || {}),
+              days: [...(state.selectedResources?.days || [])],
+            }
+            : null;
           ctx.onPrint({
             preset: state.printPreset,
             parts: state.printParts,
             removedActivityIds: state.removedActivityIds,
             day: state.day,
+            activityId: state.printActivityId || state.activityId || "",
+            selectedResources,
+            adminPreview: isOwnerPreviewKit(kit, chrome),
             includeImages: state.includeImages !== false,
             inkSaver: Boolean(state.inkSaver),
             paperSize: state.paperSize || "letter",
+            intent: printBtn.hasAttribute("data-tk-download-binder") ? "download" : "print",
           });
         }
+        return;
+      }
+
+      const printDay = event.target.closest("[data-tk-print-day]");
+      if (printDay) {
+        state.day = printDay.getAttribute("data-tk-print-day") || state.day;
+        return;
+      }
+
+      const selectedRes = event.target.closest("[data-tk-selected-res]");
+      if (selectedRes && selectedRes.matches("input")) {
+        const key = selectedRes.getAttribute("data-tk-selected-res");
+        if (key) {
+          state.selectedResources = {
+            ...(state.selectedResources || {}),
+            [key]: Boolean(selectedRes.checked),
+          };
+        }
+        return;
+      }
+
+      const selectedDay = event.target.closest("[data-tk-selected-day]");
+      if (selectedDay && selectedDay.matches("input")) {
+        const day = selectedDay.getAttribute("data-tk-selected-day");
+        const days = new Set(state.selectedResources?.days || []);
+        if (selectedDay.checked) days.add(day);
+        else days.delete(day);
+        state.selectedResources = {
+          ...(state.selectedResources || {}),
+          days: [...days],
+        };
         return;
       }
 
@@ -1508,11 +1603,19 @@
 
     root.addEventListener("click", onClick);
     root.addEventListener("keydown", onKeydown);
+    function onChange(event) {
+      const activitySelect = event.target.closest("[data-tk-print-activity]");
+      if (activitySelect) {
+        state.printActivityId = activitySelect.value || "";
+      }
+    }
+    root.addEventListener("change", onChange);
     const host = root.querySelector("[data-tk-host]");
     if (host) focusPanel(host);
     return () => {
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKeydown);
+      root.removeEventListener("change", onChange);
     };
   }
 

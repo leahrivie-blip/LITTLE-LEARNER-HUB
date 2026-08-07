@@ -26071,9 +26071,67 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
     } else {
       const plan = normalizeCurriculumLessonPlanForRender(viewerResource._curriculumLessonPlan);
       const weekOfLabel = formatLessonWeekOfLabel(weekStartDate) || "";
+      // Prefer the shared Teaching Kit designed binder HTML (same model as Print Center).
+      if (safeVariant === "full") {
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        const mapperApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitMapper : null;
+        let kitForPrint = activeTeachingKitPayload
+          && String(activeTeachingKitPayload.lessonPlanId || "") === String(plan?.id || viewerResource.id || "")
+          ? activeTeachingKitPayload
+          : null;
+        if (!kitForPrint && mapperApi?.mapLessonPlanToTeachingKit && plan) {
+          try {
+            const activities = typeof effectiveCurriculum === "function"
+              ? (effectiveCurriculum().activities || []).filter((item) => item && item.lessonPlanId === plan.id)
+              : [];
+            const resources = typeof effectiveCurriculum === "function"
+              ? (effectiveCurriculum().resources || [])
+              : [];
+            kitForPrint = mapperApi.mapLessonPlanToTeachingKit(plan, activities, resources, { day: "monday" });
+          } catch (_err) {
+            kitForPrint = null;
+          }
+        }
+        const flags = activeTeachingKitFlags || {};
+        if (
+          kitForPrint?.ok
+          && kitForPrint.companion
+          && flags.teachingKitPrintCenter === true
+          && typeof printTeachingKitBinder === "function"
+        ) {
+          const printed = await printTeachingKitBinder(viewerResource, kitForPrint, {
+            preset: "full_weekly_plan",
+            documentMode: "full_weekly",
+            plan,
+            includeImages: true,
+            paperSize: "letter",
+            intent: "download",
+            adminPreview: flags.ownerPreview === true,
+          }, flags);
+          if (printed?.ok) {
+            if (!savedDownloads.includes(viewerResource.id)) {
+              savedDownloads = [...savedDownloads, viewerResource.id];
+              saveDownloads();
+              updatePlanLabel();
+            }
+            trackEvent("resource_pdf_download", {
+              resourceId: viewerResource.id,
+              title: viewerResource.title,
+              category: viewerResource.category,
+              age: viewerResource.age,
+              access: viewerResource.plan,
+              printVariant: safeVariant,
+              format: "pdf",
+              teachingKitDesigned: true,
+            });
+            queueMicrotask(() => showActionFeedback("Download started — use Save as PDF in the print dialog.", null, { ttlMs: 4200 }));
+            return true;
+          }
+        }
+      }
       let fullPlanText = "";
       if (safeVariant === "full") {
-        // Prefer shared Teaching Kit printable model when a companion kit is available.
+        // Fallback text PDF from the shared printable model when Print Center is unavailable.
         const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
         const mapperApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitMapper : null;
         let kitForPrint = activeTeachingKitPayload
@@ -26971,6 +27029,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     plan: selection.plan || viewerResource?._curriculumLessonPlan || null,
     watermark,
     paperSize: selection.paperSize || "letter",
+    adminPreview: selection.adminPreview === true || flags.ownerPreview === true,
     // Default binder print is the entire kit document — never the visible modal/tab.
     documentMode: selection.documentMode
       || (selection.preset && selection.preset !== "week_binder" ? undefined : "entire_binder"),
@@ -26994,7 +27053,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
 
   if (typeof recordResourceOutputRequest === "function") {
     recordResourceOutputRequest({
-      mode: "print",
+      mode: selection.intent === "download" ? "download" : "print",
       printVariant: "teaching-kit-binder",
       resourceId: viewerResource?.id || kitPayload.lessonPlanId || "",
       title: kitPayload.title || viewerResource?.title || "Teaching Kit",
@@ -27010,6 +27069,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       pageCount: built.pageCount || 0,
       paperSize: built.paperSize || selection.paperSize || "letter",
       trialExportCounted: Boolean(gate.counted),
+      intent: selection.intent || "print",
     });
   }
 
@@ -27026,11 +27086,12 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     void enhanceLessonWorkspaceWithTeachingKit(viewerResource).catch(() => {});
   };
   window.addEventListener("afterprint", cleanup);
+  // Print and Download PDF use the same designed binder document (browser Save as PDF).
   window.print();
   setTimeout(cleanup, 1800);
   return {
     ok: true,
-    reason: "printed",
+    reason: selection.intent === "download" ? "download_print_dialog" : "printed",
     pageCount: built.pageCount || 0,
     paperSize: built.paperSize || selection.paperSize || "letter",
   };

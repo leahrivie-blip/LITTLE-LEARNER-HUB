@@ -263,9 +263,11 @@ function testPrintHtmlUnit() {
     ...teachingKitViewer.defaultState(kit, { printCenterEnabled: true }),
     surface: "build",
   });
-  assert(/Print \/ Download Binder Kit|Print Teaching Kit/i.test(buildHtml), "print CTA when print center enabled");
+  assert(/Print binder|Print \/ Download Binder Kit|Print Teaching Kit|Download PDF/i.test(buildHtml), "print CTA when print center enabled");
   assert(buildHtml.includes("data-tk-print-binder"), "print button hook");
+  assert(buildHtml.includes("data-tk-download-binder"), "download button hook");
   assert(buildHtml.includes("Print pack"), "presets UI");
+  assert(/Selected Resources/i.test(buildHtml), "selected resources preset listed");
 }
 
 async function main() {
