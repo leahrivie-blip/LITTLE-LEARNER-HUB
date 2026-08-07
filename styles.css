@@ -24531,55 +24531,94 @@ body.nuo-open #freePlanReminderBar {
   padding: 4px 0 8px;
 }
 
-/* Teaching Kit viewer remediation — modal layout, sticky chrome, print center */
+/*
+ * Teaching Kit viewer layout — permanent height/scroll contract
+ * ------------------------------------------------------------
+ * Header/tabs stay pinned. ONE scrollport (`.tk-workspace-scroll`) holds
+ * lesson content + actions + rating/feedback. Never shrink the content
+ * strip to “fit” chrome; never nest overflow:auto on panels/host.
+ */
 .resource-viewer-modal.lesson-workspace-mode.open:has(.teaching-kit-workspace) {
   background: rgba(24, 28, 32, 0.72);
   z-index: 240;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  box-sizing: border-box;
 }
 .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .resource-viewer-card {
-  width: min(980px, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px);
+  width: min(1180px, calc(100vw - 16px));
+  height: calc(100dvh - 16px);
+  max-height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .resource-viewer-body,
 .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .lesson-workspace-article {
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
-}
-.teaching-kit-workspace {
+  height: 100%;
+  max-height: none;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  max-height: calc(100dvh - 48px);
   overflow: hidden;
+}
+.resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .teaching-kit-workspace,
+.teaching-kit-workspace[data-teaching-kit-workspace] {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: 100%;
+  max-height: none !important;
+  overflow: hidden !important;
 }
 .teaching-kit-workspace .lesson-workspace-topchrome {
   flex: 0 0 auto;
   z-index: 8;
   background: #fff;
 }
-.teaching-kit-workspace .tk-panels,
-.teaching-kit-workspace .tk-panel-host {
+.teaching-kit-workspace .tk-workspace-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.teaching-kit-workspace .tk-panels,
+.teaching-kit-workspace .lesson-workspace-panels,
+.teaching-kit-workspace .tk-panel-host,
+.teaching-kit-workspace .lesson-workspace-panel.is-active {
+  flex: 0 0 auto !important;
+  min-height: 0;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.teaching-kit-workspace .tk-panels,
+.teaching-kit-workspace .lesson-workspace-panels {
+  padding-bottom: 8px;
 }
 .teaching-kit-workspace .tk-workspace-sticky-actions,
 .teaching-kit-workspace .lesson-workspace-action-bars {
   flex: 0 0 auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 12;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, #fff 30%);
+  position: static;
+  z-index: auto;
+  background: #fff;
   border-top: 1px solid rgba(213, 227, 240, 0.95);
-  padding: 10px 4px calc(10px + env(safe-area-inset-bottom, 0px));
-  margin-top: 0;
+  padding: 10px 4px 12px;
+  margin-top: 4px;
 }
-.teaching-kit-workspace .tk-panels {
-  padding-bottom: 8px;
+.teaching-kit-workspace .lesson-workspace-feedback,
+.teaching-kit-workspace .lesson-workspace-copyright {
+  flex: 0 0 auto;
+  position: static;
+  background: #fff;
 }
 .teaching-kit-workspace .tk-build-layout {
   display: grid;
@@ -24626,19 +24665,33 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   pointer-events: none !important;
 }
 @media (max-width: 900px) {
+  .resource-viewer-modal.lesson-workspace-mode.open:has(.teaching-kit-workspace) {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .resource-viewer-card {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .teaching-kit-workspace,
+  .teaching-kit-workspace[data-teaching-kit-workspace] {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    max-height: none !important;
+  }
   .teaching-kit-workspace .tk-build-layout {
     grid-template-columns: 1fr;
   }
   .teaching-kit-workspace .tk-build-summary {
     position: static;
   }
-  .teaching-kit-workspace {
-    max-height: 100dvh;
-  }
-  .resource-viewer-modal.lesson-workspace-mode:has(.teaching-kit-workspace) .lesson-workspace-action-bars,
-  .teaching-kit-workspace .tk-workspace-sticky-actions {
-    position: sticky;
-    bottom: 0;
+  .teaching-kit-workspace .tk-workspace-sticky-actions,
+  .teaching-kit-workspace .lesson-workspace-action-bars {
+    position: static;
   }
 }
 
