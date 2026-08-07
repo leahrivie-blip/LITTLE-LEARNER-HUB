@@ -10,15 +10,19 @@
 
 Stop adding major AI capabilities. Begin upgrading the existing lesson library using the completed Teaching Kit workflow.
 
+**Canonical content rules:** [CONTENT_UPGRADE_RULES.md](./CONTENT_UPGRADE_RULES.md)  
+Do not redesign structure. Do not generate covers, activity images, or printables — leave owner placeholders.
+
 Work **one lesson at a time**:
 
 1. Analyze the existing lesson  
 2. Preserve all legacy content  
 3. Generate AI draft improvements (fixture / approved AI modules only)  
-4. Complete every Teaching Kit section  
-5. Review quality  
+4. Complete every Teaching Kit section (educational content + Printable Needed / Image Needed notes)  
+5. Review quality under the $19.99/month subscriber lens  
 6. Save as **enrichment draft**  
 7. **Never** publish automatically  
+8. **Never** generate or publish AI images / printable files during upgrade  
 
 Stages (do not skip):
 

@@ -13,6 +13,8 @@ Focus on **curriculum quality**, not more generation. Every Teaching Kit should 
 
 AI generates a **report** — it does not automatically rewrite or publish.
 
+**Content upgrade policy:** follow [CONTENT_UPGRADE_RULES.md](./CONTENT_UPGRADE_RULES.md). Thorough **Printable Needed** notes and **Image Needed** briefs satisfy content-upgrade media slots. Real printables/images/covers remain **owner media pending** and are not hard blockers when placeholders exist. Never require AI-generated artwork.
+
 ---
 
 ## Specialist Quality Review

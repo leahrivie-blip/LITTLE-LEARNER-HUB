@@ -2,31 +2,20 @@
 
 **Status**
 
+- Teaching Kit **framework is complete and live** for customers (Viewer + Print Center enabled; Attachments remain off unless intentionally launched)
+- **Content upgrades** follow [CONTENT_UPGRADE_RULES.md](./CONTENT_UPGRADE_RULES.md) — structure frozen; owner creates images/printables/covers
 - Slice 1A–1F **done**
 - Phase 1 final QA **complete** — see [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md)
-- Teaching Kit flags remain **disabled** (`false`) by default
 - Product design **v4 approved** as the build target
 - Slice 1G (attachments) **optional / not started**
-- **Enrichment Editor Slice 1** approved
-- **Enrichment Editor Slice 2** approved
-- **Enrichment Editor Slice 3** approved
-- **Enrichment Editor Slice 4** approved
-- **Enrichment Editor Slice 5** approved
-- **Enrichment Editor Slice 6** approved
-- **Enrichment Editor Slice 7** approved as final implementation slice
-- **Preservation remediation** approved
-- **Complete Teaching Kit binder authoring** ready for review — see [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md) (`teachingKitAuthoring` default **false**; Enrichment Editor remains off)
-- **AI Teacher Assistant** ready for review — see [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md) (Reusable Library + Make This Better + Teacher Chat; flags remain **false**)
-- **AI Curriculum Director** ready for review — see [AI_CURRICULUM_DIRECTOR.md](./AI_CURRICULUM_DIRECTOR.md) (library-wide intelligence + masters; `teachingKitCurriculumDirector` default **false**)
-- **AI Curriculum Quality Review** ready for review — see [AI_CURRICULUM_QUALITY_REVIEW.md](./AI_CURRICULUM_QUALITY_REVIEW.md) (specialist readiness + library health; `teachingKitQualityReview` default **false**)
-- **Curriculum Production** ready for review — see [CURRICULUM_PRODUCTION.md](./CURRICULUM_PRODUCTION.md) (upgrade highest-traffic lessons draft-only; flags remain **false**)
-- **Integrated Release Review** — see [INTEGRATED_RELEASE.md](./INTEGRATED_RELEASE.md) (`npm run test:teaching-kit-integrated-release`)
-- **No customer enablement** until owner personal review (Viewer / Print Center stay **false**)
+- Enrichment Editor slices 1–7 + preservation remediation **approved**
+- Supporting AI modules documented under this folder (flags may still default off in local/dev stores)
 
 ## Start here
 
 | Deliverable | Path |
 | --- | --- |
+| **Content upgrade rules (canonical)** | [CONTENT_UPGRADE_RULES.md](./CONTENT_UPGRADE_RULES.md) |
 | Product specification (v4) | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
 | **Enrichment Editor UI spec** | [ENRICHMENT_EDITOR_UI_SPEC.md](./ENRICHMENT_EDITOR_UI_SPEC.md) |
 | **Enrichment Editor Slice 1** | [ENRICHMENT_EDITOR_SLICE1.md](./ENRICHMENT_EDITOR_SLICE1.md) |

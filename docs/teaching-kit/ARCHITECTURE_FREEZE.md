@@ -27,7 +27,7 @@ While real lesson plans are being upgraded into Teaching Kits:
 
 ## Customer flags
 
-Customer Teaching Kit Viewer, Print Center, and Attachments remain **OFF** until an intentional launch. Curriculum enrichment work must not enable those flags.
+Customer Teaching Kit Viewer and Print Center may be enabled for launch; Attachments stay off unless intentionally launched. Curriculum enrichment / content upgrade work must **not** flip flags as a side effect of editing lessons. See [CONTENT_UPGRADE_RULES.md](./CONTENT_UPGRADE_RULES.md).
 
 ## Safety baseline for upgrades
 
