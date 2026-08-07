@@ -59,9 +59,10 @@ function publicClientMetaConfig(env = process.env) {
 }
 
 function planValueUsd(planKey) {
-  const key = String(planKey || "").toLowerCase();
+  const key = String(planKey || "").trim().toLowerCase();
   if (key === "annual") return 199;
   if (key === "founding") return 9.99;
+  if (key === "early_user" || key === "early-user" || key === "earlyuser") return 13.99;
   if (key === "monthly" || key === "pro") return 19.99;
   return 0;
 }

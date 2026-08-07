@@ -34,6 +34,11 @@ services:
         sync: false
       - key: STRIPE_PRICE_PRO_ANNUAL
         sync: false
+      - key: STRIPE_PRICE_EARLY_USER_MONTHLY
+        sync: false
+      # Keep false until Early User checkout has passed verification.
+      - key: EARLY_USER_PRICING_ENABLED
+        value: "false"
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL

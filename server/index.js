@@ -434,6 +434,8 @@ const planConfig = {
     priceEnv: "STRIPE_PRICE_FOUNDING_MONTHLY",
     amount: "$9.99/month",
     priceLock: "Lifetime",
+    offer: "founding",
+    displayName: "Founding Member",
   },
   monthly: {
     plan: "Pro",
@@ -442,6 +444,18 @@ const planConfig = {
     priceEnv: "STRIPE_PRICE_PRO_MONTHLY",
     amount: "$19.99/month",
     priceLock: "",
+    offer: "pro_monthly",
+    displayName: "Pro",
+  },
+  early_user: {
+    plan: "Pro",
+    label: "Pro Early User",
+    cadence: "monthly",
+    priceEnv: "STRIPE_PRICE_EARLY_USER_MONTHLY",
+    amount: "$13.99/month",
+    priceLock: "Early User",
+    offer: "early_user",
+    displayName: "Pro — Early User",
   },
   annual: {
     plan: "Pro",
@@ -450,15 +464,27 @@ const planConfig = {
     priceEnv: "STRIPE_PRICE_PRO_ANNUAL",
     amount: "$199/year",
     priceLock: "",
+    offer: "pro_annual",
+    displayName: "Pro Annual",
   },
 };
 
+// Required for standard Stripe checkout readiness. Early User price is optional
+// and only required when EARLY_USER_PRICING_ENABLED is on.
 const stripeEnvKeys = [
   "STRIPE_SECRET_KEY",
   "STRIPE_PRICE_FOUNDING_MONTHLY",
   "STRIPE_PRICE_PRO_MONTHLY",
   "STRIPE_PRICE_PRO_ANNUAL",
 ];
+
+const EARLY_USER_PRICING_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(process.env.EARLY_USER_PRICING_ENABLED || "false").trim().toLowerCase(),
+);
+
+function earlyUserPricingAvailable() {
+  return EARLY_USER_PRICING_ENABLED && isConfiguredValue(process.env.STRIPE_PRICE_EARLY_USER_MONTHLY);
+}
 
 function isConfiguredValue(value) {
   const text = String(value || "").trim();
@@ -701,7 +727,10 @@ function stripeConfigStatus() {
       founding: maskedValue(process.env.STRIPE_PRICE_FOUNDING_MONTHLY),
       monthly: maskedValue(process.env.STRIPE_PRICE_PRO_MONTHLY),
       annual: maskedValue(process.env.STRIPE_PRICE_PRO_ANNUAL),
+      earlyUser: maskedValue(process.env.STRIPE_PRICE_EARLY_USER_MONTHLY),
     },
+    earlyUserPricingEnabled: EARLY_USER_PRICING_ENABLED,
+    earlyUserPricingAvailable: earlyUserPricingAvailable(),
     checkoutEndpoint: "/api/create-checkout-session",
     customerPortalEndpoint: "/api/create-customer-portal-session",
     webhookEndpoint: "/api/webhooks/stripe",
@@ -5348,6 +5377,7 @@ function foundingStatusPayload(store = readStore()) {
   purgeExpiredFoundingReservations(store);
   const claimed = foundingClaimedCount(store);
   const remaining = foundingSpotsRemaining(store);
+  const earlyUserEnabled = earlyUserPricingAvailable();
   return {
     limit: FOUNDING_LIMIT,
     claimed,
@@ -5356,7 +5386,18 @@ function foundingStatusPayload(store = readStore()) {
     foundingPrice: "$9.99/month",
     regularMonthlyPrice: "$19.99/month",
     regularAnnualPrice: "$199/year",
-    spotsLeftMessage: "Pro is $19.99/month.",
+    earlyUserPricingEnabled: earlyUserEnabled,
+    earlyUserPrice: "$13.99/month",
+    earlyUserPriceAmount: "13.99",
+    earlyUserOfferName: "Limited-Time Early User Price",
+    earlyUserLockCopy: "Lock in $13.99/month while your subscription remains active.",
+    earlyUserSupportingCopy: "Join Little Learner Hub early and lock in discounted access while we continue building the complete childcare provider platform.",
+    earlyUserAvailabilityCopy: "Limited-Time Early User Price – $13.99/month",
+    primaryPaidOffer: earlyUserEnabled ? "early_user" : "monthly",
+    primaryMonthlyPrice: earlyUserEnabled ? "$13.99/month" : "$19.99/month",
+    spotsLeftMessage: earlyUserEnabled
+      ? "Limited-Time Early User Price – $13.99/month (regularly $19.99/month)."
+      : "Pro is $19.99/month.",
     acquisitionClosed: true,
   };
 }
@@ -5369,6 +5410,9 @@ function foundingMemberNumberForEmail(store, email) {
 }
 
 function foundingSoldOutMessage(store = peekStore()) {
+  if (earlyUserPricingAvailable()) {
+    return "Choose Limited-Time Early User Price ($13.99/month), Pro Monthly ($19.99/month), or Pro Annual ($199/year).";
+  }
   return "Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year).";
 }
 
@@ -5679,10 +5723,12 @@ function statusForPlan(planKey, stripeSubscriptionId, status) {
   const periodEndIso = new Date(Date.now() + periodDays * 86400000).toISOString();
   return {
     plan: config.plan,
+    planDisplayName: config.displayName || config.label,
     subscriptionCadence: config.cadence,
     subscriptionStatus: `${config.label} Subscription ${normalizedStatus || "Active"}`,
     monthlyPrice: config.amount,
     priceLock: config.priceLock,
+    billingOffer: config.offer || "",
     stripeSubscriptionId: stripeSubscriptionId || "",
     stripeSubscriptionStatus,
     currentPeriodEnd: periodEndIso,
@@ -5976,7 +6022,7 @@ function applyCheckoutMembershipUpgrade(email, {
   const checkoutAlertRef = subscriptionId || sessionId || `checkout:${cleanEmail}:${Date.now()}`;
   const shouldDeliverTrialWelcome = promoTrialDays > 0;
   const shouldDeliverProWelcome = !shouldDeliverTrialWelcome
-    && (planKey === "monthly" || planKey === "annual" || planKey === "founding");
+    && (planKey === "monthly" || planKey === "annual" || planKey === "founding" || planKey === "early_user");
   void (async () => {
     try {
       if (typeof onboardingWelcome?.maybeDeliverOnTrialStart === "function" && shouldDeliverTrialWelcome) {
@@ -5997,6 +6043,9 @@ function applyCheckoutMembershipUpgrade(email, {
       } else if (planKey === "annual") {
         type = "admin_new_annual";
         title = "New Pro Annual signup";
+      } else if (planKey === "early_user") {
+        type = "admin_new_early_user";
+        title = isTrial ? "New Early User trial started" : "New Early User signup";
       } else if (isTrial) {
         type = "admin_new_trial";
         title = "New trial started";
@@ -6083,6 +6132,7 @@ function planKeyFromStripe(subscription, user = {}) {
   const pendingPlan = String(user.pendingPlan || "").trim().toLowerCase();
   if (planConfig[pendingPlan]) return pendingPlan;
   if (user.foundingMemberActive || String(user.plan || "").trim() === "Founding") return "founding";
+  if (membershipAccess.membershipIsEarlyUser(user) && user.subscriptionCadence !== "annual") return "early_user";
   if (user.subscriptionCadence === "annual") return "annual";
   return "monthly";
 }
@@ -6246,6 +6296,7 @@ function getPriceId(planKey) {
   if (STRIPE_CHECKOUT_SIMULATION) {
     if (planKey === "founding") return "price_sim_founding_monthly";
     if (planKey === "monthly") return "price_sim_pro_monthly";
+    if (planKey === "early_user") return "price_sim_early_user_monthly";
     if (planKey === "annual") return "price_sim_pro_annual";
   }
   return "";
@@ -8959,6 +9010,11 @@ async function handleCheckout(request, response) {
   seedDefaultPromoCodes(store);
   purgeExpiredFoundingReservations(store, { persist: true });
   let requestedPlan = body.plan || "monthly";
+  // Early User is acquisition-only. Existing $13.99 subs keep working via price ID
+  // mapping even when the promo flag is later disabled.
+  if (requestedPlan === "early_user" && !earlyUserPricingAvailable()) {
+    requestedPlan = "monthly";
+  }
   if (requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0) {
     jsonResponse(response, 409, {
       error: foundingSoldOutMessage(store),
@@ -9128,8 +9184,12 @@ async function handleCheckout(request, response) {
       payment_method_collection: "always",
       "metadata[email]": email,
       "metadata[plan]": planKey,
+      "metadata[offer]": planConfig[planKey]?.offer || "",
+      "metadata[billing_price]": planConfig[planKey]?.amount || "",
       "subscription_data[metadata][email]": email,
       "subscription_data[metadata][plan]": planKey,
+      "subscription_data[metadata][offer]": planConfig[planKey]?.offer || "",
+      "subscription_data[metadata][billing_price]": planConfig[planKey]?.amount || "",
       success_url: body.successUrl || `${SITE_URL}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body.cancelUrl || `${SITE_URL}?checkout=cancel`,
     };
@@ -9314,9 +9374,11 @@ function legacyPlanFromSubscription(subscription) {
   if (!subscription) return { plan: "Free", planDisplayName: "Free" };
   const planKey = planKeyFromStripe(subscription, {});
   if (planKey === "founding") return { plan: "Founding", planDisplayName: "Founding Member" };
+  if (planKey === "early_user") return { plan: "Pro", planDisplayName: "Pro — Early User" };
   if (planKey === "monthly" || planKey === "annual") return { plan: "Pro", planDisplayName: "Pro" };
   const metadataPlan = String(subscription?.metadata?.plan || "").trim().toLowerCase();
   if (metadataPlan.includes("found")) return { plan: "Founding", planDisplayName: "Founding Member" };
+  if (metadataPlan.includes("early")) return { plan: "Pro", planDisplayName: "Pro — Early User" };
   if (metadataPlan.includes("pro")) return { plan: "Pro", planDisplayName: "Pro" };
   return { plan: "Free", planDisplayName: "Free" };
 }
@@ -9878,9 +9940,21 @@ function membershipSummaryForUser(user, storeRef = null) {
     foundingPriceLock: user?.foundingMemberActive ? (user?.priceLock || "Lifetime") : "",
     displayPrice: hasPro
       ? (inheritedPro
-        ? (membershipAccess.membershipFoundingActive(owner) ? "$9.99/month" : (owner?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month"))
-        : (membershipUserIsFounding(user) ? "$9.99/month" : user?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month"))
+        ? (owner?.monthlyPrice
+          || (membershipAccess.membershipFoundingActive(owner) ? "$9.99/month"
+            : owner?.subscriptionCadence === "annual" ? "$199/year"
+              : membershipAccess.membershipIsEarlyUser(owner) ? "$13.99/month"
+                : "$19.99/month"))
+        : (user?.monthlyPrice
+          || (membershipUserIsFounding(user) ? "$9.99/month"
+            : user?.subscriptionCadence === "annual" ? "$199/year"
+              : membershipAccess.membershipIsEarlyUser(user) ? "$13.99/month"
+                : "$19.99/month")))
       : "$0/month",
+    billingOffer: inheritedPro
+      ? (owner?.billingOffer || "")
+      : (user?.billingOffer || ""),
+    priceLock: user?.priceLock || "",
     subscriptionStartedAt: user?.subscriptionStartedAt || "",
     trialStart: user?.trialStart || "",
     trialEnd: user?.trialEnd || "",
@@ -17199,6 +17273,7 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
     free: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "free").length,
     trial: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial").length,
     pro: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "pro").length,
+    early_user: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "early_user").length,
     founding: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "founding").length,
     pastDue: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "past_due").length,
   };
@@ -17244,8 +17319,10 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
   const monthlyRecurringRevenue = Number(paidUsers.reduce((total, user) => {
     const price = moneyNumber(user.monthlyPrice || user.displayPrice || "");
     if (price > 0) return total + (String(user.subscriptionCadence || "").toLowerCase().includes("year") ? Number((price / 12).toFixed(2)) : price);
-    if (membershipAccess.membershipCurrentAccessKey(user) === "founding") return total + 9.99;
-    if (membershipAccess.membershipCurrentAccessKey(user) === "pro") return total + 19.99;
+    const accessKey = membershipAccess.membershipCurrentAccessKey(user);
+    if (accessKey === "founding") return total + 9.99;
+    if (accessKey === "early_user") return total + 13.99;
+    if (accessKey === "pro") return total + 19.99;
     return total;
   }, 0).toFixed(2));
   const trialEndingSoon = trialUsers.filter((user) => {
@@ -17408,6 +17485,7 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
       freeUsers: currentAccessCounts.free,
       trialUsers: trialUsers.length,
       proUsers: currentAccessCounts.pro,
+      earlyUserUsers: currentAccessCounts.early_user,
       foundingMembers: currentAccessCounts.founding,
       homeDaycareAccounts,
       centerAccounts,
