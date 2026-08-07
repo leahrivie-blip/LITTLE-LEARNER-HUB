@@ -20,17 +20,19 @@ Close superseded intermediate draft PRs after merge — do not merge them separa
 
 ## Feature flags after production deploy
 
-| Flag | Deploy default | Admin-only review | Customers |
-| --- | --- | --- | --- |
-| `teachingKitViewer` | `false` | keep **false** | keep **false** |
-| `teachingKitPrintCenter` | `false` | keep **false** | keep **false** |
-| `teachingKitAttachments` | `false` | keep **false** | keep **false** |
-| `teachingKitEnrichmentEditor` | `false` | may set **true** | N/A (admin-only UI) |
-| `teachingKitAuthoring` | `false` | may set **true** | N/A |
-| `teachingKitCurriculumDirector` | `false` | may set **true** | N/A |
-| `teachingKitQualityReview` | `false` | may set **true** | N/A |
+Code / new-environment defaults stay fail-closed (`false`). Production site-content may enable customer Viewer/Print after owner approval — see [CUSTOMER_LAUNCH.md](./CUSTOMER_LAUNCH.md).
 
-There is **no per-account Teaching Kit flag**. Admin tools require an admin session **and** their flags. Member-facing Viewer/Print must stay off so customers never see Teaching Kits.
+| Flag | Code default | Production (2026-08-07) | Notes |
+| --- | --- | --- | --- |
+| `teachingKitViewer` | `false` | **true** | Customer Teaching Kit workspace |
+| `teachingKitPrintCenter` | `false` | **true** | Binder / print controls |
+| `teachingKitAttachments` | `false` | **false** | Keep off until Slice 1G |
+| `teachingKitEnrichmentEditor` | `false` | **true** | Admin-only Upgrade Lesson |
+| `teachingKitAuthoring` | `false` | **true** | Admin-only |
+| `teachingKitCurriculumDirector` | `false` | **true** | Admin-only |
+| `teachingKitQualityReview` | `false` | **true** | Admin-only |
+
+There is **no per-account Teaching Kit flag**. Admin tools require an admin session **and** their flags. Rollback customer visibility by setting Viewer/Print back to `false` via Admin Settings (flags-only save).
 
 ---
 
