@@ -476,6 +476,28 @@ async function main() {
       .filter((p) => p && p.locked !== true);
     assert.equal(legacyUnlocked.length, 10, "legacy-labeled Free must also unlock exactly 10 (no bypass)");
 
+    // Free members may authorize Free starter prints (uncounted) — not trial-gated.
+    const freeAuthStarter = await request("POST", "/api/trial-curriculum-exports/authorize", {
+      idempotencyKey: "free-starter-print-1",
+      resourceType: "lesson-plan",
+      resourceId: freeId,
+      action: "print",
+    }, authHeaders("free.user@test.local"));
+    assert.equal(freeAuthStarter.status, 200, freeAuthStarter.text?.slice?.(0, 200) || freeAuthStarter.text);
+    assert.equal(freeAuthStarter.json.allowed, true);
+    assert.equal(freeAuthStarter.json.counted, false);
+    assert.equal(freeAuthStarter.json.watermark || "", "");
+
+    // Free members cannot authorize premium Pro curriculum prints.
+    const freeAuthPro = await request("POST", "/api/trial-curriculum-exports/authorize", {
+      idempotencyKey: "free-pro-print-1",
+      resourceType: "lesson-plan",
+      resourceId: "cur-lp-preschool-letters-and-sounds",
+      action: "print",
+    }, authHeaders("free.user@test.local"));
+    assert.equal(freeAuthPro.status, 403);
+    assert.equal(freeAuthPro.json.allowed, false);
+
     // Free starter generate has no trial watermark requirement
     const freeGen = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
       resourceId: freeId,
