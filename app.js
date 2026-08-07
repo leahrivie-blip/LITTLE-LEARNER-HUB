@@ -5269,6 +5269,11 @@ function syncPublicFoundingOfferUi() {
     }
     if (cta && cta.matches("[data-checkout-plan]")) {
       cta.dataset.checkoutPlan = primaryPaidOffer();
+      if (earlyUser) {
+        cta.textContent = `Choose Early User — ${offeredProMonthlyLabel()}`;
+      } else if (/Choose Pro|Early User/i.test(cta.textContent || "")) {
+        cta.textContent = "Choose Pro Monthly";
+      }
     }
   }
 
@@ -14802,7 +14807,14 @@ function updateAuthButtons() {
     delete signIn.dataset.view;
     signUp.textContent = foundingOpenForAcquisition()
       ? "Get Started — $9.99/month"
-      : "Get Started — $19.99/month";
+      : (earlyUserPricingEnabled()
+        ? `Get Started — ${offeredProMonthlyLabel()}`
+        : `Get Started — ${regularProMonthlyLabel()}`);
+    if (earlyUserPricingEnabled()) {
+      signUp.dataset.checkoutPlan = "early_user";
+    } else {
+      delete signUp.dataset.checkoutPlan;
+    }
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
