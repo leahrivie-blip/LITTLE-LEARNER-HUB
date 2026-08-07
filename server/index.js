@@ -934,7 +934,7 @@ function homeDaycareHubStatus() {
     testingOnly: true,
     envVar: "HOME_DAYCARE_HUB_TESTING",
     features: enabled
-      ? ["forms-pack", "ai-drafts", "family-hub", "staff-visibility", "trainings", "packets"]
+      ? ["forms-pack", "ai-drafts", "family-hub", "family-tuition", "staff-visibility", "trainings", "packets"]
       : [],
     familyHubStorage,
     note: enabled
@@ -6176,6 +6176,21 @@ async function stripeRequest(pathname, params) {
       return { id: `cus_sim_${crypto.randomBytes(6).toString("hex")}`, email: params.email || "" };
     }
     if (pathname === "checkout/sessions") {
+      const purpose = params["metadata[purpose]"] || "";
+      if (purpose === "family_tuition" || params.mode === "payment") {
+        const invoiceId = params["metadata[invoiceId]"] || "";
+        return {
+          id: `cs_sim_ftu_${crypto.randomBytes(8).toString("hex")}`,
+          url: `${SITE_URL}/?familyTuition=paid&invoice=${encodeURIComponent(invoiceId)}`,
+          mode: "payment",
+          metadata: {
+            purpose: "family_tuition",
+            invoiceId,
+            householdId: params["metadata[householdId]"] || "",
+            ownerEmail: params["metadata[ownerEmail]"] || "",
+          },
+        };
+      }
       const plan = params["metadata[plan]"] || params["subscription_data[metadata][plan]"] || "monthly";
       const price = params["line_items[0][price]"] || "";
       const trialDays = params["subscription_data[trial_period_days]"] || "";
@@ -10182,6 +10197,28 @@ async function handleStripeWebhook(request, response) {
     const WEBHOOK_DEFER = usePostgresStore() ? { deferPersist: true } : {};
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
+      if (String(session?.metadata?.purpose || "") === "family_tuition") {
+        const store = readStore();
+        const result = familyTuitionApi.applyTuitionCheckoutPaid(store, {
+          invoiceId: session.metadata?.invoiceId || "",
+          sessionId: session.id || "",
+          amountCents: Number(session.amount_total || 0),
+          paymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : "",
+          method: "stripe",
+        });
+        if (result.ok) {
+          try { await persistFamilyHubStore(store); } catch (_e) { writeStore(store); }
+          console.log(`[family-tuition] checkout paid invoice=${session.metadata?.invoiceId || ""} session=${session.id}`);
+        } else {
+          console.warn(`[family-tuition] checkout completed but invoice missing session=${session.id}`);
+        }
+        if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+        if (usePostgresStore() && postgresPool && databaseReady) {
+          if (!(await flushDurableStoreOrWebhookError(response))) return;
+        }
+        jsonResponse(response, 200, { received: true, familyTuition: true });
+        return;
+      }
       const store = readStore();
       const userEntry = findUserEntryByStripeCustomer(
         store,
@@ -14033,6 +14070,7 @@ async function handleChildData(request, response) {
 const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const familyHubLib = require("./family-hub-lib");
+const { createFamilyTuitionApi } = require("./family-tuition-api");
 const LLH_ALLOW_EPHEMERAL_FAMILY_HUB = ["1", "true", "yes", "on"].includes(
   String(process.env.LLH_ALLOW_EPHEMERAL_FAMILY_HUB || "").trim().toLowerCase(),
 );
@@ -15917,6 +15955,25 @@ async function handleFamilyHubSeedDemo(request, response) {
     message: "Seeded Family Hub demo household with Today feed data, guardians, messages, calendar events, forms, and shared updates.",
   });
 }
+
+const familyTuitionApi = createFamilyTuitionApi({
+  requireHomeDaycareHubTesting,
+  jsonResponse,
+  readJson,
+  readStore,
+  writeStore,
+  persistFamilyHubStore,
+  normalizeEmail,
+  resolveScheduleIdentity,
+  resolveFamilySession,
+  requireFamilyHubProviderManager,
+  listFamilyHouseholdsForOwner,
+  ensureFamilyHubCollections,
+  stripeRequest,
+  SITE_URL,
+  STRIPE_CHECKOUT_SIMULATION,
+  STRIPE_SECRET_KEY,
+});
 
 const HDH_TESTER_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
@@ -28659,6 +28716,35 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "DELETE" && url.pathname.startsWith("/api/family-hub/households/")) {
       const householdId = decodeURIComponent(url.pathname.slice("/api/family-hub/households/".length));
       return await handleFamilyHubHouseholdRevoke(request, response, householdId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/family-tuition/policy") {
+      return await familyTuitionApi.handlePolicyGet(request, response);
+    }
+    if (request.method === "PUT" && url.pathname === "/api/family-tuition/policy") {
+      return await familyTuitionApi.handlePolicyPut(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/family-tuition/dashboard") {
+      return await familyTuitionApi.handleDashboardGet(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/family-tuition/invoices") {
+      return await familyTuitionApi.handleInvoiceCreate(request, response);
+    }
+    if (request.method === "POST" && url.pathname.startsWith("/api/family-tuition/invoices/") && url.pathname.endsWith("/mark-paid")) {
+      const invoiceId = decodeURIComponent(url.pathname.slice("/api/family-tuition/invoices/".length, -"/mark-paid".length));
+      return await familyTuitionApi.handleMarkPaid(request, response, invoiceId);
+    }
+    if (request.method === "POST" && url.pathname.startsWith("/api/family-tuition/invoices/") && url.pathname.endsWith("/void")) {
+      const invoiceId = decodeURIComponent(url.pathname.slice("/api/family-tuition/invoices/".length, -"/void".length));
+      return await familyTuitionApi.handleVoidInvoice(request, response, invoiceId);
+    }
+    if (request.method === "POST" && url.pathname === "/api/family-tuition/reminder-draft") {
+      return await familyTuitionApi.handleReminderDraft(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/family-tuition/me") {
+      return await familyTuitionApi.handleParentBillingGet(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/family-tuition/pay") {
+      return await familyTuitionApi.handleParentPay(request, response);
     }
     if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/tester-invites") return await handleHdhTesterInvitesList(request, response);
     if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites") return await handleHdhTesterInviteCreate(request, response);

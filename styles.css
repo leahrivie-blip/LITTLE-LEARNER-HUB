@@ -26664,6 +26664,35 @@ body.work-mode-nav [data-legacy-nav="true"] {
   margin-top: 16px;
 }
 
+.ftu-policy-form,
+.ftu-invoice-form {
+  max-width: 720px;
+}
+
+.ftu-family-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ftu-reminder-preview {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(36, 48, 71, 0.12);
+  background: rgba(255, 252, 248, 0.9);
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #243047;
+}
+
+.ftu-invoice-list .ftu-invoice-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .work-pulse-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
