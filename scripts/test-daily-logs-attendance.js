@@ -93,7 +93,9 @@ function staticContractTests() {
   assert.match(appJs, /function dlcFinalizeReportPreview/);
   assert.match(appJs, /function dlcStripParentFacingMarkdown/);
   assert.match(appJs, /function dlcFamilyLabelForChild/);
-  assert.match(appJs, /AI Draft — not shared yet/);
+  assert.match(appJs, /Ready to send — not shared yet/);
+  assert.match(appJs, /Send to Family Hub/);
+  assert.match(appJs, /data-dlc-report-improve-wording/);
   assert.match(appJs, /Cancel — keep internal/);
   assert.match(appJs, /Saved for \$\{savedIds\.length\} of \$\{childIds\.length\}/);
   assert.match(appJs, /child_data_mutations_required|no_pending_mutations/);
@@ -600,7 +602,7 @@ async function main() {
           return { plain, letter: /size: Letter/.test(String(printTextDocument)) || true };
         })();
         return {
-          draftLabel: /AI Draft|Draft — not shared/i.test(text),
+          draftLabel: /Ready to send — not shared|AI Draft|Draft — not shared/i.test(text),
           namesChild: /Ava Tester/i.test(text),
           namesFamily: /Taylor Family/i.test(text),
           namesType: /daily report/i.test(text),

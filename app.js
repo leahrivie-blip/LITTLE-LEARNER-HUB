@@ -44771,7 +44771,7 @@ function renderDlcDashboard(records) {
         <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Group Meal</button>
         <button class="ghost-button" data-dlc-print-all type="button" ${activeChildren.length ? "" : "disabled aria-disabled=\"true\""}>Print / Preview Reports</button>
       </div>
-      <p class="dlc-sub dlc-privacy-note">Family-facing reports are drafts until you preview and choose Share with Family. Internal Only entries stay private.</p>
+      <p class="dlc-sub dlc-privacy-note">Family-facing reports are drafts until you preview and choose Send to Family Hub. Internal Only entries stay private.</p>
 
       ${allActiveChildren.length ? `
         ${activeChildren.length ? `
