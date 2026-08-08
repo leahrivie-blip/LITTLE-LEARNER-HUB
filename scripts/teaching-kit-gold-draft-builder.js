@@ -301,13 +301,28 @@ function buildActivityPatch(activity, { ageBand, theme, usedTipsSet } = {}) {
 function mergeSongFromPack(entry, theme, bannedSet) {
   const title = text(entry?.title);
   if (!title || bannedSet.has(title.toLowerCase())) return null;
-  return buildCompleteSong({
+  // Also ban partial matches (e.g. "Baby Shark Feelings Version")
+  for (const banned of bannedSet) {
+    if (banned && title.toLowerCase().includes(banned)) return null;
+  }
+  const song = buildCompleteSong({
     title,
     theme,
     day: entry.day || entry.dayPlacement || entry.weekdayPlacement,
     originalLyrics: entry.lyrics || entry.originalLyrics,
     traditional: entry.traditional === true || /public_domain|traditional/i.test(text(entry.rightsStatus)),
   });
+  if (text(entry.motions)) song.motions = text(entry.motions);
+  if (text(entry.teacherDirections)) song.teacherDirections = text(entry.teacherDirections);
+  if (text(entry.whenToUse)) song.whenToUse = text(entry.whenToUse);
+  if (text(entry.suggestedPace)) song.suggestedPace = text(entry.suggestedPace);
+  if (text(entry.transitionPurpose)) song.transitionPurpose = text(entry.transitionPurpose);
+  if (text(entry.rightsStatus)) {
+    song.rightsStatus = /public_domain|traditional/i.test(text(entry.rightsStatus))
+      ? "public_domain"
+      : "original";
+  }
+  return song;
 }
 
 function mergeBookFromPack(entry) {
@@ -351,11 +366,20 @@ function buildWeekDraft({ plan, activities, themePack } = {}) {
   const songs = packSongs.length ? packSongs : planSongs;
 
   const packBooks = asArray(pack.books).map(mergeBookFromPack).filter(Boolean);
+  // Prefer pack books (complete teaching fields). Only keep legacy plan books that
+  // are not duplicates and already have discussion prompts / whyThisBook.
+  const packTitles = new Set(packBooks.map((b) => b.title.toLowerCase()));
   const planBooks = asArray(p.books)
     .map(mergeBookFromPack)
     .filter(Boolean)
-    .filter((b) => !packBooks.some((pb) => pb.title.toLowerCase() === b.title.toLowerCase()));
-
+    .filter((b) => !packTitles.has(b.title.toLowerCase()))
+    .filter((b) => {
+      const qs = asArray(b.beforeReadingQuestions).length
+        + asArray(b.duringReadingPrompts).length
+        + asArray(b.afterReadingQuestions).length;
+      return qs > 0 && text(b.author) && text(b.whyThisBook);
+    });
+  const books = packBooks.length ? [...packBooks, ...planBooks] : planBooks;
   const toolkit = buildTeacherToolkit({ theme, ageBand });
   if (text(pack.safetyNotes)) toolkit.safetyInclusionNotes = text(pack.safetyNotes);
 
@@ -368,7 +392,7 @@ function buildWeekDraft({ plan, activities, themePack } = {}) {
     vocabCards: asArray(pack.vocabCards),
     printableIdeas: asArray(pack.printableIdeas).length ? asArray(pack.printableIdeas) : asArray(p.printableIdeas),
     songs,
-    books: [...packBooks, ...planBooks],
+    books,
     teacherToolkit: toolkit,
   };
   const printableIds = asArray(pack.printableIds).length ? asArray(pack.printableIds) : asArray(p.resourceIds);

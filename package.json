@@ -28,6 +28,7 @@
     "test:teaching-kit-quality-review": "NODE_ENV=test node scripts/test-teaching-kit-quality-review.js",
     "test:teaching-kit-admin-workflow-scoring": "NODE_ENV=test node scripts/test-teaching-kit-admin-workflow-scoring.js",
     "test:teaching-kit-curriculum-production": "NODE_ENV=test node scripts/test-teaching-kit-curriculum-production.js",
+    "upgrade:next-10-gold": "NODE_ENV=test node scripts/run-next-10-gold-upgrade.js",
     "test:teaching-kit-integrated-release": "NODE_ENV=test node scripts/test-teaching-kit-integrated-release.js",
     "test:signup-transactional-emails": "NODE_ENV=test node scripts/test-signup-transactional-emails.js",
     "test:pr439-production-equivalent": "NODE_ENV=test node scripts/verify-pr439-production-equivalent.js",

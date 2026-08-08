@@ -1,0 +1,763 @@
+{
+  "planId": "cur-lp-infant-baby-s-first-conversations",
+  "title": "Baby's First Conversations",
+  "age": "Infant 0–6 Months",
+  "batchId": "gold-upgrade-batch-1-2026-08-08",
+  "enrichmentDraft": {
+    "activities": {
+      "cur-lp-infant-baby-s-first-conversations:monday:item-fdaf40552cd5755c": {
+        "teacherTips": [
+          "Sit at eye level; speak, then pause long enough for a response.",
+          "Follow infant cues—if gaze breaks, shorten and try again later."
+        ],
+        "substitutions": [
+          {
+            "need": "Floor mat",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Makes eye contact\n- Coos or babbles\n- Responds to facial expressions",
+          "How does the child engage with Face-to-Face Chat Time?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "face",
+          "look",
+          "touch",
+          "soft",
+          "baby's"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:monday:item-c136e2488fea8ff3": {
+        "teacherTips": [
+          "Set materials for Mirror Conversations at child height before the invitation.",
+          "Model one move for Mirror Conversations, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Baby-safe mirror",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Looks at reflection\n- Smiles or vocalizes\n- Watches facial expressions",
+          "How does the child engage with Mirror Conversations?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "mirror",
+          "conversations",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:monday:item-f69c3e2c8f826546": {
+        "teacherTips": [
+          "Keep circle tiny (often one-to-one). Use Hello Little Friend rather than long group songs.",
+          "No pressure for babies to perform sounds."
+        ],
+        "substitutions": [
+          {
+            "need": "Music player",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Responds to voice\n- Watches teacher\n- Shows excitement during songs",
+          "How does the child engage with Hello Song Circle?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "hello",
+          "song",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:tuesday:item-8db593136f77f333": {
+        "teacherTips": [
+          "Set materials for Puppet Talk Time at child height before the invitation.",
+          "Model one move for Puppet Talk Time, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Soft hand puppet",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Watches puppet\n- Responds to voice\n- Vocalizes during interaction",
+          "How does the child engage with Puppet Talk Time?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "puppet",
+          "talk",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:tuesday:item-2c031d98045433ce": {
+        "teacherTips": [
+          "Use laminated photos only; avoid small loose prints.",
+          "Name familiar people slowly and watch for recognition cues."
+        ],
+        "substitutions": [
+          {
+            "need": "Family photos",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Looks at photos\n- Shows recognition\n- Vocalizes during activity",
+          "How does the child engage with Family Photo Conversations?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "family",
+          "photo",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:wednesday:item-9b7948eedabe33b4": {
+        "teacherTips": [
+          "Set materials for Coo Back Conversation at child height before the invitation.",
+          "Model one move for Coo Back Conversation, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Quiet space",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Responsive caregiver voice",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Vocalizes\n- Watches mouth\n- Takes another turn",
+          "How does the child engage with Coo Back Conversation?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "back",
+          "conversation",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:wednesday:item-f595464ad83bd2e9": {
+        "teacherTips": [
+          "Set materials for Call and Response Song at child height before the invitation.",
+          "Model one move for Call and Response Song, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Simple call-and-response song",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Listens to line\n- Vocalizes in pause\n- Shows engagement",
+          "How does the child engage with Call and Response Song?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "call",
+          "response",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:wednesday:item-9279be409b47c471": {
+        "teacherTips": [
+          "Set materials for Puppet Says Hello Chat at child height before the invitation.",
+          "Model one move for Puppet Says Hello Chat, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Soft hand puppet",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "- Looks at puppet\n- Responds\n- Shifts gaze to caregiver",
+          "How does the child engage with Puppet Says Hello Chat?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "puppet",
+          "says",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:thursday:item-243b5b7fafb2e58c": {
+        "teacherTips": [
+          "Set materials for Mirror Talk Time at child height before the invitation.",
+          "Model one move for Mirror Talk Time, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Baby-safe mirror",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Looks at mirror\n- Looks at caregiver\n- Responds to talk",
+          "How does the child engage with Mirror Talk Time?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "mirror",
+          "talk",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:thursday:item-1c300817893183f3": {
+        "teacherTips": [
+          "Set materials for Face Touch Name Game at child height before the invitation.",
+          "Model one move for Face Touch Name Game, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Clean hands",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Soft voice",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "- Tolerates gentle touch\n- Watches face\n- Vocalizes",
+          "How does the child engage with Face Touch Name Game?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "face",
+          "touch",
+          "look",
+          "soft",
+          "baby's"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation.",
+        "imageBriefSetup": "Low table or floor setup for Face Touch Name Game: ordinary Baby's First Conversations materials, natural light, no staged clutter."
+      },
+      "cur-lp-infant-baby-s-first-conversations:thursday:item-28341092a44a2b30": {
+        "teacherTips": [
+          "Set materials for Photo Chat Album at child height before the invitation.",
+          "Model one move for Photo Chat Album, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Laminated family photos",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Looks at photo\n- Shifts attention\n- Stays socially engaged",
+          "How does the child engage with Photo Chat Album?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "photo",
+          "chat",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:friday:item-559b53ce3e12c79d": {
+        "teacherTips": [
+          "Support head and trunk fully; match bounce intensity to infant comfort.",
+          "Stop immediately if baby arches away or fuss cues rise."
+        ],
+        "substitutions": [
+          {
+            "need": "Soft music",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Responds to hello\n- Vocalizes\n- Calms to sway",
+          "How does the child engage with Conversation Dance Hold?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "conversation",
+          "dance",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:friday:item-06fb5893f3bc70ea": {
+        "teacherTips": [
+          "Set materials for Talk-About-Play Basket at child height before the invitation.",
+          "Model one move for Talk-About-Play Basket, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Small basket of 2–3 toys",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Chooses toy\n- Vocalizes during play\n- Engages with narration",
+          "How does the child engage with Talk-About-Play Basket?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "talk",
+          "about",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      },
+      "cur-lp-infant-baby-s-first-conversations:friday:item-35815ed1c7f23b6d": {
+        "teacherTips": [
+          "Set materials for Week of Words Celebration at child height before the invitation.",
+          "Model one move for Week of Words Celebration, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Favorite song or puppet",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "- Joins turn-taking\n- Shows recognition\n- Seeks closeness",
+          "How does the child engage with Week of Words Celebration?",
+          "What Baby's First Conversations words or gestures appear?"
+        ],
+        "vocabulary": [
+          "week",
+          "words",
+          "look",
+          "touch",
+          "soft"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Floor mat invitation with one clear visual focus.",
+        "outdoorAlternatives": "Shaded blanket with the same soft materials when weather allows.",
+        "adaptations": "Follow the infant's gaze and pace; offer Baby's First Conversations for short, supported exploration.",
+        "extensions": "Add a second soft prop only if the infant stays engaged.",
+        "cleanupTip": "Wipe mouthed items immediately; return extras to a closed bin.",
+        "safetyNotes": "Stay within arm's reach; no small parts; watch for overstimulation."
+      }
+    },
+    "week": {
+      "weeklyOverview": "Communication starts long before first words. This week focuses on warm, face-to-face turn-taking with infants (about 0–6 months) through mirrors, soft puppets, family photos, and responsive cooing games. Teachers pause after each greeting so babies can answer with eyes, smiles, kicks, or sounds. Experiences stay short and relationship-centered—no crafts, no finished products, just meaningful back-and-forth.",
+      "weeklyMaterials": "Baby-safe unbreakable mirrors\nLaminated family photo cards\nSoft hand puppets\nSmall soft plush faces\nSimple face picture cards\nSturdy board books with faces\nLightweight scarves for peek games\nGentle musical toys (soft volume)\nFloor mats / nursing pillows for supported sitting\nOptional voice-recording buttons with caregiver voices (secure cases)\nName tags with large print for caregivers",
+      "teacherPreparation": "Stage soft materials at floor level before arrival. Follow infant cues; keep Baby's First Conversations invitations short and responsive.",
+      "familyConnection": "Talk with your baby throughout daily routines—diapering, feeding, walks. Say one short sentence, then pause and watch for a blink, coo, or wiggle. Copy their sounds sometimes, then add a gentle new word. These tiny conversations build trust and early language even before words appear.",
+      "milestones": [
+        "Language: Coos, vocalizes, or mouth-moves in response to a caregiver’s greeting and pausing",
+        "SEL: Shares social smiles and sustained face-looking with a trusted adult",
+        "Motor: Turns head toward voices, tracks faces briefly, and activates arms/legs during playful talk",
+        "Cognition: Notices familiar faces in mirrors/photos and anticipates peek or turn-taking games"
+      ],
+      "vocabCards": [
+        "hello",
+        "hi",
+        "bye",
+        "baby",
+        "mama",
+        "dada",
+        "talk",
+        "listen",
+        "smile",
+        "friend",
+        "look",
+        "you"
+      ],
+      "printableIdeas": [
+        {
+          "title": "Hello Face Picture Card Pack",
+          "purpose": "Large smile/look/listen cards support Face-to-Face Chat Time and puppet greetings without cluttering the infant’s visual field."
+        },
+        {
+          "title": "Family Photo Conversation Frames",
+          "purpose": "Simple frame templates help teachers mount family photos securely for photo chat albums and goodbye rituals."
+        }
+      ],
+      "songs": [
+        {
+          "title": "Hello Little Friend",
+          "rightsStatus": "original",
+          "motions": "Gentle wave near midline; point softly toward baby’s eyes; place hand on your heart on wait; open palms inviting a response.",
+          "teacherDirections": "Sing face-to-face at baby’s eye level. After answer right, pause 3–5 seconds for any response, then mirror the baby’s sound or smile. Keep to one or two verses.",
+          "whenToUse": "Morning greeting, Hello Song Circle, or one-to-one arrival welcome",
+          "suggestedPace": "slow",
+          "transitionPurpose": "Signal connection time and practice conversational pausing",
+          "dayPlacement": "monday",
+          "lyrics": "Hello, hello, little friend,\nI see your eyes—let’s talk again.\nHello, hello, smile so bright,\nI wait for you to answer right."
+        },
+        {
+          "title": "Coo With Me",
+          "rightsStatus": "original",
+          "motions": "Exaggerate calm mouth shapes; lean in slightly on wait; soft sway; clap once gently at the end if baby enjoys sound.",
+          "teacherDirections": "Use during Coo Back Conversation. Model one sound, pause, then respond to whatever baby offers—including silence with a warm smile.",
+          "whenToUse": "Floor play vocal games and mid-morning connection resets",
+          "suggestedPace": "slow",
+          "transitionPurpose": "Prime listening/turn-taking before puppet or photo chats",
+          "dayPlacement": "wednesday",
+          "lyrics": "Coo with me, coo with you,\nI say ‘ah,’ then wait for you.\nBabble soft, babble near,\nYour little voice is music here."
+        },
+        {
+          "title": "The More We Get Together",
+          "rightsStatus": "public_domain",
+          "motions": "Soft side-to-side rock while holding baby securely; gentle wave on friends; smile connection at the close.",
+          "teacherDirections": "Use with supported hold or tummy-to-tummy. Keep volume soft. Invite a second caregiver to join for social warmth without crowding the infant’s face.",
+          "whenToUse": "Small-group closing or family photo conversation wind-down",
+          "suggestedPace": "moderate",
+          "transitionPurpose": "Celebrate belonging and close the conversation circle",
+          "dayPlacement": "friday",
+          "lyrics": "The more we get together, together, together,\nThe more we get together, the happier we’ll be.\nFor your friends are my friends, and my friends are your friends.\nThe more we get together, the happier we’ll be."
+        }
+      ],
+      "books": [
+        {
+          "title": "Hello, Baby!",
+          "author": "Mem Fox",
+          "whyThisBook": "Rhythmic greetings and animal faces invite infants to look, listen, and enjoy social hello language.",
+          "beforeReadingQuestions": [
+            "Shall we say hello to the baby on the cover?"
+          ],
+          "duringReadingPrompts": [
+            "Hello, little one—can you look at this face with me?"
+          ],
+          "afterReadingQuestions": [
+            "Let’s say hello one more time to you!"
+          ],
+          "vocabularyConnection": "hello",
+          "weekdayPlacement": "monday",
+          "substituteTitle": "Use Hello Little Friend chant with a soft puppet if the book is unavailable."
+        },
+        {
+          "title": "Baby Faces",
+          "author": "Margaret Miller",
+          "whyThisBook": "Real baby photographs support face recognition, emotion noticing, and early social talk.",
+          "beforeReadingQuestions": [
+            "Where is the baby’s smile?"
+          ],
+          "duringReadingPrompts": [
+            "Look—happy face! Can you smile too?"
+          ],
+          "afterReadingQuestions": [
+            "Which baby face did you like looking at?"
+          ],
+          "vocabularyConnection": "smile",
+          "weekdayPlacement": "tuesday",
+          "substituteTitle": "Offer family photo cards and name smile/look while baby gazes."
+        },
+        {
+          "title": "Global Babies",
+          "author": "The Global Fund for Children",
+          "whyThisBook": "Diverse baby photos build inclusive face interest and simple naming talk across cultures.",
+          "beforeReadingQuestions": [
+            "Let’s meet baby friends from near and far."
+          ],
+          "duringReadingPrompts": [
+            "Hello, baby—see the bright eyes?"
+          ],
+          "afterReadingQuestions": [
+            "We can say bye-bye to our book friends."
+          ],
+          "vocabularyConnection": "baby",
+          "weekdayPlacement": "thursday",
+          "substituteTitle": "Show two inclusive baby face cards and practice hello/bye with pauses."
+        }
+      ],
+      "teacherToolkit": {
+        "teacherPreparation": "Stage soft materials at floor level before arrival. Follow infant cues; keep Baby's First Conversations invitations short and responsive.",
+        "prepChecklist": [
+          "Set materials at child height before arrival",
+          "Preview one Baby's First Conversations invitation aloud",
+          "Place cleanup caddy near the play space",
+          "Review allergy and supervision notes for the day"
+        ],
+        "observationFocus": [
+          "Uses Baby's First Conversations vocabulary in play",
+          "Persists with a material or peer exchange",
+          "Shows interest or curiosity during invitations"
+        ],
+        "observationPrompts": [
+          "What language or gestures appear during play?",
+          "How does the child enter and leave the invitation?",
+          "Where do peers support or extend the idea?"
+        ],
+        "documentationPrompts": [
+          "Capture one moment of child-led exploration (with permission).",
+          "Note a verbatim quote or gesture tied to the theme."
+        ],
+        "teacherTips": [
+          "Model once, then narrate what you notice.",
+          "Offer two choices instead of open-ended demands.",
+          "Keep transitions short with a familiar song cue."
+        ],
+        "setupCleanupShortcuts": [
+          "Trays labeled and stacked by day",
+          "Damp cloth + bin for quick reset",
+          "Spare substitution basket on the shelf"
+        ],
+        "materialSubstitutions": [
+          {
+            "need": "specialty tray",
+            "use": "cookie sheet or shallow lid"
+          },
+          {
+            "need": "theme props",
+            "use": "printed picture cards or recycled clean containers"
+          }
+        ],
+        "mixedAgeAdaptations": "Pair floor play with a nearby toddler shelf; older peers model gentle touch only with adult nearby.",
+        "extraSupportAdaptations": "Sit beside, shorten the invitation, and offer hand-under-hand only when welcomed.",
+        "challengeExtensions": "Invite children to invent a new Baby's First Conversations rule, map, or story for peers.",
+        "safetyInclusionNotes": "For young infants, prioritize supervised floor or supported holds—never prop bottles or leave babies unattended on elevated surfaces. Mirrors must be unbreakable and secured. Scarves are for brief peek games only (no wrapping). Avoid small parts and finished-product crafts. Reduce noise and visual clutter so faces stay the main focus. Always follow cue-based caregiving: pause, watch, then respond.",
+        "endOfWeekReflection": "Which Baby's First Conversations words and strategies showed up most in play?",
+        "familyConnection": "Share one Baby's First Conversations word or song to try at home during ordinary routines.",
+        "notes": "Draft toolkit for owner review — enrichment draft only."
+      },
+      "printableIds": [
+        "cur-res-draft-infant-baby-s-first-conversations-picture-cards"
+      ]
+    },
+    "updatedAt": "2026-08-08T20:39:55.728Z",
+    "lastEditedBy": "leahivie@icloud.com (draft upgrade assistant)",
+    "previewReady": false,
+    "schemaVersion": "gold-upgrade-batch-1",
+    "batchId": "gold-upgrade-batch-1-2026-08-08"
+  },
+  "printableId": "cur-res-draft-infant-baby-s-first-conversations-picture-cards",
+  "printablePath": "docs/teaching-kit/qa/next-10-gold-upgrade/printables/cur-res-draft-infant-baby-s-first-conversations-picture-cards.html",
+  "legacySnapshot": {
+    "weeklyOverview": "Communication begins long before babies say their first words. Throughout this week, infants will engage in meaningful back-and-forth interactions through facial expressions, coos, babbles, songs, mirrors, gestures, and responsive caregiving. These experiences help build the foundation for language development, social connection, listening skills, and emotional security.",
+    "objectives": "- Encourage early communication skills\n- Support cooing, babbling, and vocal play\n- Strengthen caregiver-child interactions\n- Develop listening and turn-taking skills\n- Promote facial recognition and social engagement\n- Build early language foundations",
+    "activityTitles": [
+      "Face-to-Face Chat Time",
+      "Mirror Conversations",
+      "Hello Song Circle",
+      "Puppet Talk Time",
+      "Family Photo Conversations",
+      "Coo Back Conversation",
+      "Call and Response Song",
+      "Puppet Says Hello Chat",
+      "Mirror Talk Time",
+      "Face Touch Name Game",
+      "Photo Chat Album",
+      "Conversation Dance Hold",
+      "Talk-About-Play Basket",
+      "Week of Words Celebration"
+    ]
+  }
+}

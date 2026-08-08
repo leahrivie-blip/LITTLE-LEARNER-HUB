@@ -147,6 +147,27 @@
         ],
         "safetyEmphasis": "Allergy protocol required; have non-food apple props ready as the equal alternative."
       },
+      "Pick the Apples": { "imageRequirement": "not_needed" },
+      "Count the Apples": { "imageRequirement": "not_needed" },
+      "Apple Color Sort": { "imageRequirement": "not_needed" },
+      "Apple Color Dance": { "imageRequirement": "not_needed" },
+      "Big or Small?": { "imageRequirement": "not_needed" },
+      "Roll Like an Apple": { "imageRequirement": "not_needed" },
+      "Apple Basket Relay": { "imageRequirement": "not_needed" },
+      "Apple Stamp Painting": { "imageRequirement": "example_only" },
+      "Round Apple Collage": { "imageRequirement": "example_only" },
+      "Apple Color Investigation": { "imageRequirement": "not_needed" },
+      "Apple Measuring Station": { "imageRequirement": "optional" },
+      "Apple Taste Test": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Allergy check first; offer smell/look roles for non-tasters.",
+          "Serve tiny pieces and sanitize trays between groups."
+        ]
+      },
+      "Apple Market": { "imageRequirement": "optional" },
+      "Apple Life Cycle": { "imageRequirement": "setup_only" },
+      "Apple Harvest Celebration": { "imageRequirement": "not_needed" },
       "Apple Investigation": {
         "imageRequirement": "not_needed",
         "teacherTips": [
@@ -168,11 +189,12 @@
         ]
       },
       "My Apple Tree": {
-        "imageRequirement": "not_needed",
+        "imageRequirement": "example_only",
         "teacherTips": [
           "Open-ended collage/dough tree—avoid identical template products."
         ]
-      }
+      },
+      "My Favorite Apple Color": { "imageRequirement": "example_only" }
     },
     "bannedSongTitles": [
       "Baby Shark",

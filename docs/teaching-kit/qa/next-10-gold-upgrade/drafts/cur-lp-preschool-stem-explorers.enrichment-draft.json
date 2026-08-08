@@ -1,0 +1,1000 @@
+{
+  "planId": "cur-lp-preschool-stem-explorers",
+  "title": "STEM Explorers",
+  "age": "Preschool 3-5 Years",
+  "batchId": "gold-upgrade-batch-1-2026-08-08",
+  "enrichmentDraft": {
+    "activities": {
+      "cur-lp-preschool-stem-explorers:monday:item-preschool-stem-explorers-monday-1": {
+        "teacherTips": [
+          "Set materials for Scientist Investigation Station at child height before the invitation.",
+          "Model one move for Scientist Investigation Station, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Magnifying glasses",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Natural objects",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Scientist Investigation Station?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "scientist",
+          "investigation",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:monday:item-preschool-stem-explorers-monday-2": {
+        "teacherTips": [
+          "Set materials for Build the Tallest Tower at child height before the invitation.",
+          "Model one move for Build the Tallest Tower, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Blocks",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Build the Tallest Tower?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "build",
+          "tallest",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:monday:item-preschool-stem-explorers-monday-3": {
+        "teacherTips": [
+          "Set materials for Measuring Fun at child height before the invitation.",
+          "Model one move for Measuring Fun, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Rulers",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Blocks",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Measuring Fun?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "measuring",
+          "notice",
+          "compare",
+          "plan",
+          "stem"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:monday:item-preschool-stem-explorers-monday-4": {
+        "teacherTips": [
+          "Set materials for STEM Movement Challenge at child height before the invitation.",
+          "Model one move for STEM Movement Challenge, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Movement cards",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with STEM Movement Challenge?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "stem",
+          "movement",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:tuesday:item-preschool-stem-explorers-tuesday-1": {
+        "teacherTips": [
+          "Set materials for Sink or Float Experiment at child height before the invitation.",
+          "Model one move for Sink or Float Experiment, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Water tub",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Various objects",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Sink or Float Experiment?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "sink",
+          "float",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for Sink or Float Experiment: ordinary STEM materials, natural light, no staged clutter.",
+        "imageBriefExample": "Child-led Sink or Float Experiment in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-stem-explorers:tuesday:item-preschool-stem-explorers-tuesday-2": {
+        "teacherTips": [
+          "Set materials for Bridge Builders at child height before the invitation.",
+          "Model one move for Bridge Builders, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Craft sticks",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Blocks",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Bridge Builders?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "bridge",
+          "builders",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:tuesday:item-preschool-stem-explorers-tuesday-3": {
+        "teacherTips": [
+          "Set materials for Pattern Creation at child height before the invitation.",
+          "Model one move for Pattern Creation, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Colored manipulatives",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Pattern Creation?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "pattern",
+          "creation",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:tuesday:item-preschool-stem-explorers-tuesday-4": {
+        "teacherTips": [
+          "Set materials for Inventor Dramatic Play at child height before the invitation.",
+          "Model one move for Inventor Dramatic Play, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Tool props",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Clipboards",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Inventor Dramatic Play?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "inventor",
+          "dramatic",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:wednesday:item-preschool-stem-explorers-wednesday-1": {
+        "teacherTips": [
+          "Set materials for Ramp Testing at child height before the invitation.",
+          "Model one move for Ramp Testing, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Ramps",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Toy cars",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Ramp Testing?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "ramp",
+          "testing",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for Ramp Testing: ordinary STEM materials, natural light, no staged clutter.",
+        "imageBriefExample": "Child-led Ramp Testing in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-stem-explorers:wednesday:item-preschool-stem-explorers-wednesday-2": {
+        "teacherTips": [
+          "Set materials for Domino Engineering at child height before the invitation.",
+          "Model one move for Domino Engineering, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Dominoes",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Domino Engineering?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "domino",
+          "engineering",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:wednesday:item-preschool-stem-explorers-wednesday-3": {
+        "teacherTips": [
+          "Set materials for Blueprint Drawing at child height before the invitation.",
+          "Model one move for Blueprint Drawing, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Paper",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Markers",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Blueprint Drawing?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "blueprint",
+          "drawing",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefExample": "Child-led Blueprint Drawing in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-stem-explorers:wednesday:item-preschool-stem-explorers-wednesday-4": {
+        "teacherTips": [
+          "Set materials for Robot Movement Game at child height before the invitation.",
+          "Model one move for Robot Movement Game, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Music",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Robot Movement Game?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "robot",
+          "movement",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:thursday:item-preschool-stem-explorers-thursday-1": {
+        "teacherTips": [
+          "Set materials for Marble Run Challenge at child height before the invitation.",
+          "Model one move for Marble Run Challenge, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Tubes",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Marbles",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Marble Run Challenge?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "marble",
+          "challenge",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for Marble Run Challenge: ordinary STEM materials, natural light, no staged clutter.",
+        "imageBriefExample": "Child-led Marble Run Challenge in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-stem-explorers:thursday:item-preschool-stem-explorers-thursday-2": {
+        "teacherTips": [
+          "Set materials for Sorting Scientists at child height before the invitation.",
+          "Model one move for Sorting Scientists, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Various objects",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Sorting Scientists?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "sorting",
+          "scientists",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:thursday:item-preschool-stem-explorers-thursday-3": {
+        "teacherTips": [
+          "Set materials for STEM Journal Drawing at child height before the invitation.",
+          "Model one move for STEM Journal Drawing, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Paper",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "Crayons",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with STEM Journal Drawing?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "stem",
+          "journal",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for STEM Journal Drawing: ordinary STEM materials, natural light, no staged clutter.",
+        "imageBriefExample": "Child-led STEM Journal Drawing in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-stem-explorers:thursday:item-preschool-stem-explorers-thursday-4": {
+        "teacherTips": [
+          "Set materials for Team Builder Challenge at child height before the invitation.",
+          "Model one move for Team Builder Challenge, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Building materials",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Team Builder Challenge?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "team",
+          "builder",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:friday:item-preschool-stem-explorers-friday-1": {
+        "teacherTips": [
+          "Set materials for STEM Exploration Stations at child height before the invitation.",
+          "Model one move for STEM Exploration Stations, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Favorite materials from the week",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with STEM Exploration Stations?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "stem",
+          "exploration",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "required",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for STEM Exploration Stations: ordinary STEM materials, natural light, no staged clutter.",
+        "imageBriefExample": "Child-led STEM Exploration Stations in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-stem-explorers:friday:item-preschool-stem-explorers-friday-2": {
+        "teacherTips": [
+          "Set materials for Engineer Showcase at child height before the invitation.",
+          "Model one move for Engineer Showcase, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Completed projects",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with Engineer Showcase?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "engineer",
+          "showcase",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-stem-explorers:friday:item-preschool-stem-explorers-friday-3": {
+        "teacherTips": [
+          "Set materials for STEM Celebration Dance at child height before the invitation.",
+          "Model one move for STEM Celebration Dance, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Music player",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Observe participation and engagement.",
+          "How does the child engage with STEM Celebration Dance?",
+          "What STEM words or gestures appear?"
+        ],
+        "vocabulary": [
+          "stem",
+          "celebration",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into STEM.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      }
+    },
+    "week": {
+      "weeklyOverview": "Play-based STEM week: children predict, build, test, and talk about what happened—towers, bridges, ramps, sink-or-float, and marble runs. No elementary worksheets. Teachers narrate scientific language while protecting inquiry joy. Document children’s words and photos of setups; celebrate redesign after “flops.”",
+      "weeklyMaterials": "Unit blocks and loose parts; paper cups; craft sticks; tape; cardboard for ramps; water table or tubs; sink/float objects; measuring cups/rulers; magnifying glasses; clipboards for blueprint drawing; play dough; large soft balls for movement STEM; marble-run tubes and marbles only with strict safety protocol (or substitute large pom-poms/balls for mixed-age); dominoes; smocks; towels.",
+      "teacherPreparation": "Stage centers before arrival and preview one open-ended STEM invitation; step back so children lead.",
+      "familyConnection": "We are STEM explorers—asking questions, building, and testing ideas. At home try: “What might happen if…?” with blocks, water play, or cardboard ramps. Celebrate trying again more than getting it “right.”",
+      "milestones": [
+        "Language: Uses STEM talk—predict, observe, test, compare, redesign.",
+        "SEL: Persists after structures fall; collaborates on team builds; shares materials.",
+        "Cognition: Makes predictions; compares results; notices patterns and cause/effect on ramps.",
+        "Motor: Stacks/balances; pours at water table; controls drawing tools for blueprints.",
+        "Creativity: Invents original structures and marble/ramp pathways through open-ended design."
+      ],
+      "vocabCards": [
+        "predict",
+        "observe",
+        "experiment",
+        "measure",
+        "build",
+        "design",
+        "test",
+        "ramp",
+        "balance",
+        "float",
+        "sink",
+        "engineer"
+      ],
+      "printableIdeas": [
+        {
+          "title": "Predict / Observe Mini Chart (Picture)",
+          "purpose": "Two-column picture chart for Sink or Float and Ramp Testing—children mark guesses with stamps/X, then results; not a graded worksheet."
+        },
+        {
+          "title": "Blueprint Paper (Blank Grid Light)",
+          "purpose": "Light grid for Blueprint Drawing / Engineer Showcase planning; scribbles and dictation welcome."
+        },
+        {
+          "title": "STEM Challenge Cards",
+          "purpose": "Simple picture challenges (“build a bridge for a toy car,” “make a ramp”) for STEM Exploration Stations."
+        }
+      ],
+      "songs": [
+        {
+          "title": "Predict, Test, Learn (LLH STEM Chant)",
+          "rightsStatus": "original",
+          "motions": "Finger to temple on predict; hands push gently on test; hands as binoculars on observe; rolling hands on redesign.",
+          "teacherDirections": "Teach on Monday before Scientist Investigation Station. Use the chant whenever a tower falls—normalize redesign.",
+          "whenToUse": "Before any experiment or build challenge.",
+          "suggestedPace": "Clear, medium pace; clap on “another turn.”",
+          "transitionPurpose": "Installs inquiry cycle language without worksheets.",
+          "dayPlacement": "monday",
+          "lyrics": "Predict, predict—what might we see?\nTest, test—try carefully.\nObserve, observe—look and learn,\nThen redesign for another turn!\n\nBuilders build and scientists say:\n“What happened? Why?”—we learn that way."
+        },
+        {
+          "title": "Build It Up, Build It Strong (LLH)",
+          "rightsStatus": "original",
+          "motions": "Wide hands for base; stacking motions; dramatic tip-over then calm rebuild gestures.",
+          "teacherDirections": "Pair with Build the Tallest Tower and Bridge Builders. Praise wide bases and teamwork, not only height.",
+          "whenToUse": "Block center open; engineer showcase warm-up.",
+          "suggestedPace": "Steady construction rhythm.",
+          "transitionPurpose": "Focuses children on stable design strategies.",
+          "dayPlacement": "tuesday",
+          "lyrics": "Build it up, build it strong,\nBase is wide and it lasts long.\nStack it high, then watch it go—\nIf it falls we rebuild slow.\n\nOne more block, one more try,\nEngineers ask how and why!"
+        },
+        {
+          "title": "Roll, Roll, Ramp (LLH)",
+          "rightsStatus": "original",
+          "motions": "Diagonal arm as ramp; finger “ball” rolling down; arms wide for safe space.",
+          "teacherDirections": "Use before Ramp Testing / Marble Run Challenge. Practice the safety line “give space to try” with bodies first—no marbles until spacing is clear.",
+          "whenToUse": "Ramp and marble-run days; outdoor ball-ramp play.",
+          "suggestedPace": "Upbeat but stop fully on safety line.",
+          "transitionPurpose": "Connects motion science with safety routines.",
+          "dayPlacement": "wednesday",
+          "lyrics": "Roll, roll, ramp—ready, set, go!\nHigh or low—what do we know?\nFast or slow, we watch it race,\nScience smiles on every face.\n\nMove back please—give space to try,\nSafe scientists standing by!"
+        },
+        {
+          "title": "Sink or Float Song (LLH)",
+          "rightsStatus": "original",
+          "motions": "Thumbs down for sink, palms up for float; drop motion; binocular eyes.",
+          "teacherDirections": "Sing at the water table before Sink or Float Experiment. Record predictions on a simple chart with pictures—not a worksheet packet.",
+          "whenToUse": "Water table STEM; Tuesday science focus.",
+          "suggestedPace": "Playful; pause for each object prediction.",
+          "transitionPurpose": "Frames prediction talk before water exploration.",
+          "dayPlacement": "tuesday",
+          "lyrics": "Will it sink? Will it float?\nMake a guess, then test the boat!\nIn the water, watch and see—\nScience friends investigate with me."
+        }
+      ],
+      "books": [
+        {
+          "title": "Rosie Revere, Engineer",
+          "author": "Andrea Beaty",
+          "whyThisBook": "Celebrates prototyping and persistence after failed inventions—perfect for tower/bridge redesign culture.",
+          "beforeReadingQuestions": [
+            "What does an engineer do?",
+            "Have you ever built something that fell down? What did you try next?"
+          ],
+          "duringReadingPrompts": [
+            "How is Rosie feeling when her invention flops?",
+            "Who helps her keep trying?"
+          ],
+          "afterReadingQuestions": [
+            "What will we say in our classroom when a build falls?",
+            "What invention do you want to test today?"
+          ],
+          "vocabularyConnection": "engineer, invent, design, try",
+          "weekdayPlacement": "monday",
+          "substituteTitle": "Iggy Peck, Architect by Andrea Beaty"
+        },
+        {
+          "title": "Ada Twist, Scientist",
+          "author": "Andrea Beaty",
+          "whyThisBook": "Models question-asking and investigation—pairs with Scientist Investigation Station and journals as drawing, not worksheets.",
+          "beforeReadingQuestions": [
+            "What questions do scientists ask?",
+            "What is something you wonder about?"
+          ],
+          "duringReadingPrompts": [
+            "What is Ada trying to figure out?",
+            "How does she investigate?"
+          ],
+          "afterReadingQuestions": [
+            "What question will you investigate at our STEM stations?",
+            "How can we record what we notice (draw, photo, dictate)?"
+          ],
+          "vocabularyConnection": "scientist, question, observe, investigate",
+          "weekdayPlacement": "wednesday",
+          "substituteTitle": "What Is Science? by Rebecca Kai Dotlich"
+        },
+        {
+          "title": "What Do You Do With an Idea?",
+          "author": "Kobi Yamada",
+          "whyThisBook": "Supports inventive thinking and confidence—nice bridge to Inventor Dramatic Play and Engineer Showcase.",
+          "beforeReadingQuestions": [
+            "Where do ideas come from?",
+            "What idea might you build with today?"
+          ],
+          "duringReadingPrompts": [
+            "How does the child treat the idea at first?",
+            "What changes as the idea grows?"
+          ],
+          "afterReadingQuestions": [
+            "How will we take care of each other’s ideas in the makerspace?",
+            "What materials could help your idea?"
+          ],
+          "vocabularyConnection": "idea, grow, create, share",
+          "weekdayPlacement": "friday",
+          "substituteTitle": "Not a Box by Antoinette Portis"
+        }
+      ],
+      "teacherToolkit": {
+        "teacherPreparation": "Stage centers before arrival and preview one open-ended STEM invitation; step back so children lead.",
+        "prepChecklist": [
+          "Set materials at child height before arrival",
+          "Preview one STEM invitation aloud",
+          "Place cleanup caddy near the play space",
+          "Review allergy and supervision notes for the day"
+        ],
+        "observationFocus": [
+          "Uses STEM vocabulary in play",
+          "Persists with a material or peer exchange",
+          "Shows interest or curiosity during invitations"
+        ],
+        "observationPrompts": [
+          "What language or gestures appear during play?",
+          "How does the child enter and leave the invitation?",
+          "Where do peers support or extend the idea?"
+        ],
+        "documentationPrompts": [
+          "Capture one moment of child-led exploration (with permission).",
+          "Note a verbatim quote or gesture tied to the theme."
+        ],
+        "teacherTips": [
+          "Model once, then narrate what you notice.",
+          "Offer two choices instead of open-ended demands.",
+          "Keep transitions short with a familiar song cue."
+        ],
+        "setupCleanupShortcuts": [
+          "Trays labeled and stacked by day",
+          "Damp cloth + bin for quick reset",
+          "Spare substitution basket on the shelf"
+        ],
+        "materialSubstitutions": [
+          {
+            "need": "specialty tray",
+            "use": "cookie sheet or shallow lid"
+          },
+          {
+            "need": "theme props",
+            "use": "printed picture cards or recycled clean containers"
+          }
+        ],
+        "mixedAgeAdaptations": "Offer a simpler parallel tray for younger friends and a design challenge for older preschoolers.",
+        "extraSupportAdaptations": "Sit beside, shorten the invitation, and offer hand-under-hand only when welcomed.",
+        "challengeExtensions": "Invite children to invent a new STEM rule, map, or story for peers.",
+        "safetyInclusionNotes": "Play-based inquiry only—avoid worksheet packets. Marble runs: use only with preschoolers who do not mouth objects; establish a “marble zone” with clear floor space, eye protection from flying pieces not required but keep rolls aimed at walls/trays not walkways; count marbles in/out; substitute large pom-poms, ping-pong balls, or cars for mixed-age or mouthing children. Water table: mop slips, limit depth, no standing water left unattended. Towers: soft fall zones; no climbing builds. Dominoes and small STEM bits stored up when toddlers visit. Tape dispensers adult-managed.",
+        "endOfWeekReflection": "Which STEM words and strategies showed up most in play?",
+        "familyConnection": "Share one STEM word or song to try at home during ordinary routines.",
+        "notes": "Draft toolkit for owner review — enrichment draft only."
+      },
+      "printableIds": [
+        "cur-res-draft-preschool-stem-explorers-picture-cards"
+      ]
+    },
+    "updatedAt": "2026-08-08T20:39:55.795Z",
+    "lastEditedBy": "leahivie@icloud.com (draft upgrade assistant)",
+    "previewReady": false,
+    "schemaVersion": "gold-upgrade-batch-1",
+    "batchId": "gold-upgrade-batch-1-2026-08-08"
+  },
+  "printableId": "cur-res-draft-preschool-stem-explorers-picture-cards",
+  "printablePath": "docs/teaching-kit/qa/next-10-gold-upgrade/printables/cur-res-draft-preschool-stem-explorers-picture-cards.html",
+  "legacySnapshot": {
+    "weeklyOverview": "Children will become young scientists, engineers, mathematicians, and inventors as they explore hands-on STEM activities. Throughout the week, children will investigate, build, test, predict, measure, sort, and solve problems while developing critical thinking skills through engaging experiments and challenges.",
+    "objectives": "Develop scientific observation skills\nPractice predicting and testing outcomes\nStrengthen counting and measuring skills\nEncourage problem-solving and critical thinking\nBuild engineering and design skills\nDevelop communication and teamwork\nExplore cause and effect relationships\nFoster curiosity and creativity",
+    "activityTitles": [
+      "Scientist Investigation Station",
+      "Build the Tallest Tower",
+      "Measuring Fun",
+      "STEM Movement Challenge",
+      "Sink or Float Experiment",
+      "Bridge Builders",
+      "Pattern Creation",
+      "Inventor Dramatic Play",
+      "Ramp Testing",
+      "Domino Engineering",
+      "Blueprint Drawing",
+      "Robot Movement Game",
+      "Marble Run Challenge",
+      "Sorting Scientists",
+      "STEM Journal Drawing",
+      "Team Builder Challenge",
+      "STEM Exploration Stations",
+      "Engineer Showcase",
+      "STEM Celebration Dance"
+    ]
+  }
+}

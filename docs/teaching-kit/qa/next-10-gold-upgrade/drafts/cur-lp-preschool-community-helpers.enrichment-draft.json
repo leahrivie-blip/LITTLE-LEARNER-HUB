@@ -1,0 +1,833 @@
+{
+  "planId": "cur-lp-preschool-community-helpers",
+  "title": "Community Helpers",
+  "age": "Preschool",
+  "batchId": "gold-upgrade-batch-1-2026-08-08",
+  "enrichmentDraft": {
+    "activities": {
+      "cur-lp-preschool-community-helpers:monday:item-preschool-community-helpers-monday-1": {
+        "teacherTips": [
+          "Set materials for Community Helper Discovery Basket at child height before the invitation.",
+          "Model one move for Community Helper Discovery Basket, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Helper basket with hats",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tools",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Names helpers\nMatches tools to roles\nHandles props safely",
+          "How does the child engage with Community Helper Discovery Basket?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "community",
+          "helper",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for Community Helper Discovery Basket: ordinary Community Helpers materials, natural light, no staged clutter."
+      },
+      "cur-lp-preschool-community-helpers:monday:item-preschool-community-helpers-monday-2": {
+        "teacherTips": [
+          "Set materials for Helper Hat Parade at child height before the invitation.",
+          "Model one move for Helper Hat Parade, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Helper hats",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "music player",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Wears hat during parade\nNames helper role\nFollows parade path",
+          "How does the child engage with Helper Hat Parade?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "helper",
+          "parade",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:monday:item-preschool-community-helpers-monday-3": {
+        "teacherTips": [
+          "Set materials for Community Map Talk at child height before the invitation.",
+          "Model one move for Community Map Talk, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Large map poster",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "helper stickers",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Places stickers appropriately\nNames community places\nTells simple stories",
+          "How does the child engage with Community Map Talk?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "community",
+          "talk",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:tuesday:item-preschool-community-helpers-tuesday-1": {
+        "teacherTips": [
+          "Set materials for Doctor's Office Dramatic Play at child height before the invitation.",
+          "Model one move for Doctor's Office Dramatic Play, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Doctor kit",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "stethoscope",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Uses doctor tools safely\nShows care language\nSwitches roles",
+          "How does the child engage with Doctor's Office Dramatic Play?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "doctor",
+          "office",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:tuesday:item-preschool-community-helpers-tuesday-2": {
+        "teacherTips": [
+          "Set materials for Firefighter Rescue Relay at child height before the invitation.",
+          "Model one move for Firefighter Rescue Relay, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Soft hose",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "cones",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Completes path safely\nCooperates in relay\nUses helper vocabulary",
+          "How does the child engage with Firefighter Rescue Relay?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "firefighter",
+          "rescue",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:tuesday:item-preschool-community-helpers-tuesday-3": {
+        "teacherTips": [
+          "Set materials for Community Helper Matching at child height before the invitation.",
+          "Model one move for Community Helper Matching, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Matching cards in sets of three",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "tray",
+            "use": "cookie sheet or shallow lid"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Creates correct sets\nNames helper and tool\nWorks independently or with peer",
+          "How does the child engage with Community Helper Matching?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "community",
+          "helper",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:wednesday:item-preschool-community-helpers-wednesday-1": {
+        "teacherTips": [
+          "Set materials for Mail Carrier Center at child height before the invitation.",
+          "Model one move for Mail Carrier Center, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Envelopes",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "mailbags",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Delivers to correct mailbox\nCreates mark or drawing on mail\nUses thank-you language",
+          "How does the child engage with Mail Carrier Center?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "mail",
+          "carrier",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "setup_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:wednesday:item-preschool-community-helpers-wednesday-2": {
+        "teacherTips": [
+          "Set materials for Chef's Kitchen at child height before the invitation.",
+          "Model one move for Chef's Kitchen, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Play food",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "pots",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Follows pretend cooking sequence\nUses polite language\nCleans up with group",
+          "How does the child engage with Chef's Kitchen?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "chef",
+          "kitchen",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "optional",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:wednesday:item-preschool-community-helpers-wednesday-3": {
+        "teacherTips": [
+          "Set materials for Build a Community Block City at child height before the invitation.",
+          "Model one move for Build a Community Block City, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Unit blocks",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "helper figures",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Builds representational structure\nNames building type\nCounts buildings",
+          "How does the child engage with Build a Community Block City?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "build",
+          "community",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:thursday:item-preschool-community-helpers-thursday-1": {
+        "teacherTips": [
+          "Set materials for Tool Exploration Table at child height before the invitation.",
+          "Model one move for Tool Exploration Table, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Plastic tools",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "helper cards",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Describes tool safely\nMatches tool to helper\nUses descriptive words",
+          "How does the child engage with Tool Exploration Table?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "tool",
+          "exploration",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "required",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefSetup": "Low table or floor setup for Tool Exploration Table: ordinary Community Helpers materials, natural light, no staged clutter.",
+        "imageBriefExample": "Child-led Tool Exploration Table in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-community-helpers:thursday:item-preschool-community-helpers-thursday-2": {
+        "teacherTips": [
+          "Set materials for Healthy Helpers Chart at child height before the invitation.",
+          "Model one move for Healthy Helpers Chart, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Chart paper",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "helper pictures",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Votes independently\nCounts with group\nStates preference",
+          "How does the child engage with Healthy Helpers Chart?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "healthy",
+          "helpers",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefExample": "Child-led Healthy Helpers Chart in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-community-helpers:thursday:item-preschool-community-helpers-thursday-3": {
+        "teacherTips": [
+          "Set materials for Thank-You Card Workshop at child height before the invitation.",
+          "Model one move for Thank-You Card Workshop, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Cardstock",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "crayons",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor",
+          "center"
+        ],
+        "observationPrompts": [
+          "Creates intentional drawing\nDictates thank-you\nShows pride in card",
+          "How does the child engage with Thank-You Card Workshop?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "thank",
+          "card",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "example_only",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play.",
+        "imageBriefExample": "Child-led Thank-You Card Workshop in progress or finished process sample — real classroom materials, not stock art."
+      },
+      "cur-lp-preschool-community-helpers:friday:item-preschool-community-helpers-friday-1": {
+        "teacherTips": [
+          "Set materials for Helper Interview Circle at child height before the invitation.",
+          "Model one move for Helper Interview Circle, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Helper props",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "talking stick",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Shares a fact\nListens to peers\nUses helper vocabulary",
+          "How does the child engage with Helper Interview Circle?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "helper",
+          "interview",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:friday:item-preschool-community-helpers-friday-2": {
+        "teacherTips": [
+          "Set materials for Community Helper Obstacle Course at child height before the invitation.",
+          "Model one move for Community Helper Obstacle Course, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Cones",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "mailbag",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Completes stations\nEmbodies helper actions\nFollows course safely",
+          "How does the child engage with Community Helper Obstacle Course?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "community",
+          "helper",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      },
+      "cur-lp-preschool-community-helpers:friday:item-preschool-community-helpers-friday-3": {
+        "teacherTips": [
+          "Set materials for Community Helpers Celebration at child height before the invitation.",
+          "Model one move for Community Helpers Celebration, then step back and narrate."
+        ],
+        "substitutions": [
+          {
+            "need": "Thank-you cards",
+            "use": "classroom substitute from the spare basket"
+          },
+          {
+            "need": "helper hats",
+            "use": "simple household stand-in"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Recalls helper jobs\nExpresses thanks\nParticipates in closing",
+          "How does the child engage with Community Helpers Celebration?",
+          "What Community Helpers words or gestures appear?"
+        ],
+        "vocabulary": [
+          "community",
+          "helpers",
+          "notice",
+          "compare",
+          "plan"
+        ],
+        "imageRequirement": "not_needed",
+        "indoorAlternatives": "Compress to a tabletop center if space is limited.",
+        "outdoorAlternatives": "Take clipboards or trays outdoors for related noticing.",
+        "adaptations": "Offer a parallel simpler tray and sit nearby for peer entry into Community Helpers.",
+        "extensions": "Invite children to document or redesign the invitation for a friend.",
+        "cleanupTip": "Assign a child reset job with a photo cue on the shelf.",
+        "safetyNotes": "Supervise tools and active movement; review allergies before taste or soil play."
+      }
+    },
+    "week": {
+      "weeklyOverview": "Preschool Community Helpers goes deeper than toddler imitation play: children map real neighborhood helpers, interview guest helpers (or teacher-in-role), match tools to jobs, and run richer dramatic-play centers (clinic, mail, kitchen, block city). Emphasize gratitude, safety helpers, and many kinds of work—including caregivers and educators. Keep props sturdy and roles flexible so every child can help.",
+      "weeklyMaterials": "Helper hats/vests (optional); doctor kit; play food; mailbags/envelopes; clipboards; safe plastic tools; community map poster or teacher-drawn map; toy phones; helper picture cards; thank-you card materials; blocks for community city; obstacle-course cones; name badges for interview circle.",
+      "teacherPreparation": "Stage centers before arrival and preview one open-ended Community Helpers invitation; step back so children lead.",
+      "familyConnection": "We are learning about community helpers—people who keep neighborhoods safe, healthy, and caring. Ask your child: “Who helps in our neighborhood?” You may share a helper you know (nurse, driver, cook, teacher, custodian) for our thank-you chart. No costume required for Career Day energy—curiosity counts.",
+      "milestones": [
+        "Language: Names helper roles and tools; uses thank-you language and interview questions.",
+        "SEL: Practices gratitude, cooperative roles, and flexible turn-taking in dramatic play.",
+        "Cognition: Matches tools to jobs; reads simple map symbols; compares helper roles.",
+        "Motor: Moves through rescue relay/obstacle course; uses fine motor for mail, charts, and cards.",
+        "Creativity: Builds community block cities and invents helper stories in dramatic play."
+      ],
+      "vocabCards": [
+        "helper",
+        "community",
+        "job",
+        "tool",
+        "safe",
+        "thank you",
+        "map",
+        "deliver",
+        "care",
+        "build",
+        "serve",
+        "interview"
+      ],
+      "printableIdeas": [
+        {
+          "title": "Our Community Map (Blank Neighborhood)",
+          "purpose": "Simple map template for Community Map Talk—children add stickers/drawings of helpers and places (school, clinic, store, park)."
+        },
+        {
+          "title": "Helper Interview Question Cards",
+          "purpose": "Picture-supported questions (What tools help you? How do you stay safe?) for Helper Interview Circle."
+        },
+        {
+          "title": "Thank-You Helper Mini Card",
+          "purpose": "Half-page card for Thank-You Card Workshop; children draw a helper and dictate a thank-you message."
+        }
+      ],
+      "songs": [
+        {
+          "title": "Helpers All Around (LLH Chant)",
+          "rightsStatus": "original",
+          "motions": "March in place; show hands on “helper’s hands”; tip an imaginary hat on thank-you; point outward on “everywhere.”",
+          "teacherDirections": "Primary theme song—use instead of any modern neighborhood pop song. Invite children to insert a helper they know. Keep verses optional; two choruses are enough.",
+          "whenToUse": "Monday circle and Friday celebration.",
+          "suggestedPace": "Steady march tempo; clap on thank-you lines.",
+          "transitionPurpose": "Introduces helper vocabulary and gratitude language.",
+          "dayPlacement": "monday",
+          "lyrics": "Helpers, helpers, all around—\nIn our home and in our town.\nWho can help? Let's look and see—\nA helper's hands can care for me!\n\nDoctor, teacher, driver, cook,\nMail friends bringing letters—look!\nFirefighter, builder, nurse who cares—\nHelpers help us everywhere.\n\nThank you, thank you, helpers true,\nWe can be good helpers too.\nKind hands ready, hearts so wide—\nCommunity helpers side by side!"
+        },
+        {
+          "title": "Hurry, Hurry, Drive the Fire Truck",
+          "rightsStatus": "public_domain",
+          "motions": "Steering motions; climbing hands; spray hose; slow march back. Offer seated steering for mixed mobility.",
+          "teacherDirections": "Pair with Firefighter Rescue Relay. Emphasize safety helpers who practice—not scary emergencies. Keep “fire” pretend and calm.",
+          "whenToUse": "Before firefighter play or outdoor relay.",
+          "suggestedPace": "Fast for hurry verses; slow for return verse.",
+          "transitionPurpose": "Energizes bodies and sets firefighter role play.",
+          "dayPlacement": "tuesday",
+          "lyrics": "Hurry, hurry, drive the fire truck,\nHurry, hurry, drive the fire truck,\nHurry, hurry, drive the fire truck,\nDing, ding, ding, ding, ding!\n\nHurry, hurry, climb the ladder…\nHurry, hurry, spray the water…\nSlowly, slowly, back to the station…"
+        },
+        {
+          "title": "Thank-You Helper Tap (LLH)",
+          "rightsStatus": "original",
+          "motions": "Two-finger taps on knees; wave; pretend to write a thank-you card.",
+          "teacherDirections": "Use before Thank-You Card Workshop and Helper Interview Circle. Collect child ideas for who to thank.",
+          "whenToUse": "Midweek gratitude focus; transition into writing/art.",
+          "suggestedPace": "Gentle tap pattern; 1–2 minutes.",
+          "transitionPurpose": "Moves from dramatic play into gratitude making.",
+          "dayPlacement": "thursday",
+          "lyrics": "Tap, tap, thank you—helpers near,\nTap, tap, thank you—helpers here.\nWe see your tools, we learn your job,\nThank you helpers in our neighborhood hub!\n\nWrite a card or wave hello,\nHelpers help our kindness grow."
+        },
+        {
+          "title": "Mail Carrier March (LLH)",
+          "rightsStatus": "original",
+          "motions": "March with pretend mailbag; knock in air; big smile wave.",
+          "teacherDirections": "Lead into Mail Carrier Center. Use children’s names on envelopes for literacy connection.",
+          "whenToUse": "Before mail center or block city delivery routes.",
+          "suggestedPace": "Medium march; one chorus plus name deliveries.",
+          "transitionPurpose": "Frames delivery jobs and literacy play.",
+          "dayPlacement": "wednesday",
+          "lyrics": "March, march, mail bag on my side,\nLetters, letters, we can deliver with pride.\nKnock knock—hello!—a smile we bring,\nHelpers help with every little thing."
+        }
+      ],
+      "books": [
+        {
+          "title": "Whose Hands Are These?",
+          "author": "Miranda Paul",
+          "whyThisBook": "Rhythmic introduction to many helper hands/tools—great map-and-match companion.",
+          "beforeReadingQuestions": [
+            "What jobs help people in our neighborhood?",
+            "What tools might helper hands use?"
+          ],
+          "duringReadingPrompts": [
+            "Can we guess the helper before the page reveals it?",
+            "What do these hands help people do?"
+          ],
+          "afterReadingQuestions": [
+            "Which helper would you like to thank this week?",
+            "Where might that helper appear on our community map?"
+          ],
+          "vocabularyConnection": "hands, helper, tools, job",
+          "weekdayPlacement": "monday",
+          "substituteTitle": "Helpers in My Community by Bobbie Kalman"
+        },
+        {
+          "title": "Clothesline Clues to Jobs People Do",
+          "author": "Kathryn Heling",
+          "whyThisBook": "Inference practice with clothing/tools—supports matching center and richer dramatic-play prop talk.",
+          "beforeReadingQuestions": [
+            "What clues can clothes or tools give about a job?",
+            "Have you seen a helper uniform or badge before?"
+          ],
+          "duringReadingPrompts": [
+            "What clue do you notice first?",
+            "Does this job help people stay safe, healthy, or cared for?"
+          ],
+          "afterReadingQuestions": [
+            "Can we match classroom props to jobs like the book?",
+            "What clue would you hang on a clothesline for a teacher?"
+          ],
+          "vocabularyConnection": "clue, uniform, tools, community",
+          "weekdayPlacement": "wednesday",
+          "substituteTitle": "Jobs People Do by DK"
+        },
+        {
+          "title": "Career Day",
+          "author": "Anne Rockwell",
+          "whyThisBook": "Classroom-friendly look at many careers and pride in family work—pairs with interviews and celebration.",
+          "beforeReadingQuestions": [
+            "Who might visit a classroom on career day?",
+            "What question would you ask a helper?"
+          ],
+          "duringReadingPrompts": [
+            "What job is being shared now?",
+            "How do the children show respect while listening?"
+          ],
+          "afterReadingQuestions": [
+            "What interview question will we practice in Helper Interview Circle?",
+            "How can we thank helpers who cannot visit in person?"
+          ],
+          "vocabularyConnection": "career, interview, listen, thank you",
+          "weekdayPlacement": "friday",
+          "substituteTitle": "Helpers in My Community by Bobbie Kalman"
+        }
+      ],
+      "teacherToolkit": {
+        "teacherPreparation": "Stage centers before arrival and preview one open-ended Community Helpers invitation; step back so children lead.",
+        "prepChecklist": [
+          "Set materials at child height before arrival",
+          "Preview one Community Helpers invitation aloud",
+          "Place cleanup caddy near the play space",
+          "Review allergy and supervision notes for the day"
+        ],
+        "observationFocus": [
+          "Uses Community Helpers vocabulary in play",
+          "Persists with a material or peer exchange",
+          "Shows interest or curiosity during invitations"
+        ],
+        "observationPrompts": [
+          "What language or gestures appear during play?",
+          "How does the child enter and leave the invitation?",
+          "Where do peers support or extend the idea?"
+        ],
+        "documentationPrompts": [
+          "Capture one moment of child-led exploration (with permission).",
+          "Note a verbatim quote or gesture tied to the theme."
+        ],
+        "teacherTips": [
+          "Model once, then narrate what you notice.",
+          "Offer two choices instead of open-ended demands.",
+          "Keep transitions short with a familiar song cue."
+        ],
+        "setupCleanupShortcuts": [
+          "Trays labeled and stacked by day",
+          "Damp cloth + bin for quick reset",
+          "Spare substitution basket on the shelf"
+        ],
+        "materialSubstitutions": [
+          {
+            "need": "specialty tray",
+            "use": "cookie sheet or shallow lid"
+          },
+          {
+            "need": "theme props",
+            "use": "printed picture cards or recycled clean containers"
+          }
+        ],
+        "mixedAgeAdaptations": "Offer a simpler parallel tray for younger friends and a design challenge for older preschoolers.",
+        "extraSupportAdaptations": "Sit beside, shorten the invitation, and offer hand-under-hand only when welcomed.",
+        "challengeExtensions": "Invite children to invent a new Community Helpers rule, map, or story for peers.",
+        "safetyInclusionNotes": "Differentiate from toddler unit: preschoolers use maps, interviews, and multi-step dramatic play—still keep props large and roles flexible. No real tools with sharp edges; plastic only. Avoid scary emergency talk; frame firefighters/police as community helpers who practice safety. Mixed-age: remove small mail beads or tiny prop pieces; supervise obstacle courses for spacing. Allergy awareness in Chef’s Kitchen (play food only unless taste test is separately planned with permissions). Thank-you workshops: child-safe scissors and washable glue.",
+        "endOfWeekReflection": "Which Community Helpers words and strategies showed up most in play?",
+        "familyConnection": "Share one Community Helpers word or song to try at home during ordinary routines.",
+        "notes": "Draft toolkit for owner review — enrichment draft only."
+      },
+      "printableIds": [
+        "cur-res-draft-preschool-community-helpers-picture-cards"
+      ]
+    },
+    "updatedAt": "2026-08-08T20:39:55.787Z",
+    "lastEditedBy": "leahivie@icloud.com (draft upgrade assistant)",
+    "previewReady": false,
+    "schemaVersion": "gold-upgrade-batch-1",
+    "batchId": "gold-upgrade-batch-1-2026-08-08"
+  },
+  "printableId": "cur-res-draft-preschool-community-helpers-picture-cards",
+  "printablePath": "docs/teaching-kit/qa/next-10-gold-upgrade/printables/cur-res-draft-preschool-community-helpers-picture-cards.html",
+  "legacySnapshot": {
+    "weeklyOverview": "Preschoolers will learn about community helpers who keep neighborhoods safe, healthy, and running smoothly. Through dramatic play, books, movement, and cooperative activities, children explore helper roles, tools, and ways to thank people who help.",
+    "objectives": "Name several community helpers and describe their jobs\nUse helper vocabulary during pretend play\nPractice cooperation and problem-solving\nBuild gratitude language for helpers\nExplore tools helpers use safely\nConnect helpers to places in the community",
+    "activityTitles": [
+      "Community Helper Discovery Basket",
+      "Helper Hat Parade",
+      "Community Map Talk",
+      "Doctor's Office Dramatic Play",
+      "Firefighter Rescue Relay",
+      "Community Helper Matching",
+      "Mail Carrier Center",
+      "Chef's Kitchen",
+      "Build a Community Block City",
+      "Tool Exploration Table",
+      "Healthy Helpers Chart",
+      "Thank-You Card Workshop",
+      "Helper Interview Circle",
+      "Community Helper Obstacle Course",
+      "Community Helpers Celebration"
+    ]
+  }
+}
