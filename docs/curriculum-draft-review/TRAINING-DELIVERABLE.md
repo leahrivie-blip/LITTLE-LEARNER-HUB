@@ -14,6 +14,7 @@ Both are fixed. Queue + Enrichment Editor now share `evaluateTeachingKit`. With 
 | Lesson | Structural | Premium | Publish | Blockers |
 |---|---:|---:|---|---|
 | Amazing Apples (Toddler) | 96% | 89% | blocked | draft_printables_only |
+| All About Me (Preschool) | 96% | 89% | blocked | draft_printables_only |
 
 ## Amazing Apples — Toddler
 
@@ -49,7 +50,6 @@ Both are fixed. Queue + Enrichment Editor now share `evaluateTeachingKit`. With 
 - Songs: Crunch Goes the Apple (LLH) [original]; Apple Seeds Wiggle (LLH) [original]; Basket Fill (LLH) [original]
 - Books: Ten Apples Up On Top! — Theo LeSieg (Dr. Seuss); Apple Farmer Annie — Monica Wellington; Apples and Pumpkins — Anne Rockwell
 - Contradiction scan: 0 blocking, 0 warnings
-| All About Me (Preschool) | 96% | 89% | blocked | draft_printables_only |
 
 ## All About Me — Preschool
 
