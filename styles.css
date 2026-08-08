@@ -5085,6 +5085,206 @@ body.user-authenticated .view.active-view {
   display: block;
 }
 
+.admin-lesson-sticky-bar--rich {
+  align-items: flex-start;
+}
+
+.admin-lesson-sticky-bar__identity {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.admin-lesson-sticky-cover {
+  width: 64px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: #f3efe8;
+}
+
+.admin-lesson-sticky-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 280px;
+}
+
+.admin-lesson-sticky-bar__actions .ghost-button,
+.admin-lesson-sticky-bar__actions .primary-button,
+.admin-lesson-preview-as select {
+  min-height: 40px;
+}
+
+.admin-lesson-preview-as {
+  display: inline-flex;
+  margin: 0;
+}
+
+.admin-lesson-preview-as select {
+  max-width: 160px;
+}
+
+.admin-lesson-card-cover-thumb {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  background: #f3efe8;
+  cursor: pointer;
+  flex: 0 0 auto;
+  width: 72px;
+  height: 40px;
+}
+
+.admin-lesson-card-cover-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-lesson-card-actions {
+  flex-wrap: wrap;
+}
+
+.cover-quality-good {
+  background: #e7f6ec;
+  color: #1f6b3a;
+}
+
+.cover-quality-needs-upgrade {
+  background: #fff4df;
+  color: #8a5a00;
+}
+
+.cover-quality-missing {
+  background: #fde8e8;
+  color: #8a1f1f;
+}
+
+.curriculum-cover-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.curriculum-cover-quality-label {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.curriculum-cover-actions {
+  flex-wrap: wrap;
+}
+
+.admin-quick-cover-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(26, 43, 74, 0.45);
+}
+
+.admin-quick-cover-dialog {
+  width: min(560px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  background: #fffdf9;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 40px rgba(26, 43, 74, 0.18);
+  padding: 16px;
+}
+
+.admin-quick-cover-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.admin-lesson-preview-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  background: #1f3b5b;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  font-size: 0.92rem;
+}
+
+.admin-lesson-preview-banner .ghost-button {
+  color: #1f3b5b;
+  background: #fff;
+  border-color: #fff;
+  min-height: 36px;
+}
+
+body.admin-lesson-preview-active {
+  padding-top: 52px;
+}
+
+@media (max-width: 900px) {
+  .admin-lesson-sticky-bar--rich {
+    position: sticky;
+    top: 0;
+  }
+
+  .admin-lesson-sticky-bar__actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .admin-lesson-sticky-bar__actions > * {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .admin-lesson-preview-as {
+    flex: 1 1 100%;
+  }
+
+  .admin-lesson-preview-as select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .admin-quick-cover-modal {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .admin-quick-cover-dialog {
+    width: 100%;
+    max-height: 100%;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .curriculum-cover-preview-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .curriculum-daily-toolbar {
   display: flex;
   flex-wrap: wrap;

@@ -33,6 +33,7 @@ const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const enrichmentMedia = require("./enrichment-media.js");
 const enrichmentAi = require("./enrichment-ai.js");
+const lessonCoverMedia = require("./lesson-cover-media.js");
 const seo = require("./seo.js");
 const metaCapi = require("./meta-capi.js");
 const testAccountGuard = require("./test-account-guard.js");
@@ -1968,6 +1969,10 @@ function normalizedCurriculumLessonPlan(value) {
       ? String(entry.coverImageSource).trim()
       : (sanitizedLessonCoverUrl(entry.coverImageUrl || entry.thumbnailUrl || "") ? "uploaded" : ""),
     coverImagePosition: normalizedShortText(entry.coverImagePosition, 40) || "center",
+    // Admin-only cover quality marker (Good / Needs Upgrade / Missing). Empty = derive in UI.
+    coverQualityStatus: ["good", "needs_upgrade", "missing"].includes(String(entry.coverQualityStatus || "").trim())
+      ? String(entry.coverQualityStatus).trim()
+      : "",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     // Set when status first becomes published/featured; used by weekly "What's New" digests.
@@ -21546,6 +21551,9 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       coverImageAlt: incomingPlan.coverImageAlt || existingPlan?.coverImageAlt || "",
       coverImageSource: incomingPlan.coverImageSource || existingPlan?.coverImageSource || "",
       coverImagePosition: incomingPlan.coverImagePosition || existingPlan?.coverImagePosition || "center",
+      coverQualityStatus: Object.prototype.hasOwnProperty.call(incomingPlan, "coverQualityStatus")
+        ? incomingPlan.coverQualityStatus
+        : (existingPlan?.coverQualityStatus || ""),
       id,
       createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
       updatedAt: now,
@@ -21881,11 +21889,21 @@ async function handleAdminLessonCoverAssign(request, response) {
     plan.coverImageAlt = nextAlt || `Illustration for ${plan.title || "lesson plan"}`;
     plan.coverImageSource = nextSource || "mapped";
     plan.coverImagePosition = normalizedShortText(row.coverImagePosition || plan.coverImagePosition || "center", 40) || "center";
+    if (Object.prototype.hasOwnProperty.call(row, "coverQualityStatus")) {
+      const quality = String(row.coverQualityStatus || "").trim();
+      plan.coverQualityStatus = ["good", "needs_upgrade", "missing"].includes(quality) ? quality : "";
+    } else if (nextUrl && nextSource === "uploaded") {
+      // Fresh manual upload defaults to Good unless admin already marked Needs Upgrade.
+      if (plan.coverQualityStatus !== "needs_upgrade") plan.coverQualityStatus = "good";
+    } else if (!nextUrl) {
+      plan.coverQualityStatus = "missing";
+    }
     plan.updatedAt = now;
     updated.push({
       id: plan.id,
       title: plan.title,
       coverImageUrl: plan.coverImageUrl,
+      coverQualityStatus: plan.coverQualityStatus || "",
     });
   }
 
@@ -21920,33 +21938,46 @@ async function handleAdminLessonCoverUpload(request, response) {
     jsonResponse(response, 401, { error: "Admin access is required to upload lesson-plan covers." });
     return;
   }
-  if (!usePostgresStore() || !postgresPool || !databaseReady) {
-    jsonResponse(response, 503, {
-      error: "Persistent media storage is unavailable. The image was not saved; choose an existing cover or paste a durable HTTPS URL.",
-    });
-    return;
-  }
   const parsed = parseLessonCoverUploadDataUrl(body.fileData);
   if (!parsed) {
     jsonResponse(response, 400, {
-      error: `Use a PNG, JPG, or WebP image no larger than ${MAX_LESSON_COVER_UPLOAD_MB} MB.`,
+      error: `Unsupported or oversized image. Use JPG, JPEG, PNG, or WebP no larger than ${MAX_LESSON_COVER_UPLOAD_MB} MB.`,
     });
     return;
   }
   const id = `lesson-cover-${crypto.randomBytes(16).toString("hex")}`;
   const fileName = sanitizeCurriculumUploadFileName(body.fileName || "lesson-cover");
   try {
-    await postgresPool.query(
-      `INSERT INTO llh_media_assets (id, kind, mime_type, file_name, bytes)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, "lesson-plan-cover", parsed.mimeType, fileName, parsed.buffer],
-    );
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      await postgresPool.query(
+        `INSERT INTO llh_media_assets (id, kind, mime_type, file_name, bytes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, lessonCoverMedia.LESSON_COVER_MEDIA_KIND, parsed.mimeType, fileName, parsed.buffer],
+      );
+      jsonResponse(response, 200, {
+        id,
+        url: lessonCoverMedia.lessonCoverMediaUrl(id),
+        mimeType: parsed.mimeType,
+        fileName,
+        persistent: true,
+        storage: "postgres",
+      });
+      return;
+    }
+    // Local-json / test: durable sidecar next to the store (survives refresh; not ephemeral blob: URLs).
+    const dir = lessonCoverMedia.localCoverDirFromStorePath(storePath);
+    lessonCoverMedia.writeLocalLessonCover(dir, id, {
+      mimeType: parsed.mimeType,
+      buffer: parsed.buffer,
+      fileName,
+    });
     jsonResponse(response, 200, {
       id,
-      url: `/api/media/lesson-covers/${encodeURIComponent(id)}`,
+      url: lessonCoverMedia.lessonCoverMediaUrl(id),
       mimeType: parsed.mimeType,
       fileName,
       persistent: true,
+      storage: "local-sidecar",
     });
   } catch (error) {
     console.error("[lesson-cover-upload] persistent write failed", error.message);
@@ -22502,26 +22533,44 @@ async function handleAdminEnrichmentMediaCleanupProcess(request, response) {
 
 async function handleLessonCoverMedia(request, response, assetId) {
   const id = normalizedShortText(assetId, 120);
-  if (!id || !id.startsWith("lesson-cover-") || !usePostgresStore() || !postgresPool || !databaseReady) {
+  if (!id || !id.startsWith("lesson-cover-")) {
     textResponse(response, 404, "Cover not found.");
     return;
   }
   try {
-    const result = await postgresPool.query(
-      `SELECT mime_type, bytes
-       FROM llh_media_assets
-       WHERE id = $1 AND kind = $2
-       LIMIT 1`,
-      [id, "lesson-plan-cover"],
-    );
-    const asset = result.rows[0];
-    if (!asset?.bytes) {
+    let mimeType = "";
+    let bytes = null;
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      const result = await postgresPool.query(
+        `SELECT mime_type, bytes
+         FROM llh_media_assets
+         WHERE id = $1 AND kind = $2
+         LIMIT 1`,
+        [id, lessonCoverMedia.LESSON_COVER_MEDIA_KIND],
+      );
+      const asset = result.rows[0];
+      if (asset?.bytes) {
+        mimeType = asset.mime_type;
+        bytes = asset.bytes;
+      }
+    }
+    if (!bytes) {
+      const local = lessonCoverMedia.readLocalLessonCover(
+        lessonCoverMedia.localCoverDirFromStorePath(storePath),
+        id,
+      );
+      if (local?.buffer?.length) {
+        mimeType = local.mimeType;
+        bytes = local.buffer;
+      }
+    }
+    if (!bytes?.length) {
       textResponse(response, 404, "Cover not found.");
       return;
     }
     response.writeHead(200, {
-      "Content-Type": asset.mime_type,
-      "Content-Length": asset.bytes.length,
+      "Content-Type": mimeType || "application/octet-stream",
+      "Content-Length": bytes.length,
       "Cache-Control": "public, max-age=31536000, immutable",
       "X-Content-Type-Options": "nosniff",
     });
@@ -22529,7 +22578,7 @@ async function handleLessonCoverMedia(request, response, assetId) {
       response.end();
       return;
     }
-    response.end(asset.bytes);
+    response.end(bytes);
   } catch (error) {
     console.error("[lesson-cover-media] read failed", error.message);
     textResponse(response, 503, "Cover temporarily unavailable.");

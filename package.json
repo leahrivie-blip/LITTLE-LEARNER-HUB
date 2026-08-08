@@ -231,6 +231,7 @@
     "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js",
     "test:lesson-card-buttons": "node scripts/test-lesson-card-buttons.js",
     "test:lesson-plan-covers": "node scripts/test-lesson-plan-covers.js",
+    "test:lesson-plan-admin-cover-preview": "node scripts/test-lesson-plan-admin-cover-preview.js",
     "mockup:cover-redesign": "node scripts/capture-cover-redesign-mockups.js",
     "test:library-browse-redesign": "node scripts/test-library-browse-redesign.js",
     "test:post-merge-library-audit": "node scripts/test-post-merge-library-audit.js",
