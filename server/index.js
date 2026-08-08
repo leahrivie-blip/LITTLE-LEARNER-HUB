@@ -14088,7 +14088,7 @@ async function handleScheduleLogPlannedActivity(request, response) {
       scheduleItemId: item.id || "",
       lessonPlanId: item.lessonPlanId || "",
       classroomId: item.classroomId || child?.classroomId || "",
-      shareWithFamily: body.shareWithFamily === true,
+      shareWithFamily: body.shareWithFamily !== false,
       createdAt: now,
       createdByEmail: identity.email,
     };

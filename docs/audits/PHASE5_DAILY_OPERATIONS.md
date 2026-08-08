@@ -1,61 +1,33 @@
-# Phase 5 — Daily Operations (begun)
+# Phase 5 — Daily Operations
 
-**Status:** 🚧 In progress  
-**Started after:** Phase 4 One Source of Truth ✅  
-**Branch:** continues on `cursor/phase4-one-source-of-truth-9c23` until a dedicated Phase 5 branch is cut if needed  
-**Production:** Read-only  
+**Status:** ✅ Complete  
+**Completion report:** `docs/audits/PHASE5_DAILY_OPERATIONS_COMPLETION_REPORT.md`  
+**Branch:** `cursor/phase4-one-source-of-truth-9c23`  
+**Production:** Untouched  
 
-Policy: `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md`  
-Canonical homes: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH.md`
-
----
-
-## Goal
-
-Make day-to-day care workflows reliable on the testing spine — using the **same** Child, Classroom, Schedule, and Daily Log records established in Phase 4.
-
-In scope (testing):
-- Attendance
-- Meals / snacks
-- Naps
-- Diapers / toileting
-- Activity logs
-- Photos tied to child profiles
-- Teacher Today / quick-add → durable child blob
-- Classroom scoping for teachers/assistants
-
-Out of scope until later phases:
-- Family Hub parent UX overhaul (Phase 6)
-- Forms library redesign (Phase 7)
-- Tuition billing (Phase 8)
-- Production deploy
+Built on Phase 4 canonical homes — Child / Classroom / Schedule / Daily Log blobs only.
 
 ---
 
-## Hard rules from Phase 4
+## Hard rules followed
 
-- Child care data writes go to `programData[programId].child` collections only  
-- Classroom scope from `schedule.classrooms` + Profile `classroomId`  
-- No second Family Hub roster; no parallel meal/nap stores  
-- Drift: report first; no auto-delete  
-
----
-
-## Next steps
-
-1. Audit Teacher Today / Daily Logs write paths against canonical child blob  
-2. Fix any remaining dual-write or orphaned local-only records  
-3. HD + Center smoke: attendance → meal → nap → photo → Family Hub Today sees it  
-4. Phase 5 completion report before Family Hub phase  
-
-## Kickoff notes (2026-08-08)
-
-- Care writes already funnel through `appendChildRecord` → child blob keys (`Attendance`, `Meals`, `Naps`, …) synced via `/api/child-data`  
-- Family Hub Today already overlays those arrays from the owner child blob  
-- Phase 5 focus: reliability, classroom scoping, end-of-day completeness — not new stores  
+- No new parallel daily-operation stores  
+- No duplicate child records for care logging  
+- No new writes to `llhWeeklyPlanner` from schedule sync (read-fallback only)  
+- New schedule/planner edits → `programData[…].schedule`  
 
 ---
 
-## Production confirmation
+## Workflow covered
 
-- [x] No production work at Phase 5 start  
+Check-in/out · Attendance · Meals/bottles · Diapers · Naps · Activities · Mood/notes · Photos · Group logging · Individual exceptions · Daily reports · Parent-visible vs staff-only · Classroom/child filters · Teacher/Assistant/Owner ACL · Family Hub delivery · Mobile large-tap UX  
+
+---
+
+## Tests
+
+```bash
+npm run test:daily-operations-phase5
+npm run test:daily-operations-mobile-phase5
+npm run test:daily-logs-attendance
+```

@@ -8896,6 +8896,7 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s;
+  min-height: 88px;
 }
 
 .dlc-group-action-btn:hover {
@@ -8944,16 +8945,20 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 12px 12px;
   background: #f7fafd;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
+  min-height: 48px;
 }
 
 .dlc-child-check input[type="checkbox"] {
   accent-color: var(--primary);
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
 }
 
 .dlc-child-age {
@@ -9013,14 +9018,17 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 
 .dlc-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   border-bottom: 2px solid var(--line);
   padding-bottom: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .dlc-tab {
-  padding: 8px 14px;
+  padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
   border: 1.5px solid var(--line);
@@ -9029,6 +9037,8 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   color: var(--muted);
   cursor: pointer;
   transition: all 0.15s;
+  flex: 0 0 auto;
+  min-height: 44px;
 }
 
 .dlc-tab.active {
@@ -20448,6 +20458,59 @@ body.lesson-editor-view .main {
   border: 1px solid rgba(90, 110, 140, 0.16);
   border-radius: 16px;
   background: #fff;
+}
+
+.dlc-overview-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dlc-room-filter select {
+  min-height: 44px;
+  min-width: 160px;
+  font-size: 15px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+
+.dlc-tap-lg,
+.dlc-home-toolbar .primary-button,
+.dlc-home-toolbar .ghost-button {
+  min-height: 44px;
+}
+
+.dlc-group-hint {
+  margin: 8px 0 12px;
+}
+
+@media (max-width: 720px) {
+  .dlc-home-toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .dlc-home-toolbar .primary-button {
+    grid-column: 1 / -1;
+  }
+
+  .dlc-att-card .primary-button,
+  .dlc-att-card .ghost-button {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .dlc-quick-btns button,
+  .dlc-day-quick-actions button {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
 }
 
 .dlc-att-card-main {

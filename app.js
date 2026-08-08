@@ -551,6 +551,8 @@ let childToolsTab = "attendance";
 let dailyLogsSection = "home";
 let dailyLogsChildTab = "overview";
 let dailyLogsGroupAction = "";
+let dailyLogsClassroomFilter = ""; // Phase 5: optional room filter for owners/directors ("" = all)
+let dlcScrollPreserveY = null; // restore scroll after Daily Logs re-render
 let dlcNewStep = "step1"; // "step1"|"step1-multiple"|"step1-one"|"step2"|"manual"|"ai-input"|"ai-suggestions"
 let dlcChildSelection = "all"; // "all"|"multiple"|"one"
 let dlcSelectedChildIds = []; // array of child IDs selected for this update
@@ -19212,6 +19214,29 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     return;
   }
   if (actionId === "nap-started" || actionId === "nap-ended" || actionId === "nap") {
+    const naps = childStore("Naps");
+    if (actionId === "nap-ended") {
+      const openNap = naps.slice().reverse().find((item) => (
+        item.childId === childId
+        && item.date === today
+        && item.napStart
+        && !item.napEnd
+      ));
+      if (openNap) {
+        saveChildStore("Naps", naps.map((item) => {
+          if (item.id !== openNap.id) return item;
+          return {
+            ...item,
+            napEnd: time,
+            summary: `Nap ${item.napStart}–${time}`,
+            title: `Nap | ${today}`,
+            shareWithFamily: item.shareWithFamily !== false,
+            updatedAt: new Date().toISOString(),
+          };
+        }));
+        return;
+      }
+    }
     appendChildRecord("Naps", {
       childId,
       date: today,
@@ -30435,7 +30460,9 @@ function weeklyPlanner() {
 }
 
 function saveWeeklyPlanner(planner) {
-  // Cache-only when schedule is authoritative; schedule writes go through updateScheduleLessonSnapshot.
+  // Phase 5: llhWeeklyPlanner is read-fallback cache only.
+  // Do not use this for new scheduling writes — persist via schedule APIs.
+  if (planner && planner._canonicalSource === "schedule") return;
   localStorage.setItem("llhWeeklyPlanner", JSON.stringify(planner));
   updateSidebarDashboard();
 }
@@ -31187,8 +31214,15 @@ function syncWeeklyPlannerFromScheduleItem(item) {
   if (!api || !item) return null;
   const planner = api.buildPlannerFromLessonItem(item);
   if (!planner) return null;
-  saveWeeklyPlanner({ ...weeklyPlanner(), ...planner, days: { ...weeklyPlanner().days, ...planner.days } });
-  return planner;
+  // Phase 5: schedule is authoritative — do NOT write llhWeeklyPlanner here.
+  // weeklyPlanner() dual-reads from schedule; LS remains read-fallback only.
+  return {
+    ...defaultPlanner(),
+    ...planner,
+    days: { ...defaultPlanner().days, ...(planner.days || {}) },
+    _canonicalSource: "schedule",
+    _scheduleItemId: item.id || "",
+  };
 }
 
 function classroomCopyActivityKey(item = {}) {
@@ -41179,6 +41213,11 @@ function renderChildManagement() {
   refreshContextualViewBackButtons();
   activePortfolioChildId = "";
   childProfileTab = normalizeChildProfileTab(childProfileTab);
+  const preserveScroll = childManagementMode === "daily-logs"
+    && (dlcScrollPreserveY != null || document.querySelector(".dlc-dashboard, .dlc-section, .dlc-individual"));
+  if (preserveScroll && dlcScrollPreserveY == null) {
+    dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
+  }
   const records = childRecords();
   if (!selectedChildId && records.children[0]) selectedChildId = records.children[0].id;
   const child = records.children.find((item) => item.id === selectedChildId) || records.children[0] || null;
@@ -41191,6 +41230,7 @@ function renderChildManagement() {
     syncChildrenViewShell("add");
     app.innerHTML = renderChildProfileFormScreen();
     updateChildAgePreview();
+    dlcScrollPreserveY = null;
     return;
   }
 
@@ -41204,40 +41244,53 @@ function renderChildManagement() {
     syncChildrenViewShell("edit");
     app.innerHTML = renderChildProfileFormScreen(editingChild);
     updateChildAgePreview();
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "observe") {
     syncChildrenViewShell("observe");
     app.innerHTML = renderObservationScreen(records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "goals") {
     syncChildrenViewShell("goals");
     app.innerHTML = renderSimpleGoalsProgressPage(records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "tools") {
     syncChildrenViewShell("tools");
     app.innerHTML = renderChildToolsPage(records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "daily-logs") {
     syncChildrenViewShell("daily-logs");
     app.innerHTML = renderDailyLogsCenter(records);
+    if (dlcScrollPreserveY != null) {
+      const y = dlcScrollPreserveY;
+      dlcScrollPreserveY = null;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+      });
+    }
     return;
   }
 
   if (childManagementMode === "profile" && child) {
     syncChildrenViewShell("profile");
     app.innerHTML = renderSimpleChildProfile(child, records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   syncChildrenViewShell("list");
+  dlcScrollPreserveY = null;
   const hasChildren = Boolean(records.children.length);
   app.innerHTML = `
     <section class="simple-child-page">
@@ -42181,11 +42234,14 @@ function renderChildToolsContent(child, records) {
 
 // Returns children not hidden/archived from active daily workflows.
 // Linked staff with classroomIds only see children assigned to those rooms.
+// Owners/directors may optionally filter by dailyLogsClassroomFilter.
 function getActiveChildren(records) {
   let list = (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
   const roomIds = staffAssignedClassroomIds();
   if (roomIds.length && typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount()) {
     list = list.filter((c) => roomIds.includes(String(c.classroomId || "")));
+  } else if (dailyLogsClassroomFilter) {
+    list = list.filter((c) => String(c.classroomId || "") === String(dailyLogsClassroomFilter));
   }
   return list;
 }
@@ -42324,9 +42380,27 @@ function renderDlcClassroomOverview(activeChildren, records, today) {
     { label: "Absent", value: absent, className: absent ? "dlc-stat-warn" : "" },
     { label: "Not Arrived", value: waiting, className: waiting ? "dlc-stat-warn" : "" },
   ];
+  const rooms = typeof activeScheduleClassrooms === "function"
+    ? activeScheduleClassrooms(scheduleDocCache || getScheduleApi()?.readCache(scheduleApiEmail()))
+    : [];
+  const staffRooms = staffAssignedClassroomIds();
+  const showRoomFilter = rooms.length > 1 && !staffRooms.length;
   return `
     <div class="dlc-classroom-overview">
-      <h3 class="dlc-overview-heading">Who's here today</h3>
+      <div class="dlc-overview-heading-row">
+        <h3 class="dlc-overview-heading">Who's here today</h3>
+        ${showRoomFilter ? `
+          <label class="dlc-room-filter">
+            <span class="visually-hidden">Classroom</span>
+            <select data-dlc-classroom-filter aria-label="Filter by classroom">
+              <option value="">All classrooms</option>
+              ${rooms.map((room) => `
+                <option value="${escapeHtml(room.id)}" ${String(dailyLogsClassroomFilter) === String(room.id) ? "selected" : ""}>${escapeHtml(room.name || room.id)}</option>
+              `).join("")}
+            </select>
+          </label>
+        ` : ""}
+      </div>
       <div class="dlc-stat-row">
         ${stats.map(({ label, value, className }) => `
           <div class="dlc-stat-card ${className}">
@@ -42745,7 +42819,7 @@ function renderDlcAccordionForm(sectionId, records) {
         <label class="dlc-form-label">Status<select name="status"><option>Present</option><option>Absent</option></select></label>
         <label class="dlc-form-label">Drop-Off Time<input name="dropoff" type="time" /></label>
         <label class="dlc-form-label">Pick-Up Time<input name="pickup" type="time" /></label>
-        ${renderDlcShareFields(false)}
+        ${renderDlcShareFields(true)}
         <button class="primary-button" type="submit">Save Attendance</button>
       </form>`;
   }
@@ -43973,8 +44047,9 @@ function renderDailyLogsGroupUpdate(records) {
           </div>
         </fieldset>
         ${renderGroupActionFields(action.id, today)}
-        ${renderDlcShareFields(action.id === "announcement" || action.id === "reminder")}
-        <button class="primary-button" type="submit">Save to Selected Children</button>
+        ${renderDlcShareFields(true)}
+        <p class="dlc-sub dlc-group-hint">One save writes to each selected child’s daily record. Edit one child later if they need an exception.</p>
+        <button class="primary-button dlc-tap-lg" type="submit">Save to Selected Children</button>
       </form>
     </div>
   `;
@@ -44047,7 +44122,7 @@ function renderDailyLogsIndividual(child, records, today) {
         </div>
         <label class="child-tools-select" style="min-width:160px">
           <select id="dlcChildSelect">
-            ${records.children.map((c) => `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+            ${getActiveChildren(records).map((c) => `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -44847,7 +44922,12 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record, options = {}) {
   const items = childStore(key);
-  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
+  const generatedId = `${key}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const requestedId = String(record?.id || "").trim();
+  const id = requestedId && !items.some((item) => String(item.id) === requestedId)
+    ? requestedId
+    : generatedId;
+  const saved = { createdAt: new Date().toISOString(), ...record, id };
   saveChildStore(key, [...items, saved]);
   if (!options.skipRender) {
     if (activePortfolioChildId) {
@@ -45759,6 +45839,9 @@ function primaryChildRecordDetail(item = {}) {
   if (item.notes != null && item.notes !== "") return { key: "notes", value: item.notes };
   if (item.text != null && item.text !== "") return { key: "text", value: item.text };
   if (item.activity != null && item.activity !== "") return { key: "activity", value: item.activity };
+  if (item.lunch != null && item.lunch !== "") return { key: "lunch", value: item.lunch };
+  if (item.breakfast != null && item.breakfast !== "") return { key: "breakfast", value: item.breakfast };
+  if (item.snack != null && item.snack !== "") return { key: "snack", value: item.snack };
   if (item.support != null && item.support !== "") return { key: "support", value: item.support };
   if (item.goal != null && item.goal !== "") return { key: "goal", value: item.goal };
   if (item.summary != null) return { key: "summary", value: item.summary };
@@ -69589,6 +69672,12 @@ document.addEventListener("change", (event) => {
     childManagementMode = "daily-logs";
     renderChildManagement();
   }
+  if (event.target.matches("[data-dlc-classroom-filter]")) {
+    dailyLogsClassroomFilter = String(event.target.value || "").trim();
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    renderChildManagement();
+  }
   if (event.target.matches("#dlcChildSelect")) {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
@@ -73066,7 +73155,12 @@ document.addEventListener("submit", (event) => {
     const next = { ...item, updatedAt: new Date().toISOString() };
     if (date) next.date = date;
     next[detailKey] = details;
-    if (detailKey !== "summary" && !next.summary) next.summary = details;
+    // Keep summary in sync for meal/activity exceptions after group logging.
+    if (detailKey === "lunch") next.summary = `Lunch: ${details}`;
+    else if (detailKey === "breakfast") next.summary = `Breakfast: ${details}`;
+    else if (detailKey === "snack") next.summary = `Snack: ${details}`;
+    else if (detailKey === "activity") next.summary = details;
+    else if (detailKey !== "summary" && !next.summary) next.summary = details;
     if (date && next.title && String(next.title).includes("|")) {
       next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
     }
@@ -73219,25 +73313,27 @@ document.addEventListener("submit", (event) => {
   }
   const formData = new FormData(form);
   const childIds = formData.getAll("childIds");
-  const shareWithFamily = dlcFormShareFlag(form, actionId === "announcement" || actionId === "reminder");
+  // Care defaults to Family Hub; announcements/reminders also share when checked.
+  const shareWithFamily = dlcFormShareFlag(form, true);
   if (!childIds.length) return;
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const today = data.date || dlcActiveDate();
     if (actionId === "meals" || actionId === "lunch") {
-      appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily });
+      appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily }, { skipRender: true });
     } else if (actionId === "snacks") {
-      appendChildRecord("Meals", { childId, date: today, snack: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${data.content}`, shareWithFamily });
+      appendChildRecord("Meals", { childId, date: today, snack: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${data.content}`, shareWithFamily }, { skipRender: true });
     } else if (actionId === "breakfast") {
-      appendChildRecord("Meals", { childId, date: today, breakfast: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${data.content}`, shareWithFamily });
+      appendChildRecord("Meals", { childId, date: today, breakfast: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${data.content}`, shareWithFamily }, { skipRender: true });
     } else if (actionId === "activities") {
-      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily });
+      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily }, { skipRender: true });
     } else {
-      appendChildRecord("Communications", { childId, date: today, type: actionId === "reminder" ? "Parent Reminder" : "Announcement", message: data.content, title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`, summary: data.content, shareWithFamily });
+      appendChildRecord("Communications", { childId, date: today, type: actionId === "reminder" ? "Parent Reminder" : "Announcement", message: data.content, title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`, summary: data.content, shareWithFamily }, { skipRender: true });
     }
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
-  showActionFeedback("Group log saved to selected children.");
+  showActionFeedback(`Group log saved to ${childIds.length} child${childIds.length === 1 ? "" : "ren"}.`);
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -73253,9 +73349,10 @@ document.addEventListener("submit", (event) => {
   const form = event.target;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
-  const shareWithFamily = dlcFormShareFlag(form, false);
+  const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
-    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status, shareWithFamily });
+    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status, shareWithFamily }, { skipRender: true });
   });
   showAfterActionPrompt("attendance", childIds[0]);
   dlcManualSection = "";
@@ -73269,9 +73366,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const parts = [data.breakfast && `Breakfast: ${data.breakfast}`, data.lunch && `Lunch: ${data.lunch}`, data.snack && `Snack: ${data.snack}`].filter(Boolean);
-    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily });
+    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily }, { skipRender: true });
   });
   showAfterActionPrompt("meals", childIds[0]);
   dlcManualSection = "";
@@ -73285,9 +73383,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const timeStr = data.time ? ` at ${data.time}` : "";
-    appendChildRecord("Meals", { ...data, childId, title: `Bottle | ${data.date}${timeStr}`, summary: `${data.type}: ${data.amount}`, shareWithFamily });
+    appendChildRecord("Meals", { ...data, childId, title: `Bottle | ${data.date}${timeStr}`, summary: `${data.type}: ${data.amount}`, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -73301,9 +73400,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
-    appendChildRecord("Naps", { ...data, childId, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}`, shareWithFamily });
+    appendChildRecord("Naps", { ...data, childId, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}`, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -73317,9 +73417,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const timeStr = data.time ? ` at ${data.time}` : "";
-    appendChildRecord("Diapers", { ...data, childId, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type, shareWithFamily });
+    appendChildRecord("Diapers", { ...data, childId, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -73333,9 +73434,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const summary = [data.area, data.notes].filter(Boolean).join(" | ") || data.activity || "Activity";
-    appendChildRecord("ActivityLogs", { ...data, childId, title: data.activity || "Activity", summary, shareWithFamily });
+    appendChildRecord("ActivityLogs", { ...data, childId, title: data.activity || "Activity", summary, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
