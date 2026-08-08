@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#f5f8f2"/>
+  <rect x="100" y="120" width="600" height="360" rx="24" fill="#e8dcc8" stroke="#8c785a" stroke-width="3"/>
+  <circle cx="220" cy="240" r="40" fill="#c8463c"/>
+  <circle cx="320" cy="240" r="40" fill="#5aa04b"/>
+  <circle cx="420" cy="240" r="40" fill="#dcb43c"/>
+  <path d="M470 260 Q560 200 650 280" fill="none" stroke="#5078b4" stroke-width="4"/>
+  <rect x="180" y="360" width="38" height="40" fill="#dc5a5a"/>
+  <rect x="222" y="360" width="38" height="40" fill="#5aa05a"/>
+  <text x="10" y="585" font-family="sans-serif" font-size="14" fill="#5a6b5d">Little Learner Hub by Leah</text>
+</svg>
