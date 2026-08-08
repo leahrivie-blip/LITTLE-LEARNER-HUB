@@ -1862,6 +1862,15 @@
           ${plan.familyConnection ? `<div class="tk-enrich-current-text">${esc(plan.familyConnection)}</div>` : ""}
           <textarea data-week-family rows="3" placeholder="Optional draft family idea…">${esc(week.familyConnection || "")}</textarea>
         </section>
+        <section class="tk-enrich-card-block" data-tk-enrich-linked-resources-wrap>
+          <h4>Linked Resources</h4>
+          <p class="muted-copy">Create or upload a draft printable and link it to this lesson. Drafts stay hidden from customers until you publish.</p>
+          <div data-tk-enrich-linked-resources>
+            ${typeof root.renderCurriculumLessonLinkedResourcesSection === "function"
+              ? root.renderCurriculumLessonLinkedResourcesSection(plan)
+              : `<p class="muted-copy">Linked Resources UI unavailable in this session.</p>`}
+          </div>
+        </section>
         <section class="tk-enrich-card-block">
           <h4>Draft books / songs / printables</h4>
           <p class="muted-copy">AI inserts appear here for review. Publishing merges by title — never deletes existing lists.</p>
@@ -4020,10 +4029,26 @@
 
   bind();
 
+  function refreshLinkedResources() {
+    if (!state.open || !state.planId) return;
+    const plan = getPlan();
+    if (!plan) return;
+    if (typeof root.refreshTeachingKitLinkedResourcesHosts === "function") {
+      root.refreshTeachingKitLinkedResourcesHosts(plan.id);
+      return;
+    }
+    document.querySelectorAll("[data-tk-enrich-linked-resources]").forEach((node) => {
+      if (typeof root.renderCurriculumLessonLinkedResourcesSection === "function") {
+        node.innerHTML = root.renderCurriculumLessonLinkedResourcesSection(plan);
+      }
+    });
+  }
+
   root.LLHTeachingKitEnrichmentEditor = {
     open,
     close,
     saveDraft,
+    refreshLinkedResources,
     isOpen: () => state.open,
     isEnabled: isEditorFlagEnabled,
     getDraft: () => state.draft,

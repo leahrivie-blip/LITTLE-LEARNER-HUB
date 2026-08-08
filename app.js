@@ -2138,7 +2138,12 @@ const curriculumResourceConfig = {
   archiveEndpoint: "/api/admin/curriculum/resources/archive",
   linkEndpoint: "/api/admin/curriculum/resources/link",
   unlinkEndpoint: "/api/admin/curriculum/resources/unlink",
+  tkPrintableEndpoint: "/api/admin/curriculum/resources/tk-printable",
 };
+const CURRICULUM_PREVIEW_UPLOAD_MAX_MB = 2;
+let adminTkPrintableFormOpen = false;
+let adminTkPrintableEditingId = "";
+let adminTkPrintableSaving = false;
 const curriculumAccessConfig = {
   lessonPlanEndpoint: "/api/curriculum/lesson-plans",
   activityEndpoint: "/api/curriculum/activities",
@@ -13533,28 +13538,97 @@ function renderAdminCurriculumResourceManager() {
   `;
 }
 
+function isTeachingKitPrintableOwnerClient() {
+  const sessionEmail = String(adminSession()?.email || "").trim().toLowerCase();
+  // Must match server Teaching Kit owner gate (session email — never trust body email).
+  return sessionEmail === "leahivie@icloud.com";
+}
+
+function renderTeachingKitPrintableForm(plan, resource) {
+  const lessonPlanId = plan?.id || "";
+  const record = resource || {
+    id: "",
+    title: "",
+    resourceType: "Printable",
+    ageGroup: plan?.age || "Preschool",
+    theme: plan?.theme || plan?.title || "",
+    description: "",
+    pageCount: "",
+    printingInstructions: "",
+    accessLevel: "pro",
+  };
+  const previewSrc = record.previewImageUrl || record.previewUrl || "";
+  return `
+    <form id="adminTkPrintableForm" class="panel-form admin-stacked-form tk-printable-upload-form" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">
+      <input type="hidden" name="resourceId" value="${escapeHtml(record.id || "")}" />
+      <h4>${record.id ? `Edit printable: ${escapeHtml(record.title || "Printable")}` : "Create / Upload Printable"}</h4>
+      <p class="muted-copy">Owner-only. Saves as <strong>draft</strong> and links to this lesson. Customers cannot see it until you explicitly publish the resource and lesson.</p>
+      <div class="form-grid-two">
+        <label>Title<input name="title" required value="${escapeHtml(record.title || "")}" placeholder="Farm animal vocabulary cards" /></label>
+        <label>Type<input name="resourceType" value="${escapeHtml(record.resourceType || "Printable")}" placeholder="Vocabulary cards" /></label>
+      </div>
+      <div class="form-grid-two">
+        <label>Age group<input name="ageGroup" value="${escapeHtml(record.ageGroup || "")}" /></label>
+        <label>Theme<input name="theme" value="${escapeHtml(record.theme || "")}" /></label>
+      </div>
+      <label>Description<textarea name="description" rows="2" placeholder="How teachers use this printable…">${escapeHtml(record.description || "")}</textarea></label>
+      <div class="form-grid-two">
+        <label>Page count<input name="pageCount" type="number" min="0" max="500" value="${escapeHtml(record.pageCount ? String(record.pageCount) : "")}" /></label>
+        <label>Access level
+          <select name="accessLevel">
+            ${["pro", "free"].map((level) => `<option value="${level}"${(record.accessLevel || "pro") === level ? " selected" : ""}>${level === "pro" ? "Pro" : "Free"}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <label>Printing instructions<textarea name="printingInstructions" rows="2" placeholder="US Letter, color or grayscale, laminate optional…">${escapeHtml(record.printingInstructions || "")}</textarea></label>
+      <label>PDF file (max ${CURRICULUM_UPLOAD_MAX_MB} MB)${record.id ? " — leave empty to keep current" : " — required"}
+        <input name="pdfFile" type="file" accept="application/pdf,.pdf" ${record.id ? "" : "required"} />
+      </label>
+      <label>Preview image (PNG/JPEG/WEBP/GIF, max ${CURRICULUM_PREVIEW_UPLOAD_MAX_MB} MB)
+        <input name="previewFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif" />
+      </label>
+      ${previewSrc ? `<div class="tk-printable-preview-thumb"><img src="${escapeHtml(previewSrc)}" alt="Printable preview" /></div>` : ""}
+      <div class="form-actions">
+        <button class="primary-button" type="submit" ${adminTkPrintableSaving ? "disabled" : ""}>${adminTkPrintableSaving ? "Saving…" : (record.id ? "Save printable draft" : "Save draft & link to lesson")}</button>
+        <button class="ghost-button" type="button" data-tk-printable-cancel>Cancel</button>
+      </div>
+      <span class="form-message" id="adminTkPrintableMessage"></span>
+    </form>
+  `;
+}
+
 function renderCurriculumLessonLinkedResourcesSection(plan) {
   const lessonPlanId = plan?.id || "";
   if (!lessonPlanId) return "";
   const linked = curriculumResourcesForLesson(lessonPlanId).filter((item) => item.status !== "archived");
   const available = curriculumResourcesForAdmin().filter((item) => !linked.some((linkedItem) => linkedItem.id === item.id));
+  const ownerCanUpload = isTeachingKitPrintableOwnerClient();
+  const editing = adminTkPrintableEditingId
+    ? (linked.find((item) => item.id === adminTkPrintableEditingId) || curriculumResourceById(adminTkPrintableEditingId) || null)
+    : null;
   return `
-    <fieldset class="admin-fieldset curriculum-linked-resources">
+    <fieldset class="admin-fieldset curriculum-linked-resources" id="admin-lesson-linked-resources" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">
       <legend>Linked resources</legend>
-      <p class="muted-copy">Resources link to this lesson plan only (not individual activities).</p>
+      <p class="muted-copy">Resources link to this lesson plan only (not individual activities). Draft printables stay hidden from customers until published.</p>
       <div class="curriculum-linked-resource-list">
         ${linked.length
           ? linked.map((resource) => {
             const canOpen = curriculumResourceHasFile(resource);
+            const preview = resource.previewImageUrl || resource.previewUrl || "";
             return `
             <div class="curriculum-linked-resource-row">
-              <div>
-                <strong>${escapeHtml(resource.title || "Resource")}</strong>
-                <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.fileName || "")}</small>
+              <div class="curriculum-linked-resource-meta">
+                ${preview ? `<img class="tk-printable-row-thumb" src="${escapeHtml(preview)}" alt="" />` : ""}
+                <div>
+                  <strong>${escapeHtml(resource.title || "Resource")}</strong>
+                  <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.status || "draft")} · ${escapeHtml(resource.fileName || "")}</small>
+                </div>
               </div>
-              <div class="form-actions">
-                ${canOpen ? `<button class="ghost-button" type="button" data-curriculum-resource-open="${escapeHtml(resource.id)}">Open</button>` : ""}
+              <div class="form-actions curriculum-linked-resource-actions">
+                ${canOpen ? `<button class="ghost-button" type="button" data-curriculum-resource-open="${escapeHtml(resource.id)}">Preview / Download</button>` : ""}
+                ${ownerCanUpload ? `<button class="ghost-button" type="button" data-tk-printable-edit="${escapeHtml(resource.id)}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Replace / Edit</button>` : ""}
                 <button class="ghost-button" type="button" data-curriculum-resource-unlink="${escapeHtml(resource.id)}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Unlink</button>
+                ${ownerCanUpload ? `<button class="ghost-button" type="button" data-tk-printable-delete="${escapeHtml(resource.id)}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Delete</button>` : ""}
               </div>
             </div>
           `;
@@ -13562,21 +13636,145 @@ function renderCurriculumLessonLinkedResourcesSection(plan) {
           : `<p class="muted-copy">No resources linked yet.</p>`
         }
       </div>
-      ${available.length ? `
-        <div class="form-grid-two curriculum-link-resource-row">
-          <label>Link existing resource
+      <div class="form-actions tk-printable-toolbar">
+        ${ownerCanUpload ? `<button class="primary-button" type="button" id="adminTkCreatePrintableButton" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Create / Upload Printable</button>` : ""}
+        ${available.length ? `
+          <label class="tk-printable-link-existing">Link existing
             <select id="adminCurriculumLinkResourceSelect">
               <option value="">Select a resource…</option>
               ${available.map((resource) => `<option value="${escapeHtml(resource.id)}">${escapeHtml(resource.title || resource.id)}</option>`).join("")}
             </select>
           </label>
-          <div class="form-actions">
-            <button class="ghost-button" type="button" id="adminCurriculumLinkResourceButton" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Link resource</button>
-          </div>
-        </div>
-      ` : `<p class="muted-copy">Upload resources in Curriculum Resources (Beta) to link them here.</p>`}
+          <button class="ghost-button" type="button" id="adminCurriculumLinkResourceButton" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Link resource</button>
+        ` : (ownerCanUpload ? "" : `<p class="muted-copy">Upload resources in Curriculum Resources (Beta) to link them here.</p>`)}
+      </div>
+      ${adminTkPrintableFormOpen && ownerCanUpload ? renderTeachingKitPrintableForm(plan, editing) : ""}
     </fieldset>
   `;
+}
+
+async function postTeachingKitPrintableAction(payload) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Owner admin login is required.");
+  if (!isTeachingKitPrintableOwnerClient()) {
+    throw new Error("Create / Upload Printable is restricted to the owner account.");
+  }
+  const response = await fetch(curriculumResourceConfig.tkPrintableEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      ...payload,
+    }),
+  });
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (response.status === 409 && data) {
+    await handleCurriculumSaveConflict(data);
+    throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+  }
+  if (!response.ok) {
+    throw new Error(data?.error || `Printable action failed (${response.status}).`);
+  }
+  if (data?.curriculum) {
+    applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+  }
+  return data;
+}
+
+async function saveTeachingKitPrintableForm(form) {
+  if (adminTkPrintableSaving) return;
+  const lessonPlanId = form.getAttribute("data-curriculum-lesson-id") || "";
+  if (!lessonPlanId) return;
+  adminTkPrintableSaving = true;
+  const messageSelector = "#adminTkPrintableMessage";
+  setFormMessage(messageSelector, "Saving draft printable…", true);
+  try {
+    if (!curriculumExpectedUpdatedAt()) {
+      try { await loadAdminSiteContent(); } catch { /* continue */ }
+    }
+    const formData = new FormData(form);
+    const resourceId = normalizedShortText(formData.get("resourceId"));
+    const pdfFile = formData.get("pdfFile");
+    const previewFile = formData.get("previewFile");
+    let fileData = "";
+    let fileName = "";
+    let previewImageData = "";
+    let previewFileName = "";
+    if (pdfFile && pdfFile.size) {
+      if (!/\.pdf$/i.test(pdfFile.name || "") && pdfFile.type !== "application/pdf") {
+        throw new Error("Only PDF files are supported for Teaching Kit printables.");
+      }
+      fileData = await fileToDataUrlSafe(pdfFile, { maxMb: CURRICULUM_UPLOAD_MAX_MB });
+      if (!fileData) throw new Error(`PDF must be under ${CURRICULUM_UPLOAD_MAX_MB} MB.`);
+      fileName = pdfFile.name || "printable.pdf";
+    } else if (!resourceId) {
+      throw new Error("A PDF file is required.");
+    }
+    if (previewFile && previewFile.size) {
+      previewImageData = await fileToDataUrlSafe(previewFile, { maxMb: CURRICULUM_PREVIEW_UPLOAD_MAX_MB });
+      if (!previewImageData) throw new Error(`Preview image must be under ${CURRICULUM_PREVIEW_UPLOAD_MAX_MB} MB.`);
+      previewFileName = previewFile.name || "preview.png";
+    }
+    const payload = {
+      action: resourceId ? "update" : "create",
+      lessonPlanId,
+      resourceId: resourceId || undefined,
+      title: normalizedShortText(formData.get("title")) || "Printable",
+      resourceType: normalizedShortText(formData.get("resourceType")) || "Printable",
+      ageGroup: normalizedShortText(formData.get("ageGroup")),
+      theme: normalizedShortText(formData.get("theme")),
+      description: normalizedMultilineText(formData.get("description")),
+      pageCount: formData.get("pageCount"),
+      printingInstructions: normalizedMultilineText(formData.get("printingInstructions")),
+      accessLevel: ["free", "pro"].includes(String(formData.get("accessLevel"))) ? formData.get("accessLevel") : "pro",
+      ...(fileData ? { fileData, fileName } : {}),
+      ...(previewImageData ? { previewImageData, previewFileName } : {}),
+    };
+    const data = await postTeachingKitPrintableAction(payload);
+    adminTkPrintableFormOpen = false;
+    adminTkPrintableEditingId = "";
+    const enrichOpen = typeof LLHTeachingKitEnrichmentEditor?.isOpen === "function"
+      && LLHTeachingKitEnrichmentEditor.isOpen();
+    if (enrichOpen) {
+      refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
+      LLHTeachingKitEnrichmentEditor.refreshLinkedResources?.();
+    } else {
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+    }
+    setFormMessage("#adminCurriculumLessonPlanMessage", `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). Not published.`, true);
+  } catch (error) {
+    setFormMessage(messageSelector, `❌ ${error.message || "Save failed."}`, false);
+    adminTkPrintableSaving = false;
+    const host = document.querySelector("#admin-lesson-resources");
+    if (host && adminCurriculumLessonEditorId) {
+      const plan = curriculumLessonPlanById(adminCurriculumLessonEditorId);
+      if (plan) host.innerHTML = renderCurriculumLessonLinkedResourcesSection(plan);
+    }
+    return;
+  }
+  adminTkPrintableSaving = false;
+}
+
+function refreshTeachingKitLinkedResourcesHosts(lessonPlanId) {
+  const plan = curriculumLessonPlanById(lessonPlanId);
+  if (!plan) return;
+  const classic = document.querySelector("#admin-lesson-resources");
+  if (classic) classic.innerHTML = renderCurriculumLessonLinkedResourcesSection(plan);
+  document.querySelectorAll("[data-tk-enrich-linked-resources]").forEach((node) => {
+    node.innerHTML = renderCurriculumLessonLinkedResourcesSection(plan);
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.renderCurriculumLessonLinkedResourcesSection = renderCurriculumLessonLinkedResourcesSection;
+  window.refreshTeachingKitLinkedResourcesHosts = refreshTeachingKitLinkedResourcesHosts;
+  window.postTeachingKitPrintableAction = postTeachingKitPrintableAction;
 }
 
 async function saveAdminCurriculumResourceForm(form) {
@@ -71694,6 +71892,11 @@ document.addEventListener("submit", async (event) => {
     await saveAdminCurriculumResourceForm(event.target);
     return;
   }
+  if (event.target.matches("#adminTkPrintableForm")) {
+    event.preventDefault();
+    await saveTeachingKitPrintableForm(event.target);
+    return;
+  }
   if (event.target.matches("#adminLessonImportForm")) {
     event.preventDefault();
     const textarea = document.querySelector("#adminImportTextarea");
@@ -72054,8 +72257,59 @@ document.addEventListener("click", async (event) => {
       await linkCurriculumResourceToLesson(resourceId, lessonPlanId);
       renderAdminCurriculumLessonPlanManager();
       applyAdminSectionVisibility();
+      refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
     } catch (error) {
       setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Could not link resource."}`, false);
+    }
+    return;
+  }
+  if (event.target.closest("#adminTkCreatePrintableButton")) {
+    if (!isTeachingKitPrintableOwnerClient()) {
+      setFormMessage("#adminCurriculumLessonPlanMessage", "❌ Create / Upload Printable is owner-only.", false);
+      return;
+    }
+    adminTkPrintableFormOpen = true;
+    adminTkPrintableEditingId = "";
+    const lessonPlanId = event.target.closest("#adminTkCreatePrintableButton")?.dataset.curriculumLessonId || adminCurriculumLessonEditorId || "";
+    refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
+    document.querySelector("#adminTkPrintableForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (event.target.closest("[data-tk-printable-cancel]")) {
+    adminTkPrintableFormOpen = false;
+    adminTkPrintableEditingId = "";
+    refreshTeachingKitLinkedResourcesHosts(
+      event.target.closest("[data-curriculum-lesson-id]")?.dataset.curriculumLessonId
+      || adminCurriculumLessonEditorId
+      || "",
+    );
+    return;
+  }
+  const tkPrintableEdit = event.target.closest("[data-tk-printable-edit]");
+  if (tkPrintableEdit) {
+    if (!isTeachingKitPrintableOwnerClient()) return;
+    adminTkPrintableFormOpen = true;
+    adminTkPrintableEditingId = tkPrintableEdit.dataset.tkPrintableEdit || "";
+    refreshTeachingKitLinkedResourcesHosts(tkPrintableEdit.dataset.curriculumLessonId || "");
+    return;
+  }
+  const tkPrintableDelete = event.target.closest("[data-tk-printable-delete]");
+  if (tkPrintableDelete) {
+    if (!isTeachingKitPrintableOwnerClient()) return;
+    const resourceId = tkPrintableDelete.dataset.tkPrintableDelete || "";
+    const lessonPlanId = tkPrintableDelete.dataset.curriculumLessonId || "";
+    if (!resourceId || !lessonPlanId) return;
+    if (!confirm("Delete this printable from the lesson? Draft resources are archived (or removed for disposable fixtures). Published lesson content is not rewritten.")) return;
+    try {
+      await postTeachingKitPrintableAction({ action: "delete", resourceId, lessonPlanId });
+      adminTkPrintableFormOpen = false;
+      adminTkPrintableEditingId = "";
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+      refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
+      setFormMessage("#adminCurriculumLessonPlanMessage", "✅ Printable deleted/archived. Lesson enrichment unchanged.", true);
+    } catch (error) {
+      setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Delete failed."}`, false);
     }
     return;
   }
@@ -72068,6 +72322,7 @@ document.addEventListener("click", async (event) => {
       await unlinkCurriculumResourceFromLesson(resourceId, lessonPlanId);
       renderAdminCurriculumLessonPlanManager();
       applyAdminSectionVisibility();
+      refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
     } catch (error) {
       setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Could not unlink resource."}`, false);
     }
