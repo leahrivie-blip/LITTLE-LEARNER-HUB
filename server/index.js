@@ -8742,11 +8742,17 @@ async function handleSyncPasswordAfterFirebase(request, response) {
     if (firebaseConfigStatus().ready) {
       identity = await verifyFirebaseUser(request);
     } else {
-      // Local/demo or automated tests when Firebase Auth is not configured.
+      // Local/demo, automated tests, or the HDH testing service when Firebase Auth
+      // is not configured. Do not allow unauthenticated password writes on a
+      // production Firebase-less misconfig.
       const authHeader = String(request.headers.authorization || "");
       if (authHeader.startsWith("Bearer test:")) {
         identity = { email: normalizeEmail(authHeader.slice("Bearer test:".length)), uid: "test" };
-      } else if (normalizeEmail(body.email) && String(body.newPassword || "").length >= 8) {
+      } else if (
+        (isHomeDaycareHubTestingEnabled() || process.env.NODE_ENV === "test")
+        && normalizeEmail(body.email)
+        && String(body.newPassword || "").length >= 8
+      ) {
         identity = { email: normalizeEmail(body.email), uid: `local-${normalizeEmail(body.email)}` };
       }
     }
@@ -8760,6 +8766,17 @@ async function handleSyncPasswordAfterFirebase(request, response) {
   authAuditLog("firebase_password_sync_attempt", { email: email || "(missing)" });
   if (!email || !identity) {
     jsonResponse(response, 401, { error: "A verified account email is required." });
+    return;
+  }
+  if (testAccountGuard.shouldRejectTestAccountPersistence(email)) {
+    jsonResponse(response, 200, {
+      ok: true,
+      skipped: true,
+      reason: "test_account_not_persisted",
+      email,
+      mustChangePassword: false,
+      serverPasswordAuth: false,
+    });
     return;
   }
   if (newPassword && newPassword.length < 8) {

@@ -1,13 +1,13 @@
-const CACHE_NAME = "llh-shell-v198-phase11-fix-wave";
-const SHELL_VERSION = "20260808-phase11-fix-wave";
+const CACHE_NAME = "llh-shell-v199-phase11-tester-accept";
+const SHELL_VERSION = "20260808-phase11-tester-accept";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260808-phase11-fix-wave",
-  "/styles/llh-admin-workspace.css?v=20260808-phase11-fix-wave",
+  "/styles.css?v=20260808-phase11-tester-accept",
+  "/styles/llh-admin-workspace.css?v=20260808-phase11-tester-accept",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260808-cookie-cta",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",

@@ -15648,6 +15648,12 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
     name: fullName || undefined,
     passwordHash: await localPasswordHash(password),
   });
+  // Testing / local (Firebase Auth off): persist the password on the server so
+  // logout → login and new-device sign-in work. Without this, password-login 401s
+  // and the auth modal can appear stuck on "Signing you in…".
+  if (!firebaseAuthEnabled) {
+    await syncPasswordAfterFirebaseAuth(password, "local_signup", cleanEmail);
+  }
   return { email: cleanEmail, verified: false, message: "Welcome! Your account is ready — you can start exploring right away." };
 }
 
@@ -39303,8 +39309,9 @@ async function maybeHandleFamilyHubInviteFromUrl() {
   // Body-level overlay so home re-renders cannot wipe the accept panel.
   panel.style.cssText = "position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;padding-top:max(24px, env(safe-area-inset-top));padding-bottom:max(24px, env(safe-area-inset-bottom));background:rgba(26,43,74,0.55);";
   const card = document.createElement("div");
-  card.className = "fh-signin";
-  card.style.cssText = "width:min(100%,560px);max-height:90vh;overflow:auto;";
+  card.className = "fh-signin fh-invite-accept-card";
+  // Opaque card so homepage footer/nav never show through the invite dialog.
+  card.style.cssText = "width:min(100%,560px);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:28px 24px;box-shadow:0 18px 48px rgba(15,23,42,0.35);position:relative;z-index:1;";
   const mount = () => {
     document.querySelector("#familyHubAcceptPanel")?.remove();
     panel.appendChild(card);

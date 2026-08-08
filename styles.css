@@ -29007,3 +29007,15 @@ body.user-authenticated .main {
     min-height: 44px;
   }
 }
+
+/* Family Hub invite accept dialog — keep homepage chrome from bleeding through */
+body.family-hub-invite-open .site-footer,
+body.family-hub-invite-open footer.site-footer,
+body.family-hub-invite-open .home-footer,
+body.family-hub-invite-open .llh-home-footer {
+  visibility: hidden !important;
+}
+#familyHubAcceptPanel .fh-invite-accept-card,
+#familyHubAcceptPanel .fh-signin {
+  background: #fff;
+}
