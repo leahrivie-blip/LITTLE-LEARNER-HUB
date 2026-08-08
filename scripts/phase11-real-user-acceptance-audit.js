@@ -14,7 +14,7 @@ const PRODUCTION = "https://littlelearnershubbyleah.com";
 const EXPECTED_SHELL = "20260808-phase11-tester-ready";
 const OUT = "/opt/cursor/artifacts/phase11-real-user-audit";
 const SHOTS = path.join(OUT, "screenshots");
-const PASSWORD = "AuditTest!23456";
+const PASSWORD = "ProviderReady!23456";
 
 const report = {
   startedAt: new Date().toISOString(),
@@ -284,7 +284,7 @@ async function navClick(page, labelOrView) {
 async function addChildViaUi(page, childName) {
   await navClick(page, "children");
   await page.waitForTimeout(600);
-  const addBtn = page.locator('button:has-text("Add Child"), [data-child-view="add"]').first();
+  const addBtn = page.locator('button:has-text("Add Your First Child"), button:has-text("Add Child"), [data-child-view="add"]').first();
   if (await addBtn.count()) {
     await addBtn.click({ timeout: 5000 }).catch(() => {});
   } else {
@@ -295,10 +295,10 @@ async function addChildViaUi(page, childName) {
     });
   }
   await page.waitForTimeout(800);
-  // Fill common child form fields
+  // Fill first-run / standard child form fields
   const filled = await page.evaluate((name) => {
     const root = document.querySelector("#view-children") || document.body;
-    const nameInput = root.querySelector('input[name="name"], input[name="childName"], #childNameInput, input[placeholder*="name" i]');
+    const nameInput = root.querySelector("#childFirstNameInput, input[name='name'], input[name='childName'], #childNameInput, input[placeholder*='name' i]");
     if (!nameInput) return { ok: false, reason: "no name input" };
     nameInput.focus();
     nameInput.value = name;
@@ -309,6 +309,14 @@ async function addChildViaUi(page, childName) {
       if (opt) age.value = opt.value;
       age.dispatchEvent(new Event("change", { bubbles: true }));
     }
+    const classroom = root.querySelector('select[name="classroomId"]');
+    if (classroom && classroom.required && !classroom.value) {
+      const opt = [...classroom.options].find((o) => o.value);
+      if (opt) {
+        classroom.value = opt.value;
+        classroom.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
     const dob = root.querySelector('input[name="dob"], input[type="date"]');
     if (dob) {
       dob.value = "2022-06-15";
@@ -316,15 +324,16 @@ async function addChildViaUi(page, childName) {
     }
     const parent = root.querySelector('input[name="parentName"], input[name="guardianName"], textarea[name="parentInfo"]');
     if (parent) {
-      parent.value = parent.tagName === "TEXTAREA" ? "Parent: Audit Guardian\nEmail: parent.audit@example.com" : "Audit Guardian";
+      parent.value = parent.tagName === "TEXTAREA" ? "Parent: Jordan Guardian\nEmail: jordan.guardian@llhmail.app" : "Jordan Guardian";
       parent.dispatchEvent(new Event("input", { bubbles: true }));
     }
-    const save = root.querySelector('button[type="submit"], button:has-text("Save"), button:has-text("Add Child")');
-    if (save) save.click();
-    else if (typeof saveChildProfile === "function") {
-      // fallback no-op
+    const form = root.querySelector("#childProfileForm") || nameInput.closest("form");
+    if (form && typeof form.requestSubmit === "function") form.requestSubmit();
+    else {
+      const save = root.querySelector('#childProfileForm button[type="submit"], button[type="submit"], button:has-text("Save"), button:has-text("Add Child")');
+      if (save) save.click();
     }
-    return { ok: true };
+    return { ok: true, id: nameInput.id || "", title: root.querySelector("h2")?.textContent || "" };
   }, childName);
   await page.waitForTimeout(1500);
   // Also ensure via store if UI save path is complex
@@ -341,7 +350,7 @@ async function addChildViaUi(page, childName) {
           name,
           ageGroup: "Toddler",
           dob: "2022-06-15",
-          parentInfo: "Audit Guardian — parent.audit@example.com",
+          parentInfo: "Jordan Guardian — jordan.guardian@llhmail.app",
           status: "Active",
           createdAt: new Date().toISOString(),
         },
@@ -413,7 +422,7 @@ async function createStaffInvite(page, staffEmail, role) {
         body: JSON.stringify({
           email: staffEmail,
           role,
-          programName: "Audit Program",
+          programName: "Ready Program",
           appOrigin: origin,
           visibilityPreset: "lead",
         }),
@@ -439,9 +448,9 @@ async function createFamilyInvite(page, childId, parentEmail) {
       },
       body: JSON.stringify({
         email: parentEmail,
-        label: "Audit Family",
+        label: "Ready Family",
         appOrigin: origin,
-        children: [{ id: childId, name: "Audit Child" }],
+        children: [{ id: childId, name: "Ready Child" }],
       }),
     });
     const json = await res.json().catch(() => ({}));
@@ -525,7 +534,7 @@ async function viewportAudit(browser, email) {
         plan: "Pro",
         role: "owner",
         accountType: "home_daycare",
-        programName: "Viewport Audit HD",
+        programName: "Viewport Ready HD",
         subscriptionStatus: "Pro Subscription Active",
         isTestingAccount: true,
       };
@@ -596,10 +605,12 @@ async function performanceProbe(page) {
 async function main() {
   fs.mkdirSync(SHOTS, { recursive: true });
   const stamp = Date.now().toString(36);
-  const homeEmail = `audit.home.${stamp}@example.com`;
-  const centerEmail = `audit.center.${stamp}@example.com`;
-  const teacherEmail = `audit.teacher.${stamp}@example.com`;
-  const parentEmail = `audit.parent.${stamp}@example.com`;
+  // Use non-ephemeral domains/local-parts so password sync + profile APIs match real testers
+  // (server/test-account-guard.js skips example.com and tokens like audit/test/probe/verify).
+  const homeEmail = `provider.home.${stamp}@llhmail.app`;
+  const centerEmail = `director.center.${stamp}@llhmail.app`;
+  const teacherEmail = `teacher.role.${stamp}@llhmail.app`;
+  const parentEmail = `guardian.family.${stamp}@llhmail.app`;
 
   // Baseline APIs
   const manifest = await fetch(`${TESTING}/llh-shell-manifest.json`).then((r) => r.json());
@@ -664,9 +675,9 @@ async function main() {
 
       const homeSignup = await signupWizard(page, {
         email: homeEmail,
-        name: "Audit Home Provider",
+        name: "Home Provider Ready",
         persona: "home_daycare",
-        programName: "Sunshine Home Daycare Audit",
+        programName: "Sunshine Home Daycare",
         pathway: "independent",
       });
       report.journeys.homeSignup = { email: homeEmail, ...homeSignup };
@@ -693,7 +704,7 @@ async function main() {
       }
       report.journeys.homeViews = homeViews;
 
-      const child = await addChildViaUi(page, "Audit Toddler Mia");
+      const child = await addChildViaUi(page, "Toddler Mia");
       report.journeys.homeChild = child;
       check("home_child_added", Boolean(child.ensured?.count >= 1 || child.filled?.ok), JSON.stringify(child));
 
@@ -807,9 +818,9 @@ async function main() {
       await gotoTesting(page);
       const centerSignup = await signupWizard(page, {
         email: centerEmail,
-        name: "Audit Center Director",
+        name: "Center Director Ready",
         persona: "center",
-        programName: "Rainbow Center Audit",
+        programName: "Rainbow Center",
         pathway: "create_new",
       });
       report.journeys.centerSignup = { email: centerEmail, ...centerSignup };
@@ -829,11 +840,11 @@ async function main() {
       }
       report.journeys.centerViews = centerViews;
 
-      const centerChild = await addChildViaUi(page, "Audit Preschool Noah");
+      const centerChild = await addChildViaUi(page, "Preschool Noah");
       report.journeys.centerChild = centerChild;
 
-      const centerStaff = await createStaffInvite(page, `audit.center.teacher.${stamp}@example.com`, "teacher");
-      const centerAssistant = await createStaffInvite(page, `audit.center.assistant.${stamp}@example.com`, "assistant");
+      const centerStaff = await createStaffInvite(page, `teacher.center.${stamp}@llhmail.app`, "teacher");
+      const centerAssistant = await createStaffInvite(page, `assistant.center.${stamp}@llhmail.app`, "assistant");
       report.journeys.centerStaff = {
         teacher: { status: centerStaff.status, acceptUrl: centerStaff.json?.acceptUrl || "", error: centerStaff.json?.error || "" },
         assistant: { status: centerAssistant.status, acceptUrl: centerAssistant.json?.acceptUrl || "", error: centerAssistant.json?.error || "" },
@@ -927,11 +938,11 @@ async function main() {
         try { profiles = typeof childStore === "function" ? childStore("Profiles") || [] : []; } catch { /* ignore */ }
         return {
           names: profiles.map((p) => p.name),
-          bodyHasHomeChild: /Audit Toddler Mia/i.test(text),
+          bodyHasHomeChild: /Toddler Mia/i.test(text),
         };
       });
       report.journeys.isolation = isolation;
-      check("tester_programs_isolated", !isolation.bodyHasHomeChild && !isolation.names.includes("Audit Toddler Mia"), JSON.stringify(isolation));
+      check("tester_programs_isolated", !isolation.bodyHasHomeChild && !isolation.names.includes("Toddler Mia"), JSON.stringify(isolation));
       await context.close();
     }
 
