@@ -28978,3 +28978,32 @@ body.user-authenticated .llh-cal-week-strip {
 body.user-authenticated .main {
   overflow-x: clip;
 }
+
+/* Phase 9 — AI review-before-save */
+[data-ai-review-before-save="true"] .settings-check-label,
+.dlc-ai-review-panel .settings-check-label,
+.doc-helper-review-gates .settings-check-label,
+.hdh-ai-review-gates .settings-check-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+
+.dlc-ai-review-panel textarea,
+.doc-helper-review-gates input,
+.hdh-ai-review-gates input {
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .dlc-ai-review-panel textarea {
+    width: 100%;
+    font-size: 16px;
+  }
+  .dlc-ai-review-panel .account-actions-row .primary-button,
+  .dlc-ai-review-panel .account-actions-row .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}

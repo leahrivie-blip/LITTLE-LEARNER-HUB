@@ -534,6 +534,8 @@ let hdhAiDraftState = {
   lastOutput: "",
   editing: false,
 };
+/** Phase 9 — pending end-of-day / daily-report AI draft awaiting review-before-save. */
+let dlcAiReviewState = null;
 let familyHubHouseholdCache = { households: [], loadedAt: 0 };
 let familyHubInviteResult = null;
 let familyHubParentState = {
@@ -8262,7 +8264,14 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
           <button class="ghost-button" type="button" data-hdh-ai-print>Print PDF</button>
           <button class="ghost-button" type="button" data-hdh-ai-send-later title="Save and notify Family Hub">Share with Family Hub</button>
         </div>
-        <p class="form-note" id="hdhAiDraftHint">Full forms path: Generate → Edit → Save template or child file → Share with Family Hub → Parent signs → You review &amp; print.</p>
+        <div class="hdh-ai-review-gates" data-ai-review-before-save="true" style="margin:10px 0;">
+          <label class="settings-check-label">
+            <input type="checkbox" id="hdhAiReviewAck" />
+            I reviewed this AI-generated form draft for accuracy before saving.
+          </label>
+          <p class="form-note">Saving stores a private draft on the child file. Sharing with Family Hub is a separate step.</p>
+        </div>
+        <p class="form-note" id="hdhAiDraftHint">Full forms path: Generate → Edit → Review → Save template or child file → Share with Family Hub → Parent signs → You review &amp; print.</p>
         <div id="hdhAiDraftOutput" class="hdh-ai-draft-output" ${hdhAiDraftState.editing ? 'contenteditable="true"' : ""}>${hasDraft ? renderMarkdown(hdhAiDraftState.lastOutput) : ""}</div>
       </div>
     </section>
@@ -8454,6 +8463,13 @@ function saveHomeDaycareAiFormDraftToChild() {
     showActionFeedback("Generate a draft first.");
     return;
   }
+  const reviewAck = document.querySelector("#hdhAiReviewAck");
+  if (!reviewAck?.checked) {
+    if (hintEl) hintEl.textContent = "Check the review box before saving this AI draft.";
+    showActionFeedback("Review this AI draft before saving.");
+    reviewAck?.focus();
+    return;
+  }
   selectedChildId = childId;
   localStorage.setItem("llhSelectedChild", selectedChildId);
   const saved = appendChildRecord("Documents", {
@@ -8462,19 +8478,21 @@ function saveHomeDaycareAiFormDraftToChild() {
     category: packForm.category,
     packFormId: packForm.id,
     resourceId: packForm.resourceId,
-    status: "needed",
-    statusLabel: homeDaycarePackDocumentStatusLabel("needed"),
+    status: "draft",
+    statusLabel: homeDaycarePackDocumentStatusLabel("draft"),
     notes: "AI-assisted draft. Review for accuracy and licensing before sharing with families.",
     draftText,
-    shareWithFamily: true,
-    providerReviewed: false,
+    // Phase 9 — private until explicit Share with Family Hub.
+    shareWithFamily: false,
+    providerReviewed: true,
+    aiReviewedBeforeSave: true,
     date: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString(),
   });
   childProfileTab = "forms-records";
   childManagementMode = "profile";
-  if (hintEl) hintEl.textContent = "Saved to the child’s Forms & Records file. Use Share with Family Hub to notify parents in-app.";
-  showActionFeedback("AI form draft saved to child file.");
+  if (hintEl) hintEl.textContent = "Saved as a private draft on the child’s Forms & Records file. Use Share with Family Hub when you are ready to notify parents.";
+  showActionFeedback("AI form draft saved privately. Nothing was sent to families.");
   trackEvent("hdh_ai_form_draft_saved", { form: packForm.id });
   return saved;
 }
@@ -45040,7 +45058,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
       previewKind: "portfolio-entry",
       recordKey: "Reports",
       recordType: "Portfolio Entry",
-      shareWithFamily: true,
+      shareWithFamily: false,
       saved: false,
       ignored: false,
     });
@@ -45058,7 +45076,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
       previewKind: "daily-summary",
       recordKey: "Communications",
       recordType: "Parent Summary",
-      shareWithFamily: true,
+      shareWithFamily: false,
       saved: false,
       ignored: false,
     });
@@ -45170,7 +45188,8 @@ function dlcSaveSuggestion(sug, idx) {
             message: sug.companionParentMessage,
             title: `Parent incident update | ${today}`,
             summary: String(sug.companionParentMessage).slice(0, 120),
-            shareWithFamily: true,
+            // Phase 9: follow the same share flag as the primary save — never force share.
+            shareWithFamily: shareFlag,
           });
         }
         if (sug.previewKind === "incident-report") {
@@ -45213,23 +45232,68 @@ function maybeSuggestGoalFromObservation(child, observation = {}) {
   const area = areaMatch ? areaMatch[1].replace(/^./, (c) => c.toUpperCase()) : "Development";
   const snippet = text.split(/[.!\n]/).map((part) => part.trim()).find((part) => part.length > 18) || text.slice(0, 80);
   const title = `${area} goal from observation`;
+  const date = String(observation.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
   const existing = (childStore("Goals") || []).some((goal) => (
     String(goal.childId) === String(child.id)
     && String(goal.title || "").toLowerCase() === title.toLowerCase()
-    && String(goal.date || "").slice(0, 10) === String(observation.date || new Date().toISOString().slice(0, 10)).slice(0, 10)
+    && String(goal.date || "").slice(0, 10) === date
   ));
   if (existing) return null;
-  return appendChildRecord("Goals", {
+  // Phase 9 — propose only; never auto-write Goals from AI/observation automation.
+  const suggestion = {
+    id: `ai-sug-goal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    kind: "goal",
     childId: child.id,
-    date: observation.date || new Date().toISOString().slice(0, 10),
+    date,
     title,
     area,
     summary: `Suggested from observation: ${snippet}`,
     progress: "0",
     sourceObservationId: observation.id || "",
-    // Goals stay provider-private until explicitly shared; providers can toggle share later.
     shareWithFamily: false,
-  });
+  };
+  if (!Array.isArray(window.__llhAiPendingSuggestions)) window.__llhAiPendingSuggestions = [];
+  window.__llhAiPendingSuggestions.push(suggestion);
+  if (typeof showActionFeedback === "function") {
+    showActionFeedback(
+      `AI suggested a ${area} goal for ${child.name || "this child"}. Review before adding — nothing was saved yet.`,
+      { label: "Add suggested goal", attr: `data-ai-accept-suggestion="${suggestion.id}"` },
+    );
+  }
+  return suggestion;
+}
+
+function acceptAiPendingSuggestion(suggestionId) {
+  const list = Array.isArray(window.__llhAiPendingSuggestions) ? window.__llhAiPendingSuggestions : [];
+  const idx = list.findIndex((item) => String(item.id) === String(suggestionId || ""));
+  if (idx < 0) throw new Error("That AI suggestion is no longer available.");
+  const suggestion = list.splice(idx, 1)[0];
+  if (suggestion.kind === "goal") {
+    return appendChildRecord("Goals", {
+      childId: suggestion.childId,
+      date: suggestion.date,
+      title: suggestion.title,
+      area: suggestion.area,
+      summary: suggestion.summary,
+      progress: suggestion.progress || "0",
+      sourceObservationId: suggestion.sourceObservationId || "",
+      shareWithFamily: false,
+      aiReviewedBeforeSave: true,
+    });
+  }
+  if (suggestion.kind === "support_plan") {
+    return appendChildRecord("SupportPlans", {
+      childId: suggestion.childId,
+      date: suggestion.date,
+      title: suggestion.title,
+      summary: suggestion.summary,
+      strategies: suggestion.strategies,
+      status: "active",
+      shareWithFamily: false,
+      aiReviewedBeforeSave: true,
+    });
+  }
+  throw new Error("Unsupported AI suggestion type.");
 }
 
 function weekLessonForChild(child = {}) {
@@ -45631,20 +45695,43 @@ function renderDailyLogsOverviewTab(child, records, today) {
           <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
         </section>
       ` : ""}
-      <section class="section-block dlc-end-day-ai">
+      <section class="section-block dlc-end-day-ai" data-ai-review-before-save="true">
         <div class="section-heading">
           <div>
             <p class="eyebrow">End of day</p>
             <h4>Turn today’s logs into family updates</h4>
-            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented.</p>
+            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented. AI drafts require review before save or share.</p>
           </div>
         </div>
-        <div class="account-actions-row">
-          <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
-          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
-          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
-          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
-        </div>
+        ${dlcAiReviewState && String(dlcAiReviewState.childId) === String(child.id) ? `
+          <div class="dlc-ai-review-panel" data-dlc-ai-review-panel="${escapeHtml(child.id)}">
+            <p class="eyebrow">Review before save</p>
+            <h4>${escapeHtml(dlcAiReviewState.title || "AI draft")}</h4>
+            <p class="muted-copy">Nothing is saved or shared until you confirm.</p>
+            <label>Draft
+              <textarea data-dlc-ai-review-text rows="8">${escapeHtml(dlcAiReviewState.outputText || "")}</textarea>
+            </label>
+            <label class="settings-check-label">
+              <input type="checkbox" data-dlc-ai-review-ack ${dlcAiReviewState.reviewAcknowledged ? "checked" : ""} />
+              I reviewed this AI-generated draft for accuracy before saving.
+            </label>
+            <label class="settings-check-label">
+              <input type="checkbox" data-dlc-ai-review-share ${dlcAiReviewState.shareWithFamily ? "checked" : ""} />
+              Share with Family Hub after saving
+            </label>
+            <div class="account-actions-row">
+              <button class="primary-button" type="button" data-dlc-ai-review-save="${escapeHtml(child.id)}">Save draft</button>
+              <button class="ghost-button" type="button" data-dlc-ai-review-discard="${escapeHtml(child.id)}">Discard</button>
+            </div>
+          </div>
+        ` : `
+          <div class="account-actions-row">
+            <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
+            <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
+            <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
+            <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report draft</button>
+          </div>
+        `}
         ${(() => {
           const lesson = typeof weekLessonForChild === "function" ? weekLessonForChild(child) : null;
           if (!lesson) return "";
@@ -45658,7 +45745,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
         <textarea class="dlc-parent-summary-input" data-dlc-summary-input="${child.id}" rows="4">${escapeHtml(parentSummary)}</textarea>
         <div class="dlc-parent-summary-actions">
           <label class="dlc-check-label">
-            <input type="checkbox" data-dlc-summary-share="${child.id}" checked />
+            <input type="checkbox" data-dlc-summary-share="${child.id}" />
             Share with Family
           </label>
           <button class="primary-button" data-dlc-save-summary="${child.id}" type="button">Save Parent Summary</button>
@@ -47418,10 +47505,10 @@ function showAfterActionPrompt(trigger, childId) {
   );
 }
 
-async function buildDailyReportFromChild(childId, quickNote) {
+async function generateDailyReportDraftFromChild(childId, quickNote) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
-  if (!child) return;
+  if (!child) throw new Error("Child not found.");
   const today = dlcActiveDate();
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
@@ -47449,17 +47536,70 @@ async function buildDailyReportFromChild(childId, quickNote) {
       "Use only these logged facts. Do not invent missing details.",
     ].filter(Boolean).join("\n"),
   });
-  const report = result.output;
-
-  appendChildRecord("Reports", {
+  return {
+    proposalId: `dlc-daily-${childId}-${Date.now().toString(36)}`,
+    kind: "daily-report",
     childId,
-    title: `Daily Report | ${today}`,
+    childName: child.name,
     date: today,
-    summary: report.slice(0, 200),
-    message: report,
-    shareWithFamily: true,
+    title: `Daily Report | ${today}`,
+    outputText: String(result.output || "").trim(),
+    recordKey: "Reports",
+    recordType: "Daily Report",
+  };
+}
+
+function saveReviewedAiChildRecord({
+  childId,
+  date,
+  title,
+  outputText,
+  recordKey = "Reports",
+  recordType = "",
+  shareWithFamily = false,
+  reviewAcknowledged = false,
+  type = "",
+} = {}) {
+  if (!reviewAcknowledged) throw new Error("Review this AI draft before saving.");
+  const text = String(outputText || "").trim();
+  if (!text) throw new Error("Draft is empty.");
+  if (!childId) throw new Error("Choose a child before saving.");
+  const payload = {
+    childId,
+    date: date || dlcActiveDate(),
+    title: title || `${recordType || "AI draft"} | ${date || dlcActiveDate()}`,
+    summary: text.slice(0, 200),
+    message: text,
+    shareWithFamily: Boolean(shareWithFamily),
+    aiReviewedBeforeSave: true,
+    providerReviewed: true,
+  };
+  if (recordKey === "Communications") {
+    payload.type = type || recordType || "Parent Note";
+  } else if (recordType) {
+    payload.type = recordType;
+  }
+  return appendChildRecord(recordKey, payload);
+}
+
+/** @deprecated Use generateDailyReportDraftFromChild + saveReviewedAiChildRecord (Phase 9). */
+async function buildDailyReportFromChild(childId, quickNote, { shareWithFamily = false, reviewAcknowledged = false } = {}) {
+  const draft = await generateDailyReportDraftFromChild(childId, quickNote);
+  if (!reviewAcknowledged) {
+    // Legacy callers must not auto-share. Stage for review panel when possible.
+    dlcAiReviewState = {
+      ...draft,
+      reviewAcknowledged: false,
+      shareWithFamily: false,
+    };
+    return draft.outputText;
+  }
+  saveReviewedAiChildRecord({
+    ...draft,
+    shareWithFamily,
+    reviewAcknowledged: true,
   });
-  return report;
+  return draft.outputText;
 }
 
 function exportChildPortfolio(childId) {
@@ -67616,7 +67756,7 @@ document.addEventListener("click", async (event) => {
       title: `Parent Summary | ${today}`,
       summary: summaryText.slice(0, 120),
       message: summaryText,
-      shareWithFamily: shareCheckbox ? shareCheckbox.checked : true,
+      shareWithFamily: shareCheckbox ? shareCheckbox.checked : false,
     });
     return;
   }
@@ -67635,7 +67775,7 @@ document.addEventListener("click", async (event) => {
     const child = records.children.find((item) => item.id === childId);
     if (!child) return;
     dlcEndDayAi.disabled = true;
-    if (statusEl) statusEl.textContent = "Creating from today’s logged facts…";
+    if (statusEl) statusEl.textContent = "Creating draft from today’s logged facts…";
     const today = dlcActiveDate();
     const grounded = buildGroundedDayFactsForAi(child, records, today);
     if (!grounded.factsText && kind !== "parent-message") {
@@ -67646,10 +67786,9 @@ document.addEventListener("click", async (event) => {
     (async () => {
       try {
         const programSettings = getProgramSettings();
+        let draft;
         if (kind === "daily-report") {
-          await buildDailyReportFromChild(childId, grounded.highlights);
-          if (statusEl) statusEl.textContent = "Daily report saved and shared with Family Hub.";
-          showActionFeedback("Daily report created from today’s logs.");
+          draft = await generateDailyReportDraftFromChild(childId, grounded.highlights);
         } else if (kind === "weekly-summary") {
           const weekFacts = buildGroundedWeekFactsForAi(child, records, today);
           if (!weekFacts.factsText) {
@@ -67667,17 +67806,17 @@ document.addEventListener("click", async (event) => {
             tone: programSettings.communicationTone || "Warm and friendly",
             providerNotes: weekFacts.factsText,
           });
-          appendChildRecord("Reports", {
+          draft = {
+            proposalId: `dlc-weekly-${childId}-${Date.now().toString(36)}`,
+            kind: "weekly-summary",
             childId,
+            childName: child.name,
             date: today,
             title: `Weekly Summary | ${today}`,
-            message: result.output,
-            summary: String(result.output || "").slice(0, 120),
-            type: "Weekly Summary",
-            shareWithFamily: true,
-          });
-          if (statusEl) statusEl.textContent = "Weekly summary saved and shared with Family Hub.";
-          showActionFeedback("Weekly summary created from logged facts.");
+            outputText: String(result.output || "").trim(),
+            recordKey: "Reports",
+            recordType: "Weekly Summary",
+          };
         } else {
           const result = await generateToolOutputWithBackend("parentMessage", {
             topic: "End of day update",
@@ -67690,29 +67829,94 @@ document.addEventListener("click", async (event) => {
             tone: programSettings.communicationTone || "Warm and friendly",
             providerNotes: grounded.factsText,
           });
-          appendChildRecord("Communications", {
+          draft = {
+            proposalId: `dlc-parent-${childId}-${Date.now().toString(36)}`,
+            kind: "parent-message",
             childId,
+            childName: child.name,
             date: today,
-            type: "Parent Note",
             title: `Parent Update | ${today}`,
-            message: result.output,
-            summary: String(result.output || "").slice(0, 120),
-            shareWithFamily: true,
-          });
-          if (statusEl) statusEl.textContent = "Parent message saved and shared with Family Hub.";
-          showActionFeedback("Parent message created from today’s logs.");
+            outputText: String(result.output || "").trim(),
+            recordKey: "Communications",
+            recordType: "Parent Note",
+            type: "Parent Note",
+          };
         }
+        if (!draft?.outputText) throw new Error("Draft was empty.");
+        dlcAiReviewState = { ...draft, reviewAcknowledged: false, shareWithFamily: false };
         recordAiUse();
         childManagementMode = "daily-logs";
         dailyLogsSection = "individual";
         selectedChildId = childId;
         renderChildManagement();
+        showActionFeedback("AI draft ready — review before saving. Nothing was shared.");
       } catch (error) {
-        if (statusEl) statusEl.textContent = error.message || "Could not create that update.";
+        if (statusEl) statusEl.textContent = error.message || "Could not create that draft.";
       } finally {
         dlcEndDayAi.disabled = false;
       }
     })();
+    return;
+  }
+
+  const dlcAiReviewSave = event.target.closest("[data-dlc-ai-review-save]");
+  if (dlcAiReviewSave) {
+    event.preventDefault();
+    const childId = dlcAiReviewSave.dataset.dlcAiReviewSave;
+    const panel = document.querySelector(`[data-dlc-ai-review-panel="${CSS.escape(childId)}"]`);
+    if (!dlcAiReviewState || String(dlcAiReviewState.childId) !== String(childId)) {
+      showActionFeedback("No AI draft to save.");
+      return;
+    }
+    const ack = panel?.querySelector("[data-dlc-ai-review-ack]");
+    const share = panel?.querySelector("[data-dlc-ai-review-share]");
+    const textEl = panel?.querySelector("[data-dlc-ai-review-text]");
+    if (!ack?.checked) {
+      showActionFeedback("Check the review box before saving this AI draft.");
+      return;
+    }
+    try {
+      saveReviewedAiChildRecord({
+        childId,
+        date: dlcAiReviewState.date,
+        title: dlcAiReviewState.title,
+        outputText: textEl?.value || dlcAiReviewState.outputText,
+        recordKey: dlcAiReviewState.recordKey || "Reports",
+        recordType: dlcAiReviewState.recordType || "",
+        type: dlcAiReviewState.type || "",
+        shareWithFamily: Boolean(share?.checked),
+        reviewAcknowledged: true,
+      });
+      dlcAiReviewState = null;
+      renderChildManagement();
+      showActionFeedback(share?.checked
+        ? "Saved and marked to share with Family Hub."
+        : "Saved as a private draft. Nothing was sent automatically.");
+    } catch (error) {
+      showActionFeedback(error.message || "Could not save draft.");
+    }
+    return;
+  }
+
+  const dlcAiReviewDiscard = event.target.closest("[data-dlc-ai-review-discard]");
+  if (dlcAiReviewDiscard) {
+    event.preventDefault();
+    dlcAiReviewState = null;
+    renderChildManagement();
+    showActionFeedback("AI draft discarded. Nothing was saved.");
+    return;
+  }
+
+  const aiAcceptSuggestion = event.target.closest("[data-ai-accept-suggestion]");
+  if (aiAcceptSuggestion) {
+    event.preventDefault();
+    try {
+      acceptAiPendingSuggestion(aiAcceptSuggestion.dataset.aiAcceptSuggestion);
+      showActionFeedback("Suggestion saved after your review.");
+      if (typeof renderChildManagement === "function") renderChildManagement();
+    } catch (error) {
+      showActionFeedback(error.message || "Could not accept suggestion.");
+    }
     return;
   }
 
@@ -69964,13 +70168,25 @@ document.addEventListener("click", async (event) => {
       showProFeatureModal("Daily reports are a Pro feature.");
       return;
     }
+    const childId = buildDailyReportButton.dataset.buildDailyReport;
     const quickNote = document.querySelector("#dlcDailyReportNote")?.value?.trim() || "";
-    try {
-      await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
-      recordAiUse();
-    } catch (error) {
-      alert(error.message || "We couldn't create your document right now. Please try again.");
-    }
+    buildDailyReportButton.disabled = true;
+    (async () => {
+      try {
+        const draft = await generateDailyReportDraftFromChild(childId, quickNote);
+        dlcAiReviewState = { ...draft, reviewAcknowledged: false, shareWithFamily: false };
+        recordAiUse();
+        childManagementMode = "daily-logs";
+        dailyLogsSection = "individual";
+        selectedChildId = childId;
+        renderChildManagement();
+        showActionFeedback("Daily report draft ready — review before saving. Nothing was shared.");
+      } catch (error) {
+        alert(error.message || "We couldn't create your document right now. Please try again.");
+      } finally {
+        buildDailyReportButton.disabled = false;
+      }
+    })();
     return;
   }
 
@@ -70765,8 +70981,13 @@ document.addEventListener("click", async (event) => {
       childSelect?.focus();
       return;
     }
-    const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
-      || document.querySelector("#docHelperShareFamily")?.checked === true;
+    const shareWithFamily = document.querySelector("#docHelperShareFamily")?.checked === true;
+    const reviewAck = document.querySelector("#docHelperReviewAck")?.checked === true;
+    if (!reviewAck) {
+      window.alert("Check “I reviewed this AI-generated draft” before saving. Nothing was saved.");
+      document.querySelector("#docHelperReviewAck")?.focus();
+      return;
+    }
     const text = prepareDocHelperSaveText(docType, rawText, { shareWithFamily });
     if (!text) {
       window.alert("This draft still looks unfinished (placeholders or empty sections). Edit the note and create it again before saving.");
@@ -70781,7 +71002,7 @@ document.addEventListener("click", async (event) => {
     const childName = childRecords().children.find((c) => c.id === childId)?.name || "this child";
     const confirmed = window.confirm(
       config.key
-        ? `Save this ${docTypeLabels[docType] || "document"} to ${childName}'s profile?\n\nSelected child: ${childName}`
+        ? `Save this ${docTypeLabels[docType] || "document"} to ${childName}'s profile?\n\nSelected child: ${childName}${shareWithFamily ? "\n\nShare with Family Hub: YES" : "\n\nShare with Family Hub: no (private draft)"}`
         : "Save this document to your history?",
     );
     if (!confirmed) return;
@@ -70798,6 +71019,7 @@ document.addEventListener("click", async (event) => {
         text,
         type: docTypeLabels[docType] || "Documentation",
         shareWithFamily,
+        aiReviewedBeforeSave: true,
         idempotencyKey: `doc-helper-${docType}-${childId}-${String(text).slice(0, 80)}-${today}`,
       });
       if (docType === "observation" && childId) {
@@ -70805,14 +71027,21 @@ document.addEventListener("click", async (event) => {
         if (child) maybeSuggestGoalFromObservation(child, savedDoc);
       }
       if (docType === "behavior-note" && childId && isHomeDaycareHubTestingEnabled()) {
-        appendChildRecord("SupportPlans", {
+        // Phase 9 — propose support plan; do not auto-write.
+        const suggestion = {
+          id: `ai-sug-support-${Date.now().toString(36)}`,
+          kind: "support_plan",
           childId,
           date: today,
           title: `Support plan | ${today}`,
           summary: text.slice(0, 200),
           strategies: text.slice(0, 1200),
-          status: "active",
-          shareWithFamily: false,
+        };
+        if (!Array.isArray(window.__llhAiPendingSuggestions)) window.__llhAiPendingSuggestions = [];
+        window.__llhAiPendingSuggestions.push(suggestion);
+        showActionFeedback("AI suggested a support plan. Review before adding — nothing was saved yet.", {
+          label: "Add support plan",
+          attr: `data-ai-accept-suggestion="${suggestion.id}"`,
         });
       }
     } else {
@@ -73896,6 +74125,10 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
         ? "Review this draft before saving. Use Regenerate or tone options, or edit the text directly."
         : "Review this draft. Pick a child above before saving, or copy to use elsewhere.";
     }
+    const reviewAck = document.querySelector("#docHelperReviewAck");
+    if (reviewAck) reviewAck.checked = false;
+    const shareFamily = document.querySelector("#docHelperShareFamily");
+    if (shareFamily) shareFamily.checked = false;
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     updateDocHelperComposeHint();
