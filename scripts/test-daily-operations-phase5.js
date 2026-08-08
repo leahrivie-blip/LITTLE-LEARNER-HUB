@@ -92,6 +92,10 @@ async function waitForHealth(port, child, attempts = 60) {
 function sourceMarkers() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
+  // Meal form must rehydrate from last save / persisted records (not look empty after save).
+  assert.match(appJs, /__dlcLastSavedMeals/);
+  assert.match(appJs, /data-dlc-meals-saved-hint/);
+  assert.match(appJs, /Meals saved for .+ Entry is on today's timeline/);
   assert.match(appJs, /skipRender:\s*true/);
   assert.match(appJs, /dlcScrollPreserveY/);
   assert.match(appJs, /dailyLogsClassroomFilter/);

@@ -99,6 +99,9 @@ function sourceMarkers() {
   {
     const fnStart = appJs.indexOf("function dlcSaveSuggestion");
     assert.ok(fnStart > 0, "dlcSaveSuggestion not found");
+    const shareFlagIdx = appJs.indexOf("const shareFlag", fnStart);
+    assert.ok(shareFlagIdx > fnStart, "shareFlag not found in dlcSaveSuggestion");
+    assert.match(appJs.slice(shareFlagIdx, shareFlagIdx + 120), /shareWithFamily\s*===\s*true/);
     const previewIdx = appJs.indexOf('sug.type === "preview"', fnStart);
     assert.ok(previewIdx > fnStart, "preview branch not found in dlcSaveSuggestion");
     const nextFn = appJs.indexOf("\nfunction ", previewIdx + 1);
@@ -107,6 +110,31 @@ function sourceMarkers() {
     assert.match(previewBlock, /needs_review/);
     assert.match(previewBlock, /shareWithFamily:\s*false/);
     assert.doesNotMatch(previewBlock, /appendChildRecord\(/);
+  }
+
+  // Preview suggestion cards must say Review Draft (not one-click Save/Share)
+  {
+    const cardFn = appJs.indexOf("function renderDlcSuggestionCard");
+    assert.ok(cardFn > 0, "renderDlcSuggestionCard not found");
+    const cardBlock = appJs.slice(cardFn, cardFn + 2200);
+    assert.match(cardBlock, /Review Draft/);
+    assert.match(cardBlock, /AI draft — review before save/);
+  }
+
+  // Settings → Billing must cross-link Family tuition (discoverability)
+  {
+    const billingFn = appJs.indexOf("function renderBillingPage");
+    assert.ok(billingFn > 0, "renderBillingPage not found");
+    const billingBlock = appJs.slice(billingFn, billingFn + 4500);
+    assert.match(billingBlock, /data-family-tuition-billing-crosslink/);
+    assert.match(billingBlock, /hdhTuitionBillingPanel/);
+    assert.match(billingBlock, /Family tuition is separate/);
+  }
+
+  // Membership sync soft-degrades after retry instead of forever locking nav on timeout
+  {
+    assert.match(appJs, /__llhMembershipSyncDegraded/);
+    assert.match(appJs, /Membership sync degraded after retry/);
   }
 
   // Goals / support plans are proposals

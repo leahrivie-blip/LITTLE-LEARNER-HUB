@@ -6448,6 +6448,13 @@ function markAppBootReady() {
   } catch {
     /* ignore */
   }
+  if (window.__llhMembershipSyncDegraded && typeof showActionFeedback === "function") {
+    try {
+      showActionFeedback("Membership sync was slow — using your last-known plan. Tap Try Again from Account if access looks wrong.");
+    } catch {
+      /* ignore */
+    }
+  }
   // Replay the last Lessons/Calendar/etc. click that arrived during verification.
   // Without this, setView() silently no-ops while verifying and users stay stuck
   // on Calendar after boot completes (looks like "Lessons won't load").
@@ -6530,11 +6537,33 @@ async function withBootVerificationTimeout(label, task, timeoutMs = APP_BOOT_VER
 
 async function runSignedInBootVerification() {
   if (!currentUser) return;
+  window.__llhMembershipSyncDegraded = false;
   if (stripeCheckoutConfig.subscriptionStatusEndpoint) {
-    await withBootVerificationTimeout("Membership sync", async () => {
-      const data = await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false });
+    const runMembership = (forceRefresh, timeoutMs) => withBootVerificationTimeout("Membership sync", async () => {
+      const data = await syncSubscriptionFromBackend(currentUser, {
+        renderFounding: true,
+        forceRefresh: Boolean(forceRefresh),
+      });
       if (data === null) throw new Error("Membership could not be verified.");
-    });
+    }, timeoutMs);
+    try {
+      await runMembership(false, APP_BOOT_VERIFY_TIMEOUT_MS);
+    } catch (firstError) {
+      const firstMsg = String(firstError?.message || firstError || "");
+      const timedOut = /did not finish in time/i.test(firstMsg);
+      try {
+        // One forced refresh with a longer window before we soft-degrade.
+        await runMembership(true, timedOut ? 30000 : APP_BOOT_VERIFY_TIMEOUT_MS);
+      } catch (secondError) {
+        const secondMsg = String(secondError?.message || secondError || "");
+        // Definitive null/unauthorized still hard-fails. Timeouts unlock nav with last-known plan.
+        if (/could not be verified/i.test(secondMsg) && !/did not finish in time/i.test(secondMsg)) {
+          throw secondError;
+        }
+        window.__llhMembershipSyncDegraded = true;
+        console.warn("Membership sync degraded after retry — continuing with last-known plan", secondError);
+      }
+    }
   }
   if (firebaseAuthEnabled) {
     await withBootVerificationTimeout("Child data sync", async () => {
@@ -16304,6 +16333,7 @@ function renderOwnerHomeDashboard() {
         <h3>Next actions</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs AI", detail: "Organize notes → review before save" })}
           ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
           ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
@@ -16365,6 +16395,7 @@ function renderTeacherTodayPage() {
         <h3>Run the day</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs AI", detail: "Organize notes → review before save" })}
           ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts`, primary: true }) : ""}
           ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open assigned plan" })}
           ${workHubTile({ view: "activities", title: "Suggested activities", detail: "Activity Center" })}
@@ -16374,6 +16405,7 @@ function renderTeacherTodayPage() {
       <section class="work-hub-section">
         <h3>Quick capture</h3>
         <div class="work-hub-grid">
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
           ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
           ${workHubTile({ view: role === "assistant" ? "home-daycare-hub" : "families", title: "Quick Message", detail: role === "assistant" ? "Family Hub parent thread" : "Family Hub / families" })}
@@ -16406,6 +16438,8 @@ function renderClassroomHubPage() {
         <h3>Daily care</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Attendance, meals, naps, diapers, activities", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs AI", detail: "Organize notes → review before save" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "End-of-Day Report", detail: "AI summary from today's facts" })}
         </div>
       </section>
@@ -30460,7 +30494,10 @@ function renderCategoryPage(view) {
     </div>
     ${accessNoticeHtml}
     ${category === "Forms Library" && !isProUser() && !hasAdminFullAccess()
-      ? `<p class="muted-copy">Free includes a starter set of forms; Pro unlocks the full Forms Library for enrollment packets, handbooks, and more.</p>`
+      ? `<div class="access-notice" data-forms-free-entitlement="true" role="note">
+          <strong>Free Forms access:</strong> You can open and use the Free starter forms (${accessCounts.freeLimit} of ${accessCounts.total}).
+          Cards marked <strong>Pro</strong> stay locked until you upgrade — browsing the full library does not unlock them.
+        </div>`
       : ""}
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
@@ -39933,6 +39970,9 @@ function renderHomeDaycareHubPage(options = {}) {
           <p class="eyebrow">Built-in library</p>
           <h3>Home daycare forms pack</h3>
           <p class="muted-copy">Enrollment, emergency, medical, permission, incident, and authorization forms. Open a template, AI-customize it, assign it, then track status on each child’s Forms &amp; Records tab.</p>
+          ${!isProUser() && !hasAdminFullAccess()
+            ? `<p class="form-note" data-forms-free-entitlement="true"><strong>Free vs Pro:</strong> Free accounts can use starter forms. Pro unlocks the full Forms Library and advanced packs. Locked cards stay locked until you upgrade.</p>`
+            : ""}
           ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
           ${firstChild ? `
             <div class="account-actions-row" style="margin-top:14px;">
@@ -44215,13 +44255,26 @@ function renderDlcAccordionForm(sectionId, records) {
   if (sectionId === "meals") {
     const lastMeals = (typeof window !== "undefined" && window.__dlcLastSavedMeals) || null;
     const reuseLast = lastMeals && String(lastMeals.date || "") === String(today);
-    const breakfastVal = reuseLast ? String(lastMeals.breakfast || "") : "";
-    const lunchVal = reuseLast ? String(lastMeals.lunch || "") : "";
-    const snackVal = reuseLast ? String(lastMeals.snack || "") : "";
-    const notesVal = reuseLast ? String(lastMeals.notes || "") : "";
+    let source = reuseLast ? lastMeals : null;
+    if (!source && selectedChildId) {
+      const persisted = (records.meals || [])
+        .filter((m) => String(m.childId) === String(selectedChildId)
+          && String(m.date || "") === String(today)
+          && !/^Bottle\s*\|/i.test(String(m.title || "")))
+        .sort((a, b) => String(b.id || "").localeCompare(String(a.id || "")));
+      source = persisted[0] || null;
+    }
+    const breakfastVal = source ? String(source.breakfast || "") : "";
+    const lunchVal = source ? String(source.lunch || "") : "";
+    const snackVal = source ? String(source.snack || "") : "";
+    const notesVal = source ? String(source.notes || "") : "";
+    const savedHint = source
+      ? `<p class="form-note" data-dlc-meals-saved-hint="true" role="status">Last saved meals for this date are shown below. Edit and save again to update.</p>`
+      : "";
     return `
       <form id="dlcMealsForm" class="dlc-acc-form">
         ${childSel}
+        ${savedHint}
         <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
         <label class="dlc-form-label">Breakfast<input name="breakfast" list="dlcMealSuggestions" value="${escapeHtml(breakfastVal)}" placeholder="Ate most / refused / not served" /></label>
         <label class="dlc-form-label">Lunch<input name="lunch" list="dlcMealSuggestions" value="${escapeHtml(lunchVal)}" placeholder="Ate all lunch" /></label>
@@ -44430,27 +44483,37 @@ function renderDlcAiSuggestions(records) {
 
 function renderDlcSuggestionCard(sug, index) {
   if (sug.ignored) return "";
-  const cardClass = sug.saved ? "dlc-sug-card dlc-sug-saved" : "dlc-sug-card";
+  const isPreview = sug.type === "preview";
+  const pendingReview = Boolean(sug.pendingReview) && !sug.saved;
+  const cardClass = sug.saved
+    ? "dlc-sug-card dlc-sug-saved"
+    : (pendingReview ? "dlc-sug-card dlc-sug-pending-review" : "dlc-sug-card");
+  const primaryLabel = isPreview ? (pendingReview ? "Continue Review" : "Review Draft") : "Save";
+  // AI suggestions never default-share; human must opt in (preview share only after review panel).
+  const shareChecked = !isPreview && sug.shareWithFamily === true;
   return `
-    <div class="${cardClass}">
+    <div class="${cardClass}" data-dlc-sug-type="${escapeHtml(sug.type || "")}" ${pendingReview ? 'data-dlc-sug-pending-review="true"' : ""}>
       <div class="dlc-sug-header">
         <span class="dlc-sug-icon" aria-hidden="true">${escapeHtml(sug.emoji)}</span>
         <strong class="dlc-sug-title">${escapeHtml(sug.title)}</strong>
         ${sug.saved ? `<span class="dlc-sug-saved-badge">Saved ✓</span>` : ""}
+        ${pendingReview ? `<span class="dlc-sug-saved-badge">Needs review</span>` : ""}
       </div>
       <div class="dlc-sug-body">
         ${sug.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
-        ${sug.type === "preview" ? `<div class="dlc-sug-preview-text">${escapeHtml(sug.preview || "")}</div>` : ""}
+        ${isPreview ? `<div class="dlc-sug-preview-text">${escapeHtml(sug.preview || "")}</div>` : ""}
+        ${isPreview ? `<p class="form-note">AI draft — review before save. Nothing is saved or shared until you accept it.</p>` : ""}
       </div>
       ${!sug.saved ? `
+        ${isPreview ? "" : `
         <div class="dlc-sug-share">
           <label class="dlc-check-label">
-            <input type="checkbox" class="dlc-sug-family-check" data-sug-index="${index}" ${sug.shareWithFamily !== false ? "checked" : ""} />
+            <input type="checkbox" class="dlc-sug-family-check" data-sug-index="${index}" ${shareChecked ? "checked" : ""} />
             Share with Family Hub
           </label>
-        </div>
+        </div>`}
         <div class="dlc-sug-actions">
-          <button class="primary-button" data-dlc-sug-save="${index}" type="button">Save</button>
+          <button class="primary-button" data-dlc-sug-save="${index}" type="button">${primaryLabel}</button>
           <button class="ghost-button" data-dlc-sug-edit="${index}" type="button">Edit</button>
           <button class="ghost-button dlc-sug-ignore-btn" data-dlc-sug-ignore="${index}" type="button">Ignore</button>
         </div>` : ""}
@@ -44804,7 +44867,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
     if (/snack/.test(noteLower)) lines.push("Snack logged for selected children.");
     if (lines.length) {
-      suggestions.push({ type: "meals", emoji: "🍎", title: "Meals Found", lines, shareWithFamily: true, saved: false, ignored: false });
+      suggestions.push({ type: "meals", emoji: "🍎", title: "Meals Found", lines, shareWithFamily: false, saved: false, ignored: false });
     }
   }
 
@@ -44816,10 +44879,10 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
       type: "naps", emoji: "😴", title: "Nap Found",
       lines: [`${napMatch[1]} slept from ${napMatch[2]}–${napMatch[3]}.`],
       napData: { childName: napMatch[1], start: napMatch[2], end: napMatch[3] },
-      shareWithFamily: true, saved: false, ignored: false,
+      shareWithFamily: false, saved: false, ignored: false,
     });
   } else if (generalNap && shouldSuggestNap) {
-    suggestions.push({ type: "naps", emoji: "😴", title: "Nap Found", lines: ["Nap time logged for selected children."], shareWithFamily: true, saved: false, ignored: false });
+    suggestions.push({ type: "naps", emoji: "😴", title: "Nap Found", lines: ["Nap time logged for selected children."], shareWithFamily: false, saved: false, ignored: false });
   }
 
   const actKeywords = /paint|drew|drawing|art|outside|outdoor|play|sang|sing|read|story|circle time|sensory|dance|craft|built|block|puzzle|counting|math|science|music/i;
@@ -44840,7 +44903,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
       return dedupedActivities.some((activity) => !existing.has(dlcActivityKey(activity)));
     });
     if (hasNewActivity) {
-      suggestions.push({ type: "activities", emoji: "🎨", title: "Activities Found", lines: dedupedActivities, shareWithFamily: true, saved: false, ignored: false });
+      suggestions.push({ type: "activities", emoji: "🎨", title: "Activities Found", lines: dedupedActivities, shareWithFamily: false, saved: false, ignored: false });
     }
   }
 
@@ -44875,7 +44938,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
         previewKind: "parent-message",
         recordKey: "Communications",
         recordType: "Parent Note",
-        shareWithFamily: true, saved: false, ignored: false,
+        shareWithFamily: false, saved: false, ignored: false,
       });
     } catch (error) {
       suggestions.push({
@@ -44948,7 +45011,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
         preview: reports.join("\n\n" + "─".repeat(60) + "\n\n"),
         previewKind: "daily-report",
         recordKey: "Reports",
-        shareWithFamily: true, saved: false, ignored: false,
+        shareWithFamily: false, saved: false, ignored: false,
       });
     } catch (error) {
       suggestions.push({
@@ -45109,7 +45172,8 @@ function dlcSaveSuggestion(sug, idx) {
   const records = childRecords();
   const selectedChildren = dlcGetSelectedChildren(records);
   const today = dlcActiveDate();
-  const shareFlag = sug.shareWithFamily !== false;
+  // AI cards opt in to Family Hub share only when the provider checks the box.
+  const shareFlag = sug.shareWithFamily === true;
 
   if (sug.type === "meals") {
     selectedChildren.forEach((child) => {
@@ -51561,6 +51625,24 @@ function renderAdminAccessShell() {
   if (!isAdminUnlocked()) {
     protectedContent.hidden = true;
     lockPanel.hidden = false;
+    // Member sessions cannot unlock Owner Admin — keep the gate explicit (not a broken sync).
+    if (currentUser && typeof isSignedInPlatformOwner === "function" && !isSignedInPlatformOwner()) {
+      lockPanel.innerHTML = `
+        <div class="admin-lock-content" data-admin-member-denied="true">
+          <div>
+            <p class="eyebrow">Private Owner Area</p>
+            <h3>Owner Admin is not available on this account</h3>
+            <p>You are signed in as <strong>${escapeHtml(currentUser)}</strong>. Owner Admin unlock is only for the platform owner (<code>leahivie@icloud.com</code>) and is separate from provider, director, teacher, assistant, and tester accounts.</p>
+            <p class="muted-copy">This is intentional security — member sessions never receive Admin access, even on a shared browser.</p>
+          </div>
+          <div class="account-actions-row">
+            <button class="primary-button" type="button" data-view="home">Back to Home</button>
+            <button class="ghost-button" type="button" data-view="messages">Message Support</button>
+          </div>
+        </div>
+      `;
+      return false;
+    }
     const emailValue = escapeHtml(rememberedAdminEmail());
     lockPanel.innerHTML = `
       <div class="admin-lock-content">
@@ -63230,6 +63312,7 @@ function renderBillingPage() {
     ? new Date(account.accessEndsAt || account.currentPeriodEnd || account.trialEnd).toLocaleDateString()
     : "";
   const showPromoEntry = !paidBilling && !account?.promoCodeUsed && canSeePaidUpgradeOffer();
+  const showFamilyTuitionLink = typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled();
   target.innerHTML = `
     ${accessBanner}
     ${billingUpgradeBanner}
@@ -63238,6 +63321,16 @@ function renderBillingPage() {
       heading: "Have a promo code? Apply it here before upgrading.",
       hideWhenRedeemed: true,
     }) : ""}
+    ${showFamilyTuitionLink ? `
+    <section class="section-block" data-family-tuition-billing-crosslink="true" style="margin-bottom:16px;">
+      <p class="eyebrow">Looking for parent tuition?</p>
+      <h3>Family tuition is separate from this page</h3>
+      <p class="muted-copy">This page is only your <strong>Little Learner Hub membership</strong> (SaaS subscription). Parent/family childcare tuition, balances, and simulated payments live under Home Daycare Hub → Family tuition &amp; balances.</p>
+      <div class="account-actions-row">
+        <button class="primary-button" type="button" data-view="home-daycare-hub" data-hdh-jump="hdhTuitionBillingPanel">Open Family tuition &amp; balances</button>
+        <button class="ghost-button" type="button" data-view="families">Families hub</button>
+      </div>
+    </section>` : ""}
     <section class="account-layout">
       <div class="account-panel">
         <p class="eyebrow">Billing &amp; Subscription</p>
@@ -67922,6 +68015,9 @@ document.addEventListener("click", async (event) => {
       return;
     }
     try {
+      const suggestionIndex = Number.isInteger(dlcAiReviewState.suggestionIndex)
+        ? dlcAiReviewState.suggestionIndex
+        : null;
       saveReviewedAiChildRecord({
         childId,
         date: dlcAiReviewState.date,
@@ -67933,6 +68029,13 @@ document.addEventListener("click", async (event) => {
         shareWithFamily: Boolean(share?.checked),
         reviewAcknowledged: true,
       });
+      if (suggestionIndex != null && dlcAiSuggestions[suggestionIndex]) {
+        dlcAiSuggestions[suggestionIndex] = {
+          ...dlcAiSuggestions[suggestionIndex],
+          saved: true,
+          pendingReview: false,
+        };
+      }
       dlcAiReviewState = null;
       renderChildManagement();
       showActionFeedback(share?.checked
