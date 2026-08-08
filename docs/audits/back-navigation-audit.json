@@ -1,256 +1,322 @@
 {
-  "generatedAt": "2026-07-14T16:31:30.335Z",
   "summary": {
-    "checked": 45,
-    "pass": 45,
+    "checked": 58,
+    "pass": 58,
     "needsImprovement": 0,
-    "fail": 0
+    "fail": 0,
+    "generatedAt": "2026-08-08T02:54:06.558Z"
   },
   "findings": [
     {
       "id": "view-home",
       "status": "PASS",
-      "detail": "Primary hub / admin — sidebar return is enough",
+      "detail": "Primary hub — sidebar / work-nav return is enough (intentional exception)",
       "severity": null
     },
     {
       "id": "view-calendar",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Primary landing / work-mode hub — Back optional unless deep-linked with return context",
       "severity": null
     },
     {
       "id": "view-planner",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-curriculum-planner",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-dashboard-tasks",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-favorites",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-reports",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-lessons",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-lesson-editor",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-support-center",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-messages",
+      "status": "PASS",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-whats-new",
+      "status": "PASS",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-director-center",
+      "status": "PASS",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-resources",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-settings",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-forms-settings",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-curriculum-settings",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-staff",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-classrooms",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-classroom",
+      "status": "PASS",
+      "detail": "Primary landing / work-mode hub — Back optional unless deep-linked with return context",
+      "severity": null
+    },
+    {
+      "id": "view-today",
+      "status": "PASS",
+      "detail": "Primary landing / work-mode hub — Back optional unless deep-linked with return context",
+      "severity": null
+    },
+    {
+      "id": "view-business",
+      "status": "PASS",
+      "detail": "Primary landing / work-mode hub — Back optional unless deep-linked with return context",
+      "severity": null
+    },
+    {
+      "id": "view-more",
+      "status": "PASS",
+      "detail": "Primary landing / work-mode hub — Back optional unless deep-linked with return context",
       "severity": null
     },
     {
       "id": "view-families",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-enrollment",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-observations",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-forms",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-home-daycare-hub",
+      "status": "PASS",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-family-hub",
+      "status": "PASS",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-activities",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-menus",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "view-ai-guide",
+      "status": "PASS",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-ai",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-admin",
       "status": "PASS",
-      "detail": "Primary hub / admin — sidebar return is enough",
+      "detail": "Primary hub — sidebar / work-nav return is enough (intentional exception)",
       "severity": null
     },
     {
       "id": "view-plans",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-legal",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-upgrade",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-billing",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-subscription",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-billing-history",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-payment-success",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-payment-failed",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-cancel-subscription",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-generators",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-tools",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-children",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-account",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-program-settings",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-reset-password",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-faq",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
       "severity": null
     },
     {
       "id": "view-contact",
       "status": "PASS",
-      "detail": "Has back control in markup",
+      "detail": "Has back control in markup or shared helper",
+      "severity": null
+    },
+    {
+      "id": "shared-helper",
+      "status": "PASS",
+      "detail": "Shared llhPageBackButtonHtml helper",
       "severity": null
     },
     {
@@ -268,7 +334,13 @@
     {
       "id": "contextual-back",
       "status": "PASS",
-      "detail": "Contextual back stack for calendar/children/ai",
+      "detail": "Contextual back stack for nested views",
+      "severity": null
+    },
+    {
+      "id": "daily-logs-home-exit",
+      "status": "PASS",
+      "detail": "Daily Logs home exits to Children",
       "severity": null
     },
     {
@@ -276,7 +348,12 @@
       "status": "PASS",
       "detail": "Auth modal dismiss path",
       "severity": null
+    },
+    {
+      "id": "back-button-tap-target",
+      "status": "PASS",
+      "detail": ".back-button min-height 44px for mobile tap targets",
+      "severity": null
     }
-  ],
-  "deadEnds": []
+  ]
 }

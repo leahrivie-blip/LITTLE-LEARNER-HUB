@@ -8113,6 +8113,11 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 
 .back-button {
   justify-self: start;
+  min-height: 44px;
+  min-width: 44px;
+  padding-inline: 14px;
+  box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 .simple-form-card {

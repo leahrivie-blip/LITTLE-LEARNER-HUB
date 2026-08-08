@@ -1400,22 +1400,28 @@
     if (!notes.length) {
       section.innerHTML = `
         <div class="changelog-page">
+          ${typeof window.llhPageBackButtonHtml === "function"
+            ? window.llhPageBackButtonHtml({ viewKey: "whats-new", fallbackView: "calendar" })
+            : `<button class="ghost-button back-button" data-contextual-back="whats-new" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>`}
           <div class="page-title">
             <p class="eyebrow">Product Updates</p>
             <h2>What's New</h2>
             <p>Published product updates will appear here when they are ready.</p>
           </div>
           ${emptyStateHtml("No published updates yet", "This page stays quiet until a release note is published.")}
-          <div class="form-actions" style="margin-top:16px;">
-            <button class="ghost-button" data-view="calendar" type="button">← Back to Calendar</button>
-          </div>
         </div>
       `;
+      if (typeof window.refreshContextualViewBackButtons === "function") {
+        window.refreshContextualViewBackButtons();
+      }
       return;
     }
 
     section.innerHTML = `
       <div class="changelog-page">
+        ${typeof window.llhPageBackButtonHtml === "function"
+          ? window.llhPageBackButtonHtml({ viewKey: "whats-new", fallbackView: "calendar" })
+          : `<button class="ghost-button back-button" data-contextual-back="whats-new" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>`}
         <div class="page-title">
           <p class="eyebrow">Product Updates</p>
           <h2>What's New</h2>
@@ -1432,11 +1438,11 @@
             </article>
           `).join("")}
         </div>
-        <div class="form-actions" style="margin-top:16px;">
-          <button class="ghost-button" data-view="calendar" type="button">← Back to Calendar</button>
-        </div>
       </div>
     `;
+    if (typeof window.refreshContextualViewBackButtons === "function") {
+      window.refreshContextualViewBackButtons();
+    }
   }
 
   window.renderChangelogPage = renderChangelogPage;
