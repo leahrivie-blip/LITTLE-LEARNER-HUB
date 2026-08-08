@@ -29012,8 +29012,24 @@ body.user-authenticated .main {
 body.family-hub-invite-open .site-footer,
 body.family-hub-invite-open footer.site-footer,
 body.family-hub-invite-open .home-footer,
-body.family-hub-invite-open .llh-home-footer {
+body.family-hub-invite-open .llh-home-footer,
+body.family-hub-invite-open .landing-nav,
+body.family-hub-invite-open .public-nav,
+body.family-hub-invite-open #llhPublicHeader,
+body.family-hub-invite-open .site-header,
+body.family-hub-invite-open #cookieNotice,
+body.family-hub-invite-open .cookie-banner {
   visibility: hidden !important;
+  pointer-events: none !important;
+}
+body.family-hub-invite-open .fh-signin--quiet {
+  min-height: 50vh;
+  display: grid;
+  place-content: center;
+  background: #fff;
+  border-radius: 18px;
+  padding: 28px 24px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
 }
 #familyHubAcceptPanel .fh-invite-accept-card,
 #familyHubAcceptPanel .fh-signin {
