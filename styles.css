@@ -26006,6 +26006,14 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 .tk-print-cover-hero.is-missing .tk-print-cover-image {
   display: none;
 }
+.tk-print-cover-image .tk-print-cover-hero-fallback[hidden] {
+  display: none !important;
+}
+.tk-print-cover-image .tk-print-cover-hero-fallback:not([hidden]) {
+  display: flex;
+  min-height: 3.2in;
+  max-height: 4.5in;
+}
 .tk-print-empty-mark {
   width: 42px;
   height: 42px;
@@ -26159,6 +26167,87 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
     margin: 0.55in;
   }
 }
+
+/* Quality pass: safe cover crop, page-break hygiene, materials groups */
+.tk-print-cover-hero img,
+.tk-print-cover-image img {
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+  max-height: 4.5in;
+}
+.tk-print-book-cover img,
+.tk-print-resource-preview img,
+.tk-print-printable-full img,
+.tk-print-card-photo img {
+  object-fit: contain;
+  object-position: center;
+}
+.tk-print-printable-full img {
+  max-width: 100%;
+  max-height: 8.5in;
+  width: auto;
+  height: auto;
+}
+.tk-print-wag-table {
+  overflow: hidden;
+  word-break: break-word;
+  hyphens: auto;
+}
+.tk-print-wag-table th,
+.tk-print-wag-table td {
+  overflow-wrap: anywhere;
+}
+.tk-print-activity-card,
+.tk-print-book-card,
+.tk-print-song-card,
+.tk-print-day-activity,
+.tk-print-resource-card,
+.tk-print-toolkit-group,
+.tk-print-panel,
+.tk-print-callout-tip,
+.tk-print-callout-watch,
+.tk-print-callout-extend,
+.tk-print-callout-cleanup {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+/* Large activity cards may span pages intentionally; keep panels/headers together. */
+.tk-print-activity-card {
+  break-inside: auto;
+  page-break-inside: auto;
+}
+.tk-print-activity-card > .tk-print-activity-head,
+.tk-print-activity-card .tk-print-panel,
+.tk-print-activity-card .tk-print-callout-tip,
+.tk-print-activity-card .tk-print-callout-watch,
+.tk-print-activity-card .tk-print-callout-extend,
+.tk-print-activity-card .tk-print-callout-cleanup {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.tk-print-title-bar,
+.tk-print-page-title,
+.tk-print-running {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.tk-print-check li {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.tk-print-materials-group {
+  margin: 0 0 12px;
+}
+.tk-print-materials-group-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tk-accent, #542e94);
+}
+
 /* —— Teaching Kit Enrichment Editor —— */
 #adminTeachingKitEnrichmentHost {
   display: none;

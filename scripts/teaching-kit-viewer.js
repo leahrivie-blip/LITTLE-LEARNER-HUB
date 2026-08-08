@@ -687,9 +687,13 @@
     const availability = printApi?.evaluatePrintPartAvailability
       ? printApi.evaluatePrintPartAvailability(kit, { removedActivityIds: removed, ownerPreview })
       : {};
+    const presetAvailability = printApi?.evaluatePresetAvailability
+      ? printApi.evaluatePresetAvailability(kit, { removedActivityIds: removed, ownerPreview })
+      : {};
     const photoCount = Number(kit.quality?.activitiesWithExamplePhoto || 0)
       + Number(kit.quality?.activitiesWithSetupPhoto || 0);
     const imagesAvailable = photoCount > 0;
+    const printables = kit.companion?.printables || [];
     return `
       <section class="tk-surface tk-build-surface" data-tk-panel="build">
         <div class="tk-build-layout">
@@ -698,12 +702,15 @@
             <article class="tk-card">
               <h4>Print pack</h4>
               <div class="tk-stack">
-                ${presets.map((preset) => `
-                  <label class="tk-radio-row">
-                    <input type="radio" name="tk-print-preset" value="${escapeHtml(preset.id)}" ${state.printPreset === preset.id ? "checked" : ""} data-tk-print-preset="${escapeHtml(preset.id)}" />
-                    <span>${escapeHtml(preset.label)}</span>
-                  </label>
-                `).join("") || `<p class="tk-muted">Print module not loaded.</p>`}
+                ${presets.map((preset) => {
+                  const meta = presetAvailability[preset.id] || { available: true, reason: "" };
+                  const available = meta.available !== false;
+                  return `
+                  <label class="tk-radio-row${available ? "" : " is-disabled"}">
+                    <input type="radio" name="tk-print-preset" value="${escapeHtml(preset.id)}" ${state.printPreset === preset.id ? "checked" : ""} data-tk-print-preset="${escapeHtml(preset.id)}" ${available ? "" : "disabled"} />
+                    <span>${escapeHtml(preset.label)}${available ? "" : ` — ${escapeHtml(meta.reason || "Not available yet")}`}</span>
+                  </label>`;
+                }).join("") || `<p class="tk-muted">Print module not loaded.</p>`}
               </div>
               ${state.printPreset === "today_pack" ? `
                 <div class="tk-print-select-block">
@@ -725,6 +732,16 @@
                     ${activities.map((item) => `
                       <option value="${escapeHtml(item.id)}" ${state.printActivityId === item.id ? "selected" : ""}>${escapeHtml(item.title)}</option>
                     `).join("")}
+                  </select>
+                </div>
+              ` : ""}
+              ${state.printPreset === "one_printable" ? `
+                <div class="tk-print-select-block">
+                  <h4>Choose printable</h4>
+                  <select class="tk-select" data-tk-print-printable>
+                    ${printables.map((item) => `
+                      <option value="${escapeHtml(item.id || item.title)}" ${state.printPrintableId === (item.id || item.title) ? "selected" : ""}>${escapeHtml(item.title)}</option>
+                    `).join("") || `<option value="">No printables linked yet</option>`}
                   </select>
                 </div>
               ` : ""}
@@ -1298,6 +1315,7 @@
       inkSaver: false,
       paperSize: "letter",
       printActivityId: initialActivityId || "",
+      printPrintableId: "",
       selectedResources: {
         overview: false,
         weekly: false,
@@ -1438,6 +1456,7 @@
             removedActivityIds: state.removedActivityIds,
             day: state.day,
             activityId: state.printActivityId || state.activityId || "",
+            printableId: state.printPrintableId || "",
             selectedResources,
             adminPreview: isOwnerPreviewKit(kit, chrome),
             includeImages: state.includeImages !== false,
@@ -1607,6 +1626,10 @@
       const activitySelect = event.target.closest("[data-tk-print-activity]");
       if (activitySelect) {
         state.printActivityId = activitySelect.value || "";
+      }
+      const printableSelect = event.target.closest("[data-tk-print-printable]");
+      if (printableSelect) {
+        state.printPrintableId = printableSelect.value || "";
       }
     }
     root.addEventListener("change", onChange);

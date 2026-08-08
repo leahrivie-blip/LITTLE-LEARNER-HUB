@@ -110,9 +110,16 @@
     }),
     Object.freeze({
       id: "all_printables",
-      label: "All Printables",
+      label: "Printables Only",
       documentMode: "printables",
       parts: ["cover", "printables"],
+      daysMode: "none",
+    }),
+    Object.freeze({
+      id: "one_printable",
+      label: "One Printable",
+      documentMode: "one_printable",
+      parts: ["printables"],
       daysMode: "none",
     }),
     Object.freeze({
@@ -276,6 +283,52 @@
         <p class="tk-print-empty-copy">${escapeHtml(copy)}</p>
       </div>
     `;
+  }
+
+
+  /** True when cleanup text is just a copy of safety (do not print both). */
+  function isDuplicateSafetyCleanup(safetyNotes, cleanupTips) {
+    const safety = toBullets(safetyNotes, 8).map((line) => text(line).toLowerCase()).filter(Boolean).sort().join("|");
+    const cleanup = (Array.isArray(cleanupTips) ? cleanupTips : toBullets(cleanupTips, 8))
+      .map((line) => text(line).toLowerCase()).filter(Boolean).sort().join("|");
+    return Boolean(safety && cleanup && safety === cleanup);
+  }
+
+  function toolkitGroupHtml(groupId, title, icon, innerHtml) {
+    if (!text(String(innerHtml || "").replace(/<[^>]+>/g, " "))) return "";
+    return `
+      <section class="tk-print-toolkit-group" data-toolkit-group="${escapeHtml(groupId)}">
+        <h3 class="tk-print-toolkit-group-title">${iconHtml(icon)}<span>${escapeHtml(title)}</span></h3>
+        ${innerHtml}
+      </section>
+    `;
+  }
+
+  function materialsGroupedHtml(materials, limit = 60) {
+    const rows = (materials || []).map((item) => {
+      if (item && typeof item === "object") {
+        return {
+          label: text(item.label || item.name || item.title),
+          category: text(item.category || item.group || item.materialCategory),
+        };
+      }
+      return { label: text(item), category: "" };
+    }).filter((item) => item.label);
+    if (!rows.length) return "";
+    const hasCategories = rows.some((item) => item.category);
+    if (!hasCategories) return checkboxListHtml(rows.map((item) => item.label), limit);
+    const groups = new Map();
+    rows.forEach((item) => {
+      const key = item.category || "Other";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item.label);
+    });
+    return [...groups.entries()].map(([category, labels]) => `
+      <div class="tk-print-materials-group tk-print-keep">
+        <h4 class="tk-print-materials-group-title">${escapeHtml(category)}</h4>
+        ${checkboxListHtml(labels, limit)}
+      </div>
+    `).join("");
   }
 
   function metaCardHtml(label, value) {
@@ -552,6 +605,7 @@
       days,
       activities,
       activityId: text(opts.activityId),
+      printableId: text(opts.printableId),
       selectedResources: opts.selectedResources && typeof opts.selectedResources === "object"
         ? opts.selectedResources
         : null,
@@ -595,7 +649,7 @@
       : presentLabel(mode, selection.presetLabel || "");
     const cover = resolvePrintCover(model);
     const coverImg = cover.url
-      ? `<div class="tk-print-cover-hero"><div class="tk-print-cover-image"><img src="${escapeHtml(cover.url)}" alt="${escapeHtml(cover.alt)}" loading="eager" decoding="async" onerror="this.closest('.tk-print-cover-hero')?.classList.add('is-missing'); this.remove()" /></div></div>`
+      ? `<div class="tk-print-cover-hero"><div class="tk-print-cover-image"><img src="${escapeHtml(cover.url)}" alt="${escapeHtml(cover.alt)}" loading="eager" decoding="async" onerror="this.style.display='none'; const fb=this.nextElementSibling; if(fb) fb.hidden=false;" />${coverHeroFallbackHtml().replace('class="tk-print-cover-hero-fallback"', 'class="tk-print-cover-hero-fallback" hidden')}</div></div>`
       : `<div class="tk-print-cover-hero">${coverHeroFallbackHtml()}</div>`;
     const adminBanner = selection.adminPreview
       ? `<div class="tk-print-admin-banner">ADMIN PREVIEW · Draft / preview only · Does not change production content</div>`
@@ -679,7 +733,13 @@
       panelHtml("Learning objectives", bulletListHtml(o.learningObjectives, 8), "objective"),
       panelHtml("Developmental domains", chipRowHtml(o.learningDomains), "domain"),
       panelHtml("Vocabulary", chipRowHtml(vocab), "vocab"),
-      panelHtml("Master materials", checkboxListHtml(o.masterMaterials, 30), "materials"),
+      (o.masterMaterials || []).length
+        ? panelHtml(
+          "Materials / prep summary",
+          `<p class="tk-print-tight">This week uses about <strong>${escapeHtml(String((o.masterMaterials || []).length))}</strong> supply items across activities and centers. See the <strong>Materials List</strong> print option for the complete weekly checklist.</p>${checkboxListHtml((o.masterMaterials || []).slice(0, 8), 8)}`,
+          "materials",
+        )
+        : "",
       panelHtml("Teacher prep", checkboxListHtml(prep, 10), "prep"),
       panelHtml("Safety", bulletListHtml(o.safety, 6), "safety"),
       panelHtml("Adaptations / inclusion", bulletListHtml(toBullets(o.adaptations, 5), 5), "adapt"),
@@ -799,12 +859,22 @@
 
   function activityCardBody(activity, selection, compact) {
     const materials = materialsList(activity.materials?.length ? activity.materials : activity.materialsText);
-    const steps = toBullets(activity.steps, compact ? 5 : 8);
+    const stepLimit = compact ? 6 : 12;
+    const promptLimit = compact ? 4 : 10;
+    const watchLimit = compact ? 4 : 8;
+    const steps = toBullets(activity.steps, stepLimit);
     const tips = [
-      ...toBullets(activity.teacherRole, 2),
+      ...toBullets(activity.teacherRole, compact ? 2 : 4),
       ...(activity.teacherPrompts || []).map((prompt) => text(prompt.text)).filter(Boolean),
+    ].slice(0, promptLimit);
+    const watch = (activity.observationIdeas || []).slice(0, watchLimit);
+    const adaptBits = [
+      ...toBullets(activity.adaptations, compact ? 2 : 4),
+      ...toBullets(activity.extensions, compact ? 2 : 4),
     ].slice(0, compact ? 3 : 6);
-    const watch = (activity.observationIdeas || []).slice(0, compact ? 3 : 5);
+    const cleanupTips = (activity.cleanupTips || []).map((tip) => text(tip)).filter(Boolean);
+    const showCleanup = cleanupTips.length && !isDuplicateSafetyCleanup(activity.safetyNotes, cleanupTips);
+    const showSafety = hasDisplayValue(activity.safetyNotes);
     const photoBits = [];
     if (selection.includeImages && activity.setupPhotoUrl) {
       photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.setupPhotoUrl)}" alt="${escapeHtml(activity.setupAlt || `Setup for ${activity.title}`)}" loading="eager" decoding="async" onerror="this.closest('figure')?.remove()" /><figcaption>Setup</figcaption></figure>`);
@@ -812,9 +882,16 @@
     if (selection.includeImages && activity.examplePhotoUrl) {
       photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.examplePhotoUrl)}" alt="${escapeHtml(activity.exampleAlt || `Example for ${activity.title}`)}" loading="eager" decoding="async" onerror="this.closest('figure')?.remove()" /><figcaption>Finished</figcaption></figure>`);
     }
+    const printableRef = activity.relatedPrintableId || activity.relatedPrintableTitle
+      ? panelHtml(
+        "Linked printable",
+        `<p class="tk-print-tight">${escapeHtml(activity.relatedPrintableTitle || "Printable resource linked to this activity")}</p>`,
+        "print",
+      )
+      : "";
     return `
-      <article class="tk-print-keep tk-print-activity-card">
-        <header class="tk-print-activity-head">
+      <article class="tk-print-activity-card">
+        <header class="tk-print-activity-head tk-print-keep">
           <div>
             <h3>${escapeHtml(activity.title)}</h3>
             <div class="tk-print-badge-row">
@@ -823,24 +900,27 @@
               ${badgeHtml(activity.groupSize)}
               ${badgeHtml(activity.dayLabel)}
             </div>
-            ${hasDisplayValue(activity.objective) ? `<p class="tk-print-objective">${escapeHtml(shortText(activity.objective, 140))}</p>` : ""}
+            ${hasDisplayValue(activity.objective) ? `<p class="tk-print-objective">${escapeHtml(shortText(activity.objective, compact ? 120 : 200))}</p>` : ""}
+            ${!compact && hasDisplayValue(activity.description) && activity.description !== activity.objective
+              ? `<p class="tk-print-tight">${escapeHtml(shortText(activity.description, 180))}</p>` : ""}
             ${!compact && (activity.developmentalDomains || []).length ? `<div class="tk-print-domain-row">${chipRowHtml(activity.developmentalDomains)}</div>` : ""}
           </div>
           ${photoBits.length ? `<div class="tk-print-card-photos">${photoBits.join("")}</div>` : ""}
         </header>
         <div class="tk-print-activity-grid tk-print-activity-primary">
-          ${panelHtml("Materials", checkboxListHtml(materials, compact ? 6 : 12), "materials")}
-          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(activity.setup, compact ? 110 : 180))}</p>`, "setup")}
-          ${panelHtml("What to do", numberedListHtml(steps, compact ? 5 : 8), "steps")}
-          ${panelHtml("Teacher prompts", bulletListHtml(tips, compact ? 3 : 6), "tip")}
+          ${panelHtml("Materials", checkboxListHtml(materials, compact ? 6 : 14), "materials")}
+          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(activity.setup, compact ? 110 : 220))}</p>`, "setup")}
+          ${panelHtml("What to do", numberedListHtml(steps, stepLimit), "steps")}
+          ${panelHtml("Teacher prompts", bulletListHtml(tips, promptLimit), "tip")}
         </div>
         ${!compact ? `<div class="tk-print-activity-secondary">
-          ${calloutHtml("watch", "Observation", bulletListHtml(watch, 5))}
-          ${hasDisplayValue(activity.adaptations) ? calloutHtml("extend", "Extensions & adaptations", bulletListHtml(toBullets(activity.adaptations, 3), 3)) : ""}
-          ${(activity.cleanupTips || []).length ? calloutHtml("cleanup", "Cleanup", bulletListHtml(activity.cleanupTips, 4)) : ""}
-          ${hasDisplayValue(activity.familyExtension) ? calloutHtml("tip", "Family extension", bulletListHtml(toBullets(activity.familyExtension, 2), 2)) : ""}
-          ${hasDisplayValue(activity.safetyNotes) ? panelHtml("Safety", bulletListHtml(toBullets(activity.safetyNotes, 2), 2), "safety") : ""}
-        </div>` : `<div class="tk-print-activity-secondary">${calloutHtml("watch", "Watch for", bulletListHtml(watch, 3))}</div>`}
+          ${calloutHtml("watch", "Observation", bulletListHtml(watch, watchLimit))}
+          ${adaptBits.length ? calloutHtml("extend", "Extensions & adaptations", bulletListHtml(adaptBits, 6)) : ""}
+          ${showCleanup ? calloutHtml("cleanup", "Cleanup", bulletListHtml(cleanupTips, 6)) : ""}
+          ${hasDisplayValue(activity.familyExtension) ? calloutHtml("tip", "Family extension", bulletListHtml(toBullets(activity.familyExtension, 3), 3)) : ""}
+          ${showSafety ? panelHtml("Safety", bulletListHtml(toBullets(activity.safetyNotes, 4), 4), "safety") : ""}
+          ${printableRef}
+        </div>` : `<div class="tk-print-activity-secondary">${calloutHtml("watch", "Watch for", bulletListHtml(watch, 3))}${printableRef}</div>`}
       </article>
     `;
   }
@@ -872,15 +952,16 @@
         </header>
         ${item.previewUrl
           ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>`
-          : `<div class="tk-print-printable-thumb-fallback" aria-hidden="true">${iconHtml("print")}</div>`}
+          : ""}
         <div class="tk-print-resource-meta">
           ${item.pageCount ? `<span>${escapeHtml(String(item.pageCount))} pages</span>` : ""}
           ${(item.usedInWeek || []).length ? `<span>${escapeHtml(item.usedInWeek.map((slot) => [slot.dayLabel, slot.moment].filter(Boolean).join(" · ")).join("; "))}</span>` : ""}
         </div>
-        ${hasDisplayValue(item.description) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.description, 160))}</p>` : ""}
-        ${hasDisplayValue(item.purpose) ? panelHtml("Purpose", `<p class="tk-print-tight">${escapeHtml(shortText(item.purpose, 140))}</p>`, "focus") : ""}
-        ${hasDisplayValue(item.suggestedUse) ? panelHtml("Suggested use", `<p class="tk-print-tight">${escapeHtml(shortText(item.suggestedUse, 140))}</p>`, "tip") : ""}
-        ${hasDisplayValue(item.printingDirections) ? panelHtml("Printing notes", `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 180))}</p>`, "print") : ""}
+        ${hasDisplayValue(item.description) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.description, 180))}</p>` : ""}
+        ${hasDisplayValue(item.purpose) ? panelHtml("Purpose", `<p class="tk-print-tight">${escapeHtml(shortText(item.purpose, 160))}</p>`, "focus") : ""}
+        ${hasDisplayValue(item.suggestedUse) ? panelHtml("Suggested use", `<p class="tk-print-tight">${escapeHtml(shortText(item.suggestedUse, 160))}</p>`, "tip") : ""}
+        ${hasDisplayValue(item.teacherNotes) ? panelHtml("Teacher notes", `<p class="tk-print-tight">${escapeHtml(shortText(item.teacherNotes, 160))}</p>`, "tip") : ""}
+        ${hasDisplayValue(item.printingDirections) ? panelHtml("Printing notes", `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 200))}</p>`, "print") : ""}
         ${item.embedAsImage
           ? `<p class="tk-print-muted">Full printable image included on the following page.</p>`
           : `<p class="tk-print-muted"><strong>Additional printable PDF included separately.</strong> Pages were not merged into this binder document.</p>`}
@@ -927,14 +1008,17 @@
             <h3>${escapeHtml(song.title)}</h3>
           </div>
           <div class="tk-print-badge-row">
+            ${badgeHtml(song.category)}
             ${badgeHtml(song.rights || "")}
             ${(song.relatedDays || []).length ? badgeHtml((song.relatedDays || []).join(", ")) : (song.relatedDay ? badgeHtml(song.relatedDay) : "")}
           </div>
         </header>
-        ${hasDisplayValue(song.whenToUse) ? panelHtml("Best time / transition", bulletListHtml(toBullets(song.whenToUse, 2), 2), "schedule") : ""}
-        ${hasDisplayValue(song.notes) ? panelHtml("Teaching tips", bulletListHtml(toBullets(song.notes, 3), 3), "tip") : ""}
-        ${hasDisplayValue(song.motions) ? panelHtml("Movement ideas", bulletListHtml(toBullets(song.motions, 4), 4), "steps") : ""}
-        ${hasDisplayValue(song.props) ? panelHtml("Props", checkboxListHtml(toBullets(song.props, 4), 4), "materials") : ""}
+        ${hasDisplayValue(song.purpose) ? panelHtml("Teaching purpose", `<p class="tk-print-tight">${escapeHtml(shortText(song.purpose, 180))}</p>`, "focus") : ""}
+        ${hasDisplayValue(song.whenToUse) ? panelHtml("Best time / transition", bulletListHtml(toBullets(song.whenToUse, 3), 3), "schedule") : ""}
+        ${hasDisplayValue(song.notes) ? panelHtml("Teaching tips", bulletListHtml(toBullets(song.notes, 5), 5), "tip") : ""}
+        ${hasDisplayValue(song.motions) ? panelHtml("Movement / actions", bulletListHtml(toBullets(song.motions, 6), 6), "steps") : ""}
+        ${hasDisplayValue(song.props) ? panelHtml("Props", checkboxListHtml(toBullets(song.props, 6), 6), "materials") : ""}
+        ${(song.vocabulary || []).length ? panelHtml("Vocabulary / concepts", chipRowHtml(song.vocabulary), "vocab") : ""}
         ${song.lyricsPrintable && song.lyrics
           ? panelHtml("Lyrics", `<p class="tk-print-tight">${escapeHtml(song.lyrics)}</p>`, "song")
           : (lyricsOnly
@@ -969,12 +1053,13 @@
             ${book.author ? `<p class="tk-print-book-author">by ${escapeHtml(book.author)}</p>` : ""}
             <div class="tk-print-badge-row">${dayBits ? badgeHtml(dayBits) : ""}</div>
           </header>
-          ${hasDisplayValue(book.whyThisBook) ? panelHtml("Why this book", `<p class="tk-print-tight">${escapeHtml(shortText(book.whyThisBook, 180))}</p>`, "focus") : ""}
+          ${hasDisplayValue(book.whyThisBook) ? panelHtml("Purpose / why this book", `<p class="tk-print-tight">${escapeHtml(shortText(book.whyThisBook, 220))}</p>`, "focus") : ""}
           ${(book.vocabularyConnections || []).length ? panelHtml("Vocabulary", chipRowHtml(book.vocabularyConnections), "vocab") : ""}
-          ${panelHtml("Before reading", bulletListHtml(book.beforeReadingQuestions, 3), "book")}
-          ${panelHtml("During reading", bulletListHtml(book.duringReadingPrompts, 4), "book")}
-          ${panelHtml("After reading", bulletListHtml(book.afterReadingQuestions || book.readAloudQuestions, 4), "book")}
-          ${panelHtml("Extension", bulletListHtml(book.extensionIdeas, 3), "adapt")}
+          ${panelHtml("Before reading", bulletListHtml(book.beforeReadingQuestions, 5), "book")}
+          ${panelHtml("During reading", bulletListHtml(book.duringReadingPrompts, 6), "book")}
+          ${panelHtml("After reading", bulletListHtml(book.afterReadingQuestions || book.readAloudQuestions, 6), "book")}
+          ${panelHtml("Extension / related activity", bulletListHtml(book.extensionIdeas, 5), "adapt")}
+          ${hasDisplayValue(book.teacherNotes) ? panelHtml("Teacher notes", bulletListHtml(toBullets(book.teacherNotes, 4), 4), "tip") : ""}
         </div>
       </article>`;
     }).join("")}</div>`;
@@ -991,54 +1076,90 @@
     `).join("")}</div>`;
   }
 
+  function materialsChecklistBody(model, options = {}) {
+    const day = options.day || null;
+    const title = day ? `${day.dayLabel} materials` : "Master materials";
+    const source = day?.materials?.length
+      ? day.materials
+      : (model.overview?.masterMaterialsDetailed?.length
+        ? model.overview.masterMaterialsDetailed
+        : model.overview?.masterMaterials);
+    const materialsHtml = materialsGroupedHtml(source, options.limit || 60)
+      || checkboxListHtml(source, options.limit || 60);
+    if (!materialsHtml) {
+      return emptyStateHtml("No materials list yet", "Materials appear here once supplies are listed on the lesson or its activities.");
+    }
+    return panelHtml(title, materialsHtml, "materials");
+  }
+
+  function evaluatePresetAvailability(kit, options = {}) {
+    const companion = kit && kit.companion ? kit.companion : {};
+    const parts = evaluatePrintPartAvailability(kit, options);
+    const songs = companion.songs || [];
+    const hasPrintableLyrics = songs.some((song) => {
+      const rights = text(song.rightsStatus || song.rightsMode || song.rights);
+      const allowed = song.lyricsPrintable === true
+        || /public domain|traditional|original/i.test(rights)
+        || /^(original|public[_-]?domain|traditional)$/i.test(rights);
+      return allowed && text(song.lyrics);
+    });
+    const printables = companion.printables || [];
+    const activities = parts.activities?.available;
+    const books = (companion.books || []).length > 0;
+    const songCount = songs.length > 0;
+    const materials = (companion.mondayMorningSetup?.materials || []).length > 0
+      || WEEKDAYS.some((day) => (companion.days?.[day]?.materials || []).length > 0)
+      || (companion.materialsModel?.master || []).length > 0;
+    const toolkit = parts.setup?.available
+      || Boolean(text(companion.parentConnection?.readyToSendMessage))
+      || (companion.vocabulary || []).length > 0;
+
+    return {
+      week_binder: { available: true, reason: "" },
+      full_weekly_plan: { available: parts.daily?.available !== false, reason: parts.daily?.reason || "" },
+      weekly_overview: { available: true, reason: "" },
+      today_pack: { available: parts.daily?.available !== false, reason: parts.daily?.reason || "No daily pages yet" },
+      activities_only: { available: Boolean(activities), reason: parts.activities?.reason || "No activities yet" },
+      one_activity: { available: Boolean(activities), reason: parts.activities?.reason || "No activities yet" },
+      songs_pack: { available: songCount, reason: "No songs attached yet" },
+      song_lyrics: { available: hasPrintableLyrics, reason: hasPrintableLyrics ? "" : "No printable lyrics available for this lesson" },
+      book_guide: { available: books, reason: "No books attached yet" },
+      materials_list: { available: materials || parts.setup?.available, reason: "No materials list yet" },
+      teacher_toolkit: { available: toolkit, reason: "Teacher Toolkit content not authored yet" },
+      all_printables: { available: true, reason: "" }, // polished empty state when none
+      one_printable: { available: printables.length > 0, reason: "No printables linked yet" },
+      monday_setup_pack: { available: parts.setup?.available !== false, reason: parts.setup?.reason || "" },
+      family_pack: { available: parts.family?.available !== false || (companion.vocabulary || []).length > 0, reason: "No family connection yet" },
+      selected_resources: { available: true, reason: "" },
+    };
+  }
+
   function toolkitBody(model) {
     const toolkit = model.toolkit || {};
     const setup = toolkit.mondayMorningSetup || {};
     const prep = (setup.prepTasks || []).map((task) => `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}`);
     const printChecklist = (setup.printChecklist || []).map((item) => `${item.label}${(item.usedInWeek || []).length ? ` (${item.usedInWeek.join("; ")})` : ""}`);
-    const vocab = (model.overview?.vocabulary || []).map((word) => word.word).filter(Boolean).slice(0, 16);
+    const vocab = (model.overview?.vocabulary || []).map((word) => word.word).filter(Boolean).slice(0, 20);
+    const materialsInner = materialsGroupedHtml(setup.materials, 40) || checkboxListHtml(setup.materials, 40);
+    const groups = [
+      toolkitGroupHtml("materials", "Setup materials", "materials", materialsInner),
+      toolkitGroupHtml("prep", "Prep checklist", "prep", checkboxListHtml(prep, 12)),
+      toolkitGroupHtml("print", "Print checklist", "print", checkboxListHtml(printChecklist, 10)),
+      toolkitGroupHtml("vocab", "Vocabulary", "vocab", chipRowHtml(vocab)),
+      toolkitGroupHtml("tips", "Teaching tips", "tip", bulletListHtml(toolkit.teachingTips, 8)),
+      toolkitGroupHtml("safety", "Safety", "safety", bulletListHtml(model.overview?.safety, 4)),
+      toolkitGroupHtml("cleanup", "Cleanup", "cleanup", bulletListHtml(toolkit.cleanup, 4)),
+      toolkitGroupHtml("observe", "Observation", "watch", bulletListHtml(toolkit.observationGuidance, 6)),
+      toolkitGroupHtml("adapt", "Adaptations", "adapt", bulletListHtml(toBullets(toolkit.adaptations, 5), 5)),
+      toolkitGroupHtml("family", "Family resources", "family", bulletListHtml(toBullets(toolkit.familyResources, 5), 5)),
+    ].filter(Boolean).join("\n");
     return `
       <div class="tk-print-toolkit-intro">
         <div class="tk-print-section-banner">Monday Morning Setup</div>
         ${setup.estimatedPrepMinutes ? `<div class="tk-print-stat-pill"><span>Estimated prep</span><strong>${escapeHtml(String(setup.estimatedPrepMinutes))} min</strong></div>` : ""}
         ${(setup.missingMaterials || []).length ? `<div class="tk-print-callout tk-print-keep"><strong>Needs attention</strong><span>${escapeHtml(setup.missingMaterials.join(" · "))}</span></div>` : ""}
       </div>
-      <div class="tk-print-toolkit-groups">
-        <section class="tk-print-toolkit-group" data-toolkit-group="materials">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("materials")}<span>Setup materials</span></h3>
-          ${checkboxListHtml(setup.materials, 24) || emptyStateHtml("Materials checklist ready", "Materials will appear here when authored for this lesson.")}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="prep">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("prep")}<span>Prep checklist</span></h3>
-          ${checkboxListHtml(prep, 10) || emptyStateHtml("Prep checklist ready", "Prep tasks will appear here when authored for this lesson.")}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="print">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("print")}<span>Print checklist</span></h3>
-          ${checkboxListHtml(printChecklist, 8) || emptyStateHtml("Print checklist ready", "Printable checklist items will appear here when linked.")}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="vocab">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("vocab")}<span>Vocabulary</span></h3>
-          ${chipRowHtml(vocab) || emptyStateHtml("Vocabulary ready", "Theme words will appear here when authored.")}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="tips">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("tip")}<span>Teaching tips</span></h3>
-          ${bulletListHtml(toolkit.teachingTips, 5) || ""}
-          ${panelHtml("Safety", bulletListHtml(model.overview?.safety, 4), "safety")}
-          ${panelHtml("Cleanup", bulletListHtml(toolkit.cleanup, 4), "cleanup")}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="observe">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("watch")}<span>Observation</span></h3>
-          ${bulletListHtml(toolkit.observationGuidance, 4) || emptyStateHtml("Observation prompts ready", "What to watch for will appear here when authored.")}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="adapt">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("adapt")}<span>Adaptations</span></h3>
-          ${bulletListHtml(toBullets(toolkit.adaptations, 3), 3) || ""}
-        </section>
-        <section class="tk-print-toolkit-group" data-toolkit-group="family">
-          <h3 class="tk-print-toolkit-group-title">${iconHtml("family")}<span>Family resources</span></h3>
-          ${bulletListHtml(toBullets(toolkit.familyResources, 3), 3) || ""}
-        </section>
-      </div>
+      <div class="tk-print-toolkit-groups">${groups}</div>
     `;
   }
 
@@ -1121,10 +1242,6 @@
     if (sectionIds.has("activities")) {
       chunks.push(packActivityPages(model.activities || [], selection, "Activities", false));
     }
-    if (sectionIds.has("printables")) {
-      chunks.push(page("Printables", "Printables", printablesBody(model, selection), selection.footerLabel));
-      chunks.push(printableImagePages(model, selection));
-    }
     if (sectionIds.has("songs")) {
       const body = songsBody(model, false);
       if (body) chunks.push(page("Songs", "Songs", body, selection.footerLabel));
@@ -1132,6 +1249,23 @@
     if (sectionIds.has("books")) {
       const body = booksBody(model, selection);
       if (body) chunks.push(page("Books", "Book Guide", body, selection.footerLabel));
+    }
+    if (sectionIds.has("toolkit")) {
+      const toolkitHtml = toolkitBody(model);
+      if (text(toolkitHtml.replace(/<[^>]+>/g, " "))) {
+        chunks.push(page("Teacher Toolkit", "Teacher Toolkit", toolkitHtml, selection.footerLabel));
+      }
+    }
+    if (sectionIds.has("materials")) {
+      const body = materialsChecklistBody(model);
+      if (body) chunks.push(page("Materials", "Materials List", body, selection.footerLabel));
+    }
+    if (sectionIds.has("printables")) {
+      const body = printablesBody(model, selection);
+      if (body) {
+        chunks.push(page("Printables", "Printables", body, selection.footerLabel));
+        chunks.push(printableImagePages(model, selection));
+      }
     }
     if (sectionIds.has("examples") && selection.includeImages) {
       const leftovers = (model.examples || []).filter((image) => {
@@ -1144,9 +1278,6 @@
       if (leftovers.length) {
         chunks.push(page("Example Images", "Example Images", examplesBody({ examples: leftovers }), selection.footerLabel));
       }
-    }
-    if (sectionIds.has("toolkit")) {
-      chunks.push(page("Teacher Toolkit", "Teacher Toolkit", toolkitBody(model), selection.footerLabel));
     }
     return chunks;
   }
@@ -1259,7 +1390,7 @@
       chunks.push(page(
         "Materials",
         "Materials List",
-        panelHtml("Master materials", checkboxListHtml(model.overview?.masterMaterials, 40), "M"),
+        materialsChecklistBody(model),
         selection.footerLabel,
       ));
     }
@@ -1337,11 +1468,10 @@
     if (mode === "materials") {
       const dayKey = daysFilter[0];
       const day = dayKey ? (model.days || []).find((item) => item.day === dayKey) : null;
-      const materials = day?.materials?.length ? day.materials : model.overview?.masterMaterials;
       chunks.push(page(
         "Materials",
         day ? `${day.dayLabel} Materials` : "Materials List",
-        panelHtml(day ? `${day.dayLabel} materials` : "Master materials", checkboxListHtml(materials, 50), "materials"),
+        materialsChecklistBody(model, { day }),
         selection.footerLabel,
       ));
       return chunks;
@@ -1356,6 +1486,18 @@
         chunks.push(printableImagePages(model, selection));
       } else {
         chunks.push(page("Printables", "Printable Resources", emptyStateHtml("No printable resources have been added to this lesson yet.", "When printables are linked, teachers will see thumbnails, purpose, suggested use, and printing notes here."), selection.footerLabel));
+      }
+      return chunks;
+    }
+    if (mode === "one_printable") {
+      const printable = (model.printables || []).find((item) => item.id === selection.printableId || item.title === selection.printableId)
+        || (model.printables || [])[0];
+      if (printable) {
+        const scoped = { printables: [printable] };
+        chunks.push(page("Printables", printable.title, printablesBody(scoped, selection), selection.footerLabel));
+        chunks.push(printableImagePages(scoped, selection));
+      } else {
+        chunks.push(page("Printables", "Printable Resources", emptyStateHtml("No printable resources have been added to this lesson yet.", "When printables are linked through Admin, they appear here automatically."), selection.footerLabel));
       }
       return chunks;
     }
@@ -1375,7 +1517,7 @@
   function designStyleTag() {
     // Critical binder design so print preview stays designed even if main stylesheet is delayed.
     // Full rules (including app print chrome hiding) also live in styles.css.
-    return "<style data-tk-print-design>" + ".teaching-kit-print-article,\n.tk-print-root {\n--tk-purple-deep: #542e94;\n--tk-purple: #6b46c1;\n--tk-purple-soft: #f5f0fc;\n--tk-purple-line: #e8e0f4;\n--tk-ink: #2d1b4e;\n--tk-muted: #6b5f82;\n--tk-accent: var(--tk-purple-deep);\n--tk-accent-soft: var(--tk-purple-soft);\n--tk-border: #e8e0f4;\n--tk-display: Georgia, \"Palatino Linotype\", \"Palatino\", \"Times New Roman\", serif;\n--tk-body: \"Avenir Next\", \"Segoe UI\", \"Helvetica Neue\", sans-serif;\ncolor: var(--tk-ink);\nbackground: #fff;\ncounter-reset: tk-page;\nfont-family: var(--tk-body);\nfont-size: 10.5pt;\nline-height: 1.45;\n-webkit-print-color-adjust: exact;\nprint-color-adjust: exact;\n}\n.tk-theme-overview { --tk-accent: #542e94; --tk-accent-soft: #f3eefd; }\n.tk-theme-weekly { --tk-accent: #0f766e; --tk-accent-soft: #ecfdf5; }\n.tk-theme-daily { --tk-accent: #1d4ed8; --tk-accent-soft: #eff6ff; }\n.tk-theme-activities { --tk-accent: #b45309; --tk-accent-soft: #fff7ed; }\n.tk-theme-books { --tk-accent: #9a3412; --tk-accent-soft: #fff7ed; }\n.tk-theme-songs { --tk-accent: #7e22ce; --tk-accent-soft: #faf5ff; }\n.tk-theme-printables { --tk-accent: #0369a1; --tk-accent-soft: #f0f9ff; }\n.tk-theme-toolkit { --tk-accent: #334155; --tk-accent-soft: #f8fafc; }\n.tk-theme-toc,\n.tk-theme-default,\n.tk-theme-cover { --tk-accent: #542e94; --tk-accent-soft: #f3eefd; }\n.tk-print-page {\nposition: relative;\ndisplay: flex;\nflex-direction: column;\nbreak-after: page;\npage-break-after: always;\npadding: 12px 8px 18px;\nmin-height: 0;\nbox-sizing: border-box;\ncounter-increment: tk-page;\n}\n.tk-print-page:last-of-type {\nbreak-after: auto;\npage-break-after: auto;\n}\n.tk-print-running {\ndisplay: flex;\njustify-content: space-between;\nalign-items: center;\ngap: 12px;\nfont-size: 0.62rem;\nfont-weight: 700;\nletter-spacing: 0.08em;\ntext-transform: uppercase;\ncolor: var(--tk-muted);\nbackground: #fff;\nmargin: 0 0 14px;\npadding: 6px 10px 6px 12px;\nborder-bottom: 1px solid var(--tk-border);\nborder-left: 3px solid var(--tk-accent);\nborder-radius: 0;\nflex: 0 0 auto;\n}\n.tk-print-running span:last-child {\ncolor: var(--tk-accent);\nfont-weight: 800;\n}\n.tk-print-title-bar {\nbackground: transparent;\nborder: none;\nborder-left: 4px solid var(--tk-accent);\nborder-radius: 0;\npadding: 4px 0 4px 14px;\nmargin: 0 0 18px;\n}\n.tk-print-page-title {\nmargin: 0;\nfont-family: var(--tk-display);\nfont-size: 1.35rem;\nfont-weight: 700;\ncolor: var(--tk-ink);\nline-height: 1.2;\nbreak-after: avoid;\npage-break-after: avoid;\n}\n.tk-print-rule { display: none; }\n.tk-print-body {\nflex: 1 1 auto;\nmin-height: 0;\npadding-bottom: 10px;\nfont-size: 10.5pt;\nline-height: 1.45;\n}\n.tk-print-footer {\nmargin-top: auto;\npadding: 10px 4px 0;\ndisplay: flex;\njustify-content: space-between;\ngap: 12px;\nfont-size: 0.65rem;\nfont-weight: 600;\ncolor: var(--tk-muted);\nborder-top: 1px solid var(--tk-border);\nflex: 0 0 auto;\n}\n.tk-print-page-number::after { content: counter(tk-page); }\n.tk-print-keep { break-inside: avoid; page-break-inside: avoid; }\n.tk-print-muted { color: var(--tk-muted); }\n.tk-print-tight { margin: 0; line-height: 1.4; }\n.tk-print-list,\n.tk-print-bullets,\n.tk-print-steps,\n.tk-print-check,\n.tk-print-cell-list {\nmargin: 0;\npadding-left: 0;\nlist-style: none;\n}\n.tk-print-bullets li,\n.tk-print-list li {\nposition: relative;\npadding-left: 14px;\nmargin: 4px 0;\n}\n.tk-print-bullets li::before,\n.tk-print-list li::before {\ncontent: \"\";\nposition: absolute;\nleft: 0;\ntop: 0.5em;\nwidth: 5px;\nheight: 5px;\nborder-radius: 50%;\nbackground: var(--tk-accent);\n}\n.tk-print-steps { counter-reset: tk-step; }\n.tk-print-steps li {\ncounter-increment: tk-step;\nposition: relative;\npadding-left: 24px;\nmargin: 5px 0;\n}\n.tk-print-steps li::before {\ncontent: counter(tk-step);\nposition: absolute;\nleft: 0;\ntop: 0.05em;\nwidth: 17px;\nheight: 17px;\nborder-radius: 50%;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nborder: 1px solid var(--tk-border);\nfont-size: 0.65rem;\nfont-weight: 800;\ndisplay: grid;\nplace-items: center;\n}\n.tk-print-check li {\ndisplay: grid;\ngrid-template-columns: 14px 1fr;\ngap: 8px;\nalign-items: start;\nmargin: 4px 0;\npadding-left: 0;\n}\n.tk-print-check li::before { content: none !important; display: none !important; }\n.tk-print-check-box {\nwidth: 12px;\nheight: 12px;\nmargin-top: 3px;\nborder: 1.5px solid var(--tk-accent);\nborder-radius: 3px;\nbackground: #fff;\nflex-shrink: 0;\n}\n.tk-print-panel {\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\nbackground: #fff;\noverflow: hidden;\nmargin: 0 0 12px;\n}\n.tk-print-panel-label {\ndisplay: flex;\nalign-items: center;\ngap: 7px;\nbackground: #faf8fc;\ncolor: var(--tk-ink);\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\npadding: 6px 10px;\nborder-bottom: 1px solid var(--tk-border);\n}\n.tk-print-icon {\ndisplay: inline-grid;\nplace-items: center;\nwidth: 18px;\nheight: 18px;\nborder-radius: 50%;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nfont-size: 0.6rem;\nfont-weight: 800;\nflex-shrink: 0;\n}\n.tk-print-icon--svg svg {\ndisplay: block;\nwidth: 12px;\nheight: 12px;\n}\n.tk-print-panel-body {\npadding: 10px 12px;\n}\n.tk-print-badge-row,\n.tk-print-chip-row {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 6px;\nmargin: 8px 0;\n}\n.tk-print-badge,\n.tk-print-chip {\ndisplay: inline-flex;\nalign-items: center;\npadding: 3px 10px;\nborder-radius: 999px;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nborder: 1px solid var(--tk-border);\nfont-size: 0.7rem;\nfont-weight: 700;\nline-height: 1.3;\n}\n.tk-print-snapshot-grid,\n.tk-print-day-sheet-grid,\n.tk-print-activity-grid,\n.tk-print-resource-grid,\n.tk-print-day-pair,\n.tk-print-activity-primary,\n.tk-print-activity-secondary {\ndisplay: grid;\ngap: 12px;\n}\n.tk-print-snapshot-grid { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }\n.tk-print-day-sheet-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-resource-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-day-pair { grid-template-columns: 1fr; gap: 16px; }\n.tk-print-activity-primary { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-secondary { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-primary .tk-print-panel-label,\n.tk-print-activity-primary .tk-print-panel-body {\nfont-weight: 600;\n}\n.tk-print-activity-secondary .tk-print-panel-body {\ncolor: var(--tk-muted);\nfont-size: 0.92em;\n}\n.tk-print-stat-pill {\ndisplay: inline-flex;\njustify-content: space-between;\nalign-items: center;\ngap: 12px;\npadding: 8px 14px;\nborder-radius: 999px;\nbackground: #fff;\ncolor: var(--tk-ink);\nborder: 1.5px solid var(--tk-accent);\nfont-size: 0.85rem;\nmargin: 4px 0 12px;\n}\n.tk-print-stat-pill strong {\ncolor: var(--tk-accent);\nfont-weight: 800;\n}\n.tk-print-wag-table {\nwidth: 100%;\nborder-collapse: collapse;\ntable-layout: fixed;\nfont-size: 8.5pt;\nmargin: 8px 0 14px;\n}\n.tk-print-wag-table th,\n.tk-print-wag-table td {\nborder: 1px solid var(--tk-border);\npadding: 6px 5px;\nvertical-align: top;\nbackground: #fff;\n}\n.tk-print-wag-table thead th {\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\n}\n.tk-print-wag-table tbody th {\nbackground: #faf8fc;\ncolor: var(--tk-ink);\nfont-size: 0.68rem;\nfont-weight: 800;\ntext-transform: uppercase;\nwidth: 0.85in;\n}\n.tk-print-cell-list li {\nmargin: 3px 0;\npadding-left: 10px;\nposition: relative;\n}\n.tk-print-cell-list li::before {\ncontent: \"\";\nposition: absolute;\nleft: 0;\ntop: 0.45em;\nwidth: 4px;\nheight: 4px;\nborder-radius: 50%;\nbackground: var(--tk-accent);\n}\n.tk-print-domain-row {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 6px;\nmargin: 8px 0 12px;\n}\n.tk-print-day-sheet {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\noverflow: hidden;\nbackground: #fff;\nmargin-bottom: 14px;\n}\n.tk-print-day-sheet-head {\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-ink);\npadding: 10px 14px;\nborder-bottom: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\n}\n.tk-print-day-sheet-head h3 {\nmargin: 0 0 3px;\nfont-family: var(--tk-display);\nfont-size: 1.1rem;\ncolor: var(--tk-accent);\n}\n.tk-print-day-sheet-head p {\nmargin: 0;\nfont-size: 0.88rem;\ncolor: var(--tk-muted);\n}\n.tk-print-day-sheet-grid { padding: 12px; }\n.tk-print-activity-card {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\nbackground: #fff;\nmargin: 0 0 14px;\noverflow: hidden;\nbox-shadow: 0 1px 0 rgba(45, 27, 78, 0.04);\n}\n.tk-print-activity-head {\ndisplay: grid;\ngrid-template-columns: 1fr auto;\ngap: 10px;\npadding: 12px 14px;\nbackground: #faf8fc;\nborder-bottom: 1px solid var(--tk-border);\n}\n.tk-print-activity-head h3 {\nmargin: 0 0 6px;\nfont-family: var(--tk-display);\ncolor: var(--tk-ink);\nfont-size: 1.08rem;\nline-height: 1.25;\n}\n.tk-print-objective {\nmargin: 6px 0 0;\ncolor: var(--tk-muted);\nfont-size: 0.88rem;\nfont-style: italic;\n}\n.tk-print-activity-grid { padding: 12px; }\n.tk-print-card-photos {\ndisplay: flex;\ngap: 6px;\n}\n.tk-print-card-photo {\nmargin: 0;\nwidth: 0.95in;\nborder: 1px solid var(--tk-border);\nborder-radius: 8px;\noverflow: hidden;\nbackground: #fff;\ntext-align: center;\n}\n.tk-print-card-photo img {\ndisplay: block;\nwidth: 100%;\nheight: 0.75in;\nobject-fit: cover;\n}\n.tk-print-card-photo figcaption {\nfont-size: 0.6rem;\nfont-weight: 800;\ncolor: var(--tk-accent);\npadding: 3px 0;\ntext-transform: uppercase;\nletter-spacing: 0.04em;\n}\n.tk-print-callout {\ndisplay: grid;\ngap: 3px;\nbackground: #fff;\nborder: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\nborder-radius: 10px;\npadding: 10px 12px;\nmargin: 0 0 12px;\n}\n.tk-print-callout strong {\nfont-size: 0.72rem;\nfont-weight: 800;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\ncolor: var(--tk-accent);\n}\n.tk-print-callout-tip {\nborder-left-color: #0f766e;\nbackground: #f0fdf9;\n}\n.tk-print-callout-tip strong { color: #0f766e; }\n.tk-print-callout-watch {\nborder-left-color: #7e22ce;\nbackground: #faf5ff;\n}\n.tk-print-callout-watch strong { color: #7e22ce; }\n.tk-print-callout-extend {\nborder-left-color: #1d4ed8;\nbackground: #eff6ff;\n}\n.tk-print-callout-extend strong { color: #1d4ed8; }\n.tk-print-callout-cleanup {\nborder-left-color: #b45309;\nbackground: #fff7ed;\n}\n.tk-print-callout-cleanup strong { color: #b45309; }\n.tk-print-section-banner {\ndisplay: inline-flex;\nmargin: 8px 0 12px;\npadding: 5px 14px;\nborder-radius: 999px;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nborder: 1px solid var(--tk-border);\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\n}\n.tk-print-resource-card {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px;\nbackground: #fff;\nmargin-bottom: 12px;\n}\n.tk-print-resource-card header {\ndisplay: flex;\njustify-content: space-between;\nflex-wrap: wrap;\ngap: 8px;\nalign-items: start;\nmargin-bottom: 8px;\n}\n.tk-print-resource-card h3 {\nmargin: 0;\nfont-family: var(--tk-display);\ncolor: var(--tk-ink);\nfont-size: 1rem;\nline-height: 1.25;\n}\n.tk-print-resource-preview img {\nwidth: 100%;\nmax-height: 1.4in;\nobject-fit: cover;\nborder-radius: 8px;\nborder: 1px solid var(--tk-border);\n}\n.tk-print-resource-meta {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 8px;\ncolor: var(--tk-muted);\nfont-size: 0.74rem;\nmargin: 6px 0;\n}\n.tk-print-book-card {\ndisplay: grid;\ngrid-template-columns: 0.85in 1fr;\ngap: 12px;\nalign-items: start;\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px;\nbackground: #fff;\nmargin-bottom: 12px;\n}\n.tk-print-book-cover {\nwidth: 0.85in;\nmin-height: 1.15in;\nborder-radius: 4px 8px 8px 4px;\nbackground: linear-gradient(135deg, var(--tk-accent-soft) 0%, #fff 50%, var(--tk-accent-soft) 100%);\nborder: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\ndisplay: grid;\nplace-items: center;\nfont-size: 0.55rem;\nfont-weight: 800;\ntext-transform: uppercase;\nletter-spacing: 0.04em;\ncolor: var(--tk-accent);\ntext-align: center;\npadding: 4px;\noverflow: hidden;\n}\n.tk-print-book-cover img {\nwidth: 100%;\nheight: 100%;\nobject-fit: cover;\nborder-radius: 2px 6px 6px 2px;\n}\n.tk-print-book-card .tk-print-book-author {\nmargin: 0 0 6px;\nfont-size: 0.82rem;\ncolor: var(--tk-muted);\nfont-style: italic;\n}\n.tk-print-song-card {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px 14px;\nbackground: #fff;\nmargin-bottom: 12px;\n}\n.tk-print-song-card header {\nmargin-bottom: 8px;\n}\n.tk-print-song-card h3 {\nmargin: 0 0 6px;\nfont-family: var(--tk-display);\nfont-size: 1.02rem;\n}\n.tk-print-lyrics-note {\ndisplay: grid;\ngap: 2px;\nmargin: 10px 0 0;\npadding: 10px 12px;\nborder-radius: 10px;\nbackground: var(--tk-accent-soft);\nborder: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\nfont-size: 0.82rem;\ncolor: var(--tk-ink);\n}\n.tk-print-lyrics-note strong {\nfont-size: 0.68rem;\nfont-weight: 800;\ntext-transform: uppercase;\nletter-spacing: 0.04em;\ncolor: var(--tk-accent);\n}\n.tk-print-cover {\ndisplay: flex;\nflex-direction: column;\njustify-content: space-between;\nbackground: linear-gradient(180deg, #fffefb 0%, #faf7f2 55%, #f5f0fc 100%);\ncolor: var(--tk-ink);\nborder-radius: 0;\npadding: 0 0 18px;\nmin-height: 9.2in;\n}\n.tk-print-cover .tk-print-running {\nmargin-bottom: 0;\nborder-left-color: var(--tk-purple-deep);\n}\n.tk-print-cover .tk-print-footer {\ncolor: var(--tk-muted);\nborder-top-color: var(--tk-border);\npadding: 12px 16px 0;\n}\n.tk-print-cover-inner {\nflex: 1 1 auto;\ndisplay: flex;\nflex-direction: column;\npadding: 0 16px;\n}\n.tk-print-brand-row {\ndisplay: flex;\nalign-items: center;\ngap: 10px;\nmargin: 0 0 10px;\n}\n.tk-print-brand-mark {\nwidth: 28px;\nheight: 28px;\nborder-radius: 8px;\nbackground: var(--tk-purple-soft);\nborder: 1.5px solid var(--tk-purple-line);\ndisplay: grid;\nplace-items: center;\nfont-size: 0.7rem;\nfont-weight: 800;\ncolor: var(--tk-purple-deep);\nflex-shrink: 0;\n}\n.tk-print-brand {\nletter-spacing: 0.12em;\ntext-transform: uppercase;\nfont-size: 0.72rem;\nfont-weight: 800;\ncolor: var(--tk-purple-deep);\nmargin: 0;\n}\n.tk-print-cover-kicker {\ndisplay: inline-flex;\nalign-self: flex-start;\nmargin: 0 0 14px;\npadding: 4px 12px;\nborder-radius: 999px;\nbackground: var(--tk-purple-soft);\nborder: 1px solid var(--tk-border);\ncolor: var(--tk-purple-deep);\nfont-size: 0.72rem;\nfont-weight: 700;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\n}\n.tk-print-cover-hero,\n.tk-print-cover-image {\nwidth: calc(100% + 32px);\nmargin: 0 -16px 18px;\nborder-radius: 0 0 16px 16px;\noverflow: hidden;\nborder: none;\nborder-bottom: 1px solid var(--tk-border);\nmin-height: 55%;\nmax-height: 62vh;\n}\n.tk-print-cover-hero img,\n.tk-print-cover-image img {\ndisplay: block;\nwidth: 100%;\nheight: 100%;\nmin-height: 3.2in;\nmax-height: 4.5in;\nobject-fit: cover;\n}\n.tk-print-cover h1 {\nmargin: 0 0 10px;\nfont-family: var(--tk-display);\nfont-size: 2.5rem;\nline-height: 1.08;\ncolor: var(--tk-ink);\nfont-weight: 700;\n}\n.tk-print-cover-subtitle {\nmargin: 0 0 16px;\nfont-size: 1.05rem;\ncolor: var(--tk-muted);\nfont-weight: 500;\n}\n.tk-print-cover-meta {\ndisplay: grid;\ngrid-template-columns: repeat(2, minmax(0, 1fr));\ngap: 12px;\nmargin: 0 0 16px;\n}\n.tk-print-cover-meta-card {\nbackground: #fff;\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\npadding: 10px 12px;\n}\n.tk-print-cover-meta-card span,\n.tk-print-meta-label {\ndisplay: block;\nfont-size: 0.62rem;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\ncolor: var(--tk-muted);\nfont-weight: 700;\nmargin-bottom: 4px;\n}\n.tk-print-cover-meta-card strong,\n.tk-print-meta-value {\ndisplay: block;\nmargin-top: 0;\nfont-size: 1rem;\nfont-weight: 700;\ncolor: var(--tk-ink);\nline-height: 1.3;\n}\n.tk-print-cover .tk-print-chip {\nbackground: var(--tk-purple-soft);\ncolor: var(--tk-purple-deep);\nborder-color: var(--tk-border);\n}\n.tk-print-cover-fallback,\n.tk-print-cover-hero-fallback {\ndisplay: flex;\nflex-direction: column;\nalign-items: center;\njustify-content: center;\ngap: 12px;\nmin-height: 3.2in;\nmax-height: 4.5in;\nwidth: 100%;\nborder: none;\nborder-radius: 0 0 16px 16px;\nmargin: 0;\npadding: 24px 16px;\nbackground:\nradial-gradient(circle at 18% 22%, rgba(107, 70, 193, 0.08), transparent 32%),\nradial-gradient(circle at 82% 18%, rgba(246, 231, 168, 0.35), transparent 28%),\nlinear-gradient(165deg, #f7f2ff 0%, #ede4f8 45%, #e8def8 100%);\nposition: relative;\noverflow: hidden;\n}\n.tk-print-cover-fallback::before,\n.tk-print-cover-hero-fallback::before {\ncontent: \"\";\nposition: absolute;\ninset: 0;\nbackground:\nradial-gradient(circle at 12% 78%, rgba(217, 199, 245, 0.5) 0%, transparent 22%),\nradial-gradient(circle at 88% 72%, rgba(203, 182, 239, 0.4) 0%, transparent 20%);\npointer-events: none;\n}\n.tk-print-cover-fallback span {\nposition: relative;\nz-index: 1;\nfont-size: 0.72rem;\nletter-spacing: 0.1em;\ntext-transform: uppercase;\nfont-weight: 800;\ncolor: var(--tk-purple-deep);\n}\n.tk-print-cover-art {\nposition: relative;\nz-index: 1;\nwidth: min(100%, 420px);\nheight: auto;\ndisplay: block;\n}\n.tk-print-cover-hero-brand {\nposition: relative;\nz-index: 1;\nmargin: 0;\nfont-size: 0.78rem;\nfont-weight: 800;\nletter-spacing: 0.1em;\ntext-transform: uppercase;\ncolor: var(--tk-purple-deep);\n}\n.tk-print-empty-state {\ndisplay: flex;\nflex-direction: column;\nalign-items: center;\njustify-content: center;\ntext-align: center;\ngap: 8px;\npadding: 28px 20px;\nmargin: 14px 0;\nborder: 1px dashed var(--tk-border);\nborder-radius: 14px;\nbackground: #faf8fc;\n}\n.tk-print-empty-mark {\nwidth: 40px;\nheight: 40px;\nborder-radius: 50%;\nbackground: var(--tk-accent-soft);\nborder: 1.5px solid var(--tk-border);\nmargin-bottom: 4px;\n}\n.tk-print-empty-title {\nmargin: 0;\nfont-family: var(--tk-display);\nfont-size: 1rem;\nfont-weight: 700;\ncolor: var(--tk-ink);\n}\n.tk-print-empty-copy {\nmargin: 0;\nfont-size: 0.85rem;\ncolor: var(--tk-muted);\nmax-width: 28em;\nline-height: 1.45;\n}\n.tk-print-toolkit-groups {\ndisplay: grid;\ngrid-template-columns: repeat(2, minmax(0, 1fr));\ngap: 14px;\nmargin: 12px 0 16px;\n}\n.tk-print-toolkit-group {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\nbackground: #fff;\noverflow: hidden;\n}\n.tk-print-toolkit-group-title {\nmargin: 0;\npadding: 8px 12px;\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\ncolor: var(--tk-accent);\nbackground: var(--tk-accent-soft);\nborder-bottom: 1px solid var(--tk-border);\n}\n.tk-print-toolkit-group .tk-print-panel {\nborder: none;\nborder-radius: 0;\nmargin: 0;\n}\n.tk-print-toolkit-group .tk-print-panel-label {\nbackground: #faf8fc;\nfont-size: 0.64rem;\n}\n.tk-print-vocab-line {\nmargin: 0;\nline-height: 1.6;\nfont-weight: 600;\nword-spacing: 0.12em;\nletter-spacing: 0.02em;\n}\n.tk-print-toc {\nlist-style: none;\nmargin: 0;\npadding: 0;\ndisplay: grid;\ngap: 4px;\n}\n.tk-print-toc-row {\ndisplay: flex;\ngap: 14px;\nalign-items: center;\nborder-bottom: 1px solid var(--tk-border);\npadding: 10px 0;\n}\n.tk-print-toc-num {\nwidth: 28px;\nheight: 28px;\nborder-radius: 999px;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\ndisplay: inline-flex;\nalign-items: center;\njustify-content: center;\nfont-weight: 800;\nfont-size: 0.78rem;\nflex-shrink: 0;\n}\n.tk-print-toc-label {\nfont-weight: 600;\ncolor: var(--tk-ink);\n}\n.tk-print-day-activity {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px;\nmargin: 12px 0;\nbackground: #fff;\n}\n.tk-print-day-activity-head {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 8px;\nalign-items: baseline;\nmargin-bottom: 8px;\n}\n.tk-print-day-activity-index {\nfont-size: 0.65rem;\nfont-weight: 800;\ntext-transform: uppercase;\nletter-spacing: 0.05em;\ncolor: var(--tk-accent);\n}\n.tk-print-day-activity-head h4 {\nmargin: 0;\nfont-family: var(--tk-display);\nfont-size: 0.98rem;\n}\n.tk-print-day-activity-grid {\ndisplay: grid;\ngrid-template-columns: 1fr 1fr;\ngap: 10px;\n}\n.tk-print-printable-full {\nmargin: 0;\ntext-align: center;\n}\n.tk-print-printable-full img {\nmax-width: 100%;\nmax-height: 8.5in;\nobject-fit: contain;\n}\n.tk-print-select-block {\nmargin-top: 14px;\npadding-top: 12px;\nborder-top: 1px solid var(--tk-border);\n}\n.tk-select {\nwidth: 100%;\nmargin-top: 6px;\npadding: 8px 10px;\nborder-radius: 8px;\nborder: 1px solid var(--tk-border);\nbackground: #fff;\n}\n{\ndisplay: grid;\ngrid-template-columns: 1fr 1fr;\ngap: 12px;\nmargin-bottom: 12px;\nfont-weight: 700;\n}\n{\ndisplay: block;\nborder-bottom: 1.5px solid var(--tk-border);\nmin-height: 1.1em;\nmargin: 8px 0;\n}\n{\ngrid-template-columns: 1fr 1fr;\nmargin-bottom: 12px;\n}\n{\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\npadding: 10px 12px;\nbackground: #faf8fc;\n}\nh3 {\nmargin: 0 0 6px;\ncolor: var(--tk-ink);\nfont-size: 0.9rem;\nfont-family: var(--tk-display);\n}\n.tk-print-photo-row {\ndisplay: grid;\ngrid-template-columns: 1fr 1fr;\ngap: 12px;\nmargin: 12px 0 16px;\n}\n.tk-print-photo {\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\noverflow: hidden;\ntext-align: center;\nfont-size: 0.74rem;\nfont-weight: 700;\nbackground: #faf8fc;\n}\n.tk-print-photo img {\nwidth: 100%;\nmax-height: 2.1in;\nheight: auto;\nobject-fit: contain;\ndisplay: block;\n}\n.tk-print-photo-ph {\nmin-height: 1.4in;\ndisplay: grid;\nplace-items: center;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\n}\n.tk-print-admin-banner,\n.tk-owner-preview-banner {\nbackground: #7c2d12;\ncolor: #fff;\nfont-weight: 800;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\nfont-size: 0.68rem;\npadding: 7px 12px;\nborder-radius: 8px;\nmargin: 0 0 12px;\n}\n.tk-owner-preview-banner {\ndisplay: inline-block;\n}\n.tk-print-section h3 {\nfont-family: var(--tk-display);\nfont-size: 1rem;\nmargin: 0 0 8px;\ncolor: var(--tk-ink);\n}\n.tk-print-message {\npadding: 10px 12px;\nborder-radius: 10px;\nborder: 1px solid var(--tk-border);\nbackground: #faf8fc;\nline-height: 1.45;\n}\n.tk-print-watermark {\nposition: fixed;\ninset: 35% 8%;\ntext-align: center;\nfont-size: 1.1rem;\nfont-weight: 800;\ncolor: rgba(84, 46, 148, 0.1);\ntransform: rotate(-18deg);\npointer-events: none;\nz-index: 5;\n}\n.tk-print-cover-frame {\ndisplay: flex;\nflex-direction: column;\ngap: 18px;\nflex: 1 1 auto;\nmin-height: 0;\n}\n.tk-print-cover-copy h1 {\nmargin: 0 0 8px;\nfont-family: Georgia, \"Palatino Linotype\", \"Times New Roman\", serif;\nfont-size: 2.35rem;\nline-height: 1.08;\ncolor: var(--tk-purple-deep, #542e94);\nletter-spacing: -0.02em;\n}\n.tk-print-card-kicker {\ndisplay: inline-flex;\nalign-items: center;\ngap: 6px;\nmargin: 0 0 6px;\ncolor: var(--tk-accent, var(--tk-purple, #6b46c1));\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.08em;\ntext-transform: uppercase;\n}\n.tk-print-book-stack {\ndisplay: grid;\ngap: 16px;\n}\n.tk-print-book-cover.is-placeholder,\n.tk-print-printable-thumb-fallback {\ndisplay: grid;\nplace-items: center;\nmin-height: 1.6in;\nborder-radius: 10px;\nbackground:\nlinear-gradient(160deg, #f7f2ff 0%, #efe7fb 55%, #e4daf6 100%);\nborder: 1px solid #e8e0f4;\ncolor: var(--tk-purple-deep, #542e94);\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\nfont-size: 0.72rem;\n}\n.tk-print-printable-thumb-fallback {\nmin-height: 1.1in;\nmargin-bottom: 8px;\n}\n.tk-print-toolkit-intro {\ndisplay: grid;\ngap: 10px;\nmargin-bottom: 14px;\n}\n.tk-print-cover-hero.is-missing .tk-print-cover-image {\ndisplay: none;\n}\n.tk-print-empty-mark {\nwidth: 42px;\nheight: 42px;\nmargin: 0 auto 10px;\nborder-radius: 12px;\nbackground:\nradial-gradient(circle at 30% 30%, #fff, transparent 45%),\nlinear-gradient(145deg, #efe7fb, #d9c8f4);\nborder: 1px solid #e8e0f4;\n}\n.tk-print-callout-tip,\n.tk-print-callout-watch,\n.tk-print-callout-extend,\n.tk-print-callout-cleanup {\ndisplay: grid;\ngap: 4px;\nborder-radius: 10px;\npadding: 10px 12px;\nmargin: 0 0 8px;\nbackground: #fff;\nborder: 1px solid #e8e0f4;\nborder-left-width: 4px;\n}\n.tk-print-callout-tip { border-left-color: #7c3aed; background: #faf7ff; }\n.tk-print-callout-watch { border-left-color: #2563eb; background: #f5f8ff; }\n.tk-print-callout-extend { border-left-color: #b45309; background: #fffaf3; }\n.tk-print-callout-cleanup { border-left-color: #0f766e; background: #f3fbfa; }\n.tk-print-callout-tip strong,\n.tk-print-callout-watch strong,\n.tk-print-callout-extend strong,\n.tk-print-callout-cleanup strong {\nfont-size: 0.72rem;\nletter-spacing: 0.05em;\ntext-transform: uppercase;\ncolor: var(--tk-ink, #2d1b4e);\n}\n.tk-print-root.is-ink-saver .tk-print-cover,\n.tk-print-root.is-ink-saver .tk-print-running,\n.tk-print-root.is-ink-saver .tk-print-day-sheet-head,\n.tk-print-root.is-ink-saver .tk-print-section-banner,\n.tk-print-root.is-ink-saver .tk-print-stat-pill,\n.tk-print-root.is-ink-saver .tk-print-wag-table thead th,\n.tk-print-root.is-ink-saver .tk-print-cover-fallback,\n.tk-print-root.is-ink-saver .tk-print-cover-hero-fallback {\nbackground: #fff !important;\ncolor: #111 !important;\nborder: 1px solid #333 !important;\nborder-left-color: #333 !important;\n}\n.tk-print-root.is-ink-saver .tk-print-cover h1,\n.tk-print-root.is-ink-saver .tk-print-page-title,\n.tk-print-root.is-ink-saver .tk-print-panel-label,\n.tk-print-root.is-ink-saver .tk-print-badge,\n.tk-print-root.is-ink-saver .tk-print-chip {\ncolor: #111 !important;\nbackground: #fff !important;\n}\n@media (max-width: 700px) {\n.tk-print-snapshot-grid,\n.tk-print-day-sheet-grid,\n.tk-print-activity-grid,\n.tk-print-resource-grid,\n.tk-print-cover-meta,\n.tk-print-toolkit-groups,\n.tk-print-activity-primary,\n.tk-print-activity-secondary,\n.tk-print-book-card {\ngrid-template-columns: 1fr;\n}\n.tk-print-book-card {\ngrid-template-columns: 0.75in 1fr;\n}\n}" + "</style>";
+    return "<style data-tk-print-design>" + ".teaching-kit-print-article,\n.tk-print-root {\n  --tk-purple-deep: #542e94;\n  --tk-purple: #6b46c1;\n  --tk-purple-soft: #f5f0fc;\n  --tk-purple-line: #e8e0f4;\n  --tk-ink: #2d1b4e;\n  --tk-muted: #6b5f82;\n  --tk-accent: var(--tk-purple-deep);\n  --tk-accent-soft: var(--tk-purple-soft);\n  --tk-border: #e8e0f4;\n  --tk-display: Georgia, \"Palatino Linotype\", \"Palatino\", \"Times New Roman\", serif;\n  --tk-body: \"Avenir Next\", \"Segoe UI\", \"Helvetica Neue\", sans-serif;\n  color: var(--tk-ink);\n  background: #fff;\n  counter-reset: tk-page;\n  font-family: var(--tk-body);\n  font-size: 10.5pt;\n  line-height: 1.45;\n  -webkit-print-color-adjust: exact;\n  print-color-adjust: exact;\n}\n\n/* —— Section theme accents (tint headers/badges, not full-page washes) —— */\n.tk-theme-overview { --tk-accent: #542e94; --tk-accent-soft: #f3eefd; }\n.tk-theme-weekly { --tk-accent: #0f766e; --tk-accent-soft: #ecfdf5; }\n.tk-theme-daily { --tk-accent: #1d4ed8; --tk-accent-soft: #eff6ff; }\n.tk-theme-activities { --tk-accent: #b45309; --tk-accent-soft: #fff7ed; }\n.tk-theme-books { --tk-accent: #9a3412; --tk-accent-soft: #fff7ed; }\n.tk-theme-songs { --tk-accent: #7e22ce; --tk-accent-soft: #faf5ff; }\n.tk-theme-printables { --tk-accent: #0369a1; --tk-accent-soft: #f0f9ff; }\n.tk-theme-toolkit { --tk-accent: #334155; --tk-accent-soft: #f8fafc; }\n.tk-theme-toc,\n.tk-theme-default,\n.tk-theme-cover { --tk-accent: #542e94; --tk-accent-soft: #f3eefd; }\n\n.tk-print-page {\n  position: relative;\n  display: flex;\n  flex-direction: column;\n  break-after: page;\n  page-break-after: always;\n  padding: 12px 8px 18px;\n  min-height: 0;\n  box-sizing: border-box;\n  counter-increment: tk-page;\n}\n.tk-print-page:last-of-type {\n  break-after: auto;\n  page-break-after: auto;\n}\n\n/* —— Running header: light bar + thin accent —— */\n.tk-print-running {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  gap: 12px;\n  font-size: 0.62rem;\n  font-weight: 700;\n  letter-spacing: 0.08em;\n  text-transform: uppercase;\n  color: var(--tk-muted);\n  background: #fff;\n  margin: 0 0 14px;\n  padding: 6px 10px 6px 12px;\n  border-bottom: 1px solid var(--tk-border);\n  border-left: 3px solid var(--tk-accent);\n  border-radius: 0;\n  flex: 0 0 auto;\n}\n.tk-print-running span:last-child {\n  color: var(--tk-accent);\n  font-weight: 800;\n}\n\n/* —— Title bar: minimal left accent —— */\n.tk-print-title-bar {\n  background: transparent;\n  border: none;\n  border-left: 4px solid var(--tk-accent);\n  border-radius: 0;\n  padding: 4px 0 4px 14px;\n  margin: 0 0 18px;\n}\n.tk-print-page-title {\n  margin: 0;\n  font-family: var(--tk-display);\n  font-size: 1.35rem;\n  font-weight: 700;\n  color: var(--tk-ink);\n  line-height: 1.2;\n  break-after: avoid;\n  page-break-after: avoid;\n}\n.tk-print-rule { display: none; }\n\n.tk-print-body {\n  flex: 1 1 auto;\n  min-height: 0;\n  padding-bottom: 10px;\n  font-size: 10.5pt;\n  line-height: 1.45;\n}\n\n.tk-print-footer {\n  margin-top: auto;\n  padding: 10px 4px 0;\n  display: flex;\n  justify-content: space-between;\n  gap: 12px;\n  font-size: 0.65rem;\n  font-weight: 600;\n  color: var(--tk-muted);\n  border-top: 1px solid var(--tk-border);\n  flex: 0 0 auto;\n}\n.tk-print-page-number::after { content: counter(tk-page); }\n\n.tk-print-keep { break-inside: avoid; page-break-inside: avoid; }\n.tk-print-muted { color: var(--tk-muted); }\n.tk-print-tight { margin: 0; line-height: 1.4; }\n\n/* —— Lists —— */\n.tk-print-list,\n.tk-print-bullets,\n.tk-print-steps,\n.tk-print-check,\n.tk-print-cell-list {\n  margin: 0;\n  padding-left: 0;\n  list-style: none;\n}\n.tk-print-bullets li,\n.tk-print-list li {\n  position: relative;\n  padding-left: 14px;\n  margin: 4px 0;\n}\n.tk-print-bullets li::before,\n.tk-print-list li::before {\n  content: \"\";\n  position: absolute;\n  left: 0;\n  top: 0.5em;\n  width: 5px;\n  height: 5px;\n  border-radius: 50%;\n  background: var(--tk-accent);\n}\n.tk-print-steps { counter-reset: tk-step; }\n.tk-print-steps li {\n  counter-increment: tk-step;\n  position: relative;\n  padding-left: 24px;\n  margin: 5px 0;\n}\n.tk-print-steps li::before {\n  content: counter(tk-step);\n  position: absolute;\n  left: 0;\n  top: 0.05em;\n  width: 17px;\n  height: 17px;\n  border-radius: 50%;\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n  border: 1px solid var(--tk-border);\n  font-size: 0.65rem;\n  font-weight: 800;\n  display: grid;\n  place-items: center;\n}\n\n/* Checklists: checkbox only — no ::before bullets */\n.tk-print-check li {\n  display: grid;\n  grid-template-columns: 14px 1fr;\n  gap: 8px;\n  align-items: start;\n  margin: 4px 0;\n  padding-left: 0;\n}\n.tk-print-check li::before { content: none !important; display: none !important; }\n.tk-print-check-box {\n  width: 12px;\n  height: 12px;\n  margin-top: 3px;\n  border: 1.5px solid var(--tk-accent);\n  border-radius: 3px;\n  background: #fff;\n  flex-shrink: 0;\n}\n\n/* —— Panels —— */\n.tk-print-panel {\n  border: 1px solid var(--tk-border);\n  border-radius: 10px;\n  background: #fff;\n  overflow: hidden;\n  margin: 0 0 12px;\n}\n.tk-print-panel-label {\n  display: flex;\n  align-items: center;\n  gap: 7px;\n  background: #faf8fc;\n  color: var(--tk-ink);\n  font-size: 0.68rem;\n  font-weight: 800;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n  padding: 6px 10px;\n  border-bottom: 1px solid var(--tk-border);\n}\n.tk-print-icon {\n  display: inline-grid;\n  place-items: center;\n  width: 18px;\n  height: 18px;\n  border-radius: 50%;\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n  font-size: 0.6rem;\n  font-weight: 800;\n  flex-shrink: 0;\n}\n.tk-print-icon--svg svg {\n  display: block;\n  width: 12px;\n  height: 12px;\n}\n.tk-print-panel-body {\n  padding: 10px 12px;\n}\n\n/* —— Chips & badges —— */\n.tk-print-badge-row,\n.tk-print-chip-row {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n  margin: 8px 0;\n}\n.tk-print-badge,\n.tk-print-chip {\n  display: inline-flex;\n  align-items: center;\n  padding: 3px 10px;\n  border-radius: 999px;\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n  border: 1px solid var(--tk-border);\n  font-size: 0.7rem;\n  font-weight: 700;\n  line-height: 1.3;\n}\n\n/* —— Grids —— */\n.tk-print-snapshot-grid,\n.tk-print-day-sheet-grid,\n.tk-print-activity-grid,\n.tk-print-resource-grid,\n.tk-print-notes-grid,\n.tk-print-day-pair,\n.tk-print-activity-primary,\n.tk-print-activity-secondary {\n  display: grid;\n  gap: 12px;\n}\n.tk-print-snapshot-grid { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }\n.tk-print-day-sheet-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-resource-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-day-pair { grid-template-columns: 1fr; gap: 16px; }\n.tk-print-activity-primary { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-secondary { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-primary .tk-print-panel-label,\n.tk-print-activity-primary .tk-print-panel-body {\n  font-weight: 600;\n}\n.tk-print-activity-secondary .tk-print-panel-body {\n  color: var(--tk-muted);\n  font-size: 0.92em;\n}\n\n/* —— Stat pill: soft outline —— */\n.tk-print-stat-pill {\n  display: inline-flex;\n  justify-content: space-between;\n  align-items: center;\n  gap: 12px;\n  padding: 8px 14px;\n  border-radius: 999px;\n  background: #fff;\n  color: var(--tk-ink);\n  border: 1.5px solid var(--tk-accent);\n  font-size: 0.85rem;\n  margin: 4px 0 12px;\n}\n.tk-print-stat-pill strong {\n  color: var(--tk-accent);\n  font-weight: 800;\n}\n\n/* —— WAG table: soft header —— */\n.tk-print-wag-table {\n  width: 100%;\n  border-collapse: collapse;\n  table-layout: fixed;\n  font-size: 8.5pt;\n  margin: 8px 0 14px;\n}\n.tk-print-wag-table th,\n.tk-print-wag-table td {\n  border: 1px solid var(--tk-border);\n  padding: 6px 5px;\n  vertical-align: top;\n  background: #fff;\n}\n.tk-print-wag-table thead th {\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n  font-size: 0.68rem;\n  font-weight: 800;\n  letter-spacing: 0.04em;\n  text-transform: uppercase;\n}\n.tk-print-wag-table tbody th {\n  background: #faf8fc;\n  color: var(--tk-ink);\n  font-size: 0.68rem;\n  font-weight: 800;\n  text-transform: uppercase;\n  width: 0.85in;\n}\n.tk-print-cell-list li {\n  margin: 3px 0;\n  padding-left: 10px;\n  position: relative;\n}\n.tk-print-cell-list li::before {\n  content: \"\";\n  position: absolute;\n  left: 0;\n  top: 0.45em;\n  width: 4px;\n  height: 4px;\n  border-radius: 50%;\n  background: var(--tk-accent);\n}\n\n/* —— Domain row —— */\n.tk-print-domain-row {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n  margin: 8px 0 12px;\n}\n\n/* —— Day sheet —— */\n.tk-print-day-sheet {\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  overflow: hidden;\n  background: #fff;\n  margin-bottom: 14px;\n}\n.tk-print-day-sheet-head {\n  background: var(--tk-accent-soft);\n  color: var(--tk-ink);\n  padding: 10px 14px;\n  border-bottom: 1px solid var(--tk-border);\n  border-left: 4px solid var(--tk-accent);\n}\n.tk-print-day-sheet-head h3 {\n  margin: 0 0 3px;\n  font-family: var(--tk-display);\n  font-size: 1.1rem;\n  color: var(--tk-accent);\n}\n.tk-print-day-sheet-head p {\n  margin: 0;\n  font-size: 0.88rem;\n  color: var(--tk-muted);\n}\n.tk-print-day-sheet-grid { padding: 12px; }\n\n/* —— Activity cards —— */\n.tk-print-activity-card {\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  background: #fff;\n  margin: 0 0 14px;\n  overflow: hidden;\n  box-shadow: 0 1px 0 rgba(45, 27, 78, 0.04);\n}\n.tk-print-activity-head {\n  display: grid;\n  grid-template-columns: 1fr auto;\n  gap: 10px;\n  padding: 12px 14px;\n  background: #faf8fc;\n  border-bottom: 1px solid var(--tk-border);\n}\n.tk-print-activity-head h3 {\n  margin: 0 0 6px;\n  font-family: var(--tk-display);\n  color: var(--tk-ink);\n  font-size: 1.08rem;\n  line-height: 1.25;\n}\n.tk-print-objective {\n  margin: 6px 0 0;\n  color: var(--tk-muted);\n  font-size: 0.88rem;\n  font-style: italic;\n}\n.tk-print-activity-grid { padding: 12px; }\n.tk-print-card-photos {\n  display: flex;\n  gap: 6px;\n}\n.tk-print-card-photo {\n  margin: 0;\n  width: 0.95in;\n  border: 1px solid var(--tk-border);\n  border-radius: 8px;\n  overflow: hidden;\n  background: #fff;\n  text-align: center;\n}\n.tk-print-card-photo img {\n  display: block;\n  width: 100%;\n  height: 0.75in;\n  object-fit: cover;\n}\n.tk-print-card-photo figcaption {\n  font-size: 0.6rem;\n  font-weight: 800;\n  color: var(--tk-accent);\n  padding: 3px 0;\n  text-transform: uppercase;\n  letter-spacing: 0.04em;\n}\n\n/* —— Callouts —— */\n.tk-print-callout {\n  display: grid;\n  gap: 3px;\n  background: #fff;\n  border: 1px solid var(--tk-border);\n  border-left: 4px solid var(--tk-accent);\n  border-radius: 10px;\n  padding: 10px 12px;\n  margin: 0 0 12px;\n}\n.tk-print-callout strong {\n  font-size: 0.72rem;\n  font-weight: 800;\n  letter-spacing: 0.04em;\n  text-transform: uppercase;\n  color: var(--tk-accent);\n}\n.tk-print-callout-tip {\n  border-left-color: #0f766e;\n  background: #f0fdf9;\n}\n.tk-print-callout-tip strong { color: #0f766e; }\n.tk-print-callout-watch {\n  border-left-color: #7e22ce;\n  background: #faf5ff;\n}\n.tk-print-callout-watch strong { color: #7e22ce; }\n.tk-print-callout-extend {\n  border-left-color: #1d4ed8;\n  background: #eff6ff;\n}\n.tk-print-callout-extend strong { color: #1d4ed8; }\n.tk-print-callout-cleanup {\n  border-left-color: #b45309;\n  background: #fff7ed;\n}\n.tk-print-callout-cleanup strong { color: #b45309; }\n\n/* —— Section banner: light accent pill —— */\n.tk-print-section-banner {\n  display: inline-flex;\n  margin: 8px 0 12px;\n  padding: 5px 14px;\n  border-radius: 999px;\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n  border: 1px solid var(--tk-border);\n  font-size: 0.68rem;\n  font-weight: 800;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n}\n\n/* —— Resource / book / song cards —— */\n.tk-print-resource-card {\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  padding: 12px;\n  background: #fff;\n  margin-bottom: 12px;\n}\n.tk-print-resource-card header {\n  display: flex;\n  justify-content: space-between;\n  flex-wrap: wrap;\n  gap: 8px;\n  align-items: start;\n  margin-bottom: 8px;\n}\n.tk-print-resource-card h3 {\n  margin: 0;\n  font-family: var(--tk-display);\n  color: var(--tk-ink);\n  font-size: 1rem;\n  line-height: 1.25;\n}\n.tk-print-resource-preview img {\n  width: 100%;\n  max-height: 1.4in;\n  object-fit: cover;\n  border-radius: 8px;\n  border: 1px solid var(--tk-border);\n}\n.tk-print-resource-meta {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 8px;\n  color: var(--tk-muted);\n  font-size: 0.74rem;\n  margin: 6px 0;\n}\n\n/* Book cards: horizontal layout */\n.tk-print-book-card {\n  display: grid;\n  grid-template-columns: 0.85in 1fr;\n  gap: 12px;\n  align-items: start;\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  padding: 12px;\n  background: #fff;\n  margin-bottom: 12px;\n}\n.tk-print-book-cover {\n  width: 0.85in;\n  min-height: 1.15in;\n  border-radius: 4px 8px 8px 4px;\n  background: linear-gradient(135deg, var(--tk-accent-soft) 0%, #fff 50%, var(--tk-accent-soft) 100%);\n  border: 1px solid var(--tk-border);\n  border-left: 4px solid var(--tk-accent);\n  display: grid;\n  place-items: center;\n  font-size: 0.55rem;\n  font-weight: 800;\n  text-transform: uppercase;\n  letter-spacing: 0.04em;\n  color: var(--tk-accent);\n  text-align: center;\n  padding: 4px;\n  overflow: hidden;\n}\n.tk-print-book-cover img {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n  border-radius: 2px 6px 6px 2px;\n}\n.tk-print-book-card .tk-print-book-author {\n  margin: 0 0 6px;\n  font-size: 0.82rem;\n  color: var(--tk-muted);\n  font-style: italic;\n}\n\n/* Song cards */\n.tk-print-song-card {\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  padding: 12px 14px;\n  background: #fff;\n  margin-bottom: 12px;\n}\n.tk-print-song-card header {\n  margin-bottom: 8px;\n}\n.tk-print-song-card h3 {\n  margin: 0 0 6px;\n  font-family: var(--tk-display);\n  font-size: 1.02rem;\n}\n.tk-print-lyrics-note {\n  display: grid;\n  gap: 2px;\n  margin: 10px 0 0;\n  padding: 10px 12px;\n  border-radius: 10px;\n  background: var(--tk-accent-soft);\n  border: 1px solid var(--tk-border);\n  border-left: 4px solid var(--tk-accent);\n  font-size: 0.82rem;\n  color: var(--tk-ink);\n}\n.tk-print-lyrics-note strong {\n  font-size: 0.68rem;\n  font-weight: 800;\n  text-transform: uppercase;\n  letter-spacing: 0.04em;\n  color: var(--tk-accent);\n}\n\n/* —— Cover page —— */\n.tk-print-cover {\n  display: flex;\n  flex-direction: column;\n  justify-content: space-between;\n  background: linear-gradient(180deg, #fffefb 0%, #faf7f2 55%, #f5f0fc 100%);\n  color: var(--tk-ink);\n  border-radius: 0;\n  padding: 0 0 18px;\n  min-height: 9.2in;\n}\n.tk-print-cover .tk-print-running {\n  margin-bottom: 0;\n  border-left-color: var(--tk-purple-deep);\n}\n.tk-print-cover .tk-print-footer {\n  color: var(--tk-muted);\n  border-top-color: var(--tk-border);\n  padding: 12px 16px 0;\n}\n.tk-print-cover-inner {\n  flex: 1 1 auto;\n  display: flex;\n  flex-direction: column;\n  padding: 0 16px;\n}\n.tk-print-brand-row {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  margin: 0 0 10px;\n}\n.tk-print-brand-mark {\n  width: 28px;\n  height: 28px;\n  border-radius: 8px;\n  background: var(--tk-purple-soft);\n  border: 1.5px solid var(--tk-purple-line);\n  display: grid;\n  place-items: center;\n  font-size: 0.7rem;\n  font-weight: 800;\n  color: var(--tk-purple-deep);\n  flex-shrink: 0;\n}\n.tk-print-brand {\n  letter-spacing: 0.12em;\n  text-transform: uppercase;\n  font-size: 0.72rem;\n  font-weight: 800;\n  color: var(--tk-purple-deep);\n  margin: 0;\n}\n.tk-print-cover-kicker {\n  display: inline-flex;\n  align-self: flex-start;\n  margin: 0 0 14px;\n  padding: 4px 12px;\n  border-radius: 999px;\n  background: var(--tk-purple-soft);\n  border: 1px solid var(--tk-border);\n  color: var(--tk-purple-deep);\n  font-size: 0.72rem;\n  font-weight: 700;\n  letter-spacing: 0.04em;\n  text-transform: uppercase;\n}\n.tk-print-cover-hero,\n.tk-print-cover-image {\n  width: calc(100% + 32px);\n  margin: 0 -16px 18px;\n  border-radius: 0 0 16px 16px;\n  overflow: hidden;\n  border: none;\n  border-bottom: 1px solid var(--tk-border);\n  min-height: 55%;\n  max-height: 62vh;\n}\n.tk-print-cover-hero img,\n.tk-print-cover-image img {\n  display: block;\n  width: 100%;\n  height: 100%;\n  min-height: 3.2in;\n  max-height: 4.5in;\n  object-fit: cover;\n}\n.tk-print-cover h1 {\n  margin: 0 0 10px;\n  font-family: var(--tk-display);\n  font-size: 2.5rem;\n  line-height: 1.08;\n  color: var(--tk-ink);\n  font-weight: 700;\n}\n.tk-print-cover-subtitle {\n  margin: 0 0 16px;\n  font-size: 1.05rem;\n  color: var(--tk-muted);\n  font-weight: 500;\n}\n.tk-print-cover-meta {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  gap: 12px;\n  margin: 0 0 16px;\n}\n.tk-print-cover-meta-card {\n  background: #fff;\n  border: 1px solid var(--tk-border);\n  border-radius: 10px;\n  padding: 10px 12px;\n}\n.tk-print-cover-meta-card span,\n.tk-print-meta-label {\n  display: block;\n  font-size: 0.62rem;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n  color: var(--tk-muted);\n  font-weight: 700;\n  margin-bottom: 4px;\n}\n.tk-print-cover-meta-card strong,\n.tk-print-meta-value {\n  display: block;\n  margin-top: 0;\n  font-size: 1rem;\n  font-weight: 700;\n  color: var(--tk-ink);\n  line-height: 1.3;\n}\n.tk-print-cover .tk-print-chip {\n  background: var(--tk-purple-soft);\n  color: var(--tk-purple-deep);\n  border-color: var(--tk-border);\n}\n\n/* Cover fallbacks: soft illustrated feel */\n.tk-print-cover-fallback,\n.tk-print-cover-hero-fallback {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  gap: 12px;\n  min-height: 3.2in;\n  max-height: 4.5in;\n  width: 100%;\n  border: none;\n  border-radius: 0 0 16px 16px;\n  margin: 0;\n  padding: 24px 16px;\n  background:\n    radial-gradient(circle at 18% 22%, rgba(107, 70, 193, 0.08), transparent 32%),\n    radial-gradient(circle at 82% 18%, rgba(246, 231, 168, 0.35), transparent 28%),\n    linear-gradient(165deg, #f7f2ff 0%, #ede4f8 45%, #e8def8 100%);\n  position: relative;\n  overflow: hidden;\n}\n.tk-print-cover-fallback::before,\n.tk-print-cover-hero-fallback::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  background:\n    radial-gradient(circle at 12% 78%, rgba(217, 199, 245, 0.5) 0%, transparent 22%),\n    radial-gradient(circle at 88% 72%, rgba(203, 182, 239, 0.4) 0%, transparent 20%);\n  pointer-events: none;\n}\n.tk-print-cover-fallback span {\n  position: relative;\n  z-index: 1;\n  font-size: 0.72rem;\n  letter-spacing: 0.1em;\n  text-transform: uppercase;\n  font-weight: 800;\n  color: var(--tk-purple-deep);\n}\n.tk-print-cover-art {\n  position: relative;\n  z-index: 1;\n  width: min(100%, 420px);\n  height: auto;\n  display: block;\n}\n.tk-print-cover-hero-brand {\n  position: relative;\n  z-index: 1;\n  margin: 0;\n  font-size: 0.78rem;\n  font-weight: 800;\n  letter-spacing: 0.1em;\n  text-transform: uppercase;\n  color: var(--tk-purple-deep);\n}\n\n/* —— Empty state —— */\n.tk-print-empty-state {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  text-align: center;\n  gap: 8px;\n  padding: 28px 20px;\n  margin: 14px 0;\n  border: 1px dashed var(--tk-border);\n  border-radius: 14px;\n  background: #faf8fc;\n}\n.tk-print-empty-mark {\n  width: 40px;\n  height: 40px;\n  border-radius: 50%;\n  background: var(--tk-accent-soft);\n  border: 1.5px solid var(--tk-border);\n  margin-bottom: 4px;\n}\n.tk-print-empty-title {\n  margin: 0;\n  font-family: var(--tk-display);\n  font-size: 1rem;\n  font-weight: 700;\n  color: var(--tk-ink);\n}\n.tk-print-empty-copy {\n  margin: 0;\n  font-size: 0.85rem;\n  color: var(--tk-muted);\n  max-width: 28em;\n  line-height: 1.45;\n}\n\n/* —— Toolkit groups —— */\n.tk-print-toolkit-groups {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  gap: 14px;\n  margin: 12px 0 16px;\n}\n.tk-print-toolkit-group {\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  background: #fff;\n  overflow: hidden;\n}\n.tk-print-toolkit-group-title {\n  margin: 0;\n  padding: 8px 12px;\n  font-size: 0.68rem;\n  font-weight: 800;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n  color: var(--tk-accent);\n  background: var(--tk-accent-soft);\n  border-bottom: 1px solid var(--tk-border);\n}\n.tk-print-toolkit-group .tk-print-panel {\n  border: none;\n  border-radius: 0;\n  margin: 0;\n}\n.tk-print-toolkit-group .tk-print-panel-label {\n  background: #faf8fc;\n  font-size: 0.64rem;\n}\n\n/* —— Vocab —— */\n.tk-print-vocab-line {\n  margin: 0;\n  line-height: 1.6;\n  font-weight: 600;\n  word-spacing: 0.12em;\n  letter-spacing: 0.02em;\n}\n\n/* —— TOC —— */\n.tk-print-toc {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n  display: grid;\n  gap: 4px;\n}\n.tk-print-toc-row {\n  display: flex;\n  gap: 14px;\n  align-items: center;\n  border-bottom: 1px solid var(--tk-border);\n  padding: 10px 0;\n}\n.tk-print-toc-num {\n  width: 28px;\n  height: 28px;\n  border-radius: 999px;\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  font-weight: 800;\n  font-size: 0.78rem;\n  flex-shrink: 0;\n}\n.tk-print-toc-label {\n  font-weight: 600;\n  color: var(--tk-ink);\n}\n\n/* —— Day activity (concise) —— */\n.tk-print-day-activity {\n  border: 1px solid var(--tk-border);\n  border-radius: 12px;\n  padding: 12px;\n  margin: 12px 0;\n  background: #fff;\n}\n.tk-print-day-activity-head {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 8px;\n  align-items: baseline;\n  margin-bottom: 8px;\n}\n.tk-print-day-activity-index {\n  font-size: 0.65rem;\n  font-weight: 800;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n  color: var(--tk-accent);\n}\n.tk-print-day-activity-head h4 {\n  margin: 0;\n  font-family: var(--tk-display);\n  font-size: 0.98rem;\n}\n.tk-print-day-activity-grid {\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 10px;\n}\n\n/* —— Printables full page —— */\n.tk-print-printable-full {\n  margin: 0;\n  text-align: center;\n}\n.tk-print-printable-full img {\n  max-width: 100%;\n  max-height: 8.5in;\n  object-fit: contain;\n}\n\n/* —— Notes & photos —— */\n.tk-print-select-block {\n  margin-top: 14px;\n  padding-top: 12px;\n  border-top: 1px solid var(--tk-border);\n}\n.tk-select {\n  width: 100%;\n  margin-top: 6px;\n  padding: 8px 10px;\n  border-radius: 8px;\n  border: 1px solid var(--tk-border);\n  background: #fff;\n}\n.tk-print-notes-meta {\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 12px;\n  margin-bottom: 12px;\n  font-weight: 700;\n}\n.tk-print-write-inline,\n.tk-print-write-line {\n  display: block;\n  border-bottom: 1.5px solid var(--tk-border);\n  min-height: 1.1em;\n  margin: 8px 0;\n}\n.tk-print-notes-grid {\n  grid-template-columns: 1fr 1fr;\n  margin-bottom: 12px;\n}\n.tk-print-notes-card {\n  border: 1px solid var(--tk-border);\n  border-radius: 10px;\n  padding: 10px 12px;\n  background: #faf8fc;\n}\n.tk-print-notes-card h3 {\n  margin: 0 0 6px;\n  color: var(--tk-ink);\n  font-size: 0.9rem;\n  font-family: var(--tk-display);\n}\n.tk-print-photo-row {\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 12px;\n  margin: 12px 0 16px;\n}\n.tk-print-photo {\n  border: 1px solid var(--tk-border);\n  border-radius: 10px;\n  overflow: hidden;\n  text-align: center;\n  font-size: 0.74rem;\n  font-weight: 700;\n  background: #faf8fc;\n}\n.tk-print-photo img {\n  width: 100%;\n  max-height: 2.1in;\n  height: auto;\n  object-fit: contain;\n  display: block;\n}\n.tk-print-photo-ph {\n  min-height: 1.4in;\n  display: grid;\n  place-items: center;\n  background: var(--tk-accent-soft);\n  color: var(--tk-accent);\n}\n\n/* —— Admin banners —— */\n.tk-print-admin-banner,\n.tk-owner-preview-banner {\n  background: #7c2d12;\n  color: #fff;\n  font-weight: 800;\n  letter-spacing: 0.04em;\n  text-transform: uppercase;\n  font-size: 0.68rem;\n  padding: 7px 12px;\n  border-radius: 8px;\n  margin: 0 0 12px;\n}\n.tk-owner-preview-banner {\n  display: inline-block;\n}\n\n.tk-print-section h3 {\n  font-family: var(--tk-display);\n  font-size: 1rem;\n  margin: 0 0 8px;\n  color: var(--tk-ink);\n}\n.tk-print-message {\n  padding: 10px 12px;\n  border-radius: 10px;\n  border: 1px solid var(--tk-border);\n  background: #faf8fc;\n  line-height: 1.45;\n}\n\n.tk-print-watermark {\n  position: fixed;\n  inset: 35% 8%;\n  text-align: center;\n  font-size: 1.1rem;\n  font-weight: 800;\n  color: rgba(84, 46, 148, 0.1);\n  transform: rotate(-18deg);\n  pointer-events: none;\n  z-index: 5;\n}\n\n/* —— Ink saver —— */\n\n.tk-print-cover-frame {\n  display: flex;\n  flex-direction: column;\n  gap: 18px;\n  flex: 1 1 auto;\n  min-height: 0;\n}\n.tk-print-cover-copy h1 {\n  margin: 0 0 8px;\n  font-family: Georgia, \"Palatino Linotype\", \"Times New Roman\", serif;\n  font-size: 2.35rem;\n  line-height: 1.08;\n  color: var(--tk-purple-deep, #542e94);\n  letter-spacing: -0.02em;\n}\n.tk-print-card-kicker {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  margin: 0 0 6px;\n  color: var(--tk-accent, var(--tk-purple, #6b46c1));\n  font-size: 0.68rem;\n  font-weight: 800;\n  letter-spacing: 0.08em;\n  text-transform: uppercase;\n}\n.tk-print-book-stack {\n  display: grid;\n  gap: 16px;\n}\n.tk-print-book-cover.is-placeholder,\n.tk-print-printable-thumb-fallback {\n  display: grid;\n  place-items: center;\n  min-height: 1.6in;\n  border-radius: 10px;\n  background:\n    linear-gradient(160deg, #f7f2ff 0%, #efe7fb 55%, #e4daf6 100%);\n  border: 1px solid #e8e0f4;\n  color: var(--tk-purple-deep, #542e94);\n  font-weight: 800;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n  font-size: 0.72rem;\n}\n.tk-print-printable-thumb-fallback {\n  min-height: 1.1in;\n  margin-bottom: 8px;\n}\n.tk-print-toolkit-intro {\n  display: grid;\n  gap: 10px;\n  margin-bottom: 14px;\n}\n.tk-print-cover-hero.is-missing .tk-print-cover-image {\n  display: none;\n}\n.tk-print-cover-image .tk-print-cover-hero-fallback[hidden] {\n  display: none !important;\n}\n.tk-print-cover-image .tk-print-cover-hero-fallback:not([hidden]) {\n  display: flex;\n  min-height: 3.2in;\n  max-height: 4.5in;\n}\n.tk-print-empty-mark {\n  width: 42px;\n  height: 42px;\n  margin: 0 auto 10px;\n  border-radius: 12px;\n  background:\n    radial-gradient(circle at 30% 30%, #fff, transparent 45%),\n    linear-gradient(145deg, #efe7fb, #d9c8f4);\n  border: 1px solid #e8e0f4;\n}\n.tk-print-callout-tip,\n.tk-print-callout-watch,\n.tk-print-callout-extend,\n.tk-print-callout-cleanup {\n  display: grid;\n  gap: 4px;\n  border-radius: 10px;\n  padding: 10px 12px;\n  margin: 0 0 8px;\n  background: #fff;\n  border: 1px solid #e8e0f4;\n  border-left-width: 4px;\n}\n.tk-print-callout-tip { border-left-color: #7c3aed; background: #faf7ff; }\n.tk-print-callout-watch { border-left-color: #2563eb; background: #f5f8ff; }\n.tk-print-callout-extend { border-left-color: #b45309; background: #fffaf3; }\n.tk-print-callout-cleanup { border-left-color: #0f766e; background: #f3fbfa; }\n.tk-print-callout-tip strong,\n.tk-print-callout-watch strong,\n.tk-print-callout-extend strong,\n.tk-print-callout-cleanup strong {\n  font-size: 0.72rem;\n  letter-spacing: 0.05em;\n  text-transform: uppercase;\n  color: var(--tk-ink, #2d1b4e);\n}\n\n.tk-print-root.is-ink-saver .tk-print-cover,\n.tk-print-root.is-ink-saver .tk-print-running,\n.tk-print-root.is-ink-saver .tk-print-day-sheet-head,\n.tk-print-root.is-ink-saver .tk-print-section-banner,\n.tk-print-root.is-ink-saver .tk-print-stat-pill,\n.tk-print-root.is-ink-saver .tk-print-wag-table thead th,\n.tk-print-root.is-ink-saver .tk-print-cover-fallback,\n.tk-print-root.is-ink-saver .tk-print-cover-hero-fallback {\n  background: #fff !important;\n  color: #111 !important;\n  border: 1px solid #333 !important;\n  border-left-color: #333 !important;\n}\n.tk-print-root.is-ink-saver .tk-print-cover h1,\n.tk-print-root.is-ink-saver .tk-print-page-title,\n.tk-print-root.is-ink-saver .tk-print-panel-label,\n.tk-print-root.is-ink-saver .tk-print-badge,\n.tk-print-root.is-ink-saver .tk-print-chip {\n  color: #111 !important;\n  background: #fff !important;\n}\n\n@media (max-width: 700px) {\n  .tk-print-snapshot-grid,\n  .tk-print-day-sheet-grid,\n  .tk-print-activity-grid,\n  .tk-print-resource-grid,\n  .tk-print-notes-grid,\n  .tk-print-cover-meta,\n  .tk-print-toolkit-groups,\n  .tk-print-activity-primary,\n  .tk-print-activity-secondary,\n  .tk-print-book-card {\n    grid-template-columns: 1fr;\n  }\n  .tk-print-book-card {\n    grid-template-columns: 0.75in 1fr;\n  }\n}\n\n@media print {\n  body.printing-teaching-kit .lesson-workspace-topchrome,\n  body.printing-teaching-kit .lesson-workspace-action-bars,\n  body.printing-teaching-kit .lesson-workspace-more-menu,\n  body.printing-teaching-kit .lesson-workspace-action-sheet,\n  body.printing-teaching-kit .tk-ops-nav,\n  body.printing-teaching-kit .tk-ops-tabs,\n  body.printing-teaching-kit .tk-binder-section-nav,\n  body.printing-teaching-kit .tk-surface:not(.teaching-kit-print-article),\n\n  body.printing-teaching-kit #resourceViewerModal .modal-card {\n    box-shadow: none !important;\n    border: 0 !important;\n  }\n  body.printing-teaching-kit .teaching-kit-print-article,\n  body.printing-teaching-kit .tk-print-root {\n    display: block !important;\n  }\n  body.printing-teaching-kit .tk-print-page {\n    min-height: auto;\n    height: auto;\n  }\n  body.printing-teaching-kit .tk-print-keep,\n  body.printing-teaching-kit .tk-print-photo-row,\n  body.printing-teaching-kit .tk-print-callout,\n  body.printing-teaching-kit .tk-print-block,\n  body.printing-teaching-kit .tk-print-day-card,\n  body.printing-teaching-kit .tk-print-activity-card,\n  body.printing-teaching-kit .tk-print-book-card,\n  body.printing-teaching-kit .tk-print-song-card,\n  body.printing-teaching-kit .tk-print-empty-state {\n    break-inside: avoid;\n    page-break-inside: avoid;\n  }\n  body.printing-teaching-kit .tk-print-photo img,\n  body.printing-teaching-kit .tk-print-card-photo img {\n    max-height: 0.85in;\n    -webkit-print-color-adjust: exact;\n    print-color-adjust: exact;\n  }\n  body.printing-teaching-kit .tk-print-cover-hero img,\n  body.printing-teaching-kit .tk-print-cover-image img {\n    max-height: 4.5in;\n    min-height: 3in;\n    -webkit-print-color-adjust: exact;\n    print-color-adjust: exact;\n  }\n  body.printing-teaching-kit .tk-print-cover-hero,\n  body.printing-teaching-kit .tk-print-cover-image,\n  body.printing-teaching-kit .tk-print-cover-fallback,\n  body.printing-teaching-kit .tk-print-cover-hero-fallback {\n    max-height: 4.5in;\n    -webkit-print-color-adjust: exact;\n    print-color-adjust: exact;\n  }\n  body.printing-teaching-kit .tk-print-root,\n  body.printing-teaching-kit .teaching-kit-print-article {\n    -webkit-print-color-adjust: exact;\n    print-color-adjust: exact;\n  }\n  /* Default fallback; binder HTML also injects a matching @page size tag. */\n  @page {\n    size: letter;\n    margin: 0.55in;\n  }\n}\n\n/* Quality pass: safe cover crop, page-break hygiene, materials groups */\n.tk-print-cover-hero img,\n.tk-print-cover-image img {\n  object-fit: cover;\n  object-position: center;\n  width: 100%;\n  max-height: 4.5in;\n}\n.tk-print-book-cover img,\n.tk-print-resource-preview img,\n.tk-print-printable-full img,\n.tk-print-card-photo img {\n  object-fit: contain;\n  object-position: center;\n}\n.tk-print-printable-full img {\n  max-width: 100%;\n  max-height: 8.5in;\n  width: auto;\n  height: auto;\n}\n.tk-print-wag-table {\n  overflow: hidden;\n  word-break: break-word;\n  hyphens: auto;\n}\n.tk-print-wag-table th,\n.tk-print-wag-table td {\n  overflow-wrap: anywhere;\n}\n.tk-print-activity-card,\n.tk-print-book-card,\n.tk-print-song-card,\n.tk-print-day-activity,\n.tk-print-resource-card,\n.tk-print-toolkit-group,\n.tk-print-panel,\n.tk-print-callout-tip,\n.tk-print-callout-watch,\n.tk-print-callout-extend,\n.tk-print-callout-cleanup {\n  break-inside: avoid;\n  page-break-inside: avoid;\n}\n/* Large activity cards may span pages intentionally; keep panels/headers together. */\n.tk-print-activity-card {\n  break-inside: auto;\n  page-break-inside: auto;\n}\n.tk-print-activity-card > .tk-print-activity-head,\n.tk-print-activity-card .tk-print-panel,\n.tk-print-activity-card .tk-print-callout-tip,\n.tk-print-activity-card .tk-print-callout-watch,\n.tk-print-activity-card .tk-print-callout-extend,\n.tk-print-activity-card .tk-print-callout-cleanup {\n  break-inside: avoid;\n  page-break-inside: avoid;\n}\n.tk-print-title-bar,\n.tk-print-page-title,\n.tk-print-running {\n  break-after: avoid;\n  page-break-after: avoid;\n}\n.tk-print-check li {\n  break-inside: avoid;\n  page-break-inside: avoid;\n}\n.tk-print-materials-group {\n  margin: 0 0 12px;\n}\n.tk-print-materials-group-title {\n  margin: 0 0 6px;\n  font-size: 0.78rem;\n  font-weight: 800;\n  letter-spacing: 0.04em;\n  text-transform: uppercase;\n  color: var(--tk-accent, #542e94);\n}" + "</style>";
   }
 
   function wrapPrintRoot(chunks, selection) {
@@ -1435,6 +1577,11 @@
     // Filter model activities for removed IDs already handled in model builder.
     if (selection.documentMode === "one_activity" && selection.activityId) {
       model.activities = (model.activities || []).filter((item) => item.id === selection.activityId);
+    }
+    if (selection.documentMode === "one_printable" && selection.printableId) {
+      model.printables = (model.printables || []).filter((item) => (
+        item.id === selection.printableId || item.title === selection.printableId
+      ));
     }
 
     const chunks = assembleMode(model, selection);
@@ -1558,6 +1705,7 @@
     pageSizeStyleTag,
     evaluatePrintAuthorization,
     evaluatePrintPartAvailability,
+    evaluatePresetAvailability,
     buildBinderPrintHtml,
     buildEntireBinderKitHtml,
     buildFullWeeklyLessonPlanHtml,

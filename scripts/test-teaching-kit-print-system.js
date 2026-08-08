@@ -88,7 +88,20 @@ function testFarmAnimalsCompleteBinder() {
   ok(/Monday Morning Setup/i.test(binder.html), "setup is toolkit subsection");
   ok(/Complete Teaching Kit|Teacher Binder/i.test(binder.html), "complete teaching kit cover branding");
   ok(/Overview/i.test(binder.html), "overview section");
+  ok(/complete weekly checklist|Materials List/i.test(binder.html), "overview points to materials list");
+  ok(!/data-toolkit-group="tips"/.test(binder.html), "empty Teaching Tips card omitted");
+  ok(/data-tk-print-tab="Materials"/.test(binder.html), "materials section included in full kit");
+  ok(!/No printable resources have been added/i.test(binder.html), "full kit omits empty printables section");
   assertNoForbidden(binder.html, "farm binder");
+
+  // Safety/cleanup must remain distinct — no invented cleanup cloned from safety.
+  const cleanupDupes = (kit.companion.activities || []).filter((activity) => {
+    const safety = String(activity.safetyNotes || "").trim().toLowerCase();
+    const cleanup = (activity.cleanupTips || []).map((tip) => String(tip).trim().toLowerCase()).filter(Boolean).join("|");
+    return safety && cleanup && safety === cleanup;
+  });
+  ok(cleanupDupes.length === 0, "mapped activities do not clone safety into cleanup");
+  ok(!/<strong>Cleanup<\/strong>/.test(binder.html), "no Cleanup headings when cleanup tips absent");
 
   const weekly = Print.buildFullWeeklyLessonPlanHtml(kit, { plan: fixture.lessonPlan });
   ok(weekly.ok === true, "full weekly builds");
@@ -185,7 +198,7 @@ function testPrintModesLimitSections() {
     plan: fixture.lessonPlan,
   });
   ok(/Songs/i.test(songs.html), "songs mode");
-  ok(!/tk-print-notes-grid|tk-print-write-line/i.test(songs.html), "songs mode omits teacher notes worksheet");
+  ok(!/<div class="tk-print-notes-grid"|class="tk-print-write-line"/.test(songs.html), "songs mode omits teacher notes worksheet");
 
   const songGuide = Print.buildBinderPrintHtml(kit, {
     preset: "song_lyrics",
@@ -211,6 +224,20 @@ function testPrintModesLimitSections() {
     plan: fixture.lessonPlan,
   });
   ok(printables.ok === true, "printables mode builds");
+  ok(/No printable resources have been added/i.test(printables.html), "printables empty state when none linked");
+
+  const onePrintable = Print.buildBinderPrintHtml(kit, {
+    preset: "one_printable",
+    printableId: "missing",
+    plan: fixture.lessonPlan,
+  });
+  ok(onePrintable.ok === true, "one printable mode builds");
+  ok(/No printable resources have been added/i.test(onePrintable.html), "one printable empty state when none linked");
+
+  const presetAvailability = Print.evaluatePresetAvailability(kit);
+  ok(presetAvailability.song_lyrics.available === false, "song lyrics disabled without printable lyrics");
+  ok(presetAvailability.one_printable.available === false, "one printable disabled without resources");
+  ok(presetAvailability.all_printables.available === true, "printables-only remains available with empty state");
 
   const selected = Print.buildBinderPrintHtml(kit, {
     preset: "selected_resources",

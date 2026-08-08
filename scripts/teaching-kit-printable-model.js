@@ -124,13 +124,14 @@
       groupSize: presentCopy(entry.groupSize),
       observationIdeas: asLines(entry.observationIdeas || entry.observationOpportunities),
       vocabulary: asLines(entry.vocabulary),
-      extensions: presentCopy(entry.extensions),
+      extensions: presentCopy(entry.extensions || entry.extensionIdeas || entry.challenge),
       familyExtension: presentCopy(entry.familyConnection || entry.familyExtension),
       adaptations: presentCopy(entry.adaptations || entry.extraSupport || entry.mixedAgeAdaptations),
       ageModifications: presentCopy(entry.ageModifications || entry.mixedAgeAdaptations),
       safetyNotes: presentCopy(entry.safetyNotes),
-      cleanupTips: asLines(entry.cleanupTips),
-      relatedPrintableId: text(entry.relatedPrintableId || entry.printableId),
+      cleanupTips: asLines(entry.cleanupTips || entry.cleanup || entry.cleanupInstructions || entry.resetInstructions),
+      relatedPrintableId: text(entry.relatedPrintableId || entry.printableId || entry.linkedPrintableId),
+      relatedPrintableTitle: presentCopy(entry.relatedPrintableTitle || entry.printableTitle),
       examplePhotoUrl: text(entry.examplePhotoUrl || entry.exampleImageUrl),
       exampleAlt: presentCopy(entry.exampleAlt || entry.examplePhotoAlt),
       setupPhotoUrl: text(entry.setupPhotoUrl || entry.setupImageUrl),
@@ -168,9 +169,13 @@
     const linkedDay = text(entry.linkedWeekday || entry.dayOfWeek || entry.day).toLowerCase();
     return {
       title,
-      notes: presentCopy(entry.notes || entry.teachingNotes || entry.howToUse || entry.teacherDirections),
-      motions: presentCopy(entry.motions || entry.props),
-      whenToUse: presentCopy(entry.whenToUse),
+      category: presentLabel(entry.songCategory || entry.category || entry.type || "", ""),
+      purpose: presentCopy(entry.purpose || entry.teachingPurpose || entry.concept || entry.whyThisSong),
+      notes: presentCopy(entry.notes || entry.teachingNotes || entry.howToUse || entry.teacherDirections || entry.teachingTips),
+      motions: presentCopy(entry.motions || entry.actions || entry.movementIdeas),
+      props: presentCopy(entry.props || entry.materials),
+      vocabulary: asLines(entry.vocabulary || entry.concepts || entry.vocabularyConnections),
+      whenToUse: presentCopy(entry.whenToUse || entry.transition || entry.circleTimeUse || entry.bestTime),
       rights,
       lyrics: lyricsAllowed ? presentCopy(entry.lyrics) : "",
       lyricsPrintable: Boolean(lyricsAllowed && presentCopy(entry.lyrics)),
@@ -189,13 +194,14 @@
     return {
       title,
       author: presentCopy(entry.author),
-      whyThisBook: presentCopy(entry.whyThisBook || entry.whyItFits || entry.notes),
-      beforeReadingQuestions: asLines(entry.beforeReadingQuestions || entry.beforeQuestions),
-      duringReadingPrompts: asLines(entry.duringReadingPrompts || entry.duringQuestions),
+      whyThisBook: presentCopy(entry.whyThisBook || entry.whyItFits || entry.purpose || entry.concept || entry.notes),
+      beforeReadingQuestions: asLines(entry.beforeReadingQuestions || entry.beforeQuestions || entry.beforeReading),
+      duringReadingPrompts: asLines(entry.duringReadingPrompts || entry.duringQuestions || entry.whileReading || entry.duringReading),
       afterReadingQuestions: after,
       readAloudQuestions: after,
       vocabularyConnections: asLines(entry.vocabularyConnections || entry.vocabulary),
-      extensionIdeas: asLines(entry.extensionIdeas || entry.extensions || entry.extensionIdea),
+      extensionIdeas: asLines(entry.extensionIdeas || entry.extensions || entry.extensionIdea || entry.relatedActivity),
+      teacherNotes: presentCopy(entry.teacherNotes),
       relatedDay: DAY_LABELS[linkedDay] || "",
       relatedDayKey: WEEKDAYS.includes(linkedDay) ? linkedDay : "",
       relatedDays: [],
@@ -219,7 +225,11 @@
       fileName: text(entry.fileName),
       mimeType,
       pageCount: Number(entry.pageCount) || 0,
-      printingDirections: presentCopy(entry.printingDirections || entry.notes || entry.description),
+      description: presentCopy(entry.description || entry.summary),
+      purpose: presentCopy(entry.purpose || entry.whyThisPrintable),
+      suggestedUse: presentCopy(entry.suggestedUse || entry.howToUse || entry.useNotes),
+      teacherNotes: presentCopy(entry.teacherNotes || entry.instructions),
+      printingDirections: presentCopy(entry.printingDirections || entry.printNotes || entry.notes),
       previewUrl,
       fileUrl,
       relatedActivityId: text(entry.relatedActivityId || entry.activityId),
@@ -293,13 +303,26 @@
     const setup = companion?.mondayMorningSetup || {};
     const materialsModel = companion?.materialsModel || null;
     let masterMaterials = [];
-    if (materialsModel?.master?.length) {
+    let masterMaterialsDetailed = [];
+    if (materialsModel?.masterDetailed?.length) {
+      masterMaterialsDetailed = materialsModel.masterDetailed.map((item) => ({
+        label: presentCopy(item.label || item),
+        category: presentLabel(item.category || item.group || item.materialCategory || "", ""),
+      })).filter((item) => item.label);
+      masterMaterials = masterMaterialsDetailed.map((item) => item.label);
+    } else if (materialsModel?.master?.length) {
       masterMaterials = materialsModel.master.map((item) => presentCopy(item.label || item)).filter(Boolean);
     } else {
       const mats = materialsApi();
       if (mats?.buildMaterialsModel) {
         const built = mats.buildMaterialsModel(plan, activities || []);
-        masterMaterials = (built.master || []).slice();
+        masterMaterialsDetailed = asArray(built.masterDetailed).map((item) => ({
+          label: presentCopy(item.label || item),
+          category: presentLabel(item.category || item.group || item.materialCategory || "", ""),
+        })).filter((item) => item.label);
+        masterMaterials = masterMaterialsDetailed.length
+          ? masterMaterialsDetailed.map((item) => item.label)
+          : (built.master || []).slice();
       } else {
         masterMaterials = asArray(setup.materials).map((item) => presentCopy(item.label || item)).filter(Boolean);
         asLines(plan?.weeklyMaterials).forEach((line) => masterMaterials.push(line));
@@ -309,6 +332,18 @@
       }
     }
     masterMaterials = uniqueStrings(masterMaterials, 80);
+    if (!masterMaterialsDetailed.length) {
+      masterMaterialsDetailed = masterMaterials.map((label) => ({ label, category: "" }));
+    } else {
+      // Keep detailed rows aligned with deduped labels (preserve first category).
+      const seen = new Set();
+      masterMaterialsDetailed = masterMaterialsDetailed.filter((item) => {
+        const key = text(item.label).toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 80);
+    }
 
     const weeklyFocus = presentCopy(
       plan?.weeklyFocus
@@ -330,6 +365,7 @@
         discussionIdea: presentCopy(word.discussionIdea),
       })).filter((word) => word.word),
       masterMaterials,
+      masterMaterialsDetailed,
       teacherPrep: asArray(setup.prepTasks).map((task) => ({
         label: presentCopy(task.label),
         minutes: Number(task.minutes) || 0,
@@ -488,7 +524,16 @@
 
     let songs = asArray(companion.songs).map(normalizeSong).filter(Boolean);
     let books = asArray(companion.books).map(normalizeBook).filter(Boolean);
-    const printables = asArray(companion.printables).map(normalizePrintable).filter(Boolean);
+    const printables = (() => {
+      const rows = asArray(companion.printables).map(normalizePrintable).filter(Boolean);
+      const seen = new Set();
+      return rows.filter((item) => {
+        const key = text(item.id) || text(item.fileUrl) || text(item.previewUrl) || text(item.title).toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    })();
     const days = WEEKDAYS.map((day) => dayFromCompanion(companion, day, sourcePlan, activityById));
     songs = attachRelatedDays(songs, days, (day) => day.songs);
     books = attachRelatedDays(books, days, (day) => day.books);
@@ -538,6 +583,7 @@
         || toolkit.familyResources
         || toolkit.notes
       ),
+      materials: overview.masterMaterials.length > 0,
       // Blank planning worksheets are available via Full Weekly / dedicated modes,
       // not as a phantom Entire Kit TOC entry.
       teacherNotes: false,
@@ -550,11 +596,12 @@
       { id: "weekAtAGlance", label: "Weekly Plan", available: capabilities.weekAtAGlance },
       { id: "dailyPlans", label: "Daily Lesson Pages", available: capabilities.dailyPlans },
       { id: "activities", label: "Reusable Activities", available: capabilities.activities },
-      { id: "printables", label: "Printables", available: capabilities.printables },
       { id: "songs", label: "Songs", available: capabilities.songs },
       { id: "books", label: "Books", available: capabilities.books },
-      { id: "examples", label: "Example Images", available: capabilities.examples },
       { id: "toolkit", label: "Teacher Toolkit", available: capabilities.toolkit },
+      { id: "materials", label: "Materials", available: capabilities.materials },
+      { id: "printables", label: "Printables", available: capabilities.printables },
+      { id: "examples", label: "Example Images", available: capabilities.examples },
       { id: "teacherNotes", label: "Teacher Notes / Planning", available: capabilities.teacherNotes },
     ];
 
