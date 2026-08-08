@@ -14,6 +14,8 @@ const enrich = require("./teaching-kit-enrichment.js");
 const quality = require("./teaching-kit-quality-review.js");
 const toddler = require("./curriculum-toddler-import-targets.js");
 const preschool = require("./curriculum-preschool-import-targets.js");
+const { rewriteApplesPlan, rewriteAamPlan } = require("./proof-two-plan-fields.js");
+const { scanPlan } = require("./proof-two-contradiction-scan.js");
 
 const ROOT = path.join(__dirname, "..");
 const OUT = path.join(ROOT, "docs/teaching-kit/qa/next-10-gold-upgrade/proof");
@@ -578,16 +580,16 @@ function buildApplesWeek() {
         dayPlacement: "thursday",
       },
       {
-        title: "Way Up High in the Apple Tree",
-        rightsStatus: "public_domain",
-        rightsEvidence: "Traditional nursery fingerplay widely documented as authorless oral tradition; lyrics appear in public nursery-rhyme collections such as allnurseryrhymes.com/way-up-high-in-the-apple-tree/. Used as a chant/fingerplay in early childhood settings. If a modern recorded arrangement is preferred later, replace with an LLH original.",
-        lyrics: "Way up high in the apple tree,\nTwo red apples smiled at me.\nI shook that tree as hard as I could,\nDown came an apple,\nMmm, it was good!",
-        motions: "Reach high; smile with hands on cheeks; shake arms; swoop hands down; rub tummy.",
-        teacherDirections: "Teach as a spoken fingerplay; melody optional. Change the number each round.",
-        whenToUse: "Monday circle and Friday parade warm-up.",
-        suggestedPace: "Moderate with exaggerated down swoop.",
-        transitionPurpose: "Connect story language to picking/movement games.",
-        dayPlacement: "monday",
+        title: "Apple Seeds Wiggle (LLH)",
+        rightsStatus: "original",
+        rightsEvidence: "Original LLH fingerplay written for Amazing Apples toddler week to replace uncertain traditional fingerplays. Not adapted from a copyrighted recording.",
+        lyrics: "Tiny apple seeds inside,\nWiggle, wiggle—then we hide.\nStretch up tall like apple trees,\nShake one branch—soft as you please.",
+        motions: "Curl small; wiggle fingers; cover eyes briefly; stretch tall; gentle arm shake.",
+        teacherDirections: "Use before life-cycle or seed looking. Keep shakes soft.",
+        whenToUse: "Friday before Apple Life Cycle / Seed Discovery.",
+        suggestedPace: "Slow to moderate.",
+        transitionPurpose: "Connect body to seed-to-tree language.",
+        dayPlacement: "friday",
       },
       {
         title: "Basket Fill (LLH)",
@@ -1117,24 +1119,24 @@ function buildAamWeek() {
         dayPlacement: "monday",
       },
       {
-        title: "Head, Shoulders, Knees and Toes",
-        rightsStatus: "public_domain",
-        rightsEvidence: "Traditional children's movement song; longstanding oral tradition in English-language early childhood, treated as public domain in standard ECE practice. Provide seated/adapted motions for all bodies.",
-        lyrics: "Head, shoulders, knees and toes, knees and toes.\nHead, shoulders, knees and toes, knees and toes.\nAnd eyes and ears and mouth and nose,\nHead, shoulders, knees and toes, knees and toes.",
-        motions: "Touch each named part; offer alternatives (elbows, wheels, tips of shoes).",
-        teacherDirections: "Model inclusive substitutions aloud so every body is included.",
-        whenToUse: "Tuesday movement game.",
-        suggestedPace: "Start slow; speed only if children request.",
-        transitionPurpose: "Warm up body awareness without comparison.",
+        title: "Wiggle What You Will (LLH)",
+        rightsStatus: "original",
+        rightsEvidence: "Original LLH inclusive movement chant written to replace uncertain rights on familiar classroom body songs. Lyrics and motions authored for Little Learner Hub.",
+        lyrics: "Wiggle what you will today—\nFingers, elbows, wheels that sway.\nFreeze like stone, then soft and small,\nMove your way—we cheer you all!",
+        motions: "Wiggle chosen body part or roll wheels; freeze; curl small; open arms to cheer.",
+        teacherDirections: "Offer seated/wheeled options every line. Never spotlight one body as the model.",
+        whenToUse: "Tuesday movement game and Thursday warm-up.",
+        suggestedPace: "Moderate; pause on freeze.",
+        transitionPurpose: "Inclusive body awareness without comparison.",
         dayPlacement: "tuesday",
       },
       {
-        title: "The More We Get Together",
-        rightsStatus: "public_domain",
-        rightsEvidence: "Traditional folk song derived from older European folk melodies; widely used as public-domain children's repertoire in ECE. Lyrics are the traditional English children's verse.",
-        lyrics: "The more we get together, together, together,\nThe more we get together, the happier we'll be.\nFor your friends are my friends, and my friends are your friends,\nThe more we get together, the happier we'll be.",
-        motions: "Sway side to side; point to friends; gather hands only with consent.",
-        teacherDirections: "Use at celebration circle; offer solitary sway option.",
+        title: "Friends Wave Hello (LLH)",
+        rightsStatus: "original",
+        rightsEvidence: "Original LLH greeting/closing chant for All About Me; not adapted from a commercial folk arrangement.",
+        lyrics: "Friends wave hello, hello, hello,\nFriends wave hello—we’re glad you came.\nFriends wave goodbye, goodbye, goodbye,\nFriends wave goodbye—remember my name!",
+        motions: "Wave; point around the circle; wave goodbye; point to own name card.",
+        teacherDirections: "Use at celebration circle; solitary wave option allowed.",
         whenToUse: "Friday closing.",
         suggestedPace: "Warm moderate sway.",
         transitionPurpose: "Close the week with community language.",
@@ -1315,80 +1317,8 @@ async function main() {
     { title: "All About Me Movement Parade", decision: "rewrite", note: "Mobility-device leaders included." },
   ];
 
-  applesPlan = stripDay(applesPlan, ["Apple Color Investigation", "Round Apple Collage", "Apple Basket Relay"]);
-  applesPlan = renameActivity(applesPlan, "My Favorite Apple Color", {
-    title: "Apple Peel Tear Collage",
-    activityCategory: "Art",
-    objective: "Tear and stick paper to build a process apple collage.",
-    materials: "Red and green paper for tearing\nGlue sticks\nOptional light circle guide\nTrays",
-    setup: "Set trays with paper scraps started with one teacher tear.",
-    steps: "Children tear and stick. No matching model.",
-    description: "Process collage replacing template tissue craft.",
-  });
-
-  aamPlan = renameActivity(aamPlan, "Family Graph", {
-    title: "People in My Circle",
-    activityCategory: "Social-Emotional",
-    objective: "Represent people who care for me without ranking family size.",
-    materials: "Chart paper or cardboard\nStickers or paper dots\nPicture cards of caring roles",
-    setup: "Draw open circles—not ranked columns.",
-    steps: "Children place dots for people/pets/teachers who care for them.",
-    description: "Replaces family-size graphing.",
-  });
-  aamPlan = renameActivity(aamPlan, "Height and Measure Me", {
-    title: "Build & Measure My Tower",
-    activityCategory: "STEM/Discovery",
-    objective: "Build a block tower and measure it with cubes—not children's bodies.",
-    materials: "Blocks\nLinking cubes or yarn\nSticky notes",
-    setup: "Clear floor space; cubes in a bowl.",
-    steps: "Build, measure with cubes, label ‘my tower.’",
-    description: "Replaces child height comparison.",
-  });
-  aamPlan = renameActivity(aamPlan, "Body Outline Tracing", {
-    title: "Friendship Scarf Path",
-    activityCategory: "Gross Motor",
-    objective: "Design and travel a cooperative scarf pathway together.",
-    materials: "Scarves or streamers\nPainter's tape or chalk\nOpen path wide enough for mobility devices",
-    setup: "Children help tape a wide path.",
-    steps: "Travel the path with chosen moves; take turns leading.",
-    description: "Replaces body-outline tracing.",
-  });
-
-  // Refresh weekday themes so renamed activities are reflected (import themes named old titles).
-  const aamDayMeta = {
-    monday: {
-      theme: "All About Me: Mirror Me & Name Discovery",
-      objectives: "Build self-awareness at the mirror.\nRecognize preferred names and first letters.\nShare people who care for me without ranking families.",
-    },
-    tuesday: {
-      theme: "All About Me: People in My Circle & Movement",
-      objectives: "Map caring people without family-size contests.\nMove body parts with inclusive options.\nStart process self-portraits.",
-    },
-    wednesday: {
-      theme: "All About Me: Family Play & Friend Interviews",
-      objectives: "Explore open family roles in dramatic play.\nPractice kind interview questions.\nHunt letters from our own names.",
-    },
-    thursday: {
-      theme: "All About Me: Build & Measure Towers + Feelings Art",
-      objectives: "Measure block towers—not children's heights.\nExpress feelings through process art.\nBegin personal books.",
-    },
-    friday: {
-      theme: "All About Me: Friendship Scarf Path & Celebration",
-      objectives: "Travel a cooperative scarf path together.\nCelebrate belonging with opt-in sharing.\nLead an inclusive movement parade.",
-    },
-  };
-  for (const [day, meta] of Object.entries(aamDayMeta)) {
-    aamPlan.dailyPlans[day] = { ...aamPlan.dailyPlans[day], ...meta };
-  }
-
-  // Drop leftover body-outline / height materials from weekly list after replacements.
-  if (aamPlan.weeklyMaterials) {
-    aamPlan.weeklyMaterials = String(aamPlan.weeklyMaterials)
-      .split("\n")
-      .filter((line) => !/height chart|measuring tape|body outline/i.test(line))
-      .concat(["Scarves for friendship path", "Blocks and linking cubes for tower measuring"])
-      .join("\n");
-  }
+  applesPlan = rewriteApplesPlan(applesPlan);
+  aamPlan = rewriteAamPlan(aamPlan);
 
   function scrubSafetyFalsePositives(plan) {
     const next = JSON.parse(JSON.stringify(plan));
@@ -1417,6 +1347,9 @@ async function main() {
   applesPlan = scrubSafetyFalsePositives(applesPlan);
   aamPlan = scrubSafetyFalsePositives(aamPlan);
 
+  const applesScan = scanPlan(applesPlan);
+  const aamScan = scanPlan(aamPlan);
+
   const applesActs = enrich.flattenLessonActivities(applesPlan, []);
   const aamActs = enrich.flattenLessonActivities(aamPlan, []);
   const applesDraft = {
@@ -1425,7 +1358,7 @@ async function main() {
     updatedAt: new Date().toISOString(),
     lastEditedBy: "leahivie@icloud.com (proof revision)",
     previewReady: true,
-    schemaVersion: "proof-two-revision-1",
+    schemaVersion: "proof-two-honest-2",
     batchId: BATCH,
   };
   const aamDraft = {
@@ -1434,7 +1367,7 @@ async function main() {
     updatedAt: new Date().toISOString(),
     lastEditedBy: "leahivie@icloud.com (proof revision)",
     previewReady: true,
-    schemaVersion: "proof-two-revision-1",
+    schemaVersion: "proof-two-honest-2",
     batchId: BATCH,
   };
 
@@ -1488,27 +1421,30 @@ async function main() {
   scrubDraft(applesDraft);
   scrubDraft(aamDraft);
 
-  // Local proof resources treated as finished linked PDFs for scoring in disposable store only.
-  const appleRes = {
+  // Honest scoring: draft printable stays draft for ACTUAL scores.
+  // Projected scores use published status only as a forecast after owner approval.
+  const appleResDraft = {
     id: "cur-res-proof-amazing-apples-picture-cards",
     title: "Amazing Apples Picture Card Pack",
     type: "printable",
-    status: "published",
+    status: "draft",
     resourceCategory: "Classroom Resources",
     fileName: "Amazing-Apples-Picture-Card-Pack.pdf",
     mimeType: "application/pdf",
     fileData: `file://${APPLE_PDF}`,
   };
-  const aamRes = {
+  const aamResDraft = {
     id: "cur-res-proof-all-about-me-picture-cards",
     title: "All About Me Picture Card Pack",
     type: "printable",
-    status: "published",
+    status: "draft",
     resourceCategory: "Classroom Resources",
     fileName: "All-About-Me-Picture-Card-Pack.pdf",
     mimeType: "application/pdf",
     fileData: `file://${AAM_PDF}`,
   };
+  const appleResProjected = { ...appleResDraft, status: "published" };
+  const aamResProjected = { ...aamResDraft, status: "published" };
 
   const beforeApples = score(toddler.readToddlerImportTarget(
     toddler.TODDLER_IMPORT_TARGETS.find((t) => t.stableId === "cur-lp-toddler-amazing-apples"),
@@ -1517,8 +1453,16 @@ async function main() {
     preschool.PRESCHOOL_FREE_IMPORT_TARGETS.find((t) => t.stableId === "cur-lp-preschool-all-about-me"),
   ), null, []);
 
-  const afterApples = score(applesPlan, applesDraft, [appleRes]);
-  const afterAam = score(aamPlan, aamDraft, [aamRes]);
+  const actualApples = score(applesPlan, applesDraft, [appleResDraft]);
+  const actualAam = score(aamPlan, aamDraft, [aamResDraft]);
+  const projectedApples = score(applesPlan, applesDraft, [appleResProjected]);
+  const projectedAam = score(aamPlan, aamDraft, [aamResProjected]);
+
+  // Back-compat aliases used later in report assembly
+  const afterApples = actualApples;
+  const afterAam = actualAam;
+  const appleRes = appleResDraft;
+  const aamRes = aamResDraft;
 
   const scans = {
     apples: duplicateLanguageScan(applesDraft),
@@ -1637,10 +1581,15 @@ async function main() {
   }
 
   const report = {
-    title: "PR #597 proof revision — Amazing Apples + All About Me",
+    title: "PR #597 honest proof revision — Amazing Apples + All About Me",
     batchId: BATCH,
     finishedAt: new Date().toISOString(),
     scope: "Exactly two lessons. No additional batch. PR remains draft.",
+    scoringMethod: {
+      actual: "Linked printable status=draft in catalog. No fake published credit.",
+      projected: "Same content scored as if owner published the printable resource.",
+      productionPublishCount: 0,
+    },
     guarantees: {
       nothingPublishedToProduction: true,
       productionImportNotPerformed: true,
@@ -1649,65 +1598,92 @@ async function main() {
       customerFlagsNote: "Local disposable store flags restored false. This does not verify production Render flags.",
       genericHtmlPacksDeleted: true,
     },
-    printableNote: "PDFs exist as finished files. Disposable store attempted draft PDF upload. Scoring uses a published catalog entry only inside the proof calculator to evaluate finished-resource quality; production publish count = 0.",
+    printableNote: "PDFs are finished US Letter files uploaded as draft resources in a disposable store. Customer-facing PDFs have no DRAFT watermark; catalog status remains draft until owner publishes.",
     amazingApples: {
       planId: "cur-lp-toddler-amazing-apples",
       decisions: applesDecisions,
       before: { structural: beforeApples.scores.structuralCompletionPercent, premium: beforeApples.scores.premiumReadinessPercent },
-      after: {
-        structural: afterApples.scores.structuralCompletionPercent,
-        premium: afterApples.scores.premiumReadinessPercent,
-        activityCompleteness: afterApples.scores.activityCompleteness,
-        imageReadiness: afterApples.scores.imageReadiness,
-        printReadiness: afterApples.scores.printReadiness,
-        completeBooks: afterApples.scores.completeBooks,
-        completeSongs: afterApples.scores.completeSongs,
-        expectedImageSlots: afterApples.scores.expectedImageSlots,
-        filledSetup: afterApples.scores.setupImages,
-        filledExample: afterApples.scores.exampleImages,
-        toolkitComplete: afterApples.scores.toolkitComplete,
-        qualityBlocksPublish: afterApples.qr.blocksPublish,
+      actual: {
+        structural: actualApples.scores.structuralCompletionPercent,
+        premium: actualApples.scores.premiumReadinessPercent,
+        printReadiness: actualApples.scores.printReadiness,
+        hasLinkedPrintable: actualApples.scores.hasLinkedPrintable,
+        hasDraftOnlyPrintables: actualApples.scores.hasDraftOnlyPrintables,
+        activityCompleteness: actualApples.scores.activityCompleteness,
+        imageReadiness: actualApples.scores.imageReadiness,
+        completeBooks: actualApples.scores.completeBooks,
+        completeSongs: actualApples.scores.completeSongs,
+        toolkitComplete: actualApples.scores.toolkitComplete,
+        qualityBlocksPublish: actualApples.qr.blocksPublish,
+      },
+      projected: {
+        structural: projectedApples.scores.structuralCompletionPercent,
+        premium: projectedApples.scores.premiumReadinessPercent,
+        printReadiness: projectedApples.scores.printReadiness,
+        hasLinkedPrintable: projectedApples.scores.hasLinkedPrintable,
+      },
+      contradictionScan: {
+        fail: applesScan.fail,
+        contradictionCount: applesScan.contradictionCount,
+        emptyFieldCount: applesScan.emptyFieldCount,
+        contradictions: applesScan.contradictions,
       },
       duplicateScan: scans.apples,
       pdf: path.relative(ROOT, APPLE_PDF),
       pdfPages: fs.readdirSync(path.join(OUT, "amazing-apples/pages")).filter((f) => f.endsWith(".png")).sort(),
       persistence: persistence["cur-lp-toddler-amazing-apples"],
       gate: {
-        structuralOk: afterApples.scores.structuralCompletionPercent >= 95,
-        premiumOk: afterApples.scores.premiumReadinessPercent >= 90,
+        noContradictions: !applesScan.fail,
         noDupTips: scans.apples.dupTips.length === 0,
         noGenericTips: scans.apples.generic.length === 0,
         noBadSubs: scans.apples.badSubs.length === 0,
+        // Actual premium cannot reach 90 while printable is draft (product rule caps at 89).
+        actualPremiumHonest: true,
+        projectedPremiumOk: projectedApples.scores.premiumReadinessPercent >= 90,
+        projectedStructuralOk: projectedApples.scores.structuralCompletionPercent >= 95,
       },
     },
     allAboutMe: {
       planId: "cur-lp-preschool-all-about-me",
       decisions: aamDecisions,
       before: { structural: beforeAam.scores.structuralCompletionPercent, premium: beforeAam.scores.premiumReadinessPercent },
-      after: {
-        structural: afterAam.scores.structuralCompletionPercent,
-        premium: afterAam.scores.premiumReadinessPercent,
-        activityCompleteness: afterAam.scores.activityCompleteness,
-        imageReadiness: afterAam.scores.imageReadiness,
-        printReadiness: afterAam.scores.printReadiness,
-        completeBooks: afterAam.scores.completeBooks,
-        completeSongs: afterAam.scores.completeSongs,
-        expectedImageSlots: afterAam.scores.expectedImageSlots,
-        filledSetup: afterAam.scores.setupImages,
-        filledExample: afterAam.scores.exampleImages,
-        toolkitComplete: afterAam.scores.toolkitComplete,
-        qualityBlocksPublish: afterAam.qr.blocksPublish,
+      actual: {
+        structural: actualAam.scores.structuralCompletionPercent,
+        premium: actualAam.scores.premiumReadinessPercent,
+        printReadiness: actualAam.scores.printReadiness,
+        hasLinkedPrintable: actualAam.scores.hasLinkedPrintable,
+        hasDraftOnlyPrintables: actualAam.scores.hasDraftOnlyPrintables,
+        activityCompleteness: actualAam.scores.activityCompleteness,
+        imageReadiness: actualAam.scores.imageReadiness,
+        completeBooks: actualAam.scores.completeBooks,
+        completeSongs: actualAam.scores.completeSongs,
+        toolkitComplete: actualAam.scores.toolkitComplete,
+        qualityBlocksPublish: actualAam.qr.blocksPublish,
+      },
+      projected: {
+        structural: projectedAam.scores.structuralCompletionPercent,
+        premium: projectedAam.scores.premiumReadinessPercent,
+        printReadiness: projectedAam.scores.printReadiness,
+        hasLinkedPrintable: projectedAam.scores.hasLinkedPrintable,
+      },
+      contradictionScan: {
+        fail: aamScan.fail,
+        contradictionCount: aamScan.contradictionCount,
+        emptyFieldCount: aamScan.emptyFieldCount,
+        contradictions: aamScan.contradictions,
       },
       duplicateScan: scans.aam,
       pdf: path.relative(ROOT, AAM_PDF),
       pdfPages: fs.readdirSync(path.join(OUT, "all-about-me/pages")).filter((f) => f.endsWith(".png")).sort(),
       persistence: persistence["cur-lp-preschool-all-about-me"],
       gate: {
-        structuralOk: afterAam.scores.structuralCompletionPercent >= 95,
-        premiumOk: afterAam.scores.premiumReadinessPercent >= 90,
+        noContradictions: !aamScan.fail,
         noDupTips: scans.aam.dupTips.length === 0,
         noGenericTips: scans.aam.generic.length === 0,
         noBadSubs: scans.aam.badSubs.length === 0,
+        actualPremiumHonest: true,
+        projectedPremiumOk: projectedAam.scores.premiumReadinessPercent >= 90,
+        projectedStructuralOk: projectedAam.scores.structuralCompletionPercent >= 95,
       },
     },
     remainingBlockers: [],
@@ -1715,48 +1691,67 @@ async function main() {
 
   for (const key of ["amazingApples", "allAboutMe"]) {
     const g = report[key].gate;
-    if (!g.structuralOk) report.remainingBlockers.push(`${key}: structural ${report[key].after.structural} < 95`);
-    if (!g.premiumOk) report.remainingBlockers.push(`${key}: premium ${report[key].after.premium} < 90`);
+    const c = report[key].contradictionScan;
+    if (!g.noContradictions) {
+      report.remainingBlockers.push(`${key}: ${c.contradictionCount} contradiction(s) — ${c.contradictions.map((x) => x.message).join("; ")}`);
+    }
     if (!g.noDupTips) report.remainingBlockers.push(`${key}: duplicate tips remain`);
     if (!g.noGenericTips) report.remainingBlockers.push(`${key}: generic tips remain`);
     if (!g.noBadSubs) report.remainingBlockers.push(`${key}: bad substitutions remain`);
+    if (!g.projectedStructuralOk) {
+      report.remainingBlockers.push(`${key}: projected structural ${report[key].projected.structural} < 95`);
+    }
+    if (!g.projectedPremiumOk) {
+      report.remainingBlockers.push(`${key}: projected premium ${report[key].projected.premium} < 90`);
+    }
+    // Honest note: actual premium will be <90 while printable is draft — expected, not a fake pass.
+    if (report[key].actual.premium < 90) {
+      report.remainingBlockers.push(
+        `${key}: actual premium ${report[key].actual.premium}% (expected while printable status=draft; projected ${report[key].projected.premium}% after owner publish)`,
+      );
+    }
+    if (report[key].actual.qualityBlocksPublish && report[key].actual.hasDraftOnlyPrintables) {
+      // Expected hard blocker while draft — do not treat as a content failure beyond the premium note.
+    } else if (report[key].actual.qualityBlocksPublish) {
+      report.remainingBlockers.push(`${key}: quality review still blocks publish for non-draft reasons`);
+    }
   }
   if (persistence.error) report.remainingBlockers.push(`persistence: ${persistence.error}`);
 
   fs.writeFileSync(path.join(OUT, "reports/PROOF-TWO-REPORT.json"), JSON.stringify(report, null, 2));
-  // Short score stub — full owner narrative lives in PROOF-TWO-REPORT.md (maintained with the PR).
   const md = [
-    `# Proof revision — Amazing Apples + All About Me`,
+    `# Honest proof revision — Amazing Apples + All About Me`,
     ``,
     `Batch \`${BATCH}\`. PR #597 stays draft. No production import/apply.`,
     ``,
-    `## Scores`,
-    `| Lesson | Structural before→after | Premium before→after | Gate |`,
-    `|---|---:|---:|---|`,
-    `| Amazing Apples | ${report.amazingApples.before.structural}% → ${report.amazingApples.after.structural}% | ${report.amazingApples.before.premium}% → ${report.amazingApples.after.premium}% | struct ${report.amazingApples.gate.structuralOk} / prem ${report.amazingApples.gate.premiumOk} |`,
-    `| All About Me | ${report.allAboutMe.before.structural}% → ${report.allAboutMe.after.structural}% | ${report.allAboutMe.before.premium}% → ${report.allAboutMe.after.premium}% | struct ${report.allAboutMe.gate.structuralOk} / prem ${report.allAboutMe.gate.premiumOk} |`,
+    `## Scores (honest)`,
+    `| Lesson | Actual structural | Actual premium | Projected structural | Projected premium | Contradictions |`,
+    `|---|---:|---:|---:|---:|---:|`,
+    `| Amazing Apples | ${report.amazingApples.actual.structural}% | ${report.amazingApples.actual.premium}% | ${report.amazingApples.projected.structural}% | ${report.amazingApples.projected.premium}% | ${report.amazingApples.contradictionScan.contradictionCount} |`,
+    `| All About Me | ${report.allAboutMe.actual.structural}% | ${report.allAboutMe.actual.premium}% | ${report.allAboutMe.projected.structural}% | ${report.allAboutMe.projected.premium}% | ${report.allAboutMe.contradictionScan.contradictionCount} |`,
+    ``,
+    `Actual premium cannot reach 90% while the printable remains draft (product cap). Projected assumes owner publishes the resource.`,
+    ``,
+    `## Empty fields`,
+    `- Amazing Apples empty-field count: ${report.amazingApples.contradictionScan.emptyFieldCount}`,
+    `- All About Me empty-field count: ${report.allAboutMe.contradictionScan.emptyFieldCount}`,
     ``,
     `## Safety`,
     `- Nothing published to production`,
     `- Farm Animals untouched`,
-    `- Customer flags not changed in production (local disposable flags restored false)`,
-    `- Generic HTML packs deleted`,
+    `- Customer flags not changed in production`,
+    `- No fake published catalog credit in actual scores`,
     ``,
     `## Remaining blockers`,
-    ...(report.remainingBlockers.length ? report.remainingBlockers.map((b) => `- ${b}`) : [`- None from automated gates`]),
-    ``,
-    `See the fuller owner deliverable tables in this same file when present in git, or regenerate narrative from enrichment-draft.json + PROOF-TWO-REPORT.json.`,
+    ...(report.remainingBlockers.length ? report.remainingBlockers.map((b) => `- ${b}`) : [`- None`]),
     ``,
   ].join("\n");
-  const mdPath = path.join(OUT, "reports/PROOF-TWO-REPORT.md");
-  // Do not clobber a longer hand-maintained owner report already in the tree.
-  if (!fs.existsSync(mdPath) || fs.readFileSync(mdPath, "utf8").length < 2000) {
-    fs.writeFileSync(mdPath, md);
-  }
   fs.writeFileSync(path.join(OUT, "reports/PROOF-TWO-SCORES.md"), md);
+  // Always refresh the owner-facing report with honest scores (full narrative rewritten after run).
+  fs.writeFileSync(path.join(OUT, "reports/PROOF-TWO-REPORT.md"), md);
   console.log(JSON.stringify({
-    apples: report.amazingApples.after,
-    aam: report.allAboutMe.after,
+    apples: { actual: report.amazingApples.actual, projected: report.amazingApples.projected, contradictions: report.amazingApples.contradictionScan },
+    aam: { actual: report.allAboutMe.actual, projected: report.allAboutMe.projected, contradictions: report.allAboutMe.contradictionScan },
     gates: { apples: report.amazingApples.gate, aam: report.allAboutMe.gate },
     blockers: report.remainingBlockers,
     persistence,

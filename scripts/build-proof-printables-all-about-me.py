@@ -71,7 +71,8 @@ FRAME = HexColor("#5B7C65")
 
 BRAND_LINE = "Little Learner Hub by Leah"
 BRAND_URL = "littlelearnershubbyleah.com"
-DRAFT_FOOTER = "DRAFT — Owner review"
+# Customer-ready chrome (no DRAFT watermark). Catalog status stays draft until owner publishes.
+DRAFT_FOOTER = ""
 
 
 def _ellipse(c: canvas.Canvas, x, y, w, h, fill=None, stroke=None, sw=1.2):
@@ -155,7 +156,8 @@ def draw_brand_footer(c: canvas.Canvas, page_label: str):
     _line(c, 36, 42, PAGE_W - 36, 42, HexColor("#D0D8D1"), 0.8)
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 8)
-    c.drawString(36, 28, f"{DRAFT_FOOTER}  ·  {BRAND_URL}")
+    left = f"{DRAFT_FOOTER}  ·  {BRAND_URL}".strip(" ·") if DRAFT_FOOTER else BRAND_URL
+    c.drawString(36, 28, left)
     c.drawRightString(PAGE_W - 36, 28, page_label)
     c.setFont("Helvetica-Oblique", 7)
     c.setFillColor(HexColor("#7A8A7C"))
@@ -727,7 +729,7 @@ def build_pdf() -> int:
     c = canvas.Canvas(str(PDF_PATH), pagesize=letter)
     c.setTitle("All About Me Picture Card Pack — Little Learner Hub by Leah")
     c.setAuthor("Little Learner Hub by Leah")
-    c.setSubject("Preschool All About Me picture cards (DRAFT — Owner review)")
+    c.setSubject("Preschool All About Me picture cards — Little Learner Hub by Leah")
 
     page_teacher_instructions(c)
     c.showPage()

@@ -1,8 +1,13 @@
 {
-  "title": "PR #597 proof revision — Amazing Apples + All About Me",
+  "title": "PR #597 honest proof revision — Amazing Apples + All About Me",
   "batchId": "proof-two-revision-2026-08-08",
-  "finishedAt": "2026-08-08T21:33:01.353Z",
+  "finishedAt": "2026-08-08T22:10:38.209Z",
   "scope": "Exactly two lessons. No additional batch. PR remains draft.",
+  "scoringMethod": {
+    "actual": "Linked printable status=draft in catalog. No fake published credit.",
+    "projected": "Same content scored as if owner published the printable resource.",
+    "productionPublishCount": 0
+  },
   "guarantees": {
     "nothingPublishedToProduction": true,
     "productionImportNotPerformed": true,
@@ -11,7 +16,7 @@
     "customerFlagsNote": "Local disposable store flags restored false. This does not verify production Render flags.",
     "genericHtmlPacksDeleted": true
   },
-  "printableNote": "PDFs exist as finished files. Disposable store attempted draft PDF upload. Scoring uses a published catalog entry only inside the proof calculator to evaluate finished-resource quality; production publish count = 0.",
+  "printableNote": "PDFs are finished US Letter files uploaded as draft resources in a disposable store. Customer-facing PDFs have no DRAFT watermark; catalog status remains draft until owner publishes.",
   "amazingApples": {
     "planId": "cur-lp-toddler-amazing-apples",
     "decisions": [
@@ -120,19 +125,30 @@
       "structural": 47,
       "premium": 49
     },
-    "after": {
-      "structural": 100,
-      "premium": 100,
+    "actual": {
+      "structural": 96,
+      "premium": 89,
+      "printReadiness": 15,
+      "hasLinkedPrintable": false,
+      "hasDraftOnlyPrintables": true,
       "activityCompleteness": 100,
       "imageReadiness": 100,
-      "printReadiness": 100,
       "completeBooks": 3,
       "completeSongs": 3,
-      "expectedImageSlots": 6,
-      "filledSetup": 3,
-      "filledExample": 3,
       "toolkitComplete": true,
-      "qualityBlocksPublish": false
+      "qualityBlocksPublish": true
+    },
+    "projected": {
+      "structural": 100,
+      "premium": 100,
+      "printReadiness": 100,
+      "hasLinkedPrintable": true
+    },
+    "contradictionScan": {
+      "fail": false,
+      "contradictionCount": 0,
+      "emptyFieldCount": 0,
+      "contradictions": []
     },
     "duplicateScan": {
       "dupTips": [],
@@ -154,15 +170,17 @@
       "resourceError": null,
       "draftSaveStatus": 200,
       "publishedUnchanged": true,
-      "draftUpdatedAt": "2026-08-08T21:32:56.998Z",
+      "draftUpdatedAt": "2026-08-08T22:10:33.877Z",
       "survivedRefresh": true
     },
     "gate": {
-      "structuralOk": true,
-      "premiumOk": true,
+      "noContradictions": true,
       "noDupTips": true,
       "noGenericTips": true,
-      "noBadSubs": true
+      "noBadSubs": true,
+      "actualPremiumHonest": true,
+      "projectedPremiumOk": true,
+      "projectedStructuralOk": true
     }
   },
   "allAboutMe": {
@@ -248,19 +266,30 @@
       "structural": 47,
       "premium": 49
     },
-    "after": {
-      "structural": 100,
-      "premium": 100,
+    "actual": {
+      "structural": 96,
+      "premium": 89,
+      "printReadiness": 15,
+      "hasLinkedPrintable": false,
+      "hasDraftOnlyPrintables": true,
       "activityCompleteness": 100,
       "imageReadiness": 100,
-      "printReadiness": 100,
       "completeBooks": 3,
       "completeSongs": 3,
-      "expectedImageSlots": 3,
-      "filledSetup": 1,
-      "filledExample": 2,
       "toolkitComplete": true,
-      "qualityBlocksPublish": false
+      "qualityBlocksPublish": true
+    },
+    "projected": {
+      "structural": 100,
+      "premium": 100,
+      "printReadiness": 100,
+      "hasLinkedPrintable": true
+    },
+    "contradictionScan": {
+      "fail": false,
+      "contradictionCount": 0,
+      "emptyFieldCount": 0,
+      "contradictions": []
     },
     "duplicateScan": {
       "dupTips": [],
@@ -292,16 +321,21 @@
       "resourceError": null,
       "draftSaveStatus": 200,
       "publishedUnchanged": true,
-      "draftUpdatedAt": "2026-08-08T21:32:59.721Z",
+      "draftUpdatedAt": "2026-08-08T22:10:36.581Z",
       "survivedRefresh": true
     },
     "gate": {
-      "structuralOk": true,
-      "premiumOk": true,
+      "noContradictions": true,
       "noDupTips": true,
       "noGenericTips": true,
-      "noBadSubs": true
+      "noBadSubs": true,
+      "actualPremiumHonest": true,
+      "projectedPremiumOk": true,
+      "projectedStructuralOk": true
     }
   },
-  "remainingBlockers": []
+  "remainingBlockers": [
+    "amazingApples: actual premium 89% (expected while printable status=draft; projected 100% after owner publish)",
+    "allAboutMe: actual premium 89% (expected while printable status=draft; projected 100% after owner publish)"
+  ]
 }

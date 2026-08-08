@@ -23,7 +23,8 @@ PAGE_W, PAGE_H = letter  # 612 x 792
 BRAND = "Little Learner Hub by Leah"
 SITE = "littlelearnershubbyleah.com"
 PACK_TITLE = "Amazing Apples Picture Card Pack"
-DRAFT = "DRAFT — Owner review"
+# Customer-ready footer (no DRAFT watermark). Resource stays draft in catalog until owner publishes.
+OWNER_NOTE = ""
 
 CREAM = HexColor("#FCFBF7")
 INK = HexColor("#2F3A33")
@@ -85,9 +86,10 @@ def draw_page_chrome(c: canvas.Canvas, page_num: int, total: int, subtitle: str 
     c.setFont("Helvetica", 8)
     c.drawString(0.55 * inch, 0.28 * inch, f"{PACK_TITLE}")
     c.drawRightString(PAGE_W - 0.55 * inch, 0.28 * inch, f"Page {page_num} of {total}")
-    c.setFont("Helvetica-Oblique", 7)
-    c.setFillColor(HexColor("#9AA89B"))
-    c.drawString(0.55 * inch, 0.14 * inch, DRAFT)
+    if OWNER_NOTE:
+        c.setFont("Helvetica-Oblique", 7)
+        c.setFillColor(HexColor("#9AA89B"))
+        c.drawString(0.55 * inch, 0.14 * inch, OWNER_NOTE)
 
 
 def dashed_rect(c: canvas.Canvas, x: float, y: float, w: float, h: float, radius: float = 10) -> None:
