@@ -168,9 +168,18 @@ No long single-page form.
 | --- | --- |
 | **Not Started** | No enrichment fields/photos set beyond legacy text |
 | **In Progress** | Some enrichment (e.g. one photo or tips) but not activity-complete |
-| **Complete** | Setup photo **and** finished example **and** ≥1 teacher tip (minimum bar; substitutions/chips optional bonus) |
+| **Complete** | Required image slots for this activity’s **image requirement** **and** ≥1 teacher tip. Image requirement options: Required (setup + finished example), Setup image only, Finished example only, Optional, Not needed. Optional / Not needed may Complete without photos and never create image blockers. Briefs never count as photos. |
 
 Statuses visible at a glance — no need to open each card.
+
+### Image requirement (instructional value)
+
+Each activity has an `imageRequirement` field. Defaults:
+
+- **Required** — Art, Sensory, STEM, Dramatic Play, printables, complicated hands-on setups  
+- **Optional / Not needed** — Circle time, songs, book discussions, simple movement, transitions, obvious games  
+
+Existing uploaded images are never removed when the requirement is relaxed.
 
 ### Activity counter + navigation
 

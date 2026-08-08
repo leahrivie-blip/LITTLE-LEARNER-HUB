@@ -1804,6 +1804,40 @@ function normalizedPlayActivityCategory(value) {
   return "Open-Ended Exploration";
 }
 
+const ACTIVITY_IMAGE_REQUIREMENTS = new Set([
+  "required",
+  "setup_only",
+  "example_only",
+  "optional",
+  "not_needed",
+]);
+
+/** Per-activity instructional image requirement (empty = use category default). */
+function normalizedImageRequirement(value) {
+  const raw = String(value == null ? "" : value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (!raw) return "";
+  const aliases = {
+    required: "required",
+    required_setup_and_example: "required",
+    setup_and_example: "required",
+    both: "required",
+    setup_only: "setup_only",
+    setup_image_only: "setup_only",
+    setup: "setup_only",
+    example_only: "example_only",
+    finished_example_only: "example_only",
+    example: "example_only",
+    finished_only: "example_only",
+    optional: "optional",
+    not_needed: "not_needed",
+    notneeded: "not_needed",
+    none: "not_needed",
+    na: "not_needed",
+  };
+  const normalized = aliases[raw] || raw;
+  return ACTIVITY_IMAGE_REQUIREMENTS.has(normalized) ? normalized : "";
+}
+
 function generateCurriculumItemId() {
   return `item-${crypto.randomBytes(8).toString("hex")}`;
 }
@@ -1903,6 +1937,7 @@ function normalizedCurriculumDailyPlanItem(value) {
     setupImageAlt: normalizedShortText(entry.setupImageAlt || entry.setupAlt, 240),
     setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
     exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
+    imageRequirement: normalizedImageRequirement(entry.imageRequirement),
     teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
     substitutions: normalizedList(entry.substitutions, 12, (item) => {
       if (!item || typeof item !== "object") return null;
@@ -2115,6 +2150,7 @@ function normalizedCurriculumActivity(value) {
     exampleImageUrl: sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
     setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
     exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
+    imageRequirement: normalizedImageRequirement(entry.imageRequirement),
     teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
     substitutions: normalizedList(entry.substitutions, 12, (item) => {
       if (!item || typeof item !== "object") return null;
@@ -3185,6 +3221,9 @@ function mergeEnrichmentFieldsOntoDailyItem(existingItem, incomingItem) {
   const incoming = incomingItem && typeof incomingItem === "object" ? { ...incomingItem } : {};
   const existing = existingItem && typeof existingItem === "object" ? existingItem : null;
   if (!existing) return incoming;
+  if (enrichmentTextEmpty(incoming.imageRequirement) && !enrichmentTextEmpty(existing.imageRequirement)) {
+    incoming.imageRequirement = existing.imageRequirement;
+  }
   if (enrichmentTextEmpty(incoming.setupImageUrl) && !enrichmentTextEmpty(existing.setupImageUrl)) {
     incoming.setupImageUrl = existing.setupImageUrl;
   }
@@ -3380,6 +3419,7 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       exampleImageUrl: item.exampleImageUrl || existing?.exampleImageUrl || "",
       setupMediaAssetId: item.setupMediaAssetId || existing?.setupMediaAssetId || "",
       exampleMediaAssetId: item.exampleMediaAssetId || existing?.exampleMediaAssetId || "",
+      imageRequirement: item.imageRequirement || existing?.imageRequirement || "",
       teacherTips: tips,
       substitutions,
       settingTags,
@@ -20673,6 +20713,7 @@ function snapshotEnrichmentPublishedState(plan, activities) {
       exampleImageUrl: act.exampleImageUrl || "",
       setupMediaAssetId: act.setupMediaAssetId || "",
       exampleMediaAssetId: act.exampleMediaAssetId || "",
+      imageRequirement: act.imageRequirement || "",
       teacherTips: Array.isArray(act.teacherTips) ? act.teacherTips : [],
       substitutions: Array.isArray(act.substitutions) ? act.substitutions : [],
       settingTags: Array.isArray(act.settingTags) ? act.settingTags : [],
@@ -20699,6 +20740,7 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
       exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
       setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId) ? match.setupMediaAssetId : (act.setupMediaAssetId || ""),
       exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.exampleMediaAssetId) ? match.exampleMediaAssetId : (act.exampleMediaAssetId || ""),
+      imageRequirement: match.imageRequirement || act.imageRequirement || "",
       teacherTips: Array.isArray(match.teacherTips) ? match.teacherTips : act.teacherTips,
       substitutions: Array.isArray(match.substitutions) ? match.substitutions : act.substitutions,
       settingTags: Array.isArray(match.settingTags) ? match.settingTags : act.settingTags,
@@ -21064,6 +21106,7 @@ function publishedEnrichmentSnapshotToDraft(snap, { adminEmail = "admin", now = 
       exampleImageUrl: fields.exampleImageUrl || prev.exampleImageUrl || "",
       setupMediaAssetId: fields.setupMediaAssetId || prev.setupMediaAssetId || "",
       exampleMediaAssetId: fields.exampleMediaAssetId || prev.exampleMediaAssetId || "",
+      imageRequirement: fields.imageRequirement || prev.imageRequirement || "",
       substitutions: Array.isArray(fields.substitutions) ? fields.substitutions : (prev.substitutions || []),
       settingTags: Array.isArray(fields.settingTags) ? fields.settingTags : (prev.settingTags || []),
       observationOpportunities: fields.observationOpportunities || prev.observationOpportunities || "",
@@ -21079,6 +21122,7 @@ function publishedEnrichmentSnapshotToDraft(snap, { adminEmail = "admin", now = 
         teacherTips: Array.isArray(item.teacherTips) ? item.teacherTips : [],
         setupImageUrl: item.setupImageUrl || "",
         exampleImageUrl: item.exampleImageUrl || "",
+        imageRequirement: item.imageRequirement || "",
       });
     });
   });

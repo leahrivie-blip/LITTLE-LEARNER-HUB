@@ -1754,9 +1754,46 @@
             <button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>
             <button type="button" class="ghost-button" data-ai-suggest="lesson">Prepare full lesson draft</button>
           </div>
-          <div class="tk-enrich-photo-grid">
-            ${photoZoneHtml("Setup photo (before)", "setupImageUrl", view, key)}
-            ${photoZoneHtml("Finished example (after)", "exampleImageUrl", view, key)}
+          <section class="tk-enrich-card-block" data-image-requirement-block>
+            <h4>Image requirement</h4>
+            <p class="muted-copy">Based on instructional value — not every activity needs photos. Existing images are kept even when marked Optional or Not needed. Briefs never count as photos.</p>
+            <label class="muted-copy" for="tk-image-requirement-${esc(key)}">Requirement for this activity</label>
+            <select id="tk-image-requirement-${esc(key)}" data-image-requirement>
+              ${(enrich.IMAGE_REQUIREMENT_VALUES || ["required", "setup_only", "example_only", "optional", "not_needed"]).map((value) => {
+                const label = (enrich.IMAGE_REQUIREMENT_LABELS && enrich.IMAGE_REQUIREMENT_LABELS[value])
+                  || value;
+                const selected = view.imageRequirement === value ? "selected" : "";
+                return `<option value="${esc(value)}" ${selected}>${esc(label)}</option>`;
+              }).join("")}
+            </select>
+          </section>
+          <div class="tk-enrich-photo-grid" data-activity-images>
+            ${view.imageSlots?.imagesNotNeeded && !view.setupImageUrl && !view.exampleImageUrl
+              ? `<p class="muted-copy" data-images-not-needed>Photos not needed for this activity. Change the requirement above if you still want to upload.</p>`
+              : ""}
+            ${view.imageSlots?.imagesNotNeeded && (view.setupImageUrl || view.exampleImageUrl)
+              ? `<p class="muted-copy">Photos are not required, but existing uploads are preserved.</p>`
+              : ""}
+            ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional || view.setupImageUrl
+              ? photoZoneHtml(
+                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded
+                  ? "Setup photo (optional)"
+                  : "Setup photo (before)",
+                "setupImageUrl",
+                view,
+                key,
+              )
+              : ""}
+            ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional || view.exampleImageUrl
+              ? photoZoneHtml(
+                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded
+                  ? "Finished example (optional)"
+                  : "Finished example (after)",
+                "exampleImageUrl",
+                view,
+                key,
+              )
+              : ""}
           </div>
           <section class="tk-enrich-card-block">
             <h4>Group &amp; setting</h4>
@@ -1833,10 +1870,23 @@
           <section class="tk-enrich-card-block">
             <h4>Example image briefs (style guide)</h4>
             <p class="muted-copy">AI drafts classroom-style briefs only — never glossy stock. Upload photos that match, or use the brief when creating images. Briefs do not publish as photos.</p>
-            <label class="muted-copy">Setup example brief</label>
-            <textarea data-image-brief-setup rows="2" placeholder="Simple tray setup, ordinary materials, natural light…">${esc(view.imageBriefSetup || "")}</textarea>
-            <label class="muted-copy">Finished example brief</label>
-            <textarea data-image-brief-example rows="2" placeholder="Achievable craft / play result, teacher-manual style…">${esc(view.imageBriefExample || "")}</textarea>
+            ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional
+              ? `<label class="muted-copy">Setup example brief</label>
+            <textarea data-image-brief-setup rows="2" placeholder="Simple tray setup, ordinary materials, natural light…">${esc(view.imageBriefSetup || "")}</textarea>`
+              : (view.imageBriefSetup
+                ? `<label class="muted-copy">Setup example brief (kept)</label>
+            <textarea data-image-brief-setup rows="2">${esc(view.imageBriefSetup || "")}</textarea>`
+                : "")}
+            ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional
+              ? `<label class="muted-copy">Finished example brief</label>
+            <textarea data-image-brief-example rows="2" placeholder="Achievable craft / play result, teacher-manual style…">${esc(view.imageBriefExample || "")}</textarea>`
+              : (view.imageBriefExample
+                ? `<label class="muted-copy">Finished example brief (kept)</label>
+            <textarea data-image-brief-example rows="2">${esc(view.imageBriefExample || "")}</textarea>`
+                : "")}
+            ${view.imageSlots?.imagesNotNeeded && !view.imageBriefSetup && !view.imageBriefExample
+              ? `<p class="muted-copy">Image briefs are hidden while photos are marked Not needed.</p>`
+              : ""}
           </section>
           <div class="tk-enrich-stage-nav">
             <button type="button" class="ghost-button" data-enrich-skip>Skip for now</button>
@@ -2789,7 +2839,8 @@
       const draftActs = state.draft.activities || {};
       const targetIdx = activities.findIndex((a) => {
         const view = api().activityEnrichmentView(a, draftActs[draftKey(a)]);
-        return !view.setupImageUrl || !view.exampleImageUrl;
+        const slots = view.imageSlots || {};
+        return (slots.needsSetup && !view.setupImageUrl) || (slots.needsExample && !view.exampleImageUrl);
       });
       if (targetIdx >= 0) state.activityIndex = targetIdx;
       render();
@@ -3084,9 +3135,15 @@
           const draftActs = state.draft.activities || {};
           let target = -1;
           if (jump === "setup" || jump === "briefs") {
-            target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).setupImageUrl);
+            target = activities.findIndex((a) => {
+              const view = api().activityEnrichmentView(a, draftActs[draftKey(a)]);
+              return Boolean(view.imageSlots?.needsSetup) && !view.setupImageUrl;
+            });
           } else if (jump === "example") {
-            target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).exampleImageUrl);
+            target = activities.findIndex((a) => {
+              const view = api().activityEnrichmentView(a, draftActs[draftKey(a)]);
+              return Boolean(view.imageSlots?.needsExample) && !view.exampleImageUrl;
+            });
           } else if (jump === "tips") {
             target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).teacherTips.length);
           } else if (jump === "observations") {
@@ -3856,6 +3913,20 @@
         state.draft.week.previewReady = event.target.checked;
         state.draft.previewReady = event.target.checked;
         markDirty();
+      }
+      if (event.target.matches("[data-image-requirement]")) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        if (!act) return;
+        const key = draftKey(act);
+        const draftAct = ensureDraftActivity(key);
+        const next = api().normalizeImageRequirement
+          ? api().normalizeImageRequirement(event.target.value)
+          : String(event.target.value || "").trim();
+        draftAct.imageRequirement = next || "required";
+        state.statusText = `Image requirement set to ${api().imageRequirementLabel?.(draftAct.imageRequirement) || draftAct.imageRequirement}.`;
+        markDirty();
+        render();
       }
     });
 

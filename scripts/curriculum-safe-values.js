@@ -90,6 +90,7 @@ function normalizeCurriculumDailyItemForRender(item = {}) {
     exampleImageUrl: curriculumAsString(entry.exampleImageUrl || entry.examplePhotoUrl),
     setupMediaAssetId: curriculumAsString(entry.setupMediaAssetId),
     exampleMediaAssetId: curriculumAsString(entry.exampleMediaAssetId),
+    imageRequirement: curriculumAsString(entry.imageRequirement),
     teacherTips: Array.isArray(entry.teacherTips)
       ? entry.teacherTips.map((tip) => curriculumAsString(tip)).filter(Boolean)
       : [],

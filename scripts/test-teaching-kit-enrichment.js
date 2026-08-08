@@ -176,8 +176,12 @@ function main() {
   assert.equal(enrichment.completenessLabelFromPercent(pctRich), "Complete");
   assert.equal(richScores.completeBooks, 1, "complete book records count");
   assert.equal(richScores.completeSongs, 1, "complete song records count");
-  assert.equal(richScores.setupImages, 6, "uploaded setup images count");
-  assert.equal(richScores.exampleImages, 6, "uploaded example images count");
+  // Only instructional-required slots count toward image readiness (Fine Motor + Sensory here).
+  assert.equal(richScores.expectedSetupImages, 2, "expected setup slots follow imageRequirement");
+  assert.equal(richScores.expectedExampleImages, 2, "expected example slots follow imageRequirement");
+  assert.equal(richScores.setupImages, 2, "uploaded setup images count for required slots");
+  assert.equal(richScores.exampleImages, 2, "uploaded example images count for required slots");
+  assert.equal(richScores.imageReadiness, 100, "required image slots filled → 100% image readiness");
 
   // Image briefs must not inflate structural completion toward Publish Ready.
   const briefOnly = enrichment.computeReadinessScores(plan, [], {
@@ -218,8 +222,9 @@ function main() {
   const upgrade = enrichment.buildUpgradeSummary(plan, [], null, { resources, skipQualityAttach: true });
   assert.equal(upgrade.completenessLabel, "Legacy");
   assert.equal(upgrade.incompleteActivities, 6);
-  assert.equal(upgrade.missingSetupPhotos, 6);
-  assert.equal(upgrade.missingExamplePhotos, 6);
+  // Category defaults: only Fine Motor + Sensory require both photos in this sample plan.
+  assert.equal(upgrade.missingSetupPhotos, 2);
+  assert.equal(upgrade.missingExamplePhotos, 2);
   assert.equal(upgrade.missingTeacherTips, 6);
   // Title-only catalog rows are incomplete under #540 resource rules.
   assert.equal(upgrade.missingBooks, true);

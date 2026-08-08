@@ -217,6 +217,22 @@
           <textarea rows="2" data-curriculum-cleanup-tips placeholder="Quick cleanup cues for teachers">${esc(item.cleanupTips || "")}</textarea>
         </label>
         <div class="form-grid-two">
+          <label>Image requirement
+            <select data-curriculum-image-requirement>
+              ${[
+                ["", "Default (by activity type)"],
+                ["required", "Required: setup and example"],
+                ["setup_only", "Setup image only"],
+                ["example_only", "Finished example only"],
+                ["optional", "Optional"],
+                ["not_needed", "Not needed"],
+              ].map(([value, label]) => `
+                <option value="${esc(value)}" ${text(item.imageRequirement) === value ? "selected" : ""}>${esc(label)}</option>
+              `).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="form-grid-two">
           <label>Setup image URL
             <input type="url" data-curriculum-setup-image-url value="${esc(item.setupImageUrl || "")}" placeholder="https://… or /api/media/…" />
           </label>
@@ -276,6 +292,7 @@
       cleanupTips: text(row.querySelector("[data-curriculum-cleanup-tips]")?.value),
       setupImageUrl: text(row.querySelector("[data-curriculum-setup-image-url]")?.value),
       exampleImageUrl: text(row.querySelector("[data-curriculum-example-image-url]")?.value),
+      imageRequirement: text(row.querySelector("[data-curriculum-image-requirement]")?.value),
     };
   }
 
