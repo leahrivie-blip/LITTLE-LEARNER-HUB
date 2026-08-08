@@ -95,6 +95,20 @@ function sourceMarkers() {
     assert.match(block, /dlcAiReviewState\s*=/);
   }
 
+  // dlcSaveSuggestion preview path stages review — does not appendChildRecord for preview
+  {
+    const fnStart = appJs.indexOf("function dlcSaveSuggestion");
+    assert.ok(fnStart > 0, "dlcSaveSuggestion not found");
+    const previewIdx = appJs.indexOf('sug.type === "preview"', fnStart);
+    assert.ok(previewIdx > fnStart, "preview branch not found in dlcSaveSuggestion");
+    const nextFn = appJs.indexOf("\nfunction ", previewIdx + 1);
+    const previewBlock = appJs.slice(previewIdx, nextFn > previewIdx ? nextFn : previewIdx + 3500);
+    assert.match(previewBlock, /dlcAiReviewState\s*=\s*\{/);
+    assert.match(previewBlock, /needs_review/);
+    assert.match(previewBlock, /shareWithFamily:\s*false/);
+    assert.doesNotMatch(previewBlock, /appendChildRecord\(/);
+  }
+
   // Goals / support plans are proposals
   {
     const goalFn = appJs.slice(

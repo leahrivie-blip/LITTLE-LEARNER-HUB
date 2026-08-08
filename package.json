@@ -190,6 +190,7 @@
     "test:ai-review-before-save-phase9": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-ai-review-before-save-phase9.js",
     "test:live-testing-feature-sync-phase10": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-live-testing-feature-sync-phase10.js",
     "test:final-qa-phase11": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-final-qa-phase11.js",
+    "test:phase11-security-cross-access": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-phase11-security-cross-access.js",
     "test:child-profile-redesign": "node scripts/test-child-profile-redesign.js",
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
     "test:admin-redesign-audit": "node scripts/test-admin-redesign-audit.js",

@@ -15424,13 +15424,21 @@ async function handleFamilyHubProviderMessagePost(request, response) {
   const householdId = String(body?.householdId || "").trim();
   const households = listFamilyHouseholdsForOwner(store, ownerEmail)
     .filter((item) => item.status !== "revoked");
-  let household = householdId
-    ? households.find((item) => item.id === householdId)
-    : null;
-  if (!household && childId) {
-    household = households.find((item) => familyHubHouseholdChildIdSet(item).has(childId)) || null;
+  let household = null;
+  if (householdId) {
+    // Explicit householdId must resolve in owned households — never soft-fallback to sole household.
+    household = households.find((item) => item.id === householdId) || null;
+    if (!household) {
+      jsonResponse(response, 404, { error: "Family Hub household not found." });
+      return;
+    }
+  } else {
+    if (childId) {
+      household = households.find((item) => familyHubHouseholdChildIdSet(item).has(childId)) || null;
+    }
+    // Fallback to sole household only when householdId was empty and childId also didn't match.
+    if (!household && households.length === 1) household = households[0];
   }
-  if (!household && households.length === 1) household = households[0];
   if (!household) {
     jsonResponse(response, 404, { error: "No Family Hub household found for that child. Invite the family first." });
     return;

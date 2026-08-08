@@ -9043,7 +9043,7 @@ function renderTuitionBillingPanel() {
     <section class="section-block" id="hdhTuitionBillingPanel" data-tuition-billing-panel="true" data-tuition-mobile-ready="true">
       <p class="eyebrow">Tuition billing (testing)</p>
       <h3>Family tuition &amp; balances</h3>
-      <p class="muted-copy">Provider → family childcare tuition — separate from Little Learner Hub subscription billing. Simulated payments only; no real charges.</p>
+      <p class="muted-copy">Provider → family childcare tuition and parent balances (simulated payments only — no real charges). This is separate from Settings → Billing &amp; Subscription (your Little Learner Hub membership).</p>
       <div class="forms-status-summary" role="status" aria-label="Tuition summary">
         <span class="hdh-form-status-chip is-pending"><strong>${escapeHtml(totals.amountDueLabel || "$0.00")}</strong> due</span>
         <span class="hdh-form-status-chip is-overdue"><strong>${escapeHtml(totals.overdueLabel || "$0.00")}</strong> overdue</span>
@@ -16304,6 +16304,7 @@ function renderOwnerHomeDashboard() {
         <h3>Next actions</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
           ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
           ${workHubTile({ view: "families", title: "Families", detail: "Family Hub & family messages" })}
@@ -16450,6 +16451,7 @@ function renderFamiliesHubPage() {
         <div class="work-hub-grid">
           ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
           ${workHubTile({ view: "home-daycare-hub", title: "Family messages", detail: "Parent threads in Family Hub", attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family tuition", detail: "Parent balances (simulated — not SaaS billing)", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
           ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
         </div>
@@ -16468,6 +16470,13 @@ function renderFamiliesHubPage() {
         <div class="work-hub-grid">
           ${workHubTile({ view: "children", title: "Parents & guardians", detail: "On each child profile" })}
           ${workHubTile({ view: "children", title: "Emergency & authorized pickup", detail: "Child file → contacts" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Support tools</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs & AI notes", detail: "Care-day logs and AI drafts" })}
         </div>
       </section>
     `,
@@ -16528,7 +16537,8 @@ function renderBusinessHubPage() {
       <section class="work-hub-section">
         <h3>Membership</h3>
         <div class="work-hub-grid">
-          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
+          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Your Little Learner Hub membership" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family tuition", detail: "Parent balances — not SaaS billing", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' })}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
           ${workHubTile({ view: "staff", title: "Users & access", detail: "Staff invites and roles" })}
         </div>
@@ -30449,6 +30459,9 @@ function renderCategoryPage(view) {
       <div><strong>${accessCounts.proOnly}</strong><span>Pro unlocks</span></div>
     </div>
     ${accessNoticeHtml}
+    ${category === "Forms Library" && !isProUser() && !hasAdminFullAccess()
+      ? `<p class="muted-copy">Free includes a starter set of forms; Pro unlocks the full Forms Library for enrollment packets, handbooks, and more.</p>`
+      : ""}
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     <div class="filter-row">
@@ -31714,11 +31727,10 @@ function weeklyPlanner() {
 }
 
 function saveWeeklyPlanner(planner) {
-  // Phase 5: llhWeeklyPlanner is read-fallback cache only.
-  // Do not use this for new scheduling writes — persist via schedule APIs.
-  if (planner && planner._canonicalSource === "schedule") return;
-  localStorage.setItem("llhWeeklyPlanner", JSON.stringify(planner));
-  updateSidebarDashboard();
+  // Phase 5/11: llhWeeklyPlanner is read-fallback only — do not write new edits to localStorage.
+  // Persist scheduling via schedule APIs. This no-op keeps call sites stable without setItem.
+  // Legacy read path: weeklyPlanner() still falls back to localStorage when schedule is empty.
+  return planner;
 }
 
 function plannerSuggestions(planner) {
@@ -44201,15 +44213,21 @@ function renderDlcAccordionForm(sectionId, records) {
       </form>`;
   }
   if (sectionId === "meals") {
+    const lastMeals = (typeof window !== "undefined" && window.__dlcLastSavedMeals) || null;
+    const reuseLast = lastMeals && String(lastMeals.date || "") === String(today);
+    const breakfastVal = reuseLast ? String(lastMeals.breakfast || "") : "";
+    const lunchVal = reuseLast ? String(lastMeals.lunch || "") : "";
+    const snackVal = reuseLast ? String(lastMeals.snack || "") : "";
+    const notesVal = reuseLast ? String(lastMeals.notes || "") : "";
     return `
       <form id="dlcMealsForm" class="dlc-acc-form">
         ${childSel}
         <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
-        <label class="dlc-form-label">Breakfast<input name="breakfast" list="dlcMealSuggestions" placeholder="Ate most / refused / not served" /></label>
-        <label class="dlc-form-label">Lunch<input name="lunch" list="dlcMealSuggestions" placeholder="Ate all lunch" /></label>
-        <label class="dlc-form-label">Snack<input name="snack" list="dlcMealSuggestions" placeholder="Ate snack" /></label>
+        <label class="dlc-form-label">Breakfast<input name="breakfast" list="dlcMealSuggestions" value="${escapeHtml(breakfastVal)}" placeholder="Ate most / refused / not served" /></label>
+        <label class="dlc-form-label">Lunch<input name="lunch" list="dlcMealSuggestions" value="${escapeHtml(lunchVal)}" placeholder="Ate all lunch" /></label>
+        <label class="dlc-form-label">Snack<input name="snack" list="dlcMealSuggestions" value="${escapeHtml(snackVal)}" placeholder="Ate snack" /></label>
         ${renderMealPresetControls("dlcMealPresetSelect", "dlc-form-label")}
-        <label class="dlc-form-label">Food Notes<textarea name="notes" rows="2" placeholder="Any food notes"></textarea></label>
+        <label class="dlc-form-label">Food Notes<textarea name="notes" rows="2" placeholder="Any food notes">${escapeHtml(notesVal)}</textarea></label>
         ${renderSuggestionDataList("dlcMealSuggestions", mealSuggestions)}
         ${renderDlcShareFields(true)}
         <button class="primary-button" type="submit">Save Meals</button>
@@ -45143,85 +45161,80 @@ function dlcSaveSuggestion(sug, idx) {
       });
     });
   } else if (sug.type === "preview") {
-    const content = sug.preview || sug.lines.join("\n");
+    // Phase 9/11: AI prose drafts must stage into the review panel — never appendChildRecord here.
+    const content = sug.preview || (Array.isArray(sug.lines) ? sug.lines.join("\n") : "") || "";
     const incidentBody = sug.previewKind === "incident-report" && sug.companionParentMessage
       ? String(content).split(/\n---\nParent message draft:\n/)[0]
       : content;
-    selectedChildren.forEach((child) => {
-      if (sug.previewKind === "daily-report") {
-        appendChildRecord("Reports", {
-          childId: child.id, date: today,
-          title: `Daily Report | ${today}`, message: content, summary: content.slice(0, 120),
-          shareWithFamily: shareFlag,
-        });
-      } else if (sug.previewKind === "observation") {
-        const savedObs = appendChildRecord("Observations", {
-          childId: child.id, date: today,
-          text: content, area: "Daily Log", title: `Observation | ${today}`,
-          summary: content.slice(0, 120),
-          shareWithFamily: shareFlag,
-        });
-        maybeSuggestGoalFromObservation(child, savedObs);
-      } else if (sug.previewKind === "behavior-note" || sug.previewKind === "incident-report" || sug.previewKind === "daily-summary") {
-        appendChildRecord("Communications", {
-          childId: child.id, date: today,
-          type: sug.recordType || "Note", message: incidentBody,
-          title: `${sug.recordType || "Note"} | ${today}`, summary: String(incidentBody).slice(0, 120),
-          shareWithFamily: shareFlag,
-        });
-        if (sug.previewKind === "behavior-note" && sug.alsoSupportPlan) {
-          appendChildRecord("SupportPlans", {
-            childId: child.id,
-            date: today,
-            title: `Support plan | ${today}`,
-            summary: String(incidentBody).slice(0, 200),
-            strategies: String(incidentBody).slice(0, 1200),
-            status: "active",
-            shareWithFamily: false,
-          });
-        }
-        if (sug.previewKind === "incident-report" && sug.companionParentMessage) {
-          appendChildRecord("Communications", {
-            childId: child.id,
-            date: today,
-            type: "Parent Note",
-            message: sug.companionParentMessage,
-            title: `Parent incident update | ${today}`,
-            summary: String(sug.companionParentMessage).slice(0, 120),
-            // Phase 9: follow the same share flag as the primary save — never force share.
-            shareWithFamily: shareFlag,
-          });
-        }
-        if (sug.previewKind === "incident-report") {
-          appendChildRecord("Documents", {
-            childId: child.id,
-            date: today,
-            title: `Incident Report | ${today}`,
-            category: "Incident",
-            status: "on_file",
-            statusLabel: "On file",
-            draftText: incidentBody,
-            notes: String(incidentBody).slice(0, 240),
-            shareWithFamily: false,
-            providerReviewed: true,
-          });
-        }
-      } else if (sug.previewKind === "portfolio-entry") {
-        appendChildRecord("Reports", {
-          childId: child.id, date: today,
-          type: "Portfolio Entry", title: `Portfolio Entry | ${today}`, message: content, summary: content.slice(0, 120),
-          shareWithFamily: shareFlag,
-        });
-      } else {
-        appendChildRecord("Communications", {
-          childId: child.id, date: today,
-          type: "Parent Note", message: content,
-          title: `Parent Update | ${today}`, summary: content.slice(0, 120),
-          shareWithFamily: shareFlag,
-        });
+    const child = selectedChildren[0];
+    if (!child) {
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback("Select a child before reviewing this AI draft.");
       }
-    });
+      return "needs_review";
+    }
+    let recordKey = "Communications";
+    let recordType = sug.recordType || "Parent Note";
+    let title = `Parent Update | ${today}`;
+    let outputText = content;
+    if (sug.previewKind === "daily-report") {
+      recordKey = "Reports";
+      recordType = "Daily Report";
+      title = `Daily Report | ${today}`;
+    } else if (sug.previewKind === "observation") {
+      recordKey = "Observations";
+      recordType = "Observation";
+      title = `Observation | ${today}`;
+    } else if (sug.previewKind === "behavior-note") {
+      recordKey = "Communications";
+      recordType = sug.recordType || "Behavior Note";
+      title = `${recordType} | ${today}`;
+      outputText = incidentBody;
+    } else if (sug.previewKind === "incident-report") {
+      recordKey = "Communications";
+      recordType = sug.recordType || "Incident Report";
+      title = `${recordType} | ${today}`;
+      outputText = incidentBody;
+    } else if (sug.previewKind === "daily-summary") {
+      recordKey = "Communications";
+      recordType = sug.recordType || "Daily Summary";
+      title = `${recordType} | ${today}`;
+      outputText = incidentBody;
+    } else if (sug.previewKind === "portfolio-entry") {
+      recordKey = "Reports";
+      recordType = "Portfolio Entry";
+      title = `Portfolio Entry | ${today}`;
+    } else {
+      // parent update / default generative prose
+      recordKey = "Communications";
+      recordType = "Parent Note";
+      title = `Parent Update | ${today}`;
+    }
+    dlcAiReviewState = {
+      proposalId: `dlc-sug-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      kind: sug.previewKind || "preview",
+      childId: child.id,
+      childName: child.name,
+      date: today,
+      title,
+      outputText: String(outputText || "").trim(),
+      recordKey,
+      recordType,
+      type: recordType,
+      reviewAcknowledged: false,
+      shareWithFamily: false,
+      suggestionIndex: idx,
+      companionParentMessage: sug.companionParentMessage || "",
+      alsoSupportPlan: Boolean(sug.alsoSupportPlan),
+    };
+    sug.pendingReview = true;
+    sug.saved = false;
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback("AI draft ready for review — nothing saved or shared yet.");
+    }
+    return "needs_review";
   }
+  return "saved";
 }
 
 function maybeSuggestGoalFromObservation(child, observation = {}) {
@@ -46239,16 +46252,23 @@ function attendanceForm(childId) {
 function mealTrackingForm(childId) {
   const suggestions = recentDailyLogValues(childRecords().meals || [], "lunch", childId, 6);
   const activeDate = dlcActiveDate();
+  const meals = (childRecords().meals || []).filter((m) => String(m.childId) === String(childId));
+  const latest = [...meals].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.id || "").localeCompare(String(a.id || ""))).find((m) => !/^Bottle\s*\|/i.test(String(m.title || ""))) || null;
+  const breakfastVal = latest ? String(latest.breakfast || "") : "";
+  const lunchVal = latest ? String(latest.lunch || "") : "";
+  const snackVal = latest ? String(latest.snack || "") : "";
+  const notesVal = latest ? String(latest.notes || "") : "";
+  const allergyVal = latest ? String(latest.allergyNotes || "") : "";
   return `
     <form id="mealTrackingForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
       <label>Date<input name="date" type="date" value="${activeDate}" /></label>
-      <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
-      <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
-      <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
+      <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" value="${escapeHtml(breakfastVal)}" placeholder="Ate most / refused / not served" /></label>
+      <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" value="${escapeHtml(lunchVal)}" placeholder="Ate all lunch" /></label>
+      <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" value="${escapeHtml(snackVal)}" placeholder="Ate snack" /></label>
       ${renderMealPresetControls(`mealPresetSelect-${childId}`)}
-      <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes"></textarea></label>
-      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes"></textarea></label>
+      <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes">${escapeHtml(notesVal)}</textarea></label>
+      <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes">${escapeHtml(allergyVal)}</textarea></label>
       ${renderSuggestionDataList(`mealTrackingSuggestions-${childId}`, suggestions)}
       <button class="primary-button" type="submit">Save Meals</button>
     </form>
@@ -67684,10 +67704,21 @@ document.addEventListener("click", async (event) => {
     const idx = parseInt(dlcSugSaveBtn.dataset.dlcSugSave, 10);
     const sug = dlcAiSuggestions[idx];
     if (!sug) return;
-    // Read shareWithFamily checkbox
+    // Read shareWithFamily checkbox (structured saves only; preview never defaults share true)
     const shareCheck = document.querySelector(`[data-sug-index="${idx}"].dlc-sug-family-check`);
     sug.shareWithFamily = shareCheck ? shareCheck.checked : sug.shareWithFamily;
-    dlcSaveSuggestion(sug, idx);
+    const status = dlcSaveSuggestion(sug, idx);
+    if (sug.type === "preview" || status === "needs_review") {
+      dlcAiSuggestions[idx] = { ...sug, pendingReview: true, saved: false };
+      const reviewChildId = dlcAiReviewState?.childId;
+      if (reviewChildId) {
+        selectedChildId = reviewChildId;
+        dailyLogsSection = "individual";
+      }
+      childManagementMode = "daily-logs";
+      renderChildManagement();
+      return;
+    }
     dlcAiSuggestions[idx] = { ...sug, saved: true };
     childManagementMode = "daily-logs";
     renderChildManagement();
@@ -67721,14 +67752,29 @@ document.addEventListener("click", async (event) => {
   const dlcSaveAllBtn = event.target.closest("[data-dlc-save-all]");
   if (dlcSaveAllBtn) {
     event.preventDefault();
+    let savedCount = 0;
+    let skippedPreview = 0;
     dlcAiSuggestions.forEach((sug, idx) => {
-      if (!sug.saved && !sug.ignored) {
-        dlcSaveSuggestion(sug, idx);
-        dlcAiSuggestions[idx] = { ...sug, saved: true };
+      if (sug.saved || sug.ignored || sug.pendingReview) return;
+      if (sug.type === "preview") {
+        skippedPreview += 1;
+        return;
       }
+      dlcSaveSuggestion(sug, idx);
+      dlcAiSuggestions[idx] = { ...sug, saved: true };
+      savedCount += 1;
     });
     childManagementMode = "daily-logs";
     renderChildManagement();
+    if (skippedPreview > 0) {
+      showActionFeedback(
+        skippedPreview === 1
+          ? `Saved ${savedCount} structured suggestion${savedCount === 1 ? "" : "s"}. AI text drafts require individual review — use Review on each draft.`
+          : `Saved ${savedCount} structured suggestion${savedCount === 1 ? "" : "s"}. Skipped ${skippedPreview} AI text drafts — each needs individual review before save.`,
+      );
+    } else if (savedCount > 0) {
+      showActionFeedback(`Saved ${savedCount} suggestion${savedCount === 1 ? "" : "s"}.`);
+    }
     return;
   }
 
@@ -75177,6 +75223,7 @@ document.addEventListener("submit", (event) => {
     summary: `Breakfast: ${data.breakfast || ""} | Lunch: ${data.lunch || ""} | Snack: ${data.snack || ""}`,
     shareWithFamily: true,
   });
+  showActionFeedback(`Meals saved for 1 child. Entry is on today's timeline.`);
   showAfterActionPrompt("meals", data.childId);
 });
 
@@ -75335,9 +75382,13 @@ document.addEventListener("submit", (event) => {
     const parts = [data.breakfast && `Breakfast: ${data.breakfast}`, data.lunch && `Lunch: ${data.lunch}`, data.snack && `Snack: ${data.snack}`].filter(Boolean);
     appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily }, { skipRender: true });
   });
-  showAfterActionPrompt("meals", childIds[0]);
-  dlcManualSection = "";
+  window.__dlcLastSavedMeals = { ...data, childIds };
+  // Keep meals section open and rehydrate fields from last save (avoid blanking the form).
+  dlcManualSection = "meals";
   renderChildManagement();
+  const n = childIds.length || 1;
+  showActionFeedback(`Meals saved for ${n} child${n === 1 ? "" : "ren"}. Entry is on today's timeline.`);
+  showAfterActionPrompt("meals", childIds[0]);
 });
 
 document.addEventListener("submit", (event) => {
