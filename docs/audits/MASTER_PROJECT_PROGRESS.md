@@ -58,7 +58,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 - Redeploy status: `docs/audits/PHASE11_TESTING_REDEPLOY_STATUS.md`  
 - Manual punch list: `docs/audits/PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md`  
 - Branch: `cursor/phase11-final-qa-fix-wave-4eae`  
-- Live testing shell target: `20260808-phase11-fix-wave` (redeploy testing only; production remains `20260808-cookie-cta`)  
+- Live testing shell: `20260808-phase11-fix-wave` (deployed); production remains `20260808-cookie-cta`  
 - Remote smoke: `npm run test:remote-testing-smoke-phase11` (PASS after testing redeploy)  
 - Stance: fix reported functional bugs on testing only; curriculum content/covers deferred; **no production deploy**
 
