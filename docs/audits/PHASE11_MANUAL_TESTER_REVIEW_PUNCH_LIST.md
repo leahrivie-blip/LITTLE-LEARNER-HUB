@@ -1,5 +1,9 @@
 # Phase 11 — Manual Tester Review Punch List
 
+> **Real provider testing is active.** New tester feedback goes in  
+> [`REAL_PROVIDER_TESTING_FEEDBACK_PUNCH_LIST.md`](./REAL_PROVIDER_TESTING_FEEDBACK_PUNCH_LIST.md)  
+> (not this Phase 11 QA list). Keep PR #590 unmerged; production untouched.
+
 **Owner reviewer:** Leah  
 **Environment:** Testing only — `https://little-learner-hub-testing.onrender.com`  
 **Shell (fix wave):** `20260808-phase11-fix-wave`  
