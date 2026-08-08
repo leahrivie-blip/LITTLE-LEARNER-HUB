@@ -4079,6 +4079,30 @@ body.user-authenticated .view.active-view {
   flex: 1 1 12rem;
 }
 
+.tk-draft-review-queue .tk-draft-review-table-wrap {
+  overflow: auto;
+  max-width: 100%;
+}
+.tk-draft-review-table {
+  min-width: 1100px;
+  font-size: 0.86rem;
+}
+.tk-draft-review-table tr.is-selected {
+  background: rgba(70, 110, 90, 0.08);
+}
+.tk-draft-review-detail textarea {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+.tk-draft-review-resource-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  align-items: center;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .tk-proof-draft-import-panel {
   border: 1px solid rgba(47, 74, 62, 0.18);
   border-radius: 12px;

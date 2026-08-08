@@ -1,0 +1,62 @@
+{
+  "passed": 37,
+  "finishedAt": "2026-08-08T23:02:00.402Z",
+  "seedBatch": "draft-review-seed-2026-08-08",
+  "items": [
+    {
+      "id": "cdr-30a618c99a738f7a719d",
+      "lessonPlanId": "cur-lp-toddler-amazing-apples",
+      "title": "Amazing Apples",
+      "age": "Toddler",
+      "theme": "Apples",
+      "publishedVersionLabel": "Published",
+      "draftVersionLabel": "Incoming draft",
+      "receivedAt": "2026-08-08T23:01:55.979Z",
+      "updatedAt": "2026-08-08T23:01:55.979Z",
+      "batchName": "Proof Two — Draft Review Queue",
+      "batchId": "draft-review-seed-2026-08-08",
+      "source": "cursor-agent",
+      "status": "needs_owner_review",
+      "statusLabel": "Needs Owner Review",
+      "structuralScore": 70,
+      "premiumScore": 68,
+      "blockingIssues": [
+        "draft_printables_only",
+        "activities_in_progress",
+        "safety_concern"
+      ],
+      "changedActivities": 17,
+      "newPrintables": 1,
+      "images": 0,
+      "songsBooksStatus": "3 songs (3 original/PD) · 3 books (3 verified)",
+      "rollbackId": "cdr-snap-c6651c4c335fad0aabe3"
+    },
+    {
+      "id": "cdr-f5dbc341ed360f9f1d51",
+      "lessonPlanId": "cur-lp-preschool-all-about-me",
+      "title": "All About Me",
+      "age": "Preschool",
+      "theme": "All About Me",
+      "publishedVersionLabel": "Published",
+      "draftVersionLabel": "Incoming draft",
+      "receivedAt": "2026-08-08T23:01:57.194Z",
+      "updatedAt": "2026-08-08T23:01:57.194Z",
+      "batchName": "Proof Two — Draft Review Queue",
+      "batchId": "draft-review-seed-2026-08-08",
+      "source": "cursor-agent",
+      "status": "needs_owner_review",
+      "statusLabel": "Needs Owner Review",
+      "structuralScore": 70,
+      "premiumScore": 68,
+      "blockingIssues": [
+        "draft_printables_only",
+        "activities_in_progress"
+      ],
+      "changedActivities": 15,
+      "newPrintables": 1,
+      "images": 0,
+      "songsBooksStatus": "3 songs (3 original/PD) · 3 books (3 verified)",
+      "rollbackId": "cdr-snap-cde88abb7f2961dfe540"
+    }
+  ]
+}

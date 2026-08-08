@@ -13,6 +13,8 @@ const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js")
 const trialClassification = require("../scripts/trial-classification.js");
 const teachingKit = require("../scripts/teaching-kit.js");
 const proofDraftImport = require("../scripts/teaching-kit-proof-draft-import.js");
+const draftReviewModel = require("../scripts/teaching-kit-draft-review.js");
+const { createCurriculumDraftReviewApi } = require("./curriculum-draft-review-api.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
@@ -1137,6 +1139,7 @@ function defaultSiteContentStore() {
     images: [],
     featureFlags: defaultFeatureFlags(),
     curriculum: defaultCurriculumStore(),
+    curriculumDraftReviews: [],
     updatedAt: "",
   };
 }
@@ -3628,6 +3631,7 @@ function normalizedSiteContent(value) {
     // Temporary member update banner — explicit false disables immediately; otherwise on.
     memberUpdateBannerEnabled: input.memberUpdateBannerEnabled !== false,
     curriculum: normalizedCurriculumStore(input.curriculum),
+    curriculumDraftReviews: draftReviewModel.normalizeDraftReviewQueue(input.curriculumDraftReviews),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
     teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
     // AI Curriculum Director master resources + planning notes (flag-gated).
@@ -20960,13 +20964,15 @@ async function handleEnrichmentRollback(request, response) {
   const entryKind = normalizedShortText(entry.kind, 20) || "publish";
   const isDraftRestore = entryKind === "draft"
     || entryKind === "proof_import_snapshot"
+    || entryKind === "draft_review_snapshot"
     || (snap.enrichmentDraft && !snap.dailyPlans);
 
   if (isDraftRestore) {
     const draftSnap = snap.enrichmentDraft && typeof snap.enrichmentDraft === "object"
       ? snap.enrichmentDraft
       : null;
-    const allowEmptyProofRestore = entryKind === "proof_import_snapshot";
+    const allowEmptyProofRestore = entryKind === "proof_import_snapshot"
+      || entryKind === "draft_review_snapshot";
     if (!enrichmentDraftHasContent(draftSnap) && !allowEmptyProofRestore) {
       jsonResponse(response, 400, {
         error: "That draft snapshot has no enrichment content to restore.",
@@ -29007,6 +29013,43 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/tk-printable") return await handleAdminTeachingKitPrintable(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
+      if (!globalThis.__llhDraftReviewApi) {
+        globalThis.__llhDraftReviewApi = createCurriculumDraftReviewApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          normalizedSiteContent,
+          defaultSiteContentStore,
+          curriculumConcurrencyConflict,
+          curriculumConflictResponse,
+          normalizedShortText,
+          normalizedCurriculumStore,
+          normalizedCurriculumLessonPlan,
+          normalizedCurriculumResource,
+          writeSiteCurriculum,
+          linkCurriculumResourceToLessonPlan,
+          parseCurriculumPdfUploadDataUrl,
+          sanitizeCurriculumUploadFileName,
+          persistCurriculumUploadToMediaAsset,
+          usePostgresStore,
+          MAX_CURRICULUM_UPLOAD_MB,
+          assertCurriculumIntegrityOrError,
+          curriculumResourceMetadata,
+          cloneJson,
+          enrichmentDraftHasContent,
+          appendEnrichmentEditorAudit,
+          loadEnrichmentHelpers,
+          isCurriculumResourcePublic,
+          crypto,
+        });
+      }
+      return await globalThis.__llhDraftReviewApi.handle(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/proof-draft-import") return await handleAdminProofDraftImport(request, response);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
