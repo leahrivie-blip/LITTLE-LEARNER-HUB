@@ -1,0 +1,2116 @@
+{
+  "planId": "cur-lp-toddler-amazing-apples",
+  "plan": {
+    "_formatVersion": 3,
+    "title": "Amazing Apples",
+    "age": "Toddler",
+    "ageBucket": "Toddler",
+    "theme": "Apples",
+    "plan": "Pro",
+    "status": "published",
+    "learningDomains": [
+      "Science",
+      "Language & Literacy",
+      "Math",
+      "Physical Development",
+      "Creative Arts"
+    ],
+    "weeklyOverview": "This week, toddlers will explore the wonderful world of apples through hands-on investigations, sensory experiences, movement, music, dramatic play, art, and early science activities. Children will discover that apples come in different colors, sizes, and tastes while learning where apples grow and how they become healthy foods we can enjoy. Throughout the week, they will strengthen language skills, early math concepts, fine and gross motor development, and social-emotional skills by working together during engaging apple-themed experiences.",
+    "objectives": "Identify apples as a healthy fruit.\nRecognize red, green, and yellow apples.\nExplore apples using the five senses.\nCompare apples by size, color, and texture.\nPractice counting, sorting, and matching apples.\nStrengthen fine motor skills through art and sensory play.\nBuild vocabulary related to apples and orchards.\nEncourage curiosity through simple science investigations.\nParticipate in cooperative play and group discussions.\nDevelop confidence while exploring new foods and experiences.",
+    "weeklyMaterials": "Red, green, and yellow apples\nApple slices\nPlastic apples\nApple basket\nToy grocery items\nApple tree props\nPaint\nConstruction paper\nGlue sticks\nCrayons\nDot markers\nApple stickers\nPlay dough\nSensory bin materials\nhand lenses\nBooks\nMusic player",
+    "vocabularyWords": "Apple\nFruit\nRed\nGreen\nYellow\nStem\nLeaf\nSeed\nTree\nOrchard\nCrunch\nSweet",
+    "familyConnection": "Invite families to visit a grocery store or orchard together to look for different apples. Encourage children to taste apples at home and talk about their favorite color, taste, and texture.",
+    "observationOpportunities": "Color recognition\nCounting skills\nVocabulary development\nSensory exploration\nFine motor skills\nSocial interactions\nCuriosity during science activities",
+    "adaptations": "Provide adaptive scissors and crayons as needed.\nUse picture cards for vocabulary support.\nOffer larger manipulatives for children needing additional assistance.\nModify activities based on developmental levels.",
+    "books": [
+      {
+        "title": "Ten Apples Up On Top!",
+        "author": "",
+        "notes": ""
+      },
+      {
+        "title": "Apple Farmer Annie",
+        "author": "",
+        "notes": ""
+      },
+      {
+        "title": "Apples and Pumpkins",
+        "author": "",
+        "notes": ""
+      },
+      {
+        "title": "The Biggest Apple Ever",
+        "author": "",
+        "notes": ""
+      },
+      {
+        "title": "How Do Apples Grow?",
+        "author": "",
+        "notes": ""
+      }
+    ],
+    "songs": [
+      {
+        "title": "Way Up High in the Apple Tree",
+        "notes": "",
+        "author": ""
+      },
+      {
+        "title": "Apples and Bananas",
+        "notes": "",
+        "author": ""
+      },
+      {
+        "title": "Five Red Apples",
+        "notes": "",
+        "author": ""
+      },
+      {
+        "title": "The Apple Tree Song",
+        "notes": "",
+        "author": ""
+      },
+      {
+        "title": "If You're Happy and You Know It (Apple Version)",
+        "notes": "",
+        "author": ""
+      }
+    ],
+    "dailyPlans": {
+      "monday": {
+        "theme": "Amazing Apples",
+        "objectives": "Identify an apple by sight and touch.\nExplore apples using the five senses.\nRecognize red, green, and yellow apples.\nBuild apple-related vocabulary.\nPractice early counting skills.",
+        "materials": "Red, green, and yellow apples\nApple basket\nhand lenses\nApple picture cards\nApple slices\nChart paper\nRed, green, and yellow paint\nApple-shaped sponges\nConstruction paper\nCrayons\nGlue\nMusic player\nBean bags\nSensory bin with apples",
+        "vocabulary": "Apple\nRed\nGreen\nYellow\nFruit\nStem",
+        "books": [],
+        "songs": [],
+        "items": [
+          {
+            "itemId": "item-toddler-amazing-apples-monday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Investigation",
+            "objective": "Introduce children to observing apples using their five senses.",
+            "description": "Children investigate real apples by looking, touching, smelling, and listening while learning descriptive vocabulary.",
+            "learningDomains": [],
+            "materials": "Red, green, and yellow apples\nhand lenses",
+            "setup": "Place apples in the center of the table with hand lenses nearby.",
+            "steps": "1. Give each child an apple.\n2. Look closely using hand lenses.\n3. Feel the smooth skin.\n4. Smell the apple.\n5. Tap gently and listen to the sound.\n6. Talk about what everyone noticed.",
+            "teacherRole": "Encourage observation by asking open-ended questions and introducing new vocabulary.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Observation skills",
+              "Science exploration",
+              "Vocabulary development",
+              "Curiosity"
+            ],
+            "observationOpportunities": "Observe children's willingness to explore and describe the apples.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide larger apples or additional teacher support as needed.",
+            "safetyNotes": "Closely supervise children while handling real apples.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-monday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Apple Stamp Painting",
+            "objective": "Explore color while creating apple artwork.",
+            "description": "Children use apple halves dipped in paint to create colorful apple prints.",
+            "learningDomains": [],
+            "materials": "Apple halves\nRed, green, and yellow paint\nWhite construction paper\nSmocks",
+            "setup": "Cut apples in half before the activity and pour paint into shallow trays.",
+            "steps": "1. Dip the apple into paint.\n2. Press onto paper.\n3. Lift carefully.\n4. Repeat using different colors.\n5. Allow artwork to dry for display.",
+            "teacherRole": "Model stamping techniques and encourage color recognition.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Fine motor development",
+              "Creativity",
+              "Color recognition",
+              "Cause and effect"
+            ],
+            "observationOpportunities": "Observe hand control and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide sponge stamps if needed.",
+            "safetyNotes": "Use only non-toxic washable paint and supervise closely.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-monday-3",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Count the Apples",
+            "objective": "Practice one-to-one counting.",
+            "description": "Children count plastic apples and place them into baskets.",
+            "learningDomains": [],
+            "materials": "Plastic apples\nSmall baskets\nNumber cards 1–5",
+            "setup": "Place apples beside empty baskets.",
+            "steps": "1. Choose a number card.\n2. Count the correct number of apples.\n3. Place apples into the basket.\n4. Count together.\n5. Repeat with another number.",
+            "teacherRole": "Model counting slowly and encourage children to touch each apple as they count.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Counting",
+              "Number recognition",
+              "One-to-one correspondence"
+            ],
+            "observationOpportunities": "Observe counting accuracy and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the number of apples or provide hand-over-hand assistance.",
+            "safetyNotes": "Use large manipulatives to prevent mouthing risks.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-monday-4",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Pick the Apples",
+            "objective": "Develop gross motor skills while reinforcing apple vocabulary.",
+            "description": "Children pretend to reach high into an apple tree, pick apples, place them in baskets, and carry them to the pretend orchard.",
+            "learningDomains": [],
+            "materials": "Music player\nApple baskets\nPlastic apples",
+            "setup": "Scatter plastic apples around the classroom.",
+            "steps": "1. Play apple-themed music.\n2. Pretend to reach high into the tree.\n3. Pick an apple.\n4. Carry it to the basket.\n5. Repeat until all apples have been collected.",
+            "teacherRole": "Encourage movement, counting, and imaginative play.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Listening skills",
+              "Coordination",
+              "Imaginative play"
+            ],
+            "observationOpportunities": "Observe balance, coordination, and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Place apples within easy reach or allow seated participation if needed.",
+            "safetyNotes": "Ensure children walk while carrying apples and keep the activity area free of obstacles.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "Apple Colors",
+        "objectives": "Identify red, green, and yellow apples.\nCompare apples by color.\nPractice sorting and matching.\nStrengthen fine motor skills.\nExpand apple vocabulary.",
+        "materials": "Red, green, and yellow apples\nPlastic apples\nColor sorting mats\nColored baskets\nApple color cards\nConstruction paper\nDot markers\nPaint\nGlue\nApple stickers\nBean bags\nMusic player\nColor scarves",
+        "vocabulary": "Red\nGreen\nYellow\nApple\nColor\nSort",
+        "books": [],
+        "songs": [],
+        "items": [
+          {
+            "itemId": "item-toddler-amazing-apples-tuesday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Color Sort",
+            "objective": "Develop color recognition and sorting skills.",
+            "description": "Children sort apples into matching colored baskets while practicing color vocabulary.",
+            "learningDomains": [],
+            "materials": "Plastic apples\nRed basket\nGreen basket\nYellow basket",
+            "setup": "Mix all apples together in one large basket.",
+            "steps": "1. Show each colored basket.\n2. Pick up one apple.\n3. Name its color.\n4. Place it into the matching basket.\n5. Count how many apples are in each basket.",
+            "teacherRole": "Encourage children to say each color aloud while sorting.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Color recognition",
+              "Sorting",
+              "Counting",
+              "Vocabulary development"
+            ],
+            "observationOpportunities": "Observe children's ability to identify and sort colors correctly.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use only two colors if children need a simpler activity.",
+            "safetyNotes": "Use large manipulatives appropriate for toddlers.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Apple Peel Tear Collage",
+            "objective": "Tear and stick paper to build a process apple collage.",
+            "description": "Process collage replacing template tissue craft.",
+            "learningDomains": [],
+            "materials": "Red and green paper for tearing\nGlue sticks\nOptional light circle guide\nTrays",
+            "setup": "Set trays with paper scraps started with one teacher tear.",
+            "steps": "Children tear and stick. No matching model.",
+            "teacherRole": "Encourage creativity while reinforcing color names.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Fine motor development",
+              "Creativity",
+              "Color recognition"
+            ],
+            "observationOpportunities": "Observe color choices and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Offer larger tissue paper pieces or sponge painting.",
+            "safetyNotes": "Closely supervise glue and art materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-tuesday-4",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Apple Color Dance",
+            "objective": "Reinforce color recognition through movement.",
+            "description": "Children dance while holding colorful scarves. When the music stops, the teacher calls a color and children find the matching apple.",
+            "learningDomains": [],
+            "materials": "Music player\nColor scarves\nPlastic apples",
+            "setup": "Scatter apples throughout the room.",
+            "steps": "1. Dance with scarves.\n2. Freeze when the music stops.\n3. Listen for a color.\n4. Find the matching apple.\n5. Repeat with different colors.",
+            "teacherRole": "Encourage movement and celebrate successful color matching.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Listening skills",
+              "Color recognition",
+              "Following directions"
+            ],
+            "observationOpportunities": "Observe listening, coordination, and color identification.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the number of colors or provide teacher guidance.",
+            "safetyNotes": "Keep the movement area clear and remind children to walk while finding apples.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Apple Sizes and Shapes",
+        "objectives": "Compare apples by size.\nRecognize that apples are round.\nUse comparison words like big, small, larger, and smaller.\nPractice measuring and sorting.\nStrengthen observation and problem-solving skills.",
+        "materials": "Large, medium, and small apples\nPlastic apples\nMeasuring tape\nBalance scale\nApple picture cards\nhand lenses\nApple shape cutouts\nPlay dough\nConstruction paper\nCrayons\nGlue\nMusic player\nHula hoops",
+        "vocabulary": "Big\nSmall\nLarge\nLittle\nRound\nCompare",
+        "books": [],
+        "songs": [],
+        "items": [
+          {
+            "itemId": "item-toddler-amazing-apples-wednesday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Big or Small?",
+            "objective": "Develop comparison and classification skills.",
+            "description": "Children compare apples by size and sort them into \"Big\" and \"Small\" baskets.",
+            "learningDomains": [],
+            "materials": "Large apples\nSmall apples\nTwo baskets\nSize labels",
+            "setup": "Mix apples together in one large basket.",
+            "steps": "1. Show the two baskets.\n2. Pick up one apple.\n3. Decide if it is big or small.\n4. Place it into the correct basket.\n5. Count the apples in each basket.",
+            "teacherRole": "Model comparison words and encourage children to explain their thinking.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Comparing",
+              "Sorting",
+              "Vocabulary",
+              "Early math skills"
+            ],
+            "observationOpportunities": "Observe children's ability to compare sizes and classify objects.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Begin with only two noticeably different sizes before introducing medium apples.",
+            "safetyNotes": "Use age-appropriate apples and supervise closely.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-wednesday-2",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Measuring Station",
+            "objective": "Introduce simple measurement concepts.",
+            "description": "Children explore how apples can be measured using yarn, measuring tape, or linking cubes.",
+            "learningDomains": [],
+            "materials": "Apples\nMeasuring tape\nYarn\nLinking cubes",
+            "setup": "Arrange measuring materials on a science table.",
+            "steps": "1. Choose an apple.\n2. Wrap yarn around the apple.\n3. Compare the yarn lengths.\n4. Count linking cubes if using them.\n5. Talk about which apple is bigger.",
+            "teacherRole": "Introduce simple measurement vocabulary while encouraging exploration.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Observation",
+              "Measuring",
+              "Comparing",
+              "Problem-solving"
+            ],
+            "observationOpportunities": "Observe curiosity and understanding of measurement.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use only one measuring tool if needed.",
+            "safetyNotes": "Closely supervise measuring materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-wednesday-4",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Roll Like an Apple",
+            "objective": "Develop body awareness and gross motor skills.",
+            "description": "Children pretend to be apples by curling into a ball, rolling carefully on mats, stretching into apple trees, and reaching high to pick pretend apples.",
+            "learningDomains": [],
+            "materials": "Gym mats\nMusic player\nBean bags",
+            "setup": "Create a large open movement area with mats.",
+            "steps": "1. Pretend to grow into an apple tree.\n2. Reach up high.\n3. Curl into a round apple.\n4. Carefully roll across the mat.\n5. Stand up and pretend to place your apple into a basket.",
+            "teacherRole": "Model each movement and encourage safe participation.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Body awareness",
+              "Coordination",
+              "Imaginative play"
+            ],
+            "observationOpportunities": "Observe balance, coordination, and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Allow children to perform movements while seated or with teacher assistance.",
+            "safetyNotes": "Use mats on a flat surface and supervise rolling activities closely.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Apple Taste Test",
+        "objectives": "Explore apples using the sense of taste.\nDescribe apples using simple descriptive words.\nCompare different apple varieties.\nPractice making predictions.\nEncourage trying new healthy foods.",
+        "materials": "Red apples\nGreen apples\nYellow apples\nSmall tasting plates\nChild-safe cutting tools (teacher use only)\nNapkins\nApple graph\nApple picture cards\nChart paper\nStickers\nPlay food apples\nMusic player\nApple basket",
+        "vocabulary": "Taste\nSweet\nCrunchy\nJuicy\nFavorite\nHealthy",
+        "books": [],
+        "songs": [],
+        "items": [
+          {
+            "itemId": "item-toddler-amazing-apples-thursday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Taste Test",
+            "objective": "Explore different apple varieties using the sense of taste.",
+            "description": "Children sample small pieces of red, green, and yellow apples while comparing their flavors and textures.",
+            "learningDomains": [],
+            "materials": "Red apples\nGreen apples\nYellow apples\nSmall plates\nNapkins",
+            "setup": "Wash and slice apples before children arrive. Place one slice of each apple on every plate.",
+            "steps": "1. Look at each apple.\n2. Smell each apple.\n3. Taste one slice at a time.\n4. Talk about which apple tastes sweet, tart, or crunchy.\n5. Choose your favorite apple.",
+            "teacherRole": "Encourage children to describe what they taste while respecting that everyone may have different preferences.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Sensory exploration",
+              "Healthy eating awareness",
+              "Descriptive language",
+              "Trying new foods"
+            ],
+            "observationOpportunities": "Observe children's willingness to try new foods and describe their experiences.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Offer only one apple variety if children are hesitant or have sensory sensitivities.",
+            "safetyNotes": "Always check for food allergies. Cut apples into small bite-sized pieces and supervise closely during tasting.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-thursday-2",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Favorite Apple Graph",
+            "objective": "Introduce simple graphing and counting skills.",
+            "description": "Children place their name or sticker above their favorite apple color to create a classroom graph.",
+            "learningDomains": [],
+            "materials": "Large graph paper\nApple color pictures\nName cards or stickers",
+            "setup": "Prepare a graph with three columns labeled Red, Green, and Yellow.",
+            "steps": "1. Decide your favorite apple.\n2. Find the matching column.\n3. Place your sticker.\n4. Count each column together.\n5. Discover which apple was the class favorite.",
+            "teacherRole": "Guide children through counting and comparing which column has the most and least.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Graphing",
+              "Counting",
+              "Comparing quantities",
+              "Decision making"
+            ],
+            "observationOpportunities": "Observe counting skills and ability to interpret simple graphs.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use picture cards instead of written names if needed.",
+            "safetyNotes": "Keep graphing materials organized to prevent slipping or clutter.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-thursday-3",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Apple Market",
+            "objective": "Encourage imaginative play while practicing social skills.",
+            "description": "Children pretend to buy and sell apples at a classroom farmers market.",
+            "learningDomains": [],
+            "materials": "Toy cash register\nToy apples\nGrocery baskets\nPlay money\nShopping bags",
+            "setup": "Create a pretend apple market with baskets of apples and a checkout area.",
+            "steps": "1. Choose to be a shopper or cashier.\n2. Pick apples for your basket.\n3. Pretend to pay for the apples.\n4. Trade roles with a friend.\n5. Practice saying \"Thank you\" and \"You're welcome.\"",
+            "teacherRole": "Model friendly conversations and encourage sharing and turn-taking.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Social skills",
+              "Language development",
+              "Imaginative play",
+              "Problem solving"
+            ],
+            "observationOpportunities": "Observe communication, cooperation, and role-playing skills.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual communication cards for children needing language support.",
+            "safetyNotes": "Use only child-safe dramatic play materials.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "friday": {
+        "theme": "How Apples Grow",
+        "objectives": "Learn that apples grow on trees.\nIdentify the basic parts of an apple tree.\nSequence the life cycle of an apple from tree to table.\nReview apple vocabulary learned throughout the week.\nCelebrate everything learned during Apple Week.",
+        "materials": "Apple tree poster\nApple life cycle cards\nToy apples\nApple seeds\nFlower pictures\nBrown and green construction paper\nCotton balls\nGlue\nScissors (teacher use or child-safe as appropriate)\nPaint\nPlay dough\nMusic player\nApple books",
+        "vocabulary": "Tree\nOrchard\nBranch\nLeaf\nBlossom\nSeed\nGrow\nHarvest",
+        "books": [],
+        "songs": [],
+        "items": [
+          {
+            "itemId": "item-toddler-amazing-apples-friday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Life Cycle",
+            "objective": "Introduce the basic life cycle of an apple.",
+            "description": "Children sequence picture cards showing how apples grow from blossoms into fruit.",
+            "learningDomains": [],
+            "materials": "Apple life cycle cards\nApple tree poster\nVelcro board",
+            "setup": "Arrange the life cycle cards in random order.",
+            "steps": "1. Look at each picture.\n2. Talk about what is happening.\n3. Put the pictures in order.\n4. Review the sequence together.\n5. Repeat as a group.",
+            "teacherRole": "Guide discussion by asking prediction and sequencing questions.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Sequencing",
+              "Science concepts",
+              "Observation",
+              "Vocabulary development"
+            ],
+            "observationOpportunities": "Observe children's understanding of simple sequencing and plant growth.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the sequence to three pictures if needed.",
+            "safetyNotes": "Use large laminated cards appropriate for toddlers.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-friday-2",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Apple Seed Discovery",
+            "objective": "Explore the inside of an apple.",
+            "description": "Children observe an apple cut in half to discover seeds, the core, stem, and flesh while comparing different apples.",
+            "learningDomains": [],
+            "materials": "Apples\nApple halves\nhand lenses\nObservation tray",
+            "setup": "Cut apples before the activity and place them on trays.",
+            "steps": "1. Look inside the apple.\n2. Find the seeds.\n3. Count the seeds together.\n4. Feel the inside of the apple.\n5. Compare different apples.",
+            "teacherRole": "Encourage children to ask questions and make observations.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Scientific observation",
+              "Counting",
+              "Vocabulary",
+              "Curiosity"
+            ],
+            "observationOpportunities": "Observe curiosity, counting skills, and descriptive language.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use larger visuals if children have difficulty seeing the seeds.",
+            "safetyNotes": "Closely supervise handling of apple pieces and remind children not to place seeds in their mouths.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-friday-3",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "My Apple Tree",
+            "objective": "Create an apple tree while reviewing the week's learning.",
+            "description": "Children build an apple tree using handprints, fingerprints, or paper pieces to represent leaves and apples.",
+            "learningDomains": [],
+            "materials": "Brown construction paper\nGreen paint\nRed pom-poms or fingerprints\nGlue\nPaper",
+            "setup": "Prepare tree trunks before children arrive.",
+            "steps": "1. Glue the tree trunk.\n2. Add green leaves.\n3. Add red apples.\n4. Count the apples on your tree.\n5. Share your artwork with the class.",
+            "teacherRole": "Encourage children to explain how apples grow on trees.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Creativity",
+              "Fine motor development",
+              "Counting",
+              "Science review"
+            ],
+            "observationOpportunities": "Observe creativity, counting, and vocabulary.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide pre-cut tree pieces or sponge painting if needed.",
+            "safetyNotes": "Use washable, non-toxic materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-toddler-amazing-apples-friday-4",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Apple Harvest Celebration",
+            "objective": "Celebrate the week's learning through music and movement.",
+            "description": "Children pretend to be apple trees growing from tiny seeds before becoming tall trees filled with apples ready to harvest.",
+            "learningDomains": [],
+            "materials": "Music player\nPlastic apples\nBaskets\nScarves",
+            "setup": "Scatter apples around the room and provide baskets.",
+            "steps": "1. Curl into a tiny seed.\n2. Slowly grow into an apple tree.\n3. Stretch your branches high.\n4. Pick pretend apples.\n5. Fill the baskets while dancing to music.",
+            "teacherRole": "Lead movement while reviewing everything learned about apples.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Listening skills",
+              "Imagination",
+              "Science review"
+            ],
+            "observationOpportunities": "Observe coordination, participation, and understanding of the apple life cycle.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Allow seated movements or teacher assistance when needed.",
+            "safetyNotes": "Maintain open space for movement and remind children to walk while carrying apples.",
+            "ageModifications": ""
+          }
+        ]
+      }
+    },
+    "dailyPlansCompat": {
+      "monday": {
+        "items": [
+          {
+            "itemId": "item-12542eb122c585fb",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Investigation",
+            "objective": "Introduce children to observing apples using their five senses.",
+            "description": "Children investigate real apples by looking, touching, smelling, and listening while learning descriptive vocabulary.",
+            "learningDomains": [],
+            "materials": "Red, green, and yellow apples\nhand lenses",
+            "setup": "Place apples in the center of the table with hand lenses nearby.",
+            "steps": "1. Give each child an apple.\n2. Look closely using hand lenses.\n3. Feel the smooth skin.\n4. Smell the apple.\n5. Tap gently and listen to the sound.\n6. Talk about what everyone noticed.",
+            "teacherRole": "Encourage observation by asking open-ended questions and introducing new vocabulary.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Observation skills",
+              "Science exploration",
+              "Vocabulary development",
+              "Curiosity"
+            ],
+            "observationOpportunities": "Observe children's willingness to explore and describe the apples.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide larger apples or additional teacher support as needed.",
+            "safetyNotes": "Closely supervise children while handling real apples.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-df1138d515b8198e",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Apple Stamp Painting",
+            "objective": "Explore color while creating apple artwork.",
+            "description": "Children use apple halves dipped in paint to create colorful apple prints.",
+            "learningDomains": [],
+            "materials": "Apple halves\nRed, green, and yellow paint\nWhite construction paper\nSmocks",
+            "setup": "Cut apples in half before the activity and pour paint into shallow trays.",
+            "steps": "1. Dip the apple into paint.\n2. Press onto paper.\n3. Lift carefully.\n4. Repeat using different colors.\n5. Allow artwork to dry for display.",
+            "teacherRole": "Model stamping techniques and encourage color recognition.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Fine motor development",
+              "Creativity",
+              "Color recognition",
+              "Cause and effect"
+            ],
+            "observationOpportunities": "Observe hand control and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide sponge stamps if needed.",
+            "safetyNotes": "Use only non-toxic washable paint and supervise closely.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-cc60f6e665e4173b",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Count the Apples",
+            "objective": "Practice one-to-one counting.",
+            "description": "Children count plastic apples and place them into baskets.",
+            "learningDomains": [],
+            "materials": "Plastic apples\nSmall baskets\nNumber cards 1–5",
+            "setup": "Place apples beside empty baskets.",
+            "steps": "1. Choose a number card.\n2. Count the correct number of apples.\n3. Place apples into the basket.\n4. Count together.\n5. Repeat with another number.",
+            "teacherRole": "Model counting slowly and encourage children to touch each apple as they count.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Counting",
+              "Number recognition",
+              "One-to-one correspondence"
+            ],
+            "observationOpportunities": "Observe counting accuracy and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the number of apples or provide hand-over-hand assistance.",
+            "safetyNotes": "Use large manipulatives to prevent mouthing risks.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-e0e8948afe7b0f61",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Pick the Apples",
+            "objective": "Develop gross motor skills while reinforcing apple vocabulary.",
+            "description": "Children pretend to reach high into an apple tree, pick apples, place them in baskets, and carry them to the pretend orchard.",
+            "learningDomains": [],
+            "materials": "Music player\nApple baskets\nPlastic apples",
+            "setup": "Scatter plastic apples around the classroom.",
+            "steps": "1. Play apple-themed music.\n2. Pretend to reach high into the tree.\n3. Pick an apple.\n4. Carry it to the basket.\n5. Repeat until all apples have been collected.",
+            "teacherRole": "Encourage movement, counting, and imaginative play.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Listening skills",
+              "Coordination",
+              "Imaginative play"
+            ],
+            "observationOpportunities": "Observe balance, coordination, and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Place apples within easy reach or allow seated participation if needed.",
+            "safetyNotes": "Ensure children walk while carrying apples and keep the activity area free of obstacles.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "tuesday": {
+        "items": [
+          {
+            "itemId": "item-b3a1f6ad32679b6c",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Color Sort",
+            "objective": "Develop color recognition and sorting skills.",
+            "description": "Children sort apples into matching colored baskets while practicing color vocabulary.",
+            "learningDomains": [],
+            "materials": "Plastic apples\nRed basket\nGreen basket\nYellow basket",
+            "setup": "Mix all apples together in one large basket.",
+            "steps": "1. Show each colored basket.\n2. Pick up one apple.\n3. Name its color.\n4. Place it into the matching basket.\n5. Count how many apples are in each basket.",
+            "teacherRole": "Encourage children to say each color aloud while sorting.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Color recognition",
+              "Sorting",
+              "Counting",
+              "Vocabulary development"
+            ],
+            "observationOpportunities": "Observe children's ability to identify and sort colors correctly.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use only two colors if children need a simpler activity.",
+            "safetyNotes": "Use large manipulatives appropriate for toddlers.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-2df85806e9137544",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "My Favorite Apple Color",
+            "objective": "Explore colors through creative expression.",
+            "description": "Children create a colorful apple collage using tissue paper, paint, and stickers.",
+            "learningDomains": [],
+            "materials": "Apple templates\nRed, green, and yellow tissue paper\nGlue sticks\nStickers\nCrayons",
+            "setup": "Prepare apple templates before the activity.",
+            "steps": "1. Choose a favorite apple color.\n2. Glue tissue paper onto the apple.\n3. Decorate with crayons and stickers.\n4. Share your favorite apple color.\n5. Display artwork around the classroom.",
+            "teacherRole": "Encourage creativity while reinforcing color names.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Fine motor development",
+              "Creativity",
+              "Color recognition"
+            ],
+            "observationOpportunities": "Observe color choices and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Offer larger tissue paper pieces or sponge painting.",
+            "safetyNotes": "Closely supervise glue and art materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-852d02be2da3ac6e",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Color Investigation",
+            "objective": "Compare apples by observing their colors and features.",
+            "description": "Children closely examine apples to discover that apples can be different colors while still being the same fruit.",
+            "learningDomains": [],
+            "materials": "Real apples\nhand lenses",
+            "setup": "Arrange apples on a science table.",
+            "steps": "1. Observe each apple.\n2. Compare the colors.\n3. Feel the apples.\n4. Talk about what is the same and different.\n5. Decide which apple is your favorite.",
+            "teacherRole": "Ask open-ended questions and encourage careful observation.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Observation",
+              "Science inquiry",
+              "Vocabulary",
+              "Comparing"
+            ],
+            "observationOpportunities": "Observe curiosity and descriptive language.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Allow children to work with a partner.",
+            "safetyNotes": "Inspect apples before handling.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-fdf751f5dba81eca",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Apple Color Dance",
+            "objective": "Reinforce color recognition through movement.",
+            "description": "Children dance while holding colorful scarves. When the music stops, the teacher calls a color and children find the matching apple.",
+            "learningDomains": [],
+            "materials": "Music player\nColor scarves\nPlastic apples",
+            "setup": "Scatter apples throughout the room.",
+            "steps": "1. Dance with scarves.\n2. Freeze when the music stops.\n3. Listen for a color.\n4. Find the matching apple.\n5. Repeat with different colors.",
+            "teacherRole": "Encourage movement and celebrate successful color matching.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Listening skills",
+              "Color recognition",
+              "Following directions"
+            ],
+            "observationOpportunities": "Observe listening, coordination, and color identification.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the number of colors or provide teacher guidance.",
+            "safetyNotes": "Keep the movement area clear and remind children to walk while finding apples.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "wednesday": {
+        "items": [
+          {
+            "itemId": "item-b95a65a247f4caec",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Big or Small?",
+            "objective": "Develop comparison and classification skills.",
+            "description": "Children compare apples by size and sort them into \"Big\" and \"Small\" baskets.",
+            "learningDomains": [],
+            "materials": "Large apples\nSmall apples\nTwo baskets\nSize labels",
+            "setup": "Mix apples together in one large basket.",
+            "steps": "1. Show the two baskets.\n2. Pick up one apple.\n3. Decide if it is big or small.\n4. Place it into the correct basket.\n5. Count the apples in each basket.",
+            "teacherRole": "Model comparison words and encourage children to explain their thinking.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Comparing",
+              "Sorting",
+              "Vocabulary",
+              "Early math skills"
+            ],
+            "observationOpportunities": "Observe children's ability to compare sizes and classify objects.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Begin with only two noticeably different sizes before introducing medium apples.",
+            "safetyNotes": "Use age-appropriate apples and supervise closely.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-a40393878449f764",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Measuring Station",
+            "objective": "Introduce simple measurement concepts.",
+            "description": "Children explore how apples can be measured using yarn, measuring tape, or linking cubes.",
+            "learningDomains": [],
+            "materials": "Apples\nMeasuring tape\nYarn\nLinking cubes",
+            "setup": "Arrange measuring materials on a science table.",
+            "steps": "1. Choose an apple.\n2. Wrap yarn around the apple.\n3. Compare the yarn lengths.\n4. Count linking cubes if using them.\n5. Talk about which apple is bigger.",
+            "teacherRole": "Introduce simple measurement vocabulary while encouraging exploration.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Observation",
+              "Measuring",
+              "Comparing",
+              "Problem-solving"
+            ],
+            "observationOpportunities": "Observe curiosity and understanding of measurement.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use only one measuring tool if needed.",
+            "safetyNotes": "Closely supervise measuring materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-4c88876a937370f7",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Round Apple Collage",
+            "objective": "Recognize the round shape of an apple.",
+            "description": "Children create a collage using paper circles to build colorful apples.",
+            "learningDomains": [],
+            "materials": "Red, green, and yellow paper circles\nGlue sticks\nConstruction paper\nCrayons\nBrown and green paper strips",
+            "setup": "Prepare paper circles and stems before the activity.",
+            "steps": "1. Choose a paper circle.\n2. Glue it onto the paper.\n3. Add a stem and leaf.\n4. Decorate the background.\n5. Share your apple with the class.",
+            "teacherRole": "Reinforce the words \"round,\" \"big,\" and \"small.\"",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Shape recognition",
+              "Fine motor development",
+              "Creativity",
+              "Vocabulary"
+            ],
+            "observationOpportunities": "Observe shape recognition and fine motor skills.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Offer larger paper pieces or pre-glued examples.",
+            "safetyNotes": "Use child-safe scissors only if needed with close supervision.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-189dbcf67337d000",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Roll Like an Apple",
+            "objective": "Develop body awareness and gross motor skills.",
+            "description": "Children pretend to be apples by curling into a ball, rolling carefully on mats, stretching into apple trees, and reaching high to pick pretend apples.",
+            "learningDomains": [],
+            "materials": "Gym mats\nMusic player\nBean bags",
+            "setup": "Create a large open movement area with mats.",
+            "steps": "1. Pretend to grow into an apple tree.\n2. Reach up high.\n3. Curl into a round apple.\n4. Carefully roll across the mat.\n5. Stand up and pretend to place your apple into a basket.",
+            "teacherRole": "Model each movement and encourage safe participation.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Body awareness",
+              "Coordination",
+              "Imaginative play"
+            ],
+            "observationOpportunities": "Observe balance, coordination, and participation.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Allow children to perform movements while seated or with teacher assistance.",
+            "safetyNotes": "Use mats on a flat surface and supervise rolling activities closely.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "thursday": {
+        "items": [
+          {
+            "itemId": "item-f089872789324c67",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Taste Test",
+            "objective": "Explore different apple varieties using the sense of taste.",
+            "description": "Children sample small pieces of red, green, and yellow apples while comparing their flavors and textures.",
+            "learningDomains": [],
+            "materials": "Red apples\nGreen apples\nYellow apples\nSmall plates\nNapkins",
+            "setup": "Wash and slice apples before children arrive. Place one slice of each apple on every plate.",
+            "steps": "1. Look at each apple.\n2. Smell each apple.\n3. Taste one slice at a time.\n4. Talk about which apple tastes sweet, tart, or crunchy.\n5. Choose your favorite apple.",
+            "teacherRole": "Encourage children to describe what they taste while respecting that everyone may have different preferences.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Sensory exploration",
+              "Healthy eating awareness",
+              "Descriptive language",
+              "Trying new foods"
+            ],
+            "observationOpportunities": "Observe children's willingness to try new foods and describe their experiences.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Offer only one apple variety if children are hesitant or have sensory sensitivities.",
+            "safetyNotes": "Always check for food allergies. Cut apples into small bite-sized pieces and supervise closely during tasting.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-96c3f25839717b42",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Favorite Apple Graph",
+            "objective": "Introduce simple graphing and counting skills.",
+            "description": "Children place their name or sticker above their favorite apple color to create a classroom graph.",
+            "learningDomains": [],
+            "materials": "Large graph paper\nApple color pictures\nName cards or stickers",
+            "setup": "Prepare a graph with three columns labeled Red, Green, and Yellow.",
+            "steps": "1. Decide your favorite apple.\n2. Find the matching column.\n3. Place your sticker.\n4. Count each column together.\n5. Discover which apple was the class favorite.",
+            "teacherRole": "Guide children through counting and comparing which column has the most and least.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Graphing",
+              "Counting",
+              "Comparing quantities",
+              "Decision making"
+            ],
+            "observationOpportunities": "Observe counting skills and ability to interpret simple graphs.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use picture cards instead of written names if needed.",
+            "safetyNotes": "Keep graphing materials organized to prevent slipping or clutter.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-e6a4086702da086b",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Apple Market",
+            "objective": "Encourage imaginative play while practicing social skills.",
+            "description": "Children pretend to buy and sell apples at a classroom farmers market.",
+            "learningDomains": [],
+            "materials": "Toy cash register\nToy apples\nGrocery baskets\nPlay money\nShopping bags",
+            "setup": "Create a pretend apple market with baskets of apples and a checkout area.",
+            "steps": "1. Choose to be a shopper or cashier.\n2. Pick apples for your basket.\n3. Pretend to pay for the apples.\n4. Trade roles with a friend.\n5. Practice saying \"Thank you\" and \"You're welcome.\"",
+            "teacherRole": "Model friendly conversations and encourage sharing and turn-taking.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Social skills",
+              "Language development",
+              "Imaginative play",
+              "Problem solving"
+            ],
+            "observationOpportunities": "Observe communication, cooperation, and role-playing skills.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual communication cards for children needing language support.",
+            "safetyNotes": "Use only child-safe dramatic play materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-87f969c92cf2e869",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Apple Basket Relay",
+            "objective": "Develop balance and coordination through movement.",
+            "description": "Children carefully carry a pretend apple across the room and place it into a basket before returning to the starting line.",
+            "learningDomains": [],
+            "materials": "Plastic apples\nSmall baskets\nMusic player\nFloor markers",
+            "setup": "Place one basket at each end of the activity area.",
+            "steps": "1. Pick up one apple.\n2. Walk carefully to the basket.\n3. Place the apple inside.\n4. Return to the line.\n5. Continue until every apple has been delivered.",
+            "teacherRole": "Encourage careful movement and celebrate teamwork rather than speed.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Balance",
+              "Coordination",
+              "Listening skills"
+            ],
+            "observationOpportunities": "Observe balance, body control, and ability to follow directions.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the walking distance or allow children to carry lighter objects if needed.",
+            "safetyNotes": "Remind children to walk instead of run and keep pathways clear.",
+            "ageModifications": ""
+          }
+        ]
+      },
+      "friday": {
+        "items": [
+          {
+            "itemId": "item-7fcd2511b71ec4f1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Apple Life Cycle",
+            "objective": "Introduce the basic life cycle of an apple.",
+            "description": "Children sequence picture cards showing how apples grow from blossoms into fruit.",
+            "learningDomains": [],
+            "materials": "Apple life cycle cards\nApple tree poster\nVelcro board",
+            "setup": "Arrange the life cycle cards in random order.",
+            "steps": "1. Look at each picture.\n2. Talk about what is happening.\n3. Put the pictures in order.\n4. Review the sequence together.\n5. Repeat as a group.",
+            "teacherRole": "Guide discussion by asking prediction and sequencing questions.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Sequencing",
+              "Science concepts",
+              "Observation",
+              "Vocabulary development"
+            ],
+            "observationOpportunities": "Observe children's understanding of simple sequencing and plant growth.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Reduce the sequence to three pictures if needed.",
+            "safetyNotes": "Use large laminated cards appropriate for toddlers.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-6c853a990e2e7b8d",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Apple Seed Discovery",
+            "objective": "Explore the inside of an apple.",
+            "description": "Children observe an apple cut in half to discover seeds, the core, stem, and flesh while comparing different apples.",
+            "learningDomains": [],
+            "materials": "Apples\nApple halves\nhand lenses\nObservation tray",
+            "setup": "Cut apples before the activity and place them on trays.",
+            "steps": "1. Look inside the apple.\n2. Find the seeds.\n3. Count the seeds together.\n4. Feel the inside of the apple.\n5. Compare different apples.",
+            "teacherRole": "Encourage children to ask questions and make observations.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Scientific observation",
+              "Counting",
+              "Vocabulary",
+              "Curiosity"
+            ],
+            "observationOpportunities": "Observe curiosity, counting skills, and descriptive language.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Use larger visuals if children have difficulty seeing the seeds.",
+            "safetyNotes": "Closely supervise handling of apple pieces and remind children not to place seeds in their mouths.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-c675121053bd9c4e",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "My Apple Tree",
+            "objective": "Create an apple tree while reviewing the week's learning.",
+            "description": "Children build an apple tree using handprints, fingerprints, or paper pieces to represent leaves and apples.",
+            "learningDomains": [],
+            "materials": "Brown construction paper\nGreen paint\nRed pom-poms or fingerprints\nGlue\nPaper",
+            "setup": "Prepare tree trunks before children arrive.",
+            "steps": "1. Glue the tree trunk.\n2. Add green leaves.\n3. Add red apples.\n4. Count the apples on your tree.\n5. Share your artwork with the class.",
+            "teacherRole": "Encourage children to explain how apples grow on trees.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Creativity",
+              "Fine motor development",
+              "Counting",
+              "Science review"
+            ],
+            "observationOpportunities": "Observe creativity, counting, and vocabulary.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide pre-cut tree pieces or sponge painting if needed.",
+            "safetyNotes": "Use washable, non-toxic materials.",
+            "ageModifications": ""
+          },
+          {
+            "itemId": "item-363fd3cf6b9e2b4b",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Apple Harvest Celebration",
+            "objective": "Celebrate the week's learning through music and movement.",
+            "description": "Children pretend to be apple trees growing from tiny seeds before becoming tall trees filled with apples ready to harvest.",
+            "learningDomains": [],
+            "materials": "Music player\nPlastic apples\nBaskets\nScarves",
+            "setup": "Scatter apples around the room and provide baskets.",
+            "steps": "1. Curl into a tiny seed.\n2. Slowly grow into an apple tree.\n3. Stretch your branches high.\n4. Pick pretend apples.\n5. Fill the baskets while dancing to music.",
+            "teacherRole": "Lead movement while reviewing everything learned about apples.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor development",
+              "Listening skills",
+              "Imagination",
+              "Science review"
+            ],
+            "observationOpportunities": "Observe coordination, participation, and understanding of the apple life cycle.",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Allow seated movements or teacher assistance when needed.",
+            "safetyNotes": "Maintain open space for movement and remind children to walk while carrying apples.",
+            "ageModifications": ""
+          }
+        ]
+      }
+    },
+    "_activityCount": 20,
+    "id": "cur-lp-toddler-amazing-apples"
+  },
+  "enrichmentDraft": {
+    "activities": {
+      "cur-lp-toddler-amazing-apples:monday:item-toddler-amazing-apples-monday-1": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Toddlers handle whole apples at the table; the invitation is familiar fruit exploration, not an unusual tray layout.",
+        "teacherTips": [
+          "Offer one whole apple per pair and keep tasting on a separate day so looking stays the focus.",
+          "Narrate textures aloud—“cool,” “bumpy stem”—instead of quizzing for color names."
+        ],
+        "substitutions": [
+          {
+            "need": "hand lenses / view-finders",
+            "use": "clear plastic view-finders or invite close eye-level looking without a tool"
+          },
+          {
+            "need": "red, green, and yellow apples",
+            "use": "any three whole apples of different skins from the grocery sale bin"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child touch the stem or turn the apple to see the other side?",
+          "Which sensory word does the child echo or invent?"
+        ],
+        "vocabulary": [
+          "stem",
+          "skin",
+          "bumpy",
+          "cool"
+        ],
+        "indoorAlternatives": "Stay at a low table with washable placemats.",
+        "outdoorAlternatives": "Investigate apples on a picnic blanket in shade; bring a damp cloth for sticky hands.",
+        "adaptations": "For children who avoid touching fruit, offer a sealed clear bag with an apple inside to look and press.",
+        "extensions": "Invite a toddler to place the apple on a scale tray and watch the needle move with you.",
+        "cleanupTip": "Wipe juice rings before they dry; refrigerate leftover whole apples for later tasting.",
+        "safetyNotes": "Whole apples only—no cut pieces during this look-and-touch turn. If a child bites, redirect to look-only and follow your mouthing protocol.",
+        "setup": "Stage materials for “Apple Investigation” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Investigation”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:monday:item-toddler-amazing-apples-monday-2": {
+        "imageRequirement": "example_only",
+        "imageRequirementReason": "A finished stamp sheet helps providers see achievable toddler prints, not an adult model craft.",
+        "exampleImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/images/stamp-painting-example.png",
+        "exampleImageAlt": "Illustrated finished example of toddler apple-half stamp prints on paper with a small paint tray; ordinary classroom materials. Little Learner Hub by Leah.",
+        "exampleImageCaption": "Toddler apple-half prints with washable paint — Little Learner Hub by Leah",
+        "teacherTips": [
+          "Blot the apple half on a scrap paper once before the child’s paper so the first stamp isn’t a puddle.",
+          "Accept overlapping stamps—process beats a tidy pattern."
+        ],
+        "substitutions": [
+          {
+            "need": "apple halves",
+            "use": "potato halves cut by an adult into a round stamp shape"
+          },
+          {
+            "need": "white construction paper",
+            "use": "cut-open paper grocery bags"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child press and lift, or smear the stamp sideways?",
+          "Which color do they return to most often?"
+        ],
+        "vocabulary": [
+          "stamp",
+          "press",
+          "print",
+          "paint"
+        ],
+        "indoorAlternatives": "Cover the table with a plastic cloth and keep a wipe bucket nearby.",
+        "outdoorAlternatives": "Stamp on cardboard outdoors where drips are easy to hose.",
+        "adaptations": "Offer a pre-loaded stamp sponge for children who dislike sticky apple flesh.",
+        "extensions": "Count how many red stamps landed on one page together.",
+        "cleanupTip": "Soak apple halves in a compost tub; wash trays before paint skins over.",
+        "safetyNotes": "Adult cuts apples. Watch for paint near mouths; use taste-safe washable paint.",
+        "setup": "Stage materials for “Apple Stamp Painting” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Stamp Painting”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:monday:item-toddler-amazing-apples-monday-3": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Filling baskets with chunky apples is self-explanatory once materials are out.",
+        "teacherTips": [
+          "Start with baskets labeled only by dots (• • •) so toddlers match quantity without numeral pressure.",
+          "Celebrate ‘full’ and ‘more’ language as much as exact counts."
+        ],
+        "substitutions": [
+          {
+            "need": "plastic apples",
+            "use": "large red and green pom-poms or soft fabric apples, mouthing-safe"
+          },
+          {
+            "need": "number cards 1–5",
+            "use": "index cards with 1–5 dot clusters drawn in marker"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child one-to-one place apples or dump by handfuls?",
+          "Do they notice when a basket looks fuller than another?"
+        ],
+        "vocabulary": [
+          "how many",
+          "basket",
+          "more",
+          "full"
+        ],
+        "indoorAlternatives": "Sit on the rug with baskets between knees to contain rolling apples.",
+        "outdoorAlternatives": "Count apples into outdoor wagons for a short delivery walk.",
+        "adaptations": "Limit to two baskets (1 and 2) for children still exploring dump-and-fill.",
+        "extensions": "Ask a helper to deliver three apples to the dramatic-play market.",
+        "cleanupTip": "Count aloud while returning apples to the storage bin so cleanup is the math.",
+        "safetyNotes": "Use oversized counters only—no small beads. Sweep floor apples to prevent slips.",
+        "setup": "Stage materials for “Count the Apples” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Count the Apples”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:monday:item-toddler-amazing-apples-monday-4": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Movement game with baskets needs no photo once music and props are familiar.",
+        "teacherTips": [
+          "Tape paper apple shapes at two heights so shorter and taller toddlers both succeed.",
+          "Pause the music for a ‘gentle pick’ reminder before racing energy takes over."
+        ],
+        "substitutions": [
+          {
+            "need": "music player",
+            "use": "teacher humming or tapping a rhythm on a drum"
+          },
+          {
+            "need": "plastic apples",
+            "use": "crumpled red/green tissue balls inside clear cups"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child reach overhead or prefer floor-level apples?",
+          "How do they carry the basket—two hands or hugged to the chest?"
+        ],
+        "vocabulary": [
+          "pick",
+          "reach",
+          "carry",
+          "orchard"
+        ],
+        "indoorAlternatives": "Use wall tape apples along a hallway for a calm walking pick.",
+        "outdoorAlternatives": "Hang fabric apples from a low tree branch or fence for real reaching.",
+        "adaptations": "Offer a seated pick from a low crate for children who need less locomotion.",
+        "extensions": "Sort picked apples into color baskets at the finish line.",
+        "cleanupTip": "Assign two ‘orchard helpers’ to gather leftover apples before snack.",
+        "safetyNotes": "Keep pathways clear; no climbing furniture to reach props.",
+        "setup": "Stage materials for “Pick the Apples” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Pick the Apples”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:tuesday:item-toddler-amazing-apples-tuesday-1": {
+        "imageRequirement": "optional",
+        "imageRequirementReason": "Three colored baskets are ordinary; a photo is optional if the room has many similar bins.",
+        "teacherTips": [
+          "Place one sample apple in each basket as an anchor so the first sort is supported.",
+          "If a child sorts by size instead of color, narrate that strategy—then offer a second pass for color."
+        ],
+        "substitutions": [
+          {
+            "need": "plastic apples",
+            "use": "red, green, and yellow paper circles laminated or cardstock"
+          },
+          {
+            "need": "red basket / green basket / yellow basket",
+            "use": "three shoeboxes wrapped in colored paper or marked with color swatches"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child check the sample apple before placing?",
+          "What happens when colors run out in one basket?"
+        ],
+        "vocabulary": [
+          "sort",
+          "red",
+          "green",
+          "yellow",
+          "match"
+        ],
+        "indoorAlternatives": "Sort on a towel so rolling apples stay put.",
+        "outdoorAlternatives": "Use sidewalk chalk circles as color targets and carry apples to each.",
+        "adaptations": "Begin with two colors only; add yellow on day two.",
+        "extensions": "Close eyes and sort by touch using textured paper apples (smooth vs bumpy).",
+        "cleanupTip": "Sing a short ‘apples home’ chant while filling the storage tub.",
+        "safetyNotes": "Avoid tiny sorting chips. Supervise if real apples are used—no biting during sort.",
+        "setup": "Stage materials for “Apple Color Sort” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Color Sort”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:tuesday:item-toddler-amazing-apples-tuesday-2": {
+        "imageRequirement": "example_only",
+        "imageRequirementReason": "Providers benefit from seeing a torn-paper process collage that is imperfect and child-led.",
+        "exampleImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/images/tear-collage-example.png",
+        "exampleImageAlt": "Process tear-and-stick apple collage with overlapping red, green, and yellow paper pieces. Little Learner Hub by Leah.",
+        "exampleImageCaption": "Torn-paper apple collage — process over product · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Model tearing one strip slowly; do not hand children pre-cut tissue squares.",
+          "Glue sticks only—liquid glue becomes the activity instead of tearing."
+        ],
+        "substitutions": [
+          {
+            "need": "tissue paper",
+            "use": "magazine pages with red/green areas torn by children"
+          },
+          {
+            "need": "apple outline page",
+            "use": "a plain circle drawn lightly in pencil as a soft guide, optional to ignore"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child tear with two hands or prefer pinching small bits?",
+          "Do they cover the whole circle or cluster scraps in one spot?"
+        ],
+        "vocabulary": [
+          "tear",
+          "stick",
+          "collage",
+          "cover"
+        ],
+        "indoorAlternatives": "Provide trays with raised edges to catch scraps.",
+        "outdoorAlternatives": "Tear leaves (non-toxic shrubs only) onto cardboard apples outdoors.",
+        "adaptations": "Pre-snipped starter tears for children still building finger strength; they continue tearing.",
+        "extensions": "Add a brown paper stem torn from a bag.",
+        "cleanupTip": "Keep a scrap bowl for leftover bits destined for tomorrow’s collage.",
+        "safetyNotes": "No glitter. Watch for paper near mouths.",
+        "setup": "Stage materials for “Apple Peel Tear Collage” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Peel Tear Collage”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:tuesday:item-toddler-amazing-apples-tuesday-4": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Music-and-scarf movement does not need a photograph.",
+        "teacherTips": [
+          "Hold up one color scarf as the cue; toddlers freeze when their color is not called.",
+          "Keep rounds to 20–30 seconds so waiting children stay regulated."
+        ],
+        "substitutions": [
+          {
+            "need": "color scarves",
+            "use": "strips of dyed pillowcases or colored bandanas"
+          },
+          {
+            "need": "plastic apples",
+            "use": "skip props—hands on hips for ‘apple feet’ stomps"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child watch the scarf cue before moving?",
+          "How do they freeze—full stop or wiggly pause?"
+        ],
+        "vocabulary": [
+          "freeze",
+          "scarf",
+          "listen",
+          "color"
+        ],
+        "indoorAlternatives": "Dance in a taped circle so space feels defined.",
+        "outdoorAlternatives": "Color dance on grass with wind moving the scarves.",
+        "adaptations": "Partner a hesitant child with a teacher who models freeze exaggeratedly.",
+        "extensions": "Add a drum tap for each color change.",
+        "cleanupTip": "Toss scarves into a laundry basket like apple collecting.",
+        "safetyNotes": "Scarves stay off necks. Clear furniture edges.",
+        "setup": "Stage materials for “Apple Color Dance” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Color Dance”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:wednesday:item-toddler-amazing-apples-wednesday-1": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Two baskets with size labels are ordinary classroom sorting.",
+        "teacherTips": [
+          "Start with clearly different sizes (golf-ball vs softball scale apples) before close calls.",
+          "Let children disagree and test by holding both apples side by side."
+        ],
+        "substitutions": [
+          {
+            "need": "large apples and small apples",
+            "use": "large and small yarn pom-poms or play-dough balls"
+          },
+          {
+            "need": "size labels",
+            "use": "paper signs with a big circle and a little circle instead of words"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child compare by sight, stacking, or weighing in hands?",
+          "What word do they use instead of big/small (huge, tiny, mama apple)?"
+        ],
+        "vocabulary": [
+          "big",
+          "small",
+          "heavy",
+          "compare"
+        ],
+        "indoorAlternatives": "Sort on a light table if available for silhouette size cues.",
+        "outdoorAlternatives": "Compare found pinecones as ‘big orchard’ and ‘small orchard’ props.",
+        "adaptations": "Offer only two objects at a time for children who overload with many apples.",
+        "extensions": "Build a bridge from biggest to smallest in a line.",
+        "cleanupTip": "Store big and small in separate bins so tomorrow’s reset is faster.",
+        "safetyNotes": "No hard throwing of real apples.",
+        "setup": "Stage materials for “Big or Small?” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Big or Small?”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:wednesday:item-toddler-amazing-apples-wednesday-2": {
+        "imageRequirement": "setup_only",
+        "imageRequirementReason": "The yarn-and-cube layout is unusual enough that a setup illustration helps substitutes.",
+        "setupImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/images/measuring-station-setup.png",
+        "setupImageAlt": "Setup illustration: tray with three real apples, yarn lengths, and linking cubes ready before children arrive. Little Learner Hub by Leah.",
+        "setupImageCaption": "Tray setup: apples, yarn lengths, linking cubes · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Demonstrate wrapping yarn around one apple once—then hand the yarn to the child.",
+          "Linking cubes are for ‘how many cubes tall’ beside an apple, not for eating play."
+        ],
+        "substitutions": [
+          {
+            "need": "measuring tape",
+            "use": "a strip of paper marked with handprints or stickers as non-standard units"
+          },
+          {
+            "need": "linking cubes",
+            "use": "large Duplo-style bricks lined beside the apple"
+          },
+          {
+            "need": "yarn",
+            "use": "shoelaces or ribbon scraps"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child stretch yarn taut or leave it loose?",
+          "Do they attempt to count cubes with one-to-one pointing?"
+        ],
+        "vocabulary": [
+          "measure",
+          "around",
+          "longer",
+          "cubes"
+        ],
+        "indoorAlternatives": "Clip yarn to the tray edge so it doesn’t wander off.",
+        "outdoorAlternatives": "Measure apples with sticks collected from the yard (non-splintery).",
+        "adaptations": "Teacher holds the apple steady while the child wraps.",
+        "extensions": "Compare which apple needs the longer yarn and graph with cubes.",
+        "cleanupTip": "Wind yarn onto cardboard notches labeled by length.",
+        "safetyNotes": "Yarn lengths under 12 inches to reduce entanglement. Adult supervision.",
+        "setup": "Stage materials for “Apple Measuring Station” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Measuring Station”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:wednesday:item-toddler-amazing-apples-wednesday-4": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Gross-motor rolling on mats is clear without imagery.",
+        "teacherTips": [
+          "Offer log rolls first; curled ‘apple rolls’ come after bodies feel safe on the mat.",
+          "Bean bags on bellies add a gentle challenge without competition."
+        ],
+        "substitutions": [
+          {
+            "need": "gym mats",
+            "use": "thick blankets folded on carpet"
+          },
+          {
+            "need": "bean bags",
+            "use": "clean socks filled with rice and knotted (adult-made)"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child initiate rolling or wait for a hand cue?",
+          "How do they protect their head while rolling?"
+        ],
+        "vocabulary": [
+          "roll",
+          "curl",
+          "balance",
+          "stop"
+        ],
+        "indoorAlternatives": "Roll across a short mat path marked with tape apples.",
+        "outdoorAlternatives": "Gentle hillside rolls on dry grass with spotters.",
+        "adaptations": "Seated spin on a sit-and-spin or swivel chair for children avoiding floor rolls.",
+        "extensions": "Roll to a basket and drop in one apple prop.",
+        "cleanupTip": "Stack mats with two children holding opposite ends.",
+        "safetyNotes": "Clear the roll path. No head-first dives. Spot near walls.",
+        "setup": "Stage materials for “Roll Like an Apple” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Roll Like an Apple”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:thursday:item-toddler-amazing-apples-thursday-1": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Tasting protocol is verbal/safety-led; a photo is not required.",
+        "teacherTips": [
+          "Collect allergy and preference notes before plating; offer a smell-and-touch plate for non-tasters.",
+          "Serve pea-sized bits on separate color-coded napkins so children can point to favorites."
+        ],
+        "substitutions": [
+          {
+            "need": "red/green/yellow apples",
+            "use": "two apple varieties only if three are unavailable; label by name not just color"
+          },
+          {
+            "need": "small plates",
+            "use": "cupcake liners or muffin tin cups washed and reused"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child spit, swallow, or hold the bite?",
+          "Which non-tasting role do they choose—server, napkin helper, graph sticker placer?"
+        ],
+        "vocabulary": [
+          "taste",
+          "sweet",
+          "tart",
+          "favorite"
+        ],
+        "indoorAlternatives": "Taste at a sanitized table away from art centers.",
+        "outdoorAlternatives": "Picnic tasting on individual mats outdoors.",
+        "adaptations": "Texture-sensitive children smell and lick a clean spoon that touched the apple.",
+        "extensions": "Place a sticker on the class favorite chart after tasting.",
+        "cleanupTip": "Compost scraps; sanitize table twice before the next group.",
+        "safetyNotes": "Allergy protocol first. Adult prepares tiny pieces. Watch each bite. No sharing bites.",
+        "setup": "Stage materials for “Apple Taste Test” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Taste Test”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:thursday:item-toddler-amazing-apples-thursday-2": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "A simple sticker graph is standard and readable without a photo.",
+        "teacherTips": [
+          "Use photo cards of apple colors—not children’s faces—as column headers.",
+          "Every child places a sticker, including non-tasters who choose ‘looks yummy’ columns."
+        ],
+        "substitutions": [
+          {
+            "need": "large graph paper",
+            "use": "butcher paper with three taped columns"
+          },
+          {
+            "need": "apple color pictures",
+            "use": "cards from the Amazing Apples Picture Card Pack"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child count stickers in a column spontaneously?",
+          "Do they change their mind after seeing friends’ choices?"
+        ],
+        "vocabulary": [
+          "graph",
+          "column",
+          "most",
+          "vote"
+        ],
+        "indoorAlternatives": "Build the graph on the floor so toddlers can walk their sticker up.",
+        "outdoorAlternatives": "Chalk columns on pavement and drop leaf tokens as votes.",
+        "adaptations": "Hand-over-hand sticker placement if fine motor is emerging.",
+        "extensions": "Clap once for each sticker in the tallest column.",
+        "cleanupTip": "Photograph the graph for families, then roll the paper for documentation.",
+        "safetyNotes": "Avoid food stickers that look edible. Keep stickers off mouths.",
+        "setup": "Stage materials for “Favorite Apple Graph” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Favorite Apple Graph”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:thursday:item-toddler-amazing-apples-thursday-3": {
+        "imageRequirement": "optional",
+        "imageRequirementReason": "Dramatic play shops are familiar; optional photo only if the prop layout is elaborate.",
+        "teacherTips": [
+          "Stock only a few apples and baskets so children practice restocking instead of hoarding.",
+          "Model one polite phrase—‘How many apples today?’—then step out of the stall."
+        ],
+        "substitutions": [
+          {
+            "need": "toy cash register",
+            "use": "a muffin tin ‘drawer’ with bottle-cap coins"
+          },
+          {
+            "need": "play money",
+            "use": "laminated paper circles labeled 1"
+          },
+          {
+            "need": "toy apples",
+            "use": "real whole apples reserved for play (washed, not for biting) plus fabric apples"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child take customer or seller role more often?",
+          "How do they handle turn-taking when two want the register?"
+        ],
+        "vocabulary": [
+          "buy",
+          "sell",
+          "please",
+          "customer"
+        ],
+        "indoorAlternatives": "Shop from a bookshelf ‘stand’ if floor space is tight.",
+        "outdoorAlternatives": "Blanket market under a tree with wagons for deliveries.",
+        "adaptations": "Provide a picture menu so nonverbal children can point to orders.",
+        "extensions": "Deliver a basket to the block area ‘neighbors.’",
+        "cleanupTip": "Close the market with a ‘sold out’ sign and sort props by type.",
+        "safetyNotes": "Coins larger than choke tubes. No real coins.",
+        "setup": "Stage materials for “Apple Market” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Market”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:friday:item-toddler-amazing-apples-friday-1": {
+        "imageRequirement": "setup_only",
+        "imageRequirementReason": "Ordered card trays are clearer with a setup illustration for substitutes.",
+        "setupImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/images/life-cycle-setup.png",
+        "setupImageAlt": "Setup illustration: four life-cycle picture cards (seed, sprout, sapling, tree) laid left-to-right on a tray. Little Learner Hub by Leah.",
+        "setupImageCaption": "Life-cycle cards left to right on a tray · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Lay cards in a left-to-right story once, then mix them and invite toddlers to repair the story.",
+          "Use the Picture Card Pack growth sequence as the primary visual—not a dense poster."
+        ],
+        "substitutions": [
+          {
+            "need": "apple life cycle cards",
+            "use": "Amazing Apples Picture Card Pack growth sequence cut apart"
+          },
+          {
+            "need": "velcro board",
+            "use": "masking tape on a cookie sheet for magnetic or taped cards"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child place seed before tree without prompts?",
+          "What story language do they use while ordering?"
+        ],
+        "vocabulary": [
+          "seed",
+          "sprout",
+          "sapling",
+          "tree"
+        ],
+        "indoorAlternatives": "Sequence on the floor with painter’s tape arrows.",
+        "outdoorAlternatives": "Match cards to a real potted seedling if you have one.",
+        "adaptations": "Offer first/last cards only; adult fills middle with child approval.",
+        "extensions": "Act out each stage with bodies (tiny curl = seed, stretch = tree).",
+        "cleanupTip": "Rubber-band each set in order so tomorrow starts ready.",
+        "safetyNotes": "Laminate cards to survive mouthing. No small loose seeds as manipulatives.",
+        "setup": "Stage materials for “Apple Life Cycle” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Life Cycle”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:friday:item-toddler-amazing-apples-friday-2": {
+        "imageRequirement": "setup_only",
+        "imageRequirementReason": "Adult-cut halves on an observation tray benefit from a setup cue for safe presentation.",
+        "setupImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/images/life-cycle-setup.png",
+        "setupImageAlt": "Observation tray concept for viewing apple halves and seeds with supervision.",
+        "setupImageCaption": "Supervised seed viewing tray · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Adult cuts and holds the half; toddlers look and point—tweezers are teacher-only.",
+          "Display seeds in a clear sealed jar after looking so none remain loose."
+        ],
+        "substitutions": [
+          {
+            "need": "hand lenses",
+            "use": "water-filled clear jar as a simple magnifier over the seed jar"
+          },
+          {
+            "need": "observation tray",
+            "use": "cookie sheet lined with a damp paper towel"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child point to seeds without grabbing?",
+          "What comparison do they make to other seeds they know?"
+        ],
+        "vocabulary": [
+          "seed",
+          "inside",
+          "cut",
+          "look"
+        ],
+        "indoorAlternatives": "Project a photo of an apple cross-section if real cutting is not possible today.",
+        "outdoorAlternatives": "Open a fallen apple (safe/clean) outdoors with gloves and compost after.",
+        "adaptations": "Children who dislike wet fruit watch from a second chair with a dry picture card.",
+        "extensions": "Plant one seed in a cup for a week-long watch (knowing germination may fail—process matters).",
+        "cleanupTip": "Seal seeds; sanitize cutting tools away from children.",
+        "safetyNotes": "Adult prepares the cut away from children. Seeds are not snacks. Allergy awareness if juice sprays.",
+        "setup": "Stage materials for “Apple Seed Discovery” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Seed Discovery”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:friday:item-toddler-amazing-apples-friday-3": {
+        "imageRequirement": "example_only",
+        "imageRequirementReason": "A finished process tree shows providers that fingerprints/pom-poms can be messy and still successful.",
+        "exampleImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/images/stamp-painting-example.png",
+        "exampleImageAlt": "Process example suggesting fingerprint or pom-pom apples on a simple tree shape.",
+        "exampleImageCaption": "Child-led apple tree process art · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Offer a brown paper trunk strip children tape themselves—avoid adult-perfect trees.",
+          "Fingerprint apples beat identical sticker rows."
+        ],
+        "substitutions": [
+          {
+            "need": "red pom-poms",
+            "use": "red fingerprint paint dots or torn paper bits"
+          },
+          {
+            "need": "green paint",
+            "use": "torn green leaves from construction paper"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child place apples only at the top or all over the page?",
+          "Do they narrate who picks from their tree?"
+        ],
+        "vocabulary": [
+          "trunk",
+          "branch",
+          "apple",
+          "tree"
+        ],
+        "indoorAlternatives": "Tape trunks to easels for standing painters.",
+        "outdoorAlternatives": "Stick real leaves onto cardboard trunks with glue sticks outdoors.",
+        "adaptations": "Larger pom-poms for easier grasp.",
+        "extensions": "Dictate a one-line story about the tree for a family caption.",
+        "cleanupTip": "Close paint pads immediately; pom-poms go in a mesh wash bag.",
+        "safetyNotes": "Paint is washable and non-toxic. Pom-poms larger than choke tubes.",
+        "setup": "Stage materials for “My Apple Tree” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “My Apple Tree”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-toddler-amazing-apples:friday:item-toddler-amazing-apples-friday-4": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Closing circle with song and scarves needs no image.",
+        "teacherTips": [
+          "Invite each child to share one apple word from the week before the final dance.",
+          "Keep the parade path short—one loop around the rug."
+        ],
+        "substitutions": [
+          {
+            "need": "scarves",
+            "use": "paper streamers"
+          },
+          {
+            "need": "music player",
+            "use": "group chant of an LLH apple song"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Which vocabulary from the week shows up in their sharing?",
+          "How do they negotiate who leads the parade?"
+        ],
+        "vocabulary": [
+          "harvest",
+          "parade",
+          "celebrate",
+          "together"
+        ],
+        "indoorAlternatives": "Seated scarf dance if energy is too high for a parade.",
+        "outdoorAlternatives": "Parade to the garden fence and back.",
+        "adaptations": "Give a flag to wave for children who prefer not to march.",
+        "extensions": "Deliver thank-you notes to kitchen staff who washed apples.",
+        "cleanupTip": "End with a photo of the graph and art display for families.",
+        "safetyNotes": "No running parade. Streamers away from faces.",
+        "setup": "Stage materials for “Apple Harvest Celebration” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Apple Harvest Celebration”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      }
+    },
+    "week": {
+      "weeklyOverview": "Toddlers explore real apples through looking, sorting, moving, tasting (with allergy care), and process art. Each day adds one new way to know an apple—never the same stamp-and-sort loop twice.",
+      "weeklyMaterials": "Whole apples (red, green, yellow)\nApple halves for stamping (adult-cut)\nWashable paint\nChunky plastic or fabric apples\nBaskets and shoebox bins\nDot number cards\nYarn and linking cubes\nScarves\nButcher paper\nGlue sticks\nPicture card pack (draft PDF)\nNapkins and sanitizer\nMagnifying tools or view-finders\nGym mats or blankets",
+      "teacherPreparation": "Confirm allergy notes before Thursday tasting. Adult-cut stamp apples Monday morning. Print and cut the Amazing Apples Picture Card Pack. Stage one center fully before children arrive; keep backup props in a closed tub.",
+      "familyConnection": "Ask families to notice an apple at home or store—color, stem, or crunch—and send one word or photo of a grocery apple (no child faces required).",
+      "milestones": [
+        "Language: Uses sensory and color words about apples",
+        "SEL: Accepts non-tasting roles during the taste test",
+        "Cognition: Sorts by color or size with purpose",
+        "Motor: Presses stamps, tears paper, carries baskets",
+        "Creativity: Makes process art without a matching model"
+      ],
+      "vocabCards": [
+        "apple",
+        "stem",
+        "seed",
+        "sort",
+        "measure",
+        "harvest",
+        "sweet",
+        "tart",
+        "basket",
+        "tree",
+        "sprout",
+        "stamp"
+      ],
+      "printableIdeas": [
+        {
+          "title": "Amazing Apples Picture Card Pack (PDF)",
+          "purpose": "Color cards, life-cycle sequence, and growth panels used in sort, graph, and Friday sequencing."
+        }
+      ],
+      "printableIds": [
+        "cur-res-proof-amazing-apples-picture-cards"
+      ],
+      "songs": [
+        {
+          "title": "Crunch Goes the Apple (LLH)",
+          "rightsStatus": "original",
+          "rightsEvidence": "Original Little Learner Hub chant written for this lesson; not derived from a commercial recording.",
+          "lyrics": "Crunch goes the apple, crunch crunch crunch.\nI hold it careful—munch munch munch.\nRed or green or yellow bright,\nI taste my apple—just one bite!",
+          "motions": "Tap fists together for crunch; mime holding; point to colors; pretend one careful bite.",
+          "teacherDirections": "Chant slowly before tasting. Offer a silent mouth movement for non-tasters.",
+          "whenToUse": "Thursday before the taste test and Friday celebration.",
+          "suggestedPace": "Slow, with pauses for motions.",
+          "transitionPurpose": "Prime safe tasting routines.",
+          "dayPlacement": "thursday"
+        },
+        {
+          "title": "Way Up High in the Apple Tree",
+          "rightsStatus": "public_domain",
+          "rightsEvidence": "Traditional nursery fingerplay widely documented as authorless oral tradition; lyrics appear in public nursery-rhyme collections such as allnurseryrhymes.com/way-up-high-in-the-apple-tree/. Used as a chant/fingerplay in early childhood settings. If a modern recorded arrangement is preferred later, replace with an LLH original.",
+          "lyrics": "Way up high in the apple tree,\nTwo red apples smiled at me.\nI shook that tree as hard as I could,\nDown came an apple,\nMmm, it was good!",
+          "motions": "Reach high; smile with hands on cheeks; shake arms; swoop hands down; rub tummy.",
+          "teacherDirections": "Teach as a spoken fingerplay; melody optional. Change the number each round.",
+          "whenToUse": "Monday circle and Friday parade warm-up.",
+          "suggestedPace": "Moderate with exaggerated down swoop.",
+          "transitionPurpose": "Connect story language to picking/movement games.",
+          "dayPlacement": "monday"
+        },
+        {
+          "title": "Basket Fill (LLH)",
+          "rightsStatus": "original",
+          "rightsEvidence": "Original LLH transition chant created for toddler apple sorting and cleanup.",
+          "lyrics": "Fill, fill, fill the basket—\nRed one, green one, in they go.\nPat the basket, nice and steady,\nApples ready—here we go!",
+          "motions": "Pretend place apples; pat basket; march two steps.",
+          "teacherDirections": "Use during cleanup of Count the Apples and Color Sort.",
+          "whenToUse": "Cleanup transitions Tuesday–Wednesday.",
+          "suggestedPace": "Steady walking tempo.",
+          "transitionPurpose": "Make cleanup rhythmic and cooperative.",
+          "dayPlacement": "tuesday"
+        }
+      ],
+      "books": [
+        {
+          "title": "Ten Apples Up On Top!",
+          "author": "Theo LeSieg (Dr. Seuss)",
+          "verificationSource": "Penguin Random House / Beginner Books listing for ISBN 9780394800196 credits Theo. LeSieg (Dr. Seuss pseudonym), illustrated by Roy McKie: https://www.penguinrandomhouseretail.com/book/?isbn=9780394800196 — ages commonly early reader / adult-paced for toddlers.",
+          "ageSuitability": "Toddler–early preschool (short rhythmic text; adult paces pages)",
+          "weekdayPlacement": "monday",
+          "whyThisBook": "Playful counting with apples supports Count the Apples without requiring worksheets.",
+          "beforeReadingQuestions": [
+            "What do you think will happen if more apples go on top?"
+          ],
+          "duringReadingPrompts": [
+            "Can you show me three with your fingers?",
+            "Who looks wobbly?"
+          ],
+          "afterReadingQuestions": [
+            "Should we stack pretend apples on our heads or only on the floor today?"
+          ],
+          "vocabularyConnection": "count / top / balance",
+          "substituteTitle": "No book: count plastic apples onto a plate while chanting numbers."
+        },
+        {
+          "title": "Apple Farmer Annie",
+          "author": "Monica Wellington",
+          "verificationSource": "Publisher records / common library cataloging list Monica Wellington as author-illustrator of Apple Farmer Annie (Dutton).",
+          "ageSuitability": "Toddler–preschool",
+          "weekdayPlacement": "wednesday",
+          "whyThisBook": "Shows orchard-to-market flow that mirrors Apple Market dramatic play.",
+          "beforeReadingQuestions": [
+            "What job might Annie do with all those apples?"
+          ],
+          "duringReadingPrompts": [
+            "Where are the apples going next?",
+            "What tools do you notice?"
+          ],
+          "afterReadingQuestions": [
+            "If we open our market, what should we sell first?"
+          ],
+          "vocabularyConnection": "farmer / market / pick",
+          "substituteTitle": "Apples and Pumpkins by Anne Rockwell"
+        },
+        {
+          "title": "Apples and Pumpkins",
+          "author": "Anne Rockwell",
+          "verificationSource": "Standard library cataloging credits Anne Rockwell; widely held farm/orchard picture book for young children.",
+          "ageSuitability": "Toddler–preschool",
+          "weekdayPlacement": "friday",
+          "whyThisBook": "Seasonal orchard visit language supports harvest celebration and outdoor options.",
+          "beforeReadingQuestions": [
+            "Have you ever visited a place that grows food?"
+          ],
+          "duringReadingPrompts": [
+            "What is the family carrying?",
+            "Is it daytime or nighttime?"
+          ],
+          "afterReadingQuestions": [
+            "What would you put in your harvest basket?"
+          ],
+          "vocabularyConnection": "orchard / harvest / basket",
+          "substituteTitle": "No book: walk the yard and collect safe fallen leaves into a ‘harvest’ basket."
+        }
+      ],
+      "teacherToolkit": {
+        "teacherPreparation": "Allergy check list on the fridge. Cut stamp apples before arrival. Pre-cut picture cards. Stage taste-test plates only after art cleanup.",
+        "prepChecklist": [
+          "Allergy and preference notes reviewed",
+          "Picture card pack printed and cut",
+          "Stamp apples cut and refrigerated",
+          "Three color bins labeled with swatches",
+          "Sanitizer and napkin stack ready for Thursday"
+        ],
+        "observationFocus": [
+          "Sensory approach or avoidance",
+          "Sorting strategy",
+          "Turn-taking in market play"
+        ],
+        "observationPrompts": [
+          "When does the child need a non-messy alternative?",
+          "Which vocabulary sticks across days?"
+        ],
+        "documentationPrompts": [
+          "Photo of process art (no faces required)",
+          "Note one sorting strategy in anecdotal log"
+        ],
+        "teacherTips": [
+          "Keep tasting completely separate from art days.",
+          "Prefer oversized props for toddlers."
+        ],
+        "setupCleanupShortcuts": [
+          "Store color bins stacked with sample apple inside",
+          "Mesh bag for pom-poms and scarves"
+        ],
+        "materialSubstitutions": [
+          {
+            "need": "plastic apples",
+            "use": "fabric apples or large pom-poms"
+          },
+          {
+            "need": "hand lenses",
+            "use": "view-finders or close looking"
+          }
+        ],
+        "mixedAgeAdaptations": "Infants in arms may look at a whole apple; older toddlers lead market seller roles.",
+        "extraSupportAdaptations": "Offer dry alternatives whenever sticky textures appear.",
+        "challengeExtensions": "Invite numeral matching after dot matching is solid.",
+        "safetyInclusionNotes": "Allergy protocol; adult prepares cuts; oversized props only; non-tasters have equal status jobs.",
+        "endOfWeekReflection": "Which apple experience invited the most language? What prop caused crowding?",
+        "familyConnection": "Send the favorite-graph photo and one song lyric card.",
+        "notes": "Proof revision batch — disposable store only."
+      }
+    },
+    "updatedAt": "2026-08-08T21:32:33.532Z",
+    "lastEditedBy": "leahivie@icloud.com (proof revision)",
+    "previewReady": true,
+    "schemaVersion": "proof-two-revision-1",
+    "batchId": "proof-two-revision-2026-08-08"
+  },
+  "decisions": [
+    {
+      "title": "Apple Investigation",
+      "decision": "rewrite",
+      "note": "Kept STEM look/touch; unique tips and allergy-safe boundaries."
+    },
+    {
+      "title": "Apple Stamp Painting",
+      "decision": "rewrite",
+      "note": "Process emphasis; example illustration linked."
+    },
+    {
+      "title": "Count the Apples",
+      "decision": "rewrite",
+      "note": "Dot matching before numerals; toddler dump-fill honored."
+    },
+    {
+      "title": "Pick the Apples",
+      "decision": "rewrite",
+      "note": "Two-height picks; music pause for safety."
+    },
+    {
+      "title": "Apple Color Sort",
+      "decision": "rewrite",
+      "note": "Sample anchors; purposeful substitutions."
+    },
+    {
+      "title": "My Favorite Apple Color",
+      "decision": "replace",
+      "note": "Replaced template tissue craft with Apple Peel Tear Collage."
+    },
+    {
+      "title": "Apple Color Investigation",
+      "decision": "remove",
+      "note": "Duplicate of Monday investigation."
+    },
+    {
+      "title": "Apple Color Dance",
+      "decision": "rewrite",
+      "note": "Short color-cue freezes."
+    },
+    {
+      "title": "Big or Small?",
+      "decision": "rewrite",
+      "note": "Clear size contrast; child debate welcomed."
+    },
+    {
+      "title": "Apple Measuring Station",
+      "decision": "rewrite",
+      "note": "Setup illustration; non-standard units."
+    },
+    {
+      "title": "Round Apple Collage",
+      "decision": "remove",
+      "note": "Duplicate of tear collage / stamp art."
+    },
+    {
+      "title": "Roll Like an Apple",
+      "decision": "rewrite",
+      "note": "Log rolls first; mat safety."
+    },
+    {
+      "title": "Apple Taste Test",
+      "decision": "rewrite",
+      "note": "Allergy protocol; equal non-taster roles."
+    },
+    {
+      "title": "Favorite Apple Graph",
+      "decision": "rewrite",
+      "note": "Uses picture cards; includes non-tasters."
+    },
+    {
+      "title": "Apple Market",
+      "decision": "rewrite",
+      "note": "Restock practice; polite phrase model."
+    },
+    {
+      "title": "Apple Basket Relay",
+      "decision": "remove",
+      "note": "Duplicate locomotion of Pick the Apples."
+    },
+    {
+      "title": "Apple Life Cycle",
+      "decision": "rewrite",
+      "note": "Uses PDF growth cards; setup image."
+    },
+    {
+      "title": "Apple Seed Discovery",
+      "decision": "rewrite",
+      "note": "Adult cut; sealed seed jar."
+    },
+    {
+      "title": "My Apple Tree",
+      "decision": "rewrite",
+      "note": "Process tree; no sticker rows."
+    },
+    {
+      "title": "Apple Harvest Celebration",
+      "decision": "rewrite",
+      "note": "Short parade; vocabulary share."
+    }
+  ]
+}

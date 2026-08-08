@@ -66,12 +66,18 @@ function parsePreschoolLessonImport(text, { itemIdPrefix = "item" } = {}) {
   const dailyPlans = {};
   let activityCount = 0;
   weekdays.forEach((day) => {
-    const items = (data.dailyPlans?.[day]?.items || []).map((item, index) => ({
+    const rawDay = data.dailyPlans?.[day] || {};
+    const items = (rawDay.items || []).map((item, index) => ({
       ...item,
       itemId: `${itemIdPrefix}-${day}-${index + 1}`,
     }));
     activityCount += items.length;
-    dailyPlans[day] = { items };
+    // Keep weekday theme/focus/objectives/materials from the import text.
+    // Dropping them previously zeroed weekdayCompleteness for free preschool plans.
+    dailyPlans[day] = {
+      ...rawDay,
+      items,
+    };
   });
   return {
     ...data,
