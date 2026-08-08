@@ -4099,6 +4099,12 @@ body.user-authenticated .view.active-view {
   box-sizing: border-box;
 }
 
+.tk-printable-file-name {
+  display: block;
+  margin-top: 0.35rem;
+  word-break: break-word;
+}
+
 .tk-printable-preview-thumb,
 .tk-printable-row-thumb {
   display: block;
