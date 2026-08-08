@@ -151,34 +151,33 @@ Invariant preserved: **AI may propose. Human must review and explicitly act.**
 | Item | Value |
 |---|---|
 | Target | `little-learner-hub-testing` only (`srv-d9fsap7jqk9s73806iag`) |
-| Shell to confirm | `20260808-phase11-fix-wave` |
-| Production service | `srv-d8o3f3r6sc1c73comlc0` — **do not deploy** |
-| Agent Render API key | **Not present in this cloud agent env** — owner must redeploy testing from this branch/commit via Render Dashboard or `npm run deploy:testing-only-phase11` with secrets |
-| Remote testing shell at end of wave | still `20260808-phase11-final-qa` until Leah redeploys |
-| Production shell at end of wave | `20260808-cookie-cta` · HDH `false` (**untouched**) |
-
-After redeploy, confirm:
+| Shell live | **`20260808-phase11-fix-wave`** ✅ |
+| Deploy ID | `dep-d9rmvvon74is73f6491g` @ `c9600e9` |
+| Production service | `srv-d8o3f3r6sc1c73comlc0` — **not deployed** |
+| Production shell | `20260808-cookie-cta` · HDH `false` (**untouched**) |
+| Remote smoke | `test:remote-testing-smoke-phase11` **PASS** |
+| Owner-review walkthrough | `docs/audits/PHASE11_OWNER_REVIEW_WALKTHROUGH.md` — **READY FOR LEAH OWNER REVIEW** |
 
 ```bash
 curl -sS https://little-learner-hub-testing.onrender.com/llh-shell-manifest.json
-# expect version 20260808-phase11-fix-wave
+# version 20260808-phase11-fix-wave
 curl -sS https://littlelearnershubbyleah.com/llh-shell-manifest.json
-# must remain 20260808-cookie-cta
+# remains 20260808-cookie-cta
 ```
 
 ---
 
 ## What Leah should still manually verify
 
-1. Redeploy **testing only** to this branch and confirm shell `20260808-phase11-fix-wave`  
+1. ~~Redeploy testing / confirm shell~~ **Done** (`20260808-phase11-fix-wave`)  
 2. Owner Admin unlock with Leah credentials on testing  
 3. Live Center Director → Teacher → Assistant day  
 4. Live guardian invite redeem + staff-only vs family-visible compare  
-5. Daily Log AI: Review Draft / Accept / Edit / Reject / Cancel / refresh  
-6. Meal save toast + fields remain filled  
-7. Settings → Billing → Open Family tuition & balances  
-8. Mobile ~390px Daily Ops / Family Hub / Forms / Tuition  
-9. P15 intended Early User / password-reset messaging on testing  
+5. Daily Log AI: full Accept / Edit / Reject / Cancel / refresh (AI drafts panel confirmed present)  
+6. Meal save toast + fields remain filled (agent meal save path PASS; Leah confirm toast polish)  
+7. ~~Settings → Billing → Open Family tuition & balances~~ **Confirmed on testing**  
+8. Mobile ~390px spot-check (agent overflow=0; Leah polish pass welcome)  
+9. P15 intended Early User / password-reset messaging on testing (Stripe not configured)  
 
 ---
 

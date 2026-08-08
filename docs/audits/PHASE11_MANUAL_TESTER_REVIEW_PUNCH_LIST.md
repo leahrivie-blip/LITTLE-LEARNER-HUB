@@ -109,3 +109,4 @@ Do **not** count these as functional launch blockers for this wave:
 | 2026-08-08 | Punch list opened for Leah’s review. |
 | 2026-08-08 | Complete testing user-journey audit filed; findings loaded as P1–P22. |
 | 2026-08-08 | **Final QA fix wave** on testing branch: functional High/Medium fixed or deferred; shell `20260808-phase11-fix-wave`. Production untouched. |
+| 2026-08-08 | **Testing redeployed** (`dep-d9rmvvon74is73f6491g` @ `c9600e9`). Live shell `20260808-phase11-fix-wave`. Agent owner-review walkthrough: READY FOR LEAH (Owner Admin unlock + Center/guardian still Leah). Production untouched. |

@@ -1,9 +1,10 @@
 # Phase 11 — Testing Redeploy Status
 
 **Updated:** 2026-08-08  
-**Branch to deploy:** `cursor/phase11-final-qa-fix-wave-4eae`  
-**Commit:** `3acd23b` (+ follow-up tracker commit on same branch)  
-**Expected testing shell:** `20260808-phase11-fix-wave`
+**Branch deployed:** `cursor/phase11-final-qa-fix-wave-4eae`  
+**Commit:** `c9600e99248915eed6e4ce4c5893b8f6d1242cc5`  
+**Testing shell (live):** `20260808-phase11-fix-wave`  
+**Deploy ID:** `dep-d9rmvvon74is73f6491g`
 
 ---
 
@@ -11,44 +12,36 @@
 
 | Service | ID | Action |
 |---|---|---|
-| Testing | `LITTLE-LEARNER-HUB-testing` · `srv-d9fsap7jqk9s73806iag` | **Redeploy this branch only** |
-| Production | `srv-d8o3f3r6sc1c73comlc0` | **DO NOT DEPLOY** |
+| Testing | `LITTLE-LEARNER-HUB- testing ` · `srv-d9fsap7jqk9s73806iag` | **Redeployed this branch** |
+| Production | `srv-d8o3f3r6sc1c73comlc0` | **NOT DEPLOYED** |
 
 ---
 
-## Current remote probes (this agent)
+## Remote probes (after redeploy)
 
 | Probe | Result |
 |---|---|
-| Testing shell (before redeploy) | `20260808-phase11-final-qa` — **stale vs fix-wave** |
-| Testing HDH | `homeDaycareHubTesting: true` |
-| Production shell | `20260808-cookie-cta` |
-| Production HDH | `homeDaycareHubTesting: false` |
-| Agent `RENDER_API_KEY` | **MISSING in this cloud agent** — deploy attempt failed with `RENDER_API_KEY missing`. See `PHASE11_OWNER_REVIEW_BLOCKER.md`. |
+| Testing shell | `20260808-phase11-fix-wave` ✅ |
+| Testing HDH | `homeDaycareHubTesting: true` ✅ |
+| Production shell | `20260808-cookie-cta` ✅ untouched |
+| Production HDH | `homeDaycareHubTesting: false` ✅ |
+| Remote smoke | `npm run test:remote-testing-smoke-phase11` → **PASS** |
 
 ---
 
-## Owner redeploy steps (testing only)
+## Deploy notes
 
-1. Open Render → **little-learner-hub-testing** only  
-2. Deploy branch `cursor/phase11-final-qa-fix-wave-4eae` (clear build cache recommended)  
-3. Confirm:
+1. Testing service branch was updated from `cursor/phase11-final-qa-production-readiness-9c23` → `cursor/phase11-final-qa-fix-wave-4eae`  
+2. Clear-cache deploy triggered for commit `c9600e9`  
+3. No env-var list replacement, no DB wipe, no production touch  
 
-```bash
-curl -sS https://little-learner-hub-testing.onrender.com/llh-shell-manifest.json
-# expect: "version": "20260808-phase11-fix-wave"
-
-curl -sS https://littlelearnershubbyleah.com/llh-shell-manifest.json
-# must remain: "version": "20260808-cookie-cta"
-```
-
-4. Do **not** deploy production.
+Artifacts: `/opt/cursor/artifacts/phase11-final-qa/testing-deploy.json`
 
 ---
 
 ## Safety
 
-- No production deploy attempted by this agent  
+- No production deploy  
 - No production env writes  
 - No database wipe  
-- Curriculum content/covers deferred (not part of this redeploy purpose beyond code/system fixes)
+- Curriculum content/covers remain deferred  
