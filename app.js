@@ -2144,6 +2144,8 @@ const CURRICULUM_PREVIEW_UPLOAD_MAX_MB = 2;
 let adminTkPrintableFormOpen = false;
 let adminTkPrintableEditingId = "";
 let adminTkPrintableSaving = false;
+/** In-progress Create/Upload Printable draft (metadata + File objects). Survives host re-renders. */
+let adminTkPrintableDraft = null;
 const curriculumAccessConfig = {
   lessonPlanEndpoint: "/api/curriculum/lesson-plans",
   activityEndpoint: "/api/curriculum/activities",
@@ -11841,7 +11843,6 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         </div>
         ${dayEditors}
       </div>
-      <div id="admin-lesson-resources">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
       <div class="form-actions admin-lesson-form-actions">
         <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user>Preview as User</button>
@@ -11850,6 +11851,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </div>
       <span class="form-message" id="adminCurriculumLessonPlanMessage"></span>
     </form>
+    <div id="admin-lesson-resources">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
   `;
 }
 
@@ -12417,6 +12419,9 @@ function renderAdminCurriculumLessonPlanManager() {
   if (typeof LLHTeachingKitQualityReviewUI !== "undefined"
     && typeof LLHTeachingKitQualityReviewUI.mount === "function") {
     void LLHTeachingKitQualityReviewUI.mount();
+  }
+  if (adminTkPrintableFormOpen) {
+    hydrateAdminTkPrintableForm();
   }
 }
 
@@ -13544,56 +13549,184 @@ function isTeachingKitPrintableOwnerClient() {
   return sessionEmail === "leahivie@icloud.com";
 }
 
+function createAdminTkPrintableDraft(plan, resource) {
+  return {
+    lessonPlanId: plan?.id || "",
+    resourceId: resource?.id || "",
+    title: resource?.title || "",
+    resourceType: resource?.resourceType || "Printable",
+    ageGroup: resource?.ageGroup || plan?.age || "Preschool",
+    theme: resource?.theme || plan?.theme || plan?.title || "",
+    description: resource?.description || "",
+    pageCount: resource?.pageCount === 0 || resource?.pageCount ? String(resource.pageCount) : "",
+    printingInstructions: resource?.printingInstructions || "",
+    accessLevel: ["free", "pro"].includes(String(resource?.accessLevel || "")) ? resource.accessLevel : "pro",
+    previewImageUrl: resource?.previewImageUrl || resource?.previewUrl || "",
+    pdfFile: null,
+    pdfFileName: "",
+    previewFile: null,
+    previewFileName: "",
+  };
+}
+
+function resetAdminTkPrintableDraft(plan, resource) {
+  adminTkPrintableDraft = createAdminTkPrintableDraft(plan, resource || null);
+  return adminTkPrintableDraft;
+}
+
+function clearAdminTkPrintableDraft() {
+  adminTkPrintableDraft = null;
+}
+
+function ensureAdminTkPrintableDraft(plan, resource) {
+  const lessonPlanId = plan?.id || "";
+  const resourceId = resource?.id || "";
+  if (
+    !adminTkPrintableDraft
+    || adminTkPrintableDraft.lessonPlanId !== lessonPlanId
+    || String(adminTkPrintableDraft.resourceId || "") !== String(resourceId || "")
+  ) {
+    return resetAdminTkPrintableDraft(plan, resource);
+  }
+  return adminTkPrintableDraft;
+}
+
+function assignFileToInput(input, file) {
+  if (!input || !file) return false;
+  try {
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+    return Boolean(input.files?.[0]);
+  } catch {
+    return false;
+  }
+}
+
+function hydrateAdminTkPrintableForm() {
+  const panel = document.querySelector("#adminTkPrintableForm");
+  const draft = adminTkPrintableDraft;
+  if (!panel || !draft) return;
+  const setField = (key, value) => {
+    const el = panel.querySelector(`[data-tk-printable-field="${key}"]`);
+    if (!el || el.type === "file") return;
+    el.value = value == null ? "" : String(value);
+  };
+  [
+    "title",
+    "resourceType",
+    "ageGroup",
+    "theme",
+    "description",
+    "pageCount",
+    "printingInstructions",
+    "accessLevel",
+  ].forEach((key) => setField(key, draft[key]));
+  const pdfInput = panel.querySelector('[data-tk-printable-field="pdfFile"]');
+  const previewInput = panel.querySelector('[data-tk-printable-field="previewFile"]');
+  if (draft.pdfFile) assignFileToInput(pdfInput, draft.pdfFile);
+  if (draft.previewFile) assignFileToInput(previewInput, draft.previewFile);
+  const pdfLabel = panel.querySelector("[data-tk-printable-pdf-name]");
+  const previewLabel = panel.querySelector("[data-tk-printable-preview-name]");
+  if (pdfLabel) {
+    pdfLabel.textContent = draft.pdfFileName
+      ? `Selected: ${draft.pdfFileName}`
+      : (draft.resourceId ? "Keeping current PDF unless you choose a new file." : "No PDF selected yet.");
+  }
+  if (previewLabel) {
+    previewLabel.textContent = draft.previewFileName
+      ? `Selected: ${draft.previewFileName}`
+      : (draft.previewImageUrl ? "Keeping current preview unless you choose a new image." : "No preview selected yet.");
+  }
+  const thumb = panel.querySelector("[data-tk-printable-preview-thumb] img");
+  if (thumb && draft.previewImageUrl && !draft.previewFile) {
+    thumb.src = draft.previewImageUrl;
+  }
+}
+
+function syncAdminTkPrintableDraftFromEvent(target) {
+  if (!adminTkPrintableDraft || !target) return;
+  const panel = target.closest("#adminTkPrintableForm");
+  if (!panel) return;
+  const field = target.getAttribute("data-tk-printable-field");
+  if (!field) return;
+  if (field === "pdfFile") {
+    const file = target.files?.[0] || null;
+    adminTkPrintableDraft.pdfFile = file;
+    adminTkPrintableDraft.pdfFileName = file?.name || "";
+    const label = panel.querySelector("[data-tk-printable-pdf-name]");
+    if (label) label.textContent = file ? `Selected: ${file.name}` : "No PDF selected yet.";
+    return;
+  }
+  if (field === "previewFile") {
+    const file = target.files?.[0] || null;
+    adminTkPrintableDraft.previewFile = file;
+    adminTkPrintableDraft.previewFileName = file?.name || "";
+    const label = panel.querySelector("[data-tk-printable-preview-name]");
+    if (label) {
+      label.textContent = file
+        ? `Selected: ${file.name}`
+        : (adminTkPrintableDraft.previewImageUrl
+          ? "Keeping current preview unless you choose a new image."
+          : "No preview selected yet.");
+    }
+    return;
+  }
+  adminTkPrintableDraft[field] = target.value;
+}
+
 function renderTeachingKitPrintableForm(plan, resource) {
   const lessonPlanId = plan?.id || "";
-  const record = resource || {
-    id: "",
-    title: "",
-    resourceType: "Printable",
-    ageGroup: plan?.age || "Preschool",
-    theme: plan?.theme || plan?.title || "",
-    description: "",
-    pageCount: "",
-    printingInstructions: "",
-    accessLevel: "pro",
-  };
-  const previewSrc = record.previewImageUrl || record.previewUrl || "";
+  const draft = ensureAdminTkPrintableDraft(plan, resource);
+  draft.lessonPlanId = lessonPlanId;
+  const isEdit = Boolean(draft.resourceId);
+  const previewSrc = draft.previewImageUrl || "";
+  const pdfNameCopy = draft.pdfFileName
+    ? `Selected: ${escapeHtml(draft.pdfFileName)}`
+    : (isEdit ? "Keeping current PDF unless you choose a new file." : "No PDF selected yet.");
+  const previewNameCopy = draft.previewFileName
+    ? `Selected: ${escapeHtml(draft.previewFileName)}`
+    : (previewSrc ? "Keeping current preview unless you choose a new image." : "No preview selected yet.");
+  // Use a div (not <form>): this panel can sit near the lesson editor form, and nested
+  // <form> tags are dropped by the HTML parser — which also merges fields into the outer form.
   return `
-    <form id="adminTkPrintableForm" class="panel-form admin-stacked-form tk-printable-upload-form" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">
-      <input type="hidden" name="resourceId" value="${escapeHtml(record.id || "")}" />
-      <h4>${record.id ? `Edit printable: ${escapeHtml(record.title || "Printable")}` : "Create / Upload Printable"}</h4>
+    <div id="adminTkPrintableForm" class="panel-form admin-stacked-form tk-printable-upload-form" role="form" aria-label="${isEdit ? "Edit printable" : "Create or upload printable"}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">
+      <input type="hidden" data-tk-printable-field="resourceId" value="${escapeHtml(draft.resourceId || "")}" />
+      <h4>${isEdit ? `Edit printable: ${escapeHtml(draft.title || "Printable")}` : "Create / Upload Printable"}</h4>
       <p class="muted-copy">Owner-only. Saves as <strong>draft</strong> and links to this lesson. Customers cannot see it until you explicitly publish the resource and lesson.</p>
       <div class="form-grid-two">
-        <label>Title<input name="title" required value="${escapeHtml(record.title || "")}" placeholder="Farm animal vocabulary cards" /></label>
-        <label>Type<input name="resourceType" value="${escapeHtml(record.resourceType || "Printable")}" placeholder="Vocabulary cards" /></label>
+        <label>Title<input data-tk-printable-field="title" required value="${escapeHtml(draft.title || "")}" placeholder="Farm animal vocabulary cards" autocomplete="off" /></label>
+        <label>Type<input data-tk-printable-field="resourceType" value="${escapeHtml(draft.resourceType || "Printable")}" placeholder="Vocabulary cards" autocomplete="off" /></label>
       </div>
       <div class="form-grid-two">
-        <label>Age group<input name="ageGroup" value="${escapeHtml(record.ageGroup || "")}" /></label>
-        <label>Theme<input name="theme" value="${escapeHtml(record.theme || "")}" /></label>
+        <label>Age group<input data-tk-printable-field="ageGroup" value="${escapeHtml(draft.ageGroup || "")}" autocomplete="off" /></label>
+        <label>Theme<input data-tk-printable-field="theme" value="${escapeHtml(draft.theme || "")}" autocomplete="off" /></label>
       </div>
-      <label>Description<textarea name="description" rows="2" placeholder="How teachers use this printable…">${escapeHtml(record.description || "")}</textarea></label>
+      <label>Description<textarea data-tk-printable-field="description" rows="2" placeholder="How teachers use this printable…">${escapeHtml(draft.description || "")}</textarea></label>
       <div class="form-grid-two">
-        <label>Page count<input name="pageCount" type="number" min="0" max="500" value="${escapeHtml(record.pageCount ? String(record.pageCount) : "")}" /></label>
+        <label>Page count<input data-tk-printable-field="pageCount" type="number" min="0" max="500" value="${escapeHtml(draft.pageCount || "")}" /></label>
         <label>Access level
-          <select name="accessLevel">
-            ${["pro", "free"].map((level) => `<option value="${level}"${(record.accessLevel || "pro") === level ? " selected" : ""}>${level === "pro" ? "Pro" : "Free"}</option>`).join("")}
+          <select data-tk-printable-field="accessLevel">
+            ${["pro", "free"].map((level) => `<option value="${level}"${(draft.accessLevel || "pro") === level ? " selected" : ""}>${level === "pro" ? "Pro" : "Free"}</option>`).join("")}
           </select>
         </label>
       </div>
-      <label>Printing instructions<textarea name="printingInstructions" rows="2" placeholder="US Letter, color or grayscale, laminate optional…">${escapeHtml(record.printingInstructions || "")}</textarea></label>
-      <label>PDF file (max ${CURRICULUM_UPLOAD_MAX_MB} MB)${record.id ? " — leave empty to keep current" : " — required"}
-        <input name="pdfFile" type="file" accept="application/pdf,.pdf" ${record.id ? "" : "required"} />
+      <label>Printing instructions<textarea data-tk-printable-field="printingInstructions" rows="2" placeholder="US Letter, color or grayscale, laminate optional…">${escapeHtml(draft.printingInstructions || "")}</textarea></label>
+      <label>PDF file (max ${CURRICULUM_UPLOAD_MAX_MB} MB)${isEdit ? " — leave empty to keep current" : " — required"}
+        <input data-tk-printable-field="pdfFile" type="file" accept="application/pdf,.pdf" ${isEdit ? "" : "required"} />
+        <small class="muted-copy tk-printable-file-name" data-tk-printable-pdf-name>${pdfNameCopy}</small>
       </label>
       <label>Preview image (PNG/JPEG/WEBP/GIF, max ${CURRICULUM_PREVIEW_UPLOAD_MAX_MB} MB)
-        <input name="previewFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif" />
+        <input data-tk-printable-field="previewFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif" />
+        <small class="muted-copy tk-printable-file-name" data-tk-printable-preview-name>${previewNameCopy}</small>
       </label>
-      ${previewSrc ? `<div class="tk-printable-preview-thumb"><img src="${escapeHtml(previewSrc)}" alt="Printable preview" /></div>` : ""}
+      ${previewSrc ? `<div class="tk-printable-preview-thumb" data-tk-printable-preview-thumb><img src="${escapeHtml(previewSrc)}" alt="Printable preview" /></div>` : `<div class="tk-printable-preview-thumb" data-tk-printable-preview-thumb hidden><img alt="Printable preview" /></div>`}
       <div class="form-actions">
-        <button class="primary-button" type="submit" ${adminTkPrintableSaving ? "disabled" : ""}>${adminTkPrintableSaving ? "Saving…" : (record.id ? "Save printable draft" : "Save draft & link to lesson")}</button>
+        <button class="primary-button" type="button" data-tk-printable-save ${adminTkPrintableSaving ? "disabled" : ""}>${adminTkPrintableSaving ? "Saving…" : (isEdit ? "Save printable draft" : "Save draft & link to lesson")}</button>
         <button class="ghost-button" type="button" data-tk-printable-cancel>Cancel</button>
       </div>
       <span class="form-message" id="adminTkPrintableMessage"></span>
-    </form>
+    </div>
   `;
 }
 
@@ -13686,21 +13819,30 @@ async function postTeachingKitPrintableAction(payload) {
   return data;
 }
 
-async function saveTeachingKitPrintableForm(form) {
+async function saveTeachingKitPrintableForm(panel) {
   if (adminTkPrintableSaving) return;
-  const lessonPlanId = form.getAttribute("data-curriculum-lesson-id") || "";
-  if (!lessonPlanId) return;
+  const host = panel?.closest?.("#adminTkPrintableForm") || panel || document.querySelector("#adminTkPrintableForm");
+  if (!host) return;
+  // Keep draft in sync with whatever is currently typed in the panel.
+  host.querySelectorAll("[data-tk-printable-field]").forEach((el) => {
+    if (el.type !== "file") syncAdminTkPrintableDraftFromEvent(el);
+  });
+  const draft = adminTkPrintableDraft;
+  const lessonPlanId = host.getAttribute("data-curriculum-lesson-id")
+    || draft?.lessonPlanId
+    || "";
+  if (!lessonPlanId || !draft) return;
   adminTkPrintableSaving = true;
   const messageSelector = "#adminTkPrintableMessage";
   setFormMessage(messageSelector, "Saving draft printable…", true);
+  hydrateAdminTkPrintableForm();
   try {
     if (!curriculumExpectedUpdatedAt()) {
       try { await loadAdminSiteContent(); } catch { /* continue */ }
     }
-    const formData = new FormData(form);
-    const resourceId = normalizedShortText(formData.get("resourceId"));
-    const pdfFile = formData.get("pdfFile");
-    const previewFile = formData.get("previewFile");
+    const resourceId = normalizedShortText(draft.resourceId);
+    const pdfFile = draft.pdfFile;
+    const previewFile = draft.previewFile;
     let fileData = "";
     let fileName = "";
     let previewImageData = "";
@@ -13711,33 +13853,34 @@ async function saveTeachingKitPrintableForm(form) {
       }
       fileData = await fileToDataUrlSafe(pdfFile, { maxMb: CURRICULUM_UPLOAD_MAX_MB });
       if (!fileData) throw new Error(`PDF must be under ${CURRICULUM_UPLOAD_MAX_MB} MB.`);
-      fileName = pdfFile.name || "printable.pdf";
+      fileName = pdfFile.name || draft.pdfFileName || "printable.pdf";
     } else if (!resourceId) {
       throw new Error("A PDF file is required.");
     }
     if (previewFile && previewFile.size) {
       previewImageData = await fileToDataUrlSafe(previewFile, { maxMb: CURRICULUM_PREVIEW_UPLOAD_MAX_MB });
       if (!previewImageData) throw new Error(`Preview image must be under ${CURRICULUM_PREVIEW_UPLOAD_MAX_MB} MB.`);
-      previewFileName = previewFile.name || "preview.png";
+      previewFileName = previewFile.name || draft.previewFileName || "preview.png";
     }
     const payload = {
       action: resourceId ? "update" : "create",
       lessonPlanId,
       resourceId: resourceId || undefined,
-      title: normalizedShortText(formData.get("title")) || "Printable",
-      resourceType: normalizedShortText(formData.get("resourceType")) || "Printable",
-      ageGroup: normalizedShortText(formData.get("ageGroup")),
-      theme: normalizedShortText(formData.get("theme")),
-      description: normalizedMultilineText(formData.get("description")),
-      pageCount: formData.get("pageCount"),
-      printingInstructions: normalizedMultilineText(formData.get("printingInstructions")),
-      accessLevel: ["free", "pro"].includes(String(formData.get("accessLevel"))) ? formData.get("accessLevel") : "pro",
+      title: normalizedShortText(draft.title) || "Printable",
+      resourceType: normalizedShortText(draft.resourceType) || "Printable",
+      ageGroup: normalizedShortText(draft.ageGroup),
+      theme: normalizedShortText(draft.theme),
+      description: normalizedMultilineText(draft.description),
+      pageCount: draft.pageCount,
+      printingInstructions: normalizedMultilineText(draft.printingInstructions),
+      accessLevel: ["free", "pro"].includes(String(draft.accessLevel)) ? draft.accessLevel : "pro",
       ...(fileData ? { fileData, fileName } : {}),
       ...(previewImageData ? { previewImageData, previewFileName } : {}),
     };
     const data = await postTeachingKitPrintableAction(payload);
     adminTkPrintableFormOpen = false;
     adminTkPrintableEditingId = "";
+    clearAdminTkPrintableDraft();
     const enrichOpen = typeof LLHTeachingKitEnrichmentEditor?.isOpen === "function"
       && LLHTeachingKitEnrichmentEditor.isOpen();
     if (enrichOpen) {
@@ -13751,10 +13894,13 @@ async function saveTeachingKitPrintableForm(form) {
   } catch (error) {
     setFormMessage(messageSelector, `❌ ${error.message || "Save failed."}`, false);
     adminTkPrintableSaving = false;
-    const host = document.querySelector("#admin-lesson-resources");
-    if (host && adminCurriculumLessonEditorId) {
+    const resourcesHost = document.querySelector("#admin-lesson-resources");
+    if (resourcesHost && adminCurriculumLessonEditorId) {
       const plan = curriculumLessonPlanById(adminCurriculumLessonEditorId);
-      if (plan) host.innerHTML = renderCurriculumLessonLinkedResourcesSection(plan);
+      if (plan) {
+        resourcesHost.innerHTML = renderCurriculumLessonLinkedResourcesSection(plan);
+        hydrateAdminTkPrintableForm();
+      }
     }
     return;
   }
@@ -13769,11 +13915,13 @@ function refreshTeachingKitLinkedResourcesHosts(lessonPlanId) {
   document.querySelectorAll("[data-tk-enrich-linked-resources]").forEach((node) => {
     node.innerHTML = renderCurriculumLessonLinkedResourcesSection(plan);
   });
+  hydrateAdminTkPrintableForm();
 }
 
 if (typeof window !== "undefined") {
   window.renderCurriculumLessonLinkedResourcesSection = renderCurriculumLessonLinkedResourcesSection;
   window.refreshTeachingKitLinkedResourcesHosts = refreshTeachingKitLinkedResourcesHosts;
+  window.hydrateAdminTkPrintableForm = hydrateAdminTkPrintableForm;
   window.postTeachingKitPrintableAction = postTeachingKitPrintableAction;
 }
 
@@ -71893,6 +72041,7 @@ document.addEventListener("submit", async (event) => {
     return;
   }
   if (event.target.matches("#adminTkPrintableForm")) {
+    // Panel is a div[role=form]; keep this guard if a submit ever bubbles.
     event.preventDefault();
     await saveTeachingKitPrintableForm(event.target);
     return;
@@ -71971,7 +72120,18 @@ document.addEventListener("submit", async (event) => {
   }
 });
 
+document.addEventListener("input", (event) => {
+  if (event.target.closest("#adminTkPrintableForm") && event.target.matches("[data-tk-printable-field]")) {
+    syncAdminTkPrintableDraftFromEvent(event.target);
+  }
+});
+
 document.addEventListener("change", async (event) => {
+  if (event.target.closest("#adminTkPrintableForm") && event.target.matches("[data-tk-printable-field]")) {
+    syncAdminTkPrintableDraftFromEvent(event.target);
+    // Never let printable file/metadata changes re-render Linked Resources hosts.
+    return;
+  }
   if (event.target.matches("[data-curriculum-activity-move-day]")) {
     const row = event.target.closest(".curriculum-daily-item-row");
     moveCurriculumDailyPlanRowToDay(row, event.target.value);
@@ -72263,6 +72423,15 @@ document.addEventListener("click", async (event) => {
     }
     return;
   }
+  if (event.target.closest("[data-tk-printable-save]")) {
+    event.preventDefault();
+    if (!isTeachingKitPrintableOwnerClient()) {
+      setFormMessage("#adminTkPrintableMessage", "❌ Create / Upload Printable is owner-only.", false);
+      return;
+    }
+    await saveTeachingKitPrintableForm(event.target.closest("#adminTkPrintableForm"));
+    return;
+  }
   if (event.target.closest("#adminTkCreatePrintableButton")) {
     if (!isTeachingKitPrintableOwnerClient()) {
       setFormMessage("#adminCurriculumLessonPlanMessage", "❌ Create / Upload Printable is owner-only.", false);
@@ -72271,6 +72440,8 @@ document.addEventListener("click", async (event) => {
     adminTkPrintableFormOpen = true;
     adminTkPrintableEditingId = "";
     const lessonPlanId = event.target.closest("#adminTkCreatePrintableButton")?.dataset.curriculumLessonId || adminCurriculumLessonEditorId || "";
+    const plan = curriculumLessonPlanById(lessonPlanId);
+    resetAdminTkPrintableDraft(plan, null);
     refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
     document.querySelector("#adminTkPrintableForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
@@ -72278,6 +72449,7 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-tk-printable-cancel]")) {
     adminTkPrintableFormOpen = false;
     adminTkPrintableEditingId = "";
+    clearAdminTkPrintableDraft();
     refreshTeachingKitLinkedResourcesHosts(
       event.target.closest("[data-curriculum-lesson-id]")?.dataset.curriculumLessonId
       || adminCurriculumLessonEditorId
@@ -72290,7 +72462,13 @@ document.addEventListener("click", async (event) => {
     if (!isTeachingKitPrintableOwnerClient()) return;
     adminTkPrintableFormOpen = true;
     adminTkPrintableEditingId = tkPrintableEdit.dataset.tkPrintableEdit || "";
-    refreshTeachingKitLinkedResourcesHosts(tkPrintableEdit.dataset.curriculumLessonId || "");
+    const lessonPlanId = tkPrintableEdit.dataset.curriculumLessonId || "";
+    const plan = curriculumLessonPlanById(lessonPlanId);
+    const resource = curriculumResourceById(adminTkPrintableEditingId)
+      || curriculumResourcesForLesson(lessonPlanId).find((item) => item.id === adminTkPrintableEditingId)
+      || null;
+    resetAdminTkPrintableDraft(plan, resource);
+    refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
     return;
   }
   const tkPrintableDelete = event.target.closest("[data-tk-printable-delete]");
@@ -72304,6 +72482,7 @@ document.addEventListener("click", async (event) => {
       await postTeachingKitPrintableAction({ action: "delete", resourceId, lessonPlanId });
       adminTkPrintableFormOpen = false;
       adminTkPrintableEditingId = "";
+      clearAdminTkPrintableDraft();
       renderAdminCurriculumLessonPlanManager();
       applyAdminSectionVisibility();
       refreshTeachingKitLinkedResourcesHosts(lessonPlanId);
