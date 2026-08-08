@@ -1253,13 +1253,13 @@ body.llh-public-menu-open {
   gap: 8px;
 }
 
-/* Sticky mobile CTA */
+/* Sticky mobile CTA — z-index stays above cookie notice (35) so Start Free stays tappable */
 .landing-home .lp-mobile-sticky-cta {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30;
+  z-index: 45;
   display: none;
   padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 253, 251, 0.96);

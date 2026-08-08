@@ -23521,6 +23521,25 @@ body.hdh-persona-parent .main {
     min-height: 44px;
     min-width: 72px;
   }
+
+  /*
+   * Homepage mobile sticky Start Free must remain tappable while the cookie
+   * notice is visible. Sit the notice above the sticky bar and keep the sticky
+   * CTA above the notice for hit-testing.
+   */
+  body.home-view.has-meta-cookie-notice .llh-meta-cookie-notice,
+  body.home-view.has-meta-cookie-notice #llhMetaCookieNotice {
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    z-index: 35;
+  }
+
+  body.home-view .landing-home .lp-mobile-sticky-cta {
+    z-index: 45;
+  }
+
+  body.home-view.has-meta-cookie-notice {
+    padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* Keep page CTAs reachable while the cookie notice is visible. */
