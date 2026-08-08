@@ -1,0 +1,299 @@
+/* Owner Admin — Testing environment chrome (Phase 2) */
+
+.ota-testing-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10050;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #7a3b12, #9a4f1c);
+  color: #fff8f0;
+  font-size: 0.92rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.ota-testing-banner strong {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ota-view-as-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10060;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #123a45;
+  color: #f3fbff;
+  font-size: 0.95rem;
+}
+
+body.llh-testing-environment .ota-view-as-banner {
+  top: 36px;
+}
+
+.ota-env-pill {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #9a4f1c;
+  color: #fff8f0;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-size: 0.85rem;
+}
+
+.ota-env-pill.is-prod-warning {
+  background: #7a1212;
+}
+
+.ota-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ota-panel {
+  background: rgba(255, 252, 247, 0.92);
+  border: 1px solid rgba(122, 90, 58, 0.18);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.ota-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.ota-stat-grid article {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.ota-stat-grid em {
+  display: block;
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #6b5b4f;
+}
+
+.ota-stat-grid strong {
+  font-size: 1.35rem;
+}
+
+.ota-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ota-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.ota-form input,
+.ota-form select,
+.ota-form textarea {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font: inherit;
+}
+
+.ota-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 8px 0 14px;
+}
+
+.ota-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.9rem;
+}
+
+.ota-check small {
+  display: block;
+  color: #6b5b4f;
+}
+
+.ota-table-wrap {
+  overflow-x: auto;
+}
+
+.ota-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.ota-table th,
+.ota-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  vertical-align: top;
+}
+
+.ota-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eee6dc;
+  font-size: 0.78rem;
+  text-transform: capitalize;
+}
+
+.ota-status-active,
+.ota-status-activated {
+  background: #d8f0df;
+}
+
+.ota-status-disabled,
+.ota-status-revoked,
+.ota-status-expired {
+  background: #f3d6d6;
+}
+
+.ota-status-invitation_pending,
+.ota-status-invited,
+.ota-status-pending {
+  background: #f7e7c8;
+}
+
+.ota-audit-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ota-audit-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ota-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.ota-detail-grid em {
+  display: block;
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #6b5b4f;
+}
+
+.ota-invite-box {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+}
+
+.ota-invite-box textarea {
+  width: 100%;
+  margin: 6px 0 10px;
+}
+
+.ota-mini-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #9a4f1c;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.ota-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.ota-health-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.ota-health {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: #eee6dc;
+}
+
+.ota-health.is-ok {
+  background: #d8f0df;
+}
+
+.ota-health.is-warn {
+  background: #f7e7c8;
+}
+
+.ota-dash-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.curriculum-assign-child-picker {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.curriculum-assign-child-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+.curriculum-assign-child-option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .ota-testing-banner,
+  .ota-view-as-banner {
+    font-size: 0.82rem;
+    padding: 8px 10px;
+  }
+}

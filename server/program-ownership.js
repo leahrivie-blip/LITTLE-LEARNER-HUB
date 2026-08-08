@@ -220,7 +220,15 @@ function resolveProgramContext(store, identity = {}) {
   let role = String((ownerEmail === actorEmail ? (user.role || "owner") : (user.role || "director"))).toLowerCase();
   if (ownerEmail !== actorEmail && role === "owner") role = "director";
   const canManageStaff = role === "owner" || role === "director";
-  const canWriteProgramData = true; // all active members can contribute operational data
+  // Server-enforced write ACL (Phase 2): assistants/teachers may contribute care data;
+  // only owner/director get unrestricted program writes. Key-level filtering happens on save.
+  const canWriteProgramData = role === "owner" || role === "director" || role === "teacher" || role === "assistant";
+  const classroomIds = Array.isArray(user.classroomIds)
+    ? user.classroomIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : (user.classroomId ? [String(user.classroomId).trim()].filter(Boolean) : []);
+  const writeScope = role === "owner" || role === "director"
+    ? "all"
+    : (role === "teacher" ? "teacher" : "assistant");
   return {
     ok: true,
     programId: program.id,
@@ -231,8 +239,96 @@ function resolveProgramContext(store, identity = {}) {
     role,
     canManageStaff,
     canWriteProgramData,
+    writeScope,
+    classroomIds,
     inheritsAccess: ownerEmail !== actorEmail,
   };
+}
+
+/** Child-data keys assistants may update (care-day ops). */
+const ASSISTANT_WRITABLE_CHILD_KEYS = Object.freeze([
+  "Attendance",
+  "Meals",
+  "MealPresets",
+  "Naps",
+  "Diapers",
+  "ActivityLogs",
+  "Photos",
+  "Communications",
+  "Observations",
+]);
+
+/** Teachers may also update goals/reports/documents assigned in classroom workflows. */
+const TEACHER_WRITABLE_CHILD_KEYS = Object.freeze([
+  ...ASSISTANT_WRITABLE_CHILD_KEYS,
+  "Goals",
+  "Reports",
+  "Documents",
+  "SupportPlans",
+  "Differentiations",
+]);
+
+/**
+ * Merge incoming child payload with existing data according to role write scope.
+ * Owners/directors replace fully. Teachers/assistants may only patch allowed keys,
+ * and when classroomIds are set, may only touch Profiles in those classrooms
+ * (plus related rows whose childId belongs to those classrooms).
+ */
+function mergeChildDataForWriteScope(existingData, incomingData, context = {}) {
+  const existing = existingData && typeof existingData === "object" ? existingData : emptyChildPayload();
+  const incoming = incomingData && typeof incomingData === "object" ? incomingData : {};
+  const scope = context.writeScope || "all";
+  if (scope === "all") {
+    const merged = emptyChildPayload();
+    CHILD_DATA_KEYS.forEach((key) => {
+      merged[key] = Array.isArray(incoming[key]) ? incoming[key] : (Array.isArray(existing[key]) ? existing[key] : []);
+    });
+    return merged;
+  }
+  const allowed = new Set(scope === "teacher" ? TEACHER_WRITABLE_CHILD_KEYS : ASSISTANT_WRITABLE_CHILD_KEYS);
+  const classroomIds = Array.isArray(context.classroomIds) ? context.classroomIds.map(String) : [];
+  const restrictRooms = classroomIds.length > 0;
+  const allowedChildIds = new Set(
+    (Array.isArray(existing.Profiles) ? existing.Profiles : [])
+      .filter((profile) => !restrictRooms || classroomIds.includes(String(profile?.classroomId || "")))
+      .map((profile) => String(profile?.id || ""))
+      .filter(Boolean),
+  );
+  const merged = emptyChildPayload();
+  CHILD_DATA_KEYS.forEach((key) => {
+    if (!allowed.has(key)) {
+      merged[key] = Array.isArray(existing[key]) ? existing[key] : [];
+      return;
+    }
+    const nextRows = Array.isArray(incoming[key]) ? incoming[key] : (Array.isArray(existing[key]) ? existing[key] : []);
+    if (!restrictRooms || key === "MealPresets") {
+      merged[key] = nextRows;
+      return;
+    }
+    if (key === "Profiles") {
+      const byId = new Map((Array.isArray(existing.Profiles) ? existing.Profiles : []).map((p) => [String(p.id || ""), p]));
+      nextRows.forEach((profile) => {
+        const id = String(profile?.id || "");
+        if (!id) return;
+        if (restrictRooms && !classroomIds.includes(String(profile.classroomId || byId.get(id)?.classroomId || ""))) {
+          return;
+        }
+        byId.set(id, profile);
+      });
+      merged.Profiles = [...byId.values()];
+      return;
+    }
+    const keptOtherRooms = (Array.isArray(existing[key]) ? existing[key] : []).filter((row) => {
+      const childId = String(row?.childId || row?.child_id || "");
+      return childId && !allowedChildIds.has(childId);
+    });
+    const scopedNext = nextRows.filter((row) => {
+      const childId = String(row?.childId || row?.child_id || "");
+      return !childId || allowedChildIds.has(childId);
+    });
+    merged[key] = keptOtherRooms.concat(scopedNext);
+  });
+  return merged;
 }
 
 function legacyChildRecord(store, uid) {
@@ -292,12 +388,16 @@ function readProgramChildData(store, context) {
   };
 }
 
-function writeProgramChildData(store, context, data, { mirrorLegacy = true } = {}) {
+function writeProgramChildData(store, context, data, { mirrorLegacy = true, mergeScoped = true } = {}) {
   ensureProgramsCollection(store);
   const updatedAt = new Date().toISOString();
+  const existing = store.programData[context.programId]?.child?.data || emptyChildPayload();
+  const scopedData = mergeScoped
+    ? mergeChildDataForWriteScope(existing, data, context)
+    : data;
   store.programData[context.programId] = store.programData[context.programId] || { programId: context.programId };
   store.programData[context.programId].child = {
-    data,
+    data: scopedData,
     updatedAt,
     updatedByUid: context.actorUid || "",
     updatedByEmail: context.actorEmail || "",
@@ -312,7 +412,7 @@ function writeProgramChildData(store, context, data, { mirrorLegacy = true } = {
         uid: mirrorUid,
         email: context.ownerEmail,
         programId: context.programId,
-        data,
+        data: scopedData,
         updatedAt,
         updatedByUid: context.actorUid || "",
         updatedByEmail: context.actorEmail || "",
@@ -324,13 +424,13 @@ function writeProgramChildData(store, context, data, { mirrorLegacy = true } = {
     ...(store.users[context.ownerEmail] || { email: context.ownerEmail }),
     email: context.ownerEmail,
     programId: context.programId,
-    childProfiles: Array.isArray(data?.Profiles) ? data.Profiles.length : 0,
-    childObservations: Array.isArray(data?.Observations) ? data.Observations.length : 0,
-    childGoals: Array.isArray(data?.Goals) ? data.Goals.length : 0,
+    childProfiles: Array.isArray(scopedData?.Profiles) ? scopedData.Profiles.length : 0,
+    childObservations: Array.isArray(scopedData?.Observations) ? scopedData.Observations.length : 0,
+    childGoals: Array.isArray(scopedData?.Goals) ? scopedData.Goals.length : 0,
     childDataUpdatedAt: updatedAt,
     updatedAt,
   };
-  return { updatedAt, programId: context.programId };
+  return { updatedAt, programId: context.programId, data: scopedData, writeScope: context.writeScope || "all" };
 }
 
 function readProgramSchedule(store, context, scheduleLib) {
@@ -785,4 +885,7 @@ module.exports = {
   summarizeChildPayload,
   publicProgramFields,
   emptyChildPayload,
+  mergeChildDataForWriteScope,
+  ASSISTANT_WRITABLE_CHILD_KEYS,
+  TEACHER_WRITABLE_CHILD_KEYS,
 };
