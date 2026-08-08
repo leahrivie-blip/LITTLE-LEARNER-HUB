@@ -141,7 +141,18 @@ async function main() {
   ok(appJs.includes("Create / Upload Printable"), "Linked Resources CTA present");
   ok(appJs.includes("tkPrintableEndpoint"), "client endpoint configured");
   ok(appJs.includes("isTeachingKitPrintableOwnerClient"), "client owner gate present");
+  ok(appJs.includes("adminTkPrintableDraft"), "in-progress printable draft state present");
+  ok(appJs.includes("hydrateAdminTkPrintableForm"), "printable form hydrate helper present");
+  ok(appJs.includes('role="form"'), "printable panel uses role=form (not nested <form>)");
+  ok(appJs.includes('data-tk-printable-field="pdfFile"'), "PDF input uses dedicated data field keys");
+  ok(appJs.includes('data-tk-printable-field="previewFile"'), "preview input uses dedicated data field keys");
+  ok(appJs.includes("data-tk-printable-save"), "save uses button handler (not outer lesson form submit)");
+  ok(
+    /<\/form>\s*<div id="admin-lesson-resources">/.test(appJs),
+    "Linked Resources host is outside the lesson plan <form>",
+  );
   ok(editorJs.includes("data-tk-enrich-linked-resources"), "Upgrade Lesson week mode hosts Linked Resources");
+  ok(editorJs.includes("hydrateAdminTkPrintableForm"), "enrichment render rehydrates printable draft");
   ok(stylesCss.includes("tk-printable-upload-form"), "mobile-safe printable form styles present");
   ok(!/teachingKitEnrichmentEditor\s*:\s*true/.test(
     fs.readFileSync(path.join(ROOT, "scripts/teaching-kit.js"), "utf8").match(/defaultTeachingKitFeatureFlags[\s\S]*?return \{[\s\S]*?\};/)?.[0] || "",
@@ -403,52 +414,150 @@ async function main() {
     ok(flags.teachingKitPrintCenter !== true, "teachingKitPrintCenter still false");
     ok(flags.teachingKitEnrichmentEditor !== true, "teachingKitEnrichmentEditor still false");
 
-    // UI smoke via Playwright when available
+    // Real browser workflow: fill → PDF → preview → forced re-render → save → refresh
     let playwrightOk = false;
     try {
       const { chromium } = require("playwright");
       const browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-      await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      // Inject minimal DOM of Linked Resources for layout screenshots (no full admin bootstrap dependency)
-      await page.setContent(`<!DOCTYPE html><html><head><link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css"></head>
-        <body class="admin-shell" style="padding:16px">
-          <fieldset class="admin-fieldset curriculum-linked-resources">
-            <legend>Linked resources</legend>
-            <div class="curriculum-linked-resource-list">
-              <div class="curriculum-linked-resource-row">
-                <div class="curriculum-linked-resource-meta">
-                  <img class="tk-printable-row-thumb" src="${PNG_DATA_URL}" alt="" />
-                  <div><strong>Farm Animal Vocabulary Cards</strong><small>Printables · draft · farm-vocab.pdf</small></div>
-                </div>
-                <div class="form-actions curriculum-linked-resource-actions">
-                  <button class="ghost-button" type="button">Preview / Download</button>
-                  <button class="ghost-button" type="button">Replace / Edit</button>
-                  <button class="ghost-button" type="button">Unlink</button>
-                  <button class="ghost-button" type="button">Delete</button>
-                </div>
-              </div>
-            </div>
-            <div class="form-actions tk-printable-toolbar">
-              <button class="primary-button" type="button">Create / Upload Printable</button>
-            </div>
-            <form class="panel-form admin-stacked-form tk-printable-upload-form">
-              <h4>Create / Upload Printable</h4>
-              <div class="form-grid-two">
-                <label>Title<input value="Farm Animal Vocabulary Cards" /></label>
-                <label>Type<input value="Vocabulary cards" /></label>
-              </div>
-              <label>Description<textarea rows="2">Picture cards</textarea></label>
-              <div class="form-actions">
-                <button class="primary-button" type="button">Save draft & link to lesson</button>
-                <button class="ghost-button" type="button">Cancel</button>
-              </div>
-            </form>
-          </fieldset>
-        </body></html>`);
-      await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-upload-desktop.png"), fullPage: true });
+      page.on("dialog", async (dialog) => { await dialog.accept(); });
+
+      await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+      await page.evaluate(() => setView("admin"));
+      const unlockForm = page.locator("#adminUnlockForm");
+      if (await unlockForm.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await page.fill('input[name="adminEmail"]', OWNER.email);
+        await page.fill('input[name="adminPassword"]', OWNER.password);
+        await page.fill('input[name="adminCode"]', OWNER.code);
+        await page.click("#adminUnlockForm button[type='submit']");
+        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      }
+      await page.evaluate((id) => {
+        if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
+        if (typeof openAdminCurriculumLessonEditor === "function") {
+          openAdminCurriculumLessonEditor(id, { scroll: true });
+        }
+      }, FIXTURE_LESSON);
+      await page.waitForSelector("#adminTkCreatePrintableButton", { timeout: 20000 });
+      await page.click("#adminTkCreatePrintableButton");
+      await page.waitForSelector("#adminTkPrintableForm", { timeout: 10000 });
+
+      const panel = page.locator("#adminTkPrintableForm");
+      ok(await panel.count() === 1, "printable panel exists as #adminTkPrintableForm");
+      ok(await page.locator("#adminCurriculumLessonPlanForm #adminTkPrintableForm").count() === 0, "printable panel is not nested inside lesson form");
+
+      await panel.locator('[data-tk-printable-field="title"]').fill("Browser Persist Vocabulary Cards");
+      await panel.locator('[data-tk-printable-field="resourceType"]').fill("Vocabulary cards");
+      await panel.locator('[data-tk-printable-field="ageGroup"]').fill("Preschool");
+      await panel.locator('[data-tk-printable-field="theme"]').fill("Farm Animals");
+      await panel.locator('[data-tk-printable-field="description"]').fill("Picture cards for circle and centers.");
+      await panel.locator('[data-tk-printable-field="pageCount"]').fill("4");
+      await panel.locator('[data-tk-printable-field="printingInstructions"]').fill("US Letter, color or grayscale, laminate optional.");
+      await panel.locator('[data-tk-printable-field="accessLevel"]').selectOption("pro");
+
+      const pdfPath = path.join(ARTIFACT_DIR, "browser-persist.pdf");
+      const previewPath = path.join(ARTIFACT_DIR, "browser-persist-preview.png");
+      fs.writeFileSync(pdfPath, MINIMAL_PDF);
+      fs.writeFileSync(previewPath, Buffer.from(PNG_BASE64, "base64"));
+
+      await panel.locator('[data-tk-printable-field="pdfFile"]').setInputFiles(pdfPath);
+      await page.waitForTimeout(200);
+      let snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          theme: root?.querySelector('[data-tk-printable-field="theme"]')?.value || "",
+          description: root?.querySelector('[data-tk-printable-field="description"]')?.value || "",
+          pageCount: root?.querySelector('[data-tk-printable-field="pageCount"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          pdfLabel: root?.querySelector("[data-tk-printable-pdf-name]")?.textContent || "",
+          hasPreviewInput: Boolean(root?.querySelector('[data-tk-printable-field="previewFile"]')),
+          outsideLessonForm: !document.querySelector("#adminCurriculumLessonPlanForm #adminTkPrintableForm"),
+        };
+      });
+      ok(snapshot.title === "Browser Persist Vocabulary Cards", "title remains after PDF select");
+      ok(snapshot.theme === "Farm Animals", "theme remains after PDF select");
+      ok(snapshot.description.includes("Picture cards"), "description remains after PDF select");
+      ok(snapshot.pageCount === "4", "page count remains after PDF select");
+      ok(snapshot.pdfName === "browser-persist.pdf", "PDF filename remains on file input");
+      ok(/browser-persist\.pdf/i.test(snapshot.pdfLabel), "PDF selected label visible");
+      ok(snapshot.hasPreviewInput, "preview picker still present after PDF select");
+      ok(snapshot.outsideLessonForm, "panel remains outside lesson form after PDF select");
+
+      await panel.locator('[data-tk-printable-field="previewFile"]').setInputFiles(previewPath);
+      await page.waitForTimeout(200);
+      // Force the host re-render that previously wiped controlled fields.
+      await page.evaluate((id) => {
+        if (typeof refreshTeachingKitLinkedResourcesHosts === "function") {
+          refreshTeachingKitLinkedResourcesHosts(id);
+        }
+      }, FIXTURE_LESSON);
+      await page.waitForTimeout(250);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          resourceType: root?.querySelector('[data-tk-printable-field="resourceType"]')?.value || "",
+          ageGroup: root?.querySelector('[data-tk-printable-field="ageGroup"]')?.value || "",
+          theme: root?.querySelector('[data-tk-printable-field="theme"]')?.value || "",
+          description: root?.querySelector('[data-tk-printable-field="description"]')?.value || "",
+          pageCount: root?.querySelector('[data-tk-printable-field="pageCount"]')?.value || "",
+          printingInstructions: root?.querySelector('[data-tk-printable-field="printingInstructions"]')?.value || "",
+          accessLevel: root?.querySelector('[data-tk-printable-field="accessLevel"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+          pdfLabel: root?.querySelector("[data-tk-printable-pdf-name]")?.textContent || "",
+          previewLabel: root?.querySelector("[data-tk-printable-preview-name]")?.textContent || "",
+          hasPreviewInput: Boolean(root?.querySelector('[data-tk-printable-field="previewFile"]')),
+        };
+      });
+      ok(snapshot.title === "Browser Persist Vocabulary Cards", "title survives Linked Resources re-render");
+      ok(snapshot.resourceType === "Vocabulary cards", "type survives re-render");
+      ok(snapshot.ageGroup === "Preschool", "age group survives re-render");
+      ok(snapshot.theme === "Farm Animals", "theme survives re-render");
+      ok(snapshot.description.includes("Picture cards"), "description survives re-render");
+      ok(snapshot.pageCount === "4", "page count survives re-render");
+      ok(snapshot.printingInstructions.includes("US Letter"), "printing instructions survive re-render");
+      ok(snapshot.accessLevel === "pro", "access level survives re-render");
+      ok(snapshot.pdfName === "browser-persist.pdf", "PDF file survives re-render");
+      ok(snapshot.previewName === "browser-persist-preview.png", "preview file survives re-render");
+      ok(snapshot.hasPreviewInput, "preview picker remains after re-render");
+      ok(/browser-persist\.pdf/i.test(snapshot.pdfLabel), "PDF label survives re-render");
+      ok(/browser-persist-preview\.png/i.test(snapshot.previewLabel), "preview label survives re-render");
+
+      await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-form-persist-desktop.png"), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-upload-mobile.png"), fullPage: true });
+      await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-form-persist-mobile.png"), fullPage: true });
+      await page.setViewportSize({ width: 1280, height: 900 });
+
+      await panel.locator("[data-tk-printable-save]").click();
+      await page.waitForFunction(() => {
+        const msg = document.querySelector("#adminCurriculumLessonPlanMessage")?.textContent || "";
+        return /Printable saved as draft/i.test(msg);
+      }, null, { timeout: 20000 });
+      ok(true, "Save draft & link succeeds from browser panel");
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+      await page.evaluate(() => setView("admin"));
+      if (await page.locator("#adminUnlockForm").isVisible({ timeout: 2000 }).catch(() => false)) {
+        await page.fill('input[name="adminEmail"]', OWNER.email);
+        await page.fill('input[name="adminPassword"]', OWNER.password);
+        await page.fill('input[name="adminCode"]', OWNER.code);
+        await page.click("#adminUnlockForm button[type='submit']");
+        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      }
+      await page.evaluate((id) => {
+        setAdminSectionTab("curriculum-lesson-plans");
+        openAdminCurriculumLessonEditor(id, { scroll: true });
+      }, FIXTURE_LESSON);
+      await page.waitForSelector("#admin-lesson-linked-resources", { timeout: 20000 });
+      const linkedText = await page.locator("#admin-lesson-linked-resources").innerText();
+      ok(/Browser Persist Vocabulary Cards/i.test(linkedText), "linked draft title persists after refresh");
+      ok(/draft/i.test(linkedText), "linked resource still draft after refresh");
+      ok(/browser-persist\.pdf/i.test(linkedText), "linked draft filename persists after refresh");
+
       const overflow = await page.evaluate(() => {
         const el = document.querySelector(".curriculum-linked-resources");
         if (!el) return { ok: false };
@@ -462,11 +571,13 @@ async function main() {
       });
       ok(overflow.ok && overflow.scrollWidth <= overflow.clientWidth + 1, "mobile linked-resources panel has no horizontal overflow");
       ok(overflow.docScrollWidth <= overflow.docClientWidth + 2, "mobile document has no horizontal overflow");
+
       await browser.close();
       playwrightOk = true;
     } catch (error) {
-      console.log(`  ⚠ Playwright UI smoke skipped: ${error.message}`);
+      console.log(`  ⚠ Playwright UI workflow failed: ${error.message}`);
       report.playwrightSkip = error.message;
+      throw error;
     }
 
     report.passed = passed;

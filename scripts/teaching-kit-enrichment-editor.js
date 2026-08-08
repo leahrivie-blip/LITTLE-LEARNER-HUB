@@ -2773,6 +2773,10 @@
     requestAnimationFrame(() => {
       paintLivePreview(plan, activities);
       hydrateDraftMediaImages(el);
+      // Linked Resources printable uploader keeps File + metadata in app.js draft state.
+      if (typeof root.hydrateAdminTkPrintableForm === "function") {
+        root.hydrateAdminTkPrintableForm();
+      }
     });
     if (state.aiTray.open || state.publishOpen || state.recoveryOpen || state.lightboxUrl) {
       requestAnimationFrame(() => focusActiveDialog());

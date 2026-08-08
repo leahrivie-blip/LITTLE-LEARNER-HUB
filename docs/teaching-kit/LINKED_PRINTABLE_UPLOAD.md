@@ -1,28 +1,28 @@
 # Teaching Kit Linked Resources — Create / Upload Printable
 
-**Status:** Draft PR for owner review — **do not merge or deploy without approval**  
-**Branch:** `cursor/tk-linked-printable-upload-a7d4`  
+**Status:** Production bugfix for form state persistence — draft PR  
+**Branch:** `cursor/tk-printable-form-persist-a7d4`  
 **Flags:** No Teaching Kit customer flags changed (all remain default `false`)
 
 ---
 
 ## Problem
 
-In Admin → Curriculum → Lesson Plans → (lesson) → Upgrade Lesson / Linked Resources, owners could only **link existing** resources. There was no way to create or upload a new printable from inside the Teaching Kit / lesson editor.
+In Admin → Curriculum → Lesson Plans → (lesson) → Linked Resources → Create / Upload Printable, controlled form updates could overwrite other fields with stale/default state. Selecting the PDF re-rendered the panel, cleared the title and file input, and could remove the preview picker.
+
+Root causes:
+
+1. The printable UI was a nested `<form>` inside `#adminCurriculumLessonPlanForm`. Browsers drop nested form tags, so fields merged into the lesson form (duplicate `name`s) and Save submitted the wrong form.
+2. Linked Resources host re-renders rebuilt the panel from defaults with no in-progress draft, so metadata and `File` objects were lost.
 
 ## Fix
 
-Owner-only **Create / Upload Printable** in Linked Resources (classic lesson editor + Enrichment Week mode):
-
-1. Upload a PDF (max 5 MB; magic-byte validated)  
-2. Enter title, type, age group, theme, description, page count, printing instructions, access level  
-3. Optional preview image (max 2 MB; PNG/JPEG/WEBP/GIF)  
-4. Save as **draft only** and auto-link to the open lesson  
-5. Preview/download, replace/edit, unlink, delete (archive; permanent remove for disposable fixtures)  
-6. Hidden from customers until resource + lesson are explicitly published  
-7. Server auth via `requireTeachingKitOwnerAdminSession` (session email `leahivie@icloud.com`) — client email/role ignored  
-8. Never auto-publishes  
-9. Appears in Teaching Kit printables mapping for Entire Kit / All Printables / Selected Resources once linked  
+1. Move `#admin-lesson-resources` **outside** the lesson plan `<form>`
+2. Render the uploader as `<div id="adminTkPrintableForm" role="form">` with `data-tk-printable-field` keys (not colliding `name`s)
+3. Keep `adminTkPrintableDraft` for metadata + PDF/preview `File` objects across every re-render
+4. Hydrate the panel after Linked Resources / enrichment re-renders (restore values + filenames via `DataTransfer`)
+5. Save via `[data-tk-printable-save]` reading the draft — never the outer lesson form
+6. Still draft-only; never auto-publishes; no customer flag changes
 
 ## Endpoint
 
@@ -36,6 +36,10 @@ Actions: `create` | `update` | `replace_pdf` | `replace_preview` | `unlink` | `d
 npm run test:tk-linked-printable-upload
 ```
 
+Includes API coverage plus a real Playwright workflow:
+
+fill every field → select PDF → select preview → force Linked Resources re-render → verify values/filenames → Save draft & link → refresh → confirm linked draft persists.
+
 Disposable store only. Artifacts under `/opt/cursor/artifacts/tk-linked-printable-upload/`.
 
 ## Safety
@@ -44,3 +48,4 @@ Disposable store only. Artifacts under `/opt/cursor/artifacts/tk-linked-printabl
 - Enrichment drafts / published enrichment / activities preserved on create  
 - Sibling lessons untouched  
 - Feature flags remain false  
+- No publish path in this uploader  
