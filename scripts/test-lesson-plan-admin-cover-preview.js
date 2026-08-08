@@ -134,6 +134,26 @@ function weekdayPlan() {
   };
 }
 
+function extractFn(source, fnName) {
+  const start = source.indexOf(`async function ${fnName}`) >= 0
+    ? source.indexOf(`async function ${fnName}`)
+    : source.indexOf(`function ${fnName}`);
+  if (start < 0) return "";
+  let depth = 0;
+  let started = false;
+  for (let i = start; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === "{") {
+      depth += 1;
+      started = true;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (started && depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  return source.slice(start, start + 4000);
+}
+
 function staticChecks() {
   const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
@@ -148,7 +168,29 @@ function staticChecks() {
   assert(styles.includes("admin-quick-cover-modal"), "quick cover modal styles missing");
   assert(server.includes("coverQualityStatus"), "schema coverQualityStatus missing");
   assert(!app.includes("enableTeachingKitGlobally"), "must not flip teaching kit globally");
-  console.log("✓ static admin cover/preview wiring");
+
+  // Postgres-unavailable must 503 without writing local sidecar (production durability).
+  const uploadFn = extractFn(server, "handleAdminLessonCoverUpload");
+  assert(uploadFn.includes("if (usePostgresStore())"), "upload must gate on usePostgresStore() alone");
+  assert(
+    uploadFn.includes("media_storage_unavailable")
+      || uploadFn.includes("Persistent media storage is temporarily unavailable"),
+    "postgres-unavailable path must return media_storage_unavailable / clear message",
+  );
+  assert(
+    uploadFn.includes("!postgresPool || !databaseReady") || uploadFn.includes("!databaseReady"),
+    "postgres mode must 503 when database is not ready (no sidecar fallthrough)",
+  );
+  const pgIdx = uploadFn.indexOf("if (usePostgresStore())");
+  const sidecarIdx = Math.max(
+    uploadFn.indexOf("local-sidecar"),
+    uploadFn.indexOf("writeLocalLessonCover"),
+  );
+  const early503 = uploadFn.indexOf("503");
+  assert(pgIdx >= 0 && sidecarIdx > pgIdx, "local-sidecar only after usePostgresStore check");
+  assert(early503 >= 0 && early503 < sidecarIdx, "503 must occur before sidecar write");
+  assert(uploadFn.includes("INSERT INTO llh_media_assets"), "llh_media_assets INSERT required");
+  console.log("✓ static admin cover/preview wiring + postgres-unavailable 503 guard");
 }
 
 async function integration() {

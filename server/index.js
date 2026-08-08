@@ -21948,7 +21948,17 @@ async function handleAdminLessonCoverUpload(request, response) {
   const id = `lesson-cover-${crypto.randomBytes(16).toString("hex")}`;
   const fileName = sanitizeCurriculumUploadFileName(body.fileName || "lesson-cover");
   try {
-    if (usePostgresStore() && postgresPool && databaseReady) {
+    // Production / Postgres mode: BYTEA in llh_media_assets only. Never fall through to
+    // Render's ephemeral disk — that would claim persistence and lose files on redeploy.
+    if (usePostgresStore()) {
+      if (!postgresPool || !databaseReady) {
+        jsonResponse(response, 503, {
+          error: "Persistent media storage is temporarily unavailable. The existing cover was not changed.",
+          storage: "postgres",
+          code: "media_storage_unavailable",
+        });
+        return;
+      }
       await postgresPool.query(
         `INSERT INTO llh_media_assets (id, kind, mime_type, file_name, bytes)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -21964,7 +21974,7 @@ async function handleAdminLessonCoverUpload(request, response) {
       });
       return;
     }
-    // Local-json / test: durable sidecar next to the store (survives refresh; not ephemeral blob: URLs).
+    // Local-json / test only: durable sidecar next to the store (not used in production).
     const dir = lessonCoverMedia.localCoverDirFromStorePath(storePath);
     lessonCoverMedia.writeLocalLessonCover(dir, id, {
       mimeType: parsed.mimeType,
