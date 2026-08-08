@@ -5,12 +5,19 @@
 const crypto = require("node:crypto");
 
 const CURRICULUM_RESOURCE_MEDIA_KIND = "curriculum-resource";
+const CURRICULUM_RESOURCE_PREVIEW_MEDIA_KIND = "curriculum-resource-preview";
 const INLINE_DATA_URL_MAX_BYTES = 8_000_000;
 
 function curriculumResourceMediaAssetId(resourceId) {
   const id = String(resourceId || "").trim();
   if (!id) return "";
   return `curriculum-resource-${id}`;
+}
+
+function curriculumResourcePreviewMediaAssetId(resourceId) {
+  const id = String(resourceId || "").trim();
+  if (!id) return "";
+  return `curriculum-resource-preview-${id}`;
 }
 
 function curriculumResourceMediaUrl(mediaAssetId) {
@@ -183,8 +190,10 @@ function curriculumResourcePublicDto(resource, { fileData = "", mediaUrl = "" } 
 
 module.exports = {
   CURRICULUM_RESOURCE_MEDIA_KIND,
+  CURRICULUM_RESOURCE_PREVIEW_MEDIA_KIND,
   INLINE_DATA_URL_MAX_BYTES,
   curriculumResourceMediaAssetId,
+  curriculumResourcePreviewMediaAssetId,
   curriculumResourceMediaUrl,
   isInlineCurriculumFileData,
   isHttpsCurriculumFileRef,

@@ -1620,10 +1620,19 @@ const CURRICULUM_RESOURCE_CATEGORIES = new Set([
   "Behavior & Social Emotional",
   "Printables",
 ]);
+const CURRICULUM_RESOURCE_ACCESS_LEVELS = new Set(["free", "pro"]);
 const MAX_CURRICULUM_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_CURRICULUM_UPLOAD_MB = 5;
+const MAX_CURRICULUM_PREVIEW_UPLOAD_BYTES = 2 * 1024 * 1024;
+const MAX_CURRICULUM_PREVIEW_UPLOAD_MB = 2;
 const CURRICULUM_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+const CURRICULUM_PREVIEW_MIME_TYPES = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
@@ -2159,21 +2168,38 @@ function normalizedCurriculumResource(value) {
   const mediaAssetId = normalizedShortText(entry.mediaAssetId, 160);
   const mediaUrl = normalizedShortText(entry.mediaUrl, 400);
   const fileData = sanitizedCurriculumFileData(entry.fileData) || legacyHttps;
+  const accessLevelRaw = normalizedShortText(entry.accessLevel, 20).toLowerCase();
+  const pageCountRaw = Number(entry.pageCount);
+  const pageCount = Number.isFinite(pageCountRaw) ? Math.max(0, Math.min(500, Math.round(pageCountRaw))) : 0;
+  const previewMediaAssetId = normalizedShortText(entry.previewMediaAssetId, 160);
+  const previewImageUrl = sanitizedCurriculumFileData(entry.previewImageUrl || entry.previewUrl || "")
+    || (previewMediaAssetId ? curriculumMedia.curriculumResourceMediaUrl(previewMediaAssetId) : "");
   return {
     id,
     title: normalizedShortText(entry.title, 180) || "Resource",
     resourceCategory: CURRICULUM_RESOURCE_CATEGORIES.has(category) ? category : "Classroom Resources",
+    resourceType: normalizedShortText(entry.resourceType || entry.type, 120),
+    description: normalizedMultilineText(entry.description, 4000),
+    ageGroup: normalizedShortText(entry.ageGroup, 80),
+    theme: normalizedShortText(entry.theme, 120),
+    pageCount,
+    printingInstructions: normalizedMultilineText(entry.printingInstructions, 2000),
+    accessLevel: CURRICULUM_RESOURCE_ACCESS_LEVELS.has(accessLevelRaw) ? accessLevelRaw : "pro",
     fileData,
     mediaAssetId,
     mediaUrl: mediaUrl || (mediaAssetId ? curriculumMedia.curriculumResourceMediaUrl(mediaAssetId) : ""),
     mimeType: normalizedShortText(entry.mimeType, 80),
     fileName: normalizedShortText(entry.fileName, 180),
+    previewImageUrl,
+    previewMediaAssetId,
+    previewUrl: previewImageUrl,
     lessonPlanIds: normalizedList(entry.lessonPlanIds, 50, (item) => normalizedShortText(item, 160)).filter(Boolean),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     publishedAt: normalizedShortText(entry.publishedAt, 80),
     inlineFileDataRetained: entry.inlineFileDataRetained === true,
+    disposableQaFixture: entry.disposableQaFixture === true,
   };
 }
 
@@ -2263,6 +2289,13 @@ function curriculumResourceMetadata(resource) {
     id: entry.id,
     title: entry.title,
     resourceCategory: entry.resourceCategory,
+    resourceType: entry.resourceType || "",
+    description: entry.description || "",
+    ageGroup: entry.ageGroup || "",
+    theme: entry.theme || "",
+    pageCount: entry.pageCount || 0,
+    printingInstructions: entry.printingInstructions || "",
+    accessLevel: entry.accessLevel || "pro",
     mimeType: entry.mimeType,
     fileName: entry.fileName,
     lessonPlanIds: entry.lessonPlanIds,
@@ -2272,6 +2305,10 @@ function curriculumResourceMetadata(resource) {
     hasFile: curriculumMedia.curriculumResourceHasDeliverableFile(entry),
     mediaAssetId: entry.mediaAssetId || "",
     mediaUrl: entry.mediaUrl || "",
+    previewImageUrl: entry.previewImageUrl || "",
+    previewMediaAssetId: entry.previewMediaAssetId || "",
+    previewUrl: entry.previewUrl || entry.previewImageUrl || "",
+    disposableQaFixture: entry.disposableQaFixture === true,
   };
 }
 
@@ -2911,6 +2948,50 @@ function parseCurriculumUploadDataUrl(value) {
   const fileData = sanitizedCurriculumFileData(text);
   if (!fileData.startsWith("data:")) return null;
   return { mimeType, buffer, fileData };
+}
+
+function parseCurriculumPdfUploadDataUrl(value) {
+  const parsed = parseCurriculumUploadDataUrl(value);
+  if (!parsed || parsed.mimeType !== "application/pdf") return null;
+  return parsed;
+}
+
+function parseCurriculumPreviewUploadDataUrl(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^data:([^;]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  const mimeType = normalizedShortText(match[1], 80).toLowerCase();
+  if (!CURRICULUM_PREVIEW_MIME_TYPES.has(mimeType)) return null;
+  const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
+  if (!buffer.length || buffer.length > MAX_CURRICULUM_PREVIEW_UPLOAD_BYTES) return null;
+  if (!curriculumMedia.validateCurriculumUploadBuffer(mimeType, buffer)) return null;
+  const fileData = sanitizedCurriculumFileData(text);
+  if (!fileData.startsWith("data:")) return null;
+  return { mimeType, buffer, fileData };
+}
+
+async function persistCurriculumPreviewToMediaAsset({ resourceId, parsed, fileName }) {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    const error = new Error("Persistent media storage is unavailable.");
+    error.code = "media_storage_unavailable";
+    throw error;
+  }
+  const mediaAssetId = curriculumMedia.curriculumResourcePreviewMediaAssetId(resourceId);
+  await curriculumMedia.insertMediaAsset(postgresPool, {
+    id: mediaAssetId,
+    kind: curriculumMedia.CURRICULUM_RESOURCE_PREVIEW_MEDIA_KIND,
+    mimeType: parsed.mimeType,
+    fileName: fileName || "preview",
+    buffer: parsed.buffer,
+  });
+  return {
+    previewMediaAssetId: mediaAssetId,
+    previewImageUrl: curriculumMedia.curriculumResourceMediaUrl(mediaAssetId),
+    mimeType: parsed.mimeType,
+    fileName: fileName || "preview",
+    sha256: curriculumMedia.sha256Buffer(parsed.buffer),
+    byteLen: parsed.buffer.length,
+  };
 }
 
 function parseLessonCoverUploadDataUrl(value) {
@@ -21662,7 +21743,10 @@ async function persistCurriculumUploadToMediaAsset({ resourceId, parsed, fileNam
 
 function findCurriculumResourceByMediaAssetId(store, mediaAssetId) {
   const curriculum = readSiteCurriculum(store);
-  return (curriculum.resources || []).find((item) => item.mediaAssetId === mediaAssetId) || null;
+  const id = String(mediaAssetId || "").trim();
+  return (curriculum.resources || []).find((item) => (
+    item.mediaAssetId === id || item.previewMediaAssetId === id
+  )) || null;
 }
 
 async function buildCurriculumResourceFilePayload(resource) {
@@ -22614,11 +22698,14 @@ async function handleCurriculumResourceMedia(request, response, assetId, { admin
       return;
     }
   }
+  const mediaKind = id.startsWith("curriculum-resource-preview-")
+    ? curriculumMedia.CURRICULUM_RESOURCE_PREVIEW_MEDIA_KIND
+    : curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND;
   try {
     const asset = await curriculumMedia.readMediaAsset(
       postgresPool,
       id,
-      curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND,
+      mediaKind,
     );
     if (!asset?.buffer?.length) {
       textResponse(response, 404, "Resource not found.");
@@ -22710,6 +22797,322 @@ async function handleAdminCurriculumMigrateInlineMedia(request, response) {
     bytesRemoved: Math.max(0, beforeBytes - afterBytes),
     summary,
   });
+}
+
+/**
+ * Owner-only Teaching Kit printable create/update from Linked Resources.
+ * Always draft-only — never publishes. Auth uses admin session email only
+ * (requireTeachingKitOwnerAdminSession); client-supplied email/role is ignored.
+ */
+async function handleAdminTeachingKitPrintable(request, response) {
+  const body = await readJson(request);
+  const session = requireTeachingKitOwnerAdminSession(request, body, response);
+  if (!session) return;
+
+  const action = normalizedShortText(body.action, 40).toLowerCase() || "create";
+  const allowed = new Set(["create", "update", "replace_pdf", "replace_preview", "unlink", "delete"]);
+  if (!allowed.has(action)) {
+    jsonResponse(response, 400, { error: "Unsupported Teaching Kit printable action.", code: "unsupported_action" });
+    return;
+  }
+
+  const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
+  const resourceIdIncoming = normalizedShortText(body.resourceId || body.id, 160);
+  if (["create", "update", "replace_pdf", "replace_preview", "unlink"].includes(action) && !lessonPlanId) {
+    jsonResponse(response, 400, { error: "lessonPlanId is required.", code: "lesson_required" });
+    return;
+  }
+  if (["update", "replace_pdf", "replace_preview", "unlink", "delete"].includes(action) && !resourceIdIncoming) {
+    jsonResponse(response, 400, { error: "resourceId is required.", code: "resource_required" });
+    return;
+  }
+  let touchedResourceId = resourceIdIncoming;
+
+  const now = new Date().toISOString();
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  let curriculum = siteContent.curriculum || defaultCurriculumStore();
+  const lessonPlan = (curriculum.lessonPlans || []).find((item) => item.id === lessonPlanId) || null;
+  if (lessonPlanId && !lessonPlan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+    return;
+  }
+
+  // Snapshot for data-preservation proof (enrichment / activities untouched).
+  const enrichmentDraftBefore = lessonPlan
+    ? JSON.stringify(lessonPlan.enrichmentDraft || null)
+    : null;
+  const enrichmentPublishedBefore = lessonPlan
+    ? JSON.stringify(lessonPlan.enrichmentPublished || null)
+    : null;
+  const activityCountBefore = (curriculum.activities || []).length;
+
+  const applyPdfToResource = async (resourceId, fileData, fileName) => {
+    const parsed = parseCurriculumPdfUploadDataUrl(fileData);
+    if (!parsed) {
+      const error = new Error(`A valid PDF upload is required (max ${MAX_CURRICULUM_UPLOAD_MB} MB).`);
+      error.code = "invalid_pdf";
+      error.status = 400;
+      throw error;
+    }
+    if (usePostgresStore()) {
+      const stored = await persistCurriculumUploadToMediaAsset({
+        resourceId,
+        parsed,
+        fileName: sanitizeCurriculumUploadFileName(fileName || "printable.pdf"),
+      });
+      return {
+        fileData: "",
+        mediaAssetId: stored.mediaAssetId,
+        mediaUrl: stored.mediaUrl,
+        mimeType: "application/pdf",
+        fileName: stored.fileName,
+      };
+    }
+    return {
+      fileData: parsed.fileData,
+      mediaAssetId: "",
+      mediaUrl: "",
+      mimeType: "application/pdf",
+      fileName: sanitizeCurriculumUploadFileName(fileName || "printable.pdf"),
+    };
+  };
+
+  const applyPreviewToResource = async (resourceId, previewData, fileName) => {
+    if (!previewData) {
+      return { previewImageUrl: "", previewMediaAssetId: "" };
+    }
+    const parsed = parseCurriculumPreviewUploadDataUrl(previewData);
+    if (!parsed) {
+      const error = new Error(
+        `Preview image must be PNG, JPEG, WEBP, or GIF (max ${MAX_CURRICULUM_PREVIEW_UPLOAD_MB} MB).`,
+      );
+      error.code = "invalid_preview";
+      error.status = 400;
+      throw error;
+    }
+    if (usePostgresStore()) {
+      const stored = await persistCurriculumPreviewToMediaAsset({
+        resourceId,
+        parsed,
+        fileName: sanitizeCurriculumUploadFileName(fileName || "preview.png"),
+      });
+      return {
+        previewImageUrl: stored.previewImageUrl,
+        previewMediaAssetId: stored.previewMediaAssetId,
+      };
+    }
+    return {
+      previewImageUrl: parsed.fileData,
+      previewMediaAssetId: "",
+    };
+  };
+
+  try {
+    if (action === "create") {
+      if (!body.fileData) {
+        jsonResponse(response, 400, {
+          error: `A PDF file is required (max ${MAX_CURRICULUM_UPLOAD_MB} MB).`,
+          code: "pdf_required",
+        });
+        return;
+      }
+      const resourceId = resourceIdIncoming || generateCurriculumResourceId();
+      touchedResourceId = resourceId;
+      if ((curriculum.resources || []).some((item) => item.id === resourceId)) {
+        jsonResponse(response, 409, { error: "Resource id already exists.", code: "resource_exists" });
+        return;
+      }
+      const pdfFields = await applyPdfToResource(resourceId, body.fileData, body.fileName);
+      const previewFields = await applyPreviewToResource(resourceId, body.previewImageData || body.previewData, body.previewFileName);
+      const title = normalizedShortText(body.title, 180) || "Printable";
+      const resource = normalizedCurriculumResource({
+        id: resourceId,
+        title,
+        resourceCategory: "Printables",
+        resourceType: body.resourceType || body.type || "Printable",
+        description: body.description || "",
+        ageGroup: body.ageGroup || lessonPlan.age || "",
+        theme: body.theme || lessonPlan.theme || "",
+        pageCount: body.pageCount,
+        printingInstructions: body.printingInstructions || "",
+        accessLevel: body.accessLevel || "pro",
+        ...pdfFields,
+        ...previewFields,
+        lessonPlanIds: [],
+        status: "draft",
+        createdAt: now,
+        updatedAt: now,
+        publishedAt: "",
+        disposableQaFixture: body.disposableQaFixture === true || lessonPlan.disposableQaFixture === true,
+      });
+      curriculum = normalizedCurriculumStore({
+        ...curriculum,
+        resources: [...(curriculum.resources || []), resource],
+        updatedAt: now,
+      });
+      curriculum = linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId);
+      if (!curriculum) {
+        jsonResponse(response, 404, { error: "Could not link printable to lesson.", code: "link_failed" });
+        return;
+      }
+    } else if (action === "update" || action === "replace_pdf" || action === "replace_preview") {
+      const existing = (curriculum.resources || []).find((item) => item.id === resourceIdIncoming);
+      if (!existing) {
+        jsonResponse(response, 404, { error: "Resource not found.", code: "resource_not_found" });
+        return;
+      }
+      if (!(existing.lessonPlanIds || []).includes(lessonPlanId)
+        && !(lessonPlan.resourceIds || []).includes(resourceIdIncoming)) {
+        jsonResponse(response, 400, { error: "Resource is not linked to this lesson.", code: "not_linked" });
+        return;
+      }
+      let next = { ...existing };
+      if (action === "update" || action === "replace_pdf") {
+        if (action === "replace_pdf" || body.fileData) {
+          if (!body.fileData) {
+            jsonResponse(response, 400, { error: "PDF fileData is required to replace the file.", code: "pdf_required" });
+            return;
+          }
+          Object.assign(next, await applyPdfToResource(resourceIdIncoming, body.fileData, body.fileName));
+        }
+      }
+      if (action === "update" || action === "replace_preview") {
+        if (action === "replace_preview" || body.previewImageData || body.previewData) {
+          if (!(body.previewImageData || body.previewData)) {
+            jsonResponse(response, 400, { error: "Preview image is required.", code: "preview_required" });
+            return;
+          }
+          Object.assign(next, await applyPreviewToResource(
+            resourceIdIncoming,
+            body.previewImageData || body.previewData,
+            body.previewFileName,
+          ));
+        }
+      }
+      if (action === "update") {
+        if (body.title != null) next.title = body.title;
+        if (body.resourceType != null || body.type != null) next.resourceType = body.resourceType || body.type;
+        if (body.description != null) next.description = body.description;
+        if (body.ageGroup != null) next.ageGroup = body.ageGroup;
+        if (body.theme != null) next.theme = body.theme;
+        if (body.pageCount != null) next.pageCount = body.pageCount;
+        if (body.printingInstructions != null) next.printingInstructions = body.printingInstructions;
+        if (body.accessLevel != null) next.accessLevel = body.accessLevel;
+      }
+      // Never auto-publish from this endpoint. Preserve published status if already published;
+      // new/create path always starts as draft.
+      if (existing.status !== "published") {
+        next.status = "draft";
+        next.publishedAt = "";
+      } else {
+        next.status = "published";
+        next.publishedAt = existing.publishedAt || existing.createdAt || now;
+      }
+      next.updatedAt = now;
+      const resource = normalizedCurriculumResource(next);
+      curriculum = normalizedCurriculumStore({
+        ...curriculum,
+        resources: (curriculum.resources || []).map((item) => (item.id === resource.id ? resource : item)),
+        updatedAt: now,
+      });
+      if (!(resource.lessonPlanIds || []).includes(lessonPlanId)) {
+        curriculum = linkCurriculumResourceToLessonPlan(curriculum, resource.id, lessonPlanId) || curriculum;
+      }
+    } else if (action === "unlink") {
+      curriculum = unlinkCurriculumResourceFromLessonPlan(curriculum, resourceIdIncoming, lessonPlanId);
+      if (!curriculum) {
+        jsonResponse(response, 404, { error: "Resource or lesson plan not found.", code: "unlink_failed" });
+        return;
+      }
+    } else if (action === "delete") {
+      const existing = (curriculum.resources || []).find((item) => item.id === resourceIdIncoming);
+      if (!existing) {
+        jsonResponse(response, 404, { error: "Resource not found.", code: "resource_not_found" });
+        return;
+      }
+      if (lessonPlanId) {
+        curriculum = unlinkCurriculumResourceFromLessonPlan(curriculum, resourceIdIncoming, lessonPlanId) || curriculum;
+      } else {
+        curriculum = unlinkCurriculumResourceFromAllLessonPlans(curriculum, resourceIdIncoming) || curriculum;
+      }
+      const disposable = existing.disposableQaFixture === true || body.disposableQaFixture === true;
+      if (disposable) {
+        curriculum = normalizedCurriculumStore({
+          ...curriculum,
+          resources: (curriculum.resources || []).filter((item) => item.id !== resourceIdIncoming),
+          updatedAt: now,
+        });
+      } else {
+        const archived = normalizedCurriculumResource({
+          ...((curriculum.resources || []).find((item) => item.id === resourceIdIncoming) || existing),
+          status: "archived",
+          lessonPlanIds: [],
+          updatedAt: now,
+        });
+        curriculum = normalizedCurriculumStore({
+          ...curriculum,
+          resources: (curriculum.resources || []).map((item) => (item.id === resourceIdIncoming ? archived : item)),
+          updatedAt: now,
+        });
+      }
+    }
+
+    const integrityError = assertCurriculumIntegrityOrError(curriculum);
+    if (integrityError) {
+      jsonResponse(response, 400, integrityError);
+      return;
+    }
+
+    const writeResult = writeSiteCurriculum(store, curriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
+    await writeStoreAsync(store);
+
+    const savedLesson = (curriculum.lessonPlans || []).find((item) => item.id === lessonPlanId) || null;
+    const resourceOut = touchedResourceId
+      ? (curriculum.resources || []).find((item) => item.id === touchedResourceId) || null
+      : null;
+
+    const enrichmentDraftAfter = savedLesson ? JSON.stringify(savedLesson.enrichmentDraft || null) : null;
+    const enrichmentPublishedAfter = savedLesson ? JSON.stringify(savedLesson.enrichmentPublished || null) : null;
+
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      autoPublished: false,
+      resource: curriculumResourceMetadata(resourceOut),
+      lessonPlan: savedLesson ? {
+        id: savedLesson.id,
+        title: savedLesson.title,
+        resourceIds: savedLesson.resourceIds || [],
+        status: savedLesson.status,
+      } : null,
+      curriculum: curriculumWithoutFileData(curriculum),
+      siteContentUpdatedAt: writeResult.stamp,
+      preservation: {
+        enrichmentDraftUnchanged: enrichmentDraftBefore === enrichmentDraftAfter,
+        enrichmentPublishedUnchanged: enrichmentPublishedBefore === enrichmentPublishedAfter,
+        activityCountUnchanged: (curriculum.activities || []).length === activityCountBefore,
+        resourceStatus: resourceOut?.status || "",
+      },
+    });
+  } catch (error) {
+    const status = error.status || (error.code === "media_storage_unavailable" ? 503 : 400);
+    jsonResponse(response, status, {
+      error: error.message || "Teaching Kit printable action failed.",
+      code: error.code || "tk_printable_failed",
+    });
+  }
 }
 
 async function handleAdminCurriculumResourceSave(request, response) {
@@ -27956,6 +28359,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/tk-printable") return await handleAdminTeachingKitPrintable(request, response);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);

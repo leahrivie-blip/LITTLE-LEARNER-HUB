@@ -4020,6 +4020,7 @@ body.user-authenticated .view.active-view {
 
 .curriculum-linked-resources {
   margin-top: 8px;
+  min-width: 0;
 }
 
 .curriculum-linked-resource-list {
@@ -4037,10 +4038,102 @@ body.user-authenticated .view.active-view {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.9);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.curriculum-linked-resource-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.curriculum-linked-resource-meta small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.curriculum-linked-resource-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .curriculum-link-resource-row {
   align-items: end;
+}
+
+.tk-printable-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: end;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.tk-printable-link-existing {
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(100%, 14rem);
+  flex: 1 1 12rem;
+}
+
+.tk-printable-upload-form {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  min-width: 0;
+}
+
+.tk-printable-upload-form .form-grid-two {
+  gap: 0.65rem;
+}
+
+.tk-printable-upload-form input,
+.tk-printable-upload-form select,
+.tk-printable-upload-form textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tk-printable-preview-thumb,
+.tk-printable-row-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #f4f6f5;
+  flex: 0 0 auto;
+}
+
+.tk-printable-preview-thumb {
+  width: min(180px, 100%);
+  height: auto;
+  max-height: 180px;
+  margin: 0.5rem 0;
+}
+
+@media (max-width: 700px) {
+  .curriculum-linked-resource-row {
+    align-items: stretch;
+  }
+  .curriculum-linked-resource-actions {
+    width: 100%;
+  }
+  .curriculum-linked-resource-actions .ghost-button,
+  .tk-printable-toolbar .primary-button,
+  .tk-printable-toolbar .ghost-button {
+    width: 100%;
+  }
+  .tk-printable-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .admin-mobile-list {
