@@ -1,0 +1,42 @@
+---
+description: Every phase ends with a completion report; keep master progress tracker current
+alwaysApply: true
+---
+
+# Phase completion reports + master progress tracker
+
+Canonical tracker: `docs/audits/MASTER_PROJECT_PROGRESS.md`  
+Report template: `docs/audits/PHASE_COMPLETION_REPORT_TEMPLATE.md`  
+Policy: `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md`
+
+## Hard gate
+
+**Do not start the next phase** until the current phase has a completion report committed under `docs/audits/` and the master progress tracker is updated.
+
+## Each phase completion report must include
+
+1. What was completed  
+2. What files changed  
+3. Tests that were run and their results  
+4. Bugs fixed  
+5. Remaining known issues  
+6. Features intentionally deferred  
+7. Confirmation that production was not modified  
+8. Recommendations before starting the next phase  
+
+## Master progress tracker must always show
+
+- ✅ Completed phases  
+- 🚧 Current phase  
+- ⏳ Remaining phases  
+- Overall completion percentage  
+- Major blockers  
+- Known high-priority bugs  
+- Production status  
+- Testing status  
+
+Update the tracker at the end of every phase (and when status materially changes, e.g. owner holds Phase 3).
+
+## Production
+
+Continue **Testing is the Future** — production read-only until Leah gives **written** deploy approval.

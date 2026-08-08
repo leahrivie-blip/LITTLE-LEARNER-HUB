@@ -135,19 +135,31 @@ function buildSharedFamilyFeed(childData = null, childIds = []) {
   };
 }
 
-/** Prefer live Profiles names/photos over household invite snapshots. */
-function overlayLiveChildren(householdChildren = [], childData = null) {
+/**
+ * Prefer live Profiles names/photos over household invite snapshots.
+ * Phase 4: childIds + Profiles are authoritative; household.children is a thin display cache.
+ * When childIds is provided, it drives membership (not the snapshot array alone).
+ */
+function overlayLiveChildren(householdChildren = [], childData = null, childIds = null) {
   const profiles = Array.isArray(childData?.Profiles) ? childData.Profiles : [];
   const byId = new Map(profiles.map((profile) => [String(profile?.id || ""), profile]));
-  return (Array.isArray(householdChildren) ? householdChildren : []).map((child) => {
-    const live = byId.get(String(child?.id || ""));
-    if (!live) return child;
+  const snapList = Array.isArray(householdChildren) ? householdChildren : [];
+  const snapById = new Map(snapList.map((child) => [String(child?.id || ""), child]));
+  const ids = Array.isArray(childIds) && childIds.length
+    ? childIds.map((id) => String(id || "")).filter(Boolean)
+    : snapList.map((child) => String(child?.id || "")).filter(Boolean);
+  const uniqueIds = [...new Set(ids)];
+  return uniqueIds.map((id) => {
+    const snap = snapById.get(id) || { id };
+    const live = byId.get(id);
+    if (!live) return snap;
     return {
-      ...child,
-      name: String(live.name || child.name || "Child").trim() || "Child",
-      photoUrl: String(live.photoUrl || live.avatarUrl || child.photoUrl || "").trim(),
-      classroomId: String(live.classroomId || child.classroomId || "").trim(),
-      classroom: String(live.classroom || child.classroom || "").trim(),
+      ...snap,
+      id,
+      name: String(live.name || snap.name || "Child").trim() || "Child",
+      photoUrl: String(live.photoUrl || live.avatarUrl || snap.photoUrl || "").trim(),
+      classroomId: String(live.classroomId || snap.classroomId || "").trim(),
+      classroom: String(live.classroom || snap.classroom || "").trim(),
       archived: Boolean(live.archived),
     };
   }).filter((child) => !child.archived);
@@ -156,7 +168,7 @@ function overlayLiveChildren(householdChildren = [], childData = null) {
 function documentNeedsParentAction(status = "") {
   const key = String(status || "").trim().toLowerCase();
   if (!key) return true;
-  if (/signed|completed|on_file|on file|reviewed|archived/.test(key)) return false;
+  if (/signed|submitted|completed|on_file|on file|reviewed|archived|declined|expired/.test(key)) return false;
   return [
     "needed",
     "action needed",
@@ -168,12 +180,17 @@ function documentNeedsParentAction(status = "") {
     "notified",
     "assigned",
     "draft",
-  ].includes(key) || /action needed|awaiting|to sign|needs signature/.test(key);
+    "in_progress",
+    "in progress",
+    "viewed",
+    "needs_correction",
+    "needs correction",
+  ].includes(key) || /action needed|awaiting|to sign|needs signature|in progress|needs correction/.test(key);
 }
 
 function publicFamilyDocument(doc = {}) {
   const status = String(doc.status || "needed").trim() || "needed";
-  const signed = Boolean(doc.signedAt) || /^(signed|completed|on_file|on file|reviewed)\b/i.test(status);
+  const signed = Boolean(doc.signedAt) || /^(signed|submitted|completed|on_file|on file|reviewed)\b/i.test(status);
   const bodyText = String(doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "").trim();
   return {
     id: String(doc.id || ""),
@@ -184,13 +201,19 @@ function publicFamilyDocument(doc = {}) {
     statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
     notes: String(doc.notes || doc.summary || "").trim(),
     bodyText: bodyText.slice(0, 12000),
+    parentProgressText: String(doc.parentProgressText || "").trim().slice(0, 12000),
     dueDate: String(doc.dueDate || "").trim(),
+    assignedAt: String(doc.assignedAt || doc.createdAt || "").trim(),
     updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
     signedAt: String(doc.signedAt || "").trim(),
     signedBy: String(doc.signedBy || "").trim(),
+    signedRole: String(doc.signedRole || "").trim(),
+    contentVersion: Number(doc.contentVersion || 1),
+    bodyHash: String(doc.bodyHash || "").trim(),
     providerReviewed: Boolean(doc.providerReviewed),
     shareWithFamily: doc.shareWithFamily !== false,
     canAcknowledge: documentNeedsParentAction(status) && !signed,
+    canSaveProgress: documentNeedsParentAction(status) && !signed,
     viewOnly: !(documentNeedsParentAction(status) && !signed),
   };
 }

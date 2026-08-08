@@ -88,9 +88,11 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-(forms-phase1[bc]?|family-hub-phase2|ecosystem-phase3|ecosystem-spine|workflow-integration|nav-role-experience)"/);
-  assert.match(indexHtml, /llhPendingUrlSecrets/);
-  assert.match(indexHtml, /referrer" content="strict-origin-when-cross-origin"/);
+  assert.match(indexHtml, /SHELL_VERSION = "2026080[48]-(forms-phase1[bc]?|family-hub-phase2|ecosystem-phase3|ecosystem-spine|workflow-integration|nav-role-experience|phase4-one-source)"/);
+  assert.match(appJs, /Family Hub households are the membership/);
+  assert.match(serverJs, /childIds is the membership source of truth/);
+  assert.match(appJs, /llhPendingUrlSecrets/);
+  assert.match(serverJs, /Referrer-Policy/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
   assert.match(appJs, /function renderFamilyHubTodayPanel/);
   assert.match(appJs, /family-hub-parent-mode/);
@@ -105,8 +107,8 @@ test("shell markers for Family Hub parent beta UX", () => {
   assert.match(appJs, /AbortController/);
   assert.match(appJs, /allowParentLeaveFamilyHub/);
   assert.doesNotMatch(appJs, /Family Hub testing preview/);
-  assert.match(stylesCss, /\.family-hub-parent-mode/);
   assert.match(stylesCss, /\.fh-today-hero/);
+  assert.match(appJs, /family-hub-parent-mode/);
   assert.match(serverJs, /persistFamilyHubStore/);
   assert.match(serverJs, /redactSensitiveAnalyticsUrl/);
   assert.match(serverJs, /handleFamilyHubDocumentAcknowledge/);
@@ -397,6 +399,20 @@ async function main() {
     const badPeek = await request(onPort, "GET", "/api/family-hub/invites/peek?token=not-a-real-token");
     assert.equal(badPeek.status, 404);
 
+    // Phase 4: Family Hub membership must reference program Profiles.
+    const childSeed = await request(onPort, "POST", "/api/child-data", {
+      email: "owner@example.com",
+      body: {
+        data: {
+          Profiles: [
+            { id: "dup-child", name: "Dup Child", classroomId: "classroom-main" },
+            { id: "dup-sibling", name: "Dup Sibling", classroomId: "classroom-main" },
+          ],
+        },
+      },
+    });
+    assert.equal(childSeed.status, 200, childSeed.text);
+
     // Duplicate invite replaces prior active invite for same email
     const first = await request(onPort, "POST", "/api/family-hub/households", {
       email: "owner@example.com",
@@ -462,7 +478,21 @@ async function main() {
     });
     assert.equal(revokedLogin.status, 404);
 
-    // Expired invite
+    // Expired invite — child must exist on canonical Profiles (Phase 4).
+    const expChildSeed = await request(onPort, "POST", "/api/child-data", {
+      email: "owner@example.com",
+      body: {
+        data: {
+          Profiles: [
+            { id: "dup-child", name: "Dup Child", classroomId: "classroom-main" },
+            { id: "dup-sibling", name: "Dup Sibling", classroomId: "classroom-main" },
+            { id: "exp-child", name: "Exp Child", classroomId: "classroom-main" },
+          ],
+        },
+      },
+    });
+    assert.equal(expChildSeed.status, 200, expChildSeed.text);
+
     const expiredCreate = await request(onPort, "POST", "/api/family-hub/households", {
       email: "owner@example.com",
       body: {
