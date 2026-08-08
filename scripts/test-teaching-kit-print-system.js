@@ -244,6 +244,29 @@ function testPresentLabels() {
   ok(Present.presentLabel("LEARNING_DOMAINS") === "Learning domains", "domains label");
 }
 
+function testDesignedRoutingWithoutPrintCenterFlag() {
+  console.log("\nDesigned routing (Print Center flag OFF)");
+  const TK = require("./teaching-kit.js");
+  const flagsOff = TK.defaultTeachingKitFeatureFlags();
+  const farm = loadFixture("farm-animals-enrichment-slice2.json");
+  const kit = mapFixture(farm);
+  ok(TK.isUpgradedTeachingKit(farm.lessonPlan, kit) === true, "farm is upgraded complete kit");
+  ok(
+    TK.shouldUseDesignedTeachingKitDocument(farm.lessonPlan, kit, flagsOff) === true,
+    "complete kit designed path does not require Print Center flag",
+  );
+  const auth = Print.evaluatePrintAuthorization({
+    printCenterEnabled: false,
+    designedDocumentEligible: true,
+    kit,
+    gate: { allowed: true, counted: false, watermark: "" },
+  });
+  ok(auth.ok === true, "auth allows designed-eligible kits with flag off");
+  const binder = Print.buildEntireBinderKitHtml(kit, { plan: farm.lessonPlan });
+  ok(binder.ok === true && /tk-print-root/i.test(binder.html), "designed binder HTML still builds");
+  ok(!/Helvetica text dump|ACTIVITY_NAME:/i.test(binder.html), "not a text dump");
+}
+
 async function maybeRenderPdfScreenshots() {
   let playwright;
   try {
@@ -285,6 +308,7 @@ async function maybeRenderPdfScreenshots() {
 
 async function main() {
   testPresentLabels();
+  testDesignedRoutingWithoutPrintCenterFlag();
   testFarmAnimalsCompleteBinder();
   testLegacyAndPartial();
   testPrintModesLimitSections();

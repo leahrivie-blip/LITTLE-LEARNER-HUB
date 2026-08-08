@@ -61,6 +61,20 @@
     "construction paper": "Construction paper",
     "white paper": "Paper",
     "copy paper": "Paper",
+    "watercolor paper": "Watercolor paper",
+    "soft book": "Soft books",
+    "soft books": "Soft books",
+    "soft scarf": "Soft scarves",
+    "soft scarves": "Soft scarves",
+    rattle: "Rattles",
+    rattles: "Rattles",
+    "soft rattle": "Soft rattles",
+    "soft rattles": "Soft rattles",
+    mirror: "Mirror",
+    "unbreakable mirror": "Unbreakable mirror",
+    "soft mat": "Soft mat",
+    "tummy time mat": "Tummy-time mat",
+    "tummy-time mat": "Tummy-time mat",
     tape: "Tape",
     "masking tape": "Masking tape",
     "painter tape": "Masking tape",
@@ -91,12 +105,27 @@
   }
 
   function normalizeKey(label) {
-    return text(label)
+    let key = text(label)
       .toLowerCase()
       .replace(/['’]/g, "")
+      .replace(/\boptional\b/g, " ")
       .replace(/[^a-z0-9\s]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+    if (!key) return "";
+    // Collapse simple English plurals for inventory matching only (presentation labels stay rich).
+    // Keep materially different items distinct (construction paper vs watercolor paper).
+    const parts = key.split(" ").map((word) => {
+      if (word.length <= 3) return word;
+      if (word.endsWith("ies") && word.length > 4) return `${word.slice(0, -3)}y`;
+      if (word.endsWith("ves") && word.length > 4) return `${word.slice(0, -3)}f`; // scarves → scarf
+      if (/(?:sses|shes|ches|xes|zes)$/.test(word) && word.length > 4) return word.slice(0, -2);
+      if (word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us") && !word.endsWith("is")) {
+        return word.slice(0, -1);
+      }
+      return word;
+    });
+    return parts.join(" ").trim();
   }
 
   function displayLabel(label) {

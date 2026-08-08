@@ -276,12 +276,16 @@
 
   function evaluatePrintAuthorization(input) {
     const opts = input || {};
-    if (opts.printCenterEnabled !== true) {
-      return { ok: false, reason: "print_flag_off" };
-    }
     const kit = opts.kit;
     if (!kit || kit.ok === false || kit.locked || !kit.companion) {
       return { ok: false, reason: kit?.locked ? "locked" : "unavailable" };
+    }
+    // Print Center UI flag OR designed-document eligibility (upgraded Complete Teaching Kit /
+    // explicit binder intent). Do not force upgraded kits into a text PDF when the UI flag is off.
+    const printCenterOn = opts.printCenterEnabled === true;
+    const designedEligible = opts.designedDocumentEligible === true;
+    if (!printCenterOn && !designedEligible) {
+      return { ok: false, reason: "print_flag_off" };
     }
     const gate = opts.gate;
     if (!gate || gate.allowed !== true) {
@@ -690,7 +694,7 @@
   function printablesBody(model, selection) {
     const items = model.printables || [];
     if (!items.length) return "";
-    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>Resource index below. Image printables appear full-page when available. PDF file pages are not merged into this binder yet — download those files separately from the Teaching Kit.</span></div>`;
+    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>Resource index below. Image printables appear full-page when available. <em>Binary PDF page merge is not available in this release</em> — PDF attachments remain listed here and must be opened/downloaded separately from the Teaching Kit until a dedicated merge dependency is approved.</span></div>`;
     const cards = items.map((item) => `
       <article class="tk-print-resource-card tk-print-keep">
         <header>
