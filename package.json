@@ -377,6 +377,7 @@
     "test:teaching-kit-viewer-layout": "NODE_ENV=test node scripts/test-teaching-kit-viewer-layout.js",
     "test:teaching-kit-ui-print-polish": "NODE_ENV=test node scripts/test-teaching-kit-ui-print-polish.js",
     "test:teaching-kit-print-system": "NODE_ENV=test node scripts/test-teaching-kit-print-system.js",
+    "test:teaching-kit-print-center-wiring": "NODE_ENV=test node scripts/test-teaching-kit-print-center-wiring.js",
     "test:lesson-download-presentation": "NODE_ENV=test node scripts/test-lesson-download-presentation.js",
     "test:teaching-kit-real-print-validation": "NODE_ENV=test node scripts/test-teaching-kit-real-print-validation.js"
   },

@@ -749,6 +749,7 @@
                 <div class="tk-print-select-block">
                   <h4>Choose resources</h4>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="overview" ${state.selectedResources?.overview ? "checked" : ""} /> Overview</label>
+                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="vocabulary" ${state.selectedResources?.vocabulary ? "checked" : ""} /> Vocabulary</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="weekly" ${state.selectedResources?.weekly ? "checked" : ""} /> Weekly Plan</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="activities" ${state.selectedResources?.activities ? "checked" : ""} /> Activities</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="songs" ${state.selectedResources?.songs ? "checked" : ""} /> Songs</label>
@@ -1318,6 +1319,7 @@
       printPrintableId: "",
       selectedResources: {
         overview: false,
+        vocabulary: false,
         weekly: false,
         activities: true,
         songs: false,

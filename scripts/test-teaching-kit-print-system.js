@@ -261,6 +261,39 @@ function testPrintModesLimitSections() {
     adminPreview: true,
   });
   ok(/ADMIN PREVIEW/i.test(admin.html), "admin preview banner");
+
+  // Section checkboxes must actually trim binder output.
+  const noActivities = Print.buildBinderPrintHtml(kit, {
+    preset: "week_binder",
+    plan: fixture.lessonPlan,
+    parts: {
+      cover: true,
+      setup: true,
+      daily: true,
+      activities: false,
+      songsBooks: true,
+      vocabulary: true,
+      family: true,
+      observations: true,
+      printables: true,
+    },
+  });
+  ok(noActivities.ok === true, "binder builds with activities unchecked");
+  ok(!/<article[^>]*tk-print-activity-card/i.test(noActivities.html), "unchecked Activity Cards omit activity card articles");
+  ok(!/data-tk-print-tab="Activities"/i.test(noActivities.html), "Activities section tab omitted when unchecked");
+  ok(/Weekly Plan|Week at a Glance|Overview/i.test(noActivities.html), "other binder sections remain");
+
+  const coverAndVocab = Print.buildBinderPrintHtml(kit, {
+    preset: "selected_resources",
+    plan: fixture.lessonPlan,
+    parts: { cover: true },
+    selectedResources: { vocabulary: true, activities: false },
+  });
+  ok(coverAndVocab.ok === true, "selected resources cover+vocabulary builds");
+  ok(/Vocabulary/i.test(coverAndVocab.html), "selected vocabulary present");
+  ok(!/<article[^>]*tk-print-activity-card/i.test(coverAndVocab.html), "selected resources omits unchecked activities");
+  ok(!/data-tk-print-binder|Build &(?:amp;)? Print My Kit|Open Digital Binder|Back to Lesson Plans/i.test(coverAndVocab.html),
+    "selected resources never embeds Teaching Kit UI chrome");
 }
 
 function testPresentLabels() {

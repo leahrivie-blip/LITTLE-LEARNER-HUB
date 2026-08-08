@@ -27563,7 +27563,18 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
         plan: viewerResource?._curriculumLessonPlan || null,
         intent: selection.intent || "print_center",
         forceDesigned: true,
-      }, activeTeachingKitFlags);
+      }, activeTeachingKitFlags).then((result) => {
+        if (result && result.ok === false && result.reason && typeof showToast === "function") {
+          // Specific toasts are already shown for known failures; keep a last-resort notice.
+          if (!["print_flag_off", "trial_blocked", "trial_cancelled", "trial_exhausted", "watermark_required", "watermark_missing", "unavailable", "build_failed"].includes(result.reason)) {
+            showToast("Teaching Kit print could not start. Please try again.");
+          }
+        }
+      }).catch(() => {
+        if (typeof showToast === "function") {
+          showToast("Teaching Kit print could not start. Please try again.");
+        }
+      });
     },
   });
   if (enhanced.enhanced) {
@@ -27682,7 +27693,15 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     documentMode: selection.documentMode
       || (selection.preset && selection.preset !== "week_binder" ? undefined : "entire_binder"),
   });
-  if (!built.ok) return { ok: false, reason: built.reason || "build_failed" };
+  if (!built.ok) {
+    const reason = built.reason || "build_failed";
+    if (typeof showToast === "function") {
+      showToast(reason === "unavailable"
+        ? "This Teaching Kit is not ready to print yet."
+        : "Could not build the selected Teaching Kit print document. Please try again.");
+    }
+    return { ok: false, reason };
+  }
 
   if (gate.counted && watermark && !String(built.html).includes(watermark)) {
     if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
@@ -27690,14 +27709,33 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     return { ok: false, reason: "watermark_missing" };
   }
 
-  const body = document.querySelector("#resourceViewerBody");
-  if (!body) return { ok: false, reason: "missing_body" };
-  // Replace interactive Teaching Kit UI with a dedicated print document (no modal chrome).
-  body.innerHTML = `<article class="printable-resource-page teaching-kit-print-article" data-tk-print-document="${escapeHtml(built.documentMode || selection.preset || "entire_binder")}">${built.html}</article>`;
-  if (watermark) applyTrialCurriculumWatermark(body, watermark);
+  // Print from an isolated off-DOM host. NEVER replace #resourceViewerBody with the
+  // binder and NEVER restore the interactive Teaching Kit while the system print
+  // dialog/preview is open — that race (previously a 1.8s timeout) caused Android /
+  // tablet print preview to capture the live Teaching Kit UI instead of the binder.
+  const documentMode = built.documentMode || selection.preset || "entire_binder";
+  const host = ensureTeachingKitPrintHost();
+  host.innerHTML = `<article class="printable-resource-page teaching-kit-print-article" data-tk-print-document="${escapeHtml(documentMode)}">${built.html}</article>`;
+  if (watermark) applyTrialCurriculumWatermark(host, watermark);
+
+  // Expose for automated inspection of the actual print document (not the live UI).
+  window.__llhLastTeachingKitPrint = {
+    html: built.html,
+    documentMode,
+    preset: selection.preset || "week_binder",
+    pageCount: built.pageCount || 0,
+    paperSize: built.paperSize || selection.paperSize || "letter",
+    parts: built.selection?.parts || selection.parts || null,
+    selectedResources: selection.selectedResources || null,
+    day: selection.day || "",
+    activityId: selection.activityId || "",
+    printableId: selection.printableId || "",
+    intent: selection.intent || "print",
+    timestamp: new Date().toISOString(),
+  };
 
   // Wait briefly for images so print preview is not blank/cut mid-load.
-  await prefetchTeachingKitPrintImages(body);
+  await prefetchTeachingKitPrintImages(host);
 
   if (typeof recordResourceOutputRequest === "function") {
     recordResourceOutputRequest({
@@ -27725,26 +27763,50 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   document.body.classList.add("printing-resource", "printing-teaching-kit");
   document.body.dataset.tkPaper = built.paperSize || selection.paperSize || "letter";
   let cleaned = false;
+  let printMediaQuery = null;
+  const onPrintMediaChange = (event) => {
+    if (event && event.matches === false) cleanup();
+  };
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
-    document.body.classList.remove("printing-resource", "printing-teaching-kit");
+    document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
     delete document.body.dataset.tkPaper;
     window.removeEventListener("afterprint", cleanup);
-    // Rebuild interactive Teaching Kit UI after print document is dismissed.
-    void enhanceLessonWorkspaceWithTeachingKit(viewerResource).catch(() => {});
+    if (printMediaQuery && typeof printMediaQuery.removeEventListener === "function") {
+      printMediaQuery.removeEventListener("change", onPrintMediaChange);
+    }
+    // Remove only the isolated print host. Leave the live Teaching Kit UI untouched.
+    document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
   };
+  printMediaQuery = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
+  if (printMediaQuery && typeof printMediaQuery.addEventListener === "function") {
+    printMediaQuery.addEventListener("change", onPrintMediaChange);
+  }
   window.addEventListener("afterprint", cleanup);
   // Print and Download PDF use the same designed binder document (browser Save as PDF).
+  // Long safety net only — never restore/replace the Teaching Kit UI on a short timer.
+  // Android/tablet system print preview often stays open far longer than a few seconds.
   window.print();
-  setTimeout(cleanup, 1800);
+  setTimeout(cleanup, 120000);
   return {
     ok: true,
     reason: selection.intent === "download" ? "download_print_dialog" : "printed",
     pageCount: built.pageCount || 0,
     paperSize: built.paperSize || selection.paperSize || "letter",
     designedDocument: true,
+    documentMode,
   };
+}
+
+function ensureTeachingKitPrintHost() {
+  document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
+  const host = document.createElement("div");
+  host.className = "llh-teaching-kit-print-host";
+  host.setAttribute("aria-hidden", "true");
+  host.dataset.tkPrintHost = "1";
+  document.body.appendChild(host);
+  return host;
 }
 
 function resourceViewerCloseLabel(resource) {
@@ -27835,6 +27897,31 @@ async function printResourceViewer(options = {}) {
   const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
   if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
   try {
+    const teachingKitUiMounted = Boolean(
+      body?.classList?.contains("teaching-kit-mode")
+      || body?.querySelector?.(".tk-ops-nav, [data-tk-panel], [data-tk-print-binder]"),
+    );
+    // Never print the live Teaching Kit UI as a fallback. Upgraded kits use the designed binder.
+    if (teachingKitUiMounted && printVariant === "full") {
+      const teachingKitApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKit : null;
+      const plan = viewerResource?._curriculumLessonPlan || null;
+      const kitPayload = activeTeachingKitPayload;
+      const designedEligible = typeof teachingKitApi?.shouldUseDesignedTeachingKitDocument === "function"
+        ? teachingKitApi.shouldUseDesignedTeachingKitDocument(plan, kitPayload, activeTeachingKitFlags || {}, {
+          ownerPreview: activeTeachingKitFlags?.ownerPreview === true,
+        })
+        : Boolean(kitPayload?.companion && !kitPayload?.locked);
+      if (designedEligible && typeof printTeachingKitBinder === "function") {
+        await printTeachingKitBinder(viewerResource, kitPayload, {
+          preset: "full_weekly_plan",
+          documentMode: "full_weekly",
+          plan,
+          intent: mode === "download" ? "download" : "print",
+          forceDesigned: true,
+        }, activeTeachingKitFlags || {});
+        return;
+      }
+    }
     if (canDownloadLessonWorkspacePlan(viewerResource) && body) {
       const weekVariants = new Set(["week", "week-detail", "planning"]);
       body.innerHTML = resourcePrintableHtml(viewerResource, {
@@ -27843,6 +27930,11 @@ async function printResourceViewer(options = {}) {
         weekStartDate: weekVariants.has(printVariant) ? lessonPlanAssignedWeekStart(viewerResource.id) : "",
         trialWatermark: watermark,
       });
+    } else if (teachingKitUiMounted) {
+      if (typeof showToast === "function") {
+        showToast("Could not build a printable lesson document. Open Build / Print and use Print binder.");
+      }
+      return;
     }
     if (watermark && body) {
       applyTrialCurriculumWatermark(body, watermark);
@@ -27856,6 +27948,16 @@ async function printResourceViewer(options = {}) {
         else window.alert(MEMBERSHIP_COPY.watermarkTryAgain);
         return;
       }
+    }
+    // Fail closed: if Teaching Kit UI is still what would print, stop instead of printing chrome.
+    const aboutToPrintHtml = String(body?.innerHTML || "");
+    if (/data-tk-print-binder|Build &amp; Print My Kit|Open Digital Binder|tk-ops-nav/i.test(aboutToPrintHtml)
+      && !/data-teaching-kit-print-root|tk-print-root/i.test(aboutToPrintHtml)) {
+      if (body) body.innerHTML = previousHtml;
+      if (typeof showToast === "function") {
+        showToast("Print stopped to avoid printing the Teaching Kit screen. Use Build / Print → Print binder.");
+      }
+      return;
     }
     recordResourceOutputRequest({
       mode,
@@ -27889,7 +27991,9 @@ async function printResourceViewer(options = {}) {
     };
     window.addEventListener("afterprint", cleanup);
     window.print();
-    setTimeout(cleanup, 1600);
+    // Legacy lesson print still restores previousHtml; use a long safety net so mobile
+    // print preview is not reverted to interactive UI mid-dialog.
+    setTimeout(cleanup, 120000);
   } catch (error) {
     if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
     throw error;
