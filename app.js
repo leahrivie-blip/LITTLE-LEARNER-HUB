@@ -6636,6 +6636,8 @@ let adminCurriculumListFilters = {
   plan: "",
   age: "",
   theme: "",
+  coverStatus: "",
+  kitType: "",
   completionBand: "",
   gap: "",
   sort: "updated",
@@ -6691,6 +6693,12 @@ let adminCurriculumLessonImportMode = "v5"; // "v3" | "v4" | "v5"
 let adminCurriculumLessonImporting = false;
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
+/** Pending cover selection in the classic editor (preview before save; never publishes). */
+let adminCurriculumCoverPending = null;
+/** Quick Change Cover modal state (list action; cover-only save). */
+let adminCurriculumQuickCoverState = null;
+/** Admin lesson preview session — customer UI with ADMIN PREVIEW banner; never publishes. */
+let adminLessonUserPreviewState = null;
 let curriculumPlannerSelectedWeek = "";
 let curriculumPlannerAssignResourceId = "";
 let curriculumPlannerMessage = { text: "", isSuccess: false };
@@ -9466,6 +9474,7 @@ function loadCurriculumManagedLessonPlans() {
       coverImageAlt: plan.coverImageAlt || "",
       coverImageSource: plan.coverImageSource || "",
       coverImagePosition: plan.coverImagePosition || "center",
+      coverQualityStatus: plan.coverQualityStatus || "",
       visible: true,
       archived: false,
       featured: plan.status === "featured",
@@ -11289,29 +11298,191 @@ function closeUserLessonEditor({ force = false } = {}) {
   return true;
 }
 
+const COVER_QUALITY_STATUSES = Object.freeze(["good", "needs_upgrade", "missing"]);
+const ADMIN_LESSON_PREVIEW_AS_OPTIONS = Object.freeze([
+  { value: "Free", label: "Free User" },
+  { value: "Pro", label: "Pro User" },
+  { value: "Founding", label: "Founding / Early User" },
+  { value: "Director", label: "Center / Director" },
+  { value: "Teacher", label: "Teacher" },
+]);
+
+function curriculumLessonHasTeachingKit(plan) {
+  if (!plan || typeof plan !== "object") return false;
+  if (plan.teachingKit && typeof plan.teachingKit === "object") {
+    const completeness = String(plan.teachingKit.completeness || "").toLowerCase();
+    if (completeness && completeness !== "legacy_mapped") return true;
+    if (Number(plan.teachingKit.completionPercent) >= 50) return true;
+    if (plan.teachingKit.teacherToolkit && typeof plan.teachingKit.teacherToolkit === "object") return true;
+  }
+  if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") return true;
+  return false;
+}
+
+function curriculumLessonHasUnpublishedChanges(plan) {
+  if (!plan) return false;
+  if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
+    const draft = plan.enrichmentDraft;
+    if (draft.activities && typeof draft.activities === "object" && Object.keys(draft.activities).length) return true;
+    if (draft.week && typeof draft.week === "object" && Object.keys(draft.week).length) return true;
+    if (draft.previewReady === true) return true;
+  }
+  return false;
+}
+
+function deriveAdminCoverQualityStatus(plan) {
+  const manual = String(plan?.coverQualityStatus || "").trim();
+  if (COVER_QUALITY_STATUSES.includes(manual)) return manual;
+  const url = sanitizedImageSource(plan?.coverImageUrl || "") || "";
+  if (!url) return "missing";
+  const lower = url.toLowerCase();
+  if (lower.includes("default.svg") || lower.includes("generic-infant") || lower.includes("generic-toddler") || lower.includes("generic-preschool")) {
+    return "needs_upgrade";
+  }
+  const source = String(plan?.coverImageSource || "").trim();
+  if (source === "uploaded" || source === "mapped" || source === "generated") return "good";
+  if (lower.startsWith("/api/media/lesson-covers/") || lower.startsWith("/images/lesson-covers/")) return "good";
+  if (lower.startsWith("https://")) return "good";
+  return "needs_upgrade";
+}
+
+function coverQualityStatusLabel(status) {
+  if (status === "good") return "Good";
+  if (status === "needs_upgrade") return "Needs Upgrade";
+  if (status === "missing") return "Missing";
+  return "Unknown";
+}
+
+function coverQualityStatusTagClass(status) {
+  if (status === "good") return "tag cover-quality-good";
+  if (status === "needs_upgrade") return "tag cover-quality-needs-upgrade";
+  if (status === "missing") return "tag cover-quality-missing tag-hidden";
+  return "tag";
+}
+
+function adminLessonEditorStatusSummary(record) {
+  const status = String(record?.status || "draft").toLowerCase();
+  const kit = curriculumLessonHasTeachingKit(record);
+  const unpublished = curriculumLessonHasUnpublishedChanges(record);
+  const bits = [];
+  if (status === "published" || status === "featured") bits.push("Published version");
+  else if (status === "archived") bits.push("Archived");
+  else bits.push("Draft changes");
+  bits.push(kit ? "Teaching Kit" : "Legacy lesson");
+  if (unpublished) bits.push("Unpublished Changes");
+  return bits.join(" · ");
+}
+
+/**
+ * Compress/resize a cover image for upload while keeping visual quality.
+ * Accepts JPG/JPEG/PNG/WebP; rejects others. Returns a data URL under ~2 MB.
+ */
+async function compressLessonCoverFileForUpload(file, {
+  maxEdge = 1600,
+  maxBytes = 2 * 1024 * 1024,
+  quality = 0.86,
+} = {}) {
+  if (!file) throw new Error("Choose a cover image first.");
+  const type = String(file.type || "").toLowerCase();
+  const name = String(file.name || "").toLowerCase();
+  const okType = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(type)
+    || /\.(jpe?g|png|webp)$/i.test(name);
+  if (!okType) {
+    throw new Error("Unsupported file type. Use JPG, JPEG, PNG, or WebP.");
+  }
+  // Soft pre-check: allow larger phone photos; we compress before upload.
+  if (file.size > 18 * 1024 * 1024) {
+    throw new Error("Image is too large (over 18 MB). Choose a smaller photo or compress it first.");
+  }
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not read that image. Try JPG, PNG, or WebP."));
+      el.src = objectUrl;
+    });
+    const srcW = img.naturalWidth || img.width || 0;
+    const srcH = img.naturalHeight || img.height || 0;
+    if (!srcW || !srcH) throw new Error("Could not read image dimensions.");
+    const scale = Math.min(1, maxEdge / Math.max(srcW, srcH));
+    const width = Math.max(1, Math.round(srcW * scale));
+    const height = Math.max(1, Math.round(srcH * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image compression is not available in this browser.");
+    ctx.drawImage(img, 0, 0, width, height);
+    const preferPng = type === "image/png" && file.size < maxBytes;
+    const mime = preferPng ? "image/png" : "image/jpeg";
+    let q = quality;
+    let dataUrl = canvas.toDataURL(mime, q);
+    while (dataUrl.length * 0.75 > maxBytes && q > 0.55 && mime === "image/jpeg") {
+      q -= 0.08;
+      dataUrl = canvas.toDataURL(mime, q);
+    }
+    if (dataUrl.length * 0.75 > maxBytes) {
+      // Second pass at a smaller edge if still over budget.
+      const shrink = Math.sqrt(maxBytes / (dataUrl.length * 0.75));
+      const w2 = Math.max(640, Math.round(width * Math.min(1, shrink)));
+      const h2 = Math.max(360, Math.round(height * (w2 / width)));
+      canvas.width = w2;
+      canvas.height = h2;
+      ctx.drawImage(img, 0, 0, w2, h2);
+      dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    }
+    if (dataUrl.length * 0.75 > maxBytes) {
+      throw new Error("Image is still too large after compression. Try a smaller file.");
+    }
+    const safe = sanitizedImageSource(dataUrl);
+    if (!safe) throw new Error("Could not prepare that image for upload.");
+    return safe;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function renderAdminCurriculumLessonCoverSection(record) {
   const coversApi = lessonPlanCoversApi();
   const resolved = resolveLessonPlanCoverForResource(record);
   const currentUrl = sanitizedImageSource(record.coverImageUrl || "") || "";
-  const previewUrl = sanitizedImageSource(currentUrl || resolved.url || "")
+  const pending = adminCurriculumCoverPending;
+  const previewUrl = sanitizedImageSource(pending?.previewUrl || currentUrl || resolved.url || "")
     || coversApi?.DEFAULT_COVER
     || "/images/lesson-covers/default.svg";
-  const previewAlt = String(record.coverImageAlt || resolved.alt || "Lesson plan cover preview").trim();
+  const previewAlt = String(pending?.alt || record.coverImageAlt || resolved.alt || "Lesson plan cover preview").trim();
   const position = String(record.coverImagePosition || "center").trim() || "center";
-  const source = String(record.coverImageSource || (currentUrl ? "uploaded" : resolved.source || "")).trim();
+  const source = String(
+    pending?.source
+    || record.coverImageSource
+    || (currentUrl ? "uploaded" : resolved.source || ""),
+  ).trim();
+  const quality = deriveAdminCoverQualityStatus({
+    ...record,
+    coverImageUrl: pending?.url || currentUrl,
+    coverImageSource: source,
+    coverQualityStatus: pending?.quality || record.coverQualityStatus,
+  });
   const library = Array.isArray(coversApi?.EXISTING_COVER_LIBRARY) ? coversApi.EXISTING_COVER_LIBRARY : [];
   const categories = [...new Set(library.map((item) => item.category).filter(Boolean))];
+  const savedUrlField = pending?.url != null ? (pending.url || "") : currentUrl;
   return `
     <fieldset class="admin-fieldset curriculum-cover-editor" data-curriculum-cover-editor>
       <legend>Cover Image</legend>
-      <p class="muted-copy">Optional illustrated cover for the Lesson Plan Library card. Leave empty to use the automatic theme match.</p>
+      <p class="muted-copy">Upload or replace the library card cover for this lesson only. Changes preview here first — Save Draft or Publish to keep them. Failed uploads leave the current cover untouched.</p>
+      <div class="curriculum-cover-status-row" role="status">
+        <span class="${coverQualityStatusTagClass(quality)}">Cover Status: ${escapeHtml(coverQualityStatusLabel(quality))}</span>
+        ${pending ? `<span class="tag">New image pending save</span>` : ""}
+      </div>
       <div class="curriculum-cover-preview-row">
-        <div class="curriculum-cover-preview">
+        <div class="curriculum-cover-preview lesson-plan-card__cover-wrap" data-curriculum-cover-preview-frame>
           <img
             data-curriculum-cover-preview
+            class="lesson-plan-card__cover"
             src="${escapeHtml(previewUrl)}"
             alt="${escapeHtml(previewAlt)}"
-            style="object-position:${escapeHtml(position)}"
+            style="object-position:${escapeHtml(position)};object-fit:cover"
             width="320"
             height="180"
             loading="lazy"
@@ -11319,28 +11490,41 @@ function renderAdminCurriculumLessonCoverSection(record) {
           />
         </div>
         <div class="curriculum-cover-preview-meta">
-          <p class="muted-copy">${currentUrl ? "Custom cover assigned." : "Using automatic theme / age fallback."}</p>
-          <div class="form-actions" style="margin:0">
-            <button class="ghost-button" type="button" data-curriculum-cover-remove ${currentUrl ? "" : "disabled"}>Remove Image</button>
+          <p class="muted-copy">${
+            pending
+              ? "Preview of the new cover (not saved yet)."
+              : (currentUrl ? "Custom cover assigned to this lesson." : "Using automatic theme / age fallback.")
+          }</p>
+          <div class="form-actions curriculum-cover-actions" style="margin:0">
+            <button class="ghost-button" type="button" data-curriculum-cover-remove ${currentUrl || pending ? "" : "disabled"}>Remove Image</button>
+            <button class="ghost-button" type="button" data-curriculum-cover-revert ${pending ? "" : "hidden"}>Cancel new image</button>
           </div>
+          <label class="curriculum-cover-quality-label">Cover quality
+            <select name="coverQualityStatus" data-curriculum-cover-quality>
+              <option value="" ${!record.coverQualityStatus ? "selected" : ""}>Auto (${escapeHtml(coverQualityStatusLabel(quality))})</option>
+              <option value="good" ${record.coverQualityStatus === "good" ? "selected" : ""}>Good</option>
+              <option value="needs_upgrade" ${record.coverQualityStatus === "needs_upgrade" ? "selected" : ""}>Needs Upgrade</option>
+              <option value="missing" ${record.coverQualityStatus === "missing" ? "selected" : ""}>Missing</option>
+            </select>
+          </label>
         </div>
       </div>
-      <input type="hidden" name="coverImageUrl" value="${escapeHtml(currentUrl)}" data-curriculum-cover-url />
+      <input type="hidden" name="coverImageUrl" value="${escapeHtml(savedUrlField)}" data-curriculum-cover-url />
       <input type="hidden" name="coverImageSource" value="${escapeHtml(source)}" data-curriculum-cover-source />
       <div class="form-grid-two">
         <label>Paste image URL
-          <input type="text" data-curriculum-cover-url-input value="${escapeHtml(currentUrl.startsWith("data:") ? "" : currentUrl)}" placeholder="https://… or /images/lesson-covers/…" />
+          <input type="text" data-curriculum-cover-url-input value="${escapeHtml((savedUrlField || "").startsWith("data:") ? "" : savedUrlField)}" placeholder="https://… or /images/lesson-covers/…" />
         </label>
         <label>Upload new image
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-curriculum-cover-upload />
-          <small>PNG, JPG, or WebP up to 2 MB. Uploads are saved to persistent database-backed media storage.</small>
+          <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp" capture="environment" data-curriculum-cover-upload />
+          <small>JPG, JPEG, PNG, or WebP. Large photos are compressed automatically. Stored with this lesson plan (not a temporary browser URL).</small>
         </label>
       </div>
       <label>Alt text
         <input name="coverImageAlt" value="${escapeHtml(record.coverImageAlt || "")}" maxlength="240" placeholder="Illustration of … for this lesson plan" />
       </label>
-      <label>Image position
-        <select name="coverImagePosition">
+      <label>Image position (crop inside the card)
+        <select name="coverImagePosition" data-curriculum-cover-position>
           ${["center", "top", "bottom", "left", "right"].map((value) => `
             <option value="${value}"${position === value ? " selected" : ""}>${value.charAt(0).toUpperCase()}${value.slice(1)}</option>
           `).join("")}
@@ -11362,7 +11546,7 @@ function renderAdminCurriculumLessonCoverSection(record) {
           ${library.map((item) => `
             <button
               type="button"
-              class="curriculum-cover-library-item${currentUrl === item.path ? " is-selected" : ""}"
+              class="curriculum-cover-library-item${savedUrlField === item.path ? " is-selected" : ""}"
               data-curriculum-cover-pick="${escapeHtml(item.path)}"
               data-cover-label="${escapeHtml(item.label)}"
               data-cover-category="${escapeHtml(item.category || "")}"
@@ -11378,7 +11562,7 @@ function renderAdminCurriculumLessonCoverSection(record) {
   `;
 }
 
-function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "" } = {}) {
+function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "", quality = "", pending = true } = {}) {
   const form = document.querySelector("#adminCurriculumLessonPlanForm");
   if (!form) return;
   const safeUrl = sanitizedImageSource(url || "");
@@ -11388,6 +11572,19 @@ function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "" }
   const preview = form.querySelector("[data-curriculum-cover-preview]");
   const altField = form.querySelector('[name="coverImageAlt"]');
   const removeButton = form.querySelector("[data-curriculum-cover-remove]");
+  const revertButton = form.querySelector("[data-curriculum-cover-revert]");
+  const qualityField = form.querySelector("[data-curriculum-cover-quality]");
+  if (pending) {
+    adminCurriculumCoverPending = {
+      url: safeUrl,
+      previewUrl: safeUrl,
+      source: safeUrl ? source : "",
+      alt: alt || "",
+      quality: quality || (safeUrl ? "good" : "missing"),
+    };
+  } else {
+    adminCurriculumCoverPending = null;
+  }
   if (urlField) urlField.value = safeUrl;
   if (sourceField) sourceField.value = safeUrl ? source : "";
   if (urlInput && !String(safeUrl).startsWith("data:")) urlInput.value = safeUrl;
@@ -11401,14 +11598,34 @@ function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "" }
       }).url
       || "/images/lesson-covers/default.svg";
     preview.style.objectPosition = form.querySelector('[name="coverImagePosition"]')?.value || "center";
+    preview.style.objectFit = "cover";
   }
   if (alt && altField && !String(altField.value || "").trim()) {
     altField.value = alt;
   }
-  if (removeButton) removeButton.disabled = !safeUrl;
+  if (quality && qualityField && COVER_QUALITY_STATUSES.includes(quality)) {
+    qualityField.value = quality;
+  }
+  if (removeButton) removeButton.disabled = !safeUrl && !adminCurriculumCoverPending;
+  if (revertButton) revertButton.hidden = !adminCurriculumCoverPending;
   form.querySelectorAll("[data-curriculum-cover-pick]").forEach((button) => {
     button.classList.toggle("is-selected", button.dataset.curriculumCoverPick === safeUrl);
   });
+}
+
+function revertAdminCurriculumCoverPending() {
+  adminCurriculumCoverPending = null;
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  const record = curriculumLessonEditorRecord() || {};
+  applyAdminCurriculumCoverSelection(record.coverImageUrl || "", {
+    source: record.coverImageSource || "",
+    alt: record.coverImageAlt || "",
+    quality: record.coverQualityStatus || "",
+    pending: false,
+  });
+  const upload = form?.querySelector("[data-curriculum-cover-upload]");
+  if (upload) upload.value = "";
+  setFormMessage("#adminCurriculumLessonPlanMessage", "Reverted to the saved cover. Nothing was published.", true);
 }
 
 async function uploadAdminCurriculumLessonCover(file) {
@@ -11416,14 +11633,14 @@ async function uploadAdminCurriculumLessonCover(file) {
   if (!token || !canUseLaunchBackend()) {
     throw new Error("Backend server and admin login are required to upload a cover.");
   }
-  if (!file || file.size > 2 * 1024 * 1024) {
-    throw new Error("Use a PNG, JPG, or WebP image no larger than 2 MB.");
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "").toLowerCase();
+  const okType = ["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(type)
+    || /\.(jpe?g|png|webp)$/i.test(name);
+  if (!file || !okType) {
+    throw new Error("Unsupported file type. Use JPG, JPEG, PNG, or WebP.");
   }
-  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-    throw new Error("Use a PNG, JPG, or WebP image.");
-  }
-  const fileData = await fileToImageDataUrlSafe(file, { maxMb: 2 });
-  if (!fileData) throw new Error("Could not read that image.");
+  const fileData = await compressLessonCoverFileForUpload(file);
   const response = await fetch("/api/admin/curriculum/lesson-covers/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -11434,7 +11651,7 @@ async function uploadAdminCurriculumLessonCover(file) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.persistent || !sanitizedImageSource(data.url || "")) {
-    throw new Error(data.error || "The cover could not be saved to persistent storage.");
+    throw new Error(data.error || "The cover could not be saved to persistent storage. The existing cover was kept.");
   }
   return data;
 }
@@ -11494,6 +11711,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
     songs: [],
     dailyPlans: emptyCurriculumDailyPlans(),
   });
+  adminCurriculumCoverPending = null;
   const selectedDomains = new Set(curriculumAsStringArray(record.learningDomains));
   const dayEditors = CURRICULUM_WEEKDAYS.map((day) => {
     const dayHtml = renderCurriculumDailyDayEditor(day, record.dailyPlans?.[day] || emptyCurriculumDailyPlanDay());
@@ -11502,22 +11720,44 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       `<details id="admin-lesson-day-${day}" class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}"`,
     );
   }).join("");
+  const coverThumb = sanitizedImageSource(record.coverImageUrl || "")
+    || resolveLessonPlanCoverForResource(record).url
+    || "/images/lesson-covers/default.svg";
+  const statusSummary = adminLessonEditorStatusSummary(record);
+  const unpublished = curriculumLessonHasUnpublishedChanges(record);
+  const isPublic = ["published", "featured"].includes(String(record.status || "").toLowerCase());
+  const previewAsOptions = ADMIN_LESSON_PREVIEW_AS_OPTIONS.map((opt) => (
+    `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`
+  )).join("");
   return `
     <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form curriculum-premium-editor">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
-      <div class="admin-lesson-sticky-bar" role="region" aria-label="Lesson plan actions">
-        <div>
-          <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
-          <small>${curriculumLessonPlanStatusLabel(record.status || "draft")}</small>
+      <div class="admin-lesson-sticky-bar admin-lesson-sticky-bar--rich" role="region" aria-label="Lesson plan actions">
+        <div class="admin-lesson-sticky-bar__identity">
+          <img class="admin-lesson-sticky-cover" src="${escapeHtml(coverThumb)}" alt="" width="64" height="36" style="object-fit:cover;object-position:${escapeHtml(record.coverImagePosition || "center")}" />
+          <div>
+            <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
+            <small>${escapeHtml(record.age || "Preschool")} · ${escapeHtml(statusSummary)}</small>
+            ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
+          </div>
         </div>
-        <div class="account-actions-row">
-          <button class="ghost-button" type="button" data-curriculum-lesson-back>Cancel</button>
-          <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "Save"}</button>
+        <div class="admin-lesson-sticky-bar__actions account-actions-row">
+          <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
+          <label class="admin-lesson-preview-as">
+            <span class="visually-hidden">Preview as</span>
+            <select data-admin-lesson-preview-as aria-label="Preview as user type">
+              ${previewAsOptions}
+            </select>
+          </label>
+          <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user ${adminCurriculumLessonSaving ? "disabled" : ""}>Preview as User</button>
+          <button class="ghost-button" type="button" data-curriculum-lesson-view-published ${isPublic ? "" : "disabled"} title="${isPublic ? "Open the live published lesson customers see" : "This lesson is not published yet"}">View Published Version</button>
+          <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
+          <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
         </div>
       </div>
       <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>← Back to Lesson Plan List</button>
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
-      <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Premium weekly, daily, and activity fields edit here.</p>
+      <p class="muted-copy">${escapeHtml(statusSummary)}. Save Draft keeps work unpublished. Publish makes it visible to customers. Preview as User never publishes.</p>
       ${adminCurriculumLessonJumpNavHtml()}
       <div class="access-notice curriculum-activity-sync-notice" role="status">
         Changes to lesson-plan activities will update linked Activity Library entries when saved.
@@ -11542,9 +11782,10 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </div>
       <div id="admin-lesson-cover">${renderAdminCurriculumLessonCoverSection(record)}</div>
       <label>Status
-        <select name="status">
+        <select name="status" data-curriculum-lesson-status>
           ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
         </select>
+        <small class="muted-copy">Prefer Save Draft / Publish in the header. Changing status here and saving still works.</small>
       </label>
       <fieldset class="admin-fieldset">
         <legend>Learning domains</legend>
@@ -11597,8 +11838,10 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </div>
       <div id="admin-lesson-resources">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
       <div class="form-actions admin-lesson-form-actions">
-        <button class="ghost-button" type="button" data-curriculum-lesson-back>Cancel</button>
-        <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "Save lesson plan"}</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user>Preview as User</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
+        <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
       </div>
       <span class="form-message" id="adminCurriculumLessonPlanMessage"></span>
     </form>
@@ -11792,13 +12035,16 @@ function clearTeachingKitEnrichmentListFilters() {
 function curriculumLessonPlanAdminCardHtml(plan) {
   const linkedCount = curriculumActivitiesForLesson(plan.id).filter((item) => item.status !== "archived").length;
   const selected = adminCurriculumSelectedIds.has(plan.id);
-  const cover = sanitizedImageSource(plan.coverImageUrl || "")
+  const coverUrl = sanitizedImageSource(plan.coverImageUrl || "")
     || (typeof lessonPlanCoversApi === "function" ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url : "")
-    || "";
+    || "/images/lesson-covers/default.svg";
+  const coverQuality = deriveAdminCoverQualityStatus(plan);
   const enrichEnabled = isTeachingKitEnrichmentEditorEnabled();
   const enrichment = enrichEnabled ? adminCurriculumLessonEnrichmentMeta(plan) : null;
   const summary = enrichment?.summary || null;
-  const hasDraft = Boolean(summary?.hasEnrichmentDraft);
+  const hasDraft = Boolean(summary?.hasEnrichmentDraft) || curriculumLessonHasUnpublishedChanges(plan);
+  const isKit = curriculumLessonHasTeachingKit(plan);
+  const isPublic = ["published", "featured"].includes(String(plan.status || "").toLowerCase());
   const workspace = typeof LLHTeachingKitUpgradeWorkspace !== "undefined"
     ? LLHTeachingKitUpgradeWorkspace
     : null;
@@ -11832,18 +12078,22 @@ function curriculumLessonPlanAdminCardHtml(plan) {
           <input type="checkbox" data-curriculum-select="${escapeHtml(plan.id)}" ${selected ? "checked" : ""} />
           <span class="visually-hidden">Select ${escapeHtml(plan.title || "lesson")}</span>
         </label>
+        <button type="button" class="admin-lesson-card-cover-thumb" data-curriculum-quick-cover="${escapeHtml(plan.id)}" title="Change cover" aria-label="Change cover for ${escapeHtml(plan.title || "lesson")}">
+          <img src="${escapeHtml(coverUrl)}" alt="" width="72" height="40" style="object-fit:cover;object-position:${escapeHtml(plan.coverImagePosition || "center")}" loading="lazy" decoding="async" />
+        </button>
         <div>
           <strong>${escapeHtml(plan.title || "Untitled Lesson Plan")}</strong>
           <div class="tag-row" style="margin:2px 0 4px">
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
+            <span class="tag">${isKit ? "Teaching Kit" : "Legacy"}</span>
+            <span class="${coverQualityStatusTagClass(coverQuality)}">Cover: ${escapeHtml(coverQualityStatusLabel(coverQuality))}</span>
             ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status">${escapeHtml(stage)}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Content completion (weekday coverage)">${escapeHtml(enrichment.weekdayLabel || `${enrichment.contentPercent}% content`)}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
-            ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
-            ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
+            ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
           </div>
           ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.contentPercent}%"></i></div>` : ""}
           ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
@@ -11852,10 +12102,12 @@ function curriculumLessonPlanAdminCardHtml(plan) {
           <small>${enrichEnabled ? `Last updated: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}` : `Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}`}</small>
         </div>
       </div>
-      <div class="form-actions">
+      <div class="form-actions admin-lesson-card-actions">
         ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Upgrade Lesson</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
-        <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
+        <button class="ghost-button" type="button" data-curriculum-quick-cover="${escapeHtml(plan.id)}">Change Cover</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user="${escapeHtml(plan.id)}">Preview as User</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-view-published="${escapeHtml(plan.id)}" ${isPublic ? "" : "disabled"}>View Published Version</button>
         ${plan.disposableQaFixture === true && String(plan.status || "").toLowerCase() === "archived"
           ? `<button class="danger-button" type="button" data-curriculum-fixture-permanent-delete="${escapeHtml(plan.id)}">Permanently Delete Disposable Fixture</button>`
           : ""}
@@ -11878,6 +12130,12 @@ function filteredAdminCurriculumLessonPlans() {
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
     if (filters.age && !agesMatchForFilter(plan.age, filters.age)) return false;
     if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
+    if (filters.coverStatus) {
+      const quality = deriveAdminCoverQualityStatus(plan);
+      if (quality !== String(filters.coverStatus)) return false;
+    }
+    if (filters.kitType === "legacy" && curriculumLessonHasTeachingKit(plan)) return false;
+    if (filters.kitType === "teaching_kit" && !curriculumLessonHasTeachingKit(plan)) return false;
     const meta = metaFor(plan);
     if (isTeachingKitEnrichmentEditorEnabled() && filters.completionBand) {
       const band = String(filters.completionBand);
@@ -12061,6 +12319,21 @@ function renderAdminCurriculumLessonPlanManager() {
           ${themes.map((theme) => `<option value="${escapeHtml(theme)}" ${adminCurriculumListFilters.theme === theme ? "selected" : ""}>${escapeHtml(theme)}</option>`).join("")}
         </select>
       </label>
+      <label><span>Cover status</span>
+        <select id="adminCurriculumFilterCoverStatus">
+          <option value="" ${!adminCurriculumListFilters.coverStatus ? "selected" : ""}>All</option>
+          <option value="good" ${adminCurriculumListFilters.coverStatus === "good" ? "selected" : ""}>Good</option>
+          <option value="needs_upgrade" ${adminCurriculumListFilters.coverStatus === "needs_upgrade" ? "selected" : ""}>Needs Upgrade</option>
+          <option value="missing" ${adminCurriculumListFilters.coverStatus === "missing" ? "selected" : ""}>Missing cover</option>
+        </select>
+      </label>
+      <label><span>Legacy / Teaching Kit</span>
+        <select id="adminCurriculumFilterKitType">
+          <option value="" ${!adminCurriculumListFilters.kitType ? "selected" : ""}>All</option>
+          <option value="legacy" ${adminCurriculumListFilters.kitType === "legacy" ? "selected" : ""}>Legacy</option>
+          <option value="teaching_kit" ${adminCurriculumListFilters.kitType === "teaching_kit" ? "selected" : ""}>Teaching Kit</option>
+        </select>
+      </label>
       ${isTeachingKitEnrichmentEditorEnabled() ? `
       <label><span>TK dashboard stage</span>
         <select id="adminCurriculumFilterCompletion">
@@ -12130,6 +12403,7 @@ function renderAdminCurriculumLessonPlanManager() {
         : `<div class="empty-state">No lesson plans match these filters.</div>`)}
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
+    ${adminCurriculumQuickCoverState ? renderAdminCurriculumQuickCoverModal() : ""}
   `;
   if (typeof LLHTeachingKitCurriculumDirectorUI !== "undefined"
     && typeof LLHTeachingKitCurriculumDirectorUI.mount === "function") {
@@ -12152,6 +12426,364 @@ function setAdminCurriculumLessonSaveBanner(text, isSuccess = false) {
     text: String(text || ""),
     isSuccess: Boolean(isSuccess),
   };
+}
+
+function buildAdminCurriculumLessonResourceFromPlan(plan, { adminPreview = false, publishedView = false } = {}) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan || {});
+  if (!normalized?.id) return null;
+  const cover = sanitizedImageSource(normalized.coverImageUrl || "")
+    || resolveLessonPlanCoverForResource(normalized).url
+    || "";
+  return {
+    id: normalized.id,
+    category: "Lesson Plans",
+    title: normalized.title,
+    age: normalized.age || "Preschool",
+    plan: normalized.plan || "Free",
+    month: "",
+    tags: [
+      ...curriculumAsStringArray(normalized.learningDomains),
+      normalized.theme,
+    ].filter(Boolean),
+    format: "Play-Based Lesson",
+    description: normalized.weeklyOverview || normalized.theme || "",
+    theme: normalized.theme || "",
+    developmentalArea: curriculumAsStringArray(normalized.learningDomains)[0] || "Approaches to Learning",
+    holiday: "",
+    activityFocus: "",
+    weeklyOverview: normalized.weeklyOverview || "",
+    materials: normalized.weeklyMaterials || "",
+    previewData: cover,
+    thumbnailUrl: cover,
+    coverImageUrl: normalized.coverImageUrl || "",
+    coverImageAlt: normalized.coverImageAlt || "",
+    coverImageSource: normalized.coverImageSource || "",
+    coverImagePosition: normalized.coverImagePosition || "center",
+    visible: true,
+    archived: false,
+    featured: normalized.status === "featured",
+    customContent: buildLessonPlanTextFromCurriculum(normalized),
+    _curriculumManaged: true,
+    _curriculumResourceIds: curriculumAsStringArray(normalized.resourceIds),
+    _curriculumLessonPlan: normalized,
+    _adminLessonPreview: Boolean(adminPreview),
+    _adminPublishedView: Boolean(publishedView),
+  };
+}
+
+function ensureAdminLessonPreviewBanner({ mode = "draft", previewAs = "Pro" } = {}) {
+  let banner = document.querySelector("[data-admin-lesson-preview-banner]");
+  if (!banner) {
+    document.body.insertAdjacentHTML("beforeend", `
+      <div class="admin-lesson-preview-banner" data-admin-lesson-preview-banner role="status">
+        <strong>ADMIN PREVIEW</strong>
+        <span data-admin-lesson-preview-banner-text></span>
+        <button type="button" class="ghost-button" data-admin-lesson-preview-exit>Exit preview</button>
+      </div>
+    `);
+    banner = document.querySelector("[data-admin-lesson-preview-banner]");
+  }
+  const text = banner.querySelector("[data-admin-lesson-preview-banner-text]");
+  if (text) {
+    text.textContent = mode === "published"
+      ? `Viewing published version · Preview as ${previewAs} · Not editing`
+      : `Draft / admin changes · Preview as ${previewAs} · Not published by this action`;
+  }
+  banner.hidden = false;
+  document.body.classList.add("admin-lesson-preview-active");
+}
+
+function clearAdminLessonPreviewBanner() {
+  document.querySelector("[data-admin-lesson-preview-banner]")?.remove();
+  document.body.classList.remove("admin-lesson-preview-active");
+  adminLessonUserPreviewState = null;
+}
+
+function exitAdminLessonUserPreview() {
+  const returnEditorId = adminLessonUserPreviewState?.returnEditorId || adminCurriculumLessonEditorId || "";
+  const previousMode = adminLessonUserPreviewState?.previousPreviewMode || "Admin";
+  clearAdminLessonPreviewBanner();
+  if (typeof dismissResourceViewerForNavigation === "function") {
+    dismissResourceViewerForNavigation();
+  }
+  setAdminPreviewMode(previousMode === "Admin" ? "Admin" : previousMode);
+  setView("admin");
+  if (returnEditorId) {
+    openAdminCurriculumLessonEditor(returnEditorId, { scroll: true });
+  } else {
+    renderAdminCurriculumLessonPlanManager();
+  }
+}
+
+async function openAdminLessonPlanUserPreview(planOrId, options = {}) {
+  if (!isAdminUnlocked()) {
+    showActionFeedback("Admin unlock is required for Preview as User.");
+    return;
+  }
+  let plan = null;
+  if (planOrId && typeof planOrId === "object") {
+    plan = normalizeCurriculumLessonPlanForRender(planOrId);
+  } else {
+    const id = String(planOrId || "").trim();
+    plan = id ? curriculumLessonPlanById(id) || curriculumLessonEditorRecord() : null;
+    plan = normalizeCurriculumLessonPlanForRender(plan);
+  }
+  if (!plan?.id) {
+    showActionFeedback("Open a lesson plan before previewing.");
+    return;
+  }
+  const previewAs = String(options.previewAs || document.querySelector("[data-admin-lesson-preview-as]")?.value || "Pro");
+  const previousPreviewMode = adminPreviewMode() || "Admin";
+  const returnEditorId = adminCurriculumLessonEditorId || plan.id;
+  // Build customer resource from admin/draft plan without changing published status.
+  const resource = buildAdminCurriculumLessonResourceFromPlan(plan, {
+    adminPreview: true,
+    publishedView: false,
+  });
+  if (!resource) {
+    showActionFeedback("Could not build a user preview for this lesson.");
+    return;
+  }
+  adminLessonUserPreviewState = {
+    mode: "draft",
+    previewAs,
+    previousPreviewMode,
+    returnEditorId,
+    planId: plan.id,
+  };
+  // Inject into resources so openResourceViewer finds it even when status is draft.
+  const existingIndex = resources.findIndex((item) => item.id === resource.id);
+  if (existingIndex >= 0) resources[existingIndex] = { ...resources[existingIndex], ...resource };
+  else resources.push(resource);
+  setAdminPreviewMode(previewAs);
+  ensureAdminLessonPreviewBanner({ mode: "draft", previewAs });
+  setView("lessons");
+  await openResourceViewer(resource.id, { skipHistory: true, adminPreview: true });
+  ensureAdminLessonPreviewBanner({ mode: "draft", previewAs });
+  showActionFeedback(`ADMIN PREVIEW as ${previewAs} — draft changes only. Nothing was published.`);
+}
+
+async function openAdminLessonPlanPublishedView(planOrId, options = {}) {
+  if (!isAdminUnlocked()) {
+    showActionFeedback("Admin unlock is required to view the published version.");
+    return;
+  }
+  const id = typeof planOrId === "object" ? planOrId?.id : planOrId;
+  const stored = curriculumLessonPlanById(id) || (typeof planOrId === "object" ? planOrId : null);
+  const plan = normalizeCurriculumLessonPlanForRender(stored);
+  if (!plan?.id) {
+    showActionFeedback("Lesson plan not found.");
+    return;
+  }
+  const status = String(plan.status || "").toLowerCase();
+  if (!["published", "featured"].includes(status)) {
+    showActionFeedback("This lesson is not published yet. Use Preview as User to review draft changes.");
+    return;
+  }
+  // Published view uses stored published content — not unsaved editor form changes.
+  // Strip enrichmentDraft so customers' live Teaching Kit view is shown.
+  const publishedPlan = {
+    ...plan,
+    enrichmentDraft: null,
+  };
+  const previewAs = String(options.previewAs || "Admin");
+  const previousPreviewMode = adminPreviewMode() || "Admin";
+  const resource = buildAdminCurriculumLessonResourceFromPlan(publishedPlan, {
+    adminPreview: true,
+    publishedView: true,
+  });
+  adminLessonUserPreviewState = {
+    mode: "published",
+    previewAs,
+    previousPreviewMode,
+    returnEditorId: adminCurriculumLessonEditorId || plan.id,
+    planId: plan.id,
+  };
+  const existingIndex = resources.findIndex((item) => item.id === resource.id);
+  if (existingIndex >= 0) resources[existingIndex] = { ...resources[existingIndex], ...resource };
+  else resources.push(resource);
+  if (previewAs && previewAs !== "Admin") setAdminPreviewMode(previewAs);
+  else setAdminPreviewMode("Admin");
+  ensureAdminLessonPreviewBanner({ mode: "published", previewAs: previewAs === "Admin" ? "Admin (full access)" : previewAs });
+  setView("lessons");
+  await openResourceViewer(resource.id, { skipHistory: true, adminPreview: true, publishedView: true });
+  ensureAdminLessonPreviewBanner({ mode: "published", previewAs: previewAs === "Admin" ? "Admin (full access)" : previewAs });
+  showActionFeedback("Viewing the published version customers see now. Draft edits were not applied.");
+}
+
+function renderAdminCurriculumQuickCoverModal() {
+  const state = adminCurriculumQuickCoverState;
+  if (!state?.planId) return "";
+  const plan = curriculumLessonPlanById(state.planId);
+  if (!plan) return "";
+  const currentUrl = sanitizedImageSource(plan.coverImageUrl || "") || "";
+  const previewUrl = sanitizedImageSource(state.previewUrl || currentUrl || resolveLessonPlanCoverForResource(plan).url || "")
+    || "/images/lesson-covers/default.svg";
+  const position = state.position || plan.coverImagePosition || "center";
+  const quality = state.quality || deriveAdminCoverQualityStatus(plan);
+  return `
+    <div class="admin-quick-cover-modal" data-admin-quick-cover-modal role="dialog" aria-modal="true" aria-labelledby="adminQuickCoverTitle">
+      <div class="admin-quick-cover-dialog">
+        <div class="admin-quick-cover-header">
+          <div>
+            <p class="eyebrow">Quick cover update</p>
+            <h4 id="adminQuickCoverTitle">${escapeHtml(plan.title || "Lesson plan")}</h4>
+            <p class="muted-copy">Replace this lesson’s cover only. Status and other content stay unchanged.</p>
+          </div>
+          <button type="button" class="ghost-button" data-admin-quick-cover-close>Close</button>
+        </div>
+        <div class="curriculum-cover-preview-row">
+          <div class="curriculum-cover-preview">
+            <img data-admin-quick-cover-preview src="${escapeHtml(previewUrl)}" alt="Cover preview" width="320" height="180" style="object-fit:cover;object-position:${escapeHtml(position)}" />
+          </div>
+          <div>
+            <p class="muted-copy">${state.pendingUrl != null ? "New cover preview (not saved yet)." : (currentUrl ? "Current cover." : "No custom cover yet.")}</p>
+            <span class="${coverQualityStatusTagClass(quality)}">Cover Status: ${escapeHtml(coverQualityStatusLabel(quality))}</span>
+          </div>
+        </div>
+        <label>Upload image
+          <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp" capture="environment" data-admin-quick-cover-upload />
+          <small>JPG, JPEG, PNG, or WebP. Compressed automatically. Persistent storage only.</small>
+        </label>
+        <label>Image position
+          <select data-admin-quick-cover-position>
+            ${["center", "top", "bottom", "left", "right"].map((value) => `
+              <option value="${value}"${position === value ? " selected" : ""}>${value.charAt(0).toUpperCase()}${value.slice(1)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>Cover quality
+          <select data-admin-quick-cover-quality>
+            <option value="good" ${quality === "good" ? "selected" : ""}>Good</option>
+            <option value="needs_upgrade" ${quality === "needs_upgrade" ? "selected" : ""}>Needs Upgrade</option>
+            <option value="missing" ${quality === "missing" ? "selected" : ""}>Missing</option>
+          </select>
+        </label>
+        <div class="form-actions">
+          <button type="button" class="ghost-button" data-admin-quick-cover-revert ${state.pendingUrl != null ? "" : "disabled"}>Cancel new image</button>
+          <button type="button" class="ghost-button" data-admin-quick-cover-close>Close</button>
+          <button type="button" class="primary-button" data-admin-quick-cover-save ${state.pendingUrl || state.qualityChanged || state.positionChanged ? "" : "disabled"}>Save Cover</button>
+        </div>
+        <p class="form-message" data-admin-quick-cover-message></p>
+      </div>
+    </div>
+  `;
+}
+
+function openAdminCurriculumQuickCoverModal(planId) {
+  const plan = curriculumLessonPlanById(planId);
+  if (!plan) {
+    showActionFeedback("Lesson plan not found.");
+    return;
+  }
+  adminCurriculumQuickCoverState = {
+    planId,
+    previewUrl: sanitizedImageSource(plan.coverImageUrl || "") || resolveLessonPlanCoverForResource(plan).url || "",
+    pendingUrl: null,
+    pendingSource: "",
+    position: plan.coverImagePosition || "center",
+    quality: deriveAdminCoverQualityStatus(plan),
+    qualityChanged: false,
+    positionChanged: false,
+  };
+  renderAdminCurriculumLessonPlanManager();
+  document.querySelector("[data-admin-quick-cover-modal]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function closeAdminCurriculumQuickCoverModal() {
+  adminCurriculumQuickCoverState = null;
+  renderAdminCurriculumLessonPlanManager();
+}
+
+async function saveAdminCurriculumQuickCover() {
+  const state = adminCurriculumQuickCoverState;
+  if (!state?.planId) return;
+  const plan = curriculumLessonPlanById(state.planId);
+  if (!plan) {
+    showActionFeedback("Lesson plan not found.");
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (!token) {
+    showActionFeedback("Admin login required.");
+    return;
+  }
+  const message = document.querySelector("[data-admin-quick-cover-message]");
+  if (message) {
+    message.textContent = "Saving cover…";
+    message.classList.remove("success");
+  }
+  const nextUrl = state.pendingUrl != null ? state.pendingUrl : (plan.coverImageUrl || "");
+  const assignments = [{
+    id: plan.id,
+    coverImageUrl: nextUrl,
+    coverImageAlt: plan.coverImageAlt || `Cover for ${plan.title || "lesson plan"}`,
+    coverImageSource: state.pendingSource || plan.coverImageSource || (nextUrl ? "uploaded" : ""),
+    coverImagePosition: state.position || "center",
+    coverQualityStatus: state.quality || "good",
+  }];
+  try {
+    const response = await fetch("/api/admin/curriculum/lesson-covers/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ assignments }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Cover could not be saved.");
+    // Refresh admin curriculum so list/cards pick up the new cover without a full wipe.
+    if (typeof loadAdminSiteContent === "function") {
+      await loadAdminSiteContent().catch(() => {});
+    } else if (data.curriculumUpdatedAt) {
+      // assign endpoint returns updated rows; patch local plan if present
+      const local = curriculumLessonPlanById(plan.id);
+      if (local && data.updated?.[0]) {
+        local.coverImageUrl = data.updated[0].coverImageUrl || nextUrl;
+        local.coverQualityStatus = data.updated[0].coverQualityStatus || state.quality;
+        local.coverImagePosition = state.position || local.coverImagePosition;
+        local.updatedAt = new Date().toISOString();
+      }
+    }
+    // Always patch local curriculum from assignment response for immediate UI feedback.
+    {
+      const curriculum = effectiveCurriculum();
+      const target = (curriculum.lessonPlans || []).find((item) => item.id === plan.id);
+      if (target) {
+        target.coverImageUrl = nextUrl;
+        target.coverImageSource = assignments[0].coverImageSource;
+        target.coverImagePosition = assignments[0].coverImagePosition;
+        target.coverQualityStatus = assignments[0].coverQualityStatus;
+        target.updatedAt = new Date().toISOString();
+      }
+      syncSiteManagedResources();
+    }
+    adminCurriculumQuickCoverState = null;
+    setAdminCurriculumLessonSaveBanner(`Cover updated for “${plan.title}”. Lesson status was not changed.`, true);
+    renderAdminCurriculumLessonPlanManager();
+    showActionFeedback("Cover saved. Other lesson content was left unchanged.");
+  } catch (error) {
+    if (message) {
+      message.textContent = error.message || "Cover save failed. Existing cover kept.";
+      message.classList.remove("success");
+    }
+    showActionFeedback(error.message || "Cover save failed.");
+  }
+}
+
+async function previewAdminCurriculumLessonFromEditor() {
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  const previewAs = document.querySelector("[data-admin-lesson-preview-as]")?.value || "Pro";
+  let plan = null;
+  if (form) {
+    try {
+      plan = collectCurriculumLessonPlanFromForm(form);
+    } catch (error) {
+      showActionFeedback(error.message || "Could not read lesson form for preview.");
+      return;
+    }
+  } else {
+    plan = curriculumLessonEditorRecord();
+  }
+  await openAdminLessonPlanUserPreview(plan, { previewAs });
 }
 
 function collectCurriculumBooksFromEditor(root) {
@@ -12318,6 +12950,12 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
       if (rawPosition === null) return existing?.coverImagePosition || "center";
       return normalizedShortText(rawPosition) || "center";
     })(),
+    coverQualityStatus: (() => {
+      const raw = formData.get("coverQualityStatus");
+      if (raw === null) return existing?.coverQualityStatus || "";
+      const value = String(raw || "").trim();
+      return COVER_QUALITY_STATUSES.includes(value) ? value : "";
+    })(),
     createdAt: existing?.createdAt || "",
     updatedAt: existing?.updatedAt || "",
   };
@@ -12356,7 +12994,7 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
   return collected;
 }
 
-async function saveAdminCurriculumLessonPlanForm(form) {
+async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
   if (adminCurriculumLessonSaving) {
     setAdminCurriculumLessonSaveBanner("Already saving — please wait. If this persists, refresh the page and try again.", false);
     renderAdminCurriculumLessonPlanManager();
@@ -12383,6 +13021,12 @@ async function saveAdminCurriculumLessonPlanForm(form) {
   if (!lessonPlan.id) {
     lessonPlan.id = adminCurriculumLessonEditorId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   }
+  // Explicit Save Draft / Publish actions set status without relying on the dropdown alone.
+  if (options.forceStatus) {
+    lessonPlan.status = options.forceStatus;
+    const statusSelect = form.querySelector('[name="status"]');
+    if (statusSelect) statusSelect.value = options.forceStatus;
+  }
   adminCurriculumLessonEditorId = lessonPlan.id;
   const activityCount = countCurriculumDailyPlanItems(lessonPlan.dailyPlans);
   if (!activityCount) {
@@ -12408,18 +13052,18 @@ async function saveAdminCurriculumLessonPlanForm(form) {
   }
 
   adminCurriculumLessonSaving = true;
-  setAdminCurriculumLessonSaveBanner(`Saving “${lessonPlan.title}” with ${activityCount} activities…`, true);
+  const actionLabel = publishing ? "Publishing" : "Saving draft of";
+  setAdminCurriculumLessonSaveBanner(`${actionLabel} “${lessonPlan.title}” with ${activityCount} activities…`, true);
   // Update banner/button in place — do not destroy the form while the request is in flight.
   const liveBanner = document.querySelector("#adminCurriculumLessonPlanBanner");
   if (liveBanner) {
     liveBanner.className = `form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}`;
     liveBanner.textContent = adminCurriculumLessonSaveBanner.text;
   }
-  const liveSubmit = form.querySelector("button[type='submit']");
-  if (liveSubmit) {
-    liveSubmit.disabled = true;
-    liveSubmit.textContent = "Saving…";
-  }
+  form.querySelectorAll("[data-curriculum-lesson-save-draft], [data-curriculum-lesson-publish], button[type='submit']").forEach((btn) => {
+    btn.disabled = true;
+    if (btn.matches("[data-curriculum-lesson-publish], button[type='submit']")) btn.textContent = publishing ? "Publishing…" : "Saving…";
+  });
 
   const SAVE_TIMEOUT_MS = 30000;
   let successMessage = "";
@@ -12430,6 +13074,7 @@ async function saveAdminCurriculumLessonPlanForm(form) {
       id: lessonPlan.id,
       title: lessonPlan.title,
       activities: activityCount,
+      status: lessonPlan.status,
       expectedUpdatedAt: curriculumExpectedUpdatedAt() || "(empty)",
     });
     if (!curriculumExpectedUpdatedAt()) {
@@ -12498,8 +13143,12 @@ async function saveAdminCurriculumLessonPlanForm(form) {
     });
     adminCurriculumLessonEditorId = data.lessonPlan.id;
     adminCurriculumLessonImportDraft = null;
+    adminCurriculumCoverPending = null;
     const syncedCount = (data.activities || []).filter((item) => item.status !== "archived").length;
-    successMessage = `✅ Saved “${data.lessonPlan.title || lessonPlan.title}”. ${syncedCount} linked activities synced.`;
+    const savedStatus = String(data.lessonPlan.status || lessonPlan.status || "").toLowerCase();
+    successMessage = ["published", "featured"].includes(savedStatus)
+      ? `✅ Published “${data.lessonPlan.title || lessonPlan.title}”. ${syncedCount} linked activities synced.`
+      : `✅ Draft saved for “${data.lessonPlan.title || lessonPlan.title}”. Not visible to customers until you Publish. ${syncedCount} linked activities synced.`;
   } catch (error) {
     console.error("[curriculum-lesson-save] failed", error);
     if (error?.name === "AbortError") {
@@ -68528,12 +69177,93 @@ document.addEventListener("click", async (event) => {
   if (curriculumPreview && isAdminUnlocked()) {
     event.preventDefault();
     const id = curriculumPreview.getAttribute("data-curriculum-lesson-preview") || "";
-    if (id && typeof openResourceViewer === "function") {
-      setView("lessons");
-      openResourceViewer(id);
-    } else if (id) {
-      openAdminCurriculumLessonEditor(id, { scroll: true });
+    if (id) {
+      openAdminLessonPlanUserPreview(id, { previewAs: "Pro" });
     }
+    return;
+  }
+
+  const curriculumPreviewAsUser = event.target.closest("[data-curriculum-lesson-preview-as-user]");
+  if (curriculumPreviewAsUser && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = curriculumPreviewAsUser.getAttribute("data-curriculum-lesson-preview-as-user") || "";
+    if (id) {
+      const previewAs = document.querySelector("[data-admin-lesson-preview-as]")?.value || "Pro";
+      openAdminLessonPlanUserPreview(id, { previewAs });
+    } else {
+      previewAdminCurriculumLessonFromEditor();
+    }
+    return;
+  }
+
+  const curriculumViewPublished = event.target.closest("[data-curriculum-lesson-view-published]");
+  if (curriculumViewPublished && isAdminUnlocked()) {
+    event.preventDefault();
+    if (curriculumViewPublished.disabled) return;
+    const id = curriculumViewPublished.getAttribute("data-curriculum-lesson-view-published")
+      || document.querySelector("#adminCurriculumLessonPlanForm [name='id']")?.value
+      || adminCurriculumLessonEditorId
+      || "";
+    if (id) openAdminLessonPlanPublishedView(id);
+    return;
+  }
+
+  if (event.target.closest("[data-admin-lesson-preview-exit]") && isAdminUnlocked()) {
+    event.preventDefault();
+    exitAdminLessonUserPreview();
+    return;
+  }
+
+  const quickCoverOpen = event.target.closest("[data-curriculum-quick-cover]");
+  if (quickCoverOpen && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = quickCoverOpen.getAttribute("data-curriculum-quick-cover") || "";
+    if (id) openAdminCurriculumQuickCoverModal(id);
+    return;
+  }
+
+  if (event.target.closest("[data-admin-quick-cover-close]") && isAdminUnlocked()) {
+    event.preventDefault();
+    closeAdminCurriculumQuickCoverModal();
+    return;
+  }
+
+  if (event.target.closest("[data-admin-quick-cover-revert]") && isAdminUnlocked()) {
+    event.preventDefault();
+    if (!adminCurriculumQuickCoverState) return;
+    const plan = curriculumLessonPlanById(adminCurriculumQuickCoverState.planId);
+    adminCurriculumQuickCoverState.pendingUrl = null;
+    adminCurriculumQuickCoverState.pendingSource = "";
+    adminCurriculumQuickCoverState.previewUrl = sanitizedImageSource(plan?.coverImageUrl || "")
+      || resolveLessonPlanCoverForResource(plan || {}).url
+      || "/images/lesson-covers/default.svg";
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+
+  if (event.target.closest("[data-admin-quick-cover-save]") && isAdminUnlocked()) {
+    event.preventDefault();
+    saveAdminCurriculumQuickCover();
+    return;
+  }
+
+  if (event.target.closest("[data-curriculum-lesson-save-draft]") && isAdminUnlocked()) {
+    event.preventDefault();
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    if (form) saveAdminCurriculumLessonPlanForm(form, { forceStatus: "draft" });
+    return;
+  }
+
+  if (event.target.closest("[data-curriculum-lesson-publish]") && isAdminUnlocked()) {
+    event.preventDefault();
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    if (form) saveAdminCurriculumLessonPlanForm(form, { forceStatus: "published" });
+    return;
+  }
+
+  if (event.target.closest("[data-curriculum-cover-revert]") && isAdminUnlocked()) {
+    event.preventDefault();
+    revertAdminCurriculumCoverPending();
     return;
   }
 
@@ -70566,15 +71296,55 @@ document.addEventListener("change", async (event) => {
     setFormMessage("#adminCurriculumLessonPlanMessage", "Uploading cover to persistent storage…", true);
     try {
       const uploaded = await uploadAdminCurriculumLessonCover(file);
-      applyAdminCurriculumCoverSelection(uploaded.url, { source: "uploaded" });
-      setFormMessage("#adminCurriculumLessonPlanMessage", "Cover uploaded. Save the lesson plan to assign it.", true);
+      applyAdminCurriculumCoverSelection(uploaded.url, { source: "uploaded", quality: "good", pending: true });
+      setFormMessage("#adminCurriculumLessonPlanMessage", "Cover uploaded and previewed. Save Draft or Publish to assign it. Existing cover stays until you save.", true);
     } catch (error) {
       // Do not alter the current cover when upload persistence fails.
-      setFormMessage("#adminCurriculumLessonPlanMessage", error.message || "Could not upload that cover image.", false);
+      setFormMessage("#adminCurriculumLessonPlanMessage", error.message || "Could not upload that cover image. Existing cover kept.", false);
       input.value = "";
     } finally {
       input.disabled = false;
     }
+    return;
+  }
+  if (event.target.matches("[data-admin-quick-cover-upload]")) {
+    const file = event.target.files?.[0];
+    if (!file || !adminCurriculumQuickCoverState) return;
+    const input = event.target;
+    input.disabled = true;
+    const message = document.querySelector("[data-admin-quick-cover-message]");
+    if (message) message.textContent = "Uploading cover…";
+    try {
+      const uploaded = await uploadAdminCurriculumLessonCover(file);
+      adminCurriculumQuickCoverState.pendingUrl = uploaded.url;
+      adminCurriculumQuickCoverState.pendingSource = "uploaded";
+      adminCurriculumQuickCoverState.previewUrl = uploaded.url;
+      adminCurriculumQuickCoverState.quality = "good";
+      renderAdminCurriculumLessonPlanManager();
+    } catch (error) {
+      if (message) message.textContent = error.message || "Upload failed. Existing cover kept.";
+      input.value = "";
+    } finally {
+      input.disabled = false;
+    }
+    return;
+  }
+  if (event.target.matches("[data-admin-quick-cover-position]")) {
+    if (!adminCurriculumQuickCoverState) return;
+    adminCurriculumQuickCoverState.position = event.target.value || "center";
+    adminCurriculumQuickCoverState.positionChanged = true;
+    const preview = document.querySelector("[data-admin-quick-cover-preview]");
+    if (preview) preview.style.objectPosition = adminCurriculumQuickCoverState.position;
+    const saveBtn = document.querySelector("[data-admin-quick-cover-save]");
+    if (saveBtn) saveBtn.disabled = false;
+    return;
+  }
+  if (event.target.matches("[data-admin-quick-cover-quality]")) {
+    if (!adminCurriculumQuickCoverState) return;
+    adminCurriculumQuickCoverState.quality = event.target.value || "needs_upgrade";
+    adminCurriculumQuickCoverState.qualityChanged = true;
+    const saveBtn = document.querySelector("[data-admin-quick-cover-save]");
+    if (saveBtn) saveBtn.disabled = false;
     return;
   }
   if (event.target.matches('#adminCurriculumLessonPlanForm [name="coverImagePosition"]')) {
@@ -70585,11 +71355,11 @@ document.addEventListener("change", async (event) => {
   if (event.target.matches("[data-curriculum-cover-url-input]")) {
     const raw = String(event.target.value || "").trim();
     if (!raw) {
-      applyAdminCurriculumCoverSelection("", { source: "" });
+      applyAdminCurriculumCoverSelection("", { source: "", quality: "missing", pending: true });
       return;
     }
     const safe = sanitizedImageSource(raw);
-    if (safe) applyAdminCurriculumCoverSelection(safe, { source: "uploaded" });
+    if (safe) applyAdminCurriculumCoverSelection(safe, { source: "uploaded", quality: "good", pending: true });
     else setFormMessage("#adminCurriculumLessonPlanMessage", "Cover URL must start with / or https://", false);
     return;
   }
@@ -70835,12 +71605,13 @@ document.addEventListener("click", async (event) => {
     applyAdminCurriculumCoverSelection(path, {
       source: "mapped",
       alt: `Illustration for ${label}`,
+      pending: true,
     });
     return;
   }
   if (event.target.closest("[data-curriculum-cover-remove]")) {
     event.preventDefault();
-    applyAdminCurriculumCoverSelection("", { source: "" });
+    applyAdminCurriculumCoverSelection("", { source: "", quality: "missing", pending: true });
     const form = document.querySelector("#adminCurriculumLessonPlanForm");
     const altField = form?.querySelector('[name="coverImageAlt"]');
     if (altField) altField.value = "";
@@ -73609,6 +74380,8 @@ document.addEventListener("change", (event) => {
     "adminCurriculumFilterPlan",
     "adminCurriculumFilterAge",
     "adminCurriculumFilterTheme",
+    "adminCurriculumFilterCoverStatus",
+    "adminCurriculumFilterKitType",
     "adminCurriculumFilterCompletion",
     "adminCurriculumFilterGap",
     "adminCurriculumFilterSort",
@@ -73619,6 +74392,8 @@ document.addEventListener("change", (event) => {
     plan: document.querySelector("#adminCurriculumFilterPlan")?.value || "",
     age: document.querySelector("#adminCurriculumFilterAge")?.value || "",
     theme: document.querySelector("#adminCurriculumFilterTheme")?.value || "",
+    coverStatus: document.querySelector("#adminCurriculumFilterCoverStatus")?.value || "",
+    kitType: document.querySelector("#adminCurriculumFilterKitType")?.value || "",
     completionBand: document.querySelector("#adminCurriculumFilterCompletion")?.value || "",
     gap: document.querySelector("#adminCurriculumFilterGap")?.value || "",
     sort: document.querySelector("#adminCurriculumFilterSort")?.value || "updated",
