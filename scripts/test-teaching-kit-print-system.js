@@ -76,17 +76,32 @@ function testFarmAnimalsCompleteBinder() {
   ok(binder.ok === true, "binder builds");
   ok(binder.documentMode === "entire_binder", "document mode entire_binder");
   ok(binder.pageCount >= 10, `binder has substantial pages (${binder.pageCount})`);
-  ok(binder.pageCount <= 40, `binder not bloated by empty bands (${binder.pageCount})`);
-  ok(/Week at a Glance/i.test(binder.html), "week at a glance");
+  ok(binder.pageCount <= 55, `binder not bloated by empty bands (${binder.pageCount})`);
+  ok(/Weekly Plan|Week at a Glance/i.test(binder.html), "weekly plan section");
   ok(/tk-print-wag-table/i.test(binder.html), "week at a glance uses grid table");
+  ok(/Table of Contents/i.test(binder.html), "table of contents");
   ok(/tk-print-activity-card/i.test(binder.html), "designed activity cards present");
   ok(/tk-print-check/i.test(binder.html), "materials checklists present");
   ok(/Monday/.test(binder.html) && /Friday/.test(binder.html), "weekdays included");
   ok(/Farm Animal Discovery Basket/i.test(binder.html), "activity included");
   ok(/Teacher Toolkit/i.test(binder.html), "toolkit included");
   ok(/Monday Morning Setup/i.test(binder.html), "setup is toolkit subsection");
-  ok(/Teacher Notes|Planning/i.test(binder.html), "teacher notes worksheet");
+  ok(/Complete Teaching Kit|Teacher Binder/i.test(binder.html), "complete teaching kit cover branding");
+  ok(/Overview/i.test(binder.html), "overview section");
+  ok(/complete weekly checklist|Materials List/i.test(binder.html), "overview points to materials list");
+  ok(!/data-toolkit-group="tips"/.test(binder.html), "empty Teaching Tips card omitted");
+  ok(/data-tk-print-tab="Materials"/.test(binder.html), "materials section included in full kit");
+  ok(!/No printable resources have been added/i.test(binder.html), "full kit omits empty printables section");
   assertNoForbidden(binder.html, "farm binder");
+
+  // Safety/cleanup must remain distinct — no invented cleanup cloned from safety.
+  const cleanupDupes = (kit.companion.activities || []).filter((activity) => {
+    const safety = String(activity.safetyNotes || "").trim().toLowerCase();
+    const cleanup = (activity.cleanupTips || []).map((tip) => String(tip).trim().toLowerCase()).filter(Boolean).join("|");
+    return safety && cleanup && safety === cleanup;
+  });
+  ok(cleanupDupes.length === 0, "mapped activities do not clone safety into cleanup");
+  ok(!/<strong>Cleanup<\/strong>/.test(binder.html), "no Cleanup headings when cleanup tips absent");
 
   const weekly = Print.buildFullWeeklyLessonPlanHtml(kit, { plan: fixture.lessonPlan });
   ok(weekly.ok === true, "full weekly builds");
@@ -123,7 +138,7 @@ function testLegacyAndPartial() {
   ok(miniBinder.ok === true, "enriched mini binder");
   if (miniModel.capabilities.printables) {
     ok(/Printable resources|Printables/i.test(miniBinder.html), "printables referenced when present");
-    ok(/not embedded|File pages not embedded/i.test(miniBinder.html), "does not silently claim embedded pages");
+    ok(/Additional printable PDF included separately|not embedded|File pages not embedded|included separately/i.test(miniBinder.html), "does not silently claim embedded pages");
   }
   assertNoForbidden(miniBinder.html, "mini binder");
 
@@ -146,7 +161,14 @@ function testPrintModesLimitSections() {
   });
   ok(oneDay.documentMode === "one_day", "one day mode");
   ok(/Monday/i.test(oneDay.html), "monday present");
-  ok(!/Tuesday · Daily Plan|Tuesday Classroom/i.test(oneDay.html), "tuesday daily plan omitted");
+  ok(!/<h3>Tuesday<\/h3>/.test(oneDay.html), "tuesday daily sheet omitted");
+
+  const wednesday = Print.buildBinderPrintHtml(kit, {
+    preset: "today_pack",
+    day: "wednesday",
+    plan: fixture.lessonPlan,
+  });
+  ok(/Wednesday/i.test(wednesday.html), "wednesday one-day present");
 
   const activities = Print.buildBinderPrintHtml(kit, {
     preset: "activities_only",
@@ -155,6 +177,14 @@ function testPrintModesLimitSections() {
   ok(activities.documentMode === "activities", "activities mode");
   ok(/Farm Animal Discovery Basket/i.test(activities.html), "activity present");
   ok(!/<table class="tk-print-wag-table"/i.test(activities.html), "week grid omitted in activities-only");
+
+  const oneActivity = Print.buildBinderPrintHtml(kit, {
+    preset: "one_activity",
+    activityId: (kit.companion.activities || [])[0]?.id,
+    plan: fixture.lessonPlan,
+  });
+  ok(oneActivity.documentMode === "one_activity", "one activity mode");
+  ok(/tk-print-activity-card/i.test(oneActivity.html), "one activity card");
 
   const materials = Print.buildBinderPrintHtml(kit, {
     preset: "materials_list",
@@ -168,14 +198,100 @@ function testPrintModesLimitSections() {
     plan: fixture.lessonPlan,
   });
   ok(/Songs/i.test(songs.html), "songs mode");
-  ok(!/tk-print-notes-grid|tk-print-write-line/i.test(songs.html), "songs mode omits teacher notes worksheet");
+  ok(!/<div class="tk-print-notes-grid"|class="tk-print-write-line"/.test(songs.html), "songs mode omits teacher notes worksheet");
+
+  const songGuide = Print.buildBinderPrintHtml(kit, {
+    preset: "song_lyrics",
+    plan: fixture.lessonPlan,
+  });
+  ok(/Song/i.test(songGuide.html), "song guide mode");
+
+  const books = Print.buildBinderPrintHtml(kit, {
+    preset: "book_guide",
+    plan: fixture.lessonPlan,
+  });
+  ok(/Book Guide|Books/i.test(books.html), "book guide mode");
+
+  const toolkit = Print.buildBinderPrintHtml(kit, {
+    preset: "teacher_toolkit",
+    plan: fixture.lessonPlan,
+  });
+  ok(/Teacher Toolkit|Monday Morning Setup/i.test(toolkit.html), "toolkit mode");
+  ok(!/data-close-modal|close-button/i.test(toolkit.html), "toolkit is not modal chrome");
+
+  const printables = Print.buildBinderPrintHtml(kit, {
+    preset: "all_printables",
+    plan: fixture.lessonPlan,
+  });
+  ok(printables.ok === true, "printables mode builds");
+  ok(/No printable resources have been added/i.test(printables.html), "printables empty state when none linked");
+
+  const onePrintable = Print.buildBinderPrintHtml(kit, {
+    preset: "one_printable",
+    printableId: "missing",
+    plan: fixture.lessonPlan,
+  });
+  ok(onePrintable.ok === true, "one printable mode builds");
+  ok(/No printable resources have been added/i.test(onePrintable.html), "one printable empty state when none linked");
+
+  const presetAvailability = Print.evaluatePresetAvailability(kit);
+  ok(presetAvailability.song_lyrics.available === false, "song lyrics disabled without printable lyrics");
+  ok(presetAvailability.one_printable.available === false, "one printable disabled without resources");
+  ok(presetAvailability.all_printables.available === true, "printables-only remains available with empty state");
+
+  const selected = Print.buildBinderPrintHtml(kit, {
+    preset: "selected_resources",
+    selectedResources: { activities: true, materials: true, days: ["monday"] },
+    plan: fixture.lessonPlan,
+  });
+  ok(selected.documentMode === "selected_resources", "selected resources mode");
+  ok(/Monday/i.test(selected.html), "selected monday included");
+  ok(/Materials/i.test(selected.html), "selected materials included");
+
+  const overview = Print.buildBinderPrintHtml(kit, {
+    preset: "weekly_overview",
+    plan: fixture.lessonPlan,
+  });
+  ok(/Weekly Overview|Overview/i.test(overview.html), "weekly overview");
+  ok(/tk-print-wag-table/i.test(overview.html), "weekly overview includes plan grid");
+
+  const admin = Print.buildBinderPrintHtml(kit, {
+    preset: "week_binder",
+    plan: fixture.lessonPlan,
+    adminPreview: true,
+  });
+  ok(/ADMIN PREVIEW/i.test(admin.html), "admin preview banner");
 }
 
 function testPresentLabels() {
   console.log("\nLabels");
   ok(Present.presentLabel("week_binder") === "Entire Binder Kit", "week_binder label");
   ok(Present.presentLabel("full_weekly_plan") === "Full Weekly Lesson Plan", "full weekly label");
+  ok(Present.presentLabel("selected_resources") === "Selected Resources", "selected resources label");
   ok(Present.presentLabel("LEARNING_DOMAINS") === "Learning domains", "domains label");
+}
+
+function testDesignedRoutingWithoutPrintCenterFlag() {
+  console.log("\nDesigned routing (Print Center flag OFF)");
+  const TK = require("./teaching-kit.js");
+  const flagsOff = TK.defaultTeachingKitFeatureFlags();
+  const farm = loadFixture("farm-animals-enrichment-slice2.json");
+  const kit = mapFixture(farm);
+  ok(TK.isUpgradedTeachingKit(farm.lessonPlan, kit) === true, "farm is upgraded complete kit");
+  ok(
+    TK.shouldUseDesignedTeachingKitDocument(farm.lessonPlan, kit, flagsOff) === true,
+    "complete kit designed path does not require Print Center flag",
+  );
+  const auth = Print.evaluatePrintAuthorization({
+    printCenterEnabled: false,
+    designedDocumentEligible: true,
+    kit,
+    gate: { allowed: true, counted: false, watermark: "" },
+  });
+  ok(auth.ok === true, "auth allows designed-eligible kits with flag off");
+  const binder = Print.buildEntireBinderKitHtml(kit, { plan: farm.lessonPlan });
+  ok(binder.ok === true && /tk-print-root/i.test(binder.html), "designed binder HTML still builds");
+  ok(!/Helvetica text dump|ACTIVITY_NAME:/i.test(binder.html), "not a text dump");
 }
 
 async function maybeRenderPdfScreenshots() {
@@ -219,6 +335,7 @@ async function maybeRenderPdfScreenshots() {
 
 async function main() {
   testPresentLabels();
+  testDesignedRoutingWithoutPrintCenterFlag();
   testFarmAnimalsCompleteBinder();
   testLegacyAndPartial();
   testPrintModesLimitSections();

@@ -558,7 +558,12 @@
     "coverImagePosition": "center",
     "createdAt": "2026-08-03T12:09:35.311Z",
     "updatedAt": "2026-08-03T12:09:35.347Z",
-    "publishedAt": "2026-01-01T00:00:00.000Z"
+    "publishedAt": "2026-01-01T00:00:00.000Z",
+    "teachingKit": {
+      "completeness": "complete",
+      "completionPercent": 100,
+      "schemaVersion": 1
+    }
   },
   "activities": [
     {

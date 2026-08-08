@@ -254,16 +254,15 @@
       .slice(0, 8);
   }
 
+  /** Cleanup is distinct from safety — never invent cleanup from safety boilerplate. */
   function cleanupTipsFrom(source) {
-    const tips = [];
-    const safety = bulletLines(source.safetyNotes);
-    for (let i = 0; i < safety.length; i += 1) tips.push(safety[i]);
-    if (!tips.length && materialsList(source.materials).length) {
-      tips.push("Return materials to labeled bins.");
-      tips.push("Wipe the table or tray before the next activity.");
-      tips.push("Quick hand wash if materials were shared.");
-    }
-    return uniqueStrings(tips, 8);
+    const fromField = bulletLines(
+      source.cleanupTips
+      || source.cleanup
+      || source.cleanupInstructions
+      || source.resetInstructions,
+    );
+    return uniqueStrings(fromField, 8);
   }
 
   function observationIdeasFrom(source) {

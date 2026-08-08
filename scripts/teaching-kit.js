@@ -403,6 +403,51 @@
   }
 
   /**
+   * True when the lesson is an upgraded Teaching Kit (not raw legacy).
+   * Uses stored overlay completeness only — never invents upgrade status.
+   * enriched + complete both qualify; legacy_mapped / missing do not.
+   */
+  function isUpgradedTeachingKit(plan, kit) {
+    const fromKit = clampShortText(kit && kit.completeness, 40);
+    const overlay = normalizedTeachingKitOverlay(plan && plan.teachingKit);
+    const fromPlan = overlay ? clampShortText(overlay.completeness, 40) : "";
+    const completeness = COMPLETENESS_VALUES.includes(fromKit)
+      ? fromKit
+      : (COMPLETENESS_VALUES.includes(fromPlan) ? fromPlan : "legacy_mapped");
+    if (completeness === "complete" || completeness === "enriched") return true;
+    const percent = Number(
+      (kit && kit.completionPercent)
+      || (overlay && overlay.completionPercent)
+      || 0,
+    );
+    return Number.isFinite(percent) && percent >= 90;
+  }
+
+  /**
+   * Designed Teaching Kit HTML document vs legacy text/PDF routing.
+   *
+   * - Upgraded Complete/Enriched kits ALWAYS use the designed binder for
+   *   print/download (Print Center UI flag must not force a Helvetica text dump).
+   * - Explicit Print Center / binder intent uses designed HTML from the mapped companion.
+   * - Legacy lessons keep backwards-compatible legacy download output unless the
+   *   caller is intentionally using Print Center.
+   * - teachingKitPrintCenter remains the customer UI rollout switch for Print Center chrome.
+   */
+  function shouldUseDesignedTeachingKitDocument(plan, kit, featureFlags, options = {}) {
+    if (!kit || kit.ok === false || kit.locked || !kit.companion) return false;
+    if (options.forceDesigned === true || options.intent === "print_center") return true;
+    if (isUpgradedTeachingKit(plan, kit)) return true;
+    // Viewer/owner-preview session: customer already in Teaching Kit experience —
+    // keep print/download on the same designed document (avoid two designs).
+    const flags = normalizedTeachingKitFeatureFlags(featureFlags);
+    if (flags.teachingKitViewer === true || options.ownerPreview === true || featureFlags?.ownerPreview === true) {
+      return true;
+    }
+    if (flags.teachingKitPrintCenter === true) return true;
+    return false;
+  }
+
+  /**
    * Viewer/print gate helper for later slices.
    * Slice 1A: always prefer legacy when flag off or overlay missing/malformed.
    */
@@ -488,6 +533,8 @@
     isOwnerOnlyTeachingKitPreview,
     normalizedTeachingKitOverlay,
     resolveTeachingKitRenderMode,
+    isUpgradedTeachingKit,
+    shouldUseDesignedTeachingKitDocument,
     sectionIds,
     mapActivityCategoryToSection,
     mapLessonPlanToTeachingKit,
