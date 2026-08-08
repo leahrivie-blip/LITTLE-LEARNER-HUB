@@ -16,3 +16,4 @@ Production visual-review artifacts for the lesson-plan cover library.
 
 - [Locked art direction](./LOCKED_ART_DIRECTION.md)
 - [Staged replacement status (114 REPLACE + full catalog sheet)](./STAGED_REPLACEMENT_STATUS.md)
+- [Production attach verification](./PRODUCTION_ATTACH_VERIFICATION.md)
