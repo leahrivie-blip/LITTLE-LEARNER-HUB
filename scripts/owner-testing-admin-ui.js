@@ -26,19 +26,23 @@
   };
 
   const state = {
-    tab: "testers",
+    tab: "dashboard",
     dashboard: null,
     testers: [],
     programs: [],
     flags: null,
     audit: [],
+    feedback: [],
     selectedEmail: "",
     detail: null,
+    selectedProgramId: "",
+    programDetail: null,
     loading: false,
     error: "",
     message: "",
     query: "",
     statusFilter: "",
+    feedbackStatus: "",
   };
 
   function esc(value) {
@@ -145,18 +149,20 @@
     state.error = "";
     paint();
     try {
-      const [dash, testers, programs, flags, audit] = await Promise.all([
+      const [dash, testers, programs, flags, audit, feedback] = await Promise.all([
         api("/api/admin/testing/dashboard"),
         api(`/api/admin/testing/testers?q=${encodeURIComponent(state.query)}&status=${encodeURIComponent(state.statusFilter)}`),
         api(`/api/admin/testing/programs?q=${encodeURIComponent(state.query)}`),
         api("/api/admin/testing/flags"),
         api("/api/admin/testing/audit"),
+        api(`/api/admin/testing/feedback?status=${encodeURIComponent(state.feedbackStatus)}`),
       ]);
       state.dashboard = dash.dashboard;
       state.testers = testers.testers || [];
       state.programs = programs.programs || [];
       state.flags = flags;
       state.audit = audit.audit || [];
+      state.feedback = feedback.feedback || [];
     } catch (error) {
       state.error = error.message || "Could not load testing admin.";
     } finally {
@@ -179,35 +185,84 @@
     }
   }
 
+  async function openProgram(programId) {
+    state.selectedProgramId = programId;
+    state.programDetail = null;
+    paint();
+    try {
+      state.programDetail = await api(`/api/admin/testing/programs/${encodeURIComponent(programId)}`);
+      paint();
+    } catch (error) {
+      state.error = error.message;
+      paint();
+    }
+  }
+
+  function healthChip(ok, label) {
+    return `<span class="ota-health ${ok ? "is-ok" : "is-warn"}">${esc(label)}: ${ok ? "OK" : "Off / check"}</span>`;
+  }
+
   function dashboardHtml() {
     const d = state.dashboard || {};
+    const health = d.systemHealth || {};
     return `
       <section class="ota-panel">
         <div class="ota-env-pill">ENVIRONMENT: TESTING</div>
         <div class="section-heading">
           <div>
             <p class="eyebrow">Owner Admin</p>
-            <h3>Testing dashboard</h3>
-            <p class="muted-copy">Manage testers and test programs without the database. Production is unaffected.</p>
+            <h3>Testing control center</h3>
+            <p class="muted-copy">Your primary console for testers and test programs. Production is unaffected.</p>
           </div>
           <button type="button" class="ghost-button" data-ota-refresh>Refresh</button>
         </div>
-        <div class="ota-stat-grid">
-          <article><em>Total testers</em><strong>${esc(d.totalTesters ?? "—")}</strong></article>
-          <article><em>Active</em><strong>${esc(d.activeTesters ?? "—")}</strong></article>
-          <article><em>Pending invites</em><strong>${esc(d.pendingInvites ?? "—")}</strong></article>
-          <article><em>Home daycare</em><strong>${esc(d.byType?.home_daycare ?? "—")}</strong></article>
-          <article><em>Centers</em><strong>${esc(d.byType?.center ?? "—")}</strong></article>
-          <article><em>Children</em><strong>${esc(d.children ?? "—")}</strong></article>
-          <article><em>Families</em><strong>${esc(d.families ?? "—")}</strong></article>
-          <article><em>Forms</em><strong>${esc(d.forms ?? "—")}</strong></article>
+        <div class="ota-quick-actions" role="group" aria-label="Quick actions">
+          <button type="button" class="primary-button" data-ota-goto="testers" data-ota-focus-add>Add Tester</button>
+          <button type="button" class="ghost-button" data-ota-goto="programs" data-ota-focus-create-program>Create Program</button>
+          <button type="button" class="ghost-button" data-ota-goto="viewas">View As</button>
+          <button type="button" class="ghost-button" data-ota-goto="flags">Feature Flags</button>
+          <button type="button" class="ghost-button" data-ota-goto="feedback">Feedback Inbox</button>
         </div>
-        <h4>Recent admin activity</h4>
-        <ul class="ota-audit-list">
-          ${(d.recentAudit || []).map((row) => `
-            <li><strong>${esc(row.action)}</strong> · ${esc(row.targetEmail || "—")} · <span>${esc(row.at || "")}</span><br/><span class="muted-copy">${esc(row.detail || "")}</span></li>
-          `).join("") || "<li class=\"muted-copy\">No admin testing actions yet.</li>"}
-        </ul>
+        <div class="ota-stat-grid">
+          <article><em>Total programs</em><strong>${esc(d.totalPrograms ?? d.programs ?? "—")}</strong></article>
+          <article><em>Home Daycares</em><strong>${esc(d.homeDaycares ?? d.byType?.home_daycare ?? "—")}</strong></article>
+          <article><em>Centers</em><strong>${esc(d.centers ?? d.byType?.center ?? "—")}</strong></article>
+          <article><em>Active testers</em><strong>${esc(d.activeTesters ?? "—")}</strong></article>
+          <article><em>Pending invites</em><strong>${esc(d.pendingInvites ?? "—")}</strong></article>
+          <article><em>Disabled testers</em><strong>${esc(d.disabledTesters ?? "—")}</strong></article>
+          <article><em>Total children</em><strong>${esc(d.totalChildren ?? d.children ?? "—")}</strong></article>
+          <article><em>Total families</em><strong>${esc(d.totalFamilies ?? d.families ?? "—")}</strong></article>
+          <article><em>Total staff</em><strong>${esc(d.totalStaff ?? d.staff ?? "—")}</strong></article>
+          <article><em>Open feedback</em><strong>${esc(d.openFeedback ?? "—")}</strong></article>
+        </div>
+        <h4>Testing system health</h4>
+        <div class="ota-health-row">
+          ${healthChip(health.testingFence !== false, "Testing fence")}
+          ${healthChip(health.ownerTestingAdmin !== false, "Owner Admin")}
+          ${healthChip(health.familyHub !== false, "Family Hub")}
+          ${healthChip(health.forms !== false, "Forms")}
+          ${healthChip(health.billingTest === true, "Billing test")}
+          ${healthChip(health.aiFeatures === true, "AI features")}
+          ${healthChip(health.emailConfigured === true || d.emailDeliveryReady === true, "Invite email")}
+        </div>
+        <div class="ota-dash-columns">
+          <div>
+            <h4>Recent signups</h4>
+            <ul class="ota-audit-list">
+              ${(d.recentSignups || []).map((row) => `
+                <li><strong>${esc(row.name || row.email)}</strong> · ${esc(row.role)} · ${esc(row.accountType)} · <span class="muted-copy">${esc((row.at || "").slice(0, 16))}</span></li>
+              `).join("") || "<li class=\"muted-copy\">No tester signups yet.</li>"}
+            </ul>
+          </div>
+          <div>
+            <h4>Recent admin actions</h4>
+            <ul class="ota-audit-list">
+              ${(d.recentAudit || []).map((row) => `
+                <li><strong>${esc(row.action)}</strong> · ${esc(row.targetEmail || "—")} · <span>${esc(row.at || "")}</span><br/><span class="muted-copy">${esc(row.detail || "")}</span></li>
+              `).join("") || "<li class=\"muted-copy\">No admin testing actions yet.</li>"}
+            </ul>
+          </div>
+        </div>
       </section>
     `;
   }
@@ -267,6 +322,7 @@
           <label>Notes<textarea name="notes" rows="2" placeholder="What should they test?"></textarea></label>
           <label class="ota-check"><input type="checkbox" name="activateNow" /> Generate test login now (temp password — testing only)</label>
           <label class="ota-check"><input type="checkbox" name="createSampleData" checked /> Create sample child / classrooms</label>
+          <label class="ota-check"><input type="checkbox" name="sendEmail" checked /> Send invite email when email is configured (always keep copy-link fallback)</label>
           <div class="account-actions-row">
             <button type="submit" class="primary-button">Add tester</button>
           </div>
@@ -350,7 +406,11 @@
         ${inviteUrl ? `
           <div class="ota-invite-box">
             <label>Invite link<textarea readonly rows="2">${esc(inviteUrl)}</textarea></label>
-            <button type="button" class="primary-button" data-ota-copy="${esc(inviteUrl)}">Copy invite link</button>
+            <div class="account-actions-row">
+              <button type="button" class="primary-button" data-ota-copy="${esc(inviteUrl)}">Copy invite link</button>
+              <button type="button" class="ghost-button" data-ota-resend>Resend invite (email + new link)</button>
+            </div>
+            <p class="muted-copy">${t.invite?.emailSent ? "Last email attempt: sent." : (t.invite?.emailError ? `Email: ${esc(t.invite.emailError)}` : "Email may be off — use copy link.")}</p>
           </div>
         ` : ""}
         <form data-ota-edit-form class="ota-form">
@@ -379,7 +439,6 @@
           <label>Notes<textarea name="notes" rows="2">${esc(t.notes || "")}</textarea></label>
           <div class="account-actions-row">
             <button type="submit" class="primary-button">Save access</button>
-            <button type="button" class="ghost-button" data-ota-resend>Resend / recreate invite</button>
             <button type="button" class="ghost-button" data-ota-reset-password>Reset access (temp password)</button>
             <button type="button" class="ghost-button" data-ota-reset-data>Reset demo care data</button>
             <button type="button" class="ghost-button" data-ota-view-as-tester="${esc(t.email)}">View as tester</button>
@@ -400,8 +459,103 @@
     `;
   }
 
+  function programDetailHtml() {
+    if (!state.selectedProgramId) return "";
+    const data = state.programDetail;
+    if (!data?.program) {
+      return `<section class="ota-panel"><p class="muted-copy">Loading program…</p></section>`;
+    }
+    const p = data.program;
+    return `
+      <section class="ota-panel" data-ota-program-detail>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Program detail</p>
+            <h3>${esc(p.name)}</h3>
+            <p class="muted-copy">${esc(p.accountType)} · owner ${esc(p.ownerEmail)} · ${statusChip(p.status)}</p>
+          </div>
+          <button type="button" class="ghost-button" data-ota-close-program>Close</button>
+        </div>
+        <div class="ota-detail-grid">
+          <div><em>Staff</em><strong>${esc((data.users || []).length)}</strong></div>
+          <div><em>Children</em><strong>${esc((data.children || []).length)}</strong></div>
+          <div><em>Classrooms</em><strong>${esc((data.classrooms || []).length)}</strong></div>
+          <div><em>Families</em><strong>${esc((data.households || []).length)}</strong></div>
+        </div>
+        <h4>People</h4>
+        <ul class="ota-audit-list">
+          ${(data.users || []).map((u) => `
+            <li>
+              <strong>${esc(u.name)}</strong> · ${esc(u.role)} · ${esc(u.status)}
+              <button type="button" class="ghost-button" data-ota-open-tester="${esc(u.email)}">Open tester</button>
+              <button type="button" class="ghost-button" data-ota-view-as-tester="${esc(u.email)}">View As</button>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No users.</li>"}
+        </ul>
+        <h4>Children</h4>
+        <ul class="ota-audit-list">
+          ${(data.children || []).map((c) => `
+            <li><strong>${esc(c.name || c.id)}</strong> · ${esc(c.ageGroup || "—")} · room ${esc(c.classroomId || "—")}</li>
+          `).join("") || "<li class=\"muted-copy\">No children yet.</li>"}
+        </ul>
+        <h4>Family Hub households</h4>
+        <ul class="ota-audit-list">
+          ${(data.households || []).map((h) => `
+            <li>
+              <strong>${esc(h.label)}</strong> · ${esc(h.email || "—")} · ${esc(h.status)}
+              · children: ${esc((h.childNames || []).join(", ") || (h.childIds || []).join(", ") || "—")}
+              <div class="account-actions-row" style="margin-top:6px">
+                ${h.magicUrl ? `<button type="button" class="ghost-button" data-ota-copy="${esc(h.magicUrl)}">Copy magic link</button>
+                <a class="primary-button" href="${esc(h.magicUrl)}" target="_blank" rel="noopener">Open Family Hub preview</a>` : `<span class="muted-copy">No magic link yet</span>`}
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No households for this program yet. Create Family Hub invites while View As that program owner.</li>"}
+        </ul>
+        <h4>Feature access</h4>
+        <p class="muted-copy">Global testing flags + owner overrides. Production unaffected.</p>
+        <ul class="ota-audit-list">
+          <li>Global: ${esc(Object.entries(data.features?.global || {}).filter(([, v]) => v).map(([k]) => GLOBAL_FLAG_LABELS[k] || k).join(", ") || "defaults")}</li>
+          <li>Owner: ${esc(Object.entries(data.features?.owner || {}).filter(([, v]) => v).map(([k]) => FEATURE_LABELS[k] || k).join(", ") || "defaults")}</li>
+        </ul>
+        <h4>Recent activity</h4>
+        <ul class="ota-audit-list">
+          ${(data.activity || []).map((row) => `
+            <li><strong>${esc(row.action)}</strong> · ${esc(row.targetEmail || "—")} · ${esc(row.at || "")}</li>
+          `).join("") || "<li class=\"muted-copy\">No activity.</li>"}
+        </ul>
+      </section>
+    `;
+  }
+
   function programsHtml() {
     return `
+      <section class="ota-panel" data-ota-create-program-panel>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Programs</p>
+            <h3>Create test program</h3>
+            <p class="muted-copy">Shell program for Home Daycare or Center. Add testers afterward or invite an owner email.</p>
+          </div>
+        </div>
+        <form data-ota-create-program-form class="ota-form">
+          <div class="ota-form-grid">
+            <label>Program name<input name="programName" required placeholder="Sunshine Center TEST" /></label>
+            <label>Type
+              <select name="programType">
+                <option value="home_daycare">Home Daycare</option>
+                <option value="center">Center</option>
+                <option value="single_provider">Single Provider</option>
+              </select>
+            </label>
+            <label>Owner email (optional)<input name="ownerEmail" type="email" placeholder="owner@example.com" /></label>
+            <label>Cohort<input name="testingCohort" placeholder="Week of Aug 10" /></label>
+          </div>
+          <label class="ota-check"><input type="checkbox" name="createSampleData" checked /> Seed sample child / classrooms</label>
+          <button type="submit" class="primary-button">Create program</button>
+          <p class="form-message" data-ota-create-program-message hidden></p>
+        </form>
+      </section>
+      ${programDetailHtml()}
       <section class="ota-panel">
         <div class="section-heading">
           <div>
@@ -413,7 +567,7 @@
         <div class="ota-table-wrap">
           <table class="ota-table">
             <thead>
-              <tr><th>Name</th><th>Type</th><th>Owner</th><th>Staff</th><th>Children</th><th>Status</th><th>Created</th></tr>
+              <tr><th>Name</th><th>Type</th><th>Owner</th><th>Staff</th><th>Children</th><th>Status</th><th>Created</th><th></th></tr>
             </thead>
             <tbody>
               ${(state.programs || []).map((p) => `
@@ -425,11 +579,52 @@
                   <td>${esc(p.childrenCount)}</td>
                   <td>${statusChip(p.status)}</td>
                   <td>${esc((p.createdAt || "").slice(0, 10))}</td>
+                  <td><button type="button" class="ghost-button" data-ota-open-program="${esc(p.id)}">Open</button></td>
                 </tr>
-              `).join("") || `<tr><td colspan="7" class="muted-copy">No programs yet.</td></tr>`}
+              `).join("") || `<tr><td colspan="8" class="muted-copy">No programs yet.</td></tr>`}
             </tbody>
           </table>
         </div>
+      </section>
+    `;
+  }
+
+  function feedbackHtml() {
+    return `
+      <section class="ota-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Testing feedback</p>
+            <h3>Feedback inbox</h3>
+            <p class="muted-copy">Bugs and notes from the testing site. Prefer items tagged with testing context.</p>
+          </div>
+          <div class="account-actions-row">
+            <select data-ota-feedback-status>
+              <option value="">All statuses</option>
+              ${["New", "In Progress", "Resolved", "Archived"].map((s) => `
+                <option value="${s}" ${state.feedbackStatus === s ? "selected" : ""}>${s}</option>
+              `).join("")}
+            </select>
+            <button type="button" class="ghost-button" data-ota-refresh>Refresh</button>
+          </div>
+        </div>
+        <ul class="ota-audit-list">
+          ${(state.feedback || []).map((item) => `
+            <li data-ota-feedback-id="${esc(item.id)}">
+              <strong>${esc(item.type || "Feedback")}</strong>
+              · ${statusChip(item.status || "New")}
+              · ${esc(item.email || "—")}
+              · ${esc((item.createdAt || "").slice(0, 16))}
+              <br/><span>${esc(item.message || "").slice(0, 280)}</span>
+              <br/><span class="muted-copy">Page: ${esc(item.page || "—")} · Role: ${esc(item.role || "—")} · ${esc(item.accountType || "")}</span>
+              <div class="account-actions-row" style="margin-top:6px">
+                <button type="button" class="ghost-button" data-ota-feedback-set="${esc(item.id)}" data-status="In Progress">In Progress</button>
+                <button type="button" class="primary-button" data-ota-feedback-set="${esc(item.id)}" data-status="Resolved">Resolved</button>
+                <button type="button" class="ghost-button" data-ota-feedback-set="${esc(item.id)}" data-status="Archived">Archive</button>
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No testing feedback yet. Testers can submit via Feedback on the testing site.</li>"}
+        </ul>
       </section>
     `;
   }
@@ -539,6 +734,7 @@
           ["programs", "Programs"],
           ["flags", "Feature Flags"],
           ["viewas", "View As"],
+          ["feedback", "Feedback"],
           ["audit", "Audit Log"],
         ].map(([id, label]) => `
           <button type="button" class="${state.tab === id ? "primary-button" : "ghost-button"}" data-ota-tab="${id}">${label}</button>
@@ -552,6 +748,7 @@
       ${state.tab === "programs" ? programsHtml() : ""}
       ${state.tab === "flags" ? flagsHtml() : ""}
       ${state.tab === "viewas" ? viewAsHtml() : ""}
+      ${state.tab === "feedback" ? feedbackHtml() : ""}
       ${state.tab === "audit" ? auditHtml() : ""}
     `;
     bind(root);
@@ -571,7 +768,26 @@
         state.tab = btn.getAttribute("data-ota-tab");
         state.message = "";
         paint();
-        if (["dashboard", "testers", "programs", "flags", "audit"].includes(state.tab)) loadAll();
+        if (["dashboard", "testers", "programs", "flags", "audit", "feedback"].includes(state.tab)) loadAll();
+      });
+    });
+    root.querySelectorAll("[data-ota-goto]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.tab = btn.getAttribute("data-ota-goto") || "dashboard";
+        state.message = "";
+        const focusAdd = btn.hasAttribute("data-ota-focus-add");
+        const focusProgram = btn.hasAttribute("data-ota-focus-create-program");
+        paint();
+        loadAll().then(() => {
+          if (focusAdd) {
+            document.querySelector("[data-ota-add-form] input[name='name']")?.focus();
+            document.querySelector("[data-ota-add-panel]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+          if (focusProgram) {
+            document.querySelector("[data-ota-create-program-form] input[name='programName']")?.focus();
+            document.querySelector("[data-ota-create-program-panel]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        });
       });
     });
     root.querySelector("[data-ota-refresh]")?.addEventListener("click", () => loadAll());
@@ -583,12 +799,27 @@
       state.statusFilter = event.target.value || "";
       loadAll();
     });
+    root.querySelector("[data-ota-feedback-status]")?.addEventListener("change", (event) => {
+      state.feedbackStatus = event.target.value || "";
+      loadAll();
+    });
     root.querySelectorAll("[data-ota-open-tester]").forEach((btn) => {
-      btn.addEventListener("click", () => openDetail(btn.getAttribute("data-ota-open-tester")));
+      btn.addEventListener("click", () => {
+        state.tab = "testers";
+        openDetail(btn.getAttribute("data-ota-open-tester"));
+      });
+    });
+    root.querySelectorAll("[data-ota-open-program]").forEach((btn) => {
+      btn.addEventListener("click", () => openProgram(btn.getAttribute("data-ota-open-program")));
     });
     root.querySelector("[data-ota-close-detail]")?.addEventListener("click", () => {
       state.selectedEmail = "";
       state.detail = null;
+      paint();
+    });
+    root.querySelector("[data-ota-close-program]")?.addEventListener("click", () => {
+      state.selectedProgramId = "";
+      state.programDetail = null;
       paint();
     });
     root.querySelectorAll("[data-ota-copy]").forEach((btn) => {
@@ -596,7 +827,7 @@
         const text = btn.getAttribute("data-ota-copy") || "";
         try {
           await navigator.clipboard.writeText(text);
-          state.message = "Invite link copied.";
+          state.message = "Copied.";
           paint();
         } catch {
           state.message = text;
@@ -622,6 +853,7 @@
         notes: form.notes.value,
         activateNow: form.activateNow.checked,
         createSampleData: form.createSampleData.checked,
+        sendEmail: form.sendEmail?.checked !== false,
         features: readFeaturesFromForm(form),
         appOrigin: window.location.origin,
         adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
@@ -629,6 +861,8 @@
       try {
         const result = await api("/api/admin/testing/testers", { method: "POST", body });
         let msg = result.message || "Tester created.";
+        if (result.email?.sent) msg += " Invite email sent.";
+        else if (result.email?.configured === false) msg += " (Email not configured — use copy link.)";
         if (result.acceptUrl) msg += ` Invite: ${result.acceptUrl}`;
         if (result.temporaryPassword) msg += ` Temp password: ${result.temporaryPassword}`;
         showMsg("[data-ota-add-message]", msg, true);
@@ -637,6 +871,30 @@
         if (result.tester?.email) openDetail(result.tester.email);
       } catch (error) {
         showMsg("[data-ota-add-message]", error.message, false);
+      }
+    });
+
+    const createProgramForm = root.querySelector("[data-ota-create-program-form]");
+    createProgramForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      try {
+        const result = await api("/api/admin/testing/programs", {
+          method: "POST",
+          body: {
+            programName: form.programName.value,
+            programType: form.programType.value,
+            ownerEmail: form.ownerEmail.value,
+            testingCohort: form.testingCohort.value,
+            createSampleData: form.createSampleData.checked,
+            adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
+          },
+        });
+        showMsg("[data-ota-create-program-message]", result.message || "Program created.", true);
+        await loadAll();
+        if (result.program?.id) openProgram(result.program.id);
+      } catch (error) {
+        showMsg("[data-ota-create-program-message]", error.message, false);
       }
     });
 
@@ -669,13 +927,30 @@
       try {
         const result = await api(`/api/admin/testing/testers/${encodeURIComponent(state.selectedEmail)}/resend`, {
           method: "PATCH",
-          body: { appOrigin: window.location.origin },
+          body: { appOrigin: window.location.origin, sendEmail: true },
         });
         showMsg("[data-ota-detail-message]", `${result.message || "Invite resent."} ${result.acceptUrl || ""}`, true);
         await openDetail(state.selectedEmail);
       } catch (error) {
         showMsg("[data-ota-detail-message]", error.message, false);
       }
+    });
+
+    root.querySelectorAll("[data-ota-feedback-set]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-ota-feedback-set");
+        const status = btn.getAttribute("data-status");
+        try {
+          await api(`/api/admin/testing/feedback/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: { status },
+          });
+          await loadAll();
+        } catch (error) {
+          state.error = error.message;
+          paint();
+        }
+      });
     });
 
     root.querySelector("[data-ota-reset-password]")?.addEventListener("click", async () => {
@@ -745,23 +1020,25 @@
       }
     });
 
-    root.querySelector("[data-ota-view-as-tester]")?.addEventListener("click", async () => {
-      const email = root.querySelector("[data-ota-view-as-tester]")?.getAttribute("data-ota-view-as-tester");
-      try {
-        await api("/api/admin/testing/view-as-log", {
-          method: "POST",
-          body: {
-            action: "view_as_started",
-            targetEmail: email,
-            detail: "View as tester",
-            mode: "impersonation",
-          },
-        });
-      } catch (_e) { /* non-blocking */ }
-      if (typeof startAdminImpersonation === "function") {
-        await startAdminImpersonation(email);
-        ensureViewAsBanner();
-      }
+    root.querySelectorAll("[data-ota-view-as-tester]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const email = btn.getAttribute("data-ota-view-as-tester");
+        try {
+          await api("/api/admin/testing/view-as-log", {
+            method: "POST",
+            body: {
+              action: "view_as_started",
+              targetEmail: email,
+              detail: "View as tester",
+              mode: "impersonation",
+            },
+          });
+        } catch (_e) { /* non-blocking */ }
+        if (typeof startAdminImpersonation === "function") {
+          await startAdminImpersonation(email);
+          ensureViewAsBanner();
+        }
+      });
     });
 
     root.querySelectorAll("[data-ota-preview-role]").forEach((btn) => {
@@ -822,7 +1099,7 @@
       state.tab = host.dataset.otaPreferredTab;
     }
     ensureBanner();
-    state.tab = state.tab || "testers";
+    state.tab = state.tab || "dashboard";
     paint();
     if (isTestingHost() && adminToken()) loadAll();
   }

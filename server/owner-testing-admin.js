@@ -826,26 +826,105 @@ function dashboardStats(store) {
     if (byType[t.accountType] != null) byType[t.accountType] += 1;
     if (byRole[t.role] != null) byRole[t.role] += 1;
   });
+  const homeDaycares = programs.filter((p) => p.accountType === "home_daycare" || p.accountType === "single_provider").length;
+  const centers = programs.filter((p) => p.accountType === "center").length;
   const children = programs.reduce((sum, p) => sum + (p.childrenCount || 0), 0);
-  const households = Object.values(store.familyHouseholds || {}).length;
+  const staff = programs.reduce((sum, p) => sum + (p.staffCount || 0), 0);
+  const households = Object.values(store.familyHouseholds || {});
   const forms = Object.values(store.formPackets || {}).length;
   const messages = Array.isArray(store.familyHubMessages) ? store.familyHubMessages.length : 0;
+  const feedback = (Array.isArray(store.feedbackItems) ? store.feedbackItems : [])
+    .filter((item) => item?.context?.testingSite || item?.testingOnly || String(item?.source || "").includes("testing"));
+  const openFeedback = feedback.filter((item) => !["Resolved", "Completed", "Archived", "Won't Change"].includes(item.status)).length;
+  const recentSignups = Object.values(store.users || {})
+    .filter((u) => u?.isTestingAccount || u?.hdhIndependentTester || u?.testingInviteAcceptedAt)
+    .sort((a, b) => String(b.createdAt || b.testingInviteAcceptedAt || "").localeCompare(String(a.createdAt || a.testingInviteAcceptedAt || "")))
+    .slice(0, 8)
+    .map((u) => ({
+      email: u.email,
+      name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.name || u.email,
+      role: u.role || "owner",
+      accountType: u.accountType || "home_daycare",
+      at: u.createdAt || u.testingInviteAcceptedAt || "",
+    }));
+  const flags = globalTestingFlags(store);
   return {
     environment: "TESTING",
+    totalPrograms: programs.length,
+    homeDaycares,
+    centers,
     totalTesters: testers.length,
     activeTesters: testers.filter((t) => t.status === "active" || t.status === "activated").length,
-    pendingInvites: testers.filter((t) => t.status === "invitation_pending" || t.status === "invited" || t.status === "pending").length,
+    pendingInvites: testers.filter((t) => ["invitation_pending", "invited", "pending"].includes(t.status)).length,
     disabledTesters: testers.filter((t) => t.status === "disabled").length,
     programs: programs.length,
     byType,
     byRole,
     children,
-    families: households,
+    totalChildren: children,
+    families: households.length,
+    totalFamilies: households.length,
+    staff,
+    totalStaff: staff,
     forms,
     messages,
-    featureFlags: globalTestingFlags(store),
-    recentAudit: store.ownerTestingAudit.slice(0, 8),
+    openFeedback,
+    recentSignups,
+    featureFlags: flags,
+    recentAudit: store.ownerTestingAudit.slice(0, 12),
+    systemHealth: {
+      testingFence: true,
+      ownerTestingAdmin: flags.ownerTestingAdmin !== false,
+      familyHub: flags.familyHub !== false,
+      forms: flags.forms !== false,
+      billingTest: flags.billing === true,
+      aiFeatures: flags.aiFeatures === true,
+      emailConfigured: null, // filled by API handler when available
+      status: "ok",
+    },
   };
+}
+
+async function sendTesterInviteEmail({ sendEmail, supportEmailConfigStatus, invite, acceptUrl, actorEmail }) {
+  const status = typeof supportEmailConfigStatus === "function" ? supportEmailConfigStatus() : { ready: false };
+  if (!status?.ready || typeof sendEmail !== "function") {
+    return { sent: false, configured: Boolean(status?.ready), skipped: true };
+  }
+  try {
+    const result = await sendEmail({
+      to: invite.email,
+      replyTo: actorEmail || undefined,
+      subject: "You're invited to test Little Learner Hub (TESTING)",
+      text: [
+        `Hi${invite.name ? ` ${invite.name}` : ""},`,
+        "",
+        "You are invited to the Little Learner Hub TESTING environment (not production).",
+        `Program: ${invite.programName || "Test program"}`,
+        `Role: ${invite.role || "owner"}`,
+        `Type: ${invite.programType || "home_daycare"}`,
+        "",
+        "Accept your invite:",
+        acceptUrl,
+        "",
+        `This invite expires on ${String(invite.expiresAt || "").slice(0, 10)}.`,
+        "",
+        "— Little Learner Hub Testing",
+      ].join("\n"),
+      html: `
+        <p>Hi${invite.name ? ` ${String(invite.name).replace(/</g, "")}` : ""},</p>
+        <p>You are invited to the <strong>Little Learner Hub TESTING</strong> environment (not production).</p>
+        <p>Program: <strong>${String(invite.programName || "Test program").replace(/</g, "")}</strong><br/>
+        Role: <strong>${String(invite.role || "owner").replace(/</g, "")}</strong><br/>
+        Type: <strong>${String(invite.programType || "home_daycare").replace(/</g, "")}</strong></p>
+        <p><a href="${String(acceptUrl).replace(/"/g, "")}">Accept your invite</a></p>
+        <p>This invite expires on ${String(invite.expiresAt || "").slice(0, 10)}.</p>
+        <p>— Little Learner Hub Testing</p>
+      `,
+    });
+    return { sent: Boolean(result?.sent), configured: true, error: result?.error || "" };
+  } catch (error) {
+    return { sent: false, configured: true, error: error.message || "email_failed" };
+  }
 }
 
 function createOwnerTestingAdminApi(deps) {
@@ -863,6 +942,8 @@ function createOwnerTestingAdminApi(deps) {
     scheduleLib,
     tempPasswordAuth,
     siteUrl,
+    sendEmail,
+    supportEmailConfigStatus,
   } = deps;
 
   function requireTestingAdmin(request, response, url, body = {}) {
@@ -896,7 +977,12 @@ function createOwnerTestingAdminApi(deps) {
   async function handleDashboard(request, response, url) {
     if (!requireTestingAdmin(request, response, url)) return;
     const store = ensureCollections(peekStore());
-    jsonResponse(response, 200, { ok: true, testingOnly: true, dashboard: dashboardStats(store) });
+    const dashboard = dashboardStats(store);
+    const emailStatus = typeof supportEmailConfigStatus === "function" ? supportEmailConfigStatus() : { ready: false };
+    dashboard.systemHealth.emailConfigured = Boolean(emailStatus?.ready);
+    dashboard.systemHealth.status = dashboard.systemHealth.ownerTestingAdmin === false ? "attention" : "ok";
+    dashboard.emailDeliveryReady = Boolean(emailStatus?.ready);
+    jsonResponse(response, 200, { ok: true, testingOnly: true, dashboard });
   }
 
   async function handleListTesters(request, response, url) {
@@ -951,13 +1037,36 @@ function createOwnerTestingAdminApi(deps) {
         scheduleLib,
         tempPasswordAuth,
       });
+      const acceptUrl = result.acceptUrl || result.invite?.acceptUrl || "";
+      let emailResult = { sent: false, configured: false };
+      if (acceptUrl && body.sendEmail !== false) {
+        emailResult = await sendTesterInviteEmail({
+          sendEmail,
+          supportEmailConfigStatus,
+          invite: result.invite,
+          acceptUrl,
+          actorEmail: body.adminEmail || "admin",
+        });
+        if (result.invite?.id) {
+          const token = Object.keys(store.hdhTesterInvites).find((key) => store.hdhTesterInvites[key]?.id === result.invite.id);
+          if (token) {
+            store.hdhTesterInvites[token].emailSent = Boolean(emailResult.sent);
+            store.hdhTesterInvites[token].emailError = emailResult.error || "";
+            result.invite.emailSent = Boolean(emailResult.sent);
+          }
+        }
+      }
+      const message = result.activated
+        ? "Tester created and activated. Copy the temporary password now — it will not be shown again."
+        : (emailResult.sent
+          ? "Tester invite created and email sent."
+          : "Tester invite created. Copy the invite link (email may be off on testing).");
       await respondAfterPersist(store, response, 200, {
         ok: true,
         testingOnly: true,
         ...result,
-        message: result.activated
-          ? "Tester created and activated. Copy the temporary password now — it will not be shown again."
-          : "Tester invite created. Copy the invite link (email may be off on testing).",
+        email: emailResult,
+        message,
       }, "Could not create tester.");
     } catch (error) {
       jsonResponse(response, error.status || 400, {
@@ -1001,12 +1110,31 @@ function createOwnerTestingAdminApi(deps) {
         actorEmail: body.adminEmail || "admin",
         appOrigin: appOriginFrom(request, body),
       });
+      let emailResult = { sent: false, configured: false };
+      if (invite.acceptUrl && body.sendEmail !== false) {
+        emailResult = await sendTesterInviteEmail({
+          sendEmail,
+          supportEmailConfigStatus,
+          invite,
+          acceptUrl: invite.acceptUrl,
+          actorEmail: body.adminEmail || "admin",
+        });
+        const token = Object.keys(store.hdhTesterInvites).find((key) => store.hdhTesterInvites[key]?.token === invite.token || store.hdhTesterInvites[key]?.id === invite.id);
+        if (token) {
+          store.hdhTesterInvites[token].emailSent = Boolean(emailResult.sent);
+          store.hdhTesterInvites[token].emailError = emailResult.error || "";
+          invite.emailSent = Boolean(emailResult.sent);
+        }
+      }
       await respondAfterPersist(store, response, 200, {
         ok: true,
         testingOnly: true,
         invite,
         acceptUrl: invite.acceptUrl,
-        message: "Invite link regenerated. Share it manually if email is off.",
+        email: emailResult,
+        message: emailResult.sent
+          ? "Invite regenerated and email sent."
+          : "Invite link regenerated. Share it manually if email is off.",
       }, "Could not resend invite.");
     } catch (error) {
       jsonResponse(response, error.status || 400, { error: error.message || "Could not resend invite." });
@@ -1104,8 +1232,199 @@ function createOwnerTestingAdminApi(deps) {
         role: u.role || "owner",
         accountType: u.accountType || program.accountType,
         status: u.accountStatus || "Active",
+        testingFeatures: u.testingFeatures || {},
+        lastLoginAt: u.lastLoginAt || u.lastSeenAt || "",
       }));
-    jsonResponse(response, 200, { ok: true, testingOnly: true, program, users });
+    const childData = store.programData?.[programId]?.child?.data || {};
+    const children = (Array.isArray(childData.Profiles) ? childData.Profiles : []).map((p) => ({
+      id: p.id,
+      name: p.name || "",
+      ageGroup: p.ageGroup || "",
+      classroomId: p.classroomId || "",
+    }));
+    const classrooms = (() => {
+      try {
+        return scheduleLib.normalizeScheduleDocument(store.programData?.[programId]?.schedule || {}).classrooms || [];
+      } catch {
+        return [];
+      }
+    })();
+    const ownerEmail = normalizeEmail(program.ownerEmail);
+    const households = Object.values(store.familyHouseholds || {})
+      .filter((h) => normalizeEmail(h.ownerEmail || h.providerEmail || h.createdByEmail) === ownerEmail
+        || normalizeEmail(h.programOwnerEmail) === ownerEmail
+        || String(h.programId || "") === String(programId))
+      .map((h) => {
+        let magicUrl = h.magicUrl || "";
+        if (!magicUrl && h.magicToken) {
+          const origin = String(siteUrl || "").replace(/\/$/, "") || "";
+          magicUrl = origin ? `${origin}/?familyHub=${encodeURIComponent(h.magicToken)}` : `/?familyHub=${encodeURIComponent(h.magicToken)}`;
+        }
+        return {
+          id: h.id,
+          label: h.label || h.name || h.email || "Household",
+          email: h.email || "",
+          status: h.status || "active",
+          childIds: Array.isArray(h.childIds) ? h.childIds : [],
+          childNames: (Array.isArray(h.children) ? h.children : []).map((c) => c.name).filter(Boolean),
+          magicUrl,
+          magicToken: h.magicToken || "",
+          acceptedAt: h.acceptedAt || "",
+          createdAt: h.createdAt || "",
+        };
+      });
+    const owner = store.users?.[ownerEmail] || {};
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      program,
+      users,
+      children,
+      classrooms,
+      households,
+      features: {
+        global: globalTestingFlags(store),
+        owner: normalizeFeatures(owner.testingFeatures || {}),
+      },
+      activity: store.ownerTestingAudit
+        .filter((row) => row.programId === programId || users.some((u) => normalizeEmail(u.email) === normalizeEmail(row.targetEmail)))
+        .slice(0, 40),
+    });
+  }
+
+  async function handleCreateProgram(request, response, url) {
+    let body = {};
+    try {
+      body = await readJson(request);
+    } catch {
+      body = {};
+    }
+    if (!requireTestingAdmin(request, response, url, body)) return;
+    const store = ensureCollections(readStore());
+    const programType = accountAccess.normalizeAccountType(body.programType || body.accountType || "home_daycare");
+    const programName = cleanText(body.programName || body.name || "", 160)
+      || (programType === "center" ? "Test Childcare Center" : "Test Home Daycare");
+    const shellToken = crypto.randomBytes(4).toString("hex");
+    const ownerEmail = normalizeEmail(body.ownerEmail)
+      || normalizeEmail(`program-owner+${shellToken}@llh-testing.invalid`);
+    const program = programOwnership.ensureProgramForOwner(store, ownerEmail, {
+      name: programName,
+      actorEmail: body.adminEmail || "admin",
+    });
+    store.programs[program.id].accountType = programType;
+    store.programs[program.id].isTestingProgram = true;
+    store.programs[program.id].testingCohort = cleanText(body.testingCohort || "", 80);
+    store.programs[program.id].name = programName;
+    store.users[ownerEmail] = {
+      ...(store.users[ownerEmail] || { email: ownerEmail }),
+      email: ownerEmail,
+      role: "owner",
+      accountType: programType,
+      programId: program.id,
+      businessName: programName,
+      isTestingAccount: true,
+      hdhIndependentTester: true,
+      plan: "Pro",
+      subscriptionStatus: "Pro Subscription Active",
+      stripeSubscriptionStatus: "active",
+      createdAt: store.users[ownerEmail]?.createdAt || nowIso(),
+      updatedAt: nowIso(),
+    };
+    const ctx = programOwnership.resolveProgramContext(store, { email: ownerEmail, uid: "" });
+    if (programType === "center" && scheduleLib) {
+      seedCenterClassrooms(scheduleLib, store, ctx, body.classrooms || []);
+    }
+    if (body.createSampleData !== false) {
+      seedDemoChild(programOwnership, store, ctx, body.childName || "Demo Child");
+    }
+    appendAudit(store, {
+      actorEmail: body.adminEmail || "admin",
+      action: "program_created",
+      targetEmail: ownerEmail,
+      programId: program.id,
+      detail: `${programName} · ${programType}`,
+    });
+    await respondAfterPersist(store, response, 200, {
+      ok: true,
+      testingOnly: true,
+      program: programSummary(store, program.id),
+      message: "Test program created.",
+    }, "Could not create program.");
+  }
+
+  async function handleFeedbackList(request, response, url) {
+    if (!requireTestingAdmin(request, response, url)) return;
+    const store = ensureCollections(peekStore());
+    const status = String(url.searchParams.get("status") || "").trim();
+    const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+    let items = (Array.isArray(store.feedbackItems) ? store.feedbackItems : [])
+      .filter((item) => item?.context?.testingSite || item?.testingOnly || String(item?.source || "").includes("testing")
+        || String(item?.type || "").toLowerCase().includes("test"));
+    // If none tagged yet, still show recent feedback while on testing host so Leah has an inbox.
+    if (!items.length) {
+      items = (Array.isArray(store.feedbackItems) ? store.feedbackItems : []).slice(0, 100);
+    }
+    if (status) items = items.filter((item) => String(item.status || "").toLowerCase() === status.toLowerCase());
+    if (q) {
+      items = items.filter((item) => (
+        String(item.message || "").toLowerCase().includes(q)
+        || String(item.email || "").toLowerCase().includes(q)
+        || String(item.type || "").toLowerCase().includes(q)
+        || String(item.page || "").toLowerCase().includes(q)
+      ));
+    }
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      feedback: items.slice(0, 200).map((item) => ({
+        id: item.id,
+        type: item.type,
+        status: item.status || "New",
+        message: item.message,
+        email: item.email,
+        name: item.name,
+        page: item.page || item.context?.page || "",
+        role: item.role || item.testedRole || item.context?.currentRole || "",
+        accountType: item.accountType || "",
+        createdAt: item.createdAt,
+        device: item.deviceInfo || item.context?.deviceClass || "",
+        severity: item.sentiment || "",
+      })),
+    });
+  }
+
+  async function handleFeedbackUpdate(request, response, url, feedbackId) {
+    let body = {};
+    try {
+      body = await readJson(request);
+    } catch {
+      body = {};
+    }
+    if (!requireTestingAdmin(request, response, url, body)) return;
+    const store = ensureCollections(readStore());
+    const items = Array.isArray(store.feedbackItems) ? store.feedbackItems : [];
+    const idx = items.findIndex((item) => item.id === feedbackId);
+    if (idx < 0) {
+      jsonResponse(response, 404, { error: "Feedback not found." });
+      return;
+    }
+    if (body.status) items[idx].status = cleanText(body.status, 40);
+    if (typeof body.adminNote === "string" && body.adminNote.trim()) {
+      items[idx].adminNotes = Array.isArray(items[idx].adminNotes) ? items[idx].adminNotes : [];
+      items[idx].adminNotes.unshift({
+        at: nowIso(),
+        by: body.adminEmail || "admin",
+        note: cleanText(body.adminNote, 2000),
+      });
+    }
+    items[idx].updatedAt = nowIso();
+    store.feedbackItems = items;
+    appendAudit(store, {
+      actorEmail: body.adminEmail || "admin",
+      action: "testing_feedback_updated",
+      detail: `${feedbackId} → ${items[idx].status}`,
+    });
+    await respondAfterPersist(store, response, 200, { ok: true, feedback: items[idx] }, "Could not update feedback.");
   }
 
   async function handleFlagsGet(request, response, url) {
@@ -1200,9 +1519,15 @@ function createOwnerTestingAdminApi(deps) {
       return (req, res) => handleUpdateTester(req, res, url, email);
     }
     if (method === "GET" && path === "/api/admin/testing/programs") return (req, res) => handleListPrograms(req, res, url);
+    if (method === "POST" && path === "/api/admin/testing/programs") return (req, res) => handleCreateProgram(req, res, url);
     if (method === "GET" && path.startsWith("/api/admin/testing/programs/")) {
-      const id = decodeURIComponent(path.slice("/api/admin/testing/programs/".length));
+      const id = decodeURIComponent(path.slice("/api/admin/testing/programs/".length).split("/")[0]);
       return (req, res) => handleGetProgram(req, res, url, id);
+    }
+    if (method === "GET" && path === "/api/admin/testing/feedback") return (req, res) => handleFeedbackList(req, res, url);
+    if (method === "PATCH" && path.startsWith("/api/admin/testing/feedback/")) {
+      const id = decodeURIComponent(path.slice("/api/admin/testing/feedback/".length).split("/")[0]);
+      return (req, res) => handleFeedbackUpdate(req, res, url, id);
     }
     if (method === "GET" && path === "/api/admin/testing/flags") return (req, res) => handleFlagsGet(req, res, url);
     if (method === "PUT" && path === "/api/admin/testing/flags") return (req, res) => handleFlagsPut(req, res, url);

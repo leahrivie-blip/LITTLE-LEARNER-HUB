@@ -232,6 +232,64 @@ body.llh-testing-environment .ota-view-as-banner {
   font-weight: 700;
 }
 
+.ota-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.ota-health-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.ota-health {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: #eee6dc;
+}
+
+.ota-health.is-ok {
+  background: #d8f0df;
+}
+
+.ota-health.is-warn {
+  background: #f7e7c8;
+}
+
+.ota-dash-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.curriculum-assign-child-picker {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.curriculum-assign-child-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+.curriculum-assign-child-option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 720px) {
   .ota-testing-banner,
   .ota-view-as-banner {

@@ -12731,6 +12731,8 @@ const ownerTestingAdminApi = createOwnerTestingAdminApi({
   scheduleLib,
   tempPasswordAuth,
   siteUrl: SITE_URL,
+  sendEmail,
+  supportEmailConfigStatus,
 });
 
 /**

@@ -3,100 +3,92 @@
 **Branch:** `cursor/owner-admin-testers-phase2-9c23`  
 **Spine:** HDH / `main` (July branch not merged)  
 **Fence:** `HOME_DAYCARE_HUB_TESTING` + admin token  
-**Date:** 2026-08-07  
+**Date:** 2026-08-07 (updated for owner-validation polish)  
 
 ---
 
-## How to use it (end-to-end)
+## How to use it (end-to-end owner validation)
 
 1. Open the **testing** host with Admin unlock.  
 2. Confirm the orange **TESTING ENVIRONMENT** banner.  
-3. Sidebar → **Testers** (or Admin Home → Open Testers).  
-4. **Add tester** → choose Home Daycare or Center, role, features → optionally **Generate test login now**.  
-5. Copy invite link / temp password.  
-6. Open tester detail → edit features, resend invite, disable/reactivate, reset access, **View as tester**.  
-7. Use **Feature Flags**, **Programs**, **Audit Log**, and **View As** tabs as needed.  
-8. Always use **Exit tester view** to leave impersonation/preview.
+3. Sidebar → **Testers** (or Admin → Dashboard quick actions).  
+4. **Dashboard** should show programs / testers / children / families / staff / pending / disabled / health / recent signups & actions.  
+5. Quick actions: **Add Tester**, **Create Program**, **View As**, **Feature Flags**, **Feedback**.  
+6. Create a **Home Daycare** and a **Center** (Add Tester and/or Create Program).  
+7. Add testers for every role; configure feature flags; **View As** each role + specific testers.  
+8. Disable / reactivate / archive; resend invites (email when configured + always copy-link); reset access.  
+9. Open **program detail** → people, children, Family Hub household preview links.  
+10. Review **Audit** + **Feedback** inbox.  
+11. As a tester: assign a lesson with the **child picker**; log planned activity to daily logs; confirm staff write scopes.
 
-Automated check: `npm run test:owner-testing-admin-phase2` (20/20).
+Automated check: `npm run test:owner-testing-admin-phase2`.
 
 ---
 
 ## Completed checklist
 
-### Owner Admin → Testers
-- [x] Dedicated **Testers** admin group (not buried only under Advanced)
-- [x] Testing dashboard with ENVIRONMENT: TESTING + counts
-- [x] Add Tester wizard (name, email, program, type, role, features, notes, cohort)
-- [x] Create **Home Daycare** or **Center** programs
-- [x] Add to existing test program **or** create new
-- [x] Role assignment (owner / director / teacher / assistant)
-- [x] Activate now + temp password (testing-only)
-- [x] Search testers
-- [x] Tester detail page
-- [x] Enable/disable feature access per tester
-- [x] Disable / reactivate
-- [x] Archive (soft — no hard delete by default)
-- [x] Resend / recreate invite link (including activated testers)
-- [x] Reset access (temp password)
-- [x] Reset demo care data (scoped; profiles kept; confirmation)
-- [x] Status chips (pending / activated / active / disabled / etc.)
+### Owner Admin → Dashboard / Testers
+- [x] Dedicated **Testers** admin group  
+- [x] Rich Testing dashboard (totals, health, recent signups, recent admin actions, quick actions)  
+- [x] Add Tester wizard (home/center, roles, features, notes, cohort, activate-now, send-email option)  
+- [x] Create Program (shell Home Daycare / Center)  
+- [x] Role assignment (owner / director / teacher / assistant)  
+- [x] Activate now + temp password  
+- [x] Search + status filter + tester detail  
+- [x] Feature access per tester + global testing flags  
+- [x] Disable / reactivate / archive (soft)  
+- [x] Resend invite (email attempt + copy-link fallback)  
+- [x] Reset access / reset demo care data  
+- [x] View As role + View as tester + sticky banner  
 
-### Programs / Flags / Audit / View As
-- [x] Test programs list (type, owner, staff, children, status)
-- [x] Global testing feature flags (explicitly production-unaffected)
-- [x] Per-tester feature overrides
-- [x] Audit log (create, update, disable, view-as, flags, resets)
-- [x] Stronger View As banner: `OWNER ADMIN — VIEWING AS …` + Exit
-- [x] Role preview buttons + View as specific tester (impersonation + audit)
+### Programs / Feedback / Family Hub preview
+- [x] Programs list + **program detail** (people, children, classrooms, households, features, activity)  
+- [x] Household-specific Family Hub preview (copy / open magic link when present)  
+- [x] Testing **Feedback inbox** (list + status updates; testingSite tagging on submit)  
 
-### Testing safety / separation
-- [x] Sticky TESTING ENVIRONMENT banner on testing host
-- [x] APIs 404 when `HOME_DAYCARE_HUB_TESTING` is off
-- [x] Admin token required for all `/api/admin/testing/*`
-- [x] No July foundation org merge
-- [x] No curriculum publish / production customer changes in this work
+### Connections
+- [x] Calendar / planner **child picker** on assign  
+- [x] Lesson week assign links **childIds**  
+- [x] Planned activity → ActivityLogs  
+- [x] Server staff write ACL (assistant/teacher scoped)  
 
-### Connection fixes started (not only documented)
-- [x] Lesson week assign now links **childIds** (classroom roster by default)
-- [x] Teacher Today shows linked child count + **Log to daily logs**
-- [x] `POST /api/schedule/log-planned-activity` writes ActivityLogs for linked children (group-aware, exclusions supported)
-- [x] Server-side staff write ACL: assistants/teachers scoped by role + classroom; owners/directors unrestricted
-- [x] Owner Admin ↔ Tester management is now a first-class console
+### Safety
+- [x] TESTING ENVIRONMENT banner  
+- [x] APIs 404 when fence off; admin token required  
+- [x] No July merge; no production publish in this work  
 
 ---
 
-## Still missing / deferred (before or during Phase 3)
+## Roadmap (confirmed order)
+
+1. Safety + HDH/`main` ✅  
+2. Owner Admin ✅ (stabilize during your live validation; fix usability bugs before Phase 3)  
+3. Navigation cleanup  
+4. One source of truth (children/staff/families)  
+5. Daily operations → Family Hub → Forms → Billing (testing) → AI review-before-save  
+6. **Live → Testing Feature Sync** (see `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md`)  
+7. Final QA / production readiness  
+
+---
+
+## Still open / during your validation
 
 | Item | Notes |
 |---|---|
-| Email send for invites | Still copy-link primary when Resend is off (safe) |
-| Hard delete tester | Intentionally omitted; archive only |
-| Full program detail tabs (children/families/forms drill-down) | List + users summary exists; deeper tabs can wait |
-| Family Hub one-click parent preview of a specific household | View As Parent + invites exist; household picker polish later |
-| Error center linked to tester sessions | Platform Error Center exists; not yet tester-threaded |
-| Feedback inbox with auto page/role/flag context | General feedback exists; dedicated testing feedback still Phase 2+ |
-| Rich center setup (multiple named staff in one wizard step) | Director create works; bulk staff pack can come next |
-| Lesson→child UI picker on Calendar assign screen | API defaults childIds; richer picker UI still open |
-| Production Blueprint dual-service declaration | Still Dashboard-managed testing host |
-
----
-
-## Recommendations before Phase 3 (Navigation Cleanup)
-
-1. **Use Testers for a real week** — add one home daycare owner + one center director + one teacher; confirm invite/login/View As feel obvious.  
-2. **Keep Advanced → Testing Center** as a secondary sandbox for plan Free/Pro preview; primary path is now **Testers**.  
-3. **Phase 3 should simplify customer nav**, not re-open Owner Admin IA unless Testers usage reveals pain.  
-4. **Do not merge July Testing Lab** — continue porting only UX ideas onto HDH/`main`.  
-5. Next connection priorities after nav: Family Hub household completeness, forms status model, then billing simulator (still test-only).
+| Usability bugs you find in Owner Admin | Fix before Navigation Cleanup |
+| Hard delete tester | Intentionally omitted (archive only) |
+| Email when Resend is not configured | Copy-link remains; dashboard shows invite-email health |
+| Rich multi-staff center pack wizard | Director create works; bulk pack later |
+| Production Blueprint dual-service | Still Dashboard-managed testing host |
 
 ---
 
 ## Key files
 
-- `server/owner-testing-admin.js` — APIs  
+- `server/owner-testing-admin.js` — APIs (dashboard, testers, programs, flags, feedback, audit)  
 - `scripts/owner-testing-admin-ui.js` — Admin UI  
 - `styles/owner-testing-admin.css` — TESTING chrome  
 - `server/program-ownership.js` — write ACL  
-- `server/index.js` — routes + lesson/activity connections  
+- `app.js` — calendar child picker + feedback testingSite tag  
+- `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md` — new phase brief  
 - `scripts/test-owner-testing-admin-phase2.js` — regression  

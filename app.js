@@ -24175,7 +24175,7 @@ function applyCurriculumLessonToWeeklyPlanner({ resource, plan, weekStartDate, a
   return planner;
 }
 
-async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup } = {}) {
+async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup, childIds = null } = {}) {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     openAuthModal("login");
     throw new Error("Log in to plan this week.");
@@ -24202,6 +24202,7 @@ async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate
     weekStartDate: week,
     ageGroup,
     replaceExisting: Boolean(existing),
+    childIds,
   });
   return assignment;
 }
@@ -26617,6 +26618,7 @@ function lessonWorkspaceChromeHtml(resource) {
               <label>Age Group
                 <select name="ageGroup">${lessonWorkspacePlannerAgeGroupOptions(lessonWorkspaceDefaultAgeGroup(resource, plan))}</select>
               </label>
+              ${curriculumAssignChildPickerHtml(null)}
               <div class="lesson-workspace-action-sheet-actions">
                 <button type="submit" class="primary-button" data-lesson-assign-submit>Add to Calendar</button>
                 <button type="button" class="ghost-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
@@ -31301,6 +31303,7 @@ async function assignScheduleLessonPlan({
   ageGroup,
   classroomLabel = "",
   replaceExisting = false,
+  childIds: explicitChildIds = null,
 } = {}) {
   const api = getScheduleApi();
   if (!api) {
@@ -31310,6 +31313,7 @@ async function assignScheduleLessonPlan({
       ageGroup,
       classroomLabel,
       replaceExisting,
+      childIds: explicitChildIds,
       _skipSchedule: true,
     });
   }
@@ -31338,10 +31342,19 @@ async function assignScheduleLessonPlan({
   const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
   const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
-  const rosterChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []))
-    .filter((child) => String(child.classroomId || "") === String(classroomId));
-  const childIds = rosterChildren.map((child) => child.id).filter(Boolean);
-  const rosterLabel = rosterChildren.map((child) => child.name).filter(Boolean).slice(0, 8).join(", ");
+  const allChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []));
+  const rosterChildren = allChildren.filter((child) => {
+    if (!String(child.classroomId || "")) return true;
+    return String(child.classroomId || "") === String(classroomId);
+  });
+  const selectedIds = Array.isArray(explicitChildIds)
+    ? explicitChildIds.map(String).filter(Boolean)
+    : null;
+  const linkedChildren = selectedIds
+    ? allChildren.filter((child) => selectedIds.includes(String(child.id)))
+    : rosterChildren;
+  const childIds = linkedChildren.map((child) => child.id).filter(Boolean);
+  const rosterLabel = linkedChildren.map((child) => child.name).filter(Boolean).slice(0, 8).join(", ");
   const item = await api.assignLessonPlanToWeek(firebaseAuthHeaders, scheduleApiEmail(), {
     id: existing?.id,
     weekStartDate: week,
@@ -31377,8 +31390,8 @@ async function assignScheduleLessonPlan({
   }
   curriculumPlannerMessage = {
     text: existing
-      ? `Updated assignment to “${item.lessonPlanTitle}” (${activityCount} activities). Notes were preserved.`
-      : `Assigned “${item.lessonPlanTitle}” (${activityCount} activities) to the week of ${item.weekStartDate}.`,
+      ? `Updated assignment to “${item.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children). Notes were preserved.`
+      : `Assigned “${item.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children) to the week of ${item.weekStartDate}.`,
     isSuccess: true,
   };
   const assignDetail = {
@@ -31386,6 +31399,7 @@ async function assignScheduleLessonPlan({
     lessonPlanId: item.lessonPlanId,
     plan: item.lessonPlanPlan,
     activityCount,
+    childCount: childIds.length,
     replaced: Boolean(existing),
   };
   trackEvent("schedule_assign_lesson", assignDetail);
@@ -31923,6 +31937,7 @@ async function assignCurriculumLessonPlanToWeek({
   ageGroup,
   classroomLabel = "",
   replaceExisting = false,
+  childIds: explicitChildIds = null,
   _skipSchedule = false,
 } = {}) {
   if (!_skipSchedule && getScheduleApi()) {
@@ -31932,6 +31947,7 @@ async function assignCurriculumLessonPlanToWeek({
       ageGroup,
       classroomLabel,
       replaceExisting,
+      childIds: explicitChildIds,
     });
   }
   if (!isLoggedIn() && !hasAdminFullAccess()) {
@@ -31951,11 +31967,18 @@ async function assignCurriculumLessonPlanToWeek({
   const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
   const now = new Date().toISOString();
   const preserved = preserveCurriculumPlannerPrivateFields(existing || {});
+  const allChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []));
+  const childIds = Array.isArray(explicitChildIds)
+    ? explicitChildIds.map(String).filter(Boolean)
+    : (Array.isArray(existing?.childIds) && existing.childIds.length
+      ? existing.childIds.map(String)
+      : allChildren.map((child) => child.id).filter(Boolean));
   let assignment = {
     id: existing?.id || generateCurriculumAssignmentId(),
     weekStartDate: week,
     ageGroup: String(ageGroup || snapshot.age || "Preschool").trim() || "Preschool",
     classroomLabel: String(classroomLabel || "").trim(),
+    childIds,
     lessonPlanId: resource.id,
     lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
     lessonPlanPlan: snapshot.plan,
@@ -31967,6 +31990,7 @@ async function assignCurriculumLessonPlanToWeek({
     createdAt: existing?.createdAt || now,
     updatedAt: now,
     ...preserved,
+    childIds,
   };
   assignment = markCurriculumPlannerObservationActivityLinks(normalizeCurriculumWeekAssignment(assignment));
   upsertCurriculumWeekAssignment(assignment);
@@ -31974,8 +31998,8 @@ async function assignCurriculumLessonPlanToWeek({
   curriculumPlannerAssignResourceId = "";
   curriculumPlannerMessage = {
     text: existing
-      ? `Updated assignment to “${assignment.lessonPlanTitle}” (${activityCount} activities). Teacher notes and observations were preserved.`
-      : `Assigned “${assignment.lessonPlanTitle}” (${activityCount} activities) to the week of ${assignment.weekStartDate}.`,
+      ? `Updated assignment to “${assignment.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children). Teacher notes and observations were preserved.`
+      : `Assigned “${assignment.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children) to the week of ${assignment.weekStartDate}.`,
     isSuccess: true,
   };
   const plannerAssignDetail = {
@@ -31983,6 +32007,7 @@ async function assignCurriculumLessonPlanToWeek({
     lessonPlanId: assignment.lessonPlanId,
     plan: assignment.lessonPlanPlan,
     activityCount,
+    childCount: childIds.length,
     replaced: Boolean(existing),
   };
   trackEvent("curriculum_planner_assign", plannerAssignDetail);
@@ -31999,6 +32024,43 @@ function removeCurriculumWeekAssignment(weekStartDate) {
 
 function setCurriculumPlannerMessage(text, isSuccess = false) {
   curriculumPlannerMessage = { text: String(text || ""), isSuccess: Boolean(isSuccess) };
+}
+
+function curriculumAssignChildPickerHtml(assignment = null) {
+  const children = (typeof getActiveChildren === "function"
+    ? getActiveChildren(childRecords())
+    : (childStore("Profiles") || []))
+    .filter((child) => child?.id);
+  if (!children.length) {
+    return `
+      <div class="curriculum-assign-child-picker">
+        <p class="form-note">No children in this program yet. Assign still works — link children after you add profiles.</p>
+      </div>
+    `;
+  }
+  const selected = new Set(
+    Array.isArray(assignment?.childIds) && assignment.childIds.length
+      ? assignment.childIds.map(String)
+      : children.map((child) => String(child.id)),
+  );
+  return `
+    <fieldset class="curriculum-assign-child-picker">
+      <legend>Link children <span class="muted-copy">(for daily logs &amp; Family Hub)</span></legend>
+      <p class="form-note">Choose who this week’s lesson connects to. Defaults to all active children.</p>
+      <div class="curriculum-assign-child-grid">
+        ${children.map((child) => `
+          <label class="curriculum-assign-child-option">
+            <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${selected.has(String(child.id)) ? "checked" : ""} />
+            <span>${escapeHtml(child.name || "Child")}${child.ageGroup ? ` · ${escapeHtml(child.ageGroup)}` : ""}</span>
+          </label>
+        `).join("")}
+      </div>
+      <div class="form-actions" style="margin-top:6px">
+        <button type="button" class="ghost-button" data-curriculum-child-select-all>Select all</button>
+        <button type="button" class="ghost-button" data-curriculum-child-select-none>Clear</button>
+      </div>
+    </fieldset>
+  `;
 }
 
 function curriculumPlannerAssignableOptionsHtml(selectedId = "") {
@@ -32633,6 +32695,7 @@ function renderCurriculumPlanner() {
               ${curriculumPlannerAssignableOptionsHtml(pendingResourceId)}
             </select>
           </label>
+          ${curriculumAssignChildPickerHtml(assignment)}
           ${assignment ? `
             <p class="form-note">Updating the lesson plan refreshes the snapshot but keeps your teacher notes and observations.</p>
           ` : ""}
@@ -34179,6 +34242,7 @@ async function handleCurriculumPlannerAssignSubmit(form) {
   const ageGroup = String(formData.get("ageGroup") || "Preschool").trim();
   const classroomLabel = String(formData.get("classroomLabel") || "").trim();
   const lessonPlanId = String(formData.get("lessonPlanId") || "").trim();
+  const childIds = formData.getAll("childIds").map((id) => String(id || "").trim()).filter(Boolean);
   const replaceExisting = true; // Form submit always writes the chosen plan for the selected week.
   if (!lessonPlanId) {
     setCurriculumPlannerMessage("Choose a lesson plan to assign.", false);
@@ -34204,6 +34268,7 @@ async function handleCurriculumPlannerAssignSubmit(form) {
       ageGroup,
       classroomLabel,
       replaceExisting,
+      childIds,
     });
   } catch (error) {
     setCurriculumPlannerMessage(error.message || "Could not assign lesson plan.", false);
@@ -46772,7 +46837,15 @@ async function submitFeedbackForm(event) {
     page: context?.page || window.location.hash || window.location.pathname || "app",
     accountType: account.accountType || getAccountType(account),
     role: context?.currentRole || account.role || getUserRole(account),
-    context: context || undefined,
+    context: {
+      ...(context || {}),
+      testingSite: Boolean(
+        context?.testingSite
+        || window.LLH_CONFIG?.homeDaycareHubTesting
+        || document.body?.classList?.contains("hdh-testing")
+        || document.body?.classList?.contains("llh-testing-environment"),
+      ),
+    },
     testedRole: context?.currentRole || undefined,
     screenshotUrl: document.querySelector("#feedbackScreenshotInput")?.value?.trim() || undefined,
     deviceInfo: context
@@ -72468,6 +72541,22 @@ function bindWeeklyPlannerSwipe() {
 }
 bindWeeklyPlannerSwipe();
 
+document.addEventListener("click", (event) => {
+  if (event.target?.matches?.("[data-curriculum-child-select-all]")) {
+    event.preventDefault();
+    const root = event.target.closest("form, .lesson-workspace-action-sheet-panel, .curriculum-assign-child-picker")
+      || document;
+    root.querySelectorAll('input[name="childIds"]').forEach((input) => { input.checked = true; });
+    return;
+  }
+  if (event.target?.matches?.("[data-curriculum-child-select-none]")) {
+    event.preventDefault();
+    const root = event.target.closest("form, .lesson-workspace-action-sheet-panel, .curriculum-assign-child-picker")
+      || document;
+    root.querySelectorAll('input[name="childIds"]').forEach((input) => { input.checked = false; });
+  }
+});
+
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#scheduleEventForm")) return;
   event.preventDefault();
@@ -72483,13 +72572,19 @@ document.addEventListener("submit", async (event) => {
   const resourceId = String(formData.get("resourceId") || "").trim();
   const weekStartDate = String(formData.get("weekStartDate") || "").trim();
   const ageGroup = String(formData.get("ageGroup") || "").trim();
+  const childIds = formData.getAll("childIds").map((id) => String(id || "").trim()).filter(Boolean);
   const intent = String(formData.get("assignIntent") || lessonWorkspaceAssignIntent || "calendar").trim() === "my-week"
     ? "my-week"
     : "calendar";
   if (!resourceId || !weekStartDate) return;
   if (submitButton) submitButton.disabled = true;
   try {
-    const assignment = await addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup });
+    const assignment = await addCurriculumLessonPlanToMainCalendar({
+      resourceId,
+      weekStartDate,
+      ageGroup,
+      childIds: childIds.length ? childIds : null,
+    });
     trackEvent(intent === "my-week" ? "lesson_add_to_my_week" : "lesson_use_this_plan_main_calendar", {
       lessonPlanId: resourceId,
       weekStartDate: assignment.weekStartDate,

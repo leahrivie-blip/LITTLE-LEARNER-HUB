@@ -102,7 +102,33 @@ async function main() {
     const auth = { Authorization: `Bearer ${token}` };
 
     const dash = await requestJson(port, "GET", "/api/admin/testing/dashboard", { headers: auth });
-    record("dashboard", dash.status === 200 && dash.json?.dashboard?.environment === "TESTING", JSON.stringify(dash.json?.dashboard || dash.json || {}).slice(0, 180));
+    record(
+      "dashboard",
+      dash.status === 200
+        && dash.json?.dashboard?.environment === "TESTING"
+        && typeof dash.json?.dashboard?.totalPrograms === "number"
+        && dash.json?.dashboard?.systemHealth,
+      JSON.stringify({
+        env: dash.json?.dashboard?.environment,
+        programs: dash.json?.dashboard?.totalPrograms,
+        health: dash.json?.dashboard?.systemHealth?.status,
+      }),
+    );
+
+    const createProgram = await requestJson(port, "POST", "/api/admin/testing/programs", {
+      headers: auth,
+      body: {
+        programName: "Standalone Center TEST",
+        programType: "center",
+        createSampleData: true,
+        adminEmail: ADMIN_EMAIL,
+      },
+    });
+    record(
+      "create_program",
+      createProgram.status === 200 && createProgram.json?.program?.accountType === "center",
+      createProgram.json?.error || createProgram.json?.program?.name || "",
+    );
 
     const createHome = await requestJson(port, "POST", "/api/admin/testing/testers", {
       headers: auth,
@@ -152,6 +178,14 @@ async function main() {
     const programs = await requestJson(port, "GET", "/api/admin/testing/programs", { headers: auth });
     record("list_programs", programs.status === 200 && (programs.json?.programs || []).length >= 1, `count=${(programs.json?.programs || []).length}`);
 
+    const programId = createProgram.json?.program?.id || (programs.json?.programs || [])[0]?.id || "";
+    const programDetail = await requestJson(port, "GET", `/api/admin/testing/programs/${encodeURIComponent(programId)}`, { headers: auth });
+    record(
+      "program_detail",
+      programDetail.status === 200 && Array.isArray(programDetail.json?.children) && Array.isArray(programDetail.json?.users),
+      `children=${(programDetail.json?.children || []).length} users=${(programDetail.json?.users || []).length}`,
+    );
+
     const email = "home.tester@example.invalid";
     const patch = await requestJson(port, "PATCH", `/api/admin/testing/testers/${encodeURIComponent(email)}`, {
       headers: auth,
@@ -197,6 +231,32 @@ async function main() {
 
     const audit = await requestJson(port, "GET", "/api/admin/testing/audit", { headers: auth });
     record("audit_log", audit.status === 200 && (audit.json?.audit || []).length >= 3, `count=${(audit.json?.audit || []).length}`);
+
+    const feedbackList = await requestJson(port, "GET", "/api/admin/testing/feedback", { headers: auth });
+    record("feedback_inbox", feedbackList.status === 200 && Array.isArray(feedbackList.json?.feedback), `count=${(feedbackList.json?.feedback || []).length}`);
+
+    // Seed one feedback item via public API then update via Owner Admin.
+    const feedbackPost = await requestJson(port, "POST", "/api/feedback", {
+      body: {
+        type: "Bug",
+        name: "Tester",
+        email: "home.tester@example.invalid",
+        subject: "Owner Admin polish check",
+        message: "Phase 2 feedback inbox regression",
+        context: { testingSite: true, page: "testers", currentRole: "Owner" },
+      },
+    });
+    const feedbackId = feedbackPost.json?.feedback?.id || feedbackPost.json?.item?.id || feedbackPost.json?.id || "";
+    record("feedback_submit", feedbackPost.status === 200 || feedbackPost.status === 201, feedbackPost.json?.error || `id=${feedbackId}`);
+    if (feedbackId) {
+      const feedbackPatch = await requestJson(port, "PATCH", `/api/admin/testing/feedback/${encodeURIComponent(feedbackId)}`, {
+        headers: auth,
+        body: { status: "In Progress", adminEmail: ADMIN_EMAIL },
+      });
+      record("feedback_update", feedbackPatch.status === 200 && feedbackPatch.json?.feedback?.status === "In Progress", feedbackPatch.json?.error || "");
+    } else {
+      record("feedback_update", false, "no feedback id returned");
+    }
 
     // Staff write ACL: assistant cannot overwrite Profiles wholesale when scoped.
     const programOwnership = require("../server/program-ownership.js");
