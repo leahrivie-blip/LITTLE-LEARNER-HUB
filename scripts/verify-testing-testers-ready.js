@@ -11,7 +11,7 @@ const path = require("node:path");
 
 const TESTING = "https://little-learner-hub-testing.onrender.com";
 const PRODUCTION = "https://littlelearnershubbyleah.com";
-const EXPECTED_SHELL = "20260808-phase11-testers-go";
+const EXPECTED_SHELL = "20260808-phase11-testers-go2";
 const PROD_SHELL = "20260808-cookie-cta";
 const OUT_DIR = "/opt/cursor/artifacts/phase11-tester-ready";
 const OUT = process.env.LLH_VERIFY_OUT || path.join(OUT_DIR, "tester-ready-verify.json");

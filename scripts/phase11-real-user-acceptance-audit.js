@@ -238,8 +238,16 @@ async function loginAgain(page, email) {
   await openLogin(page);
   await page.fill("#emailInput", email);
   await page.fill("#passwordInput", PASSWORD);
-  await page.locator("#authSubmitButton").click();
-  await page.waitForTimeout(2500);
+  const submit = page.locator("#authSubmitButton");
+  await submit.waitFor({ state: "visible", timeout: 10000 });
+  // Wait until enabled (password sync / prior submit may briefly disable it).
+  await page.waitForFunction(() => {
+    const btn = document.querySelector("#authSubmitButton");
+    return btn && !btn.disabled;
+  }, null, { timeout: 25000 }).catch(() => {});
+  await submit.click({ force: true });
+  await page.waitForFunction((expected) => localStorage.getItem("llhUser") === expected, email, { timeout: 25000 }).catch(() => {});
+  await page.waitForTimeout(800);
   await dismissNoise(page);
   return page.evaluate(() => localStorage.getItem("llhUser"));
 }

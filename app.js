@@ -4119,6 +4119,9 @@ async function finishSignupWithPlan(planChoice) {
     setFormMessage("#authMessage", "Please finish creating your account first.");
     return;
   }
+  // Ensure local signup password reached the server before the auth modal closes
+  // so logout → login works for testers on the HDH testing site.
+  await awaitPendingLocalPasswordSync(20000);
   trackEvent("signup_plan_selected", { email, plan: planChoice, persona: signupPersonaChoice });
   if (planChoice === "free") {
     // founding/monthly selection is tracked centrally inside startCheckout() below
@@ -15614,6 +15617,24 @@ function setAuthMode(mode) {
   }
 }
 
+/** In-flight local signup → server password persistence (Firebase Auth off). */
+let pendingLocalPasswordSync = null;
+
+async function awaitPendingLocalPasswordSync(timeoutMs = 20000) {
+  const pending = pendingLocalPasswordSync;
+  if (!pending) return null;
+  try {
+    await Promise.race([
+      pending,
+      new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(timeoutMs) || 0))),
+    ]);
+  } catch {
+    /* sync helper already logs */
+  }
+  if (pendingLocalPasswordSync === pending) pendingLocalPasswordSync = null;
+  return pending;
+}
+
 async function signUpWithProvider(email, password, phone, firstName, lastName) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
@@ -15651,20 +15672,40 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   // Testing / local (Firebase Auth off): persist the password on the server so
   // logout → login and new-device sign-in work. Without this, password-login 401s
   // and the auth modal can appear stuck on "Signing you in…".
-  // Never block Step 1 → Step 2 on Postgres write latency (can take several seconds).
+  // Do not await here — Step 1 → Step 2 must stay snappy. Login / signup finish
+  // await the same promise via awaitPendingLocalPasswordSync().
   if (!firebaseAuthEnabled) {
-    Promise.resolve(syncPasswordAfterFirebaseAuth(password, "local_signup", cleanEmail)).catch(() => {});
+    const syncPromise = syncPasswordAfterFirebaseAuth(password, "local_signup", cleanEmail)
+      .catch((error) => {
+        console.warn("[auth] local signup password sync error", error);
+        return null;
+      })
+      .finally(() => {
+        if (pendingLocalPasswordSync === syncPromise) pendingLocalPasswordSync = null;
+      });
+    pendingLocalPasswordSync = syncPromise;
   }
   return { email: cleanEmail, verified: false, message: "Welcome! Your account is ready — you can start exploring right away." };
 }
 
 async function loginWithServerPassword(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
-  const response = await fetch("/api/auth/password-login", {
+  // If signup just kicked off a local password sync, wait for it before login.
+  await awaitPendingLocalPasswordSync(20000);
+  let response = await fetch("/api/auth/password-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: cleanEmail, password }),
   });
+  // One short retry covers slow Postgres commits right after signup.
+  if (!response.ok && response.status === 401) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    response = await fetch("/api/auth/password-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail, password }),
+    });
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error || "The email or password did not match. Please try again.");
