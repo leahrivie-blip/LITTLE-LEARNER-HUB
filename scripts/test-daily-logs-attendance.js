@@ -73,6 +73,9 @@ test("app.js includes attendance-first Daily Logs markers", () => {
   assert.match(appJs, /dlc-att-section--compact-empty/);
   assert.match(appJs, /compactEmpty:\s*true/);
   assert.match(appJs, /Not Arrived[\s\S]{0,200}compactEmpty:\s*false/);
+  assert.match(appJs, /skipRender:\s*true/);
+  assert.match(appJs, /dlcScrollPreserveY/);
+  assert.match(appJs, /dailyLogsClassroomFilter/);
 });
 
 test("server child-data keys sync naps/diapers/activities/photos", () => {

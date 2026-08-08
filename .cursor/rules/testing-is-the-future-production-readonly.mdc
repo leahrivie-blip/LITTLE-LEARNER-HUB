@@ -1,0 +1,39 @@
+---
+description: Testing is the future — production read-only until written owner approval
+alwaysApply: true
+---
+
+# Testing is the future / production read-only
+
+Canonical policy: `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md`
+
+## Standing rule
+
+The **testing site** (HDH / `main` testing architecture) is the future of Little Learner Hub.
+
+Build **all** new development, redesigns, bug fixes, curriculum/Teaching Kit work, Family Hub, Forms, Billing (testing), AI, Live→Testing sync, and future features **on testing only**.
+
+**Production is read-only** through all remaining phases until Leah gives **written** approval to deploy.
+
+## Forbidden without written owner approval
+
+- Modify production code directly
+- Delete production data
+- Overwrite production lesson plans or Teaching Kits
+- Publish testing changes to production
+- Point production at testing databases or services
+- Merge unfinished work into production
+- Remove or replace production functionality
+- Deploy / merge / publish any production changes
+
+## Live → Testing Feature Sync
+
+Compare production **read-only** to find gaps. Implement only on testing. Never write back to production.
+
+## Before Final QA
+
+Complete `docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md` confirming production untouched, features moved into testing, nothing accidentally lost, and testing is the complete next version.
+
+## Stop rule
+
+If a change could affect production: **stop** and require written approval in the conversation.

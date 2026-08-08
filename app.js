@@ -551,6 +551,8 @@ let childToolsTab = "attendance";
 let dailyLogsSection = "home";
 let dailyLogsChildTab = "overview";
 let dailyLogsGroupAction = "";
+let dailyLogsClassroomFilter = ""; // Phase 5: optional room filter for owners/directors ("" = all)
+let dlcScrollPreserveY = null; // restore scroll after Daily Logs re-render
 let dlcNewStep = "step1"; // "step1"|"step1-multiple"|"step1-one"|"step2"|"manual"|"ai-input"|"ai-suggestions"
 let dlcChildSelection = "all"; // "all"|"multiple"|"one"
 let dlcSelectedChildIds = []; // array of child IDs selected for this update
@@ -1256,13 +1258,15 @@ function buildFormsLibrary() {
   return Object.entries(formGroups).flatMap(([group, forms]) => forms.map((form, index) => ({
     id: `form-${slug(group)}-${slug(form)}`,
     category: "Forms Library",
+    formGroup: group,
     title: form,
     age: "All Ages",
     plan: index === 0 && freeFormGroups.has(group) ? "Free" : "Pro",
     month: "All Year",
-    tags: [group, "PDF", "Editable", "In-App"],
+    tags: [group, "PDF", "Editable", "In-App", "System template"],
     format: "PDF + Editable",
-    description: `${group} resource with printable and editable sections for childcare providers to customize for their program.`,
+    sourceType: "system",
+    description: `${group} system template — printable and editable. Customize for your program; provider-created templates live under Program form templates.`,
   })));
 }
 
@@ -6754,7 +6758,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","testing-home","testing-testers","testing-programs","testing-flags","testing-viewas","testing-audit","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -6767,6 +6771,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "admin-home", icon: "🏠", label: "Admin Home", tabs: ["admin-home", "admin-notifications"], defaultTab: "admin-home" },
+  { id: "testing", icon: "🧪", label: "Testers", tabs: ["testing-home", "testing-testers", "testing-programs", "testing-flags", "testing-viewas", "testing-audit"], defaultTab: "testing-home" },
   { id: "insights", icon: "🧭", label: "Insights", tabs: ["advisor", "marketing-funnel", "feature-usage", "feature-requests-center", "error-center", "search-analytics", "email-analytics", "seo-dashboard", "churn-dashboard", "content-health", "release-center"], defaultTab: "advisor" },
   { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
@@ -6781,6 +6786,12 @@ const adminGroups = [
 const adminGroupForTab = {
   "admin-home": "admin-home",
   "admin-notifications": "admin-home",
+  "testing-home": "testing",
+  "testing-testers": "testing",
+  "testing-programs": "testing",
+  "testing-flags": "testing",
+  "testing-viewas": "testing",
+  "testing-audit": "testing",
   "advisor": "insights",
   "marketing-funnel": "insights",
   "feature-usage": "insights",
@@ -6862,6 +6873,12 @@ const adminGroupForTab = {
 const adminTabLabels = {
   "admin-home": "Admin Home",
   "admin-notifications": "Alerts Inbox",
+  "testing-home": "Testing Dashboard",
+  "testing-testers": "Testers",
+  "testing-programs": "Test Programs",
+  "testing-flags": "Feature Flags",
+  "testing-viewas": "View As",
+  "testing-audit": "Audit Log",
   "billing-home": "Billing Overview",
   "content-home": "Content Home",
   "website-home": "Website Home",
@@ -6941,7 +6958,7 @@ const adminTabLabels = {
   "usage": "Usage",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
-const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home"]);
+const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "testing-home", "testing-testers", "testing-programs", "testing-flags", "testing-viewas", "testing-audit", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
    Desktop side-nav remains from 1101px up (covers iPad portrait/landscape).
    Desktop can also collapse via #sidebarToggle; preference persists. */
@@ -8463,18 +8480,62 @@ function saveHomeDaycareAiFormDraftToChild() {
 }
 
 function homeDaycarePackDocumentStatusLabel(status = "needed") {
+  // Phase 7: authoritative labels (aliases still display sensibly).
   const statusLabels = {
-    draft: "Draft — review before sharing",
+    draft: "Draft",
     needed: "Needed",
-    assigned: "Assigned",
+    assigned: "Assigned — awaiting completion",
     requested: "Requested from family",
     notified: "Shared — awaiting parent",
+    in_progress: "In progress",
+    viewed: "In progress",
     received: "Received",
+    submitted: "Submitted — provider review",
     signed: "Signed — provider review",
+    completed: "Completed / on file",
     on_file: "On file",
     reviewed: "Reviewed & on file",
+    needs_correction: "Needs correction",
+    declined: "Declined",
+    expired: "Expired",
   };
-  return statusLabels[status] || status;
+  return statusLabels[String(status || "").toLowerCase()] || status;
+}
+
+/** Phase 7: lightweight body hash for signature invalidation (browser-safe). */
+function hashFormBodyClient(text = "") {
+  const input = String(text || "").trim();
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) - hash) + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return `h${Math.abs(hash).toString(16)}-${input.length}`;
+}
+
+function normalizeFormLifecycleStatus(status = "") {
+  const key = String(status || "").trim().toLowerCase();
+  const aliases = {
+    draft: "draft",
+    needed: "assigned",
+    assigned: "assigned",
+    requested: "assigned",
+    notified: "assigned",
+    "action needed": "assigned",
+    viewed: "in_progress",
+    in_progress: "in_progress",
+    "in progress": "in_progress",
+    received: "submitted",
+    submitted: "submitted",
+    signed: "submitted",
+    completed: "completed",
+    on_file: "completed",
+    reviewed: "completed",
+    needs_correction: "needs_correction",
+    declined: "declined",
+    expired: "expired",
+  };
+  return aliases[key] || key.replace(/\s+/g, "_") || "assigned";
 }
 
 function formsProgramTemplates() {
@@ -8488,6 +8549,33 @@ function saveFormsProgramTemplates(templates) {
   return templates;
 }
 
+function formsStaffDocuments() {
+  const settings = getProgramSettings() || {};
+  return Array.isArray(settings.staffFormDocuments) ? settings.staffFormDocuments : [];
+}
+
+function saveFormsStaffDocuments(docs) {
+  const settings = { ...(getProgramSettings() || {}), staffFormDocuments: docs };
+  saveProgramSettings(settings);
+  return docs;
+}
+
+function duplicateFormTemplate(templateId) {
+  const source = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+  if (!source) throw new Error("Template not found.");
+  const copy = {
+    ...source,
+    id: `form-template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    title: `${String(source.title || "Custom form").trim()} (copy)`,
+    sourceType: "provider",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const next = [copy, ...formsProgramTemplates()].slice(0, 80);
+  saveFormsProgramTemplates(next);
+  return copy;
+}
+
 function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
   const text = String(body || "").trim();
   if (!text) throw new Error("Generate or edit a draft before saving a template.");
@@ -8498,12 +8586,90 @@ function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", r
     body: text,
     packFormId: String(packFormId || "").trim(),
     resourceId: String(resourceId || "").trim(),
+    sourceType: "provider",
+    bodyHash: hashFormBodyClient(text),
+    contentVersion: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   const next = [template, ...formsProgramTemplates()].slice(0, 80);
   saveFormsProgramTemplates(next);
   return template;
+}
+
+/**
+ * Phase 7: resolve assign targets → canonical childIds / staff emails.
+ * Modes: children | classroom | household | program | staff
+ */
+function resolveFormAssignmentTargetsClient({
+  mode = "children",
+  childIds = [],
+  classroomId = "",
+  householdIds = [],
+  staffEmails = [],
+  households = [],
+} = {}) {
+  const profiles = (childRecords().children || []).filter((child) => child && !child.archived);
+  const idSet = new Set();
+  const staffSet = new Set();
+  const pushChild = (id) => { const k = String(id || "").trim(); if (k) idSet.add(k); };
+  const pushStaff = (email) => {
+    const k = String(email || "").trim().toLowerCase();
+    if (k.includes("@")) staffSet.add(k);
+  };
+  const key = String(mode || "children").toLowerCase();
+  if (key === "staff") {
+    (Array.isArray(staffEmails) ? staffEmails : []).forEach(pushStaff);
+    return { childIds: [], staffEmails: [...staffSet] };
+  }
+  if (key === "program") {
+    profiles.forEach((p) => pushChild(p.id));
+    return { childIds: [...idSet], staffEmails: [] };
+  }
+  if (key === "classroom") {
+    const room = String(classroomId || "").trim();
+    profiles.filter((p) => String(p.classroomId || "") === room).forEach((p) => pushChild(p.id));
+    return { childIds: [...idSet], staffEmails: [] };
+  }
+  if (key === "household" || key === "families" || key === "family") {
+    const wanted = new Set((Array.isArray(householdIds) ? householdIds : []).map(String));
+    (Array.isArray(households) ? households : []).forEach((hh) => {
+      if (wanted.size && !wanted.has(String(hh.id || ""))) return;
+      const ids = Array.isArray(hh.childIds) && hh.childIds.length
+        ? hh.childIds
+        : (Array.isArray(hh.children) ? hh.children.map((c) => c?.id) : []);
+      ids.forEach(pushChild);
+    });
+    return { childIds: [...idSet], staffEmails: [] };
+  }
+  (Array.isArray(childIds) ? childIds : []).forEach(pushChild);
+  return { childIds: [...idSet], staffEmails: [] };
+}
+
+function listProgramStaffForForms() {
+  const account = currentAccount() || {};
+  const users = [];
+  const selfEmail = String(account.email || "").trim().toLowerCase();
+  if (selfEmail) {
+    users.push({
+      email: selfEmail,
+      name: account.name || account.displayName || selfEmail.split("@")[0] || "Owner",
+      role: account.role || "owner",
+    });
+  }
+  const members = Array.isArray(account.programMembers)
+    ? account.programMembers
+    : (Array.isArray(getProgramSettings()?.staffMembers) ? getProgramSettings().staffMembers : []);
+  members.forEach((member) => {
+    const email = String(member?.email || "").trim().toLowerCase();
+    if (!email || users.some((u) => u.email === email)) return;
+    users.push({
+      email,
+      name: member.name || email.split("@")[0],
+      role: member.role || "staff",
+    });
+  });
+  return users;
 }
 
 function formsAttentionDocuments(records = childRecords()) {
@@ -8513,20 +8679,55 @@ function formsAttentionDocuments(records = childRecords()) {
     children.filter((child) => child && !child.archived).map((child) => String(child.id)),
   );
   const nameFor = (id) => children.find((child) => String(child.id) === String(id))?.name || "Child";
-  return docs
+  const today = new Date().toISOString().slice(0, 10);
+  const childAttention = docs
     .filter((doc) => !doc.archived && activeChildIds.has(String(doc.childId || "")))
     .map((doc) => {
-      const status = String(doc.status || "").toLowerCase();
-      const signedNeedsReview = (status === "signed" || Boolean(doc.signedAt)) && !doc.providerReviewed;
-      const awaitingParent = doc.shareWithFamily && ["needed", "requested", "notified", "assigned", "action needed", "draft"].includes(status) && !doc.signedAt;
-      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < new Date().toISOString().slice(0, 10) && !doc.signedAt && !doc.providerReviewed;
+      const lifecycle = normalizeFormLifecycleStatus(doc.status);
+      const signedNeedsReview = (lifecycle === "submitted" || Boolean(doc.signedAt)) && !doc.providerReviewed;
+      const awaitingParent = doc.shareWithFamily
+        && ["draft", "assigned", "in_progress", "needs_correction"].includes(lifecycle)
+        && !doc.signedAt;
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < today && !doc.signedAt && !doc.providerReviewed
+        && lifecycle !== "completed" && lifecycle !== "declined";
       let attention = "";
       if (signedNeedsReview) attention = "signed_review";
       else if (overdue) attention = "overdue";
+      else if (lifecycle === "needs_correction") attention = "needs_correction";
       else if (awaitingParent) attention = "awaiting_parent";
-      return attention ? { ...doc, childName: nameFor(doc.childId), attention } : null;
+      return attention ? {
+        ...doc,
+        childName: nameFor(doc.childId),
+        assigneeLabel: nameFor(doc.childId),
+        assigneeType: "child",
+        attention,
+      } : null;
     })
-    .filter(Boolean)
+    .filter(Boolean);
+
+  const staffAttention = formsStaffDocuments()
+    .filter((doc) => !doc.archived)
+    .map((doc) => {
+      const lifecycle = normalizeFormLifecycleStatus(doc.status);
+      const signedNeedsReview = (lifecycle === "submitted" || Boolean(doc.signedAt)) && !doc.providerReviewed;
+      const awaiting = ["draft", "assigned", "in_progress", "needs_correction"].includes(lifecycle) && !doc.signedAt;
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < today && !doc.signedAt && !doc.providerReviewed;
+      let attention = "";
+      if (signedNeedsReview) attention = "signed_review";
+      else if (overdue) attention = "overdue";
+      else if (awaiting) attention = "awaiting_parent";
+      return attention ? {
+        ...doc,
+        childName: "",
+        childId: "",
+        assigneeLabel: doc.assigneeEmail || "Staff",
+        assigneeType: "staff",
+        attention,
+      } : null;
+    })
+    .filter(Boolean);
+
+  return [...childAttention, ...staffAttention]
     .sort((a, b) => String(b.updatedAt || b.signedAt || "").localeCompare(String(a.updatedAt || a.signedAt || "")));
 }
 
@@ -8536,13 +8737,19 @@ function formsStatusSummary(records = childRecords()) {
   const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
   const activeChildIds = new Set(children.filter((child) => child && !child.archived).map((child) => String(child.id)));
   const live = docs.filter((doc) => activeChildIds.has(String(doc.childId || "")));
+  const staffDocs = formsStaffDocuments().filter((doc) => !doc.archived);
   const attention = formsAttentionDocuments(records);
+  const allLive = [...live, ...staffDocs];
   return {
-    pending: attention.filter((item) => item.attention === "awaiting_parent").length,
+    pending: attention.filter((item) => item.attention === "awaiting_parent" || item.attention === "needs_correction").length,
     overdue: attention.filter((item) => item.attention === "overdue").length,
     needsReview: attention.filter((item) => item.attention === "signed_review").length,
-    complete: live.filter((doc) => doc.providerReviewed || ["on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())).length,
-    total: live.length,
+    complete: allLive.filter((doc) => {
+      const n = normalizeFormLifecycleStatus(doc.status);
+      return doc.providerReviewed || n === "completed";
+    }).length,
+    assigned: allLive.filter((doc) => normalizeFormLifecycleStatus(doc.status) === "assigned").length,
+    total: allLive.length,
   };
 }
 
@@ -8553,7 +8760,8 @@ function childHasOpenAssignedForm(childId, formSpec = {}) {
   const title = String(formSpec.title || "").trim().toLowerCase();
   return docs.find((doc) => {
     if (String(doc.childId) !== String(childId) || doc.archived) return false;
-    if (doc.signedAt || doc.providerReviewed || ["signed", "on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())) {
+    const lifecycle = normalizeFormLifecycleStatus(doc.status);
+    if (doc.signedAt || doc.providerReviewed || ["submitted", "completed"].includes(lifecycle)) {
       return false;
     }
     if (templateId && String(doc.templateId || "") === templateId) return true;
@@ -8566,35 +8774,53 @@ function childHasOpenAssignedForm(childId, formSpec = {}) {
 function assignFormDocumentToChild(childId, formSpec = {}) {
   if (!childId) throw new Error("Choose a child before assigning a form.");
   const existing = childHasOpenAssignedForm(childId, formSpec);
+  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
+  const bodyHash = hashFormBodyClient(draftText || String(existing?.draftText || ""));
   if (existing && formSpec.allowDuplicate !== true) {
-    // Refresh due date / share flags on the open assignment instead of duplicating.
     const docs = childStore("Documents") || [];
     const dueDate = String(formSpec.dueDate || existing.dueDate || "").trim();
     const shareWithFamily = formSpec.shareWithFamily !== false;
     const status = shareWithFamily ? "notified" : (existing.status || "assigned");
-    const next = docs.map((item) => (
-      String(item.id) === String(existing.id)
-        ? {
-          ...item,
-          dueDate,
-          shareWithFamily,
-          status,
-          statusLabel: homeDaycarePackDocumentStatusLabel(status),
-          draftText: String(formSpec.draftText || formSpec.body || item.draftText || "").trim() || item.draftText,
-          updatedAt: new Date().toISOString(),
-          duplicateAssignSkipped: true,
-        }
-        : item
-    ));
+    const nextBody = draftText || existing.draftText || "";
+    const materialChange = existing.signedAt
+      && existing.bodyHash
+      && hashFormBodyClient(nextBody) !== String(existing.bodyHash);
+    const next = docs.map((item) => {
+      if (String(item.id) !== String(existing.id)) return item;
+      const patched = {
+        ...item,
+        dueDate,
+        shareWithFamily,
+        status: materialChange ? "needs_correction" : status,
+        statusLabel: homeDaycarePackDocumentStatusLabel(materialChange ? "needs_correction" : status),
+        draftText: nextBody || item.draftText,
+        bodyHash: hashFormBodyClient(nextBody || item.draftText || ""),
+        contentVersion: Number(item.contentVersion || 1) + (materialChange ? 1 : 0),
+        updatedAt: new Date().toISOString(),
+        lastNotifiedAt: shareWithFamily ? new Date().toISOString() : item.lastNotifiedAt,
+        duplicateAssignSkipped: true,
+        assigneeType: "child",
+      };
+      if (materialChange) {
+        patched.signedAt = "";
+        patched.signedBy = "";
+        patched.signedRole = "";
+        patched.signedSnapshot = "";
+        patched.signedBodyHash = "";
+        patched.providerReviewed = false;
+        patched.signatureInvalidatedReason = "Form content changed after signature — re-sign required.";
+      }
+      return patched;
+    });
     saveChildStore("Documents", next);
     return next.find((item) => String(item.id) === String(existing.id));
   }
   const title = String(formSpec.title || "Form").trim() || "Form";
   const category = String(formSpec.category || "Other").trim() || "Other";
-  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
   const dueDate = String(formSpec.dueDate || "").trim();
   const shareWithFamily = formSpec.shareWithFamily !== false;
   const status = shareWithFamily ? "notified" : "assigned";
+  const now = new Date().toISOString();
   const saved = appendChildRecord("Documents", {
     childId,
     title,
@@ -8606,13 +8832,79 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     statusLabel: homeDaycarePackDocumentStatusLabel(status),
     notes: String(formSpec.notes || "").trim(),
     draftText,
+    bodyHash,
+    contentVersion: 1,
     dueDate,
     shareWithFamily,
-    date: new Date().toISOString().slice(0, 10),
-    updatedAt: new Date().toISOString(),
+    date: now.slice(0, 10),
+    assignedAt: now,
+    updatedAt: now,
+    lastNotifiedAt: shareWithFamily ? now : "",
     providerReviewed: false,
+    assigneeType: "child",
+    requiresSignature: formSpec.requiresSignature !== false,
   });
   return saved;
+}
+
+function assignFormDocumentToStaff(assigneeEmail, formSpec = {}) {
+  const email = String(assigneeEmail || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) throw new Error("Choose a staff member.");
+  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
+  const bodyHash = hashFormBodyClient(draftText);
+  const title = String(formSpec.title || "Staff form").trim() || "Staff form";
+  const existing = formsStaffDocuments().find((doc) => (
+    !doc.archived
+    && String(doc.assigneeEmail || "").toLowerCase() === email
+    && !doc.signedAt
+    && normalizeFormLifecycleStatus(doc.status) !== "completed"
+    && (
+      (formSpec.templateId && String(doc.templateId || "") === String(formSpec.templateId))
+      || String(doc.title || "").toLowerCase() === title.toLowerCase()
+    )
+  ));
+  const now = new Date().toISOString();
+  if (existing && formSpec.allowDuplicate !== true) {
+    const next = formsStaffDocuments().map((doc) => (
+      String(doc.id) === String(existing.id)
+        ? {
+          ...doc,
+          dueDate: String(formSpec.dueDate || doc.dueDate || "").trim(),
+          draftText: draftText || doc.draftText,
+          bodyHash: hashFormBodyClient(draftText || doc.draftText || ""),
+          status: "assigned",
+          statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
+          updatedAt: now,
+          lastNotifiedAt: now,
+        }
+        : doc
+    ));
+    saveFormsStaffDocuments(next);
+    return next.find((doc) => String(doc.id) === String(existing.id));
+  }
+  const doc = {
+    id: `staff-form-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    assigneeType: "staff",
+    assigneeEmail: email,
+    title,
+    category: String(formSpec.category || "Staff").trim() || "Staff",
+    templateId: formSpec.templateId || "",
+    packFormId: formSpec.packFormId || "",
+    resourceId: formSpec.resourceId || "",
+    status: "assigned",
+    statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
+    draftText,
+    bodyHash,
+    contentVersion: 1,
+    dueDate: String(formSpec.dueDate || "").trim(),
+    assignedAt: now,
+    updatedAt: now,
+    providerReviewed: false,
+    requiresSignature: formSpec.requiresSignature !== false,
+    notes: String(formSpec.notes || "").trim(),
+  };
+  saveFormsStaffDocuments([doc, ...formsStaffDocuments()].slice(0, 200));
+  return doc;
 }
 
 async function assignAndNotifyForm(formSpec = {}, childIds = []) {
@@ -8633,6 +8925,29 @@ async function assignAndNotifyForm(formSpec = {}, childIds = []) {
   return saved;
 }
 
+/**
+ * Phase 7 unified assign: children / classroom / household / program / staff.
+ * Always resolves to canonical IDs — never copies roster records into Forms.
+ */
+async function assignFormByTarget(formSpec = {}, target = {}) {
+  const households = Array.isArray(target.households) ? target.households : (window.__llhFamilyHouseholdsCache || []);
+  const resolved = resolveFormAssignmentTargetsClient({
+    mode: target.mode || "children",
+    childIds: target.childIds || [],
+    classroomId: target.classroomId || "",
+    householdIds: target.householdIds || [],
+    staffEmails: target.staffEmails || [],
+    households,
+  });
+  if ((target.mode || "children") === "staff") {
+    if (!resolved.staffEmails.length) throw new Error("Select at least one staff member.");
+    const saved = resolved.staffEmails.map((email) => assignFormDocumentToStaff(email, formSpec));
+    saved.refreshedCount = 0;
+    return saved;
+  }
+  return assignAndNotifyForm(formSpec, resolved.childIds);
+}
+
 function markChildDocumentReviewed(documentId) {
   const docs = childStore("Documents") || [];
   const next = docs.map((item) => (
@@ -8640,9 +8955,10 @@ function markChildDocumentReviewed(documentId) {
       ? {
         ...item,
         providerReviewed: true,
-        status: "on_file",
-        statusLabel: homeDaycarePackDocumentStatusLabel("on_file"),
+        status: "completed",
+        statusLabel: homeDaycarePackDocumentStatusLabel("completed"),
         reviewedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
       : item
@@ -8659,11 +8975,168 @@ function printChildDocumentRecord(documentId) {
   const banner = [
     doc.signedAt ? `SIGNED in Family Hub on ${String(doc.signedAt).slice(0, 10)}` : "DRAFT / UNSIGNED",
     doc.signedBy ? `Signer: ${doc.signedBy}` : "",
+    doc.signedRole ? `Role: ${doc.signedRole}` : "",
+    doc.contentVersionSigned || doc.contentVersion ? `Form version: ${doc.contentVersionSigned || doc.contentVersion}` : "",
     child?.name ? `Child: ${child.name}` : "",
     doc.dueDate ? `Due: ${doc.dueDate}` : "",
     "Testing acknowledgment — not a legal e-signature.",
   ].filter(Boolean).join("\n");
   printTextDocument(doc.title || "Form", `${banner}\n\n---\n\n${body}`);
+}
+
+
+let tuitionBillingCache = { loadedAt: 0, dashboard: null, rates: [], invoices: [] };
+
+async function refreshTuitionBillingDashboard() {
+  if (!isHomeDaycareHubTestingEnabled() || !canUseLaunchBackend()) {
+    tuitionBillingCache = { loadedAt: Date.now(), dashboard: null, rates: [], invoices: [], localOnly: true };
+    return tuitionBillingCache;
+  }
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Sign in to manage tuition billing.");
+  const [dashRes, invRes] = await Promise.all([
+    fetch("/api/tuition/dashboard", { headers, cache: "no-store" }),
+    fetch("/api/tuition/invoices", { headers, cache: "no-store" }),
+  ]);
+  const dash = await dashRes.json().catch(() => ({}));
+  const inv = await invRes.json().catch(() => ({}));
+  if (!dashRes.ok) throw new Error(dash.error || "Could not load tuition dashboard.");
+  tuitionBillingCache = {
+    loadedAt: Date.now(),
+    dashboard: dash.dashboard || null,
+    rates: Array.isArray(dash.rates) ? dash.rates : [],
+    invoices: Array.isArray(inv.invoices) ? inv.invoices : [],
+    testingOnly: true,
+    realChargesEnabled: false,
+  };
+  return tuitionBillingCache;
+}
+
+function renderTuitionBillingPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const households = (typeof familyHubHouseholdCache !== "undefined" && familyHubHouseholdCache.households) || [];
+  const children = (childRecords().children || []).filter((c) => c && !c.archived);
+  const dash = tuitionBillingCache.dashboard;
+  const totals = dash?.totals || {};
+  const owing = Array.isArray(dash?.householdsOwing) ? dash.householdsOwing : [];
+  const invoices = Array.isArray(tuitionBillingCache.invoices) ? tuitionBillingCache.invoices : [];
+  const rates = Array.isArray(tuitionBillingCache.rates) ? tuitionBillingCache.rates : [];
+  return `
+    <section class="section-block" id="hdhTuitionBillingPanel" data-tuition-billing-panel="true" data-tuition-mobile-ready="true">
+      <p class="eyebrow">Tuition billing (testing)</p>
+      <h3>Family tuition &amp; balances</h3>
+      <p class="muted-copy">Provider → family childcare tuition — separate from Little Learner Hub subscription billing. Simulated payments only; no real charges.</p>
+      <div class="forms-status-summary" role="status" aria-label="Tuition summary">
+        <span class="hdh-form-status-chip is-pending"><strong>${escapeHtml(totals.amountDueLabel || "$0.00")}</strong> due</span>
+        <span class="hdh-form-status-chip is-overdue"><strong>${escapeHtml(totals.overdueLabel || "$0.00")}</strong> overdue</span>
+        <span class="hdh-form-status-chip is-review"><strong>${Number(totals.unpaidCount || 0) + Number(totals.partiallyPaidCount || 0)}</strong> unpaid</span>
+        <span class="hdh-form-status-chip is-complete"><strong>${Number(totals.paidCount || 0)}</strong> paid</span>
+      </div>
+      <div class="account-actions-row" style="margin-bottom:12px;">
+        <button class="ghost-button" type="button" data-tuition-refresh>Refresh</button>
+      </div>
+      <form id="tuitionRateForm" class="panel-form" data-tuition-rate-form>
+        <p class="eyebrow">Child tuition rate</p>
+        <div class="form-grid-two">
+          <label>Child
+            <select name="childId" required>
+              ${children.map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("") || '<option value="">Add a child first</option>'}
+            </select>
+          </label>
+          <label>Schedule
+            <select name="schedule">
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label>Amount (USD)
+            <input name="amount" type="number" min="0" step="0.01" required placeholder="250.00" />
+          </label>
+          <label>Label (optional)
+            <input name="label" maxlength="80" placeholder="Full-time toddler tuition" />
+          </label>
+        </div>
+        <button class="primary-button" type="submit">Save rate</button>
+        <span class="form-message" id="tuitionRateMessage" aria-live="polite"></span>
+      </form>
+      <form id="tuitionInvoiceForm" class="panel-form" data-tuition-invoice-form style="margin-top:16px;">
+        <p class="eyebrow">Create invoice</p>
+        <div class="form-grid-two">
+          <label>Household
+            <select name="householdId" required>
+              ${households.map((h) => `<option value="${escapeHtml(h.id)}">${escapeHtml(h.label || h.email || h.id)}</option>`).join("") || '<option value="">Invite a Family Hub household first</option>'}
+            </select>
+          </label>
+          <label>Due date
+            <input type="date" name="dueDate" required />
+          </label>
+          <label>Charge type
+            <select name="lineType">
+              <option value="tuition_weekly">Weekly tuition</option>
+              <option value="tuition_monthly">Monthly tuition</option>
+              <option value="tuition_custom">Custom tuition</option>
+              <option value="registration_fee">Registration / enrollment fee</option>
+              <option value="one_time">One-time charge</option>
+              <option value="adjustment">Adjustment</option>
+            </select>
+          </label>
+          <label>Amount (USD)
+            <input name="amount" type="number" min="0" step="0.01" required placeholder="250.00" />
+          </label>
+          <label>Discount (optional)
+            <input name="discount" type="number" min="0" step="0.01" placeholder="0.00" />
+          </label>
+          <label>Credit (optional)
+            <input name="credit" type="number" min="0" step="0.01" placeholder="0.00" />
+          </label>
+        </div>
+        <label>Description
+          <input name="description" maxlength="200" placeholder="Week of care / registration fee…" />
+        </label>
+        <label>Notes
+          <textarea name="notes" rows="2" maxlength="800" placeholder="Optional note for the family…"></textarea>
+        </label>
+        <button class="primary-button" type="submit">Issue invoice</button>
+        <span class="form-message" id="tuitionInvoiceMessage" aria-live="polite"></span>
+      </form>
+      ${owing.length ? `
+        <h4 style="margin-top:18px;">Who owes money</h4>
+        <div class="resource-list compact">${owing.slice(0, 12).map((row) => `
+          <article class="resource-row">
+            <div>
+              <strong>${escapeHtml(row.label || row.householdId)}</strong>
+              <p class="muted-copy">Due ${escapeHtml((row.amountDueCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" }))}${row.overdueCents ? ` · overdue ${escapeHtml((row.overdueCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" }))}` : ""}</p>
+            </div>
+          </article>`).join("")}</div>
+      ` : `<p class="muted-copy" style="margin-top:14px;">No open family balances yet.</p>`}
+      ${rates.length ? `
+        <h4 style="margin-top:18px;">Active rates</h4>
+        <ul class="fh-today-list">${rates.slice(0, 12).map((rate) => {
+          const child = children.find((c) => String(c.id) === String(rate.childId));
+          return `<li><strong>${escapeHtml(child?.name || rate.childId)}</strong><span>${escapeHtml(rate.schedule)} · ${escapeHtml((rate.amountCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" }))}</span></li>`;
+        }).join("")}</ul>
+      ` : ""}
+      ${invoices.length ? `
+        <h4 style="margin-top:18px;">Recent invoices</h4>
+        <div class="resource-list compact">${invoices.slice(0, 16).map((inv) => `
+          <article class="resource-row">
+            <div>
+              <strong>${escapeHtml(inv.amountDueLabel || inv.totalLabel)} · ${escapeHtml(inv.statusLabel)}</strong>
+              <p class="muted-copy">Due ${escapeHtml(inv.dueDate || "—")} · paid ${escapeHtml(inv.amountPaidLabel || "$0")} · balance ${escapeHtml(inv.balanceLabel || "$0")}</p>
+            </div>
+            <div class="hdh-forms-pack-actions">
+              ${["open", "partially_paid", "overdue"].includes(inv.status) ? `
+                <button class="primary-button" type="button" data-tuition-record-payment="${escapeHtml(inv.id)}" data-tuition-balance="${escapeHtml(String(inv.balanceCents || 0))}">Record payment</button>
+                <button class="ghost-button" type="button" data-tuition-record-partial="${escapeHtml(inv.id)}" data-tuition-balance="${escapeHtml(String(inv.balanceCents || 0))}">Partial</button>
+              ` : ""}
+              ${inv.status !== "void" && inv.amountPaidCents === 0 ? `<button class="ghost-button" type="button" data-tuition-void="${escapeHtml(inv.id)}">Void</button>` : ""}
+            </div>
+          </article>`).join("")}</div>
+      ` : ""}
+      <p class="form-note" style="margin-top:12px;">Architecture ready for a future payment processor — testing uses simulated/manual states only.</p>
+    </section>
+  `;
 }
 
 function renderFormsAttentionPanel() {
@@ -8679,7 +9152,8 @@ function renderFormsAttentionPanel() {
       <h3>Forms needing attention</h3>
       <p class="muted-copy">Signed forms ready for your review, shared forms waiting on parents, and anything past due — all from one place.</p>
       <div class="forms-status-summary" role="status" aria-label="Forms status summary">
-        <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> pending</span>
+        <span class="hdh-form-status-chip is-pending"><strong>${summary.assigned || 0}</strong> assigned</span>
+        <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> awaiting</span>
         <span class="hdh-form-status-chip is-overdue"><strong>${summary.overdue}</strong> overdue</span>
         <span class="hdh-form-status-chip is-review"><strong>${summary.needsReview}</strong> to review</span>
         <span class="hdh-form-status-chip is-complete"><strong>${summary.complete}</strong> complete</span>
@@ -8699,7 +9173,7 @@ function renderFormsAttentionPanel() {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.childName)} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}${item.signedRole ? ` (${escapeHtml(item.signedRole)})` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 <button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>
@@ -8713,7 +9187,7 @@ function renderFormsAttentionPanel() {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.childName)} · due ${escapeHtml(item.dueDate || "")}</p>
+                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · due ${escapeHtml(item.dueDate || "")}</p>
               </div>
               <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Remind family</button>
             </article>`).join("")}</div>` : ""}
@@ -8723,7 +9197,7 @@ function renderFormsAttentionPanel() {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.childName)} · ${escapeHtml(item.statusLabel || item.status || "Shared")}</p>
+                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · ${escapeHtml(item.statusLabel || item.status || "Shared")}${item.assignedAt ? ` · assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}</p>
               </div>
               <button class="ghost-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Notify again</button>
             </article>`).join("")}</div>` : ""}
@@ -8746,10 +9220,11 @@ function renderProgramFormTemplatesPanel() {
           <article class="hdh-forms-pack-item">
             <div>
               <strong>${escapeHtml(template.title)}</strong>
-              <p class="muted-copy">${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
+              <p class="muted-copy"><span class="hdh-form-source-badge">Provider template</span> · ${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
             </div>
             <div class="hdh-forms-pack-actions">
               <button class="ghost-button" type="button" data-edit-form-template="${escapeHtml(template.id)}">Edit</button>
+              <button class="ghost-button" type="button" data-duplicate-form-template="${escapeHtml(template.id)}">Duplicate</button>
               <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(template.id)}">Print</button>
               <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Assign</button>
               <button class="ghost-button" type="button" data-delete-form-template="${escapeHtml(template.id)}">Remove</button>
@@ -8769,8 +9244,17 @@ function renderProgramFormTemplatesPanel() {
             </form>
             <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
               <label>Due date (optional)<input type="date" name="dueDate" /></label>
-              <fieldset class="hdh-child-pick-fieldset">
-                <legend>Assign to children</legend>
+              <label>Assign to
+                <select name="assignMode" data-assign-mode-select>
+                  <option value="children">Selected children</option>
+                  <option value="classroom">Classroom</option>
+                  <option value="household">Family household(s)</option>
+                  <option value="program">Entire program</option>
+                  <option value="staff">Staff member(s)</option>
+                </select>
+              </label>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="children">
+                <legend>Children (canonical Profiles)</legend>
                 <div class="hdh-child-pick-grid">
                   ${children.map((child) => `
                     <label class="area-check">
@@ -8780,7 +9264,35 @@ function renderProgramFormTemplatesPanel() {
                   `).join("") || '<p class="muted-copy">Add a child first.</p>'}
                 </div>
               </fieldset>
-              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub</label>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="classroom" hidden>
+                <legend>Classroom</legend>
+                <label>Classroom id
+                  <select name="classroomId">
+                    ${[...new Set(children.map((c) => String(c.classroomId || "").trim()).filter(Boolean))]
+                      .map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join("")
+                      || '<option value="">No classrooms on Profiles yet</option>'}
+                  </select>
+                </label>
+              </fieldset>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="household" hidden>
+                <legend>Households (Family Hub childIds)</legend>
+                <div class="hdh-child-pick-grid" data-assign-household-list>
+                  <p class="muted-copy">Open Family Hub households once so they can be selected here, or use Entire program.</p>
+                </div>
+              </fieldset>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="staff" hidden>
+                <legend>Staff (canonical users)</legend>
+                <div class="hdh-child-pick-grid">
+                  ${listProgramStaffForForms().map((staff) => `
+                    <label class="area-check">
+                      <input type="checkbox" name="staffEmails" value="${escapeHtml(staff.email)}" />
+                      <span>${escapeHtml(staff.name)} · ${escapeHtml(staff.role)}</span>
+                    </label>
+                  `).join("") || '<p class="muted-copy">No staff emails available.</p>'}
+                </div>
+              </fieldset>
+              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub (child/family assigns)</label>
+              <label class="settings-check-label"><input type="checkbox" name="requiresSignature" value="true" checked /> Signature required</label>
               <button class="primary-button" type="submit">Assign &amp; notify</button>
             </form>
           </article>
@@ -8854,13 +9366,21 @@ async function maybeLinkChildToFamilyHubHouseholds(child = {}) {
   let linked = 0;
   for (const household of targets) {
     const nextChildren = [
-      ...((household.children || []).map((item) => ({ id: item.id, name: item.name }))),
-      { id: child.id, name: child.name },
+      ...((household.childIds || []).map((id) => ({ id: String(id) }))),
+      { id: child.id },
     ];
+    // Dedupe by id — Family Hub membership is childIds, not a name roster.
+    const seen = new Set();
+    const children = nextChildren.filter((item) => {
+      const id = String(item.id || "");
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
     const response = await fetch(`/api/family-hub/households/${encodeURIComponent(household.id)}/children`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ children: nextChildren }),
+      body: JSON.stringify({ children }),
       cache: "no-store",
     });
     if (response.ok) linked += 1;
@@ -14669,15 +15189,19 @@ function roleAllowsCapability(role, capability) {
     case "settings":
       return true;
     case "forms":
+      // Teachers assign/review parent forms in the classroom; owners/directors manage library.
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR || r === USER_ROLES.TEACHER;
     case "staff_management":
     case "permissions":
       return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
     case "billing":
       return r === USER_ROLES.OWNER;
     case "classrooms":
-    case "families":
     case "enrollment":
       return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
+    case "families":
+      // Teachers need Families hub (Family Hub + family messages); assistants use Family Hub messages path.
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR || r === USER_ROLES.TEACHER;
     default:
       return false;
   }
@@ -15764,7 +16288,7 @@ function renderOwnerHomeDashboard() {
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
           ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
-          ${workHubTile({ view: "families", title: "Families", detail: "Messages & Family Hub" })}
+          ${workHubTile({ view: "families", title: "Families", detail: "Family Hub & family messages" })}
         </div>
       </section>
 
@@ -15833,7 +16357,7 @@ function renderTeacherTodayPage() {
         <div class="work-hub-grid">
           ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
-          ${workHubTile({ view: role === "assistant" ? "messages" : "families", title: "Quick Message", detail: "Parent update" })}
+          ${workHubTile({ view: role === "assistant" ? "home-daycare-hub" : "families", title: "Quick Message", detail: role === "assistant" ? "Family Hub parent thread" : "Family Hub / families" })}
           ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
         </div>
       </section>
@@ -15857,7 +16381,7 @@ function renderClassroomHubPage() {
     title: "Classroom",
     subtitle: role === "teacher" || role === "assistant"
       ? "Where teachers spend the day — care logs, lessons, and today's schedule."
-      : "Everything used during the care day. Teachers live here; business stays in Business.",
+      : "Care-day tools live here. Curriculum is also in the sidebar; Management stays separate.",
     body: `
       <section class="work-hub-section">
         <h3>Daily care</h3>
@@ -15867,12 +16391,12 @@ function renderClassroomHubPage() {
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Teaching</h3>
+        <h3>Curriculum</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign" })}
-          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign", primary: true })}
+          ${workHubTile({ view: "activities", title: "Activity Center", detail: "Activities library" })}
           ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule & events" })}
-          ${workHubTile({ view: "ai", title: "AI Classroom Assistant", detail: "Documentation helpers" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
           ${role === "owner" || role === "director" ? workHubTile({ view: "classrooms", title: "Room setup", detail: "Manage classrooms" }) : ""}
         </div>
       </section>
@@ -15894,20 +16418,20 @@ function renderFamiliesHubPage() {
   if (!section) return;
   const role = workModeRole();
   if (role === "assistant") {
-    setView("messages");
+    setView("home-daycare-hub");
     return;
   }
   const canManage = role === "owner" || role === "director";
   section.innerHTML = workHubShell({
     eyebrow: "Families",
     title: "Families",
-    subtitle: "Everything parent-related lives here — communication, Family Hub, forms, and pickup changes.",
+    subtitle: "Parent communication, Family Hub, forms, and pickup changes — separate from Message Support to Leah.",
     body: `
       <section class="work-hub-section">
-        <h3>Family Hub & messages</h3>
+        <h3>Family Hub & family messages</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
-          ${workHubTile({ view: "messages", title: "Messages", detail: "Provider inbox & parent threads" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family messages", detail: "Parent threads in Family Hub", attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
           ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
         </div>
@@ -15915,8 +16439,8 @@ function renderFamiliesHubPage() {
       <section class="work-hub-section">
         <h3>Forms & requests</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "forms", title: "Forms", detail: "Assign & review parent forms" })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Primary forms library — assign & review", primary: true })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Forms packs & requests", detail: "Packets, absences, pickups (Family Hub)" })}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
@@ -15932,6 +16456,18 @@ function renderFamiliesHubPage() {
   });
 }
 
+function isHomeDaycareWorkAccount() {
+  try {
+    const account = typeof currentAccount === "function" ? currentAccount() : null;
+    const type = typeof getAccountType === "function"
+      ? getAccountType(account)
+      : String(account?.accountType || "");
+    return type === "home_daycare" || type === "single_provider" || !type;
+  } catch (_error) {
+    return true;
+  }
+}
+
 function renderBusinessHubPage() {
   const section = document.querySelector("#view-business");
   if (!section) return;
@@ -15942,38 +16478,50 @@ function renderBusinessHubPage() {
   }
   const showBilling = role === "owner" && canAccessPlatformFeature("billing");
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  const homeDaycare = isHomeDaycareWorkAccount();
   section.innerHTML = workHubShell({
-    eyebrow: "Business",
-    title: "Business",
+    eyebrow: "Management",
+    title: "Management",
     subtitle: role === "director"
       ? "Director tools for running the program. Billing stays with the owner."
-      : "Owner tools — staff, enrollment, billing, licensing, and testing.",
+      : (homeDaycare
+        ? "Owner tools for your home program — enrollment, settings, and billing. Classrooms & staff stay optional."
+        : "Owner tools — staff, classrooms, enrollment, billing, and testing."),
     body: `
       <section class="work-hub-section">
         <h3>Program</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true })}
-          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" })}
-          ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families" })}
+          ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families", primary: true })}
           ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
           ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
+          ${!homeDaycare ? workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true }) : ""}
+          ${!homeDaycare ? workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" }) : ""}
         </div>
       </section>
+      ${homeDaycare ? `
       <section class="work-hub-section">
-        <h3>Growth & compliance</h3>
+        <h3>Optional center-style setup</h3>
+        <p class="muted-copy">Home daycares can skip these. Open only if you want rooms or staff invites.</p>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "staff", title: "Staff", detail: "Optional invites & roles" })}
+          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Optional rooms & rosters" })}
+        </div>
+      </section>` : ""}
+      <section class="work-hub-section">
+        <h3>Membership</h3>
         <div class="work-hub-grid">
           ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
-          ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
-          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+          ${workHubTile({ view: "staff", title: "Users & access", detail: "Staff invites and roles" })}
         </div>
       </section>
       ${adminUnlocked ? `
       <section class="work-hub-section">
         <h3>Admin only</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "admin", title: "Testing Center", detail: "View As, seed data, Testing Pro", primary: true })}
+          ${workHubTile({ view: "admin", title: "Testers", detail: "Add testers, programs, flags, View As — primary control center", primary: true, attrs: 'data-admin-open-testers="testing-testers"' })}
         </div>
+        <p class="muted-copy" style="margin-top:8px;">Advanced → Testing Center remains available inside Admin for secondary seed/plan tools.</p>
       </section>` : ""}
     `,
   });
@@ -15990,10 +16538,11 @@ function renderMoreHubPage() {
     body: `
       <div class="work-hub-grid">
         ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
-        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
-        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
+        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / product support (not Family Hub)" })}
+        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates & marketing notes" })}
         ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
         ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
+        ${role === "teacher" ? workHubTile({ view: "lessons", title: "Curriculum", detail: "Lesson Plans library (also in sidebar)" }) : ""}
         ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
         ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
       </div>
@@ -16019,7 +16568,7 @@ function syncUniversalQuickAdd() {
         <div class="work-quick-add-grid">
           <button type="button" data-view="ai" data-quick-doc-type="observation">Observation</button>
           <button type="button" data-view="ai" data-quick-doc-type="incident-report">Incident</button>
-          <button type="button" data-view="families">Parent Message</button>
+          <button type="button" data-view="home-daycare-hub" data-hdh-jump="hdhFamilyHubPanel">Family message</button>
           <button type="button" data-view="child-tools-daily-logs">Photo</button>
           <button type="button" data-view="child-tools-daily-logs">Meal</button>
           <button type="button" data-view="child-tools-daily-logs">Nap</button>
@@ -16027,7 +16576,7 @@ function syncUniversalQuickAdd() {
           <button type="button" data-view="ai" data-quick-doc-type="daily-log">Daily Note</button>
           <button type="button" data-view="child-tools-daily-logs">Activity</button>
           <button type="button" data-view="calendar">Calendar Note</button>
-          <button type="button" data-view="forms">Form</button>
+          <button type="button" data-view="forms">Parent form</button>
         </div>
       </div>
       <button type="button" class="work-quick-add-fab" data-work-quick-toggle aria-expanded="false" aria-label="Quick add">+</button>
@@ -17977,6 +18526,34 @@ async function adminMarkConversationReadState(userEmail, read) {
 }
 
 document.addEventListener("change", async (event) => {
+  if (event.target.matches("[data-assign-mode-select]")) {
+    const form = event.target.closest("form");
+    if (!form) return;
+    const mode = String(event.target.value || "children");
+    form.querySelectorAll("[data-assign-panel]").forEach((panel) => {
+      const panelMode = panel.getAttribute("data-assign-panel");
+      if (mode === "program") {
+        panel.hidden = panelMode !== "children";
+        return;
+      }
+      panel.hidden = panelMode !== mode;
+    });
+    if (mode === "household") {
+      const list = form.querySelector("[data-assign-household-list]");
+      const households = window.__llhFamilyHouseholdsCache || [];
+      if (list) {
+        list.innerHTML = households.length
+          ? households.map((hh) => `
+              <label class="area-check">
+                <input type="checkbox" name="householdIds" value="${escapeHtml(hh.id)}" />
+                <span>${escapeHtml(hh.label || hh.email || "Family")} · ${(hh.children || []).map((c) => c.name || c.id).filter(Boolean).join(", ") || "children"}</span>
+              </label>
+            `).join("")
+          : `<p class="muted-copy">No households loaded yet. Open the Family Hub invite list once, then try again.</p>`;
+      }
+    }
+    return;
+  }
   if (event.target.matches("#adminMessageEmailAlertsToggle")) {
     const enabled = Boolean(event.target.checked);
     const token = adminSession()?.token || "";
@@ -19811,6 +20388,29 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     return;
   }
   if (actionId === "nap-started" || actionId === "nap-ended" || actionId === "nap") {
+    const naps = childStore("Naps");
+    if (actionId === "nap-ended") {
+      const openNap = naps.slice().reverse().find((item) => (
+        item.childId === childId
+        && item.date === today
+        && item.napStart
+        && !item.napEnd
+      ));
+      if (openNap) {
+        saveChildStore("Naps", naps.map((item) => {
+          if (item.id !== openNap.id) return item;
+          return {
+            ...item,
+            napEnd: time,
+            summary: `Nap ${item.napStart}–${time}`,
+            title: `Nap | ${today}`,
+            shareWithFamily: item.shareWithFamily !== false,
+            updatedAt: new Date().toISOString(),
+          };
+        }));
+        return;
+      }
+    }
     appendChildRecord("Naps", {
       childId,
       date: today,
@@ -24811,7 +25411,7 @@ function applyCurriculumLessonToWeeklyPlanner({ resource, plan, weekStartDate, a
   return planner;
 }
 
-async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup } = {}) {
+async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup, childIds = null } = {}) {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     openAuthModal("login");
     throw new Error("Log in to plan this week.");
@@ -24838,6 +25438,7 @@ async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate
     weekStartDate: week,
     ageGroup,
     replaceExisting: Boolean(existing),
+    childIds,
   });
   return assignment;
 }
@@ -27295,6 +27896,7 @@ function lessonWorkspaceChromeHtml(resource) {
               <label>Age Group
                 <select name="ageGroup">${lessonWorkspacePlannerAgeGroupOptions(lessonWorkspaceDefaultAgeGroup(resource, plan))}</select>
               </label>
+              ${curriculumAssignChildPickerHtml(null)}
               <div class="lesson-workspace-action-sheet-actions">
                 <button type="submit" class="primary-button" data-lesson-assign-submit>Add to Calendar</button>
                 <button type="button" class="ghost-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
@@ -31048,14 +31650,55 @@ function currentWeekPlanner(existing = weeklyPlanner()) {
   };
 }
 
+/**
+ * Phase 4 — Weekly Planner dual-read (temporary migration).
+ *
+ * AUTHORITATIVE: program schedule lesson item for the focused week
+ *   (store.programData[programId].schedule → client scheduleDocCache).
+ * TEMPORARY FALLBACK: localStorage llhWeeklyPlanner (unscoped legacy cache).
+ *
+ * Before removing the fallback:
+ * 1. All Weekly Plan edits persist only via updateScheduleLessonSnapshot / schedule APIs
+ * 2. Drift shows no orphaned weeks that exist only in llhWeeklyPlanner
+ * 3. Migration flag llhScheduleMigrated:{email} is set for active testers
+ * 4. Ops confirms Calendar + View Weekly Plan match without LS planner
+ */
+function weeklyPlannerFromAuthoritativeSchedule(weekStartDate = "") {
+  const api = getScheduleApi();
+  if (!api || typeof api.buildPlannerFromLessonItem !== "function") return null;
+  const week = curriculumPlannerWeekStartIso(
+    weekStartDate || weeklyPlannerFocusWeek || new Date(),
+  );
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
+  if (!doc) return null;
+  const item = typeof api.lessonForWeek === "function" ? api.lessonForWeek(doc, week) : null;
+  if (!item) return null;
+  const planner = api.buildPlannerFromLessonItem(item);
+  if (!planner) return null;
+  return {
+    ...defaultPlanner(),
+    ...planner,
+    days: { ...defaultPlanner().days, ...(planner.days || {}) },
+    _canonicalSource: "schedule",
+    _scheduleItemId: item.id || "",
+  };
+}
+
 function weeklyPlanner() {
+  const fromSchedule = weeklyPlannerFromAuthoritativeSchedule();
+  if (fromSchedule) return fromSchedule;
+  // Temporary fallback only — not the permanent architecture.
   const saved = readSavedJson("llhWeeklyPlanner", null);
   const planner = { ...defaultPlanner(), ...(saved || {}) };
   planner.days = { ...defaultPlanner().days, ...(planner.days || {}) };
+  planner._canonicalSource = "llhWeeklyPlanner_fallback";
   return planner;
 }
 
 function saveWeeklyPlanner(planner) {
+  // Phase 5: llhWeeklyPlanner is read-fallback cache only.
+  // Do not use this for new scheduling writes — persist via schedule APIs.
+  if (planner && planner._canonicalSource === "schedule") return;
   localStorage.setItem("llhWeeklyPlanner", JSON.stringify(planner));
   updateSidebarDashboard();
 }
@@ -31807,8 +32450,15 @@ function syncWeeklyPlannerFromScheduleItem(item) {
   if (!api || !item) return null;
   const planner = api.buildPlannerFromLessonItem(item);
   if (!planner) return null;
-  saveWeeklyPlanner({ ...weeklyPlanner(), ...planner, days: { ...weeklyPlanner().days, ...planner.days } });
-  return planner;
+  // Phase 5: schedule is authoritative — do NOT write llhWeeklyPlanner here.
+  // weeklyPlanner() dual-reads from schedule; LS remains read-fallback only.
+  return {
+    ...defaultPlanner(),
+    ...planner,
+    days: { ...defaultPlanner().days, ...(planner.days || {}) },
+    _canonicalSource: "schedule",
+    _scheduleItemId: item.id || "",
+  };
 }
 
 function classroomCopyActivityKey(item = {}) {
@@ -31824,7 +32474,9 @@ function ensureClassroomCopyActivityId(item = {}) {
 
 /**
  * Update the classroom ScheduleItem.snapshot only — never mutates the library
- * curriculum lesson plan. Keeps Weekly Planner + Calendar in sync via dual-write.
+ * curriculum lesson plan.
+ * AUTHORITATIVE write path for Weekly Plan edits (schedule).
+ * dual-write to llhWeeklyPlanner is a temporary cache sync only.
  */
 async function updateScheduleLessonSnapshot(itemId, patchFn) {
   const api = getScheduleApi();
@@ -31999,6 +32651,7 @@ async function assignScheduleLessonPlan({
   ageGroup,
   classroomLabel = "",
   replaceExisting = false,
+  childIds: explicitChildIds = null,
 } = {}) {
   const api = getScheduleApi();
   if (!api) {
@@ -32008,6 +32661,7 @@ async function assignScheduleLessonPlan({
       ageGroup,
       classroomLabel,
       replaceExisting,
+      childIds: explicitChildIds,
       _skipSchedule: true,
     });
   }
@@ -32036,10 +32690,19 @@ async function assignScheduleLessonPlan({
   const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
   const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
-  const rosterChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []))
-    .filter((child) => String(child.classroomId || "") === String(classroomId));
-  const childIds = rosterChildren.map((child) => child.id).filter(Boolean);
-  const rosterLabel = rosterChildren.map((child) => child.name).filter(Boolean).slice(0, 8).join(", ");
+  const allChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []));
+  const rosterChildren = allChildren.filter((child) => {
+    if (!String(child.classroomId || "")) return true;
+    return String(child.classroomId || "") === String(classroomId);
+  });
+  const selectedIds = Array.isArray(explicitChildIds)
+    ? explicitChildIds.map(String).filter(Boolean)
+    : null;
+  const linkedChildren = selectedIds
+    ? allChildren.filter((child) => selectedIds.includes(String(child.id)))
+    : rosterChildren;
+  const childIds = linkedChildren.map((child) => child.id).filter(Boolean);
+  const rosterLabel = linkedChildren.map((child) => child.name).filter(Boolean).slice(0, 8).join(", ");
   const item = await api.assignLessonPlanToWeek(firebaseAuthHeaders, scheduleApiEmail(), {
     id: existing?.id,
     weekStartDate: week,
@@ -32075,8 +32738,8 @@ async function assignScheduleLessonPlan({
   }
   curriculumPlannerMessage = {
     text: existing
-      ? `Updated assignment to “${item.lessonPlanTitle}” (${activityCount} activities). Notes were preserved.`
-      : `Assigned “${item.lessonPlanTitle}” (${activityCount} activities) to the week of ${item.weekStartDate}.`,
+      ? `Updated assignment to “${item.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children). Notes were preserved.`
+      : `Assigned “${item.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children) to the week of ${item.weekStartDate}.`,
     isSuccess: true,
   };
   const assignDetail = {
@@ -32084,6 +32747,7 @@ async function assignScheduleLessonPlan({
     lessonPlanId: item.lessonPlanId,
     plan: item.lessonPlanPlan,
     activityCount,
+    childCount: childIds.length,
     replaced: Boolean(existing),
   };
   trackEvent("schedule_assign_lesson", assignDetail);
@@ -32621,6 +33285,7 @@ async function assignCurriculumLessonPlanToWeek({
   ageGroup,
   classroomLabel = "",
   replaceExisting = false,
+  childIds: explicitChildIds = null,
   _skipSchedule = false,
 } = {}) {
   if (!_skipSchedule && getScheduleApi()) {
@@ -32630,6 +33295,7 @@ async function assignCurriculumLessonPlanToWeek({
       ageGroup,
       classroomLabel,
       replaceExisting,
+      childIds: explicitChildIds,
     });
   }
   if (!isLoggedIn() && !hasAdminFullAccess()) {
@@ -32649,11 +33315,18 @@ async function assignCurriculumLessonPlanToWeek({
   const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
   const now = new Date().toISOString();
   const preserved = preserveCurriculumPlannerPrivateFields(existing || {});
+  const allChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []));
+  const childIds = Array.isArray(explicitChildIds)
+    ? explicitChildIds.map(String).filter(Boolean)
+    : (Array.isArray(existing?.childIds) && existing.childIds.length
+      ? existing.childIds.map(String)
+      : allChildren.map((child) => child.id).filter(Boolean));
   let assignment = {
     id: existing?.id || generateCurriculumAssignmentId(),
     weekStartDate: week,
     ageGroup: String(ageGroup || snapshot.age || "Preschool").trim() || "Preschool",
     classroomLabel: String(classroomLabel || "").trim(),
+    childIds,
     lessonPlanId: resource.id,
     lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
     lessonPlanPlan: snapshot.plan,
@@ -32665,6 +33338,7 @@ async function assignCurriculumLessonPlanToWeek({
     createdAt: existing?.createdAt || now,
     updatedAt: now,
     ...preserved,
+    childIds,
   };
   assignment = markCurriculumPlannerObservationActivityLinks(normalizeCurriculumWeekAssignment(assignment));
   upsertCurriculumWeekAssignment(assignment);
@@ -32672,8 +33346,8 @@ async function assignCurriculumLessonPlanToWeek({
   curriculumPlannerAssignResourceId = "";
   curriculumPlannerMessage = {
     text: existing
-      ? `Updated assignment to “${assignment.lessonPlanTitle}” (${activityCount} activities). Teacher notes and observations were preserved.`
-      : `Assigned “${assignment.lessonPlanTitle}” (${activityCount} activities) to the week of ${assignment.weekStartDate}.`,
+      ? `Updated assignment to “${assignment.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children). Teacher notes and observations were preserved.`
+      : `Assigned “${assignment.lessonPlanTitle}” (${activityCount} activities · ${childIds.length} children) to the week of ${assignment.weekStartDate}.`,
     isSuccess: true,
   };
   const plannerAssignDetail = {
@@ -32681,6 +33355,7 @@ async function assignCurriculumLessonPlanToWeek({
     lessonPlanId: assignment.lessonPlanId,
     plan: assignment.lessonPlanPlan,
     activityCount,
+    childCount: childIds.length,
     replaced: Boolean(existing),
   };
   trackEvent("curriculum_planner_assign", plannerAssignDetail);
@@ -32697,6 +33372,43 @@ function removeCurriculumWeekAssignment(weekStartDate) {
 
 function setCurriculumPlannerMessage(text, isSuccess = false) {
   curriculumPlannerMessage = { text: String(text || ""), isSuccess: Boolean(isSuccess) };
+}
+
+function curriculumAssignChildPickerHtml(assignment = null) {
+  const children = (typeof getActiveChildren === "function"
+    ? getActiveChildren(childRecords())
+    : (childStore("Profiles") || []))
+    .filter((child) => child?.id);
+  if (!children.length) {
+    return `
+      <div class="curriculum-assign-child-picker">
+        <p class="form-note">No children in this program yet. Assign still works — link children after you add profiles.</p>
+      </div>
+    `;
+  }
+  const selected = new Set(
+    Array.isArray(assignment?.childIds) && assignment.childIds.length
+      ? assignment.childIds.map(String)
+      : children.map((child) => String(child.id)),
+  );
+  return `
+    <fieldset class="curriculum-assign-child-picker">
+      <legend>Link children <span class="muted-copy">(for daily logs &amp; Family Hub)</span></legend>
+      <p class="form-note">Choose who this week’s lesson connects to. Defaults to all active children.</p>
+      <div class="curriculum-assign-child-grid">
+        ${children.map((child) => `
+          <label class="curriculum-assign-child-option">
+            <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${selected.has(String(child.id)) ? "checked" : ""} />
+            <span>${escapeHtml(child.name || "Child")}${child.ageGroup ? ` · ${escapeHtml(child.ageGroup)}` : ""}</span>
+          </label>
+        `).join("")}
+      </div>
+      <div class="form-actions" style="margin-top:6px">
+        <button type="button" class="ghost-button" data-curriculum-child-select-all>Select all</button>
+        <button type="button" class="ghost-button" data-curriculum-child-select-none>Clear</button>
+      </div>
+    </fieldset>
+  `;
 }
 
 function curriculumPlannerAssignableOptionsHtml(selectedId = "") {
@@ -33331,6 +34043,7 @@ function renderCurriculumPlanner() {
               ${curriculumPlannerAssignableOptionsHtml(pendingResourceId)}
             </select>
           </label>
+          ${curriculumAssignChildPickerHtml(assignment)}
           ${assignment ? `
             <p class="form-note">Updating the lesson plan refreshes the snapshot but keeps your teacher notes and observations.</p>
           ` : ""}
@@ -34877,6 +35590,7 @@ async function handleCurriculumPlannerAssignSubmit(form) {
   const ageGroup = String(formData.get("ageGroup") || "Preschool").trim();
   const classroomLabel = String(formData.get("classroomLabel") || "").trim();
   const lessonPlanId = String(formData.get("lessonPlanId") || "").trim();
+  const childIds = formData.getAll("childIds").map((id) => String(id || "").trim()).filter(Boolean);
   const replaceExisting = true; // Form submit always writes the chosen plan for the selected week.
   if (!lessonPlanId) {
     setCurriculumPlannerMessage("Choose a lesson plan to assign.", false);
@@ -34902,6 +35616,7 @@ async function handleCurriculumPlannerAssignSubmit(form) {
       ageGroup,
       classroomLabel,
       replaceExisting,
+      childIds,
     });
   } catch (error) {
     setCurriculumPlannerMessage(error.message || "Could not assign lesson plan.", false);
@@ -37136,6 +37851,7 @@ async function refreshFamilyHubHouseholds() {
     storage: data.storage || null,
     loadedAt: Date.now(),
   };
+  window.__llhFamilyHouseholdsCache = familyHubHouseholdCache.households;
   return familyHubHouseholdCache;
 }
 
@@ -37217,7 +37933,7 @@ function renderFamilyHubProviderPanel() {
             <article class="hdh-forms-pack-item">
               <div>
                 <strong>${escapeHtml(item.label || "Family")}</strong>
-                <p class="muted-copy">${escapeHtml(item.email || "No email")}${(item.guardianEmails || []).length > 1 ? ` · guardians: ${escapeHtml(item.guardianEmails.join(", "))}` : ""}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
+                <p class="muted-copy">${escapeHtml(item.email || "No email")}${(item.guardianEmails || []).length > 1 ? ` · guardians: ${escapeHtml(item.guardianEmails.join(", "))}` : ""}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name || c.id).filter(Boolean).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
                 ${pendingRequests.length ? `
                   <div class="hdh-parent-requests">
                     <p class="muted-copy"><strong>${pendingRequests.length} parent request${pendingRequests.length === 1 ? "" : "s"}</strong></p>
@@ -37734,6 +38450,79 @@ function renderFamilyHubCalendarPanel(data) {
   `;
 }
 
+
+function renderFamilyHubBillingPanel(data) {
+  const tuition = data?.tuition || familyHubParentState.tuition || null;
+  const balance = tuition?.balance || {};
+  const invoices = Array.isArray(tuition?.invoices) ? tuition.invoices : [];
+  const payments = Array.isArray(tuition?.payments) ? tuition.payments : [];
+  if (!tuition) {
+    return `
+      <div class="fh-panel-stack">
+        <section class="fh-card" data-fh-billing-live="true">
+          <h3>Billing</h3>
+          <p class="fh-meta">Loading your household balance…</p>
+          <button class="ghost-button" type="button" data-fh-tuition-refresh>Refresh</button>
+        </section>
+      </div>
+    `;
+  }
+  return `
+    <div class="fh-panel-stack" data-fh-billing-live="true" data-tuition-mobile-ready="true">
+      <section class="fh-card">
+        <h3>Your balance</h3>
+        <p class="fh-meta">Only this household’s tuition — simulated payments in testing (no real money).</p>
+        <div class="forms-status-summary" role="status">
+          <span class="hdh-form-status-chip is-pending"><strong>${escapeHtml(balance.amountDueLabel || "$0.00")}</strong> due</span>
+          <span class="hdh-form-status-chip is-overdue"><strong>${escapeHtml(balance.overdueLabel || "$0.00")}</strong> overdue</span>
+          <span class="hdh-form-status-chip is-complete"><strong>${escapeHtml(balance.paidLabel || "$0.00")}</strong> paid</span>
+        </div>
+        <button class="ghost-button fh-btn-secondary" type="button" data-fh-tuition-refresh>Refresh</button>
+      </section>
+      <section class="fh-card">
+        <h3>Invoices</h3>
+        ${invoices.length ? invoices.map((inv) => `
+          <article class="fh-card" style="margin:10px 0;box-shadow:none;border:1px solid #dde3d6;">
+            <div class="fh-card-head">
+              <strong>${escapeHtml(inv.totalLabel)} · ${escapeHtml(inv.statusLabel)}</strong>
+              <span class="fh-status-tag">${escapeHtml(inv.statusLabel)}</span>
+            </div>
+            <p class="fh-meta">Due ${escapeHtml(inv.dueDate || "—")} · Balance ${escapeHtml(inv.balanceLabel)}</p>
+            <ul class="fh-today-list">${(inv.lineItems || []).map((line) => `
+              <li><strong>${escapeHtml(line.description)}</strong><span>${escapeHtml(((line.totalCents || 0) / 100).toLocaleString(undefined, { style: "currency", currency: "USD" }))}</span></li>
+            `).join("")}</ul>
+            ${["open", "partially_paid", "overdue"].includes(inv.status) ? `
+              <div class="fh-account-actions">
+                <button class="primary-button" type="button" data-fh-pay-simulated="${escapeHtml(inv.id)}" data-fh-pay-amount="${escapeHtml(String(inv.balanceCents || 0))}">Pay full (simulated)</button>
+                ${inv.balanceCents > 100 ? `<button class="ghost-button fh-btn-secondary" type="button" data-fh-pay-partial="${escapeHtml(inv.id)}" data-fh-pay-amount="${escapeHtml(String(Math.floor((inv.balanceCents || 0) / 2)))}">Pay half (simulated)</button>` : ""}
+              </div>
+            ` : (inv.status === "paid" ? `<p class="fh-meta">Paid in full.</p>` : "")}
+          </article>
+        `).join("") : familyHubEmptyState({ title: "No invoices yet", body: "When your provider issues tuition or fees, they’ll show up here.", icon: "reports" })}
+      </section>
+      <section class="fh-card">
+        <h3>Payment history &amp; receipts</h3>
+        ${payments.length ? `<ul class="fh-today-list">${payments.map((p) => `
+          <li>
+            <strong>${escapeHtml(p.amountLabel)} · ${escapeHtml(p.receiptNumber || p.id)}</strong>
+            <span>${escapeHtml(String(p.paidAt || "").slice(0, 10))} · ${escapeHtml(p.method || "simulated")}${p.simulated ? " (test)" : ""}</span>
+          </li>
+        `).join("")}</ul>` : `<p class="fh-meta">No payments yet.</p>`}
+      </section>
+    </div>
+  `;
+}
+
+async function loadFamilyHubTuition() {
+  const headers = familyHubAuthHeaders();
+  if (!headers) return null;
+  const response = await fetch("/api/family-hub/tuition", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load billing.");
+  familyHubParentState.tuition = data;
+  return data;
+}
+
 function renderFamilyHubFormsPanel(data) {
   const children = Array.isArray(data?.children) ? data.children : [];
   const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
@@ -37747,29 +38536,35 @@ function renderFamilyHubFormsPanel(data) {
   }
   return `
     <div class="fh-panel-stack">
-      <p class="fh-meta">Review each form, then sign. Your provider sees the update right away in Forms &amp; Records.</p>
+      <p class="fh-meta">Review each form, save progress if you need more time, then sign. Your provider sees the update in Forms &amp; Records.</p>
       ${documents.map((doc) => {
         const canSign = Boolean(doc.canAcknowledge);
+        const canSave = Boolean(doc.canSaveProgress);
         const signedMeta = doc.signedAt
-          ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
+          ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}${doc.signedRole ? ` (${doc.signedRole})` : ""}`
           : "";
         const body = String(doc.bodyText || "").trim();
+        const progress = String(doc.parentProgressText || "").trim();
         return `
         <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
           <div class="fh-card-head">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
-          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}</p>
+          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""}</p>
           <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
-          ${body ? `<details class="fh-form-body"><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
+          ${body ? `<details class="fh-form-body" open><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
           ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
-          ${canSign && doc.id
-            ? `<div class="fh-account-actions">
-                <button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign form</button>
-                <p class="fh-meta">Testing signature — records your name and time for the provider.</p>
-              </div>`
-            : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
+          ${canSave && doc.id ? `
+            <label class="fh-meta">Your notes / progress
+              <textarea class="fh-form-progress" data-fh-progress-input="${escapeHtml(doc.id)}" rows="3" maxlength="4000" placeholder="Optional notes before you sign…">${escapeHtml(progress)}</textarea>
+            </label>
+            <div class="fh-account-actions">
+              <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-save-progress="${escapeHtml(doc.id)}">Save progress</button>
+              ${canSign ? `<button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign &amp; submit</button>` : ""}
+              <p class="fh-meta">Testing signature — records your name, role, time, and form version for the provider.</p>
+            </div>
+          ` : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
         </article>`;
       }).join("")}
     </div>
@@ -37942,6 +38737,11 @@ function renderFamilyHubMorePanel(data) {
           <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-sign-out>Sign out</button>
         </div>
       </section>
+      <section class="fh-card" data-fh-billing-placeholder="false" data-fh-billing-live="true">
+        <h3>Billing</h3>
+        <p class="fh-meta">See your household balance, invoices, and payment history. Testing uses simulated payments only — no real charges.</p>
+        <button class="primary-button" type="button" data-fh-panel="billing">Open billing</button>
+      </section>
     </div>
   `;
 }
@@ -37982,12 +38782,14 @@ function renderFamilyHubParentShell(data, options = {}) {
     messages: renderFamilyHubMessagesPanel(data),
     calendar: renderFamilyHubCalendarPanel(data),
     forms: renderFamilyHubFormsPanel(data),
+    billing: renderFamilyHubBillingPanel(data),
     more: renderFamilyHubMorePanel(data),
   };
   const nav = [
     ["today", "Today", "today"],
     ["photos", "Photos", "photos"],
     ["messages", "Messages", "messages"],
+    ["billing", "Billing", "reports"],
     ["more", "More", "more"],
   ];
   return `
@@ -38184,9 +38986,17 @@ async function loadFamilyHubParentDashboard(options = {}) {
 
   const children = Array.isArray(data.children) ? data.children : [];
   const activeChildId = data.today?.childId || childId || children[0]?.id || "";
+  let tuition = familyHubParentState.tuition || null;
+  try {
+    tuition = await loadFamilyHubTuition();
+  } catch (_error) {
+    tuition = familyHubParentState.tuition || null;
+  }
+  data.tuition = tuition;
   familyHubParentState = {
     ...familyHubParentState,
     data,
+    tuition,
     childId: activeChildId,
     panel: options.panel || familyHubParentState.panel || "today",
     loadId: loadIdMatches ? loadId : (section?.dataset.familyHubLoadId || loadId),
@@ -38232,6 +39042,7 @@ function paintFamilyHubParentPanel(panel) {
     messages: renderFamilyHubMessagesPanel,
     calendar: renderFamilyHubCalendarPanel,
     forms: renderFamilyHubFormsPanel,
+    billing: renderFamilyHubBillingPanel,
     more: renderFamilyHubMorePanel,
   };
   const render = panelHtml[next] || panelHtml.today;
@@ -38298,7 +39109,7 @@ async function acknowledgeFamilyHubDocument(documentId) {
   const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/acknowledge`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ signerName: preferredName }),
+    body: JSON.stringify({ signerName: preferredName, signedRole: "guardian" }),
     cache: "no-store",
   });
   const data = await response.json().catch(() => ({}));
@@ -38311,10 +39122,13 @@ async function acknowledgeFamilyHubDocument(documentId) {
         String(doc.id || "") === String(data.document.id)
           ? {
             ...doc,
-            status: data.document.status || "signed",
-            statusLabel: data.document.statusLabel || "Signed",
+            status: data.document.status || "submitted",
+            statusLabel: data.document.statusLabel || "Submitted — provider review",
             signedAt: data.document.signedAt || new Date().toISOString(),
             signedBy: data.document.signedBy || preferredName,
+            signedRole: data.document.signedRole || "guardian",
+            contentVersion: data.document.contentVersion || doc.contentVersion,
+            bodyHash: data.document.bodyHash || doc.bodyHash,
             updatedAt: data.document.updatedAt || new Date().toISOString(),
           }
           : doc
@@ -38326,6 +39140,22 @@ async function acknowledgeFamilyHubDocument(documentId) {
       }
     }
   } catch (_error) { /* non-blocking */ }
+  return data;
+}
+
+async function saveFamilyHubDocumentProgress(documentId) {
+  const headers = familyHubAuthHeaders();
+  if (!headers) throw new Error("Sign in to Family Hub to save progress.");
+  const input = document.querySelector(`[data-fh-progress-input="${CSS.escape(documentId)}"]`);
+  const progressText = String(input?.value || "").trim();
+  const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/progress`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ progressText }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not save progress.");
   return data;
 }
 
@@ -38978,7 +39808,7 @@ function renderHomeDaycareTesterGuidePanel() {
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>Where to add testers</h3>
-      <p class="muted-copy">Invite real testers here. Role simulation and View As live in <strong>Admin → Testing Center</strong> only — everyday provider screens stay clean.</p>
+      <p class="muted-copy"><strong>Primary path:</strong> unlock Admin → <strong>Testers</strong> (dashboard, invites, programs, flags, View As, audit). Everyday provider screens stay clean. Advanced → Testing Center is secondary for seed/plan preview only.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
           <strong>1. Run the day as a provider</strong>
@@ -38989,12 +39819,12 @@ function renderHomeDaycareTesterGuidePanel() {
           <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Add a Teacher tester (own stuff + own kid)</strong>
-          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child.</p>
+          <strong>3. Add staff / program testers (recommended)</strong>
+          <p>Admin → <strong>Testers</strong> → Add Tester (Home Daycare or Center, any role). Copy invite link or temp password. Prefer this over one-off Hub invites.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>4. Admin View As</strong>
-          <p>Unlock Admin → Testing Center → View As Owner / Director / Teacher / Assistant / Parent. Instant nav + permissions, no logout.</p>
+          <p>Unlock Admin → <strong>Testers → View As</strong> (or role preview). Instant nav + permissions, no logout. Testing Center remains a secondary Advanced tool.</p>
         </article>
       </div>
       ${typeof isAdminUnlocked === "function" && isAdminUnlocked()
@@ -39007,8 +39837,8 @@ function renderHomeDaycareTesterGuidePanel() {
           : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button>.`}</li>
         <li>Log meals, naps, and activities in Daily Logs — confirm Family Hub Today updates.</li>
         <li>Invite a parent and open their magic link on another device/browser.</li>
-        <li>Optional: Admin Testing Center → View As Parent, then Return to Admin.</li>
-        <li>Optional: invite a Teacher tester below — they Message Leah from Messages.</li>
+        <li>Optional: Admin → Testers → View As Parent, then Exit tester view.</li>
+        <li>Optional: Admin → Testers → Add Tester for a Teacher — they Message Leah from Message Support if needed.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
@@ -39067,6 +39897,7 @@ function renderHomeDaycareHubPage(options = {}) {
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
         ${renderFormsAttentionPanel()}
+        ${renderTuitionBillingPanel()}
         ${renderProgramFormTemplatesPanel()}
         <section class="section-block" id="hdhFormsPackPanel">
           <p class="eyebrow">Built-in library</p>
@@ -39116,6 +39947,7 @@ function renderHomeDaycareHubPage(options = {}) {
       refreshHdhTesterInvites().catch(() => {}),
       refreshHdhStaffTrainings().catch(() => {}),
       refreshHdhPackets().catch(() => {}),
+      refreshTuitionBillingDashboard().catch(() => {}),
     ]).then(() => {
       if (!document.querySelector("#view-home-daycare-hub.active-view")) return;
       renderHomeDaycareHubPage({ refreshHouseholds: false });
@@ -39275,13 +40107,9 @@ function activeScheduleClassrooms(doc = scheduleDocCache) {
   return rooms.filter((room) => room && room.id && !room.archived);
 }
 
-/** Classrooms for enrollment matching: schedule store first, then Program Settings. */
+/** Classrooms: schedule store is the only source (Phase 4). */
 function enrollmentClassroomCandidates() {
-  const scheduleRooms = activeScheduleClassrooms();
-  if (scheduleRooms.length) return scheduleRooms;
-  const settings = typeof getProgramSettings === "function" ? getProgramSettings() : {};
-  const fromSettings = Array.isArray(settings?.classrooms) ? settings.classrooms : [];
-  return fromSettings.filter((room) => room && room.id && !room.archived);
+  return activeScheduleClassrooms();
 }
 
 function resolveEnrollmentClassroom(desiredRoom) {
@@ -39327,6 +40155,10 @@ function familyHouseholdLabel(child = {}) {
   return `Family of ${child.name || "Child"}`;
 }
 
+/**
+ * Profile parentInfo groups — invite/contact helper only.
+ * NOT the Family Hub roster (that is store.familyHouseholds via /api/family-hub/households).
+ */
 function buildFamilyHouseholds(records = childRecords()) {
   const map = new Map();
   getActiveChildren(records).forEach((child) => {
@@ -39713,20 +40545,49 @@ function renderFamiliesPage() {
     return;
   }
   const records = childRecords();
-  const households = buildFamilyHouseholds(records);
+  const profileGroups = buildFamilyHouseholds(records);
+  const fhHouseholds = (familyHubHouseholdCache.households || []).filter((h) => h && h.status !== "revoked");
+  const profileById = new Map((records.children || []).map((c) => [String(c.id), c]));
   section.innerHTML = renderManageSurfaceShell({
     eyebrow: "Families",
     title: "Family management",
-    detail: "Households are grouped from Child Profiles. Add a parent/guardian on a child’s profile to combine siblings.",
+    detail: "Family Hub households are the membership source of truth (childIds). Profile parent contacts below edit Profiles only — not a second Family Hub roster.",
     actionsHtml: `
-      <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
+      <button class="primary-button" type="button" data-view="home-daycare-hub" data-hdh-jump="hdhFamilyHubPanel">Open Family Hub</button>
+      <button class="ghost-button" type="button" data-view="children">Child Profiles</button>
       <button class="ghost-button" type="button" data-view="enrollment">Enrollment</button>
+      <button class="ghost-button" type="button" data-refresh-families-canonical>Refresh</button>
     `,
     bodyHtml: `
       <section class="section-block platform-manage-card">
-        <h3>${households.length} household${households.length === 1 ? "" : "s"}</h3>
+        <h3>Family Hub households (${fhHouseholds.length})</h3>
+        <p class="muted-copy">Canonical membership from familyHouseholds — names from live Child Profiles.</p>
         <div class="platform-manage-list">
-          ${households.map((house) => `
+          ${fhHouseholds.map((house) => {
+            const ids = Array.isArray(house.childIds) && house.childIds.length
+              ? house.childIds
+              : (house.children || []).map((c) => c.id);
+            const names = ids.map((id) => profileById.get(String(id))?.name || String(id)).filter(Boolean);
+            return `
+            <article class="platform-manage-row platform-manage-row-stack">
+              <div>
+                <strong>${escapeHtml(house.label || "Household")}</strong>
+                <p class="muted-copy">${escapeHtml(house.email || "")}${house.status ? ` · ${escapeHtml(house.status)}` : ""} · ${ids.length} child${ids.length === 1 ? "" : "ren"}</p>
+              </div>
+              <div class="platform-family-children">
+                ${ids.map((id, index) => `
+                  <button class="ghost-button" type="button" data-open-child-profile="${escapeHtml(String(id))}">${escapeHtml(names[index] || "Child")}</button>
+                `).join("") || `<p class="muted-copy">No children linked.</p>`}
+              </div>
+            </article>`;
+          }).join("") || `<p class="muted-copy">No Family Hub households yet. Invite from Family Hub.</p>`}
+        </div>
+      </section>
+      <section class="section-block platform-manage-card">
+        <h3>Profile parent contacts (${profileGroups.length})</h3>
+        <p class="muted-copy">Edits parentInfo on Child Profiles only. Does not create Family Hub households.</p>
+        <div class="platform-manage-list">
+          ${profileGroups.map((house) => `
             <article class="platform-manage-row platform-manage-row-stack">
               <div>
                 <strong>${escapeHtml(house.label)}</strong>
@@ -39750,6 +40611,15 @@ function renderFamiliesPage() {
       </section>
     `,
   });
+  refreshFamilyHubHouseholds()
+    .then(() => {
+      const stillOnFamilies = document.querySelector("#view-families");
+      if (!stillOnFamilies) return;
+      if (!fhHouseholds.length && (familyHubHouseholdCache.households || []).length) {
+        renderFamiliesPage();
+      }
+    })
+    .catch(() => {});
 }
 
 function renderEnrollmentPage() {
@@ -41696,6 +42566,11 @@ function renderChildManagement() {
   refreshContextualViewBackButtons();
   activePortfolioChildId = "";
   childProfileTab = normalizeChildProfileTab(childProfileTab);
+  const preserveScroll = childManagementMode === "daily-logs"
+    && (dlcScrollPreserveY != null || document.querySelector(".dlc-dashboard, .dlc-section, .dlc-individual"));
+  if (preserveScroll && dlcScrollPreserveY == null) {
+    dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
+  }
   const records = childRecords();
   if (!selectedChildId && records.children[0]) selectedChildId = records.children[0].id;
   const child = records.children.find((item) => item.id === selectedChildId) || records.children[0] || null;
@@ -41708,6 +42583,7 @@ function renderChildManagement() {
     syncChildrenViewShell("add");
     app.innerHTML = renderChildProfileFormScreen();
     updateChildAgePreview();
+    dlcScrollPreserveY = null;
     return;
   }
 
@@ -41721,40 +42597,53 @@ function renderChildManagement() {
     syncChildrenViewShell("edit");
     app.innerHTML = renderChildProfileFormScreen(editingChild);
     updateChildAgePreview();
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "observe") {
     syncChildrenViewShell("observe");
     app.innerHTML = renderObservationScreen(records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "goals") {
     syncChildrenViewShell("goals");
     app.innerHTML = renderSimpleGoalsProgressPage(records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "tools") {
     syncChildrenViewShell("tools");
     app.innerHTML = renderChildToolsPage(records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   if (childManagementMode === "daily-logs") {
     syncChildrenViewShell("daily-logs");
     app.innerHTML = renderDailyLogsCenter(records);
+    if (dlcScrollPreserveY != null) {
+      const y = dlcScrollPreserveY;
+      dlcScrollPreserveY = null;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+      });
+    }
     return;
   }
 
   if (childManagementMode === "profile" && child) {
     syncChildrenViewShell("profile");
     app.innerHTML = renderSimpleChildProfile(child, records);
+    dlcScrollPreserveY = null;
     return;
   }
 
   syncChildrenViewShell("list");
+  dlcScrollPreserveY = null;
   const hasChildren = Boolean(records.children.length);
   app.innerHTML = `
     <section class="simple-child-page">
@@ -42059,10 +42948,16 @@ function renderChildFormsRecordsTab(child, records) {
         <label>Status
           <select data-hdh-forms-status>
             <option value="all" ${statusFilter === "all" ? "selected" : ""}>All statuses</option>
+            <option value="draft" ${statusFilter === "draft" ? "selected" : ""}>Draft</option>
             <option value="needed" ${statusFilter === "needed" ? "selected" : ""}>Needed</option>
-            <option value="requested" ${statusFilter === "requested" ? "selected" : ""}>Requested from family</option>
-            <option value="received" ${statusFilter === "received" ? "selected" : ""}>Received</option>
-            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed / complete</option>
+            <option value="assigned" ${statusFilter === "assigned" ? "selected" : ""}>Assigned</option>
+            <option value="notified" ${statusFilter === "notified" ? "selected" : ""}>Shared — awaiting parent</option>
+            <option value="in_progress" ${statusFilter === "in_progress" ? "selected" : ""}>In progress</option>
+            <option value="submitted" ${statusFilter === "submitted" ? "selected" : ""}>Submitted</option>
+            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed</option>
+            <option value="completed" ${statusFilter === "completed" ? "selected" : ""}>Completed</option>
+            <option value="on_file" ${statusFilter === "on_file" ? "selected" : ""}>On file</option>
+            <option value="needs_correction" ${statusFilter === "needs_correction" ? "selected" : ""}>Needs correction</option>
           </select>
         </label>
         <label>Category
@@ -42122,7 +43017,7 @@ function renderChildFormsRecordsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}` : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}${item.signedRole ? ` (${escapeHtml(item.signedRole)})` : ""}` : ""}${item.signedAt ? ` · ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
@@ -42698,11 +43593,14 @@ function renderChildToolsContent(child, records) {
 
 // Returns children not hidden/archived from active daily workflows.
 // Linked staff with classroomIds only see children assigned to those rooms.
+// Owners/directors may optionally filter by dailyLogsClassroomFilter.
 function getActiveChildren(records) {
   let list = (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
   const roomIds = staffAssignedClassroomIds();
   if (roomIds.length && typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount()) {
     list = list.filter((c) => roomIds.includes(String(c.classroomId || "")));
+  } else if (dailyLogsClassroomFilter) {
+    list = list.filter((c) => String(c.classroomId || "") === String(dailyLogsClassroomFilter));
   }
   return list;
 }
@@ -42841,9 +43739,27 @@ function renderDlcClassroomOverview(activeChildren, records, today) {
     { label: "Absent", value: absent, className: absent ? "dlc-stat-warn" : "" },
     { label: "Not Arrived", value: waiting, className: waiting ? "dlc-stat-warn" : "" },
   ];
+  const rooms = typeof activeScheduleClassrooms === "function"
+    ? activeScheduleClassrooms(scheduleDocCache || getScheduleApi()?.readCache(scheduleApiEmail()))
+    : [];
+  const staffRooms = staffAssignedClassroomIds();
+  const showRoomFilter = rooms.length > 1 && !staffRooms.length;
   return `
     <div class="dlc-classroom-overview">
-      <h3 class="dlc-overview-heading">Who's here today</h3>
+      <div class="dlc-overview-heading-row">
+        <h3 class="dlc-overview-heading">Who's here today</h3>
+        ${showRoomFilter ? `
+          <label class="dlc-room-filter">
+            <span class="visually-hidden">Classroom</span>
+            <select data-dlc-classroom-filter aria-label="Filter by classroom">
+              <option value="">All classrooms</option>
+              ${rooms.map((room) => `
+                <option value="${escapeHtml(room.id)}" ${String(dailyLogsClassroomFilter) === String(room.id) ? "selected" : ""}>${escapeHtml(room.name || room.id)}</option>
+              `).join("")}
+            </select>
+          </label>
+        ` : ""}
+      </div>
       <div class="dlc-stat-row">
         ${stats.map(({ label, value, className }) => `
           <div class="dlc-stat-card ${className}">
@@ -43262,7 +44178,7 @@ function renderDlcAccordionForm(sectionId, records) {
         <label class="dlc-form-label">Status<select name="status"><option>Present</option><option>Absent</option></select></label>
         <label class="dlc-form-label">Drop-Off Time<input name="dropoff" type="time" /></label>
         <label class="dlc-form-label">Pick-Up Time<input name="pickup" type="time" /></label>
-        ${renderDlcShareFields(false)}
+        ${renderDlcShareFields(true)}
         <button class="primary-button" type="submit">Save Attendance</button>
       </form>`;
   }
@@ -44490,8 +45406,9 @@ function renderDailyLogsGroupUpdate(records) {
           </div>
         </fieldset>
         ${renderGroupActionFields(action.id, today)}
-        ${renderDlcShareFields(action.id === "announcement" || action.id === "reminder")}
-        <button class="primary-button" type="submit">Save to Selected Children</button>
+        ${renderDlcShareFields(true)}
+        <p class="dlc-sub dlc-group-hint">One save writes to each selected child’s daily record. Edit one child later if they need an exception.</p>
+        <button class="primary-button dlc-tap-lg" type="submit">Save to Selected Children</button>
       </form>
     </div>
   `;
@@ -44564,7 +45481,7 @@ function renderDailyLogsIndividual(child, records, today) {
         </div>
         <label class="child-tools-select" style="min-width:160px">
           <select id="dlcChildSelect">
-            ${records.children.map((c) => `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+            ${getActiveChildren(records).map((c) => `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -45364,7 +46281,12 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record, options = {}) {
   const items = childStore(key);
-  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
+  const generatedId = `${key}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const requestedId = String(record?.id || "").trim();
+  const id = requestedId && !items.some((item) => String(item.id) === requestedId)
+    ? requestedId
+    : generatedId;
+  const saved = { createdAt: new Date().toISOString(), ...record, id };
   saveChildStore(key, [...items, saved]);
   if (!options.skipRender) {
     if (activePortfolioChildId) {
@@ -45865,7 +46787,10 @@ function todayAssignedLessonCardHtml() {
     const key = `${lesson.classroomId || ""}:${lesson.lessonPlanId || lesson.id || lesson.lessonPlanTitle || ""}`;
     if (seen.has(key)) return;
     seen.add(key);
-    lessons.push(lesson);
+    const linked = Array.isArray(lesson.childIds) && lesson.childIds.length
+      ? lesson.childIds.length
+      : children.filter((c) => String(c.classroomId || "") === String(lesson.classroomId || "")).length;
+    lessons.push({ ...lesson, linkedChildCount: linked });
   });
   if (!lessons.length) return "";
   return `
@@ -45875,8 +46800,11 @@ function todayAssignedLessonCardHtml() {
         ${lessons.slice(0, 3).map((lesson) => `
           <li>
             <strong>${escapeHtml(lesson.lessonPlanTitle || lesson.title || "Lesson plan")}</strong>
-            <span>On classroom calendar · Daily Logs · Teacher Today</span>
+            <span>Linked to ${Number(lesson.linkedChildCount) || 0} child${Number(lesson.linkedChildCount) === 1 ? "" : "ren"} · classroom calendar</span>
             <small>${escapeHtml(lesson.weekStartDate || "")}</small>
+            ${lesson.id ? `<div class="account-actions-row" style="margin-top:6px;">
+              <button type="button" class="ghost-button" data-log-planned-activity="${escapeHtml(lesson.id)}" data-log-planned-title="${escapeHtml(lesson.lessonPlanTitle || lesson.title || "Planned activity")}">Log to daily logs</button>
+            </div>` : ""}
           </li>
         `).join("")}
       </ul>
@@ -45895,6 +46823,44 @@ document.addEventListener("click", (event) => {
   const alertId = opsTile.getAttribute("data-ops-alert");
   if (alertId && typeof markOpsAlertRead === "function") markOpsAlertRead(alertId);
 }, true);
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-log-planned-activity]");
+  if (!btn) return;
+  event.preventDefault();
+  const itemId = btn.getAttribute("data-log-planned-activity");
+  const title = btn.getAttribute("data-log-planned-title") || "Planned activity";
+  if (!itemId || !currentUser) {
+    if (typeof showActionFeedback === "function") showActionFeedback("Sign in to log activities.");
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const email = String(currentUser).trim().toLowerCase();
+    const res = await fetch("/api/schedule/log-planned-activity", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-LLH-User-Email": email,
+        Authorization: `Bearer test:${email}`,
+      },
+      body: JSON.stringify({ itemId, title, date: typeof dlcActiveDate === "function" ? dlcActiveDate() : new Date().toISOString().slice(0, 10) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Could not log activity.");
+    if (typeof loadChildStoresFromCloud === "function") {
+      try { await loadChildStoresFromCloud({ force: true }); } catch (_e) { /* local ok */ }
+    }
+    if (typeof showActionFeedback === "function") showActionFeedback(data.message || `Logged ${title}.`);
+    if (typeof renderTeacherTodayPage === "function" && document.body.dataset.view === "today") {
+      renderTeacherTodayPage();
+    }
+  } catch (error) {
+    if (typeof showActionFeedback === "function") showActionFeedback(error.message || "Could not log activity.");
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 let afterActionPromptTimeout = null;
 
@@ -46232,6 +47198,9 @@ function primaryChildRecordDetail(item = {}) {
   if (item.notes != null && item.notes !== "") return { key: "notes", value: item.notes };
   if (item.text != null && item.text !== "") return { key: "text", value: item.text };
   if (item.activity != null && item.activity !== "") return { key: "activity", value: item.activity };
+  if (item.lunch != null && item.lunch !== "") return { key: "lunch", value: item.lunch };
+  if (item.breakfast != null && item.breakfast !== "") return { key: "breakfast", value: item.breakfast };
+  if (item.snack != null && item.snack !== "") return { key: "snack", value: item.snack };
   if (item.support != null && item.support !== "") return { key: "support", value: item.support };
   if (item.goal != null && item.goal !== "") return { key: "goal", value: item.goal };
   if (item.summary != null) return { key: "summary", value: item.summary };
@@ -47426,7 +48395,15 @@ async function submitFeedbackForm(event) {
     page: context?.page || window.location.hash || window.location.pathname || "app",
     accountType: account.accountType || getAccountType(account),
     role: context?.currentRole || account.role || getUserRole(account),
-    context: context || undefined,
+    context: {
+      ...(context || {}),
+      testingSite: Boolean(
+        context?.testingSite
+        || window.LLH_CONFIG?.homeDaycareHubTesting
+        || document.body?.classList?.contains("hdh-testing")
+        || document.body?.classList?.contains("llh-testing-environment"),
+      ),
+    },
     testedRole: context?.currentRole || undefined,
     screenshotUrl: document.querySelector("#feedbackScreenshotInput")?.value?.trim() || undefined,
     deviceInfo: context
@@ -48371,24 +49348,27 @@ function refreshAdminPreviewBadge() {
   const returnBtn = badge.querySelector("[data-admin-return-admin]");
   if (label) {
     label.textContent = mode === "Admin"
-      ? "Admin mode"
-      : `Previewing as ${mode}`;
+      ? "OWNER ADMIN"
+      : `OWNER ADMIN — VIEWING AS ${mode.toUpperCase()}`;
   }
   if (returnBtn) returnBtn.hidden = mode === "Admin" && !isAdminImpersonating();
   badge.classList.toggle("is-simulating", mode !== "Admin" || isAdminImpersonating());
   badge.hidden = false;
   if (isAdminImpersonating()) {
     if (label) {
-      label.textContent = `Viewing as ${adminImpersonationState.account?.name || adminImpersonationState.email} (read-only)`;
+      label.textContent = `OWNER ADMIN — VIEWING AS ${adminImpersonationState.account?.name || adminImpersonationState.email}`;
     }
     if (returnBtn) {
       returnBtn.hidden = false;
-      returnBtn.textContent = "Exit user view";
+      returnBtn.textContent = "Exit tester view";
       returnBtn.setAttribute("data-admin-exit-impersonation", "1");
     }
   } else if (returnBtn) {
-    returnBtn.textContent = "Return to Admin";
+    returnBtn.textContent = mode === "Admin" ? "Return to Admin" : "Exit tester view";
     returnBtn.removeAttribute("data-admin-exit-impersonation");
+  }
+  if (typeof window.OwnerTestingAdmin?.ensureViewAsBanner === "function") {
+    window.OwnerTestingAdmin.ensureViewAsBanner();
   }
 }
 
@@ -53695,6 +54675,23 @@ function applyAdminSectionVisibility() {
       else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
       else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
       else if (tab === "messages-home") ws.renderAdminMessagesHome(landingApp);
+      else if (tab === "testing-home" || tab === "testing-testers" || tab === "testing-programs" || tab === "testing-flags" || tab === "testing-viewas" || tab === "testing-audit") {
+        landingApp.innerHTML = `<div id="ownerTestingAdminApp"></div>`;
+        const host = landingApp.querySelector("#ownerTestingAdminApp");
+        host.dataset.otaPreferredTab = ({
+          "testing-home": "dashboard",
+          "testing-testers": "testers",
+          "testing-programs": "programs",
+          "testing-flags": "flags",
+          "testing-viewas": "viewas",
+          "testing-audit": "audit",
+        })[tab] || "testers";
+        if (window.OwnerTestingAdmin?.renderOwnerTestingAdmin) {
+          window.OwnerTestingAdmin.renderOwnerTestingAdmin(host);
+        } else {
+          landingApp.innerHTML = `<p class="muted-copy">Owner Testing Admin UI failed to load. Hard-refresh and confirm scripts/owner-testing-admin-ui.js is present.</p>`;
+        }
+      }
       else {
         throw new Error(`No landing renderer is registered for “${tab}”.`);
       }
@@ -63639,6 +64636,15 @@ document.addEventListener("click", async (event) => {
     toggleUniversalQuickAdd(false);
   }
 
+  const openTesters = event.target.closest("[data-admin-open-testers]");
+  if (openTesters) {
+    event.preventDefault();
+    const tab = openTesters.getAttribute("data-admin-open-testers") || "testing-testers";
+    if (typeof setAdminSectionTab === "function") setAdminSectionTab(tab);
+    setView("admin");
+    return;
+  }
+
   const testingAction = event.target.closest("[data-admin-testing-action]");
   if (testingAction) {
     event.preventDefault();
@@ -64870,6 +65876,20 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const refreshFamiliesCanonicalBtn = event.target.closest("[data-refresh-families-canonical]");
+  if (refreshFamiliesCanonicalBtn) {
+    event.preventDefault();
+    refreshFamilyHubHouseholds()
+      .then(() => {
+        renderFamiliesPage();
+        showActionFeedback("Families refreshed from Family Hub.");
+      })
+      .catch((error) => {
+        showActionFeedback(error.message || "Could not refresh Family Hub households.");
+      });
+    return;
+  }
+
   const acceptStaffInviteBtn = event.target.closest("[data-accept-staff-invite]");
   if (acceptStaffInviteBtn) {
     event.preventDefault();
@@ -65452,6 +66472,83 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const saveProgressBtn = event.target.closest("[data-family-hub-save-progress]");
+  if (saveProgressBtn) {
+    event.preventDefault();
+    const documentId = String(saveProgressBtn.dataset.familyHubSaveProgress || "").trim();
+    if (!documentId) return;
+    saveProgressBtn.disabled = true;
+    saveFamilyHubDocumentProgress(documentId)
+      .then(async () => {
+        familyHubParentToast("Progress saved.");
+        await loadFamilyHubParentDashboard({
+          panel: "forms",
+          childId: familyHubParentState.childId || "",
+        }).catch(() => null);
+      })
+      .catch((error) => {
+        saveProgressBtn.disabled = false;
+        familyHubParentToast(error.message || "Could not save progress.");
+      });
+    return;
+  }
+
+  const fhTuitionRefresh = event.target.closest("[data-fh-tuition-refresh]");
+  if (fhTuitionRefresh) {
+    event.preventDefault();
+    fhTuitionRefresh.disabled = true;
+    loadFamilyHubTuition()
+      .then(() => loadFamilyHubParentDashboard({
+        panel: "billing",
+        childId: familyHubParentState.childId || "",
+      }))
+      .catch((error) => familyHubParentToast(error.message || "Could not refresh billing."))
+      .finally(() => { fhTuitionRefresh.disabled = false; });
+    return;
+  }
+
+  const fhPayBtn = event.target.closest("[data-fh-pay-simulated], [data-fh-pay-partial]");
+  if (fhPayBtn) {
+    event.preventDefault();
+    const invoiceId = String(fhPayBtn.dataset.fhPaySimulated || fhPayBtn.dataset.fhPayPartial || "").trim();
+    const amountCents = Math.max(0, Number(fhPayBtn.dataset.fhPayAmount || 0) || 0);
+    if (!invoiceId || !amountCents) return;
+    if (!fhPayBtn.dataset.idempotencyKey) {
+      fhPayBtn.dataset.idempotencyKey = `fh-pay-${invoiceId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    const headers = familyHubAuthHeaders();
+    if (!headers) {
+      familyHubParentToast("Sign in to Family Hub to pay.");
+      return;
+    }
+    fhPayBtn.disabled = true;
+    fetch(`/api/family-hub/tuition/invoices/${encodeURIComponent(invoiceId)}/pay-simulated`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amountCents,
+        idempotencyKey: fhPayBtn.dataset.idempotencyKey,
+      }),
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.error || "Could not complete simulated payment.");
+        familyHubParentToast(result.duplicate
+          ? "Payment already recorded (retry ignored)."
+          : `Simulated payment ${result.receipt?.amountLabel || ""} recorded.`);
+        await loadFamilyHubTuition();
+        await loadFamilyHubParentDashboard({
+          panel: "billing",
+          childId: familyHubParentState.childId || "",
+        }).catch(() => null);
+      })
+      .catch((error) => {
+        fhPayBtn.disabled = false;
+        familyHubParentToast(error.message || "Could not pay.");
+      });
+    return;
+  }
+
   if (event.target.closest("[data-family-hub-retry]")) {
     event.preventDefault();
     renderFamilyHubPage();
@@ -65773,6 +66870,84 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const tuitionRefreshBtn = event.target.closest("[data-tuition-refresh]");
+  if (tuitionRefreshBtn) {
+    event.preventDefault();
+    tuitionRefreshBtn.disabled = true;
+    refreshTuitionBillingDashboard()
+      .then(() => {
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+        showActionFeedback("Tuition dashboard refreshed.");
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not refresh tuition."))
+      .finally(() => { tuitionRefreshBtn.disabled = false; });
+    return;
+  }
+
+  const tuitionPayBtn = event.target.closest("[data-tuition-record-payment], [data-tuition-record-partial]");
+  if (tuitionPayBtn) {
+    event.preventDefault();
+    const invoiceId = String(tuitionPayBtn.dataset.tuitionRecordPayment || tuitionPayBtn.dataset.tuitionRecordPartial || "").trim();
+    const balance = Math.max(0, Number(tuitionPayBtn.dataset.tuitionBalance || 0) || 0);
+    const isPartial = tuitionPayBtn.hasAttribute("data-tuition-record-partial");
+    const amountCents = isPartial ? Math.max(1, Math.floor(balance / 2)) : balance;
+    if (!invoiceId || !amountCents) return;
+    if (!tuitionPayBtn.dataset.idempotencyKey) {
+      tuitionPayBtn.dataset.idempotencyKey = `prov-pay-${invoiceId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    tuitionPayBtn.disabled = true;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) throw new Error("Sign in to record payments.");
+      const response = await fetch("/api/tuition/payments/record", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId,
+          amountCents,
+          method: "manual_recorded",
+          idempotencyKey: tuitionPayBtn.dataset.idempotencyKey,
+          notes: isPartial ? "Partial payment (testing)" : "Full payment (testing)",
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not record payment.");
+      await refreshTuitionBillingDashboard();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback(result.duplicate ? "Payment already recorded (retry ignored)." : "Payment recorded (simulated).");
+    })().catch((error) => {
+      tuitionPayBtn.disabled = false;
+      showActionFeedback(error.message || "Could not record payment.");
+    });
+    return;
+  }
+
+  const tuitionVoidBtn = event.target.closest("[data-tuition-void]");
+  if (tuitionVoidBtn) {
+    event.preventDefault();
+    const invoiceId = String(tuitionVoidBtn.dataset.tuitionVoid || "").trim();
+    if (!invoiceId) return;
+    tuitionVoidBtn.disabled = true;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) throw new Error("Sign in to void invoices.");
+      const response = await fetch(`/api/tuition/invoices/${encodeURIComponent(invoiceId)}/void`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Voided in testing" }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not void invoice.");
+      await refreshTuitionBillingDashboard();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Invoice voided.");
+    })().catch((error) => {
+      tuitionVoidBtn.disabled = false;
+      showActionFeedback(error.message || "Could not void invoice.");
+    });
+    return;
+  }
+
   const printTemplateBtn = event.target.closest("[data-print-form-template]");
   if (printTemplateBtn) {
     event.preventDefault();
@@ -65789,6 +66964,20 @@ document.addEventListener("click", async (event) => {
     saveFormsProgramTemplates(formsProgramTemplates().filter((item) => String(item.id) !== String(templateId)));
     showActionFeedback("Template removed.");
     renderHomeDaycareHubPage({ refreshHouseholds: false });
+    return;
+  }
+
+  const duplicateTemplateBtn = event.target.closest("[data-duplicate-form-template]");
+  if (duplicateTemplateBtn) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    try {
+      const copy = duplicateFormTemplate(duplicateTemplateBtn.dataset.duplicateFormTemplate);
+      showActionFeedback(`Duplicated as “${copy.title}”. Customize it, then assign.`);
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+    } catch (error) {
+      showActionFeedback(error.message || "Could not duplicate template.");
+    }
     return;
   }
 
@@ -70092,6 +71281,12 @@ document.addEventListener("change", (event) => {
     childManagementMode = "daily-logs";
     renderChildManagement();
   }
+  if (event.target.matches("[data-dlc-classroom-filter]")) {
+    dailyLogsClassroomFilter = String(event.target.value || "").trim();
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    renderChildManagement();
+  }
   if (event.target.matches("#dlcChildSelect")) {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
@@ -72771,6 +73966,87 @@ document.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (event.target.matches("#tuitionRateForm") || event.target.matches("[data-tuition-rate-form]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#tuitionRateMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    const data = collectFormData(form);
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) throw new Error("Sign in to save tuition rates.");
+      const response = await fetch("/api/tuition/rates", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId: data.childId,
+          schedule: data.schedule || "weekly",
+          amount: data.amount,
+          label: data.label || "",
+          customCadenceNote: data.customCadenceNote || "",
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not save rate.");
+      if (message) message.textContent = "Rate saved.";
+      await refreshTuitionBillingDashboard();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Tuition rate saved.");
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not save rate.";
+      showActionFeedback(error.message || "Could not save tuition rate.");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#tuitionInvoiceForm") || event.target.matches("[data-tuition-invoice-form]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#tuitionInvoiceMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    const data = collectFormData(form);
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) throw new Error("Sign in to create invoices.");
+      const amount = Number(data.amount || 0);
+      const discount = Number(data.discount || 0);
+      const credit = Number(data.credit || 0);
+      const response = await fetch("/api/tuition/invoices", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          householdId: data.householdId,
+          dueDate: data.dueDate,
+          lineType: data.lineType || "one_time",
+          amount,
+          description: data.description || "",
+          notes: data.notes || "",
+          discountCents: discount > 0 ? Math.round(discount * 100) : 0,
+          creditCents: credit > 0 ? Math.round(credit * 100) : 0,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not create invoice.");
+      if (message) message.textContent = "Invoice issued.";
+      form.reset();
+      await refreshTuitionBillingDashboard();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Invoice issued to family (testing).");
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not create invoice.";
+      showActionFeedback(error.message || "Could not create invoice.");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
   if (event.target.matches("#familyHubLoginForm")) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
@@ -73224,6 +74500,22 @@ function bindWeeklyPlannerSwipe() {
 }
 bindWeeklyPlannerSwipe();
 
+document.addEventListener("click", (event) => {
+  if (event.target?.matches?.("[data-curriculum-child-select-all]")) {
+    event.preventDefault();
+    const root = event.target.closest("form, .lesson-workspace-action-sheet-panel, .curriculum-assign-child-picker")
+      || document;
+    root.querySelectorAll('input[name="childIds"]').forEach((input) => { input.checked = true; });
+    return;
+  }
+  if (event.target?.matches?.("[data-curriculum-child-select-none]")) {
+    event.preventDefault();
+    const root = event.target.closest("form, .lesson-workspace-action-sheet-panel, .curriculum-assign-child-picker")
+      || document;
+    root.querySelectorAll('input[name="childIds"]').forEach((input) => { input.checked = false; });
+  }
+});
+
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#scheduleEventForm")) return;
   event.preventDefault();
@@ -73239,13 +74531,19 @@ document.addEventListener("submit", async (event) => {
   const resourceId = String(formData.get("resourceId") || "").trim();
   const weekStartDate = String(formData.get("weekStartDate") || "").trim();
   const ageGroup = String(formData.get("ageGroup") || "").trim();
+  const childIds = formData.getAll("childIds").map((id) => String(id || "").trim()).filter(Boolean);
   const intent = String(formData.get("assignIntent") || lessonWorkspaceAssignIntent || "calendar").trim() === "my-week"
     ? "my-week"
     : "calendar";
   if (!resourceId || !weekStartDate) return;
   if (submitButton) submitButton.disabled = true;
   try {
-    const assignment = await addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup });
+    const assignment = await addCurriculumLessonPlanToMainCalendar({
+      resourceId,
+      weekStartDate,
+      ageGroup,
+      childIds: childIds.length ? childIds : null,
+    });
     trackEvent(intent === "my-week" ? "lesson_add_to_my_week" : "lesson_use_this_plan_main_calendar", {
       lessonPlanId: resourceId,
       weekStartDate: assignment.weekStartDate,
@@ -73588,7 +74886,12 @@ document.addEventListener("submit", (event) => {
     const next = { ...item, updatedAt: new Date().toISOString() };
     if (date) next.date = date;
     next[detailKey] = details;
-    if (detailKey !== "summary" && !next.summary) next.summary = details;
+    // Keep summary in sync for meal/activity exceptions after group logging.
+    if (detailKey === "lunch") next.summary = `Lunch: ${details}`;
+    else if (detailKey === "breakfast") next.summary = `Breakfast: ${details}`;
+    else if (detailKey === "snack") next.summary = `Snack: ${details}`;
+    else if (detailKey === "activity") next.summary = details;
+    else if (detailKey !== "summary" && !next.summary) next.summary = details;
     if (date && next.title && String(next.title).includes("|")) {
       next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
     }
@@ -73741,25 +75044,27 @@ document.addEventListener("submit", (event) => {
   }
   const formData = new FormData(form);
   const childIds = formData.getAll("childIds");
-  const shareWithFamily = dlcFormShareFlag(form, actionId === "announcement" || actionId === "reminder");
+  // Care defaults to Family Hub; announcements/reminders also share when checked.
+  const shareWithFamily = dlcFormShareFlag(form, true);
   if (!childIds.length) return;
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const today = data.date || dlcActiveDate();
     if (actionId === "meals" || actionId === "lunch") {
-      appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily });
+      appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily }, { skipRender: true });
     } else if (actionId === "snacks") {
-      appendChildRecord("Meals", { childId, date: today, snack: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${data.content}`, shareWithFamily });
+      appendChildRecord("Meals", { childId, date: today, snack: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${data.content}`, shareWithFamily }, { skipRender: true });
     } else if (actionId === "breakfast") {
-      appendChildRecord("Meals", { childId, date: today, breakfast: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${data.content}`, shareWithFamily });
+      appendChildRecord("Meals", { childId, date: today, breakfast: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${data.content}`, shareWithFamily }, { skipRender: true });
     } else if (actionId === "activities") {
-      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily });
+      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content, shareWithFamily }, { skipRender: true });
     } else {
-      appendChildRecord("Communications", { childId, date: today, type: actionId === "reminder" ? "Parent Reminder" : "Announcement", message: data.content, title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`, summary: data.content, shareWithFamily });
+      appendChildRecord("Communications", { childId, date: today, type: actionId === "reminder" ? "Parent Reminder" : "Announcement", message: data.content, title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`, summary: data.content, shareWithFamily }, { skipRender: true });
     }
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
-  showActionFeedback("Group log saved to selected children.");
+  showActionFeedback(`Group log saved to ${childIds.length} child${childIds.length === 1 ? "" : "ren"}.`);
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -73775,9 +75080,10 @@ document.addEventListener("submit", (event) => {
   const form = event.target;
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
-  const shareWithFamily = dlcFormShareFlag(form, false);
+  const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
-    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status, shareWithFamily });
+    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status, shareWithFamily }, { skipRender: true });
   });
   showAfterActionPrompt("attendance", childIds[0]);
   dlcManualSection = "";
@@ -73791,9 +75097,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const parts = [data.breakfast && `Breakfast: ${data.breakfast}`, data.lunch && `Lunch: ${data.lunch}`, data.snack && `Snack: ${data.snack}`].filter(Boolean);
-    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily });
+    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged", shareWithFamily }, { skipRender: true });
   });
   showAfterActionPrompt("meals", childIds[0]);
   dlcManualSection = "";
@@ -73807,9 +75114,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const timeStr = data.time ? ` at ${data.time}` : "";
-    appendChildRecord("Meals", { ...data, childId, title: `Bottle | ${data.date}${timeStr}`, summary: `${data.type}: ${data.amount}`, shareWithFamily });
+    appendChildRecord("Meals", { ...data, childId, title: `Bottle | ${data.date}${timeStr}`, summary: `${data.type}: ${data.amount}`, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -73823,9 +75131,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
-    appendChildRecord("Naps", { ...data, childId, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}`, shareWithFamily });
+    appendChildRecord("Naps", { ...data, childId, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}`, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -73839,9 +75148,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const timeStr = data.time ? ` at ${data.time}` : "";
-    appendChildRecord("Diapers", { ...data, childId, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type, shareWithFamily });
+    appendChildRecord("Diapers", { ...data, childId, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -73855,9 +75165,10 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(form);
   const childIds = dlcGetAccordionChildIds(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
+  dlcScrollPreserveY = window.scrollY || window.pageYOffset || 0;
   childIds.forEach((childId) => {
     const summary = [data.area, data.notes].filter(Boolean).join(" | ") || data.activity || "Activity";
-    appendChildRecord("ActivityLogs", { ...data, childId, title: data.activity || "Activity", summary, shareWithFamily });
+    appendChildRecord("ActivityLogs", { ...data, childId, title: data.activity || "Activity", summary, shareWithFamily }, { skipRender: true });
   });
   dlcManualSection = "";
   renderChildManagement();
@@ -74282,8 +75593,12 @@ document.addEventListener("submit", async (event) => {
       return;
     }
     const data = collectFormData(event.target);
+    const mode = String(data.assignMode || event.target.querySelector('[name="assignMode"]')?.value || "children");
     const childIds = Array.from(event.target.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
-    assignAndNotifyForm({
+    const staffEmails = Array.from(event.target.querySelectorAll('input[name="staffEmails"]:checked')).map((input) => input.value);
+    const householdIds = Array.from(event.target.querySelectorAll('input[name="householdIds"]:checked')).map((input) => input.value);
+    const classroomId = String(data.classroomId || "").trim();
+    const formSpec = {
       title: template.title,
       category: template.category,
       body: template.body,
@@ -74292,14 +75607,24 @@ document.addEventListener("submit", async (event) => {
       resourceId: template.resourceId || "",
       templateId: template.id,
       dueDate: data.dueDate || "",
-      shareWithFamily: event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
+      shareWithFamily: mode === "staff" ? false : event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
+      requiresSignature: event.target.querySelector('[name="requiresSignature"]')?.checked !== false,
       notes: "Assigned from program template.",
-    }, childIds)
+    };
+    assignFormByTarget(formSpec, {
+      mode,
+      childIds,
+      staffEmails,
+      householdIds,
+      classroomId,
+      households: window.__llhFamilyHouseholdsCache || [],
+    })
       .then((saved) => {
         const refreshed = Number(saved.refreshedCount || 0);
+        const who = mode === "staff" ? "staff member" : "child";
         const message = refreshed
           ? `Updated existing assignment for “${template.title}” (${refreshed} already open — no duplicate created).`
-          : `Assigned “${template.title}” to ${saved.length} child${saved.length === 1 ? "" : "ren"}.`;
+          : `Assigned “${template.title}” to ${saved.length} ${who}${saved.length === 1 ? "" : "s"}.`;
         showActionFeedback(message);
         renderHomeDaycareHubPage({ refreshHouseholds: false });
       })
