@@ -3,7 +3,8 @@
 **Last updated:** 2026-08-08  
 **Owner:** Leah  
 **Live site:** https://littlelearnershubbyleah.com  
-**Repo `main` tip:** `eb4e1be` (includes PR #573)
+**Repo `main` tip:** `eb4e1be` (includes PR #573)  
+**Live production commit:** `eb4e1be` (deploy `dep-d9r849n10e5c73fg1kmg`)
 
 Status key: ✅ done · 🟡 in progress · 🔴 blocked · ⏸ parked (needs approval)
 
@@ -16,13 +17,10 @@ Status key: ✅ done · 🟡 in progress · 🔴 blocked · ⏸ parked (needs ap
 | PR #573 merged to `main` | ✅ | Merged 2026-08-08 · https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/573 |
 | GitHub CI `test:release` | ✅ | Passed on PR before merge |
 | Render production running | ✅ | `/api/health` ok · `launchReady` · Postgres ready |
-| Production running **#573 commit** | 🔴 | Live `/api/build-version` still reports `47cb86e` (PR #565). Auto-deploy did not pick up `eb4e1be`. No `RENDER_API_KEY` in agent env to trigger Manual Deploy. |
-| Post-#573 production feature smoke | 🔴 | Blocked until Render deploys `eb4e1be` (or later) |
+| Production running **#573 commit** | ✅ | Live `/api/build-version` = `eb4e1be` after API deploy (auto-deploy was off) |
+| Post-#573 production feature smoke | ✅ | Health/DB/homepage OK; inventory fingerprint unchanged (127 published); cover upload/assign admin-gated; live `app.js` has Preview as User, Quick Cover, sticky bar, cover filters |
 
-**Owner action required:** In Render Dashboard → service `little-learner-hub` (`srv-d8o3f3r6sc1c73comlc0`) → **Manual Deploy** → **Deploy latest commit**.  
-After deploy, confirm `GET /api/build-version` shows commit starting with `eb4e1be` (or a newer main SHA). Then re-run production smoke for Lesson Plan Admin covers.
-
-Also pending on live vs `main` (same deploy lag): PR #566, #567, #568 (Teaching Kit UI/print fixes).
+Also now live with this deploy: PR #566, #567, #568 (Teaching Kit UI/print fixes that were on `main` but not previously deployed).
 
 ---
 
@@ -30,10 +28,10 @@ Also pending on live vs `main` (same deploy lag): PR #566, #567, #568 (Teaching 
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Lesson Plan Admin — covers, draft/publish, Preview as User | ✅ merged | PR #573 |
-| Teaching Kit print/download shared printable model | ✅ merged | PR #568 |
-| Teaching Kit UI + print polish | ✅ merged | PR #567 |
-| Early User Pro pricing ($13.99), flag-gated | ✅ merged · ✅ live | PR #565 (`47cb86e`) |
+| Lesson Plan Admin — covers, draft/publish, Preview as User | ✅ merged · ✅ live | PR #573 (`eb4e1be`) |
+| Teaching Kit print/download shared printable model | ✅ merged · ✅ live | PR #568 |
+| Teaching Kit UI + print polish | ✅ merged · ✅ live | PR #567 |
+| Early User Pro pricing ($13.99), flag-gated | ✅ merged · ✅ live | PR #565 |
 
 ---
 
@@ -69,7 +67,7 @@ See [FEATURE_COMPLETENESS_ROADMAP.md](./audits/FEATURE_COMPLETENESS_ROADMAP.md).
 
 ## Stop-for-approval gates
 
-1. **Render Manual Deploy** of `main` (unblocks live #573 verification).  
+1. ~~Render Manual Deploy of `main`~~ ✅ completed 2026-08-08 (`eb4e1be` live).  
 2. **Fall Celebrations Week 2** draft complete → Leah review before import/publish.  
 3. Any Teaching Kit **customer** flag enablement.  
 4. Any production curriculum publish of new Gold Standard weeks.
