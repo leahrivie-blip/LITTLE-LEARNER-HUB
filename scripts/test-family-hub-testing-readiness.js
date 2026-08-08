@@ -478,7 +478,21 @@ async function main() {
     });
     assert.equal(revokedLogin.status, 404);
 
-    // Expired invite
+    // Expired invite — child must exist on canonical Profiles (Phase 4).
+    const expChildSeed = await request(onPort, "POST", "/api/child-data", {
+      email: "owner@example.com",
+      body: {
+        data: {
+          Profiles: [
+            { id: "dup-child", name: "Dup Child", classroomId: "classroom-main" },
+            { id: "dup-sibling", name: "Dup Sibling", classroomId: "classroom-main" },
+            { id: "exp-child", name: "Exp Child", classroomId: "classroom-main" },
+          ],
+        },
+      },
+    });
+    assert.equal(expChildSeed.status, 200, expChildSeed.text);
+
     const expiredCreate = await request(onPort, "POST", "/api/family-hub/households", {
       email: "owner@example.com",
       body: {

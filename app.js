@@ -36696,7 +36696,7 @@ function renderFamilyHubProviderPanel() {
             <article class="hdh-forms-pack-item">
               <div>
                 <strong>${escapeHtml(item.label || "Family")}</strong>
-                <p class="muted-copy">${escapeHtml(item.email || "No email")}${(item.guardianEmails || []).length > 1 ? ` · guardians: ${escapeHtml(item.guardianEmails.join(", "))}` : ""}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
+                <p class="muted-copy">${escapeHtml(item.email || "No email")}${(item.guardianEmails || []).length > 1 ? ` · guardians: ${escapeHtml(item.guardianEmails.join(", "))}` : ""}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name || c.id).filter(Boolean).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
                 ${pendingRequests.length ? `
                   <div class="hdh-parent-requests">
                     <p class="muted-copy"><strong>${pendingRequests.length} parent request${pendingRequests.length === 1 ? "" : "s"}</strong></p>
@@ -37420,6 +37420,11 @@ function renderFamilyHubMorePanel(data) {
           ${isLoggedIn() ? `<button class="ghost-button fh-btn-secondary" type="button" data-hdh-role-switch="teacher">Exit parent preview</button>` : ""}
           <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-sign-out>Sign out</button>
         </div>
+      </section>
+      <section class="fh-card fh-billing-placeholder" data-fh-billing-placeholder="true">
+        <h3>Billing</h3>
+        <p class="fh-meta">Tuition and payment tools arrive in a later Billing phase. This area is a placeholder only — no real charges or invoices here.</p>
+        <p class="muted-copy">Ask your provider about tuition outside Family Hub for now.</p>
       </section>
     </div>
   `;

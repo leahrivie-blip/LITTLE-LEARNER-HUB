@@ -14331,6 +14331,52 @@ function readOwnerChildDataForFamilyHub(store, ownerEmail) {
   }
 }
 
+/**
+ * Phase 6: Family Hub households are keyed by program ownerEmail.
+ * Staff/teachers must resolve to the owner so provider routes do not miss households.
+ */
+function resolveFamilyHubOwnerEmail(store, identity = {}) {
+  const actorEmail = normalizeEmail(identity.email || "");
+  if (!actorEmail) return "";
+  try {
+    const context = programOwnership.resolveProgramContext(store, {
+      email: actorEmail,
+      uid: identity.uid || identity.firebaseUid || "",
+    });
+    if (context?.ok && context.ownerEmail) return normalizeEmail(context.ownerEmail);
+  } catch (_error) {
+    /* fall through */
+  }
+  return actorEmail;
+}
+
+/** Membership = childIds ∪ children[].id (Phase 4 id-only roster). */
+function familyHubHouseholdChildIdSet(household = {}) {
+  return new Set([
+    ...(Array.isArray(household.childIds) ? household.childIds : []).map(String),
+    ...(Array.isArray(household.children) ? household.children : []).map((child) => String(child?.id || "")),
+  ].filter(Boolean));
+}
+
+/** Provider list/invite: overlay live Profile names onto id-only children. */
+function publicFamilyHouseholdWithLiveChildren(store, household = {}) {
+  const base = publicFamilyHousehold(household);
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
+  const preferredIds = Array.isArray(household.childIds) && household.childIds.length
+    ? household.childIds
+    : (Array.isArray(household.children) ? household.children : []).map((child) => child?.id).filter(Boolean);
+  const children = familyHubLib.overlayLiveChildren(
+    Array.isArray(household.children) ? household.children : [],
+    ownerChildData,
+    preferredIds,
+  );
+  return {
+    ...base,
+    children,
+    childIds: children.map((child) => child.id).filter(Boolean),
+  };
+}
+
 const aiGuideHandlers = createAiGuideHandlers({
   readStore: () => ensureAiGuideCollections(readStore()),
   writeStoreAsync,
@@ -14577,14 +14623,17 @@ function resolveFamilySession(request) {
   return { token, session, household, store };
 }
 
-function mintFamilySession(store, household) {
+function mintFamilySession(store, household, { email = "" } = {}) {
   const token = `llh_family_${crypto.randomBytes(24).toString("hex")}`;
   const now = new Date();
+  const sessionEmail = normalizeEmail(email || "");
   store.familySessions[token] = {
     token,
     householdId: household.id,
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + FAMILY_HUB_SESSION_TTL_MS).toISOString(),
+    // Phase 6: retain guardian email for request/message attribution when present.
+    ...(sessionEmail ? { email: sessionEmail } : {}),
   };
   household.status = "active";
   household.lastAccessAt = now.toISOString();
@@ -14602,11 +14651,13 @@ async function handleFamilyHubHouseholdsList(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const storage = getFamilyHubStorageStatus();
   jsonResponse(response, 200, {
     ok: true,
-    households: listFamilyHouseholdsForOwner(store, ownerEmail).map(publicFamilyHousehold),
+    households: listFamilyHouseholdsForOwner(store, ownerEmail).map((household) => (
+      publicFamilyHouseholdWithLiveChildren(store, household)
+    )),
     emailDeliveryReady: supportEmailConfigStatus().ready,
     smsDeliveryReady: false,
     storage,
@@ -14650,7 +14701,7 @@ async function handleFamilyHubHouseholdCreate(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   // Phase 4: resolve display names from canonical Profiles (do not invent a second roster).
   const ownerChildData = readOwnerChildDataForFamilyHub(store, ownerEmail);
   const profileById = new Map(
@@ -14792,7 +14843,10 @@ async function handleFamilyHubHouseholdCreate(request, response) {
           `Hi,`,
           ``,
           `${identity.email} invited your household to Family Hub for ${programName}.`,
-          `Children linked: ${children.map((c) => c.name).join(", ")}`,
+          `Children linked: ${children.map((c) => {
+            const live = profileById.get(c.id);
+            return live?.name || c.id;
+          }).filter(Boolean).join(", ")}`,
           ``,
           `Open your Family Hub magic link:`,
           magicUrl,
@@ -14808,7 +14862,10 @@ async function handleFamilyHubHouseholdCreate(request, response) {
         html: `
           <p>Hi,</p>
           <p><strong>${htmlEscape(identity.email)}</strong> invited your household to Family Hub for <strong>${htmlEscape(programName)}</strong>.</p>
-          <p>Children linked: ${htmlEscape(children.map((c) => c.name).join(", "))}</p>
+          <p>Children linked: ${htmlEscape(children.map((c) => {
+            const live = profileById.get(c.id);
+            return live?.name || c.id;
+          }).filter(Boolean).join(", "))}</p>
           <p><a href="${htmlEscape(magicUrl)}">Open Family Hub</a></p>
           <p>Or sign in with email <strong>${htmlEscape(email)}</strong> and login code <strong>${htmlEscape(loginCode)}</strong>.</p>
           ${guardianEmail ? `<p>Second guardian: sign in with <strong>${htmlEscape(guardianEmail)}</strong> and the same login code.</p>` : ""}
@@ -14836,7 +14893,7 @@ async function handleFamilyHubHouseholdCreate(request, response) {
     storage,
     replacedDuplicates: duplicates.length,
     household: {
-      ...publicFamilyHousehold(household),
+      ...publicFamilyHouseholdWithLiveChildren(store, household),
       loginCode, // provider-only response so they can share when email/SMS is not configured
       magicUrl,
     },
@@ -14879,7 +14936,7 @@ async function handleFamilyHubHouseholdChildrenPatch(request, response, househol
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const household = store.familyHouseholds?.[id];
   if (!household || normalizeEmail(household.ownerEmail) !== ownerEmail || household.status === "revoked") {
     jsonResponse(response, 404, { error: "Family Hub household not found." });
@@ -14932,7 +14989,7 @@ async function handleFamilyHubHouseholdChildrenPatch(request, response, househol
   jsonResponse(response, 200, {
     ok: true,
     testingOnly: true,
-    household: publicFamilyHousehold(household),
+    household: publicFamilyHouseholdWithLiveChildren(store, household),
   });
 }
 
@@ -14953,7 +15010,7 @@ async function handleFamilyHubProviderNotificationsPost(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const childId = String(body?.childId || "").trim();
   const householdId = String(body?.householdId || "").trim();
   const title = String(body?.title || "Update from your teacher").trim() || "Update from your teacher";
@@ -15061,7 +15118,10 @@ function handleFamilyHubInvitePeek(request, response, url) {
       label: household.label || "Family",
       email: household.email || "",
       phone: household.phone ? "on file" : "",
-      children: Array.isArray(household.children) ? household.children.map((c) => ({ id: c.id, name: c.name })) : [],
+      children: publicFamilyHouseholdWithLiveChildren(store, household).children.map((c) => ({
+        id: c.id,
+        name: c.name || c.id,
+      })),
       expiresAt: household.expiresAt || "",
     },
   });
@@ -15095,7 +15155,9 @@ function handleFamilyHubInviteRedeem(request, response) {
       jsonResponse(response, 410, { error: "This Family Hub link has expired. Ask your provider for a new invite." });
       return;
     }
-    const sessionToken = mintFamilySession(store, household);
+    const sessionToken = mintFamilySession(store, household, {
+      email: household.email || (Array.isArray(household.guardianEmails) ? household.guardianEmails[0] : ""),
+    });
     link.status = "redeemed";
     link.redeemedAt = new Date().toISOString();
     store.familyMagicLinks[token] = link;
@@ -15113,7 +15175,7 @@ function handleFamilyHubInviteRedeem(request, response) {
       ok: true,
       testingOnly: true,
       sessionToken,
-      household: publicFamilyHousehold(household),
+      household: publicFamilyHouseholdWithLiveChildren(store, household),
     });
   }).catch(() => {
     jsonResponse(response, 400, { error: "Invalid redeem payload." });
@@ -15158,7 +15220,7 @@ function handleFamilyHubLogin(request, response) {
       jsonResponse(response, 401, { error: "That email and login code do not match an active Family Hub invite." });
       return;
     }
-    const sessionToken = mintFamilySession(store, household);
+    const sessionToken = mintFamilySession(store, household, { email });
     try {
       await persistFamilyHubStore(store);
     } catch (error) {
@@ -15173,7 +15235,7 @@ function handleFamilyHubLogin(request, response) {
       ok: true,
       testingOnly: true,
       sessionToken,
-      household: publicFamilyHousehold(household),
+      household: publicFamilyHouseholdWithLiveChildren(store, household),
     });
   }).catch(() => {
     jsonResponse(response, 400, { error: "Invalid login payload." });
@@ -15237,7 +15299,13 @@ function handleFamilyHubMessagesGet(request, response) {
   }
   const { household, store, token, session } = resolved;
   touchFamilySession(store, token, session);
-  const messages = familyHubMessagesForHousehold(store, household.id).map(familyHubLib.publicFamilyMessage);
+  // Phase 6: merge thread + bridged Communications (same as /me Today payload).
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
+  const childIds = [...familyHubHouseholdChildIdSet(household)];
+  const threadMessages = familyHubMessagesForHousehold(store, household.id);
+  const bridgedMessages = familyHubLib.sharedCommunicationsAsMessages(ownerChildData, childIds, household.id);
+  const messages = familyHubLib.mergeFamilyHubMessages(threadMessages, bridgedMessages)
+    .map(familyHubLib.publicFamilyMessage);
   jsonResponse(response, 200, { ok: true, testingOnly: true, messages });
 }
 
@@ -15278,6 +15346,7 @@ async function handleFamilyHubMessagesPost(request, response) {
     readByProvider: false,
   };
   store.familyHubMessages.push(message);
+  // Parent receipt (already-read) + provider alert so staff see unread parent mail.
   store.familyHubNotifications.push({
     id: `fh-ntf-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
     householdId: household.id,
@@ -15287,6 +15356,18 @@ async function handleFamilyHubMessagesPost(request, response) {
     createdAt: now,
     read: true,
     href: "messages",
+    audience: "parent",
+  });
+  store.familyHubNotifications.push({
+    id: `fh-ntf-prov-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+    householdId: household.id,
+    type: "message",
+    title: "New message from family",
+    body: text.slice(0, 160),
+    createdAt: now,
+    read: false,
+    href: "messages",
+    audience: "provider",
   });
   try {
     await persistFamilyHubStore(store);
@@ -15330,7 +15411,7 @@ async function handleFamilyHubProviderMessagePost(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const childId = String(body?.childId || "").trim();
   const householdId = String(body?.householdId || "").trim();
   const households = listFamilyHouseholdsForOwner(store, ownerEmail)
@@ -15339,13 +15420,7 @@ async function handleFamilyHubProviderMessagePost(request, response) {
     ? households.find((item) => item.id === householdId)
     : null;
   if (!household && childId) {
-    household = households.find((item) => (
-      (Array.isArray(item.childIds) ? item.childIds : [])
-        .map(String)
-        .includes(childId)
-      || (Array.isArray(item.children) ? item.children : [])
-        .some((child) => String(child?.id || "") === childId)
-    )) || null;
+    household = households.find((item) => familyHubHouseholdChildIdSet(item).has(childId)) || null;
   }
   if (!household && households.length === 1) household = households[0];
   if (!household) {
@@ -15490,13 +15565,11 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   try { body = await readJson(request); } catch (_error) { body = {}; }
   const { household, store, token, session } = resolved;
   touchFamilySession(store, token, session);
-  const childIds = new Set(
-    (Array.isArray(household.children) ? household.children : [])
-      .map((child) => String(child?.id || ""))
-      .filter(Boolean),
-  );
+  // Phase 6: membership = childIds ∪ children; only family-shared docs may be acknowledged.
+  const childIds = familyHubHouseholdChildIdSet(household);
   const signerName = String(
     body?.signerName
+    || session?.email
     || household.settings?.preferredName
     || household.label
     || household.email
@@ -15518,7 +15591,13 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
     const saved = programOwnership.readProgramChildData(store, context);
     const childData = saved?.data && typeof saved.data === "object" ? { ...saved.data } : {};
     const docs = Array.isArray(childData.Documents) ? [...childData.Documents] : [];
-    const index = docs.findIndex((doc) => String(doc?.id || "") === id && childIds.has(String(doc?.childId || "")));
+    const index = docs.findIndex((doc) => {
+      if (String(doc?.id || "") !== id) return false;
+      if (!childIds.has(String(doc?.childId || ""))) return false;
+      // Staff-only / unshared forms must never be acknowledgeable from Family Hub.
+      if (doc?.shareWithFamily !== true && doc?.shareWithFamily !== "true") return false;
+      return true;
+    });
     if (index >= 0) {
       const previousBody = String(docs[index].draftText || docs[index].bodyText || docs[index].signedSnapshot || "").trim();
       docs[index] = {
@@ -15540,7 +15619,14 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   }
 
   const householdDocs = Array.isArray(household.documents) ? [...household.documents] : [];
-  const householdIndex = householdDocs.findIndex((doc) => String(doc?.id || "") === id);
+  const householdIndex = householdDocs.findIndex((doc) => {
+    if (String(doc?.id || "") !== id) return false;
+    // Fallback household docs: require shareWithFamily true when explicitly set false.
+    if (doc?.shareWithFamily === false || doc?.shareWithFamily === "false") return false;
+    const docChildId = String(doc?.childId || "");
+    if (docChildId && !childIds.has(docChildId)) return false;
+    return true;
+  });
   if (householdIndex >= 0) {
     householdDocs[householdIndex] = {
       ...householdDocs[householdIndex],
@@ -15564,6 +15650,7 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
       signedBy: signerName,
       updatedAt: now,
       notes: updatedDoc.notes || "",
+      shareWithFamily: true,
     });
     household.documents = householdDocs;
   }
@@ -15663,18 +15750,21 @@ async function handleFamilyHubRequestPost(request, response) {
   }
   const { household, store, token, session } = resolved;
   touchFamilySession(store, token, session);
-  const childIds = new Set([
-    ...(Array.isArray(household.childIds) ? household.childIds : []).map(String),
-    ...(Array.isArray(household.children) ? household.children : []).map((child) => String(child?.id || "")),
-  ].filter(Boolean));
+  const childIds = familyHubHouseholdChildIdSet(household);
   const childId = String(body?.childId || "").trim();
   if (childId && !childIds.has(childId)) {
     jsonResponse(response, 400, { error: "That child is not linked to this household." });
     return;
   }
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
+  const liveChildren = familyHubLib.overlayLiveChildren(
+    Array.isArray(household.children) ? household.children : [],
+    ownerChildData,
+    [...childIds],
+  );
   const childName = String(
     body?.childName
-    || (Array.isArray(household.children) ? household.children : []).find((child) => String(child?.id || "") === childId)?.name
+    || liveChildren.find((child) => String(child?.id || "") === childId)?.name
     || "",
   ).trim();
   const details = String(body?.details || body?.notes || "").trim().slice(0, 1200);
@@ -15782,7 +15872,7 @@ async function handleFamilyHubRequestStatusPatch(request, response, requestId) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const households = listFamilyHouseholdsForOwner(store, ownerEmail);
   let foundHousehold = null;
   let foundRequest = null;
@@ -15847,7 +15937,7 @@ async function handleFamilyHubProviderInboxGet(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const households = listFamilyHouseholdsForOwner(store, ownerEmail)
     .filter((item) => item.status !== "revoked");
   const householdIds = new Set(households.map((item) => item.id));
@@ -15860,6 +15950,12 @@ async function handleFamilyHubProviderInboxGet(request, response) {
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, 60)
     .map(familyHubLib.publicFamilyNotification);
+  const unreadMessages = (store.familyHubMessages || []).filter((msg) => (
+    msg
+    && householdIds.has(String(msg.householdId || ""))
+    && msg.from === "parent"
+    && msg.readByProvider === false
+  )).length;
   const pendingRequests = households.flatMap((household) => (
     (Array.isArray(household.familyRequests) ? household.familyRequests : [])
       .filter((item) => String(item.status || "pending") === "pending")
@@ -15874,7 +15970,8 @@ async function handleFamilyHubProviderInboxGet(request, response) {
     testingOnly: true,
     notifications,
     pendingRequests,
-    unread: notifications.filter((item) => !item.read).length,
+    unreadMessages,
+    unread: notifications.filter((item) => !item.read).length + unreadMessages,
   });
 }
 
@@ -15900,7 +15997,7 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const now = new Date().toISOString();
   let unlinked = 0;
   let revoked = 0;
@@ -15982,8 +16079,9 @@ async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
     return;
   }
   const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const household = store.familyHouseholds[householdId];
-  if (!household || normalizeEmail(household.ownerEmail) !== normalizeEmail(identity.email)) {
+  if (!household || normalizeEmail(household.ownerEmail) !== ownerEmail) {
     jsonResponse(response, 404, { error: "Household invite not found." });
     return;
   }
@@ -16044,7 +16142,7 @@ async function handleFamilyHubSeedDemo(request, response) {
   try { body = await readJson(request); } catch (_error) { body = {}; }
   const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
   const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const seed = familyHubLib.buildFamilyHubDemoSeed({
     now: new Date(),
     origin,

@@ -165,6 +165,7 @@
     "test:daily-logs-attendance": "node scripts/test-daily-logs-attendance.js",
     "test:daily-operations-phase5": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-daily-operations-phase5.js",
     "test:daily-operations-mobile-phase5": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-daily-operations-mobile-phase5.js",
+    "test:family-hub-phase6": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-family-hub-phase6.js",
     "test:child-data-sync": "node scripts/test-child-data-sync.js",
     "test:child-documents-tab": "node scripts/test-child-documents-tab.js",
     "test:home-daycare-hub-step-a": "node scripts/test-home-daycare-hub-step-a.js",
