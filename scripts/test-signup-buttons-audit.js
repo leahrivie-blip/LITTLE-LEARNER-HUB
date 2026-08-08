@@ -158,10 +158,12 @@ async function clickSignupAndExpectModal(page, locator, label) {
   }
 
   const title = (await page.locator("#authTitle").innerText()).toLowerCase();
-  // Free signup titles ("Create…") and Founding checkout signup ("Continue with Founding Membership").
-  const isSignup = /create|sign up|free|founding|membership/.test(title) && !/^log in/.test(title);
-  if (!isSignup) {
-    return { ok: false, label, reason: `expected signup modal, got title: ${title}`, coverInfo };
+  // Free signup ("Create…"), Founding checkout ("Continue with Founding Membership"),
+  // and Pro Preview trial CTAs ("Start your 7-day Pro trial") all open auth signup intents.
+  const isSignupOrTrialAuth = /create|sign up|free|founding|membership|trial|pro trial/.test(title)
+    && !/^log in/.test(title);
+  if (!isSignupOrTrialAuth) {
+    return { ok: false, label, reason: `expected signup/trial auth modal, got title: ${title}`, coverInfo };
   }
 
   await closeAuth(page);
