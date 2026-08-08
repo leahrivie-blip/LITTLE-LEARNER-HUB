@@ -14,13 +14,13 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | 👀 **Manual tester review in progress** — Phase 11 automated/testing gate 100%; production approval **BLOCKED** |
+| **Current phase** | 👀 **Manual tester review + full journey audit filed** — automated gate 100%; production **BLOCKED** |
 | **Overall completion** | **100%** automated/testing gate only — **not** production-approved |
-| **Production status** | 🔒 **BLOCKED / untouched** — live `20260808-cookie-cta` until Leah’s **explicit written** deploy approval |
-| **Testing status** | 🟢 Stable for manual review — `20260808-phase11-final-qa` · keep stable unless a reported bug requires a testing-only fix/redeploy |
-| **Major blockers** | Production approval blocked pending Leah’s manual Final QA review |
-| **Ready for tester review** | **Yes** — punch list: `docs/audits/PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md` |
-| **Ready for production approval** | **No** — blocked until manual review + explicit written approval |
+| **Production status** | 🔒 **BLOCKED / untouched** — `20260808-cookie-cta` |
+| **Testing status** | 🟢 Stable `20260808-phase11-final-qa` — keep stable unless Leah prioritizes a testing-only bugfix |
+| **Major blockers** | Production approval blocked; journey audit found **0 blockers / 6 high / 9 medium** (see punch list) |
+| **Ready for tester review** | **Yes** — punch list + `PHASE11_COMPLETE_TESTING_USER_JOURNEY_AUDIT.md` |
+| **Ready for production approval** | **No** |
 
 ---
 
