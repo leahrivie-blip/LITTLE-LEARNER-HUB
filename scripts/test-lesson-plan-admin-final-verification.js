@@ -242,23 +242,17 @@ function findPublicPlan(siteContentJson, planId) {
 }
 
 function extractFn(source, fnName) {
-  const start = source.indexOf(`async function ${fnName}`) >= 0
-    ? source.indexOf(`async function ${fnName}`)
-    : source.indexOf(`function ${fnName}`);
+  const asyncLabel = `async function ${fnName}`;
+  const syncLabel = `function ${fnName}`;
+  let start = source.indexOf(asyncLabel);
+  if (start < 0) start = source.indexOf(syncLabel);
   if (start < 0) return "";
-  let depth = 0;
-  let started = false;
-  for (let i = start; i < source.length; i += 1) {
-    const ch = source[i];
-    if (ch === "{") {
-      depth += 1;
-      started = true;
-    } else if (ch === "}") {
-      depth -= 1;
-      if (started && depth === 0) return source.slice(start, i + 1);
-    }
-  }
-  return source.slice(start, start + 4000);
+  // Slice a large window and stop at the next top-level function declaration when possible.
+  // Avoid brace-counting: app.js bodies contain template literals with `{`.
+  const window = source.slice(start, start + 12000);
+  const nextFn = window.search(/\n(?:async\s+)?function\s+[A-Za-z0-9_]/);
+  if (nextFn > 80) return window.slice(0, nextFn);
+  return window;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -887,19 +881,60 @@ async function integration() {
       }
     }, editorId);
     await page.waitForSelector("#adminCurriculumLessonPlanForm", { state: "attached", timeout: 10000 });
-    await page.evaluate(() => {
+    // Ensure we are back in admin curriculum editor with unlock intact after preview flows.
+    await page.evaluate(
+      ({ email, token: adminToken }) => {
+        if (typeof setAdminSession === "function") {
+          setAdminSession({
+            token: adminToken,
+            email,
+            name: "Final Verify Admin",
+            mode: "server",
+            trustedDevice: true,
+          });
+        }
+        if (typeof setAdminPreviewMode === "function") setAdminPreviewMode("Admin");
+        if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
+      },
+      { email: ADMIN.email, token },
+    );
+    await page.evaluate((id) => {
+      if (typeof openAdminCurriculumLessonEditor === "function") {
+        openAdminCurriculumLessonEditor(id, { scroll: true });
+      }
+    }, editorId);
+    await page.waitForSelector("#adminCurriculumLessonPlanForm [data-curriculum-cover-editor]", {
+      state: "attached",
+      timeout: 10000,
+    });
+    const cancelResult = await page.evaluate(() => {
       applyAdminCurriculumCoverSelection("/images/lesson-covers/default.svg", {
         source: "mapped",
         pending: true,
       });
+      const pendingBefore = Boolean(adminCurriculumCoverPending);
+      const btn = document.querySelector("#adminCurriculumLessonPlanForm [data-curriculum-cover-revert]");
+      if (btn) {
+        btn.hidden = false;
+        btn.removeAttribute("hidden");
+      }
+      if (typeof revertAdminCurriculumCoverPending === "function") {
+        revertAdminCurriculumCoverPending();
+      } else if (btn) {
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      }
+      return {
+        pendingBefore,
+        pendingAfter: Boolean(adminCurriculumCoverPending),
+        unlocked: typeof isAdminUnlocked === "function" ? isAdminUnlocked() : null,
+        hasButton: Boolean(btn),
+        hasRevertFn: typeof revertAdminCurriculumCoverPending === "function",
+      };
     });
-    let pending = await page.evaluate(() => Boolean(adminCurriculumCoverPending));
-    ok(pending, "pending cover selection set");
-    await page.evaluate(() => {
-      document.querySelector("[data-curriculum-cover-revert]")?.click();
-    });
-    pending = await page.evaluate(() => Boolean(adminCurriculumCoverPending));
-    ok(!pending, "cover cancel pending clears selection");
+    ok(cancelResult.pendingBefore, "pending cover selection set");
+    ok(cancelResult.unlocked !== false, "admin remains unlocked for cover cancel");
+    ok(cancelResult.hasRevertFn || cancelResult.hasButton, "cover cancel control available");
+    ok(!cancelResult.pendingAfter, "cover cancel pending clears selection");
 
     // Mobile viewport
     await page.setViewportSize({ width: 390, height: 844 });

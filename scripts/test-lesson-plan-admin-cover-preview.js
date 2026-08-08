@@ -135,23 +135,15 @@ function weekdayPlan() {
 }
 
 function extractFn(source, fnName) {
-  const start = source.indexOf(`async function ${fnName}`) >= 0
-    ? source.indexOf(`async function ${fnName}`)
-    : source.indexOf(`function ${fnName}`);
+  const asyncLabel = `async function ${fnName}`;
+  const syncLabel = `function ${fnName}`;
+  let start = source.indexOf(asyncLabel);
+  if (start < 0) start = source.indexOf(syncLabel);
   if (start < 0) return "";
-  let depth = 0;
-  let started = false;
-  for (let i = start; i < source.length; i += 1) {
-    const ch = source[i];
-    if (ch === "{") {
-      depth += 1;
-      started = true;
-    } else if (ch === "}") {
-      depth -= 1;
-      if (started && depth === 0) return source.slice(start, i + 1);
-    }
-  }
-  return source.slice(start, start + 4000);
+  const window = source.slice(start, start + 12000);
+  const nextFn = window.search(/\n(?:async\s+)?function\s+[A-Za-z0-9_]/);
+  if (nextFn > 80) return window.slice(0, nextFn);
+  return window;
 }
 
 function staticChecks() {
