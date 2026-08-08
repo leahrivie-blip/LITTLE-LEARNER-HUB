@@ -21,6 +21,15 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Browser-based tests (e.g. `test:homepage-smoke`, `test:lesson-library-header`, `test:curriculum-ux`, `test:curriculum-publish`) use **Playwright Chromium (headless)** and require the browser binaries (installed via `npx playwright install --with-deps chromium`).
 - Each test **spawns its own server instance on a random port with a temp JSON store**, so tests do not depend on (or conflict with) a separately running dev server.
 
+### Testing is the future / production read-only (LOCKED)
+- Canonical policy: `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md`. Cursor rule: `.cursor/rules/testing-is-the-future-production-readonly.mdc`.
+- The **testing site** (HDH / `main` testing architecture) is the future of Little Learner Hub. Build all new development, redesigns, bug fixes, curriculum/Teaching Kit work, Family Hub, Forms, Billing (testing), AI, and future features **on testing only**.
+- **Production is read-only** through all remaining phases. Do not deploy, merge into production, publish testing changes, overwrite production curriculum/kits, delete production data, or point production at testing services — **until Leah gives written approval**.
+- Live → Testing Feature Sync: compare production **read-only**; implement gaps only on testing. Brief: `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md`.
+- Before Final QA: complete `docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md`.
+- Continuous quality: fix bugs, polish UI/usability, and clear low-risk tech debt while working in an area; do not defer obvious safe improvements.
+- **Phase gate:** every phase ends with a completion report (`docs/audits/PHASE_COMPLETION_REPORT_TEMPLATE.md`) before the next phase. Keep `docs/audits/MASTER_PROJECT_PROGRESS.md` current (completed / current / remaining, %, blockers, bugs, production & testing status).
+
 ### Production environment variables (CRITICAL)
 - Coding agents are **read-only** for production Render env vars by default. Never call Render APIs that replace the full env-var list with a partial list (that wiped production once).
 - Names-only inventory: `docs/production-env/REQUIRED_ENV_INVENTORY.json`. Policy + commands: `docs/production-env/README.md`. Cursor rule: `.cursor/rules/production-env-safety.mdc`.

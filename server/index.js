@@ -68,6 +68,7 @@ const ownerNotificationEmail = require("./owner-notification-email.js");
 const signupTransactional = require("./signup-transactional.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
+const { createOwnerTestingAdminApi } = require("./owner-testing-admin.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -12550,30 +12551,66 @@ function handleAdminUserDetail(request, response, url) {
       createdAt: event.createdAt || "",
       label: event.detail?.title || event.detail?.category || event.detail?.tool || event.name,
     }));
-  const schedule = store.scheduleByUser?.[email] || null;
-  const calendarEntryCount = Array.isArray(schedule?.entries)
-    ? schedule.entries.length
-    : Array.isArray(schedule?.weeks)
-      ? schedule.weeks.length
-      : (schedule && typeof schedule === "object" ? Object.keys(schedule).length : 0);
-  const programKeys = Object.keys(store.programData || {}).filter((key) => {
-    const row = store.programData[key];
-    return normalizeEmail(row?.ownerEmail || row?.email || key) === email;
-  });
-  let childrenCount = Number(user.childrenCount) || 0;
+  const schedule = (() => {
+    // Phase 4: prefer program schedule; scheduleByUser is temporary legacy only.
+    try {
+      const ctx = programOwnership.resolveProgramContext(store, { email, uid: user.firebaseUid || user.uid || "" });
+      if (ctx?.ok && ctx.programId) {
+        const doc = programOwnership.readProgramSchedule(store, ctx, scheduleLib);
+        return doc || null;
+      }
+    } catch (_error) {
+      /* fall through */
+    }
+    return store.scheduleByUser?.[user.firebaseUid || user.uid] || store.scheduleByUser?.[email] || null;
+  })();
+  const calendarEntryCount = Array.isArray(schedule?.items)
+    ? schedule.items.length
+    : Array.isArray(schedule?.entries)
+      ? schedule.entries.length
+      : Array.isArray(schedule?.weeks)
+        ? schedule.weeks.length
+        : (schedule && typeof schedule === "object" ? Object.keys(schedule).length : 0);
+  // Phase 4: children live on programs[programId] → programData[id].child.data.Profiles
+  let childrenCount = Number(user.childProfiles) || Number(user.childrenCount) || 0;
   const childrenSample = [];
-  programKeys.forEach((key) => {
-    const row = store.programData[key] || {};
-    const kids = Array.isArray(row.children) ? row.children : (Array.isArray(row.childProfiles) ? row.childProfiles : []);
-    childrenCount = Math.max(childrenCount, kids.length);
-    kids.slice(0, 12).forEach((child) => {
+  const programId = user.programId
+    || (user.linkedProgramOwnerEmail
+      ? programOwnership.programIdForOwnerEmail(normalizeEmail(user.linkedProgramOwnerEmail))
+      : programOwnership.programIdForOwnerEmail(email));
+  if (programId && store.programData?.[programId]?.child?.data) {
+    const profiles = Array.isArray(store.programData[programId].child.data.Profiles)
+      ? store.programData[programId].child.data.Profiles
+      : [];
+    childrenCount = Math.max(childrenCount, profiles.length);
+    profiles.slice(0, 12).forEach((child) => {
       childrenSample.push({
         id: child.id || "",
         name: child.name || child.firstName || "Child",
         ageGroup: child.ageGroup || child.age || "",
+        classroomId: child.classroomId || "",
       });
     });
-  });
+  } else {
+    const programKeys = Object.keys(store.programData || {}).filter((key) => {
+      const row = store.programData[key];
+      return normalizeEmail(row?.ownerEmail || row?.email || "") === email
+        || String(key) === String(programId);
+    });
+    programKeys.forEach((key) => {
+      const profiles = store.programData[key]?.child?.data?.Profiles;
+      const kids = Array.isArray(profiles) ? profiles : [];
+      childrenCount = Math.max(childrenCount, kids.length);
+      kids.slice(0, 12).forEach((child) => {
+        childrenSample.push({
+          id: child.id || "",
+          name: child.name || child.firstName || "Child",
+          ageGroup: child.ageGroup || child.age || "",
+          classroomId: child.classroomId || "",
+        });
+      });
+    });
+  }
   const billingHistory = (store.billingEvents || [])
     .filter((event) => normalizeEmail(event.email || event.user || event.detail?.email) === email)
     .slice(0, 30);
@@ -12720,6 +12757,24 @@ function extractAdminTokenFromBody(request, body) {
 function validAdminToken(token) {
   return Boolean(adminSessionStore.validate(token));
 }
+
+const ownerTestingAdminApi = createOwnerTestingAdminApi({
+  isTestingEnabled: isHomeDaycareHubTestingEnabled,
+  validAdminToken,
+  extractAdminToken,
+  extractAdminTokenFromBody,
+  readStore,
+  peekStore,
+  respondAfterPersist,
+  jsonResponse,
+  readJson,
+  programOwnership,
+  scheduleLib,
+  tempPasswordAuth,
+  siteUrl: SITE_URL,
+  sendEmail,
+  supportEmailConfigStatus,
+});
 
 /**
  * Teaching Kit owner-admin gate for enrichment AI / drafts / quality / publish.
@@ -13895,15 +13950,42 @@ async function handleScheduleWeekAssign(request, response, weekStartParam) {
       return;
     }
     const store = readStore();
+    const context = programOwnership.resolveProgramContext(store, identity);
+    if (context.ok && !context.canWriteProgramData) {
+      jsonResponse(response, 403, { error: "Your role cannot assign lesson plans." });
+      return;
+    }
+    // Teachers/assistants with classroomIds may only assign within those rooms.
+    const classroomId = String(body.classroomId || "").trim();
+    if (context.ok && Array.isArray(context.classroomIds) && context.classroomIds.length
+      && context.writeScope !== "all" && classroomId
+      && !context.classroomIds.includes(classroomId)) {
+      jsonResponse(response, 403, { error: "You can only assign lessons in your classrooms." });
+      return;
+    }
     const current = readScheduleRecord(store, identity);
-    const classroomId = String(body.classroomId || current.classrooms[0]?.id || "classroom-main").trim();
+    const resolvedClassroomId = classroomId || current.classrooms[0]?.id || "classroom-main";
+    const childIds = Array.isArray(body.childIds)
+      ? body.childIds.map((id) => String(id || "").trim()).filter(Boolean).slice(0, 80)
+      : [];
+    // When childIds omitted on a classroom assign, default to children currently in that classroom.
+    let resolvedChildIds = childIds;
+    if (!resolvedChildIds.length && context.ok) {
+      const childData = programOwnership.readProgramChildData(store, context)?.data || {};
+      resolvedChildIds = (Array.isArray(childData.Profiles) ? childData.Profiles : [])
+        .filter((profile) => String(profile?.classroomId || "") === resolvedClassroomId || !profile?.classroomId)
+        .map((profile) => String(profile.id || ""))
+        .filter(Boolean)
+        .slice(0, 80);
+    }
     const item = scheduleLib.normalizeScheduleItem({
       ...body,
       type: "lesson_plan",
       weekStartDate: weekStart,
       startDate: weekStart,
       endDate: scheduleLib.weekEndFromStart(weekStart),
-      classroomId,
+      classroomId: resolvedClassroomId,
+      childIds: resolvedChildIds,
       assignedBy: identity.email,
     });
     const { doc, item: savedItem } = scheduleLib.upsertScheduleItem(current, item);
@@ -13913,10 +13995,134 @@ async function handleScheduleWeekAssign(request, response, weekStartParam) {
       item: savedItem,
       updatedAt: saved.updatedAt,
       classrooms: saved.classrooms,
+      linkedChildCount: Array.isArray(savedItem.childIds) ? savedItem.childIds.length : 0,
     }, "Could not assign lesson plan to week.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not assign lesson plan to week." });
   }
+}
+
+/** Log a planned schedule lesson/activity into child ActivityLogs (group-aware). */
+async function handleScheduleLogPlannedActivity(request, response) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before logging activities." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid payload." });
+    return;
+  }
+  const store = readStore();
+  const context = programOwnership.resolveProgramContext(store, identity);
+  if (!context.ok) {
+    jsonResponse(response, 403, { error: context.error || "Could not resolve program." });
+    return;
+  }
+  if (!context.canWriteProgramData) {
+    jsonResponse(response, 403, { error: "Your role cannot write daily logs." });
+    return;
+  }
+  const schedule = readScheduleRecord(store, identity);
+  const itemId = String(body.itemId || body.scheduleItemId || "").trim();
+  const item = (schedule.items || []).find((entry) => entry.id === itemId)
+    || (body.lessonPlanTitle || body.title
+      ? {
+          id: itemId || `adhoc-${Date.now().toString(36)}`,
+          type: body.type || "lesson_plan",
+          title: body.title || body.lessonPlanTitle,
+          lessonPlanTitle: body.lessonPlanTitle || body.title,
+          classroomId: body.classroomId || "",
+          childIds: Array.isArray(body.childIds) ? body.childIds : [],
+        }
+      : null);
+  if (!item) {
+    jsonResponse(response, 404, { error: "Schedule item not found." });
+    return;
+  }
+  const date = String(body.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const childData = programOwnership.readProgramChildData(store, context)?.data || programOwnership.emptyChildPayload();
+  const profiles = Array.isArray(childData.Profiles) ? childData.Profiles : [];
+  let targetIds = Array.isArray(body.childIds) && body.childIds.length
+    ? body.childIds.map(String)
+    : (Array.isArray(item.childIds) && item.childIds.length ? item.childIds.map(String) : []);
+  if (!targetIds.length && item.classroomId) {
+    targetIds = profiles
+      .filter((p) => String(p.classroomId || "") === String(item.classroomId || ""))
+      .map((p) => String(p.id || ""))
+      .filter(Boolean);
+  }
+  if (!targetIds.length) {
+    targetIds = profiles.map((p) => String(p.id || "")).filter(Boolean).slice(0, 40);
+  }
+  if (context.writeScope !== "all" && Array.isArray(context.classroomIds) && context.classroomIds.length) {
+    const allowed = new Set(
+      profiles
+        .filter((p) => context.classroomIds.includes(String(p.classroomId || "")))
+        .map((p) => String(p.id || "")),
+    );
+    targetIds = targetIds.filter((id) => allowed.has(String(id)));
+  }
+  const excludeIds = new Set((Array.isArray(body.excludeChildIds) ? body.excludeChildIds : []).map(String));
+  targetIds = targetIds.filter((id) => !excludeIds.has(String(id)));
+  if (!targetIds.length) {
+    jsonResponse(response, 400, { error: "No children to log this activity for." });
+    return;
+  }
+  const title = String(item.lessonPlanTitle || item.title || body.title || "Planned activity").trim();
+  const note = String(body.note || body.notes || `Completed planned activity: ${title}`).trim();
+  const now = new Date().toISOString();
+  const logs = Array.isArray(childData.ActivityLogs) ? childData.ActivityLogs.slice() : [];
+  const created = [];
+  targetIds.forEach((childId) => {
+    const child = profiles.find((p) => String(p.id) === String(childId));
+    const entry = {
+      id: `act_${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`,
+      childId,
+      childName: child?.name || "",
+      date,
+      title,
+      activity: title,
+      notes: note,
+      source: "planned_schedule",
+      scheduleItemId: item.id || "",
+      lessonPlanId: item.lessonPlanId || "",
+      classroomId: item.classroomId || child?.classroomId || "",
+      shareWithFamily: body.shareWithFamily !== false,
+      createdAt: now,
+      createdByEmail: identity.email,
+    };
+    logs.unshift(entry);
+    created.push(entry);
+  });
+  childData.ActivityLogs = logs.slice(0, 5000);
+  programOwnership.writeProgramChildData(store, context, childData);
+  // Mark schedule item execution when possible.
+  if (item.id) {
+    const nextItems = (schedule.items || []).map((entry) => {
+      if (entry.id !== item.id) return entry;
+      return {
+        ...entry,
+        execution: {
+          ...(entry.execution || {}),
+          loggedToDailyAt: now,
+          loggedChildCount: created.length,
+        },
+      };
+    });
+    writeScheduleRecord(store, identity, { ...schedule, items: nextItems });
+  }
+  await respondAfterPersist(store, response, 200, {
+    ok: true,
+    loggedCount: created.length,
+    activityLogs: created,
+    message: `Logged “${title}” for ${created.length} child${created.length === 1 ? "" : "ren"}.`,
+  }, "Could not log planned activity.");
 }
 
 async function handleScheduleMigrate(request, response) {
@@ -14033,6 +14239,10 @@ async function handleChildData(request, response) {
   const context = programOwnership.resolveProgramContext(store, identity);
   if (!context.ok) {
     jsonResponse(response, 403, { error: context.error || "Could not resolve shared program." });
+    return;
+  }
+  if (request.method !== "GET" && !context.canWriteProgramData) {
+    jsonResponse(response, 403, { error: "Your role cannot write program child data." });
     return;
   }
   if (request.method === "GET") {
@@ -14201,7 +14411,11 @@ function readOwnerScheduleForFamilyHub(store, ownerEmail) {
 function buildFamilyHubParentPayload(store, household, { childId = "", date = "" } = {}) {
   const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
   const snapshotChildren = Array.isArray(household.children) ? household.children : [];
-  const children = familyHubLib.overlayLiveChildren(snapshotChildren, ownerChildData);
+  // Phase 4: childIds + Profiles are authoritative; overlay refreshes names from Profiles.
+  const preferredIds = Array.isArray(household.childIds) && household.childIds.length
+    ? household.childIds
+    : snapshotChildren.map((child) => child?.id).filter(Boolean);
+  const children = familyHubLib.overlayLiveChildren(snapshotChildren, ownerChildData, preferredIds);
   const childIds = children.map((child) => child.id).filter(Boolean);
   const documents = familyHubLib.liveDocumentsForChildren(ownerChildData, childIds, household.documents || []);
   const shared = familyHubLib.buildSharedFamilyFeed(ownerChildData, childIds);
@@ -14440,15 +14654,36 @@ async function handleFamilyHubHouseholdCreate(request, response) {
     jsonResponse(response, 400, { error: "Enter a parent email and/or phone number for the household login." });
     return;
   }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  // Phase 4: resolve display names from canonical Profiles (do not invent a second roster).
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, ownerEmail);
+  const profileById = new Map(
+    (Array.isArray(ownerChildData?.Profiles) ? ownerChildData.Profiles : [])
+      .map((profile) => [String(profile?.id || ""), profile]),
+  );
   const childrenInput = Array.isArray(body.children) ? body.children : [];
-  const children = childrenInput
-    .map((child) => ({
-      id: String(child?.id || "").trim(),
-      name: String(child?.name || "Child").trim() || "Child",
-    }))
-    .filter((child) => child.id);
+  const children = [];
+  const seen = new Set();
+  const unknownChildIds = [];
+  childrenInput.forEach((child) => {
+    const id = String(child?.id || "").trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    if (profileById.size && !profileById.has(id)) {
+      unknownChildIds.push(id);
+      return;
+    }
+    // Phase 4: membership is childIds only — do not store a second name roster.
+    children.push({ id });
+  });
   if (!children.length) {
-    jsonResponse(response, 400, { error: "Select at least one child for this household login." });
+    jsonResponse(response, 400, {
+      error: unknownChildIds.length
+        ? "Selected children were not found on the program roster (Profiles)."
+        : "Select at least one child for this household login.",
+      unknownChildIds,
+    });
     return;
   }
   const documents = Array.isArray(body.documents)
@@ -14460,9 +14695,17 @@ async function handleFamilyHubHouseholdCreate(request, response) {
       statusLabel: String(doc?.statusLabel || doc?.status || "Needed").trim() || "Needed",
     })).filter((doc) => doc.childId)
     : [];
-  const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
   const guardianEmails = familyHubLib.normalizeGuardianEmails(email, guardianEmail ? [guardianEmail] : []);
+  let programId = "";
+  try {
+    const ctx = programOwnership.resolveProgramContext(store, {
+      email: ownerEmail,
+      uid: identity.uid || "",
+    });
+    programId = ctx?.programId || "";
+  } catch (_error) {
+    programId = "";
+  }
 
   // Duplicate active invite for same owner + primary email → replace with a fresh invite.
   const duplicates = Object.values(store.familyHouseholds || {}).filter((item) => (
@@ -14493,15 +14736,21 @@ async function handleFamilyHubHouseholdCreate(request, response) {
   const householdId = `family-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
   const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
   const magicUrl = `${origin}/?familyHub=${encodeURIComponent(magicToken)}`;
-  const label = String(body.label || children.map((c) => c.name).join(" & ") || "Family").trim() || "Family";
+  const label = String(body.label || children.map((c) => {
+    const live = profileById.get(c.id);
+    return live?.name || "";
+  }).filter(Boolean).join(" & ") || "Family").trim() || "Family";
   const programName = String(body.programName || "Little Learner Hub program").trim() || "Little Learner Hub program";
   const household = {
     id: householdId,
     ownerEmail,
+    programId: programId || undefined,
+    programOwnerEmail: ownerEmail,
     label,
     email,
     phone,
     guardianEmails,
+    // childIds is the membership source of truth; children is id-only (names from Profiles).
     childIds: children.map((child) => child.id),
     children,
     documents,
@@ -14642,19 +14891,33 @@ async function handleFamilyHubHouseholdChildrenPatch(request, response, househol
     return;
   }
   const childrenInput = Array.isArray(body.children) ? body.children : [];
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, ownerEmail);
+  const profileIds = new Set(
+    (Array.isArray(ownerChildData?.Profiles) ? ownerChildData.Profiles : [])
+      .map((profile) => String(profile?.id || ""))
+      .filter(Boolean),
+  );
   const children = [];
   const seen = new Set();
+  const unknownChildIds = [];
   childrenInput.forEach((child) => {
     const childId = String(child?.id || "").trim();
     if (!childId || seen.has(childId)) return;
     seen.add(childId);
-    children.push({
-      id: childId,
-      name: String(child?.name || "Child").trim() || "Child",
-    });
+    if (profileIds.size && !profileIds.has(childId)) {
+      unknownChildIds.push(childId);
+      return;
+    }
+    // Phase 4: store id only — Profiles supply the live name.
+    children.push({ id: childId });
   });
   if (!children.length) {
-    jsonResponse(response, 400, { error: "Select at least one child for this household." });
+    jsonResponse(response, 400, {
+      error: unknownChildIds.length
+        ? "Selected children were not found on the program roster (Profiles)."
+        : "Select at least one child for this household.",
+      unknownChildIds,
+    });
     return;
   }
   household.children = children;
@@ -15648,14 +15911,20 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
   let revoked = 0;
   listFamilyHouseholdsForOwner(store, ownerEmail).forEach((household) => {
     if (household.status === "revoked") return;
-    const before = Array.isArray(household.children) ? household.children : [];
-    const nextChildren = before.filter((child) => String(child?.id || "") !== childId);
-    if (nextChildren.length === before.length) return;
+    const beforeSnap = Array.isArray(household.children) ? household.children : [];
+    const beforeIds = (Array.isArray(household.childIds) && household.childIds.length
+      ? household.childIds
+      : beforeSnap.map((child) => child?.id)
+    ).map((id) => String(id || "")).filter(Boolean);
+    if (!beforeIds.includes(childId)) return;
     unlinked += 1;
+    const nextIds = beforeIds.filter((id) => id !== childId);
+    // Keep id-only membership; names come from Profiles overlay.
+    const nextChildren = nextIds.map((id) => ({ id }));
     household.children = nextChildren;
-    household.childIds = nextChildren.map((child) => child.id);
+    household.childIds = nextIds;
     household.updatedAt = now;
-    if (!nextChildren.length) {
+    if (!nextIds.length) {
       household.status = "revoked";
       household.revokedAt = now;
       household.revokedReason = String(body?.reason || "child_archived").trim() || "child_archived";
@@ -15667,8 +15936,8 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
       id: `fh-ntf-unlink-${Date.now().toString(36)}-${unlinked}`,
       householdId: household.id,
       type: "access_update",
-      title: revoked && !nextChildren.length ? "Family Hub access ended" : "Child removed from Family Hub",
-      body: nextChildren.length
+      title: revoked && !nextIds.length ? "Family Hub access ended" : "Child removed from Family Hub",
+      body: nextIds.length
         ? "One child was archived and removed from this household view."
         : "Access ended because linked children were archived.",
       href: "more",
@@ -16143,69 +16412,47 @@ async function handleHdhTesterInviteAccept(request, response) {
     return;
   }
 
-  const now = new Date().toISOString();
   const childName = String(body.childName || invite.childName || "Demo Child").trim() || "Demo Child";
-  // Independent owner account — NOT linked to the inviter's program / children.
-  const existingUser = store.users?.[identity.email] || { email: identity.email };
-  store.users = store.users || {};
-  store.users[identity.email] = {
-    ...existingUser,
-    email: identity.email,
-    role: "owner",
-    accountType: "home_daycare",
-    linkedProgramOwnerEmail: "",
-    programAccessViaOwner: false,
-    hdhIndependentTester: true,
-    hdhTesterInvitedByEmail: invite.invitedByEmail || "",
-    testingInviteAcceptedAt: now,
-    plan: "Pro",
-    subscriptionStatus: "Pro Subscription Active",
-    stripeSubscriptionStatus: "active",
-    updatedAt: now,
-  };
-  const program = programOwnership.ensureProgramForOwner(store, identity.email, {
-    ownerUid: identity.uid || existingUser.firebaseUid || "",
-    name: `${childName}'s home daycare`,
-    actorEmail: identity.email,
-  });
-  store.users[identity.email].programId = program.id;
+  invite.childName = childName;
+  if (!invite.programName && !invite.invitedByAdmin) {
+    invite.programName = `${childName}'s home daycare`;
+  }
+  if (!invite.programType) invite.programType = "home_daycare";
+  if (!invite.role) invite.role = "owner";
+
+  const account = ownerTestingAdminApi.applyInviteAcceptOverrides(
+    store,
+    invite,
+    identity,
+    programOwnership,
+    scheduleLib,
+  );
 
   const context = programOwnership.resolveProgramContext(store, identity);
   const existingChild = programOwnership.readProgramChildData(store, context);
-  const alreadyHasKids = Array.isArray(existingChild?.data?.Profiles) && existingChild.data.Profiles.length > 0;
-  let demoChild = alreadyHasKids ? existingChild.data.Profiles[0] : null;
-  if (!alreadyHasKids) {
-    const seed = buildIndependentTesterDemoChildData(childName);
-    demoChild = seed.Profiles[0];
-    programOwnership.writeProgramChildData(store, context, seed);
-  }
-
-  invite.status = "accepted";
-  invite.acceptedAt = now;
-  invite.acceptedByUid = identity.uid || "";
-  invite.childName = childName;
-  store.hdhTesterInvites[token] = invite;
+  const demoChild = Array.isArray(existingChild?.data?.Profiles) ? existingChild.data.Profiles[0] : null;
+  const alreadyHasKids = Boolean(demoChild);
 
   await respondAfterPersist(store, response, 200, {
     ok: true,
     invite: publicHdhTesterInvite(invite),
     account: {
       email: identity.email,
-      role: "owner",
-      accountType: "home_daycare",
-      linkedProgramOwnerEmail: "",
-      programAccessViaOwner: false,
-      hdhIndependentTester: true,
+      role: account.role || "owner",
+      accountType: account.accountType || "home_daycare",
+      linkedProgramOwnerEmail: account.linkedProgramOwnerEmail || "",
+      programAccessViaOwner: Boolean(account.programAccessViaOwner),
+      hdhIndependentTester: Boolean(account.hdhIndependentTester),
       hdhTesterInvitedByEmail: invite.invitedByEmail || "",
-      testingInviteAcceptedAt: now,
+      testingInviteAcceptedAt: account.testingInviteAcceptedAt || "",
       plan: "Pro",
       subscriptionStatus: "Pro Subscription Active",
-      programId: program.id,
+      programId: account.programId || "",
     },
     demoChild,
     message: alreadyHasKids
-      ? "Invite accepted. Your own Teacher account is ready — keep using your existing child profiles."
-      : `Invite accepted. You have your own Teacher account and a starter child named ${childName}.`,
+      ? "Invite accepted. Your testing account is ready — keep using your existing child profiles."
+      : `Invite accepted. Your testing account is ready${demoChild?.name ? ` with starter child ${demoChild.name}` : ""}.`,
   }, "Could not accept tester invite.");
 }
 
@@ -28018,6 +28265,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/tester-role-switches") {
       return await handleAdminTesterRoleSwitchesList(request, response, url);
     }
+    {
+      const testingRoute = ownerTestingAdminApi.matchRoute(request.method, url.pathname, url);
+      if (testingRoute) return await testingRoute(request, response);
+    }
     if (request.method === "DELETE" && url.pathname.startsWith("/api/home-daycare-hub/tester-invites/")) {
       const inviteId = decodeURIComponent(url.pathname.slice("/api/home-daycare-hub/tester-invites/".length));
       return await handleHdhTesterInviteRevoke(request, response, inviteId);
@@ -28050,6 +28301,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/schedule") return await handleScheduleGet(request, response, url);
     if (request.method === "PUT" && url.pathname === "/api/schedule") return await handleSchedulePut(request, response);
     if (request.method === "POST" && url.pathname === "/api/schedule/migrate") return await handleScheduleMigrate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/schedule/log-planned-activity") {
+      return await handleScheduleLogPlannedActivity(request, response);
+    }
     if (request.method === "PUT" && url.pathname.startsWith("/api/schedule/weeks/")) {
       const weekStart = decodeURIComponent(url.pathname.slice("/api/schedule/weeks/".length));
       return await handleScheduleWeekAssign(request, response, weekStart);
