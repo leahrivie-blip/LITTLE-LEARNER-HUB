@@ -459,6 +459,7 @@
     let imageBriefsOnly = 0;
     let missingRealSetup = 0;
     let missingRealExample = 0;
+    const enrichApiForImages = loadEnrichment();
     list.forEach((act) => {
       const key = text(act.id || act.itemId);
       const patch = draftActs[key] || {};
@@ -468,19 +469,37 @@
       if (!text(patch.indoorAlternatives || act.indoorAlternatives || act.indoorAlternative)) missingIndoor += 1;
       if (!asArray(patch.observationPrompts).length && !text(act.observationOpportunities)) missingObs += 1;
       if (!asArray(patch.teacherTips).length) missingTips += 1;
-      const setupUrl = text(patch.setupImageUrl || act.setupImageUrl || act.setupPhotoUrl);
-      const exampleUrl = text(patch.exampleImageUrl || act.exampleImageUrl || act.examplePhotoUrl);
-      const setupBrief = text(patch.imageBriefSetup);
-      const exampleBrief = text(patch.imageBriefExample);
-      if (setupUrl) realImages += 1;
-      else {
-        missingRealSetup += 1;
-        if (setupBrief) imageBriefsOnly += 1;
+      const view = enrichApiForImages?.activityEnrichmentView
+        ? enrichApiForImages.activityEnrichmentView(act, patch)
+        : {
+          setupImageUrl: text(patch.setupImageUrl || act.setupImageUrl || act.setupPhotoUrl),
+          exampleImageUrl: text(patch.exampleImageUrl || act.exampleImageUrl || act.examplePhotoUrl),
+          imageBriefSetup: text(patch.imageBriefSetup),
+          imageBriefExample: text(patch.imageBriefExample),
+          imageRequirement: "required",
+          imageSlots: { needsSetup: true, needsExample: true },
+        };
+      const slots = view.imageSlots
+        || (enrichApiForImages?.imageSlotsForRequirement
+          ? enrichApiForImages.imageSlotsForRequirement(view.imageRequirement || "required")
+          : { needsSetup: true, needsExample: true });
+      const setupUrl = text(view.setupImageUrl);
+      const exampleUrl = text(view.exampleImageUrl);
+      const setupBrief = text(patch.imageBriefSetup || view.imageBriefSetup);
+      const exampleBrief = text(patch.imageBriefExample || view.imageBriefExample);
+      if (slots.needsSetup) {
+        if (setupUrl) realImages += 1;
+        else {
+          missingRealSetup += 1;
+          if (setupBrief) imageBriefsOnly += 1;
+        }
       }
-      if (exampleUrl) realImages += 1;
-      else {
-        missingRealExample += 1;
-        if (exampleBrief) imageBriefsOnly += 1;
+      if (slots.needsExample) {
+        if (exampleUrl) realImages += 1;
+        else {
+          missingRealExample += 1;
+          if (exampleBrief) imageBriefsOnly += 1;
+        }
       }
     });
     if (!list.length) {
@@ -729,8 +748,8 @@
         section: "variety",
         severity: "blocking",
         blocking: true,
-        message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need real setup + finished photos and teacher tips).`,
-        suggestion: "Finish every activity’s photos and tips before Publish Ready. Image briefs alone are not enough.",
+        message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need required photos for the activity’s image requirement, plus teacher tips).`,
+        suggestion: "Finish every activity’s required photos and tips before Publish Ready. Optional/Not needed activities can complete without images. Image briefs alone are not enough.",
         navigateTo: "activities:images",
       }));
     }

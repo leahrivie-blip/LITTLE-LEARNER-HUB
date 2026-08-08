@@ -16,6 +16,65 @@
     complete: "complete",
   });
 
+  /**
+   * Per-activity image requirement — instructional value, not universal.
+   * Briefs never satisfy any requirement; they remain drafting notes only.
+   */
+  const IMAGE_REQUIREMENT = Object.freeze({
+    required: "required",
+    setup_only: "setup_only",
+    example_only: "example_only",
+    optional: "optional",
+    not_needed: "not_needed",
+  });
+
+  const IMAGE_REQUIREMENT_LABELS = Object.freeze({
+    required: "Required: setup and example",
+    setup_only: "Setup image only",
+    example_only: "Finished example only",
+    optional: "Optional",
+    not_needed: "Not needed",
+  });
+
+  const IMAGE_REQUIREMENT_VALUES = Object.freeze(Object.values(IMAGE_REQUIREMENT));
+
+  /** Categories that need both setup + finished example by default. */
+  const IMAGE_REQUIRED_CATEGORIES = Object.freeze(new Set([
+    "Art",
+    "Process Art",
+    "Sensory",
+    "Sensory Play",
+    "STEM",
+    "STEM/Discovery",
+    "Science",
+    "Dramatic Play",
+    "Fine Motor",
+    "Cooking",
+    "Invitation to Play",
+    "Open-Ended Exploration",
+    "Outdoor Play",
+  ]));
+
+  /** Categories that rarely need photos (songs, circle, simple movement). */
+  const IMAGE_NOT_NEEDED_CATEGORIES = Object.freeze(new Set([
+    "Circle Time",
+    "Music and Movement",
+    "Music & Movement",
+  ]));
+
+  /** Categories where photos help sometimes but should not block Complete. */
+  const IMAGE_OPTIONAL_CATEGORIES = Object.freeze(new Set([
+    "Gross Motor",
+    "Literacy",
+    "Early Literacy",
+    "Early Math",
+    "Matching",
+    "Sorting",
+    "Social-Emotional",
+    "Small Group",
+    "Parent Connection",
+  ]));
+
   let statusApi = null;
   function loadStatusApi() {
     if (statusApi) return statusApi;
@@ -125,6 +184,7 @@
           title: text(item.title),
           activityCategory: text(item.activityCategory),
           objective: text(item.objective),
+          imageRequirement: text(item.imageRequirement),
           setupImageUrl: text(item.setupImageUrl),
           exampleImageUrl: text(item.exampleImageUrl || item.examplePhotoUrl),
           teacherTips: asArray(item.teacherTips).map(text).filter(Boolean),
@@ -150,6 +210,97 @@
     return text(publishedValue);
   }
 
+  function normalizeImageRequirement(value) {
+    const raw = text(value).toLowerCase().replace(/[\s-]+/g, "_");
+    if (!raw) return "";
+    const aliases = {
+      required: IMAGE_REQUIREMENT.required,
+      required_setup_and_example: IMAGE_REQUIREMENT.required,
+      setup_and_example: IMAGE_REQUIREMENT.required,
+      both: IMAGE_REQUIREMENT.required,
+      setup_only: IMAGE_REQUIREMENT.setup_only,
+      setup_image_only: IMAGE_REQUIREMENT.setup_only,
+      setup: IMAGE_REQUIREMENT.setup_only,
+      example_only: IMAGE_REQUIREMENT.example_only,
+      finished_example_only: IMAGE_REQUIREMENT.example_only,
+      example: IMAGE_REQUIREMENT.example_only,
+      finished_only: IMAGE_REQUIREMENT.example_only,
+      optional: IMAGE_REQUIREMENT.optional,
+      not_needed: IMAGE_REQUIREMENT.not_needed,
+      notneeded: IMAGE_REQUIREMENT.not_needed,
+      none: IMAGE_REQUIREMENT.not_needed,
+      na: IMAGE_REQUIREMENT.not_needed,
+    };
+    return aliases[raw] || (IMAGE_REQUIREMENT_VALUES.includes(raw) ? raw : "");
+  }
+
+  function imageRequirementLabel(value) {
+    const key = normalizeImageRequirement(value) || IMAGE_REQUIREMENT.required;
+    return IMAGE_REQUIREMENT_LABELS[key] || IMAGE_REQUIREMENT_LABELS.required;
+  }
+
+  /**
+   * Category + title heuristics for instructional image value.
+   * Explicit activity/draft imageRequirement always wins over defaults.
+   */
+  function defaultImageRequirementForActivity(activity) {
+    const category = text(activity?.activityCategory);
+    const title = text(activity?.title);
+    const blob = `${category} ${title} ${text(activity?.description)} ${text(activity?.objective)}`.toLowerCase();
+
+    // Category defaults first (stable instructional policy).
+    if (IMAGE_REQUIRED_CATEGORIES.has(category)) return IMAGE_REQUIREMENT.required;
+    if (IMAGE_NOT_NEEDED_CATEGORIES.has(category)) return IMAGE_REQUIREMENT.not_needed;
+    if (IMAGE_OPTIONAL_CATEGORIES.has(category)) return IMAGE_REQUIREMENT.optional;
+
+    // Title / description heuristics for aliases and non-canonical categories.
+    if (/printable|worksheet|cutting practice|laminat|flash.?card|name tag/i.test(blob)) {
+      return IMAGE_REQUIREMENT.required;
+    }
+    if (/process art|sensory bin|stem|dramatic play|invitation to play|hands.?on setup/i.test(blob)) {
+      return IMAGE_REQUIREMENT.required;
+    }
+    if (/circle time|morning meeting|\bsong\b|sing along|rhyme|chant|transition|line up|cleanup song/i.test(blob)) {
+      return IMAGE_REQUIREMENT.not_needed;
+    }
+    if (/book discussion|read.?aloud|story time|storytime|\bgame\b|matching game|memory game|bingo|simple movement|freeze dance/i.test(blob)) {
+      return IMAGE_REQUIREMENT.optional;
+    }
+
+    // Preserve prior universal expectation for unknown hands-on categories.
+    return IMAGE_REQUIREMENT.required;
+  }
+
+  function resolveImageRequirement(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
+    const explicit = normalizeImageRequirement(d.imageRequirement)
+      || normalizeImageRequirement(activity?.imageRequirement);
+    if (explicit) return explicit;
+    return defaultImageRequirementForActivity(activity);
+  }
+
+  function imageSlotsForRequirement(requirement) {
+    const req = normalizeImageRequirement(requirement) || IMAGE_REQUIREMENT.required;
+    return {
+      requirement: req,
+      needsSetup: req === IMAGE_REQUIREMENT.required || req === IMAGE_REQUIREMENT.setup_only,
+      needsExample: req === IMAGE_REQUIREMENT.required || req === IMAGE_REQUIREMENT.example_only,
+      imagesOptional: req === IMAGE_REQUIREMENT.optional,
+      imagesNotNeeded: req === IMAGE_REQUIREMENT.not_needed,
+      expectedCount: req === IMAGE_REQUIREMENT.required
+        ? 2
+        : (req === IMAGE_REQUIREMENT.setup_only || req === IMAGE_REQUIREMENT.example_only ? 1 : 0),
+    };
+  }
+
+  function activityImagesSatisfyRequirement(view, requirement) {
+    const slots = imageSlotsForRequirement(requirement);
+    if (slots.imagesOptional || slots.imagesNotNeeded) return true;
+    if (slots.needsSetup && !text(view?.setupImageUrl)) return false;
+    if (slots.needsExample && !text(view?.exampleImageUrl)) return false;
+    return true;
+  }
+
   function activityEnrichmentView(activity, draftActivity) {
     const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
     const tips = asArray(d.teacherTips).length
@@ -169,7 +320,12 @@
     const vocabulary = Object.prototype.hasOwnProperty.call(d, "vocabulary")
       ? vocabularyListFrom(d.vocabulary)
       : vocabularyListFrom(activity?.vocabulary);
+    const imageRequirement = resolveImageRequirement(activity, d);
+    const imageSlots = imageSlotsForRequirement(imageRequirement);
     return {
+      imageRequirement,
+      imageRequirementLabel: imageRequirementLabel(imageRequirement),
+      imageSlots,
       setupImageUrl: text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
       exampleImageUrl: text(d.exampleImageUrl) || text(activity?.exampleImageUrl || activity?.examplePhotoUrl),
       setupImageThumbUrl: text(d.setupImageThumbUrl) || text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
@@ -201,7 +357,8 @@
       || view.settingTags.length > 0
       || view.observationPrompts.length > 0
       || view.vocabulary.length > 0;
-    if (hasSetup && hasExample && hasTip) return ACTIVITY_STATUS.complete;
+    const imagesOk = activityImagesSatisfyRequirement(view, view.imageRequirement);
+    if (imagesOk && hasTip) return ACTIVITY_STATUS.complete;
     if (hasSetup || hasExample || hasTip || hasExtra) return ACTIVITY_STATUS.in_progress;
     return ACTIVITY_STATUS.not_started;
   }
@@ -341,6 +498,8 @@
 
     let setupImages = 0;
     let exampleImages = 0;
+    let expectedSetupImages = 0;
+    let expectedExampleImages = 0;
     let imageBriefsOnly = 0;
     let activityCompleteUnits = 0;
     let activitiesInProgress = 0;
@@ -350,12 +509,19 @@
       const key = text(act.id) || text(act.itemId);
       const patch = draftActs[key] || {};
       const view = activityEnrichmentView(act, patch);
+      const slots = view.imageSlots || imageSlotsForRequirement(view.imageRequirement);
       const setupState = imageReadinessState(view.setupImageUrl, patch.imageBriefSetup || view.imageBriefSetup);
       const exampleState = imageReadinessState(view.exampleImageUrl, patch.imageBriefExample || view.imageBriefExample);
-      if (setupState === "image_uploaded") setupImages += 1;
-      else if (setupState === "image_brief_ready") imageBriefsOnly += 1;
-      if (exampleState === "image_uploaded") exampleImages += 1;
-      else if (exampleState === "image_brief_ready") imageBriefsOnly += 1;
+      if (slots.needsSetup) {
+        expectedSetupImages += 1;
+        if (setupState === "image_uploaded") setupImages += 1;
+        else if (setupState === "image_brief_ready") imageBriefsOnly += 1;
+      }
+      if (slots.needsExample) {
+        expectedExampleImages += 1;
+        if (exampleState === "image_uploaded") exampleImages += 1;
+        else if (exampleState === "image_brief_ready") imageBriefsOnly += 1;
+      }
       tipUnits += view.teacherTips.length ? 1 : 0;
       const depth = (
         (meaningfulText(view.setup || act.setup, 4) ? 0.2 : 0)
@@ -370,7 +536,11 @@
       else if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
     });
     const n = Math.max(1, list.length);
-    const imageReadiness = clampPercent(((setupImages + exampleImages) / (n * 2)) * 100);
+    const expectedImageSlots = Math.max(0, expectedSetupImages + expectedExampleImages);
+    const filledImageSlots = setupImages + exampleImages;
+    const imageReadiness = expectedImageSlots === 0
+      ? 100
+      : clampPercent((filledImageSlots / expectedImageSlots) * 100);
     const activityCompleteness = clampPercent((activityCompleteUnits / n) * 100);
 
     const weekdayFocusDays = ["monday", "tuesday", "wednesday", "thursday", "friday"].filter((day) => {
@@ -438,8 +608,8 @@
       activitiesInProgress > 0
       || activityCompleteUnits < list.length
       || imageBriefsOnly > 0
-      || setupImages < list.length
-      || exampleImages < list.length
+      || setupImages < expectedSetupImages
+      || exampleImages < expectedExampleImages
       || !printableLinked
       || incompleteBooks > 0
       || materialsState !== "complete"
@@ -461,6 +631,9 @@
       completionPercent: structuralCompletionPercent,
       setupImages,
       exampleImages,
+      expectedSetupImages,
+      expectedExampleImages,
+      expectedImageSlots,
       imageBriefsOnly,
       activitiesInProgress,
       incompleteActivities: Math.max(0, list.length - activityCompleteUnits),
@@ -615,6 +788,7 @@
       const view = activityEnrichmentView(act, patch);
       return {
         ...act,
+        imageRequirement: view.imageRequirement || act.imageRequirement || "",
         setupImageUrl: view.setupImageUrl,
         exampleImageUrl: view.exampleImageUrl,
         setupImageThumbUrl: view.setupImageThumbUrl,
@@ -650,6 +824,7 @@
           if (!match) return item;
           return {
             ...item,
+            imageRequirement: match.imageRequirement || item.imageRequirement || "",
             setupImageUrl: match.setupImageUrl,
             exampleImageUrl: match.exampleImageUrl,
             setupImageThumbUrl: match.setupImageThumbUrl,
@@ -878,10 +1053,16 @@
       if (status !== ACTIVITY_STATUS.complete) incompleteActivities += 1;
       if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
       const view = activityEnrichmentView(act, patch);
-      if (!view.setupImageUrl) missingSetupPhotos += 1;
-      if (!view.exampleImageUrl) missingExamplePhotos += 1;
-      if (!view.setupImageUrl && text(patch?.imageBriefSetup || view.imageBriefSetup)) imageBriefsNotImages += 1;
-      if (!view.exampleImageUrl && text(patch?.imageBriefExample || view.imageBriefExample)) imageBriefsNotImages += 1;
+      const slots = view.imageSlots || imageSlotsForRequirement(view.imageRequirement);
+      // Only required image slots create missing-photo guidance / blockers.
+      if (slots.needsSetup && !view.setupImageUrl) missingSetupPhotos += 1;
+      if (slots.needsExample && !view.exampleImageUrl) missingExamplePhotos += 1;
+      if (slots.needsSetup && !view.setupImageUrl && text(patch?.imageBriefSetup || view.imageBriefSetup)) {
+        imageBriefsNotImages += 1;
+      }
+      if (slots.needsExample && !view.exampleImageUrl && text(patch?.imageBriefExample || view.imageBriefExample)) {
+        imageBriefsNotImages += 1;
+      }
       if (!view.teacherTips.length) missingTeacherTips += 1;
       if (!hasObservationPrompts(act, patch)) missingObservationPrompts += 1;
       if (!hasActivityObjective(act, patch)) missingActivityObjectives += 1;
@@ -1397,11 +1578,20 @@
   return {
     WEEKDAYS,
     ACTIVITY_STATUS,
+    IMAGE_REQUIREMENT,
+    IMAGE_REQUIREMENT_LABELS,
+    IMAGE_REQUIREMENT_VALUES,
     flattenLessonActivities,
     activityEnrichmentView,
     activityStatus,
     activityStatusLabel,
     firstIncompleteActivityIndex,
+    normalizeImageRequirement,
+    imageRequirementLabel,
+    defaultImageRequirementForActivity,
+    resolveImageRequirement,
+    imageSlotsForRequirement,
+    activityImagesSatisfyRequirement,
     computeCompletionPercent,
     computeReadinessScores,
     imageReadinessState,

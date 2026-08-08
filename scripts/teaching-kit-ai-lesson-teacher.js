@@ -127,19 +127,33 @@
       if (!view.teacherTips.length) tipsMissing += 1;
       if (!view.observationPrompts.length && !text(act.observationOpportunities)) obsMissing += 1;
       // Image briefs never count as actual setup/finished photos.
+      // Only count missing/brief blockers for slots required by imageRequirement.
+      const slots = view.imageSlots
+        || (enrich?.imageSlotsForRequirement
+          ? enrich.imageSlotsForRequirement(view.imageRequirement || enrich.resolveImageRequirement?.(act, patch))
+          : { needsSetup: true, needsExample: true });
       const hasSetupPhoto = Boolean(view.setupImageUrl);
       const hasExamplePhoto = Boolean(view.exampleImageUrl);
       const hasSetupBrief = Boolean(text(patch.imageBriefSetup || view.imageBriefSetup));
       const hasExampleBrief = Boolean(text(patch.imageBriefExample || view.imageBriefExample));
-      if (!hasSetupPhoto || !hasExamplePhoto) imagesMissing += 1;
-      if ((!hasSetupPhoto && hasSetupBrief) || (!hasExamplePhoto && hasExampleBrief)) imagesBriefOnly += 1;
+      if ((slots.needsSetup && !hasSetupPhoto) || (slots.needsExample && !hasExamplePhoto)) {
+        imagesMissing += 1;
+      }
+      if (
+        (slots.needsSetup && !hasSetupPhoto && hasSetupBrief)
+        || (slots.needsExample && !hasExamplePhoto && hasExampleBrief)
+      ) {
+        imagesBriefOnly += 1;
+      }
+      const imagesOk = enrich?.activityImagesSatisfyRequirement
+        ? enrich.activityImagesSatisfyRequirement(view, view.imageRequirement || slots.requirement)
+        : (hasSetupPhoto && hasExamplePhoto);
       const hasDraftPack = Boolean(
         view.teacherTips.length
         && (view.observationPrompts.length || text(act.observationOpportunities))
         && text(patch.setup || act.setup)
         && text(patch.steps || act.steps)
-        && hasSetupPhoto
-        && hasExamplePhoto,
+        && imagesOk,
       );
       if (hasDraftPack) draftReadyActs += 1;
       const status = enrich?.activityStatus ? enrich.activityStatus(act, patch) : "not_started";

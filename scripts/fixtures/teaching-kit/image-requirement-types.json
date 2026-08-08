@@ -1,0 +1,135 @@
+{
+  "lessonPlan": {
+    "id": "cur-lp-qa-image-requirement-types",
+    "title": "QA — Image Requirement Types",
+    "age": "Preschool",
+    "theme": "Disposable QA Images",
+    "plan": "Pro",
+    "status": "draft",
+    "weeklyOverview": "Disposable fixture covering every Teaching Kit image-requirement value. Never merge into production curriculum.",
+    "objectives": "Prove instructional image rules for required, setup-only, example-only, optional, and not-needed activities.",
+    "vocabularyWords": "setup, example, optional, tray, song",
+    "weeklyMaterials": "trays, paint, tongs, cups, mats, books, scarves, bins",
+    "familyConnection": "Ask which activity your child liked painting, sorting, or singing about.",
+    "books": [
+      {
+        "title": "Color Farm",
+        "author": "QA Author",
+        "whyThisBook": "Matches the disposable theme and invites talk.",
+        "beforeReadingQuestions": ["What colors do you see?"],
+        "duringReadingPrompts": ["Point to a farm animal."],
+        "afterReadingQuestions": ["Which animal would you visit?"]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Color Song",
+        "rightsStatus": "traditional",
+        "motions": "Tap knees for each color word.",
+        "teacherDirections": "Sing slowly and invite children to join."
+      }
+    ],
+    "resourceIds": ["cur-res-qa-image-requirement-printable"],
+    "dailyPlans": {
+      "monday": {
+        "theme": "Process art invitation",
+        "items": [
+          {
+            "itemId": "qa-req-both",
+            "title": "Paint Dot Tray",
+            "activityCategory": "Art",
+            "imageRequirement": "required",
+            "objective": "Explore color dots on paper.",
+            "materials": "Paper\nPaint\nCotton swabs\nTray\nTowels\nSmocks",
+            "setup": "Stage paint dots on a tray with paper and swabs.",
+            "steps": "Invite children to dab and talk about colors.",
+            "description": "Hands-on process art that benefits from setup and finished photos."
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "Setup-only invitation",
+        "items": [
+          {
+            "itemId": "qa-setup-only",
+            "title": "Sorting Bin Invitation",
+            "activityCategory": "Fine Motor",
+            "imageRequirement": "setup_only",
+            "objective": "Sort loose parts into trays.",
+            "materials": "Bins\nTongs\nCounters\nMats\nCups\nLabels",
+            "setup": "Place three labeled bins on a low table with tongs.",
+            "steps": "Model one sort, then step back.",
+            "description": "Complicated hands-on setup where a tray photo helps; finished result is obvious."
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Finished-example focus",
+        "items": [
+          {
+            "itemId": "qa-example-only",
+            "title": "Collage Sample Board",
+            "activityCategory": "Art",
+            "imageRequirement": "example_only",
+            "objective": "Create a simple collage with scrap paper.",
+            "materials": "Paper\nGlue\nScraps\nTrays\nWipes\nSmocks",
+            "setup": "Offer scrap paper and glue sticks.",
+            "steps": "Children build a collage; teachers share one achievable sample.",
+            "description": "Finished example photo is the instructional cue."
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Optional photo activity",
+        "items": [
+          {
+            "itemId": "qa-optional",
+            "title": "Animal Matching Game",
+            "activityCategory": "Matching",
+            "imageRequirement": "optional",
+            "objective": "Match animal pairs during a short game.",
+            "materials": "Matching cards\nTray",
+            "setup": "Fan matching cards on a tray.",
+            "steps": "Take turns finding pairs.",
+            "description": "Obvious game — photos optional, never blocking."
+          }
+        ]
+      },
+      "friday": {
+        "theme": "Not-needed circle and movement",
+        "items": [
+          {
+            "itemId": "qa-not-needed",
+            "title": "Morning Circle Welcome Song",
+            "activityCategory": "Circle Time",
+            "imageRequirement": "not_needed",
+            "objective": "Greet friends with a familiar welcome song.",
+            "materials": "None",
+            "setup": "Gather on the rug.",
+            "steps": "Sing the welcome song and wave to friends.",
+            "description": "Circle time song — photos not needed and must not block Complete."
+          },
+          {
+            "itemId": "qa-default-song-movement",
+            "title": "Scarf Freeze Dance",
+            "activityCategory": "Music & Movement",
+            "objective": "Move with scarves and freeze on the cue.",
+            "materials": "Scarves",
+            "setup": "Hand out scarves in a circle.",
+            "steps": "Dance, freeze, and resume.",
+            "description": "Simple movement song — category default should be Not needed."
+          }
+        ]
+      }
+    }
+  },
+  "resources": [
+    {
+      "id": "cur-res-qa-image-requirement-printable",
+      "title": "QA Image Requirement Printable",
+      "status": "published",
+      "type": "printable",
+      "resourceCategory": "Classroom Resources"
+    }
+  ]
+}
