@@ -15651,8 +15651,9 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   // Testing / local (Firebase Auth off): persist the password on the server so
   // logout → login and new-device sign-in work. Without this, password-login 401s
   // and the auth modal can appear stuck on "Signing you in…".
+  // Never block Step 1 → Step 2 on Postgres write latency (can take several seconds).
   if (!firebaseAuthEnabled) {
-    await syncPasswordAfterFirebaseAuth(password, "local_signup", cleanEmail);
+    Promise.resolve(syncPasswordAfterFirebaseAuth(password, "local_signup", cleanEmail)).catch(() => {});
   }
   return { email: cleanEmail, verified: false, message: "Welcome! Your account is ready — you can start exploring right away." };
 }
@@ -15698,11 +15699,19 @@ async function syncPasswordAfterFirebaseAuth(password, source = "firebase_login"
       if (!token) return null;
       headers.Authorization = `Bearer ${token}`;
     }
-    const response = await fetch("/api/auth/sync-password-after-firebase", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const abortTimer = controller ? setTimeout(() => controller.abort(), 20000) : null;
+    let response;
+    try {
+      response = await fetch("/api/auth/sync-password-after-firebase", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: controller ? controller.signal : undefined,
+      });
+    } finally {
+      if (abortTimer) clearTimeout(abortTimer);
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       console.warn("[auth] firebase password sync failed", data.error || response.status);

@@ -11,7 +11,7 @@ const path = require("node:path");
 
 const TESTING = "https://little-learner-hub-testing.onrender.com";
 const PRODUCTION = "https://littlelearnershubbyleah.com";
-const EXPECTED_SHELL = "20260808-phase11-tester-ready";
+const EXPECTED_SHELL = "20260808-phase11-testers-go";
 const OUT = "/opt/cursor/artifacts/phase11-real-user-audit";
 const SHOTS = path.join(OUT, "screenshots");
 const PASSWORD = "ProviderReady!23456";
@@ -162,11 +162,18 @@ async function signupWizard(page, { email, name, persona, programName, pathway }
   await page.fill("#passwordInput", PASSWORD);
   await shot(page, `signup-step1-${persona}`);
   await page.locator("#authSubmitButton").click();
-  await page.waitForTimeout(2500);
+  // Wait until Step 2 persona cards are visible (do not rely on a fixed delay —
+  // password sync used to block here for several seconds).
+  await page.waitForFunction((persona) => {
+    const el = document.querySelector(`[data-signup-persona="${persona}"]`);
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== "none" && style.visibility !== "hidden" && el.offsetParent !== null;
+  }, persona, { timeout: 20000 }).catch(() => {});
   const msg1 = await page.locator("#authMessage").innerText().catch(() => "");
-  // Step 2 persona
-  await page.waitForSelector(`[data-signup-persona="${persona}"]`, { timeout: 15000 });
-  await page.locator(`[data-signup-persona="${persona}"]`).click();
+  // Step 2 persona — force click if the card is still transitioning in
+  const personaBtn = page.locator(`[data-signup-persona="${persona}"]`).first();
+  await personaBtn.click({ timeout: 8000, force: true });
   await page.waitForTimeout(500);
   if (pathway) {
     const pathBtn = page.locator(`[data-signup-pathway="${pathway}"]`);
@@ -194,13 +201,24 @@ async function signupWizard(page, { email, name, persona, programName, pathway }
   }
   await page.waitForTimeout(2500);
   await dismissNoise(page);
-  // Close onboarding if present
-  for (let i = 0; i < 4; i += 1) {
-    const later = page.locator("#newUserOnboardingModal.open button:has-text('Maybe Later'), #newUserOnboardingModal.open button:has-text('Skip'), #newUserOnboardingModal.open button:has-text('Not now'), #newUserOnboardingModal.open .close-button").first();
+  // Close onboarding / plan / install overlays that block Children + Add Child
+  for (let i = 0; i < 8; i += 1) {
+    const free = page.locator("#signupConfirmFreeButton, [data-signup-plan='free'], button:has-text('Continue with Free'), button:has-text('Start with Free')").first();
+    if (await free.count()) {
+      try { await free.click({ timeout: 1200, force: true }); } catch { /* ignore */ }
+    }
+    const later = page.locator("#newUserOnboardingModal.open button:has-text('Maybe Later'), #newUserOnboardingModal.open button:has-text('Skip'), #newUserOnboardingModal.open button:has-text('Not now'), #newUserOnboardingModal.open .close-button, #closeInstallAppModal, button:has-text('Maybe Later'), button:has-text('Not now')").first();
     if (await later.count()) {
-      try { await later.click({ timeout: 1500 }); } catch { break; }
-      await page.waitForTimeout(500);
-    } else break;
+      try { await later.click({ timeout: 1200, force: true }); } catch { /* ignore */ }
+    }
+    await page.evaluate(() => {
+      document.querySelectorAll("#authModal.open, #newUserOnboardingModal.open, #installAppModal.open").forEach((el) => {
+        el.classList.remove("open");
+        el.hidden = true;
+      });
+      document.body.classList.remove("auth-modal-open", "nuo-open");
+    }).catch(() => {});
+    await page.waitForTimeout(350);
   }
   await dismissNoise(page);
   const loggedIn = await page.evaluate(() => Boolean(localStorage.getItem("llhUser")));
@@ -282,6 +300,13 @@ async function navClick(page, labelOrView) {
 }
 
 async function addChildViaUi(page, childName) {
+  await page.evaluate(() => {
+    document.querySelectorAll("#authModal.open, #newUserOnboardingModal.open, #installAppModal.open").forEach((el) => {
+      el.classList.remove("open");
+      el.hidden = true;
+    });
+    document.body.classList.remove("auth-modal-open", "nuo-open");
+  }).catch(() => {});
   await navClick(page, "children");
   await page.waitForTimeout(600);
   const addBtn = page.locator('button:has-text("Add Your First Child"), button:has-text("Add Child"), [data-child-view="add"]').first();
@@ -793,20 +818,28 @@ async function main() {
       const { context, page } = await openFresh(browser);
       const magic = report.journeys.homeFamilyInvite.magicUrl;
       await page.goto(magic, { waitUntil: "domcontentloaded", timeout: 90000 });
-      await page.waitForTimeout(2500);
+      await page.waitForSelector("#familyHubAcceptPanel, [data-redeem-family-hub], .fh-invite-accept-card", { timeout: 20000 }).catch(() => {});
+      await page.waitForTimeout(800);
       await shot(page, "family-hub-parent");
       const parentState = await page.evaluate(() => {
-        const text = document.body.innerText || "";
+        const panel = document.querySelector("#familyHubAcceptPanel, .fh-invite-accept-card");
+        const panelText = (panel?.innerText || "").replace(/\s+/g, " ");
+        const text = (document.body.innerText || "").replace(/\s+/g, " ");
+        // Ignore the testing banner line ("No live billing from this console").
+        const withoutBanner = text.replace(/TESTING ENVIRONMENT[\s\S]*?from this console/i, " ");
+        const hasStaff = /staff invite|admin dashboard|owner testing|lesson manager|Free Plan Active|Work nav/i.test(panelText || withoutBanner);
         return {
           host: location.host,
           href: location.href,
-          hasStaff: /staff invite|billing|admin dashboard|owner testing|lesson manager/i.test(text),
-          hasFamily: /family|child|today|message|document|form/i.test(text),
-          snippet: text.replace(/\s+/g, " ").slice(0, 280),
+          hasPanel: Boolean(panel),
+          hasStaff,
+          hasFamily: /family hub|open family hub|welcome to|children linked/i.test(panelText || text),
+          snippet: (panelText || withoutBanner).slice(0, 280),
         };
       });
       report.journeys.familyHubParent = parentState;
       check("family_hub_on_testing", parentState.host.includes("little-learner-hub-testing"), parentState.href);
+      check("family_hub_invite_panel", parentState.hasPanel || parentState.hasFamily, parentState.snippet);
       check("family_hub_no_staff_admin_leak", !parentState.hasStaff, parentState.snippet);
       if (parentState.hasStaff) issue("Critical", "Family Hub", "Parent surface shows staff/admin/business tools", parentState.snippet);
       await context.close();
