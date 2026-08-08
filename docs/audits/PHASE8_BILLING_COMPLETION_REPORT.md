@@ -52,10 +52,10 @@ Do **not** begin Phase 9 AI until Leah confirms this report.
 
 | Suite | Result |
 |---|---|
-| `npm run test:tuition-phase8` | *(run before merge)* |
-| `npm run test:forms-phase7` | *(regression)* |
-| `npm run test:family-hub-phase6` | *(regression)* |
-| `npm run check` | *(syntax)* |
+| `npm run test:tuition-phase8` | **PASS** |
+| `npm run test:forms-phase7` | **PASS** (regression) |
+| `npm run test:family-hub-phase6` | **PASS** (regression) |
+| `npm run check` | **PASS** |
 
 Fixtures covered: Home Daycare, Center, one child, siblings, multiple guardians, weekly/monthly/custom rates, registration fee, one-time + discount + credit, partial/full payment, overdue, FH visibility, owner dashboard, household isolation, server auth, idempotent retries, mobile markers, SaaS separation.
 
