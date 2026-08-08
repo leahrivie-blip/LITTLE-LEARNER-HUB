@@ -1,0 +1,192 @@
+{
+  "planId": "cur-lp-preschool-stem-explorers",
+  "title": "STEM Explorers",
+  "ageBand": "preschool",
+  "themePack": {
+    "overview": "Play-based STEM week: children predict, build, test, and talk about what happened—towers, bridges, ramps, sink-or-float, and marble runs. No elementary worksheets. Teachers narrate scientific language while protecting inquiry joy. Document children’s words and photos of setups; celebrate redesign after “flops.”",
+    "materials": "Unit blocks and loose parts; paper cups; craft sticks; tape; cardboard for ramps; water table or tubs; sink/float objects; measuring cups/rulers; magnifying glasses; clipboards for blueprint drawing; play dough; large soft balls for movement STEM; marble-run tubes and marbles only with strict safety protocol (or substitute large pom-poms/balls for mixed-age); dominoes; smocks; towels.",
+    "family": "We are STEM explorers—asking questions, building, and testing ideas. At home try: “What might happen if…?” with blocks, water play, or cardboard ramps. Celebrate trying again more than getting it “right.”",
+    "milestones": [
+      "Language: Uses STEM talk—predict, observe, test, compare, redesign.",
+      "SEL: Persists after structures fall; collaborates on team builds; shares materials.",
+      "Cognition: Makes predictions; compares results; notices patterns and cause/effect on ramps.",
+      "Motor: Stacks/balances; pours at water table; controls drawing tools for blueprints.",
+      "Creativity: Invents original structures and marble/ramp pathways through open-ended design."
+    ],
+    "vocabCards": [
+      "predict",
+      "observe",
+      "experiment",
+      "measure",
+      "build",
+      "design",
+      "test",
+      "ramp",
+      "balance",
+      "float",
+      "sink",
+      "engineer"
+    ],
+    "songs": [
+      {
+        "title": "Predict, Test, Learn (LLH STEM Chant)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Predict, predict—what might we see?\nTest, test—try carefully.\nObserve, observe—look and learn,\nThen redesign for another turn!\n\nBuilders build and scientists say:\n“What happened? Why?”—we learn that way.",
+        "motions": "Finger to temple on predict; hands push gently on test; hands as binoculars on observe; rolling hands on redesign.",
+        "teacherDirections": "Teach on Monday before Scientist Investigation Station. Use the chant whenever a tower falls—normalize redesign.",
+        "whenToUse": "Before any experiment or build challenge.",
+        "suggestedPace": "Clear, medium pace; clap on “another turn.”",
+        "transitionPurpose": "Installs inquiry cycle language without worksheets.",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Build It Up, Build It Strong (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Build it up, build it strong,\nBase is wide and it lasts long.\nStack it high, then watch it go—\nIf it falls we rebuild slow.\n\nOne more block, one more try,\nEngineers ask how and why!",
+        "motions": "Wide hands for base; stacking motions; dramatic tip-over then calm rebuild gestures.",
+        "teacherDirections": "Pair with Build the Tallest Tower and Bridge Builders. Praise wide bases and teamwork, not only height.",
+        "whenToUse": "Block center open; engineer showcase warm-up.",
+        "suggestedPace": "Steady construction rhythm.",
+        "transitionPurpose": "Focuses children on stable design strategies.",
+        "dayPlacement": "tuesday"
+      },
+      {
+        "title": "Roll, Roll, Ramp (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Roll, roll, ramp—ready, set, go!\nHigh or low—what do we know?\nFast or slow, we watch it race,\nScience smiles on every face.\n\nMove back please—give space to try,\nSafe scientists standing by!",
+        "motions": "Diagonal arm as ramp; finger “ball” rolling down; arms wide for safe space.",
+        "teacherDirections": "Use before Ramp Testing / Marble Run Challenge. Practice the safety line “give space to try” with bodies first—no marbles until spacing is clear.",
+        "whenToUse": "Ramp and marble-run days; outdoor ball-ramp play.",
+        "suggestedPace": "Upbeat but stop fully on safety line.",
+        "transitionPurpose": "Connects motion science with safety routines.",
+        "dayPlacement": "wednesday"
+      },
+      {
+        "title": "Sink or Float Song (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Will it sink? Will it float?\nMake a guess, then test the boat!\nIn the water, watch and see—\nScience friends investigate with me.",
+        "motions": "Thumbs down for sink, palms up for float; drop motion; binocular eyes.",
+        "teacherDirections": "Sing at the water table before Sink or Float Experiment. Record predictions on a simple chart with pictures—not a worksheet packet.",
+        "whenToUse": "Water table STEM; Tuesday science focus.",
+        "suggestedPace": "Playful; pause for each object prediction.",
+        "transitionPurpose": "Frames prediction talk before water exploration.",
+        "dayPlacement": "tuesday"
+      }
+    ],
+    "books": [
+      {
+        "title": "Rosie Revere, Engineer",
+        "author": "Andrea Beaty",
+        "why": "Celebrates prototyping and persistence after failed inventions—perfect for tower/bridge redesign culture.",
+        "before": [
+          "What does an engineer do?",
+          "Have you ever built something that fell down? What did you try next?"
+        ],
+        "during": [
+          "How is Rosie feeling when her invention flops?",
+          "Who helps her keep trying?"
+        ],
+        "after": [
+          "What will we say in our classroom when a build falls?",
+          "What invention do you want to test today?"
+        ],
+        "vocab": "engineer, invent, design, try",
+        "day": "monday",
+        "substitute": "Iggy Peck, Architect by Andrea Beaty"
+      },
+      {
+        "title": "Ada Twist, Scientist",
+        "author": "Andrea Beaty",
+        "why": "Models question-asking and investigation—pairs with Scientist Investigation Station and journals as drawing, not worksheets.",
+        "before": [
+          "What questions do scientists ask?",
+          "What is something you wonder about?"
+        ],
+        "during": [
+          "What is Ada trying to figure out?",
+          "How does she investigate?"
+        ],
+        "after": [
+          "What question will you investigate at our STEM stations?",
+          "How can we record what we notice (draw, photo, dictate)?"
+        ],
+        "vocab": "scientist, question, observe, investigate",
+        "day": "wednesday",
+        "substitute": "What Is Science? by Rebecca Kai Dotlich"
+      },
+      {
+        "title": "What Do You Do With an Idea?",
+        "author": "Kobi Yamada",
+        "why": "Supports inventive thinking and confidence—nice bridge to Inventor Dramatic Play and Engineer Showcase.",
+        "before": [
+          "Where do ideas come from?",
+          "What idea might you build with today?"
+        ],
+        "during": [
+          "How does the child treat the idea at first?",
+          "What changes as the idea grows?"
+        ],
+        "after": [
+          "How will we take care of each other’s ideas in the makerspace?",
+          "What materials could help your idea?"
+        ],
+        "vocab": "idea, grow, create, share",
+        "day": "friday",
+        "substitute": "Not a Box by Antoinette Portis"
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Predict / Observe Mini Chart (Picture)",
+        "purpose": "Two-column picture chart for Sink or Float and Ramp Testing—children mark guesses with stamps/X, then results; not a graded worksheet."
+      },
+      {
+        "title": "Blueprint Paper (Blank Grid Light)",
+        "purpose": "Light grid for Blueprint Drawing / Engineer Showcase planning; scribbles and dictation welcome."
+      },
+      {
+        "title": "STEM Challenge Cards",
+        "purpose": "Simple picture challenges (“build a bridge for a toy car,” “make a ramp”) for STEM Exploration Stations."
+      }
+    ],
+    "activityOverrides": {
+      "Sink or Float Experiment": {
+        "imageRequirement": "setup_only"
+      },
+      "Ramp Testing": {
+        "imageRequirement": "setup_only"
+      },
+      "Marble Run Challenge": {
+        "imageRequirement": "setup_only"
+      },
+      "Build the Tallest Tower": {
+        "imageRequirement": "example_only"
+      },
+      "Bridge Builders": {
+        "imageRequirement": "example_only"
+      },
+      "Blueprint Drawing": {
+        "imageRequirement": "example_only"
+      },
+      "STEM Journal Drawing": {
+        "imageRequirement": "example_only"
+      },
+      "Scientist Investigation Station": {
+        "imageRequirement": "setup_only"
+      },
+      "STEM Celebration Dance": {
+        "imageRequirement": "not_needed"
+      },
+      "Engineer Showcase": {
+        "imageRequirement": "optional"
+      }
+    },
+    "bannedSongTitles": [],
+    "safetyNotes": "Play-based inquiry only—avoid worksheet packets. Marble runs: use only with preschoolers who do not mouth objects; establish a “marble zone” with clear floor space, eye protection from flying pieces not required but keep rolls aimed at walls/trays not walkways; count marbles in/out; substitute large pom-poms, ping-pong balls, or cars for mixed-age or mouthing children. Water table: mop slips, limit depth, no standing water left unattended. Towers: soft fall zones; no climbing builds. Dominoes and small STEM bits stored up when toddlers visit. Tape dispensers adult-managed."
+  },
+  "notes": "Emphasize ramps/towers/sink-float. Journals = drawing + dictation, not elementary worksheets."
+}
