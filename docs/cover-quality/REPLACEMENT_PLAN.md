@@ -1,7 +1,13 @@
 # Cover Replacement Plan (staged — awaiting owner approval)
 
-**Prerequisite:** Owner approval of `LESSON_COVER_AUDIT_2026-08-08.md`  
+**Prerequisite:** Owner approval of `LESSON_COVER_AUDIT_2026-08-08.md` ✅  
+**Owner REPLACE scope:** 114 covers (13 KEEP untouched; 0 REVIEW remaining)  
 **Hard rule:** Do not overwrite production covers until each replacement passes QC as a staged preview.
+
+### Validation Batch 01 (current)
+
+Staged style-proof for 9 lessons — see `validation-batch-01/REPORT.md`.  
+**Production attach: blocked until owner approves this batch’s art direction.**
 
 ## Scope after approval
 
