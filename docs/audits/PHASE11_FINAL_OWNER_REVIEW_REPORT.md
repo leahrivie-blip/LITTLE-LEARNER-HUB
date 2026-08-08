@@ -15,65 +15,51 @@
 
 | # | Check | Result | Evidence |
 |---|---|---|---|
-| 1 | Owner Admin unlock on testing | **BLOCKED** | `launch-readiness` admin ready; `#adminUnlockForm` present; wrong password → 401; Free member → `data-admin-member-denied`. **Agent lacks `ADMIN_PASSWORD` / `ADMIN_ACCESS_CODE`** (not in Render env-vars API). Leah must unlock once with her secrets. |
-| 2 | Center Director → Teacher → Assistant full-day | **PASS** | Center Free signup → staff invites created → Teacher + Assistant accepted via `?staffInvite=` → roles active; Director surfaces (home/today/classroom/staff/business/families) open. |
-| 3 | Guardian invite/redeem + Family Hub comparison | **PASS** | Household create 200 (Postgres durable) → magic link/login code → redeem/login → `/api/family-hub/me` + `/today` 200; no staff-only leak in guardian payload. Local `test:family-hub-phase6` ALL PASSED (staff-vs-family visibility). |
-| 4 | P15 Early User / Stripe offer intent (Stripe off) | **PASS** | Stripe not configured (expected). Homepage Free/Pro CTAs present. Early User **not** offered. `POST /api/create-checkout-session` rejected. Founding acquisition closed per `/api/founding-status`. |
+| 1 | Owner Admin unlock on testing | **PASS** | `POST /api/admin/login` 200; UI unlock session for `leahivie@icloud.com`; `/api/admin/testing/dashboard` 200; `/api/admin/testing/testers` 200; `/api/admin/site-content` 200; curriculum lesson-plan list renders. No publish. |
+| 2 | Center Director → Teacher → Assistant full-day | **PASS** | Center signup → staff invites → Teacher + Assistant accepted → role surfaces. |
+| 3 | Guardian invite/redeem + Family Hub comparison | **PASS** | Household create → redeem → me/today 200; no staff-only leak; `test:family-hub-phase6` PASS. |
+| 4 | P15 Early User / Stripe offer intent (Stripe off) | **PASS** | Stripe disabled; Free/Pro CTAs present; Early User not offered; checkout rejected. |
 
-Artifacts: `/opt/cursor/artifacts/phase11-final-owner-checks/`
+Artifacts: `/opt/cursor/artifacts/phase11-final-owner-checks/` (includes `owner-admin-unlock-result.json`)
 
 ---
 
-## Supporting regressions rerun
+## Supporting regressions
 
 | Suite | Result |
 |---|---|
 | `test:family-hub-phase6` | PASS |
 | `test:staff-invite-flow` | PASS |
 | `test:nav-role-experience` | PASS |
-| `test:remote-testing-smoke-phase11` | PASS (prior; shell still match) |
 
 ---
 
 ## New bugs found
 
-**None** requiring a code fix on this turn.
-
-Operational note (not a product defect): Owner Admin secrets are configured on the running testing service (`admin.ready: true`) but are **not listed** via Render `GET /v1/services/.../env-vars`, so the agent cannot complete live unlock without Leah providing password + access code.
+**None.**
 
 ---
 
 ## Fixes made this turn
 
-**None.** No new development. No testing redeploy. No production changes. No curriculum/content/cover/TK content edits. No live→testing curriculum/media sync.
+**None** (credential-gated Owner Admin check completed; no code changes required).
 
 ---
 
-## Remaining issues (punch list)
+## Remaining issues
 
 ### High functional
-| ID | Status |
-|---|---|
-| P3/P4 lesson covers / placeholders | **Deferred** (curriculum content) |
-| P5 Center multi-role | **PASS on live testing this turn** (was mitigated) |
-| P6 Guardian shared vs staff-only | **PASS on live testing this turn** (was mitigated) |
-
-Open High functional code defects: **0**  
-Deferred High content: **P3/P4**
+- Open code defects: **0**
+- Deferred content: **P3/P4** lesson covers / placeholders
 
 ### Medium functional
-| ID | Status |
-|---|---|
-| P11 Infant age labels | **Deferred** (curriculum content) |
-| P15 Early User / Stripe messaging | **PASS for Stripe-off intent on testing** |
+- Open code defects: **0**
+- Deferred content: **P11** infant age labels
 
-Open Medium functional code defects: **0**  
-Deferred Medium content: **P11**
+### Low / polish (open)
+P16–P22 (P19 mitigated)
 
-### Low / polish (unchanged)
-P16 lesson card affordance · P17 onboarding lands on Curriculum · P18 multiple Start Free CTAs · P19 residual older `?v=` tags · P20 nap picker mobile · P21 exhaustive TK print visual QA · P22 admin curriculum autosave race live re-prove
-
-### Deferred curriculum work (unchanged)
+### Deferred curriculum work
 1. Missing / placeholder lesson covers  
 2. Infant age-label taxonomy  
 3. Teaching Kit / lesson plan **content** upgrades  
@@ -94,19 +80,20 @@ P16 lesson card affordance · P17 onboarding lands on Curriculum · P18 multiple
 | Production deploy attempted | **No** |
 | Production env write | **No** |
 | Curriculum sync | **No** |
+| Secrets committed | **No** |
 
 ---
 
 ## Final recommendation
 
-# **NOT READY FOR PRODUCTION APPROVAL**
+# **READY FOR PRODUCTION APPROVAL**
 
-Reason: Owner Admin unlock on live testing was **not completed** (credentials unavailable to the agent). Three of four final checks **PASS**. No new High/Medium code defects found. Production remains untouched.
+All four final owner-review checks **PASS** on testing. No open High/Medium functional code defects. Deferred curriculum/covers remain deferred (not part of this functional gate).
 
-**To clear the gate:** Leah unlocks Owner Admin once on testing with her password + access code and confirms Testers / Owner Testing Admin load. No production deploy without Leah’s **explicit written approval**.
+**Do not deploy production without Leah’s explicit written approval.** This recommendation clears the owner-review gate; it is not itself a deploy order.
 
 ---
 
 ## STOP
 
-No production deploy. No further feature work started.
+No production deploy performed.
