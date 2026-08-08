@@ -14,13 +14,13 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | ✅ **Phase 11 testing deploy gate PASS** — live testing matches Phase 11 |
-| **Overall completion** | **100%** of roadmap phases for testing readiness (production deploy still requires separate written approval) |
-| **Production status** | 🔒 **Untouched / read-only** — live `20260808-cookie-cta` |
-| **Testing status** | 🟢 Live `20260808-phase11-final-qa` @ `96f1db8` · deploy `dep-d9rjao6q1p3s73f3o1m0` · 127 lessons |
-| **Major blockers** | None for tester review; production deploy blocked until written approval |
-| **Ready for tester review** | **Yes** |
-| **Ready for production approval** | **No** (awaiting Leah’s explicit written approval) |
+| **Current phase** | 👀 **Manual tester review in progress** — Phase 11 automated/testing gate 100%; production approval **BLOCKED** |
+| **Overall completion** | **100%** automated/testing gate only — **not** production-approved |
+| **Production status** | 🔒 **BLOCKED / untouched** — live `20260808-cookie-cta` until Leah’s **explicit written** deploy approval |
+| **Testing status** | 🟢 Stable for manual review — `20260808-phase11-final-qa` · keep stable unless a reported bug requires a testing-only fix/redeploy |
+| **Major blockers** | Production approval blocked pending Leah’s manual Final QA review |
+| **Ready for tester review** | **Yes** — punch list: `docs/audits/PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md` |
+| **Ready for production approval** | **No** — blocked until manual review + explicit written approval |
 
 ---
 
@@ -38,9 +38,9 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 8 | Billing (testing) | ✅ **Completed** |
 | 9 | AI review-before-save | ✅ **Completed** |
 | 10 | Live → Testing Feature Sync | ✅ **Completed** (owner approved) |
-| 11 | Pre–Final QA audit + Final QA / production readiness | ✅ **Live testing deploy PASS** — **DO NOT deploy production without written approval** |
+| 11 | Pre–Final QA audit + Final QA / production readiness | ✅ Automated/testing gate **100%** · 👀 **Manual tester review in progress** · 🔒 **Production approval BLOCKED** |
 
-**Completion percentage:** **100%** (testing Phase 11 gate). Production release is **not** authorized by this percentage alone.
+**Completion percentage:** **100%** automated/testing gate. **Not production-approved.** Manual punch list: `PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md`.
 
 ---
 
@@ -52,18 +52,20 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 - Branch: `cursor/phase10-live-testing-feature-sync-9c23`  
 - Tests: `npm run test:live-testing-feature-sync-phase10`
 
-### 11. Final QA / testing redeploy — complete (testing only)
+### 11. Final QA / testing redeploy — automated gate complete (testing only)
 - Report: `docs/audits/PHASE11_FINAL_QA_PRODUCTION_READINESS_REPORT.md`  
 - Redeploy status: `docs/audits/PHASE11_TESTING_REDEPLOY_STATUS.md`  
+- Manual punch list: `docs/audits/PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md`  
 - Branch: `cursor/phase11-final-qa-production-readiness-9c23`  
-- Live testing shell: `20260808-phase11-final-qa`  
+- Live testing shell: `20260808-phase11-final-qa` (keep stable during Leah’s review)  
 - Remote smoke: `npm run test:remote-testing-smoke-phase11` → PASS  
+- Stance: fix reported bugs on testing only; no unrelated architecture work; **no production deploy**
 
 ---
 
 ## Production status
 
-🔒 Untouched. Live shell `20260808-cookie-cta`, `homeDaycareHubTesting: false`.  
-Testing-only service `srv-d9fsap7jqk9s73806iag` redeployed; production `srv-d8o3f3r6sc1c73comlc0` not deployed.
+🔒 **BLOCKED.** Untouched. Live shell `20260808-cookie-cta`, `homeDaycareHubTesting: false`.  
+Automated gate 100% does **not** mean production-approved.  
 
-**Do not deploy production** until Leah’s explicit written approval.
+**Do not deploy production** until Leah explicitly writes that she approves the production deployment.
