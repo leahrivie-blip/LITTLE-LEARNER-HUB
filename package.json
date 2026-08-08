@@ -389,7 +389,9 @@
     "test:teaching-kit-ui-print-polish": "NODE_ENV=test node scripts/test-teaching-kit-ui-print-polish.js",
     "test:teaching-kit-print-system": "NODE_ENV=test node scripts/test-teaching-kit-print-system.js",
     "test:lesson-download-presentation": "NODE_ENV=test node scripts/test-lesson-download-presentation.js",
-    "test:teaching-kit-real-print-validation": "NODE_ENV=test node scripts/test-teaching-kit-real-print-validation.js"
+    "test:teaching-kit-real-print-validation": "NODE_ENV=test node scripts/test-teaching-kit-real-print-validation.js",
+    "test:remote-testing-smoke-phase11": "node scripts/test-remote-testing-smoke-phase11.js",
+    "deploy:testing-only-phase11": "node scripts/deploy-testing-only-phase11.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

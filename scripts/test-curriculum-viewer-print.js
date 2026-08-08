@@ -119,6 +119,17 @@ function premiumPlan() {
     parsed.data.dailyPlans.monday.items[0].teacherLanguage = "I notice the soil feels damp";
     parsed.data.dailyPlans.monday.items[0].safetyNotes = "Use pasteurized soil only.";
   }
+  // Publish gate requires a titled activity on every weekday (product rule).
+  // The label-only garden sample only ships Mon–Wed items — fill Thu/Fri in-test
+  // so visibility checks exercise a valid published plan (fixture-only enrichment).
+  parsed.data.dailyPlans.thursday = parsed.data.dailyPlans.thursday || {};
+  parsed.data.dailyPlans.friday = parsed.data.dailyPlans.friday || {};
+  if (!Array.isArray(parsed.data.dailyPlans.thursday.items) || !parsed.data.dailyPlans.thursday.items.length) {
+    parsed.data.dailyPlans.thursday.items = [{ title: "Leaf Rubbing Art", directions: ["Collect leaves", "Rub with crayon"] }];
+  }
+  if (!Array.isArray(parsed.data.dailyPlans.friday.items) || !parsed.data.dailyPlans.friday.items.length) {
+    parsed.data.dailyPlans.friday.items = [{ title: "Garden Reflection Circle", directions: ["Share one plant discovery"] }];
+  }
   return parsed.data;
 }
 
@@ -234,6 +245,15 @@ async function testServerVisibility(child) {
     status: "published",
   });
   expectedUpdatedAt = freeSave.siteContentUpdatedAt;
+  assert(
+    freeSave.lessonPlan?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow",
+    "admin save returns monday books on free plan",
+  );
+  assert(
+    Array.isArray(freeSave.lessonPlan?.dailyPlans?.thursday?.items)
+      && freeSave.lessonPlan.dailyPlans.thursday.items.some((item) => String(item?.title || "").trim()),
+    "admin save keeps thursday activity titles (publish gate)",
+  );
 
   const proSave = await savePublishedPlan(token, expectedUpdatedAt, {
     ...base,
@@ -258,9 +278,13 @@ async function testServerVisibility(child) {
   assert(plans.some((item) => item.id === publishedProId), "published pro plan metadata is public");
   assert(!plans.some((item) => item.id === draftId), "draft plan hidden");
 
+  // Product policy: guest/public library unlocks only curated Free Starter Library IDs.
+  // Newly published Free plans that are not curated appear as locked overview teasers
+  // (no dailyPlans), same family as Pro teasers — full body is not on the browse list.
   const freePlan = plans.find((item) => item.id === publishedFreeId);
-  assert(freePlan.dailyPlans.monday.books[0].title === "Planting a Rainbow", "public GET returns monday books");
-  assert(freePlan.dailyPlans.tuesday.songs[0].title === "Rain Song", "public GET returns tuesday songs");
+  assert(freePlan?.locked === true, "non-curated free plan is locked on guest browse list");
+  assert(!freePlan?.dailyPlans, "guest browse list omits dailyPlans for non-curated free");
+  assert(!JSON.stringify(freePlan).includes("Invite children to scoop"), "guest free teaser hides directions");
 
   const proPlan = plans.find((item) => item.id === publishedProId);
   assert(proPlan?.locked === true, "pro plan public preview is locked");
@@ -269,8 +293,9 @@ async function testServerVisibility(child) {
 
   const activities = publicLib.json.siteContent?.curriculumLibrary?.activities || [];
   const soilActivity = activities.find((item) => item.lessonPlanId === publishedFreeId);
-  assert(soilActivity?.teacherLanguage?.includes("damp"), "public free activity includes premium fields");
-  const proActivity = activities.find((item) => item.parentTitle === "Viewer Pro Garden");
+  assert(soilActivity?.locked === true, "non-curated free activity public preview is locked");
+  assert(!String(soilActivity?.teacherLanguage || "").includes("damp"), "locked free activity hides teacher language");
+  const proActivity = activities.find((item) => item.parentTitle === "Viewer Pro Garden" || item.lessonPlanId === publishedProId);
   assert(proActivity?.locked === true, "pro activity public preview is locked");
   assert(!String(proActivity?.teacherLanguage || "").includes("damp"), "pro activity public preview hides teacher language");
 }

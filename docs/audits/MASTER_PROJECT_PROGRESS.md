@@ -15,11 +15,13 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | Field | Status |
 |---|---|
 | **Current phase** | 🚧 **Phase 11 Final QA delivered — NOT 100%** (remote testing deploy still stale) |
-| **Overall completion** | **~98%** — local Final QA strong; **tracker must not show 100%** while release blockers remain |
+| **Overall completion** | **~98%** — local Final QA strong; **tracker must not show 100%** while live testing shell is stale |
 | **Production status** | 🔒 **Untouched / read-only** — live `20260808-cookie-cta` |
-| **Testing status** | ⚠️ Remote Render testing still `20260805-testing-full-integration-r8`; local shell `20260808-phase11-final-qa` |
+| **Testing status** | ⚠️ Remote still `20260805-testing-full-integration-r8` (127 lessons present); local/target `20260808-phase11-final-qa` @ `4474dff` — **TESTING-ONLY redeploy blocked** (missing Render testing credentials) |
 | **Major blockers** | TESTING-ONLY redeploy to Phase 11 + Leah written prod approval before any production action |
-| **Known high-priority bugs** | Remote testing freshness blocker; no critical local product regressions found |
+| **Known high-priority bugs** | Remote testing freshness blocker; curriculum viewer/print soft-fail classified as test-fixture (now PASS) |
+| **Ready for tester review** | **No** (until live testing shell matches Phase 11) |
+| **Ready for production approval** | **No** |
 
 ---
 
