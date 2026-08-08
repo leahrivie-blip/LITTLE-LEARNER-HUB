@@ -1,0 +1,79 @@
+{
+  "startedAt": "2026-08-08T22:39:40.634Z",
+  "packages": {
+    "amazing-apples": {
+      "lessonPlanId": "cur-lp-toddler-amazing-apples",
+      "resourceId": "cur-res-proof-amazing-apples-picture-cards",
+      "rollbackId": "proof-snap-fc4e753aef532738931e",
+      "before": {
+        "publishedBodyFingerprint": "9138fd556161fe0ba432b0bb",
+        "activityLinkFingerprint": "3473c7f7a38f66dcd6f18c9b",
+        "enrichmentDraftFingerprint": null
+      },
+      "afterEnrichment": {
+        "publishedBodyFingerprint": "9138fd556161fe0ba432b0bb",
+        "activityLinkFingerprint": "3473c7f7a38f66dcd6f18c9b",
+        "enrichmentDraftFingerprint": "d06d1d096e2866a10af71109"
+      },
+      "afterPrintable": {
+        "publishedBodyFingerprint": "9138fd556161fe0ba432b0bb",
+        "activityLinkFingerprint": "3473c7f7a38f66dcd6f18c9b",
+        "resourceIds": [
+          "cur-res-proof-amazing-apples-picture-cards"
+        ]
+      },
+      "publishedUnchanged": true,
+      "activitiesUnchanged": true,
+      "qualityReport": {
+        "overallScore": 69,
+        "overallLabel": "Blocked",
+        "publishReadiness": "blocked",
+        "publishReadinessLabel": "Blocked",
+        "blocksPublish": true,
+        "scoringMode": "actual_draft_catalog",
+        "note": "Honest actual score with draft printable status — no fake published catalog."
+      },
+      "pdfSha256": "9699fef429bd01257ec0f104a088c47814a4d87334e37118d2092b85cfcd09cd",
+      "ownerFileStatus": 200,
+      "publicFileStatus": 404
+    },
+    "all-about-me": {
+      "lessonPlanId": "cur-lp-preschool-all-about-me",
+      "resourceId": "cur-res-proof-all-about-me-picture-cards",
+      "rollbackId": "proof-snap-c110699686949a115885",
+      "before": {
+        "publishedBodyFingerprint": "ad1f4a3e219d14f0ceaea07b",
+        "activityLinkFingerprint": "fc85c004086ea980def1a6fc",
+        "enrichmentDraftFingerprint": null
+      },
+      "afterEnrichment": {
+        "publishedBodyFingerprint": "ad1f4a3e219d14f0ceaea07b",
+        "activityLinkFingerprint": "fc85c004086ea980def1a6fc",
+        "enrichmentDraftFingerprint": "9ccb6d8aba7dfe50a680cdce"
+      },
+      "afterPrintable": {
+        "publishedBodyFingerprint": "ad1f4a3e219d14f0ceaea07b",
+        "activityLinkFingerprint": "fc85c004086ea980def1a6fc",
+        "resourceIds": [
+          "cur-res-proof-all-about-me-picture-cards"
+        ]
+      },
+      "publishedUnchanged": true,
+      "activitiesUnchanged": true,
+      "qualityReport": {
+        "overallScore": 72,
+        "overallLabel": "Blocked",
+        "publishReadiness": "blocked",
+        "publishReadinessLabel": "Blocked",
+        "blocksPublish": true,
+        "scoringMode": "actual_draft_catalog",
+        "note": "Honest actual score with draft printable status — no fake published catalog."
+      },
+      "pdfSha256": "35a60b61f64806a2ab0a95374e85050b8a33112a0484a9e34b934cefac8c70fe",
+      "ownerFileStatus": 200,
+      "publicFileStatus": 404
+    }
+  },
+  "passed": 87,
+  "finishedAt": "2026-08-08T22:40:09.501Z"
+}

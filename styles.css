@@ -4079,6 +4079,27 @@ body.user-authenticated .view.active-view {
   flex: 1 1 12rem;
 }
 
+.tk-proof-draft-import-panel {
+  border: 1px solid rgba(47, 74, 62, 0.18);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(180deg, rgba(255, 252, 247, 0.95), rgba(244, 248, 242, 0.92));
+}
+.tk-proof-draft-import-panel .tk-proof-draft-json {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+}
+@media (max-width: 720px) {
+  .tk-proof-draft-import-panel .form-grid-two {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tk-printable-upload-form {
   margin-top: 0.75rem;
   padding: 0.85rem;

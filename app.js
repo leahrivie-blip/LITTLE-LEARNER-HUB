@@ -6699,6 +6699,18 @@ let adminCurriculumLessonImportStep = "paste";
 let adminCurriculumLessonImportMode = "v5"; // "v3" | "v4" | "v5"
 let adminCurriculumLessonImporting = false;
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
+/** Owner-only Proof Draft Import panel state (Amazing Apples + All About Me). */
+let adminProofDraftImportState = {
+  open: false,
+  busy: false,
+  selectedPackageId: "amazing-apples",
+  dryRun: null,
+  lastResult: null,
+  message: "",
+  isSuccess: false,
+  enrichmentPhrase: "",
+  printablePhrase: "",
+};
 let adminCurriculumResourceSaving = false;
 /** Pending cover selection in the classic editor (preview before save; never publishes). */
 let adminCurriculumCoverPending = null;
@@ -12324,6 +12336,7 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ${mismatchBanner}
     ${banner}
+    ${renderAdminProofDraftImportPanel()}
     ${renderCurriculumLessonImportPanel()}
     <div class="admin-content-filters">
       <label><span>Search</span><input type="search" id="adminCurriculumFilterQuery" value="${escapeHtml(adminCurriculumListFilters.query || "")}" placeholder="Title, theme…" /></label>
@@ -13572,6 +13585,203 @@ function isTeachingKitPrintableOwnerClient() {
   const sessionEmail = String(adminSession()?.email || "").trim().toLowerCase();
   // Must match server Teaching Kit owner gate (session email — never trust body email).
   return sessionEmail === "leahivie@icloud.com";
+}
+
+function isProofDraftImportOwnerClient() {
+  return isTeachingKitPrintableOwnerClient();
+}
+
+function renderAdminProofDraftImportPanel() {
+  if (!isProofDraftImportOwnerClient()) return "";
+  const state = adminProofDraftImportState || {};
+  if (!state.open) {
+    return `
+      <div class="access-notice tk-proof-draft-import-panel" role="region" aria-label="Import Proof Draft" style="margin-bottom:1rem;">
+        <strong>Owner · Import Proof Draft</strong>
+        <p class="muted-copy">Review Amazing Apples + All About Me enrichment drafts and draft PDFs inside Admin. Never publishes. Farm Animals untouched.</p>
+        <button class="primary-button" type="button" data-proof-draft-import-open>Open Import Proof Draft</button>
+      </div>
+    `;
+  }
+  const dry = state.dryRun;
+  const dryHtml = dry ? `
+    <div class="tk-proof-draft-dryrun" style="margin-top:0.75rem;">
+      <p><strong>Dry-run · ${escapeHtml(dry.packageId || "")}</strong>
+        ${dry.blocked ? " · BLOCKED" : " · ready"}</p>
+      <p class="muted-copy">Published body fingerprint: <code>${escapeHtml(dry.before?.publishedBodyFingerprint || "")}</code></p>
+      <p class="muted-copy">Activity link fingerprint: <code>${escapeHtml(dry.before?.activityLinkFingerprint || "")}</code></p>
+      <p class="muted-copy">Enrichment field touches: ${Number(dry.enrichmentWouldChange?.[0]?.fieldTouchCount || 0)}
+        · activity keys: ${Number(dry.activityKeyCoverage?.draftActivityKeyCount || 0)}
+        · unmatched keys: ${Number(dry.activityKeyCoverage?.unmatchedCount || 0)}</p>
+      <p class="muted-copy">Printable action: ${escapeHtml(dry.printableWouldChange?.[0]?.action || "")}
+        · resource <code>${escapeHtml(dry.printableWouldChange?.[0]?.resourceId || "")}</code></p>
+      ${(dry.blockReasons || []).length
+        ? `<ul>${dry.blockReasons.map((err) => `<li>${escapeHtml(err.message || err.code || "")}</li>`).join("")}</ul>`
+        : ""}
+      <details><summary>Fields / resources that would change</summary>
+        <pre class="tk-proof-draft-json">${escapeHtml(JSON.stringify({
+          enrichmentWouldChange: dry.enrichmentWouldChange,
+          printableWouldChange: dry.printableWouldChange,
+          neverDoes: dry.neverDoes,
+        }, null, 2))}</pre>
+      </details>
+    </div>
+  ` : "";
+  const resultHtml = state.lastResult ? `
+    <div class="tk-proof-draft-result" style="margin-top:0.75rem;">
+      <p><strong>Last result · ${escapeHtml(state.lastResult.action || "")}</strong></p>
+      <pre class="tk-proof-draft-json">${escapeHtml(JSON.stringify({
+        packageId: state.lastResult.packageId,
+        lessonPlanId: state.lastResult.lessonPlanId,
+        rollbackId: state.lastResult.rollbackId,
+        resourceId: state.lastResult.resourceId,
+        resourceStatus: state.lastResult.resourceStatus,
+        publishedUnchanged: state.lastResult.publishedUnchanged,
+        publishedBodyUnchanged: state.lastResult.publishedBodyUnchanged,
+        before: state.lastResult.before,
+        after: state.lastResult.after,
+        publicAccess: state.lastResult.publicAccess,
+        qualityReport: state.lastResult.qualityReport,
+        rollback: state.lastResult.rollback,
+      }, null, 2))}</pre>
+    </div>
+  ` : "";
+  const msg = state.message
+    ? `<div class="form-message ${state.isSuccess ? "success" : ""}" role="status">${escapeHtml(state.message)}</div>`
+    : "";
+  return `
+    <div class="access-notice tk-proof-draft-import-panel is-open" role="region" aria-label="Import Proof Draft workflow" style="margin-bottom:1rem;">
+      <div class="section-heading" style="margin-bottom:0.5rem;">
+        <div>
+          <p class="eyebrow">Owner only · leahivie@icloud.com</p>
+          <strong>Import Proof Draft</strong>
+          <p class="muted-copy">Dry-run first. Separate confirmations for enrichment draft and draft PDF. No Publish step. Does not create lessons or touch Farm Animals.</p>
+        </div>
+        <button class="ghost-button" type="button" data-proof-draft-import-close ${state.busy ? "disabled" : ""}>Close</button>
+      </div>
+      ${msg}
+      <div class="form-grid-two" style="gap:0.75rem;">
+        <label><span>Proof package</span>
+          <select data-proof-draft-import-package ${state.busy ? "disabled" : ""}>
+            <option value="amazing-apples" ${state.selectedPackageId === "amazing-apples" ? "selected" : ""}>Amazing Apples — Toddler</option>
+            <option value="all-about-me" ${state.selectedPackageId === "all-about-me" ? "selected" : ""}>All About Me — Preschool</option>
+          </select>
+        </label>
+        <div class="form-actions" style="align-items:flex-end;">
+          <button class="primary-button" type="button" data-proof-draft-import-dry-run ${state.busy ? "disabled" : ""}>${state.busy ? "Working…" : "1. Dry-run preview"}</button>
+          <button class="ghost-button" type="button" data-proof-draft-import-verify ${state.busy ? "disabled" : ""}>Verify after import</button>
+        </div>
+      </div>
+      ${dryHtml}
+      <div class="form-grid-two" style="margin-top:0.85rem;gap:0.75rem;">
+        <label><span>Confirm enrichment phrase</span>
+          <input type="text" data-proof-draft-import-enrichment-phrase autocomplete="off" placeholder="IMPORT ENRICHMENT DRAFT" value="${escapeHtml(state.enrichmentPhrase || "")}" ${state.busy ? "disabled" : ""} />
+        </label>
+        <div class="form-actions" style="align-items:flex-end;">
+          <button class="primary-button" type="button" data-proof-draft-import-confirm-enrichment ${state.busy || dry?.blocked ? "disabled" : ""}>2. Confirm enrichment draft</button>
+        </div>
+        <label><span>Confirm printable phrase</span>
+          <input type="text" data-proof-draft-import-printable-phrase autocomplete="off" placeholder="IMPORT DRAFT PRINTABLE" value="${escapeHtml(state.printablePhrase || "")}" ${state.busy ? "disabled" : ""} />
+        </label>
+        <div class="form-actions" style="align-items:flex-end;">
+          <button class="primary-button" type="button" data-proof-draft-import-confirm-printable ${state.busy || dry?.blocked ? "disabled" : ""}>3. Confirm draft PDF upload</button>
+        </div>
+      </div>
+      <p class="muted-copy" style="margin-top:0.5rem;">Publish is intentionally omitted. Draft PDFs stay 404 for customers. Rollback IDs appear after confirm.</p>
+      ${resultHtml}
+    </div>
+  `;
+}
+
+async function postProofDraftImport(action, extra = {}) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required.");
+  if (!isProofDraftImportOwnerClient()) {
+    throw new Error("Import Proof Draft is restricted to the owner account.");
+  }
+  const response = await fetch("/api/admin/curriculum/proof-draft-import", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      action,
+      packageId: adminProofDraftImportState.selectedPackageId,
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      // Deliberately omit adminEmail / role — server uses session only.
+      ...extra,
+    }),
+  });
+  const json = await response.json().catch(() => ({}));
+  if (response.status === 409 && json && action.startsWith("confirm")) {
+    await handleCurriculumSaveConflict(json);
+  }
+  if (json.curriculum) {
+    applyCurriculumState(json.curriculum, { siteContentUpdatedAt: json.siteContentUpdatedAt });
+  } else if (json.lessonPlan) {
+    const curriculum = effectiveSiteContent()?.curriculum;
+    if (curriculum?.lessonPlans) {
+      applyCurriculumState({
+        ...curriculum,
+        lessonPlans: curriculum.lessonPlans.map((item) => (
+          item.id === json.lessonPlan.id ? json.lessonPlan : item
+        )),
+        resources: json.resource
+          ? [...(curriculum.resources || []).filter((item) => item.id !== json.resource.id), json.resource]
+          : curriculum.resources,
+      }, { siteContentUpdatedAt: json.siteContentUpdatedAt });
+    }
+  } else if (json.siteContentUpdatedAt && siteContentState) {
+    siteContentState.updatedAt = json.siteContentUpdatedAt;
+  }
+  if (!response.ok && !(action === "dry-run" && response.status === 409)) {
+    throw new Error(json.error || `Proof draft import failed (${response.status})`);
+  }
+  return { status: response.status, json };
+}
+
+async function runProofDraftImportAction(action) {
+  if (!isProofDraftImportOwnerClient()) {
+    window.alert("Import Proof Draft is restricted to leahivie@icloud.com.");
+    return;
+  }
+  if (adminProofDraftImportState.busy) return;
+  adminProofDraftImportState.busy = true;
+  adminProofDraftImportState.message = "";
+  renderAdminCurriculumLessonPlanManager();
+  try {
+    const extra = {};
+    if (action === "confirm-enrichment") {
+      extra.confirmPhrase = adminProofDraftImportState.enrichmentPhrase || "";
+    }
+    if (action === "confirm-printable") {
+      extra.confirmPhrase = adminProofDraftImportState.printablePhrase || "";
+    }
+    const { status, json } = await postProofDraftImport(action === "dry-run" ? "dry-run" : action, extra);
+    if (action === "dry-run") {
+      adminProofDraftImportState.dryRun = json;
+      adminProofDraftImportState.message = json.blocked
+        ? `Dry-run blocked (${status}).`
+        : "Dry-run ready. Review fields, then confirm enrichment and printable separately.";
+      adminProofDraftImportState.isSuccess = !json.blocked;
+    } else {
+      adminProofDraftImportState.lastResult = json;
+      adminProofDraftImportState.message = json.ok
+        ? `${action} succeeded.`
+        : (json.error || `${action} failed.`);
+      adminProofDraftImportState.isSuccess = Boolean(json.ok);
+      if (json.ok && siteContentConfig?.adminEndpoint) {
+        try { await loadAdminSiteContent?.(); } catch (_e) { /* optional refresh */ }
+      }
+    }
+  } catch (error) {
+    adminProofDraftImportState.message = error.message || "Proof draft import failed.";
+    adminProofDraftImportState.isSuccess = false;
+  } finally {
+    adminProofDraftImportState.busy = false;
+    renderAdminCurriculumLessonPlanManager();
+  }
 }
 
 function createAdminTkPrintableDraft(plan, resource) {
@@ -72149,12 +72359,26 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#adminTkPrintableForm") && event.target.matches("[data-tk-printable-field]")) {
     syncAdminTkPrintableDraftFromEvent(event.target);
   }
+  if (event.target.matches("[data-proof-draft-import-enrichment-phrase]")) {
+    adminProofDraftImportState.enrichmentPhrase = event.target.value || "";
+  }
+  if (event.target.matches("[data-proof-draft-import-printable-phrase]")) {
+    adminProofDraftImportState.printablePhrase = event.target.value || "";
+  }
 });
 
 document.addEventListener("change", async (event) => {
   if (event.target.closest("#adminTkPrintableForm") && event.target.matches("[data-tk-printable-field]")) {
     syncAdminTkPrintableDraftFromEvent(event.target);
     // Never let printable file/metadata changes re-render Linked Resources hosts.
+    return;
+  }
+  if (event.target.matches("[data-proof-draft-import-package]")) {
+    adminProofDraftImportState.selectedPackageId = event.target.value || "amazing-apples";
+    adminProofDraftImportState.dryRun = null;
+    adminProofDraftImportState.lastResult = null;
+    adminProofDraftImportState.message = "";
+    renderAdminCurriculumLessonPlanManager();
     return;
   }
   if (event.target.matches("[data-curriculum-activity-move-day]")) {
@@ -72540,6 +72764,36 @@ document.addEventListener("click", async (event) => {
   const fixtureDeleteButton = event.target.closest("[data-curriculum-fixture-permanent-delete]");
   if (fixtureDeleteButton) {
     await permanentlyDeleteDisposableFixture(fixtureDeleteButton.dataset.curriculumFixturePermanentDelete);
+    return;
+  }
+  if (event.target.closest("[data-proof-draft-import-open]")) {
+    if (!isProofDraftImportOwnerClient()) {
+      window.alert("Import Proof Draft is restricted to leahivie@icloud.com.");
+      return;
+    }
+    adminProofDraftImportState.open = true;
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  if (event.target.closest("[data-proof-draft-import-close]")) {
+    adminProofDraftImportState.open = false;
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  if (event.target.closest("[data-proof-draft-import-dry-run]")) {
+    await runProofDraftImportAction("dry-run");
+    return;
+  }
+  if (event.target.closest("[data-proof-draft-import-confirm-enrichment]")) {
+    await runProofDraftImportAction("confirm-enrichment");
+    return;
+  }
+  if (event.target.closest("[data-proof-draft-import-confirm-printable]")) {
+    await runProofDraftImportAction("confirm-printable");
+    return;
+  }
+  if (event.target.closest("[data-proof-draft-import-verify]")) {
+    await runProofDraftImportAction("verify");
     return;
   }
   const coverPickButton = event.target.closest("[data-curriculum-cover-pick]");
