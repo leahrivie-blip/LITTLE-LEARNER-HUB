@@ -1,0 +1,152 @@
+{
+  "planId": "cur-lp-infant-sensory-discovery",
+  "title": "Sensory Discovery",
+  "ageBand": "infant",
+  "themePack": {
+    "overview": "This week invites infants (about 6–12 months) to notice the world through touch, sound, sight, and gentle movement. Teachers offer short, cue-following invitations—treasure baskets, sealed shakers, mirrors, and outdoor nature sits—so each baby explores at their own pace. There is no finished product to make; the goal is curious hands, listening ears, and warm adult language that names what babies discover.",
+    "materials": "Low discovery baskets\nWashable fabric texture squares (soft, bumpy, smooth)\nSoft infant brushes\nLarge scarves (no long trailing ties)\nOversized soft pom-poms or sensory balls (too large to choke on)\nBaby-safe mirrors (unbreakable)\nCrinkle paper toys / sealed crinkle squares\nSecurely sealed sensory bottles and baby shakers\nFloor mats / tummy-time rugs\nShallow water tray with wide cups and towels (Thursday only)\nTaste-safe puree paint ingredients (allergy-checked)\nOutdoor blanket and oversized nature items (large leaves, smooth stones too big to choke on)",
+    "family": "At home, invite your baby to explore one safe texture at a time—a soft washcloth, a smooth wooden spoon handle, or a crinkle snack bag you hold. Narrate what they touch (“That feels soft”) and pause so they can respond with a look, kick, or grasp. Keep sessions short and follow their cues to continue or rest.",
+    "milestones": [
+      "Language: Looks toward a speaker and responds to simple sensory words (soft, shake, listen) with gaze, gesture, or vocalization",
+      "SEL: Shows preference or comfort cues during exploration and accepts warm co-regulation when overwhelmed",
+      "Motor: Grasps, transfers, shakes, crawls toward, or releases oversized sensory toys with growing control",
+      "Cognition: Notices cause-and-effect (shake → sound; lift scarf → toy) and explores objects with hands and mouth under supervision"
+    ],
+    "vocabCards": [
+      "soft",
+      "rough",
+      "smooth",
+      "bumpy",
+      "shake",
+      "touch",
+      "listen",
+      "feel",
+      "explore",
+      "splash",
+      "crinkle",
+      "mirror"
+    ],
+    "songs": [
+      {
+        "title": "Touch and Tell Chant",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Touch, touch, feel it near,\nSoft or bumpy—can you hear?\nShake it gently, look and see,\nSensory friends for you and me.",
+        "motions": "Gently guide baby’s hand to touch an item on soft/bumpy; model a small shake on shake; pause and smile on look and see.",
+        "teacherDirections": "Sit face-to-face or side-by-side. Offer one item at a time. Sing slowly once, then whisper the texture word while baby explores. Stop if baby turns away.",
+        "whenToUse": "Opening invitation before Texture Treasure Basket or any one-item sensory offer",
+        "suggestedPace": "slow",
+        "transitionPurpose": "Settle attention on one sensory focus and signal that exploration is beginning",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Shake and Pause",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Shake, shake, shake our sound,\nListen as it moves around.\nShake, shake—now we freeze,\nQuiet hands and quiet knees.",
+        "motions": "Model small shakes with a sealed shaker; freeze still on freeze; smile and restart once.",
+        "teacherDirections": "Use only securely sealed infant shakers. Keep volume gentle. Pair freeze with a soft voice and still body so babies can notice the contrast.",
+        "whenToUse": "During Shake and Freeze Shakers or between bottle exploration turns",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Practice start/stop listening and prepare for cleanup of sound toys",
+        "dayPlacement": "thursday"
+      },
+      {
+        "title": "Twinkle, Twinkle, Little Star",
+        "traditional": true,
+        "rightsStatus": "public_domain",
+        "lyrics": "Twinkle, twinkle, little star,\nHow I wonder what you are.\nUp above the world so high,\nLike a diamond in the sky.\nTwinkle, twinkle, little star,\nHow I wonder what you are.",
+        "motions": "Open and close fingers like twinkling lights near baby’s visual field; gentle rock or sway; slower final verse for calming.",
+        "teacherDirections": "Use as a calm closer after sensory play. Dim lights slightly if helpful. Watch for overstimulation and shorten to one verse as needed.",
+        "whenToUse": "End-of-session calm-down or after messy sensory cleanup",
+        "suggestedPace": "slow",
+        "transitionPurpose": "Co-regulate and close the sensory session gently",
+        "dayPlacement": "friday"
+      }
+    ],
+    "books": [
+      {
+        "title": "That's Not My Puppy",
+        "author": "Fiona Watt",
+        "why": "Touch-and-feel patches invite infants to explore textures while a simple refrain supports early listening.",
+        "before": ["Shall we touch the soft cover together?"],
+        "during": ["Can you feel this patch? Soft or bumpy?"],
+        "after": ["Which page felt your favorite today?"],
+        "vocab": "soft",
+        "day": "monday",
+        "substitute": "Offer a fabric square and mirror if the book is unavailable; name soft/smooth while baby touches."
+      },
+      {
+        "title": "Baby Touch and Feel Animals",
+        "author": "DK",
+        "why": "High-contrast animal photos plus sturdy touch patches support visual attention and tactile curiosity.",
+        "before": ["Let’s find an animal friend to touch."],
+        "during": ["Feel the furry spot—what does it feel like?"],
+        "after": ["Point with me to the animal we liked best."],
+        "vocab": "touch",
+        "day": "wednesday",
+        "substitute": "Use one animal photo card and a matching soft fabric scrap for a mini touch walk."
+      },
+      {
+        "title": "Never Touch a Dinosaur",
+        "author": "Rosie Greening",
+        "why": "Silly never-touch refrain and silicone touch spots keep engagement high while practicing gentle finger exploration.",
+        "before": ["Shall we use gentle fingers for our book?"],
+        "during": ["Tap the bumpy spot—gentle touch!"],
+        "after": ["We used gentle hands—high five to your tummy!"],
+        "vocab": "gentle",
+        "day": "friday",
+        "substitute": "Sing Touch and Tell Chant with two sealed texture toys if the book is out."
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Texture Word Picture Card Pack",
+        "purpose": "Teachers hold soft/rough/smooth/bumpy cards beside real materials during basket play and book walks so vocabulary stays concrete."
+      },
+      {
+        "title": "Sensory Cue Photo Cards",
+        "purpose": "Simple photos of shake, listen, crawl, and mirror help caregivers preview the invitation and support mixed-age rooms."
+      }
+    ],
+    "activityOverrides": {
+      "Pour and Fill Water Play": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Use a shallow tray and a tiny amount of water only; stay within arm’s reach the entire time.",
+          "Wipe spills immediately; end promptly when interest fades."
+        ],
+        "safetyEmphasis": "Never leave water unattended; no beads or small fill objects."
+      },
+      "Edible Finger Paint Taste-Safe": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Confirm allergies before offering puree paint; label ingredients for the room.",
+          "Process exploration only—no picture to finish; expect mouthing and celebrate smearing."
+        ],
+        "safetyEmphasis": "Taste-safe edible ingredients only; wash hands and trays thoroughly after."
+      },
+      "Nature Sensory Sit": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Pre-select oversized nature items only; remove anything that could break or choke.",
+          "Keep sits short; follow infant cues to return indoors."
+        ]
+      },
+      "Texture Treasure Basket": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Introduce one item at a time; sanitize between infants as needed.",
+          "Watch for overstimulation and reduce the set to two favorites."
+        ]
+      }
+    },
+    "bannedSongTitles": [
+      "Baby Shark",
+      "Baby Shark Feelings Version",
+      "The Feelings Song"
+    ],
+    "safetyNotes": "Infant sensory play requires constant supervision. Use only oversized, washable materials with no choking hazards—no water beads, no small loose parts, no unfinished craft products. Water play stays shallow and within arm’s reach. Taste-safe paint must be allergy-checked and fully edible. Follow each baby’s cues to continue, pause, or stop; never force contact with a texture."
+  },
+  "notes": "Differentiate from other discovery-basket weeks by emphasizing texture vocabulary + cue-following pace (not sorting games). Avoid duplicating preschool sensory bin setups. Songs are original LLH chants plus one PD lullaby; no copyrighted pop variants."
+}

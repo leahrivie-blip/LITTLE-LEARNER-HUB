@@ -1,0 +1,178 @@
+{
+  "planId": "cur-lp-toddler-my-feelings-at-school",
+  "title": "My Feelings at School",
+  "ageBand": "toddler",
+  "themePack": {
+    "overview": "Toddlers practice noticing big feelings at school—happy, sad, mad, scared, and calm—through mirrors, short stories, puppets, and repeatable calm-down games. Each day offers one clear feeling focus with simple words, large washable materials, and process-first art (no perfect crafts). Teachers model naming feelings, gentle helping, and quick reset strategies so toddlers build security with classmates and caregivers.",
+    "materials": "Emotion picture cards (happy, sad, mad, scared, calm)\nChild-safe handheld mirrors\nSoft puppets and stuffed animals\nFeelings chart at toddler height\nWashable crayons, markers, and paint\nLarge paper / construction paper\nGlue sticks and yarn scraps (optional)\nScarves and bean bags\nFeathers or pinwheels for breathing practice\nCalm-down bottles (securely sealed; no loose beads for mouthing)\nPlay dough\nMusic player for freeze/dance transitions\nSmocks, wipes, and a quiet calm corner mat",
+    "family": "Each evening, ask “What feeling visited you at school today?” Offer two choices if needed (“happy or tired?”). Practice one calm strategy together—three feather breaths or a cozy hug count. Celebrate any feeling talk; naming emotions at home helps toddlers use the same words with teachers and friends.",
+    "milestones": [
+      "Language: Uses or approximates feeling words (happy, sad, mad, calm) with gesture or picture support",
+      "SEL: Notices a peer’s feeling and tries a kind action with teacher coaching",
+      "Motor: Imitates simple face motions, dance freezes, and fine-motor process art marks",
+      "Cognition: Matches a face card to a feeling word and recalls one calm-down choice"
+    ],
+    "vocabCards": [
+      "happy",
+      "sad",
+      "mad",
+      "excited",
+      "scared",
+      "calm",
+      "kind",
+      "friend",
+      "feelings",
+      "breathe",
+      "help",
+      "school"
+    ],
+    "songs": [
+      {
+        "title": "Feelings Face Chant",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Happy face, happy face, smile so wide,\nSad face, sad face, tears we can dry.\nMad face, mad face, stomp then rest,\nCalm face, calm face—breathe is best.",
+        "motions": "Show each face on cue; gentle cheek wipe motion for sad; two soft stomps then hands on heart for mad/rest; hands on belly for breathe.",
+        "teacherDirections": "Hold matching emotion cards while chanting. Invite toddlers to copy faces in mirrors. Keep stomps soft and brief; move quickly into calm breathing.",
+        "whenToUse": "Morning circle with the Feelings Chart; before Feelings Match-Up",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Preview today’s feeling vocabulary and settle into circle",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Breathe In, Blow Soft",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Breathe in slow, breathe out soft,\nShoulders down, hands aloft.\nBreathe in slow, blow a feather,\nCalm comes back—we feel better.",
+        "motions": "Hands on belly for breathe in; soft blow toward a feather/pinwheel; shoulders drop; hands rest in lap on better.",
+        "teacherDirections": "Use during Calm Breathing with Feathers or Pinwheel Breathing. Model one breath at a time. Offer a quiet alternative (hand on heart) if blowing is hard.",
+        "whenToUse": "After big energy, conflict coaching, or before rest",
+        "suggestedPace": "slow",
+        "transitionPurpose": "Reset bodies and voices toward calm",
+        "dayPlacement": "wednesday"
+      },
+      {
+        "title": "If You're Happy and You Know It",
+        "traditional": true,
+        "rightsStatus": "public_domain",
+        "lyrics": "If you're happy and you know it, clap your hands.\nIf you're happy and you know it, clap your hands.\nIf you're happy and you know it, then your face will surely show it.\nIf you're happy and you know it, clap your hands.\n\n(Additional verses teachers may use: If you're mad… stomp once then rest. If you're calm… breathe in slow.)",
+        "motions": "Clap; for mad verse one soft stomp then hands on heart; for calm verse belly breaths—avoid long stomping chains.",
+        "teacherDirections": "Keep verses short. Prefer original Feelings Face Chant for deeper emotion practice; use this traditional song for joyful participation only. Do not invent copyrighted pop song variants.",
+        "whenToUse": "Happy Dance Party or outdoor Happy Walk warm-up",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Shared joyful movement before centers",
+        "dayPlacement": "tuesday"
+      }
+    ],
+    "books": [
+      {
+        "title": "The Color Monster",
+        "author": "Anna Llenas",
+        "why": "Colors mapped to feelings give toddlers a concrete way to sort and name emotions at school.",
+        "before": ["What color feels happy to you today?"],
+        "during": ["Which feeling is the monster showing on this page?"],
+        "after": ["What feeling might you put in a jar today?"],
+        "vocab": "feelings",
+        "day": "monday",
+        "substitute": "Use emotion color cards and Feelings Face Chant if the book is unavailable."
+      },
+      {
+        "title": "Glad Monster, Sad Monster",
+        "author": "Ed Emberley & Anne Miranda",
+        "why": "Flip-style monster faces make happy/sad talk playful and easy to imitate with mirrors.",
+        "before": ["Can you make a glad face in the mirror?"],
+        "during": ["Is this monster glad or sad?"],
+        "after": ["Tell a friend one thing that makes you glad at school."],
+        "vocab": "glad",
+        "day": "tuesday",
+        "substitute": "Mirror, Mirror, Happy Me with glad/sad cards."
+      },
+      {
+        "title": "Llama Llama Misses Mama",
+        "author": "Anna Dewdney",
+        "why": "Separation feelings are familiar for toddlers starting or returning to school; the story normalizes missing and reconnecting.",
+        "before": ["Have you ever missed someone at school?"],
+        "during": ["How does Llama Llama feel right now?"],
+        "after": ["What helps you feel brave when you miss someone?"],
+        "vocab": "miss",
+        "day": "thursday",
+        "substitute": "Helping Teddy Feel Brave with a short teacher story about missing and reuniting."
+      },
+      {
+        "title": "Today I Feel Silly",
+        "author": "Jamie Lee Curtis",
+        "why": "Many feelings in one story expand vocabulary beyond happy/sad for curious toddlers.",
+        "before": ["What feeling word do you want to listen for?"],
+        "during": ["Show me that feeling with your face."],
+        "after": ["Which feeling from the book did you notice today?"],
+        "vocab": "silly",
+        "day": "wednesday",
+        "substitute": "Optional enrichment title—if time is short, keep the top three books; use feeling cards for a mini walk."
+      },
+      {
+        "title": "Grumpy Monkey",
+        "author": "Suzanne Lang",
+        "why": "Validates mad/grumpy days and models that friends can still care without forcing fake smiles.",
+        "before": ["Is it okay to feel grumpy sometimes?"],
+        "during": ["What does Jim Panzee need from friends?"],
+        "after": ["What helps you when you feel grumpy at school?"],
+        "vocab": "grumpy",
+        "day": "friday",
+        "substitute": "Optional fifth title—enrich fully only if schedule allows; otherwise note for family lending library."
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "School Feelings Picture Card Pack",
+        "purpose": "Large happy/sad/mad/scared/calm cards for chart work, matching, freeze dance cues, and calm-corner visuals."
+      },
+      {
+        "title": "Calm Choice Cards",
+        "purpose": "Picture choices (breathe, hug a teddy, ask a teacher, drink water) used after Helping the Mad Monster and Pinwheel Breathing."
+      }
+    ],
+    "activityOverrides": {
+      "Happy Face Craft": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Process focus: open-ended marks and stickers are enough—no identical bulletin-board faces required.",
+          "Offer blank circles instead of rigid templates when possible."
+        ]
+      },
+      "Tear and Glue Feelings Heart": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Tearing is the fine-motor goal; finished hearts will look different and that is celebrated."
+        ]
+      },
+      "Calm Breathing with Feathers": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Use large feathers; supervise closely; offer pinwheels or hand-on-belly for children who should not mouth feathers."
+        ]
+      },
+      "Feelings Freeze Dance": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Call feeling words instead of copyrighted song hooks; freeze on calm card.",
+          "Keep paths clear; soft knees on freezes."
+        ]
+      },
+      "Helping the Mad Monster": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Coach kind helping language; keep monster play playful, not scary.",
+          "Practice one calm choice after the story play."
+        ]
+      }
+    },
+    "bannedSongTitles": [
+      "Baby Shark",
+      "Baby Shark Feelings Version",
+      "The Feelings Song",
+      "Skidamarink"
+    ],
+    "safetyNotes": "Use child-safe mirrors and securely sealed calm bottles—no loose water beads or small parts that toddlers might mouth. Washable, large materials preferred. Art is process-based with smocks and wipeable surfaces. Supervise breathing props; provide non-mouthing alternatives. Keep emotional coaching inclusive: all feelings are welcome, and no child is forced to perform a feeling face for photos."
+  },
+  "notes": "Replaced copyrighted-risk songs (Baby Shark Feelings Version, The Feelings Song, Skidamarink) with original LLH chants plus one traditional PD option. Book authors cleaned from catalog (Anna Llenas; Ed Emberley & Anne Miranda; Anna Dewdney; Jamie Lee Curtis; Suzanne Lang). Top 3 books fully enriched; titles 4–5 noted as optional enrichment."
+}

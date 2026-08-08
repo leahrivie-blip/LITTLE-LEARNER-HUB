@@ -1,0 +1,185 @@
+{
+  "planId": "cur-lp-toddler-amazing-apples",
+  "title": "Amazing Apples",
+  "ageBand": "toddler",
+  "themePack": {
+    "overview": "Toddlers explore apples as real fruit—looking, touching, smelling, sorting colors, and (with allergy checks) tasting. The week mixes short science looks, large-motor apple hunts, market pretend play, and process art that does not repeat the same stamp craft every day. Teachers keep experiences repeatable and washable, celebrate crunchy vocabulary, and offer non-food alternatives whenever tasting is not appropriate.",
+    "materials": "Real red, green, and yellow apples (whole)\nPrepared apple slices for supervised taste test (allergy-checked)\nPlastic play apples and baskets\nApple picture / color cards\nMagnifying glasses (plastic)\nWashable red/green/yellow paint and smocks\nApple-shaped sponges OR cookie cutters (vary art tools across days)\nConstruction paper, crayons, glue sticks, dot markers\nPlay dough and apple-sized balls\nSensory bin filler alternative: crumpled paper “orchard leaves” with plastic apples (no water beads)\nBean bags and floor spots for relays\nToy market stand props\nChart paper for favorite-apple graph\nWipes, towels, and labeled allergy notes",
+    "family": "At the store or fridge, invite your child to find a red, green, or yellow apple and describe how it feels. If allergies allow, taste a slice together and talk about sweet, crunchy, or juicy. No orchard trip required—window shopping the produce aisle still builds rich apple talk.",
+    "milestones": [
+      "Language: Uses apple color and sensory words (red, crunch, stem, sweet) during play and tasting talk",
+      "SEL: Waits for a turn with apples/baskets and tries a new food experience with supportive coaching",
+      "Motor: Stamps/sponges, carries baskets, rolls, and sorts oversized apple props",
+      "Cognition: Sorts apples by color/size and notices simple tree-to-fruit ideas with picture support"
+    ],
+    "vocabCards": [
+      "apple",
+      "fruit",
+      "red",
+      "green",
+      "yellow",
+      "stem",
+      "leaf",
+      "seed",
+      "tree",
+      "orchard",
+      "crunch",
+      "sweet"
+    ],
+    "songs": [
+      {
+        "title": "Apple Colors Chant",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Red apple, green apple, yellow too,\nPick one up—which color are you?\nShine and wash and count with me,\nApples for our friends to see.",
+        "motions": "Hold up matching color cards; pretend pick; rub-shine motion; tap count to three.",
+        "teacherDirections": "Use real or play apples as visual anchors. Invite each toddler to show a color rather than answer verbally if needed.",
+        "whenToUse": "Monday circle with the apple basket reveal; Apple Color Sort warm-up",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Focus attention on apple colors before investigation",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Crunch, Munch, Pause",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Crunch, crunch, listen close,\nMunch, munch—politely most.\nTaste or touch, we take our time,\nThank you, apples—you’re so fine!",
+        "motions": "Tap fists together for crunch; wipe mouth politely for munch; hands in lap on take our time; thank-you wave.",
+        "teacherDirections": "Sing before Apple Taste Test. Emphasize that touching/smelling is a full participate option. Never pressure tasting.",
+        "whenToUse": "Taste-test preview and mealtime apple talk",
+        "suggestedPace": "slow",
+        "transitionPurpose": "Set calm tasting manners and inclusion norms",
+        "dayPlacement": "thursday"
+      },
+      {
+        "title": "Roll, Pick, Parade",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Roll like an apple, round we go,\nPick the apples high and low.\nBasket full—we march and sing,\nHarvest friends, hear us ring!",
+        "motions": "Seated rock/roll arms; reach high/low pick; pretend carry basket; march in place.",
+        "teacherDirections": "Bridge Roll Like an Apple and Apple Basket Relay. Keep rolls seated or crawling—no tumbling piles.",
+        "whenToUse": "Gross-motor apple days and Friday harvest celebration",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Move from floor play into cleanup or parade",
+        "dayPlacement": "friday"
+      }
+    ],
+    "books": [
+      {
+        "title": "Apple Farmer Annie",
+        "author": "Monica Wellington",
+        "why": "Bright orchard-to-market sequence helps toddlers connect apples to growing, sorting, and sharing food.",
+        "before": ["Where do you think Annie’s apples grow?"],
+        "during": ["What is Annie doing with the apples on this page?"],
+        "after": ["Would you like to pick, wash, or sell apples in pretend play?"],
+        "vocab": "orchard",
+        "day": "monday",
+        "substitute": "Apple picture cards plus Apple Colors Chant if the book is unavailable."
+      },
+      {
+        "title": "Apples and Pumpkins",
+        "author": "Anne Rockwell",
+        "why": "Seasonal farm visit text supports fall apple talk with clear, toddler-friendly illustrations.",
+        "before": ["Have you seen an apple tree or pumpkin patch?"],
+        "during": ["Can you find the apples in the picture?"],
+        "after": ["What would you put in your harvest basket?"],
+        "vocab": "apple",
+        "day": "wednesday",
+        "substitute": "Outdoor apple hunt with plastic apples and basket counting."
+      },
+      {
+        "title": "How Do Apples Grow?",
+        "author": "Betsy Maestro",
+        "why": "Simple nonfiction explains blossom-to-fruit ideas that pair with Apple Life Cycle and seed discovery.",
+        "before": ["What do you think an apple needs to grow?"],
+        "during": ["Point to the flower, the tiny apple, or the tree."],
+        "after": ["How can we take care of living growing things?"],
+        "vocab": "grow",
+        "day": "friday",
+        "substitute": "Three life-cycle picture cards (flower, tiny apple, ripe apple) for a mini sequence talk."
+      },
+      {
+        "title": "Ten Apples Up On Top!",
+        "author": "Theo LeSieg",
+        "why": "Playful counting and balancing humor enriches number talk; use selectively for short read-alouds.",
+        "before": ["Can we count apples together?"],
+        "during": ["How many apples are on top now?"],
+        "after": ["Let’s count five play apples into a basket."],
+        "vocab": "count",
+        "day": "tuesday",
+        "substitute": "Optional enrichment title—fully use if time allows; otherwise keep counting with real props."
+      },
+      {
+        "title": "The Biggest Apple Ever",
+        "author": "Steven Kroll",
+        "why": "Friendship-and-size story supports big/small apple comparisons without requiring a full week slot.",
+        "before": ["What makes an apple look big?"],
+        "during": ["Who is trying to find the biggest apple?"],
+        "after": ["Can you find a big apple and a small apple in our basket?"],
+        "vocab": "big",
+        "day": "thursday",
+        "substitute": "Optional fifth title for family lending or quiet shelf; prioritize top three for circle."
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Apple Color Picture Card Pack",
+        "purpose": "Red/green/yellow apple cards for sorting, graphing, and dance cues without relying on worksheets."
+      },
+      {
+        "title": "Apple Life Cycle Sequence Cards",
+        "purpose": "Flower → small apple → ripe apple cards for Friday science talk and seed discovery support."
+      }
+    ],
+    "activityOverrides": {
+      "Apple Stamp Painting": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Use stamp painting on one day only; later art days switch to collage, dough, or sponge tools so the week does not repeat identical stamp crafts.",
+          "Process prints will differ—display variety proudly."
+        ]
+      },
+      "Apple Taste Test": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Check and document allergies before any tasting; offer touch/smell-only participation.",
+          "Serve fresh slices with clean tongs; no sharing bitten pieces."
+        ],
+        "safetyEmphasis": "Allergy protocol required; have non-food apple props ready as the equal alternative."
+      },
+      "Apple Investigation": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Whole apples for looking/touching/smelling; wash hands before and after.",
+          "Keep tasting separate from investigation trays."
+        ]
+      },
+      "Favorite Apple Graph": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Use photo/color cards for voting so non-tasters fully participate."
+        ]
+      },
+      "Apple Seed Discovery": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Teacher handles cutting; toddlers view seeds in a sealed jar or large magnifying tray.",
+          "Seeds are not loose snacks—supervise closely."
+        ]
+      },
+      "My Apple Tree": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Open-ended collage/dough tree—avoid identical template products."
+        ]
+      }
+    },
+    "bannedSongTitles": [
+      "Baby Shark",
+      "Baby Shark Feelings Version",
+      "If You're Happy and You Know It (Apple Version)"
+    ],
+    "safetyNotes": "Confirm allergies before any apple tasting and provide equal non-tasting roles. Wash produce and hands; keep cut pieces refrigerated per program food rules. Avoid water beads and small loose seeds as play fillers. Art uses washable paint with smocks; vary tools so stamp painting is not daily. Supervise baskets/relays for safe carrying. Include children who cannot eat apples through smell, touch, sort, and pretend market play."
+  },
+  "notes": "Fixed missing catalog authors: Monica Wellington; Anne Rockwell; Betsy Maestro; Theo LeSieg (Dr. Seuss Beginner Books); Steven Kroll. Top 3 books fully enriched; titles 4–5 optional enrichment. Original apple chants replace copyrighted-risk apple-version pop songs. Art guidance deliberately varies media to avoid identical apple-stamp crafts each day."
+}
