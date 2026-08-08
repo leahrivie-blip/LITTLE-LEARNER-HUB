@@ -12,11 +12,8 @@
   "totals": {
     "audited": 127,
     "KEEP": 13,
-    "REPLACE": 110,
-    "REVIEW": 4,
-    "missing": 63,
-    "svgPlaceholders": 43,
-    "ageMismatchJpg": 4
+    "REPLACE": 114,
+    "REVIEW": 0
   },
   "keepList": [
     {
@@ -111,48 +108,7 @@
       "rationale": "Classroom welcome; polished cartoon diversity"
     }
   ],
-  "reviewList": [
-    {
-      "id": "cur-lp-infant-animal-sounds-discovery",
-      "title": "Animal Sounds Discovery",
-      "age": "Infant 0–12 Months",
-      "coverFile": "animal-sounds.jpg",
-      "rationale": "Cute nursery animal band; minor instrument/paw AI artifacts; leans music more than animal-sounds",
-      "flags": [
-        "needs_owner_review"
-      ]
-    },
-    {
-      "id": "cur-lp-19fb3849d087888afe5",
-      "title": "Fall Colors, Leaves and Movement",
-      "age": "Infant 6–12 Months",
-      "coverFile": "seasons-year.jpg",
-      "rationale": "Artwork shows all four seasons; lesson is Fall-specific (colors/leaves/movement). Asset quality is good — decide whether theme stretch is acceptable or needs fall-only orchard/leaves cover",
-      "flags": [
-        "theme_stretch"
-      ]
-    },
-    {
-      "id": "cur-lp-toddler-classroom-helpers",
-      "title": "Classroom Helpers",
-      "age": "Toddler",
-      "coverFile": "classroom-helpers.jpg",
-      "rationale": "Polished helpers classroom; children read ~preschool (3–5), stretch for toddler",
-      "flags": [
-        "needs_owner_review"
-      ]
-    },
-    {
-      "id": "cur-lp-toddler-making-new-friends",
-      "title": "Making New Friends",
-      "age": "Toddler",
-      "coverFile": "making-new-friends.jpg",
-      "rationale": "Strong friendship classroom scene; prior pass noted possible hand artifacts — confirm before KEEP",
-      "flags": [
-        "needs_owner_review"
-      ]
-    }
-  ],
+  "reviewList": [],
   "replaceBuckets": {
     "missing": 63,
     "svgPlaceholders": 43,
@@ -170,11 +126,15 @@
       "coverFile": "animal-sounds.jpg",
       "coverExt": "jpg",
       "coverKind": "static",
-      "decision": "REVIEW",
+      "decision": "REPLACE",
       "rationale": "Cute nursery animal band; minor instrument/paw AI artifacts; leans music more than animal-sounds",
       "flags": [
-        "needs_owner_review"
-      ]
+        "needs_owner_review",
+        "owner_replace_former_review"
+      ],
+      "priorDecision": "REVIEW",
+      "ownerDecision": "REPLACE",
+      "ownerDecisionNote": "Owner approved REPLACE for all REVIEW items (2026-08-08) to achieve full catalog style consistency"
     },
     {
       "id": "cur-lp-infant-colors-all-around-us",
@@ -1060,11 +1020,15 @@
       "coverFile": "seasons-year.jpg",
       "coverExt": "jpg",
       "coverKind": "static",
-      "decision": "REVIEW",
+      "decision": "REPLACE",
       "rationale": "Artwork shows all four seasons; lesson is Fall-specific (colors/leaves/movement). Asset quality is good — decide whether theme stretch is acceptable or needs fall-only orchard/leaves cover",
       "flags": [
-        "theme_stretch"
-      ]
+        "theme_stretch",
+        "owner_replace_former_review"
+      ],
+      "priorDecision": "REVIEW",
+      "ownerDecision": "REPLACE",
+      "ownerDecisionNote": "Owner approved REPLACE for all REVIEW items (2026-08-08) to achieve full catalog style consistency"
     },
     {
       "id": "cur-lp-19fb3839b4851b9b76b",
@@ -1122,11 +1086,15 @@
       "coverFile": "classroom-helpers.jpg",
       "coverExt": "jpg",
       "coverKind": "static",
-      "decision": "REVIEW",
+      "decision": "REPLACE",
       "rationale": "Polished helpers classroom; children read ~preschool (3–5), stretch for toddler",
       "flags": [
-        "needs_owner_review"
-      ]
+        "needs_owner_review",
+        "owner_replace_former_review"
+      ],
+      "priorDecision": "REVIEW",
+      "ownerDecision": "REPLACE",
+      "ownerDecisionNote": "Owner approved REPLACE for all REVIEW items (2026-08-08) to achieve full catalog style consistency"
     },
     {
       "id": "cur-lp-toddler-making-new-friends",
@@ -1139,11 +1107,15 @@
       "coverFile": "making-new-friends.jpg",
       "coverExt": "jpg",
       "coverKind": "static",
-      "decision": "REVIEW",
+      "decision": "REPLACE",
       "rationale": "Strong friendship classroom scene; prior pass noted possible hand artifacts — confirm before KEEP",
       "flags": [
-        "needs_owner_review"
-      ]
+        "needs_owner_review",
+        "owner_replace_former_review"
+      ],
+      "priorDecision": "REVIEW",
+      "ownerDecision": "REPLACE",
+      "ownerDecisionNote": "Owner approved REPLACE for all REVIEW items (2026-08-08) to achieve full catalog style consistency"
     },
     {
       "id": "cur-lp-toddler-welcome-to-my-classroom",
@@ -7882,6 +7854,222 @@
         ],
         "preferredTitleTreatment": "UI/template overlay of exact canonical title — do not bake title into artwork"
       }
+    },
+    {
+      "lessonId": "cur-lp-infant-animal-sounds-discovery",
+      "title": "Animal Sounds Discovery",
+      "ageGroup": "Infant 0–12 Months",
+      "ageBand": "infant",
+      "currentCover": "/images/lesson-covers/animal-sounds.jpg",
+      "replaceReason": "Cute nursery animal band; minor instrument/paw AI artifacts; leans music more than animal-sounds",
+      "flags": [
+        "needs_owner_review",
+        "owner_replace_former_review"
+      ],
+      "themeHint": "Animal Sounds",
+      "contentContext": {
+        "weeklyOverview": "Infants will explore animal sounds through music, stories, sensory play, visual discovery, movement, and communication activities. Children will listen to familiar animal sounds, observe animal pictures, and engage in playful experiences that support early language development and auditory awareness.",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Physical Development",
+          "Creative Arts"
+        ],
+        "sampleActivities": [
+          "Animal Discovery Basket",
+          "Animal Song Circle",
+          "Animal Story Time",
+          "Dog Bark Listening Fun",
+          "Animal Mirror Play",
+          "Animal Movement Fun",
+          "Farm Animal Discovery",
+          "Moo & Quack Listening",
+          "Animal Music Time",
+          "Animal Sensory Bag"
+        ],
+        "activityCount": 15
+      },
+      "imageBrief": {
+        "style": "Warm polished children’s educational CARTOON / modern preschool picture-book illustration. Soft playful shapes, cheerful not overstimulating, clean composition. NOT photo, photorealistic, 3D, anime, clip-art collage, or Canva template.",
+        "ageMatching": "Babies and/or caregivers only; tummy-time / sensory / soft toys; NO preschool-looking children",
+        "mustCommunicate": "Immediately readable theme for: Colors All Around Us (Colors)",
+        "composition": "Keep faces/key objects away from extreme edges for mobile/desktop card crop. Leave quiet upper area for UI title overlay. No baked-in text, letters, signs, logos, or gibberish.",
+        "branding": "Subtle Little Learner Hub curriculum feel — consistent with KEEP watercolor/picture-book covers already in library",
+        "avoid": [
+          "photorealistic children",
+          "malformed hands/faces",
+          "random text",
+          "dark/cluttered scenes",
+          "wrong age children"
+        ],
+        "preferredTitleTreatment": "UI/template overlay of exact canonical title — do not bake title into artwork"
+      },
+      "ownerDecision": "REPLACE (former REVIEW)"
+    },
+    {
+      "lessonId": "cur-lp-19fb3849d087888afe5",
+      "title": "Fall Colors, Leaves and Movement",
+      "ageGroup": "Infant 6–12 Months",
+      "ageBand": "infant",
+      "currentCover": "/images/lesson-covers/seasons-year.jpg",
+      "replaceReason": "Artwork shows all four seasons; lesson is Fall-specific (colors/leaves/movement). Asset quality is good — decide whether theme stretch is acceptable or needs fall-only orchard/leaves cover",
+      "flags": [
+        "theme_stretch",
+        "owner_replace_former_review"
+      ],
+      "themeHint": "September Infant 6–12: First Days of Fall",
+      "contentContext": {
+        "weeklyOverview": "Mobile infants explore the first days of fall through large leaf pictures, warm-color choices, crawling, posting, outdoor observation, and sealed texture play. Loose leaves, acorns, pinecones, and other choking hazards are not used.",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Physical Development",
+          "Creative Arts"
+        ],
+        "sampleActivities": [
+          "Choose a Fall Color",
+          "Color Drop Basket",
+          "Leaf Card Posting",
+          "Up-and-Down Scarf Dance",
+          "Crawl to the Leaf Trail",
+          "Wind Pause Game",
+          "Sealed Fall Texture Bags",
+          "Outdoor Tree Watch",
+          "Warm-Color Process Painting",
+          "Fall Photo Book"
+        ],
+        "activityCount": 10
+      },
+      "imageBrief": {
+        "style": "Warm polished children’s educational CARTOON / modern preschool picture-book illustration. Soft playful shapes, cheerful not overstimulating, clean composition. NOT photo, photorealistic, 3D, anime, clip-art collage, or Canva template.",
+        "ageMatching": "Babies and/or caregivers only; tummy-time / sensory / soft toys; NO preschool-looking children",
+        "mustCommunicate": "Immediately readable theme for: Colors All Around Us (Colors)",
+        "composition": "Keep faces/key objects away from extreme edges for mobile/desktop card crop. Leave quiet upper area for UI title overlay. No baked-in text, letters, signs, logos, or gibberish.",
+        "branding": "Subtle Little Learner Hub curriculum feel — consistent with KEEP watercolor/picture-book covers already in library",
+        "avoid": [
+          "photorealistic children",
+          "malformed hands/faces",
+          "random text",
+          "dark/cluttered scenes",
+          "wrong age children"
+        ],
+        "preferredTitleTreatment": "UI/template overlay of exact canonical title — do not bake title into artwork"
+      },
+      "ownerDecision": "REPLACE (former REVIEW)"
+    },
+    {
+      "lessonId": "cur-lp-toddler-classroom-helpers",
+      "title": "Classroom Helpers",
+      "ageGroup": "Toddler",
+      "ageBand": "toddler",
+      "currentCover": "/images/lesson-covers/classroom-helpers.jpg",
+      "replaceReason": "Polished helpers classroom; children read ~preschool (3–5), stretch for toddler",
+      "flags": [
+        "needs_owner_review",
+        "owner_replace_former_review"
+      ],
+      "themeHint": "August: Back to School & Belonging",
+      "contentContext": {
+        "weeklyOverview": "Classroom Helpers introduces toddlers to simple classroom responsibilities while building confidence, independence, and teamwork. Throughout the week, children will learn that everyone has an important role in keeping the classroom safe, clean, and welcoming. Through hands-on activities, dramatic play, songs, and cooperative experiences, children will practice helping others, caring for classroom ",
+        "learningDomains": [
+          "Language & Literacy",
+          "Physical Development",
+          "Creative Arts"
+        ],
+        "sampleActivities": [
+          "Meet Our Helper Jobs",
+          "Toy Helper Challenge",
+          "My Helper Badge",
+          "Helper Parade",
+          "Toy Organizer",
+          "Wipe and Shine",
+          "My Helping Hands Poster",
+          "Clean Up Dance Party",
+          "Helper Team Challenge",
+          "Build Our Classroom"
+        ],
+        "activityCount": 20
+      },
+      "imageBrief": {
+        "style": "Warm polished children’s educational CARTOON / modern preschool picture-book illustration. Soft playful shapes, cheerful not overstimulating, clean composition. NOT photo, photorealistic, 3D, anime, clip-art collage, or Canva template.",
+        "ageMatching": "Babies and/or caregivers only; tummy-time / sensory / soft toys; NO preschool-looking children",
+        "mustCommunicate": "Immediately readable theme for: Colors All Around Us (Colors)",
+        "composition": "Keep faces/key objects away from extreme edges for mobile/desktop card crop. Leave quiet upper area for UI title overlay. No baked-in text, letters, signs, logos, or gibberish.",
+        "branding": "Subtle Little Learner Hub curriculum feel — consistent with KEEP watercolor/picture-book covers already in library",
+        "avoid": [
+          "photorealistic children",
+          "malformed hands/faces",
+          "random text",
+          "dark/cluttered scenes",
+          "wrong age children"
+        ],
+        "preferredTitleTreatment": "UI/template overlay of exact canonical title — do not bake title into artwork"
+      },
+      "ownerDecision": "REPLACE (former REVIEW)"
+    },
+    {
+      "lessonId": "cur-lp-toddler-making-new-friends",
+      "title": "Making New Friends",
+      "ageGroup": "Toddler",
+      "ageBand": "toddler",
+      "currentCover": "/images/lesson-covers/making-new-friends.jpg",
+      "replaceReason": "Strong friendship classroom scene; prior pass noted possible hand artifacts — confirm before KEEP",
+      "flags": [
+        "needs_owner_review",
+        "owner_replace_former_review"
+      ],
+      "themeHint": "August: Back to School & Belonging",
+      "contentContext": {
+        "weeklyOverview": "Making New Friends helps toddlers develop positive social skills as they continue adjusting to the classroom. Throughout the week, children will practice greeting classmates, sharing materials, taking turns, working together during play, and using kind words. Activities encourage cooperation, communication, empathy, and building friendships while helping children feel connected and confident in th",
+        "learningDomains": [
+          "Language & Literacy",
+          "Physical Development",
+          "Creative Arts"
+        ],
+        "sampleActivities": [
+          "Hello, Friend!",
+          "Friends Build Together",
+          "Friendship Heart Craft",
+          "Friendship Freeze Dance",
+          "Sharing Basket",
+          "Playdough Friends",
+          "Friendship Puzzle",
+          "Pass the Smile",
+          "Helping Hands",
+          "Team Tower Challenge"
+        ],
+        "activityCount": 20
+      },
+      "imageBrief": {
+        "style": "Warm polished children’s educational CARTOON / modern preschool picture-book illustration. Soft playful shapes, cheerful not overstimulating, clean composition. NOT photo, photorealistic, 3D, anime, clip-art collage, or Canva template.",
+        "ageMatching": "Babies and/or caregivers only; tummy-time / sensory / soft toys; NO preschool-looking children",
+        "mustCommunicate": "Immediately readable theme for: Colors All Around Us (Colors)",
+        "composition": "Keep faces/key objects away from extreme edges for mobile/desktop card crop. Leave quiet upper area for UI title overlay. No baked-in text, letters, signs, logos, or gibberish.",
+        "branding": "Subtle Little Learner Hub curriculum feel — consistent with KEEP watercolor/picture-book covers already in library",
+        "avoid": [
+          "photorealistic children",
+          "malformed hands/faces",
+          "random text",
+          "dark/cluttered scenes",
+          "wrong age children"
+        ],
+        "preferredTitleTreatment": "UI/template overlay of exact canonical title — do not bake title into artwork"
+      },
+      "ownerDecision": "REPLACE (former REVIEW)"
     }
-  ]
+  ],
+  "ownerDecisions": {
+    "decidedAt": "2026-08-08",
+    "keep": 13,
+    "replace": 114,
+    "reviewUnresolved": 0,
+    "note": "KEEP the 13; REPLACE all former REPLACE + all 4 former REVIEW. Validation batch before mass generation."
+  },
+  "validationBatch01": {
+    "status": "staged_awaiting_owner_approval",
+    "productionAttached": false,
+    "count": 9,
+    "artifactDir": "/opt/cursor/artifacts/cover-validation/batch-01/"
+  }
 }

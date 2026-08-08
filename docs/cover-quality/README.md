@@ -9,3 +9,7 @@ Production visual-review artifacts for the lesson-plan cover library.
 - [Inventory CSV](./lesson-cover-audit.csv)
 
 **No production covers are modified until the owner approves the audit and plan.**
+
+## Validation
+
+- [Validation Batch 01 report](./validation-batch-01/REPORT.md) — staged artwork only; awaiting approval before production attach

@@ -21,3 +21,4 @@ server/data/*.admin-sessions.json
 
 .tmp-*
 .tmp-tk-*
+docs/cover-quality/validation-batch-01/staged/

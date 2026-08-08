@@ -10,7 +10,18 @@
 ## Executive totals
 
 | Category | Count |
-| --- | ---: |
+| ---
+
+## Owner decision (2026-08-08)
+
+- **KEEP:** 13 (unchanged)
+- **REPLACE:** 114 (all prior REPLACE + all 4 former REVIEW)
+- **REVIEW unresolved:** 0
+
+Validation Batch 01 staged — see `docs/cover-quality/validation-batch-01/REPORT.md`.  
+**No production covers attached yet.**
+
+ | ---: |
 | Lessons audited | **127** |
 | KEEP | **13** |
 | REPLACE | **110** |
