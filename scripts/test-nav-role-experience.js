@@ -74,9 +74,12 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const stylesCss = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
 
-  assert.match(indexHtml, /SHELL_VERSION = "20260805-tk-owner-preview-r2"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260806-tk-editor-spacing-r3"/);
   assert.match(indexHtml, /data-work-nav-root/);
   assert.match(indexHtml, /data-work-nav="business"/);
+  assert.match(indexHtml, /data-work-nav="curriculum"/);
+  assert.match(indexHtml, />\s*Management\s*</);
+  assert.match(indexHtml, /Family messages/);
   assert.match(indexHtml, /id="view-classroom"/);
   assert.match(indexHtml, /id="view-today"/);
   assert.match(indexHtml, /id="view-business"/);
@@ -87,7 +90,9 @@ async function main() {
   assert.match(appJs, /function renderFamiliesHubPage/);
   assert.match(appJs, /function renderBusinessHubPage/);
   assert.match(appJs, /function syncUniversalQuickAdd/);
-  assert.match(appJs, /Admin Testing Center/);
+  assert.match(appJs, /Admin → <strong>Testers<\/strong>/);
+  assert.match(appJs, /data-admin-open-testers/);
+  assert.match(appJs, /isHomeDaycareWorkAccount/);
   assert.match(stylesCss, /\.work-hub-page/);
   assert.match(stylesCss, /\.work-quick-add-fab/);
   // Roles must not be forced into one identical nav list
@@ -160,7 +165,9 @@ async function main() {
         work,
         hasHome: work.includes("home"),
         hasBusiness: work.includes("business"),
+        hasCurriculum: work.includes("curriculum"),
         hasToday: work.includes("today"),
+        managementLabel: document.querySelector('[data-work-nav="business"]')?.textContent?.trim() || "",
         quickAdd: Boolean(document.querySelector("#workQuickAdd")),
         homeTitle: document.querySelector("#view-home h2")?.textContent || "",
         legacyHidden: document.querySelector("[data-legacy-nav='true']")?.hidden === true
@@ -172,6 +179,8 @@ async function main() {
     assert.equal(owner.landing, "home");
     assert.equal(owner.hasHome, true);
     assert.equal(owner.hasBusiness, true);
+    assert.equal(owner.hasCurriculum, true, "Owner should see Curriculum in work-mode nav");
+    assert.match(owner.managementLabel, /Management/i);
     assert.equal(owner.hasToday, false, "Owner must not use Teacher Today as primary nav");
     assert.equal(owner.quickAdd, true);
     assert.ok(/Good (morning|afternoon|evening)/i.test(owner.homeTitle), `owner home title: ${owner.homeTitle}`);
@@ -182,9 +191,17 @@ async function main() {
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "owner-home.png") });
 
-    // Teacher shell — intentionally different
+    // Teacher shell — intentionally different (mutate account role; fake admin token may be cleared by heartbeat)
     const teacher = await page.evaluate(() => {
-      setAdminPreviewMode("Teacher");
+      const email = localStorage.getItem("llhUser");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      if (accounts[email]) {
+        accounts[email].role = "teacher";
+        localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      }
+      localStorage.setItem("llhAdminUnlocked", "true");
+      localStorage.setItem("llhAdminPreviewMode", "Teacher");
+      if (typeof setAdminPreviewMode === "function") setAdminPreviewMode("Teacher");
       syncPlatformNavVisibility();
       setView("today", { skipAccessRedirect: true });
       const work = [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).map((b) => b.getAttribute("data-work-nav"));
@@ -194,6 +211,7 @@ async function main() {
         work,
         hasToday: work.includes("today"),
         hasBusiness: work.includes("business"),
+        hasCurriculum: work.includes("curriculum"),
         hasHome: work.includes("home"),
         hasMore: work.includes("more"),
         todayTitle: document.querySelector("#view-today h2")?.textContent || "",
@@ -203,7 +221,8 @@ async function main() {
     assert.equal(teacher.role, "teacher");
     assert.equal(teacher.landing, "today");
     assert.equal(teacher.hasToday, true);
-    assert.equal(teacher.hasBusiness, false, "Teacher must not see Business");
+    assert.equal(teacher.hasBusiness, false, "Teacher must not see Business/Management");
+    assert.equal(teacher.hasCurriculum, true, "Teacher should see Curriculum");
     assert.equal(teacher.hasHome, false, "Teacher Home is Today, not Owner Home");
     assert.equal(teacher.hasMore, true);
     assert.match(teacher.todayTitle, /Today/i);
@@ -213,9 +232,17 @@ async function main() {
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "screenshots", "teacher-today.png") });
 
-    // Assistant — Messages instead of Families; no Business
+    // Assistant — Family messages instead of Families; no Management
     const assistant = await page.evaluate(() => {
-      setAdminPreviewMode("Assistant");
+      const email = localStorage.getItem("llhUser");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      if (accounts[email]) {
+        accounts[email].role = "assistant";
+        localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      }
+      localStorage.setItem("llhAdminUnlocked", "true");
+      localStorage.setItem("llhAdminPreviewMode", "Assistant");
+      if (typeof setAdminPreviewMode === "function") setAdminPreviewMode("Assistant");
       syncPlatformNavVisibility();
       const work = [...document.querySelectorAll("[data-work-nav]")].filter((b) => !b.hidden).map((b) => b.getAttribute("data-work-nav"));
       return {
@@ -224,18 +251,29 @@ async function main() {
         hasFamilies: work.includes("families"),
         hasMessages: work.includes("messages"),
         hasBusiness: work.includes("business"),
+        hasCurriculum: work.includes("curriculum"),
       };
     });
     assert.equal(assistant.role, "assistant");
     assert.equal(assistant.hasFamilies, false);
     assert.equal(assistant.hasMessages, true);
     assert.equal(assistant.hasBusiness, false);
+    assert.equal(assistant.hasCurriculum, false, "Assistant should not see Curriculum primary");
     results.assistantNav = true;
-    console.log("PASS  Assistant nav (Messages, no Families/Business)");
+    console.log("PASS  Assistant nav (Family messages, no Families/Management)");
 
-    // Hubs exist
+    // Hubs exist (restore owner account for management hub)
     await page.evaluate(() => {
-      setAdminPreviewMode("Owner");
+      const email = localStorage.getItem("llhUser");
+      const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
+      if (accounts[email]) {
+        accounts[email].role = "owner";
+        localStorage.setItem("llhAccounts", JSON.stringify(accounts));
+      }
+      localStorage.setItem("llhAdminUnlocked", "true");
+      localStorage.setItem("llhAdminPreviewMode", "Owner");
+      if (typeof setAdminPreviewMode === "function") setAdminPreviewMode("Owner");
+      syncPlatformNavVisibility();
       setView("classroom", { skipAccessRedirect: true });
     });
     await page.waitForTimeout(200);
@@ -243,13 +281,18 @@ async function main() {
     assert.ok(classroomOk, "classroom hub rendered");
     await page.evaluate(() => setView("business", { skipAccessRedirect: true }));
     await page.waitForTimeout(200);
-    assert.ok(await page.locator("#view-business .work-hub-page").count(), "business hub rendered");
-    await page.evaluate(() => setView("families", { skipAccessRedirect: true }));
-    await page.waitForTimeout(200);
-    assert.ok(await page.locator("#view-families .work-hub-page").count(), "families hub rendered");
-    console.log("PASS  Classroom / Business / Families hubs");
+    assert.ok(await page.locator("#view-business .work-hub-page").count(), "management hub rendered");
+    const managementTitle = await page.locator("#view-business h2").textContent();
+    assert.match(String(managementTitle || ""), /Management/i);
+    const familiesMessages = await page.evaluate(() => {
+      setView("families", { skipAccessRedirect: true });
+      return [...document.querySelectorAll("#view-families .work-hub-tile strong")].map((el) => el.textContent);
+    });
+    assert.ok(familiesMessages.some((t) => /Family messages/i.test(t)), `expected Family messages tile, got ${familiesMessages.join(", ")}`);
+    assert.ok(familiesMessages.some((t) => /^Forms$/i.test(t)), "expected primary Forms tile");
+    console.log("PASS  Classroom / Management / Families hubs");
 
-    // Admin Testing Center markers via evaluate of render path
+    // Admin Testers / Testing Pro markers via evaluate of render path
     const adminBits = await page.evaluate(() => ({
       hasTestingAction: typeof setAdminPreviewMode === "function",
       viewAs: typeof ADMIN_VIEW_AS_ROLES !== "undefined" || /Owner|Director|Teacher|Assistant|Parent/.test(String(setAdminPreviewMode)),
@@ -269,8 +312,8 @@ async function main() {
     "# Navigation & Role Experience Report",
     "",
     "**Environment:** Testing only (`HOME_DAYCARE_HUB_TESTING`)",
-    "**Shell:** `20260804-nav-role-experience`",
-    "**Rule:** Do not merge. Do not deploy production.",
+    "**Shell:** Phase 3 Navigation Cleanup",
+    "**Rule:** Do not merge unfinished work to production. Production remains read-only.",
     "",
     "## Verdict",
     "",
@@ -282,21 +325,30 @@ async function main() {
     "",
     `| Check | Result |`,
     `|---|---|`,
-    `| Owner nav (Home/Children/Classroom/Families/Business/Settings) | ${results.ownerNav ? "PASS" : "FAIL"} |`,
+    `| Owner nav (Home/Children/Classroom/Curriculum/Families/Management/Settings) | ${results.ownerNav ? "PASS" : "FAIL"} |`,
     `| Owner Home dashboard | ${results.ownerHome ? "PASS" : "FAIL"} |`,
-    `| Teacher nav (Today/My Children/Classroom/Families/More) | ${results.teacherNav ? "PASS" : "FAIL"} |`,
+    `| Teacher nav (Today/My Children/Classroom/Curriculum/Families/More) | ${results.teacherNav ? "PASS" : "FAIL"} |`,
     `| Teacher Today dashboard | ${results.teacherToday ? "PASS" : "FAIL"} |`,
-    `| Assistant nav (Today/Children/Classroom/Messages/More) | ${results.assistantNav ? "PASS" : "FAIL"} |`,
+    `| Assistant nav (Today/Children/Classroom/Family messages/More) | ${results.assistantNav ? "PASS" : "FAIL"} |`,
     `| Universal Quick Add | ${results.quickAdd ? "PASS" : "FAIL"} |`,
-    `| Testing Pro / Testing Center APIs | ${results.testingCenter ? "PASS" : "FAIL"} |`,
+    `| Testing Pro / Testers APIs | ${results.testingCenter ? "PASS" : "FAIL"} |`,
+    "",
+    "## Phase 3 cleanup notes",
+    "",
+    "- Business → **Management** label (view id remains `business`)",
+    "- Primary **Curriculum** nav for Owner/Director/Teacher",
+    "- **Family messages** vs **Message Support** labeling",
+    "- Forms primary path under Families; Quick Add says Parent form",
+    "- Admin → **Testers** is primary tester ops path",
+    "- Home daycare Management demotes Staff/Classrooms",
     "",
     "## Design principle",
     "",
-    "Roles are **not** forced into the same structure. An owner's day (business pulse + alerts), a teacher's day (care loop), and a parent's day (warm Family Hub) each get a home optimized for what they do most often.",
+    "Roles are **not** forced into the same structure. An owner's day (management pulse + alerts), a teacher's day (care loop), and a parent's day (warm Family Hub) each get a home optimized for what they do most often.",
     "",
     "## Deferred polish",
     "",
-    "- Deeper child-profile tab rename pass (all child domains already open from Children)",
+    "- Deeper child-profile tab rename pass",
     "- Richer seed/reset suite for every test persona type",
     "- Production rollout of work-mode (currently testing-fence only)",
     "",
