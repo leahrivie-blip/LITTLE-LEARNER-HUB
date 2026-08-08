@@ -281,8 +281,12 @@ function testPrintPaperAndBreaksAndImages() {
   const styles = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
   assert(styles.includes("break-inside: avoid"), "print CSS avoids mid-block cuts");
   assert(styles.includes("object-fit: contain"), "images use contain (not crop/blur stretch)");
-  assert(styles.includes("max-height: 2.35in") || styles.includes("max-height: 2.2in"),
-    "print image max-height capped");
+  assert(
+    styles.includes("max-height: 2.35in")
+    || styles.includes("max-height: 2.2in")
+    || styles.includes("max-height: 0.85in"),
+    "print image max-height capped",
+  );
   assert(styles.includes("counter-increment: tk-page"), "page counter wired");
   assert(styles.includes(".tk-panel-enter"), "panel motion present");
   assert(styles.includes(".tk-loading-banner"), "loading polish present");
@@ -368,6 +372,12 @@ function testEntitlementGateHelper() {
   assert(flagIdx > -1 && flagIdx < authIdx, "flag-off short-circuit before authorize");
   assert(printFn.includes("Authorize BEFORE any binder HTML assembly"),
     "entitlement order documented in print path");
+  assert(printFn.includes("ensureTeachingKitPrintHost") || printFn.includes("llh-teaching-kit-print-host"),
+    "print uses isolated Teaching Kit print host");
+  assert(!/setTimeout\(\s*cleanup\s*,\s*1800\s*\)/.test(printFn),
+    "print must not restore UI on a short 1.8s timer");
+  assert(!printFn.includes("enhanceLessonWorkspaceWithTeachingKit(viewerResource)"),
+    "print cleanup must not rebuild Teaching Kit UI into the print document");
 }
 
 function testLoadingAndPaperUiHooks() {

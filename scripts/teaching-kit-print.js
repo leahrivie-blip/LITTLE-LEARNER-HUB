@@ -718,13 +718,22 @@
     `;
   }
 
-  function overviewBody(model) {
+  function partEnabled(selection, key) {
+    if (!selection || !selection.parts || typeof selection.parts !== "object") return true;
+    return selection.parts[key] !== false;
+  }
+
+  function overviewBody(model, selection = null) {
     const o = model.overview || {};
     const vocab = (o.vocabulary || []).map((word) => word.word).filter(Boolean);
     const prep = (o.teacherPrep || []).map((task) => {
       const detail = task.detail ? ` — ${task.detail}` : "";
       return `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}${detail}`;
     });
+    const includeVocab = partEnabled(selection, "vocabulary");
+    const includeFamily = partEnabled(selection, "family");
+    const includeObservations = partEnabled(selection, "observations");
+    const includeSetup = partEnabled(selection, "setup");
     return [
       model.description || o.description
         ? panelHtml("Description", `<p class="tk-print-tight">${escapeHtml(shortText(model.description || o.description, 280))}</p>`, "info")
@@ -732,19 +741,19 @@
       panelHtml("Weekly focus", `<p class="tk-print-tight">${escapeHtml(o.weeklyFocus || o.weeklyOverview || "")}</p>`, "focus"),
       panelHtml("Learning objectives", bulletListHtml(o.learningObjectives, 8), "objective"),
       panelHtml("Developmental domains", chipRowHtml(o.learningDomains), "domain"),
-      panelHtml("Vocabulary", chipRowHtml(vocab), "vocab"),
-      (o.masterMaterials || []).length
+      includeVocab ? panelHtml("Vocabulary", chipRowHtml(vocab), "vocab") : "",
+      includeSetup && (o.masterMaterials || []).length
         ? panelHtml(
           "Materials / prep summary",
           `<p class="tk-print-tight">This week uses about <strong>${escapeHtml(String((o.masterMaterials || []).length))}</strong> supply items across activities and centers. See the <strong>Materials List</strong> print option for the complete weekly checklist.</p>${checkboxListHtml((o.masterMaterials || []).slice(0, 8), 8)}`,
           "materials",
         )
         : "",
-      panelHtml("Teacher prep", checkboxListHtml(prep, 10), "prep"),
+      includeSetup ? panelHtml("Teacher prep", checkboxListHtml(prep, 10), "prep") : "",
       panelHtml("Safety", bulletListHtml(o.safety, 6), "safety"),
       panelHtml("Adaptations / inclusion", bulletListHtml(toBullets(o.adaptations, 5), 5), "adapt"),
-      panelHtml("Observation focus", bulletListHtml(o.observationFocus, 5), "watch"),
-      panelHtml("Family connection", bulletListHtml(toBullets(o.familyConnection, 4), 4), "family"),
+      includeObservations ? panelHtml("Observation focus", bulletListHtml(o.observationFocus, 5), "watch") : "",
+      includeFamily ? panelHtml("Family connection", bulletListHtml(toBullets(o.familyConnection, 4), 4), "family") : "",
       model.theme || model.age || model.duration
         ? panelHtml("Lesson facts", bulletListHtml([
           model.theme ? `Theme: ${model.theme}` : "",
@@ -819,6 +828,8 @@
 
   function dailyPlanBody(day, options = {}) {
     const detailed = options.detailed !== false;
+    const includeObservations = options.includeObservations !== false;
+    const includeFamily = options.includeFamily !== false;
     const scheduleBits = (day.schedule || []).map((slot) => `${slot.time ? `${slot.time} ` : ""}${slot.label}`).filter(Boolean);
     const summaries = detailed
       ? (day.activitySummaries || []).map((summary, index) => dailyActivitySummaryHtml(summary, index)).join("\n")
@@ -848,9 +859,9 @@
           ${activityFallback}
           ${panelHtml("Materials for this day", checkboxListHtml(day.materials, 12), "materials")}
           ${panelHtml("Teacher prep", checkboxListHtml(day.teacherPrep, 6), "prep")}
-          ${panelHtml("Observation focus", bulletListHtml(day.observations, 5), "watch")}
+          ${includeObservations ? panelHtml("Observation focus", bulletListHtml(day.observations, 5), "watch") : ""}
           ${panelHtml("Teacher notes", bulletListHtml(toBullets(day.teacherNotes, 3), 3), "tip")}
-          ${panelHtml("Family connection", bulletListHtml(toBullets(day.parentMessage, 3), 3), "family")}
+          ${includeFamily ? panelHtml("Family connection", bulletListHtml(toBullets(day.parentMessage, 3), 3), "family") : ""}
         </div>
         ${summaries ? `<div class="tk-print-day-activities"><div class="tk-print-section-banner">Today's activities</div>${summaries}</div>` : ""}
       </article>
@@ -1220,54 +1231,60 @@
   function assembleEntireBinder(model, selection) {
     const sectionIds = new Set((model.sections || []).map((section) => section.id));
     const chunks = [];
-    chunks.push(coverFromModel(model, selection));
-    if (sectionIds.has("toc")) {
-      const toc = tocBody(model);
-      if (toc) chunks.push(page("Contents", "Table of Contents", adminBannerHtml(selection) + toc, selection.footerLabel));
+    // Print Center "Sections" checkboxes (selection.parts) must actually trim binder output.
+    if (partEnabled(selection, "cover")) {
+      chunks.push(coverFromModel(model, selection));
+      if (sectionIds.has("toc")) {
+        const toc = tocBody(model);
+        if (toc) chunks.push(page("Contents", "Table of Contents", adminBannerHtml(selection) + toc, selection.footerLabel));
+      }
     }
     if (sectionIds.has("overview")) {
-      chunks.push(page("Overview", "Overview", adminBannerHtml(selection) + overviewBody(model), selection.footerLabel));
+      const overviewHtml = overviewBody(model, selection);
+      if (text(overviewHtml.replace(/<[^>]+>/g, " "))) {
+        chunks.push(page("Overview", "Overview", adminBannerHtml(selection) + overviewHtml, selection.footerLabel));
+      }
     }
-    if (sectionIds.has("weekAtAGlance")) {
+    if (sectionIds.has("weekAtAGlance") && partEnabled(selection, "daily")) {
       const wag = weekGlanceBody(model);
       if (wag) chunks.push(page("Weekly Plan", "Weekly Plan", adminBannerHtml(selection) + wag, selection.footerLabel));
     }
-    if (sectionIds.has("dailyPlans")) {
+    if (sectionIds.has("dailyPlans") && partEnabled(selection, "daily")) {
       (model.days || []).forEach((day) => {
-        const body = dailyPlanBody(day, { detailed: true });
+        const body = dailyPlanBody(day, { detailed: true, includeObservations: partEnabled(selection, "observations") });
         if (!text(body.replace(/<[^>]+>/g, ""))) return;
         chunks.push(page("Daily Plans", `${day.dayLabel}`, adminBannerHtml(selection) + body, selection.footerLabel));
       });
     }
-    if (sectionIds.has("activities")) {
+    if (sectionIds.has("activities") && partEnabled(selection, "activities")) {
       chunks.push(packActivityPages(model.activities || [], selection, "Activities", false));
     }
-    if (sectionIds.has("songs")) {
+    if (sectionIds.has("songs") && partEnabled(selection, "songsBooks")) {
       const body = songsBody(model, false);
       if (body) chunks.push(page("Songs", "Songs", body, selection.footerLabel));
     }
-    if (sectionIds.has("books")) {
+    if (sectionIds.has("books") && partEnabled(selection, "songsBooks")) {
       const body = booksBody(model, selection);
       if (body) chunks.push(page("Books", "Book Guide", body, selection.footerLabel));
     }
-    if (sectionIds.has("toolkit")) {
+    if (sectionIds.has("toolkit") && partEnabled(selection, "setup")) {
       const toolkitHtml = toolkitBody(model);
       if (text(toolkitHtml.replace(/<[^>]+>/g, " "))) {
         chunks.push(page("Teacher Toolkit", "Teacher Toolkit", toolkitHtml, selection.footerLabel));
       }
     }
-    if (sectionIds.has("materials")) {
+    if (sectionIds.has("materials") && partEnabled(selection, "setup")) {
       const body = materialsChecklistBody(model);
       if (body) chunks.push(page("Materials", "Materials List", body, selection.footerLabel));
     }
-    if (sectionIds.has("printables")) {
+    if (sectionIds.has("printables") && partEnabled(selection, "printables")) {
       const body = printablesBody(model, selection);
       if (body) {
         chunks.push(page("Printables", "Printables", body, selection.footerLabel));
         chunks.push(printableImagePages(model, selection));
       }
     }
-    if (sectionIds.has("examples") && selection.includeImages) {
+    if (sectionIds.has("examples") && selection.includeImages && partEnabled(selection, "activities")) {
       const leftovers = (model.examples || []).filter((image) => {
         const onCards = (model.activities || []).some((activity) => (
           activity.examplePhotoUrl === image.url || activity.setupPhotoUrl === image.url
@@ -1284,38 +1301,52 @@
 
   function assembleFullWeekly(model, selection) {
     const chunks = [];
-    chunks.push(coverFromModel(model, { ...selection, documentMode: "full_weekly" }));
-    const glance = weekGlanceBody(model);
-    const wagPage = [
-      overviewSnapshotHtml(model),
-      glance,
-    ].join("\n");
-    if (text(wagPage.replace(/<[^>]+>/g, ""))) {
-      chunks.push(page("Week at a Glance", "Week at a Glance", wagPage, selection.footerLabel));
+    if (partEnabled(selection, "cover")) {
+      chunks.push(coverFromModel(model, { ...selection, documentMode: "full_weekly" }));
     }
-    const dayEntries = (model.days || []).map((day) => {
-      const body = dailyPlanBody(day, { detailed: false });
-      if (!text(body.replace(/<[^>]+>/g, ""))) return null;
-      return { label: day.dayLabel, html: body };
-    }).filter(Boolean);
-    for (let i = 0; i < dayEntries.length; i += 2) {
-      const slice = dayEntries.slice(i, i + 2);
-      chunks.push(page(
-        "Daily Plans",
-        slice.map((entry) => entry.label).join(" & "),
-        `<div class="tk-print-day-pair">${slice.map((entry) => entry.html).join("")}</div>`,
-        selection.footerLabel,
-      ));
+    if (partEnabled(selection, "daily") || partEnabled(selection, "vocabulary") || partEnabled(selection, "observations")) {
+      const glance = partEnabled(selection, "daily") ? weekGlanceBody(model) : "";
+      const wagPage = [
+        overviewSnapshotHtml(model),
+        glance,
+      ].join("\n");
+      if (text(wagPage.replace(/<[^>]+>/g, ""))) {
+        chunks.push(page("Week at a Glance", "Week at a Glance", wagPage, selection.footerLabel));
+      }
     }
-    if ((model.activities || []).length) {
+    if (partEnabled(selection, "daily")) {
+      const dayEntries = (model.days || []).map((day) => {
+        const body = dailyPlanBody(day, { detailed: false, includeObservations: partEnabled(selection, "observations") });
+        if (!text(body.replace(/<[^>]+>/g, ""))) return null;
+        return { label: day.dayLabel, html: body };
+      }).filter(Boolean);
+      for (let i = 0; i < dayEntries.length; i += 2) {
+        const slice = dayEntries.slice(i, i + 2);
+        chunks.push(page(
+          "Daily Plans",
+          slice.map((entry) => entry.label).join(" & "),
+          `<div class="tk-print-day-pair">${slice.map((entry) => entry.html).join("")}</div>`,
+          selection.footerLabel,
+        ));
+      }
+    }
+    if (partEnabled(selection, "activities") && (model.activities || []).length) {
       chunks.push(packActivityPages(model.activities, selection, "Activities", true));
     }
     const refs = [
-      panelHtml("Materials checklist", checkboxListHtml((model.overview?.masterMaterials || []).slice(0, 30), 30), "M"),
-      (model.books || []).length ? `<div class="tk-print-section-banner">Books</div>${booksBody(model, selection)}` : "",
-      (model.songs || []).length ? `<div class="tk-print-section-banner">Songs</div>${songsBody(model, false)}` : "",
+      partEnabled(selection, "setup")
+        ? panelHtml("Materials checklist", checkboxListHtml((model.overview?.masterMaterials || []).slice(0, 30), 30), "M")
+        : "",
+      partEnabled(selection, "songsBooks") && (model.books || []).length
+        ? `<div class="tk-print-section-banner">Books</div>${booksBody(model, selection)}`
+        : "",
+      partEnabled(selection, "songsBooks") && (model.songs || []).length
+        ? `<div class="tk-print-section-banner">Songs</div>${songsBody(model, false)}`
+        : "",
       panelHtml("Safety", bulletListHtml(model.overview?.safety, 4), "!"),
-      panelHtml("Watch for", bulletListHtml(model.overview?.observationFocus, 4), "W"),
+      partEnabled(selection, "observations")
+        ? panelHtml("Watch for", bulletListHtml(model.overview?.observationFocus, 4), "W")
+        : "",
       panelHtml("Adaptations", bulletListHtml(toBullets(model.overview?.adaptations, 3), 3), "+"),
       `<div class="tk-print-section-banner">Planning Notes</div>${teacherNotesBody()}`,
     ].join("\n");
@@ -1328,7 +1359,9 @@
   function assembleSelectedResources(model, selection) {
     const selected = selection.selectedResources || {};
     const chunks = [];
-    chunks.push(coverFromModel(model, selection));
+    if (partEnabled(selection, "cover")) {
+      chunks.push(coverFromModel(model, selection));
+    }
     const dayKeys = asSelectedList(selected.days);
     const activityIds = new Set(asSelectedList(selected.activityIds));
     const songTitles = new Set(asSelectedList(selected.songs).map((item) => item.toLowerCase()));
@@ -1336,6 +1369,7 @@
     const printableIds = new Set(asSelectedList(selected.printableIds));
     const include = {
       overview: selected.overview === true,
+      vocabulary: selected.vocabulary === true,
       weekly: selected.weekly === true || selected.weekAtAGlance === true,
       toolkit: selected.toolkit === true,
       materials: selected.materials === true,
@@ -1346,7 +1380,16 @@
     };
 
     if (include.overview) {
-      chunks.push(page("Overview", "Overview", overviewBody(model), selection.footerLabel));
+      chunks.push(page("Overview", "Overview", overviewBody(model, selection), selection.footerLabel));
+    } else if (include.vocabulary) {
+      const vocab = (model.overview?.vocabulary || []).map((word) => word.word).filter(Boolean);
+      chunks.push(page(
+        "Overview",
+        "Vocabulary",
+        panelHtml("Vocabulary", chipRowHtml(vocab), "vocab")
+          || emptyStateHtml("No vocabulary words yet", "Vocabulary appears here when words are authored on the lesson."),
+        selection.footerLabel,
+      ));
     }
     if (include.weekly) {
       const wag = weekGlanceBody(model, dayKeys.length ? dayKeys : null);
@@ -1419,8 +1462,10 @@
     }
 
     if (mode === "overview" || mode === "weekly_overview") {
+      // Weekly Overview pack stays overview-only (cover + overview/week glance).
+      // Section checkboxes trim overview panels (vocab / family / setup prep) via overviewBody.
       const body = [
-        overviewBody(model),
+        overviewBody(model, selection),
         weekGlanceBody(model),
       ].join("\n");
       chunks.push(page("Overview", "Weekly Overview", body, selection.footerLabel));
@@ -1429,20 +1474,28 @@
     if (mode === "one_day") {
       const dayKey = daysFilter[0] || "monday";
       const day = (model.days || []).find((item) => item.day === dayKey);
-      if (day) {
+      if (day && partEnabled(selection, "daily")) {
         chunks.push(page(
           "Daily Plans",
           `${model.title || "Lesson"} · ${day.dayLabel}`,
-          dailyPlanBody(day, { detailed: true }),
+          dailyPlanBody(day, {
+            detailed: true,
+            includeObservations: partEnabled(selection, "observations"),
+            includeFamily: partEnabled(selection, "family"),
+          }),
           selection.footerLabel,
         ));
       }
-      const dayActs = (model.activities || []).filter((item) => item.dayOfWeek === dayKey);
-      if (dayActs.length) chunks.push(packActivityPages(dayActs, selection, "Activities", true));
+      if (partEnabled(selection, "activities")) {
+        const dayActs = (model.activities || []).filter((item) => item.dayOfWeek === dayKey);
+        if (dayActs.length) chunks.push(packActivityPages(dayActs, selection, "Activities", true));
+      }
       return chunks;
     }
     if (mode === "activities") {
-      chunks.push(packActivityPages(model.activities || [], selection, "Activities", false));
+      if (partEnabled(selection, "activities")) {
+        chunks.push(packActivityPages(model.activities || [], selection, "Activities", false));
+      }
       return chunks;
     }
     if (mode === "one_activity") {

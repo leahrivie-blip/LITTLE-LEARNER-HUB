@@ -19550,6 +19550,11 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
   display: none;
 }
 
+/* Isolated Teaching Kit binder print host — never the live Teaching Kit UI. */
+.llh-teaching-kit-print-host {
+  display: none;
+}
+
 .llh-cal-week-glance {
   display: flex;
   flex-wrap: wrap;
@@ -26311,6 +26316,10 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 }
 
 @media print {
+  /* Hide the entire live app/Teaching Kit chrome; only the isolated print host prints. */
+  body.printing-teaching-kit .app-shell,
+  body.printing-teaching-kit .mobile-nav-backdrop,
+  body.printing-teaching-kit #resourceViewerModal,
   body.printing-teaching-kit .lesson-workspace-topchrome,
   body.printing-teaching-kit .lesson-workspace-action-bars,
   body.printing-teaching-kit .lesson-workspace-more-menu,
@@ -26329,6 +26338,16 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   body.printing-teaching-kit .modal-header,
   body.printing-teaching-kit .resource-viewer-header {
     display: none !important;
+  }
+  body.printing-teaching-kit .llh-teaching-kit-print-host {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #111 !important;
+    background: #fff !important;
   }
   body.printing-teaching-kit #resourceViewerModal .modal-card {
     box-shadow: none !important;
