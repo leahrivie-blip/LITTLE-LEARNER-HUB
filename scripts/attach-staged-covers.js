@@ -60,7 +60,7 @@ async function main() {
 
   console.log('Logging in…');
   const login = await req('POST', '/api/admin/login', {
-    body: { email, password, accessCode },
+    body: { email, password, code: accessCode },
   });
   if (login.status !== 200 || !login.json?.token) {
     console.error('Login failed', login.status, login.json?.error || login.raw.slice(0, 200));
