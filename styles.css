@@ -23102,6 +23102,45 @@ body.hdh-persona-parent .main {
   border-radius: 8px;
 }
 
+/* Phase 8 — Tuition billing (provider + Family Hub), testing only */
+#hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form input,
+#hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form select,
+#hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form textarea,
+[data-tuition-mobile-ready="true"] .fh-account-actions .primary-button,
+[data-tuition-mobile-ready="true"] .fh-account-actions .ghost-button {
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .form-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form input,
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form select,
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form textarea,
+  [data-fh-billing-live="true"] input,
+  [data-fh-billing-live="true"] select,
+  [data-fh-billing-live="true"] textarea {
+    min-height: 44px;
+    font-size: 16px; /* avoid iOS zoom */
+  }
+
+  #hdhTuitionBillingPanel .hdh-forms-pack-actions,
+  [data-tuition-mobile-ready="true"] .fh-account-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  #hdhTuitionBillingPanel .hdh-forms-pack-actions .primary-button,
+  #hdhTuitionBillingPanel .hdh-forms-pack-actions .ghost-button,
+  [data-tuition-mobile-ready="true"] .fh-account-actions .primary-button,
+  [data-tuition-mobile-ready="true"] .fh-account-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 720px) {
   .hdh-forms-filters {
     grid-template-columns: 1fr;

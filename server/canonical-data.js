@@ -17,7 +17,8 @@
  * - Lesson assignment → schedule items (type lesson_plan)
  * - Calendar/Weekly Plan → store.programData[programId].schedule (authoritative)
  * - Daily logs / Observations / assigned Forms → same child blob
- * - Billing → store.users Stripe/plan fields
+ * - Billing (SaaS subscription) → store.users Stripe/plan fields
+ * - Tuition billing (provider→family) → store.tuitionRates / tuitionInvoices / tuitionPayments
  * - Messages → three labeled channels (support / FH / Communications)
  *
  * Temporary mirrors (read-fallback only; do not treat as sources of truth):
@@ -268,6 +269,24 @@ function getCanonicalBilling(store, programId) {
     stripeCustomerId: user.stripeCustomerId || "",
     stripeSubscriptionStatus: user.stripeSubscriptionStatus || "",
     source: "users",
+    note: "SaaS subscription billing only — not provider→family tuition.",
+  };
+}
+
+/** Provider → family childcare tuition (Phase 8). Separate from SaaS Billing. */
+function getCanonicalTuitionBilling(store, programId) {
+  const key = String(programId || "");
+  const rates = Object.values(store?.tuitionRates || {}).filter((r) => r && String(r.programId) === key);
+  const invoices = Object.values(store?.tuitionInvoices || {}).filter((i) => i && String(i.programId) === key);
+  const payments = Object.values(store?.tuitionPayments || {}).filter((p) => p && String(p.programId) === key);
+  return {
+    programId: key,
+    rateCount: rates.length,
+    invoiceCount: invoices.length,
+    paymentCount: payments.length,
+    source: "tuitionRates+tuitionInvoices+tuitionPayments",
+    refs: "programId + householdId + childIds (canonical Profiles / familyHouseholds)",
+    note: "Separate from store.users Stripe SaaS fields. Simulated payments in testing.",
   };
 }
 
@@ -302,6 +321,7 @@ function reportCanonicalDrift(store, programId, deps = {}) {
   const staff = getCanonicalStaff(store, programId);
   const lessons = getCanonicalLessonCatalog(store);
   const billing = getCanonicalBilling(store, programId);
+  const tuitionBilling = getCanonicalTuitionBilling(store, programId);
   const messaging = getCanonicalMessagingInventory(store, programId);
 
   const childIdSet = new Set(children.children.map((c) => c.id));
@@ -445,8 +465,10 @@ function reportCanonicalDrift(store, programId, deps = {}) {
       staff: staff.source,
       lessonCatalog: lessons.source,
       billing: billing.source,
+      tuitionBilling: tuitionBilling.source,
     },
     billing,
+    tuitionBilling,
     messaging,
     drift,
     orphanProfilesArchived: orphanProfiles.length,
@@ -496,7 +518,8 @@ function describeCanonicalHomes() {
     FormsLibrary: "system: formGroups/siteContent.forms; provider: programSettings.formTemplates",
     FormsSignatures: "same Document/staffFormDocuments row (signedAt/By/Role, bodyHash, contentVersion, signedSnapshot)",
     FamilyHub: "familyHouseholds + live child blob overlay",
-    Billing: "store.users Stripe/plan fields",
+    BillingSaaS: "store.users Stripe/plan fields (LLH subscription — not family tuition)",
+    TuitionBilling: "store.tuitionRates / tuitionInvoices / tuitionPayments (provider→family; refs programId+householdId+childIds)",
     MessageSupport: "store.messages",
     FamilyHubMessages: "store.familyHubMessages",
     CareNotes: "child blob Communications",
@@ -512,6 +535,7 @@ module.exports = {
   getCanonicalHouseholds,
   getCanonicalLessonCatalog,
   getCanonicalBilling,
+  getCanonicalTuitionBilling,
   getCanonicalMessagingInventory,
   resolveHouseholdChildRefs,
   reportCanonicalDrift,

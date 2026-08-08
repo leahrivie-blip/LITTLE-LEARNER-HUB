@@ -106,7 +106,7 @@ function sourceMarkers() {
   assert.match(serverJs, /shareWithFamily !== true/);
   assert.match(serverJs, /audience: "provider"/);
   assert.match(serverJs, /unreadMessages/);
-  assert.match(appJs, /data-fh-billing-placeholder/);
+  assert.match(appJs, /data-fh-billing-live/);
   assert.match(appJs, /c\.name \|\| c\.id/);
   assert.match(appJs, /Family Hub households are the membership/);
   assert.match(stylesCss, /\.fh-parent|fh-today|family-hub-parent/);

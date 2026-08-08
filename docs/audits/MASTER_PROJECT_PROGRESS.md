@@ -14,10 +14,10 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | ✅ **Phase 7 complete** — Forms; awaiting Leah confirm before Phase 8 |
-| **Overall completion** | **~64%** (7 of 11 major steps complete) |
-| **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval |
-| **Testing status** | 🟢 Active — Forms completion on testing branch |
+| **Current phase** | ✅ **Phase 8 complete** — Billing (tuition, testing only); awaiting Leah confirm before Phase 9 |
+| **Overall completion** | **~73%** (8 of 11 major steps complete) |
+| **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval; **no real tuition charges** |
+| **Testing status** | 🟢 Active — Tuition billing completion on testing branch |
 | **Major blockers** | None |
 | **Known high-priority bugs** | None logged |
 
@@ -33,13 +33,13 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 4 | One source of truth | ✅ **Completed** |
 | 5 | Daily operations | ✅ **Completed** |
 | 6 | Family Hub | ✅ **Completed** |
-| 7 | Forms | ✅ **Completed** (awaiting owner confirm before Phase 8) |
-| 8 | Billing (testing) | ⏳ Remaining — **do not start until Phase 7 confirmed** |
-| 9 | AI review-before-save | ⏳ Remaining |
+| 7 | Forms | ✅ **Completed** |
+| 8 | Billing (testing) | ✅ **Completed** (awaiting owner confirm before Phase 9) |
+| 9 | AI review-before-save | ⏳ Remaining — **do not start until Phase 8 confirmed** |
 | 10 | Live → Testing Feature Sync | ⏳ Remaining |
 | 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining |
 
-**Completion percentage:** 7/11 ≈ **64%**.
+**Completion percentage:** 8/11 ≈ **73%**.
 
 ---
 
@@ -65,18 +65,27 @@ See prior reports (Safety, Owner Admin, Navigation).
 - Branch: `cursor/phase7-forms-completion-9c23`  
 - Tests: `npm run test:forms-phase7`
 
+### 8. Billing (tuition) — complete
+- Provider → family tuition ledger (rates, invoices, payments, balances, statuses, receipts)  
+- Separate from LLH SaaS subscription billing  
+- Simulated payments only; idempotent retries; household isolation  
+- Provider dashboard + Family Hub billing view  
+- Architecture: `docs/audits/PHASE8_BILLING_ARCHITECTURE.md`  
+- Report: `docs/audits/PHASE8_BILLING_COMPLETION_REPORT.md`  
+- Branch: `cursor/phase8-billing-tuition-9c23`  
+- Tests: `npm run test:tuition-phase8`
+
 ---
 
 ## 🚧 Current phase
 
-None in progress — **awaiting Leah to confirm Phase 7 and start Phase 8 Billing**.
+None in progress — **awaiting Leah to confirm Phase 8 and start Phase 9 AI**.
 
 ---
 
 ## ⏳ Remaining phases
 
-8. Billing (testing) ← **next** (only after Phase 7 confirmation)  
-9. AI review-before-save  
+9. AI review-before-save ← **next** (only after Phase 8 confirmation)  
 10. Live → Testing Feature Sync  
 11. Pre–Final QA → Final QA → deploy **only** with written approval  
 
@@ -84,4 +93,5 @@ None in progress — **awaiting Leah to confirm Phase 7 and start Phase 8 Billin
 
 ## Production status
 
-🔒 Untouched. Agents remain read-only for production env vars. No deploy/restart without written approval and passing `env:preflight`.
+🔒 Untouched. Agents remain read-only for production env vars. No deploy/restart without written approval and passing `env:preflight`.  
+Phase 8 did **not** enable real charges or change production Stripe configuration.

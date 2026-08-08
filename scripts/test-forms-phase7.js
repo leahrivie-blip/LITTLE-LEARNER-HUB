@@ -110,7 +110,7 @@ function sourceMarkers() {
   assert.match(appJs, /staffFormDocuments/);
   assert.match(appJs, /data-family-hub-save-progress/);
   assert.match(appJs, /sourceType: "system"/);
-  assert.match(appJs, /data-fh-billing-placeholder|Billing phase/);
+  assert.match(appJs, /data-fh-billing-live|Billing/);
   assert.match(serverJs, /handleFamilyHubDocumentProgress/);
   assert.match(serverJs, /formsLib\.buildSignatureRecord/);
   assert.match(serverJs, /require\("\.\/forms-lib"\)/);

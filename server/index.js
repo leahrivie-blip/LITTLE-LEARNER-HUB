@@ -14274,6 +14274,7 @@ const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const familyHubLib = require("./family-hub-lib");
 const formsLib = require("./forms-lib");
+const tuitionBilling = require("./tuition-billing-lib");
 const LLH_ALLOW_EPHEMERAL_FAMILY_HUB = ["1", "true", "yes", "on"].includes(
   String(process.env.LLH_ALLOW_EPHEMERAL_FAMILY_HUB || "").trim().toLowerCase(),
 );
@@ -14402,6 +14403,7 @@ function ensureFamilyHubCollections(store) {
   store.familySessions = store.familySessions && typeof store.familySessions === "object" ? store.familySessions : {};
   store.familyHubMessages = Array.isArray(store.familyHubMessages) ? store.familyHubMessages : [];
   store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
+  tuitionBilling.ensureTuitionCollections(store);
   return store;
 }
 
@@ -16203,6 +16205,382 @@ async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
     return;
   }
   jsonResponse(response, 200, { ok: true, household: publicFamilyHousehold(household) });
+}
+
+/** Phase 8 — Provider tuition billing (testing / simulated payments only). */
+async function resolveTuitionProviderContext(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return null;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in to manage tuition billing." });
+    return null;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
+  let context = null;
+  try {
+    context = programOwnership.resolveProgramContext(store, {
+      email: normalizeEmail(identity.email),
+      uid: identity.uid || "",
+    });
+  } catch (_error) {
+    context = null;
+  }
+  if (!context?.ok) {
+    jsonResponse(response, 403, { error: "Could not resolve program for tuition billing." });
+    return null;
+  }
+  return { identity, store, ownerEmail, context, programId: context.programId };
+}
+
+function assertHouseholdOwnedByProgram(store, householdId, ownerEmail, programId) {
+  const household = store.familyHouseholds?.[householdId];
+  if (!household || household.status === "revoked") return null;
+  if (normalizeEmail(household.ownerEmail) !== normalizeEmail(ownerEmail)) return null;
+  if (household.programId && programId && String(household.programId) !== String(programId)) {
+    // Allow legacy households without programId if owner matches.
+    if (household.programId) return null;
+  }
+  return household;
+}
+
+async function handleTuitionDashboardGet(request, response) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  const households = listFamilyHouseholdsForOwner(ctx.store, ctx.ownerEmail);
+  const dashboard = tuitionBilling.providerBillingDashboard(ctx.store, ctx.programId, { households });
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    realChargesEnabled: false,
+    saasSubscriptionBillingSeparate: true,
+    dashboard,
+    rates: tuitionBilling.listRatesForProgram(ctx.store, ctx.programId).map(tuitionBilling.publicTuitionRate),
+  });
+}
+
+async function handleTuitionRatesGet(request, response) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    rates: tuitionBilling.listRatesForProgram(ctx.store, ctx.programId).map(tuitionBilling.publicTuitionRate),
+  });
+}
+
+async function handleTuitionRatesPost(request, response) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  let body;
+  try { body = await readJson(request); } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid tuition rate payload." });
+    return;
+  }
+  // Validate childId against canonical Profiles
+  const childData = readOwnerChildDataForFamilyHub(ctx.store, ctx.ownerEmail);
+  const profileIds = new Set(
+    (Array.isArray(childData?.Profiles) ? childData.Profiles : []).map((p) => String(p?.id || "")).filter(Boolean),
+  );
+  const childId = String(body?.childId || "").trim();
+  if (!childId || (profileIds.size && !profileIds.has(childId))) {
+    jsonResponse(response, 400, { error: "childId must match a program Profile (canonical roster)." });
+    return;
+  }
+  try {
+    const rate = tuitionBilling.upsertTuitionRate(ctx.store, {
+      programId: ctx.programId,
+      childId,
+      householdId: String(body?.householdId || "").trim(),
+      schedule: body?.schedule || "weekly",
+      amountCents: body?.amountCents != null ? body.amountCents : Math.round(Number(body?.amount || 0) * 100),
+      label: body?.label || "",
+      customCadenceNote: body?.customCadenceNote || "",
+      currency: body?.currency || "USD",
+    });
+    await persistFamilyHubStore(ctx.store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      rate: tuitionBilling.publicTuitionRate(rate),
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not save tuition rate." });
+  }
+}
+
+async function handleTuitionInvoicesGet(request, response, url) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  const householdId = String(url.searchParams.get("householdId") || "").trim();
+  let invoices = tuitionBilling.listInvoicesForProgram(ctx.store, ctx.programId);
+  if (householdId) invoices = invoices.filter((inv) => String(inv.householdId) === householdId);
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    realChargesEnabled: false,
+    invoices: invoices.map((inv) => tuitionBilling.publicTuitionInvoice(ctx.store, inv)),
+  });
+}
+
+async function handleTuitionInvoicesPost(request, response) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  let body;
+  try { body = await readJson(request); } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid invoice payload." });
+    return;
+  }
+  const householdId = String(body?.householdId || "").trim();
+  const household = assertHouseholdOwnedByProgram(ctx.store, householdId, ctx.ownerEmail, ctx.programId);
+  if (!household) {
+    jsonResponse(response, 404, { error: "Family Hub household not found for this program." });
+    return;
+  }
+  const membership = familyHubHouseholdChildIdSet(household);
+  let childIds = Array.isArray(body?.childIds) ? body.childIds.map(String) : [...membership];
+  childIds = childIds.filter((id) => membership.has(id));
+  if (!childIds.length) childIds = [...membership];
+
+  let lineItems = Array.isArray(body?.lineItems) ? body.lineItems : [];
+  // Convenience: build from rateId
+  if (!lineItems.length && body?.rateId) {
+    const rate = ctx.store.tuitionRates?.[body.rateId];
+    if (!rate || String(rate.programId) !== String(ctx.programId)) {
+      jsonResponse(response, 404, { error: "Tuition rate not found." });
+      return;
+    }
+    const built = tuitionBilling.buildInvoiceFromRate(rate, {
+      householdId,
+      dueDate: body?.dueDate,
+      periodStart: body?.periodStart,
+      periodEnd: body?.periodEnd,
+      notes: body?.notes,
+    });
+    lineItems = built.lineItems;
+    if (!childIds.length && rate.childId) childIds = [rate.childId];
+  }
+  // Convenience: amount + type
+  if (!lineItems.length && (body?.amountCents != null || body?.amount != null)) {
+    const amountCents = body?.amountCents != null ? body.amountCents : Math.round(Number(body.amount) * 100);
+    lineItems = [{
+      type: body?.lineType || tuitionBilling.LINE_TYPES.ONE_TIME,
+      description: body?.description || "Charge",
+      amountCents,
+      childId: childIds[0] || "",
+    }];
+  }
+  try {
+    const invoice = tuitionBilling.createInvoice(ctx.store, {
+      programId: ctx.programId,
+      householdId,
+      childIds,
+      lineItems,
+      dueDate: body?.dueDate,
+      periodStart: body?.periodStart,
+      periodEnd: body?.periodEnd,
+      notes: body?.notes,
+      createdByEmail: ctx.identity.email,
+      status: body?.draft ? tuitionBilling.INVOICE_STATUSES.DRAFT : tuitionBilling.INVOICE_STATUSES.OPEN,
+    });
+    // Optional discount / credit lines after create
+    if (body?.discountCents) {
+      invoice.lineItems.push(tuitionBilling.normalizeLineItem({
+        type: tuitionBilling.LINE_TYPES.DISCOUNT,
+        description: body.discountDescription || "Discount",
+        amountCents: body.discountCents,
+      }));
+      invoice.totalCents = tuitionBilling.sumLineItems(invoice.lineItems);
+      ctx.store.tuitionInvoices[invoice.id] = invoice;
+    }
+    if (body?.creditCents) {
+      invoice.lineItems.push(tuitionBilling.normalizeLineItem({
+        type: tuitionBilling.LINE_TYPES.CREDIT,
+        description: body.creditDescription || "Credit",
+        amountCents: body.creditCents,
+      }));
+      invoice.totalCents = tuitionBilling.sumLineItems(invoice.lineItems);
+      ctx.store.tuitionInvoices[invoice.id] = invoice;
+    }
+    await persistFamilyHubStore(ctx.store);
+    // Notify household (in-app)
+    ctx.store.familyHubNotifications = Array.isArray(ctx.store.familyHubNotifications) ? ctx.store.familyHubNotifications : [];
+    ctx.store.familyHubNotifications.unshift({
+      id: `fh-ntf-bill-${Date.now().toString(36)}`,
+      householdId,
+      type: "billing",
+      title: "New tuition invoice",
+      body: `Amount due: ${tuitionBilling.formatMoney(invoice.totalCents)} · due ${invoice.dueDate}`,
+      href: "billing",
+      read: false,
+      createdAt: new Date().toISOString(),
+      audience: "parent",
+    });
+    try { await persistFamilyHubStore(ctx.store); } catch (_e) { /* non-blocking notify */ }
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      realChargesEnabled: false,
+      invoice: tuitionBilling.publicTuitionInvoice(ctx.store, invoice),
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not create invoice." });
+  }
+}
+
+async function handleTuitionInvoiceVoid(request, response, invoiceId) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  const invoice = ctx.store.tuitionInvoices?.[invoiceId];
+  if (!invoice || String(invoice.programId) !== String(ctx.programId)) {
+    jsonResponse(response, 404, { error: "Invoice not found." });
+    return;
+  }
+  let body = {};
+  try { body = await readJson(request); } catch (_error) { body = {}; }
+  try {
+    const voided = tuitionBilling.voidInvoice(ctx.store, invoiceId, {
+      reason: body?.reason || "",
+      by: ctx.identity.email,
+    });
+    await persistFamilyHubStore(ctx.store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      invoice: tuitionBilling.publicTuitionInvoice(ctx.store, voided),
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not void invoice." });
+  }
+}
+
+async function handleTuitionPaymentRecord(request, response) {
+  const ctx = await resolveTuitionProviderContext(request, response);
+  if (!ctx) return;
+  let body;
+  try { body = await readJson(request); } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid payment payload." });
+    return;
+  }
+  const invoiceId = String(body?.invoiceId || "").trim();
+  const invoice = ctx.store.tuitionInvoices?.[invoiceId];
+  if (!invoice || String(invoice.programId) !== String(ctx.programId)) {
+    jsonResponse(response, 404, { error: "Invoice not found." });
+    return;
+  }
+  const amountCents = body?.amountCents != null
+    ? body.amountCents
+    : (body?.amount != null ? Math.round(Number(body.amount) * 100) : tuitionBilling.publicTuitionInvoice(ctx.store, invoice).balanceCents);
+  try {
+    const result = tuitionBilling.recordPayment(ctx.store, {
+      invoiceId,
+      amountCents,
+      method: body?.method || "manual_recorded",
+      recordedBy: ctx.identity.email,
+      notes: body?.notes || "",
+      idempotencyKey: body?.idempotencyKey || "",
+    });
+    await persistFamilyHubStore(ctx.store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      realChargesEnabled: false,
+      duplicate: Boolean(result.duplicate),
+      payment: tuitionBilling.publicTuitionPayment(result.payment),
+      invoice: tuitionBilling.publicTuitionInvoice(ctx.store, ctx.store.tuitionInvoices[invoiceId]),
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not record payment." });
+  }
+}
+
+function handleFamilyHubTuitionGet(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  tuitionBilling.ensureTuitionCollections(store);
+  const invoices = tuitionBilling.listInvoicesForHousehold(store, household.id)
+    .map((inv) => tuitionBilling.publicTuitionInvoice(store, inv));
+  const payments = Object.values(store.tuitionPayments || {})
+    .filter((p) => p && String(p.householdId) === String(household.id) && p.status === "succeeded")
+    .sort((a, b) => String(b.paidAt || "").localeCompare(String(a.paidAt || "")))
+    .slice(0, 50)
+    .map(tuitionBilling.publicTuitionPayment);
+  const balance = tuitionBilling.householdBalance(store, household.id);
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    realChargesEnabled: false,
+    saasSubscriptionBillingSeparate: true,
+    householdId: household.id,
+    balance,
+    invoices,
+    payments,
+    processorNote: "Simulated payments only in testing. Stripe Connect can attach later without redesigning invoices.",
+  });
+}
+
+async function handleFamilyHubTuitionPaySimulated(request, response, invoiceId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  let body = {};
+  try { body = await readJson(request); } catch (_error) { body = {}; }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  tuitionBilling.ensureTuitionCollections(store);
+  const id = String(invoiceId || "").trim();
+  const invoice = store.tuitionInvoices?.[id];
+  // Server-side household isolation — never trust client householdId.
+  if (!invoice || String(invoice.householdId) !== String(household.id)) {
+    jsonResponse(response, 404, { error: "Invoice not found for your household." });
+    return;
+  }
+  const pub = tuitionBilling.publicTuitionInvoice(store, invoice);
+  const amountCents = body?.amountCents != null
+    ? body.amountCents
+    : (body?.amount != null ? Math.round(Number(body.amount) * 100) : pub.balanceCents);
+  // Idempotency key must come from the client action (retries reuse it).
+  // Do not invent a colliding default — that would block intentional same-amount partials.
+  const idempotencyKey = String(body?.idempotencyKey || "").trim();
+  try {
+    const result = tuitionBilling.recordPayment(store, {
+      invoiceId: id,
+      amountCents,
+      method: "simulated",
+      recordedBy: session?.email || household.email || "parent",
+      notes: body?.notes || "Simulated Family Hub payment (testing only — no real money).",
+      idempotencyKey,
+    });
+    await persistFamilyHubStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      realChargesEnabled: false,
+      duplicate: Boolean(result.duplicate),
+      payment: tuitionBilling.publicTuitionPayment(result.payment),
+      invoice: tuitionBilling.publicTuitionInvoice(store, store.tuitionInvoices[id]),
+      balance: tuitionBilling.householdBalance(store, household.id),
+      receipt: {
+        receiptNumber: result.payment.receiptNumber,
+        amountLabel: tuitionBilling.formatMoney(result.payment.amountCents),
+        paidAt: result.payment.paidAt,
+        simulated: true,
+      },
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not complete simulated payment." });
+  }
 }
 
 function handleFamilyHubStorageStatus(request, response) {
@@ -28357,6 +28735,25 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/family-hub/invites/redeem") return handleFamilyHubInviteRedeem(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/login") return handleFamilyHubLogin(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/me") return handleFamilyHubMe(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/tuition") return handleFamilyHubTuitionGet(request, response);
+    if (request.method === "POST" && url.pathname.startsWith("/api/family-hub/tuition/invoices/") && url.pathname.endsWith("/pay-simulated")) {
+      const invoiceId = decodeURIComponent(
+        url.pathname.slice("/api/family-hub/tuition/invoices/".length, -"/pay-simulated".length),
+      );
+      return await handleFamilyHubTuitionPaySimulated(request, response, invoiceId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/tuition/dashboard") return await handleTuitionDashboardGet(request, response);
+    if (request.method === "GET" && url.pathname === "/api/tuition/rates") return await handleTuitionRatesGet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/tuition/rates") return await handleTuitionRatesPost(request, response);
+    if (request.method === "GET" && url.pathname === "/api/tuition/invoices") return await handleTuitionInvoicesGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/tuition/invoices") return await handleTuitionInvoicesPost(request, response);
+    if (request.method === "POST" && url.pathname.startsWith("/api/tuition/invoices/") && url.pathname.endsWith("/void")) {
+      const invoiceId = decodeURIComponent(
+        url.pathname.slice("/api/tuition/invoices/".length, -"/void".length),
+      );
+      return await handleTuitionInvoiceVoid(request, response, invoiceId);
+    }
+    if (request.method === "POST" && url.pathname === "/api/tuition/payments/record") return await handleTuitionPaymentRecord(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/today") return handleFamilyHubToday(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/family-hub/messages") return handleFamilyHubMessagesGet(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/messages") return await handleFamilyHubMessagesPost(request, response);
