@@ -17,7 +17,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | **Current phase** | 👀 **Manual tester review + full journey audit filed** — automated gate 100%; production **BLOCKED** |
 | **Overall completion** | **100%** automated/testing gate only — **not** production-approved |
 | **Production status** | 🔒 **BLOCKED / untouched** — `20260808-cookie-cta` |
-| **Testing status** | 🟢 Live shell `20260808-phase11-fix-wave` on testing (`dep-d9rmvvon74is73f6491g` @ `c9600e9`) — READY FOR LEAH OWNER REVIEW; production untouched |
+| **Testing status** | 🟢 Live shell `20260808-phase11-fix-wave` (`c9600e9`) — final owner checks: Center/Guardian/P15 PASS; Owner Admin unlock BLOCKED for agent; **NOT READY FOR PRODUCTION APPROVAL**; production untouched |
 | **Major blockers** | Production approval blocked; Phase 11 fix-wave: functional High **0** remaining (covers deferred); see punch list |
 | **Ready for tester review** | **Yes** — punch list + Phase 11 fix-wave report |
 | **Ready for production approval** | **No** |
