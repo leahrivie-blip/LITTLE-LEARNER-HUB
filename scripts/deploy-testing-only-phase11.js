@@ -132,9 +132,26 @@ async function main() {
     Object.assign(deployRes, retry);
   }
 
-  const deploy = deployRes.json && (deployRes.json.deploy || deployRes.json);
-  const deployId = deploy && deploy.id;
-  if (!deployId) throw new Error(`No deploy id in response: ${deployRes.text.slice(0, 500)}`);
+  // Render often returns 202 with an empty body for deploy creates.
+  let deploy = deployRes.json && (deployRes.json.deploy || deployRes.json);
+  let deployId = deploy && deploy.id;
+  if (!deployId) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const list = await api("GET", `/v1/services/${serviceId}/deploys?limit=5`);
+    const items = Array.isArray(list.json) ? list.json : [];
+    const wanted = String(COMMIT || "").slice(0, 7);
+    const match = items
+      .map((x) => x.deploy || x)
+      .find((d) => {
+        if (!d || !d.id) return false;
+        if (!wanted) return true;
+        const cid = d.commit && d.commit.id ? String(d.commit.id) : "";
+        return cid.startsWith(wanted) || cid === COMMIT;
+      });
+    deploy = match || null;
+    deployId = match && match.id;
+  }
+  if (!deployId) throw new Error(`No deploy id in response: status=${deployRes.status} body=${deployRes.text.slice(0, 500)}`);
   console.log("deploy id:", deployId);
 
   const finished = await waitForDeploy(serviceId, deployId);
