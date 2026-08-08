@@ -2146,6 +2146,7 @@ let adminTkPrintableEditingId = "";
 let adminTkPrintableSaving = false;
 /** In-progress Create/Upload Printable draft (metadata + File objects). Survives host re-renders. */
 let adminTkPrintableDraft = null;
+let adminTkPrintablePreviewObjectUrl = "";
 const curriculumAccessConfig = {
   lessonPlanEndpoint: "/api/curriculum/lesson-plans",
   activityEndpoint: "/api/curriculum/activities",
@@ -13569,13 +13570,48 @@ function createAdminTkPrintableDraft(plan, resource) {
   };
 }
 
+function revokeAdminTkPrintablePreviewObjectUrl() {
+  if (!adminTkPrintablePreviewObjectUrl) return;
+  try {
+    URL.revokeObjectURL(adminTkPrintablePreviewObjectUrl);
+  } catch {
+    /* ignore */
+  }
+  adminTkPrintablePreviewObjectUrl = "";
+}
+
 function resetAdminTkPrintableDraft(plan, resource) {
+  revokeAdminTkPrintablePreviewObjectUrl();
   adminTkPrintableDraft = createAdminTkPrintableDraft(plan, resource || null);
   return adminTkPrintableDraft;
 }
 
 function clearAdminTkPrintableDraft() {
+  revokeAdminTkPrintablePreviewObjectUrl();
   adminTkPrintableDraft = null;
+}
+
+function updateAdminTkPrintablePreviewThumb(panel) {
+  const root = panel || document.querySelector("#adminTkPrintableForm");
+  const wrap = root?.querySelector?.("[data-tk-printable-preview-thumb]");
+  const thumb = wrap?.querySelector?.("img") || root?.querySelector?.("[data-tk-printable-preview-thumb] img");
+  if (!wrap || !thumb || !adminTkPrintableDraft) return;
+  const draft = adminTkPrintableDraft;
+  let src = String(draft.previewImageUrl || "").trim();
+  if (draft.previewFile instanceof File) {
+    revokeAdminTkPrintablePreviewObjectUrl();
+    adminTkPrintablePreviewObjectUrl = URL.createObjectURL(draft.previewFile);
+    src = adminTkPrintablePreviewObjectUrl;
+  }
+  if (src) {
+    wrap.hidden = false;
+    thumb.src = src;
+    thumb.alt = draft.previewFileName || "Printable preview";
+  } else {
+    wrap.hidden = true;
+    thumb.removeAttribute("src");
+    thumb.alt = "";
+  }
 }
 
 function ensureAdminTkPrintableDraft(plan, resource) {
@@ -13638,10 +13674,7 @@ function hydrateAdminTkPrintableForm() {
       ? `Selected: ${draft.previewFileName}`
       : (draft.previewImageUrl ? "Keeping current preview unless you choose a new image." : "No preview selected yet.");
   }
-  const thumb = panel.querySelector("[data-tk-printable-preview-thumb] img");
-  if (thumb && draft.previewImageUrl && !draft.previewFile) {
-    thumb.src = draft.previewImageUrl;
-  }
+  updateAdminTkPrintablePreviewThumb(panel);
 }
 
 function syncAdminTkPrintableDraftFromEvent(target) {
@@ -13670,6 +13703,7 @@ function syncAdminTkPrintableDraftFromEvent(target) {
           ? "Keeping current preview unless you choose a new image."
           : "No preview selected yet.");
     }
+    updateAdminTkPrintablePreviewThumb(panel);
     return;
   }
   adminTkPrintableDraft[field] = target.value;

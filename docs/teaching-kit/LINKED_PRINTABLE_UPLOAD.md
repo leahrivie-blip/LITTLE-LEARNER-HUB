@@ -1,7 +1,7 @@
 # Teaching Kit Linked Resources — Create / Upload Printable
 
 **Status:** Production bugfix for form state persistence — draft PR  
-**Branch:** `cursor/tk-printable-form-persist-a7d4`  
+**Branch:** `cursor/tk-printable-form-persist-4eae`  
 **Flags:** No Teaching Kit customer flags changed (all remain default `false`)
 
 ---
@@ -36,9 +36,9 @@ Actions: `create` | `update` | `replace_pdf` | `replace_preview` | `unlink` | `d
 npm run test:tk-linked-printable-upload
 ```
 
-Includes API coverage plus a real Playwright workflow:
+Includes API coverage plus a real Playwright workflow on a disposable **Farm Animals** fixture:
 
-fill every field → select PDF → select preview → force Linked Resources re-render → verify values/filenames → Save draft & link → refresh → confirm linked draft persists.
+fill every field → select PDF → select preview → force Linked Resources re-render → rapid metadata edits → replace PDF → replace preview → clear preview only → re-select → Save draft & link → preview-first order stress → refresh → confirm linked draft persists (still draft, flags off).
 
 Disposable store only. Artifacts under `/opt/cursor/artifacts/tk-linked-printable-upload/`.
 

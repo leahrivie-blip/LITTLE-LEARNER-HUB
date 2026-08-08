@@ -177,7 +177,8 @@ async function main() {
         teachingKitQualityReview: false,
       },
       curriculum: {
-        lessonPlans: [seedPlan(FIXTURE_LESSON, "TK Printable Upload Fixture"), seedPlan(SIBLING_LESSON, "TK Printable Sibling")],
+        // Disposable fixture titled like the owner repro path; never mutates real curriculum content.
+        lessonPlans: [seedPlan(FIXTURE_LESSON, "Farm Animals"), seedPlan(SIBLING_LESSON, "TK Printable Sibling")],
         activities: [{
           id: "cur-act-tk-printable-fixture-1",
           lessonPlanId: FIXTURE_LESSON,
@@ -526,6 +527,97 @@ async function main() {
       ok(/browser-persist\.pdf/i.test(snapshot.pdfLabel), "PDF label survives re-render");
       ok(/browser-persist-preview\.png/i.test(snapshot.previewLabel), "preview label survives re-render");
 
+      // Rapid metadata edits must not clear either file.
+      await panel.locator('[data-tk-printable-field="title"]').fill("Browser Persist Vocabulary Cards v2");
+      await panel.locator('[data-tk-printable-field="description"]').fill("Rapid edit pass — keep both files.");
+      await panel.locator('[data-tk-printable-field="pageCount"]').fill("6");
+      await page.evaluate((id) => refreshTeachingKitLinkedResourcesHosts(id), FIXTURE_LESSON);
+      await page.waitForTimeout(200);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          description: root?.querySelector('[data-tk-printable-field="description"]')?.value || "",
+          pageCount: root?.querySelector('[data-tk-printable-field="pageCount"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+          thumbVisible: !(root?.querySelector("[data-tk-printable-preview-thumb]")?.hidden),
+          thumbSrc: root?.querySelector("[data-tk-printable-preview-thumb] img")?.getAttribute("src") || "",
+        };
+      });
+      ok(snapshot.title === "Browser Persist Vocabulary Cards v2", "rapid title edit persists through re-render");
+      ok(snapshot.description.includes("Rapid edit"), "rapid description edit persists through re-render");
+      ok(snapshot.pageCount === "6", "rapid page count edit persists through re-render");
+      ok(snapshot.pdfName === "browser-persist.pdf", "PDF still selected after rapid metadata edits");
+      ok(snapshot.previewName === "browser-persist-preview.png", "preview still selected after rapid metadata edits");
+      ok(snapshot.thumbVisible && snapshot.thumbSrc, "preview thumb remains visible after rapid metadata edits");
+
+      // Replace PDF only — preview + metadata must remain.
+      const pdfPath2 = path.join(ARTIFACT_DIR, "browser-persist-v2.pdf");
+      fs.writeFileSync(pdfPath2, REPLACEMENT_PDF);
+      await panel.locator('[data-tk-printable-field="pdfFile"]').setInputFiles(pdfPath2);
+      await page.waitForTimeout(150);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+        };
+      });
+      ok(snapshot.title === "Browser Persist Vocabulary Cards v2", "title remains after PDF replace");
+      ok(snapshot.pdfName === "browser-persist-v2.pdf", "replacement PDF selected");
+      ok(snapshot.previewName === "browser-persist-preview.png", "preview remains after PDF replace");
+
+      // Replace preview only — PDF + metadata must remain.
+      const previewPath2 = path.join(ARTIFACT_DIR, "browser-persist-preview-v2.png");
+      fs.writeFileSync(previewPath2, Buffer.from(PNG_BASE64, "base64"));
+      await panel.locator('[data-tk-printable-field="previewFile"]').setInputFiles(previewPath2);
+      await page.waitForTimeout(150);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+        };
+      });
+      ok(snapshot.title === "Browser Persist Vocabulary Cards v2", "title remains after preview replace");
+      ok(snapshot.pdfName === "browser-persist-v2.pdf", "PDF remains after preview replace");
+      ok(snapshot.previewName === "browser-persist-preview-v2.png", "replacement preview selected");
+
+      // Remove only preview — PDF + metadata must remain.
+      await page.evaluate(() => {
+        const input = document.querySelector('#adminTkPrintableForm [data-tk-printable-field="previewFile"]');
+        if (!input) return;
+        const transfer = new DataTransfer();
+        input.files = transfer.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await page.waitForTimeout(150);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+          previewLabel: root?.querySelector("[data-tk-printable-preview-name]")?.textContent || "",
+        };
+      });
+      ok(snapshot.title === "Browser Persist Vocabulary Cards v2", "title remains after clearing preview only");
+      ok(snapshot.pdfName === "browser-persist-v2.pdf", "PDF remains after clearing preview only");
+      ok(!snapshot.previewName, "preview file cleared independently");
+      ok(/No preview selected/i.test(snapshot.previewLabel), "preview empty label after clear");
+
+      // Re-select preview for save, then stress preview-first order on a fresh panel after save.
+      await panel.locator('[data-tk-printable-field="previewFile"]').setInputFiles(previewPath);
+      await panel.locator('[data-tk-printable-field="title"]').fill("Browser Persist Vocabulary Cards");
+      await panel.locator('[data-tk-printable-field="description"]').fill("Picture cards for circle and centers.");
+      await panel.locator('[data-tk-printable-field="pageCount"]').fill("4");
+      // Keep the replacement PDF for the saved draft filename check below.
+      await page.evaluate((id) => refreshTeachingKitLinkedResourcesHosts(id), FIXTURE_LESSON);
+      await page.waitForTimeout(200);
+
       await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-form-persist-desktop.png"), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
       await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-form-persist-mobile.png"), fullPage: true });
@@ -538,25 +630,102 @@ async function main() {
       }, null, { timeout: 20000 });
       ok(true, "Save draft & link succeeds from browser panel");
 
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-      await page.evaluate(() => setView("admin"));
-      if (await page.locator("#adminUnlockForm").isVisible({ timeout: 2000 }).catch(() => false)) {
-        await page.fill('input[name="adminEmail"]', OWNER.email);
-        await page.fill('input[name="adminPassword"]', OWNER.password);
-        await page.fill('input[name="adminCode"]', OWNER.code);
-        await page.click("#adminUnlockForm button[type='submit']");
-        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
-      }
+      // Preview-first then PDF stress on a second Create panel (no publish).
+      await page.click("#adminTkCreatePrintableButton");
+      await page.waitForSelector("#adminTkPrintableForm", { timeout: 10000 });
+      const panel2 = page.locator("#adminTkPrintableForm");
+      await panel2.locator('[data-tk-printable-field="title"]').fill("Preview First Stress Printable");
+      await panel2.locator('[data-tk-printable-field="theme"]').fill("Farm Animals");
+      await panel2.locator('[data-tk-printable-field="previewFile"]').setInputFiles(previewPath);
+      await page.waitForTimeout(150);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+        };
+      });
+      ok(snapshot.title === "Preview First Stress Printable", "preview-first: title remains after preview select");
+      ok(snapshot.previewName === "browser-persist-preview.png", "preview-first: preview selected");
+      ok(!snapshot.pdfName, "preview-first: PDF still empty until chosen");
+      await panel2.locator('[data-tk-printable-field="pdfFile"]').setInputFiles(pdfPath);
+      await page.evaluate((id) => refreshTeachingKitLinkedResourcesHosts(id), FIXTURE_LESSON);
+      await page.waitForTimeout(200);
+      snapshot = await page.evaluate(() => {
+        const root = document.querySelector("#adminTkPrintableForm");
+        return {
+          title: root?.querySelector('[data-tk-printable-field="title"]')?.value || "",
+          theme: root?.querySelector('[data-tk-printable-field="theme"]')?.value || "",
+          pdfName: root?.querySelector('[data-tk-printable-field="pdfFile"]')?.files?.[0]?.name || "",
+          previewName: root?.querySelector('[data-tk-printable-field="previewFile"]')?.files?.[0]?.name || "",
+        };
+      });
+      ok(snapshot.title === "Preview First Stress Printable", "preview-first: title survives PDF + re-render");
+      ok(snapshot.theme === "Farm Animals", "preview-first: theme survives PDF + re-render");
+      ok(snapshot.pdfName === "browser-persist.pdf", "preview-first: PDF selected after preview");
+      ok(snapshot.previewName === "browser-persist-preview.png", "preview-first: preview survives PDF select");
+      await panel2.locator("[data-tk-printable-cancel]").click();
+      await page.waitForTimeout(200);
+      ok(await page.locator("#adminTkPrintableForm").count() === 0, "cancel closes second panel without publishing");
+
+      // Prove draft persistence via API before/after reload (source of truth).
+      stampRes = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(ownerToken)}`);
+      const browserDraftBeforeReload = (stampRes.json.siteContent?.curriculum?.resources || [])
+        .find((r) => /Browser Persist Vocabulary Cards/i.test(r.title || ""));
+      ok(browserDraftBeforeReload?.status === "draft", "API: browser-saved printable is draft before reload");
+      ok(browserDraftBeforeReload?.fileName === "browser-persist-v2.pdf", "API: replacement PDF filename persisted before reload");
+      ok(
+        (browserDraftBeforeReload?.lessonPlanIds || []).includes(FIXTURE_LESSON),
+        "API: browser-saved printable linked via lessonPlanIds before reload",
+      );
+      ok(
+        !(stampRes.json.siteContent?.curriculum?.resources || [])
+          .some((r) => /Preview First Stress Printable/i.test(r.title || "")),
+        "API: canceled preview-first panel was never saved",
+      );
+
+      await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.waitForFunction(
+        () => typeof setAdminSession === "function" && typeof setView === "function" && typeof loadAdminSiteContent === "function",
+        null,
+        { timeout: 30000 },
+      );
+      await page.evaluate(({ email, token }) => {
+        setAdminSession({
+          token,
+          email,
+          name: "TK Printable Owner",
+          mode: "server",
+          trustedDevice: true,
+        });
+        localStorage.setItem("llhAdminPreviewMode", "Admin");
+      }, { email: OWNER.email, token: ownerToken });
+      await page.evaluate(async () => {
+        await loadAdminSiteContent();
+        if (typeof setView === "function") setView("admin");
+        if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
+        if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+          renderAdminCurriculumLessonPlanManager();
+        }
+      });
+      await page.waitForFunction((id) => {
+        const linked = typeof curriculumResourcesForLesson === "function" ? curriculumResourcesForLesson(id) : [];
+        return linked.some((r) => /Browser Persist Vocabulary Cards/i.test(r?.title || ""));
+      }, FIXTURE_LESSON, { timeout: 30000 });
       await page.evaluate((id) => {
-        setAdminSectionTab("curriculum-lesson-plans");
         openAdminCurriculumLessonEditor(id, { scroll: true });
       }, FIXTURE_LESSON);
-      await page.waitForSelector("#admin-lesson-linked-resources", { timeout: 20000 });
+      await page.waitForSelector("#admin-lesson-linked-resources", { state: "attached", timeout: 20000 });
+      await page.waitForFunction(() => {
+        const text = document.querySelector("#admin-lesson-linked-resources")?.innerText || "";
+        return /Browser Persist Vocabulary Cards/i.test(text) && /draft/i.test(text) && /browser-persist-v2\.pdf/i.test(text);
+      }, null, { timeout: 15000 });
       const linkedText = await page.locator("#admin-lesson-linked-resources").innerText();
       ok(/Browser Persist Vocabulary Cards/i.test(linkedText), "linked draft title persists after refresh");
       ok(/draft/i.test(linkedText), "linked resource still draft after refresh");
-      ok(/browser-persist\.pdf/i.test(linkedText), "linked draft filename persists after refresh");
+      ok(/browser-persist-v2\.pdf/i.test(linkedText), "linked draft filename persists after refresh");
+      ok(!/Preview First Stress Printable/i.test(linkedText), "canceled preview-first panel was not saved or published");
 
       const overflow = await page.evaluate(() => {
         const el = document.querySelector(".curriculum-linked-resources");
@@ -571,6 +740,16 @@ async function main() {
       });
       ok(overflow.ok && overflow.scrollWidth <= overflow.clientWidth + 1, "mobile linked-resources panel has no horizontal overflow");
       ok(overflow.docScrollWidth <= overflow.docClientWidth + 2, "mobile document has no horizontal overflow");
+
+      // Confirm Teaching Kit customer flags stayed off and nothing was published from this uploader.
+      stampRes = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(ownerToken)}`);
+      const flags = stampRes.json.siteContent?.featureFlags || {};
+      const browserDraftAfterReload = (stampRes.json.siteContent?.curriculum?.resources || [])
+        .find((r) => /Browser Persist Vocabulary Cards/i.test(r.title || ""));
+      ok(flags.teachingKitViewer !== true, "customer teachingKitViewer still false after browser workflow");
+      ok(flags.teachingKitPrintCenter !== true, "customer teachingKitPrintCenter still false after browser workflow");
+      ok(flags.teachingKitEnrichmentEditor !== true, "customer teachingKitEnrichmentEditor still false after browser workflow");
+      ok(browserDraftAfterReload?.status === "draft", "saved printable remained draft (not published)");
 
       await browser.close();
       playwrightOk = true;
