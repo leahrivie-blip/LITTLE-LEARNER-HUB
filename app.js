@@ -14033,15 +14033,19 @@ function roleAllowsCapability(role, capability) {
     case "settings":
       return true;
     case "forms":
+      // Teachers assign/review parent forms in the classroom; owners/directors manage library.
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR || r === USER_ROLES.TEACHER;
     case "staff_management":
     case "permissions":
       return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
     case "billing":
       return r === USER_ROLES.OWNER;
     case "classrooms":
-    case "families":
     case "enrollment":
       return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
+    case "families":
+      // Teachers need Families hub (Family Hub + family messages); assistants use Family Hub messages path.
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR || r === USER_ROLES.TEACHER;
     default:
       return false;
   }
@@ -15197,7 +15201,7 @@ function renderTeacherTodayPage() {
         <div class="work-hub-grid">
           ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
-          ${workHubTile({ view: role === "assistant" ? "messages" : "families", title: "Quick Message", detail: "Parent update" })}
+          ${workHubTile({ view: role === "assistant" ? "home-daycare-hub" : "families", title: "Quick Message", detail: role === "assistant" ? "Family Hub parent thread" : "Family Hub / families" })}
           ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
         </div>
       </section>
@@ -15258,7 +15262,7 @@ function renderFamiliesHubPage() {
   if (!section) return;
   const role = workModeRole();
   if (role === "assistant") {
-    setView("messages");
+    setView("home-daycare-hub");
     return;
   }
   const canManage = role === "owner" || role === "director";
@@ -15271,7 +15275,7 @@ function renderFamiliesHubPage() {
         <h3>Family Hub & family messages</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
-          ${workHubTile({ view: "messages", title: "Family messages", detail: "Parent threads & provider inbox" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family messages", detail: "Parent threads in Family Hub", attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
           ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
         </div>
@@ -15280,7 +15284,7 @@ function renderFamiliesHubPage() {
         <h3>Forms & requests</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "forms", title: "Forms", detail: "Primary forms library — assign & review", primary: true })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Forms packs & requests", detail: "HDH packets, absences, pickups" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Forms packs & requests", detail: "Packets, absences, pickups (Family Hub)" })}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
@@ -15359,9 +15363,9 @@ function renderBusinessHubPage() {
       <section class="work-hub-section">
         <h3>Admin only</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "admin", title: "Testers", detail: "Add testers, programs, flags, View As", primary: true, attrs: 'data-admin-open-testers="testing-testers"' })}
-          ${workHubTile({ view: "admin", title: "Testing Center (Advanced)", detail: "Secondary seed / plan preview tools", attrs: 'data-admin-open-testers="advanced-home"' })}
+          ${workHubTile({ view: "admin", title: "Testers", detail: "Add testers, programs, flags, View As — primary control center", primary: true, attrs: 'data-admin-open-testers="testing-testers"' })}
         </div>
+        <p class="muted-copy" style="margin-top:8px;">Advanced → Testing Center remains available inside Admin for secondary seed/plan tools.</p>
       </section>` : ""}
     `,
   });
@@ -15382,7 +15386,7 @@ function renderMoreHubPage() {
         ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates & marketing notes" })}
         ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
         ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
-        ${workHubTile({ view: "lessons", title: "Curriculum", detail: "Lesson Plans library" })}
+        ${role === "teacher" ? workHubTile({ view: "lessons", title: "Curriculum", detail: "Lesson Plans library (also in sidebar)" }) : ""}
         ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
         ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
       </div>
@@ -15408,7 +15412,7 @@ function syncUniversalQuickAdd() {
         <div class="work-quick-add-grid">
           <button type="button" data-view="ai" data-quick-doc-type="observation">Observation</button>
           <button type="button" data-view="ai" data-quick-doc-type="incident-report">Incident</button>
-          <button type="button" data-view="families">Parent Message</button>
+          <button type="button" data-view="home-daycare-hub" data-hdh-jump="hdhFamilyHubPanel">Family message</button>
           <button type="button" data-view="child-tools-daily-logs">Photo</button>
           <button type="button" data-view="child-tools-daily-logs">Meal</button>
           <button type="button" data-view="child-tools-daily-logs">Nap</button>

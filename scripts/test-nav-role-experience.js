@@ -259,8 +259,13 @@ async function main() {
     assert.equal(assistant.hasMessages, true);
     assert.equal(assistant.hasBusiness, false);
     assert.equal(assistant.hasCurriculum, false, "Assistant should not see Curriculum primary");
+    const assistantMessagesView = await page.evaluate(() => {
+      const btn = document.querySelector('[data-work-nav="messages"]');
+      return btn?.getAttribute("data-view") || "";
+    });
+    assert.equal(assistantMessagesView, "home-daycare-hub", "Assistant Family messages must open Family Hub, not Message Support");
     results.assistantNav = true;
-    console.log("PASS  Assistant nav (Family messages, no Families/Management)");
+    console.log("PASS  Assistant nav (Family messages → Family Hub, no Families/Management)");
 
     // Hubs exist (restore owner account for management hub)
     await page.evaluate(() => {

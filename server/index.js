@@ -14370,7 +14370,11 @@ function readOwnerScheduleForFamilyHub(store, ownerEmail) {
 function buildFamilyHubParentPayload(store, household, { childId = "", date = "" } = {}) {
   const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
   const snapshotChildren = Array.isArray(household.children) ? household.children : [];
-  const children = familyHubLib.overlayLiveChildren(snapshotChildren, ownerChildData);
+  // Phase 4: childIds + Profiles are authoritative; overlay refreshes names from Profiles.
+  const preferredIds = Array.isArray(household.childIds) && household.childIds.length
+    ? household.childIds
+    : snapshotChildren.map((child) => child?.id).filter(Boolean);
+  const children = familyHubLib.overlayLiveChildren(snapshotChildren, ownerChildData, preferredIds);
   const childIds = children.map((child) => child.id).filter(Boolean);
   const documents = familyHubLib.liveDocumentsForChildren(ownerChildData, childIds, household.documents || []);
   const shared = familyHubLib.buildSharedFamilyFeed(ownerChildData, childIds);
@@ -14609,13 +14613,26 @@ async function handleFamilyHubHouseholdCreate(request, response) {
     jsonResponse(response, 400, { error: "Enter a parent email and/or phone number for the household login." });
     return;
   }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  // Phase 4: resolve display names from canonical Profiles (do not invent a second roster).
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, ownerEmail);
+  const profileById = new Map(
+    (Array.isArray(ownerChildData?.Profiles) ? ownerChildData.Profiles : [])
+      .map((profile) => [String(profile?.id || ""), profile]),
+  );
   const childrenInput = Array.isArray(body.children) ? body.children : [];
   const children = childrenInput
-    .map((child) => ({
-      id: String(child?.id || "").trim(),
-      name: String(child?.name || "Child").trim() || "Child",
-    }))
-    .filter((child) => child.id);
+    .map((child) => {
+      const id = String(child?.id || "").trim();
+      if (!id) return null;
+      const live = profileById.get(id);
+      return {
+        id,
+        name: String(live?.name || child?.name || "Child").trim() || "Child",
+      };
+    })
+    .filter(Boolean);
   if (!children.length) {
     jsonResponse(response, 400, { error: "Select at least one child for this household login." });
     return;
@@ -14629,9 +14646,17 @@ async function handleFamilyHubHouseholdCreate(request, response) {
       statusLabel: String(doc?.statusLabel || doc?.status || "Needed").trim() || "Needed",
     })).filter((doc) => doc.childId)
     : [];
-  const store = ensureFamilyHubCollections(readStore());
-  const ownerEmail = normalizeEmail(identity.email);
   const guardianEmails = familyHubLib.normalizeGuardianEmails(email, guardianEmail ? [guardianEmail] : []);
+  let programId = "";
+  try {
+    const ctx = programOwnership.resolveProgramContext(store, {
+      email: ownerEmail,
+      uid: identity.uid || "",
+    });
+    programId = ctx?.programId || "";
+  } catch (_error) {
+    programId = "";
+  }
 
   // Duplicate active invite for same owner + primary email → replace with a fresh invite.
   const duplicates = Object.values(store.familyHouseholds || {}).filter((item) => (
@@ -14667,10 +14692,13 @@ async function handleFamilyHubHouseholdCreate(request, response) {
   const household = {
     id: householdId,
     ownerEmail,
+    programId: programId || undefined,
+    programOwnerEmail: ownerEmail,
     label,
     email,
     phone,
     guardianEmails,
+    // childIds is the membership source of truth; children is a thin display cache (names from Profiles).
     childIds: children.map((child) => child.id),
     children,
     documents,
@@ -14811,15 +14839,22 @@ async function handleFamilyHubHouseholdChildrenPatch(request, response, househol
     return;
   }
   const childrenInput = Array.isArray(body.children) ? body.children : [];
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, ownerEmail);
+  const profileById = new Map(
+    (Array.isArray(ownerChildData?.Profiles) ? ownerChildData.Profiles : [])
+      .map((profile) => [String(profile?.id || ""), profile]),
+  );
   const children = [];
   const seen = new Set();
   childrenInput.forEach((child) => {
     const childId = String(child?.id || "").trim();
     if (!childId || seen.has(childId)) return;
     seen.add(childId);
+    const live = profileById.get(childId);
     children.push({
       id: childId,
-      name: String(child?.name || "Child").trim() || "Child",
+      // Phase 4: Profiles name wins when the child exists in the program roster.
+      name: String(live?.name || child?.name || "Child").trim() || "Child",
     });
   });
   if (!children.length) {
@@ -15817,14 +15852,22 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
   let revoked = 0;
   listFamilyHouseholdsForOwner(store, ownerEmail).forEach((household) => {
     if (household.status === "revoked") return;
-    const before = Array.isArray(household.children) ? household.children : [];
-    const nextChildren = before.filter((child) => String(child?.id || "") !== childId);
-    if (nextChildren.length === before.length) return;
+    const beforeSnap = Array.isArray(household.children) ? household.children : [];
+    const beforeIds = (Array.isArray(household.childIds) && household.childIds.length
+      ? household.childIds
+      : beforeSnap.map((child) => child?.id)
+    ).map((id) => String(id || "")).filter(Boolean);
+    if (!beforeIds.includes(childId)) return;
     unlinked += 1;
+    const nextIds = beforeIds.filter((id) => id !== childId);
+    const nextChildren = nextIds.map((id) => {
+      const snap = beforeSnap.find((child) => String(child?.id || "") === id);
+      return snap || { id, name: "Child" };
+    });
     household.children = nextChildren;
-    household.childIds = nextChildren.map((child) => child.id);
+    household.childIds = nextIds;
     household.updatedAt = now;
-    if (!nextChildren.length) {
+    if (!nextIds.length) {
       household.status = "revoked";
       household.revokedAt = now;
       household.revokedReason = String(body?.reason || "child_archived").trim() || "child_archived";
@@ -15836,8 +15879,8 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
       id: `fh-ntf-unlink-${Date.now().toString(36)}-${unlinked}`,
       householdId: household.id,
       type: "access_update",
-      title: revoked && !nextChildren.length ? "Family Hub access ended" : "Child removed from Family Hub",
-      body: nextChildren.length
+      title: revoked && !nextIds.length ? "Family Hub access ended" : "Child removed from Family Hub",
+      body: nextIds.length
         ? "One child was archived and removed from this household view."
         : "Access ended because linked children were archived.",
       href: "more",

@@ -135,19 +135,31 @@ function buildSharedFamilyFeed(childData = null, childIds = []) {
   };
 }
 
-/** Prefer live Profiles names/photos over household invite snapshots. */
-function overlayLiveChildren(householdChildren = [], childData = null) {
+/**
+ * Prefer live Profiles names/photos over household invite snapshots.
+ * Phase 4: childIds + Profiles are authoritative; household.children is a thin display cache.
+ * When childIds is provided, it drives membership (not the snapshot array alone).
+ */
+function overlayLiveChildren(householdChildren = [], childData = null, childIds = null) {
   const profiles = Array.isArray(childData?.Profiles) ? childData.Profiles : [];
   const byId = new Map(profiles.map((profile) => [String(profile?.id || ""), profile]));
-  return (Array.isArray(householdChildren) ? householdChildren : []).map((child) => {
-    const live = byId.get(String(child?.id || ""));
-    if (!live) return child;
+  const snapList = Array.isArray(householdChildren) ? householdChildren : [];
+  const snapById = new Map(snapList.map((child) => [String(child?.id || ""), child]));
+  const ids = Array.isArray(childIds) && childIds.length
+    ? childIds.map((id) => String(id || "")).filter(Boolean)
+    : snapList.map((child) => String(child?.id || "")).filter(Boolean);
+  const uniqueIds = [...new Set(ids)];
+  return uniqueIds.map((id) => {
+    const snap = snapById.get(id) || { id };
+    const live = byId.get(id);
+    if (!live) return snap;
     return {
-      ...child,
-      name: String(live.name || child.name || "Child").trim() || "Child",
-      photoUrl: String(live.photoUrl || live.avatarUrl || child.photoUrl || "").trim(),
-      classroomId: String(live.classroomId || child.classroomId || "").trim(),
-      classroom: String(live.classroom || child.classroom || "").trim(),
+      ...snap,
+      id,
+      name: String(live.name || snap.name || "Child").trim() || "Child",
+      photoUrl: String(live.photoUrl || live.avatarUrl || snap.photoUrl || "").trim(),
+      classroomId: String(live.classroomId || snap.classroomId || "").trim(),
+      classroom: String(live.classroom || snap.classroom || "").trim(),
       archived: Boolean(live.archived),
     };
   }).filter((child) => !child.archived);

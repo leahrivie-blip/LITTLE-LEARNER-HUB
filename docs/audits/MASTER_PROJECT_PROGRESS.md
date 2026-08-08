@@ -14,10 +14,10 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | ⏳ **Ready for Phase 4** — One source of truth (Phase 3 complete) |
-| **Overall completion** | **~27%** (3 of 11 major steps complete) |
+| **Current phase** | 🚧 **Phase 4 in progress** — One source of truth |
+| **Overall completion** | **~30%** (3 of 11 major steps complete; Phase 4 underway) |
 | **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval |
-| **Testing status** | 🟢 Active — Owner Admin validated; Navigation Cleanup shipped on testing branch |
+| **Testing status** | 🟢 Active — Phase 3 complete; Phase 4 foundations on testing branch |
 | **Major blockers** | None |
 | **Known high-priority bugs** | None logged |
 
@@ -29,8 +29,8 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 |---|---|---|
 | 1 | Safety + HDH/`main` confirmation | ✅ Completed |
 | 2 | Owner Admin (tester control + dashboard) | ✅ **Fully complete** (implementation + owner validation) |
-| 3 | Navigation cleanup | ✅ **Completed** |
-| 4 | One source of truth (children / staff / families) | ⏳ Remaining — **next** |
+| 3 | Navigation cleanup | ✅ **Completed** (+ final nav review) |
+| 4 | One source of truth (children / staff / families) | 🚧 **In progress** |
 | 5 | Daily operations | ⏳ Remaining |
 | 6 | Family Hub | ⏳ Remaining |
 | 7 | Forms | ⏳ Remaining |
@@ -39,7 +39,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 10 | Live → Testing Feature Sync | ⏳ Remaining |
 | 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining — production deploy only with **written** approval |
 
-**Completion percentage:** 3/11 ≈ **27%**.
+**Completion percentage:** 3/11 complete ≈ **27%** roadmap steps; ~**30%** with Phase 4 started.
 
 ---
 
@@ -55,6 +55,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 ### 3. Navigation Cleanup — complete
 - Management / Curriculum / Family messages / Forms labeling / Testers-primary paths / HD Management shorten  
+- Final role/path review: `docs/audits/PHASE3_FINAL_NAVIGATION_REVIEW.md`  
 - Report: `docs/audits/PHASE3_NAVIGATION_CLEANUP_COMPLETION_REPORT.md`  
 - Branch: `cursor/navigation-cleanup-phase3-9c23`  
 
@@ -62,13 +63,18 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 ## 🚧 Current phase
 
-None in progress — **awaiting start of Phase 4** (One source of truth).
+### 4. One source of truth — in progress
+- Branch: `cursor/phase4-one-source-of-truth-9c23`  
+- Doc + relationship diagram: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH.md`  
+- Canonical adapters: `server/canonical-data.js`  
+- Drift dry-run API (testing admin, read-only): `GET /api/admin/testing/canonical-drift`  
+- Household membership prefers `childIds` + Profiles (no second roster)  
+- **Not complete** — continue wiring adapters; no production migrate  
 
 ---
 
 ## ⏳ Remaining phases
 
-4. One source of truth (children / staff / families) ← **next**  
 5. Daily operations  
 6. Family Hub  
 7. Forms  
@@ -113,7 +119,8 @@ None in progress — **awaiting start of Phase 4** (One source of truth).
 |---|---|
 | HDH/`main` testing architecture | Source of truth |
 | Owner Testing Admin | Validated |
-| Work-mode nav cleanup | Shipped on Phase 3 branch |
+| Work-mode nav cleanup | Complete (final review done) |
+| One source of truth | Foundations started |
 | July Testing Lab merge | **Not** merged |
 
 ---

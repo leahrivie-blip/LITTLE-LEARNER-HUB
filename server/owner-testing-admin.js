@@ -7,6 +7,7 @@
 
 const crypto = require("node:crypto");
 const accountAccess = require("../scripts/account-access.js");
+const canonicalData = require("./canonical-data.js");
 
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const AUDIT_LIMIT = 2000;
@@ -1224,55 +1225,47 @@ function createOwnerTestingAdminApi(deps) {
       jsonResponse(response, 404, { error: "Program not found." });
       return;
     }
-    const users = Object.values(store.users || {})
-      .filter((u) => u.programId === programId || normalizeEmail(u.linkedProgramOwnerEmail) === normalizeEmail(program.ownerEmail))
-      .map((u) => ({
+    // Phase 4: Owner Admin program detail reads through canonical adapters.
+    const bundle = canonicalData.buildCanonicalProgramBundle(store, programId, {
+      programOwnership,
+      scheduleLib,
+    });
+    const users = (bundle?.staff || []).map((u) => {
+      const raw = store.users?.[u.email] || {};
+      return {
         email: u.email,
-        name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.name || u.email,
+        name: u.name,
         role: u.role || "owner",
-        accountType: u.accountType || program.accountType,
+        accountType: raw.accountType || program.accountType,
         status: u.accountStatus || "Active",
-        testingFeatures: u.testingFeatures || {},
-        lastLoginAt: u.lastLoginAt || u.lastSeenAt || "",
-      }));
-    const childData = store.programData?.[programId]?.child?.data || {};
-    const children = (Array.isArray(childData.Profiles) ? childData.Profiles : []).map((p) => ({
-      id: p.id,
-      name: p.name || "",
-      ageGroup: p.ageGroup || "",
-      classroomId: p.classroomId || "",
-    }));
-    const classrooms = (() => {
-      try {
-        return scheduleLib.normalizeScheduleDocument(store.programData?.[programId]?.schedule || {}).classrooms || [];
-      } catch {
-        return [];
+        testingFeatures: raw.testingFeatures || {},
+        lastLoginAt: raw.lastLoginAt || raw.lastSeenAt || "",
+      };
+    });
+    const children = bundle?.children || [];
+    const classrooms = bundle?.classrooms || [];
+    const households = (bundle?.households || []).map((h) => {
+      const raw = store.familyHouseholds?.[h.id] || {};
+      let magicUrl = raw.magicUrl || "";
+      if (!magicUrl && (h.magicToken || raw.magicToken)) {
+        const token = h.magicToken || raw.magicToken;
+        const origin = String(siteUrl || "").replace(/\/$/, "") || "";
+        magicUrl = origin ? `${origin}/?familyHub=${encodeURIComponent(token)}` : `/?familyHub=${encodeURIComponent(token)}`;
       }
-    })();
+      return {
+        id: h.id,
+        label: h.label,
+        email: h.email || "",
+        status: h.status || "active",
+        childIds: h.childIds || [],
+        childNames: h.childNames || [],
+        magicUrl,
+        magicToken: h.magicToken || raw.magicToken || "",
+        acceptedAt: raw.acceptedAt || "",
+        createdAt: raw.createdAt || "",
+      };
+    });
     const ownerEmail = normalizeEmail(program.ownerEmail);
-    const households = Object.values(store.familyHouseholds || {})
-      .filter((h) => normalizeEmail(h.ownerEmail || h.providerEmail || h.createdByEmail) === ownerEmail
-        || normalizeEmail(h.programOwnerEmail) === ownerEmail
-        || String(h.programId || "") === String(programId))
-      .map((h) => {
-        let magicUrl = h.magicUrl || "";
-        if (!magicUrl && h.magicToken) {
-          const origin = String(siteUrl || "").replace(/\/$/, "") || "";
-          magicUrl = origin ? `${origin}/?familyHub=${encodeURIComponent(h.magicToken)}` : `/?familyHub=${encodeURIComponent(h.magicToken)}`;
-        }
-        return {
-          id: h.id,
-          label: h.label || h.name || h.email || "Household",
-          email: h.email || "",
-          status: h.status || "active",
-          childIds: Array.isArray(h.childIds) ? h.childIds : [],
-          childNames: (Array.isArray(h.children) ? h.children : []).map((c) => c.name).filter(Boolean),
-          magicUrl,
-          magicToken: h.magicToken || "",
-          acceptedAt: h.acceptedAt || "",
-          createdAt: h.createdAt || "",
-        };
-      });
     const owner = store.users?.[ownerEmail] || {};
     jsonResponse(response, 200, {
       ok: true,
@@ -1282,6 +1275,10 @@ function createOwnerTestingAdminApi(deps) {
       children,
       classrooms,
       households,
+      canonical: {
+        sources: bundle?.sources || {},
+        drift: bundle?.drift || null,
+      },
       features: {
         global: globalTestingFlags(store),
         owner: normalizeFeatures(owner.testingFeatures || {}),
@@ -1289,6 +1286,30 @@ function createOwnerTestingAdminApi(deps) {
       activity: store.ownerTestingAudit
         .filter((row) => row.programId === programId || users.some((u) => normalizeEmail(u.email) === normalizeEmail(row.targetEmail)))
         .slice(0, 40),
+    });
+  }
+
+  async function handleCanonicalDrift(request, response, url) {
+    if (!requireTestingAdmin(request, response, url)) return;
+    const store = ensureCollections(peekStore());
+    const programId = String(url.searchParams.get("programId") || "").trim();
+    if (!programId) {
+      jsonResponse(response, 400, { error: "programId is required." });
+      return;
+    }
+    if (!store.programs?.[programId]) {
+      jsonResponse(response, 404, { error: "Program not found." });
+      return;
+    }
+    const report = canonicalData.reportCanonicalDrift(store, programId, {
+      programOwnership,
+      scheduleLib,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      readOnly: true,
+      report,
     });
   }
 
@@ -1520,6 +1541,7 @@ function createOwnerTestingAdminApi(deps) {
     }
     if (method === "GET" && path === "/api/admin/testing/programs") return (req, res) => handleListPrograms(req, res, url);
     if (method === "POST" && path === "/api/admin/testing/programs") return (req, res) => handleCreateProgram(req, res, url);
+    if (method === "GET" && path === "/api/admin/testing/canonical-drift") return (req, res) => handleCanonicalDrift(req, res, url);
     if (method === "GET" && path.startsWith("/api/admin/testing/programs/")) {
       const id = decodeURIComponent(path.slice("/api/admin/testing/programs/".length).split("/")[0]);
       return (req, res) => handleGetProgram(req, res, url, id);
