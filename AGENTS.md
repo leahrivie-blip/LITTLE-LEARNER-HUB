@@ -28,6 +28,7 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Live → Testing Feature Sync: compare production **read-only**; implement gaps only on testing. Brief: `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md`.
 - Before Final QA: complete `docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md`.
 - Continuous quality: fix bugs, polish UI/usability, and clear low-risk tech debt while working in an area; do not defer obvious safe improvements.
+- **Phase gate:** every phase ends with a completion report (`docs/audits/PHASE_COMPLETION_REPORT_TEMPLATE.md`) before the next phase. Keep `docs/audits/MASTER_PROJECT_PROGRESS.md` current (completed / current / remaining, %, blockers, bugs, production & testing status).
 
 ### Production environment variables (CRITICAL)
 - Coding agents are **read-only** for production Render env vars by default. Never call Render APIs that replace the full env-var list with a partial list (that wiped production once).
