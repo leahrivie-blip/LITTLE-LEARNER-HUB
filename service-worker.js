@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v196-cookie-cta";
+const CACHE_NAME = "llh-shell-v197-phase11-final-qa";
 const SHELL_VERSION = "20260808-phase11-final-qa";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;

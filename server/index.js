@@ -940,7 +940,7 @@ function homeDaycareHubStatus() {
     testingOnly: true,
     envVar: "HOME_DAYCARE_HUB_TESTING",
     features: enabled
-      ? ["forms-pack", "ai-drafts", "family-hub", "staff-visibility", "trainings", "packets"]
+      ? ["forms-pack", "ai-drafts", "family-hub", "family-tuition", "staff-visibility", "trainings", "packets"]
       : [],
     familyHubStorage,
     note: enabled
