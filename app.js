@@ -1258,13 +1258,15 @@ function buildFormsLibrary() {
   return Object.entries(formGroups).flatMap(([group, forms]) => forms.map((form, index) => ({
     id: `form-${slug(group)}-${slug(form)}`,
     category: "Forms Library",
+    formGroup: group,
     title: form,
     age: "All Ages",
     plan: index === 0 && freeFormGroups.has(group) ? "Free" : "Pro",
     month: "All Year",
-    tags: [group, "PDF", "Editable", "In-App"],
+    tags: [group, "PDF", "Editable", "In-App", "System template"],
     format: "PDF + Editable",
-    description: `${group} resource with printable and editable sections for childcare providers to customize for their program.`,
+    sourceType: "system",
+    description: `${group} system template — printable and editable. Customize for your program; provider-created templates live under Program form templates.`,
   })));
 }
 
@@ -8470,18 +8472,62 @@ function saveHomeDaycareAiFormDraftToChild() {
 }
 
 function homeDaycarePackDocumentStatusLabel(status = "needed") {
+  // Phase 7: authoritative labels (aliases still display sensibly).
   const statusLabels = {
-    draft: "Draft — review before sharing",
+    draft: "Draft",
     needed: "Needed",
-    assigned: "Assigned",
+    assigned: "Assigned — awaiting completion",
     requested: "Requested from family",
     notified: "Shared — awaiting parent",
+    in_progress: "In progress",
+    viewed: "In progress",
     received: "Received",
+    submitted: "Submitted — provider review",
     signed: "Signed — provider review",
+    completed: "Completed / on file",
     on_file: "On file",
     reviewed: "Reviewed & on file",
+    needs_correction: "Needs correction",
+    declined: "Declined",
+    expired: "Expired",
   };
-  return statusLabels[status] || status;
+  return statusLabels[String(status || "").toLowerCase()] || status;
+}
+
+/** Phase 7: lightweight body hash for signature invalidation (browser-safe). */
+function hashFormBodyClient(text = "") {
+  const input = String(text || "").trim();
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) - hash) + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return `h${Math.abs(hash).toString(16)}-${input.length}`;
+}
+
+function normalizeFormLifecycleStatus(status = "") {
+  const key = String(status || "").trim().toLowerCase();
+  const aliases = {
+    draft: "draft",
+    needed: "assigned",
+    assigned: "assigned",
+    requested: "assigned",
+    notified: "assigned",
+    "action needed": "assigned",
+    viewed: "in_progress",
+    in_progress: "in_progress",
+    "in progress": "in_progress",
+    received: "submitted",
+    submitted: "submitted",
+    signed: "submitted",
+    completed: "completed",
+    on_file: "completed",
+    reviewed: "completed",
+    needs_correction: "needs_correction",
+    declined: "declined",
+    expired: "expired",
+  };
+  return aliases[key] || key.replace(/\s+/g, "_") || "assigned";
 }
 
 function formsProgramTemplates() {
@@ -8495,6 +8541,33 @@ function saveFormsProgramTemplates(templates) {
   return templates;
 }
 
+function formsStaffDocuments() {
+  const settings = getProgramSettings() || {};
+  return Array.isArray(settings.staffFormDocuments) ? settings.staffFormDocuments : [];
+}
+
+function saveFormsStaffDocuments(docs) {
+  const settings = { ...(getProgramSettings() || {}), staffFormDocuments: docs };
+  saveProgramSettings(settings);
+  return docs;
+}
+
+function duplicateFormTemplate(templateId) {
+  const source = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+  if (!source) throw new Error("Template not found.");
+  const copy = {
+    ...source,
+    id: `form-template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    title: `${String(source.title || "Custom form").trim()} (copy)`,
+    sourceType: "provider",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const next = [copy, ...formsProgramTemplates()].slice(0, 80);
+  saveFormsProgramTemplates(next);
+  return copy;
+}
+
 function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
   const text = String(body || "").trim();
   if (!text) throw new Error("Generate or edit a draft before saving a template.");
@@ -8505,12 +8578,90 @@ function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", r
     body: text,
     packFormId: String(packFormId || "").trim(),
     resourceId: String(resourceId || "").trim(),
+    sourceType: "provider",
+    bodyHash: hashFormBodyClient(text),
+    contentVersion: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   const next = [template, ...formsProgramTemplates()].slice(0, 80);
   saveFormsProgramTemplates(next);
   return template;
+}
+
+/**
+ * Phase 7: resolve assign targets → canonical childIds / staff emails.
+ * Modes: children | classroom | household | program | staff
+ */
+function resolveFormAssignmentTargetsClient({
+  mode = "children",
+  childIds = [],
+  classroomId = "",
+  householdIds = [],
+  staffEmails = [],
+  households = [],
+} = {}) {
+  const profiles = (childRecords().children || []).filter((child) => child && !child.archived);
+  const idSet = new Set();
+  const staffSet = new Set();
+  const pushChild = (id) => { const k = String(id || "").trim(); if (k) idSet.add(k); };
+  const pushStaff = (email) => {
+    const k = String(email || "").trim().toLowerCase();
+    if (k.includes("@")) staffSet.add(k);
+  };
+  const key = String(mode || "children").toLowerCase();
+  if (key === "staff") {
+    (Array.isArray(staffEmails) ? staffEmails : []).forEach(pushStaff);
+    return { childIds: [], staffEmails: [...staffSet] };
+  }
+  if (key === "program") {
+    profiles.forEach((p) => pushChild(p.id));
+    return { childIds: [...idSet], staffEmails: [] };
+  }
+  if (key === "classroom") {
+    const room = String(classroomId || "").trim();
+    profiles.filter((p) => String(p.classroomId || "") === room).forEach((p) => pushChild(p.id));
+    return { childIds: [...idSet], staffEmails: [] };
+  }
+  if (key === "household" || key === "families" || key === "family") {
+    const wanted = new Set((Array.isArray(householdIds) ? householdIds : []).map(String));
+    (Array.isArray(households) ? households : []).forEach((hh) => {
+      if (wanted.size && !wanted.has(String(hh.id || ""))) return;
+      const ids = Array.isArray(hh.childIds) && hh.childIds.length
+        ? hh.childIds
+        : (Array.isArray(hh.children) ? hh.children.map((c) => c?.id) : []);
+      ids.forEach(pushChild);
+    });
+    return { childIds: [...idSet], staffEmails: [] };
+  }
+  (Array.isArray(childIds) ? childIds : []).forEach(pushChild);
+  return { childIds: [...idSet], staffEmails: [] };
+}
+
+function listProgramStaffForForms() {
+  const account = currentAccount() || {};
+  const users = [];
+  const selfEmail = String(account.email || "").trim().toLowerCase();
+  if (selfEmail) {
+    users.push({
+      email: selfEmail,
+      name: account.name || account.displayName || selfEmail.split("@")[0] || "Owner",
+      role: account.role || "owner",
+    });
+  }
+  const members = Array.isArray(account.programMembers)
+    ? account.programMembers
+    : (Array.isArray(getProgramSettings()?.staffMembers) ? getProgramSettings().staffMembers : []);
+  members.forEach((member) => {
+    const email = String(member?.email || "").trim().toLowerCase();
+    if (!email || users.some((u) => u.email === email)) return;
+    users.push({
+      email,
+      name: member.name || email.split("@")[0],
+      role: member.role || "staff",
+    });
+  });
+  return users;
 }
 
 function formsAttentionDocuments(records = childRecords()) {
@@ -8520,20 +8671,55 @@ function formsAttentionDocuments(records = childRecords()) {
     children.filter((child) => child && !child.archived).map((child) => String(child.id)),
   );
   const nameFor = (id) => children.find((child) => String(child.id) === String(id))?.name || "Child";
-  return docs
+  const today = new Date().toISOString().slice(0, 10);
+  const childAttention = docs
     .filter((doc) => !doc.archived && activeChildIds.has(String(doc.childId || "")))
     .map((doc) => {
-      const status = String(doc.status || "").toLowerCase();
-      const signedNeedsReview = (status === "signed" || Boolean(doc.signedAt)) && !doc.providerReviewed;
-      const awaitingParent = doc.shareWithFamily && ["needed", "requested", "notified", "assigned", "action needed", "draft"].includes(status) && !doc.signedAt;
-      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < new Date().toISOString().slice(0, 10) && !doc.signedAt && !doc.providerReviewed;
+      const lifecycle = normalizeFormLifecycleStatus(doc.status);
+      const signedNeedsReview = (lifecycle === "submitted" || Boolean(doc.signedAt)) && !doc.providerReviewed;
+      const awaitingParent = doc.shareWithFamily
+        && ["draft", "assigned", "in_progress", "needs_correction"].includes(lifecycle)
+        && !doc.signedAt;
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < today && !doc.signedAt && !doc.providerReviewed
+        && lifecycle !== "completed" && lifecycle !== "declined";
       let attention = "";
       if (signedNeedsReview) attention = "signed_review";
       else if (overdue) attention = "overdue";
+      else if (lifecycle === "needs_correction") attention = "needs_correction";
       else if (awaitingParent) attention = "awaiting_parent";
-      return attention ? { ...doc, childName: nameFor(doc.childId), attention } : null;
+      return attention ? {
+        ...doc,
+        childName: nameFor(doc.childId),
+        assigneeLabel: nameFor(doc.childId),
+        assigneeType: "child",
+        attention,
+      } : null;
     })
-    .filter(Boolean)
+    .filter(Boolean);
+
+  const staffAttention = formsStaffDocuments()
+    .filter((doc) => !doc.archived)
+    .map((doc) => {
+      const lifecycle = normalizeFormLifecycleStatus(doc.status);
+      const signedNeedsReview = (lifecycle === "submitted" || Boolean(doc.signedAt)) && !doc.providerReviewed;
+      const awaiting = ["draft", "assigned", "in_progress", "needs_correction"].includes(lifecycle) && !doc.signedAt;
+      const overdue = Boolean(doc.dueDate) && String(doc.dueDate) < today && !doc.signedAt && !doc.providerReviewed;
+      let attention = "";
+      if (signedNeedsReview) attention = "signed_review";
+      else if (overdue) attention = "overdue";
+      else if (awaiting) attention = "awaiting_parent";
+      return attention ? {
+        ...doc,
+        childName: "",
+        childId: "",
+        assigneeLabel: doc.assigneeEmail || "Staff",
+        assigneeType: "staff",
+        attention,
+      } : null;
+    })
+    .filter(Boolean);
+
+  return [...childAttention, ...staffAttention]
     .sort((a, b) => String(b.updatedAt || b.signedAt || "").localeCompare(String(a.updatedAt || a.signedAt || "")));
 }
 
@@ -8543,13 +8729,19 @@ function formsStatusSummary(records = childRecords()) {
   const children = Array.isArray(records.children) ? records.children : (childStore("Profiles") || []);
   const activeChildIds = new Set(children.filter((child) => child && !child.archived).map((child) => String(child.id)));
   const live = docs.filter((doc) => activeChildIds.has(String(doc.childId || "")));
+  const staffDocs = formsStaffDocuments().filter((doc) => !doc.archived);
   const attention = formsAttentionDocuments(records);
+  const allLive = [...live, ...staffDocs];
   return {
-    pending: attention.filter((item) => item.attention === "awaiting_parent").length,
+    pending: attention.filter((item) => item.attention === "awaiting_parent" || item.attention === "needs_correction").length,
     overdue: attention.filter((item) => item.attention === "overdue").length,
     needsReview: attention.filter((item) => item.attention === "signed_review").length,
-    complete: live.filter((doc) => doc.providerReviewed || ["on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())).length,
-    total: live.length,
+    complete: allLive.filter((doc) => {
+      const n = normalizeFormLifecycleStatus(doc.status);
+      return doc.providerReviewed || n === "completed";
+    }).length,
+    assigned: allLive.filter((doc) => normalizeFormLifecycleStatus(doc.status) === "assigned").length,
+    total: allLive.length,
   };
 }
 
@@ -8560,7 +8752,8 @@ function childHasOpenAssignedForm(childId, formSpec = {}) {
   const title = String(formSpec.title || "").trim().toLowerCase();
   return docs.find((doc) => {
     if (String(doc.childId) !== String(childId) || doc.archived) return false;
-    if (doc.signedAt || doc.providerReviewed || ["signed", "on_file", "reviewed"].includes(String(doc.status || "").toLowerCase())) {
+    const lifecycle = normalizeFormLifecycleStatus(doc.status);
+    if (doc.signedAt || doc.providerReviewed || ["submitted", "completed"].includes(lifecycle)) {
       return false;
     }
     if (templateId && String(doc.templateId || "") === templateId) return true;
@@ -8573,35 +8766,53 @@ function childHasOpenAssignedForm(childId, formSpec = {}) {
 function assignFormDocumentToChild(childId, formSpec = {}) {
   if (!childId) throw new Error("Choose a child before assigning a form.");
   const existing = childHasOpenAssignedForm(childId, formSpec);
+  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
+  const bodyHash = hashFormBodyClient(draftText || String(existing?.draftText || ""));
   if (existing && formSpec.allowDuplicate !== true) {
-    // Refresh due date / share flags on the open assignment instead of duplicating.
     const docs = childStore("Documents") || [];
     const dueDate = String(formSpec.dueDate || existing.dueDate || "").trim();
     const shareWithFamily = formSpec.shareWithFamily !== false;
     const status = shareWithFamily ? "notified" : (existing.status || "assigned");
-    const next = docs.map((item) => (
-      String(item.id) === String(existing.id)
-        ? {
-          ...item,
-          dueDate,
-          shareWithFamily,
-          status,
-          statusLabel: homeDaycarePackDocumentStatusLabel(status),
-          draftText: String(formSpec.draftText || formSpec.body || item.draftText || "").trim() || item.draftText,
-          updatedAt: new Date().toISOString(),
-          duplicateAssignSkipped: true,
-        }
-        : item
-    ));
+    const nextBody = draftText || existing.draftText || "";
+    const materialChange = existing.signedAt
+      && existing.bodyHash
+      && hashFormBodyClient(nextBody) !== String(existing.bodyHash);
+    const next = docs.map((item) => {
+      if (String(item.id) !== String(existing.id)) return item;
+      const patched = {
+        ...item,
+        dueDate,
+        shareWithFamily,
+        status: materialChange ? "needs_correction" : status,
+        statusLabel: homeDaycarePackDocumentStatusLabel(materialChange ? "needs_correction" : status),
+        draftText: nextBody || item.draftText,
+        bodyHash: hashFormBodyClient(nextBody || item.draftText || ""),
+        contentVersion: Number(item.contentVersion || 1) + (materialChange ? 1 : 0),
+        updatedAt: new Date().toISOString(),
+        lastNotifiedAt: shareWithFamily ? new Date().toISOString() : item.lastNotifiedAt,
+        duplicateAssignSkipped: true,
+        assigneeType: "child",
+      };
+      if (materialChange) {
+        patched.signedAt = "";
+        patched.signedBy = "";
+        patched.signedRole = "";
+        patched.signedSnapshot = "";
+        patched.signedBodyHash = "";
+        patched.providerReviewed = false;
+        patched.signatureInvalidatedReason = "Form content changed after signature — re-sign required.";
+      }
+      return patched;
+    });
     saveChildStore("Documents", next);
     return next.find((item) => String(item.id) === String(existing.id));
   }
   const title = String(formSpec.title || "Form").trim() || "Form";
   const category = String(formSpec.category || "Other").trim() || "Other";
-  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
   const dueDate = String(formSpec.dueDate || "").trim();
   const shareWithFamily = formSpec.shareWithFamily !== false;
   const status = shareWithFamily ? "notified" : "assigned";
+  const now = new Date().toISOString();
   const saved = appendChildRecord("Documents", {
     childId,
     title,
@@ -8613,13 +8824,79 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     statusLabel: homeDaycarePackDocumentStatusLabel(status),
     notes: String(formSpec.notes || "").trim(),
     draftText,
+    bodyHash,
+    contentVersion: 1,
     dueDate,
     shareWithFamily,
-    date: new Date().toISOString().slice(0, 10),
-    updatedAt: new Date().toISOString(),
+    date: now.slice(0, 10),
+    assignedAt: now,
+    updatedAt: now,
+    lastNotifiedAt: shareWithFamily ? now : "",
     providerReviewed: false,
+    assigneeType: "child",
+    requiresSignature: formSpec.requiresSignature !== false,
   });
   return saved;
+}
+
+function assignFormDocumentToStaff(assigneeEmail, formSpec = {}) {
+  const email = String(assigneeEmail || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) throw new Error("Choose a staff member.");
+  const draftText = String(formSpec.draftText || formSpec.body || "").trim();
+  const bodyHash = hashFormBodyClient(draftText);
+  const title = String(formSpec.title || "Staff form").trim() || "Staff form";
+  const existing = formsStaffDocuments().find((doc) => (
+    !doc.archived
+    && String(doc.assigneeEmail || "").toLowerCase() === email
+    && !doc.signedAt
+    && normalizeFormLifecycleStatus(doc.status) !== "completed"
+    && (
+      (formSpec.templateId && String(doc.templateId || "") === String(formSpec.templateId))
+      || String(doc.title || "").toLowerCase() === title.toLowerCase()
+    )
+  ));
+  const now = new Date().toISOString();
+  if (existing && formSpec.allowDuplicate !== true) {
+    const next = formsStaffDocuments().map((doc) => (
+      String(doc.id) === String(existing.id)
+        ? {
+          ...doc,
+          dueDate: String(formSpec.dueDate || doc.dueDate || "").trim(),
+          draftText: draftText || doc.draftText,
+          bodyHash: hashFormBodyClient(draftText || doc.draftText || ""),
+          status: "assigned",
+          statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
+          updatedAt: now,
+          lastNotifiedAt: now,
+        }
+        : doc
+    ));
+    saveFormsStaffDocuments(next);
+    return next.find((doc) => String(doc.id) === String(existing.id));
+  }
+  const doc = {
+    id: `staff-form-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    assigneeType: "staff",
+    assigneeEmail: email,
+    title,
+    category: String(formSpec.category || "Staff").trim() || "Staff",
+    templateId: formSpec.templateId || "",
+    packFormId: formSpec.packFormId || "",
+    resourceId: formSpec.resourceId || "",
+    status: "assigned",
+    statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
+    draftText,
+    bodyHash,
+    contentVersion: 1,
+    dueDate: String(formSpec.dueDate || "").trim(),
+    assignedAt: now,
+    updatedAt: now,
+    providerReviewed: false,
+    requiresSignature: formSpec.requiresSignature !== false,
+    notes: String(formSpec.notes || "").trim(),
+  };
+  saveFormsStaffDocuments([doc, ...formsStaffDocuments()].slice(0, 200));
+  return doc;
 }
 
 async function assignAndNotifyForm(formSpec = {}, childIds = []) {
@@ -8640,6 +8917,29 @@ async function assignAndNotifyForm(formSpec = {}, childIds = []) {
   return saved;
 }
 
+/**
+ * Phase 7 unified assign: children / classroom / household / program / staff.
+ * Always resolves to canonical IDs — never copies roster records into Forms.
+ */
+async function assignFormByTarget(formSpec = {}, target = {}) {
+  const households = Array.isArray(target.households) ? target.households : (window.__llhFamilyHouseholdsCache || []);
+  const resolved = resolveFormAssignmentTargetsClient({
+    mode: target.mode || "children",
+    childIds: target.childIds || [],
+    classroomId: target.classroomId || "",
+    householdIds: target.householdIds || [],
+    staffEmails: target.staffEmails || [],
+    households,
+  });
+  if ((target.mode || "children") === "staff") {
+    if (!resolved.staffEmails.length) throw new Error("Select at least one staff member.");
+    const saved = resolved.staffEmails.map((email) => assignFormDocumentToStaff(email, formSpec));
+    saved.refreshedCount = 0;
+    return saved;
+  }
+  return assignAndNotifyForm(formSpec, resolved.childIds);
+}
+
 function markChildDocumentReviewed(documentId) {
   const docs = childStore("Documents") || [];
   const next = docs.map((item) => (
@@ -8647,9 +8947,10 @@ function markChildDocumentReviewed(documentId) {
       ? {
         ...item,
         providerReviewed: true,
-        status: "on_file",
-        statusLabel: homeDaycarePackDocumentStatusLabel("on_file"),
+        status: "completed",
+        statusLabel: homeDaycarePackDocumentStatusLabel("completed"),
         reviewedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
       : item
@@ -8666,6 +8967,8 @@ function printChildDocumentRecord(documentId) {
   const banner = [
     doc.signedAt ? `SIGNED in Family Hub on ${String(doc.signedAt).slice(0, 10)}` : "DRAFT / UNSIGNED",
     doc.signedBy ? `Signer: ${doc.signedBy}` : "",
+    doc.signedRole ? `Role: ${doc.signedRole}` : "",
+    doc.contentVersionSigned || doc.contentVersion ? `Form version: ${doc.contentVersionSigned || doc.contentVersion}` : "",
     child?.name ? `Child: ${child.name}` : "",
     doc.dueDate ? `Due: ${doc.dueDate}` : "",
     "Testing acknowledgment — not a legal e-signature.",
@@ -8686,7 +8989,8 @@ function renderFormsAttentionPanel() {
       <h3>Forms needing attention</h3>
       <p class="muted-copy">Signed forms ready for your review, shared forms waiting on parents, and anything past due — all from one place.</p>
       <div class="forms-status-summary" role="status" aria-label="Forms status summary">
-        <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> pending</span>
+        <span class="hdh-form-status-chip is-pending"><strong>${summary.assigned || 0}</strong> assigned</span>
+        <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> awaiting</span>
         <span class="hdh-form-status-chip is-overdue"><strong>${summary.overdue}</strong> overdue</span>
         <span class="hdh-form-status-chip is-review"><strong>${summary.needsReview}</strong> to review</span>
         <span class="hdh-form-status-chip is-complete"><strong>${summary.complete}</strong> complete</span>
@@ -8706,7 +9010,7 @@ function renderFormsAttentionPanel() {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.childName)} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}${item.signedRole ? ` (${escapeHtml(item.signedRole)})` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 <button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>
@@ -8720,7 +9024,7 @@ function renderFormsAttentionPanel() {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.childName)} · due ${escapeHtml(item.dueDate || "")}</p>
+                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · due ${escapeHtml(item.dueDate || "")}</p>
               </div>
               <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Remind family</button>
             </article>`).join("")}</div>` : ""}
@@ -8730,7 +9034,7 @@ function renderFormsAttentionPanel() {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.childName)} · ${escapeHtml(item.statusLabel || item.status || "Shared")}</p>
+                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · ${escapeHtml(item.statusLabel || item.status || "Shared")}${item.assignedAt ? ` · assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}</p>
               </div>
               <button class="ghost-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Notify again</button>
             </article>`).join("")}</div>` : ""}
@@ -8753,10 +9057,11 @@ function renderProgramFormTemplatesPanel() {
           <article class="hdh-forms-pack-item">
             <div>
               <strong>${escapeHtml(template.title)}</strong>
-              <p class="muted-copy">${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
+              <p class="muted-copy"><span class="hdh-form-source-badge">Provider template</span> · ${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
             </div>
             <div class="hdh-forms-pack-actions">
               <button class="ghost-button" type="button" data-edit-form-template="${escapeHtml(template.id)}">Edit</button>
+              <button class="ghost-button" type="button" data-duplicate-form-template="${escapeHtml(template.id)}">Duplicate</button>
               <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(template.id)}">Print</button>
               <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Assign</button>
               <button class="ghost-button" type="button" data-delete-form-template="${escapeHtml(template.id)}">Remove</button>
@@ -8776,8 +9081,17 @@ function renderProgramFormTemplatesPanel() {
             </form>
             <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
               <label>Due date (optional)<input type="date" name="dueDate" /></label>
-              <fieldset class="hdh-child-pick-fieldset">
-                <legend>Assign to children</legend>
+              <label>Assign to
+                <select name="assignMode" data-assign-mode-select>
+                  <option value="children">Selected children</option>
+                  <option value="classroom">Classroom</option>
+                  <option value="household">Family household(s)</option>
+                  <option value="program">Entire program</option>
+                  <option value="staff">Staff member(s)</option>
+                </select>
+              </label>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="children">
+                <legend>Children (canonical Profiles)</legend>
                 <div class="hdh-child-pick-grid">
                   ${children.map((child) => `
                     <label class="area-check">
@@ -8787,7 +9101,35 @@ function renderProgramFormTemplatesPanel() {
                   `).join("") || '<p class="muted-copy">Add a child first.</p>'}
                 </div>
               </fieldset>
-              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub</label>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="classroom" hidden>
+                <legend>Classroom</legend>
+                <label>Classroom id
+                  <select name="classroomId">
+                    ${[...new Set(children.map((c) => String(c.classroomId || "").trim()).filter(Boolean))]
+                      .map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join("")
+                      || '<option value="">No classrooms on Profiles yet</option>'}
+                  </select>
+                </label>
+              </fieldset>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="household" hidden>
+                <legend>Households (Family Hub childIds)</legend>
+                <div class="hdh-child-pick-grid" data-assign-household-list>
+                  <p class="muted-copy">Open Family Hub households once so they can be selected here, or use Entire program.</p>
+                </div>
+              </fieldset>
+              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="staff" hidden>
+                <legend>Staff (canonical users)</legend>
+                <div class="hdh-child-pick-grid">
+                  ${listProgramStaffForForms().map((staff) => `
+                    <label class="area-check">
+                      <input type="checkbox" name="staffEmails" value="${escapeHtml(staff.email)}" />
+                      <span>${escapeHtml(staff.name)} · ${escapeHtml(staff.role)}</span>
+                    </label>
+                  `).join("") || '<p class="muted-copy">No staff emails available.</p>'}
+                </div>
+              </fieldset>
+              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub (child/family assigns)</label>
+              <label class="settings-check-label"><input type="checkbox" name="requiresSignature" value="true" checked /> Signature required</label>
               <button class="primary-button" type="submit">Assign &amp; notify</button>
             </form>
           </article>
@@ -17380,6 +17722,34 @@ async function adminMarkConversationReadState(userEmail, read) {
 }
 
 document.addEventListener("change", async (event) => {
+  if (event.target.matches("[data-assign-mode-select]")) {
+    const form = event.target.closest("form");
+    if (!form) return;
+    const mode = String(event.target.value || "children");
+    form.querySelectorAll("[data-assign-panel]").forEach((panel) => {
+      const panelMode = panel.getAttribute("data-assign-panel");
+      if (mode === "program") {
+        panel.hidden = panelMode !== "children";
+        return;
+      }
+      panel.hidden = panelMode !== mode;
+    });
+    if (mode === "household") {
+      const list = form.querySelector("[data-assign-household-list]");
+      const households = window.__llhFamilyHouseholdsCache || [];
+      if (list) {
+        list.innerHTML = households.length
+          ? households.map((hh) => `
+              <label class="area-check">
+                <input type="checkbox" name="householdIds" value="${escapeHtml(hh.id)}" />
+                <span>${escapeHtml(hh.label || hh.email || "Family")} · ${(hh.children || []).map((c) => c.name || c.id).filter(Boolean).join(", ") || "children"}</span>
+              </label>
+            `).join("")
+          : `<p class="muted-copy">No households loaded yet. Open the Family Hub invite list once, then try again.</p>`;
+      }
+    }
+    return;
+  }
   if (event.target.matches("#adminMessageEmailAlertsToggle")) {
     const enabled = Boolean(event.target.checked);
     const token = adminSession()?.token || "";
@@ -36615,6 +36985,7 @@ async function refreshFamilyHubHouseholds() {
     storage: data.storage || null,
     loadedAt: Date.now(),
   };
+  window.__llhFamilyHouseholdsCache = familyHubHouseholdCache.households;
   return familyHubHouseholdCache;
 }
 
@@ -37226,29 +37597,35 @@ function renderFamilyHubFormsPanel(data) {
   }
   return `
     <div class="fh-panel-stack">
-      <p class="fh-meta">Review each form, then sign. Your provider sees the update right away in Forms &amp; Records.</p>
+      <p class="fh-meta">Review each form, save progress if you need more time, then sign. Your provider sees the update in Forms &amp; Records.</p>
       ${documents.map((doc) => {
         const canSign = Boolean(doc.canAcknowledge);
+        const canSave = Boolean(doc.canSaveProgress);
         const signedMeta = doc.signedAt
-          ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
+          ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}${doc.signedRole ? ` (${doc.signedRole})` : ""}`
           : "";
         const body = String(doc.bodyText || "").trim();
+        const progress = String(doc.parentProgressText || "").trim();
         return `
         <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
           <div class="fh-card-head">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
-          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}</p>
+          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""}</p>
           <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
-          ${body ? `<details class="fh-form-body"><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
+          ${body ? `<details class="fh-form-body" open><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
           ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
-          ${canSign && doc.id
-            ? `<div class="fh-account-actions">
-                <button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign form</button>
-                <p class="fh-meta">Testing signature — records your name and time for the provider.</p>
-              </div>`
-            : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
+          ${canSave && doc.id ? `
+            <label class="fh-meta">Your notes / progress
+              <textarea class="fh-form-progress" data-fh-progress-input="${escapeHtml(doc.id)}" rows="3" maxlength="4000" placeholder="Optional notes before you sign…">${escapeHtml(progress)}</textarea>
+            </label>
+            <div class="fh-account-actions">
+              <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-save-progress="${escapeHtml(doc.id)}">Save progress</button>
+              ${canSign ? `<button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign &amp; submit</button>` : ""}
+              <p class="fh-meta">Testing signature — records your name, role, time, and form version for the provider.</p>
+            </div>
+          ` : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
         </article>`;
       }).join("")}
     </div>
@@ -37782,7 +38159,7 @@ async function acknowledgeFamilyHubDocument(documentId) {
   const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/acknowledge`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ signerName: preferredName }),
+    body: JSON.stringify({ signerName: preferredName, signedRole: "guardian" }),
     cache: "no-store",
   });
   const data = await response.json().catch(() => ({}));
@@ -37795,10 +38172,13 @@ async function acknowledgeFamilyHubDocument(documentId) {
         String(doc.id || "") === String(data.document.id)
           ? {
             ...doc,
-            status: data.document.status || "signed",
-            statusLabel: data.document.statusLabel || "Signed",
+            status: data.document.status || "submitted",
+            statusLabel: data.document.statusLabel || "Submitted — provider review",
             signedAt: data.document.signedAt || new Date().toISOString(),
             signedBy: data.document.signedBy || preferredName,
+            signedRole: data.document.signedRole || "guardian",
+            contentVersion: data.document.contentVersion || doc.contentVersion,
+            bodyHash: data.document.bodyHash || doc.bodyHash,
             updatedAt: data.document.updatedAt || new Date().toISOString(),
           }
           : doc
@@ -37810,6 +38190,22 @@ async function acknowledgeFamilyHubDocument(documentId) {
       }
     }
   } catch (_error) { /* non-blocking */ }
+  return data;
+}
+
+async function saveFamilyHubDocumentProgress(documentId) {
+  const headers = familyHubAuthHeaders();
+  if (!headers) throw new Error("Sign in to Family Hub to save progress.");
+  const input = document.querySelector(`[data-fh-progress-input="${CSS.escape(documentId)}"]`);
+  const progressText = String(input?.value || "").trim();
+  const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/progress`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ progressText }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not save progress.");
   return data;
 }
 
@@ -41600,10 +41996,16 @@ function renderChildFormsRecordsTab(child, records) {
         <label>Status
           <select data-hdh-forms-status>
             <option value="all" ${statusFilter === "all" ? "selected" : ""}>All statuses</option>
+            <option value="draft" ${statusFilter === "draft" ? "selected" : ""}>Draft</option>
             <option value="needed" ${statusFilter === "needed" ? "selected" : ""}>Needed</option>
-            <option value="requested" ${statusFilter === "requested" ? "selected" : ""}>Requested from family</option>
-            <option value="received" ${statusFilter === "received" ? "selected" : ""}>Received</option>
-            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed / complete</option>
+            <option value="assigned" ${statusFilter === "assigned" ? "selected" : ""}>Assigned</option>
+            <option value="notified" ${statusFilter === "notified" ? "selected" : ""}>Shared — awaiting parent</option>
+            <option value="in_progress" ${statusFilter === "in_progress" ? "selected" : ""}>In progress</option>
+            <option value="submitted" ${statusFilter === "submitted" ? "selected" : ""}>Submitted</option>
+            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed</option>
+            <option value="completed" ${statusFilter === "completed" ? "selected" : ""}>Completed</option>
+            <option value="on_file" ${statusFilter === "on_file" ? "selected" : ""}>On file</option>
+            <option value="needs_correction" ${statusFilter === "needs_correction" ? "selected" : ""}>Needs correction</option>
           </select>
         </label>
         <label>Category
@@ -41663,7 +42065,7 @@ function renderChildFormsRecordsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}` : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}${item.signedRole ? ` (${escapeHtml(item.signedRole)})` : ""}` : ""}${item.signedAt ? ` · ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
@@ -65118,6 +65520,27 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const saveProgressBtn = event.target.closest("[data-family-hub-save-progress]");
+  if (saveProgressBtn) {
+    event.preventDefault();
+    const documentId = String(saveProgressBtn.dataset.familyHubSaveProgress || "").trim();
+    if (!documentId) return;
+    saveProgressBtn.disabled = true;
+    saveFamilyHubDocumentProgress(documentId)
+      .then(async () => {
+        familyHubParentToast("Progress saved.");
+        await loadFamilyHubParentDashboard({
+          panel: "forms",
+          childId: familyHubParentState.childId || "",
+        }).catch(() => null);
+      })
+      .catch((error) => {
+        saveProgressBtn.disabled = false;
+        familyHubParentToast(error.message || "Could not save progress.");
+      });
+    return;
+  }
+
   if (event.target.closest("[data-family-hub-retry]")) {
     event.preventDefault();
     renderFamilyHubPage();
@@ -65455,6 +65878,20 @@ document.addEventListener("click", async (event) => {
     saveFormsProgramTemplates(formsProgramTemplates().filter((item) => String(item.id) !== String(templateId)));
     showActionFeedback("Template removed.");
     renderHomeDaycareHubPage({ refreshHouseholds: false });
+    return;
+  }
+
+  const duplicateTemplateBtn = event.target.closest("[data-duplicate-form-template]");
+  if (duplicateTemplateBtn) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    try {
+      const copy = duplicateFormTemplate(duplicateTemplateBtn.dataset.duplicateFormTemplate);
+      showActionFeedback(`Duplicated as “${copy.title}”. Customize it, then assign.`);
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+    } catch (error) {
+      showActionFeedback(error.message || "Could not duplicate template.");
+    }
     return;
   }
 
@@ -73867,8 +74304,12 @@ document.addEventListener("submit", async (event) => {
       return;
     }
     const data = collectFormData(event.target);
+    const mode = String(data.assignMode || event.target.querySelector('[name="assignMode"]')?.value || "children");
     const childIds = Array.from(event.target.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
-    assignAndNotifyForm({
+    const staffEmails = Array.from(event.target.querySelectorAll('input[name="staffEmails"]:checked')).map((input) => input.value);
+    const householdIds = Array.from(event.target.querySelectorAll('input[name="householdIds"]:checked')).map((input) => input.value);
+    const classroomId = String(data.classroomId || "").trim();
+    const formSpec = {
       title: template.title,
       category: template.category,
       body: template.body,
@@ -73877,14 +74318,24 @@ document.addEventListener("submit", async (event) => {
       resourceId: template.resourceId || "",
       templateId: template.id,
       dueDate: data.dueDate || "",
-      shareWithFamily: event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
+      shareWithFamily: mode === "staff" ? false : event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
+      requiresSignature: event.target.querySelector('[name="requiresSignature"]')?.checked !== false,
       notes: "Assigned from program template.",
-    }, childIds)
+    };
+    assignFormByTarget(formSpec, {
+      mode,
+      childIds,
+      staffEmails,
+      householdIds,
+      classroomId,
+      households: window.__llhFamilyHouseholdsCache || [],
+    })
       .then((saved) => {
         const refreshed = Number(saved.refreshedCount || 0);
+        const who = mode === "staff" ? "staff member" : "child";
         const message = refreshed
           ? `Updated existing assignment for “${template.title}” (${refreshed} already open — no duplicate created).`
-          : `Assigned “${template.title}” to ${saved.length} child${saved.length === 1 ? "" : "ren"}.`;
+          : `Assigned “${template.title}” to ${saved.length} ${who}${saved.length === 1 ? "" : "s"}.`;
         showActionFeedback(message);
         renderHomeDaycareHubPage({ refreshHouseholds: false });
       })

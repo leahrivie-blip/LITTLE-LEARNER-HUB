@@ -14273,6 +14273,7 @@ async function handleChildData(request, response) {
 const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const familyHubLib = require("./family-hub-lib");
+const formsLib = require("./forms-lib");
 const LLH_ALLOW_EPHEMERAL_FAMILY_HUB = ["1", "true", "yes", "on"].includes(
   String(process.env.LLH_ALLOW_EPHEMERAL_FAMILY_HUB || "").trim().toLowerCase(),
 );
@@ -15575,6 +15576,7 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
     || household.email
     || "Parent",
   ).trim().slice(0, 120);
+  const signedRole = String(body?.signedRole || body?.relationship || "guardian").trim().slice(0, 80) || "guardian";
   const now = new Date().toISOString();
   let updatedDoc = null;
 
@@ -15599,22 +15601,29 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
       return true;
     });
     if (index >= 0) {
-      const previousBody = String(docs[index].draftText || docs[index].bodyText || docs[index].signedSnapshot || "").trim();
-      docs[index] = {
-        ...docs[index],
-        status: "signed",
-        statusLabel: "Signed — provider review",
-        signedAt: now,
-        signedBy: signerName,
-        updatedAt: now,
-        providerReviewed: false,
-        signedSnapshot: previousBody || String(docs[index].notes || "").trim(),
-        notes: String(docs[index].notes || "").trim()
-          || "Parent signed this form in Family Hub (testing acknowledgment).",
-      };
-      childData.Documents = docs;
-      programOwnership.writeProgramChildData(store, context, childData);
-      updatedDoc = docs[index];
+      const current = docs[index];
+      // Idempotent: same signer + same body hash → return existing signature (no duplicate).
+      const bodyText = String(current.draftText || current.bodyText || current.signedSnapshot || "").trim();
+      const currentHash = String(current.bodyHash || formsLib.hashFormBody(bodyText));
+      if (current.signedAt && String(current.signedBodyHash || current.bodyHash || "") === currentHash) {
+        updatedDoc = current;
+      } else {
+        const signature = formsLib.buildSignatureRecord({
+          ...current,
+          draftText: bodyText,
+          bodyHash: currentHash,
+          contentVersion: Number(current.contentVersion || 1),
+        }, { signerName, signedRole, signedAt: now });
+        docs[index] = {
+          ...current,
+          ...signature,
+          notes: String(current.notes || "").trim()
+            || "Parent signed this form in Family Hub (testing acknowledgment).",
+        };
+        childData.Documents = docs;
+        programOwnership.writeProgramChildData(store, context, childData);
+        updatedDoc = docs[index];
+      }
     }
   }
 
@@ -15630,10 +15639,11 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   if (householdIndex >= 0) {
     householdDocs[householdIndex] = {
       ...householdDocs[householdIndex],
-      status: "signed",
-      statusLabel: "Signed",
-      signedAt: now,
-      signedBy: signerName,
+      status: updatedDoc?.status || formsLib.FORM_STATUSES.SUBMITTED,
+      statusLabel: updatedDoc?.statusLabel || formsLib.formStatusLabel(formsLib.FORM_STATUSES.SUBMITTED),
+      signedAt: updatedDoc?.signedAt || now,
+      signedBy: updatedDoc?.signedBy || signerName,
+      signedRole: updatedDoc?.signedRole || signedRole,
       updatedAt: now,
     };
     household.documents = householdDocs;
@@ -15644,13 +15654,16 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
       childId: updatedDoc.childId,
       title: updatedDoc.title,
       category: updatedDoc.category,
-      status: "signed",
-      statusLabel: "Signed",
-      signedAt: now,
-      signedBy: signerName,
+      status: updatedDoc.status || formsLib.FORM_STATUSES.SUBMITTED,
+      statusLabel: updatedDoc.statusLabel || "Submitted",
+      signedAt: updatedDoc.signedAt || now,
+      signedBy: updatedDoc.signedBy || signerName,
+      signedRole: updatedDoc.signedRole || signedRole,
       updatedAt: now,
       notes: updatedDoc.notes || "",
       shareWithFamily: true,
+      bodyHash: updatedDoc.bodyHash || "",
+      contentVersion: updatedDoc.contentVersion || 1,
     });
     household.documents = householdDocs;
   }
@@ -15690,6 +15703,88 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
     ok: true,
     testingOnly: true,
     document: familyHubLib.publicFamilyDocument(updatedDoc),
+  });
+}
+
+/** Phase 7: parent save-progress (in_progress) without signing — household-scoped. */
+async function handleFamilyHubDocumentProgress(request, response, documentId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const id = String(documentId || "").trim();
+  if (!id) {
+    jsonResponse(response, 400, { error: "Missing form id." });
+    return;
+  }
+  let body = {};
+  try { body = await readJson(request); } catch (_error) { body = {}; }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const childIds = familyHubHouseholdChildIdSet(household);
+  const progressText = String(body?.progressText || body?.draftResponse || "").trim().slice(0, 12000);
+  const now = new Date().toISOString();
+
+  const ownerEmail = normalizeEmail(household.ownerEmail);
+  const ownerUser = store.users?.[ownerEmail] || { email: ownerEmail };
+  let context = null;
+  try {
+    context = programOwnership.resolveProgramContext(store, {
+      email: ownerEmail,
+      uid: ownerUser.firebaseUid || ownerUser.uid || "",
+    });
+  } catch (_error) {
+    context = null;
+  }
+  if (!context?.ok) {
+    jsonResponse(response, 404, { error: "That form was not found for your household." });
+    return;
+  }
+  const saved = programOwnership.readProgramChildData(store, context);
+  const childData = saved?.data && typeof saved.data === "object" ? { ...saved.data } : {};
+  const docs = Array.isArray(childData.Documents) ? [...childData.Documents] : [];
+  const index = docs.findIndex((doc) => (
+    String(doc?.id || "") === id
+    && childIds.has(String(doc?.childId || ""))
+    && (doc?.shareWithFamily === true || doc?.shareWithFamily === "true")
+  ));
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "That form was not found for your household." });
+    return;
+  }
+  const current = docs[index];
+  if (current.signedAt || formsLib.normalizeFormStatus(current.status) === formsLib.FORM_STATUSES.COMPLETED) {
+    jsonResponse(response, 409, { error: "This form is already submitted. Ask your provider if you need changes." });
+    return;
+  }
+  // Do not overwrite draftText (provider form body) — store parent progress separately.
+  docs[index] = {
+    ...current,
+    parentProgressText: progressText,
+    status: formsLib.FORM_STATUSES.IN_PROGRESS,
+    statusLabel: formsLib.formStatusLabel(formsLib.FORM_STATUSES.IN_PROGRESS),
+    lastParentSaveAt: now,
+    updatedAt: now,
+    viewedAt: current.viewedAt || now,
+  };
+  childData.Documents = docs;
+  programOwnership.writeProgramChildData(store, context, childData);
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not save progress.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    document: familyHubLib.publicFamilyDocument(docs[index]),
   });
 }
 
@@ -28286,6 +28381,12 @@ const server = http.createServer(async (request, response) => {
         url.pathname.slice("/api/family-hub/documents/".length, -"/acknowledge".length),
       );
       return await handleFamilyHubDocumentAcknowledge(request, response, documentId);
+    }
+    if (request.method === "POST" && url.pathname.startsWith("/api/family-hub/documents/") && url.pathname.endsWith("/progress")) {
+      const documentId = decodeURIComponent(
+        url.pathname.slice("/api/family-hub/documents/".length, -"/progress".length),
+      );
+      return await handleFamilyHubDocumentProgress(request, response, documentId);
     }
     if (request.method === "POST" && url.pathname === "/api/family-hub/logout") return await handleFamilyHubLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/storage") return handleFamilyHubStorageStatus(request, response);

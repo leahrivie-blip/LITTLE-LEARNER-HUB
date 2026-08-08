@@ -23066,9 +23066,66 @@ body.hdh-persona-parent .main {
   min-height: 42px;
 }
 
+.hdh-form-source-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #355a3a;
+  background: #e7f2e8;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.fh-form-progress,
+.fh-form-pre {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.fh-form-progress {
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid #c9d2c4;
+  border-radius: 8px;
+  margin: 8px 0 12px;
+}
+
+.fh-form-pre {
+  white-space: pre-wrap;
+  overflow-x: auto;
+  padding: 12px;
+  background: #f7f5ef;
+  border-radius: 8px;
+}
+
 @media (max-width: 720px) {
   .hdh-forms-filters {
     grid-template-columns: 1fr;
+  }
+
+  .fh-form-progress,
+  .hdh-forms-filters input,
+  .hdh-forms-filters select,
+  .hdh-assign-template-form input,
+  .hdh-assign-template-form select,
+  .hdh-assign-template-form textarea {
+    min-height: 44px;
+    font-size: 16px; /* avoid iOS zoom */
+  }
+
+  .fh-account-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  .fh-account-actions .primary-button,
+  .fh-account-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
   }
 }
 

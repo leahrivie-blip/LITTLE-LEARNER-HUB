@@ -168,7 +168,7 @@ function overlayLiveChildren(householdChildren = [], childData = null, childIds 
 function documentNeedsParentAction(status = "") {
   const key = String(status || "").trim().toLowerCase();
   if (!key) return true;
-  if (/signed|completed|on_file|on file|reviewed|archived/.test(key)) return false;
+  if (/signed|submitted|completed|on_file|on file|reviewed|archived|declined|expired/.test(key)) return false;
   return [
     "needed",
     "action needed",
@@ -180,12 +180,17 @@ function documentNeedsParentAction(status = "") {
     "notified",
     "assigned",
     "draft",
-  ].includes(key) || /action needed|awaiting|to sign|needs signature/.test(key);
+    "in_progress",
+    "in progress",
+    "viewed",
+    "needs_correction",
+    "needs correction",
+  ].includes(key) || /action needed|awaiting|to sign|needs signature|in progress|needs correction/.test(key);
 }
 
 function publicFamilyDocument(doc = {}) {
   const status = String(doc.status || "needed").trim() || "needed";
-  const signed = Boolean(doc.signedAt) || /^(signed|completed|on_file|on file|reviewed)\b/i.test(status);
+  const signed = Boolean(doc.signedAt) || /^(signed|submitted|completed|on_file|on file|reviewed)\b/i.test(status);
   const bodyText = String(doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "").trim();
   return {
     id: String(doc.id || ""),
@@ -196,13 +201,19 @@ function publicFamilyDocument(doc = {}) {
     statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
     notes: String(doc.notes || doc.summary || "").trim(),
     bodyText: bodyText.slice(0, 12000),
+    parentProgressText: String(doc.parentProgressText || "").trim().slice(0, 12000),
     dueDate: String(doc.dueDate || "").trim(),
+    assignedAt: String(doc.assignedAt || doc.createdAt || "").trim(),
     updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
     signedAt: String(doc.signedAt || "").trim(),
     signedBy: String(doc.signedBy || "").trim(),
+    signedRole: String(doc.signedRole || "").trim(),
+    contentVersion: Number(doc.contentVersion || 1),
+    bodyHash: String(doc.bodyHash || "").trim(),
     providerReviewed: Boolean(doc.providerReviewed),
     shareWithFamily: doc.shareWithFamily !== false,
     canAcknowledge: documentNeedsParentAction(status) && !signed,
+    canSaveProgress: documentNeedsParentAction(status) && !signed,
     viewOnly: !(documentNeedsParentAction(status) && !signed),
   };
 }
