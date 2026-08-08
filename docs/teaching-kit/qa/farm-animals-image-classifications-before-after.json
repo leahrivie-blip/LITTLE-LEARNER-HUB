@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-08-08T19:10:56.021Z",
+  "farmAnimalsFixture": "scripts/fixtures/teaching-kit/farm-animals-enrichment-slice2.json",
+  "legacyUniversalAssumption": {
+    "note": "Old wrong rule: every activity needs setup + finished example",
+    "missingSetup": 15,
+    "missingExample": 15,
+    "imageSlotsExpected": 30,
+    "falseImageGaps": 30
+  },
+  "beforeOwnerClassification": {
+    "note": "Unclassified = Needs owner classification (not missing images)",
+    "activityCount": 15,
+    "missingSetupPhotos": 0,
+    "missingExamplePhotos": 0,
+    "incompleteActivities": 15,
+    "needsOwnerClassification": 15,
+    "imageBlockers": 0,
+    "imageBlockerCodes": [],
+    "completionPercent": 36,
+    "premiumReadinessPercent": 43
+  },
+  "afterOwnerClassification": {
+    "note": "Owner classifications applied to fixture titles/aliases. Required/example_only slots without photos are real gaps, not false ones.",
+    "activityCount": 15,
+    "missingSetupPhotos": 1,
+    "missingExamplePhotos": 3,
+    "incompleteActivities": 15,
+    "needsOwnerClassification": 0,
+    "imageBlockers": 1,
+    "imageBlockerCodes": [
+      "missing_example_images"
+    ],
+    "completionPercent": 36,
+    "premiumReadinessPercent": 23
+  },
+  "disposableQaFixturePass": {
+    "fixture": "scripts/fixtures/teaching-kit/farm-animals-image-classifications.json",
+    "activityCount": 15,
+    "missingSetupPhotos": 0,
+    "missingExamplePhotos": 0,
+    "incompleteActivities": 0,
+    "needsOwnerClassification": 0,
+    "imageBlockers": 0,
+    "imageBlockerCodes": [],
+    "completionPercent": 91,
+    "premiumReadinessPercent": 93,
+    "expectedImageBlockers": 0
+  }
+}

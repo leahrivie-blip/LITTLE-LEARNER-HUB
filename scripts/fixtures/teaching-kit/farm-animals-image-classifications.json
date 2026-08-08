@@ -1,0 +1,242 @@
+{
+  "lessonPlan": {
+    "id": "cur-lp-qa-farm-animals-image-classifications",
+    "title": "QA — Farm Animals Image Classifications",
+    "age": "Preschool",
+    "theme": "Farm Animals",
+    "plan": "Free",
+    "status": "draft",
+    "disposableQaFixture": true,
+    "weeklyOverview": "Disposable Farm Animals fixture proving owner image classifications. Never publish. Never enable customer flags.",
+    "objectives": "Prove every Farm Animals image classification scores correctly without false image gaps.",
+    "vocabularyWords": "farm, barn, mud, mural, shelter, market, egg, groom",
+    "weeklyMaterials": "trays, bins, paint, cardboard, tongs, scarves, books, sorting cards, wash tubs, towels, cups, mats",
+    "familyConnection": "Ask which farm animal your child pretended to care for today.",
+    "books": [
+      {
+        "title": "Big Red Barn",
+        "author": "Margaret Wise Brown",
+        "whyThisBook": "Predictable farm vocabulary for preschoolers.",
+        "beforeReadingQuestions": ["What animals live on a farm?"],
+        "duringReadingPrompts": ["Point to the barn."],
+        "afterReadingQuestions": ["Which animal would you care for?"]
+      }
+    ],
+    "songs": [
+      {
+        "title": "Old MacDonald",
+        "rightsStatus": "public_domain",
+        "motions": "Tap knees for each animal sound.",
+        "teacherDirections": "Sing slowly and invite animal sounds."
+      }
+    ],
+    "resourceIds": ["cur-res-qa-farm-image-class-printable"],
+    "dailyPlans": {
+      "monday": {
+        "theme": "Notice and move",
+        "items": [
+          {
+            "itemId": "qa-farm-discovery",
+            "title": "Farm Animal Discovery Basket",
+            "activityCategory": "Open-Ended Exploration",
+            "imageRequirement": "not_needed",
+            "objective": "Notice farm animal props and words.",
+            "materials": "Basket\nFarm animals\nTray",
+            "setup": "Place animals in a basket on a low tray.",
+            "steps": "Invite children to explore and name animals.",
+            "teacherTips": ["Model one animal word, then listen."]
+          },
+          {
+            "itemId": "qa-farm-sound-circle",
+            "title": "Farm Sound & Motion Circle",
+            "activityCategory": "Circle Time",
+            "imageRequirement": "not_needed",
+            "objective": "Match animal sounds with simple motions.",
+            "materials": "None",
+            "setup": "Gather on the rug.",
+            "steps": "Sing and move with farm sounds.",
+            "teacherTips": ["Keep motions small for indoor circle."]
+          },
+          {
+            "itemId": "qa-farm-movement",
+            "title": "Barnyard Movement Trail",
+            "activityCategory": "Gross Motor",
+            "imageRequirement": "not_needed",
+            "objective": "Move like farm animals along a trail.",
+            "materials": "Floor spots",
+            "setup": "Mark a simple trail.",
+            "steps": "Hop, crawl, and stomp along the path.",
+            "teacherTips": ["Model one animal walk at a time."]
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "Sort and investigate",
+        "items": [
+          {
+            "itemId": "qa-farm-sorting",
+            "title": "Where Does It Belong? Farm Sorting",
+            "activityCategory": "Fine Motor",
+            "imageRequirement": "not_needed",
+            "objective": "Sort farm items into simple groups.",
+            "materials": "Sorting trays\nFarm cards",
+            "setup": "Offer two labeled trays.",
+            "steps": "Children sort and talk about where items belong.",
+            "teacherTips": ["Start with two categories only."]
+          },
+          {
+            "itemId": "qa-farm-muddy",
+            "title": "Muddy Animals Wash Laboratory",
+            "activityCategory": "STEM/Discovery",
+            "imageRequirement": "required",
+            "objective": "Wash muddy animals and notice clean vs muddy.",
+            "materials": "Tub\nWater\nSoap\nTowels\nPlastic animals\nTray",
+            "setup": "Stage a shallow wash tub with towels nearby.",
+            "steps": "Dip muddy animals, wash, and dry.",
+            "teacherTips": ["Keep water shallow and wipe spills."],
+            "setupImageUrl": "https://example.test/farm/muddy-setup.jpg",
+            "exampleImageUrl": "https://example.test/farm/muddy-example.jpg"
+          },
+          {
+            "itemId": "qa-farm-shelter",
+            "title": "Build an Animal Shelter STEM Challenge",
+            "activityCategory": "STEM/Discovery",
+            "imageRequirement": "required",
+            "objective": "Build a simple shelter for a farm animal figure.",
+            "materials": "Blocks\nCardboard\nTape\nAnimal figures",
+            "setup": "Offer blocks and cardboard on a clear table.",
+            "steps": "Plan, build, and test a small shelter.",
+            "teacherTips": ["Ask what the animal needs to stay dry."],
+            "setupImageUrl": "https://example.test/farm/shelter-setup.jpg",
+            "exampleImageUrl": "https://example.test/farm/shelter-example.jpg"
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Jobs and stories",
+        "items": [
+          {
+            "itemId": "qa-farm-market",
+            "title": "Preschool Farmers Market",
+            "activityCategory": "Dramatic Play",
+            "imageRequirement": "not_needed",
+            "objective": "Pretend to buy and sell farm foods.",
+            "materials": "Baskets\nPlay produce",
+            "setup": "Open a market table.",
+            "steps": "Shop, sell, and share farm foods.",
+            "teacherTips": ["Model polite market talk."]
+          },
+          {
+            "itemId": "qa-farm-milking",
+            "title": "Pretend Milking Fine-Motor Station",
+            "activityCategory": "Fine Motor",
+            "imageRequirement": "optional",
+            "objective": "Squeeze and pour at a pretend milking station.",
+            "materials": "Gloves\nTray\nCup",
+            "setup": "Stage a milking tray.",
+            "steps": "Squeeze, pour, and wipe spills.",
+            "teacherTips": ["Offer hand-over-hand if needed."]
+          },
+          {
+            "itemId": "qa-farm-story",
+            "title": "From Farm to Table Story Investigation",
+            "activityCategory": "Literacy",
+            "imageRequirement": "not_needed",
+            "objective": "Talk about how food travels from farm to table.",
+            "materials": "Picture book",
+            "setup": "Ready the book and discussion cards.",
+            "steps": "Read, pause, and ask farm-to-table questions.",
+            "teacherTips": ["Keep questions short and concrete."]
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Count, create, care",
+        "items": [
+          {
+            "itemId": "qa-farm-eggs",
+            "title": "Egg Collection Counting Challenge",
+            "activityCategory": "Early Math",
+            "imageRequirement": "not_needed",
+            "objective": "Collect and count pretend eggs.",
+            "materials": "Egg carton\nCounters",
+            "setup": "Place carton and counters on a tray.",
+            "steps": "Collect, count, and compare.",
+            "teacherTips": ["Count aloud together."]
+          },
+          {
+            "itemId": "qa-farm-mural",
+            "title": "Collaborative Animal-Track Mural",
+            "activityCategory": "Art",
+            "imageRequirement": "example_only",
+            "objective": "Make animal-track marks on a shared mural.",
+            "materials": "Paper roll\nPaint\nTrays",
+            "setup": "Tape mural paper and stage paint trays.",
+            "steps": "Stamp tracks and talk about animals.",
+            "teacherTips": ["Show one finished track sample."],
+            "exampleImageUrl": "https://example.test/farm/mural-example.jpg"
+          },
+          {
+            "itemId": "qa-farm-grooming",
+            "title": "Grooming and Caring for Animals",
+            "activityCategory": "Circle Time",
+            "imageRequirement": "not_needed",
+            "objective": "Practice gentle care motions with animal props.",
+            "materials": "Soft brushes\nStuffed animals",
+            "setup": "Pass brushes and animals in a circle.",
+            "steps": "Brush gently and use care words.",
+            "teacherTips": ["Model soft hands."]
+          }
+        ]
+      },
+      "friday": {
+        "theme": "Celebrate and listen",
+        "items": [
+          {
+            "itemId": "qa-farm-mystery",
+            "title": "Mystery Farm Sound Game",
+            "activityCategory": "Open-Ended Exploration",
+            "imageRequirement": "not_needed",
+            "objective": "Guess farm animals from sounds.",
+            "materials": "Sound cards",
+            "setup": "Ready sound cues.",
+            "steps": "Listen, guess, and move like the animal.",
+            "teacherTips": ["Replay each sound once."]
+          },
+          {
+            "itemId": "qa-farm-design",
+            "title": "Design Our Class Farm",
+            "activityCategory": "Art",
+            "imageRequirement": "example_only",
+            "objective": "Arrange a class farm map with simple materials.",
+            "materials": "Paper\nBlocks\nAnimal figures",
+            "setup": "Offer a large paper farm base.",
+            "steps": "Place barns, paths, and animals together.",
+            "teacherTips": ["Photograph the finished class farm."],
+            "exampleImageUrl": "https://example.test/farm/class-farm-example.jpg"
+          },
+          {
+            "itemId": "qa-farm-celebration",
+            "title": "Barnyard Story and Movement Celebration",
+            "activityCategory": "Circle Time",
+            "imageRequirement": "not_needed",
+            "objective": "Retell favorite farm moments with movement.",
+            "materials": "None",
+            "setup": "Gather for celebration circle.",
+            "steps": "Share, move, and sing a goodbye farm verse.",
+            "teacherTips": ["Keep the share circle short."]
+          }
+        ]
+      }
+    }
+  },
+  "resources": [
+    {
+      "id": "cur-res-qa-farm-image-class-printable",
+      "title": "QA Farm Image Classification Printable",
+      "status": "published",
+      "type": "printable",
+      "resourceCategory": "Classroom Resources"
+    }
+  ]
+}

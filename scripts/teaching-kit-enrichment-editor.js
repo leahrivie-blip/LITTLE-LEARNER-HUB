@@ -1756,27 +1756,34 @@
           </div>
           <section class="tk-enrich-card-block" data-image-requirement-block>
             <h4>Image requirement</h4>
-            <p class="muted-copy">Based on instructional value — not every activity needs photos. Existing images are kept even when marked Optional or Not needed. Briefs never count as photos.</p>
+            <p class="muted-copy">Owner-controlled. Based on instructional value — not every activity needs photos. Existing images are kept even when marked Optional or No image needed. Briefs never count as photos. Unclassified activities do not create missing-image blockers.</p>
             <label class="muted-copy" for="tk-image-requirement-${esc(key)}">Requirement for this activity</label>
             <select id="tk-image-requirement-${esc(key)}" data-image-requirement>
-              ${(enrich.IMAGE_REQUIREMENT_VALUES || ["required", "setup_only", "example_only", "optional", "not_needed"]).map((value) => {
+              <option value="" ${!view.ownerClassified ? "selected" : ""}>Needs owner classification</option>
+              ${(enrich.IMAGE_REQUIREMENT_OWNER_OPTIONS || ["not_needed", "example_only", "setup_only", "required", "optional"]).map((value) => {
                 const label = (enrich.IMAGE_REQUIREMENT_LABELS && enrich.IMAGE_REQUIREMENT_LABELS[value])
                   || value;
-                const selected = view.imageRequirement === value ? "selected" : "";
+                const selected = view.ownerClassified && view.imageRequirement === value ? "selected" : "";
                 return `<option value="${esc(value)}" ${selected}>${esc(label)}</option>`;
               }).join("")}
             </select>
+            ${view.recommendedImageRequirement
+              ? `<p class="muted-copy" data-image-requirement-recommendation>AI recommendation (not applied): <strong>${esc(view.recommendedImageRequirementLabel || view.recommendedImageRequirement)}</strong>${view.imageRequirementAiSuggestion ? ` · saved suggestion: ${esc(enrich.imageRequirementLabel?.(view.imageRequirementAiSuggestion) || view.imageRequirementAiSuggestion)}` : ""}</p>`
+              : ""}
           </section>
           <div class="tk-enrich-photo-grid" data-activity-images>
+            ${view.imageSlots?.needsOwnerClassification && !view.setupImageUrl && !view.exampleImageUrl
+              ? `<p class="muted-copy" data-images-needs-classification>Needs owner classification — classify above before treating empty photos as gaps. Empty sections stay hidden from customers and print.</p>`
+              : ""}
             ${view.imageSlots?.imagesNotNeeded && !view.setupImageUrl && !view.exampleImageUrl
-              ? `<p class="muted-copy" data-images-not-needed>Photos not needed for this activity. Change the requirement above if you still want to upload.</p>`
+              ? `<p class="muted-copy" data-images-not-needed>No image needed for this activity. Change the requirement above if you still want to upload.</p>`
               : ""}
             ${view.imageSlots?.imagesNotNeeded && (view.setupImageUrl || view.exampleImageUrl)
               ? `<p class="muted-copy">Photos are not required, but existing uploads are preserved.</p>`
               : ""}
             ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional || view.setupImageUrl
               ? photoZoneHtml(
-                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded
+                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded || view.imageSlots?.needsOwnerClassification
                   ? "Setup photo (optional)"
                   : "Setup photo (before)",
                 "setupImageUrl",
@@ -1786,7 +1793,7 @@
               : ""}
             ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional || view.exampleImageUrl
               ? photoZoneHtml(
-                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded
+                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded || view.imageSlots?.needsOwnerClassification
                   ? "Finished example (optional)"
                   : "Finished example (after)",
                 "exampleImageUrl",
@@ -3920,11 +3927,18 @@
         if (!act) return;
         const key = draftKey(act);
         const draftAct = ensureDraftActivity(key);
-        const next = api().normalizeImageRequirement
-          ? api().normalizeImageRequirement(event.target.value)
-          : String(event.target.value || "").trim();
-        draftAct.imageRequirement = next || "required";
-        state.statusText = `Image requirement set to ${api().imageRequirementLabel?.(draftAct.imageRequirement) || draftAct.imageRequirement}.`;
+        const raw = String(event.target.value || "").trim();
+        if (!raw) {
+          // Owner cleared classification → needs owner classification (not a missing-image gap).
+          delete draftAct.imageRequirement;
+          state.statusText = "Image requirement cleared — Needs owner classification.";
+        } else {
+          const next = api().normalizeImageRequirement
+            ? api().normalizeImageRequirement(raw)
+            : raw;
+          draftAct.imageRequirement = next || "";
+          state.statusText = `Image requirement set to ${api().imageRequirementLabel?.(draftAct.imageRequirement) || draftAct.imageRequirement}.`;
+        }
         markDirty();
         render();
       }

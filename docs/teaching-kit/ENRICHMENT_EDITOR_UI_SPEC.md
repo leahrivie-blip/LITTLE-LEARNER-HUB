@@ -168,18 +168,23 @@ No long single-page form.
 | --- | --- |
 | **Not Started** | No enrichment fields/photos set beyond legacy text |
 | **In Progress** | Some enrichment (e.g. one photo or tips) but not activity-complete |
-| **Complete** | Required image slots for this activity’s **image requirement** **and** ≥1 teacher tip. Image requirement options: Required (setup + finished example), Setup image only, Finished example only, Optional, Not needed. Optional / Not needed may Complete without photos and never create image blockers. Briefs never count as photos. |
+| **Complete** | Required image slots for this activity’s **owner image requirement** **and** ≥1 teacher tip. Options: No image needed, Finished example only, Setup image only, Setup + finished example, Optional. Activities without an owner decision stay **Needs owner classification** — that temporary state is not a missing-image gap and does not create image blockers. Briefs never count as photos. |
 
 Statuses visible at a glance — no need to open each card.
 
-### Image requirement (instructional value)
+### Image requirement (owner-controlled)
 
-Each activity has an `imageRequirement` field. Defaults:
+Each activity has an owner-controlled `imageRequirement` field. AI may **recommend** a value but must never change the owner’s selection automatically. Do not bulk-guess requirements across the curriculum.
 
-- **Required** — Art, Sensory, STEM, Dramatic Play, printables, complicated hands-on setups  
-- **Optional / Not needed** — Circle time, songs, book discussions, simple movement, transitions, obvious games  
+Guidance (recommendations only):
 
-Existing uploaded images are never removed when the requirement is relaxed.
+- **Finished example** — Art, crafts, construction, murals, visual final products  
+- **Setup image** — Complicated classroom invitations / unfamiliar material arrangements  
+- **No image needed** — Circle time, books, songs, discussions, movement, sound games, simple sorting/counting, self-explanatory dramatic play  
+- **Setup + finished example** — When both instructional cues are needed  
+- **Optional** — Photos help sometimes but must never block publish  
+
+Existing uploaded images are never removed when the requirement is relaxed. Empty image sections stay hidden from customers and print.
 
 ### Activity counter + navigation
 

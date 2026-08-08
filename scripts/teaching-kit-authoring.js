@@ -220,12 +220,12 @@
           <label>Image requirement
             <select data-curriculum-image-requirement>
               ${[
-                ["", "Default (by activity type)"],
-                ["required", "Required: setup and example"],
-                ["setup_only", "Setup image only"],
+                ["", "Needs owner classification"],
+                ["not_needed", "No image needed"],
                 ["example_only", "Finished example only"],
+                ["setup_only", "Setup image only"],
+                ["required", "Setup + finished example"],
                 ["optional", "Optional"],
-                ["not_needed", "Not needed"],
               ].map(([value, label]) => `
                 <option value="${esc(value)}" ${text(item.imageRequirement) === value ? "selected" : ""}>${esc(label)}</option>
               `).join("")}

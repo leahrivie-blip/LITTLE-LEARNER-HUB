@@ -454,6 +454,7 @@
       sectionId: mapCategory(categoryRaw),
       description: text(source.description),
       purpose: text(source.purpose || source.description),
+      imageRequirement: text(source.imageRequirement),
       examplePhotoUrl,
       setupPhotoUrl,
       // Preserve storage field names for enrichment round-trips / debugging.

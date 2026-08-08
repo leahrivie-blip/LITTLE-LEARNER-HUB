@@ -748,8 +748,8 @@
         section: "variety",
         severity: "blocking",
         blocking: true,
-        message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need required photos for the activity’s image requirement, plus teacher tips).`,
-        suggestion: "Finish every activity’s required photos and tips before Publish Ready. Optional/Not needed activities can complete without images. Image briefs alone are not enough.",
+        message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need required photos for the owner’s image requirement, plus teacher tips).`,
+        suggestion: "Finish every activity’s required photos and tips before Publish Ready. Optional / No image needed / Needs owner classification never create missing-image blockers. Image briefs alone are not enough.",
         navigateTo: "activities:images",
       }));
     }

@@ -93,7 +93,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-1"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-1",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-monday-2",
@@ -119,7 +120,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-2"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-2",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-monday-3",
@@ -145,7 +147,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-3"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-3",
+            "imageRequirement": "not_needed"
           }
         ]
       },
@@ -189,7 +192,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-1"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-1",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-tuesday-2",
@@ -215,7 +219,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-2"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-2",
+            "imageRequirement": "required"
           },
           {
             "itemId": "item-preschool-farm-animals-tuesday-3",
@@ -241,7 +246,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-3"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-3",
+            "imageRequirement": "example_only"
           }
         ]
       },
@@ -285,7 +291,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-1"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-1",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-wednesday-2",
@@ -311,7 +318,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-2"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-2",
+            "imageRequirement": "optional"
           },
           {
             "itemId": "item-preschool-farm-animals-wednesday-3",
@@ -337,7 +345,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-3"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-3",
+            "imageRequirement": "not_needed"
           }
         ]
       },
@@ -381,7 +390,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-1"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-1",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-thursday-2",
@@ -407,7 +417,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-2"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-2",
+            "imageRequirement": "example_only"
           },
           {
             "itemId": "item-preschool-farm-animals-thursday-3",
@@ -433,7 +444,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-3"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-3",
+            "imageRequirement": "not_needed"
           }
         ]
       },
@@ -477,7 +489,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-1"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-1",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-friday-2",
@@ -503,7 +516,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-2"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-2",
+            "imageRequirement": "not_needed"
           },
           {
             "itemId": "item-preschool-farm-animals-friday-3",
@@ -529,7 +543,8 @@
             "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
             "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
             "ageModifications": "",
-            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-3"
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-3",
+            "imageRequirement": "not_needed"
           }
         ]
       }
@@ -563,6 +578,116 @@
       "completeness": "complete",
       "completionPercent": 100,
       "schemaVersion": 1
+    },
+    "enrichmentDraft": {
+      "activities": {
+        "cur-act-27424046373b8597": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-da4798d216b6e094": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-625b54f22c49c7da": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-e14264deb203e7dc": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-8def0ce2cbc953aa": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-8deb2146a026fcc2": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-1953dc9a593cfc8f": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-c365a6b09e9d869d": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-76b015234ffc9cac": {
+          "imageRequirement": "example_only",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-e4fe79e92d9dcb52": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-07701b43fd761a1e": {
+          "imageRequirement": "example_only",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-01c1e912994395f7": {
+          "imageRequirement": "required",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-323344663ee9ef16": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-2211a60c5477985a": {
+          "imageRequirement": "not_needed",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        },
+        "cur-act-f764929f01edb2a8": {
+          "imageRequirement": "optional",
+          "setupImageUrl": "",
+          "exampleImageUrl": "",
+          "setupMediaAssetId": "",
+          "exampleMediaAssetId": ""
+        }
+      },
+      "week": {}
     }
   },
   "activities": [
@@ -596,7 +721,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-da4798d216b6e094",
@@ -628,7 +754,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-625b54f22c49c7da",
@@ -660,7 +787,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-e14264deb203e7dc",
@@ -692,7 +820,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-8def0ce2cbc953aa",
@@ -724,7 +853,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-8deb2146a026fcc2",
@@ -756,7 +886,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-1953dc9a593cfc8f",
@@ -788,7 +919,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-c365a6b09e9d869d",
@@ -820,7 +952,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-76b015234ffc9cac",
@@ -852,7 +985,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "example_only"
     },
     {
       "id": "cur-act-e4fe79e92d9dcb52",
@@ -884,7 +1018,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-07701b43fd761a1e",
@@ -916,7 +1051,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "example_only"
     },
     {
       "id": "cur-act-01c1e912994395f7",
@@ -948,7 +1084,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "required"
     },
     {
       "id": "cur-act-323344663ee9ef16",
@@ -980,7 +1117,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-2211a60c5477985a",
@@ -1012,7 +1150,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "not_needed"
     },
     {
       "id": "cur-act-f764929f01edb2a8",
@@ -1044,7 +1183,8 @@
       "status": "published",
       "createdAt": "2026-08-03T12:09:35.347Z",
       "updatedAt": "2026-08-03T12:09:35.347Z",
-      "publishedAt": "2026-01-01T00:00:00.000Z"
+      "publishedAt": "2026-01-01T00:00:00.000Z",
+      "imageRequirement": "optional"
     }
   ],
   "enrichmentDraft": {
