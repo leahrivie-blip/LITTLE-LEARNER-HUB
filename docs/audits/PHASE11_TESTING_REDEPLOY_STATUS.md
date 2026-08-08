@@ -24,7 +24,7 @@
 | Testing HDH | `homeDaycareHubTesting: true` |
 | Production shell | `20260808-cookie-cta` |
 | Production HDH | `homeDaycareHubTesting: false` |
-| Agent `RENDER_API_KEY` | **Not available** — owner must redeploy via Render Dashboard or local `npm run deploy:testing-only-phase11` |
+| Agent `RENDER_API_KEY` | **MISSING in this cloud agent** — deploy attempt failed with `RENDER_API_KEY missing`. See `PHASE11_OWNER_REVIEW_BLOCKER.md`. |
 
 ---
 
