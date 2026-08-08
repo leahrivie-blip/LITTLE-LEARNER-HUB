@@ -47,6 +47,58 @@ function main() {
   ok(report.publishReadinessLabel === "Blocked", "Blocked label");
   ok((report.blockingIssues || []).length >= 2, "serious gaps elevated to blockers");
 
+  // Draft printable never clears printables gate; briefs never clear images.
+  const draftPrintPlan = {
+    id: "qa-draft-print",
+    title: "QA Draft Print",
+    theme: "Weather",
+    age: "Preschool",
+    weeklyOverview: "Cloud watching week with outdoor invitations for preschoolers.",
+    objectives: "Notice cloud shapes through play.",
+    books: [{ title: "Cloud Book", author: "A" }],
+    songs: [{ title: "Rain Song" }],
+    resourceIds: ["res-draft"],
+    weeklyMaterials: "paper, crayons",
+    enrichmentDraft: {
+      week: {
+        books: [{ title: "Cloud Book", author: "A" }],
+        songs: [{ title: "Rain Song" }],
+        printableIds: ["res-draft"],
+        weeklyMaterials: "paper, crayons",
+      },
+      activities: {
+        a1: {
+          teacherTips: ["Offer binoculars."],
+          imageBriefSetup: "Blanket outside",
+          imageBriefExample: "Child pointing up",
+        },
+      },
+    },
+    dailyPlans: {
+      monday: { theme: "Watch clouds", items: [{ id: "a1", title: "Cloud Watch" }] },
+      tuesday: { theme: "Draw clouds", items: [] },
+      wednesday: { theme: "Cloud walk", items: [] },
+      thursday: { theme: "Rain talk", items: [] },
+      friday: { theme: "Family sky share", items: [] },
+    },
+  };
+  const draftResources = [{ id: "res-draft", status: "draft", title: "Draft cards", type: "printable" }];
+  const evaluated = quality.evaluateTeachingKit(
+    draftPrintPlan,
+    [{ id: "a1", title: "Cloud Watch" }],
+    draftPrintPlan.enrichmentDraft,
+    { resources: draftResources },
+  );
+  ok(evaluated.blocksPublish === true, "draft printable kit blocked");
+  ok(evaluated.blocking === "Blocked", "library status Blocked");
+  ok(evaluated.workflow !== "Publish Ready", "not Publish Ready while Blocked");
+  ok(evaluated.blockingIssues.some((b) => b.code === "draft_printables_only" || b.code === "missing_printables"), "draft printable blocker");
+  ok(evaluated.blockingIssues.some((b) => b.code === "image_brief_not_image" || b.code === "missing_example_images"), "brief image blocker");
+  ok(evaluated.blockingIssues.some((b) => b.code === "activities_in_progress"), "in-progress activity blocker");
+  ok(evaluated.blockingIssues.some((b) => b.code === "incomplete_books"), "missing book questions blocker");
+  ok(evaluated.blockingIssues.some((b) => b.code === "weak_materials"), "weak materials blocker");
+  ok(evaluated.blockingIssues.every((b) => String(b.message || "").length > 8), "plain-language blockers");
+
   // AI validation rejects bad future output without touching curriculum
   const bad = enrichmentAi.filterValidatedSuggestions([
     { category: "teacher_tips", proposedText: "TODO: engage learners and unlock potential!!!" },

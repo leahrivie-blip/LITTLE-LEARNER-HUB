@@ -28,6 +28,7 @@ function samplePlan() {
     observationOpportunities: "Watch for sorting skills.",
     weeklyMaterials: "bins, animals",
     resourceIds: ["res-1"],
+    // Catalog entry required — bare ids never count as published printables.
     dailyPlans: {
       monday: {
         theme: "Color sorting at the barn",
@@ -93,10 +94,18 @@ function completeToolkit() {
   };
 }
 
+function publishedResources() {
+  return [{ id: "res-1", title: "Farm printable", status: "published", type: "printable" }];
+}
+
 function main() {
   const plan = samplePlan();
   const acts = enrichment.flattenLessonActivities(plan, []);
+  const resources = publishedResources();
   assert.equal(acts.length, 6, "flattens weekday activities");
+  assert.equal(enrichment.hasLinkedPrintable(plan, {}, resources), true, "published resource counts");
+  assert.equal(enrichment.hasLinkedPrintable(plan, {}, [{ id: "res-1", status: "draft" }]), false, "draft resource does not count");
+  assert.equal(enrichment.hasLinkedPrintable(plan, {}, []), false, "bare id without catalog does not count");
 
   assert.equal(enrichment.activityStatus(acts[0], null), "not_started");
   assert.equal(
@@ -124,7 +133,7 @@ function main() {
   const firstIncomplete = enrichment.firstIncompleteActivityIndex(acts, draft.activities);
   assert.equal(firstIncomplete, 1, "skips first complete activity");
 
-  const baselineScores = enrichment.computeReadinessScores(plan, [], null);
+  const baselineScores = enrichment.computeReadinessScores(plan, [], null, { resources });
   const pct0 = baselineScores.completionPercent;
   // Title-only books/songs + incomplete toolkit keep structural % intentionally low (#540).
   assert.ok(pct0 < 45, `baseline structural percent stays below Enriched (${pct0})`);
@@ -138,7 +147,7 @@ function main() {
     week: {
       weeklyOverview: "A week of farm fun with sorting, songs, and outdoor play for preschoolers.",
       objectives: "Explore farm animals through play, songs, and peer sorting talk.",
-      weeklyMaterials: "bins, animals, tongs, trays, cups",
+      weeklyMaterials: "bins, animals, tongs, trays, cups, mats",
       teacherPreparation: "Stage trays before arrival.",
       books: [completeBook()],
       songs: [completeSong()],
@@ -160,7 +169,7 @@ function main() {
       outdoorAlternatives: "Take the sort mats outdoors.",
     }])),
   };
-  const richScores = enrichment.computeReadinessScores(plan, [], richDraft);
+  const richScores = enrichment.computeReadinessScores(plan, [], richDraft, { resources });
   const pctRich = richScores.completionPercent;
   assert.ok(pctRich >= 90, `rich structural enrichment near complete (${pctRich})`);
   assert.ok(richScores.premiumReadinessPercent >= 90, `rich premium readiness (${richScores.premiumReadinessPercent})`);
@@ -206,7 +215,7 @@ function main() {
   assert.equal(mondayItem.setupImageUrl, "https://x.test/a.jpg");
   assert.ok(merged.plan.teachingKit?.completionPercent >= 0);
 
-  const upgrade = enrichment.buildUpgradeSummary(plan, [], null);
+  const upgrade = enrichment.buildUpgradeSummary(plan, [], null, { resources, skipQualityAttach: true });
   assert.equal(upgrade.completenessLabel, "Legacy");
   assert.equal(upgrade.incompleteActivities, 6);
   assert.equal(upgrade.missingSetupPhotos, 6);
@@ -227,7 +236,7 @@ function main() {
     updatedAt: "2026-08-03T12:00:00.000Z",
     lastEditedBy: "owner@example.com",
     ...richDraft,
-  });
+  }, { resources, skipQualityAttach: true });
   assert.ok(richSummary.completionPercent >= 90, `rich summary percent (${richSummary.completionPercent})`);
   assert.equal(richSummary.incompleteActivities, 0);
   assert.equal(richSummary.missingSetupPhotos, 0);

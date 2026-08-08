@@ -107,6 +107,8 @@
     needsReview = false,
     publishReadiness = "",
     hasAiProposal = false,
+    qualityBlocked = false,
+    blocking = "",
   } = {}) {
     const cms = text(lessonStatus).toLowerCase() || "draft";
     if (cms === "archived") return "Archived";
@@ -116,6 +118,14 @@
       ? fill
       : clampPercent(premiumReadinessPercent);
     const readiness = text(publishReadiness).toLowerCase();
+    const blocked = Boolean(qualityBlocked)
+      || readiness === "blocked"
+      || /^blocked$/i.test(text(blocking));
+
+    // Hard rule: Publish Ready / Ready for Owner can never appear while blocked.
+    if (blocked) {
+      return "Needs Changes";
+    }
 
     // "Published" describes CMS published state — not Teaching Kit draft completeness.
     if (["published", "featured"].includes(cms) && !hasEnrichmentDraft && readiness === "ready" && premium >= 90 && coverageComplete) {
@@ -124,11 +134,11 @@
     if (readiness === "ready" && premium >= 90 && coverageComplete && !hasEnrichmentDraft) {
       return "Publish Ready";
     }
-    if (readiness === "ready" && hasEnrichmentDraft) {
+    if (readiness === "ready" && hasEnrichmentDraft && premium >= 90 && coverageComplete) {
       return "Ready for Owner Review";
     }
-    if (readiness === "blocked" || (needsReview && premium < 70)) {
-      return hasEnrichmentDraft ? "Needs Changes" : "Needs Changes";
+    if (needsReview && premium < 70) {
+      return "Needs Changes";
     }
     if (hasAiProposal) return "AI Draft Ready";
     if (
@@ -180,6 +190,12 @@
       : "Not reviewed";
 
     const blocking = blockingStateFromReport(qualityReport);
+    const qualityBlocked = blocking === "Blocked"
+      || Boolean(qualityReport?.blocksPublish)
+      || text(qualityReport?.publishReadiness).toLowerCase() === "blocked";
+    const publishReadiness = qualityBlocked
+      ? "blocked"
+      : (qualityReport?.publishReadiness || summary.publishReadiness || "");
     const workflow = workflowStatusFromParts({
       lessonStatus: summary.lessonStatus || plan?.status,
       enrichmentFillPercent,
@@ -187,9 +203,15 @@
       hasEnrichmentDraft: Boolean(summary.hasEnrichmentDraft),
       coverageComplete: coverage.coverageComplete,
       needsReview: Boolean(summary.needsReview) || blocking !== "No blockers",
-      publishReadiness: qualityReport?.publishReadiness || summary.publishReadiness,
+      publishReadiness,
       hasAiProposal: Boolean(summary.hasAiProposal),
+      qualityBlocked,
+      blocking,
     });
+    // Final consistency: never surface Publish Ready while library reports Blocked.
+    const safeWorkflow = (qualityBlocked && /publish\s*ready|ready for owner/i.test(workflow))
+      ? "Needs Changes"
+      : workflow;
 
     return {
       content: {
@@ -206,14 +228,18 @@
         label: qualityLabel,
       },
       readiness: summary.readinessScores || null,
-      workflow,
+      workflow: safeWorkflow,
       blocking,
-      primaryStatus: workflow,
+      libraryStatus: blocking,
+      blocksPublish: qualityBlocked,
+      blockingIssues: asArray(qualityReport?.blockingIssues),
+      publishReadiness,
+      primaryStatus: safeWorkflow,
       // Back-compat aliases for older UI
-      dashboardStage: workflow === "Published" ? "Published"
-        : (workflow === "Publish Ready" || workflow === "Ready for Owner Review" ? "Ready"
-          : (workflow === "Draft Started" ? "In Progress"
-            : (workflow === "In Review" || workflow === "Needs Changes" || workflow === "AI Draft Ready" ? "Needs Review" : workflow))),
+      dashboardStage: safeWorkflow === "Published" ? "Published"
+        : (safeWorkflow === "Publish Ready" || safeWorkflow === "Ready for Owner Review" ? "Ready"
+          : (safeWorkflow === "Draft Started" ? "In Progress"
+            : (safeWorkflow === "In Review" || safeWorkflow === "Needs Changes" || safeWorkflow === "AI Draft Ready" ? "Needs Review" : safeWorkflow))),
       completionPercent: contentCompletionPercent,
       enrichmentFillPercent,
       premiumReadinessPercent,

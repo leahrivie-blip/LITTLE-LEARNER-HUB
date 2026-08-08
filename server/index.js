@@ -20546,11 +20546,28 @@ async function handleAdminCurriculumQualityReview(request, response) {
     const ignored = Array.isArray(body.ignoredCodes)
       ? body.ignoredCodes
       : (Array.isArray(draft?.week?.qualityReviewIgnored) ? draft.week.qualityReviewIgnored : []);
-    const report = qualityApi.buildQualityReport(plan, flat, draft, { ignoredCodes: ignored });
+    const resources = Array.isArray(curriculum.resources) ? curriculum.resources : [];
+    const evaluated = qualityApi.evaluateTeachingKit
+      ? qualityApi.evaluateTeachingKit(plan, flat, draft, { ignoredCodes: ignored, resources })
+      : null;
+    const report = evaluated?.report
+      || qualityApi.buildQualityReport(plan, flat, draft, { ignoredCodes: ignored, resources });
     jsonResponse(response, 200, {
       ok: true,
       action,
       report,
+      evaluation: evaluated
+        ? {
+          workflow: evaluated.workflow,
+          blocking: evaluated.blocking,
+          libraryStatus: evaluated.blocking,
+          blocksPublish: evaluated.blocksPublish,
+          publishReadiness: evaluated.publishReadiness,
+          premiumReadinessPercent: evaluated.premiumReadinessPercent,
+          completionPercent: evaluated.completionPercent,
+          blockingIssues: evaluated.blockingIssues,
+        }
+        : null,
       autoPublished: false,
       autoChanged: false,
     });
@@ -20571,8 +20588,10 @@ async function handleAdminCurriculumQualityReview(request, response) {
     const draft = body.enrichmentDraft && typeof body.enrichmentDraft === "object"
       ? body.enrichmentDraft
       : (plan.enrichmentDraft || {});
+    const resources = Array.isArray(curriculum.resources) ? curriculum.resources : [];
     const base = qualityApi.buildQualityReport(plan, flat, draft, {
       ignoredCodes: Array.isArray(body.ignoredCodes) ? body.ignoredCodes : [],
+      resources,
     });
     const decision = normalizedShortText(body.decision, 20).toLowerCase(); // ignore | pending | improved
     const report = qualityApi.applyIssueDecision(base, {
@@ -21152,7 +21171,11 @@ async function handlePublishEnrichment(request, response, ctx) {
       const ignored = Array.isArray(incomingDraft?.week?.qualityReviewIgnored)
         ? incomingDraft.week.qualityReviewIgnored
         : [];
-      const report = qualityApi.buildQualityReport(existingPlan, flat, incomingDraft, { ignoredCodes: ignored });
+      const resources = Array.isArray(existingCurriculum.resources) ? existingCurriculum.resources : [];
+      const report = qualityApi.buildQualityReport(existingPlan, flat, incomingDraft, {
+        ignoredCodes: ignored,
+        resources,
+      });
       if (report.blocksPublish) {
         const override = body?.ownerPublishOverride && typeof body.ownerPublishOverride === "object"
           ? body.ownerPublishOverride

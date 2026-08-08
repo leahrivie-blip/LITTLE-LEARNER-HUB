@@ -198,6 +198,9 @@
     "incomplete_books",
     "incomplete_songs",
     "image_brief_not_image",
+    "activities_in_progress",
+    "weak_materials",
+    "draft_printables_only",
   ]);
 
   const PUBLISH_READINESS = Object.freeze({
@@ -315,6 +318,8 @@
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
     const list = asArray(activities);
+    const resources = asArray(options.resources);
+    const scoreOptions = { resources };
     const ignored = new Set(
       asArray(options.ignoredCodes || week.qualityReviewIgnored || []).map((c) => text(c)),
     );
@@ -326,9 +331,12 @@
     let weekdayCoverageLabel = "";
     let contentCompletionPercent = 0;
     let upgradeSummary = null;
-    if (enrich?.buildUpgradeSummary) {
+    if (!options.skipUpgradeSummary && enrich?.buildUpgradeSummary) {
       try {
-        upgradeSummary = enrich.buildUpgradeSummary(plan, list, draft);
+        upgradeSummary = enrich.buildUpgradeSummary(plan, list, draft, {
+          resources,
+          skipQualityAttach: true,
+        });
         completionPercent = Number(upgradeSummary.enrichmentFillPercent ?? upgradeSummary.completionPercent) || 0;
         contentCompletionPercent = Number(upgradeSummary.contentCompletionPercent) || 0;
         weekdayCoverageLabel = String(upgradeSummary.weekdayCoverageLabel || upgradeSummary.weekdayCoverage?.label || "");
@@ -338,7 +346,7 @@
     }
     if (!upgradeSummary && enrich?.computeCompletionPercent) {
       try {
-        completionPercent = Number(enrich.computeCompletionPercent(plan, list, draft)) || 0;
+        completionPercent = Number(enrich.computeCompletionPercent(plan, list, draft, scoreOptions)) || 0;
         contentCompletionPercent = completionPercent;
       } catch (_error) {
         completionPercent = 0;
@@ -611,10 +619,13 @@
         && text(song?.rightsStatus || song?.copyrightStatus)
         && (text(song?.motions) || text(song?.teacherDirections)))
     ));
-    const linkedPrintables = asArray(plan?.resourceIds).length
-      || asArray(week.printableIds).length
-      || (week.linkedMasterResources && Object.keys(week.linkedMasterResources).length);
-    const printableIdeasOnly = !linkedPrintables && (
+    const printableLinked = enrichApi?.hasLinkedPrintable
+      ? enrichApi.hasLinkedPrintable(plan, week, scoreOptions)
+      : false;
+    const draftOnlyPrintables = enrichApi?.hasDraftOnlyPrintables
+      ? enrichApi.hasDraftOnlyPrintables(plan, week, scoreOptions)
+      : (asArray(plan?.resourceIds).length + asArray(week.printableIds).length > 0 && !printableLinked);
+    const printableIdeasOnly = !printableLinked && !draftOnlyPrintables && (
       asArray(week.printableIdeas).length || asArray(week.printablePacks).length
     );
 
@@ -634,8 +645,8 @@
         section: "books",
         severity: "blocking",
         blocking: true,
-        message: `${bookEntries.length - completeBooks.length} book(s) are title/author-only and missing discussion guides.`,
-        suggestion: "Require why-it-fits, before/during/after questions, vocabulary connection, and a substitute title.",
+        message: `${bookEntries.length - completeBooks.length} book(s) are missing discussion questions (before/during/after guides).`,
+        suggestion: "Add why-it-fits plus before/during/after discussion questions for every book before Publish Ready.",
         navigateTo: "week:books",
       }));
     }
@@ -660,16 +671,18 @@
         navigateTo: "week:songs",
       }));
     }
-    if (!linkedPrintables) {
+    if (!printableLinked) {
       findings.push(finding({
-        code: "missing_printables",
+        code: draftOnlyPrintables ? "draft_printables_only" : "missing_printables",
         section: "printables",
         severity: "blocking",
         blocking: true,
-        message: printableIdeasOnly
-          ? "Printable ideas exist, but no actual printable file/resource is linked."
-          : "Printables are missing — ideas alone never count as print-ready.",
-        suggestion: "Link a real printable resource (file or generated pack) with preview and print access.",
+        message: draftOnlyPrintables
+          ? "Linked printable(s) are still draft — draft printables do not count as published/usable printables."
+          : (printableIdeasOnly
+            ? "Printable ideas exist, but no published printable file/resource is linked."
+            : "Printables are missing — ideas and draft uploads never count as print-ready."),
+        suggestion: "Upload or link a printable and publish it (draft status must be cleared) before Publish Ready.",
         navigateTo: "week:printables",
       }));
     }
@@ -695,6 +708,33 @@
         navigateTo: "activities:images",
       }));
     }
+
+    // In Progress / incomplete activities always block Publish Ready.
+    let incompleteActivities = 0;
+    let activitiesInProgress = 0;
+    if (enrichApi?.activityStatus) {
+      list.forEach((act) => {
+        const key = text(act.id || act.itemId);
+        const status = enrichApi.activityStatus(act, draftActs[key] || {});
+        if (status !== "complete") incompleteActivities += 1;
+        if (status === "in_progress") activitiesInProgress += 1;
+      });
+    } else if (upgradeSummary) {
+      incompleteActivities = Number(upgradeSummary.incompleteActivities) || 0;
+      activitiesInProgress = Number(upgradeSummary.activitiesInProgress) || 0;
+    }
+    if (list.length && incompleteActivities > 0) {
+      findings.push(finding({
+        code: "activities_in_progress",
+        section: "variety",
+        severity: "blocking",
+        blocking: true,
+        message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need real setup + finished photos and teacher tips).`,
+        suggestion: "Finish every activity’s photos and tips before Publish Ready. Image briefs alone are not enough.",
+        navigateTo: "activities:images",
+      }));
+    }
+    void activitiesInProgress;
 
     // Weekday focus — "Theme focus coming soon" is a hard blocker.
     const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
@@ -785,13 +825,31 @@
         suggestion: "Prefer ordinary, reusable, low-cost classroom materials and substitutions.",
       }));
     }
-    if (!text(week.weeklyMaterials || plan?.weeklyMaterials) && list.length) {
+    const materialsText = text(week.weeklyMaterials || plan?.weeklyMaterials);
+    const materialsState = enrichApi?.materialsReadinessState
+      ? enrichApi.materialsReadinessState(materialsText)
+      : (materialsText
+        ? (materialsText.split(/[·,\n;]+/).map(text).filter(Boolean).length >= 6 ? "complete" : "needs_improvement")
+        : "missing");
+    if (materialsState === "missing" && list.length) {
       findings.push(finding({
         code: "missing_materials",
         section: "realistic",
-        severity: "high",
+        severity: "blocking",
+        blocking: true,
         message: "Materials checklist is missing.",
-        suggestion: "List ordinary materials teachers can stage in 10 minutes.",
+        suggestion: "List ordinary materials teachers can stage in 10 minutes (at least 6 items).",
+        navigateTo: "week:materials",
+      }));
+    } else if (materialsState === "needs_improvement" && list.length) {
+      findings.push(finding({
+        code: "weak_materials",
+        section: "realistic",
+        severity: "blocking",
+        blocking: true,
+        message: "Materials are marked Needs Improvement — the checklist is too thin for premium readiness.",
+        suggestion: "Expand to at least 6 ordinary classroom materials (and substitutions where helpful).",
+        navigateTo: "week:materials",
       }));
     }
 
@@ -948,14 +1006,14 @@
       }));
     }
 
-    // Print sections with no resources (when enrichment claims printables)
-    if (asArray(week.printableIdeas).length && !asArray(plan?.resourceIds).length) {
+    // Print sections with no published resources (when enrichment claims printables)
+    if (asArray(week.printableIdeas).length && !printableLinked) {
       findings.push(finding({
         code: "empty_print_section",
         section: "printables",
         severity: "medium",
-        message: "Printable ideas are listed but no printable resources are linked.",
-        suggestion: "Link real printables or remove empty print claims before approval.",
+        message: "Printable ideas are listed but no published printable resources are linked.",
+        suggestion: "Link and publish real printables or remove empty print claims before approval.",
       }));
     }
 
@@ -1009,7 +1067,7 @@
     try {
       if (enrich?.computeReadinessScores) {
         premiumReadinessPercent = Number(
-          enrich.computeReadinessScores(plan, list, draft).premiumReadinessPercent,
+          enrich.computeReadinessScores(plan, list, draft, scoreOptions).premiumReadinessPercent,
         ) || completionPercent;
       }
     } catch (_error) {
@@ -1036,6 +1094,59 @@
       findings,
       checkedAt: new Date().toISOString(),
     });
+  }
+
+  /**
+   * Single scoring source for editor, lesson cards, Library Health, Quality Review, and publish dialog.
+   */
+  function evaluateTeachingKit(plan, activities, enrichmentDraft, options = {}) {
+    const enrich = loadEnrichment();
+    const resources = asArray(options.resources);
+    const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
+    const list = asArray(activities);
+    const report = buildQualityReport(plan, list, draft, {
+      ...options,
+      resources,
+      skipUpgradeSummary: true,
+    });
+    const summary = enrich?.buildUpgradeSummary
+      ? enrich.buildUpgradeSummary(plan, list, draft, {
+        resources,
+        qualityReport: report,
+        skipQualityAttach: true,
+        ignoredCodes: options.ignoredCodes,
+      })
+      : {
+        completionPercent: report.completionPercent,
+        premiumReadinessPercent: report.premiumReadinessPercent,
+        publishReadiness: report.publishReadiness,
+        blocksPublish: report.blocksPublish,
+        blockingIssues: report.blockingIssues,
+      };
+    const statusApi = (typeof module === "object" && typeof require === "function"
+      ? (() => { try { return require("./teaching-kit-status.js"); } catch (_e) { return null; } })()
+      : null) || (root && root.LLHTeachingKitStatus);
+    const status = statusApi?.buildLessonStatus
+      ? statusApi.buildLessonStatus({
+        plan,
+        activities: list,
+        enrichmentDraft: draft,
+        upgradeSummary: summary,
+        qualityReport: report,
+      })
+      : (summary.canonicalStatus || null);
+    return {
+      report,
+      summary,
+      status,
+      workflow: status?.workflow || summary.dashboardStage || "Legacy",
+      blocking: status?.blocking || (report.blocksPublish ? "Blocked" : "No blockers"),
+      blocksPublish: Boolean(report.blocksPublish),
+      publishReadiness: report.publishReadiness,
+      premiumReadinessPercent: report.premiumReadinessPercent,
+      completionPercent: report.completionPercent,
+      blockingIssues: asArray(report.blockingIssues),
+    };
   }
 
   /**
@@ -1104,14 +1215,16 @@
     const analyticsAvailable = options.analyticsAvailable === true
       || Object.keys(usageByPlanId || {}).some((id) => (usageByPlanId[id]?.views || 0) > 0);
 
+    const resources = asArray(curriculum.resources);
     const rows = plans.map((plan) => {
       const planActs = activities.filter((a) => a.lessonPlanId === plan.id);
-      const report = buildQualityReport(plan, planActs, plan.enrichmentDraft || null);
+      const evaluated = evaluateTeachingKit(plan, planActs, plan.enrichmentDraft || null, { resources });
+      const report = evaluated.report;
       const usage = usageByPlanId[plan.id] || {};
-      let completion = report.overallScore;
+      let completion = report.completionPercent;
       if (enrich?.computeCompletionPercent) {
         try {
-          completion = Number(enrich.computeCompletionPercent(plan, planActs, plan.enrichmentDraft)) || completion;
+          completion = Number(enrich.computeCompletionPercent(plan, planActs, plan.enrichmentDraft, { resources })) || completion;
         } catch (_e) { /* keep */ }
       }
       return {
@@ -1122,16 +1235,25 @@
         qualityScore: report.overallScore,
         qualityLabel: report.overallLabel,
         completionPercent: completion,
+        premiumReadinessPercent: report.premiumReadinessPercent,
+        workflow: evaluated.workflow,
+        blocking: evaluated.blocking,
+        libraryStatus: evaluated.blocking,
         needsReview: report.blocksPublish
           || report.publishReadiness === PUBLISH_READINESS.NEEDS_REVIEW
           || report.overallScore < 75,
         publishReadiness: report.publishReadiness || (report.blocksPublish ? "blocked" : "needs_review"),
-        missingBooks: report.findings.some((f) => f.code === "missing_books" && f.status !== "ignored"),
-        missingSongs: report.findings.some((f) => f.code === "missing_songs" && f.status !== "ignored"),
-        missingPrintables: report.findings.some((f) => f.code === "missing_printables" && f.status !== "ignored"),
-        missingExampleImages: report.findings.some((f) => f.code === "missing_example_images" && f.status !== "ignored"),
+        // Never label Publish Ready while Blocked.
+        publishReady: report.publishReadiness === PUBLISH_READINESS.READY && !report.blocksPublish && evaluated.blocking !== "Blocked",
+        missingBooks: report.findings.some((f) => (f.code === "missing_books" || f.code === "incomplete_books") && f.status !== "ignored"),
+        missingSongs: report.findings.some((f) => (f.code === "missing_songs" || f.code === "incomplete_songs") && f.status !== "ignored"),
+        missingPrintables: report.findings.some((f) => (f.code === "missing_printables" || f.code === "draft_printables_only") && f.status !== "ignored"),
+        missingExampleImages: report.findings.some((f) => (f.code === "missing_example_images" || f.code === "image_brief_not_image") && f.status !== "ignored"),
+        activitiesInProgress: report.findings.some((f) => f.code === "activities_in_progress" && f.status !== "ignored"),
+        weakMaterials: report.findings.some((f) => (f.code === "weak_materials" || f.code === "missing_materials") && f.status !== "ignored"),
         missingToolkit: report.findings.some((f) => (f.code === "incomplete_toolkit" || f.code === "weak_teacher_prep") && f.status !== "ignored"),
         duplicateResources: report.findings.some((f) => (f.code === "repeated_activities" || f.code === "similar_activities") && f.status !== "ignored"),
+        blockingIssues: report.blockingIssues,
         views: Number(usage.views) || 0,
         assigns: Number(usage.assigns) || 0,
         downloads: Number(usage.downloads) || 0,
@@ -1201,6 +1323,7 @@
     elevateSeriousGapsForPublish,
     finalizePublishGate,
     buildQualityReport,
+    evaluateTeachingKit,
     buildImprovementSuggestion,
     applyIssueDecision,
     buildLibraryHealthDashboard,
