@@ -782,6 +782,10 @@
     });
     return linked.map((resource) => {
       const usedInWeek = inferPrintableUsedInWeek(resource, plan, activityCards);
+      const fileData = text(resource.fileData);
+      const fileUrl = text(resource.fileUrl || resource.url || resource.downloadUrl || resource.mediaUrl);
+      // Prefer inline/https file refs already stored on the resource — display/print only.
+      const resolvedFile = fileData || fileUrl;
       return {
         id: text(resource.id),
         title: text(resource.title) || "Printable",
@@ -790,6 +794,10 @@
         linkedActivityIds: uniqueStrings(usedInWeek.map((slot) => slot.activityId), 10),
         fileName: text(resource.fileName),
         mimeType: text(resource.mimeType),
+        fileData,
+        fileUrl: resolvedFile,
+        previewUrl: text(resource.previewUrl || resource.thumbnailUrl || resource.coverImageUrl),
+        pageCount: Number(resource.pageCount) || 0,
       };
     });
   }

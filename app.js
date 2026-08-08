@@ -27735,11 +27735,17 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   if (!built.ok) {
     const reason = built.reason || "build_failed";
     if (typeof showToast === "function") {
-      showToast(reason === "unavailable"
-        ? "This Teaching Kit is not ready to print yet."
-        : "Could not build the selected Teaching Kit print document. Please try again.");
+      if (reason === "empty_selection") {
+        showToast(built.manifest?.emptyReason || "Select at least one resource before printing.");
+      } else if (reason === "selection_not_found") {
+        showToast(built.manifest?.emptyReason || "That selection was not found in this Teaching Kit.");
+      } else if (reason === "unavailable") {
+        showToast("This Teaching Kit is not ready to print yet.");
+      } else {
+        showToast("Could not build the selected Teaching Kit print document. Please try again.");
+      }
     }
-    return { ok: false, reason };
+    return { ok: false, reason, manifest: built.manifest || null };
   }
 
   if (gate.counted && watermark && !String(built.html).includes(watermark)) {
@@ -27757,6 +27763,13 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   host.innerHTML = `<article class="printable-resource-page teaching-kit-print-article" data-tk-print-document="${escapeHtml(documentMode)}">${built.html}</article>`;
   if (watermark) applyTrialCurriculumWatermark(host, watermark);
 
+  const attachmentPlan = built.attachmentPlan || null;
+  const selectedPdfPrintables = (built.manifest?.printables || []).filter((item) => !item?.embedAsImage);
+  // Merged PDF path is required when attached printable PDFs are in the selection.
+  // Download without attachments also prefers a real PDF file when the pipeline is available.
+  const needsMergedPdf = selectedPdfPrintables.length > 0
+    || (selection.intent === "download" && typeof printApi.buildMergedTeachingKitPdf === "function");
+
   // Expose for automated inspection of the actual print document (not the live UI).
   window.__llhLastTeachingKitPrint = {
     html: built.html,
@@ -27768,13 +27781,181 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     selectedResources: selection.selectedResources || null,
     day: selection.day || "",
     activityId: selection.activityId || "",
+    songId: selection.songId || "",
     printableId: selection.printableId || "",
     intent: selection.intent || "print",
+    manifest: built.manifest || null,
+    summary: built.summary || null,
+    attachmentPlan,
+    contentFingerprint: built.contentFingerprint || "",
     timestamp: new Date().toISOString(),
   };
 
   // Wait briefly for images so print preview is not blank/cut mid-load.
   await prefetchTeachingKitPrintImages(host);
+
+  // Preview selection: mount the same document into Print Center for visual QA
+  // without opening the system print dialog. Show which PDF attachments will merge.
+  if (selection.intent === "preview") {
+    const previewHost = document.querySelector("[data-tk-print-preview-host]");
+    if (previewHost) {
+      previewHost.hidden = false;
+      const attachNote = renderTeachingKitAttachmentPreviewNote(attachmentPlan, built.manifest);
+      previewHost.innerHTML = `${attachNote}<div class="tk-print-preview-frame" data-tk-print-preview-document="${escapeHtml(documentMode)}">${built.html}</div>`;
+      const summary = built.summary?.summary || "Selection preview ready";
+      const attachSummary = attachmentPlan?.summary ? ` ${attachmentPlan.summary}.` : "";
+      if (typeof showToast === "function") {
+        showToast(`${summary}.${attachSummary} Preview matches Print / Download PDF scope.`);
+      }
+    }
+    document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
+    // Keep host briefly so tests can inspect, then clear print chrome classes.
+    setTimeout(() => {
+      document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
+    }, 500);
+    return {
+      ok: true,
+      reason: "preview",
+      pageCount: built.pageCount || 0,
+      paperSize: built.paperSize || selection.paperSize || "letter",
+      designedDocument: true,
+      documentMode,
+      manifest: built.manifest || null,
+      attachmentPlan,
+      contentFingerprint: built.contentFingerprint || "",
+    };
+  }
+
+  // When PDF printables are selected (or Download is requested), build one merged PDF:
+  // Teaching Kit binder pages + actual attached printable pages in selection order.
+  if (needsMergedPdf && typeof printApi.buildMergedTeachingKitPdf === "function") {
+    const merged = await printApi.buildMergedTeachingKitPdf(kitPayload, {
+      ...selection,
+      plan,
+      watermark,
+      paperSize: selection.paperSize || built.paperSize || "letter",
+      adminPreview: selection.adminPreview === true || flags.ownerPreview === true,
+      host,
+      forceBrowser: true,
+      fetchBytes: (source, attachment) => resolveTeachingKitPrintableBytes(source, attachment),
+      stylesHref: `${window.location.origin}/styles.css`,
+    });
+    if (!merged.ok) {
+      const message = merged.message
+        || merged.report?.summary
+        || (merged.reason === "attachment_missing"
+          ? "A selected printable has no attached PDF file."
+          : "Could not build the Teaching Kit PDF with printable attachments.");
+      if (typeof showToast === "function") showToast(message);
+      document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
+      document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
+      window.__llhLastTeachingKitPrint = {
+        ...(window.__llhLastTeachingKitPrint || {}),
+        mergeOk: false,
+        mergeReason: merged.reason || "merge_failed",
+        mergeReport: merged.report || null,
+      };
+      return {
+        ok: false,
+        reason: merged.reason || "merge_failed",
+        manifest: built.manifest || null,
+        attachmentPlan: merged.report || attachmentPlan,
+      };
+    }
+
+    const fileName = `${slug(kitPayload.title || viewerResource?.title || "teaching-kit")}-print-selection.pdf`;
+    const blob = new Blob([merged.bytes], { type: "application/pdf" });
+    window.__llhLastTeachingKitPrint = {
+      ...(window.__llhLastTeachingKitPrint || {}),
+      mergeOk: true,
+      mergeReport: merged.report || null,
+      mergedPdfBytes: merged.bytes,
+      mergedPdfFileName: fileName,
+      contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
+      pageCount: merged.report?.totalPages || built.pageCount || 0,
+    };
+
+    if (typeof recordResourceOutputRequest === "function") {
+      recordResourceOutputRequest({
+        mode: selection.intent === "download" ? "download" : "print",
+        printVariant: "teaching-kit-merged-pdf",
+        resourceId: viewerResource?.id || kitPayload.lessonPlanId || "",
+        title: kitPayload.title || viewerResource?.title || "Teaching Kit",
+        category: "Lesson Plans",
+        trialExportCounted: Boolean(gate.counted),
+        paperSize: built.paperSize || selection.paperSize || "letter",
+      });
+    }
+    if (typeof trackEvent === "function") {
+      trackEvent("teaching_kit_print", {
+        title: kitPayload.title || viewerResource?.title || "Teaching Kit",
+        preset: selection.preset || "week_binder",
+        pageCount: merged.report?.totalPages || 0,
+        paperSize: built.paperSize || selection.paperSize || "letter",
+        trialExportCounted: Boolean(gate.counted),
+        intent: selection.intent || "print",
+        designedDocument: true,
+        mergedPdf: true,
+        attachmentCount: merged.report?.included?.length || 0,
+        itemCount: built.manifest?.itemCount || 0,
+      });
+    }
+
+    document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
+    document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
+
+    if (selection.intent === "download") {
+      downloadBlob(blob, fileName);
+      if (typeof showToast === "function") {
+        showToast(merged.report?.summary || "Teaching Kit PDF downloaded.");
+      }
+      return {
+        ok: true,
+        reason: "downloaded_merged_pdf",
+        pageCount: merged.report?.totalPages || 0,
+        paperSize: built.paperSize || selection.paperSize || "letter",
+        designedDocument: true,
+        documentMode,
+        manifest: built.manifest || null,
+        contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
+        mergeReport: merged.report || null,
+      };
+    }
+
+    // Print: open the merged PDF (includes actual printable pages) and print that file.
+    const pdfUrl = URL.createObjectURL(blob);
+    const printFrame = document.createElement("iframe");
+    printFrame.className = "llh-teaching-kit-merged-pdf-frame";
+    printFrame.setAttribute("aria-hidden", "true");
+    printFrame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
+    printFrame.src = pdfUrl;
+    document.body.appendChild(printFrame);
+    const cleanupMerged = () => {
+      try { printFrame.remove(); } catch (_err) { /* ignore */ }
+      try { URL.revokeObjectURL(pdfUrl); } catch (_err2) { /* ignore */ }
+    };
+    printFrame.addEventListener("load", () => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+      } catch (_err) {
+        window.open(pdfUrl, "_blank", "noopener");
+      }
+      setTimeout(cleanupMerged, 120000);
+    }, { once: true });
+    setTimeout(cleanupMerged, 120000);
+    return {
+      ok: true,
+      reason: "printed_merged_pdf",
+      pageCount: merged.report?.totalPages || 0,
+      paperSize: built.paperSize || selection.paperSize || "letter",
+      designedDocument: true,
+      documentMode,
+      manifest: built.manifest || null,
+      contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
+      mergeReport: merged.report || null,
+    };
+  }
 
   if (typeof recordResourceOutputRequest === "function") {
     recordResourceOutputRequest({
@@ -27796,6 +27977,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       trialExportCounted: Boolean(gate.counted),
       intent: selection.intent || "print",
       designedDocument: true,
+      itemCount: built.manifest?.itemCount || 0,
     });
   }
 
@@ -27823,7 +28005,8 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     printMediaQuery.addEventListener("change", onPrintMediaChange);
   }
   window.addEventListener("afterprint", cleanup);
-  // Print and Download PDF use the same designed binder document (browser Save as PDF).
+  // Print and Download PDF use the same designed binder document (browser Save as PDF)
+  // when no printable PDF attachments are in the selection.
   // Long safety net only — never restore/replace the Teaching Kit UI on a short timer.
   // Android/tablet system print preview often stays open far longer than a few seconds.
   window.print();
@@ -27835,7 +28018,59 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     paperSize: built.paperSize || selection.paperSize || "letter",
     designedDocument: true,
     documentMode,
+    manifest: built.manifest || null,
+    contentFingerprint: built.contentFingerprint || "",
   };
+}
+
+function renderTeachingKitAttachmentPreviewNote(attachmentPlan, manifest) {
+  const plan = attachmentPlan || {};
+  const attachments = Array.isArray(plan.attachments) ? plan.attachments : [];
+  const missing = Array.isArray(plan.missing) ? plan.missing : [];
+  const duplicates = Array.isArray(plan.duplicatesSkipped) ? plan.duplicatesSkipped : [];
+  if (!attachments.length && !missing.length) {
+    return `<div class="tk-print-attachment-preview" data-tk-attachment-preview="0"><strong>Printable attachments:</strong> none in this selection.</div>`;
+  }
+  const rows = attachments.map((item, index) => (
+    `<li data-tk-attachment-id="${escapeHtml(item.id)}"><strong>${index + 1}.</strong> ${escapeHtml(item.title)} — actual PDF pages will be included</li>`
+  )).join("");
+  const missingRows = missing.map((item) => (
+    `<li data-tk-attachment-missing="${escapeHtml(item.id)}">${escapeHtml(item.title)} — attachment missing (download will stop)</li>`
+  )).join("");
+  const dupNote = duplicates.length
+    ? `<p class="tk-muted">Duplicate printable references skipped: ${duplicates.map((item) => escapeHtml(item.title)).join(", ")}</p>`
+    : "";
+  return `<div class="tk-print-attachment-preview" data-tk-attachment-preview="${attachments.length}">
+    <strong>${escapeHtml(plan.summary || "Printable attachments")}</strong>
+    <ul>${rows}${missingRows}</ul>
+    ${dupNote}
+    <p class="tk-muted">Selected printable IDs: ${escapeHtml((manifest?.printableIds || []).join(", ") || "—")}</p>
+  </div>`;
+}
+
+async function resolveTeachingKitPrintableBytes(source, attachment) {
+  const mergeApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrintablePdfMerge : null;
+  const ref = String(source || "").trim();
+  if (ref && /^data:/i.test(ref) && mergeApi?.dataUrlToBytes) {
+    return mergeApi.dataUrlToBytes(ref);
+  }
+  const attachmentId = String(attachment?.id || "").trim();
+  const resourcePools = [];
+  if (Array.isArray(window.curriculumResources)) resourcePools.push(...window.curriculumResources);
+  if (Array.isArray(window.resources)) resourcePools.push(...window.resources);
+  const match = resourcePools.find((item) => String(item?.id || "") === attachmentId);
+  const fileData = String(match?.fileData || match?.fileUrl || "").trim();
+  if (fileData && /^data:/i.test(fileData) && mergeApi?.dataUrlToBytes) {
+    return mergeApi.dataUrlToBytes(fileData);
+  }
+  const href = fileData || ref;
+  if (href && /^https?:\/\//i.test(href)) {
+    const res = await fetch(href);
+    if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+  if (mergeApi?.defaultFetchBytes) return mergeApi.defaultFetchBytes(href || ref, attachment);
+  return null;
 }
 
 function ensureTeachingKitPrintHost() {
