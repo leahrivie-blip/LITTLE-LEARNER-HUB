@@ -187,6 +187,129 @@
       .replace(/'/g, "&#39;");
   }
 
+  function coversApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LlhLessonPlanCovers)
+      || (typeof require === "function" ? (() => { try { return require("./lesson-plan-covers.js"); } catch (_e) { return null; } })()
+      : null);
+  }
+
+  /** Presentation-only cover resolve — does not mutate curriculum records.
+   *  Cover art is independent of activity photo inclusion (includeImages).
+   */
+  function resolvePrintCover(model) {
+    const explicit = text(model && model.coverImageUrl);
+    if (explicit) {
+      return { url: explicit, alt: text(model.coverImageAlt) || text(model.title) || "Lesson cover" };
+    }
+    const api = coversApi();
+    if (api && typeof api.resolveLessonPlanCover === "function") {
+      const resolved = api.resolveLessonPlanCover({
+        id: model && model.lessonPlanId,
+        title: model && model.title,
+        theme: model && model.theme,
+        age: model && model.age,
+        ageGroup: model && model.age,
+        coverImageUrl: model && model.coverImageUrl,
+        coverImageAlt: model && model.coverImageAlt,
+      });
+      if (resolved && text(resolved.url)) {
+        return { url: text(resolved.url), alt: text(resolved.alt) || text(model && model.title) || "Lesson cover" };
+      }
+    }
+    return { url: "", alt: "" };
+  }
+
+  function sectionThemeClass(tab) {
+    const t = text(tab).toLowerCase();
+    if (t.includes("content") || t === "toc") return "tk-theme-toc";
+    if (t.includes("overview")) return "tk-theme-overview";
+    if (t.includes("weekly") || t.includes("week")) return "tk-theme-weekly";
+    if (t.includes("daily") || ["monday", "tuesday", "wednesday", "thursday", "friday"].some((d) => t === d || t.includes(d))) {
+      return "tk-theme-daily";
+    }
+    if (t.includes("activit")) return "tk-theme-activities";
+    if (t.includes("book")) return "tk-theme-books";
+    if (t.includes("song")) return "tk-theme-songs";
+    if (t.includes("printable")) return "tk-theme-printables";
+    if (t.includes("toolkit") || t.includes("material") || t.includes("setup") || t.includes("families")) return "tk-theme-toolkit";
+    if (t.includes("cover")) return "tk-theme-cover";
+    return "tk-theme-default";
+  }
+
+  const ICON_SVGS = Object.freeze({
+    materials: '<path d="M4 8h16v11H4z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+    setup: '<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    steps: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1.5"/><circle cx="4" cy="12" r="1.5"/><circle cx="4" cy="18" r="1.5"/>',
+    tip: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 1 3.5 10.8V16H8.5v-2.2A6 6 0 0 1 12 3z"/>',
+    watch: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 1.5"/>',
+    adapt: '<path d="M12 4v4M12 16v4M4 12h4M16 12h4"/><circle cx="12" cy="12" r="3"/>',
+    safety: '<path d="M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7l8-4z"/>',
+    cleanup: '<path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12"/>',
+    family: '<circle cx="9" cy="8" r="3"/><circle cx="16" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M14 20c0-2.2 1.6-3.6 4-3.8"/>',
+    book: '<path d="M4 5h7a3 3 0 0 1 3 3v11H7a3 3 0 0 0-3 3V5z"/><path d="M20 5h-7a3 3 0 0 0-3 3v11h7a3 3 0 0 1 3 3V5z"/>',
+    song: '<path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2.5"/><circle cx="17" cy="16" r="2.5"/>',
+    print: '<path d="M6 9V3h12v6"/><path d="M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 13h12v8H6z"/>',
+    vocab: '<path d="M4 6h10M4 12h16M4 18h12"/>',
+    focus: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+    schedule: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>',
+    domain: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/>',
+    prep: '<path d="M9 11V6a3 3 0 1 1 6 0v5"/><path d="M7 11h10l-1 9H8l-1-9z"/>',
+    info: '<circle cx="12" cy="12" r="8"/><path d="M12 10v6M12 7h.01"/>',
+    objective: '<path d="M12 3v18M5 10l7-7 7 7"/>',
+  });
+
+  function iconHtml(kind) {
+    const key = text(kind).toLowerCase();
+    const svg = ICON_SVGS[key];
+    if (svg) {
+      return `<span class="tk-print-icon tk-print-icon--svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svg}</svg></span>`;
+    }
+    if (!key) return "";
+    return `<span class="tk-print-icon" aria-hidden="true">${escapeHtml(kind)}</span>`;
+  }
+
+  function emptyStateHtml(title, copy) {
+    return `
+      <div class="tk-print-empty-state tk-print-keep">
+        <div class="tk-print-empty-mark" aria-hidden="true"></div>
+        <p class="tk-print-empty-title">${escapeHtml(title)}</p>
+        <p class="tk-print-empty-copy">${escapeHtml(copy)}</p>
+      </div>
+    `;
+  }
+
+  function metaCardHtml(label, value) {
+    if (!text(value)) return "";
+    return `<div class="tk-print-cover-meta-card"><span class="tk-print-meta-label">${escapeHtml(label)}</span><strong class="tk-print-meta-value">${escapeHtml(value)}</strong></div>`;
+  }
+
+  function coverHeroFallbackHtml() {
+    return `
+      <div class="tk-print-cover-hero-fallback" aria-hidden="true">
+        <svg class="tk-print-cover-art" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="presentation">
+          <defs>
+            <linearGradient id="tkCoverSky" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#f7f2ff"/>
+              <stop offset="100%" stop-color="#e8def8"/>
+            </linearGradient>
+          </defs>
+          <rect width="640" height="360" rx="28" fill="url(#tkCoverSky)"/>
+          <circle cx="520" cy="78" r="46" fill="#f6e7a8" opacity=".9"/>
+          <path d="M0 250C90 210 150 270 240 240C330 210 390 250 480 230C560 214 610 236 640 220V360H0Z" fill="#d9c7f5"/>
+          <path d="M0 290C110 260 170 310 270 285C370 260 430 300 530 280C590 270 620 286 640 278V360H0Z" fill="#cbb6ef"/>
+          <rect x="250" y="150" width="140" height="110" rx="14" fill="#fff" stroke="#542e94" stroke-width="4"/>
+          <path d="M250 180h140" stroke="#d1c2f0" stroke-width="3"/>
+          <path d="M250 210h140" stroke="#d1c2f0" stroke-width="3"/>
+          <path d="M250 240h90" stroke="#d1c2f0" stroke-width="3"/>
+          <circle cx="180" cy="200" r="28" fill="#fff" stroke="#6b46c1" stroke-width="3"/>
+          <circle cx="460" cy="195" r="22" fill="#fff" stroke="#6b46c1" stroke-width="3"/>
+        </svg>
+        <p class="tk-print-cover-hero-brand">Little Learner Hub</p>
+      </div>
+    `;
+  }
+
+
   function listHtml(items) {
     const rows = (items || []).map((item) => text(item)).filter(Boolean);
     if (!rows.length) return "";
@@ -245,13 +368,32 @@
     return `<ul class="tk-print-bullets">${rows.map((row) => `<li>${escapeHtml(row)}</li>`).join("")}</ul>`;
   }
 
-  function panelHtml(label, innerHtml, icon) {
+  function panelHtml(label, innerHtml, icon, tone) {
     if (!text(innerHtml)) return "";
+    const toneClass = text(tone) ? ` tk-print-panel--${escapeHtml(text(tone))}` : "";
     return `
-      <div class="tk-print-panel tk-print-keep">
-        <div class="tk-print-panel-label">${icon ? `<span class="tk-print-icon" aria-hidden="true">${escapeHtml(icon)}</span>` : ""}<span>${escapeHtml(label)}</span></div>
+      <div class="tk-print-panel tk-print-keep${toneClass}">
+        <div class="tk-print-panel-label">${icon ? iconHtml(icon) : ""}<span>${escapeHtml(label)}</span></div>
         <div class="tk-print-panel-body">${innerHtml}</div>
       </div>
+    `;
+  }
+
+  function calloutHtml(kind, title, innerHtml) {
+    if (!text(innerHtml)) return "";
+    const map = {
+      tip: "tk-print-callout-tip",
+      watch: "tk-print-callout-watch",
+      extend: "tk-print-callout-extend",
+      cleanup: "tk-print-callout-cleanup",
+      note: "tk-print-callout",
+    };
+    const cls = map[text(kind)] || map.note;
+    return `
+      <aside class="${cls} tk-print-keep">
+        <strong>${escapeHtml(title)}</strong>
+        <div>${innerHtml}</div>
+      </aside>
     `;
   }
 
@@ -424,11 +566,12 @@
   }
 
   function page(tab, title, bodyHtml, footerLabel, extraClass) {
+    const theme = sectionThemeClass(tab);
     return `
-      <section class="tk-print-page${extraClass ? ` ${extraClass}` : ""}" data-tk-print-tab="${escapeHtml(tab)}">
+      <section class="tk-print-page ${theme}${extraClass ? ` ${extraClass}` : ""}" data-tk-print-tab="${escapeHtml(tab)}">
         <header class="tk-print-running">
-          <span>Little Learner Hub</span>
-          <span>${escapeHtml(presentLabel(tab, tab))}</span>
+          <span class="tk-print-running-brand">Little Learner Hub</span>
+          <span class="tk-print-running-section">${escapeHtml(presentLabel(tab, tab))}</span>
         </header>
         <div class="tk-print-title-bar">
           <h2 class="tk-print-page-title">${escapeHtml(title)}</h2>
@@ -450,25 +593,33 @@
     const subtitle = mode === "entire_binder" || mode === "week_binder"
       ? (model.packSubtitle || "Teacher Binder")
       : presentLabel(mode, selection.presetLabel || "");
-    const coverImg = selection.includeImages && model.coverImageUrl
-      ? `<div class="tk-print-cover-image"><img src="${escapeHtml(model.coverImageUrl)}" alt="${escapeHtml(model.coverImageAlt || model.title)}" loading="eager" decoding="async" onerror="this.closest('.tk-print-cover-image')?.remove()" /></div>`
-      : `<div class="tk-print-cover-fallback" aria-hidden="true"><span>Little Learner Hub</span></div>`;
+    const cover = resolvePrintCover(model);
+    const coverImg = cover.url
+      ? `<div class="tk-print-cover-hero"><div class="tk-print-cover-image"><img src="${escapeHtml(cover.url)}" alt="${escapeHtml(cover.alt)}" loading="eager" decoding="async" onerror="this.closest('.tk-print-cover-hero')?.classList.add('is-missing'); this.remove()" /></div></div>`
+      : `<div class="tk-print-cover-hero">${coverHeroFallbackHtml()}</div>`;
     const adminBanner = selection.adminPreview
       ? `<div class="tk-print-admin-banner">ADMIN PREVIEW · Draft / preview only · Does not change production content</div>`
       : "";
     return `
-      <section class="tk-print-page tk-print-cover" data-tk-print-tab="Cover">
+      <section class="tk-print-page tk-print-cover tk-theme-cover" data-tk-print-tab="Cover">
         ${adminBanner}
-        <div class="tk-print-cover-inner">
-          <p class="tk-print-brand">Little Learner Hub</p>
-          <p class="tk-print-cover-kicker">${escapeHtml(packLabel)}</p>
+        <div class="tk-print-cover-frame">
+          <header class="tk-print-brand-row">
+            <div class="tk-print-brand-mark" aria-hidden="true"></div>
+            <div>
+              <p class="tk-print-brand">Little Learner Hub</p>
+              <p class="tk-print-cover-kicker">${escapeHtml(packLabel)}</p>
+            </div>
+          </header>
           ${coverImg}
-          <h1>${escapeHtml(model.title || "Teaching Kit")}</h1>
-          ${subtitle ? `<p class="tk-print-cover-subtitle">${escapeHtml(subtitle)}</p>` : ""}
-          <div class="tk-print-cover-meta">
-            ${model.age ? `<div class="tk-print-cover-meta-card"><span>Age</span><strong>${escapeHtml(model.age)}</strong></div>` : ""}
-            ${model.theme ? `<div class="tk-print-cover-meta-card"><span>Theme</span><strong>${escapeHtml(model.theme)}</strong></div>` : ""}
-            ${model.duration ? `<div class="tk-print-cover-meta-card"><span>Duration</span><strong>${escapeHtml(model.duration)}</strong></div>` : ""}
+          <div class="tk-print-cover-copy">
+            <h1>${escapeHtml(model.title || "Teaching Kit")}</h1>
+            ${subtitle ? `<p class="tk-print-cover-subtitle">${escapeHtml(subtitle)}</p>` : ""}
+            <div class="tk-print-cover-meta">
+              ${metaCardHtml("Age", model.age)}
+              ${metaCardHtml("Theme", model.theme)}
+              ${metaCardHtml("Duration", model.duration)}
+            </div>
           </div>
         </div>
         <footer class="tk-print-footer">
@@ -503,11 +654,11 @@
     const prep = (o.teacherPrep || []).map((task) => `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}`);
     return `
       <div class="tk-print-snapshot-grid">
-        ${hasDisplayValue(o.weeklyOverview) ? panelHtml("Week focus", `<p class="tk-print-tight">${escapeHtml(shortText(o.weeklyOverview, 180))}</p>`, "*") : ""}
-        ${panelHtml("Objectives", bulletListHtml(o.learningObjectives, 6), "O")}
-        ${panelHtml("Domains", chipRowHtml(o.learningDomains), "D")}
-        ${panelHtml("Vocabulary", chipRowHtml(vocab.slice(0, 12)), "Aa")}
-        ${panelHtml("Prep", bulletListHtml(prep, 5), "T")}
+        ${hasDisplayValue(o.weeklyOverview) ? panelHtml("Week focus", `<p class="tk-print-tight">${escapeHtml(shortText(o.weeklyOverview, 180))}</p>`, "focus") : ""}
+        ${panelHtml("Objectives", bulletListHtml(o.learningObjectives, 6), "objective")}
+        ${panelHtml("Domains", chipRowHtml(o.learningDomains), "domain")}
+        ${panelHtml("Vocabulary", chipRowHtml(vocab.slice(0, 12)), "vocab")}
+        ${panelHtml("Prep", bulletListHtml(prep, 5), "prep")}
         ${o.estimatedPrepMinutes ? `<div class="tk-print-stat-pill"><span>Estimated prep</span><strong>${escapeHtml(String(o.estimatedPrepMinutes))} min</strong></div>` : ""}
       </div>
     `;
@@ -522,24 +673,24 @@
     });
     return [
       model.description || o.description
-        ? panelHtml("Description", `<p class="tk-print-tight">${escapeHtml(shortText(model.description || o.description, 280))}</p>`, "i")
+        ? panelHtml("Description", `<p class="tk-print-tight">${escapeHtml(shortText(model.description || o.description, 280))}</p>`, "info")
         : "",
-      panelHtml("Weekly focus", `<p class="tk-print-tight">${escapeHtml(o.weeklyFocus || o.weeklyOverview || "")}</p>`, "*"),
-      panelHtml("Learning objectives", bulletListHtml(o.learningObjectives, 8), "O"),
-      panelHtml("Developmental domains", chipRowHtml(o.learningDomains), "D"),
-      panelHtml("Vocabulary", `<p class="tk-print-vocab-line">${escapeHtml(vocab.join(" · "))}</p>`, "Aa"),
-      panelHtml("Master materials", checkboxListHtml(o.masterMaterials, 30), "M"),
-      panelHtml("Teacher prep", checkboxListHtml(prep, 10), "T"),
-      panelHtml("Safety", bulletListHtml(o.safety, 6), "!"),
-      panelHtml("Adaptations / inclusion", bulletListHtml(toBullets(o.adaptations, 5), 5), "+"),
-      panelHtml("Observation focus", bulletListHtml(o.observationFocus, 5), "W"),
-      panelHtml("Family connection", bulletListHtml(toBullets(o.familyConnection, 4), 4), "F"),
+      panelHtml("Weekly focus", `<p class="tk-print-tight">${escapeHtml(o.weeklyFocus || o.weeklyOverview || "")}</p>`, "focus"),
+      panelHtml("Learning objectives", bulletListHtml(o.learningObjectives, 8), "objective"),
+      panelHtml("Developmental domains", chipRowHtml(o.learningDomains), "domain"),
+      panelHtml("Vocabulary", chipRowHtml(vocab), "vocab"),
+      panelHtml("Master materials", checkboxListHtml(o.masterMaterials, 30), "materials"),
+      panelHtml("Teacher prep", checkboxListHtml(prep, 10), "prep"),
+      panelHtml("Safety", bulletListHtml(o.safety, 6), "safety"),
+      panelHtml("Adaptations / inclusion", bulletListHtml(toBullets(o.adaptations, 5), 5), "adapt"),
+      panelHtml("Observation focus", bulletListHtml(o.observationFocus, 5), "watch"),
+      panelHtml("Family connection", bulletListHtml(toBullets(o.familyConnection, 4), 4), "family"),
       model.theme || model.age || model.duration
         ? panelHtml("Lesson facts", bulletListHtml([
           model.theme ? `Theme: ${model.theme}` : "",
           model.age ? `Age group: ${model.age}` : "",
           model.duration ? `Duration: ${model.duration}` : "",
-        ].filter(Boolean), 4), "#")
+        ].filter(Boolean), 4), "info")
         : "",
     ].join("\n");
   }
@@ -587,16 +738,20 @@
         <header class="tk-print-day-activity-head">
           <span class="tk-print-day-activity-index">Activity ${escapeHtml(String(index + 1))}</span>
           <h4>${escapeHtml(summary.title)}</h4>
-          ${summary.category ? badgeHtml(summary.category) : ""}
+          <div class="tk-print-badge-row">
+            ${summary.category ? badgeHtml(summary.category) : ""}
+          </div>
         </header>
         ${hasDisplayValue(summary.description) ? `<p class="tk-print-tight">${escapeHtml(shortText(summary.description, 160))}</p>` : ""}
-        <div class="tk-print-day-activity-grid">
-          ${panelHtml("Materials", checkboxListHtml(materials, 6), "M")}
-          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(summary.setup, 120))}</p>`, "U")}
-          ${panelHtml("What children do", numberedListHtml(steps, 4), "1")}
-          ${panelHtml("Teacher prompts", bulletListHtml(prompts, 3), "P")}
-          ${panelHtml("Watch for", bulletListHtml(summary.observationIdeas, 3), "W")}
-          ${hasDisplayValue(summary.adaptations) ? panelHtml("Adaptations", bulletListHtml(toBullets(summary.adaptations, 2), 2), "+") : ""}
+        <div class="tk-print-day-activity-grid tk-print-activity-primary">
+          ${panelHtml("Materials", checkboxListHtml(materials, 6), "materials")}
+          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(summary.setup, 120))}</p>`, "setup")}
+          ${panelHtml("What children do", numberedListHtml(steps, 4), "steps")}
+          ${panelHtml("Teacher prompts", bulletListHtml(prompts, 3), "tip")}
+        </div>
+        <div class="tk-print-activity-secondary">
+          ${calloutHtml("watch", "Watch for", bulletListHtml(summary.observationIdeas, 3))}
+          ${hasDisplayValue(summary.adaptations) ? calloutHtml("extend", "Adaptations", bulletListHtml(toBullets(summary.adaptations, 2), 2)) : ""}
         </div>
       </article>
     `;
@@ -609,7 +764,7 @@
       ? (day.activitySummaries || []).map((summary, index) => dailyActivitySummaryHtml(summary, index)).join("\n")
       : "";
     const activityFallback = !summaries
-      ? panelHtml("Activities", bulletListHtml(day.activityTitles || [], 8), "A")
+      ? panelHtml("Activities", bulletListHtml(day.activityTitles || [], 8), "steps")
       : "";
     return `
       <article class="tk-print-day-sheet tk-print-keep">
@@ -618,26 +773,26 @@
           ${day.focus ? `<p><strong>Daily focus:</strong> ${escapeHtml(shortText(day.focus, 160))}</p>` : ""}
         </header>
         <div class="tk-print-day-sheet-grid">
-          ${panelHtml("Schedule", bulletListHtml(scheduleBits, 6), "S")}
-          ${panelHtml("Circle time", bulletListHtml(day.circleTime, 5), "C")}
-          ${panelHtml("Book of the day", bulletListHtml((day.books || []).map((book) => book.author ? `${book.title} — ${book.author}` : book.title), 3), "B")}
-          ${panelHtml("Song of the day", bulletListHtml((day.songs || []).map((song) => song.title), 3), "N")}
-          ${panelHtml("Invitation to play", bulletListHtml(toBullets(day.invitationToPlay, 3), 3), "I")}
-          ${panelHtml("Sensory", bulletListHtml(toBullets(day.sensory, 3), 3), "Se")}
-          ${panelHtml("Fine motor", bulletListHtml(toBullets(day.fineMotor, 3), 3), "Fm")}
-          ${panelHtml("Gross motor", bulletListHtml(toBullets(day.grossMotor, 3), 3), "Gm")}
-          ${panelHtml("Outdoor play", bulletListHtml(toBullets(day.outdoorPlay, 3), 3), "Out")}
-          ${panelHtml("Small group", bulletListHtml(toBullets(day.smallGroup, 3), 3), "Sg")}
-          ${panelHtml("Art", bulletListHtml(toBullets(day.art, 3), 3), "Art")}
-          ${panelHtml("STEM", bulletListHtml(toBullets(day.stem, 3), 3), "St")}
+          ${panelHtml("Schedule", bulletListHtml(scheduleBits, 6), "schedule")}
+          ${panelHtml("Circle time", bulletListHtml(day.circleTime, 5), "tip")}
+          ${panelHtml("Book of the day", bulletListHtml((day.books || []).map((book) => book.author ? `${book.title} — ${book.author}` : book.title), 3), "book")}
+          ${panelHtml("Song of the day", bulletListHtml((day.songs || []).map((song) => song.title), 3), "song")}
+          ${panelHtml("Invitation to play", bulletListHtml(toBullets(day.invitationToPlay, 3), 3), "focus")}
+          ${panelHtml("Sensory", bulletListHtml(toBullets(day.sensory, 3), 3), "materials")}
+          ${panelHtml("Fine motor", bulletListHtml(toBullets(day.fineMotor, 3), 3), "prep")}
+          ${panelHtml("Gross motor", bulletListHtml(toBullets(day.grossMotor, 3), 3), "steps")}
+          ${panelHtml("Outdoor play", bulletListHtml(toBullets(day.outdoorPlay, 3), 3), "focus")}
+          ${panelHtml("Small group", bulletListHtml(toBullets(day.smallGroup, 3), 3), "family")}
+          ${panelHtml("Art", bulletListHtml(toBullets(day.art, 3), 3), "domain")}
+          ${panelHtml("STEM", bulletListHtml(toBullets(day.stem, 3), 3), "domain")}
           ${activityFallback}
-          ${panelHtml("Materials for this day", checkboxListHtml(day.materials, 12), "M")}
-          ${panelHtml("Teacher prep", checkboxListHtml(day.teacherPrep, 6), "T")}
-          ${panelHtml("Observation focus", bulletListHtml(day.observations, 5), "W")}
-          ${panelHtml("Teacher notes", bulletListHtml(toBullets(day.teacherNotes, 3), 3), "Tn")}
-          ${panelHtml("Family connection", bulletListHtml(toBullets(day.parentMessage, 3), 3), "F")}
+          ${panelHtml("Materials for this day", checkboxListHtml(day.materials, 12), "materials")}
+          ${panelHtml("Teacher prep", checkboxListHtml(day.teacherPrep, 6), "prep")}
+          ${panelHtml("Observation focus", bulletListHtml(day.observations, 5), "watch")}
+          ${panelHtml("Teacher notes", bulletListHtml(toBullets(day.teacherNotes, 3), 3), "tip")}
+          ${panelHtml("Family connection", bulletListHtml(toBullets(day.parentMessage, 3), 3), "family")}
         </div>
-        ${summaries ? `<div class="tk-print-day-activities"><div class="tk-print-section-banner">Activities (concise)</div>${summaries}</div>` : ""}
+        ${summaries ? `<div class="tk-print-day-activities"><div class="tk-print-section-banner">Today's activities</div>${summaries}</div>` : ""}
       </article>
     `;
   }
@@ -650,10 +805,6 @@
       ...(activity.teacherPrompts || []).map((prompt) => text(prompt.text)).filter(Boolean),
     ].slice(0, compact ? 3 : 6);
     const watch = (activity.observationIdeas || []).slice(0, compact ? 3 : 5);
-    const metaBits = [
-      activity.estimatedMinutes ? `~${activity.estimatedMinutes} min` : "",
-      activity.groupSize || "",
-    ].filter(Boolean);
     const photoBits = [];
     if (selection.includeImages && activity.setupPhotoUrl) {
       photoBits.push(`<figure class="tk-print-card-photo"><img src="${escapeHtml(activity.setupPhotoUrl)}" alt="${escapeHtml(activity.setupAlt || `Setup for ${activity.title}`)}" loading="eager" decoding="async" onerror="this.closest('figure')?.remove()" /><figcaption>Setup</figcaption></figure>`);
@@ -668,25 +819,28 @@
             <h3>${escapeHtml(activity.title)}</h3>
             <div class="tk-print-badge-row">
               ${badgeHtml(activity.category)}
+              ${activity.estimatedMinutes ? badgeHtml(`~${activity.estimatedMinutes} min`) : ""}
+              ${badgeHtml(activity.groupSize)}
               ${badgeHtml(activity.dayLabel)}
-              ${metaBits.map((bit) => badgeHtml(bit)).join("")}
             </div>
-            ${hasDisplayValue(activity.objective) ? `<p class="tk-print-objective">${escapeHtml(shortText(activity.objective, 120))}</p>` : ""}
-            ${!compact && (activity.developmentalDomains || []).length ? chipRowHtml(activity.developmentalDomains) : ""}
+            ${hasDisplayValue(activity.objective) ? `<p class="tk-print-objective">${escapeHtml(shortText(activity.objective, 140))}</p>` : ""}
+            ${!compact && (activity.developmentalDomains || []).length ? `<div class="tk-print-domain-row">${chipRowHtml(activity.developmentalDomains)}</div>` : ""}
           </div>
           ${photoBits.length ? `<div class="tk-print-card-photos">${photoBits.join("")}</div>` : ""}
         </header>
-        <div class="tk-print-activity-grid">
-          ${panelHtml("Materials", checkboxListHtml(materials, compact ? 6 : 12), "M")}
-          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(activity.setup, compact ? 110 : 180))}</p>`, "U")}
-          ${panelHtml("What to do", numberedListHtml(steps, compact ? 5 : 8), "1")}
-          ${panelHtml("Teacher prompts", bulletListHtml(tips, compact ? 3 : 6), "P")}
-          ${panelHtml("Observation opportunities", bulletListHtml(watch, compact ? 3 : 5), "W")}
-          ${!compact && hasDisplayValue(activity.adaptations) ? panelHtml("Adaptations", bulletListHtml(toBullets(activity.adaptations, 3), 3), "+") : ""}
-          ${!compact && hasDisplayValue(activity.safetyNotes) ? panelHtml("Safety", bulletListHtml(toBullets(activity.safetyNotes, 2), 2), "!") : ""}
-          ${!compact && (activity.cleanupTips || []).length ? panelHtml("Cleanup", bulletListHtml(activity.cleanupTips, 4), "X") : ""}
-          ${!compact && hasDisplayValue(activity.familyExtension) ? panelHtml("Family extension", bulletListHtml(toBullets(activity.familyExtension, 2), 2), "F") : ""}
+        <div class="tk-print-activity-grid tk-print-activity-primary">
+          ${panelHtml("Materials", checkboxListHtml(materials, compact ? 6 : 12), "materials")}
+          ${panelHtml("Setup", `<p class="tk-print-tight">${escapeHtml(shortText(activity.setup, compact ? 110 : 180))}</p>`, "setup")}
+          ${panelHtml("What to do", numberedListHtml(steps, compact ? 5 : 8), "steps")}
+          ${panelHtml("Teacher prompts", bulletListHtml(tips, compact ? 3 : 6), "tip")}
         </div>
+        ${!compact ? `<div class="tk-print-activity-secondary">
+          ${calloutHtml("watch", "Observation", bulletListHtml(watch, 5))}
+          ${hasDisplayValue(activity.adaptations) ? calloutHtml("extend", "Extensions & adaptations", bulletListHtml(toBullets(activity.adaptations, 3), 3)) : ""}
+          ${(activity.cleanupTips || []).length ? calloutHtml("cleanup", "Cleanup", bulletListHtml(activity.cleanupTips, 4)) : ""}
+          ${hasDisplayValue(activity.familyExtension) ? calloutHtml("tip", "Family extension", bulletListHtml(toBullets(activity.familyExtension, 2), 2)) : ""}
+          ${hasDisplayValue(activity.safetyNotes) ? panelHtml("Safety", bulletListHtml(toBullets(activity.safetyNotes, 2), 2), "safety") : ""}
+        </div>` : `<div class="tk-print-activity-secondary">${calloutHtml("watch", "Watch for", bulletListHtml(watch, 3))}</div>`}
       </article>
     `;
   }
@@ -708,21 +862,28 @@
     }
     const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>${escapeHtml(noteParts.join(" "))}</span></div>`;
     const cards = items.map((item) => `
-      <article class="tk-print-resource-card tk-print-keep">
+      <article class="tk-print-resource-card tk-print-printable-card tk-print-keep">
         <header>
           <h3>${escapeHtml(item.title)}</h3>
-          ${badgeHtml(item.category || "Printable")}
-          ${item.embedAsImage ? badgeHtml("Image printable") : badgeHtml("PDF included separately")}
+          <div class="tk-print-badge-row">
+            ${badgeHtml(item.category || "Printable")}
+            ${item.embedAsImage ? badgeHtml("Image printable") : badgeHtml("PDF included separately")}
+          </div>
         </header>
-        ${item.previewUrl && !item.embedAsImage ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>` : ""}
+        ${item.previewUrl
+          ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>`
+          : `<div class="tk-print-printable-thumb-fallback" aria-hidden="true">${iconHtml("print")}</div>`}
         <div class="tk-print-resource-meta">
           ${item.pageCount ? `<span>${escapeHtml(String(item.pageCount))} pages</span>` : ""}
           ${(item.usedInWeek || []).length ? `<span>${escapeHtml(item.usedInWeek.map((slot) => [slot.dayLabel, slot.moment].filter(Boolean).join(" · ")).join("; "))}</span>` : ""}
         </div>
-        ${hasDisplayValue(item.printingDirections) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 180))}</p>` : ""}
+        ${hasDisplayValue(item.description) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.description, 160))}</p>` : ""}
+        ${hasDisplayValue(item.purpose) ? panelHtml("Purpose", `<p class="tk-print-tight">${escapeHtml(shortText(item.purpose, 140))}</p>`, "focus") : ""}
+        ${hasDisplayValue(item.suggestedUse) ? panelHtml("Suggested use", `<p class="tk-print-tight">${escapeHtml(shortText(item.suggestedUse, 140))}</p>`, "tip") : ""}
+        ${hasDisplayValue(item.printingDirections) ? panelHtml("Printing notes", `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 180))}</p>`, "print") : ""}
         ${item.embedAsImage
           ? `<p class="tk-print-muted">Full printable image included on the following page.</p>`
-          : `<p class="tk-print-muted"><strong>Additional printable PDF included separately.</strong> Pages were not merged into this binder.</p>`}
+          : `<p class="tk-print-muted"><strong>Additional printable PDF included separately.</strong> Pages were not merged into this binder document.</p>`}
       </article>
     `).join("");
     return note + `<div class="tk-print-resource-grid">${cards}</div>`;
@@ -749,47 +910,74 @@
     const songs = (model.songs || []).filter((song) => (lyricsOnly ? song.lyricsPrintable : true));
     if (!songs.length) {
       return lyricsOnly
-        ? `<p class="tk-print-muted">No songs with printable lyrics are available for this lesson (original, public-domain, or licensed only).</p>`
-        : "";
+        ? emptyStateHtml(
+          "No printable lyrics for this lesson",
+          "Lyrics appear here only for original, public-domain, or licensed songs. Teaching tips and movement ideas still live in the Songs pack.",
+        )
+        : emptyStateHtml(
+          "No songs attached yet",
+          "Additional songs can be attached in future lesson updates. This page is ready when song resources are added.",
+        );
     }
     return `<div class="tk-print-resource-grid">${songs.map((song) => `
-      <article class="tk-print-resource-card tk-print-keep">
+      <article class="tk-print-resource-card tk-print-song-card tk-print-keep">
         <header>
-          <h3>${escapeHtml(song.title)}</h3>
-          ${badgeHtml(song.rights || "Song")}
-          ${(song.relatedDays || []).length ? badgeHtml((song.relatedDays || []).join(", ")) : (song.relatedDay ? badgeHtml(song.relatedDay) : "")}
+          <div>
+            <p class="tk-print-card-kicker">${iconHtml("song")}<span>Song</span></p>
+            <h3>${escapeHtml(song.title)}</h3>
+          </div>
+          <div class="tk-print-badge-row">
+            ${badgeHtml(song.rights || "")}
+            ${(song.relatedDays || []).length ? badgeHtml((song.relatedDays || []).join(", ")) : (song.relatedDay ? badgeHtml(song.relatedDay) : "")}
+          </div>
         </header>
-        ${hasDisplayValue(song.whenToUse) ? panelHtml("When to use", bulletListHtml(toBullets(song.whenToUse, 2), 2), "T") : ""}
-        ${hasDisplayValue(song.notes) ? panelHtml("Teaching tips", bulletListHtml(toBullets(song.notes, 3), 3), "P") : ""}
-        ${hasDisplayValue(song.motions) ? panelHtml("Movements / actions", bulletListHtml(toBullets(song.motions, 4), 4), "N") : ""}
+        ${hasDisplayValue(song.whenToUse) ? panelHtml("Best time / transition", bulletListHtml(toBullets(song.whenToUse, 2), 2), "schedule") : ""}
+        ${hasDisplayValue(song.notes) ? panelHtml("Teaching tips", bulletListHtml(toBullets(song.notes, 3), 3), "tip") : ""}
+        ${hasDisplayValue(song.motions) ? panelHtml("Movement ideas", bulletListHtml(toBullets(song.motions, 4), 4), "steps") : ""}
+        ${hasDisplayValue(song.props) ? panelHtml("Props", checkboxListHtml(toBullets(song.props, 4), 4), "materials") : ""}
         ${song.lyricsPrintable && song.lyrics
-          ? panelHtml("Lyrics", `<p class="tk-print-tight">${escapeHtml(song.lyrics)}</p>`, "L")
-          : (lyricsOnly ? "" : `<p class="tk-print-muted">Lyrics not included (rights do not allow display).</p>`)}
+          ? panelHtml("Lyrics", `<p class="tk-print-tight">${escapeHtml(song.lyrics)}</p>`, "song")
+          : (lyricsOnly
+            ? ""
+            : `<div class="tk-print-lyrics-note tk-print-keep"><strong>Lyrics not shown</strong><span>Rights do not allow displaying these lyrics in the binder. Use the song title and teaching tips during circle time.</span></div>`)}
       </article>
     `).join("")}</div>`;
   }
 
   function booksBody(model, selection) {
     const books = model.books || [];
-    if (!books.length) return "";
-    return `<div class="tk-print-resource-grid">${books.map((book) => `
-      <article class="tk-print-resource-card tk-print-keep">
-        <header>
-          <h3>${escapeHtml(book.title)}</h3>
-          ${book.author ? badgeHtml(`by ${book.author}`) : badgeHtml("Book")}
-          ${(book.relatedDays || []).length ? badgeHtml((book.relatedDays || []).join(", ")) : (book.relatedDay ? badgeHtml(book.relatedDay) : "")}
-        </header>
-        ${selection?.includeImages && book.coverImageUrl
-          ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(book.coverImageUrl)}" alt="${escapeHtml(book.coverImageAlt || book.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>`
-          : ""}
-        ${hasDisplayValue(book.whyThisBook) ? panelHtml("Why this book", `<p class="tk-print-tight">${escapeHtml(shortText(book.whyThisBook, 180))}</p>`, "*") : ""}
-        ${(book.vocabularyConnections || []).length ? panelHtml("Vocabulary connections", chipRowHtml(book.vocabularyConnections), "Aa") : ""}
-        ${panelHtml("Before reading", bulletListHtml(book.beforeReadingQuestions, 3), "?")}
-        ${panelHtml("During reading", bulletListHtml(book.duringReadingPrompts, 4), "?")}
-        ${panelHtml("After reading", bulletListHtml(book.afterReadingQuestions || book.readAloudQuestions, 4), "?")}
-        ${panelHtml("Extension activity", bulletListHtml(book.extensionIdeas, 3), "+")}
-      </article>
-    `).join("")}</div>`;
+    if (!books.length) {
+      return emptyStateHtml(
+        "No books attached yet",
+        "Book guides appear here when titles are linked to the lesson. This layout is ready for covers, prompts, and extensions.",
+      );
+    }
+    return `<div class="tk-print-book-stack">${books.map((book) => {
+      const cover = selection?.includeImages && book.coverImageUrl
+        ? `<div class="tk-print-book-cover"><img src="${escapeHtml(book.coverImageUrl)}" alt="${escapeHtml(book.coverImageAlt || book.title)}" loading="eager" decoding="async" onerror="this.parentElement.classList.add('is-placeholder'); this.remove()" /></div>`
+        : `<div class="tk-print-book-cover is-placeholder" aria-hidden="true"><span>Book</span></div>`;
+      const dayBits = (book.relatedDays || []).length
+        ? (book.relatedDays || []).join(", ")
+        : (book.relatedDay || "");
+      return `
+      <article class="tk-print-book-card tk-print-keep">
+        ${cover}
+        <div class="tk-print-book-body">
+          <header>
+            <p class="tk-print-card-kicker">${iconHtml("book")}<span>Book guide</span></p>
+            <h3>${escapeHtml(book.title)}</h3>
+            ${book.author ? `<p class="tk-print-book-author">by ${escapeHtml(book.author)}</p>` : ""}
+            <div class="tk-print-badge-row">${dayBits ? badgeHtml(dayBits) : ""}</div>
+          </header>
+          ${hasDisplayValue(book.whyThisBook) ? panelHtml("Why this book", `<p class="tk-print-tight">${escapeHtml(shortText(book.whyThisBook, 180))}</p>`, "focus") : ""}
+          ${(book.vocabularyConnections || []).length ? panelHtml("Vocabulary", chipRowHtml(book.vocabularyConnections), "vocab") : ""}
+          ${panelHtml("Before reading", bulletListHtml(book.beforeReadingQuestions, 3), "book")}
+          ${panelHtml("During reading", bulletListHtml(book.duringReadingPrompts, 4), "book")}
+          ${panelHtml("After reading", bulletListHtml(book.afterReadingQuestions || book.readAloudQuestions, 4), "book")}
+          ${panelHtml("Extension", bulletListHtml(book.extensionIdeas, 3), "adapt")}
+        </div>
+      </article>`;
+    }).join("")}</div>`;
   }
 
   function examplesBody(model) {
@@ -808,21 +996,48 @@
     const setup = toolkit.mondayMorningSetup || {};
     const prep = (setup.prepTasks || []).map((task) => `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}`);
     const printChecklist = (setup.printChecklist || []).map((item) => `${item.label}${(item.usedInWeek || []).length ? ` (${item.usedInWeek.join("; ")})` : ""}`);
+    const vocab = (model.overview?.vocabulary || []).map((word) => word.word).filter(Boolean).slice(0, 16);
     return `
-      <div class="tk-print-section-banner">Monday Morning Setup</div>
-      ${setup.estimatedPrepMinutes ? `<div class="tk-print-stat-pill"><span>Estimated prep</span><strong>${escapeHtml(String(setup.estimatedPrepMinutes))} min</strong></div>` : ""}
-      ${(setup.missingMaterials || []).length ? `<div class="tk-print-callout tk-print-keep"><strong>Needs attention</strong><span>${escapeHtml(setup.missingMaterials.join(" · "))}</span></div>` : ""}
-      <div class="tk-print-day-sheet-grid">
-        ${panelHtml("Master materials", checkboxListHtml(setup.materials, 24), "M")}
-        ${panelHtml("Prep checklist", checkboxListHtml(prep, 10), "M")}
-        ${panelHtml("Print checklist", checkboxListHtml(printChecklist, 8), "M")}
-        ${panelHtml("Vocabulary", chipRowHtml((model.overview?.vocabulary || []).map((word) => word.word).slice(0, 12)), "Aa")}
-        ${panelHtml("Teaching tips", bulletListHtml(toolkit.teachingTips, 5), "P")}
-        ${panelHtml("Safety", bulletListHtml(model.overview?.safety, 4), "!")}
-        ${panelHtml("Cleanup", bulletListHtml(toolkit.cleanup, 4), "X")}
-        ${panelHtml("Observation", bulletListHtml(toolkit.observationGuidance, 4), "W")}
-        ${panelHtml("Adaptations", bulletListHtml(toBullets(toolkit.adaptations, 3), 3), "+")}
-        ${panelHtml("Family resources", bulletListHtml(toBullets(toolkit.familyResources, 3), 3), "F")}
+      <div class="tk-print-toolkit-intro">
+        <div class="tk-print-section-banner">Monday Morning Setup</div>
+        ${setup.estimatedPrepMinutes ? `<div class="tk-print-stat-pill"><span>Estimated prep</span><strong>${escapeHtml(String(setup.estimatedPrepMinutes))} min</strong></div>` : ""}
+        ${(setup.missingMaterials || []).length ? `<div class="tk-print-callout tk-print-keep"><strong>Needs attention</strong><span>${escapeHtml(setup.missingMaterials.join(" · "))}</span></div>` : ""}
+      </div>
+      <div class="tk-print-toolkit-groups">
+        <section class="tk-print-toolkit-group" data-toolkit-group="materials">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("materials")}<span>Setup materials</span></h3>
+          ${checkboxListHtml(setup.materials, 24) || emptyStateHtml("Materials checklist ready", "Materials will appear here when authored for this lesson.")}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="prep">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("prep")}<span>Prep checklist</span></h3>
+          ${checkboxListHtml(prep, 10) || emptyStateHtml("Prep checklist ready", "Prep tasks will appear here when authored for this lesson.")}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="print">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("print")}<span>Print checklist</span></h3>
+          ${checkboxListHtml(printChecklist, 8) || emptyStateHtml("Print checklist ready", "Printable checklist items will appear here when linked.")}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="vocab">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("vocab")}<span>Vocabulary</span></h3>
+          ${chipRowHtml(vocab) || emptyStateHtml("Vocabulary ready", "Theme words will appear here when authored.")}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="tips">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("tip")}<span>Teaching tips</span></h3>
+          ${bulletListHtml(toolkit.teachingTips, 5) || ""}
+          ${panelHtml("Safety", bulletListHtml(model.overview?.safety, 4), "safety")}
+          ${panelHtml("Cleanup", bulletListHtml(toolkit.cleanup, 4), "cleanup")}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="observe">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("watch")}<span>Observation</span></h3>
+          ${bulletListHtml(toolkit.observationGuidance, 4) || emptyStateHtml("Observation prompts ready", "What to watch for will appear here when authored.")}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="adapt">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("adapt")}<span>Adaptations</span></h3>
+          ${bulletListHtml(toBullets(toolkit.adaptations, 3), 3) || ""}
+        </section>
+        <section class="tk-print-toolkit-group" data-toolkit-group="family">
+          <h3 class="tk-print-toolkit-group-title">${iconHtml("family")}<span>Family resources</span></h3>
+          ${bulletListHtml(toBullets(toolkit.familyResources, 3), 3) || ""}
+        </section>
       </div>
     `;
   }
@@ -1112,7 +1327,7 @@
     if (mode === "song_lyrics") {
       const body = songsBody(model, true);
       if (body) chunks.push(page("Song Guide", "Song Lyrics / Song Guide", body, selection.footerLabel));
-      else chunks.push(page("Song Guide", "Song Guide", `<p class="tk-print-muted">No printable lyrics available for this lesson. Use the Songs pack for teaching tips and movements without full lyrics.</p>`, selection.footerLabel));
+      else chunks.push(page("Song Guide", "Song Guide", emptyStateHtml("No printable lyrics available for this lesson", "Use the Songs pack for teaching tips and movement ideas. Lyrics appear here only when rights allow."), selection.footerLabel));
       return chunks;
     }
     if (mode === "books") {
@@ -1126,7 +1341,7 @@
       chunks.push(page(
         "Materials",
         day ? `${day.dayLabel} Materials` : "Materials List",
-        panelHtml(day ? `${day.dayLabel} materials` : "Master materials", checkboxListHtml(materials, 50), "M"),
+        panelHtml(day ? `${day.dayLabel} materials` : "Master materials", checkboxListHtml(materials, 50), "materials"),
         selection.footerLabel,
       ));
       return chunks;
@@ -1140,7 +1355,7 @@
         chunks.push(page("Printables", "Printable Resources", printablesBody(model, selection), selection.footerLabel));
         chunks.push(printableImagePages(model, selection));
       } else {
-        chunks.push(page("Printables", "Printable Resources", `<p class="tk-print-muted">No printables are included with this lesson yet.</p>`, selection.footerLabel));
+        chunks.push(page("Printables", "Printable Resources", emptyStateHtml("No printable resources have been added to this lesson yet.", "When printables are linked, teachers will see thumbnails, purpose, suggested use, and printing notes here."), selection.footerLabel));
       }
       return chunks;
     }
@@ -1158,36 +1373,9 @@
   }
 
   function designStyleTag() {
-    // Critical binder design tokens/layout so print preview stays designed even if
-    // the main stylesheet is delayed/partial. Full rules remain in styles.css.
-    return `<style data-tk-print-design>
-.tk-print-root{--tk-purple-deep:#542e94;--tk-purple:#6b46c1;--tk-purple-soft:#f3eefd;--tk-purple-line:#d1c2f0;--tk-ink:#2d1b4e;--tk-muted:#6b5f82;color:var(--tk-ink);background:#fff}
-.tk-print-running{background:var(--tk-purple-deep);color:#fff;border-radius:8px;padding:7px 10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:.68rem;display:flex;justify-content:space-between}
-.tk-print-title-bar{background:var(--tk-purple-soft);border:1px solid var(--tk-purple-line);border-left:6px solid var(--tk-purple);border-radius:10px;padding:8px 12px;margin:0 0 12px}
-.tk-print-page-title{margin:0;color:var(--tk-purple-deep);font-size:1.22rem}
-.tk-print-cover{background:radial-gradient(circle at 85% 18%,rgba(255,255,255,.18),transparent 28%),linear-gradient(155deg,#3b1d6e 0%,#542e94 45%,#6b46c1 100%)!important;color:#fff!important;border-radius:14px;padding:28px 24px;min-height:9.2in;display:flex;flex-direction:column;justify-content:space-between}
-.tk-print-cover .tk-print-footer{color:rgba(255,255,255,.88);border-top:1px solid rgba(255,255,255,.28)}
-.tk-print-cover-subtitle{margin:6px 0 14px;font-size:1.05rem;opacity:.92;font-weight:600}
-.tk-print-cover-fallback{display:flex;align-items:center;justify-content:center;min-height:180px;border:1px dashed rgba(255,255,255,.45);border-radius:12px;margin:12px 0;opacity:.85;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
-.tk-print-cover-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tk-print-cover-meta-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:8px 10px}
-.tk-print-admin-banner{background:#7c2d12;color:#fff;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:.72rem;padding:7px 10px;border-radius:8px;margin:0 0 10px}
-.tk-print-toc{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.tk-print-toc-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--tk-purple-line);padding:8px 0}
-.tk-print-toc-num{width:28px;height:28px;border-radius:999px;background:var(--tk-purple-soft);color:var(--tk-purple-deep);display:inline-flex;align-items:center;justify-content:center;font-weight:800}
-.tk-print-panel{border:1px solid var(--tk-purple-line);border-radius:10px;overflow:hidden;background:#fff}
-.tk-print-panel-label{display:flex;gap:6px;align-items:center;background:var(--tk-purple-soft);color:var(--tk-purple-deep);font-size:.72rem;font-weight:800;text-transform:uppercase;padding:5px 8px}
-.tk-print-wag-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt}
-.tk-print-wag-table th,.tk-print-wag-table td{border:1px solid var(--tk-purple-line);padding:5px 4px;vertical-align:top}
-.tk-print-wag-table thead th{background:var(--tk-purple-deep);color:#fff}
-.tk-print-activity-card,.tk-print-day-sheet,.tk-print-resource-card,.tk-print-day-activity{border:1px solid var(--tk-purple-line);border-radius:12px;overflow:hidden;background:#fff}
-.tk-print-day-activity{padding:10px;margin:10px 0}
-.tk-print-day-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tk-print-check-box{width:12px;height:12px;border:1.5px solid var(--tk-purple);border-radius:3px;display:inline-block}
-.tk-print-printable-full{margin:0;text-align:center}
-.tk-print-printable-full img{max-width:100%;max-height:8.5in;object-fit:contain}
-.tk-print-vocab-line{margin:0;line-height:1.5;font-weight:600}
-</style>`;
+    // Critical binder design so print preview stays designed even if main stylesheet is delayed.
+    // Full rules (including app print chrome hiding) also live in styles.css.
+    return "<style data-tk-print-design>" + ".teaching-kit-print-article,\n.tk-print-root {\n--tk-purple-deep: #542e94;\n--tk-purple: #6b46c1;\n--tk-purple-soft: #f5f0fc;\n--tk-purple-line: #e8e0f4;\n--tk-ink: #2d1b4e;\n--tk-muted: #6b5f82;\n--tk-accent: var(--tk-purple-deep);\n--tk-accent-soft: var(--tk-purple-soft);\n--tk-border: #e8e0f4;\n--tk-display: Georgia, \"Palatino Linotype\", \"Palatino\", \"Times New Roman\", serif;\n--tk-body: \"Avenir Next\", \"Segoe UI\", \"Helvetica Neue\", sans-serif;\ncolor: var(--tk-ink);\nbackground: #fff;\ncounter-reset: tk-page;\nfont-family: var(--tk-body);\nfont-size: 10.5pt;\nline-height: 1.45;\n-webkit-print-color-adjust: exact;\nprint-color-adjust: exact;\n}\n.tk-theme-overview { --tk-accent: #542e94; --tk-accent-soft: #f3eefd; }\n.tk-theme-weekly { --tk-accent: #0f766e; --tk-accent-soft: #ecfdf5; }\n.tk-theme-daily { --tk-accent: #1d4ed8; --tk-accent-soft: #eff6ff; }\n.tk-theme-activities { --tk-accent: #b45309; --tk-accent-soft: #fff7ed; }\n.tk-theme-books { --tk-accent: #9a3412; --tk-accent-soft: #fff7ed; }\n.tk-theme-songs { --tk-accent: #7e22ce; --tk-accent-soft: #faf5ff; }\n.tk-theme-printables { --tk-accent: #0369a1; --tk-accent-soft: #f0f9ff; }\n.tk-theme-toolkit { --tk-accent: #334155; --tk-accent-soft: #f8fafc; }\n.tk-theme-toc,\n.tk-theme-default,\n.tk-theme-cover { --tk-accent: #542e94; --tk-accent-soft: #f3eefd; }\n.tk-print-page {\nposition: relative;\ndisplay: flex;\nflex-direction: column;\nbreak-after: page;\npage-break-after: always;\npadding: 12px 8px 18px;\nmin-height: 0;\nbox-sizing: border-box;\ncounter-increment: tk-page;\n}\n.tk-print-page:last-of-type {\nbreak-after: auto;\npage-break-after: auto;\n}\n.tk-print-running {\ndisplay: flex;\njustify-content: space-between;\nalign-items: center;\ngap: 12px;\nfont-size: 0.62rem;\nfont-weight: 700;\nletter-spacing: 0.08em;\ntext-transform: uppercase;\ncolor: var(--tk-muted);\nbackground: #fff;\nmargin: 0 0 14px;\npadding: 6px 10px 6px 12px;\nborder-bottom: 1px solid var(--tk-border);\nborder-left: 3px solid var(--tk-accent);\nborder-radius: 0;\nflex: 0 0 auto;\n}\n.tk-print-running span:last-child {\ncolor: var(--tk-accent);\nfont-weight: 800;\n}\n.tk-print-title-bar {\nbackground: transparent;\nborder: none;\nborder-left: 4px solid var(--tk-accent);\nborder-radius: 0;\npadding: 4px 0 4px 14px;\nmargin: 0 0 18px;\n}\n.tk-print-page-title {\nmargin: 0;\nfont-family: var(--tk-display);\nfont-size: 1.35rem;\nfont-weight: 700;\ncolor: var(--tk-ink);\nline-height: 1.2;\nbreak-after: avoid;\npage-break-after: avoid;\n}\n.tk-print-rule { display: none; }\n.tk-print-body {\nflex: 1 1 auto;\nmin-height: 0;\npadding-bottom: 10px;\nfont-size: 10.5pt;\nline-height: 1.45;\n}\n.tk-print-footer {\nmargin-top: auto;\npadding: 10px 4px 0;\ndisplay: flex;\njustify-content: space-between;\ngap: 12px;\nfont-size: 0.65rem;\nfont-weight: 600;\ncolor: var(--tk-muted);\nborder-top: 1px solid var(--tk-border);\nflex: 0 0 auto;\n}\n.tk-print-page-number::after { content: counter(tk-page); }\n.tk-print-keep { break-inside: avoid; page-break-inside: avoid; }\n.tk-print-muted { color: var(--tk-muted); }\n.tk-print-tight { margin: 0; line-height: 1.4; }\n.tk-print-list,\n.tk-print-bullets,\n.tk-print-steps,\n.tk-print-check,\n.tk-print-cell-list {\nmargin: 0;\npadding-left: 0;\nlist-style: none;\n}\n.tk-print-bullets li,\n.tk-print-list li {\nposition: relative;\npadding-left: 14px;\nmargin: 4px 0;\n}\n.tk-print-bullets li::before,\n.tk-print-list li::before {\ncontent: \"\";\nposition: absolute;\nleft: 0;\ntop: 0.5em;\nwidth: 5px;\nheight: 5px;\nborder-radius: 50%;\nbackground: var(--tk-accent);\n}\n.tk-print-steps { counter-reset: tk-step; }\n.tk-print-steps li {\ncounter-increment: tk-step;\nposition: relative;\npadding-left: 24px;\nmargin: 5px 0;\n}\n.tk-print-steps li::before {\ncontent: counter(tk-step);\nposition: absolute;\nleft: 0;\ntop: 0.05em;\nwidth: 17px;\nheight: 17px;\nborder-radius: 50%;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nborder: 1px solid var(--tk-border);\nfont-size: 0.65rem;\nfont-weight: 800;\ndisplay: grid;\nplace-items: center;\n}\n.tk-print-check li {\ndisplay: grid;\ngrid-template-columns: 14px 1fr;\ngap: 8px;\nalign-items: start;\nmargin: 4px 0;\npadding-left: 0;\n}\n.tk-print-check li::before { content: none !important; display: none !important; }\n.tk-print-check-box {\nwidth: 12px;\nheight: 12px;\nmargin-top: 3px;\nborder: 1.5px solid var(--tk-accent);\nborder-radius: 3px;\nbackground: #fff;\nflex-shrink: 0;\n}\n.tk-print-panel {\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\nbackground: #fff;\noverflow: hidden;\nmargin: 0 0 12px;\n}\n.tk-print-panel-label {\ndisplay: flex;\nalign-items: center;\ngap: 7px;\nbackground: #faf8fc;\ncolor: var(--tk-ink);\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\npadding: 6px 10px;\nborder-bottom: 1px solid var(--tk-border);\n}\n.tk-print-icon {\ndisplay: inline-grid;\nplace-items: center;\nwidth: 18px;\nheight: 18px;\nborder-radius: 50%;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nfont-size: 0.6rem;\nfont-weight: 800;\nflex-shrink: 0;\n}\n.tk-print-icon--svg svg {\ndisplay: block;\nwidth: 12px;\nheight: 12px;\n}\n.tk-print-panel-body {\npadding: 10px 12px;\n}\n.tk-print-badge-row,\n.tk-print-chip-row {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 6px;\nmargin: 8px 0;\n}\n.tk-print-badge,\n.tk-print-chip {\ndisplay: inline-flex;\nalign-items: center;\npadding: 3px 10px;\nborder-radius: 999px;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nborder: 1px solid var(--tk-border);\nfont-size: 0.7rem;\nfont-weight: 700;\nline-height: 1.3;\n}\n.tk-print-snapshot-grid,\n.tk-print-day-sheet-grid,\n.tk-print-activity-grid,\n.tk-print-resource-grid,\n.tk-print-day-pair,\n.tk-print-activity-primary,\n.tk-print-activity-secondary {\ndisplay: grid;\ngap: 12px;\n}\n.tk-print-snapshot-grid { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }\n.tk-print-day-sheet-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-resource-grid { grid-template-columns: 1fr 1fr; }\n.tk-print-day-pair { grid-template-columns: 1fr; gap: 16px; }\n.tk-print-activity-primary { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-secondary { grid-template-columns: 1fr 1fr; }\n.tk-print-activity-primary .tk-print-panel-label,\n.tk-print-activity-primary .tk-print-panel-body {\nfont-weight: 600;\n}\n.tk-print-activity-secondary .tk-print-panel-body {\ncolor: var(--tk-muted);\nfont-size: 0.92em;\n}\n.tk-print-stat-pill {\ndisplay: inline-flex;\njustify-content: space-between;\nalign-items: center;\ngap: 12px;\npadding: 8px 14px;\nborder-radius: 999px;\nbackground: #fff;\ncolor: var(--tk-ink);\nborder: 1.5px solid var(--tk-accent);\nfont-size: 0.85rem;\nmargin: 4px 0 12px;\n}\n.tk-print-stat-pill strong {\ncolor: var(--tk-accent);\nfont-weight: 800;\n}\n.tk-print-wag-table {\nwidth: 100%;\nborder-collapse: collapse;\ntable-layout: fixed;\nfont-size: 8.5pt;\nmargin: 8px 0 14px;\n}\n.tk-print-wag-table th,\n.tk-print-wag-table td {\nborder: 1px solid var(--tk-border);\npadding: 6px 5px;\nvertical-align: top;\nbackground: #fff;\n}\n.tk-print-wag-table thead th {\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\n}\n.tk-print-wag-table tbody th {\nbackground: #faf8fc;\ncolor: var(--tk-ink);\nfont-size: 0.68rem;\nfont-weight: 800;\ntext-transform: uppercase;\nwidth: 0.85in;\n}\n.tk-print-cell-list li {\nmargin: 3px 0;\npadding-left: 10px;\nposition: relative;\n}\n.tk-print-cell-list li::before {\ncontent: \"\";\nposition: absolute;\nleft: 0;\ntop: 0.45em;\nwidth: 4px;\nheight: 4px;\nborder-radius: 50%;\nbackground: var(--tk-accent);\n}\n.tk-print-domain-row {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 6px;\nmargin: 8px 0 12px;\n}\n.tk-print-day-sheet {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\noverflow: hidden;\nbackground: #fff;\nmargin-bottom: 14px;\n}\n.tk-print-day-sheet-head {\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-ink);\npadding: 10px 14px;\nborder-bottom: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\n}\n.tk-print-day-sheet-head h3 {\nmargin: 0 0 3px;\nfont-family: var(--tk-display);\nfont-size: 1.1rem;\ncolor: var(--tk-accent);\n}\n.tk-print-day-sheet-head p {\nmargin: 0;\nfont-size: 0.88rem;\ncolor: var(--tk-muted);\n}\n.tk-print-day-sheet-grid { padding: 12px; }\n.tk-print-activity-card {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\nbackground: #fff;\nmargin: 0 0 14px;\noverflow: hidden;\nbox-shadow: 0 1px 0 rgba(45, 27, 78, 0.04);\n}\n.tk-print-activity-head {\ndisplay: grid;\ngrid-template-columns: 1fr auto;\ngap: 10px;\npadding: 12px 14px;\nbackground: #faf8fc;\nborder-bottom: 1px solid var(--tk-border);\n}\n.tk-print-activity-head h3 {\nmargin: 0 0 6px;\nfont-family: var(--tk-display);\ncolor: var(--tk-ink);\nfont-size: 1.08rem;\nline-height: 1.25;\n}\n.tk-print-objective {\nmargin: 6px 0 0;\ncolor: var(--tk-muted);\nfont-size: 0.88rem;\nfont-style: italic;\n}\n.tk-print-activity-grid { padding: 12px; }\n.tk-print-card-photos {\ndisplay: flex;\ngap: 6px;\n}\n.tk-print-card-photo {\nmargin: 0;\nwidth: 0.95in;\nborder: 1px solid var(--tk-border);\nborder-radius: 8px;\noverflow: hidden;\nbackground: #fff;\ntext-align: center;\n}\n.tk-print-card-photo img {\ndisplay: block;\nwidth: 100%;\nheight: 0.75in;\nobject-fit: cover;\n}\n.tk-print-card-photo figcaption {\nfont-size: 0.6rem;\nfont-weight: 800;\ncolor: var(--tk-accent);\npadding: 3px 0;\ntext-transform: uppercase;\nletter-spacing: 0.04em;\n}\n.tk-print-callout {\ndisplay: grid;\ngap: 3px;\nbackground: #fff;\nborder: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\nborder-radius: 10px;\npadding: 10px 12px;\nmargin: 0 0 12px;\n}\n.tk-print-callout strong {\nfont-size: 0.72rem;\nfont-weight: 800;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\ncolor: var(--tk-accent);\n}\n.tk-print-callout-tip {\nborder-left-color: #0f766e;\nbackground: #f0fdf9;\n}\n.tk-print-callout-tip strong { color: #0f766e; }\n.tk-print-callout-watch {\nborder-left-color: #7e22ce;\nbackground: #faf5ff;\n}\n.tk-print-callout-watch strong { color: #7e22ce; }\n.tk-print-callout-extend {\nborder-left-color: #1d4ed8;\nbackground: #eff6ff;\n}\n.tk-print-callout-extend strong { color: #1d4ed8; }\n.tk-print-callout-cleanup {\nborder-left-color: #b45309;\nbackground: #fff7ed;\n}\n.tk-print-callout-cleanup strong { color: #b45309; }\n.tk-print-section-banner {\ndisplay: inline-flex;\nmargin: 8px 0 12px;\npadding: 5px 14px;\nborder-radius: 999px;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\nborder: 1px solid var(--tk-border);\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\n}\n.tk-print-resource-card {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px;\nbackground: #fff;\nmargin-bottom: 12px;\n}\n.tk-print-resource-card header {\ndisplay: flex;\njustify-content: space-between;\nflex-wrap: wrap;\ngap: 8px;\nalign-items: start;\nmargin-bottom: 8px;\n}\n.tk-print-resource-card h3 {\nmargin: 0;\nfont-family: var(--tk-display);\ncolor: var(--tk-ink);\nfont-size: 1rem;\nline-height: 1.25;\n}\n.tk-print-resource-preview img {\nwidth: 100%;\nmax-height: 1.4in;\nobject-fit: cover;\nborder-radius: 8px;\nborder: 1px solid var(--tk-border);\n}\n.tk-print-resource-meta {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 8px;\ncolor: var(--tk-muted);\nfont-size: 0.74rem;\nmargin: 6px 0;\n}\n.tk-print-book-card {\ndisplay: grid;\ngrid-template-columns: 0.85in 1fr;\ngap: 12px;\nalign-items: start;\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px;\nbackground: #fff;\nmargin-bottom: 12px;\n}\n.tk-print-book-cover {\nwidth: 0.85in;\nmin-height: 1.15in;\nborder-radius: 4px 8px 8px 4px;\nbackground: linear-gradient(135deg, var(--tk-accent-soft) 0%, #fff 50%, var(--tk-accent-soft) 100%);\nborder: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\ndisplay: grid;\nplace-items: center;\nfont-size: 0.55rem;\nfont-weight: 800;\ntext-transform: uppercase;\nletter-spacing: 0.04em;\ncolor: var(--tk-accent);\ntext-align: center;\npadding: 4px;\noverflow: hidden;\n}\n.tk-print-book-cover img {\nwidth: 100%;\nheight: 100%;\nobject-fit: cover;\nborder-radius: 2px 6px 6px 2px;\n}\n.tk-print-book-card .tk-print-book-author {\nmargin: 0 0 6px;\nfont-size: 0.82rem;\ncolor: var(--tk-muted);\nfont-style: italic;\n}\n.tk-print-song-card {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px 14px;\nbackground: #fff;\nmargin-bottom: 12px;\n}\n.tk-print-song-card header {\nmargin-bottom: 8px;\n}\n.tk-print-song-card h3 {\nmargin: 0 0 6px;\nfont-family: var(--tk-display);\nfont-size: 1.02rem;\n}\n.tk-print-lyrics-note {\ndisplay: grid;\ngap: 2px;\nmargin: 10px 0 0;\npadding: 10px 12px;\nborder-radius: 10px;\nbackground: var(--tk-accent-soft);\nborder: 1px solid var(--tk-border);\nborder-left: 4px solid var(--tk-accent);\nfont-size: 0.82rem;\ncolor: var(--tk-ink);\n}\n.tk-print-lyrics-note strong {\nfont-size: 0.68rem;\nfont-weight: 800;\ntext-transform: uppercase;\nletter-spacing: 0.04em;\ncolor: var(--tk-accent);\n}\n.tk-print-cover {\ndisplay: flex;\nflex-direction: column;\njustify-content: space-between;\nbackground: linear-gradient(180deg, #fffefb 0%, #faf7f2 55%, #f5f0fc 100%);\ncolor: var(--tk-ink);\nborder-radius: 0;\npadding: 0 0 18px;\nmin-height: 9.2in;\n}\n.tk-print-cover .tk-print-running {\nmargin-bottom: 0;\nborder-left-color: var(--tk-purple-deep);\n}\n.tk-print-cover .tk-print-footer {\ncolor: var(--tk-muted);\nborder-top-color: var(--tk-border);\npadding: 12px 16px 0;\n}\n.tk-print-cover-inner {\nflex: 1 1 auto;\ndisplay: flex;\nflex-direction: column;\npadding: 0 16px;\n}\n.tk-print-brand-row {\ndisplay: flex;\nalign-items: center;\ngap: 10px;\nmargin: 0 0 10px;\n}\n.tk-print-brand-mark {\nwidth: 28px;\nheight: 28px;\nborder-radius: 8px;\nbackground: var(--tk-purple-soft);\nborder: 1.5px solid var(--tk-purple-line);\ndisplay: grid;\nplace-items: center;\nfont-size: 0.7rem;\nfont-weight: 800;\ncolor: var(--tk-purple-deep);\nflex-shrink: 0;\n}\n.tk-print-brand {\nletter-spacing: 0.12em;\ntext-transform: uppercase;\nfont-size: 0.72rem;\nfont-weight: 800;\ncolor: var(--tk-purple-deep);\nmargin: 0;\n}\n.tk-print-cover-kicker {\ndisplay: inline-flex;\nalign-self: flex-start;\nmargin: 0 0 14px;\npadding: 4px 12px;\nborder-radius: 999px;\nbackground: var(--tk-purple-soft);\nborder: 1px solid var(--tk-border);\ncolor: var(--tk-purple-deep);\nfont-size: 0.72rem;\nfont-weight: 700;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\n}\n.tk-print-cover-hero,\n.tk-print-cover-image {\nwidth: calc(100% + 32px);\nmargin: 0 -16px 18px;\nborder-radius: 0 0 16px 16px;\noverflow: hidden;\nborder: none;\nborder-bottom: 1px solid var(--tk-border);\nmin-height: 55%;\nmax-height: 62vh;\n}\n.tk-print-cover-hero img,\n.tk-print-cover-image img {\ndisplay: block;\nwidth: 100%;\nheight: 100%;\nmin-height: 3.2in;\nmax-height: 4.5in;\nobject-fit: cover;\n}\n.tk-print-cover h1 {\nmargin: 0 0 10px;\nfont-family: var(--tk-display);\nfont-size: 2.5rem;\nline-height: 1.08;\ncolor: var(--tk-ink);\nfont-weight: 700;\n}\n.tk-print-cover-subtitle {\nmargin: 0 0 16px;\nfont-size: 1.05rem;\ncolor: var(--tk-muted);\nfont-weight: 500;\n}\n.tk-print-cover-meta {\ndisplay: grid;\ngrid-template-columns: repeat(2, minmax(0, 1fr));\ngap: 12px;\nmargin: 0 0 16px;\n}\n.tk-print-cover-meta-card {\nbackground: #fff;\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\npadding: 10px 12px;\n}\n.tk-print-cover-meta-card span,\n.tk-print-meta-label {\ndisplay: block;\nfont-size: 0.62rem;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\ncolor: var(--tk-muted);\nfont-weight: 700;\nmargin-bottom: 4px;\n}\n.tk-print-cover-meta-card strong,\n.tk-print-meta-value {\ndisplay: block;\nmargin-top: 0;\nfont-size: 1rem;\nfont-weight: 700;\ncolor: var(--tk-ink);\nline-height: 1.3;\n}\n.tk-print-cover .tk-print-chip {\nbackground: var(--tk-purple-soft);\ncolor: var(--tk-purple-deep);\nborder-color: var(--tk-border);\n}\n.tk-print-cover-fallback,\n.tk-print-cover-hero-fallback {\ndisplay: flex;\nflex-direction: column;\nalign-items: center;\njustify-content: center;\ngap: 12px;\nmin-height: 3.2in;\nmax-height: 4.5in;\nwidth: 100%;\nborder: none;\nborder-radius: 0 0 16px 16px;\nmargin: 0;\npadding: 24px 16px;\nbackground:\nradial-gradient(circle at 18% 22%, rgba(107, 70, 193, 0.08), transparent 32%),\nradial-gradient(circle at 82% 18%, rgba(246, 231, 168, 0.35), transparent 28%),\nlinear-gradient(165deg, #f7f2ff 0%, #ede4f8 45%, #e8def8 100%);\nposition: relative;\noverflow: hidden;\n}\n.tk-print-cover-fallback::before,\n.tk-print-cover-hero-fallback::before {\ncontent: \"\";\nposition: absolute;\ninset: 0;\nbackground:\nradial-gradient(circle at 12% 78%, rgba(217, 199, 245, 0.5) 0%, transparent 22%),\nradial-gradient(circle at 88% 72%, rgba(203, 182, 239, 0.4) 0%, transparent 20%);\npointer-events: none;\n}\n.tk-print-cover-fallback span {\nposition: relative;\nz-index: 1;\nfont-size: 0.72rem;\nletter-spacing: 0.1em;\ntext-transform: uppercase;\nfont-weight: 800;\ncolor: var(--tk-purple-deep);\n}\n.tk-print-cover-art {\nposition: relative;\nz-index: 1;\nwidth: min(100%, 420px);\nheight: auto;\ndisplay: block;\n}\n.tk-print-cover-hero-brand {\nposition: relative;\nz-index: 1;\nmargin: 0;\nfont-size: 0.78rem;\nfont-weight: 800;\nletter-spacing: 0.1em;\ntext-transform: uppercase;\ncolor: var(--tk-purple-deep);\n}\n.tk-print-empty-state {\ndisplay: flex;\nflex-direction: column;\nalign-items: center;\njustify-content: center;\ntext-align: center;\ngap: 8px;\npadding: 28px 20px;\nmargin: 14px 0;\nborder: 1px dashed var(--tk-border);\nborder-radius: 14px;\nbackground: #faf8fc;\n}\n.tk-print-empty-mark {\nwidth: 40px;\nheight: 40px;\nborder-radius: 50%;\nbackground: var(--tk-accent-soft);\nborder: 1.5px solid var(--tk-border);\nmargin-bottom: 4px;\n}\n.tk-print-empty-title {\nmargin: 0;\nfont-family: var(--tk-display);\nfont-size: 1rem;\nfont-weight: 700;\ncolor: var(--tk-ink);\n}\n.tk-print-empty-copy {\nmargin: 0;\nfont-size: 0.85rem;\ncolor: var(--tk-muted);\nmax-width: 28em;\nline-height: 1.45;\n}\n.tk-print-toolkit-groups {\ndisplay: grid;\ngrid-template-columns: repeat(2, minmax(0, 1fr));\ngap: 14px;\nmargin: 12px 0 16px;\n}\n.tk-print-toolkit-group {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\nbackground: #fff;\noverflow: hidden;\n}\n.tk-print-toolkit-group-title {\nmargin: 0;\npadding: 8px 12px;\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\ncolor: var(--tk-accent);\nbackground: var(--tk-accent-soft);\nborder-bottom: 1px solid var(--tk-border);\n}\n.tk-print-toolkit-group .tk-print-panel {\nborder: none;\nborder-radius: 0;\nmargin: 0;\n}\n.tk-print-toolkit-group .tk-print-panel-label {\nbackground: #faf8fc;\nfont-size: 0.64rem;\n}\n.tk-print-vocab-line {\nmargin: 0;\nline-height: 1.6;\nfont-weight: 600;\nword-spacing: 0.12em;\nletter-spacing: 0.02em;\n}\n.tk-print-toc {\nlist-style: none;\nmargin: 0;\npadding: 0;\ndisplay: grid;\ngap: 4px;\n}\n.tk-print-toc-row {\ndisplay: flex;\ngap: 14px;\nalign-items: center;\nborder-bottom: 1px solid var(--tk-border);\npadding: 10px 0;\n}\n.tk-print-toc-num {\nwidth: 28px;\nheight: 28px;\nborder-radius: 999px;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\ndisplay: inline-flex;\nalign-items: center;\njustify-content: center;\nfont-weight: 800;\nfont-size: 0.78rem;\nflex-shrink: 0;\n}\n.tk-print-toc-label {\nfont-weight: 600;\ncolor: var(--tk-ink);\n}\n.tk-print-day-activity {\nborder: 1px solid var(--tk-border);\nborder-radius: 12px;\npadding: 12px;\nmargin: 12px 0;\nbackground: #fff;\n}\n.tk-print-day-activity-head {\ndisplay: flex;\nflex-wrap: wrap;\ngap: 8px;\nalign-items: baseline;\nmargin-bottom: 8px;\n}\n.tk-print-day-activity-index {\nfont-size: 0.65rem;\nfont-weight: 800;\ntext-transform: uppercase;\nletter-spacing: 0.05em;\ncolor: var(--tk-accent);\n}\n.tk-print-day-activity-head h4 {\nmargin: 0;\nfont-family: var(--tk-display);\nfont-size: 0.98rem;\n}\n.tk-print-day-activity-grid {\ndisplay: grid;\ngrid-template-columns: 1fr 1fr;\ngap: 10px;\n}\n.tk-print-printable-full {\nmargin: 0;\ntext-align: center;\n}\n.tk-print-printable-full img {\nmax-width: 100%;\nmax-height: 8.5in;\nobject-fit: contain;\n}\n.tk-print-select-block {\nmargin-top: 14px;\npadding-top: 12px;\nborder-top: 1px solid var(--tk-border);\n}\n.tk-select {\nwidth: 100%;\nmargin-top: 6px;\npadding: 8px 10px;\nborder-radius: 8px;\nborder: 1px solid var(--tk-border);\nbackground: #fff;\n}\n{\ndisplay: grid;\ngrid-template-columns: 1fr 1fr;\ngap: 12px;\nmargin-bottom: 12px;\nfont-weight: 700;\n}\n{\ndisplay: block;\nborder-bottom: 1.5px solid var(--tk-border);\nmin-height: 1.1em;\nmargin: 8px 0;\n}\n{\ngrid-template-columns: 1fr 1fr;\nmargin-bottom: 12px;\n}\n{\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\npadding: 10px 12px;\nbackground: #faf8fc;\n}\nh3 {\nmargin: 0 0 6px;\ncolor: var(--tk-ink);\nfont-size: 0.9rem;\nfont-family: var(--tk-display);\n}\n.tk-print-photo-row {\ndisplay: grid;\ngrid-template-columns: 1fr 1fr;\ngap: 12px;\nmargin: 12px 0 16px;\n}\n.tk-print-photo {\nborder: 1px solid var(--tk-border);\nborder-radius: 10px;\noverflow: hidden;\ntext-align: center;\nfont-size: 0.74rem;\nfont-weight: 700;\nbackground: #faf8fc;\n}\n.tk-print-photo img {\nwidth: 100%;\nmax-height: 2.1in;\nheight: auto;\nobject-fit: contain;\ndisplay: block;\n}\n.tk-print-photo-ph {\nmin-height: 1.4in;\ndisplay: grid;\nplace-items: center;\nbackground: var(--tk-accent-soft);\ncolor: var(--tk-accent);\n}\n.tk-print-admin-banner,\n.tk-owner-preview-banner {\nbackground: #7c2d12;\ncolor: #fff;\nfont-weight: 800;\nletter-spacing: 0.04em;\ntext-transform: uppercase;\nfont-size: 0.68rem;\npadding: 7px 12px;\nborder-radius: 8px;\nmargin: 0 0 12px;\n}\n.tk-owner-preview-banner {\ndisplay: inline-block;\n}\n.tk-print-section h3 {\nfont-family: var(--tk-display);\nfont-size: 1rem;\nmargin: 0 0 8px;\ncolor: var(--tk-ink);\n}\n.tk-print-message {\npadding: 10px 12px;\nborder-radius: 10px;\nborder: 1px solid var(--tk-border);\nbackground: #faf8fc;\nline-height: 1.45;\n}\n.tk-print-watermark {\nposition: fixed;\ninset: 35% 8%;\ntext-align: center;\nfont-size: 1.1rem;\nfont-weight: 800;\ncolor: rgba(84, 46, 148, 0.1);\ntransform: rotate(-18deg);\npointer-events: none;\nz-index: 5;\n}\n.tk-print-cover-frame {\ndisplay: flex;\nflex-direction: column;\ngap: 18px;\nflex: 1 1 auto;\nmin-height: 0;\n}\n.tk-print-cover-copy h1 {\nmargin: 0 0 8px;\nfont-family: Georgia, \"Palatino Linotype\", \"Times New Roman\", serif;\nfont-size: 2.35rem;\nline-height: 1.08;\ncolor: var(--tk-purple-deep, #542e94);\nletter-spacing: -0.02em;\n}\n.tk-print-card-kicker {\ndisplay: inline-flex;\nalign-items: center;\ngap: 6px;\nmargin: 0 0 6px;\ncolor: var(--tk-accent, var(--tk-purple, #6b46c1));\nfont-size: 0.68rem;\nfont-weight: 800;\nletter-spacing: 0.08em;\ntext-transform: uppercase;\n}\n.tk-print-book-stack {\ndisplay: grid;\ngap: 16px;\n}\n.tk-print-book-cover.is-placeholder,\n.tk-print-printable-thumb-fallback {\ndisplay: grid;\nplace-items: center;\nmin-height: 1.6in;\nborder-radius: 10px;\nbackground:\nlinear-gradient(160deg, #f7f2ff 0%, #efe7fb 55%, #e4daf6 100%);\nborder: 1px solid #e8e0f4;\ncolor: var(--tk-purple-deep, #542e94);\nfont-weight: 800;\nletter-spacing: 0.06em;\ntext-transform: uppercase;\nfont-size: 0.72rem;\n}\n.tk-print-printable-thumb-fallback {\nmin-height: 1.1in;\nmargin-bottom: 8px;\n}\n.tk-print-toolkit-intro {\ndisplay: grid;\ngap: 10px;\nmargin-bottom: 14px;\n}\n.tk-print-cover-hero.is-missing .tk-print-cover-image {\ndisplay: none;\n}\n.tk-print-empty-mark {\nwidth: 42px;\nheight: 42px;\nmargin: 0 auto 10px;\nborder-radius: 12px;\nbackground:\nradial-gradient(circle at 30% 30%, #fff, transparent 45%),\nlinear-gradient(145deg, #efe7fb, #d9c8f4);\nborder: 1px solid #e8e0f4;\n}\n.tk-print-callout-tip,\n.tk-print-callout-watch,\n.tk-print-callout-extend,\n.tk-print-callout-cleanup {\ndisplay: grid;\ngap: 4px;\nborder-radius: 10px;\npadding: 10px 12px;\nmargin: 0 0 8px;\nbackground: #fff;\nborder: 1px solid #e8e0f4;\nborder-left-width: 4px;\n}\n.tk-print-callout-tip { border-left-color: #7c3aed; background: #faf7ff; }\n.tk-print-callout-watch { border-left-color: #2563eb; background: #f5f8ff; }\n.tk-print-callout-extend { border-left-color: #b45309; background: #fffaf3; }\n.tk-print-callout-cleanup { border-left-color: #0f766e; background: #f3fbfa; }\n.tk-print-callout-tip strong,\n.tk-print-callout-watch strong,\n.tk-print-callout-extend strong,\n.tk-print-callout-cleanup strong {\nfont-size: 0.72rem;\nletter-spacing: 0.05em;\ntext-transform: uppercase;\ncolor: var(--tk-ink, #2d1b4e);\n}\n.tk-print-root.is-ink-saver .tk-print-cover,\n.tk-print-root.is-ink-saver .tk-print-running,\n.tk-print-root.is-ink-saver .tk-print-day-sheet-head,\n.tk-print-root.is-ink-saver .tk-print-section-banner,\n.tk-print-root.is-ink-saver .tk-print-stat-pill,\n.tk-print-root.is-ink-saver .tk-print-wag-table thead th,\n.tk-print-root.is-ink-saver .tk-print-cover-fallback,\n.tk-print-root.is-ink-saver .tk-print-cover-hero-fallback {\nbackground: #fff !important;\ncolor: #111 !important;\nborder: 1px solid #333 !important;\nborder-left-color: #333 !important;\n}\n.tk-print-root.is-ink-saver .tk-print-cover h1,\n.tk-print-root.is-ink-saver .tk-print-page-title,\n.tk-print-root.is-ink-saver .tk-print-panel-label,\n.tk-print-root.is-ink-saver .tk-print-badge,\n.tk-print-root.is-ink-saver .tk-print-chip {\ncolor: #111 !important;\nbackground: #fff !important;\n}\n@media (max-width: 700px) {\n.tk-print-snapshot-grid,\n.tk-print-day-sheet-grid,\n.tk-print-activity-grid,\n.tk-print-resource-grid,\n.tk-print-cover-meta,\n.tk-print-toolkit-groups,\n.tk-print-activity-primary,\n.tk-print-activity-secondary,\n.tk-print-book-card {\ngrid-template-columns: 1fr;\n}\n.tk-print-book-card {\ngrid-template-columns: 0.75in 1fr;\n}\n}" + "</style>";
   }
 
   function wrapPrintRoot(chunks, selection) {

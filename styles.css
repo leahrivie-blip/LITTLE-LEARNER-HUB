@@ -25948,6 +25948,101 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 }
 
 /* —— Ink saver —— */
+
+.tk-print-cover-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tk-print-cover-copy h1 {
+  margin: 0 0 8px;
+  font-family: Georgia, "Palatino Linotype", "Times New Roman", serif;
+  font-size: 2.35rem;
+  line-height: 1.08;
+  color: var(--tk-purple-deep, #542e94);
+  letter-spacing: -0.02em;
+}
+.tk-print-card-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--tk-accent, var(--tk-purple, #6b46c1));
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tk-print-book-stack {
+  display: grid;
+  gap: 16px;
+}
+.tk-print-book-cover.is-placeholder,
+.tk-print-printable-thumb-fallback {
+  display: grid;
+  place-items: center;
+  min-height: 1.6in;
+  border-radius: 10px;
+  background:
+    linear-gradient(160deg, #f7f2ff 0%, #efe7fb 55%, #e4daf6 100%);
+  border: 1px solid #e8e0f4;
+  color: var(--tk-purple-deep, #542e94);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+.tk-print-printable-thumb-fallback {
+  min-height: 1.1in;
+  margin-bottom: 8px;
+}
+.tk-print-toolkit-intro {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.tk-print-cover-hero.is-missing .tk-print-cover-image {
+  display: none;
+}
+.tk-print-empty-mark {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 10px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 30% 30%, #fff, transparent 45%),
+    linear-gradient(145deg, #efe7fb, #d9c8f4);
+  border: 1px solid #e8e0f4;
+}
+.tk-print-callout-tip,
+.tk-print-callout-watch,
+.tk-print-callout-extend,
+.tk-print-callout-cleanup {
+  display: grid;
+  gap: 4px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 8px;
+  background: #fff;
+  border: 1px solid #e8e0f4;
+  border-left-width: 4px;
+}
+.tk-print-callout-tip { border-left-color: #7c3aed; background: #faf7ff; }
+.tk-print-callout-watch { border-left-color: #2563eb; background: #f5f8ff; }
+.tk-print-callout-extend { border-left-color: #b45309; background: #fffaf3; }
+.tk-print-callout-cleanup { border-left-color: #0f766e; background: #f3fbfa; }
+.tk-print-callout-tip strong,
+.tk-print-callout-watch strong,
+.tk-print-callout-extend strong,
+.tk-print-callout-cleanup strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tk-ink, #2d1b4e);
+}
+
 .tk-print-root.is-ink-saver .tk-print-cover,
 .tk-print-root.is-ink-saver .tk-print-running,
 .tk-print-root.is-ink-saver .tk-print-day-sheet-head,
