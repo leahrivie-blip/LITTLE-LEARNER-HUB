@@ -17,7 +17,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | **Current phase** | 👀 **Manual tester review + full journey audit filed** — automated gate 100%; production **BLOCKED** |
 | **Overall completion** | **100%** automated/testing gate only — **not** production-approved |
 | **Production status** | 🔒 **BLOCKED / untouched** — `20260808-cookie-cta` |
-| **Testing status** | 🟢 Stable `20260808-phase11-final-qa` — keep stable unless Leah prioritizes a testing-only bugfix |
+| **Testing status** | 🟡 Fix-wave shell `20260808-phase11-fix-wave` on branch `cursor/phase11-final-qa-fix-wave-4eae` — redeploy testing only, then Leah owner review |
 | **Major blockers** | Production approval blocked; journey audit found **0 blockers / 6 high / 9 medium** (see punch list) |
 | **Ready for tester review** | **Yes** — punch list + `PHASE11_COMPLETE_TESTING_USER_JOURNEY_AUDIT.md` |
 | **Ready for production approval** | **No** |
@@ -57,7 +57,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 - Redeploy status: `docs/audits/PHASE11_TESTING_REDEPLOY_STATUS.md`  
 - Manual punch list: `docs/audits/PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md`  
 - Branch: `cursor/phase11-final-qa-production-readiness-9c23`  
-- Live testing shell: `20260808-phase11-final-qa` (keep stable during Leah’s review)  
+- Live testing shell target: `20260808-phase11-fix-wave` (redeploy testing only; production remains `20260808-cookie-cta`)  
 - Remote smoke: `npm run test:remote-testing-smoke-phase11` → PASS  
 - Stance: fix reported bugs on testing only; no unrelated architecture work; **no production deploy**
 
