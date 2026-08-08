@@ -236,8 +236,8 @@
           <button type="button" class="ghost-button" data-draft-review-close-detail>Back to queue</button>
         </div>
         <div class="tk-draft-score-row" style="margin-bottom:0.75rem;">
-          ${scoreBadge("Structural", entry.scores?.structuralScore)}
-          ${scoreBadge("Premium", entry.scores?.premiumScore)}
+          ${scoreBadge("Structural", entry.scores?.structuralScore ?? entry.structuralScore)}
+          ${scoreBadge("Premium", entry.scores?.premiumScore ?? entry.premiumScore)}
         </div>
         <p class="muted-copy">${esc(entry.scores?.note || "Authoritative Teaching Kit editor scores. Draft printables never count as published.")}</p>
         <div class="form-actions tk-draft-review-actions">

@@ -973,7 +973,8 @@ function createDraftReviewApi(deps) {
       jsonResponse(response, 200, {
         ok: true,
         action,
-        entry: model.listItem(updated),
+        entry: updated,
+        listItem: model.listItem(updated),
         siteContentUpdatedAt: store.siteContent.updatedAt,
         publishedUntouched: true,
       });
