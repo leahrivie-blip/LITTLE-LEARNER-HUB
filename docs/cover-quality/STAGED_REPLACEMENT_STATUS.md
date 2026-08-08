@@ -46,3 +46,7 @@
 ## Stop point
 
 Awaiting owner approval of the **full 127-cover catalog review** before any production cover attachment.
+
+## Locked
+
+Owner approved production attachment 2026-08-08. See `COVER_BASELINE_LOCKED.md`. No further catalog-wide cover work unless explicitly requested.
