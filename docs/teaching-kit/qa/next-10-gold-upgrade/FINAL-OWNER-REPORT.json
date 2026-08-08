@@ -1,0 +1,20 @@
+{
+  "status": "proof_revision_two_lessons_honest_scoring",
+  "pr": 597,
+  "draftOnly": true,
+  "doNotMerge": true,
+  "doNotPublish": true,
+  "doNotImportToProduction": true,
+  "lessons": ["cur-lp-toddler-amazing-apples", "cur-lp-preschool-all-about-me"],
+  "report": "docs/teaching-kit/qa/next-10-gold-upgrade/proof/reports/PROOF-TWO-REPORT.md",
+  "scores": {
+    "amazingApples": { "actualStructural": 96, "actualPremium": 89, "projectedStructural": 100, "projectedPremium": 100 },
+    "allAboutMe": { "actualStructural": 96, "actualPremium": 89, "projectedStructural": 100, "projectedPremium": 100 }
+  },
+  "contradictions": { "amazingApples": 0, "allAboutMe": 0 },
+  "emptyFields": { "amazingApples": 0, "allAboutMe": 0 },
+  "farmAnimalsUntouched": true,
+  "customerFlagsUnchanged": true,
+  "productionPublishCount": 0,
+  "noFakePublishedCatalogCredit": true
+}

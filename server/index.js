@@ -12,6 +12,9 @@ const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js")
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const trialClassification = require("../scripts/trial-classification.js");
 const teachingKit = require("../scripts/teaching-kit.js");
+const proofDraftImport = require("../scripts/teaching-kit-proof-draft-import.js");
+const draftReviewModel = require("../scripts/teaching-kit-draft-review.js");
+const { createCurriculumDraftReviewApi } = require("./curriculum-draft-review-api.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
@@ -1136,6 +1139,7 @@ function defaultSiteContentStore() {
     images: [],
     featureFlags: defaultFeatureFlags(),
     curriculum: defaultCurriculumStore(),
+    curriculumDraftReviews: [],
     updatedAt: "",
   };
 }
@@ -3627,6 +3631,7 @@ function normalizedSiteContent(value) {
     // Temporary member update banner — explicit false disables immediately; otherwise on.
     memberUpdateBannerEnabled: input.memberUpdateBannerEnabled !== false,
     curriculum: normalizedCurriculumStore(input.curriculum),
+    curriculumDraftReviews: draftReviewModel.normalizeDraftReviewQueue(input.curriculumDraftReviews),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
     teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
     // AI Curriculum Director master resources + planning notes (flag-gated).
@@ -20957,13 +20962,18 @@ async function handleEnrichmentRollback(request, response) {
   const now = new Date().toISOString();
   const adminEmail = normalizedShortText(body.publishedBy || body.adminEmail || "", 180) || "admin";
   const entryKind = normalizedShortText(entry.kind, 20) || "publish";
-  const isDraftRestore = entryKind === "draft" || (snap.enrichmentDraft && !snap.dailyPlans);
+  const isDraftRestore = entryKind === "draft"
+    || entryKind === "proof_import_snapshot"
+    || entryKind === "draft_review_snapshot"
+    || (snap.enrichmentDraft && !snap.dailyPlans);
 
   if (isDraftRestore) {
     const draftSnap = snap.enrichmentDraft && typeof snap.enrichmentDraft === "object"
       ? snap.enrichmentDraft
       : null;
-    if (!enrichmentDraftHasContent(draftSnap)) {
+    const allowEmptyProofRestore = entryKind === "proof_import_snapshot"
+      || entryKind === "draft_review_snapshot";
+    if (!enrichmentDraftHasContent(draftSnap) && !allowEmptyProofRestore) {
       jsonResponse(response, 400, {
         error: "That draft snapshot has no enrichment content to restore.",
         code: "enrichment_draft_restore_empty",
@@ -20972,11 +20982,13 @@ async function handleEnrichmentRollback(request, response) {
     }
     const restoredPlan = normalizedCurriculumLessonPlan({
       ...existingPlan,
-      enrichmentDraft: {
-        ...draftSnap,
-        updatedAt: now,
-        lastEditedBy: adminEmail,
-      },
+      enrichmentDraft: enrichmentDraftHasContent(draftSnap)
+        ? {
+          ...draftSnap,
+          updatedAt: now,
+          lastEditedBy: adminEmail,
+        }
+        : null,
       enrichmentPublishHistory: [
         {
           versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
@@ -22872,6 +22884,572 @@ async function handleAdminCurriculumMigrateInlineMedia(request, response) {
     bytesRemoved: Math.max(0, beforeBytes - afterBytes),
     summary,
   });
+}
+
+/**
+ * Owner-only Proof Draft Import Preview workflow.
+ * Amazing Apples + All About Me only. enrichmentDraft + draft printable.
+ * Never publishes. Never creates lessons. Never touches Farm Animals.
+ * Auth: requireTeachingKitOwnerAdminSession (session email only).
+ */
+async function handleAdminProofDraftImport(request, response) {
+  const body = await readJson(request);
+  const session = requireTeachingKitOwnerAdminSession(request, body, response);
+  if (!session) return;
+
+  // Ignore client-supplied email/role claims — ownership is session-only.
+  const sessionEmail = normalizeEmail(session.email || "");
+  if (!teachingKit.isTeachingKitOwnerPreviewEmail(sessionEmail)) {
+    jsonResponse(response, 403, {
+      error: "Proof Draft Import is restricted to the owner account.",
+      code: "teaching_kit_owner_required",
+    });
+    return;
+  }
+
+  const action = normalizedShortText(body.action, 40).toLowerCase() || "list";
+  const allowed = new Set([
+    "list",
+    "dry-run",
+    "preview",
+    "confirm-enrichment",
+    "confirm-printable",
+    "verify",
+  ]);
+  if (!allowed.has(action)) {
+    jsonResponse(response, 400, {
+      error: "Unsupported proof-draft-import action.",
+      code: "unsupported_action",
+      allowed: [...allowed],
+    });
+    return;
+  }
+
+  if (action === "list") {
+    jsonResponse(response, 200, {
+      ok: true,
+      ownerOnly: true,
+      packages: proofDraftImport.listPackageSummaries(),
+      confirmPhrases: {
+        enrichment: proofDraftImport.CONFIRM_ENRICHMENT_PHRASE,
+        printable: proofDraftImport.CONFIRM_PRINTABLE_PHRASE,
+      },
+      blockedLessonIds: proofDraftImport.BLOCKED_LESSON_IDS,
+      neverPublishes: true,
+    });
+    return;
+  }
+
+  const packageId = normalizedShortText(body.packageId, 80).toLowerCase();
+  if (!packageId) {
+    jsonResponse(response, 400, { error: "packageId is required.", code: "package_required" });
+    return;
+  }
+
+  let packagePayload;
+  try {
+    packagePayload = proofDraftImport.loadPackageFiles(packageId);
+  } catch (error) {
+    jsonResponse(response, error.status || 400, {
+      error: error.message || "Package load failed.",
+      code: error.code || "package_load_failed",
+    });
+    return;
+  }
+
+  const { pkg } = packagePayload;
+  if (proofDraftImport.BLOCKED_LESSON_IDS.includes(pkg.lessonPlanId)) {
+    jsonResponse(response, 403, {
+      error: "This lesson is blocked from proof draft import.",
+      code: "blocked_lesson",
+    });
+    return;
+  }
+
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)
+    && (action === "confirm-enrichment" || action === "confirm-printable")) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+
+  if (["confirm-enrichment", "confirm-printable"].includes(action)) {
+    if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+      curriculumConflictResponse(response, siteContent);
+      return;
+    }
+  }
+
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
+  const plan = (curriculum.lessonPlans || []).find((item) => item.id === pkg.lessonPlanId) || null;
+  const activities = (curriculum.activities || []).filter((item) => item.lessonPlanId === pkg.lessonPlanId);
+  const existingResource = (curriculum.resources || []).find((item) => item.id === pkg.resourceId) || null;
+
+  if (action === "dry-run" || action === "preview") {
+    const report = proofDraftImport.buildDryRunReport({
+      plan,
+      activities,
+      packagePayload,
+      existingResource,
+    });
+    jsonResponse(response, report.ok ? 200 : 409, {
+      ok: report.ok,
+      action: "dry-run",
+      autoPublished: false,
+      publishIncluded: false,
+      ...report,
+      rollbackPreview: proofDraftImport.buildRollbackInstructions({
+        lessonPlanId: pkg.lessonPlanId,
+        rollbackId: "(created on confirm-enrichment)",
+        resourceId: pkg.resourceId,
+        publishedBodyFingerprint: report.before?.publishedBodyFingerprint || "",
+      }),
+    });
+    return;
+  }
+
+  if (action === "verify") {
+    const match = proofDraftImport.matchProductionLesson(plan, pkg);
+    if (!match.ok) {
+      jsonResponse(response, 409, {
+        ok: false,
+        action: "verify",
+        code: "match_failed",
+        errors: match.errors,
+      });
+      return;
+    }
+    const publishedBodyFingerprint = proofDraftImport.publishedLessonBodyFingerprint(plan);
+    const activityFp = proofDraftImport.activityLinkFingerprint(plan, activities);
+    const draft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+      ? plan.enrichmentDraft
+      : null;
+    const resource = existingResource;
+    let qualityReport = null;
+    try {
+      const qualityApi = require("../scripts/teaching-kit-quality-review.js");
+      const enrichmentApi = loadEnrichmentHelpers();
+      const flat = enrichmentApi.flattenLessonActivities
+        ? enrichmentApi.flattenLessonActivities(plan, activities)
+        : activities;
+      qualityReport = qualityApi.buildQualityReport(plan, flat, draft, {
+        ignoredCodes: Array.isArray(draft?.week?.qualityReviewIgnored)
+          ? draft.week.qualityReviewIgnored
+          : [],
+        resources: curriculum.resources || [],
+      });
+    } catch (_error) {
+      qualityReport = null;
+    }
+    const publicProbe = {
+      resourcePublic: resource ? isCurriculumResourcePublic(resource.status) : false,
+      customerWouldGet: resource && isCurriculumResourcePublic(resource.status)
+        ? "200_if_authorized"
+        : "404",
+    };
+    jsonResponse(response, 200, {
+      ok: true,
+      action: "verify",
+      autoPublished: false,
+      lessonPlanId: pkg.lessonPlanId,
+      packageId: pkg.packageId,
+      publishedBodyFingerprint,
+      activityLinkFingerprint: activityFp.fingerprint,
+      linkedActivityCount: activityFp.linkedActivityCount,
+      enrichmentDraftPresent: proofDraftImport.enrichmentDraftHasContent(draft),
+      enrichmentDraftFingerprint: draft
+        ? proofDraftImport.sha256Short(JSON.stringify(draft))
+        : null,
+      resource: resource
+        ? {
+          id: resource.id,
+          status: resource.status,
+          title: resource.title,
+          linked: (resource.lessonPlanIds || []).includes(pkg.lessonPlanId)
+            || (plan.resourceIds || []).includes(resource.id),
+          hasFile: Boolean(resource.fileData || resource.mediaAssetId),
+        }
+        : null,
+      publicProbe,
+      qualityReport: qualityReport
+        ? {
+          overallScore: qualityReport.overallScore,
+          overallLabel: qualityReport.overallLabel,
+          premiumScore: qualityReport.premiumScore,
+          structuralScore: qualityReport.structuralScore,
+          publishReadiness: qualityReport.publishReadiness,
+          publishReadinessLabel: qualityReport.publishReadinessLabel,
+          blocksPublish: qualityReport.blocksPublish === true,
+          scoringMode: "actual_draft_catalog",
+          note: "Honest actual score with draft printable status — no fake published catalog.",
+        }
+        : null,
+    });
+    return;
+  }
+
+  const match = proofDraftImport.matchProductionLesson(plan, pkg);
+  if (!match.ok) {
+    jsonResponse(response, 409, {
+      ok: false,
+      error: "Import blocked: lesson id, age, theme, or title does not match the proof package.",
+      code: "match_failed",
+      errors: match.errors,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  // Never create a duplicate lesson — plan already exists and matched.
+  const lessonCountBefore = (curriculum.lessonPlans || []).length;
+
+  if (action === "confirm-enrichment") {
+    const phrase = String(body.confirmPhrase || "").trim();
+    if (phrase !== proofDraftImport.CONFIRM_ENRICHMENT_PHRASE) {
+      jsonResponse(response, 400, {
+        error: `Type ${proofDraftImport.CONFIRM_ENRICHMENT_PHRASE} to confirm enrichment draft import.`,
+        code: "confirm_phrase_mismatch",
+        requiredPhrase: proofDraftImport.CONFIRM_ENRICHMENT_PHRASE,
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const beforeFingerprint = proofDraftImport.publishedLessonBodyFingerprint(plan);
+    const activityBefore = proofDraftImport.activityLinkFingerprint(plan, activities);
+    const previousDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+      ? plan.enrichmentDraft
+      : null;
+    const draftForSave = proofDraftImport.sanitizeEnrichmentDraftForImport(packagePayload.enrichmentDraft, {
+      lastEditedBy: sessionEmail,
+    });
+    if (!proofDraftImport.enrichmentDraftHasContent(draftForSave)) {
+      jsonResponse(response, 400, {
+        error: "Proof package enrichment draft is empty after sanitize.",
+        code: "enrichment_draft_empty",
+      });
+      return;
+    }
+
+    const previousHistory = Array.isArray(plan.enrichmentPublishHistory)
+      ? plan.enrichmentPublishHistory
+      : [];
+    const rollbackId = `proof-snap-${crypto.randomBytes(10).toString("hex")}`;
+    const snapshotEntry = {
+      versionId: rollbackId,
+      kind: "proof_import_snapshot",
+      publishedAt: now,
+      publishedBy: sessionEmail,
+      fingerprint: `proof-before:${beforeFingerprint}`,
+      lessonPlanId: pkg.lessonPlanId,
+      snapshot: {
+        enrichmentDraft: cloneJson(previousDraft || {}),
+        publishedBodyFingerprint: beforeFingerprint,
+        activityLinkFingerprint: activityBefore.fingerprint,
+        resourceIds: Array.isArray(plan.resourceIds) ? [...plan.resourceIds] : [],
+      },
+    };
+    const nextHistory = [snapshotEntry, ...previousHistory].slice(0, ENRICHMENT_HISTORY_LIMIT);
+
+    const draftPlan = normalizedCurriculumLessonPlan({
+      ...plan,
+      enrichmentDraft: {
+        ...draftForSave,
+        updatedAt: now,
+        lastEditedBy: sessionEmail,
+      },
+      enrichmentPublishHistory: nextHistory,
+      // Preserve published updatedAt / body — enrichment_draft channel only.
+      updatedAt: plan.updatedAt,
+    });
+
+    if (!proofDraftImport.enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
+      jsonResponse(response, 500, {
+        error: "Draft save failed verification — enrichment content did not persist.",
+        code: "enrichment_draft_verify_failed",
+      });
+      return;
+    }
+
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      lessonPlans: (curriculum.lessonPlans || []).map((item) => (
+        item.id === pkg.lessonPlanId
+          ? { ...draftPlan, updatedAt: plan.updatedAt }
+          : item
+      )),
+      updatedAt: now,
+    });
+
+    if ((nextCurriculum.lessonPlans || []).length !== lessonCountBefore) {
+      jsonResponse(response, 500, {
+        error: "Lesson count changed — refusing write to avoid duplicate/missing lessons.",
+        code: "lesson_count_changed",
+      });
+      return;
+    }
+
+    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "This save was refused because it would have shrunk the live curriculum unexpectedly.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
+
+    appendEnrichmentEditorAudit(store, {
+      action: "proof_import_enrichment_draft",
+      lessonPlanId: pkg.lessonPlanId,
+      versionId: rollbackId,
+      adminEmail: sessionEmail,
+      fingerprint: proofDraftImport.sha256Short(JSON.stringify(draftForSave)),
+      note: `Proof draft import enrichment only for ${pkg.packageId}; published content unchanged.`,
+    });
+    await writeStoreAsync(store);
+
+    const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === pkg.lessonPlanId);
+    const afterFingerprint = proofDraftImport.publishedLessonBodyFingerprint(saved);
+    const activityAfter = proofDraftImport.activityLinkFingerprint(
+      saved,
+      (store.siteContent.curriculum.activities || []).filter((item) => item.lessonPlanId === pkg.lessonPlanId),
+    );
+    const publishedUnchanged = beforeFingerprint === afterFingerprint
+      && activityBefore.fingerprint === activityAfter.fingerprint;
+
+    jsonResponse(response, 200, {
+      ok: true,
+      action: "confirm-enrichment",
+      autoPublished: false,
+      publishIncluded: false,
+      packageId: pkg.packageId,
+      lessonPlanId: pkg.lessonPlanId,
+      rollbackId,
+      before: {
+        publishedBodyFingerprint: beforeFingerprint,
+        activityLinkFingerprint: activityBefore.fingerprint,
+        enrichmentDraftFingerprint: previousDraft
+          ? proofDraftImport.sha256Short(JSON.stringify(previousDraft))
+          : null,
+      },
+      after: {
+        publishedBodyFingerprint: afterFingerprint,
+        activityLinkFingerprint: activityAfter.fingerprint,
+        enrichmentDraftFingerprint: proofDraftImport.sha256Short(JSON.stringify(saved.enrichmentDraft || {})),
+      },
+      publishedUnchanged,
+      lessonCountUnchanged: true,
+      lessonPlan: saved,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+      rollback: proofDraftImport.buildRollbackInstructions({
+        lessonPlanId: pkg.lessonPlanId,
+        rollbackId,
+        resourceId: pkg.resourceId,
+        publishedBodyFingerprint: afterFingerprint,
+      }),
+    });
+    return;
+  }
+
+  if (action === "confirm-printable") {
+    const phrase = String(body.confirmPhrase || "").trim();
+    if (phrase !== proofDraftImport.CONFIRM_PRINTABLE_PHRASE) {
+      jsonResponse(response, 400, {
+        error: `Type ${proofDraftImport.CONFIRM_PRINTABLE_PHRASE} to confirm draft printable upload.`,
+        code: "confirm_phrase_mismatch",
+        requiredPhrase: proofDraftImport.CONFIRM_PRINTABLE_PHRASE,
+      });
+      return;
+    }
+    if (existingResource && existingResource.status === "published") {
+      jsonResponse(response, 409, {
+        error: "Resource is already published. Proof import will not overwrite published printables.",
+        code: "resource_already_published",
+        resourceId: pkg.resourceId,
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const beforeFingerprint = proofDraftImport.publishedLessonBodyFingerprint(plan);
+    const activityBefore = proofDraftImport.activityLinkFingerprint(plan, activities);
+    const enrichmentDraftBefore = JSON.stringify(plan.enrichmentDraft || null);
+
+    const parsedPdf = parseCurriculumPdfUploadDataUrl(packagePayload.pdf.dataUrl);
+    if (!parsedPdf) {
+      jsonResponse(response, 400, {
+        error: `A valid PDF upload is required (max ${MAX_CURRICULUM_UPLOAD_MB} MB).`,
+        code: "invalid_pdf",
+      });
+      return;
+    }
+
+    let pdfFields;
+    if (usePostgresStore()) {
+      const stored = await persistCurriculumUploadToMediaAsset({
+        resourceId: pkg.resourceId,
+        parsed: parsedPdf,
+        fileName: sanitizeCurriculumUploadFileName(packagePayload.pdf.fileName),
+      });
+      pdfFields = {
+        fileData: "",
+        mediaAssetId: stored.mediaAssetId,
+        mediaUrl: stored.mediaUrl,
+        mimeType: "application/pdf",
+        fileName: stored.fileName,
+      };
+    } else {
+      pdfFields = {
+        fileData: parsedPdf.fileData,
+        mediaAssetId: "",
+        mediaUrl: "",
+        mimeType: "application/pdf",
+        fileName: sanitizeCurriculumUploadFileName(packagePayload.pdf.fileName),
+      };
+    }
+
+    let nextCurriculum = curriculum;
+    const resourceBase = {
+      id: pkg.resourceId,
+      title: pkg.resourceTitle,
+      resourceCategory: "Printables",
+      resourceType: pkg.resourceType || "Picture cards",
+      description: pkg.description || "",
+      ageGroup: pkg.expectedAge,
+      theme: pkg.expectedTheme,
+      pageCount: pkg.pageCount,
+      printingInstructions: pkg.printingInstructions || "",
+      accessLevel: "pro",
+      ...pdfFields,
+      status: "draft",
+      publishedAt: "",
+      createdAt: existingResource?.createdAt || now,
+      updatedAt: now,
+      lessonPlanIds: existingResource?.lessonPlanIds || [],
+    };
+    const resource = normalizedCurriculumResource({
+      ...existingResource,
+      ...resourceBase,
+    });
+    if (!resource) {
+      jsonResponse(response, 400, { error: "Resource could not be normalized.", code: "resource_normalize_failed" });
+      return;
+    }
+
+    const resourcesWithout = (nextCurriculum.resources || []).filter((item) => item.id !== pkg.resourceId);
+    nextCurriculum = normalizedCurriculumStore({
+      ...nextCurriculum,
+      resources: [...resourcesWithout, resource],
+      updatedAt: now,
+    });
+    nextCurriculum = linkCurriculumResourceToLessonPlan(nextCurriculum, pkg.resourceId, pkg.lessonPlanId);
+    if (!nextCurriculum) {
+      jsonResponse(response, 404, { error: "Could not link printable to lesson.", code: "link_failed" });
+      return;
+    }
+
+    // Force draft status after link (link helpers must never publish).
+    nextCurriculum = normalizedCurriculumStore({
+      ...nextCurriculum,
+      resources: (nextCurriculum.resources || []).map((item) => (
+        item.id === pkg.resourceId
+          ? normalizedCurriculumResource({ ...item, status: "draft", publishedAt: "" })
+          : item
+      )),
+      updatedAt: now,
+    });
+
+    if ((nextCurriculum.lessonPlans || []).length !== lessonCountBefore) {
+      jsonResponse(response, 500, {
+        error: "Lesson count changed — refusing printable link write.",
+        code: "lesson_count_changed",
+      });
+      return;
+    }
+
+    const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
+    if (integrityError) {
+      jsonResponse(response, 400, integrityError);
+      return;
+    }
+
+    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "This save was refused because it would have shrunk the live curriculum unexpectedly.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
+    await writeStoreAsync(store);
+
+    const savedLesson = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === pkg.lessonPlanId);
+    const savedResource = (store.siteContent.curriculum.resources || []).find((item) => item.id === pkg.resourceId);
+    const afterFingerprint = proofDraftImport.publishedLessonBodyFingerprint(savedLesson);
+    const activityAfter = proofDraftImport.activityLinkFingerprint(
+      savedLesson,
+      (store.siteContent.curriculum.activities || []).filter((item) => item.lessonPlanId === pkg.lessonPlanId),
+    );
+    const enrichmentDraftAfter = JSON.stringify(savedLesson?.enrichmentDraft || null);
+    const publishedBodyUnchanged = beforeFingerprint === afterFingerprint;
+    const activitiesUnchanged = activityBefore.fingerprint === activityAfter.fingerprint;
+    const enrichmentUnchanged = enrichmentDraftBefore === enrichmentDraftAfter;
+
+    appendEnrichmentEditorAudit(store, {
+      action: "proof_import_draft_printable",
+      lessonPlanId: pkg.lessonPlanId,
+      versionId: pkg.resourceId,
+      adminEmail: sessionEmail,
+      fingerprint: packagePayload.pdf.sha256.slice(0, 24),
+      note: `Proof draft printable linked for ${pkg.packageId}; status=draft only.`,
+    });
+    await writeStoreAsync(store);
+
+    jsonResponse(response, 200, {
+      ok: true,
+      action: "confirm-printable",
+      autoPublished: false,
+      publishIncluded: false,
+      packageId: pkg.packageId,
+      lessonPlanId: pkg.lessonPlanId,
+      resourceId: pkg.resourceId,
+      resourceStatus: savedResource?.status || "draft",
+      before: {
+        publishedBodyFingerprint: beforeFingerprint,
+        activityLinkFingerprint: activityBefore.fingerprint,
+      },
+      after: {
+        publishedBodyFingerprint: afterFingerprint,
+        activityLinkFingerprint: activityAfter.fingerprint,
+        resourceIds: savedLesson?.resourceIds || [],
+      },
+      publishedBodyUnchanged,
+      activitiesUnchanged,
+      enrichmentDraftUnchanged: enrichmentUnchanged,
+      publicAccess: {
+        customerPublicFile: "404",
+        reason: "Resource status is draft; public endpoint requires published status.",
+      },
+      resource: curriculumResourceMetadata(savedResource),
+      lessonPlan: savedLesson,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+      pdfSha256: packagePayload.pdf.sha256,
+      rollback: proofDraftImport.buildRollbackInstructions({
+        lessonPlanId: pkg.lessonPlanId,
+        rollbackId: "(from confirm-enrichment snapshot)",
+        resourceId: pkg.resourceId,
+        publishedBodyFingerprint: afterFingerprint,
+      }),
+    });
+    return;
+  }
+
+  jsonResponse(response, 400, { error: "Unhandled action.", code: "unhandled_action" });
 }
 
 /**
@@ -28435,6 +29013,44 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/tk-printable") return await handleAdminTeachingKitPrintable(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
+      if (!globalThis.__llhDraftReviewApi) {
+        globalThis.__llhDraftReviewApi = createCurriculumDraftReviewApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          normalizedSiteContent,
+          defaultSiteContentStore,
+          curriculumConcurrencyConflict,
+          curriculumConflictResponse,
+          normalizedShortText,
+          normalizedCurriculumStore,
+          normalizedCurriculumLessonPlan,
+          normalizedCurriculumResource,
+          writeSiteCurriculum,
+          linkCurriculumResourceToLessonPlan,
+          parseCurriculumPdfUploadDataUrl,
+          sanitizeCurriculumUploadFileName,
+          persistCurriculumUploadToMediaAsset,
+          usePostgresStore,
+          MAX_CURRICULUM_UPLOAD_MB,
+          assertCurriculumIntegrityOrError,
+          curriculumResourceMetadata,
+          cloneJson,
+          enrichmentDraftHasContent,
+          appendEnrichmentEditorAudit,
+          loadEnrichmentHelpers,
+          isCurriculumResourcePublic,
+          crypto,
+        });
+      }
+      return await globalThis.__llhDraftReviewApi.handle(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/proof-draft-import") return await handleAdminProofDraftImport(request, response);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);

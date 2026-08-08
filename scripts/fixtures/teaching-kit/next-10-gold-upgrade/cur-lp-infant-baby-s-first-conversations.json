@@ -1,0 +1,149 @@
+{
+  "planId": "cur-lp-infant-baby-s-first-conversations",
+  "title": "Baby's First Conversations",
+  "ageBand": "infant",
+  "themePack": {
+    "overview": "Communication starts long before first words. This week focuses on warm, face-to-face turn-taking with infants (about 0–6 months) through mirrors, soft puppets, family photos, and responsive cooing games. Teachers pause after each greeting so babies can answer with eyes, smiles, kicks, or sounds. Experiences stay short and relationship-centered—no crafts, no finished products, just meaningful back-and-forth.",
+    "materials": "Baby-safe unbreakable mirrors\nLaminated family photo cards\nSoft hand puppets\nSmall soft plush faces\nSimple face picture cards\nSturdy board books with faces\nLightweight scarves for peek games\nGentle musical toys (soft volume)\nFloor mats / nursing pillows for supported sitting\nOptional voice-recording buttons with caregiver voices (secure cases)\nName tags with large print for caregivers",
+    "family": "Talk with your baby throughout daily routines—diapering, feeding, walks. Say one short sentence, then pause and watch for a blink, coo, or wiggle. Copy their sounds sometimes, then add a gentle new word. These tiny conversations build trust and early language even before words appear.",
+    "milestones": [
+      "Language: Coos, vocalizes, or mouth-moves in response to a caregiver’s greeting and pausing",
+      "SEL: Shares social smiles and sustained face-looking with a trusted adult",
+      "Motor: Turns head toward voices, tracks faces briefly, and activates arms/legs during playful talk",
+      "Cognition: Notices familiar faces in mirrors/photos and anticipates peek or turn-taking games"
+    ],
+    "vocabCards": [
+      "hello",
+      "hi",
+      "bye",
+      "baby",
+      "mama",
+      "dada",
+      "talk",
+      "listen",
+      "smile",
+      "friend",
+      "look",
+      "you"
+    ],
+    "songs": [
+      {
+        "title": "Hello Little Friend",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Hello, hello, little friend,\nI see your eyes—let’s talk again.\nHello, hello, smile so bright,\nI wait for you to answer right.",
+        "motions": "Gentle wave near midline; point softly toward baby’s eyes; place hand on your heart on wait; open palms inviting a response.",
+        "teacherDirections": "Sing face-to-face at baby’s eye level. After answer right, pause 3–5 seconds for any response, then mirror the baby’s sound or smile. Keep to one or two verses.",
+        "whenToUse": "Morning greeting, Hello Song Circle, or one-to-one arrival welcome",
+        "suggestedPace": "slow",
+        "transitionPurpose": "Signal connection time and practice conversational pausing",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Coo With Me",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Coo with me, coo with you,\nI say ‘ah,’ then wait for you.\nBabble soft, babble near,\nYour little voice is music here.",
+        "motions": "Exaggerate calm mouth shapes; lean in slightly on wait; soft sway; clap once gently at the end if baby enjoys sound.",
+        "teacherDirections": "Use during Coo Back Conversation. Model one sound, pause, then respond to whatever baby offers—including silence with a warm smile.",
+        "whenToUse": "Floor play vocal games and mid-morning connection resets",
+        "suggestedPace": "slow",
+        "transitionPurpose": "Prime listening/turn-taking before puppet or photo chats",
+        "dayPlacement": "wednesday"
+      },
+      {
+        "title": "The More We Get Together",
+        "traditional": true,
+        "rightsStatus": "public_domain",
+        "lyrics": "The more we get together, together, together,\nThe more we get together, the happier we’ll be.\nFor your friends are my friends, and my friends are your friends.\nThe more we get together, the happier we’ll be.",
+        "motions": "Soft side-to-side rock while holding baby securely; gentle wave on friends; smile connection at the close.",
+        "teacherDirections": "Use with supported hold or tummy-to-tummy. Keep volume soft. Invite a second caregiver to join for social warmth without crowding the infant’s face.",
+        "whenToUse": "Small-group closing or family photo conversation wind-down",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Celebrate belonging and close the conversation circle",
+        "dayPlacement": "friday"
+      }
+    ],
+    "books": [
+      {
+        "title": "Hello, Baby!",
+        "author": "Mem Fox",
+        "why": "Rhythmic greetings and animal faces invite infants to look, listen, and enjoy social hello language.",
+        "before": ["Shall we say hello to the baby on the cover?"],
+        "during": ["Hello, little one—can you look at this face with me?"],
+        "after": ["Let’s say hello one more time to you!"],
+        "vocab": "hello",
+        "day": "monday",
+        "substitute": "Use Hello Little Friend chant with a soft puppet if the book is unavailable."
+      },
+      {
+        "title": "Baby Faces",
+        "author": "Margaret Miller",
+        "why": "Real baby photographs support face recognition, emotion noticing, and early social talk.",
+        "before": ["Where is the baby’s smile?"],
+        "during": ["Look—happy face! Can you smile too?"],
+        "after": ["Which baby face did you like looking at?"],
+        "vocab": "smile",
+        "day": "tuesday",
+        "substitute": "Offer family photo cards and name smile/look while baby gazes."
+      },
+      {
+        "title": "Global Babies",
+        "author": "The Global Fund for Children",
+        "why": "Diverse baby photos build inclusive face interest and simple naming talk across cultures.",
+        "before": ["Let’s meet baby friends from near and far."],
+        "during": ["Hello, baby—see the bright eyes?"],
+        "after": ["We can say bye-bye to our book friends."],
+        "vocab": "baby",
+        "day": "thursday",
+        "substitute": "Show two inclusive baby face cards and practice hello/bye with pauses."
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Hello Face Picture Card Pack",
+        "purpose": "Large smile/look/listen cards support Face-to-Face Chat Time and puppet greetings without cluttering the infant’s visual field."
+      },
+      {
+        "title": "Family Photo Conversation Frames",
+        "purpose": "Simple frame templates help teachers mount family photos securely for photo chat albums and goodbye rituals."
+      }
+    ],
+    "activityOverrides": {
+      "Face-to-Face Chat Time": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Sit at eye level; speak, then pause long enough for a response.",
+          "Follow infant cues—if gaze breaks, shorten and try again later."
+        ]
+      },
+      "Hello Song Circle": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Keep circle tiny (often one-to-one). Use Hello Little Friend rather than long group songs.",
+          "No pressure for babies to perform sounds."
+        ]
+      },
+      "Family Photo Conversations": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Use laminated photos only; avoid small loose prints.",
+          "Name familiar people slowly and watch for recognition cues."
+        ]
+      },
+      "Conversation Dance Hold": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Support head and trunk fully; match bounce intensity to infant comfort.",
+          "Stop immediately if baby arches away or fuss cues rise."
+        ]
+      }
+    },
+    "bannedSongTitles": [
+      "Baby Shark",
+      "Baby Shark Feelings Version"
+    ],
+    "safetyNotes": "For young infants, prioritize supervised floor or supported holds—never prop bottles or leave babies unattended on elevated surfaces. Mirrors must be unbreakable and secured. Scarves are for brief peek games only (no wrapping). Avoid small parts and finished-product crafts. Reduce noise and visual clutter so faces stay the main focus. Always follow cue-based caregiving: pause, watch, then respond."
+  },
+  "notes": "Keep experiences short and relationship-first. Original Hello Little Friend replaces generic Hello Song placeholders. Differentiate from older-infant sensory weeks by centering face talk, not textures/bins."
+}

@@ -1,0 +1,2190 @@
+{
+  "planId": "cur-lp-preschool-all-about-me",
+  "plan": {
+    "_formatVersion": 3,
+    "title": "All About Me",
+    "age": "Preschool",
+    "ageBucket": "Preschool",
+    "theme": "All About Me",
+    "plan": "Free",
+    "status": "published",
+    "learningDomains": [
+      "Social Emotional",
+      "Language & Literacy",
+      "Science",
+      "Creative Arts",
+      "Physical Development",
+      "Math"
+    ],
+    "weeklyOverview": "Preschoolers study identity through mirrors, names, chosen families, feelings art, and cooperative movement. We avoid body and family-size comparisons and celebrate many ways to look, move, and belong.",
+    "objectives": "Develop self-awareness and confidence\nLearn and recognize their names and letters in names\nExplore body parts and facial features\nBuild emotional awareness and vocabulary\nStrengthen communication skills\nCelebrate similarities and differences among peers",
+    "weeklyMaterials": "Child-safe mirrors\nPreferred-name cards and chunky letters\nFamily photos or drawings\nSkin-tone crayons\nPaper and clipboards\nBlocks and linking cubes\nScarves and ribbon\nPicture card pack PDF\nStickers or paper dots\nPlay kitchen props\nEmotion/interest cards\nFolded blank books",
+    "vocabularyWords": "me\nname\nfamily\nfriend\nhappy\nsad\neyes\nnose\nhands\nbody\nsame\ndifferent\nspecial",
+    "familyConnection": "Invite families to share photos and talk about family members. Encourage children to practice saying their names and identifying body parts at home.",
+    "observationOpportunities": "Observe self-recognition, emotional awareness, communication skills, social interactions, confidence, and participation.",
+    "adaptations": "Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.",
+    "books": [
+      {
+        "title": "I Like Myself!",
+        "author": "Karen Beaumont",
+        "notes": ""
+      },
+      {
+        "title": "From Head to Toe",
+        "author": "Eric Carle",
+        "notes": ""
+      },
+      {
+        "title": "Chrysanthemum",
+        "author": "Kevin Henkes",
+        "notes": ""
+      }
+    ],
+    "songs": [
+      "I Am Me (LLH Affirmation)",
+      "Wiggle What You Will (LLH)",
+      "Friends Wave Hello (LLH)"
+    ],
+    "dailyPlans": {
+      "monday": {
+        "theme": "Mirrors, Names, and People We Love",
+        "objectives": "Notice myself in a mirror.\nFind my preferred name and first letter.\nShare a photo or drawing of people who matter—without ranking families.",
+        "materials": "Child-safe mirrors\nPreferred-name cards\nChunky letters\nFamily photos or drawings\nClothespin gallery string",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Sing I Am Me. Pass a mirror for a quick peek. Preview name trays.",
+        "transitions": [],
+        "outdoorPlay": "Chalk first letters on the sidewalk; match with leaf tokens.",
+        "familyConnection": "Invite a drawing or photo of people/pets who care for the child, plus preferred-name pronunciation.",
+        "observations": "Notes mirror avoidance supports; preferred-name accuracy.",
+        "adaptations": "Peek-a-boo before mirrors; photo+name for younger finders.",
+        "safetyNotes": "Acrylic mirrors; large letters only.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-monday-1",
+            "importKey": "",
+            "activityCategory": "Social-Emotional",
+            "title": "Mirror Me",
+            "objective": "Notice my face in a mirror and copy a friend’s expression.",
+            "description": "Mirror play that starts by copying the child before asking them to copy the teacher.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Physical Development"
+            ],
+            "materials": "Child-safe mirrors or taped acrylic tiles\nPicture cards of feelings (optional)",
+            "setup": "Sit beside children at mirror height. Keep feeling cards face-down until engaged.",
+            "steps": "1. Copy the child’s expression first.\n2. Invite them to copy yours.\n3. Optional: peek at one feeling card.\n4. End with a shared silly face.",
+            "teacherRole": "Follow the child’s lead; never force eye contact.",
+            "teacherLanguage": "I see your smile. Can you make my surprised face?",
+            "learningGoals": [
+              "Notices reflection",
+              "Tries matching faces",
+              "Shares attention"
+            ],
+            "observationOpportunities": "Notices teacher’s matching face\nSustains an expression\nComfort with mirrors",
+            "vocabulary": "mirror\nsmile\nlook\nsame",
+            "extensions": "Take turns being the face leader.",
+            "adaptations": "Peek-a-boo with a scarf before mirror for mirror-averse children.",
+            "safetyNotes": "Acrylic or metal mirrors only. Tape edges.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher holds the mirror; child glances briefly.",
+            "additionalChallenge": "Children lead a three-face sequence.",
+            "mixedAgeAdaptations": "Toddlers join for peek games; preschoolers lead.",
+            "cleanupTip": "Wipe mirrors after the group."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-monday-2",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "My Name Discovery",
+            "objective": "Find my name card and match my first letter.",
+            "description": "Preferred-name cards and chunky letters on a low tray.",
+            "learningDomains": [
+              "Language & Literacy",
+              "Social-Emotional",
+              "Fine Motor"
+            ],
+            "materials": "Preferred-name cards\nChunky letter magnets or foam letters\nLow tray",
+            "setup": "Verify preferred names with families. Set three cards at a time.",
+            "steps": "1. Child finds their card among two others.\n2. Match the first letter.\n3. Say the name aloud with pride.\n4. Store card in the name mailbox.",
+            "teacherRole": "Honor nicknames families approve; no speed contests.",
+            "teacherLanguage": "Which card is yours? What letter starts your name?",
+            "learningGoals": [
+              "Recognizes own card",
+              "Matches first letter",
+              "Says preferred name"
+            ],
+            "observationOpportunities": "Finds card among two others\nSeeks first letter by shape or asking",
+            "vocabulary": "name\nletter\nmine\nmatch",
+            "extensions": "Trace the first letter on a friend’s palm with permission.",
+            "adaptations": "Partner hunt for letters.",
+            "safetyNotes": "Letters large enough to fail choke test.",
+            "ageModifications": "",
+            "supportAdaptations": "Only the child’s letter in the bowl at first.",
+            "additionalChallenge": "Build more letters of the name.",
+            "mixedAgeAdaptations": "Younger children match photo + name card.",
+            "cleanupTip": "Name cards into labeled envelopes for Friday."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-monday-3",
+            "importKey": "",
+            "activityCategory": "Social-Emotional",
+            "title": "Family Photo Sharing",
+            "objective": "Share people who matter using a photo or drawing—without explaining family structure.",
+            "description": "Children point and name freely; drawings and picture cards are equal to photos.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Creative Arts"
+            ],
+            "materials": "Family photos or drawings\nClothespin string or board\nPicture cards of caring roles",
+            "setup": "Accept drawings. Privacy note posted. No required structure talk.",
+            "steps": "1. Child chooses what to share.\n2. Points and names.\n3. Peers listen.\n4. Clip to the gallery string.",
+            "teacherRole": "Never require explanations of who lives where.",
+            "teacherLanguage": "Who would you like to show us? Tell us one thing you love doing together.",
+            "learningGoals": [
+              "Names a caring person",
+              "Listens to a peer",
+              "Accepts varied family pictures"
+            ],
+            "observationOpportunities": "Whom they name first\nInterest in a peer’s photo",
+            "vocabulary": "family\nphoto\ntogether\nlove",
+            "extensions": "Sticky note with one dictated word.",
+            "adaptations": "Teacher holds the photo while the child points.",
+            "safetyNotes": "Respect privacy—no public posting without permission.",
+            "ageModifications": "",
+            "supportAdaptations": "Picture cards if no photo/drawing yet.",
+            "additionalChallenge": "Dictate a sentence for the gallery.",
+            "mixedAgeAdaptations": "Toddlers point; preschoolers dictate captions.",
+            "cleanupTip": "Return photos to labeled envelopes immediately."
+          }
+        ],
+        "teacherPreparation": "Confirm preferred names. Post privacy note. Stage mirrors at child height.",
+        "activityFlow": "Mirror Me → My Name Discovery → Family Photo Sharing.",
+        "questions": "What do you notice in the mirror? Which card is your name?",
+        "observationFocus": "Mirror comfort; name recognition; whom children choose to share."
+      },
+      "tuesday": {
+        "theme": "Belonging Circles, Moving Bodies, Portraits",
+        "objectives": "Fill a personal belonging circle without comparing families.\nMove with inclusive options.\nStart process self-portraits.",
+        "materials": "Circle papers\nDots/stickers\nCaring-role cards\nSkin-tone crayons\nOpen movement space",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Read a page from I Like Myself! Affirm: every circle is enough.",
+        "transitions": [],
+        "outdoorPlay": "Chalk personal circles; place leaf tokens for caring people.",
+        "familyConnection": "Send belonging-circle photo (with permission) and portrait progress.",
+        "observations": "Notes belonging language; notes portrait color choices.",
+        "adaptations": "Picture cards for circles; seated movement options.",
+        "safetyNotes": "Clear mobility paths.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Social-Emotional",
+            "title": "People in My Circle",
+            "objective": "Show people, pets, and helpers who care for me. Keep every circle equally special.",
+            "description": "Each child fills a personal circle with stickers or dots for trusted people. Circles stay personal and equally special.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Creative Arts"
+            ],
+            "materials": "Paper with a large open circle per child\nStickers or paper dots\nPicture cards of caring roles (teacher, sibling, neighbor, pet)",
+            "setup": "One circle per child. Use personal circles instead of shared ranked columns. Model placing two dots for people who care for you.",
+            "steps": "1. Child names someone who cares for them.\n2. Places a dot inside their own circle.\n3. May add pets, teachers, or neighbors.\n4. Optional: dictate ‘In my circle I have…’\n5. Display circles side by side as equally special.",
+            "teacherRole": "Coach belonging language. Pause ‘who has more’ talk. Celebrate each circle as enough.",
+            "teacherLanguage": "Who helps you feel safe? Anyone else belongs in your circle? Every circle is special.",
+            "learningGoals": [
+              "Identifies trusted people",
+              "Uses belonging language",
+              "Respects different circles"
+            ],
+            "observationOpportunities": "Names caring people or pets\nIncludes teachers or neighbors\nResponds kindly when a peer’s circle looks different",
+            "vocabulary": "circle\ncare\nfriend\nbelong\ntrust",
+            "extensions": "Dictate one sentence: ‘In my circle I have…’",
+            "adaptations": "Offer picture cards of caring roles to point to.",
+            "safetyNotes": "",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher scribes names while child places dots.",
+            "additionalChallenge": "Child tells one way someone in their circle helps them.",
+            "mixedAgeAdaptations": "Toddlers place dots with help; preschoolers dictate sentences.",
+            "differentiation": "Support: picture cards. Challenge: dictate a belonging sentence.",
+            "cleanupTip": "Clip circles to the gallery string for family pickup."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Body Part Movement Game",
+            "objective": "Move body parts in inclusive ways—including seated and wheeled options.",
+            "description": "Follow-the-leader movement with adapted choices for every body.",
+            "learningDomains": [
+              "Physical Development",
+              "Language",
+              "Social-Emotional"
+            ],
+            "materials": "Open space\nPicture cues for move / stop\nOptional rhythm instrument",
+            "setup": "Post adaptive options (wave elbows, roll wheels, tip toes). Model without spotlighting.",
+            "steps": "1. Call a body part with an inclusive option.\n2. Children move in their own way.\n3. Freeze on cue.\n4. Children suggest the next move.",
+            "teacherRole": "Offer alternatives aloud so every body is included.",
+            "teacherLanguage": "Can you wiggle fingers—or tap the tray? Wheels can roll forward and stop.",
+            "learningGoals": [
+              "Follows movement cues",
+              "Uses body vocabulary",
+              "Accepts varied ways to move"
+            ],
+            "observationOpportunities": "Chooses an adaptation without shame\nSuggests moves for friends",
+            "vocabulary": "wiggle\nfreeze\nstrong\ngentle",
+            "extensions": "Children invent a two-move pattern.",
+            "adaptations": "Seated or wheeled versions for every call.",
+            "safetyNotes": "Clear pathways for mobility devices.",
+            "ageModifications": "",
+            "supportAdaptations": "Visual cue cards only.",
+            "additionalChallenge": "Lead a round for the group.",
+            "mixedAgeAdaptations": "Toddlers copy one move; preschoolers invent.",
+            "cleanupTip": "Stack cue cards in the movement bin."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-tuesday-3",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Self-Portrait Studio",
+            "objective": "Create a process self-portrait with skin-tone crayons—no adult model to copy.",
+            "description": "Mirrors nearby; scribbles and unique features celebrated.",
+            "learningDomains": [
+              "Creative Arts",
+              "Social-Emotional",
+              "Fine Motor"
+            ],
+            "materials": "Paper\nSkin-tone crayons and markers\nMirrors\nOptional yarn for hair textures",
+            "setup": "No adult sample portrait. Set mirrors and inclusive crayons.",
+            "steps": "1. Look in the mirror.\n2. Draw freely.\n3. Add hair, aids, or favorite shirt details.\n4. Dictate a name for the portrait.",
+            "teacherRole": "Refuse ‘fix it’ corrections; narrate what the child chose.",
+            "teacherLanguage": "What color feels like you today? Tell me about your hair.",
+            "learningGoals": [
+              "Attempts a self-image",
+              "Chooses colors meaningfully",
+              "Dictates a label"
+            ],
+            "observationOpportunities": "Includes vision aids or wheels if used\nComfort looking in mirror while drawing",
+            "vocabulary": "portrait\nskin\nhair\nme",
+            "extensions": "Add a dictated ‘I like…’ sentence.",
+            "adaptations": "Stamp circle face; child adds features.",
+            "safetyNotes": "Acrylic mirrors; tape edges.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher outlines oval if requested; child fills.",
+            "additionalChallenge": "Draw a friend with permission.",
+            "mixedAgeAdaptations": "Toddlers scribble; preschoolers add details.",
+            "cleanupTip": "Portrait drying rack."
+          }
+        ],
+        "teacherPreparation": "Prepare one circle per child—no ranked columns. Post adaptive movement options.",
+        "activityFlow": "People in My Circle → Body Part Movement Game → Self-Portrait Studio.",
+        "questions": "Who helps you feel safe? How can wheels or feet join this move?",
+        "observationFocus": "Belonging language; interruption of ‘who has more’; inclusive movement."
+      },
+      "wednesday": {
+        "theme": "Caring Play, Kind Questions, Name Letters",
+        "objectives": "Invent open family/care roles.\nInterview a friend kindly.\nHunt letters from my name.",
+        "materials": "Dramatic play kitchen props\nInterview prompt cards\nLetter cards and decoys",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Model one interview question. Practice listening bodies.",
+        "transitions": [],
+        "outdoorPlay": "Outdoor dramatic-play picnic roles; letter hunt on a fence line.",
+        "familyConnection": "Share one kind question children asked a friend.",
+        "observations": "Stereotype redirects; decoy rejection.",
+        "adaptations": "Role picture cards; color-coded letters.",
+        "safetyNotes": "Large letter cards; choke-safe play food.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-wednesday-1",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Family Dramatic Play",
+            "objective": "Act out caring roles children invent—without assigned ‘mom/dad only’ scripts.",
+            "description": "Open role naming: cook, helper, baby, neighbor, pet caregiver, etc.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Creative Arts"
+            ],
+            "materials": "Play kitchen\nDolls\nPhones\nSoft props\nPicture cards of roles",
+            "setup": "Remove props that force one family mold. Post open role cards.",
+            "steps": "1. Children choose roles.\n2. Play a care routine (meal, bedtime, hello).\n3. Switch roles.\n4. Clean the play home together.",
+            "teacherRole": "Coach consent and flexible roles; interrupt stereotypes gently.",
+            "teacherLanguage": "Who are you in the story today? How do you help your people?",
+            "learningGoals": [
+              "Chooses a role",
+              "Uses care language",
+              "Negotiates play"
+            ],
+            "observationOpportunities": "Role flexibility\nCare themes vs power themes",
+            "vocabulary": "care\nhelp\nhome\nrole",
+            "extensions": "Invite a stuffed pet to the family.",
+            "adaptations": "Picture role cards for nonverbal choosers.",
+            "safetyNotes": "No small chokeable play food.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher plays neighbor guest first.",
+            "additionalChallenge": "Children write a menu or shopping list.",
+            "mixedAgeAdaptations": "Toddlers cook beside; preschoolers assign jobs.",
+            "cleanupTip": "Reset kitchen with a closing song."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-wednesday-2",
+            "importKey": "",
+            "activityCategory": "Language",
+            "title": "Friend Interview",
+            "objective": "Ask a friend one kind question and listen to the answer.",
+            "description": "Safe picture prompts only—no private family quizzes.",
+            "learningDomains": [
+              "Language",
+              "Social-Emotional"
+            ],
+            "materials": "Interview clipboards\nPicture prompt cards (favorite color, pet, food, game)\nPencils",
+            "setup": "Model one question. Pair children. Keep prompts about preferences.",
+            "steps": "1. Choose a prompt card.\n2. Ask the friend.\n3. Listen and mark or draw the answer.\n4. Switch roles.",
+            "teacherRole": "Coach listening bodies; redirect invasive questions.",
+            "teacherLanguage": "What is your favorite…? I heard you—thank you for telling me.",
+            "learningGoals": [
+              "Asks a question",
+              "Listens",
+              "Remembers a peer preference"
+            ],
+            "observationOpportunities": "Waits for answer\nRemembers peer’s favorite later",
+            "vocabulary": "ask\nlisten\nfavorite\nfriend",
+            "extensions": "Share one learned favorite at circle.",
+            "adaptations": "Point to cards instead of speaking.",
+            "safetyNotes": "",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher sits in the triad.",
+            "additionalChallenge": "Invent a new kind question.",
+            "mixedAgeAdaptations": "Toddlers answer with pointing; preschoolers scribe.",
+            "cleanupTip": "Clipboards back to the literacy shelf."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-wednesday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Name Letter Hunt",
+            "objective": "Hunt letters from my name among decoy letters.",
+            "description": "Room hunt for name letters—no races.",
+            "learningDomains": [
+              "Language & Literacy",
+              "Physical Development"
+            ],
+            "materials": "Letter cards from each child’s name\nDecoy letters\nBaskets",
+            "setup": "Hide 3–5 letters per child plus decoys. No timers.",
+            "steps": "1. Review own letters.\n2. Hunt and collect.\n3. Check against name card.\n4. Celebrate finds—not speed.",
+            "teacherRole": "Block racing language; help verify matches.",
+            "teacherLanguage": "Does this letter live in your name? Check your card.",
+            "learningGoals": [
+              "Recognizes name letters",
+              "Rejects some decoys",
+              "Persists"
+            ],
+            "observationOpportunities": "Uses name card as reference\nShares finds with peers",
+            "vocabulary": "letter\nhunt\nfind\nname",
+            "extensions": "Build the name on the floor with finds.",
+            "adaptations": "Color-code the child’s letters.",
+            "safetyNotes": "Large cards only.",
+            "ageModifications": "",
+            "supportAdaptations": "Only two letters hidden.",
+            "additionalChallenge": "Find a friend’s first letter too.",
+            "mixedAgeAdaptations": "Toddlers hunt photo cards; preschoolers hunt letters.",
+            "cleanupTip": "Sort letters into name envelopes."
+          }
+        ],
+        "teacherPreparation": "Remove forced mom/dad-only props. Hide name letters (no timers).",
+        "activityFlow": "Family Dramatic Play → Friend Interview → Name Letter Hunt.",
+        "questions": "Who are you in the story today? What is your friend’s favorite…?",
+        "observationFocus": "Role flexibility; listening; letter matching without racing."
+      },
+      "thursday": {
+        "theme": "Towers We Measure, Feelings We Show, Books We Make",
+        "objectives": "Measure block towers rather than children’s heights.\nExpress feelings through art.\nMake a three-page All About Me book.",
+        "materials": "Blocks\nCubes/yarn\nFeeling cards\nFolded books\nCrayons\nAdult stapler (away from children)",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Wiggle What You Will with adaptive options. Preview tower measuring.",
+        "transitions": [],
+        "outdoorPlay": "Build stick towers and measure with yarn outdoors.",
+        "familyConnection": "Send book home or photo of tower label ‘my tower.’",
+        "observations": "Redirects child-height talk; feeling vocabulary.",
+        "adaptations": "Tray building; stamp faces; one-page books.",
+        "safetyNotes": "Tip-safe tower zones; adult stapler away from children.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-thursday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Build & Measure My Tower",
+            "objective": "Build a block tower and measure it with cubes or yarn. Measure structures only.",
+            "description": "Children build ‘my tower,’ measure with non-standard units, and label the tower. Skip lining children up by height.",
+            "learningDomains": [
+              "Math",
+              "Science",
+              "Language"
+            ],
+            "materials": "Blocks\nLinking cubes or yarn\nSticky notes\nFloor space",
+            "setup": "Clear floor. Cubes in a bowl. Keep wall charts that rank children’s height out of this center.",
+            "steps": "1. Build a tower.\n2. Measure with cubes or yarn beside the tower.\n3. Count units with support.\n4. Label sticky note ‘my tower.’\n5. Optional: rebuild taller or wider—still measuring the structure.",
+            "teacherRole": "Keep talk on towers. Redirect child-to-child height talk back to the blocks.",
+            "teacherLanguage": "How many cubes tall is your tower? What happens if we add one block?",
+            "learningGoals": [
+              "Builds with intent",
+              "Measures a structure",
+              "Uses taller/shorter about towers"
+            ],
+            "observationOpportunities": "Measures tower not body\nCounts cubes with pointing\nStays focused on structure talk",
+            "vocabulary": "tower\nmeasure\ncubes\ntaller\nwider",
+            "extensions": "Check two towers’ cube counts—structures only.",
+            "adaptations": "Build on a tray for stability.",
+            "safetyNotes": "Towers tip—build away from walkways.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher counts aloud while child points.",
+            "additionalChallenge": "Record cube count on the sticky note.",
+            "mixedAgeAdaptations": "Toddlers stack; preschoolers measure and label.",
+            "cleanupTip": "Blocks sorted by shape; cubes in the bowl."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-thursday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Feelings Faces Art",
+            "objective": "Show a feeling with process art—mixed feelings allowed.",
+            "description": "Optional emotion cues; children may show more than one feeling.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Creative Arts",
+              "Language"
+            ],
+            "materials": "Paper\nCrayons\nOptional feeling cards\nMirrors",
+            "setup": "Feeling cards available, not required. No ‘correct’ face.",
+            "steps": "1. Name a feeling or pick a card.\n2. Draw or collage the feeling.\n3. Optional: add a second feeling.\n4. Dictate a label.",
+            "teacherRole": "Validate all feelings; avoid fixing ‘sad’ art.",
+            "teacherLanguage": "What feeling is visiting you? It’s okay to have two.",
+            "learningGoals": [
+              "Names or shows a feeling",
+              "Uses art to express",
+              "Accepts mixed feelings"
+            ],
+            "observationOpportunities": "Uses feeling words\nChooses mixed feelings\nComfort sharing or keeping private",
+            "vocabulary": "feeling\nhappy\nworried\nproud",
+            "extensions": "Add a calm-down strategy drawing on the back.",
+            "adaptations": "Point to a card; teacher draws with child.",
+            "safetyNotes": "",
+            "ageModifications": "",
+            "supportAdaptations": "Stamp faces; child colors.",
+            "additionalChallenge": "Explain what helps when that feeling comes.",
+            "mixedAgeAdaptations": "Toddlers scribble feelings; preschoolers label.",
+            "cleanupTip": "Feeling cards into a calm corner basket."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-thursday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "All About Me Book Making",
+            "objective": "Make a three-page book about me—scribbles count as writing.",
+            "description": "Pages: my name, people I love, something I like. Dictation welcome.",
+            "learningDomains": [
+              "Language & Literacy",
+              "Social-Emotional",
+              "Creative Arts"
+            ],
+            "materials": "Folded paper books\nCrayons\nStickers\nAdult stapler (away from children)",
+            "setup": "Pre-fold books. Model scribble writing as valid.",
+            "steps": "1. Page 1: name/portrait.\n2. Page 2: people or pets.\n3. Page 3: favorite thing.\n4. Dictate captions; staple with adult tool away from kids.",
+            "teacherRole": "Scribe on request; celebrate scribbles.",
+            "teacherLanguage": "What should this page say? Your marks tell your story.",
+            "learningGoals": [
+              "Sequences three ideas",
+              "Uses marks as writing",
+              "Shares identity content"
+            ],
+            "observationOpportunities": "Chooses people freely\nScribble vs letter-like marks\nPride in book",
+            "vocabulary": "book\npage\nstory\nme",
+            "extensions": "Read the book to a friend.",
+            "adaptations": "Photo glued on page 1 if drawing is hard today.",
+            "safetyNotes": "Adult uses stapler away from children.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher draws boxes; child fills.",
+            "additionalChallenge": "Add a fourth page: ‘I can help by…’",
+            "mixedAgeAdaptations": "Toddlers one page; preschoolers three.",
+            "cleanupTip": "Books into take-home mailbox."
+          }
+        ],
+        "teacherPreparation": "Remove comparative height displays from this center. Prefold books.",
+        "activityFlow": "Build & Measure My Tower → Feelings Faces Art → All About Me Book Making.",
+        "questions": "How many cubes tall is your tower? What feeling is visiting you?",
+        "observationFocus": "Tower-not-body measuring; mixed feelings allowed; scribble writing honored."
+      },
+      "friday": {
+        "theme": "Scarf Paths, Celebration, and Parade",
+        "objectives": "Travel a cooperative scarf path.\nCelebrate with opt-in sharing.\nParade with inclusive leaders.",
+        "materials": "Scarves\nPainter’s tape\nName cards\nPortraits\nOptional instruments",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Affirmation chant. Explain share-or-hold-card choice.",
+        "transitions": [],
+        "outdoorPlay": "Chalk scarf path on pavement; parade to the garden and back.",
+        "familyConnection": "Send affirmation lyrics and portrait photo per permission.",
+        "observations": "Mobility inclusion; forced-share interruptions avoided.",
+        "adaptations": "Chair flag waves; whisper shares.",
+        "safetyNotes": "Wide lanes; walking feet; clear thresholds.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-friday-1",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Friendship Scarf Path",
+            "objective": "Design and travel a cooperative scarf pathway wide enough for every friend.",
+            "description": "Children help tape a wide path, choose moves, and take turns leading—including mobility-device users as leaders.",
+            "learningDomains": [
+              "Physical Development",
+              "Social-Emotional",
+              "Language"
+            ],
+            "materials": "Scarves or streamers\nPainter’s tape or chalk\nOpen path wide enough for mobility devices",
+            "setup": "Children help lay a wide path. Mark start/finish. Practice one gentle move.",
+            "steps": "1. Build the path together.\n2. Choose a move (walk, roll, side-step, dance).\n3. Travel the path.\n4. New leader chooses the next move.\n5. End with a group scarf wave.",
+            "teacherRole": "Keep path wide; invite wheelchair/walker leaders; skip outline tracing games.",
+            "teacherLanguage": "Who wants to lead the next move? Make space for every friend.",
+            "learningGoals": [
+              "Cooperates on path design",
+              "Follows a peer leader",
+              "Moves safely in shared space"
+            ],
+            "observationOpportunities": "Includes friends using mobility devices\nNegotiates turns leading\nKeeps path clear",
+            "vocabulary": "path\nlead\nfollow\nspace\nfriend",
+            "extensions": "Add a scarf color pattern along the path.",
+            "adaptations": "Shorter path; seated scarf waves at stations.",
+            "safetyNotes": "Wide lanes; no racing; clear thresholds.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher co-leads the first pass.",
+            "additionalChallenge": "Children map the path on paper after.",
+            "mixedAgeAdaptations": "Toddlers walk a short tape line; preschoolers design.",
+            "cleanupTip": "Roll tape; scarves to laundry basket."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-friday-2",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Celebration Circle",
+            "objective": "Celebrate belonging with opt-in sharing and kind listening.",
+            "description": "Children may share one pride moment or hold a name card quietly while peers cheer.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language"
+            ],
+            "materials": "Name cards\nOptional celebration stickers\nSoft drum or clap pattern",
+            "setup": "Explain opt-in. Practice clap pattern for listeners.",
+            "steps": "1. Affirmation chant.\n2. Opt-in shares.\n3. Classmates clap or sign applause.\n4. Close with belonging words.",
+            "teacherRole": "Protect opt-out; coach kind listening.",
+            "teacherLanguage": "You may share or hold your card. We celebrate every friend.",
+            "learningGoals": [
+              "Participates at comfort level",
+              "Listens kindly",
+              "Uses belonging language"
+            ],
+            "observationOpportunities": "Chooses share or quiet hold\nPeer kindness\nAffirmation language spreading",
+            "vocabulary": "celebrate\nproud\nshare\nlisten\nbelong",
+            "extensions": "Sing I Am Me affirmation again.",
+            "adaptations": "Point to a picture card instead of speaking.",
+            "safetyNotes": "No forced sharing.",
+            "ageModifications": "",
+            "supportAdaptations": "Whisper share to teacher who announces.",
+            "additionalChallenge": "Child offers a compliment to a peer.",
+            "mixedAgeAdaptations": "Toddlers wave name cards; preschoolers share words.",
+            "cleanupTip": "Name cards to take-home."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-friday-3",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "All About Me Movement Parade",
+            "objective": "Parade with portraits or name cards—mobility-device leaders included.",
+            "description": "Walking parade with a rolling path segment led by wheelchair users when present.",
+            "learningDomains": [
+              "Physical Development",
+              "Social-Emotional",
+              "Music"
+            ],
+            "materials": "Portraits or name cards\nScarves\nOptional rhythm instruments\nClear thresholds",
+            "setup": "Map a walking/rolling loop. Offer instruments or clapping.",
+            "steps": "1. Line up with space for devices.\n2. Leader segment rotates.\n3. Parade once.\n4. Wave to classroom ‘audience.’",
+            "teacherRole": "Rotate leaders; keep walking feet; clear thresholds.",
+            "teacherLanguage": "Leaders show the pace. Make room—wheels and feet together.",
+            "learningGoals": [
+              "Moves with group",
+              "Takes or yields lead",
+              "Regulates parade energy"
+            ],
+            "observationOpportunities": "How leaders include friends behind\nTempo that keeps group regulated",
+            "vocabulary": "parade\nlead\nfollow\nmusic",
+            "extensions": "Wave to plants or pets as audience.",
+            "adaptations": "Flag wave from a chair.",
+            "safetyNotes": "Walking feet. Clear thresholds.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher walks beside first.",
+            "additionalChallenge": "Child invents a clap pattern for the parade.",
+            "mixedAgeAdaptations": "Toddlers parade a short hallway; preschoolers plan route.",
+            "cleanupTip": "Instruments to shadow board."
+          }
+        ],
+        "teacherPreparation": "Map a wide rolling/walking path. Practice opt-in celebration language.",
+        "activityFlow": "Friendship Scarf Path → Celebration Circle → All About Me Movement Parade.",
+        "questions": "Who will lead the next path move? What are you proud of this week?",
+        "observationFocus": "Inclusive leading; opt-in comfort; parade regulation."
+      }
+    },
+    "dailyPlansCompat": {
+      "monday": {
+        "theme": "Mirrors, Names, and People We Love",
+        "objectives": "Notice myself in a mirror.\nFind my preferred name and first letter.\nShare a photo or drawing of people who matter—without ranking families.",
+        "materials": "Child-safe mirrors\nPreferred-name cards\nChunky letters\nFamily photos or drawings\nClothespin gallery string",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Sing I Am Me. Pass a mirror for a quick peek. Preview name trays.",
+        "transitions": [],
+        "outdoorPlay": "Chalk first letters on the sidewalk; match with leaf tokens.",
+        "familyConnection": "Invite a drawing or photo of people/pets who care for the child, plus preferred-name pronunciation.",
+        "observations": "Notes mirror avoidance supports; preferred-name accuracy.",
+        "adaptations": "Peek-a-boo before mirrors; photo+name for younger finders.",
+        "safetyNotes": "Acrylic mirrors; large letters only.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-monday-1",
+            "importKey": "",
+            "activityCategory": "Social-Emotional",
+            "title": "Mirror Me",
+            "objective": "Notice my face in a mirror and copy a friend’s expression.",
+            "description": "Mirror play that starts by copying the child before asking them to copy the teacher.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Physical Development"
+            ],
+            "materials": "Child-safe mirrors or taped acrylic tiles\nPicture cards of feelings (optional)",
+            "setup": "Sit beside children at mirror height. Keep feeling cards face-down until engaged.",
+            "steps": "1. Copy the child’s expression first.\n2. Invite them to copy yours.\n3. Optional: peek at one feeling card.\n4. End with a shared silly face.",
+            "teacherRole": "Follow the child’s lead; never force eye contact.",
+            "teacherLanguage": "I see your smile. Can you make my surprised face?",
+            "learningGoals": [
+              "Notices reflection",
+              "Tries matching faces",
+              "Shares attention"
+            ],
+            "observationOpportunities": "Notices teacher’s matching face\nSustains an expression\nComfort with mirrors",
+            "vocabulary": "mirror\nsmile\nlook\nsame",
+            "extensions": "Take turns being the face leader.",
+            "adaptations": "Peek-a-boo with a scarf before mirror for mirror-averse children.",
+            "safetyNotes": "Acrylic or metal mirrors only. Tape edges.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher holds the mirror; child glances briefly.",
+            "additionalChallenge": "Children lead a three-face sequence.",
+            "mixedAgeAdaptations": "Toddlers join for peek games; preschoolers lead.",
+            "cleanupTip": "Wipe mirrors after the group."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-monday-2",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "My Name Discovery",
+            "objective": "Find my name card and match my first letter.",
+            "description": "Preferred-name cards and chunky letters on a low tray.",
+            "learningDomains": [
+              "Language & Literacy",
+              "Social-Emotional",
+              "Fine Motor"
+            ],
+            "materials": "Preferred-name cards\nChunky letter magnets or foam letters\nLow tray",
+            "setup": "Verify preferred names with families. Set three cards at a time.",
+            "steps": "1. Child finds their card among two others.\n2. Match the first letter.\n3. Say the name aloud with pride.\n4. Store card in the name mailbox.",
+            "teacherRole": "Honor nicknames families approve; no speed contests.",
+            "teacherLanguage": "Which card is yours? What letter starts your name?",
+            "learningGoals": [
+              "Recognizes own card",
+              "Matches first letter",
+              "Says preferred name"
+            ],
+            "observationOpportunities": "Finds card among two others\nSeeks first letter by shape or asking",
+            "vocabulary": "name\nletter\nmine\nmatch",
+            "extensions": "Trace the first letter on a friend’s palm with permission.",
+            "adaptations": "Partner hunt for letters.",
+            "safetyNotes": "Letters large enough to fail choke test.",
+            "ageModifications": "",
+            "supportAdaptations": "Only the child’s letter in the bowl at first.",
+            "additionalChallenge": "Build more letters of the name.",
+            "mixedAgeAdaptations": "Younger children match photo + name card.",
+            "cleanupTip": "Name cards into labeled envelopes for Friday."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-monday-3",
+            "importKey": "",
+            "activityCategory": "Social-Emotional",
+            "title": "Family Photo Sharing",
+            "objective": "Share people who matter using a photo or drawing—without explaining family structure.",
+            "description": "Children point and name freely; drawings and picture cards are equal to photos.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Creative Arts"
+            ],
+            "materials": "Family photos or drawings\nClothespin string or board\nPicture cards of caring roles",
+            "setup": "Accept drawings. Privacy note posted. No required structure talk.",
+            "steps": "1. Child chooses what to share.\n2. Points and names.\n3. Peers listen.\n4. Clip to the gallery string.",
+            "teacherRole": "Never require explanations of who lives where.",
+            "teacherLanguage": "Who would you like to show us? Tell us one thing you love doing together.",
+            "learningGoals": [
+              "Names a caring person",
+              "Listens to a peer",
+              "Accepts varied family pictures"
+            ],
+            "observationOpportunities": "Whom they name first\nInterest in a peer’s photo",
+            "vocabulary": "family\nphoto\ntogether\nlove",
+            "extensions": "Sticky note with one dictated word.",
+            "adaptations": "Teacher holds the photo while the child points.",
+            "safetyNotes": "Respect privacy—no public posting without permission.",
+            "ageModifications": "",
+            "supportAdaptations": "Picture cards if no photo/drawing yet.",
+            "additionalChallenge": "Dictate a sentence for the gallery.",
+            "mixedAgeAdaptations": "Toddlers point; preschoolers dictate captions.",
+            "cleanupTip": "Return photos to labeled envelopes immediately."
+          }
+        ],
+        "teacherPreparation": "Confirm preferred names. Post privacy note. Stage mirrors at child height.",
+        "activityFlow": "Mirror Me → My Name Discovery → Family Photo Sharing.",
+        "questions": "What do you notice in the mirror? Which card is your name?",
+        "observationFocus": "Mirror comfort; name recognition; whom children choose to share."
+      },
+      "tuesday": {
+        "theme": "Belonging Circles, Moving Bodies, Portraits",
+        "objectives": "Fill a personal belonging circle without comparing families.\nMove with inclusive options.\nStart process self-portraits.",
+        "materials": "Circle papers\nDots/stickers\nCaring-role cards\nSkin-tone crayons\nOpen movement space",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Read a page from I Like Myself! Affirm: every circle is enough.",
+        "transitions": [],
+        "outdoorPlay": "Chalk personal circles; place leaf tokens for caring people.",
+        "familyConnection": "Send belonging-circle photo (with permission) and portrait progress.",
+        "observations": "Notes belonging language; notes portrait color choices.",
+        "adaptations": "Picture cards for circles; seated movement options.",
+        "safetyNotes": "Clear mobility paths.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Social-Emotional",
+            "title": "People in My Circle",
+            "objective": "Show people, pets, and helpers who care for me. Keep every circle equally special.",
+            "description": "Each child fills a personal circle with stickers or dots for trusted people. Circles stay personal and equally special.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Creative Arts"
+            ],
+            "materials": "Paper with a large open circle per child\nStickers or paper dots\nPicture cards of caring roles (teacher, sibling, neighbor, pet)",
+            "setup": "One circle per child. Use personal circles instead of shared ranked columns. Model placing two dots for people who care for you.",
+            "steps": "1. Child names someone who cares for them.\n2. Places a dot inside their own circle.\n3. May add pets, teachers, or neighbors.\n4. Optional: dictate ‘In my circle I have…’\n5. Display circles side by side as equally special.",
+            "teacherRole": "Coach belonging language. Pause ‘who has more’ talk. Celebrate each circle as enough.",
+            "teacherLanguage": "Who helps you feel safe? Anyone else belongs in your circle? Every circle is special.",
+            "learningGoals": [
+              "Identifies trusted people",
+              "Uses belonging language",
+              "Respects different circles"
+            ],
+            "observationOpportunities": "Names caring people or pets\nIncludes teachers or neighbors\nResponds kindly when a peer’s circle looks different",
+            "vocabulary": "circle\ncare\nfriend\nbelong\ntrust",
+            "extensions": "Dictate one sentence: ‘In my circle I have…’",
+            "adaptations": "Offer picture cards of caring roles to point to.",
+            "safetyNotes": "",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher scribes names while child places dots.",
+            "additionalChallenge": "Child tells one way someone in their circle helps them.",
+            "mixedAgeAdaptations": "Toddlers place dots with help; preschoolers dictate sentences.",
+            "differentiation": "Support: picture cards. Challenge: dictate a belonging sentence.",
+            "cleanupTip": "Clip circles to the gallery string for family pickup."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Body Part Movement Game",
+            "objective": "Move body parts in inclusive ways—including seated and wheeled options.",
+            "description": "Follow-the-leader movement with adapted choices for every body.",
+            "learningDomains": [
+              "Physical Development",
+              "Language",
+              "Social-Emotional"
+            ],
+            "materials": "Open space\nPicture cues for move / stop\nOptional rhythm instrument",
+            "setup": "Post adaptive options (wave elbows, roll wheels, tip toes). Model without spotlighting.",
+            "steps": "1. Call a body part with an inclusive option.\n2. Children move in their own way.\n3. Freeze on cue.\n4. Children suggest the next move.",
+            "teacherRole": "Offer alternatives aloud so every body is included.",
+            "teacherLanguage": "Can you wiggle fingers—or tap the tray? Wheels can roll forward and stop.",
+            "learningGoals": [
+              "Follows movement cues",
+              "Uses body vocabulary",
+              "Accepts varied ways to move"
+            ],
+            "observationOpportunities": "Chooses an adaptation without shame\nSuggests moves for friends",
+            "vocabulary": "wiggle\nfreeze\nstrong\ngentle",
+            "extensions": "Children invent a two-move pattern.",
+            "adaptations": "Seated or wheeled versions for every call.",
+            "safetyNotes": "Clear pathways for mobility devices.",
+            "ageModifications": "",
+            "supportAdaptations": "Visual cue cards only.",
+            "additionalChallenge": "Lead a round for the group.",
+            "mixedAgeAdaptations": "Toddlers copy one move; preschoolers invent.",
+            "cleanupTip": "Stack cue cards in the movement bin."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-tuesday-3",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Self-Portrait Studio",
+            "objective": "Create a process self-portrait with skin-tone crayons—no adult model to copy.",
+            "description": "Mirrors nearby; scribbles and unique features celebrated.",
+            "learningDomains": [
+              "Creative Arts",
+              "Social-Emotional",
+              "Fine Motor"
+            ],
+            "materials": "Paper\nSkin-tone crayons and markers\nMirrors\nOptional yarn for hair textures",
+            "setup": "No adult sample portrait. Set mirrors and inclusive crayons.",
+            "steps": "1. Look in the mirror.\n2. Draw freely.\n3. Add hair, aids, or favorite shirt details.\n4. Dictate a name for the portrait.",
+            "teacherRole": "Refuse ‘fix it’ corrections; narrate what the child chose.",
+            "teacherLanguage": "What color feels like you today? Tell me about your hair.",
+            "learningGoals": [
+              "Attempts a self-image",
+              "Chooses colors meaningfully",
+              "Dictates a label"
+            ],
+            "observationOpportunities": "Includes vision aids or wheels if used\nComfort looking in mirror while drawing",
+            "vocabulary": "portrait\nskin\nhair\nme",
+            "extensions": "Add a dictated ‘I like…’ sentence.",
+            "adaptations": "Stamp circle face; child adds features.",
+            "safetyNotes": "Acrylic mirrors; tape edges.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher outlines oval if requested; child fills.",
+            "additionalChallenge": "Draw a friend with permission.",
+            "mixedAgeAdaptations": "Toddlers scribble; preschoolers add details.",
+            "cleanupTip": "Portrait drying rack."
+          }
+        ],
+        "teacherPreparation": "Prepare one circle per child—no ranked columns. Post adaptive movement options.",
+        "activityFlow": "People in My Circle → Body Part Movement Game → Self-Portrait Studio.",
+        "questions": "Who helps you feel safe? How can wheels or feet join this move?",
+        "observationFocus": "Belonging language; interruption of ‘who has more’; inclusive movement."
+      },
+      "wednesday": {
+        "theme": "Caring Play, Kind Questions, Name Letters",
+        "objectives": "Invent open family/care roles.\nInterview a friend kindly.\nHunt letters from my name.",
+        "materials": "Dramatic play kitchen props\nInterview prompt cards\nLetter cards and decoys",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Model one interview question. Practice listening bodies.",
+        "transitions": [],
+        "outdoorPlay": "Outdoor dramatic-play picnic roles; letter hunt on a fence line.",
+        "familyConnection": "Share one kind question children asked a friend.",
+        "observations": "Stereotype redirects; decoy rejection.",
+        "adaptations": "Role picture cards; color-coded letters.",
+        "safetyNotes": "Large letter cards; choke-safe play food.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-wednesday-1",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Family Dramatic Play",
+            "objective": "Act out caring roles children invent—without assigned ‘mom/dad only’ scripts.",
+            "description": "Open role naming: cook, helper, baby, neighbor, pet caregiver, etc.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language",
+              "Creative Arts"
+            ],
+            "materials": "Play kitchen\nDolls\nPhones\nSoft props\nPicture cards of roles",
+            "setup": "Remove props that force one family mold. Post open role cards.",
+            "steps": "1. Children choose roles.\n2. Play a care routine (meal, bedtime, hello).\n3. Switch roles.\n4. Clean the play home together.",
+            "teacherRole": "Coach consent and flexible roles; interrupt stereotypes gently.",
+            "teacherLanguage": "Who are you in the story today? How do you help your people?",
+            "learningGoals": [
+              "Chooses a role",
+              "Uses care language",
+              "Negotiates play"
+            ],
+            "observationOpportunities": "Role flexibility\nCare themes vs power themes",
+            "vocabulary": "care\nhelp\nhome\nrole",
+            "extensions": "Invite a stuffed pet to the family.",
+            "adaptations": "Picture role cards for nonverbal choosers.",
+            "safetyNotes": "No small chokeable play food.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher plays neighbor guest first.",
+            "additionalChallenge": "Children write a menu or shopping list.",
+            "mixedAgeAdaptations": "Toddlers cook beside; preschoolers assign jobs.",
+            "cleanupTip": "Reset kitchen with a closing song."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-wednesday-2",
+            "importKey": "",
+            "activityCategory": "Language",
+            "title": "Friend Interview",
+            "objective": "Ask a friend one kind question and listen to the answer.",
+            "description": "Safe picture prompts only—no private family quizzes.",
+            "learningDomains": [
+              "Language",
+              "Social-Emotional"
+            ],
+            "materials": "Interview clipboards\nPicture prompt cards (favorite color, pet, food, game)\nPencils",
+            "setup": "Model one question. Pair children. Keep prompts about preferences.",
+            "steps": "1. Choose a prompt card.\n2. Ask the friend.\n3. Listen and mark or draw the answer.\n4. Switch roles.",
+            "teacherRole": "Coach listening bodies; redirect invasive questions.",
+            "teacherLanguage": "What is your favorite…? I heard you—thank you for telling me.",
+            "learningGoals": [
+              "Asks a question",
+              "Listens",
+              "Remembers a peer preference"
+            ],
+            "observationOpportunities": "Waits for answer\nRemembers peer’s favorite later",
+            "vocabulary": "ask\nlisten\nfavorite\nfriend",
+            "extensions": "Share one learned favorite at circle.",
+            "adaptations": "Point to cards instead of speaking.",
+            "safetyNotes": "",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher sits in the triad.",
+            "additionalChallenge": "Invent a new kind question.",
+            "mixedAgeAdaptations": "Toddlers answer with pointing; preschoolers scribe.",
+            "cleanupTip": "Clipboards back to the literacy shelf."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-wednesday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Name Letter Hunt",
+            "objective": "Hunt letters from my name among decoy letters.",
+            "description": "Room hunt for name letters—no races.",
+            "learningDomains": [
+              "Language & Literacy",
+              "Physical Development"
+            ],
+            "materials": "Letter cards from each child’s name\nDecoy letters\nBaskets",
+            "setup": "Hide 3–5 letters per child plus decoys. No timers.",
+            "steps": "1. Review own letters.\n2. Hunt and collect.\n3. Check against name card.\n4. Celebrate finds—not speed.",
+            "teacherRole": "Block racing language; help verify matches.",
+            "teacherLanguage": "Does this letter live in your name? Check your card.",
+            "learningGoals": [
+              "Recognizes name letters",
+              "Rejects some decoys",
+              "Persists"
+            ],
+            "observationOpportunities": "Uses name card as reference\nShares finds with peers",
+            "vocabulary": "letter\nhunt\nfind\nname",
+            "extensions": "Build the name on the floor with finds.",
+            "adaptations": "Color-code the child’s letters.",
+            "safetyNotes": "Large cards only.",
+            "ageModifications": "",
+            "supportAdaptations": "Only two letters hidden.",
+            "additionalChallenge": "Find a friend’s first letter too.",
+            "mixedAgeAdaptations": "Toddlers hunt photo cards; preschoolers hunt letters.",
+            "cleanupTip": "Sort letters into name envelopes."
+          }
+        ],
+        "teacherPreparation": "Remove forced mom/dad-only props. Hide name letters (no timers).",
+        "activityFlow": "Family Dramatic Play → Friend Interview → Name Letter Hunt.",
+        "questions": "Who are you in the story today? What is your friend’s favorite…?",
+        "observationFocus": "Role flexibility; listening; letter matching without racing."
+      },
+      "thursday": {
+        "theme": "Towers We Measure, Feelings We Show, Books We Make",
+        "objectives": "Measure block towers rather than children’s heights.\nExpress feelings through art.\nMake a three-page All About Me book.",
+        "materials": "Blocks\nCubes/yarn\nFeeling cards\nFolded books\nCrayons\nAdult stapler (away from children)",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Wiggle What You Will with adaptive options. Preview tower measuring.",
+        "transitions": [],
+        "outdoorPlay": "Build stick towers and measure with yarn outdoors.",
+        "familyConnection": "Send book home or photo of tower label ‘my tower.’",
+        "observations": "Redirects child-height talk; feeling vocabulary.",
+        "adaptations": "Tray building; stamp faces; one-page books.",
+        "safetyNotes": "Tip-safe tower zones; adult stapler away from children.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-thursday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Build & Measure My Tower",
+            "objective": "Build a block tower and measure it with cubes or yarn. Measure structures only.",
+            "description": "Children build ‘my tower,’ measure with non-standard units, and label the tower. Skip lining children up by height.",
+            "learningDomains": [
+              "Math",
+              "Science",
+              "Language"
+            ],
+            "materials": "Blocks\nLinking cubes or yarn\nSticky notes\nFloor space",
+            "setup": "Clear floor. Cubes in a bowl. Keep wall charts that rank children’s height out of this center.",
+            "steps": "1. Build a tower.\n2. Measure with cubes or yarn beside the tower.\n3. Count units with support.\n4. Label sticky note ‘my tower.’\n5. Optional: rebuild taller or wider—still measuring the structure.",
+            "teacherRole": "Keep talk on towers. Redirect child-to-child height talk back to the blocks.",
+            "teacherLanguage": "How many cubes tall is your tower? What happens if we add one block?",
+            "learningGoals": [
+              "Builds with intent",
+              "Measures a structure",
+              "Uses taller/shorter about towers"
+            ],
+            "observationOpportunities": "Measures tower not body\nCounts cubes with pointing\nStays focused on structure talk",
+            "vocabulary": "tower\nmeasure\ncubes\ntaller\nwider",
+            "extensions": "Check two towers’ cube counts—structures only.",
+            "adaptations": "Build on a tray for stability.",
+            "safetyNotes": "Towers tip—build away from walkways.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher counts aloud while child points.",
+            "additionalChallenge": "Record cube count on the sticky note.",
+            "mixedAgeAdaptations": "Toddlers stack; preschoolers measure and label.",
+            "cleanupTip": "Blocks sorted by shape; cubes in the bowl."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-thursday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Feelings Faces Art",
+            "objective": "Show a feeling with process art—mixed feelings allowed.",
+            "description": "Optional emotion cues; children may show more than one feeling.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Creative Arts",
+              "Language"
+            ],
+            "materials": "Paper\nCrayons\nOptional feeling cards\nMirrors",
+            "setup": "Feeling cards available, not required. No ‘correct’ face.",
+            "steps": "1. Name a feeling or pick a card.\n2. Draw or collage the feeling.\n3. Optional: add a second feeling.\n4. Dictate a label.",
+            "teacherRole": "Validate all feelings; avoid fixing ‘sad’ art.",
+            "teacherLanguage": "What feeling is visiting you? It’s okay to have two.",
+            "learningGoals": [
+              "Names or shows a feeling",
+              "Uses art to express",
+              "Accepts mixed feelings"
+            ],
+            "observationOpportunities": "Uses feeling words\nChooses mixed feelings\nComfort sharing or keeping private",
+            "vocabulary": "feeling\nhappy\nworried\nproud",
+            "extensions": "Add a calm-down strategy drawing on the back.",
+            "adaptations": "Point to a card; teacher draws with child.",
+            "safetyNotes": "",
+            "ageModifications": "",
+            "supportAdaptations": "Stamp faces; child colors.",
+            "additionalChallenge": "Explain what helps when that feeling comes.",
+            "mixedAgeAdaptations": "Toddlers scribble feelings; preschoolers label.",
+            "cleanupTip": "Feeling cards into a calm corner basket."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-thursday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "All About Me Book Making",
+            "objective": "Make a three-page book about me—scribbles count as writing.",
+            "description": "Pages: my name, people I love, something I like. Dictation welcome.",
+            "learningDomains": [
+              "Language & Literacy",
+              "Social-Emotional",
+              "Creative Arts"
+            ],
+            "materials": "Folded paper books\nCrayons\nStickers\nAdult stapler (away from children)",
+            "setup": "Pre-fold books. Model scribble writing as valid.",
+            "steps": "1. Page 1: name/portrait.\n2. Page 2: people or pets.\n3. Page 3: favorite thing.\n4. Dictate captions; staple with adult tool away from kids.",
+            "teacherRole": "Scribe on request; celebrate scribbles.",
+            "teacherLanguage": "What should this page say? Your marks tell your story.",
+            "learningGoals": [
+              "Sequences three ideas",
+              "Uses marks as writing",
+              "Shares identity content"
+            ],
+            "observationOpportunities": "Chooses people freely\nScribble vs letter-like marks\nPride in book",
+            "vocabulary": "book\npage\nstory\nme",
+            "extensions": "Read the book to a friend.",
+            "adaptations": "Photo glued on page 1 if drawing is hard today.",
+            "safetyNotes": "Adult uses stapler away from children.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher draws boxes; child fills.",
+            "additionalChallenge": "Add a fourth page: ‘I can help by…’",
+            "mixedAgeAdaptations": "Toddlers one page; preschoolers three.",
+            "cleanupTip": "Books into take-home mailbox."
+          }
+        ],
+        "teacherPreparation": "Remove comparative height displays from this center. Prefold books.",
+        "activityFlow": "Build & Measure My Tower → Feelings Faces Art → All About Me Book Making.",
+        "questions": "How many cubes tall is your tower? What feeling is visiting you?",
+        "observationFocus": "Tower-not-body measuring; mixed feelings allowed; scribble writing honored."
+      },
+      "friday": {
+        "theme": "Scarf Paths, Celebration, and Parade",
+        "objectives": "Travel a cooperative scarf path.\nCelebrate with opt-in sharing.\nParade with inclusive leaders.",
+        "materials": "Scarves\nPainter’s tape\nName cards\nPortraits\nOptional instruments",
+        "vocabulary": "me, name, family, friend, happy, sad",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Science",
+          "Creative Arts"
+        ],
+        "books": [],
+        "songs": [],
+        "circleTime": "Affirmation chant. Explain share-or-hold-card choice.",
+        "transitions": [],
+        "outdoorPlay": "Chalk scarf path on pavement; parade to the garden and back.",
+        "familyConnection": "Send affirmation lyrics and portrait photo per permission.",
+        "observations": "Mobility inclusion; forced-share interruptions avoided.",
+        "adaptations": "Chair flag waves; whisper shares.",
+        "safetyNotes": "Wide lanes; walking feet; clear thresholds.",
+        "items": [
+          {
+            "itemId": "item-preschool-all-about-me-friday-1",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Friendship Scarf Path",
+            "objective": "Design and travel a cooperative scarf pathway wide enough for every friend.",
+            "description": "Children help tape a wide path, choose moves, and take turns leading—including mobility-device users as leaders.",
+            "learningDomains": [
+              "Physical Development",
+              "Social-Emotional",
+              "Language"
+            ],
+            "materials": "Scarves or streamers\nPainter’s tape or chalk\nOpen path wide enough for mobility devices",
+            "setup": "Children help lay a wide path. Mark start/finish. Practice one gentle move.",
+            "steps": "1. Build the path together.\n2. Choose a move (walk, roll, side-step, dance).\n3. Travel the path.\n4. New leader chooses the next move.\n5. End with a group scarf wave.",
+            "teacherRole": "Keep path wide; invite wheelchair/walker leaders; skip outline tracing games.",
+            "teacherLanguage": "Who wants to lead the next move? Make space for every friend.",
+            "learningGoals": [
+              "Cooperates on path design",
+              "Follows a peer leader",
+              "Moves safely in shared space"
+            ],
+            "observationOpportunities": "Includes friends using mobility devices\nNegotiates turns leading\nKeeps path clear",
+            "vocabulary": "path\nlead\nfollow\nspace\nfriend",
+            "extensions": "Add a scarf color pattern along the path.",
+            "adaptations": "Shorter path; seated scarf waves at stations.",
+            "safetyNotes": "Wide lanes; no racing; clear thresholds.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher co-leads the first pass.",
+            "additionalChallenge": "Children map the path on paper after.",
+            "mixedAgeAdaptations": "Toddlers walk a short tape line; preschoolers design.",
+            "cleanupTip": "Roll tape; scarves to laundry basket."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-friday-2",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Celebration Circle",
+            "objective": "Celebrate belonging with opt-in sharing and kind listening.",
+            "description": "Children may share one pride moment or hold a name card quietly while peers cheer.",
+            "learningDomains": [
+              "Social-Emotional",
+              "Language"
+            ],
+            "materials": "Name cards\nOptional celebration stickers\nSoft drum or clap pattern",
+            "setup": "Explain opt-in. Practice clap pattern for listeners.",
+            "steps": "1. Affirmation chant.\n2. Opt-in shares.\n3. Classmates clap or sign applause.\n4. Close with belonging words.",
+            "teacherRole": "Protect opt-out; coach kind listening.",
+            "teacherLanguage": "You may share or hold your card. We celebrate every friend.",
+            "learningGoals": [
+              "Participates at comfort level",
+              "Listens kindly",
+              "Uses belonging language"
+            ],
+            "observationOpportunities": "Chooses share or quiet hold\nPeer kindness\nAffirmation language spreading",
+            "vocabulary": "celebrate\nproud\nshare\nlisten\nbelong",
+            "extensions": "Sing I Am Me affirmation again.",
+            "adaptations": "Point to a picture card instead of speaking.",
+            "safetyNotes": "No forced sharing.",
+            "ageModifications": "",
+            "supportAdaptations": "Whisper share to teacher who announces.",
+            "additionalChallenge": "Child offers a compliment to a peer.",
+            "mixedAgeAdaptations": "Toddlers wave name cards; preschoolers share words.",
+            "cleanupTip": "Name cards to take-home."
+          },
+          {
+            "itemId": "item-preschool-all-about-me-friday-3",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "All About Me Movement Parade",
+            "objective": "Parade with portraits or name cards—mobility-device leaders included.",
+            "description": "Walking parade with a rolling path segment led by wheelchair users when present.",
+            "learningDomains": [
+              "Physical Development",
+              "Social-Emotional",
+              "Music"
+            ],
+            "materials": "Portraits or name cards\nScarves\nOptional rhythm instruments\nClear thresholds",
+            "setup": "Map a walking/rolling loop. Offer instruments or clapping.",
+            "steps": "1. Line up with space for devices.\n2. Leader segment rotates.\n3. Parade once.\n4. Wave to classroom ‘audience.’",
+            "teacherRole": "Rotate leaders; keep walking feet; clear thresholds.",
+            "teacherLanguage": "Leaders show the pace. Make room—wheels and feet together.",
+            "learningGoals": [
+              "Moves with group",
+              "Takes or yields lead",
+              "Regulates parade energy"
+            ],
+            "observationOpportunities": "How leaders include friends behind\nTempo that keeps group regulated",
+            "vocabulary": "parade\nlead\nfollow\nmusic",
+            "extensions": "Wave to plants or pets as audience.",
+            "adaptations": "Flag wave from a chair.",
+            "safetyNotes": "Walking feet. Clear thresholds.",
+            "ageModifications": "",
+            "supportAdaptations": "Teacher walks beside first.",
+            "additionalChallenge": "Child invents a clap pattern for the parade.",
+            "mixedAgeAdaptations": "Toddlers parade a short hallway; preschoolers plan route.",
+            "cleanupTip": "Instruments to shadow board."
+          }
+        ],
+        "teacherPreparation": "Map a wide rolling/walking path. Practice opt-in celebration language.",
+        "activityFlow": "Friendship Scarf Path → Celebration Circle → All About Me Movement Parade.",
+        "questions": "Who will lead the next path move? What are you proud of this week?",
+        "observationFocus": "Inclusive leading; opt-in comfort; parade regulation."
+      }
+    },
+    "_activityCount": 15,
+    "id": "cur-lp-preschool-all-about-me"
+  },
+  "enrichmentDraft": {
+    "activities": {
+      "cur-lp-preschool-all-about-me:monday:item-preschool-all-about-me-monday-1": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Mirror play is familiar; no photo needed.",
+        "teacherTips": [
+          "Sit beside the child at mirror height; copy their expression before asking them to copy yours.",
+          "Keep emotion cards face-down until the child is engaged with their own reflection."
+        ],
+        "substitutions": [
+          {
+            "need": "child-safe mirrors",
+            "use": "stainless cookie sheets or acrylic mirror tiles with taped edges"
+          },
+          {
+            "need": "emotion cards",
+            "use": "All About Me Picture Card Pack face cards"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child notice the teacher’s matching face?",
+          "Which expression do they sustain longest?"
+        ],
+        "vocabulary": [
+          "mirror",
+          "smile",
+          "look",
+          "same"
+        ],
+        "indoorAlternatives": "Use a wall mirror with floor cushions.",
+        "outdoorAlternatives": "Notice reflections in a window on a cloudy day.",
+        "adaptations": "For mirror-averse children, play peek-a-boo with a scarf first.",
+        "extensions": "Take turns being the leader of faces.",
+        "cleanupTip": "Wipe mirrors with child-safe cleaner after the group.",
+        "safetyNotes": "Use acrylic or metal mirrors only. Tape edges. Supervise to avoid hitting mirrors.",
+        "setup": "Stage materials for “Mirror Me” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Mirror Me”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:monday:item-preschool-all-about-me-monday-2": {
+        "imageRequirement": "setup_only",
+        "imageRequirementReason": "Letter-magnet tray layout helps substitutes set an identical invitation.",
+        "setupImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/all-about-me/images/name-discovery-setup.png",
+        "setupImageAlt": "Illustrated classroom tray setup for name discovery: three colorful name cards (with simple abstract face circles, not real photos) and scattered letter magnets on a wooden tray on a table. Discreet Little Learner Hub by Leah branding at the bottom.",
+        "setupImageCaption": "Name cards and chunky magnets on a low tray · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Use the child’s preferred name/nickname on the card—ask families first.",
+          "Match the first letter magnet before expecting full name building."
+        ],
+        "substitutions": [
+          {
+            "need": "letter magnets",
+            "use": "foam bath letters or cardboard letters with clips"
+          },
+          {
+            "need": "name cards",
+            "use": "sentence strips with a small symbol sticker unique to each child"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child recognize their card among two others?",
+          "Do they seek the first letter by shape or by asking?"
+        ],
+        "vocabulary": [
+          "name",
+          "letter",
+          "mine",
+          "match"
+        ],
+        "indoorAlternatives": "Tape name cards to blocks for a find-and-stack game.",
+        "outdoorAlternatives": "Write names in sand or chalk; children place a leaf on their name.",
+        "adaptations": "Partner with a friend to hunt letters in a mutual search.",
+        "extensions": "Trace the first letter on each other’s palm with permission.",
+        "cleanupTip": "Store each child’s card in a labeled envelope for Friday parade.",
+        "safetyNotes": "Magnets large enough to fail choke test. No small fridge magnets.",
+        "setup": "Stage materials for “My Name Discovery” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “My Name Discovery”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:monday:item-preschool-all-about-me-monday-3": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Conversation about family photos is relationship-based, not setup-dependent.",
+        "teacherTips": [
+          "Accept drawings or magazine cutouts if a photo is unavailable—every family is representable.",
+          "Never require children to explain family structures; let them point and name freely."
+        ],
+        "substitutions": [
+          {
+            "need": "family photos",
+            "use": "All About Me family picture cards plus child-made drawings"
+          },
+          {
+            "need": "photo display board",
+            "use": "a string with clothespins at child height"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Whom does the child choose to name first?",
+          "Do they show interest in a peer’s photo?"
+        ],
+        "vocabulary": [
+          "family",
+          "photo",
+          "together",
+          "love"
+        ],
+        "indoorAlternatives": "Share in pairs on the rug.",
+        "outdoorAlternatives": "Clip photos to a fence line for a walking gallery.",
+        "adaptations": "Teacher holds the photo while the child points.",
+        "extensions": "Add a sticky note with one word the child dictates.",
+        "cleanupTip": "Return photos to labeled envelopes immediately.",
+        "safetyNotes": "Respect privacy—no posting photos publicly without permission.",
+        "setup": "Stage materials for “Family Photo Sharing” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Family Photo Sharing”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:tuesday:item-preschool-all-about-me-tuesday-1": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Sticker chart about people we love is verbal/social; no image required.",
+        "teacherTips": [
+          "Columns are ‘people who care for me’ categories children invent—not ranked family sizes.",
+          "Skip comparing who has ‘more’ people; celebrate each circle as enough."
+        ],
+        "substitutions": [
+          {
+            "need": "chart paper",
+            "use": "a cardboard trifold with three open circles drawn"
+          },
+          {
+            "need": "stickers",
+            "use": "paper dots children color"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child include teachers or pets in their circle?",
+          "How do they react if a peer’s circle looks different?"
+        ],
+        "vocabulary": [
+          "circle",
+          "care",
+          "friend",
+          "family"
+        ],
+        "indoorAlternatives": "Build circles with yarn loops on the floor and place name cards inside.",
+        "outdoorAlternatives": "Chalk circles on pavement for each child to stand in with a friend.",
+        "adaptations": "Offer picture cards of caring roles (teacher, sibling, neighbor).",
+        "extensions": "Dictate one sentence: ‘In my circle I have…’",
+        "cleanupTip": "Photograph the chart for portfolios; avoid public hallway posting without consent.",
+        "safetyNotes": "No forced disclosure of household details.",
+        "setup": "Stage materials for “People in My Circle” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “People in My Circle”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:tuesday:item-preschool-all-about-me-tuesday-2": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Song/movement game needs no photo.",
+        "teacherTips": [
+          "Use inclusive language: ‘move the part that helps you wave’ if a child has limb differences.",
+          "Follow Head, Shoulders, Knees and Toes slowly; invite seated marching alternatives."
+        ],
+        "substitutions": [
+          {
+            "need": "body part picture cards",
+            "use": "All About Me emotion/interest cards as movement cues instead"
+          },
+          {
+            "need": "open space",
+            "use": "stand-behind-chair movements in a tight room"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child watch peers or the teacher for cues?",
+          "Which movements do they invent beyond the song?"
+        ],
+        "vocabulary": [
+          "shoulders",
+          "knees",
+          "wiggle",
+          "stop"
+        ],
+        "indoorAlternatives": "Seated version with scarf waves.",
+        "outdoorAlternatives": "Move across playground zones per body-part cue.",
+        "adaptations": "Offer only two cues for children who need fewer switches.",
+        "extensions": "Children take turns being the caller.",
+        "cleanupTip": "Collect cards into a binder sleeve.",
+        "safetyNotes": "No forcing range of motion. Honor adaptive equipment pathways.",
+        "setup": "Stage materials for “Body Part Movement Game” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Body Part Movement Game”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:tuesday:item-preschool-all-about-me-tuesday-3": {
+        "imageRequirement": "example_only",
+        "imageRequirementReason": "A process-art example shows imperfect child-led portraits beat traced models.",
+        "exampleImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/all-about-me/images/self-portrait-example.png",
+        "exampleImageAlt": "Illustration of a classroom self-portrait process-art example on white paper: loose painted hair shapes, a simple drawn face, and collage color scraps on a table with crayons and a paint cup. Not a photograph of a real child. Little Learner Hub by Leah branding at the bottom.",
+        "exampleImageCaption": "Process self-portrait with child-led marks · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Mirrors yes; adult-drawn examples no. Narrate features without ranking beauty.",
+          "Skin-tone crayons available; let children choose freely—including rainbow faces."
+        ],
+        "substitutions": [
+          {
+            "need": "mirrors",
+            "use": "partner looking (with consent) or memory drawing"
+          },
+          {
+            "need": "paint",
+            "use": "crayons and collage scraps only"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Which features does the child emphasize?",
+          "Do they include a wheelchair, vision aids, hearing aids, or other tools they use?"
+        ],
+        "vocabulary": [
+          "portrait",
+          "skin",
+          "hair",
+          "me"
+        ],
+        "indoorAlternatives": "Vertical easel portraits.",
+        "outdoorAlternatives": "Chalk self-portraits on pavement.",
+        "adaptations": "Dictate labels for marks if drawing is frustrating.",
+        "extensions": "Add a speech bubble with a favorite word.",
+        "cleanupTip": "Dry racks labeled with name cards from Monday.",
+        "safetyNotes": "Non-toxic colors. No glitter near eyes.",
+        "setup": "Stage materials for “Self-Portrait Studio” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Self-Portrait Studio”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:wednesday:item-preschool-all-about-me-wednesday-1": {
+        "imageRequirement": "optional",
+        "imageRequirementReason": "Home living props are familiar; optional photo only for unique prop layouts.",
+        "teacherTips": [
+          "Stock diverse family figure sets and the Picture Card Pack family cards in the kitchen.",
+          "Avoid assigning ‘mom’/‘dad’ roles—let children name roles."
+        ],
+        "substitutions": [
+          {
+            "need": "play kitchen",
+            "use": "laundry basket stove and cardboard box fridge"
+          },
+          {
+            "need": "dolls",
+            "use": "stuffed animals as family members"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "How do children negotiate caregiving roles?",
+          "What caregiving language appears?"
+        ],
+        "vocabulary": [
+          "care",
+          "cook",
+          "rest",
+          "help"
+        ],
+        "indoorAlternatives": "Bring a baby-doll bath basin to the table.",
+        "outdoorAlternatives": "Picnic family play on blankets.",
+        "adaptations": "Visual schedule cards for play routines (cook → eat → rest).",
+        "extensions": "Call the block area on a toy phone to invite neighbors.",
+        "cleanupTip": "Sort dishes and dolls into separate caddies.",
+        "safetyNotes": "No real hot liquids. Doll accessories choke-tested.",
+        "setup": "Stage materials for “Family Dramatic Play” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Family Dramatic Play”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:wednesday:item-preschool-all-about-me-wednesday-2": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Clipboard interviews are conversation-based.",
+        "teacherTips": [
+          "Picture prompts only—favorite color, play, food—never intrusive home questions.",
+          "Pairs sit knee-to-knee; teacher scribes if needed."
+        ],
+        "substitutions": [
+          {
+            "need": "clipboards",
+            "use": "cardboard with a binder clip"
+          },
+          {
+            "need": "interview cards",
+            "use": "All About Me interest cards as question prompts"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child wait for an answer before next question?",
+          "How do they show listening (nod, repeat, point)?"
+        ],
+        "vocabulary": [
+          "ask",
+          "listen",
+          "friend",
+          "favorite"
+        ],
+        "indoorAlternatives": "Interview stuffed animals first as practice.",
+        "outdoorAlternatives": "Interview on a walking path with stop spots.",
+        "adaptations": "Yes/no picture choices for emergent speakers.",
+        "extensions": "Share one learned favorite at closing circle.",
+        "cleanupTip": "Staple interviews into a class book cover.",
+        "safetyNotes": "Consent to hold hands or sit close—offer space options.",
+        "setup": "Stage materials for “Friend Interview” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Friend Interview”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:wednesday:item-preschool-all-about-me-wednesday-3": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Hide-and-seek letters are self-explanatory.",
+        "teacherTips": [
+          "Hide only the letters in each child’s name plus two decoys.",
+          "Celebrate finding any letter in their name—not speed."
+        ],
+        "substitutions": [
+          {
+            "need": "letter cards",
+            "use": "chalk letters on blocks"
+          },
+          {
+            "need": "collection bags",
+            "use": "paper bags or buckets"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child compare the letter to their name card?",
+          "Do they help a friend hunt?"
+        ],
+        "vocabulary": [
+          "hunt",
+          "find",
+          "letter",
+          "bag"
+        ],
+        "indoorAlternatives": "Hide letters in a sensory bin of crinkle paper.",
+        "outdoorAlternatives": "Tape letters under outdoor chairs.",
+        "adaptations": "Color-cue the first letter.",
+        "extensions": "Build the name on the floor with found letters.",
+        "cleanupTip": "Check corners for missed letters before vacuuming.",
+        "safetyNotes": "No letters small enough to swallow.",
+        "setup": "Stage materials for “Name Letter Hunt” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Name Letter Hunt”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:thursday:item-preschool-all-about-me-thursday-1": {
+        "imageRequirement": "optional",
+        "imageRequirementReason": "Block towers are ordinary; optional setup photo only if using uncommon measuring tools.",
+        "teacherTips": [
+          "Children measure towers with cubes or yarn—never line up children to compare heights.",
+          "Record ‘my tower is 8 cubes’ on a sticky note the child places."
+        ],
+        "substitutions": [
+          {
+            "need": "blocks",
+            "use": "recycled boxes taped shut"
+          },
+          {
+            "need": "measuring tape",
+            "use": "linking cubes or handspans"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child rebuild after a fall without distress?",
+          "How do they count cubes?"
+        ],
+        "vocabulary": [
+          "tower",
+          "taller",
+          "cubes",
+          "balance"
+        ],
+        "indoorAlternatives": "Build under a table fort for enclosed focus.",
+        "outdoorAlternatives": "Stack outdoor cushions and measure with sticks.",
+        "adaptations": "Wider bases for children frustrated by topples.",
+        "extensions": "Draw the tower after building.",
+        "cleanupTip": "Sort blocks by size during cleanup as a quiet math ender.",
+        "safetyNotes": "No towers taller than shoulder height without spotter.",
+        "setup": "Stage materials for “Build & Measure My Tower” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Build & Measure My Tower”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:thursday:item-preschool-all-about-me-thursday-2": {
+        "imageRequirement": "example_only",
+        "imageRequirementReason": "Process faces benefit from an example that is imperfect and child-made looking.",
+        "exampleImageUrl": "file:///workspace/docs/teaching-kit/qa/next-10-gold-upgrade/proof/all-about-me/images/self-portrait-example.png",
+        "exampleImageAlt": "Process art face example with child-led marks.",
+        "exampleImageCaption": "Feelings face process art · Little Learner Hub by Leah",
+        "teacherTips": [
+          "Offer emotion cards as optional ideas—not faces to copy exactly.",
+          "Validate ‘mixed feelings’ faces."
+        ],
+        "substitutions": [
+          {
+            "need": "emotion cards",
+            "use": "All About Me face cards"
+          },
+          {
+            "need": "mirrors",
+            "use": "partner faces with consent"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Which feeling words appear spontaneously?",
+          "Does the child revise the face after checking a mirror?"
+        ],
+        "vocabulary": [
+          "happy",
+          "sad",
+          "calm",
+          "excited"
+        ],
+        "indoorAlternatives": "Play-dough faces on lids.",
+        "outdoorAlternatives": "Stick faces on tree cookies with mud (clothing protection).",
+        "adaptations": "Pre-drawn circle only if the child requests a starting shape.",
+        "extensions": "Match their art to a feelings card.",
+        "cleanupTip": "Display faces with child-dictated labels.",
+        "safetyNotes": "Respect children who prefer not to discuss hard feelings aloud.",
+        "setup": "Stage materials for “Feelings Faces Art” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Feelings Faces Art”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:thursday:item-preschool-all-about-me-thursday-3": {
+        "imageRequirement": "optional",
+        "imageRequirementReason": "Booklets are familiar; optional example if using a new page format.",
+        "teacherTips": [
+          "Three pages max: I am / I like / My people. Scribbles count as writing.",
+          "Staple with adult hands; children choose page order."
+        ],
+        "substitutions": [
+          {
+            "need": "book templates",
+            "use": "folded construction paper with two staples"
+          },
+          {
+            "need": "photos",
+            "use": "drawings or picture cards"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child dictate text confidently?",
+          "How do they react to reading it back?"
+        ],
+        "vocabulary": [
+          "book",
+          "page",
+          "author",
+          "like"
+        ],
+        "indoorAlternatives": "Digital photo of pages for families who want a copy.",
+        "outdoorAlternatives": "Clipboard drawing walk then staple inside.",
+        "adaptations": "One-page book for shorter attention spans.",
+        "extensions": "Author chair share for volunteers only.",
+        "cleanupTip": "Write names on backs before pages mix.",
+        "safetyNotes": "Adult stapler only.",
+        "setup": "Stage materials for “All About Me Book Making” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “All About Me Book Making”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:friday:item-preschool-all-about-me-friday-1": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Movement path with scarves needs no image.",
+        "teacherTips": [
+          "Replace body-outline tracing with a cooperative scarf pathway that celebrates moving together.",
+          "Children design the path with tape; scarves mark stations for favorite moves."
+        ],
+        "substitutions": [
+          {
+            "need": "scarves",
+            "use": "ribbon sticks or paper streamers"
+          },
+          {
+            "need": "tape path",
+            "use": "chalk path outdoors"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "How do children negotiate path design?",
+          "Which moves do they teach peers?"
+        ],
+        "vocabulary": [
+          "path",
+          "together",
+          "follow",
+          "lead"
+        ],
+        "indoorAlternatives": "Hallway path with stop spots.",
+        "outdoorAlternatives": "Playground circuit with scarf checkpoints.",
+        "adaptations": "Seated scarf dances at each station.",
+        "extensions": "Map the path on paper after moving.",
+        "cleanupTip": "Roll tape slowly with a helper holding the end.",
+        "safetyNotes": "No racing. Keep paths wide for mobility devices.",
+        "setup": "Stage materials for “Friendship Scarf Path” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Friendship Scarf Path”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:friday:item-preschool-all-about-me-friday-2": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Closing circle is routine.",
+        "teacherTips": [
+          "Each child shares one ‘I am…’ statement from their book or portrait.",
+          "Tambourine passes only with consent; clapping alternative ready."
+        ],
+        "substitutions": [
+          {
+            "need": "tambourine",
+            "use": "shaker bottle"
+          },
+          {
+            "need": "celebration stickers",
+            "use": "hand stamps or high-fives"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Who volunteers vs needs an invitation?",
+          "What affirmations repeat across children?"
+        ],
+        "vocabulary": [
+          "celebrate",
+          "proud",
+          "share",
+          "listen"
+        ],
+        "indoorAlternatives": "Whisper celebrations for low-arousal days.",
+        "outdoorAlternatives": "Circle on picnic blankets.",
+        "adaptations": "Point to a picture card instead of speaking.",
+        "extensions": "Sing an LLH affirmation chant.",
+        "cleanupTip": "Collect name cards for take-home.",
+        "safetyNotes": "No forced sharing.",
+        "setup": "Stage materials for “Celebration Circle” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “Celebration Circle”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      },
+      "cur-lp-preschool-all-about-me:friday:item-preschool-all-about-me-friday-3": {
+        "imageRequirement": "not_needed",
+        "imageRequirementReason": "Parade/movement finale needs no photo.",
+        "teacherTips": [
+          "Children carry their portrait or name card like a banner.",
+          "Offer a rolling path so wheelchair users lead a segment."
+        ],
+        "substitutions": [
+          {
+            "need": "rhythm instruments",
+            "use": "clapping patterns"
+          },
+          {
+            "need": "scarves",
+            "use": "streamers taped to wrists (loose)"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "How do leaders include friends behind them?",
+          "What music tempo keeps the group regulated?"
+        ],
+        "vocabulary": [
+          "parade",
+          "lead",
+          "follow",
+          "music"
+        ],
+        "indoorAlternatives": "March in place if space is limited.",
+        "outdoorAlternatives": "Parade to the garden and back.",
+        "adaptations": "Flag waving from a chair.",
+        "extensions": "Wave to classroom pets or plants as ‘audience.’",
+        "cleanupTip": "Instruments return to the shadow board.",
+        "safetyNotes": "Walking feet. Clear thresholds.",
+        "setup": "Stage materials for “All About Me Movement Parade” at one low table or rug spot before inviting children.",
+        "steps": "Invite children into “All About Me Movement Parade”. Model once, then narrate child moves. Close with the activity’s own cleanup tip."
+      }
+    },
+    "week": {
+      "weeklyOverview": "Preschoolers study identity through mirrors, names, chosen families, feelings art, and cooperative movement. We avoid body comparisons and celebrate many ways to look, move, and belong.",
+      "weeklyMaterials": "Child-safe mirrors\nName cards and chunky letters\nFamily photos or drawings\nSkin-tone crayons\nPaper and clipboards\nBlocks and cubes\nScarves and ribbon\nPicture card pack PDF\nStickers or paper dots\nStapler (adult)\nPlay kitchen props\nEmotion/interest cards",
+      "teacherPreparation": "Print All About Me Picture Card Pack. Request optional family photos with privacy note. Set skin-tone crayons out. Replace any height charts that rank children.",
+      "familyConnection": "Invite families to send a drawing or photo of people/pets who care for the child, or to share a preferred name pronunciation audio.",
+      "milestones": [
+        "Language: Uses name and feeling words",
+        "SEL: Shows interest in peers’ preferences",
+        "Cognition: Matches letters in own name",
+        "Motor: Draws process portraits and builds towers",
+        "Creativity: Dictates pages for a personal book"
+      ],
+      "vocabCards": [
+        "name",
+        "family",
+        "friend",
+        "feelings",
+        "mirror",
+        "portrait",
+        "listen",
+        "proud",
+        "care",
+        "unique",
+        "kind",
+        "belong"
+      ],
+      "printableIdeas": [
+        {
+          "title": "All About Me Picture Card Pack (PDF)",
+          "purpose": "Inclusive faces, families, interests, and affirmation cards for mirror play, interviews, and dramatic play."
+        }
+      ],
+      "printableIds": [
+        "cur-res-proof-all-about-me-picture-cards"
+      ],
+      "songs": [
+        {
+          "title": "I Am Me (LLH Affirmation)",
+          "rightsStatus": "original",
+          "rightsEvidence": "Original LLH affirmation chant written for All About Me preschool week.",
+          "lyrics": "I am me, you are you,\nDifferent hair and feelings too.\nClap for you and clap for me,\nWe belong here—1, 2, 3!",
+          "motions": "Point to self; point to friend; touch hair; heart hands; clap three times.",
+          "teacherDirections": "Teach seated first. Invite whispered verse for shy voices.",
+          "whenToUse": "Monday mirror time and Friday celebration.",
+          "suggestedPace": "Gentle and clear.",
+          "transitionPurpose": "Affirm belonging before centers.",
+          "dayPlacement": "monday"
+        },
+        {
+          "title": "Wiggle What You Will (LLH)",
+          "rightsStatus": "original",
+          "rightsEvidence": "Original LLH inclusive movement chant written to replace uncertain rights on familiar classroom body songs. Lyrics and motions authored for Little Learner Hub.",
+          "lyrics": "Wiggle what you will today—\nFingers, elbows, wheels that sway.\nFreeze like stone, then soft and small,\nMove your way—we cheer you all!",
+          "motions": "Wiggle chosen body part or roll wheels; freeze; curl small; open arms to cheer.",
+          "teacherDirections": "Offer seated/wheeled options every line. Never spotlight one body as the model.",
+          "whenToUse": "Tuesday movement game and Thursday warm-up.",
+          "suggestedPace": "Moderate; pause on freeze.",
+          "transitionPurpose": "Inclusive body awareness without comparison.",
+          "dayPlacement": "tuesday"
+        },
+        {
+          "title": "Friends Wave Hello (LLH)",
+          "rightsStatus": "original",
+          "rightsEvidence": "Original LLH greeting/closing chant for All About Me; not adapted from a commercial folk arrangement.",
+          "lyrics": "Friends wave hello, hello, hello,\nFriends wave hello—we’re glad you came.\nFriends wave goodbye, goodbye, goodbye,\nFriends wave goodbye—remember my name!",
+          "motions": "Wave; point around the circle; wave goodbye; point to own name card.",
+          "teacherDirections": "Use at celebration circle; solitary wave option allowed.",
+          "whenToUse": "Friday closing.",
+          "suggestedPace": "Warm moderate sway.",
+          "transitionPurpose": "Close the week with community language.",
+          "dayPlacement": "friday"
+        }
+      ],
+      "books": [
+        {
+          "title": "I Like Myself!",
+          "author": "Karen Beaumont",
+          "verificationSource": "Author site karenbeaumont.com/i-like-myself/ and Harcourt/HMH listing ISBN 9780152020132 credit Karen Beaumont (author), David Catrow (illustrator); Publishers Weekly review confirms; ages preschool–grade 2.",
+          "ageSuitability": "Preschool",
+          "weekdayPlacement": "monday",
+          "whyThisBook": "Supports mirror and affirmation work without requiring a single body ideal.",
+          "beforeReadingQuestions": [
+            "What is one thing you like about being you?"
+          ],
+          "duringReadingPrompts": [
+            "How is the character feeling here?",
+            "What silly thing do they imagine?"
+          ],
+          "afterReadingQuestions": [
+            "What should we put in our ‘I am me’ book today?"
+          ],
+          "vocabularyConnection": "like / myself / proud",
+          "substituteTitle": "No book: children complete the sentence ‘I like my…’ with picture cards."
+        },
+        {
+          "title": "From Head to Toe",
+          "author": "Eric Carle",
+          "verificationSource": "HarperCollins / standard catalogs credit Eric Carle; movement invitation book commonly used ages 2–5.",
+          "ageSuitability": "Toddler–preschool",
+          "weekdayPlacement": "tuesday",
+          "whyThisBook": "Pairs with inclusive movement game; animals invite imitation without ranking children.",
+          "beforeReadingQuestions": [
+            "Which animal move do you want to try?"
+          ],
+          "duringReadingPrompts": [
+            "Can you move like this animal in your own way?",
+            "What body part is working hard?"
+          ],
+          "afterReadingQuestions": [
+            "Which move should lead our scarf path?"
+          ],
+          "vocabularyConnection": "move / copy / strong",
+          "substituteTitle": "Head, Shoulders chant with adapted motions if the book is unavailable."
+        },
+        {
+          "title": "Chrysanthemum",
+          "author": "Kevin Henkes",
+          "verificationSource": "Greenwillow Books / HarperCollins catalogs credit Kevin Henkes; picture book about names and belonging, typical preschool–early elementary read-aloud (teacher paces for preschool).",
+          "ageSuitability": "Preschool (with discussion support)",
+          "weekdayPlacement": "wednesday",
+          "whyThisBook": "Centers names and kindness—pairs with name discovery and friend interviews.",
+          "beforeReadingQuestions": [
+            "What do you like about your name?"
+          ],
+          "duringReadingPrompts": [
+            "How does Chrysanthemum feel at school?",
+            "Who helps her feel better?"
+          ],
+          "afterReadingQuestions": [
+            "How can we make sure every name feels welcome here?"
+          ],
+          "vocabularyConnection": "name / unique / kind",
+          "substituteTitle": "I Like Myself! reread focused on names we heard this week."
+        }
+      ],
+      "teacherToolkit": {
+        "teacherPreparation": "Privacy note for photos. Inclusive crayons stocked. Remove comparative height displays. Cut picture cards.",
+        "prepChecklist": [
+          "Picture card pack ready",
+          "Name cards verified with families",
+          "Skin-tone crayons checked",
+          "Privacy permissions noted",
+          "Adaptive movement alternatives posted"
+        ],
+        "observationFocus": [
+          "Name recognition",
+          "Peer listening in interviews",
+          "Comfort with mirrors"
+        ],
+        "observationPrompts": [
+          "Where does a child need a non-sharing option?",
+          "Which affirmation language spreads peer-to-peer?"
+        ],
+        "documentationPrompts": [
+          "Portrait photo without requiring smiling",
+          "Anecdote of kind name support"
+        ],
+        "teacherTips": [
+          "Never rank bodies or families.",
+          "Preferred names override paperwork nicknames when families say so."
+        ],
+        "setupCleanupShortcuts": [
+          "Name card mailbox",
+          "Portrait drying rack"
+        ],
+        "materialSubstitutions": [
+          {
+            "need": "family photos",
+            "use": "drawings or picture cards"
+          },
+          {
+            "need": "mirrors",
+            "use": "cookie sheets"
+          }
+        ],
+        "mixedAgeAdaptations": "Toddlers join scarf path with simpler cues; older preschoolers scribe for friends.",
+        "extraSupportAdaptations": "Visual choice boards for feelings and favorites.",
+        "challengeExtensions": "Children create interview questions for Friday guests.",
+        "safetyInclusionNotes": "Mobility paths clear; no forced sharing; adaptive song motions modeled without spotlighting.",
+        "endOfWeekReflection": "Did every child see their family structure welcomed? Any comparative language to coach?",
+        "familyConnection": "Send affirmation lyrics and portrait photos per permission.",
+        "notes": "Proof revision — Body Outline Tracing and Height and Measure Me removed/replaced."
+      }
+    },
+    "updatedAt": "2026-08-08T22:10:10.327Z",
+    "lastEditedBy": "leahivie@icloud.com (proof revision)",
+    "previewReady": true,
+    "schemaVersion": "proof-two-honest-2",
+    "batchId": "proof-two-revision-2026-08-08"
+  },
+  "decisions": [
+    {
+      "title": "Mirror Me",
+      "decision": "rewrite",
+      "note": "Copy child first; inclusive mirrors."
+    },
+    {
+      "title": "My Name Discovery",
+      "decision": "rewrite",
+      "note": "Preferred names; setup illustration."
+    },
+    {
+      "title": "Family Photo Sharing",
+      "decision": "rewrite",
+      "note": "Drawings accepted; no forced structure talk."
+    },
+    {
+      "title": "Family Graph",
+      "decision": "replace",
+      "note": "Replaced with People in My Circle (no family-size ranking)."
+    },
+    {
+      "title": "Body Part Movement Game",
+      "decision": "rewrite",
+      "note": "Inclusive language; adapted motions."
+    },
+    {
+      "title": "Self-Portrait Studio",
+      "decision": "rewrite",
+      "note": "Process example image; no adult model."
+    },
+    {
+      "title": "Family Dramatic Play",
+      "decision": "rewrite",
+      "note": "Open role naming."
+    },
+    {
+      "title": "Friend Interview",
+      "decision": "rewrite",
+      "note": "Safe picture prompts only."
+    },
+    {
+      "title": "Name Letter Hunt",
+      "decision": "rewrite",
+      "note": "Name letters + decoys; no speed contests."
+    },
+    {
+      "title": "Height and Measure Me",
+      "decision": "replace",
+      "note": "Replaced with Build & Measure My Tower (measure objects, not children)."
+    },
+    {
+      "title": "Feelings Faces Art",
+      "decision": "rewrite",
+      "note": "Optional emotion cues; mixed feelings OK."
+    },
+    {
+      "title": "All About Me Book Making",
+      "decision": "rewrite",
+      "note": "Three pages; scribbles count."
+    },
+    {
+      "title": "Body Outline Tracing",
+      "decision": "replace",
+      "note": "Replaced with Friendship Scarf Path (no body outlines)."
+    },
+    {
+      "title": "Celebration Circle",
+      "decision": "rewrite",
+      "note": "Opt-in sharing."
+    },
+    {
+      "title": "All About Me Movement Parade",
+      "decision": "rewrite",
+      "note": "Mobility-device leaders included."
+    }
+  ]
+}

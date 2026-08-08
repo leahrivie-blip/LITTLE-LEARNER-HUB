@@ -1,0 +1,341 @@
+{
+  "title": "PR #597 honest proof revision — Amazing Apples + All About Me",
+  "batchId": "proof-two-revision-2026-08-08",
+  "finishedAt": "2026-08-08T22:10:38.209Z",
+  "scope": "Exactly two lessons. No additional batch. PR remains draft.",
+  "scoringMethod": {
+    "actual": "Linked printable status=draft in catalog. No fake published credit.",
+    "projected": "Same content scored as if owner published the printable resource.",
+    "productionPublishCount": 0
+  },
+  "guarantees": {
+    "nothingPublishedToProduction": true,
+    "productionImportNotPerformed": true,
+    "farmAnimalsUntouched": true,
+    "customerFlagsUnchanged": true,
+    "customerFlagsNote": "Local disposable store flags restored false. This does not verify production Render flags.",
+    "genericHtmlPacksDeleted": true
+  },
+  "printableNote": "PDFs are finished US Letter files uploaded as draft resources in a disposable store. Customer-facing PDFs have no DRAFT watermark; catalog status remains draft until owner publishes.",
+  "amazingApples": {
+    "planId": "cur-lp-toddler-amazing-apples",
+    "decisions": [
+      {
+        "title": "Apple Investigation",
+        "decision": "rewrite",
+        "note": "Kept STEM look/touch; unique tips and allergy-safe boundaries."
+      },
+      {
+        "title": "Apple Stamp Painting",
+        "decision": "rewrite",
+        "note": "Process emphasis; example illustration linked."
+      },
+      {
+        "title": "Count the Apples",
+        "decision": "rewrite",
+        "note": "Dot matching before numerals; toddler dump-fill honored."
+      },
+      {
+        "title": "Pick the Apples",
+        "decision": "rewrite",
+        "note": "Two-height picks; music pause for safety."
+      },
+      {
+        "title": "Apple Color Sort",
+        "decision": "rewrite",
+        "note": "Sample anchors; purposeful substitutions."
+      },
+      {
+        "title": "My Favorite Apple Color",
+        "decision": "replace",
+        "note": "Replaced template tissue craft with Apple Peel Tear Collage."
+      },
+      {
+        "title": "Apple Color Investigation",
+        "decision": "remove",
+        "note": "Duplicate of Monday investigation."
+      },
+      {
+        "title": "Apple Color Dance",
+        "decision": "rewrite",
+        "note": "Short color-cue freezes."
+      },
+      {
+        "title": "Big or Small?",
+        "decision": "rewrite",
+        "note": "Clear size contrast; child debate welcomed."
+      },
+      {
+        "title": "Apple Measuring Station",
+        "decision": "rewrite",
+        "note": "Setup illustration; non-standard units."
+      },
+      {
+        "title": "Round Apple Collage",
+        "decision": "remove",
+        "note": "Duplicate of tear collage / stamp art."
+      },
+      {
+        "title": "Roll Like an Apple",
+        "decision": "rewrite",
+        "note": "Log rolls first; mat safety."
+      },
+      {
+        "title": "Apple Taste Test",
+        "decision": "rewrite",
+        "note": "Allergy protocol; equal non-taster roles."
+      },
+      {
+        "title": "Favorite Apple Graph",
+        "decision": "rewrite",
+        "note": "Uses picture cards; includes non-tasters."
+      },
+      {
+        "title": "Apple Market",
+        "decision": "rewrite",
+        "note": "Restock practice; polite phrase model."
+      },
+      {
+        "title": "Apple Basket Relay",
+        "decision": "remove",
+        "note": "Duplicate locomotion of Pick the Apples."
+      },
+      {
+        "title": "Apple Life Cycle",
+        "decision": "rewrite",
+        "note": "Uses PDF growth cards; setup image."
+      },
+      {
+        "title": "Apple Seed Discovery",
+        "decision": "rewrite",
+        "note": "Adult cut; sealed seed jar."
+      },
+      {
+        "title": "My Apple Tree",
+        "decision": "rewrite",
+        "note": "Process tree; no sticker rows."
+      },
+      {
+        "title": "Apple Harvest Celebration",
+        "decision": "rewrite",
+        "note": "Short parade; vocabulary share."
+      }
+    ],
+    "before": {
+      "structural": 47,
+      "premium": 49
+    },
+    "actual": {
+      "structural": 96,
+      "premium": 89,
+      "printReadiness": 15,
+      "hasLinkedPrintable": false,
+      "hasDraftOnlyPrintables": true,
+      "activityCompleteness": 100,
+      "imageReadiness": 100,
+      "completeBooks": 3,
+      "completeSongs": 3,
+      "toolkitComplete": true,
+      "qualityBlocksPublish": true
+    },
+    "projected": {
+      "structural": 100,
+      "premium": 100,
+      "printReadiness": 100,
+      "hasLinkedPrintable": true
+    },
+    "contradictionScan": {
+      "fail": false,
+      "contradictionCount": 0,
+      "emptyFieldCount": 0,
+      "contradictions": []
+    },
+    "duplicateScan": {
+      "dupTips": [],
+      "generic": [],
+      "badSubs": [],
+      "tipCount": 34
+    },
+    "pdf": "docs/teaching-kit/qa/next-10-gold-upgrade/proof/amazing-apples/Amazing-Apples-Picture-Card-Pack.pdf",
+    "pdfPages": [
+      "page-01.png",
+      "page-02.png",
+      "page-03.png",
+      "page-04.png",
+      "page-05.png",
+      "page-06.png"
+    ],
+    "persistence": {
+      "resourceSaveStatus": 200,
+      "resourceError": null,
+      "draftSaveStatus": 200,
+      "publishedUnchanged": true,
+      "draftUpdatedAt": "2026-08-08T22:10:33.877Z",
+      "survivedRefresh": true
+    },
+    "gate": {
+      "noContradictions": true,
+      "noDupTips": true,
+      "noGenericTips": true,
+      "noBadSubs": true,
+      "actualPremiumHonest": true,
+      "projectedPremiumOk": true,
+      "projectedStructuralOk": true
+    }
+  },
+  "allAboutMe": {
+    "planId": "cur-lp-preschool-all-about-me",
+    "decisions": [
+      {
+        "title": "Mirror Me",
+        "decision": "rewrite",
+        "note": "Copy child first; inclusive mirrors."
+      },
+      {
+        "title": "My Name Discovery",
+        "decision": "rewrite",
+        "note": "Preferred names; setup illustration."
+      },
+      {
+        "title": "Family Photo Sharing",
+        "decision": "rewrite",
+        "note": "Drawings accepted; no forced structure talk."
+      },
+      {
+        "title": "Family Graph",
+        "decision": "replace",
+        "note": "Replaced with People in My Circle (no family-size ranking)."
+      },
+      {
+        "title": "Body Part Movement Game",
+        "decision": "rewrite",
+        "note": "Inclusive language; adapted motions."
+      },
+      {
+        "title": "Self-Portrait Studio",
+        "decision": "rewrite",
+        "note": "Process example image; no adult model."
+      },
+      {
+        "title": "Family Dramatic Play",
+        "decision": "rewrite",
+        "note": "Open role naming."
+      },
+      {
+        "title": "Friend Interview",
+        "decision": "rewrite",
+        "note": "Safe picture prompts only."
+      },
+      {
+        "title": "Name Letter Hunt",
+        "decision": "rewrite",
+        "note": "Name letters + decoys; no speed contests."
+      },
+      {
+        "title": "Height and Measure Me",
+        "decision": "replace",
+        "note": "Replaced with Build & Measure My Tower (measure objects, not children)."
+      },
+      {
+        "title": "Feelings Faces Art",
+        "decision": "rewrite",
+        "note": "Optional emotion cues; mixed feelings OK."
+      },
+      {
+        "title": "All About Me Book Making",
+        "decision": "rewrite",
+        "note": "Three pages; scribbles count."
+      },
+      {
+        "title": "Body Outline Tracing",
+        "decision": "replace",
+        "note": "Replaced with Friendship Scarf Path (no body outlines)."
+      },
+      {
+        "title": "Celebration Circle",
+        "decision": "rewrite",
+        "note": "Opt-in sharing."
+      },
+      {
+        "title": "All About Me Movement Parade",
+        "decision": "rewrite",
+        "note": "Mobility-device leaders included."
+      }
+    ],
+    "before": {
+      "structural": 47,
+      "premium": 49
+    },
+    "actual": {
+      "structural": 96,
+      "premium": 89,
+      "printReadiness": 15,
+      "hasLinkedPrintable": false,
+      "hasDraftOnlyPrintables": true,
+      "activityCompleteness": 100,
+      "imageReadiness": 100,
+      "completeBooks": 3,
+      "completeSongs": 3,
+      "toolkitComplete": true,
+      "qualityBlocksPublish": true
+    },
+    "projected": {
+      "structural": 100,
+      "premium": 100,
+      "printReadiness": 100,
+      "hasLinkedPrintable": true
+    },
+    "contradictionScan": {
+      "fail": false,
+      "contradictionCount": 0,
+      "emptyFieldCount": 0,
+      "contradictions": []
+    },
+    "duplicateScan": {
+      "dupTips": [],
+      "generic": [],
+      "badSubs": [],
+      "tipCount": 30
+    },
+    "pdf": "docs/teaching-kit/qa/next-10-gold-upgrade/proof/all-about-me/All-About-Me-Picture-Card-Pack.pdf",
+    "pdfPages": [
+      "page-01.png",
+      "page-02.png",
+      "page-03.png",
+      "page-04.png",
+      "page-05.png",
+      "page-06.png",
+      "page-07.png",
+      "page-08.png",
+      "page-09.png",
+      "page-10.png",
+      "page-11.png",
+      "page-12.png",
+      "page-13.png",
+      "page-14.png",
+      "page-15.png",
+      "page-16.png"
+    ],
+    "persistence": {
+      "resourceSaveStatus": 200,
+      "resourceError": null,
+      "draftSaveStatus": 200,
+      "publishedUnchanged": true,
+      "draftUpdatedAt": "2026-08-08T22:10:36.581Z",
+      "survivedRefresh": true
+    },
+    "gate": {
+      "noContradictions": true,
+      "noDupTips": true,
+      "noGenericTips": true,
+      "noBadSubs": true,
+      "actualPremiumHonest": true,
+      "projectedPremiumOk": true,
+      "projectedStructuralOk": true
+    }
+  },
+  "remainingBlockers": [
+    "amazingApples: actual premium 89% (expected while printable status=draft; projected 100% after owner publish)",
+    "allAboutMe: actual premium 89% (expected while printable status=draft; projected 100% after owner publish)"
+  ]
+}

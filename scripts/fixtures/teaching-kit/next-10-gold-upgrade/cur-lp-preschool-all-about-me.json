@@ -1,0 +1,186 @@
+{
+  "planId": "cur-lp-preschool-all-about-me",
+  "title": "All About Me",
+  "ageBand": "preschool",
+  "themePack": {
+    "overview": "This week preschoolers explore identity with warmth and curiosity—names, families, preferences, and what makes each child uniquely themselves. Keep the tone affirming and inclusive: invite children to share what they want to share, celebrate many kinds of families and abilities, and avoid comparing bodies, heights, or features as better/worse. Inquiry questions, mirrors, cooperative interviews, and process art help children practice self-language while building classroom belonging.",
+    "materials": "Child-safe mirrors; optional family photos provided by caregivers (never required); name cards; crayons, markers, paint, and collage scraps; large paper for outlines (offer hand/foot or silhouette options); measuring tape or yarn; emotion face cards; blocks; clipboards for Friend Interview; smocks; washable glue; basket for “All About Me” discovery items (favorite colors, soft fabrics, photo frames).",
+    "family": "This week we are learning about names, families, and what makes each of us special. You are welcome—but never required—to send a family photo or a note about a favorite food, song, or comfort item. At home, ask: “What is one thing you like about yourself today?” Avoid comparing bodies or abilities; celebrate kindness, effort, and belonging.",
+    "milestones": [
+      "Language: Uses personal pronouns and name; describes self and family with descriptive words (favorite, same, different, special).",
+      "SEL: Shows pride in identity; accepts peers’ differences; practices turn-taking during interviews and sharing.",
+      "Cognition: Notices similarities/differences without ranking; sorts preferences; connects photos/symbols to people.",
+      "Motor: Controls drawing tools for self-portraits; participates in body-part movement and parade locomotion.",
+      "Creativity: Expresses identity through process art and dramatic play rather than identical products."
+    ],
+    "vocabCards": [
+      "me",
+      "name",
+      "family",
+      "friend",
+      "unique",
+      "same",
+      "different",
+      "special",
+      "favorite",
+      "belong",
+      "mirror",
+      "portrait"
+    ],
+    "songs": [
+      {
+        "title": "Hello, It's Me (LLH Name Chant)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Hello, hello, it's me! (tap chest)\nHello, hello, it's me!\nMy name is ____, listen and see—\nHello, hello, it's me!\n\nFriends in our class, we say hello,\nFriends in our class, high and low.\nWe each belong—come play and grow—\nHello, hello, we know!",
+        "motions": "Tap chest on “me”; wave on “hello”; point gently to the child whose name is sung; open arms wide on “belong.” Sitting dancers may wave or tap the floor.",
+        "teacherDirections": "Circle opener. Model once with your own name, then invite 2–4 children per round. Offer a photo card or name card for children who prefer not to speak. Never force a turn; allow a friend or teacher to say the name with them.",
+        "whenToUse": "Morning circle arrival and anytime regrouping after outdoor play.",
+        "suggestedPace": "Slow, warm clap pattern; about 45–60 seconds per child turn.",
+        "transitionPurpose": "Builds name recognition and classroom belonging before learning centers.",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Head, Shoulders, Knees and Toes",
+        "traditional": true,
+        "rightsStatus": "public_domain",
+        "lyrics": "Head, shoulders, knees and toes, knees and toes.\nHead, shoulders, knees and toes, knees and toes.\nEyes and ears and mouth and nose,\nHead, shoulders, knees and toes, knees and toes.",
+        "motions": "Touch each named body part. Offer seated version: tap head, shoulders, knees, and toes while remaining seated. Adapt language for mobility differences (e.g., “head, shoulders, arms and toes”).",
+        "teacherDirections": "Use as a movement warm-up before Body Part Movement Game. Emphasize fun, not speed contests. Invite children to suggest an extra verse using a favorite movement they can do.",
+        "whenToUse": "Transition into movement or outdoor time; reset after sitting work.",
+        "suggestedPace": "Moderate first round, then slower “careful listening” round.",
+        "transitionPurpose": "Wakes bodies and practices body vocabulary without comparison language.",
+        "dayPlacement": "tuesday"
+      },
+      {
+        "title": "We Are Special (LLH Affirmation Chant)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "I am special, you are too,\nWe have feelings, dreams, and shoes!\nSame and different—both okay,\nWe belong in school today.\n\nClap for kindness, clap for care,\nFriends like us are everywhere.\nSay your name and take a bow—\nWe are special here and now!",
+        "motions": "Point to self, then gesture toward peers; clap gently on kindness/care; optional soft bow. Keep bows optional and brief.",
+        "teacherDirections": "Use before Self-Portrait Studio or Celebration Circle. Pause after “same and different—both okay” and invite one child to share something they like (color, food, game)—not body comparisons.",
+        "whenToUse": "Midweek identity affirmation; Friday celebration close.",
+        "suggestedPace": "Steady chant; 2 rounds max.",
+        "transitionPurpose": "Centers inclusive identity language before art or parade.",
+        "dayPlacement": "friday"
+      },
+      {
+        "title": "The More We Get Together",
+        "traditional": true,
+        "rightsStatus": "public_domain",
+        "lyrics": "The more we get together, together, together,\nThe more we get together, the happier we'll be.\nFor your friends are my friends, and my friends are your friends.\nThe more we get together, the happier we'll be.",
+        "motions": "Sway side to side; hold hands only if children consent; otherwise sway with scarves or wave to neighbors.",
+        "teacherDirections": "Closing friendship song after Friend Interview or Family Dramatic Play. Keep volume soft; celebrate cooperative play.",
+        "whenToUse": "End of circle or before centers cleanup.",
+        "suggestedPace": "Gentle sway tempo.",
+        "transitionPurpose": "Signals community and friendship as the week’s social glue.",
+        "dayPlacement": "wednesday"
+      }
+    ],
+    "books": [
+      {
+        "title": "I Like Myself!",
+        "author": "Karen Beaumont",
+        "why": "Joyful affirmation of self-acceptance that matches our inclusive All About Me stance without ranking appearance.",
+        "before": [
+          "What is one thing you like about yourself today?",
+          "Look at the cover—how do you think this child feels?"
+        ],
+        "during": [
+          "Listen for silly and serious reasons the child likes herself—what stands out to you?",
+          "Notice how the pictures show big feelings and big confidence."
+        ],
+        "after": [
+          "What would you put in your own “I like myself” list?",
+          "How can we help a friend feel proud at school?"
+        ],
+        "vocab": "myself, like, proud, special",
+        "day": "monday",
+        "substitute": "It's Okay to Be Different by Todd Parr"
+      },
+      {
+        "title": "From Head to Toe",
+        "author": "Eric Carle",
+        "why": "Invites whole-body participation and body vocabulary through playful imitation, not measurement contests.",
+        "before": [
+          "Which body parts help you move at school?",
+          "Can we try a gentle stretch before we read?"
+        ],
+        "during": [
+          "Can you move like the animal on this page in a way that feels good for your body?",
+          "What word names the body part we just used?"
+        ],
+        "after": [
+          "Which movement was your favorite today?",
+          "How do we take care of our bodies when we feel tired?"
+        ],
+        "vocab": "head, shoulders, knees, toes, move",
+        "day": "tuesday",
+        "substitute": "Eyes, Nose, Fingers, and Toes by Judy Hindley"
+      },
+      {
+        "title": "Chrysanthemum",
+        "author": "Kevin Henkes",
+        "why": "Opens caring talk about names, teasing, and belonging—key preschool identity and SEL themes.",
+        "before": [
+          "What do you like about your name?",
+          "Have you ever felt shy about sharing something personal?"
+        ],
+        "during": [
+          "How is Chrysanthemum feeling now? How can you tell?",
+          "What could a kind friend say or do?"
+        ],
+        "after": [
+          "How can our class make sure every name feels welcome?",
+          "Would you like to teach us how to say your name clearly?"
+        ],
+        "vocab": "name, unique, kind, belong",
+        "day": "wednesday",
+        "substitute": "Your Name Is a Song by Jamilah Thompkins-Bigelow"
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "My Name Crowns / Name Cards",
+        "purpose": "Children decorate a name crown or card for My Name Discovery and the Friday parade; letters stay large and process-focused."
+      },
+      {
+        "title": "All About Me Interview Mini-Sheet",
+        "purpose": "Simple picture prompts (favorite color, food, play) for Friend Interview clipboards—marks and scribbles count as writing."
+      },
+      {
+        "title": "Family Handprint Optional Page",
+        "purpose": "Optional take-home for families to add handprints or drawn people; never required and never used for body comparison."
+      }
+    ],
+    "activityOverrides": {
+      "Self-Portrait Studio": {
+        "imageRequirement": "example_only"
+      },
+      "Feelings Faces Art": {
+        "imageRequirement": "example_only"
+      },
+      "All About Me Book Making": {
+        "imageRequirement": "example_only"
+      },
+      "Body Outline Tracing": {
+        "imageRequirement": "setup_only"
+      },
+      "Mirror Me": {
+        "imageRequirement": "setup_only"
+      },
+      "Height and Measure Me": {
+        "imageRequirement": "not_needed"
+      },
+      "Celebration Circle": {
+        "imageRequirement": "not_needed"
+      },
+      "All About Me Movement Parade": {
+        "imageRequirement": "not_needed"
+      }
+    },
+    "bannedSongTitles": [],
+    "safetyNotes": "Inclusive identity language only—no forced body comparisons, “biggest/smallest,” or ranking looks/abilities. Offer seated and standing options for movement. Photo sharing is optional; store family photos securely and return promptly. For mixed ages: keep small collage bits (buttons, beads) away from under-3s; use large scraps and chunky crayons. Supervise mirrors (shatter-resistant). Wash hands after paint/glue. Adapt Body Outline Tracing with hand/foot prints or silhouette choice so children can opt out of full-body tracing."
+  },
+  "notes": "Preschool gold-upgrade theme pack draft. Prefer affirming inquiry over finished-product crafts. Do not publish until owner review."
+}

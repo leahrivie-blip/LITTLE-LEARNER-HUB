@@ -1,0 +1,196 @@
+{
+  "planId": "cur-lp-preschool-gardening-plant-life",
+  "title": "Gardening & Plant Life",
+  "ageBand": "preschool",
+  "themePack": {
+    "overview": "Children investigate real plants and seeds through sensory soil play, planting, plant-part observation, and outdoor garden options when available. Balance nature science with process art and dramatic play (garden center, farmers market). Prioritize soil hygiene, seed safety for mixed ages, and respect for living things. Crafts support—not replace—real plant inquiry.",
+    "materials": "Potting soil or kinetic sand alternative; pots; child watering cans; seeds appropriate for age (see safety); magnifying glasses; gardening gloves; artificial plants for dramatic play; fresh safe veggies for investigation (allergy-aware); paint/markers/paper; trays; handwashing station access; outdoor garden tools (child-sized) if outdoors; baskets for harvest play.",
+    "family": "We are exploring seeds, soil, water, and sunlight—how plants grow. Ask your child what a seed needs. If you garden at home, invite them to water or notice leaves. Please share any seed/nut/plant allergies with us before tasting activities.",
+    "milestones": [
+      "Language: Uses garden vocabulary—seed, soil, sprout, roots, stem, leaf, water, sunlight.",
+      "SEL: Shows care for living things; takes turns watering; cooperates in garden dramatic play.",
+      "Cognition: Sequences plant growth; compares plant parts; predicts what seeds need.",
+      "Motor: Scoops soil; pours water; fine motor seed sorting with safe sizes; garden yoga/movement.",
+      "Creativity: Process garden art and market play that reflect personal ideas, not identical crafts."
+    ],
+    "vocabCards": [
+      "seed",
+      "soil",
+      "sprout",
+      "roots",
+      "stem",
+      "leaf",
+      "flower",
+      "garden",
+      "water",
+      "sunlight",
+      "grow",
+      "harvest"
+    ],
+    "songs": [
+      {
+        "title": "Little Seed, Little Seed (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Little seed, little seed, in the soil so snug,\nLittle seed, little seed, get a water hug.\nSunlight shines, roots grow down,\nStem reaches up above the ground.\n\nSprout, sprout, peeking through—\nGrowing green the whole week through!",
+        "motions": "Curl small as a seed; pat soil; rain fingers for water; arms up as stem; peek face on sprout.",
+        "teacherDirections": "Theme opener for Garden Sensory Bin and Planting Seeds Investigation. Use before outdoor watering when available.",
+        "whenToUse": "Morning circle; transition to planting.",
+        "suggestedPace": "Gentle; pause to “grow” slowly on the last lines.",
+        "transitionPurpose": "Embodies plant life cycle language.",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Roots, Stem, Leaves, and Flower (LLH Plant Parts)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Roots go down to drink and hold,\nStem stands tall and brave and bold.\nLeaves make food from air and light,\nFlowers bloom—a colorful sight!\n\nRoots, stem, leaves, flower—say it clear,\nPlant parts help life grow each year.",
+        "motions": "Point down (roots); stand tall (stem); hands as leaves; circle arms as flower bloom.",
+        "teacherDirections": "Teach with a real plant or celery/lettuce sample during Plant Parts Investigation. Invite children to point on the plant as they sing.",
+        "whenToUse": "Science circle midweek; garden yoga warm-up.",
+        "suggestedPace": "Clear diction; moderate tempo.",
+        "transitionPurpose": "Anchors plant-part vocabulary before investigation.",
+        "dayPlacement": "wednesday"
+      },
+      {
+        "title": "Watering Can Waltz (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Tip the can, tip the can, water soft and slow,\nPlants are thirsty—watch them grow.\nNot too much and not too dry,\nGarden helpers walking by.\n\nWash our hands when soil is done,\nGardening safely is garden fun!",
+        "motions": "Two-hand watering can tip; tiptoe “garden helper” walk; handwashing motions on last lines.",
+        "teacherDirections": "Use before Watering Relay and after soil play to cue hygiene. Outdoor option: sing while walking to garden beds.",
+        "whenToUse": "Before watering work; cleanup transition after soil bins.",
+        "suggestedPace": "Waltz-like sway; emphasize “soft and slow.”",
+        "transitionPurpose": "Ties care routines to hygiene and gentle watering.",
+        "dayPlacement": "tuesday"
+      },
+      {
+        "title": "Harvest Helpers Hoedown (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Pick, pick, harvest helpers go,\nBasket full from head to toe!\nWash the veggies, market day—\nGarden gifts we share and play.\n\nThank you soil, thank you sun,\nHarvest helpers—everyone!",
+        "motions": "Picking motions; carry basket; scrub-wash hands/veggies; wave thank-you to sun.",
+        "teacherDirections": "Friday celebration and Farmer’s Market lead-in. If tasting, follow allergy protocols first.",
+        "whenToUse": "Thursday harvest play; Friday showcase/dance.",
+        "suggestedPace": "Lively but controlled for indoor spaces.",
+        "transitionPurpose": "Celebrates care-to-harvest arc of the week.",
+        "dayPlacement": "friday"
+      }
+    ],
+    "books": [
+      {
+        "title": "From Seed to Plant",
+        "author": "Gail Gibbons",
+        "why": "Clear nonfiction plant science for preschool inquiry—supports planting and plant-parts talks.",
+        "before": [
+          "What do you think a seed needs to grow?",
+          "Have you planted anything before?"
+        ],
+        "during": [
+          "What part is happening on this page—seed, sprout, or flower?",
+          "Where are the roots?"
+        ],
+        "after": [
+          "What will we give our classroom seeds this week?",
+          "How will we know if a seed is sprouting?"
+        ],
+        "vocab": "seed, roots, sprout, pollen, soil",
+        "day": "tuesday",
+        "substitute": "A Seed Is Sleepy by Dianna Hutts Aston"
+      },
+      {
+        "title": "The Tiny Seed",
+        "author": "Eric Carle",
+        "why": "Story journey of a seed’s challenges and growth—builds empathy for living things and outdoor awareness.",
+        "before": [
+          "What could happen to a tiny seed outdoors?",
+          "How can people help seeds grow?"
+        ],
+        "during": [
+          "What problem does the tiny seed face now?",
+          "How is the tiny seed different from the others?"
+        ],
+        "after": [
+          "What helped our tiny seed survive?",
+          "How will we be gentle with seeds and plants in class?"
+        ],
+        "vocab": "tiny, seed, grow, flower, wind",
+        "day": "monday",
+        "substitute": "The Carrot Seed by Ruth Krauss"
+      },
+      {
+        "title": "Planting a Rainbow",
+        "author": "Lois Ehlert",
+        "why": "Colorful seasonal planting and bloom cycle—pairs with flower garden painting and outdoor color hunts.",
+        "before": [
+          "What colors have you seen in gardens?",
+          "What might we plant to make a rainbow garden?"
+        ],
+        "during": [
+          "Which flowers are bulbs? Which are seeds?",
+          "What colors are blooming now in the book?"
+        ],
+        "after": [
+          "Can we sort art scraps or flower pictures by color like a rainbow?",
+          "What outdoor colors can we find on a garden walk?"
+        ],
+        "vocab": "rainbow, bulb, bloom, garden, color",
+        "day": "wednesday",
+        "substitute": "Flower Garden by Eve Bunting"
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Plant Life Cycle Sequencing Cards",
+        "purpose": "Large photo-style cards (seed → sprout → plant → flower) for Plant Life Cycle Craft discussion and sequencing—not a color-by-number worksheet."
+      },
+      {
+        "title": "Seed Observation Mini Book",
+        "purpose": "Blank pages for Planting Seeds Investigation drawings/dictation across the week as sprouts change."
+      },
+      {
+        "title": "Garden Center Price Tags / Market Labels",
+        "purpose": "Simple labels for Farmer’s Market and Garden Center Dramatic Play (soil, seeds, flowers, veggies)."
+      }
+    ],
+    "activityOverrides": {
+      "Flower Garden Painting": {
+        "imageRequirement": "example_only"
+      },
+      "Plant Life Cycle Craft": {
+        "imageRequirement": "example_only"
+      },
+      "Vegetable Printing Art": {
+        "imageRequirement": "example_only"
+      },
+      "Seed Packet Craft": {
+        "imageRequirement": "example_only"
+      },
+      "Planting Seeds Investigation": {
+        "imageRequirement": "setup_only"
+      },
+      "Garden Sensory Bin": {
+        "imageRequirement": "setup_only"
+      },
+      "Plant Parts Investigation": {
+        "imageRequirement": "setup_only"
+      },
+      "Vegetable Investigation": {
+        "imageRequirement": "setup_only"
+      },
+      "Garden Celebration Dance": {
+        "imageRequirement": "not_needed"
+      },
+      "Garden Showcase": {
+        "imageRequirement": "optional"
+      }
+    },
+    "bannedSongTitles": [
+      "The Garden Song",
+      "Garden Song",
+      "Inch by Inch (The Garden Song)"
+    ],
+    "safetyNotes": "Soil hygiene: use clean potting soil; smocks; wash hands after every soil activity; no mouthing soil. Seed choking: for mixed ages or mouthing preschoolers, use large bean seeds only with strict supervision or substitute seed pictures/large counters; keep tiny seeds (like tomato) as teacher-handled demo only. Outdoor options: check for sharp sticks, insects, sun safety, and secure watering cans. Allergy: screen seed/nut/plant allergies before any tasting or flower handling; vegetable printing uses closed-skin veggies first. Tools are child-sized and plastic; adult controls any real trowels. Living plants: gentle hands; no pulling classmates’ sprouts."
+  },
+  "notes": "Do not use Dave Mallett Garden Song lyrics. Prefer LLH plant chants. Outdoor garden walk optional when space allows."
+}

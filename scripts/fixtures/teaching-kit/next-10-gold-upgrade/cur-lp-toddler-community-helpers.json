@@ -1,0 +1,160 @@
+{
+  "planId": "cur-lp-toddler-community-helpers",
+  "title": "Community Helpers",
+  "ageBand": "toddler",
+  "themePack": {
+    "overview": "Toddlers meet everyday helpers—teachers, doctors, firefighters, mail carriers, and builders—through short imitation games, parallel dramatic play, and oversized props. Experiences stay brief and concrete: try on a hat, deliver one letter, gently check a teddy, then move on. Unlike preschool community units, this week emphasizes parallel play, simple thank-you language, and large materials rather than maps, interviews, or multi-step workshops.",
+    "materials": "Helper dress-up hats (firefighter, builder, doctor—toddler-sized)\nToy stethoscope and soft bandage rolls\nSoft hose prop / short pool noodle section\nToy mailbags and large envelopes\nMailbox prop with wide slot\nFriend photo cards for deliveries\nHelper picture cards\nLarge soft blocks and toy trucks\nToy tools (chunky, no sharp edges)\nStuffed animals for rescue/clinic play\nWashable paint, sponges, and large thank-you cardstock\nScarves for parade waves\nFloor mats and clear parade path markers",
+    "family": "On walks or errands, point out one helper you see—“The mail carrier brings letters” or “The nurse helps people feel better.” At home, invite your toddler to pretend-check a stuffed animal or deliver a drawing to a family member. Practice saying thank you together for helpers who care for your family.",
+    "milestones": [
+      "Language: Names or points to familiar helpers and uses help/thank-you words with support",
+      "SEL: Shows caring actions in pretend play (gentle checkup, soft rescue) and practices gratitude",
+      "Motor: Carries oversized props, posts large envelopes, marches in a short parade, and stacks large blocks",
+      "Cognition: Matches a helper tool to a helper role in simple one-step games"
+    ],
+    "vocabCards": [
+      "helper",
+      "doctor",
+      "teacher",
+      "firefighter",
+      "mail carrier",
+      "builder",
+      "community",
+      "help",
+      "job",
+      "thank you",
+      "safe",
+      "care"
+    ],
+    "songs": [
+      {
+        "title": "Helpers Help Us Chant",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Helpers help us every day,\nWave hello and on our way.\nHats and tools and caring hands,\nThank you, helpers, in our land.",
+        "motions": "Wave; tip an imaginary hat; show open caring hands; blow a thank-you kiss or wave at the end.",
+        "teacherDirections": "Hold one helper card per verse repetition. Keep to two minutes. Invite toddlers to choose a hat to hold while chanting—no need for full costumes.",
+        "whenToUse": "Opening circle and Thank You Helpers Parade Prep",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Introduce helper vocabulary and gratitude language",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "Stop and Go Helpers",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Green means go, we help and roll,\nRed means stop—we self-control.\nHelpers watch and keep us safe,\nStop and go at helper pace.",
+        "motions": "March or slow scooter roll on green; freeze on red; hands on hips as proud helpers on safe.",
+        "teacherDirections": "Pair with Police Officer Stop and Go using large red/green signs. Keep speeds walking-slow. Celebrate freezes enthusiastically.",
+        "whenToUse": "Gross-motor helper games and outdoor transitions",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Practice body control with helper framing",
+        "dayPlacement": "wednesday"
+      },
+      {
+        "title": "Thank You March",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "March, march, thank you feet,\nSmile at helpers down the street.\nDoctor, teacher, firefighter too,\nThank you, thank you—we thank you!",
+        "motions": "March in place or along a short path; point to helper cards as named; big thank-you wave on the final line.",
+        "teacherDirections": "Use for Helper Hats Parade. Call only 2–3 helper names. End with bows—short and joyful.",
+        "whenToUse": "Friday parade and cleanup-to-celebration bridge",
+        "suggestedPace": "moderate",
+        "transitionPurpose": "Celebrate helpers and close the week with gratitude",
+        "dayPlacement": "friday"
+      }
+    ],
+    "books": [
+      {
+        "title": "Whose Hands Are These?",
+        "author": "Miranda Paul",
+        "why": "Rhythmic clues about helping hands invite toddlers to guess helper jobs without long text.",
+        "before": ["Who helps with their hands in our community?"],
+        "during": ["What job might these hands do?"],
+        "after": ["Whose helping hands do you want to thank today?"],
+        "vocab": "help",
+        "day": "monday",
+        "substitute": "Helper picture cards with Helpers Help Us Chant if the book is out."
+      },
+      {
+        "title": "Helpers in My Community",
+        "author": "Bobbie Kalman",
+        "why": "Clear community photos support simple naming and matching of toddler-familiar helpers.",
+        "before": ["Let’s find a helper we know."],
+        "during": ["Point to the helper’s tool or hat."],
+        "after": ["Which helper would you like to pretend to be?"],
+        "vocab": "community",
+        "day": "wednesday",
+        "substitute": "Photo walk of school helpers (director, cook, custodian) with thank-you waves."
+      },
+      {
+        "title": "Career Day",
+        "author": "Anne Rockwell",
+        "why": "Friendly classroom career visit scenes connect helper roles to kids’ everyday world.",
+        "before": ["What job do you wonder about?"],
+        "during": ["What is this helper doing to care for people?"],
+        "after": ["How can we say thank you to school helpers?"],
+        "vocab": "job",
+        "day": "friday",
+        "substitute": "Thank-You Helper Cards process art plus oral thank-yous to classroom adults."
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Toddler Helper Picture Card Pack",
+        "purpose": "Large single-helper cards for discovery basket labeling, stop-and-go cues, and parade naming—kept simpler than preschool multi-step job maps."
+      },
+      {
+        "title": "Thank You Helper Card Templates",
+        "purpose": "Oversized blank cards with a printed Thank You banner for sponge-paint gratitude art."
+      }
+    ],
+    "activityOverrides": {
+      "Community Helper Discovery Basket": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Offer 3–4 oversized props only; name one helper at a time.",
+          "Expect parallel exploration more than group discussion."
+        ]
+      },
+      "Doctor's Office Dramatic Play": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Model gentle touch on stuffed animals first; keep turns short.",
+          "Differentiate from preschool clinics—no charts/forms; just care actions."
+        ]
+      },
+      "Firefighter Rescue Relay": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Emphasize helping, not scary emergencies; soft hose only.",
+          "Short relay distances for toddlers."
+        ]
+      },
+      "Police Officer Stop and Go": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Walking pace only; clear collision paths; helmets if ride-ons are used."
+        ]
+      },
+      "Thank-You Helper Cards": {
+        "imageRequirement": "not_needed",
+        "teacherTips": [
+          "Process art focus—sponge prints celebrate gratitude without identical products."
+        ]
+      },
+      "Construction Helper Build Yard": {
+        "imageRequirement": "setup_only",
+        "teacherTips": [
+          "Large blocks only; no climbing towers; spot lifting outdoors."
+        ]
+      }
+    },
+    "bannedSongTitles": [
+      "Baby Shark",
+      "Baby Shark Feelings Version"
+    ],
+    "safetyNotes": "Use chunky, washable props without sharp tools or realistic scary emergency themes. Supervise dress-up to prevent trip hazards from oversized costumes—prefer hats over full suits. Ride-on stop-and-go stays slow with clear paths. Outdoor building uses soft/large blocks only. Paint activities need smocks and mouthing supervision. Keep play inclusive: helpers of many genders and roles are represented in photos and props."
+  },
+  "notes": "Explicitly differentiated from preschool Community Helpers: shorter turns, imitation/parallel play, oversized props, no maps/thank-you workshops with writing demands. Original helper chants preferred over bus/pop songs. Avoid duplicating discovery-basket wording from sensory weeks by focusing on helper-tool matching."
+}

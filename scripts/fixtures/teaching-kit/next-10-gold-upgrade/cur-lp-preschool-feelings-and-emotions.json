@@ -1,0 +1,189 @@
+{
+  "planId": "cur-lp-preschool-feelings-and-emotions",
+  "title": "Feelings & Emotions",
+  "ageBand": "preschool",
+  "themePack": {
+    "overview": "Preschoolers practice naming feelings, noticing cues in faces and bodies, and trying calm-down tools that are safe and child-led. Keep art process-focused—emotion faces should look different on purpose. Use stories and scenarios to build empathy, and protect a cozy calm corner without shame. Strong feelings are welcome; the work is learning helpful next steps together.",
+    "materials": "Emotion cards/posters; shatter-resistant mirrors; feeling puppets; calm-down bottles made with sealed, non-choking fillers (glitter glue sealed shut—no loose beads for mixed-age rooms); paper, crayons, yarn, play dough; comfort corner cushions; scenario picture cards; yoga mats or soft mats; soft music option.",
+    "family": "We are practicing naming feelings and calm-down strategies at school. Ask at pickup: “What feeling visited you today?” Try a shared belly-breath or a cozy corner at home. There is no perfect feeling—every feeling is okay, and we practice kind next steps.",
+    "milestones": [
+      "Language: Labels common feelings (happy, sad, angry, calm, proud, frustrated) and uses “I feel…” stems.",
+      "SEL: Identifies own feelings; notices peers’ cues; practices empathy and calm-down choices without shame.",
+      "Cognition: Matches feeling words to faces/scenarios; sequences “what happened / how I felt / what helped.”",
+      "Motor: Uses fine motor for dough faces and drawing; participates in yoga/movement with body awareness.",
+      "Creativity: Expresses emotions through unique process art and puppet storytelling."
+    ],
+    "vocabCards": [
+      "happy",
+      "sad",
+      "angry",
+      "scared",
+      "excited",
+      "calm",
+      "frustrated",
+      "proud",
+      "feelings",
+      "empathy",
+      "breathe",
+      "help"
+    ],
+    "songs": [
+      {
+        "title": "Feelings Check-In Chant (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "How do you feel? How do you feel?\nShow a face, make it real.\nHappy, sad, mad, or calm—\nEvery feeling belongs in our song.\n\nBreathe in slow, breathe out soft,\nFeelings come and feelings go.\nI can name it, I can choose—\nA helpful next step I can use.",
+        "motions": "Hands on cheeks for “show a face”; big inhale/exhale on breathe lines; thumbs-up or heart hands on “helpful next step.”",
+        "teacherDirections": "Open Feelings Circle Check-In. Offer emotion cards so children can point. Validate all answers. Keep chant soft—no performance pressure.",
+        "whenToUse": "Morning check-in and after conflicts or big transitions.",
+        "suggestedPace": "Slow and soothing; one verse may be enough.",
+        "transitionPurpose": "Names feelings and primes calm strategies before centers.",
+        "dayPlacement": "monday"
+      },
+      {
+        "title": "If You're Happy and You Know It",
+        "traditional": true,
+        "rightsStatus": "public_domain",
+        "lyrics": "If you're happy and you know it, clap your hands.\nIf you're happy and you know it, clap your hands.\nIf you're happy and you know it, then your face will surely show it.\nIf you're happy and you know it, clap your hands.\n\n(Add verses: If you're mad… stomp your feet once then freeze and breathe. If you're calm… hands on heart.)",
+        "motions": "Match motions to feeling verses; for “mad,” one stomp then hands on belly to breathe—never encourage hitting.",
+        "teacherDirections": "Extend beyond happy: include mad/sad/calm with safe motions. After mad verse, practice one calm tool together.",
+        "whenToUse": "Music & movement; Feelings Movement Mirrors warm-up.",
+        "suggestedPace": "Upbeat for happy; slower for calm verse.",
+        "transitionPurpose": "Links feeling words to safe body expressions.",
+        "dayPlacement": "tuesday"
+      },
+      {
+        "title": "Freeze and Feel (LLH Freeze Dance)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Dance your feelings, move around,\nHappy skips or quiet ground.\nWhen I say FREEZE—stop and see:\nWhat feeling face is looking at me?\n\nSoft knees, soft hands, soft feet,\nFeelings dance to a gentle beat.\nBreathe and smile or breathe and sigh—\nReady, set, feelings fly!",
+        "motions": "Free dance in personal space; freeze on cue and make a feeling face; resume gently. Offer scarf dancing for children who prefer less facial focus.",
+        "teacherDirections": "Use soft instrumental or teacher voice only—no copyrighted recorded kids’ songs required. Keep freezes short. Celebrate variety of faces.",
+        "whenToUse": "Gross-motor feelings practice; rainy-day reset.",
+        "suggestedPace": "30–45 second dance bursts; 3–4 freezes.",
+        "transitionPurpose": "Releases energy while practicing feeling recognition.",
+        "dayPlacement": "friday"
+      },
+      {
+        "title": "Calm Corner Breath Song (LLH)",
+        "traditional": false,
+        "rightsStatus": "original",
+        "lyrics": "Smell the flower, blow the pinwheel slow,\nSmell the flower, let the soft air go.\nHands on belly, one, two, three—\nCalm is growing inside of me.",
+        "motions": "Cup hands like a flower to “smell”; blow gently; hands on belly for three counts.",
+        "teacherDirections": "Teach beside the calm corner before Calm Down Bottle Exploration. Practice as a group so the corner feels familiar, not punitive.",
+        "whenToUse": "Before rest, after big feelings, or as a transition into quiet work.",
+        "suggestedPace": "Very slow; repeat twice.",
+        "transitionPurpose": "Installs a shared, non-shame calm routine.",
+        "dayPlacement": "thursday"
+      }
+    ],
+    "books": [
+      {
+        "title": "The Feelings Book",
+        "author": "Todd Parr",
+        "why": "Simple, inclusive feeling language with bold visuals—perfect for preschool check-ins.",
+        "before": [
+          "What feeling might you bring to school today?",
+          "Is it okay to have more than one feeling?"
+        ],
+        "during": [
+          "Which feeling on this page have you felt before?",
+          "What color would you give that feeling?"
+        ],
+        "after": [
+          "Which feeling do you want to practice naming this week?",
+          "Who can help when feelings feel big?"
+        ],
+        "vocab": "feelings, happy, sad, silly, brave",
+        "day": "monday",
+        "substitute": "The Way I Feel by Janan Cain"
+      },
+      {
+        "title": "When Sophie Gets Angry—Really, Really Angry",
+        "author": "Molly Bang",
+        "why": "Honest look at anger plus recovery strategies (nature, quiet, return)—supports calm-down teaching.",
+        "before": [
+          "What does your body do when you feel angry?",
+          "What helps you when feelings get big?"
+        ],
+        "during": [
+          "Watch Sophie’s colors—what is changing?",
+          "What does Sophie do that helps?"
+        ],
+        "after": [
+          "What calm choice could Sophie try at school?",
+          "How can friends give space kindly?"
+        ],
+        "vocab": "angry, calm, breathe, space",
+        "day": "tuesday",
+        "substitute": "Llama Llama Mad at Mama by Anna Dewdney"
+      },
+      {
+        "title": "The Color Monster",
+        "author": "Anna Llenas",
+        "why": "Concrete metaphor for sorting mixed-up feelings—pairs with story mapping and emotion sorting centers.",
+        "before": [
+          "Have your feelings ever felt mixed up like colors in a jar?",
+          "What color do you imagine for calm?"
+        ],
+        "during": [
+          "Which feeling is this color standing for?",
+          "How do we know the monster is starting to feel clearer?"
+        ],
+        "after": [
+          "Can we sort our classroom feeling cards by color or face?",
+          "What helps when feelings feel tangled?"
+        ],
+        "vocab": "color, sort, confused, calm, joy",
+        "day": "wednesday",
+        "substitute": "Visiting Feelings by Lauren Rubenstein"
+      }
+    ],
+    "printableIdeas": [
+      {
+        "title": "Feelings Face Cards (Large)",
+        "purpose": "Printable emotion faces for sorting, check-ins, and charades—children may also draw their own faces so products differ."
+      },
+      {
+        "title": "Calm Corner Choice Board",
+        "purpose": "Picture choices (breathe, squeeze dough, look at bottle, ask for help) posted in the calm corner; ties to real classroom tools."
+      },
+      {
+        "title": "Feelings Journal Cover (Blank Inside)",
+        "purpose": "Optional cover for Feelings Journal Drawing; inside pages stay blank for process drawing—not worksheets with right answers."
+      }
+    ],
+    "activityOverrides": {
+      "Emotion Face Art": {
+        "imageRequirement": "example_only"
+      },
+      "Emotion Play Dough Faces": {
+        "imageRequirement": "example_only"
+      },
+      "Feelings Journal Drawing": {
+        "imageRequirement": "example_only"
+      },
+      "Calm Down Bottle Exploration": {
+        "imageRequirement": "setup_only"
+      },
+      "Color Monster Story Mapping": {
+        "imageRequirement": "setup_only"
+      },
+      "Feelings Circle Check-In": {
+        "imageRequirement": "not_needed"
+      },
+      "Feelings Celebration Circle": {
+        "imageRequirement": "not_needed"
+      },
+      "Kindness Chain": {
+        "imageRequirement": "optional"
+      }
+    },
+    "bannedSongTitles": [
+      "Baby Shark Feelings Version",
+      "Baby Shark"
+    ],
+    "safetyNotes": "Calm-down tools must not introduce choking hazards: fully seal bottles; avoid loose beads/glitter in mixed-age rooms; offer scarves, dough, pillows, or picture books instead. Process art only—no identical “right” emotion crafts. Never send children to a calm corner as punishment. Mixed-age: keep yarn lengths short, dough out of mouths, and mirrors shatter-resistant. Supervise yoga so children do not push necks/backs. Allergy-check any scented lotions if used for calm tools (prefer unscented)."
+  },
+  "notes": "Replace any modern copyrighted “feelings” pop songs with LLH/PD material. Keep journals as drawing, not worksheets."
+}
