@@ -18,8 +18,8 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | **Overall completion** | **100%** automated/testing gate only — **not** production-approved |
 | **Production status** | 🔒 **BLOCKED / untouched** — `20260808-cookie-cta` |
 | **Testing status** | 🟡 Fix-wave shell `20260808-phase11-fix-wave` on branch `cursor/phase11-final-qa-fix-wave-4eae` — redeploy testing only, then Leah owner review |
-| **Major blockers** | Production approval blocked; journey audit found **0 blockers / 6 high / 9 medium** (see punch list) |
-| **Ready for tester review** | **Yes** — punch list + `PHASE11_COMPLETE_TESTING_USER_JOURNEY_AUDIT.md` |
+| **Major blockers** | Production approval blocked; Phase 11 fix-wave: functional High **0** remaining (covers deferred); see punch list |
+| **Ready for tester review** | **Yes** — punch list + Phase 11 fix-wave report |
 | **Ready for production approval** | **No** |
 
 ---
@@ -38,7 +38,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 8 | Billing (testing) | ✅ **Completed** |
 | 9 | AI review-before-save | ✅ **Completed** |
 | 10 | Live → Testing Feature Sync | ✅ **Completed** (owner approved) |
-| 11 | Pre–Final QA audit + Final QA / production readiness | ✅ Automated/testing gate **100%** · 👀 **Manual tester review in progress** · 🔒 **Production approval BLOCKED** |
+| 11 | Phase 11 — Pre–Final QA audit + Final QA fix wave / production readiness | ✅ Automated/testing gate **100%** · 👀 **Owner review after testing redeploy** · 🔒 **Production approval BLOCKED** |
 
 **Completion percentage:** **100%** automated/testing gate. **Not production-approved.** Manual punch list: `PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md`.
 
@@ -52,14 +52,15 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 - Branch: `cursor/phase10-live-testing-feature-sync-9c23`  
 - Tests: `npm run test:live-testing-feature-sync-phase10`
 
-### 11. Final QA / testing redeploy — automated gate complete (testing only)
+### 11. Phase 11 Final QA / fix wave — automated gate complete (testing only)
 - Report: `docs/audits/PHASE11_FINAL_QA_PRODUCTION_READINESS_REPORT.md`  
+- Fix-wave report: `docs/audits/PHASE11_FINAL_QA_FIX_WAVE_REPORT.md`  
 - Redeploy status: `docs/audits/PHASE11_TESTING_REDEPLOY_STATUS.md`  
 - Manual punch list: `docs/audits/PHASE11_MANUAL_TESTER_REVIEW_PUNCH_LIST.md`  
-- Branch: `cursor/phase11-final-qa-production-readiness-9c23`  
+- Branch: `cursor/phase11-final-qa-fix-wave-4eae`  
 - Live testing shell target: `20260808-phase11-fix-wave` (redeploy testing only; production remains `20260808-cookie-cta`)  
-- Remote smoke: `npm run test:remote-testing-smoke-phase11` → PASS  
-- Stance: fix reported bugs on testing only; no unrelated architecture work; **no production deploy**
+- Remote smoke: `npm run test:remote-testing-smoke-phase11` (PASS after testing redeploy)  
+- Stance: fix reported functional bugs on testing only; curriculum content/covers deferred; **no production deploy**
 
 ---
 

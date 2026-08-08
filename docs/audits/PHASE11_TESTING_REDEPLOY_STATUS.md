@@ -1,64 +1,54 @@
-# Phase 11 — Testing-only redeploy COMPLETE
+# Phase 11 — Testing Redeploy Status
 
-**Date:** 2026-08-08  
-**Production modified?** **No**
+**Updated:** 2026-08-08  
+**Branch to deploy:** `cursor/phase11-final-qa-fix-wave-4eae`  
+**Commit:** `3acd23b` (+ follow-up tracker commit on same branch)  
+**Expected testing shell:** `20260808-phase11-fix-wave`
 
 ---
 
-## Answers (requested)
+## Services
 
-| # | Item | Result |
+| Service | ID | Action |
 |---|---|---|
-| 1 | Remote testing deploy ID | **`dep-d9rjao6q1p3s73f3o1m0`** (latest live; prior Phase 11 live was `dep-d9rj50ajobas73divm20`) |
-| 2 | Remote testing version/commit | Shell **`20260808-phase11-final-qa`** / cache **`llh-shell-v197-phase11-final-qa`** / commit **`96f1db8`** (includes `4474dff` + smoke/fixture fixes) |
-| 3 | Matches local Phase 11? | **Yes** — remote smoke `matchesLocalPhase11: true` |
-| 4 | Live-only bugs found | SW `CACHE_NAME` lagged manifest (fixed); HDH health omitted `family-tuition` advertisement (fixed, tuition routes already present). No data wipe. Owner Admin deeper login blocked (no admin unlock secrets on testing env list). |
-| 5 | Updated readiness % | **100% for Phase 11 testing deploy gate** (live testing matches Phase 11). Production approval remains a **separate** owner decision. |
-| 6 | Ready for tester review | **Yes** |
-| 7 | Ready for production approval | **No** — do not deploy production until Leah’s **explicit written** approval |
+| Testing | `LITTLE-LEARNER-HUB-testing` · `srv-d9fsap7jqk9s73806iag` | **Redeploy this branch only** |
+| Production | `srv-d8o3f3r6sc1c73comlc0` | **DO NOT DEPLOY** |
 
 ---
 
-## Deploy safety
+## Current remote probes (this agent)
 
-| Check | Status |
+| Probe | Result |
 |---|---|
-| Service | `LITTLE-LEARNER-HUB- testing ` · `srv-d9fsap7jqk9s73806iag` |
-| Production service | `srv-d8o3f3r6sc1c73comlc0` — **not deployed** · still shell `20260808-cookie-cta` · `homeDaycareHubTesting: false` |
-| Branch set on testing | `cursor/phase11-final-qa-production-readiness-9c23` (was `cursor/family-hub-testing-readiness-d3df`) |
-| DB / curriculum / FH / Forms / Tuition / testers | **Preserved** (code deploy only; no DB clear; 127 lessons still present) |
+| Testing shell (before redeploy) | `20260808-phase11-final-qa` — **stale vs fix-wave** |
+| Testing HDH | `homeDaycareHubTesting: true` |
+| Production shell | `20260808-cookie-cta` |
+| Production HDH | `homeDaycareHubTesting: false` |
+| Agent `RENDER_API_KEY` | **Not available** — owner must redeploy via Render Dashboard or local `npm run deploy:testing-only-phase11` |
 
 ---
 
-## Remote smoke
+## Owner redeploy steps (testing only)
 
-`npm run test:remote-testing-smoke-phase11` → **PASS**
+1. Open Render → **little-learner-hub-testing** only  
+2. Deploy branch `cursor/phase11-final-qa-fix-wave-4eae` (clear build cache recommended)  
+3. Confirm:
 
-- Shell + SW + index cache-bust = `20260808-phase11-final-qa`
-- HDH on; features include `family-hub`, `forms-pack`, `family-tuition`
-- Lesson plans: **127**
-- Production unchanged
+```bash
+curl -sS https://little-learner-hub-testing.onrender.com/llh-shell-manifest.json
+# expect: "version": "20260808-phase11-fix-wave"
 
-Artifact: `/opt/cursor/artifacts/phase11-final-qa/remote-testing-smoke.json`
+curl -sS https://littlelearnershubbyleah.com/llh-shell-manifest.json
+# must remain: "version": "20260808-cookie-cta"
+```
 
----
-
-## Manual live testing QA (post-deploy)
-
-Public + disposable Free provider account exercised on mobile:
-
-- Login/signup, provider home, calendar, curriculum **127**, lesson print control, Families / Messages vs Message Support — **PASS**
-- Owner Admin / Director/Teacher/Assistant persona unlock — **PARTIAL** (needs Owner Admin unlock credentials; not in testing env key list visible to agent)
-- Screenshots: `/opt/cursor/artifacts/phase11-final-qa/live-testing-postdeploy/`
+4. Do **not** deploy production.
 
 ---
 
-## Soft-fail (curriculum viewer/print) — final call
+## Safety
 
-**Test-fixture / outdated-test only — not a product bug.** Suite PASS after fixture + curated-Free assertion update.
-
----
-
-## STOP
-
-**Do not deploy production.** Wait for explicit written production deployment approval.
+- No production deploy attempted by this agent  
+- No production env writes  
+- No database wipe  
+- Curriculum content/covers deferred (not part of this redeploy purpose beyond code/system fixes)
