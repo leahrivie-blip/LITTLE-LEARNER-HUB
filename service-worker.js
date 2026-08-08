@@ -1,13 +1,13 @@
 const CACHE_NAME = "llh-shell-v196-cookie-cta";
-const SHELL_VERSION = "20260808-cookie-cta";
+const SHELL_VERSION = "20260808-phase11-final-qa";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260808-cookie-cta",
-  "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4",
+  "/styles.css?v=20260808-phase11-final-qa",
+  "/styles/llh-admin-workspace.css?v=20260808-phase11-final-qa",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260808-cookie-cta",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
