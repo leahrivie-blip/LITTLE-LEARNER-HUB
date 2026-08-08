@@ -74,3 +74,14 @@ Audit template: `docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md`
 ## Release gate
 
 **Do not deploy, merge into production, or publish any production changes until Leah gives written approval.**
+
+---
+
+## Phase completion + progress tracker (permanent)
+
+- Every phase must end with a completion report before the next phase starts.  
+- Template: `docs/audits/PHASE_COMPLETION_REPORT_TEMPLATE.md`  
+- Master tracker (always current): `docs/audits/MASTER_PROJECT_PROGRESS.md`  
+- Cursor rule: `.cursor/rules/phase-completion-and-progress-tracker.mdc`  
+
+Each report includes: completed work, files changed, tests + results, bugs fixed, known issues, deferred features, production-untouched confirmation, and recommendations before the next phase.
