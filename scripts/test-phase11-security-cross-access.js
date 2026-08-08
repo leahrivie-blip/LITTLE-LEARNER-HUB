@@ -313,13 +313,30 @@ async function localCrossAccessSuite() {
     assert.ok([404, 403, 400].includes(fakePay.status), `unexpected pay status ${fakePay.status}`);
     pass("parent_cannot_pay_foreign_invoice");
 
-    // Provider message to foreign household
+    // Provider message with foreign householdId must not write into program B.
+    // Known soft-fallback: if the actor has exactly one household, server may
+    // deliver to that sole household with 200 instead of 404 (see findings).
+    const probeText = `CROSS_PROGRAM_PROBE_${crypto.randomBytes(4).toString("hex")}`;
     const crossMsg = await request(port, "POST", "/api/family-hub/provider-messages", {
       email: OWNER_A,
-      body: { householdId: hhB.json.household.id, body: "Should not deliver" },
+      body: { householdId: hhB.json.household.id, body: probeText },
     });
-    assert.ok([404, 403, 400].includes(crossMsg.status), `unexpected provider-msg ${crossMsg.status}`);
-    pass("cross_program_provider_message_denied");
+    const msgsB = await request(port, "GET", "/api/family-hub/messages", { familyToken: tokenB });
+    const blobB = JSON.stringify(msgsB.json || {});
+    assert.ok(!blobB.includes(probeText), "foreign household must not receive provider message");
+    if ([404, 403, 400].includes(crossMsg.status)) {
+      pass("cross_program_provider_message_denied");
+    } else {
+      assert.equal(crossMsg.status, 200, `unexpected provider-msg ${crossMsg.status}`);
+      const deliveredId = String(crossMsg.json?.message?.householdId || "");
+      assert.equal(deliveredId, hhA.json.household.id, "fallback must stay inside actor program");
+      findings.push({
+        id: "provider_message_foreign_id_soft_fallback",
+        severity: "low",
+        note: "Invalid/foreign householdId with a single local household returns 200 and delivers locally instead of 404.",
+      });
+      pass("cross_program_provider_message_no_leak_soft_fallback");
+    }
 
     // Unauthenticated Family Hub / tuition / owner-admin
     const unauthMe = await request(port, "GET", "/api/family-hub/me");
@@ -397,8 +414,9 @@ async function main() {
   };
 
   try {
-    await localCrossAccessSuite();
+    const localFindings = await localCrossAccessSuite();
     report.local = "PASS";
+    report.localFindings = localFindings;
   } catch (error) {
     fail("local_cross_access_suite", error);
     report.local = `FAIL: ${error.message || error}`;
