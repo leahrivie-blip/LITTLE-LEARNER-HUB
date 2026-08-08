@@ -16,11 +16,11 @@
 
 | Area | Agent status | Leah |
 |---|---|---|
-| Owner Admin | ✅ Clarified member denial; owner unlock path unchanged | ⏳ |
+| Owner Admin | ✅ Member denial verified; live unlock **BLOCKED** without Leah credentials | ⏳ unlock |
 | Home Daycare setup | ✅ Walked / suites | ⏳ |
-| Center setup | ✅ Role suites + ACL; live Center day still owner-verify | ⏳ |
-| Director / Teacher / Assistant | ✅ Nav/role suites; live Center matrix owner-verify | ⏳ |
-| Family/Guardian | ✅ Family Hub Phase 6 + ACL; live redeem owner-verify | ⏳ |
+| Center setup | ✅ Live Director→Teacher→Assistant invites on testing | ⏳ |
+| Director / Teacher / Assistant | ✅ Live accept + role surfaces on testing | ⏳ |
+| Family/Guardian | ✅ Live invite/redeem + no staff-only leak; Phase 6 PASS | ⏳ |
 | Child Profiles | ✅ | ⏳ |
 | Daily Logs | ✅ Meal UX + AI review fixed | ⏳ |
 | Family Hub | ✅ Suites | ⏳ |
