@@ -13,3 +13,6 @@ Production visual-review artifacts for the lesson-plan cover library.
 ## Validation
 
 - [Validation Batch 01 report](./validation-batch-01/REPORT.md) — staged artwork only; awaiting approval before production attach
+
+- [Locked art direction](./LOCKED_ART_DIRECTION.md)
+- [Staged replacement status (114 REPLACE + full catalog sheet)](./STAGED_REPLACEMENT_STATUS.md)
