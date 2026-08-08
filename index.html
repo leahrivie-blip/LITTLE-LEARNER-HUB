@@ -1216,6 +1216,17 @@
               <button class="ghost-button" type="button" data-doc-draft-action="restore-note">Restore Original Note</button>
               <button class="ghost-button" type="button" data-doc-draft-action="start-over">Start Over</button>
             </div>
+            <div class="doc-helper-review-gates" data-ai-review-before-save="true" style="margin:12px 0;">
+              <label class="settings-check-label">
+                <input type="checkbox" id="docHelperReviewAck" />
+                I reviewed this AI-generated draft for accuracy before saving.
+              </label>
+              <label class="settings-check-label">
+                <input type="checkbox" id="docHelperShareFamily" />
+                Share with Family Hub when saving (optional — off by default)
+              </label>
+              <p class="form-note">Nothing is sent or filed until you save. Sharing is never automatic.</p>
+            </div>
             <div id="docHelperOutput" class="ai-output-rendered" contenteditable="false" spellcheck="true"></div>
             <div id="docHelperPostSavePanel" class="section-block" hidden style="margin-top:16px;">
               <p class="eyebrow">Saved</p>
