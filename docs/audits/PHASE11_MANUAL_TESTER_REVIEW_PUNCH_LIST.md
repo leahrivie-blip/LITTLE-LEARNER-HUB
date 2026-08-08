@@ -16,7 +16,7 @@
 
 | Area | Agent status | Leah |
 |---|---|---|
-| Owner Admin | ✅ Member denial verified; live unlock **BLOCKED** without Leah credentials | ⏳ unlock |
+| Owner Admin | ✅ Live unlock **PASS** on testing (dashboard/testers/site-content 200) | ✅ |
 | Home Daycare setup | ✅ Walked / suites | ⏳ |
 | Center setup | ✅ Live Director→Teacher→Assistant invites on testing | ⏳ |
 | Director / Teacher / Assistant | ✅ Live accept + role surfaces on testing | ⏳ |
@@ -71,7 +71,7 @@
 
 | Severity | Open functional | Deferred content | Notes |
 |---|---|---|---|
-| Blocker | **0** code; **1 operational** | — | Owner Admin live unlock still needs Leah’s password/code |
+| Blocker | **0** | — | Owner Admin unlock verified on testing |
 | High functional | **0** | P3/P4 content | P5/P6 verified on live testing |
 | Medium functional | **0** | P11 content | P15 Stripe-off intent verified on testing |
 | Low / polish | 7 (P16–P22; P19 mitigated) | — | |
@@ -111,3 +111,4 @@ Do **not** count these as functional launch blockers for this wave:
 | 2026-08-08 | **Final QA fix wave** on testing branch: functional High/Medium fixed or deferred; shell `20260808-phase11-fix-wave`. Production untouched. |
 | 2026-08-08 | **Testing redeployed** (`dep-d9rmvvon74is73f6491g` @ `c9600e9`). Live shell `20260808-phase11-fix-wave`. Agent owner-review walkthrough: READY FOR LEAH (Owner Admin unlock + Center/guardian still Leah). Production untouched. |
 | 2026-08-08 | **Final four checks:** Center PASS · Guardian/FH PASS · P15 PASS · Owner Admin BLOCKED (no agent credentials). Suites: family-hub-phase6, staff-invite-flow, nav-role-experience PASS. Final report: `PHASE11_FINAL_OWNER_REVIEW_REPORT.md`. **NOT READY FOR PRODUCTION APPROVAL.** Production untouched. Punch list remains open. |
+| 2026-08-08 | **Owner Admin unlock PASS** on testing (Leah credentials used in-session only; not committed). All four final checks PASS. Report updated: **READY FOR PRODUCTION APPROVAL** (not a deploy order). Production untouched. Punch list remains open for deferred/low items. |
