@@ -136,12 +136,20 @@
         draft.activities[key] = {
           ...prev,
           imageRequirement: hit.requirement,
-          // Preserve any existing image fields already on the draft.
-          setupImageUrl: prev.setupImageUrl || act.setupImageUrl || "",
-          exampleImageUrl: prev.exampleImageUrl || act.exampleImageUrl || "",
-          setupMediaAssetId: prev.setupMediaAssetId || act.setupMediaAssetId || "",
-          exampleMediaAssetId: prev.exampleMediaAssetId || act.exampleMediaAssetId || "",
         };
+        // Preserve existing image fields only — never clear or invent empty URLs.
+        if (!Object.prototype.hasOwnProperty.call(draft.activities[key], "setupImageUrl") && act.setupImageUrl) {
+          draft.activities[key].setupImageUrl = act.setupImageUrl;
+        }
+        if (!Object.prototype.hasOwnProperty.call(draft.activities[key], "exampleImageUrl") && act.exampleImageUrl) {
+          draft.activities[key].exampleImageUrl = act.exampleImageUrl;
+        }
+        if (!Object.prototype.hasOwnProperty.call(draft.activities[key], "setupMediaAssetId") && act.setupMediaAssetId) {
+          draft.activities[key].setupMediaAssetId = act.setupMediaAssetId;
+        }
+        if (!Object.prototype.hasOwnProperty.call(draft.activities[key], "exampleMediaAssetId") && act.exampleMediaAssetId) {
+          draft.activities[key].exampleMediaAssetId = act.exampleMediaAssetId;
+        }
       }
       applied.push({
         key,

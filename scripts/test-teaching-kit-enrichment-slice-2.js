@@ -275,22 +275,33 @@ async function main() {
         document.body.classList.add("tk-enrich-open");
         window.LLHTeachingKitEnrichmentEditor.open(plan.id);
         document.querySelector("[data-ai-cancel]")?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        // Owner classification can mark Discovery complete (no image needed + tips),
+        // so the queue may open on another in-progress activity. Pin Discovery for asserts.
+        const discoveryBtn = Array.from(document.querySelectorAll(".tk-enrich-queue-item")).find((btn) =>
+          /Discovery Basket/i.test(btn.textContent || ""),
+        );
+        if (discoveryBtn) discoveryBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
         const text = document.body.innerText || "";
         const stage = document.querySelector("[data-activity-studio]");
+        const photoOk = Boolean(document.querySelector("[data-images-not-needed]"))
+          || (
+            text.includes("Setup photo")
+            && (
+              text.includes("placeholder")
+              || text.includes("Drop photo")
+              || text.includes("Finished example")
+              || Boolean(document.querySelector(".tk-enrich-photo input[type='file']"))
+            )
+          );
         return {
           titleVisible: text.includes("Farm Animals"),
           discoveryVisible: text.includes("Farm Animal Discovery Basket") || text.includes("Discovery"),
-          tipsVisible: text.includes("Teacher tips") && (text.includes("discovery basket") || text.includes("child height") || text.includes("Prep") || text.includes("Name one animal")),
+          tipsVisible: text.includes("Teacher tips") && (text.includes("discovery basket") || text.includes("child height") || text.includes("Name one animal")),
           subsVisible: text.includes("Supply substitutions") && text.includes("basket"),
           settingsVisible: text.includes("Small group") && text.includes("Indoor"),
           obsVisible: text.includes("Observation prompts"),
           vocabVisible: text.includes("Vocabulary for this activity") && (text.includes("cow") || text.includes("barn")),
-          photoZonesVisible: text.includes("Setup photo") && (
-            text.includes("placeholder")
-            || text.includes("Drop photo")
-            || text.includes("Finished example")
-            || Boolean(document.querySelector(".tk-enrich-photo input[type='file']"))
-          ),
+          photoZonesVisible: photoOk,
           publishEnabled: Boolean(document.querySelector("[data-enrich-publish]:not([disabled])")),
           noAi: !text.includes("data-ai-tips") && text.includes("AI suggest later"),
           studioPresent: Boolean(stage),

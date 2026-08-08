@@ -448,8 +448,25 @@ async function main() {
       });
     }
 
+    async function selectDiscoveryActivity(page) {
+      // Owner image classification can mark Discovery complete, so the queue may
+      // open on another in-progress activity. Pin Discovery for tip/AI asserts.
+      await page.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll(".tk-enrich-queue-item")).find((el) =>
+          /Discovery Basket/i.test(el.textContent || ""),
+        );
+        if (btn) btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      });
+      await page.waitForFunction(
+        () => /Discovery Basket/i.test(document.querySelector(".tk-enrich-queue-item.is-active")?.textContent || ""),
+        null,
+        { timeout: 5000 },
+      );
+    }
+
     async function openAiTray(page) {
       await dismissOverlays(page);
+      await selectDiscoveryActivity(page);
       // Explicit AI only — never rely on auto-open. Confirm must be accepted (or skipped).
       await page.evaluate(async () => {
         window.confirm = () => true;
@@ -519,6 +536,7 @@ async function main() {
         expectedUpdatedAt,
       });
       await page.waitForSelector(".tk-enrich-shell", { timeout: 10000 });
+      await selectDiscoveryActivity(page);
     }
 
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -581,8 +599,10 @@ async function main() {
         : null,
     }));
     assert(/(Accepted|Inserted)/i.test(afterInsert.tips.status), "status shows accepted into draft");
-    assert(afterInsert.tips.tipText.includes(existingTip), "existing tip still visible");
-    assert(afterInsert.tips.tipText.includes("Edited Farm Animals AI tip"), "edited tip inserted");
+    await selectDiscoveryActivity(page);
+    const tipTextAfterSelect = await page.evaluate(() => document.body.innerText || "");
+    assert(tipTextAfterSelect.includes(existingTip), "existing tip still visible");
+    assert(tipTextAfterSelect.includes("Edited Farm Animals AI tip"), "edited tip inserted");
     assert(afterInsert.tips.saveCalls === 0, "AI insert did not autosave");
     assert(afterInsert.tips.publishCalls === 0, "AI insert did not publish");
 

@@ -578,116 +578,6 @@
       "completeness": "complete",
       "completionPercent": 100,
       "schemaVersion": 1
-    },
-    "enrichmentDraft": {
-      "activities": {
-        "cur-act-27424046373b8597": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-da4798d216b6e094": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-625b54f22c49c7da": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-e14264deb203e7dc": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-8def0ce2cbc953aa": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-8deb2146a026fcc2": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-1953dc9a593cfc8f": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-c365a6b09e9d869d": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-76b015234ffc9cac": {
-          "imageRequirement": "example_only",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-e4fe79e92d9dcb52": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-07701b43fd761a1e": {
-          "imageRequirement": "example_only",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-01c1e912994395f7": {
-          "imageRequirement": "required",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-323344663ee9ef16": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-2211a60c5477985a": {
-          "imageRequirement": "not_needed",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        },
-        "cur-act-f764929f01edb2a8": {
-          "imageRequirement": "optional",
-          "setupImageUrl": "",
-          "exampleImageUrl": "",
-          "setupMediaAssetId": "",
-          "exampleMediaAssetId": ""
-        }
-      },
-      "week": {}
     }
   },
   "activities": [
@@ -1221,7 +1111,8 @@
           "barn",
           "farmer",
           "hoof"
-        ]
+        ],
+        "imageRequirement": "not_needed"
       },
       "cur-act-01c1e912994395f7": {
         "setupImageUrl": "",
@@ -1249,7 +1140,8 @@
           "pig",
           "scoop",
           "sticky"
-        ]
+        ],
+        "imageRequirement": "required"
       },
       "cur-act-2211a60c5477985a": {
         "setupImageUrl": "",
@@ -1277,7 +1169,8 @@
           "farmer",
           "buy",
           "share"
-        ]
+        ],
+        "imageRequirement": "not_needed"
       },
       "cur-act-c365a6b09e9d869d": {
         "setupImageUrl": "",
@@ -1305,7 +1198,8 @@
           "count",
           "carton",
           "more"
-        ]
+        ],
+        "imageRequirement": "not_needed"
       },
       "cur-act-da4798d216b6e094": {
         "setupImageUrl": "",
@@ -1333,7 +1227,38 @@
           "bingo",
           "listen",
           "match"
-        ]
+        ],
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-27424046373b8597": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-625b54f22c49c7da": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-8def0ce2cbc953aa": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-8deb2146a026fcc2": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-1953dc9a593cfc8f": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-76b015234ffc9cac": {
+        "imageRequirement": "example_only"
+      },
+      "cur-act-e4fe79e92d9dcb52": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-07701b43fd761a1e": {
+        "imageRequirement": "example_only"
+      },
+      "cur-act-323344663ee9ef16": {
+        "imageRequirement": "not_needed"
+      },
+      "cur-act-f764929f01edb2a8": {
+        "imageRequirement": "optional"
       }
     },
     "week": {},

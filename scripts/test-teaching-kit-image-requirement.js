@@ -227,12 +227,18 @@ function main() {
   // Slice2 fixture should already have classifications applied (no bulk-guess elsewhere)
   const slice = loadJson(FARM_SLICE_FIXTURE);
   const sliceActs = enrich.flattenLessonActivities(slice.lessonPlan, slice.activities || []);
-  const classified = sliceActs.filter((a) => enrich.hasOwnerImageClassification(a, slice.lessonPlan.enrichmentDraft?.activities?.[a.id]));
+  const draftActs = slice.enrichmentDraft?.activities || slice.lessonPlan.enrichmentDraft?.activities || {};
+  const classified = sliceActs.filter((a) => enrich.hasOwnerImageClassification(a, draftActs[a.id]));
   ok(classified.length === 15, `slice2 farm animals all owner-classified (got ${classified.length})`);
+  // Tips/subs on the enriched slice-2 patches must survive classification apply.
+  const discoveryDraft = draftActs["cur-act-e14264deb203e7dc"] || {};
+  ok(Array.isArray(discoveryDraft.teacherTips) && discoveryDraft.teacherTips.length >= 1, "slice2 discovery tips preserved");
+  ok(Array.isArray(discoveryDraft.substitutions) && discoveryDraft.substitutions.length >= 1, "slice2 discovery subs preserved");
+  ok(discoveryDraft.imageRequirement === "not_needed", "slice2 discovery draft classified not_needed");
   // Preserve any existing image URLs on muddy/shelter-like activities
   const muddy = sliceActs.find((a) => /Muddy/i.test(a.title));
   ok(muddy, "muddy activity present");
-  ok(muddy.imageRequirement === "required" || slice.lessonPlan.enrichmentDraft?.activities?.[muddy.id]?.imageRequirement === "required", "muddy classified required");
+  ok(muddy.imageRequirement === "required" || draftActs[muddy.id]?.imageRequirement === "required", "muddy classified required");
 
   // Empty image sections hidden from customers + print
   const mapped = mapper.mapLessonPlanToTeachingKit
