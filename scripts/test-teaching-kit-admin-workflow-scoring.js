@@ -157,6 +157,7 @@ function thinGoldFixture() {
       },
       activities: {
         "qa-act-1": {
+          imageRequirement: "required",
           teacherTips: ["Offer two trays."],
           observationPrompts: ["Names a color?"],
           imageBriefSetup: "Low table with baskets in natural light.",

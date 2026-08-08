@@ -17,63 +17,82 @@
   });
 
   /**
-   * Per-activity image requirement — instructional value, not universal.
-   * Briefs never satisfy any requirement; they remain drafting notes only.
+   * Owner-controlled image requirement (instructional value).
+   * Empty / unclassified = needs_owner_classification — never auto-bulk-guessed.
+   * Briefs never satisfy any requirement.
    */
   const IMAGE_REQUIREMENT = Object.freeze({
-    required: "required",
-    setup_only: "setup_only",
-    example_only: "example_only",
-    optional: "optional",
+    needs_owner_classification: "needs_owner_classification",
     not_needed: "not_needed",
+    example_only: "example_only",
+    setup_only: "setup_only",
+    required: "required",
+    optional: "optional",
   });
 
   const IMAGE_REQUIREMENT_LABELS = Object.freeze({
-    required: "Required: setup and example",
-    setup_only: "Setup image only",
+    needs_owner_classification: "Needs owner classification",
+    not_needed: "No image needed",
     example_only: "Finished example only",
+    setup_only: "Setup image only",
+    required: "Setup + finished example",
     optional: "Optional",
-    not_needed: "Not needed",
   });
+
+  /** Owner-selectable values (excludes the temporary unclassified state). */
+  const IMAGE_REQUIREMENT_OWNER_OPTIONS = Object.freeze([
+    IMAGE_REQUIREMENT.not_needed,
+    IMAGE_REQUIREMENT.example_only,
+    IMAGE_REQUIREMENT.setup_only,
+    IMAGE_REQUIREMENT.required,
+    IMAGE_REQUIREMENT.optional,
+  ]);
 
   const IMAGE_REQUIREMENT_VALUES = Object.freeze(Object.values(IMAGE_REQUIREMENT));
 
-  /** Categories that need both setup + finished example by default. */
-  const IMAGE_REQUIRED_CATEGORIES = Object.freeze(new Set([
+  /**
+   * Recommendation heuristics only — never auto-written as the owner decision.
+   * Art/crafts/visual finals → finished example; complicated invitations → setup;
+   * circle/books/songs/movement/sorting/self-explanatory dramatic play → no image.
+   */
+  const IMAGE_RECOMMEND_EXAMPLE_CATEGORIES = Object.freeze(new Set([
     "Art",
     "Process Art",
+  ]));
+  const IMAGE_RECOMMEND_REQUIRED_CATEGORIES = Object.freeze(new Set([
     "Sensory",
     "Sensory Play",
     "STEM",
     "STEM/Discovery",
     "Science",
-    "Dramatic Play",
-    "Fine Motor",
     "Cooking",
     "Invitation to Play",
-    "Open-Ended Exploration",
-    "Outdoor Play",
   ]));
-
-  /** Categories that rarely need photos (songs, circle, simple movement). */
-  const IMAGE_NOT_NEEDED_CATEGORIES = Object.freeze(new Set([
+  const IMAGE_RECOMMEND_NOT_NEEDED_CATEGORIES = Object.freeze(new Set([
     "Circle Time",
     "Music and Movement",
     "Music & Movement",
-  ]));
-
-  /** Categories where photos help sometimes but should not block Complete. */
-  const IMAGE_OPTIONAL_CATEGORIES = Object.freeze(new Set([
     "Gross Motor",
     "Literacy",
     "Early Literacy",
-    "Early Math",
     "Matching",
     "Sorting",
     "Social-Emotional",
+  ]));
+  const IMAGE_RECOMMEND_OPTIONAL_CATEGORIES = Object.freeze(new Set([
+    "Dramatic Play",
+    "Fine Motor",
+    "Early Math",
+    "Open-Ended Exploration",
+    "Outdoor Play",
     "Small Group",
     "Parent Connection",
   ]));
+
+  // Back-compat aliases used by older tests / docs.
+  const IMAGE_REQUIRED_CATEGORIES = IMAGE_RECOMMEND_REQUIRED_CATEGORIES;
+  const IMAGE_NOT_NEEDED_CATEGORIES = IMAGE_RECOMMEND_NOT_NEEDED_CATEGORIES;
+  const IMAGE_OPTIONAL_CATEGORIES = IMAGE_RECOMMEND_OPTIONAL_CATEGORIES;
 
   let statusApi = null;
   function loadStatusApi() {
@@ -217,58 +236,74 @@
       required: IMAGE_REQUIREMENT.required,
       required_setup_and_example: IMAGE_REQUIREMENT.required,
       setup_and_example: IMAGE_REQUIREMENT.required,
+      setup_plus_finished_example: IMAGE_REQUIREMENT.required,
+      setup_finished_example: IMAGE_REQUIREMENT.required,
       both: IMAGE_REQUIREMENT.required,
       setup_only: IMAGE_REQUIREMENT.setup_only,
       setup_image_only: IMAGE_REQUIREMENT.setup_only,
       setup: IMAGE_REQUIREMENT.setup_only,
       example_only: IMAGE_REQUIREMENT.example_only,
       finished_example_only: IMAGE_REQUIREMENT.example_only,
+      finished_example: IMAGE_REQUIREMENT.example_only,
       example: IMAGE_REQUIREMENT.example_only,
       finished_only: IMAGE_REQUIREMENT.example_only,
       optional: IMAGE_REQUIREMENT.optional,
       not_needed: IMAGE_REQUIREMENT.not_needed,
+      no_image_needed: IMAGE_REQUIREMENT.not_needed,
+      no_images_needed: IMAGE_REQUIREMENT.not_needed,
       notneeded: IMAGE_REQUIREMENT.not_needed,
       none: IMAGE_REQUIREMENT.not_needed,
       na: IMAGE_REQUIREMENT.not_needed,
+      needs_owner_classification: IMAGE_REQUIREMENT.needs_owner_classification,
+      needs_classification: IMAGE_REQUIREMENT.needs_owner_classification,
+      unclassified: IMAGE_REQUIREMENT.needs_owner_classification,
+      owner_classification_needed: IMAGE_REQUIREMENT.needs_owner_classification,
     };
     return aliases[raw] || (IMAGE_REQUIREMENT_VALUES.includes(raw) ? raw : "");
   }
 
   function imageRequirementLabel(value) {
-    const key = normalizeImageRequirement(value) || IMAGE_REQUIREMENT.required;
-    return IMAGE_REQUIREMENT_LABELS[key] || IMAGE_REQUIREMENT_LABELS.required;
+    const key = normalizeImageRequirement(value) || IMAGE_REQUIREMENT.needs_owner_classification;
+    return IMAGE_REQUIREMENT_LABELS[key] || IMAGE_REQUIREMENT_LABELS.needs_owner_classification;
+  }
+
+  function hasOwnerImageClassification(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
+    const explicit = normalizeImageRequirement(d.imageRequirement)
+      || normalizeImageRequirement(activity?.imageRequirement);
+    return Boolean(explicit && explicit !== IMAGE_REQUIREMENT.needs_owner_classification);
   }
 
   /**
-   * Category + title heuristics for instructional image value.
-   * Explicit activity/draft imageRequirement always wins over defaults.
+   * AI / guidance heuristic only — NEVER auto-applied as the owner decision.
+   * Owner must classify explicitly; unclassified stays needs_owner_classification.
    */
-  function defaultImageRequirementForActivity(activity) {
+  function recommendImageRequirement(activity) {
     const category = text(activity?.activityCategory);
     const title = text(activity?.title);
     const blob = `${category} ${title} ${text(activity?.description)} ${text(activity?.objective)}`.toLowerCase();
 
-    // Category defaults first (stable instructional policy).
-    if (IMAGE_REQUIRED_CATEGORIES.has(category)) return IMAGE_REQUIREMENT.required;
-    if (IMAGE_NOT_NEEDED_CATEGORIES.has(category)) return IMAGE_REQUIREMENT.not_needed;
-    if (IMAGE_OPTIONAL_CATEGORIES.has(category)) return IMAGE_REQUIREMENT.optional;
-
-    // Title / description heuristics for aliases and non-canonical categories.
-    if (/printable|worksheet|cutting practice|laminat|flash.?card|name tag/i.test(blob)) {
+    if (/mural|collage|craft|construction project|visual final|finished product|process art/i.test(blob)
+      || IMAGE_RECOMMEND_EXAMPLE_CATEGORIES.has(category)) {
+      return IMAGE_REQUIREMENT.example_only;
+    }
+    if (/sensory bin|stem challenge|laboratory|complicated|invitation to play|unfamiliar material|hands.?on setup/i.test(blob)
+      || IMAGE_RECOMMEND_REQUIRED_CATEGORIES.has(category)) {
       return IMAGE_REQUIREMENT.required;
     }
-    if (/process art|sensory bin|stem|dramatic play|invitation to play|hands.?on setup/i.test(blob)) {
-      return IMAGE_REQUIREMENT.required;
-    }
-    if (/circle time|morning meeting|\bsong\b|sing along|rhyme|chant|transition|line up|cleanup song/i.test(blob)) {
+    if (/circle time|morning meeting|\bsong\b|sing along|rhyme|chant|transition|line up|cleanup song|book discussion|read.?aloud|story time|storytime|sound game|movement|freeze dance|sorting|counting|self.?explanatory|dramatic play/i.test(blob)
+      || IMAGE_RECOMMEND_NOT_NEEDED_CATEGORIES.has(category)) {
       return IMAGE_REQUIREMENT.not_needed;
     }
-    if (/book discussion|read.?aloud|story time|storytime|\bgame\b|matching game|memory game|bingo|simple movement|freeze dance/i.test(blob)) {
+    if (IMAGE_RECOMMEND_OPTIONAL_CATEGORIES.has(category) || /\bgame\b|matching game|memory game|bingo|fine motor station/i.test(blob)) {
       return IMAGE_REQUIREMENT.optional;
     }
+    return IMAGE_REQUIREMENT.optional;
+  }
 
-    // Preserve prior universal expectation for unknown hands-on categories.
-    return IMAGE_REQUIREMENT.required;
+  /** @deprecated Use recommendImageRequirement — never auto-apply as owner classification. */
+  function defaultImageRequirementForActivity(activity) {
+    return recommendImageRequirement(activity);
   }
 
   function resolveImageRequirement(activity, draftActivity) {
@@ -276,29 +311,46 @@
     const explicit = normalizeImageRequirement(d.imageRequirement)
       || normalizeImageRequirement(activity?.imageRequirement);
     if (explicit) return explicit;
-    return defaultImageRequirementForActivity(activity);
+    // Do not bulk-guess. Unclassified is not a missing-image state.
+    return IMAGE_REQUIREMENT.needs_owner_classification;
   }
 
   function imageSlotsForRequirement(requirement) {
-    const req = normalizeImageRequirement(requirement) || IMAGE_REQUIREMENT.required;
+    const req = normalizeImageRequirement(requirement) || IMAGE_REQUIREMENT.needs_owner_classification;
+    const needsSetup = req === IMAGE_REQUIREMENT.required || req === IMAGE_REQUIREMENT.setup_only;
+    const needsExample = req === IMAGE_REQUIREMENT.required || req === IMAGE_REQUIREMENT.example_only;
     return {
       requirement: req,
-      needsSetup: req === IMAGE_REQUIREMENT.required || req === IMAGE_REQUIREMENT.setup_only,
-      needsExample: req === IMAGE_REQUIREMENT.required || req === IMAGE_REQUIREMENT.example_only,
+      needsSetup,
+      needsExample,
       imagesOptional: req === IMAGE_REQUIREMENT.optional,
       imagesNotNeeded: req === IMAGE_REQUIREMENT.not_needed,
-      expectedCount: req === IMAGE_REQUIREMENT.required
-        ? 2
-        : (req === IMAGE_REQUIREMENT.setup_only || req === IMAGE_REQUIREMENT.example_only ? 1 : 0),
+      needsOwnerClassification: req === IMAGE_REQUIREMENT.needs_owner_classification,
+      // Unclassified / optional / not_needed never create missing-image blockers.
+      expectedCount: needsSetup && needsExample ? 2 : (needsSetup || needsExample ? 1 : 0),
     };
   }
 
   function activityImagesSatisfyRequirement(view, requirement) {
     const slots = imageSlotsForRequirement(requirement);
-    if (slots.imagesOptional || slots.imagesNotNeeded) return true;
+    if (slots.imagesOptional || slots.imagesNotNeeded || slots.needsOwnerClassification) return true;
     if (slots.needsSetup && !text(view?.setupImageUrl)) return false;
     if (slots.needsExample && !text(view?.exampleImageUrl)) return false;
     return true;
+  }
+
+  function activityShouldShowSetupPhoto(view, { ownerPreview = false } = {}) {
+    if (text(view?.setupImageUrl)) return true;
+    if (!ownerPreview) return false;
+    const slots = view?.imageSlots || imageSlotsForRequirement(view?.imageRequirement);
+    return Boolean(slots.needsSetup);
+  }
+
+  function activityShouldShowExamplePhoto(view, { ownerPreview = false } = {}) {
+    if (text(view?.exampleImageUrl)) return true;
+    if (!ownerPreview) return false;
+    const slots = view?.imageSlots || imageSlotsForRequirement(view?.imageRequirement);
+    return Boolean(slots.needsExample);
   }
 
   function activityEnrichmentView(activity, draftActivity) {
@@ -322,10 +374,20 @@
       : vocabularyListFrom(activity?.vocabulary);
     const imageRequirement = resolveImageRequirement(activity, d);
     const imageSlots = imageSlotsForRequirement(imageRequirement);
+    const recommendedImageRequirement = recommendImageRequirement(activity);
+    const ownerClassified = hasOwnerImageClassification(activity, d);
+    // Preserve AI recommendation text if present — never treat as owner classification.
+    const imageRequirementAiSuggestion = normalizeImageRequirement(d.imageRequirementAiSuggestion)
+      || normalizeImageRequirement(activity?.imageRequirementAiSuggestion)
+      || "";
     return {
       imageRequirement,
       imageRequirementLabel: imageRequirementLabel(imageRequirement),
       imageSlots,
+      recommendedImageRequirement,
+      recommendedImageRequirementLabel: imageRequirementLabel(recommendedImageRequirement),
+      ownerClassified,
+      imageRequirementAiSuggestion,
       setupImageUrl: text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
       exampleImageUrl: text(d.exampleImageUrl) || text(activity?.exampleImageUrl || activity?.examplePhotoUrl),
       setupImageThumbUrl: text(d.setupImageThumbUrl) || text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
@@ -1045,6 +1107,7 @@
     let missingActivityObjectives = 0;
     let missingActivityMaterials = 0;
     let imageBriefsNotImages = 0;
+    let needsOwnerClassification = 0;
 
     list.forEach((act) => {
       const key = activityKey(act);
@@ -1054,7 +1117,9 @@
       if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
       const view = activityEnrichmentView(act, patch);
       const slots = view.imageSlots || imageSlotsForRequirement(view.imageRequirement);
-      // Only required image slots create missing-photo guidance / blockers.
+      if (slots.needsOwnerClassification) needsOwnerClassification += 1;
+      // Only owner-required image slots create missing-photo guidance / blockers.
+      // needs_owner_classification is never treated as a missing uploaded image.
       if (slots.needsSetup && !view.setupImageUrl) missingSetupPhotos += 1;
       if (slots.needsExample && !view.exampleImageUrl) missingExamplePhotos += 1;
       if (slots.needsSetup && !view.setupImageUrl && text(patch?.imageBriefSetup || view.imageBriefSetup)) {
@@ -1161,6 +1226,7 @@
       missingSetupPhotos,
       missingExamplePhotos,
       imageBriefsNotImages,
+      needsOwnerClassification,
       missingTeacherTips,
       missingObservationPrompts,
       missingFamilyConnection,
@@ -1354,6 +1420,9 @@
     steps: "steps",
     image_brief_setup: "imageBriefSetup",
     image_brief_example: "imageBriefExample",
+    // Recommendation only — applySuggestions writes imageRequirementAiSuggestion, never imageRequirement.
+    image_requirement: "imageRequirementAiSuggestion",
+    image_requirement_suggestion: "imageRequirementAiSuggestion",
     family_connection: "familyConnection",
     milestones: "milestones",
     weekly_overview: "weeklyOverview",
@@ -1552,6 +1621,19 @@
         return;
       }
 
+      // AI may recommend an image requirement but must never change the owner's selection.
+      if (field === "imageRequirementAiSuggestion" || field === "imageRequirement") {
+        const recommended = normalizeImageRequirement(sug.proposedValue || sug.proposedText);
+        if (!recommended || recommended === IMAGE_REQUIREMENT.needs_owner_classification) return;
+        if (IMAGE_REQUIREMENT_OWNER_OPTIONS.includes(recommended)) {
+          act.imageRequirementAiSuggestion = recommended;
+          // Explicitly never overwrite owner classification.
+          inserted.push(sug.id);
+          fields.add("imageRequirementAiSuggestion");
+        }
+        return;
+      }
+
       if (AI_ACTIVITY_TEXT_FIELDS.has(field)) {
         const value = text(sug.proposedValue || sug.proposedText);
         if (!value) return;
@@ -1580,6 +1662,7 @@
     ACTIVITY_STATUS,
     IMAGE_REQUIREMENT,
     IMAGE_REQUIREMENT_LABELS,
+    IMAGE_REQUIREMENT_OWNER_OPTIONS,
     IMAGE_REQUIREMENT_VALUES,
     flattenLessonActivities,
     activityEnrichmentView,
@@ -1588,10 +1671,14 @@
     firstIncompleteActivityIndex,
     normalizeImageRequirement,
     imageRequirementLabel,
+    hasOwnerImageClassification,
+    recommendImageRequirement,
     defaultImageRequirementForActivity,
     resolveImageRequirement,
     imageSlotsForRequirement,
     activityImagesSatisfyRequirement,
+    activityShouldShowSetupPhoto,
+    activityShouldShowExamplePhoto,
     computeCompletionPercent,
     computeReadinessScores,
     imageReadinessState,

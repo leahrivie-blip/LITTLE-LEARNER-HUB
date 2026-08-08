@@ -176,17 +176,19 @@ function main() {
   assert.equal(enrichment.completenessLabelFromPercent(pctRich), "Complete");
   assert.equal(richScores.completeBooks, 1, "complete book records count");
   assert.equal(richScores.completeSongs, 1, "complete song records count");
-  // Only instructional-required slots count toward image readiness (Fine Motor + Sensory here).
-  assert.equal(richScores.expectedSetupImages, 2, "expected setup slots follow imageRequirement");
-  assert.equal(richScores.expectedExampleImages, 2, "expected example slots follow imageRequirement");
-  assert.equal(richScores.setupImages, 2, "uploaded setup images count for required slots");
-  assert.equal(richScores.exampleImages, 2, "uploaded example images count for required slots");
-  assert.equal(richScores.imageReadiness, 100, "required image slots filled → 100% image readiness");
+  // Unclassified activities expect 0 image slots until owner classifies.
+  assert.equal(richScores.expectedSetupImages, 0, "unclassified expects no setup slots");
+  assert.equal(richScores.expectedExampleImages, 0, "unclassified expects no example slots");
+  assert.equal(richScores.setupImages, 0, "unclassified uploads do not count toward required slots");
+  assert.equal(richScores.exampleImages, 0, "unclassified uploads do not count toward required slots");
+  assert.equal(richScores.imageReadiness, 100, "zero expected slots → 100% image readiness");
 
   // Image briefs must not inflate structural completion toward Publish Ready.
+  // Only owner-required slots track briefs-only (unclassified never creates image gaps).
   const briefOnly = enrichment.computeReadinessScores(plan, [], {
     week: { printableIdeas: ["Color cards"] },
     activities: Object.fromEntries(acts.map((a) => [a.id, {
+      imageRequirement: "required",
       imageBriefSetup: "Two trays on a low table.",
       imageBriefExample: "Child sorting red blocks.",
     }])),
@@ -222,9 +224,10 @@ function main() {
   const upgrade = enrichment.buildUpgradeSummary(plan, [], null, { resources, skipQualityAttach: true });
   assert.equal(upgrade.completenessLabel, "Legacy");
   assert.equal(upgrade.incompleteActivities, 6);
-  // Category defaults: only Fine Motor + Sensory require both photos in this sample plan.
-  assert.equal(upgrade.missingSetupPhotos, 2);
-  assert.equal(upgrade.missingExamplePhotos, 2);
+  // Unclassified activities do not create missing-image gaps.
+  assert.equal(upgrade.missingSetupPhotos, 0);
+  assert.equal(upgrade.missingExamplePhotos, 0);
+  assert.equal(upgrade.needsOwnerClassification, 6);
   assert.equal(upgrade.missingTeacherTips, 6);
   // Title-only catalog rows are incomplete under #540 resource rules.
   assert.equal(upgrade.missingBooks, true);
@@ -233,9 +236,16 @@ function main() {
   assert.equal(upgrade.missingFamilyConnection, false);
   assert.equal(upgrade.isPublished, true);
   assert.equal(upgrade.needsReview, true);
-  assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "missing_photos"));
+  assert.ok(!enrichment.matchesUpgradeGapFilter(upgrade, "missing_photos"), "unclassified is not a missing-photo gap");
   assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "needs_review"));
   assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "missing_books"));
+
+  // Owner-required slots still surface missing_photos guidance.
+  const requiredGap = enrichment.buildUpgradeSummary(plan, [], {
+    activities: Object.fromEntries(acts.map((a) => [a.id, { imageRequirement: "required" }])),
+  }, { resources, skipQualityAttach: true });
+  assert.ok(requiredGap.missingSetupPhotos > 0);
+  assert.ok(enrichment.matchesUpgradeGapFilter(requiredGap, "missing_photos"));
 
   const richSummary = enrichment.buildUpgradeSummary(plan, [], {
     updatedAt: "2026-08-03T12:00:00.000Z",
@@ -257,10 +267,19 @@ function main() {
   });
   assert.deepEqual(studioView.vocabulary, ["cow", "barn"]);
   assert.equal(studioView.observationPrompts.length, 1);
+  // Unclassified + tip is Complete for images (not a missing-photo gap); extras alone without tip stay In Progress.
+  assert.equal(enrichment.activityStatus(acts[0], {
+    vocabulary: ["cow"],
+  }), "in_progress");
   assert.equal(enrichment.activityStatus(acts[0], {
     teacherTips: ["Tip"],
     vocabulary: ["cow"],
-  }), "in_progress");
+  }), "complete");
+  assert.equal(enrichment.activityStatus(acts[0], {
+    imageRequirement: "required",
+    teacherTips: ["Tip"],
+    vocabulary: ["cow"],
+  }), "in_progress", "owner-required still needs photos");
 
   console.log(`OK teaching-kit-enrichment (${pct0}% baseline → ${pctRich}% rich; structural/premium scoring ready)`);
 }

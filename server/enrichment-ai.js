@@ -114,6 +114,12 @@ const SUGGESTION_CATEGORIES = Object.freeze({
     scope: "activity",
     kind: "string",
   },
+  image_requirement: {
+    field: "imageRequirementAiSuggestion",
+    fieldLabel: "Image requirement recommendation (owner decides)",
+    scope: "activity",
+    kind: "string",
+  },
   family_connection: {
     field: "familyConnection",
     fieldLabel: "Family connection ideas",
@@ -700,7 +706,7 @@ function buildEnrichmentAiSystemPrompt() {
     "Return ONLY valid JSON (no markdown) shaped as:",
     '{"suggestions":[{"category":"teacher_tips","text":"..."},{"category":"books","title":"...","author":"...","questions":"..."},{"category":"setting_tags","tag":"small_group"}]}',
     "Allowed categories:",
-    "teacher_tips, observation_prompts, vocabulary, substitutions, indoor_alternatives, outdoor_alternatives, indoor_outdoor, group_ideas, setting_tags, adaptations, extensions, setup, steps, image_brief_setup, image_brief_example, family_connection, milestones, weekly_overview, learning_objectives, materials_list, teacher_preparation, toolkit_prep, toolkit_observation, books, songs, printable_ideas, vocab_cards",
+    "teacher_tips, observation_prompts, vocabulary, substitutions, indoor_alternatives, outdoor_alternatives, indoor_outdoor, group_ideas, setting_tags, adaptations, extensions, setup, steps, image_brief_setup, image_brief_example, image_requirement, family_connection, milestones, weekly_overview, learning_objectives, materials_list, teacher_preparation, toolkit_prep, toolkit_observation, books, songs, printable_ideas, vocab_cards",
     "Rules:",
     "- Suggest additive classroom help only. Never invent photo URLs or claim images were uploaded.",
     "- Image briefs must follow this style: " + IMAGE_STYLE_RULES,

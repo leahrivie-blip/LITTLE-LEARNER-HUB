@@ -68,6 +68,7 @@ function main() {
       },
       activities: {
         a1: {
+          imageRequirement: "required",
           teacherTips: ["Offer binoculars."],
           imageBriefSetup: "Blanket outside",
           imageBriefExample: "Child pointing up",

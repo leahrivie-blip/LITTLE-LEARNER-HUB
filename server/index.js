@@ -1805,6 +1805,7 @@ function normalizedPlayActivityCategory(value) {
 }
 
 const ACTIVITY_IMAGE_REQUIREMENTS = new Set([
+  "needs_owner_classification",
   "required",
   "setup_only",
   "example_only",
@@ -1812,7 +1813,7 @@ const ACTIVITY_IMAGE_REQUIREMENTS = new Set([
   "not_needed",
 ]);
 
-/** Per-activity instructional image requirement (empty = use category default). */
+/** Per-activity instructional image requirement (empty = needs owner classification). */
 function normalizedImageRequirement(value) {
   const raw = String(value == null ? "" : value).trim().toLowerCase().replace(/[\s-]+/g, "_");
   if (!raw) return "";
@@ -1820,19 +1821,26 @@ function normalizedImageRequirement(value) {
     required: "required",
     required_setup_and_example: "required",
     setup_and_example: "required",
+    setup_plus_finished_example: "required",
     both: "required",
     setup_only: "setup_only",
     setup_image_only: "setup_only",
     setup: "setup_only",
     example_only: "example_only",
     finished_example_only: "example_only",
+    finished_example: "example_only",
     example: "example_only",
     finished_only: "example_only",
     optional: "optional",
     not_needed: "not_needed",
+    no_image_needed: "not_needed",
+    no_images_needed: "not_needed",
     notneeded: "not_needed",
     none: "not_needed",
     na: "not_needed",
+    needs_owner_classification: "needs_owner_classification",
+    needs_classification: "needs_owner_classification",
+    unclassified: "needs_owner_classification",
   };
   const normalized = aliases[raw] || raw;
   return ACTIVITY_IMAGE_REQUIREMENTS.has(normalized) ? normalized : "";

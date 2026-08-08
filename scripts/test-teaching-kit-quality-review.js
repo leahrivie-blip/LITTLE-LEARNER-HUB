@@ -200,6 +200,7 @@ function strongerPlan() {
       },
       activities: {
         "act-g1": {
+          imageRequirement: "required",
           teacherTips: ["Offer tongs for seed sorting."],
           observationPrompts: ["Does the child name a plant part?"],
           indoorAlternatives: "Window sill planting tray",
