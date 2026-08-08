@@ -39342,6 +39342,9 @@ async function maybeHandleFamilyHubInviteFromUrl() {
   // Prefer session-captured token (stripped from URL before analytics/pixel fire).
   const token = String(params.get("familyHub") || consumePendingUrlSecret("familyHub") || "").trim();
   if (!token) return false;
+  // Hide marketing footer/nav immediately while the invite peek is in flight so
+  // parents never see homepage chrome under "Opening your invite…".
+  document.body.classList.add("family-hub-invite-open");
   // Prefer header transport so the invite token never lands in server access logs via query string.
   const peek = await fetch("/api/family-hub/invites/peek", {
     headers: {
