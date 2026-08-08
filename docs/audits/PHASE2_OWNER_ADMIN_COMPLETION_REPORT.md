@@ -69,7 +69,6 @@
 
 | Issue | Severity | Notes |
 |---|---|---|
-| Owner has not finished live validation walkthrough | Gate | Blocks Phase 3 until done; report bugs as found |
 | Invite email depends on Resend/config | Low | Copy-link always available; dashboard shows email health |
 | Household magic links only exist after FH invite | Low | Program detail shows preview when link present |
 
@@ -79,7 +78,7 @@
 
 | Item | Deferred to | Why |
 |---|---|---|
-| Navigation Cleanup | Phase 3 | On hold until Owner Admin validation finishes |
+| Navigation Cleanup | Phase 3 | Started after owner validation |
 | Hard delete tester | Later / never default | Archive-only by design |
 | Bulk multi-staff center pack wizard | Later Owner Admin polish | Director create works today |
 | Live → Testing Feature Sync | Phase 10 | After AI; production read-only compare only |
@@ -103,12 +102,13 @@
 
 ## 8. Recommendations before the next phase
 
-1. Leah completes the Owner Admin validation checklist on the testing host; file any usability bugs for immediate fix.  
-2. Do **not** start Phase 3 Navigation Cleanup until validation is accepted.  
-3. Keep Advanced → Testing Center as secondary; primary path is Testers / Owner Admin dashboard.  
+1. ~~Leah completes Owner Admin validation~~ **Done 2026-08-08.**  
+2. Begin Phase 3 Navigation Cleanup on testing only.  
+3. Keep Testers as primary; Advanced → Testing Center secondary.  
 4. Continue Testing-is-the-Future: all fixes on testing only.  
 
-**Next phase ready to start?** ☐ Yes · ☑ **No** — waiting on Owner Admin owner validation  
+**Next phase ready to start?** ☑ **Yes** — Phase 3 Navigation Cleanup  
+**Owner validation:** ✅ Complete 2026-08-08  
 
 **Master tracker updated:** `docs/audits/MASTER_PROJECT_PROGRESS.md`  
 
@@ -119,4 +119,4 @@
 | Role | Name | Date |
 |---|---|---|
 | Agent / implementer | Cursor agent | 2026-08-08 |
-| Owner (to release Phase 3 hold) | Leah | _pending validation_ |
+| Owner (validation complete) | Leah | 2026-08-08 |

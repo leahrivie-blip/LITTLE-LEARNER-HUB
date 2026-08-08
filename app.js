@@ -15128,7 +15128,7 @@ function renderOwnerHomeDashboard() {
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
           ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
-          ${workHubTile({ view: "families", title: "Families", detail: "Messages & Family Hub" })}
+          ${workHubTile({ view: "families", title: "Families", detail: "Family Hub & family messages" })}
         </div>
       </section>
 
@@ -15221,7 +15221,7 @@ function renderClassroomHubPage() {
     title: "Classroom",
     subtitle: role === "teacher" || role === "assistant"
       ? "Where teachers spend the day — care logs, lessons, and today's schedule."
-      : "Everything used during the care day. Teachers live here; business stays in Business.",
+      : "Care-day tools live here. Curriculum is also in the sidebar; Management stays separate.",
     body: `
       <section class="work-hub-section">
         <h3>Daily care</h3>
@@ -15231,12 +15231,12 @@ function renderClassroomHubPage() {
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Teaching</h3>
+        <h3>Curriculum</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign" })}
-          ${workHubTile({ view: "activities", title: "Activities", detail: "Activity Center" })}
+          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign", primary: true })}
+          ${workHubTile({ view: "activities", title: "Activity Center", detail: "Activities library" })}
           ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule & events" })}
-          ${workHubTile({ view: "ai", title: "AI Classroom Assistant", detail: "Documentation helpers" })}
+          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
           ${role === "owner" || role === "director" ? workHubTile({ view: "classrooms", title: "Room setup", detail: "Manage classrooms" }) : ""}
         </div>
       </section>
@@ -15265,13 +15265,13 @@ function renderFamiliesHubPage() {
   section.innerHTML = workHubShell({
     eyebrow: "Families",
     title: "Families",
-    subtitle: "Everything parent-related lives here — communication, Family Hub, forms, and pickup changes.",
+    subtitle: "Parent communication, Family Hub, forms, and pickup changes — separate from Message Support to Leah.",
     body: `
       <section class="work-hub-section">
-        <h3>Family Hub & messages</h3>
+        <h3>Family Hub & family messages</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
-          ${workHubTile({ view: "messages", title: "Messages", detail: "Provider inbox & parent threads" })}
+          ${workHubTile({ view: "messages", title: "Family messages", detail: "Parent threads & provider inbox" })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
           ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
         </div>
@@ -15279,8 +15279,8 @@ function renderFamiliesHubPage() {
       <section class="work-hub-section">
         <h3>Forms & requests</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "forms", title: "Forms", detail: "Assign & review parent forms" })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Primary forms library — assign & review", primary: true })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Forms packs & requests", detail: "HDH packets, absences, pickups" })}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
@@ -15296,6 +15296,18 @@ function renderFamiliesHubPage() {
   });
 }
 
+function isHomeDaycareWorkAccount() {
+  try {
+    const account = typeof currentAccount === "function" ? currentAccount() : null;
+    const type = typeof getAccountType === "function"
+      ? getAccountType(account)
+      : String(account?.accountType || "");
+    return type === "home_daycare" || type === "single_provider" || !type;
+  } catch (_error) {
+    return true;
+  }
+}
+
 function renderBusinessHubPage() {
   const section = document.querySelector("#view-business");
   if (!section) return;
@@ -15306,37 +15318,49 @@ function renderBusinessHubPage() {
   }
   const showBilling = role === "owner" && canAccessPlatformFeature("billing");
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  const homeDaycare = isHomeDaycareWorkAccount();
   section.innerHTML = workHubShell({
-    eyebrow: "Business",
-    title: "Business",
+    eyebrow: "Management",
+    title: "Management",
     subtitle: role === "director"
       ? "Director tools for running the program. Billing stays with the owner."
-      : "Owner tools — staff, enrollment, billing, licensing, and testing.",
+      : (homeDaycare
+        ? "Owner tools for your home program — enrollment, settings, and billing. Classrooms & staff stay optional."
+        : "Owner tools — staff, classrooms, enrollment, billing, and testing."),
     body: `
       <section class="work-hub-section">
         <h3>Program</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true })}
-          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" })}
-          ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families" })}
+          ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families", primary: true })}
           ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
           ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
+          ${!homeDaycare ? workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true }) : ""}
+          ${!homeDaycare ? workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" }) : ""}
         </div>
       </section>
+      ${homeDaycare ? `
       <section class="work-hub-section">
-        <h3>Growth & compliance</h3>
+        <h3>Optional center-style setup</h3>
+        <p class="muted-copy">Home daycares can skip these. Open only if you want rooms or staff invites.</p>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "staff", title: "Staff", detail: "Optional invites & roles" })}
+          ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Optional rooms & rosters" })}
+        </div>
+      </section>` : ""}
+      <section class="work-hub-section">
+        <h3>Membership</h3>
         <div class="work-hub-grid">
           ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Membership & invoices" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
-          ${workHubTile({ view: "whats-new", title: "Marketing / What's New", detail: "Product updates" })}
-          ${workHubTile({ view: "settings", title: "Users", detail: "Account & access", attrs: 'data-view="staff"' })}
+          ${workHubTile({ view: "staff", title: "Users & access", detail: "Staff invites and roles" })}
         </div>
       </section>
       ${adminUnlocked ? `
       <section class="work-hub-section">
         <h3>Admin only</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "admin", title: "Testing Center", detail: "View As, seed data, Testing Pro", primary: true })}
+          ${workHubTile({ view: "admin", title: "Testers", detail: "Add testers, programs, flags, View As", primary: true, attrs: 'data-admin-open-testers="testing-testers"' })}
+          ${workHubTile({ view: "admin", title: "Testing Center (Advanced)", detail: "Secondary seed / plan preview tools", attrs: 'data-admin-open-testers="advanced-home"' })}
         </div>
       </section>` : ""}
     `,
@@ -15354,10 +15378,11 @@ function renderMoreHubPage() {
     body: `
       <div class="work-hub-grid">
         ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
-        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / support" })}
-        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" })}
+        ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / product support (not Family Hub)" })}
+        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates & marketing notes" })}
         ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
         ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
+        ${workHubTile({ view: "lessons", title: "Curriculum", detail: "Lesson Plans library" })}
         ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
         ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
       </div>
@@ -15391,7 +15416,7 @@ function syncUniversalQuickAdd() {
           <button type="button" data-view="ai" data-quick-doc-type="daily-log">Daily Note</button>
           <button type="button" data-view="child-tools-daily-logs">Activity</button>
           <button type="button" data-view="calendar">Calendar Note</button>
-          <button type="button" data-view="forms">Form</button>
+          <button type="button" data-view="forms">Parent form</button>
         </div>
       </div>
       <button type="button" class="work-quick-add-fab" data-work-quick-toggle aria-expanded="false" aria-label="Quick add">+</button>
@@ -38345,7 +38370,7 @@ function renderHomeDaycareTesterGuidePanel() {
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>Where to add testers</h3>
-      <p class="muted-copy">Invite real testers here. Role simulation and View As live in <strong>Admin → Testing Center</strong> only — everyday provider screens stay clean.</p>
+      <p class="muted-copy"><strong>Primary path:</strong> unlock Admin → <strong>Testers</strong> (dashboard, invites, programs, flags, View As, audit). Everyday provider screens stay clean. Advanced → Testing Center is secondary for seed/plan preview only.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
           <strong>1. Run the day as a provider</strong>
@@ -38356,12 +38381,12 @@ function renderHomeDaycareTesterGuidePanel() {
           <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Add a Teacher tester (own stuff + own kid)</strong>
-          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child.</p>
+          <strong>3. Add staff / program testers (recommended)</strong>
+          <p>Admin → <strong>Testers</strong> → Add Tester (Home Daycare or Center, any role). Copy invite link or temp password. Prefer this over one-off Hub invites.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>4. Admin View As</strong>
-          <p>Unlock Admin → Testing Center → View As Owner / Director / Teacher / Assistant / Parent. Instant nav + permissions, no logout.</p>
+          <p>Unlock Admin → <strong>Testers → View As</strong> (or role preview). Instant nav + permissions, no logout. Testing Center remains a secondary Advanced tool.</p>
         </article>
       </div>
       ${typeof isAdminUnlocked === "function" && isAdminUnlocked()
@@ -38374,8 +38399,8 @@ function renderHomeDaycareTesterGuidePanel() {
           : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button>.`}</li>
         <li>Log meals, naps, and activities in Daily Logs — confirm Family Hub Today updates.</li>
         <li>Invite a parent and open their magic link on another device/browser.</li>
-        <li>Optional: Admin Testing Center → View As Parent, then Return to Admin.</li>
-        <li>Optional: invite a Teacher tester below — they Message Leah from Messages.</li>
+        <li>Optional: Admin → Testers → View As Parent, then Exit tester view.</li>
+        <li>Optional: Admin → Testers → Add Tester for a Teacher — they Message Leah from Message Support if needed.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
@@ -63076,6 +63101,15 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-work-quick-sheet] button[data-view]")) {
     toggleUniversalQuickAdd(false);
+  }
+
+  const openTesters = event.target.closest("[data-admin-open-testers]");
+  if (openTesters) {
+    event.preventDefault();
+    const tab = openTesters.getAttribute("data-admin-open-testers") || "testing-testers";
+    if (typeof setAdminSectionTab === "function") setAdminSectionTab(tab);
+    setView("admin");
+    return;
   }
 
   const testingAction = event.target.closest("[data-admin-testing-action]");

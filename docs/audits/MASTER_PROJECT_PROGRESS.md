@@ -14,12 +14,12 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | 🚧 Owner Admin — **owner validation in progress** (Phase 3 Navigation on hold) |
-| **Overall completion** | **~18%** of remaining roadmap (2 of 11 major steps done; validation gate open) |
+| **Current phase** | ⏳ **Ready for Phase 4** — One source of truth (Phase 3 complete) |
+| **Overall completion** | **~27%** (3 of 11 major steps complete) |
 | **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval |
-| **Testing status** | 🟢 Active development environment — Owner Admin Phase 2 shipped on HDH/`main` |
-| **Major blockers** | Owner Admin validation must finish before Navigation Cleanup |
-| **Known high-priority bugs** | None filed from owner validation yet — track issues Leah reports during walkthrough |
+| **Testing status** | 🟢 Active — Owner Admin validated; Navigation Cleanup shipped on testing branch |
+| **Major blockers** | None |
+| **Known high-priority bugs** | None logged |
 
 ---
 
@@ -28,9 +28,9 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | # | Phase | Status |
 |---|---|---|
 | 1 | Safety + HDH/`main` confirmation | ✅ Completed |
-| 2 | Owner Admin (tester control + dashboard) | ✅ Implementation complete · 🚧 **Owner validation in progress** |
-| 3 | Navigation cleanup | ⏳ Remaining — **ON HOLD** until Owner Admin validation finishes |
-| 4 | One source of truth (children / staff / families) | ⏳ Remaining |
+| 2 | Owner Admin (tester control + dashboard) | ✅ **Fully complete** (implementation + owner validation) |
+| 3 | Navigation cleanup | ✅ **Completed** |
+| 4 | One source of truth (children / staff / families) | ⏳ Remaining — **next** |
 | 5 | Daily operations | ⏳ Remaining |
 | 6 | Family Hub | ⏳ Remaining |
 | 7 | Forms | ⏳ Remaining |
@@ -39,8 +39,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 10 | Live → Testing Feature Sync | ⏳ Remaining |
 | 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining — production deploy only with **written** approval |
 
-**Completion percentage method:** major roadmap steps fully cleared ÷ 11.  
-Owner Admin counts as implementation-complete but the **current gate** is owner validation before Phase 3 — overall ~18% (2/11), rising when validation closes and Phase 3 starts/finishes.
+**Completion percentage:** 3/11 ≈ **27%**.
 
 ---
 
@@ -48,39 +47,35 @@ Owner Admin counts as implementation-complete but the **current gate** is owner 
 
 ### 1. Safety + HDH/`main` confirmation
 - Confirmed HDH/`main` as testing spine; July branch not merged  
-- Production safety / env rules in place  
-- Report / audit: `docs/audits/` master architecture audit (PR context) + standing safety rules  
 
-### 2. Owner Admin (implementation)
-- Testers console, dashboard, programs, flags, View As, feedback inbox, invite email + copy-link  
-- Calendar child picker; lesson→child; staff write ACL  
-- Completion report: `docs/audits/PHASE2_OWNER_ADMIN_COMPLETION_REPORT.md`  
+### 2. Owner Admin — fully complete
+- Owner validation finished 2026-08-08  
+- Report: `docs/audits/PHASE2_OWNER_ADMIN_COMPLETION_REPORT.md`  
 - PR: https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/572  
+
+### 3. Navigation Cleanup — complete
+- Management / Curriculum / Family messages / Forms labeling / Testers-primary paths / HD Management shorten  
+- Report: `docs/audits/PHASE3_NAVIGATION_CLEANUP_COMPLETION_REPORT.md`  
+- Branch: `cursor/navigation-cleanup-phase3-9c23`  
 
 ---
 
 ## 🚧 Current phase
 
-**Owner Admin — owner validation (gate before Phase 3)**
-
-Leah is validating the full Owner Admin workflow on testing.  
-Any usability bugs found here are fixed **before** Navigation Cleanup starts.
-
-Validation checklist (owner): create HD + Center · all roles · flags · View As · disable/archive/resend/reset · audit · feedback · permissions · lesson/child/daily log.
+None in progress — **awaiting start of Phase 4** (One source of truth).
 
 ---
 
 ## ⏳ Remaining phases
 
-3. Navigation cleanup *(hold)*  
-4. One source of truth  
+4. One source of truth (children / staff / families) ← **next**  
 5. Daily operations  
 6. Family Hub  
 7. Forms  
 8. Billing (testing)  
 9. AI review-before-save  
-10. Live → Testing Feature Sync (production read-only compare → implement on testing only)  
-11. Pre–Final QA audit (`PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md`) → Final QA → deploy **only** with written approval  
+10. Live → Testing Feature Sync  
+11. Pre–Final QA audit → Final QA → deploy **only** with written approval  
 
 ---
 
@@ -88,8 +83,8 @@ Validation checklist (owner): create HD + Center · all roles · flags · View A
 
 | Blocker | Impact | Resolution |
 |---|---|---|
-| Owner Admin validation not finished | Blocks Phase 3 Navigation Cleanup | Leah completes walkthrough; agent fixes reported bugs |
-| No written production deploy approval | Blocks any production release | Expected — do not deploy until written approval |
+| _(none)_ | — | — |
+| No written production deploy approval | Blocks any production release | Expected |
 
 ---
 
@@ -97,7 +92,7 @@ Validation checklist (owner): create HD + Center · all roles · flags · View A
 
 | Bug | Area | Status |
 |---|---|---|
-| _(none logged yet from owner validation)_ | Owner Admin | Add rows as Leah reports issues |
+| _(none logged)_ | — | — |
 
 ---
 
@@ -105,7 +100,7 @@ Validation checklist (owner): create HD + Center · all roles · flags · View A
 
 | Check | Status |
 |---|---|
-| Production modified during remaining roadmap? | **No** — read-only policy locked |
+| Production modified during remaining roadmap? | **No** |
 | Production lesson plans / Teaching Kits | Untouched |
 | Production DB / users / billing / flags | Untouched |
 | Deploy authorized? | **No** — waiting on written approval after Final QA |
@@ -116,13 +111,13 @@ Validation checklist (owner): create HD + Center · all roles · flags · View A
 
 | Check | Status |
 |---|---|
-| HDH/`main` testing architecture | Source of truth for all new work |
-| Owner Testing Admin | Shipped on Phase 2 branch / PR #572 |
-| July Testing Lab merge | **Not** merged (intentional) |
-| Continuous quality | Bugs / polish / low-risk debt fixed in-area each phase |
+| HDH/`main` testing architecture | Source of truth |
+| Owner Testing Admin | Validated |
+| Work-mode nav cleanup | Shipped on Phase 3 branch |
+| July Testing Lab merge | **Not** merged |
 
 ---
 
 ## Phase gate rule
 
-Every phase ends with a completion report (template: `PHASE_COMPLETION_REPORT_TEMPLATE.md`) **before** the next phase starts. This tracker must be updated with each report.
+Every phase ends with a completion report before the next phase starts. Keep this tracker current.
