@@ -263,7 +263,7 @@ function testPrintHtmlUnit() {
     ...teachingKitViewer.defaultState(kit, { printCenterEnabled: true }),
     surface: "build",
   });
-  assert(/Print binder|Print \/ Download Binder Kit|Print Teaching Kit|Download PDF/i.test(buildHtml), "print CTA when print center enabled");
+  assert(/Print binder|Print selection|Print \/ Download Binder Kit|Print Teaching Kit|Download PDF/i.test(buildHtml), "print CTA when print center enabled");
   assert(buildHtml.includes("data-tk-print-binder"), "print button hook");
   assert(buildHtml.includes("data-tk-download-binder"), "download button hook");
   assert(buildHtml.includes("Print pack"), "presets UI");
@@ -400,6 +400,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("FAIL teaching-kit-slice-1e:", error.message || error);
+  console.error("FAIL teaching-kit-slice-1e:", error && error.stack || error.message || error);
   process.exit(1);
 });

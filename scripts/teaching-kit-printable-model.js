@@ -90,6 +90,27 @@
     return Number.isFinite(limit) ? out.slice(0, limit) : out;
   }
 
+  /** Stable print/selection key — never rely on array index or display order. */
+  function stableResourceId(entry, kind, title) {
+    const raw = entry && typeof entry === "object" ? entry : {};
+    const explicit = text(
+      raw.id
+      || raw.songId
+      || raw.bookId
+      || raw.resourceId
+      || raw.printableId
+      || raw.itemId
+      || raw.sourceKey,
+    );
+    if (explicit) return explicit;
+    const slug = text(title)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 72);
+    return slug ? `${kind}:${slug}` : "";
+  }
+
   function isImageUrl(url, mimeType) {
     const mime = text(mimeType).toLowerCase();
     if (/^image\//.test(mime)) return true;
@@ -101,10 +122,16 @@
     const materials = asArray(entry.materials).map((item) => presentCopy(item)).filter(Boolean);
     const materialsText = presentCopy(entry.materialsText) || materials.join(" · ");
     const estimatedMinutes = Number(entry.estimatedMinutes || entry.activityDurationMinutes || entry.setupMinutes) || 0;
+    const title = presentCopy(entry.title) || "Activity";
+    const id = stableResourceId(entry, "activity", title) || text(entry.id);
+    const promptSource = asArray(entry.teacherPrompts).length
+      ? asArray(entry.teacherPrompts)
+      : asLines(entry.teacherLanguage || entry.teacherPromptsText).map((line) => ({ text: line }));
     return {
-      id: text(entry.id),
-      title: presentCopy(entry.title) || "Activity",
+      id,
+      title,
       category: presentLabel(entry.activityCategory || entry.category || entry.sectionId || "", ""),
+      ageGroup: presentCopy(entry.ageGroup || entry.age || entry.ageBand || ""),
       dayOfWeek: text(entry.dayOfWeek).toLowerCase(),
       dayLabel: DAY_LABELS[text(entry.dayOfWeek).toLowerCase()] || "",
       objective: presentCopy(entry.learningObjective || entry.objective),
@@ -114,12 +141,12 @@
       setup: presentCopy(entry.setup || entry.preparation),
       steps: presentCopy(entry.steps || entry.directions),
       teacherRole: presentCopy(entry.teacherRole || entry.teacherSupport),
-      teacherPrompts: asArray(entry.teacherPrompts).map((prompt) => ({
+      teacherPrompts: promptSource.map((prompt) => ({
         label: presentLabel(prompt?.label || "Prompt"),
-        text: presentCopy(prompt?.text),
+        text: presentCopy(typeof prompt === "string" ? prompt : prompt?.text),
       })).filter((prompt) => prompt.text),
       learningGoals: asLines(entry.learningGoals),
-      developmentalDomains: asLines(entry.developmentalDomains || entry.domains).map((item) => presentLabel(item, item)),
+      developmentalDomains: asLines(entry.developmentalDomains || entry.domains || entry.learningDomains).map((item) => presentLabel(item, item)),
       estimatedMinutes,
       groupSize: presentCopy(entry.groupSize),
       observationIdeas: asLines(entry.observationIdeas || entry.observationOpportunities),
@@ -164,10 +191,15 @@
       ? presentApi().presentRightsStatus(entry.rightsStatus || entry.rightsMode || entry.rights || "")
       : presentLabel(entry.rightsStatus || entry.rightsMode || entry.rights || "", "");
     const lyricsAllowed = entry.lyricsPrintable === true
+      || entry.allowPrintLyrics === true
       || /public domain|traditional|original/i.test(rights)
       || /^(original|public[_-]?domain|traditional)$/i.test(text(entry.rightsStatus || entry.rightsMode));
     const linkedDay = text(entry.linkedWeekday || entry.dayOfWeek || entry.day).toLowerCase();
+    const lyricsText = lyricsAllowed
+      ? presentCopy(entry.lyrics || (String(entry.notes || "").match(/Lyrics:\s*([\s\S]+?)(?:\nMotions:|$)/i)?.[1]))
+      : "";
     return {
+      id: stableResourceId(entry, "song", title),
       title,
       category: presentLabel(entry.songCategory || entry.category || entry.type || "", ""),
       purpose: presentCopy(entry.purpose || entry.teachingPurpose || entry.concept || entry.whyThisSong),
@@ -177,8 +209,8 @@
       vocabulary: asLines(entry.vocabulary || entry.concepts || entry.vocabularyConnections),
       whenToUse: presentCopy(entry.whenToUse || entry.transition || entry.circleTimeUse || entry.bestTime),
       rights,
-      lyrics: lyricsAllowed ? presentCopy(entry.lyrics) : "",
-      lyricsPrintable: Boolean(lyricsAllowed && presentCopy(entry.lyrics)),
+      lyrics: lyricsText,
+      lyricsPrintable: Boolean(lyricsAllowed && lyricsText),
       relatedDay: DAY_LABELS[linkedDay] || "",
       relatedDayKey: WEEKDAYS.includes(linkedDay) ? linkedDay : "",
       relatedDays: [],
@@ -192,6 +224,7 @@
     const linkedDay = text(entry.suggestedWeekday || entry.dayOfWeek || entry.day).toLowerCase();
     const after = asLines(entry.afterReadingQuestions || entry.readAloudQuestions || entry.questions);
     return {
+      id: stableResourceId(entry, "book", title),
       title,
       author: presentCopy(entry.author),
       whyThisBook: presentCopy(entry.whyThisBook || entry.whyItFits || entry.purpose || entry.concept || entry.notes),
@@ -219,7 +252,7 @@
     const fileUrl = text(entry.fileUrl || entry.url || entry.downloadUrl);
     const embedAsImage = isImageUrl(previewUrl, mimeType) || isImageUrl(fileUrl, mimeType);
     return {
-      id: text(entry.id),
+      id: stableResourceId(entry, "printable", title) || text(entry.id),
       title,
       category: presentLabel(entry.resourceCategory || entry.category || "", "Printable"),
       fileName: text(entry.fileName),
@@ -516,10 +549,15 @@
     const removed = options.removedActivityIds && typeof options.removedActivityIds === "object"
       ? options.removedActivityIds
       : {};
+    const kitAge = presentCopy(sourcePlan.age || kit.age || "");
 
     const activities = asArray(companion.activities)
       .filter((item) => item && !removed[item.id])
-      .map(normalizeActivity);
+      .map((item) => {
+        const normalized = normalizeActivity(item);
+        if (!normalized.ageGroup && kitAge) normalized.ageGroup = kitAge;
+        return normalized;
+      });
     const activityById = new Map(activities.map((item) => [item.id, item]));
 
     let songs = asArray(companion.songs).map(normalizeSong).filter(Boolean);
@@ -650,6 +688,7 @@
   return {
     WEEKDAYS,
     DAY_LABELS,
+    stableResourceId,
     buildPrintableTeachingKitModel,
     validatePrintableModel,
     presentLabel,

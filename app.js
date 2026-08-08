@@ -27735,11 +27735,17 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   if (!built.ok) {
     const reason = built.reason || "build_failed";
     if (typeof showToast === "function") {
-      showToast(reason === "unavailable"
-        ? "This Teaching Kit is not ready to print yet."
-        : "Could not build the selected Teaching Kit print document. Please try again.");
+      if (reason === "empty_selection") {
+        showToast(built.manifest?.emptyReason || "Select at least one resource before printing.");
+      } else if (reason === "selection_not_found") {
+        showToast(built.manifest?.emptyReason || "That selection was not found in this Teaching Kit.");
+      } else if (reason === "unavailable") {
+        showToast("This Teaching Kit is not ready to print yet.");
+      } else {
+        showToast("Could not build the selected Teaching Kit print document. Please try again.");
+      }
     }
-    return { ok: false, reason };
+    return { ok: false, reason, manifest: built.manifest || null };
   }
 
   if (gate.counted && watermark && !String(built.html).includes(watermark)) {
@@ -27768,13 +27774,44 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     selectedResources: selection.selectedResources || null,
     day: selection.day || "",
     activityId: selection.activityId || "",
+    songId: selection.songId || "",
     printableId: selection.printableId || "",
     intent: selection.intent || "print",
+    manifest: built.manifest || null,
+    summary: built.summary || null,
+    contentFingerprint: built.contentFingerprint || "",
     timestamp: new Date().toISOString(),
   };
 
   // Wait briefly for images so print preview is not blank/cut mid-load.
   await prefetchTeachingKitPrintImages(host);
+
+  // Preview selection: mount the same document into Print Center for visual QA
+  // without opening the system print dialog.
+  if (selection.intent === "preview") {
+    const previewHost = document.querySelector("[data-tk-print-preview-host]");
+    if (previewHost) {
+      previewHost.hidden = false;
+      previewHost.innerHTML = `<div class="tk-print-preview-frame" data-tk-print-preview-document="${escapeHtml(documentMode)}">${built.html}</div>`;
+      const summary = built.summary?.summary || "Selection preview ready";
+      if (typeof showToast === "function") showToast(`${summary}. Preview matches Print / Download PDF.`);
+    }
+    document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
+    // Keep host briefly so tests can inspect, then clear print chrome classes.
+    setTimeout(() => {
+      document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
+    }, 500);
+    return {
+      ok: true,
+      reason: "preview",
+      pageCount: built.pageCount || 0,
+      paperSize: built.paperSize || selection.paperSize || "letter",
+      designedDocument: true,
+      documentMode,
+      manifest: built.manifest || null,
+      contentFingerprint: built.contentFingerprint || "",
+    };
+  }
 
   if (typeof recordResourceOutputRequest === "function") {
     recordResourceOutputRequest({
@@ -27796,6 +27833,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       trialExportCounted: Boolean(gate.counted),
       intent: selection.intent || "print",
       designedDocument: true,
+      itemCount: built.manifest?.itemCount || 0,
     });
   }
 
@@ -27835,6 +27873,8 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     paperSize: built.paperSize || selection.paperSize || "letter",
     designedDocument: true,
     documentMode,
+    manifest: built.manifest || null,
+    contentFingerprint: built.contentFingerprint || "",
   };
 }
 

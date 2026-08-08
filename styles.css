@@ -25086,6 +25086,46 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 .tk-check-inline input {
   margin-top: 3px;
 }
+.teaching-kit-workspace .tk-print-select-group {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--tk-line, #e8e0f4);
+  border-radius: 12px;
+  background: #faf8fc;
+}
+.teaching-kit-workspace .tk-print-select-group > strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tk-muted, #6b5f82);
+  margin-bottom: 4px;
+}
+.teaching-kit-workspace .tk-print-preview-host {
+  margin-top: 12px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--tk-line, #e8e0f4);
+  border-radius: 12px;
+  background: #fff;
+}
+.teaching-kit-workspace .tk-print-preview-frame {
+  transform-origin: top left;
+  padding: 8px;
+}
+.teaching-kit-workspace .tk-print-preview-frame .tk-print-page {
+  min-height: 0 !important;
+  break-after: auto !important;
+  page-break-after: auto !important;
+  border-bottom: 1px dashed #e8e0f4;
+  margin-bottom: 12px;
+}
+@media print {
+  .teaching-kit-workspace .tk-print-preview-host {
+    display: none !important;
+  }
+}
 .teaching-kit-print-article,
 .tk-print-root {
   --tk-purple-deep: #542e94;

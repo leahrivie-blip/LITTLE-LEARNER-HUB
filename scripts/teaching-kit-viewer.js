@@ -735,6 +735,17 @@
                   </select>
                 </div>
               ` : ""}
+              ${state.printPreset === "one_song" ? `
+                <div class="tk-print-select-block">
+                  <h4>Choose song</h4>
+                  <select class="tk-select" data-tk-print-song>
+                    ${(kit.companion?.songs || []).map((item) => {
+                      const songId = item.id || `song:${String(item.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                      return `<option value="${escapeHtml(songId)}" ${state.printSongId === songId ? "selected" : ""}>${escapeHtml(item.title)}</option>`;
+                    }).join("") || `<option value="">No songs attached yet</option>`}
+                  </select>
+                </div>
+              ` : ""}
               ${state.printPreset === "one_printable" ? `
                 <div class="tk-print-select-block">
                   <h4>Choose printable</h4>
@@ -746,20 +757,51 @@
                 </div>
               ` : ""}
               ${state.printPreset === "selected_resources" ? `
-                <div class="tk-print-select-block">
+                <div class="tk-print-select-block" data-tk-selected-resources>
                   <h4>Choose resources</h4>
+                  <p class="tk-muted">Selections resolve by stable IDs — only checked items print.</p>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="overview" ${state.selectedResources?.overview ? "checked" : ""} /> Overview</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="vocabulary" ${state.selectedResources?.vocabulary ? "checked" : ""} /> Vocabulary</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="weekly" ${state.selectedResources?.weekly ? "checked" : ""} /> Weekly Plan</label>
-                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="activities" ${state.selectedResources?.activities ? "checked" : ""} /> Activities</label>
-                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="songs" ${state.selectedResources?.songs ? "checked" : ""} /> Songs</label>
-                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="books" ${state.selectedResources?.books ? "checked" : ""} /> Book Guide</label>
-                  <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="printables" ${state.selectedResources?.printables ? "checked" : ""} /> Printables</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="materials" ${state.selectedResources?.materials ? "checked" : ""} /> Materials List</label>
                   <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="toolkit" ${state.selectedResources?.toolkit ? "checked" : ""} /> Teacher Toolkit</label>
-                  ${WEEKDAYS.map((day) => `
-                    <label class="tk-check-inline"><input type="checkbox" data-tk-selected-day="${day}" ${(state.selectedResources?.days || []).includes(day) ? "checked" : ""} /> ${escapeHtml(DAY_SHORT[day] || day)} plan</label>
-                  `).join("")}
+                  <div class="tk-print-select-group">
+                    <strong>Days</strong>
+                    ${WEEKDAYS.map((day) => `
+                      <label class="tk-check-inline"><input type="checkbox" data-tk-selected-day="${day}" ${(state.selectedResources?.days || []).includes(day) ? "checked" : ""} /> ${escapeHtml(DAY_SHORT[day] || day)} plan</label>
+                    `).join("")}
+                  </div>
+                  <div class="tk-print-select-group">
+                    <strong>Activities</strong>
+                    <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="activities" ${state.selectedResources?.activities ? "checked" : ""} /> All activities</label>
+                    ${activities.map((item) => `
+                      <label class="tk-check-inline"><input type="checkbox" data-tk-selected-activity="${escapeHtml(item.id)}" ${(state.selectedResources?.activityIds || []).includes(item.id) ? "checked" : ""} /> ${escapeHtml(item.title)}</label>
+                    `).join("") || `<p class="tk-muted">No activities in this kit.</p>`}
+                  </div>
+                  <div class="tk-print-select-group">
+                    <strong>Songs</strong>
+                    <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="songs" ${state.selectedResources?.songs ? "checked" : ""} /> All songs</label>
+                    ${(kit.companion?.songs || []).map((item) => {
+                      const songId = item.id || `song:${String(item.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                      return `<label class="tk-check-inline"><input type="checkbox" data-tk-selected-song="${escapeHtml(songId)}" ${(state.selectedResources?.songIds || []).includes(songId) ? "checked" : ""} /> ${escapeHtml(item.title)}</label>`;
+                    }).join("") || `<p class="tk-muted">No songs attached.</p>`}
+                  </div>
+                  <div class="tk-print-select-group">
+                    <strong>Books</strong>
+                    <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="books" ${state.selectedResources?.books ? "checked" : ""} /> All books / Book Guide</label>
+                    ${(kit.companion?.books || []).map((item) => {
+                      const bookId = item.id || `book:${String(item.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                      return `<label class="tk-check-inline"><input type="checkbox" data-tk-selected-book="${escapeHtml(bookId)}" ${(state.selectedResources?.bookIds || []).includes(bookId) ? "checked" : ""} /> ${escapeHtml(item.title)}</label>`;
+                    }).join("") || `<p class="tk-muted">No books attached.</p>`}
+                  </div>
+                  <div class="tk-print-select-group">
+                    <strong>Printables</strong>
+                    <label class="tk-check-inline"><input type="checkbox" data-tk-selected-res="printables" ${state.selectedResources?.printables ? "checked" : ""} /> All printables</label>
+                    ${printables.map((item) => {
+                      const printableId = item.id || item.title;
+                      return `<label class="tk-check-inline"><input type="checkbox" data-tk-selected-printable="${escapeHtml(printableId)}" ${(state.selectedResources?.printableIds || []).includes(printableId) ? "checked" : ""} /> ${escapeHtml(item.title)}</label>`;
+                    }).join("") || `<p class="tk-muted">No printables linked.</p>`}
+                  </div>
                 </div>
               ` : ""}
               ${ownerPreview ? `<p class="tk-owner-preview-banner" role="status">ADMIN PREVIEW — print outputs are labeled and do not publish changes.</p>` : ""}
@@ -833,15 +875,25 @@
             </article>
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
-              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
+              ${(() => {
+                const selectionSummary = summarizeCurrentPrintSelection(kit, state);
+                const actionEnabled = printEnabled && selectionSummary.canPrint;
+                const names = (selectionSummary.itemLabels || []).slice(0, 6).join(" · ");
+                return `
+              <p class="tk-muted" data-tk-print-summary><strong>${escapeHtml(selectionSummary.summary)}</strong>${names ? ` — ${escapeHtml(names)}${(selectionSummary.itemLabels || []).length > 6 ? "…" : ""}` : ""}</p>
+              <p class="tk-muted">${escapeHtml(String(includedCount))} kit activities · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
+              ${!selectionSummary.canPrint && printEnabled ? `<p class="tk-note" role="status">${escapeHtml(selectionSummary.emptyReason || "Select something to print.")}</p>` : ""}
               <div class="tk-build-cta-stack">
-                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print binder" : "Print binder (unavailable)"}</button>
-                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Download PDF" : "Download PDF (unavailable)"}</button>
-                <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Preview Binder</button>
+                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Print selection" : (printEnabled ? "Print (select items)" : "Print binder (unavailable)")}</button>
+                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Download PDF" : (printEnabled ? "Download (select items)" : "Download PDF (unavailable)")}</button>
+                <button type="button" class="tk-btn tk-btn-ghost" data-tk-preview-print ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">Preview selection</button>
+                <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Open Digital Binder</button>
               </div>
+              <div class="tk-print-preview-host" data-tk-print-preview-host hidden></div>
               <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
-                ? "Print and Download use the same Complete Teaching Kit document (not the open tab). Choose a pack above, then print or save as PDF."
-                : "Print Center is not available for this session. Binder preview and lesson downloads still work from the action bar."}</p>
+                ? "Preview, Print, and Download PDF use the same resolved selection document (not the open binder tab)."
+                : "Print Center is not available for this session. Binder preview and lesson downloads still work from the action bar."}</p>`;
+              })()}
             </article>
           </aside>
         </div>
@@ -1315,21 +1367,88 @@
       includeImages: true,
       inkSaver: false,
       paperSize: "letter",
-      printActivityId: initialActivityId || "",
-      printPrintableId: "",
+      kitKey: text(kit?.lessonPlanId || kit?.id || kit?.title || ""),
+      printActivityId: initialActivityId || (kit?.companion?.activities || [])[0]?.id || "",
+      printSongId: "",
+      printPrintableId: (kit?.companion?.printables || [])[0]?.id || "",
       selectedResources: {
         overview: false,
         vocabulary: false,
         weekly: false,
-        activities: true,
+        activities: false,
         songs: false,
         books: false,
         printables: false,
         materials: false,
         toolkit: false,
         days: [],
+        activityIds: [],
+        songIds: [],
+        bookIds: [],
+        printableIds: [],
       },
     };
+  }
+
+  function collectSelectedResourcePayload(state) {
+    const selected = state.selectedResources || {};
+    return {
+      overview: selected.overview === true,
+      vocabulary: selected.vocabulary === true,
+      weekly: selected.weekly === true,
+      activities: selected.activities === true,
+      songs: selected.songs === true,
+      books: selected.books === true,
+      printables: selected.printables === true,
+      materials: selected.materials === true,
+      toolkit: selected.toolkit === true,
+      days: [...(selected.days || [])],
+      activityIds: [...(selected.activityIds || [])],
+      songIds: [...(selected.songIds || [])],
+      bookIds: [...(selected.bookIds || [])],
+      printableIds: [...(selected.printableIds || [])],
+    };
+  }
+
+  function buildCurrentPrintOptions(kit, state) {
+    const selectedResources = state.printPreset === "selected_resources"
+      ? collectSelectedResourcePayload(state)
+      : null;
+    return {
+      preset: state.printPreset,
+      parts: state.printParts,
+      removedActivityIds: state.removedActivityIds,
+      day: state.day,
+      activityId: state.printActivityId || "",
+      songId: state.printSongId || "",
+      printableId: state.printPrintableId || "",
+      selectedResources,
+      includeImages: state.includeImages !== false,
+      inkSaver: Boolean(state.inkSaver),
+      paperSize: state.paperSize || "letter",
+      plan: null,
+    };
+  }
+
+  function summarizeCurrentPrintSelection(kit, state) {
+    const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+    if (!printApi?.buildPrintRequest || !printApi?.resolvePrintManifest) {
+      return {
+        summary: presentLabel(state.printPreset || "week_binder", "Print pack"),
+        itemCount: 1,
+        itemLabels: [presentLabel(state.printPreset || "week_binder", "Print pack")],
+        canPrint: true,
+        emptyReason: "",
+      };
+    }
+    const modelApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrintableModel : null;
+    const options = buildCurrentPrintOptions(kit, state);
+    const request = printApi.buildPrintRequest(kit, options);
+    const model = modelApi?.buildPrintableTeachingKitModel
+      ? modelApi.buildPrintableTeachingKitModel(kit, null, { removedActivityIds: state.removedActivityIds })
+      : { ok: true, days: [], activities: kit?.companion?.activities || [], songs: kit?.companion?.songs || [], books: kit?.companion?.books || [], printables: kit?.companion?.printables || [] };
+    const manifest = printApi.resolvePrintManifest(kit, request, model);
+    return printApi.summarizePrintSelection(manifest);
   }
 
   function renderInto(host, kit, state, chrome) {
@@ -1441,30 +1560,24 @@
         return;
       }
 
-      const printBtn = event.target.closest("[data-tk-print-binder], [data-tk-download-binder]");
+      const printBtn = event.target.closest("[data-tk-print-binder], [data-tk-download-binder], [data-tk-preview-print]");
       if (printBtn) {
         event.preventDefault();
-        if (!state.printCenterEnabled) return;
+        if (!state.printCenterEnabled || printBtn.disabled) return;
+        const selectionSummary = summarizeCurrentPrintSelection(kit, state);
+        if (!selectionSummary.canPrint) {
+          const help = root.querySelector("#tk-print-help");
+          if (help) help.textContent = selectionSummary.emptyReason || "Select something to print.";
+          return;
+        }
+        const intent = printBtn.hasAttribute("data-tk-download-binder")
+          ? "download"
+          : (printBtn.hasAttribute("data-tk-preview-print") ? "preview" : "print");
         if (typeof ctx.onPrint === "function") {
-          const selectedResources = state.printPreset === "selected_resources"
-            ? {
-              ...(state.selectedResources || {}),
-              days: [...(state.selectedResources?.days || [])],
-            }
-            : null;
           ctx.onPrint({
-            preset: state.printPreset,
-            parts: state.printParts,
-            removedActivityIds: state.removedActivityIds,
-            day: state.day,
-            activityId: state.printActivityId || state.activityId || "",
-            printableId: state.printPrintableId || "",
-            selectedResources,
+            ...buildCurrentPrintOptions(kit, state),
             adminPreview: isOwnerPreviewKit(kit, chrome),
-            includeImages: state.includeImages !== false,
-            inkSaver: Boolean(state.inkSaver),
-            paperSize: state.paperSize || "letter",
-            intent: printBtn.hasAttribute("data-tk-download-binder") ? "download" : "print",
+            intent,
           });
         }
         return;
@@ -1484,7 +1597,21 @@
             ...(state.selectedResources || {}),
             [key]: Boolean(selectedRes.checked),
           };
+          // Category "all" toggles clear specific ID picks so scope stays unambiguous.
+          if (selectedRes.checked && key === "activities") {
+            state.selectedResources.activityIds = [];
+          }
+          if (selectedRes.checked && key === "songs") {
+            state.selectedResources.songIds = [];
+          }
+          if (selectedRes.checked && key === "books") {
+            state.selectedResources.bookIds = [];
+          }
+          if (selectedRes.checked && key === "printables") {
+            state.selectedResources.printableIds = [];
+          }
         }
+        rerender({ preserveScroll: true });
         return;
       }
 
@@ -1498,6 +1625,67 @@
           ...(state.selectedResources || {}),
           days: [...days],
         };
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      const selectedActivity = event.target.closest("[data-tk-selected-activity]");
+      if (selectedActivity && selectedActivity.matches("input")) {
+        const id = selectedActivity.getAttribute("data-tk-selected-activity");
+        const ids = new Set(state.selectedResources?.activityIds || []);
+        if (selectedActivity.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || {}),
+          activityIds: [...ids],
+          activities: false,
+        };
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      const selectedSong = event.target.closest("[data-tk-selected-song]");
+      if (selectedSong && selectedSong.matches("input")) {
+        const id = selectedSong.getAttribute("data-tk-selected-song");
+        const ids = new Set(state.selectedResources?.songIds || []);
+        if (selectedSong.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || {}),
+          songIds: [...ids],
+          songs: false,
+        };
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      const selectedBook = event.target.closest("[data-tk-selected-book]");
+      if (selectedBook && selectedBook.matches("input")) {
+        const id = selectedBook.getAttribute("data-tk-selected-book");
+        const ids = new Set(state.selectedResources?.bookIds || []);
+        if (selectedBook.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || {}),
+          bookIds: [...ids],
+          books: false,
+        };
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      const selectedPrintable = event.target.closest("[data-tk-selected-printable]");
+      if (selectedPrintable && selectedPrintable.matches("input")) {
+        const id = selectedPrintable.getAttribute("data-tk-selected-printable");
+        const ids = new Set(state.selectedResources?.printableIds || []);
+        if (selectedPrintable.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || {}),
+          printableIds: [...ids],
+          printables: false,
+        };
+        rerender({ preserveScroll: true });
         return;
       }
 
@@ -1628,10 +1816,19 @@
       const activitySelect = event.target.closest("[data-tk-print-activity]");
       if (activitySelect) {
         state.printActivityId = activitySelect.value || "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+      const songSelect = event.target.closest("[data-tk-print-song]");
+      if (songSelect) {
+        state.printSongId = songSelect.value || "";
+        rerender({ preserveScroll: true });
+        return;
       }
       const printableSelect = event.target.closest("[data-tk-print-printable]");
       if (printableSelect) {
         state.printPrintableId = printableSelect.value || "";
+        rerender({ preserveScroll: true });
       }
     }
     root.addEventListener("change", onChange);
@@ -1667,6 +1864,8 @@
         ...flags,
       },
     };
+    // Always re-create print selection state for the active kit so Teaching Kit A
+    // selections never leak into Teaching Kit B.
     const state = defaultState(kit, {
       printCenterEnabled: flags.teachingKitPrintCenter === true || opts.printCenterEnabled === true,
       initialActivityId: opts.initialActivityId,
@@ -1674,6 +1873,11 @@
       initialDay: opts.initialDay,
       initialBinderTab: opts.initialBinderTab,
     });
+    const songs = kit.companion?.songs || [];
+    if (!state.printSongId && songs[0]) {
+      state.printSongId = songs[0].id
+        || `song:${String(songs[0].title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    }
     const chrome = {
       ...(opts.chrome || {}),
       ownerPreview: (opts.chrome && opts.chrome.ownerPreview === true)
@@ -1709,6 +1913,9 @@
     loadingWorkspaceHtml,
     renderLoadingWorkspace,
     defaultState,
+    buildCurrentPrintOptions,
+    summarizeCurrentPrintSelection,
+    collectSelectedResourcePayload,
     workspaceHtml,
     surfaceHtml,
     binderSurfaceHtml,
