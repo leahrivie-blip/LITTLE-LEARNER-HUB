@@ -15689,10 +15689,13 @@ function workHubTile(options = {}) {
   `;
 }
 
-function workHubShell({ eyebrow = "", title = "", subtitle = "", body = "" } = {}) {
+function workHubShell({ eyebrow = "", title = "", subtitle = "", body = "", backHtml = "" } = {}) {
+  // Work hubs (Today / Classroom / Business / More / owner Home) are primary nav roots
+  // when work-mode nav is on — no Back by default. Nested hubs may pass backHtml.
   return `
     <section class="work-hub-page">
       <header class="work-hub-header">
+        ${backHtml || ""}
         <p class="eyebrow">${escapeHtml(eyebrow)}</p>
         <h2>${escapeHtml(title)}</h2>
         ${subtitle ? `<p class="muted-copy">${escapeHtml(subtitle)}</p>` : ""}
@@ -24497,10 +24500,46 @@ function fallbackBackLabel(view) {
   if (view === "children") return "← Back to Children";
   if (view === "ai") return "← Back to Documentation Helpers";
   if (view === "director-center") return "← Back to Director Center";
-  if (view === "support-center") return "← Back to Behavior & Support";
+  if (view === "support-center" || view === "behavior-support") return "← Back to Behavior & Support";
+  if (view === "settings") return "← Back to Settings";
+  if (view === "resources") return "← Back to Resources";
+  if (view === "tools") return "← Back to Provider Tools";
+  if (view === "messages") return "← Back to Messages";
+  if (view === "staff") return "← Back to Staff";
+  if (view === "classrooms") return "← Back to Classrooms";
+  if (view === "enrollment") return "← Back to Enrollment";
+  if (view === "families") return "← Back to Families";
+  if (view === "whats-new") return "← Back to What's New";
+  if (view === "plans") return "← Back to Plans";
+  if (view === "upgrade") return "← Back to Upgrade";
+  if (view === "subscription") return "← Back to Subscription";
+  if (view === "generators") return "← Back to Documentation Helpers";
   if (viewMap[view]) return `← Back to ${viewMap[view]}`;
   return "← Back";
 }
+
+/**
+ * Shared top-of-page Back control for nested views.
+ * Uses contextual return when available; otherwise falls back to fallbackView.
+ * Do not add a second Back on screens that already render one via this helper.
+ */
+function llhPageBackButtonHtml({
+  viewKey = "",
+  fallbackView = "calendar",
+  alwaysVisible = true,
+  label = "",
+  extraClass = "",
+} = {}) {
+  const key = String(viewKey || "").trim();
+  const fallback = String(fallbackView || "calendar").trim() || "calendar";
+  if (!key) return "";
+  const text = String(label || "").trim() || contextualBackLabel(key, fallback);
+  const classes = ["ghost-button", "back-button", String(extraClass || "").trim()].filter(Boolean).join(" ");
+  const alwaysAttr = alwaysVisible ? ' data-always-visible="true"' : "";
+  const hiddenAttr = (!alwaysVisible && !getViewReturnContext(key)) ? " hidden" : "";
+  return `<button class="${escapeHtml(classes)}" type="button" data-contextual-back="${escapeHtml(key)}" data-fallback-view="${escapeHtml(fallback)}"${alwaysAttr}${hiddenAttr} aria-label="${escapeHtml(text)}">${escapeHtml(text)}</button>`;
+}
+window.llhPageBackButtonHtml = llhPageBackButtonHtml;
 
 function getViewReturnContext(view) {
   return view ? viewReturnContexts[view] || null : null;
@@ -36532,10 +36571,12 @@ function renderSupportCenterPage() {
   const topic = supportTopicById(activeSupportTopicId);
   if (topic) {
     section.innerHTML = renderSupportTopicPage(topic, records);
+    if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
     return;
   }
   const category = supportCategoryById(activeSupportCategoryId);
   section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
+  if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
 }
 
 function renderResourcesHubPage() {
@@ -36543,6 +36584,7 @@ function renderResourcesHubPage() {
   if (!section) return;
   section.innerHTML = `
     <section class="resources-hub-page">
+      ${llhPageBackButtonHtml({ viewKey: "resources", fallbackView: "calendar" })}
       <div class="page-title">
         <p class="eyebrow">Resources</p>
         <h2>Learn &amp; get help</h2>
@@ -36587,6 +36629,7 @@ function renderResourcesHubPage() {
       </div>
     </section>
   `;
+  if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
 }
 
 function renderSettingsHubPage() {
@@ -36691,6 +36734,12 @@ function renderSettingsHubPage() {
   ];
   section.innerHTML = `
     <section class="settings-hub-page">
+      ${llhPageBackButtonHtml({
+        viewKey: "settings",
+        fallbackView: "calendar",
+        alwaysVisible: false,
+        label: "← Back",
+      })}
       <div class="page-title">
         <p class="eyebrow">Account</p>
         <h2>Settings</h2>
@@ -36734,6 +36783,7 @@ function renderSettingsHubPage() {
       document.querySelector(`#settings-${anchor}, [data-settings-group="${anchor}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
+  if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
 }
 
 const FAMILY_HUB_SESSION_KEY = "llhFamilyHubSession";
@@ -39145,13 +39195,13 @@ function renderHomeDaycareHubPage(options = {}) {
   if (!isHomeDaycareHubTestingEnabled()) {
     section.innerHTML = `
       <section class="simple-child-page hdh-hub-page">
+        ${llhPageBackButtonHtml({ viewKey: "home-daycare-hub", fallbackView: "calendar" })}
         <div class="child-page-header">
           <div>
             <h2>Home Daycare Hub</h2>
             <p>This workspace isn’t available on this site yet.</p>
           </div>
         </div>
-        <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
       </section>
     `;
     return;
@@ -39160,6 +39210,7 @@ function renderHomeDaycareHubPage(options = {}) {
   const firstChild = children[0] || null;
   section.innerHTML = `
     <section class="simple-child-page hdh-hub-page">
+      ${llhPageBackButtonHtml({ viewKey: "home-daycare-hub", fallbackView: "calendar" })}
       <div class="child-page-header">
         <div>
           <p class="eyebrow">Home Daycare Hub</p>
@@ -39448,9 +39499,23 @@ function buildFamilyHouseholds(records = childRecords()) {
   return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bodyHtml = "" }) {
+function renderManageSurfaceShell({
+  eyebrow,
+  title,
+  detail,
+  actionsHtml = "",
+  bodyHtml = "",
+  backHtml = "",
+  viewKey = "",
+  fallbackView = "settings",
+} = {}) {
+  const resolvedBack = backHtml
+    || (viewKey
+      ? llhPageBackButtonHtml({ viewKey, fallbackView, alwaysVisible: true })
+      : "");
   return `
     <section class="platform-manage-page">
+      ${resolvedBack}
       <div class="page-title">
         <p class="eyebrow">${escapeHtml(eyebrow)}</p>
         <h2>${escapeHtml(title)}</h2>
@@ -39461,6 +39526,7 @@ function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bo
     </section>
   `;
 }
+window.renderManageSurfaceShell = renderManageSurfaceShell;
 
 let staffInviteRemoteCache = { invites: [], members: [], emailDeliveryReady: false, loadedAt: 0 };
 
@@ -39510,7 +39576,8 @@ function renderStaffManagementPage(options = {}) {
       eyebrow: "Staff & Permissions",
       title: "Staff management",
       detail: "Only owners and directors can manage staff invites.",
-      actionsHtml: `<button class="ghost-button" type="button" data-view="settings">Back to Settings</button>`,
+      viewKey: "staff",
+      fallbackView: "settings",
     });
     return;
   }
@@ -39529,8 +39596,9 @@ function renderStaffManagementPage(options = {}) {
     eyebrow: "Staff & Permissions",
     title: "Staff management",
     detail: "Invite assistants, teachers, and directors. They accept by email link, join your program, and receive the role and classroom you assign.",
+    viewKey: "staff",
+    fallbackView: "settings",
     actionsHtml: `
-      <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
       <button class="ghost-button" type="button" data-refresh-staff-invites>Refresh</button>
     `,
     bodyHtml: `
@@ -39710,6 +39778,8 @@ function renderClassroomsPage() {
       eyebrow: "Classrooms",
       title: "Classroom management",
       detail: "Classroom tools are available on Center accounts for owners and directors.",
+      viewKey: "classrooms",
+      fallbackView: "director-center",
       actionsHtml: `<button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>`,
     });
     return;
@@ -39718,6 +39788,8 @@ function renderClassroomsPage() {
     eyebrow: "Classrooms",
     title: "Classroom management",
     detail: "Organize rooms for your center. Active classrooms sync with Calendar lesson assignment.",
+    viewKey: "classrooms",
+    fallbackView: "director-center",
     actionsHtml: `
       <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
       <button class="ghost-button" type="button" data-view="children">Child Profiles</button>
@@ -39812,6 +39884,8 @@ function renderFamiliesPage() {
       eyebrow: "Families",
       title: "Family management",
       detail: "Family tools are available on Center accounts for owners and directors.",
+      viewKey: "families",
+      fallbackView: "director-center",
       actionsHtml: `<button class="ghost-button" type="button" data-view="children">Child Profiles</button>`,
     });
     return;
@@ -39822,6 +39896,8 @@ function renderFamiliesPage() {
     eyebrow: "Families",
     title: "Family management",
     detail: "Households are grouped from Child Profiles. Add a parent/guardian on a child’s profile to combine siblings.",
+    viewKey: "families",
+    fallbackView: "director-center",
     actionsHtml: `
       <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
       <button class="ghost-button" type="button" data-view="enrollment">Enrollment</button>
@@ -39864,6 +39940,8 @@ function renderEnrollmentPage() {
       eyebrow: "Enrollment",
       title: "Enrollment management",
       detail: "Enrollment tools are available on Center accounts for owners and directors.",
+      viewKey: "enrollment",
+      fallbackView: "director-center",
       actionsHtml: `<button class="ghost-button" type="button" data-view="children">Child Profiles</button>`,
     });
     return;
@@ -39878,6 +39956,8 @@ function renderEnrollmentPage() {
     eyebrow: "Enrollment",
     title: "Enrollment management",
     detail: "Track inquiries, waitlist children, and enrolled profiles. Full paperwork automation comes later.",
+    viewKey: "enrollment",
+    fallbackView: "director-center",
     actionsHtml: `
       <button class="primary-button" type="button" data-view="forms">Forms &amp; Paperwork</button>
       <button class="ghost-button" type="button" data-view="families">Families</button>
@@ -39973,6 +40053,7 @@ function renderSupportHomePage(records = childRecords()) {
   // Ship only the working support library — hide unfinished Coming Soon placeholders.
   return `
     <section class="support-center-page" data-behavior-support-ready="true">
+      ${llhPageBackButtonHtml({ viewKey: "support-center", fallbackView: "resources" })}
       <div class="page-title support-center-title">
         <p class="eyebrow">Behavior &amp; Support</p>
         <h2>Support for big feelings and everyday challenges</h2>
@@ -40035,6 +40116,7 @@ function renderDirectorCenterPage() {
   // Director Center routes providers to the live manage surfaces they use every day.
   section.innerHTML = `
     <section class="director-center-page">
+      ${llhPageBackButtonHtml({ viewKey: "director-center", fallbackView: "settings" })}
       <div class="page-title">
         <p class="eyebrow">Center tools</p>
         <h2>Program tools</h2>
@@ -40064,6 +40146,7 @@ function renderDirectorCenterPage() {
       </div>
     </section>
   `;
+  if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
 }
 
 function renderSupportCategoryPage(category) {
@@ -40934,7 +41017,7 @@ function renderChildPortfolioPage(childId) {
   app.innerHTML = `
     <section class="portfolio-page">
       <div class="portfolio-topbar">
-        <button class="ghost-button" data-back-to-children type="button">Back to Child Profiles</button>
+        <button class="ghost-button back-button" data-back-to-children type="button">← Back to Child Profiles</button>
         <button class="primary-button" data-export-portfolio="${child.id}" type="button">Export Portfolio PDF</button>
       </div>
 
@@ -43051,6 +43134,7 @@ function renderDlcDashboard(records) {
 }
 
 function dlcBackLabel(target) {
+  if (target === "children" || target === "exit") return "← Back to Children";
   if (target === "home" || target === "dashboard") return "← Back to Daily Logs";
   if (target === "step2") return "← Back to update options";
   if (target === "step1-multiple" || target === "step1-one") return "← Back to child selection";
@@ -43076,11 +43160,12 @@ function renderDailyLogsCenter(records) {
 
 function dlcBackTarget() {
   // Dashboard is the home surface. Wizard steps return to the previous step or dashboard.
+  // Home itself exits to Child Profiles so users are never trapped without a Back control.
   if (dailyLogsSection === "individual" || dailyLogsSection === "group" || dailyLogsSection === "quick") {
     return "home";
   }
   if (dailyLogsSection !== "home") return "home";
-  if (dlcNewStep === "step1" || !dlcNewStep) return "";
+  if (dlcNewStep === "step1" || !dlcNewStep) return "children";
   if (dlcNewStep === "step1-multiple" || dlcNewStep === "step1-one") return "dashboard";
   if (dlcNewStep === "step2") return dlcChildSelection === "multiple" ? "step1-multiple" : (dlcChildSelection === "one" ? "step1-one" : "dashboard");
   if (dlcNewStep === "manual" || dlcNewStep === "ai-input") return "step2";
@@ -62066,7 +62151,6 @@ function renderPricingPage() {
   });
   target.insertAdjacentHTML("beforeend", `
     <section class="section-block billing-links">
-      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <button class="ghost-button" data-view="upgrade" type="button">Upgrade Page</button>
       <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       <button class="ghost-button" data-view="subscription" type="button">Subscription Status</button>
@@ -62122,7 +62206,6 @@ function renderUpgradePage() {
     </div>
     ${planComparisonTableHtml()}
     <section class="section-block">
-      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <p class="eyebrow">Stripe Checkout</p>
       <h3>Secure payment handoff</h3>
       <p class="muted-copy">These buttons create a Stripe Checkout Session. Locally they run a safe test checkout simulation so billing permissions can be verified.</p>
@@ -62236,7 +62319,6 @@ function renderSubscriptionPage() {
     <section class="section-block">
       ${subscriptionSummaryHtml()}
       <div class="account-actions-row">
-      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <button class="ghost-button" data-view="plans" type="button">Pricing Page</button>
         <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
         <button class="ghost-button" data-view="account" type="button">Account Page</button>
@@ -62258,7 +62340,6 @@ function renderBillingHistoryPage() {
         </div>
       </div>
       <div class="account-actions-row">
-        <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing Management</button>
         <button class="ghost-button" data-view="account" type="button">Account Page</button>
       </div>
       <div class="billing-history-list">
@@ -62375,9 +62456,6 @@ function renderCancelSubscriptionPage() {
         <p class="eyebrow">Cancel Subscription</p>
         <h3>No active subscription to cancel</h3>
         <p class="muted-copy">Manage plans anytime from Settings → Billing &amp; Subscription.</p>
-        <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing &amp; Subscription</button>
-        </div>
       </section>
     `;
     return;
@@ -62390,9 +62468,6 @@ function renderCancelSubscriptionPage() {
         <h3>Cancellation already scheduled</h3>
         <p class="muted-copy"><strong>${escapeHtml(account.subscriptionStatus || `Canceled — Access Ends ${endLabel}`)}</strong></p>
         <p class="muted-copy">You keep access until ${escapeHtml(endLabel)}. No further action is needed.</p>
-        <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing &amp; Subscription</button>
-        </div>
       </section>
     `;
     return;
@@ -62415,7 +62490,7 @@ function renderCancelSubscriptionPage() {
             : ""}
         </ul>
         <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="billing" type="button">← Keep my subscription</button>
+          <button class="ghost-button" data-view="billing" type="button">Keep my subscription</button>
           <button class="danger-button" data-cancel-step="2" type="button">Continue to cancel</button>
         </div>
       </section>
@@ -66334,6 +66409,16 @@ document.addEventListener("click", async (event) => {
   if (dlcBackBtn) {
     event.preventDefault();
     const target = dlcBackBtn.dataset.dlcBack;
+    if (target === "children" || target === "exit") {
+      dailyLogsSection = "home";
+      dlcNewStep = "step1";
+      dlcChildSelection = "all";
+      dlcSelectedChildIds = [];
+      childManagementMode = "list";
+      renderChildManagement();
+      if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
+      return;
+    }
     if (target === "home" || target === "dashboard" || target === "") {
       dailyLogsSection = "home";
       dlcNewStep = "step1";
