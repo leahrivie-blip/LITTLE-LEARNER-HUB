@@ -75,7 +75,10 @@
   }
 
   function lessonLine(r) {
-    return `<strong>${esc(r.title)}</strong> · quality ${esc(r.qualityScore)}% · ${esc(r.qualityLabel)}`;
+    const workflow = r.workflow || r.publishReadiness || "";
+    const library = r.libraryStatus || r.blocking || (r.blockingCount > 0 ? "Blocked" : "No blockers");
+    const premium = r.premiumReadinessPercent != null ? ` · readiness ${esc(r.premiumReadinessPercent)}%` : "";
+    return `<strong>${esc(r.title)}</strong> · ${esc(workflow || r.qualityLabel)} · Library ${esc(library)} · quality ${esc(r.qualityScore)}%${premium}`;
   }
 
   function render() {

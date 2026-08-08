@@ -32,6 +32,65 @@
     return statusApi;
   }
 
+  let qualityApi = null;
+  function loadQualityApi() {
+    if (qualityApi) return qualityApi;
+    if (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitQualityReview) {
+      qualityApi = globalThis.LLHTeachingKitQualityReview;
+      return qualityApi;
+    }
+    try {
+      // eslint-disable-next-line global-require, import/no-dynamic-require
+      qualityApi = require("./teaching-kit-quality-review.js");
+    } catch (_error) {
+      qualityApi = null;
+    }
+    return qualityApi;
+  }
+
+  function normalizeOptions(optionsOrResources) {
+    if (Array.isArray(optionsOrResources)) return { resources: optionsOrResources };
+    if (optionsOrResources && typeof optionsOrResources === "object") return optionsOrResources;
+    return {};
+  }
+
+  /** Published/featured only — draft and archived never count as usable printables. */
+  function isUsablePrintableResource(resource) {
+    if (!resource || typeof resource !== "object") return false;
+    const status = text(resource.status).toLowerCase();
+    return status === "published" || status === "featured";
+  }
+
+  function resourceCatalogFromOptions(options = {}) {
+    return asArray(options.resources);
+  }
+
+  function linkedPrintableIds(plan, week) {
+    const ids = [
+      ...asArray(plan?.resourceIds),
+      ...asArray(week?.printableIds),
+    ].map(text).filter(Boolean);
+    return [...new Set(ids)];
+  }
+
+  function materialsItemCount(materialsText) {
+    return text(materialsText)
+      .split(/[·,\n;]+/)
+      .map(text)
+      .filter(Boolean).length;
+  }
+
+  /**
+   * Materials completeness for premium readiness.
+   * Thin lists (< 6 ordinary items) are Needs Improvement — not premium-ready.
+   */
+  function materialsReadinessState(materialsText) {
+    const count = materialsItemCount(materialsText);
+    if (count <= 0) return "missing";
+    if (count < 6) return "needs_improvement";
+    return "complete";
+  }
+
   function text(value) {
     return String(value == null ? "" : value).trim();
   }
@@ -226,16 +285,46 @@
     return requiredText.length >= 4 && requiredLists.length >= 3;
   }
 
-  function hasLinkedPrintable(plan, week) {
-    return Boolean(asArray(plan?.resourceIds).length || asArray(week?.printableIds).length);
+  /**
+   * True only when a published/usable printable resource is linked.
+   * Draft / archived resources and printable ideas never count.
+   * Pass options.resources (curriculum resource catalog) so status can be resolved.
+   * Bare IDs with no catalog entry are treated as unknown/incomplete (not usable).
+   */
+  function hasLinkedPrintable(plan, week, optionsOrResources) {
+    const options = normalizeOptions(optionsOrResources);
+    const catalog = resourceCatalogFromOptions(options);
+    const byId = new Map(catalog.map((r) => [text(r?.id), r]).filter(([id]) => id));
+    const ids = linkedPrintableIds(plan, week);
+    if (!ids.length) return false;
+    // Require a catalog entry with published/featured status.
+    // Without a match, the id may be a draft upload — never treat as print-ready.
+    return ids.some((id) => isUsablePrintableResource(byId.get(id)));
+  }
+
+  function hasDraftOnlyPrintables(plan, week, optionsOrResources) {
+    const options = normalizeOptions(optionsOrResources);
+    const catalog = resourceCatalogFromOptions(options);
+    const byId = new Map(catalog.map((r) => [text(r?.id), r]).filter(([id]) => id));
+    const ids = linkedPrintableIds(plan, week);
+    if (!ids.length) return false;
+    if (hasLinkedPrintable(plan, week, options)) return false;
+    return ids.some((id) => {
+      const resource = byId.get(id);
+      if (!resource) return true; // unresolved id — treat as not yet usable
+      const status = text(resource.status).toLowerCase();
+      return status === "draft" || !status || status === "archived";
+    });
   }
 
   /**
    * Multi-dimension readiness scores for premium Teaching Kit quality.
    * Image briefs and printable ideas never count as finished assets.
+   * Draft printables never raise print readiness.
    * Guidance for draft save — hard blockers live in quality-review / publish gate.
    */
-  function computeReadinessScores(plan, activities, enrichmentDraft) {
+  function computeReadinessScores(plan, activities, enrichmentDraft, optionsOrResources) {
+    const options = normalizeOptions(optionsOrResources);
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
@@ -245,11 +334,16 @@
     const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
       ? week.teacherToolkit
       : (plan?.teachingKit?.teacherToolkit || {});
+    const printableLinked = hasLinkedPrintable(plan, week, options);
+    const draftOnlyPrintables = hasDraftOnlyPrintables(plan, week, options);
+    const materialsText = text(week.weeklyMaterials || plan?.weeklyMaterials);
+    const materialsState = materialsReadinessState(materialsText);
 
     let setupImages = 0;
     let exampleImages = 0;
     let imageBriefsOnly = 0;
     let activityCompleteUnits = 0;
+    let activitiesInProgress = 0;
     let tipUnits = 0;
     let depthUnits = 0;
     list.forEach((act) => {
@@ -271,7 +365,9 @@
         + (meaningfulText(view.extensions || patch.extensions, 3) ? 0.2 : 0)
       );
       depthUnits += depth;
-      if (activityStatus(act, patch) === ACTIVITY_STATUS.complete) activityCompleteUnits += 1;
+      const status = activityStatus(act, patch);
+      if (status === ACTIVITY_STATUS.complete) activityCompleteUnits += 1;
+      else if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
     });
     const n = Math.max(1, list.length);
     const imageReadiness = clampPercent(((setupImages + exampleImages) / (n * 2)) * 100);
@@ -289,10 +385,14 @@
     const resourceCompleteness = clampPercent((
       (books.length ? (completeBooks / books.length) : 0) * 35
       + (songs.length ? (completeSongs / songs.length) : 0) * 35
-      + (hasLinkedPrintable(plan, week) ? 30 : 0)
+      + (printableLinked ? 30 : 0)
     ));
-    const printReadiness = hasLinkedPrintable(plan, week) ? 100 : (asArray(week.printableIdeas).length ? 15 : 0);
+    // Draft-only / idea-only printables never reach print-ready.
+    const printReadiness = printableLinked
+      ? 100
+      : (draftOnlyPrintables || asArray(week.printableIdeas).length ? 15 : 0);
 
+    const materialsReady = materialsState === "complete";
     const structural = clampPercent((
       (text(plan?.title) ? 10 : 0)
       + (text(plan?.age) ? 8 : 0)
@@ -300,7 +400,7 @@
       + (meaningfulText(week.weeklyOverview || plan?.weeklyOverview, 12) ? 14 : 0)
       + (meaningfulText(week.objectives || plan?.objectives, 8) ? 14 : 0)
       + (text(plan?.vocabularyWords) ? 10 : 0)
-      + (text(plan?.weeklyMaterials) || text(week.weeklyMaterials) ? 10 : 0)
+      + (materialsReady ? 10 : (materialsState === "needs_improvement" ? 4 : 0))
       + (text(week.familyConnection || plan?.familyConnection) ? 8 : 0)
       + (text(week.teacherPreparation) || asArray(toolkit.prepChecklist).length ? 9 : 0)
       + (toolkitRecordComplete(toolkit, week) ? 9 : 0)
@@ -321,8 +421,10 @@
       + educational * 0.15
       + resourceCompleteness * 0.15
     ));
-    // Premium readiness requires real images + linked printables + complete resources.
-    const premiumReadinessPercent = clampPercent((
+    // Premium readiness requires real images + published printables + complete resources.
+    // Cap below Publish Ready when activities are still In Progress, materials are weak,
+    // books lack discussion questions, or only draft/idea printables / image briefs exist.
+    let premiumReadinessPercent = clampPercent((
       structural * 0.2
       + activityCompleteness * 0.15
       + weekdayCompleteness * 0.1
@@ -331,6 +433,19 @@
       + printReadiness * 0.1
       + resourceCompleteness * 0.1
     ));
+    const incompleteBooks = Math.max(0, books.length - completeBooks);
+    if (
+      activitiesInProgress > 0
+      || activityCompleteUnits < list.length
+      || imageBriefsOnly > 0
+      || setupImages < list.length
+      || exampleImages < list.length
+      || !printableLinked
+      || incompleteBooks > 0
+      || materialsState !== "complete"
+    ) {
+      premiumReadinessPercent = Math.min(premiumReadinessPercent, 89);
+    }
 
     return {
       structuralCompleteness: structural,
@@ -347,12 +462,18 @@
       setupImages,
       exampleImages,
       imageBriefsOnly,
+      activitiesInProgress,
+      incompleteActivities: Math.max(0, list.length - activityCompleteUnits),
       completeBooks,
       completeSongs,
       bookCount: books.length,
       songCount: songs.length,
-      hasLinkedPrintable: hasLinkedPrintable(plan, week),
-      hasPrintableIdeasOnly: !hasLinkedPrintable(plan, week) && asArray(week.printableIdeas).length > 0,
+      incompleteBooks,
+      hasLinkedPrintable: printableLinked,
+      hasDraftOnlyPrintables: draftOnlyPrintables,
+      hasPrintableIdeasOnly: !printableLinked && !draftOnlyPrintables && asArray(week.printableIdeas).length > 0,
+      materialsState,
+      materialsItemCount: materialsItemCount(materialsText),
       toolkitComplete: toolkitRecordComplete(toolkit, week),
       weekdayFocusDays,
     };
@@ -362,8 +483,8 @@
    * Structural/text completion % (not premium publish readiness).
    * Image briefs and printable ideas do NOT inflate this toward Publish Ready.
    */
-  function computeCompletionPercent(plan, activities, enrichmentDraft) {
-    return computeReadinessScores(plan, activities, enrichmentDraft).completionPercent;
+  function computeCompletionPercent(plan, activities, enrichmentDraft, optionsOrResources) {
+    return computeReadinessScores(plan, activities, enrichmentDraft, optionsOrResources).completionPercent;
   }
 
   function completenessLabelFromPercent(percent, explicit) {
@@ -393,15 +514,20 @@
         ? Boolean(summary.weekdayCoverage.coverageComplete)
         : true); // back-compat when callers omit coverage
     if (status?.workflowStatusFromParts) {
+      const qualityBlocked = Boolean(summary.blocksPublish)
+        || text(summary.publishReadiness).toLowerCase() === "blocked"
+        || /^blocked$/i.test(text(summary.blocking || summary.libraryStatus));
       return status.workflowStatusFromParts({
         lessonStatus: summary.lessonStatus || (summary.isPublished ? "published" : "draft"),
         enrichmentFillPercent: summary.completionPercent,
         premiumReadinessPercent: summary.premiumReadinessPercent,
         hasEnrichmentDraft: summary.hasEnrichmentDraft,
         coverageComplete,
-        needsReview: summary.needsReview,
-        publishReadiness: summary.publishReadiness,
+        needsReview: summary.needsReview || qualityBlocked,
+        publishReadiness: qualityBlocked ? "blocked" : summary.publishReadiness,
         hasAiProposal: summary.hasAiProposal,
+        qualityBlocked,
+        blocking: summary.blocking || summary.libraryStatus || "",
       });
     }
     const percent = clampPercent(summary.completionPercent);
@@ -722,17 +848,21 @@
   /**
    * Upgrade Summary — shared by Enrichment Editor panel and library triage filters.
    * Guidance only; never blocks draft save.
+   * Pass options.resources so draft printables are not treated as published.
+   * Pass options.qualityReport (or allow attach) so workflow matches Library Health / publish gate.
    */
-  function buildUpgradeSummary(plan, activities, enrichmentDraft) {
+  function buildUpgradeSummary(plan, activities, enrichmentDraft, optionsOrResources) {
+    const options = normalizeOptions(optionsOrResources);
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : null;
     const draftActs = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
     const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
     const list = flattenLessonActivities(plan, activities);
-    const readiness = computeReadinessScores(plan, list, draft);
+    const readiness = computeReadinessScores(plan, list, draft, options);
     const percent = readiness.completionPercent;
     const label = completenessLabelFromPercent(percent, null);
 
     let incompleteActivities = 0;
+    let activitiesInProgress = 0;
     let missingSetupPhotos = 0;
     let missingExamplePhotos = 0;
     let missingTeacherTips = 0;
@@ -746,6 +876,7 @@
       const patch = draftActs[key];
       const status = activityStatus(act, patch);
       if (status !== ACTIVITY_STATUS.complete) incompleteActivities += 1;
+      if (status === ACTIVITY_STATUS.in_progress) activitiesInProgress += 1;
       const view = activityEnrichmentView(act, patch);
       if (!view.setupImageUrl) missingSetupPhotos += 1;
       if (!view.exampleImageUrl) missingExamplePhotos += 1;
@@ -758,17 +889,20 @@
     });
 
     const missingFamilyConnection = !(text(plan?.familyConnection) || text(week.familyConnection));
-    // Printable ideas alone never clear the printable gap — need linked resources.
-    const missingPrintables = !hasLinkedPrintable(plan, week);
+    // Draft printables / ideas alone never clear the printable gap — need published resources.
+    const missingPrintables = !hasLinkedPrintable(plan, week, options);
+    const draftOnlyPrintables = hasDraftOnlyPrintables(plan, week, options);
     const missingBooks = readiness.completeBooks === 0;
     const missingSongs = readiness.completeSongs === 0;
     const missingTeacherToolkit = !readiness.toolkitComplete;
+    const materialsState = readiness.materialsState || materialsReadinessState(week.weeklyMaterials || plan?.weeklyMaterials);
+    const weakMaterials = materialsState === "needs_improvement";
     const aiReady = Boolean(text(plan?.title)) && (
       list.length > 0 || Boolean(text(plan?.weeklyOverview) || text(week.weeklyOverview))
     );
     const missingVocabulary = !text(plan?.vocabularyWords).split(/[,;\n]+/).map(text).filter(Boolean).length;
     const missingWeekObjectives = !text(plan?.objectives);
-    const missingWeekMaterials = !text(plan?.weeklyMaterials);
+    const missingWeekMaterials = !text(plan?.weeklyMaterials) && !text(week.weeklyMaterials);
 
     const lessonStatus = text(plan?.status).toLowerCase() || "draft";
     const isPublished = ["published", "featured"].includes(lessonStatus);
@@ -818,8 +952,13 @@
       || missingSetupPhotos > 0
       || missingExamplePhotos > 0
       || missingPrintables
+      || draftOnlyPrintables
       || missingBooks
       || missingSongs
+      || incompleteActivities > 0
+      || weakMaterials
+      || materialsState === "missing"
+      || (readiness.incompleteBooks || 0) > 0
       || !readiness.toolkitComplete;
     const missingExamples = missingSetupPhotos > 0 || missingExamplePhotos > 0;
     const contentCompletionPercent = weekdayCoverage.coverageComplete
@@ -837,6 +976,7 @@
       weekdayCoverageLabel: weekdayCoverage.label || "",
       activityCount: list.length,
       incompleteActivities,
+      activitiesInProgress,
       missingSetupPhotos,
       missingExamplePhotos,
       imageBriefsNotImages,
@@ -844,6 +984,7 @@
       missingObservationPrompts,
       missingFamilyConnection,
       missingPrintables,
+      hasDraftOnlyPrintables: draftOnlyPrintables,
       hasPrintableIdeasOnly: readiness.hasPrintableIdeasOnly,
       missingBooks,
       missingSongs,
@@ -855,6 +996,8 @@
       missingWeekObjectives,
       missingActivityObjectives,
       missingMaterials: missingWeekMaterials || missingActivityMaterials > 0,
+      weakMaterials,
+      materialsState,
       missingWeekMaterials,
       missingActivityMaterials,
       lastEditedDate,
@@ -869,6 +1012,36 @@
       missingObservations: missingObservationPrompts > 0,
       aiReady,
     };
+
+    // Attach the same quality report Library Health / publish dialog use (avoid recursion).
+    let qualityReport = options.qualityReport || null;
+    if (!qualityReport && !options.skipQualityAttach) {
+      const qr = loadQualityApi();
+      if (qr?.buildQualityReport) {
+        try {
+          qualityReport = qr.buildQualityReport(plan, list, draft, {
+            resources: options.resources,
+            ignoredCodes: options.ignoredCodes || week.qualityReviewIgnored || [],
+            skipUpgradeSummary: true,
+          });
+        } catch (_error) {
+          qualityReport = null;
+        }
+      }
+    }
+    if (qualityReport) {
+      baseSummary.qualityReport = qualityReport;
+      baseSummary.publishReadiness = qualityReport.publishReadiness;
+      baseSummary.publishReadinessLabel = qualityReport.publishReadinessLabel;
+      baseSummary.blocksPublish = Boolean(qualityReport.blocksPublish);
+      baseSummary.blockingIssues = asArray(qualityReport.blockingIssues);
+      baseSummary.overallLabel = qualityReport.overallLabel;
+      baseSummary.qualityScore = qualityReport.overallScore;
+      if (qualityReport.premiumReadinessPercent != null) {
+        baseSummary.premiumReadinessPercent = clampPercent(qualityReport.premiumReadinessPercent);
+      }
+    }
+
     baseSummary.dashboardStage = dashboardStageFromSummary(baseSummary);
     baseSummary.dashboardStageSlug = dashboardStageSlug(baseSummary.dashboardStage);
     if (status?.buildLessonStatus) {
@@ -877,7 +1050,15 @@
         activities: list,
         enrichmentDraft: draft,
         upgradeSummary: baseSummary,
+        qualityReport,
       });
+      // Prefer canonical workflow everywhere — never Publish Ready while Blocked.
+      if (baseSummary.canonicalStatus?.workflow) {
+        baseSummary.dashboardStage = baseSummary.canonicalStatus.workflow;
+        baseSummary.dashboardStageSlug = dashboardStageSlug(baseSummary.dashboardStage);
+      }
+      baseSummary.blocking = baseSummary.canonicalStatus.blocking;
+      baseSummary.libraryStatus = baseSummary.canonicalStatus.blocking;
     }
     return baseSummary;
   }
@@ -1228,6 +1409,10 @@
     songRecordComplete,
     toolkitRecordComplete,
     hasLinkedPrintable,
+    hasDraftOnlyPrintables,
+    isUsablePrintableResource,
+    materialsReadinessState,
+    materialsItemCount,
     isPlaceholderText,
     completenessLabelFromPercent,
     dashboardStageFromSummary,

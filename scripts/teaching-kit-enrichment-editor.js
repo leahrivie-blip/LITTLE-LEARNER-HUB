@@ -110,22 +110,72 @@
       : [];
   }
 
+  function curriculumResources() {
+    try {
+      if (typeof effectiveCurriculum === "function") {
+        return Array.isArray(effectiveCurriculum().resources) ? effectiveCurriculum().resources : [];
+      }
+    } catch (_e) { /* ignore */ }
+    return [];
+  }
+
+  function scoringOptions() {
+    return {
+      resources: curriculumResources(),
+      ignoredCodes: ignoredQualityCodes(),
+    };
+  }
+
+  function evaluateCurrentKit() {
+    const plan = getPlan();
+    const apiQr = qualityReviewApi();
+    const enrich = api();
+    if (!plan) return null;
+    const activities = getActivities(plan);
+    const options = scoringOptions();
+    if (apiQr?.evaluateTeachingKit) {
+      return apiQr.evaluateTeachingKit(plan, activities, state.draft, options);
+    }
+    const report = apiQr?.buildQualityReport
+      ? apiQr.buildQualityReport(plan, activities, state.draft, options)
+      : null;
+    const summary = enrich?.buildUpgradeSummary
+      ? enrich.buildUpgradeSummary(plan, activities, state.draft, {
+        ...options,
+        qualityReport: report,
+        skipQualityAttach: Boolean(report),
+      })
+      : null;
+    return {
+      report,
+      summary,
+      status: summary?.canonicalStatus || null,
+      workflow: summary?.canonicalStatus?.workflow || summary?.dashboardStage || "Legacy",
+      blocking: summary?.canonicalStatus?.blocking || (report?.blocksPublish ? "Blocked" : "No blockers"),
+      blocksPublish: Boolean(report?.blocksPublish),
+      publishReadiness: report?.publishReadiness,
+      premiumReadinessPercent: report?.premiumReadinessPercent ?? summary?.premiumReadinessPercent,
+      completionPercent: report?.completionPercent ?? summary?.completionPercent,
+      blockingIssues: report?.blockingIssues || [],
+    };
+  }
+
   async function runSpecialistQualityReview({ force = false } = {}) {
     if (!isQualityReviewFlagEnabled()) return null;
     const plan = getPlan();
     const apiQr = qualityReviewApi();
     if (!plan || !apiQr?.buildQualityReport) return null;
-    // Prefer local specialist report (uses live draft). Server used for improve/decide.
-    const activities = getActivities(plan);
-    const report = apiQr.buildQualityReport(plan, activities, state.draft, {
-      ignoredCodes: ignoredQualityCodes(),
-    });
+    // Prefer local specialist report (uses live draft). Same source as Library Health / cards.
+    const evaluated = evaluateCurrentKit();
+    const report = evaluated?.report || null;
     state.qualityReport = report;
     state.assistant.quality = {
-      readinessScore: report.overallScore,
-      readinessLabel: report.overallLabel,
-      findings: report.findings,
-      blocksPublish: report.blocksPublish,
+      readinessScore: report?.overallScore,
+      readinessLabel: report?.overallLabel,
+      findings: report?.findings,
+      blocksPublish: report?.blocksPublish,
+      workflow: evaluated?.workflow,
+      blocking: evaluated?.blocking,
     };
     return report;
   }
@@ -209,7 +259,12 @@
       state.lessonAnalysis = null;
       return null;
     }
-    state.lessonAnalysis = teacher.analyzeLessonCompleteness(plan, getActivities(plan), state.draft);
+    state.lessonAnalysis = teacher.analyzeLessonCompleteness(
+      plan,
+      getActivities(plan),
+      state.draft,
+      scoringOptions(),
+    );
     return state.lessonAnalysis;
   }
 
@@ -248,7 +303,7 @@
   }
 
   function recomputePercent(plan, activities) {
-    return api().computeCompletionPercent(plan, activities, state.draft);
+    return api().computeCompletionPercent(plan, activities, state.draft, scoringOptions());
   }
 
   function markDirty({ autosave = true } = {}) {
@@ -1504,36 +1559,39 @@
   }
 
   function renderUpgradeSummary(plan, activities) {
-    const summary = api().buildUpgradeSummary(plan, activities, state.draft);
+    const evaluated = evaluateCurrentKit();
+    const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
     const scores = summary.readinessScores || {};
-    const workflow = summary.canonicalStatus?.workflow || summary.dashboardStage || summary.completenessLabel;
+    const workflow = evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage || summary.completenessLabel;
+    const libraryStatus = evaluated?.blocking || summary.libraryStatus || summary.blocking || "No blockers";
+    const publishReadyActive = workflow === "Publish Ready" && libraryStatus !== "Blocked" && !summary.blocksPublish;
     const rows = [
-      ["incomplete", "Incomplete activities", String(summary.incompleteActivities), summary.incompleteActivities > 0],
+      ["incomplete", "Incomplete / In Progress activities", String(summary.incompleteActivities), summary.incompleteActivities > 0],
       ["setup", "Missing setup photos (real images)", String(summary.missingSetupPhotos), summary.missingSetupPhotos > 0],
       ["example", "Missing finished example photos", String(summary.missingExamplePhotos), summary.missingExamplePhotos > 0],
       ["briefs", "Image briefs (not photos)", String(summary.imageBriefsNotImages || 0), (summary.imageBriefsNotImages || 0) > 0],
       ["tips", "Missing teacher tips", String(summary.missingTeacherTips), summary.missingTeacherTips > 0],
       ["observations", "Missing observation prompts", String(summary.missingObservationPrompts), summary.missingObservationPrompts > 0],
       ["family", "Missing family connections", yn(summary.missingFamilyConnection), summary.missingFamilyConnection],
-      ["printables", "Missing linked printables", yn(summary.missingPrintables), summary.missingPrintables],
-      ["books", "Incomplete books", String(summary.incompleteBooks != null ? summary.incompleteBooks : (summary.missingBooks ? "Yes" : "0")), summary.missingBooks || (summary.incompleteBooks || 0) > 0],
+      ["printables", "Missing published printables", yn(summary.missingPrintables || summary.hasDraftOnlyPrintables), summary.missingPrintables || summary.hasDraftOnlyPrintables],
+      ["books", "Incomplete books / discussion questions", String(summary.incompleteBooks != null ? summary.incompleteBooks : (summary.missingBooks ? "Yes" : "0")), summary.missingBooks || (summary.incompleteBooks || 0) > 0],
       ["songs", "Incomplete songs", String(summary.incompleteSongs != null ? summary.incompleteSongs : (summary.missingSongs ? "Yes" : "0")), summary.missingSongs || (summary.incompleteSongs || 0) > 0],
       ["toolkit", "Missing teacher toolkit", yn(summary.missingTeacherToolkit), summary.missingTeacherToolkit],
       ["vocabulary", "Missing vocabulary", yn(summary.missingVocabulary), summary.missingVocabulary],
       ["objectives", "Missing learning objectives", yn(summary.missingLearningObjectives), summary.missingLearningObjectives],
-      ["materials", "Missing materials", yn(summary.missingMaterials), summary.missingMaterials],
+      ["materials", "Materials Needs Improvement / missing", yn(summary.weakMaterials || summary.missingMaterials), summary.weakMaterials || summary.missingMaterials],
       ["ai", "AI Ready", summary.aiReady ? "Ready" : "Not ready", !summary.aiReady],
     ];
     const canRollback = Array.isArray(plan.enrichmentPublishHistory) && plan.enrichmentPublishHistory.length > 0;
     const structural = summary.enrichmentFillPercent ?? summary.completionPercent ?? 0;
-    const premium = summary.premiumReadinessPercent ?? 0;
+    const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? 0;
     return `
       <aside class="tk-enrich-summary ${state.summaryOpen ? "is-open" : "is-collapsed"}" data-upgrade-summary>
         <div class="tk-enrich-summary-head">
           <div>
             <p class="eyebrow">Upgrade Summary</p>
             <strong data-workflow-status>${esc(workflow)}</strong>
-            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${structural}% structural completion · ${premium}% premium readiness</p>
+            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${structural}% structural completion · ${premium}% premium readiness · Library ${esc(libraryStatus)}</p>
           </div>
           <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
         </div>
@@ -1550,8 +1608,8 @@
           </div>
           <div class="tk-enrich-summary-stepper" aria-hidden="true">
             <span class="${/Legacy/i.test(workflow) ? "is-active" : "is-done"}">Legacy</span>
-            <span class="${/Draft Started|AI Draft|In Review|Needs Changes|In Progress|Needs Review/i.test(workflow) ? "is-active" : (structural >= 50 ? "is-done" : "")}">In Review</span>
-            <span class="${/Publish Ready|Ready for Owner|Ready|Complete/i.test(workflow) ? "is-active" : ""}">Publish Ready</span>
+            <span class="${/Draft Started|AI Draft|In Review|Needs Changes|In Progress|Needs Review/i.test(workflow) ? "is-active" : (structural >= 50 && !publishReadyActive ? "is-done" : "")}">In Review</span>
+            <span class="${publishReadyActive ? "is-active" : ""}" data-publish-ready-step>Publish Ready</span>
             <span class="${/Published/i.test(workflow) ? "is-active" : ""}">Published</span>
           </div>
           <div class="tk-enrich-bar" aria-hidden="true" title="Premium readiness"><i style="width:${premium}%"></i></div>
@@ -1590,10 +1648,14 @@
     const n = activities.length;
     const idx = Math.min(state.activityIndex, Math.max(0, n - 1));
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
-    const summary = api().buildUpgradeSummary(plan, activities, state.draft);
-    const premium = summary.premiumReadinessPercent ?? 0;
-    const workflow = summary.canonicalStatus?.workflow || summary.dashboardStage || label;
-    const blocked = Boolean(state.qualityReport?.blocksPublish);
+    const evaluated = evaluateCurrentKit();
+    const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
+    const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? 0;
+    const workflow = evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage || label;
+    const libraryStatus = evaluated?.blocking || summary.libraryStatus || summary.blocking || "No blockers";
+    const blocked = Boolean(evaluated?.blocksPublish || state.qualityReport?.blocksPublish || libraryStatus === "Blocked");
+    const publishReadyActive = workflow === "Publish Ready" && !blocked && libraryStatus !== "Blocked";
+    if (evaluated?.report) state.qualityReport = evaluated.report;
     return `
       <header class="tk-enrich-chrome">
         <div class="tk-enrich-chrome-top">
@@ -1605,14 +1667,15 @@
           <div class="tk-enrich-progress-block">
             <div class="tk-enrich-stepper">
               <span class="${percent < 50 ? "is-active" : "is-done"}">Legacy</span>
-              <span class="${percent >= 50 && premium < 90 ? "is-active" : premium >= 90 ? "is-done" : ""}">In Review</span>
-              <span class="${premium >= 90 && !blocked ? "is-active" : ""}">Publish Ready</span>
+              <span class="${!publishReadyActive && (percent >= 50 || /In Review|Needs Changes|Draft/i.test(workflow)) ? "is-active" : (publishReadyActive ? "is-done" : "")}">In Review</span>
+              <span class="${publishReadyActive ? "is-active" : ""}" data-publish-ready-step>Publish Ready</span>
             </div>
             <div class="tk-enrich-percent-row">
               <strong title="Structural completion (field fill)">Completion ${percent}%</strong>
               <span class="muted-copy" data-premium-readiness-chrome title="Premium Teaching Kit readiness">Readiness ${premium}%</span>
               <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${premium}%"></i></div>
               <span class="tag" data-workflow-status-chrome>${esc(workflow)}</span>
+              <span class="tag ${libraryStatus === "Blocked" ? "is-danger" : ""}" data-library-status-chrome title="Same Library Health status">Library ${esc(libraryStatus)}</span>
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
@@ -2194,17 +2257,22 @@
   function renderPublishModal(plan, activities) {
     if (!state.publishOpen) return "";
     const summary = api().summarizePublishChanges(plan, activities, state.draft);
-    const upgrade = api().buildUpgradeSummary(plan, activities, state.draft);
+    const evaluated = evaluateCurrentKit();
+    const upgrade = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
     const qualityOn = isQualityReviewFlagEnabled();
-    const report = state.qualityReport;
-    const blocked = qualityOn && report?.blocksPublish;
+    const report = evaluated?.report || state.qualityReport;
+    if (report) state.qualityReport = report;
+    const blocked = qualityOn && (evaluated?.blocksPublish || report?.blocksPublish || evaluated?.blocking === "Blocked");
     const readiness = report?.publishReadinessLabel
       || (blocked ? "Blocked" : (report?.publishReadiness === "ready" ? "Ready" : "Needs Review"));
     const acceptedAi = Number(state.draft?.acceptedAiSuggestionCount || state._acceptedAiCount || 0);
     const manualEdits = Number(state.draft?.manualEditCount || (state.dirty ? 1 : 0));
     const warningCount = (report?.warnings || []).length;
-    const blockerCount = (report?.blockingIssues || []).length;
+    const blockers = report?.blockingIssues || evaluated?.blockingIssues || [];
+    const blockerCount = blockers.length;
+    const workflow = evaluated?.workflow || upgrade.canonicalStatus?.workflow || upgrade.dashboardStage || "—";
+    const libraryStatus = evaluated?.blocking || upgrade.libraryStatus || (blocked ? "Blocked" : "No blockers");
     return `
       <div class="tk-enrich-modal" data-publish-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-publish-title">
         <button type="button" class="tk-enrich-modal-backdrop" data-publish-cancel aria-label="Cancel publish"></button>
@@ -2214,24 +2282,34 @@
             <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. AI cannot publish. Save Draft never publishes. Cancel leaves everything unchanged.</p>
             <ul class="tk-enrich-publish-summary">
               <li><strong>Current published version:</strong> ${historyCount ? `${historyCount} snapshot(s) on file` : "None yet — first enrichment publish"}</li>
-              <li><strong>Draft version:</strong> ${esc(upgrade.draftOrPublished)} · structural ${upgrade.completionPercent ?? "—"}% · premium ${upgrade.premiumReadinessPercent ?? "—"}%</li>
+              <li><strong>Draft version:</strong> ${esc(upgrade.draftOrPublished)} · structural ${upgrade.completionPercent ?? "—"}% · premium ${evaluated?.premiumReadinessPercent ?? upgrade.premiumReadinessPercent ?? "—"}%</li>
+              <li><strong>Workflow / Library status:</strong> ${esc(workflow)} · ${esc(libraryStatus)}</li>
               <li><strong>Sections changing:</strong> ${summary.photoChanges} photo(s), ${summary.tipChanges} tip(s), ${summary.linkedActivitiesAffected} linked activit${summary.linkedActivitiesAffected === 1 ? "y" : "ies"}</li>
               <li><strong>Accepted AI suggestions (session):</strong> ${acceptedAi}</li>
               <li><strong>Manual edits pending:</strong> ${manualEdits ? "Yes" : "None flagged"}</li>
               <li><strong>Remaining warnings:</strong> ${warningCount}</li>
               <li><strong>Hard blockers:</strong> ${blockerCount}${blocked ? " — Publish disabled until resolved or owner override" : ""}</li>
               <li><strong>Images added/removed:</strong> ${summary.photoChanges} photo field update(s)</li>
-              <li><strong>Printables:</strong> ${upgrade.missingPrintables ? "Still missing linked printable resources" : "Linked printable resources present"}</li>
+              <li><strong>Printables:</strong> ${upgrade.missingPrintables || upgrade.hasDraftOnlyPrintables ? "Still missing a published printable (drafts/ideas do not count)" : "Published printable resources linked"}</li>
               <li><strong>Customer-visible result:</strong> ${summary.isPublished ? "Providers see enrichment only after this publish succeeds" : "Lesson is not published/featured yet"}</li>
               <li><strong>Publish readiness:</strong> <span data-publish-readiness-label>${esc(qualityOn ? readiness : "Quality Review off")}</span></li>
             </ul>
+            ${blockerCount ? `
+              <div class="tk-quality-hard-blockers" data-publish-blocker-list>
+                <h4>Unresolved blockers</h4>
+                <p class="muted-copy">Every open publish blocker (same list as Quality Review / Library Health):</p>
+                <ul>
+                  ${blockers.map((b) => `<li data-blocker-code="${esc(b.code || "")}">${esc(b.message || b.code || "Unresolved blocker")}</li>`).join("")}
+                </ul>
+              </div>
+            ` : ""}
             ${qualityOn ? `
               <div class="tk-quality-publish-gate">
                 <div class="tk-quality-publish-gate-head">
                   <strong>AI Curriculum Quality Review</strong>
                   <button type="button" class="ghost-button" data-quality-run-publish ${state.qualityBusy ? "disabled" : ""}>${state.qualityBusy ? "Reviewing…" : "Run / refresh review"}</button>
                 </div>
-                <p class="muted-copy">Same blocker logic as Quality Review. Ready / Needs Review / Blocked. Nothing auto-publishes.</p>
+                <p class="muted-copy">Same scoring source as the editor, lesson card, and Library Health. Ready / Needs Review / Blocked. Nothing auto-publishes.</p>
                 ${renderQualityReportBlock(report)}
                 ${blocked ? `
                   <div class="tk-quality-override" data-publish-override>
@@ -2669,17 +2747,26 @@
     if (!plan || !percentEl) return;
     const activities = getActivities(plan);
     const percent = recomputePercent(plan, activities);
-    const summary = api().buildUpgradeSummary(plan, activities, state.draft);
-    const premium = summary.premiumReadinessPercent ?? percent;
-    const workflow = summary.canonicalStatus?.workflow || summary.dashboardStage
+    const evaluated = evaluateCurrentKit();
+    const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
+    const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? percent;
+    const workflow = evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage
       || api().completenessLabelFromPercent(percent, null);
+    const libraryStatus = evaluated?.blocking || summary.libraryStatus || summary.blocking || "No blockers";
     percentEl.textContent = `Completion ${percent}%`;
     const readinessEl = chrome.querySelector("[data-premium-readiness-chrome]");
     if (readinessEl) readinessEl.textContent = `Readiness ${premium}%`;
     const bar = chrome.querySelector(".tk-enrich-bar i");
     if (bar) bar.style.width = `${premium}%`;
-    const tag = chrome.querySelector(".tk-enrich-percent-row .tag");
+    const tag = chrome.querySelector("[data-workflow-status-chrome]");
     if (tag) tag.textContent = workflow;
+    const libraryTag = chrome.querySelector("[data-library-status-chrome]");
+    if (libraryTag) libraryTag.textContent = `Library ${libraryStatus}`;
+    const publishStep = chrome.querySelector("[data-publish-ready-step]");
+    if (publishStep) {
+      const ready = workflow === "Publish Ready" && libraryStatus !== "Blocked";
+      publishStep.classList.toggle("is-active", ready);
+    }
     const summaryPct = document.querySelector("[data-upgrade-summary] .tk-enrich-bar i");
     if (summaryPct) summaryPct.style.width = `${premium}%`;
   }
@@ -3157,7 +3244,8 @@
           const acts = typeof curriculumActivitiesForLesson === "function"
             ? curriculumActivitiesForLesson(plan.id)
             : [];
-          const summary = enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null);
+          const resources = curriculumResources();
+          const summary = enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null, { resources });
           return { percent: summary.completionPercent, summary };
         };
         const next = workspace?.nextLessonInQueue

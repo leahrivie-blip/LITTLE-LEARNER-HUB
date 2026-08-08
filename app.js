@@ -11986,35 +11986,58 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
       contentPercent: 0,
       weekdayLabel: "",
       enrichmentFillPercent: 0,
+      premiumReadinessPercent: 0,
+      libraryStatus: "No blockers",
+      blocksPublish: false,
     };
   }
   const acts = typeof curriculumActivitiesForLesson === "function"
     ? curriculumActivitiesForLesson(plan.id)
     : [];
-  const summary = typeof enrich.buildUpgradeSummary === "function"
-    ? enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null)
+  const resources = typeof effectiveCurriculum === "function"
+    ? (effectiveCurriculum().resources || [])
+    : [];
+  const quality = typeof LLHTeachingKitQualityReview !== "undefined" ? LLHTeachingKitQualityReview : null;
+  const evaluated = quality?.evaluateTeachingKit
+    ? quality.evaluateTeachingKit(plan, acts, plan.enrichmentDraft || null, { resources })
     : null;
+  const summary = evaluated?.summary || (typeof enrich.buildUpgradeSummary === "function"
+    ? enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null, { resources })
+    : null);
   const enrichmentFill = summary
     ? (summary.enrichmentFillPercent ?? summary.completionPercent)
-    : enrich.computeCompletionPercent(plan, acts, plan.enrichmentDraft || null);
+    : enrich.computeCompletionPercent(plan, acts, plan.enrichmentDraft || null, { resources });
   const contentPercent = summary?.contentCompletionPercent != null
     ? summary.contentCompletionPercent
     : enrichmentFill;
   const label = summary
     ? summary.completenessLabel
     : enrich.completenessLabelFromPercent(enrichmentFill, null);
-  const stage = summary?.dashboardStage
+  const stage = evaluated?.workflow
+    || summary?.canonicalStatus?.workflow
+    || summary?.dashboardStage
     || (typeof enrich.dashboardStageFromSummary === "function"
       ? enrich.dashboardStageFromSummary(summary || { completionPercent: enrichmentFill })
       : label);
+  const libraryStatus = evaluated?.blocking
+    || summary?.libraryStatus
+    || summary?.blocking
+    || (summary?.blocksPublish ? "Blocked" : "No blockers");
   return {
     percent: contentPercent,
     enrichmentFillPercent: enrichmentFill,
     contentPercent,
+    premiumReadinessPercent: evaluated?.premiumReadinessPercent
+      ?? summary?.premiumReadinessPercent
+      ?? 0,
     weekdayLabel: summary?.weekdayCoverageLabel || summary?.weekdayCoverage?.label || "",
     label,
     stage,
+    libraryStatus,
+    blocksPublish: Boolean(evaluated?.blocksPublish || summary?.blocksPublish || libraryStatus === "Blocked"),
+    blockingIssues: evaluated?.blockingIssues || summary?.blockingIssues || [],
     summary,
+    evaluated,
   };
 }
 
@@ -12096,13 +12119,15 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
             <span class="tag">${isKit ? "Teaching Kit" : "Legacy"}</span>
             <span class="${coverQualityStatusTagClass(coverQuality)}">Cover: ${escapeHtml(coverQualityStatusLabel(coverQuality))}</span>
-            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status">${escapeHtml(stage)}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status" data-workflow-status>${escapeHtml(stage)}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag ${enrichment.libraryStatus === "Blocked" ? "cover-quality-needs-upgrade" : ""}" title="Library Health / publish gate" data-library-status>Library ${escapeHtml(enrichment.libraryStatus || "No blockers")}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Content completion (weekday coverage)">${escapeHtml(enrichment.weekdayLabel || `${enrichment.contentPercent}% content`)}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
+            ${enrichEnabled ? `<span class="tag" title="Premium Teaching Kit readiness">${Number(enrichment.premiumReadinessPercent || 0)}% readiness</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
             ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
           </div>
-          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.contentPercent}%"></i></div>` : ""}
+          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${Number(enrichment.premiumReadinessPercent || enrichment.contentPercent || 0)}%"></i></div>` : ""}
           ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>

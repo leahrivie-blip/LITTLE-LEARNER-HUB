@@ -247,7 +247,29 @@ function runUnitScoringTests() {
   assert(codes.includes("missing_printables"), "printables blocker");
   assert(codes.includes("missing_weekday_focus") || codes.includes("placeholder_text"), "placeholder weekday blocker");
   assert(codes.includes("incomplete_toolkit"), "incomplete toolkit blocker");
+  assert(codes.includes("activities_in_progress"), "in-progress activities block");
+  assert(codes.includes("weak_materials"), "weak materials block premium readiness");
   assert((report.blockingIssues || []).some((b) => b.navigateTo), "blockers include navigateTo");
+
+  // Draft printable never counts as published; Publish Ready never while Blocked.
+  const draftPrintPlan = JSON.parse(JSON.stringify(plan));
+  draftPrintPlan.resourceIds = ["res-draft-only"];
+  draftPrintPlan.enrichmentDraft.week.printableIds = ["res-draft-only"];
+  const draftResources = [{ id: "res-draft-only", status: "draft", title: "Draft cards", type: "printable" }];
+  const evaluated = quality.evaluateTeachingKit(
+    draftPrintPlan,
+    acts,
+    draftPrintPlan.enrichmentDraft,
+    { resources: draftResources },
+  );
+  assert(evaluated.blocking === "Blocked", "library Blocked with draft printable");
+  assert(evaluated.workflow !== "Publish Ready", "no Publish Ready while Blocked");
+  assert(
+    evaluated.blockingIssues.some((b) => b.code === "draft_printables_only" || b.code === "missing_printables"),
+    "draft printable blocker present",
+  );
+  assert(evaluated.summary.hasDraftOnlyPrintables === true, "draft-only printable flagged in summary");
+  assert(evaluated.summary.readinessScores.printReadiness < 50, "draft printable does not raise print readiness");
 
   // Real image URL raises image score; brief alone never does.
   const withImages = JSON.parse(JSON.stringify(plan));

@@ -61,24 +61,29 @@
 
   function bookHasQuestions(book) {
     if (!book || typeof book !== "object") return false;
-    return Boolean(
-      text(book.questions)
-      || text(book.discussionQuestions)
-      || text(book.beforeQuestions)
-      || text(book.duringQuestions)
-      || text(book.afterQuestions)
-      || asArray(book.readAloudQuestions).length,
-    );
+    const enrich = loadEnrichment();
+    if (typeof enrich?.bookRecordComplete === "function") {
+      return enrich.bookRecordComplete(book);
+    }
+    const questions = asArray(book.beforeReadingQuestions).length
+      + asArray(book.duringReadingPrompts).length
+      + asArray(book.afterReadingQuestions || book.questions || book.readAloudQuestions).length
+      + (text(book.discussionQuestions) ? 1 : 0)
+      + (text(book.beforeQuestions) ? 1 : 0)
+      + (text(book.duringQuestions) ? 1 : 0)
+      + (text(book.afterQuestions) ? 1 : 0);
+    return questions > 0;
   }
 
   /**
    * Score each Teaching Kit area for completeness only (not educational quality).
    */
-  function analyzeLessonCompleteness(plan, activities, enrichmentDraft) {
+  function analyzeLessonCompleteness(plan, activities, enrichmentDraft, options = {}) {
     const enrich = loadEnrichment();
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
+    const resources = asArray(options.resources);
     const list = enrich?.flattenLessonActivities
       ? enrich.flattenLessonActivities(plan, activities)
       : asArray(activities);
@@ -121,30 +126,37 @@
         };
       if (!view.teacherTips.length) tipsMissing += 1;
       if (!view.observationPrompts.length && !text(act.observationOpportunities)) obsMissing += 1;
-      const hasSetupVisual = Boolean(view.setupImageUrl || text(patch.imageBriefSetup));
-      const hasExampleVisual = Boolean(view.exampleImageUrl || text(patch.imageBriefExample));
-      if (!hasSetupVisual || !hasExampleVisual) imagesMissing += 1;
-      else if (!view.setupImageUrl || !view.exampleImageUrl) imagesBriefOnly += 1;
+      // Image briefs never count as actual setup/finished photos.
+      const hasSetupPhoto = Boolean(view.setupImageUrl);
+      const hasExamplePhoto = Boolean(view.exampleImageUrl);
+      const hasSetupBrief = Boolean(text(patch.imageBriefSetup || view.imageBriefSetup));
+      const hasExampleBrief = Boolean(text(patch.imageBriefExample || view.imageBriefExample));
+      if (!hasSetupPhoto || !hasExamplePhoto) imagesMissing += 1;
+      if ((!hasSetupPhoto && hasSetupBrief) || (!hasExamplePhoto && hasExampleBrief)) imagesBriefOnly += 1;
       const hasDraftPack = Boolean(
         view.teacherTips.length
         && (view.observationPrompts.length || text(act.observationOpportunities))
         && text(patch.setup || act.setup)
         && text(patch.steps || act.steps)
-        && hasSetupVisual
-        && hasExampleVisual,
+        && hasSetupPhoto
+        && hasExamplePhoto,
       );
       if (hasDraftPack) draftReadyActs += 1;
       const status = enrich?.activityStatus ? enrich.activityStatus(act, patch) : "not_started";
-      if (status === "complete" || hasDraftPack) completeActs += 1;
+      if (status === "complete") completeActs += 1;
     });
 
     const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
     const songs = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
     const booksWithQuestions = books.filter(bookHasQuestions).length;
     const family = text(week.familyConnection) || text(plan?.familyConnection);
-    const printables = asArray(plan?.resourceIds).length
-      || asArray(week.printableIds).length
-      || asArray(week.printableIdeas).length;
+    const publishedPrintables = enrich?.hasLinkedPrintable
+      ? (enrich.hasLinkedPrintable(plan, week, { resources }) ? 1 : 0)
+      : 0;
+    const draftOnlyPrintables = enrich?.hasDraftOnlyPrintables
+      ? enrich.hasDraftOnlyPrintables(plan, week, { resources })
+      : false;
+    const printableIdeas = asArray(week.printableIdeas).length;
     const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
       ? week.teacherToolkit
       : (plan?.teachingKit?.teacherToolkit || {});
@@ -153,6 +165,9 @@
       || text(toolkit.teacherPreparation)
       || text(week.teacherPreparation)
       || text(toolkit.notes);
+    const materialsState = enrich?.materialsReadinessState
+      ? enrich.materialsReadinessState(materialsText)
+      : statusFromPresence(Boolean(materialsText), materialsText.split(/[·,\n;]+/).map(text).filter(Boolean).length >= 6);
 
     const sections = [
       {
@@ -179,8 +194,14 @@
       {
         id: "materials",
         label: "Materials",
-        status: statusFromPresence(Boolean(materialsText), materialsText.split(/[·,\n]/).map(text).filter(Boolean).length >= 6),
-        detail: materialsText ? "Materials list present" : "No materials checklist",
+        status: materialsState === "complete" || materialsState === "needs_improvement" || materialsState === "missing"
+          ? materialsState
+          : statusFromPresence(Boolean(materialsText), materialsText.split(/[·,\n;]+/).map(text).filter(Boolean).length >= 6),
+        detail: materialsState === "complete"
+          ? "Materials checklist ready"
+          : (materialsState === "needs_improvement"
+            ? "Materials list too thin (Needs Improvement)"
+            : "No materials checklist"),
       },
       {
         id: "daily_plan",
@@ -192,11 +213,11 @@
         id: "activities",
         label: "Activities",
         status: statusFromPresence(
-          list.length > 0 && draftReadyActs > 0,
-          list.length > 0 && draftReadyActs >= list.length,
+          list.length > 0 && (draftReadyActs > 0 || completeActs > 0),
+          list.length > 0 && completeActs >= list.length,
         ),
         detail: list.length
-          ? `${draftReadyActs}/${list.length} activities have a full draft pack (${completeActs} complete/enriched)`
+          ? `${completeActs}/${list.length} activities complete (${draftReadyActs} with full photo pack)`
           : "No activities linked",
       },
       {
@@ -227,7 +248,7 @@
         id: "book_questions",
         label: "Book questions",
         status: statusFromPresence(booksWithQuestions > 0, books.length > 0 && booksWithQuestions >= books.length),
-        detail: books.length ? `${booksWithQuestions}/${books.length} books have questions` : "No books",
+        detail: books.length ? `${booksWithQuestions}/${books.length} books have discussion questions` : "No books",
       },
       {
         id: "family",
@@ -238,22 +259,29 @@
       {
         id: "printables",
         label: "Printables",
-        status: statusFromPresence(printables > 0, printables >= 2 || asArray(week.printableIdeas).length >= 2),
-        detail: printables ? "Printable ideas or links present" : "No printables",
+        status: publishedPrintables > 0
+          ? "complete"
+          : (draftOnlyPrintables || printableIdeas > 0 ? "needs_improvement" : "missing"),
+        detail: publishedPrintables > 0
+          ? "Published printable linked"
+          : (draftOnlyPrintables
+            ? "Draft printable linked — does not count as published/usable"
+            : (printableIdeas > 0 ? "Printable ideas only — not print-ready" : "No printables")),
       },
       {
         id: "images",
         label: "Images",
-        status: statusFromPresence(
-          list.length > 0 && imagesMissing < list.length,
-          list.length > 0 && imagesMissing === 0,
-        ),
+        status: list.length > 0 && imagesMissing === 0
+          ? "complete"
+          : (imagesBriefOnly > 0 || (list.length > 0 && imagesMissing < list.length)
+            ? "needs_improvement"
+            : (list.length ? "missing" : "missing")),
         detail: list.length
-          ? (imagesMissing
-            ? `${imagesMissing} activit${imagesMissing === 1 ? "y" : "ies"} missing setup/example visuals`
-            : (imagesBriefOnly
-              ? `All activities have image briefs (${imagesBriefOnly} brief-only; upload photos when ready)`
-              : "All activities have setup + example visuals"))
+          ? (imagesBriefOnly
+            ? `${imagesBriefOnly} brief-only image slot(s) — briefs never count as photos`
+            : (imagesMissing
+              ? `${imagesMissing} activit${imagesMissing === 1 ? "y" : "ies"} missing real setup/example photos`
+              : "All activities have real setup + example photos"))
           : "No activities",
       },
       {
@@ -275,7 +303,7 @@
       counts[section.status] = (counts[section.status] || 0) + 1;
     });
     const summary = enrich?.buildUpgradeSummary
-      ? enrich.buildUpgradeSummary(plan, list, draft)
+      ? enrich.buildUpgradeSummary(plan, list, draft, { resources, skipQualityAttach: true })
       : { completionPercent: 0 };
     const gapSectionIds = sections
       .filter((section) => section.status !== "complete")
