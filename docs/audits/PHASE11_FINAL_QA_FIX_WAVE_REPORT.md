@@ -11,9 +11,11 @@
 
 ## Recommendation
 
-**READY FOR OWNER REVIEW** (testing site), after the fix-wave commit is deployed to **testing only**.
+**READY FOR OWNER REVIEW** (testing site), after the fix-wave branch is deployed to **testing only**.
 
 **NOT** production-approved. Production remains read-only until Leah’s explicit written approval.
+
+**HEAD:** see `git rev-parse` on `cursor/phase11-final-qa-fix-wave-4eae` · PR `#590`
 
 ---
 
@@ -122,6 +124,28 @@ Invariant preserved: **AI may propose. Human must review and explicitly act.**
 
 ---
 
+## Automated regression results (this wave)
+
+| Suite | Result |
+|---|---|
+| `npm run check` | PASS |
+| `test:ai-review-before-save-phase9` | PASS |
+| `test:daily-operations-phase5` | PASS |
+| `test:daily-operations-mobile-phase5` | PASS |
+| `test:family-hub-phase6` | PASS |
+| `test:forms-phase7` | PASS |
+| `test:tuition-phase8` | PASS |
+| `test:canonical-data-phase4` | PASS |
+| `test:canonical-fixtures-phase4` | PASS |
+| `test:owner-testing-admin-phase2` | PASS |
+| `test:phase11-security-cross-access` | PASS |
+| `test:nav-role-experience` | PASS |
+| `test:live-testing-feature-sync-phase10` | PASS |
+| `test:messaging-regression` | PASS |
+| Final QA orchestrator first pass | 20/22 (2 flaky/stale — Phase 10 tracker wording + messaging port race); both re-run **PASS** |
+
+---
+
 ## Testing deployment
 
 | Item | Value |
@@ -130,6 +154,8 @@ Invariant preserved: **AI may propose. Human must review and explicitly act.**
 | Shell to confirm | `20260808-phase11-fix-wave` |
 | Production service | `srv-d8o3f3r6sc1c73comlc0` — **do not deploy** |
 | Agent Render API key | **Not present in this cloud agent env** — owner must redeploy testing from this branch/commit via Render Dashboard or `npm run deploy:testing-only-phase11` with secrets |
+| Remote testing shell at end of wave | still `20260808-phase11-final-qa` until Leah redeploys |
+| Production shell at end of wave | `20260808-cookie-cta` · HDH `false` (**untouched**) |
 
 After redeploy, confirm:
 
