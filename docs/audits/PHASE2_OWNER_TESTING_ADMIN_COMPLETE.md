@@ -59,19 +59,17 @@ Automated check: `npm run test:owner-testing-admin-phase2`.
 
 ---
 
-## Roadmap (confirmed order)
+## Roadmap (approved — Leah 2026-08-08)
 
 1. Safety + HDH/`main` ✅  
-2. Owner Admin ✅ (stabilize during your live validation; fix usability bugs before Phase 3)  
-3. Navigation cleanup  
+2. Owner Admin ✅ — **hold Phase 3 until Owner Admin validation finishes**; fix usability bugs found during validation first  
+3. Navigation cleanup *(on hold)*  
 4. One source of truth (children/staff/families)  
 5. Daily operations → Family Hub → Forms → Billing (testing) → AI review-before-save  
-6. **Live → Testing Feature Sync** (see `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md`)  
-7. Final QA / production readiness  
+6. **Live → Testing Feature Sync** — testing becomes the **complete future product**; production stays **read-only** (see `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md`)  
+7. Final QA / production readiness — production updates **only** after explicit approval  
 
----
-
-## Still open / during your validation
+**Continuous quality:** In every remaining phase, fix bugs, polish UI/usability, and clear low-risk tech debt in the area being worked — do not defer obvious safe improvements.
 
 | Item | Notes |
 |---|---|
