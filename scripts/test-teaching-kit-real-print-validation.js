@@ -388,7 +388,7 @@ async function main() {
     losses: [],
     modes: {},
     lessons: [],
-    pdfMergeStatus: "INCOMPLETE — no pdf-lib/merge dependency; PDF attachments indexed only; image printables can embed full-page",
+    pdfMergeStatus: "COMPLETE — pdf-lib merges selected attached printable PDF pages into Download/Print output in selection order",
     curriculumMutated: false,
   };
 

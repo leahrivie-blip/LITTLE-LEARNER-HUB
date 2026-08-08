@@ -170,6 +170,18 @@
       : null);
   }
 
+  function mergeApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPrintablePdfMerge)
+      || (typeof require === "function" ? (() => { try { return require("./teaching-kit-printable-pdf-merge.js"); } catch (_e) { return null; } })()
+      : null);
+  }
+
+  function binderPdfApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitBinderPdf)
+      || (typeof require === "function" ? (() => { try { return require("./teaching-kit-binder-pdf.js"); } catch (_e) { return null; } })()
+      : null);
+  }
+
   function presentApi() {
     return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPresent)
       || (typeof require === "function" ? (() => { try { return require("./teaching-kit-present.js"); } catch (_e) { return null; } })()
@@ -1407,26 +1419,35 @@
   function printablesBody(model, selection) {
     const items = model.printables || [];
     if (!items.length) return "";
-    const hasPdfAttachments = items.some((item) => !item.embedAsImage);
+    const hasPdfAttachments = items.some((item) => item.hasPdfAttachment || (!item.embedAsImage && (item.fileData || item.fileUrl)));
     const hasImagePrintables = items.some((item) => item.embedAsImage);
+    const missingAttachments = items.filter((item) => !item.embedAsImage && !(item.fileData || item.fileUrl));
     const noteParts = [];
     if (hasImagePrintables) {
       noteParts.push("Image printables appear full-page when available.");
     }
     if (hasPdfAttachments) {
-      noteParts.push("Additional printable PDF file(s) are included separately — their pages are listed here and must be opened or downloaded from the Teaching Kit. They are not merged into this binder document.");
+      noteParts.push("Attached printable PDF page(s) are merged into Download PDF / Print in the selected order, keeping each printable’s original page size and orientation.");
+    }
+    if (missingAttachments.length) {
+      noteParts.push(`${missingAttachments.length} listed printable${missingAttachments.length === 1 ? "" : "s"} have no attached PDF file yet.`);
     }
     if (!noteParts.length) {
       noteParts.push("Printable resources for this lesson are listed below.");
     }
-    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>${escapeHtml(noteParts.join(" "))}</span></div>`;
-    const cards = items.map((item) => `
-      <article class="tk-print-resource-card tk-print-printable-card tk-print-keep">
+    const note = `<div class="tk-print-callout tk-print-keep" data-tk-printables-note><strong>Printable resources</strong><span>${escapeHtml(noteParts.join(" "))}</span></div>`;
+    const cards = items.map((item) => {
+      const hasFile = Boolean(item.fileData || item.fileUrl);
+      const badge = item.embedAsImage
+        ? "Image printable"
+        : (hasFile ? "PDF pages included in download" : "PDF attachment missing");
+      return `
+      <article class="tk-print-resource-card tk-print-printable-card tk-print-keep" data-tk-printable-id="${escapeHtml(item.id || "")}" data-tk-printable-attachment="${hasFile && !item.embedAsImage ? "1" : "0"}">
         <header>
           <h3>${escapeHtml(item.title)}</h3>
           <div class="tk-print-badge-row">
             ${badgeHtml(item.category || "Printable")}
-            ${item.embedAsImage ? badgeHtml("Image printable") : badgeHtml("PDF included separately")}
+            ${badgeHtml(badge)}
           </div>
         </header>
         ${item.previewUrl
@@ -1443,9 +1464,11 @@
         ${hasDisplayValue(item.printingDirections) ? panelHtml("Printing notes", `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 200))}</p>`, "print") : ""}
         ${item.embedAsImage
           ? `<p class="tk-print-muted">Full printable image included on the following page.</p>`
-          : `<p class="tk-print-muted"><strong>Additional printable PDF included separately.</strong> Pages were not merged into this binder document.</p>`}
-      </article>
-    `).join("");
+          : (hasFile
+            ? `<p class="tk-print-muted" data-tk-attachment-included="1"><strong>Actual PDF pages are included</strong> in Download PDF / Print for this selection.</p>`
+            : `<p class="tk-print-muted" data-tk-attachment-missing="1"><strong>No PDF file is attached</strong> for this printable. Download will stop with a clear message instead of substituting another file.</p>`)}
+      </article>`;
+    }).join("");
     return note + `<div class="tk-print-resource-grid">${cards}</div>`;
   }
 
@@ -2145,6 +2168,15 @@
     built.selection = selection;
     built.manifest = manifest;
     built.summary = summarizePrintSelection(manifest);
+    const merger = mergeApi();
+    const attachmentPlan = merger?.planPrintableAttachments
+      ? merger.planPrintableAttachments(manifest, {
+        // HTML preview can still list printables; merge/download enforces attachments.
+        requireAttachment: false,
+        failOnMissing: false,
+      })
+      : { ok: true, attachments: [], missing: [], duplicatesSkipped: [], summary: "" };
+    built.attachmentPlan = attachmentPlan;
     built.model = {
       ok: model.ok,
       title: model.title,
@@ -2163,6 +2195,7 @@
       ...(manifest.bookIds || []),
       ...(manifest.printableIds || []),
       manifest.materialsScope || "",
+      ...(attachmentPlan.attachments || []).map((item) => item.id),
     ].join("|");
     return built;
   }
@@ -2170,6 +2203,106 @@
   /** Preview uses the exact same builder as print/PDF download. */
   function buildPrintPreviewHtml(kit, options) {
     return buildBinderPrintHtml(kit, { ...(options || {}), intent: "preview" });
+  }
+
+  /**
+   * Build the final downloadable/printable PDF for a selection:
+   * binder HTML → PDF, then merge selected printable PDF attachments in order.
+   */
+  async function buildMergedTeachingKitPdf(kit, options = {}) {
+    const built = buildBinderPrintHtml(kit, options);
+    if (!built.ok) {
+      return {
+        ok: false,
+        reason: built.reason || "build_failed",
+        bytes: null,
+        built,
+        report: null,
+      };
+    }
+
+    const merger = mergeApi();
+    const binderApi = binderPdfApi();
+    if (!merger?.mergeTeachingKitPdf || !binderApi?.renderBinderPdf) {
+      return {
+        ok: false,
+        reason: "pdf_pipeline_missing",
+        bytes: null,
+        built,
+        report: null,
+      };
+    }
+
+    const selectedPdfPrintables = (built.manifest?.printables || []).filter((item) => !item.embedAsImage);
+    const strictPlan = merger.planPrintableAttachments(built.manifest, {
+      // Fail closed when the selection includes PDF printables that must be attached.
+      requireAttachment: selectedPdfPrintables.length > 0,
+      failOnMissing: selectedPdfPrintables.length > 0,
+    });
+    if (!strictPlan.ok) {
+      return {
+        ok: false,
+        reason: strictPlan.reason || "attachment_missing",
+        bytes: null,
+        built,
+        report: strictPlan,
+        message: strictPlan.summary,
+      };
+    }
+
+    const binderInput = options.host || built.html;
+    const binderRendered = await binderApi.renderBinderPdf(binderInput, {
+      paperSize: built.paperSize || options.paperSize || "letter",
+      stylesHref: options.stylesHref,
+      forceBrowser: options.forceBrowser === true || Boolean(options.host),
+    });
+    // Allow printable-only packs to skip binder pages when binder render is empty
+    // but attachments exist (e.g. one_printable with cover omitted).
+    const allowAttachmentOnly = ["printables", "one_printable"].includes(built.documentMode)
+      && strictPlan.attachments.length > 0;
+    if (!binderRendered.ok && !allowAttachmentOnly) {
+      return {
+        ok: false,
+        reason: binderRendered.reason || "binder_pdf_failed",
+        bytes: null,
+        built,
+        report: strictPlan,
+      };
+    }
+
+    const merged = await merger.mergeTeachingKitPdf({
+      binderPdfBytes: binderRendered.ok ? binderRendered.bytes : null,
+      manifest: built.manifest,
+      attachmentPlan: strictPlan,
+      fetchBytes: options.fetchBytes,
+      failOnInvalid: true,
+    });
+    if (!merged.ok) {
+      return {
+        ok: false,
+        reason: merged.reason || "merge_failed",
+        bytes: null,
+        built,
+        report: merged.report || strictPlan,
+        message: merged.report?.summary || "",
+      };
+    }
+
+    return {
+      ok: true,
+      reason: "ok",
+      bytes: merged.bytes,
+      built,
+      report: {
+        ...merged.report,
+        binderEngine: binderRendered.engine || null,
+        contentFingerprint: built.contentFingerprint,
+        selectedPrintableIds: built.manifest?.printableIds || [],
+        includedPrintableIds: (merged.report?.included || []).map((item) => item.id),
+      },
+      manifest: built.manifest,
+      contentFingerprint: built.contentFingerprint,
+    };
   }
 
   function buildFullWeeklyLessonPlanHtml(kit, options) {
@@ -2286,6 +2419,7 @@
     evaluatePresetAvailability,
     buildBinderPrintHtml,
     buildPrintPreviewHtml,
+    buildMergedTeachingKitPdf,
     buildEntireBinderKitHtml,
     buildFullWeeklyLessonPlanHtml,
     buildFullWeeklyLessonPlanText,

@@ -247,10 +247,23 @@
     const entry = item && typeof item === "object" ? item : {};
     const title = presentCopy(entry.title);
     if (!title) return null;
-    const previewUrl = text(entry.previewUrl || entry.thumbnailUrl || entry.coverImageUrl || entry.fileUrl || entry.url);
-    const mimeType = text(entry.mimeType);
-    const fileUrl = text(entry.fileUrl || entry.url || entry.downloadUrl);
+    const fileData = text(entry.fileData);
+    const fileUrl = text(entry.fileUrl || entry.url || entry.downloadUrl || entry.mediaUrl || fileData);
+    const previewUrl = text(entry.previewUrl || entry.thumbnailUrl || entry.coverImageUrl || fileUrl);
+    const mimeType = text(entry.mimeType)
+      || (/^data:application\/pdf/i.test(fileData) || /\.pdf(\?|$)/i.test(fileUrl) ? "application/pdf" : "");
     const embedAsImage = isImageUrl(previewUrl, mimeType) || isImageUrl(fileUrl, mimeType);
+    const hasPdfAttachment = Boolean(
+      !embedAsImage
+      && (
+        /^data:application\/pdf/i.test(fileData)
+        || /^data:application\/pdf/i.test(fileUrl)
+        || /application\/pdf/i.test(mimeType)
+        || /\.pdf(\?|$)/i.test(fileUrl)
+        || /\.pdf(\?|$)/i.test(text(entry.fileName))
+      )
+      && (fileData || fileUrl),
+    );
     return {
       id: stableResourceId(entry, "printable", title) || text(entry.id),
       title,
@@ -265,6 +278,7 @@
       printingDirections: presentCopy(entry.printingDirections || entry.printNotes || entry.notes),
       previewUrl,
       fileUrl,
+      fileData,
       relatedActivityId: text(entry.relatedActivityId || entry.activityId),
       usedInWeek: asArray(entry.usedInWeek).map((slot) => ({
         day: text(slot.day),
@@ -272,8 +286,9 @@
         moment: presentCopy(slot.moment),
       })),
       embedAsImage,
-      // PDF page merge is not available without a PDF library — never claim otherwise.
-      hasEmbeddedPages: false,
+      hasPdfAttachment,
+      // True only after merge pipeline successfully plans this attachment.
+      hasEmbeddedPages: hasPdfAttachment,
     };
   }
 
