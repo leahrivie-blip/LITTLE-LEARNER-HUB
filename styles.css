@@ -7493,6 +7493,28 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   margin-top: 12px;
 }
 
+.curriculum-assign-child-picker {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.curriculum-assign-child-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+.curriculum-assign-child-option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.92rem;
+}
+
 .curriculum-planner-day-board {
   display: grid;
   gap: 12px;
@@ -9074,6 +9096,7 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s;
+  min-height: 88px;
 }
 
 .dlc-group-action-btn:hover {
@@ -9122,16 +9145,20 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 12px 12px;
   background: #f7fafd;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
+  min-height: 48px;
 }
 
 .dlc-child-check input[type="checkbox"] {
   accent-color: var(--primary);
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
 }
 
 .dlc-child-age {
@@ -9191,14 +9218,17 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 
 .dlc-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   border-bottom: 2px solid var(--line);
   padding-bottom: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .dlc-tab {
-  padding: 8px 14px;
+  padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
   border: 1.5px solid var(--line);
@@ -9207,6 +9237,8 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   color: var(--muted);
   cursor: pointer;
   transition: all 0.15s;
+  flex: 0 0 auto;
+  min-height: 44px;
 }
 
 .dlc-tab.active {
@@ -20628,6 +20660,59 @@ body.lesson-editor-view .main {
   background: #fff;
 }
 
+.dlc-overview-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dlc-room-filter select {
+  min-height: 44px;
+  min-width: 160px;
+  font-size: 15px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+
+.dlc-tap-lg,
+.dlc-home-toolbar .primary-button,
+.dlc-home-toolbar .ghost-button {
+  min-height: 44px;
+}
+
+.dlc-group-hint {
+  margin: 8px 0 12px;
+}
+
+@media (max-width: 720px) {
+  .dlc-home-toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .dlc-home-toolbar .primary-button {
+    grid-column: 1 / -1;
+  }
+
+  .dlc-att-card .primary-button,
+  .dlc-att-card .ghost-button {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .dlc-quick-btns button,
+  .dlc-day-quick-actions button {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+}
+
 .dlc-att-card-main {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -23181,9 +23266,105 @@ body.hdh-persona-parent .main {
   min-height: 42px;
 }
 
+.hdh-form-source-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #355a3a;
+  background: #e7f2e8;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.fh-form-progress,
+.fh-form-pre {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.fh-form-progress {
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid #c9d2c4;
+  border-radius: 8px;
+  margin: 8px 0 12px;
+}
+
+.fh-form-pre {
+  white-space: pre-wrap;
+  overflow-x: auto;
+  padding: 12px;
+  background: #f7f5ef;
+  border-radius: 8px;
+}
+
+/* Phase 8 — Tuition billing (provider + Family Hub), testing only */
+#hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form input,
+#hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form select,
+#hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form textarea,
+[data-tuition-mobile-ready="true"] .fh-account-actions .primary-button,
+[data-tuition-mobile-ready="true"] .fh-account-actions .ghost-button {
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .form-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form input,
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form select,
+  #hdhTuitionBillingPanel[data-tuition-mobile-ready="true"] .panel-form textarea,
+  [data-fh-billing-live="true"] input,
+  [data-fh-billing-live="true"] select,
+  [data-fh-billing-live="true"] textarea {
+    min-height: 44px;
+    font-size: 16px; /* avoid iOS zoom */
+  }
+
+  #hdhTuitionBillingPanel .hdh-forms-pack-actions,
+  [data-tuition-mobile-ready="true"] .fh-account-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  #hdhTuitionBillingPanel .hdh-forms-pack-actions .primary-button,
+  #hdhTuitionBillingPanel .hdh-forms-pack-actions .ghost-button,
+  [data-tuition-mobile-ready="true"] .fh-account-actions .primary-button,
+  [data-tuition-mobile-ready="true"] .fh-account-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 720px) {
   .hdh-forms-filters {
     grid-template-columns: 1fr;
+  }
+
+  .fh-form-progress,
+  .hdh-forms-filters input,
+  .hdh-forms-filters select,
+  .hdh-assign-template-form input,
+  .hdh-assign-template-form select,
+  .hdh-assign-template-form textarea {
+    min-height: 44px;
+    font-size: 16px; /* avoid iOS zoom */
+  }
+
+  .fh-account-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  .fh-account-actions .primary-button,
+  .fh-account-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
   }
 }
 
@@ -28796,4 +28977,33 @@ body.user-authenticated .llh-cal-week-strip {
 
 body.user-authenticated .main {
   overflow-x: clip;
+}
+
+/* Phase 9 — AI review-before-save */
+[data-ai-review-before-save="true"] .settings-check-label,
+.dlc-ai-review-panel .settings-check-label,
+.doc-helper-review-gates .settings-check-label,
+.hdh-ai-review-gates .settings-check-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+
+.dlc-ai-review-panel textarea,
+.doc-helper-review-gates input,
+.hdh-ai-review-gates input {
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .dlc-ai-review-panel textarea {
+    width: 100%;
+    font-size: 16px;
+  }
+  .dlc-ai-review-panel .account-actions-row .primary-button,
+  .dlc-ai-review-panel .account-actions-row .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
 }
