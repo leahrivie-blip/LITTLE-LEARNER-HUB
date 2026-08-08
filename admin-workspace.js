@@ -156,6 +156,12 @@
           <button type="button" class="primary-button" data-admin-landing-tab="advisor">Open AI Business Advisor</button>
         </article>
         <article class="admin-home-card">
+          <p class="eyebrow">Testing</p>
+          <h4>Testers &amp; test programs</h4>
+          <p class="muted-copy">Add testers, choose Home Daycare or Center, set roles and feature flags, View As, and audit — without the database.</p>
+          <button type="button" class="primary-button" data-admin-landing-tab="testing-testers">Open Testers</button>
+        </article>
+        <article class="admin-home-card">
           <p class="eyebrow">Needs Attention</p>
           <h4>${needsAttention.length ? "Action recommended" : "All clear"}</h4>
           ${needsAttention.length
