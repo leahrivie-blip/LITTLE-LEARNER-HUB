@@ -694,12 +694,25 @@
   function printablesBody(model, selection) {
     const items = model.printables || [];
     if (!items.length) return "";
-    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>Resource index below. Image printables appear full-page when available. <em>Binary PDF page merge is not available in this release</em> — PDF attachments remain listed here and must be opened/downloaded separately from the Teaching Kit until a dedicated merge dependency is approved.</span></div>`;
+    const hasPdfAttachments = items.some((item) => !item.embedAsImage);
+    const hasImagePrintables = items.some((item) => item.embedAsImage);
+    const noteParts = [];
+    if (hasImagePrintables) {
+      noteParts.push("Image printables appear full-page when available.");
+    }
+    if (hasPdfAttachments) {
+      noteParts.push("Additional printable PDF file(s) are included separately — their pages are listed here and must be opened or downloaded from the Teaching Kit. They are not merged into this binder document.");
+    }
+    if (!noteParts.length) {
+      noteParts.push("Printable resources for this lesson are listed below.");
+    }
+    const note = `<div class="tk-print-callout tk-print-keep"><strong>Printable resources</strong><span>${escapeHtml(noteParts.join(" "))}</span></div>`;
     const cards = items.map((item) => `
       <article class="tk-print-resource-card tk-print-keep">
         <header>
           <h3>${escapeHtml(item.title)}</h3>
           ${badgeHtml(item.category || "Printable")}
+          ${item.embedAsImage ? badgeHtml("Image printable") : badgeHtml("PDF included separately")}
         </header>
         ${item.previewUrl && !item.embedAsImage ? `<div class="tk-print-resource-preview"><img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" loading="eager" decoding="async" onerror="this.remove()" /></div>` : ""}
         <div class="tk-print-resource-meta">
@@ -707,7 +720,9 @@
           ${(item.usedInWeek || []).length ? `<span>${escapeHtml(item.usedInWeek.map((slot) => [slot.dayLabel, slot.moment].filter(Boolean).join(" · ")).join("; "))}</span>` : ""}
         </div>
         ${hasDisplayValue(item.printingDirections) ? `<p class="tk-print-tight">${escapeHtml(shortText(item.printingDirections, 180))}</p>` : ""}
-        ${item.embedAsImage ? `<p class="tk-print-muted">Full printable image included on the following page.</p>` : `<p class="tk-print-muted">File pages not embedded in this PDF.</p>`}
+        ${item.embedAsImage
+          ? `<p class="tk-print-muted">Full printable image included on the following page.</p>`
+          : `<p class="tk-print-muted"><strong>Additional printable PDF included separately.</strong> Pages were not merged into this binder.</p>`}
       </article>
     `).join("");
     return note + `<div class="tk-print-resource-grid">${cards}</div>`;

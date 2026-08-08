@@ -125,7 +125,7 @@ function testLegacyAndPartial() {
   ok(miniBinder.ok === true, "enriched mini binder");
   if (miniModel.capabilities.printables) {
     ok(/Printable resources|Printables/i.test(miniBinder.html), "printables referenced when present");
-    ok(/not embedded|File pages not embedded/i.test(miniBinder.html), "does not silently claim embedded pages");
+    ok(/Additional printable PDF included separately|not embedded|File pages not embedded|included separately/i.test(miniBinder.html), "does not silently claim embedded pages");
   }
   assertNoForbidden(miniBinder.html, "mini binder");
 
