@@ -14,10 +14,10 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | 🚧 **Phase 5 in progress** — Daily Operations |
-| **Overall completion** | **~36%** (4 of 11 major steps complete; Phase 5 started) |
+| **Current phase** | ⏳ **Ready for Phase 6** — Family Hub (Phase 5 complete; awaiting owner start) |
+| **Overall completion** | **~45%** (5 of 11 major steps complete) |
 | **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval |
-| **Testing status** | 🟢 Active — Phase 4 One Source of Truth complete on testing branch |
+| **Testing status** | 🟢 Active — Daily Operations complete on testing branch |
 | **Major blockers** | None |
 | **Known high-priority bugs** | None logged |
 
@@ -29,76 +29,50 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 |---|---|---|
 | 1 | Safety + HDH/`main` confirmation | ✅ Completed |
 | 2 | Owner Admin (tester control + dashboard) | ✅ **Fully complete** |
-| 3 | Navigation cleanup | ✅ **Completed** (+ final nav review) |
-| 4 | One source of truth (children / staff / families) | ✅ **Completed** |
-| 5 | Daily operations | 🚧 **In progress** |
-| 6 | Family Hub | ⏳ Remaining |
+| 3 | Navigation cleanup | ✅ **Completed** |
+| 4 | One source of truth | ✅ **Completed** |
+| 5 | Daily operations | ✅ **Completed** |
+| 6 | Family Hub | ⏳ Remaining — **next** (do not start until Leah confirms) |
 | 7 | Forms | ⏳ Remaining |
 | 8 | Billing (testing) | ⏳ Remaining |
 | 9 | AI review-before-save | ⏳ Remaining |
 | 10 | Live → Testing Feature Sync | ⏳ Remaining |
-| 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining — production deploy only with **written** approval |
+| 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining |
 
-**Completion percentage:** 4/11 ≈ **36%**.
+**Completion percentage:** 5/11 ≈ **45%**.
 
 ---
 
 ## ✅ Completed phases
 
-### 1. Safety + HDH/`main` confirmation
-- Confirmed HDH/`main` as testing spine; July branch not merged  
-
-### 2. Owner Admin — fully complete
-- Report: `docs/audits/PHASE2_OWNER_ADMIN_COMPLETION_REPORT.md`  
-- PR: https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/572  
-
-### 3. Navigation Cleanup — complete
-- Report: `docs/audits/PHASE3_NAVIGATION_CLEANUP_COMPLETION_REPORT.md`  
-- Final review: `docs/audits/PHASE3_FINAL_NAVIGATION_REVIEW.md`  
+### 1–3
+See prior reports (Safety, Owner Admin, Navigation).
 
 ### 4. One Source of Truth — complete
-- One durable home per major object; no second Family Hub roster  
-- Weekly Planner dual-read from schedule (temporary fallback documented)  
-- Drift report-first (no auto-delete); HD + Center fixtures  
-- Report: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH_COMPLETION_REPORT.md`  
-- Branch: `cursor/phase4-one-source-of-truth-9c23`  
+- Report: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH_COMPLETION_REPORT.md`
+
+### 5. Daily Operations — complete
+- Group logging → per-child canonical records; individual exceptions; mobile smoke  
+- Server role ACL; Family Hub parent-visible vs staff-only  
+- Report: `docs/audits/PHASE5_DAILY_OPERATIONS_COMPLETION_REPORT.md`  
+- Branch: `cursor/phase4-one-source-of-truth-9c23`
 
 ---
 
 ## 🚧 Current phase
 
-### 5. Daily Operations — just started
-- Builds on Phase 4 canonical Child / Classroom / Schedule / Daily Log homes  
-- Scope: attendance, meals, naps, activities, photos, end-of-day flow on testing  
-- Must not invent parallel child or classroom stores  
+None in progress — **awaiting Leah to start Phase 6 Family Hub**.
 
 ---
 
 ## ⏳ Remaining phases
 
-6. Family Hub  
+6. Family Hub ← **next**  
 7. Forms  
 8. Billing (testing)  
 9. AI review-before-save  
 10. Live → Testing Feature Sync  
-11. Pre–Final QA audit → Final QA → deploy **only** with written approval  
-
----
-
-## Major blockers
-
-| Blocker | Impact | Resolution |
-|---|---|---|
-| _(none)_ | — | — |
-| No written production deploy approval | Blocks any production release | Expected |
-
----
-
-## Known high-priority bugs
-
-| Bug | Area | Status |
-|---|---|---|
-| _(none logged)_ | — | — |
+11. Pre–Final QA → Final QA → deploy **only** with written approval  
 
 ---
 
@@ -107,25 +81,11 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | Check | Status |
 |---|---|
 | Production modified during remaining roadmap? | **No** |
-| Production lesson plans / Teaching Kits | Untouched |
-| Production DB / users / billing / flags | Untouched |
-| Deploy authorized? | **No** — waiting on written approval after Final QA |
-
----
-
-## Testing status
-
-| Check | Status |
-|---|---|
-| HDH/`main` testing architecture | Source of truth |
-| Owner Testing Admin | Validated |
-| Work-mode nav cleanup | Complete |
-| One source of truth | Complete |
-| Daily operations | Started |
-| July Testing Lab merge | **Not** merged |
+| Deploy authorized? | **No** |
 
 ---
 
 ## Phase gate rule
 
-Every phase ends with a completion report before the next phase starts. Keep this tracker current.
+Every phase ends with a completion report before the next phase starts. Keep this tracker current.  
+**Phase 6 must not begin until Daily Operations is owner-approved complete** (this report).
