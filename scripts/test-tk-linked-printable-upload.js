@@ -419,7 +419,12 @@ async function main() {
     try {
       const { chromium } = require("playwright");
       const browser = await chromium.launch({ headless: true });
-      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      // Block service workers so controllerchange reloads do not race page.reload() checks.
+      const context = await browser.newContext({
+        viewport: { width: 1280, height: 900 },
+        serviceWorkers: "block",
+      });
+      const page = await context.newPage();
       page.on("dialog", async (dialog) => { await dialog.accept(); });
 
       await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
@@ -538,26 +543,44 @@ async function main() {
       }, null, { timeout: 20000 });
       ok(true, "Save draft & link succeeds from browser panel");
 
-      await page.reload({ waitUntil: "domcontentloaded" });
+      const afterBrowserSave = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(ownerToken)}`);
+      const browserSavedResource = (afterBrowserSave.json.siteContent?.curriculum?.resources || [])
+        .find((r) => /Browser Persist Vocabulary Cards/i.test(r.title || ""));
+      const browserSavedPlan = (afterBrowserSave.json.siteContent?.curriculum?.lessonPlans || [])
+        .find((p) => p.id === FIXTURE_LESSON);
+      ok(Boolean(browserSavedResource), "browser-saved printable present in store");
+      ok(browserSavedResource?.status === "draft", "browser-saved printable is draft in store");
+      ok((browserSavedPlan?.resourceIds || []).includes(browserSavedResource?.id), "browser-saved printable linked on lesson in store");
+
+      await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
       await page.evaluate(() => setView("admin"));
-      if (await page.locator("#adminUnlockForm").isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await page.locator("#adminUnlockForm").isVisible({ timeout: 3000 }).catch(() => false)) {
         await page.fill('input[name="adminEmail"]', OWNER.email);
         await page.fill('input[name="adminPassword"]', OWNER.password);
         await page.fill('input[name="adminCode"]', OWNER.code);
         await page.click("#adminUnlockForm button[type='submit']");
-        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
       }
-      await page.evaluate((id) => {
+      await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      await page.evaluate(async (id) => {
+        if (typeof loadAdminSiteContent === "function") {
+          try { await loadAdminSiteContent(); } catch { /* continue */ }
+        }
         setAdminSectionTab("curriculum-lesson-plans");
         openAdminCurriculumLessonEditor(id, { scroll: true });
       }, FIXTURE_LESSON);
-      await page.waitForSelector("#admin-lesson-linked-resources", { timeout: 20000 });
-      const linkedText = await page.locator("#admin-lesson-linked-resources").innerText();
+      await page.waitForFunction(() => {
+        const text = document.querySelector("#admin-lesson-linked-resources")?.innerText || "";
+        return /Browser Persist Vocabulary Cards/i.test(text)
+          && /browser-persist\.pdf/i.test(text)
+          && /draft/i.test(text);
+      }, null, { timeout: 30000 });
+      const linkedText = await page.evaluate(() => document.querySelector("#admin-lesson-linked-resources")?.innerText || "");
       ok(/Browser Persist Vocabulary Cards/i.test(linkedText), "linked draft title persists after refresh");
       ok(/draft/i.test(linkedText), "linked resource still draft after refresh");
       ok(/browser-persist\.pdf/i.test(linkedText), "linked draft filename persists after refresh");
 
+      await page.setViewportSize({ width: 390, height: 844 });
       const overflow = await page.evaluate(() => {
         const el = document.querySelector(".curriculum-linked-resources");
         if (!el) return { ok: false };
@@ -572,6 +595,7 @@ async function main() {
       ok(overflow.ok && overflow.scrollWidth <= overflow.clientWidth + 1, "mobile linked-resources panel has no horizontal overflow");
       ok(overflow.docScrollWidth <= overflow.docClientWidth + 2, "mobile document has no horizontal overflow");
 
+      await context.close();
       await browser.close();
       playwrightOk = true;
     } catch (error) {
