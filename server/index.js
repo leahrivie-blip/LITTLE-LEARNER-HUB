@@ -315,6 +315,57 @@ function isHomeDaycareHubTestingEnabled() {
   return HOME_DAYCARE_HUB_TESTING;
 }
 
+/** Hosts that must never appear in invite/login links generated on the testing service. */
+const PRODUCTION_INVITE_HOSTS = new Set([
+  "littlelearnershubbyleah.com",
+  "www.littlelearnershubbyleah.com",
+  "little-learner-hub.onrender.com",
+]);
+const TESTING_SITE_ORIGIN = "https://little-learner-hub-testing.onrender.com";
+
+function normalizeInviteOrigin(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value.replace(/\/$/, "");
+  }
+}
+
+function inviteOriginHostname(origin) {
+  try {
+    return new URL(origin).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Resolve the public origin used in invite/accept links.
+ * On the testing service (HOME_DAYCARE_HUB_TESTING), never emit production hosts —
+ * even if a client sends a production appOrigin by mistake.
+ */
+function resolveInviteAppOrigin(preferred = "", { productionFallback = "https://little-learner-hub.onrender.com" } = {}) {
+  const candidates = [
+    preferred,
+    SITE_URL,
+    isHomeDaycareHubTestingEnabled() ? TESTING_SITE_ORIGIN : "",
+    productionFallback,
+  ];
+  for (const candidate of candidates) {
+    const origin = normalizeInviteOrigin(candidate);
+    if (!origin) continue;
+    if (isHomeDaycareHubTestingEnabled() && PRODUCTION_INVITE_HOSTS.has(inviteOriginHostname(origin))) {
+      continue;
+    }
+    return origin;
+  }
+  return isHomeDaycareHubTestingEnabled()
+    ? TESTING_SITE_ORIGIN
+    : normalizeInviteOrigin(SITE_URL) || normalizeInviteOrigin(productionFallback) || TESTING_SITE_ORIGIN;
+}
+
 const aiGuide = require("./ai-guide");
 const {
   isAiGuideEnabled,
@@ -14788,7 +14839,9 @@ async function handleFamilyHubHouseholdCreate(request, response) {
   const loginCode = createFamilyLoginCode();
   const magicToken = crypto.randomBytes(24).toString("hex");
   const householdId = `family-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
-  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
+  const origin = resolveInviteAppOrigin(body.appOrigin || SITE_URL || TESTING_SITE_ORIGIN, {
+    productionFallback: TESTING_SITE_ORIGIN,
+  });
   const magicUrl = `${origin}/?familyHub=${encodeURIComponent(magicToken)}`;
   const label = String(body.label || children.map((c) => {
     const live = profileById.get(c.id);
@@ -16626,7 +16679,9 @@ async function handleFamilyHubSeedDemo(request, response) {
   }
   let body = {};
   try { body = await readJson(request); } catch (_error) { body = {}; }
-  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
+  const origin = resolveInviteAppOrigin(body.appOrigin || SITE_URL || TESTING_SITE_ORIGIN, {
+    productionFallback: TESTING_SITE_ORIGIN,
+  });
   const store = ensureFamilyHubCollections(readStore());
   const ownerEmail = resolveFamilyHubOwnerEmail(store, identity);
   const seed = familyHubLib.buildFamilyHubDemoSeed({
@@ -16837,7 +16892,9 @@ async function handleHdhTesterInviteCreate(request, response) {
     (invite) => invite.email === email && invite.status === "pending" && !hdhTesterInviteExpired(invite),
   );
   if (existing) {
-    const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "";
+    const origin = resolveInviteAppOrigin(body.appOrigin || SITE_URL || TESTING_SITE_ORIGIN, {
+      productionFallback: TESTING_SITE_ORIGIN,
+    });
     jsonResponse(response, 409, {
       error: "That email already has a pending tester invite.",
       invite: publicHdhTesterInvite(existing, { appOrigin: origin }),
@@ -16848,7 +16905,9 @@ async function handleHdhTesterInviteCreate(request, response) {
   const token = crypto.randomBytes(24).toString("hex");
   const now = new Date();
   const childName = String(body.childName || "Demo Child").trim() || "Demo Child";
-  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
+  const origin = resolveInviteAppOrigin(body.appOrigin || SITE_URL || TESTING_SITE_ORIGIN, {
+    productionFallback: TESTING_SITE_ORIGIN,
+  });
   const acceptUrl = `${origin}/?testerInvite=${encodeURIComponent(token)}`;
   const invite = {
     id: `tester-invite-${Date.now().toString(36)}`,
@@ -17635,7 +17694,8 @@ async function handleStaffInviteCreate(request, response) {
   };
   store.staffInvites[token] = invite;
 
-  const origin = String(body.appOrigin || "").replace(/\/$/, "") || "https://little-learner-hub.onrender.com";
+  // Testing service must never generate production invite links for staff/testers.
+  const origin = resolveInviteAppOrigin(body.appOrigin);
   const acceptUrl = `${origin}/?staffInvite=${encodeURIComponent(token)}`;
   const roleLabel = role.replace(/_/g, " ");
   let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };

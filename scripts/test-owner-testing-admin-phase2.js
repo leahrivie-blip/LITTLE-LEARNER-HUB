@@ -199,6 +199,19 @@ async function main() {
     });
     record("resend_invite", resend.status === 200 && Boolean(resend.json?.acceptUrl), resend.json?.error || resend.json?.acceptUrl || "");
 
+    const resendProdOrigin = await requestJson(port, "PATCH", `/api/admin/testing/testers/${encodeURIComponent(email)}/resend`, {
+      headers: auth,
+      body: { appOrigin: "https://littlelearnershubbyleah.com" },
+    });
+    const accept = String(resendProdOrigin.json?.acceptUrl || "");
+    record(
+      "resend_invite_blocks_production_host",
+      resendProdOrigin.status === 200
+        && accept.includes("testerInvite=")
+        && !/littlelearnershubbyleah\.com|little-learner-hub\.onrender\.com/.test(accept),
+      accept || resendProdOrigin.json?.error || "",
+    );
+
     const disable = await requestJson(port, "PATCH", `/api/admin/testing/testers/${encodeURIComponent(email)}`, {
       headers: auth,
       body: { disable: true },

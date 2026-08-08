@@ -963,15 +963,38 @@ function createOwnerTestingAdminApi(deps) {
   }
 
   function appOriginFrom(request, body = {}) {
+    // Owner Testing Admin is testing-only — never emit production invite hosts.
+    const testingDefault = "https://little-learner-hub-testing.onrender.com";
+    const blockedHosts = new Set([
+      "littlelearnershubbyleah.com",
+      "www.littlelearnershubbyleah.com",
+      "little-learner-hub.onrender.com",
+    ]);
+    const normalize = (raw) => {
+      const value = String(raw || "").trim();
+      if (!value) return "";
+      try {
+        return new URL(value).origin;
+      } catch {
+        return value.replace(/\/$/, "");
+      }
+    };
     try {
-      const raw = String(body.appOrigin || "").trim()
-        || String(request.headers.origin || "").trim()
-        || (request.headers.referer ? new URL(String(request.headers.referer)).origin : "")
-        || siteUrl
-        || "";
-      return raw.replace(/\/$/, "");
+      let origin = normalize(body.appOrigin)
+        || normalize(request.headers.origin)
+        || (request.headers.referer ? normalize(new URL(String(request.headers.referer)).origin) : "")
+        || normalize(siteUrl)
+        || testingDefault;
+      const host = new URL(origin).hostname.toLowerCase();
+      if (blockedHosts.has(host)) {
+        origin = normalize(siteUrl) || testingDefault;
+        if (blockedHosts.has(new URL(origin).hostname.toLowerCase())) {
+          origin = testingDefault;
+        }
+      }
+      return origin.replace(/\/$/, "");
     } catch {
-      return String(siteUrl || "").replace(/\/$/, "");
+      return normalize(siteUrl) || testingDefault;
     }
   }
 

@@ -91,6 +91,8 @@ async function main() {
       PORT: String(PORT),
       LLH_STORE_PATH: STORE,
       ALLOW_EMAIL_SCHEDULE_AUTH: "true",
+      HOME_DAYCARE_HUB_TESTING: "true",
+      SITE_URL: "https://little-learner-hub-testing.onrender.com",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -130,6 +132,38 @@ async function main() {
       assert.ok(res.json.acceptUrl.includes("staffInvite="));
       globalThis.__inviteToken = new URL(res.json.acceptUrl).searchParams.get("staffInvite");
       globalThis.__inviteId = res.json.invite.id;
+    });
+
+    await test("testing service never emits production staff invite hosts", async () => {
+      const missingOrigin = await request("POST", "/api/staff/invites", {
+        email: "owner@example.com",
+        body: {
+          email: "assistant.no-origin@example.com",
+          role: "assistant",
+          programName: "Sunshine Center",
+        },
+      });
+      assert.equal(missingOrigin.status, 200, JSON.stringify(missingOrigin.json));
+      assert.match(
+        String(missingOrigin.json.acceptUrl || ""),
+        /^https:\/\/little-learner-hub-testing\.onrender\.com\/\?staffInvite=/,
+      );
+
+      const prodOrigin = await request("POST", "/api/staff/invites", {
+        email: "owner@example.com",
+        body: {
+          email: "assistant.prod-origin@example.com",
+          role: "assistant",
+          programName: "Sunshine Center",
+          appOrigin: "https://littlelearnershubbyleah.com",
+        },
+      });
+      assert.equal(prodOrigin.status, 200, JSON.stringify(prodOrigin.json));
+      assert.match(
+        String(prodOrigin.json.acceptUrl || ""),
+        /^https:\/\/little-learner-hub-testing\.onrender\.com\/\?staffInvite=/,
+      );
+      assert.doesNotMatch(String(prodOrigin.json.acceptUrl || ""), /littlelearnershubbyleah\.com|little-learner-hub\.onrender\.com/);
     });
 
     await test("peek returns pending invite", async () => {
