@@ -3,6 +3,7 @@
 **Status:** Planned — runs **after** AI review-before-save, **before** Final QA / production readiness  
 **Spine:** HDH / `main` testing architecture remains the source of truth  
 **Environment:** All work happens on the **testing** site only  
+**Standing policy (locked):** `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md`  
 
 ---
 
@@ -10,7 +11,7 @@
 
 This phase is **not** “copy a few missing screens.”
 
-**Goal:** Make the testing site the **complete future version** of Little Learner Hub — the single place where all future development happens — while production stays stable until Leah finishes Final QA and explicitly approves any production update.
+**Goal:** Make the testing site the **complete future version** of Little Learner Hub — the single place where all future development happens — while production stays stable until Leah finishes Final QA and gives **written** approval for any production update.
 
 Compare **every major area** of the live site against the testing site. Migrate anything valuable that is missing onto the current HDH/`main` architecture. Prefer testing’s newer work when it already exceeds live.
 
@@ -18,14 +19,15 @@ This is **feature synchronization into testing**, not an architecture merge into
 
 ---
 
-## CRITICAL — Production is read-only during this phase
+## CRITICAL — Production is read-only (this phase AND all remaining phases)
 
-**Nothing on the current live production site may be modified, deleted, overwritten, migrated, or published during Live → Testing Feature Sync.**
+**Nothing on the current live production site may be modified, deleted, overwritten, migrated, or published** without Leah’s **written** approval.
 
 Production is **read-only**. It may be inspected only to identify missing features or design patterns.
 
-### Forbidden (no exceptions without Leah’s explicit approval)
+### Forbidden (no exceptions without written owner approval)
 
+- Do **not** modify production code directly  
 - Do **not** modify production lesson plans  
 - Do **not** modify production Teaching Kits  
 - Do **not** modify production admin  
@@ -36,9 +38,10 @@ Production is **read-only**. It may be inspected only to identify missing featur
 - Do **not** modify production subscriptions or billing  
 - Do **not** modify production database records  
 - Do **not** delete, rename, archive, or overwrite any production content  
-- Do **not** publish drafts to production  
+- Do **not** publish drafts or testing changes to production  
 - Do **not** point production at testing services or databases  
-- Do **not** merge the testing architecture into production without explicit approval  
+- Do **not** merge unfinished work into production  
+- Do **not** remove or replace production functionality without approval  
 - Do **not** write back to production after a comparison read  
 
 ### Allowed
@@ -49,7 +52,7 @@ Production is **read-only**. It may be inspected only to identify missing featur
 
 ### Stop rule
 
-Before making any change that could affect production, **stop** and require Leah’s **explicit approval**.
+Before making any change that could affect production, **stop** and require Leah’s **written approval**.
 
 **Outcome required:** Production remains **100% unchanged and fully operational** while testing becomes the complete next version of Little Learner Hub.
 
@@ -69,7 +72,7 @@ Current **HDH / `main`** testing architecture. Migrate production-only admin fea
 
 ---
 
-## Placement in roadmap (approved)
+## Placement in roadmap (approved and locked)
 
 1. Safety + HDH/`main` confirmation ✅  
 2. Owner Admin ✅ — **Phase 3 held** until Leah finishes Owner Admin validation  
@@ -81,7 +84,8 @@ Current **HDH / `main`** testing architecture. Migrate production-only admin fea
 8. Billing (testing)  
 9. AI review-before-save  
 10. **Live → Testing Feature Sync** ← this phase  
-11. Final QA, bug fixing, performance, and production readiness *(production updates only after explicit approval)*  
+11. Pre–Final QA audit (`docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md`)  
+12. Final QA — production updates **only** after **written** approval  
 
 ---
 
@@ -94,7 +98,7 @@ During **every** remaining phase (including this sync), continue to:
 - Polish UI  
 - Remove low-risk technical debt  
 
-**Do not defer obvious quality improvements** when they can be completed safely in the area already being touched. Prefer small, local polish over leaving known rough edges for “later.”
+**Do not defer obvious quality improvements** when they can be completed safely in the area already being touched.
 
 ---
 
@@ -135,7 +139,7 @@ Every major live-vs-testing area below must be compared. Migrate valuable gaps i
 4. **Redesign** when live behavior conflicts with the newer testing architecture.  
 5. **Skip** when live behavior must stay production-only (e.g. live Stripe ops, production admin command center).  
 6. Apply continuous quality fixes while in each area.  
-7. Deliver the **complete audit** below before Final QA.
+7. Deliver the **complete audit** below, then fill `PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md` before Final QA.
 
 ---
 
@@ -174,5 +178,6 @@ Fill every section before calling the sync phase done.
 - Testing contains the **complete future product** relative to live (or every gap is documented as redesigned / skipped).  
 - Owner Admin on testing remains the development/admin environment.  
 - **Production is unchanged** (no writes, publishes, merges, or service rewires).  
-- Final QA can treat **testing** as the single complete application under test.  
-- Production is updated **only** after Final QA **and** Leah’s explicit approval.
+- Pre–Final QA audit confirms production untouched + no accidental feature loss.  
+- Final QA treats **testing** as the single complete application under test.  
+- Production is updated **only** after Final QA **and** Leah’s **written** approval.
