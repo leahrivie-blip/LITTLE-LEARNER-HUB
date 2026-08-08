@@ -83,6 +83,24 @@ async function waitForHealth(child, timeoutMs = 30000) {
   throw new Error("health timeout");
 }
 
+function seedPlanFromPackage(packageId, fallback) {
+  const packPath = path.join(ROOT, "docs/curriculum-draft-review/seed", packageId, "enrichment-draft.json");
+  if (fs.existsSync(packPath)) {
+    const pack = JSON.parse(fs.readFileSync(packPath, "utf8"));
+    const plan = JSON.parse(JSON.stringify(pack.plan || {}));
+    plan.status = "published";
+    plan.plan = plan.plan || "Pro";
+    plan.resourceIds = [];
+    plan.enrichmentDraft = undefined;
+    plan.disposableQaFixture = true;
+    plan.createdAt = plan.createdAt || new Date().toISOString();
+    plan.updatedAt = new Date().toISOString();
+    plan.publishedAt = plan.publishedAt || new Date().toISOString();
+    return plan;
+  }
+  return fallback;
+}
+
 function seedPlan({ id, title, age, theme }) {
   const itemId = `${id}-monday-1`;
   return {
@@ -157,9 +175,12 @@ async function main() {
   ok(modelJs.includes("phase2_required") || modelJs.includes("PHASE2_ONLY"), "Phase 2 actions blocked in model");
   ok(appJs.includes("curriculum-draft-review"), "Admin nav tab wired");
   ok(uiJs.includes("Draft Review Queue"), "Queue UI present");
-  ok(uiJs.includes("Preview Teaching Kit"), "Preview Teaching Kit control present");
+  ok(uiJs.includes("Open Review") || uiJs.includes("Open Teaching Kit Review"), "Open Review control present");
+  ok(uiJs.includes("Preview desktop") && uiJs.includes("Preview mobile"), "Desktop/mobile preview controls present");
+  ok(uiJs.includes("tk-draft-review-cards"), "Mobile stacked cards markup present");
   ok(uiJs.includes("unavailable in Phase 1"), "Phase 1 approve/publish disabled in UI");
   ok(!uiJs.includes("data-draft-review-publish"), "No publish control in Phase 1 UI");
+  ok(fs.existsSync(path.join(ROOT, "scripts/llh-curriculum-gold-standard.js")), "gold standard validator present");
 
   // Proof #597 baggage is absent from this clean branch.
   ok(!fs.existsSync(path.join(ROOT, "scripts/teaching-kit-proof-draft-import.js")), "old proof importer absent");
@@ -169,8 +190,8 @@ async function main() {
   ok(!fs.existsSync(path.join(ROOT, "docs/teaching-kit/qa/next-10-gold-upgrade/proof")), "old proof package tree absent");
   ok(!fs.existsSync(path.join(ROOT, "docs/teaching-kit/qa/next-10-gold-upgrade/proof/reports/DRAFT-REVIEW-QUEUE-PHASE1.md")), "old draft-review report absent");
 
-  const apples = seedPlan({ id: APPLES_ID, title: "Amazing Apples", age: "Toddler", theme: "Apples" });
-  const aam = seedPlan({ id: AAM_ID, title: "All About Me", age: "Preschool", theme: "All About Me" });
+  const apples = seedPlanFromPackage("amazing-apples", seedPlan({ id: APPLES_ID, title: "Amazing Apples", age: "Toddler", theme: "Apples" }));
+  const aam = seedPlanFromPackage("all-about-me", seedPlan({ id: AAM_ID, title: "All About Me", age: "Preschool", theme: "All About Me" }));
   const farm = seedPlan({ id: FARM_ID, title: "Farm Animals", age: "Preschool", theme: "Farm Animals" });
 
   const featureFlagsBefore = {
@@ -344,6 +365,19 @@ async function main() {
     ok((get.json.draftResources || []).length >= 1, "draft printable attached");
     ok(get.json.draftResources.every((r) => r.status === "draft"), "resources are draft");
     ok(get.json.draftResources.every((r) => r.publicAccess === "404"), "public access documented as 404");
+    ok(Number(applesEntry.structuralScore) >= 90, "Amazing Apples structural score matches editor (~96)");
+    ok(Number(applesEntry.premiumScore) >= 85 && Number(applesEntry.premiumScore) <= 89, "Amazing Apples premium capped honestly at draft-printable readiness (~89)");
+    ok((applesEntry.blockers || []).includes("draft_printables_only") || (get.json.entry?.scores?.blockers || []).includes("draft_printables_only"), "draft_printables_only is the publish blocker");
+
+    // Confirm seed images persisted as enrichment media (not seed://)
+    const sampleAct = Object.values(get.json.enrichmentDraft.activities || {}).find((a) => a && (a.exampleImageUrl || a.setupImageUrl));
+    if (sampleAct) {
+      const url = String(sampleAct.exampleImageUrl || sampleAct.setupImageUrl || "");
+      ok(url.includes("/api/admin/media/enrichment-photos/"), "seed images attached as enrichment media URLs");
+      ok(!url.startsWith("seed://") && !url.startsWith("data:"), "no seed:// or data: blobs left in draft");
+    } else {
+      ok(true, "no imaged activities in sample (skipped)");
+    }
 
     const site = await requestJson("GET", "/api/admin/site-content", null, ownerAuth);
     const plans = site.json.siteContent.curriculum.lessonPlans;
@@ -460,10 +494,12 @@ async function main() {
     ok((finalSite.json.siteContent.curriculum.activities || []).length === activityCountBefore, "activity totals still unchanged");
     ok(finalSite.json.siteContent.featureFlags.playBasedCurriculum === flagsBefore.playBasedCurriculum, "customer Teaching Kit flags unchanged");
 
-    // UI layout smoke (no Playwright required for overflow text checks)
+    // UI layout smoke
     ok(uiJs.includes("tk-draft-review-table-wrap"), "queue table has overflow wrapper");
+    ok(uiJs.includes("tk-draft-review-cards"), "mobile stacked cards present");
     ok(uiJs.includes('data-draft-review-preview-viewport="mobile"'), "mobile preview control present");
     ok(uiJs.includes('data-draft-review-preview-viewport="desktop"'), "desktop preview control present");
+    ok(uiJs.includes("Open Review") || uiJs.includes("Open Teaching Kit Review"), "Open Review opens real Teaching Kit path");
 
     const report = {
       passed,

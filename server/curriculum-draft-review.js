@@ -41,6 +41,8 @@ function createDraftReviewApi(deps) {
     loadEnrichmentHelpers,
     isCurriculumResourcePublic,
     crypto,
+    enrichmentMedia,
+    persistEnrichmentPhotoVariants,
   } = deps;
 
   function readQueue(siteContent) {
@@ -88,21 +90,90 @@ function createDraftReviewApi(deps) {
       const flat = enrichmentApi.flattenLessonActivities
         ? enrichmentApi.flattenLessonActivities(plan, activities)
         : activities;
-      const report = qualityApi.buildQualityReport(plan, flat, enrichmentDraft, {
+      // Same authoritative path as Teaching Kit Enrichment Editor.
+      const evaluated = qualityApi.evaluateTeachingKit
+        ? qualityApi.evaluateTeachingKit(plan, flat, enrichmentDraft, {
+          ignoredCodes: Array.isArray(enrichmentDraft?.week?.qualityReviewIgnored)
+            ? enrichmentDraft.week.qualityReviewIgnored
+            : [],
+          resources: resources || [],
+        })
+        : null;
+      const report = evaluated?.report || qualityApi.buildQualityReport(plan, flat, enrichmentDraft, {
         ignoredCodes: Array.isArray(enrichmentDraft?.week?.qualityReviewIgnored)
           ? enrichmentDraft.week.qualityReviewIgnored
           : [],
         resources: resources || [],
       });
-      return { scores: model.buildScores(report), qualityResults: {
-        overallScore: report.overallScore,
-        overallLabel: report.overallLabel,
-        publishReadiness: report.publishReadiness,
-        blocksPublish: report.blocksPublish === true,
-      } };
+      return {
+        scores: model.buildScores(report),
+        qualityResults: {
+          overallScore: report.overallScore,
+          overallLabel: report.overallLabel,
+          publishReadiness: report.publishReadiness,
+          blocksPublish: report.blocksPublish === true,
+          structuralScore: report.completionPercent,
+          premiumScore: report.premiumReadinessPercent,
+          scoringSource: "evaluateTeachingKit",
+        },
+      };
     } catch {
       return { scores: model.buildScores(null), qualityResults: null };
     }
+  }
+
+  /**
+   * Resolve seed:// image refs to persisted enrichment media assets (never leave data: blobs).
+   */
+  async function attachSeedImages(enrichmentDraft, { lessonPlanId, packageId, store }) {
+    if (!enrichmentMedia || typeof persistEnrichmentPhotoVariants !== "function") {
+      return enrichmentDraft;
+    }
+    const draft = model.cloneJson(enrichmentDraft || {});
+    const acts = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
+    const seedDir = path.join(SEED_ROOT, packageId);
+    for (const [activityKey, act] of Object.entries(acts)) {
+      if (!act || typeof act !== "object") continue;
+      for (const field of ["exampleImageUrl", "setupImageUrl"]) {
+        const raw = String(act[field] || "").trim();
+        const match = raw.match(/^seed:\/\/[^/]+\/(.+)$/i);
+        if (!match) continue;
+        const filePath = path.join(seedDir, match[1]);
+        if (!fs.existsSync(filePath)) {
+          act[field] = "";
+          continue;
+        }
+        const buffer = fs.readFileSync(filePath);
+        const dataUrl = `data:image/png;base64,${buffer.toString("base64")}`;
+        const parsed = enrichmentMedia.parseEnrichmentUploadDataUrl(dataUrl);
+        if (!parsed?.ok) {
+          act[field] = "";
+          continue;
+        }
+        const variants = await enrichmentMedia.buildEnrichmentVariants(parsed.buffer);
+        const assetId = enrichmentMedia.enrichmentMediaAssetId();
+        await persistEnrichmentPhotoVariants({
+          assetId,
+          lessonPlanId,
+          activityKey,
+          field,
+          fileName: path.basename(filePath),
+          variants,
+          store,
+        });
+        const mediaUrl = enrichmentMedia.enrichmentMediaUrl(assetId, "full");
+        const thumbUrl = enrichmentMedia.enrichmentMediaUrl(assetId, "thumb");
+        act[field] = mediaUrl;
+        if (field === "exampleImageUrl") {
+          act.exampleMediaAssetId = assetId;
+          act.exampleImageThumbUrl = thumbUrl;
+        } else {
+          act.setupMediaAssetId = assetId;
+          act.setupImageThumbUrl = thumbUrl;
+        }
+      }
+    }
+    return draft;
   }
 
   function loadSeedPackage(packageId) {
@@ -130,10 +201,15 @@ function createDraftReviewApi(deps) {
       err.status = 400;
       throw err;
     }
+    // Align printable IDs with the draft resource we actually create (not legacy proof IDs).
+    if (!enrichmentDraft.week || typeof enrichmentDraft.week !== "object") enrichmentDraft.week = {};
+    enrichmentDraft.week.printableIds = [seed.resourceId];
     const pdfBuffer = fs.readFileSync(pdfPath);
     return {
       seed,
       enrichmentDraft,
+      planSnapshot: parsed.plan || null,
+      decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
       pdf: {
         fileName: seed.pdfFile,
         dataUrl: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
@@ -275,8 +351,26 @@ function createDraftReviewApi(deps) {
       ? cloneJson(plan.enrichmentDraft)
       : null;
 
+    const enrichmentDraftRaw = packagePayload?.enrichmentDraft || body.enrichmentDraft;
+    let enrichmentPrepared = enrichmentDraftRaw;
+    if (packagePayload?.seed?.packageId && packagePayload?.enrichmentDraft) {
+      enrichmentPrepared = await attachSeedImages(packagePayload.enrichmentDraft, {
+        lessonPlanId,
+        packageId: packagePayload.seed.packageId,
+        store,
+      });
+    }
+    // Normalize plan first so flattenLessonActivities uses sourceKey ids (planId:itemId).
+    const planForKeys = normalizedCurriculumLessonPlan({ ...plan }) || plan;
+    const enrichmentApi = loadEnrichmentHelpers();
+    enrichmentPrepared = model.remapEnrichmentActivitiesToPlan(
+      planForKeys,
+      (curriculum.activities || []).filter((a) => a.lessonPlanId === lessonPlanId),
+      enrichmentPrepared,
+      enrichmentApi,
+    );
     const enrichmentDraft = model.sanitizeDraft(
-      packagePayload?.enrichmentDraft || body.enrichmentDraft,
+      enrichmentPrepared,
       { lastEditedBy: sessionEmail, batchId: body.batchId || "" },
     );
     if (!model.enrichmentHasContent(enrichmentDraft)) {

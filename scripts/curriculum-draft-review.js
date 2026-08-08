@@ -143,6 +143,31 @@ function stripLocalUrls(value) {
   return value;
 }
 
+function remapEnrichmentActivitiesToPlan(plan, storeActivities, enrichmentDraft, enrichApi) {
+  const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? cloneJson(enrichmentDraft) : {};
+  const src = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
+  const flat = enrichApi?.flattenLessonActivities
+    ? enrichApi.flattenLessonActivities(plan, storeActivities || [])
+    : [];
+  if (!flat.length) return draft;
+  const next = {};
+  flat.forEach((act) => {
+    const liveKey = String(act.id || act.itemId || "").trim();
+    if (!liveKey) return;
+    const itemId = String(act.itemId || "").trim();
+    let patch = src[liveKey] || (itemId ? src[itemId] : null);
+    if (!patch && itemId) {
+      const hit = Object.entries(src).find(([key]) => (
+        key === itemId || key.endsWith(`:${itemId}`)
+      ));
+      patch = hit ? hit[1] : null;
+    }
+    if (patch) next[liveKey] = patch;
+  });
+  draft.activities = next;
+  return draft;
+}
+
 function sanitizeDraft(draft, meta = {}) {
   const cleaned = stripLocalUrls(cloneJson(draft || {}));
   cleaned.updatedAt = new Date().toISOString();
@@ -192,12 +217,13 @@ function buildScores(qualityReport) {
     ? qualityReport.blockingIssues
     : (Array.isArray(qualityReport.publishBlockers) ? qualityReport.publishBlockers : []);
   return {
-    structuralScore: qualityReport.completionPercent ?? qualityReport.structuralScore ?? null,
-    premiumScore: qualityReport.premiumReadinessPercent ?? qualityReport.premiumScore ?? null,
-    overallScore: qualityReport.overallScore ?? null,
-    blockers: raw.map((item) => (typeof item === "string" ? item : (item?.code || item?.message || ""))).filter(Boolean).slice(0, 40),
-    scoringMode: "actual_draft_catalog",
-  };
+      structuralScore: qualityReport.completionPercent ?? qualityReport.structuralScore ?? null,
+      premiumScore: qualityReport.premiumReadinessPercent ?? qualityReport.premiumScore ?? null,
+      overallScore: qualityReport.overallScore ?? null,
+      blockers: raw.map((item) => (typeof item === "string" ? item : (item?.code || item?.message || ""))).filter(Boolean).slice(0, 40),
+      scoringMode: "evaluateTeachingKit",
+      note: "Authoritative Teaching Kit editor scores. Draft printables never count as published.",
+    };
 }
 
 function normalizeEntry(value) {
@@ -366,6 +392,7 @@ module.exports = {
   enrichmentHasContent,
   draftContentFingerprint,
   stripLocalUrls,
+  remapEnrichmentActivitiesToPlan,
   sanitizeDraft,
   buildStats,
   buildScores,

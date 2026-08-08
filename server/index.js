@@ -28477,6 +28477,8 @@ const server = http.createServer(async (request, response) => {
           loadEnrichmentHelpers,
           isCurriculumResourcePublic,
           crypto,
+          enrichmentMedia,
+          persistEnrichmentPhotoVariants,
         });
       }
       return await globalThis.__llhDraftReviewApi.handle(request, response);
