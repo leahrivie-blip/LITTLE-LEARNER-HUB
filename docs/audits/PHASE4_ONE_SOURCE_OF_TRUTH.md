@@ -1,64 +1,57 @@
-# Phase 4 — One Source of Truth (in progress)
+# Phase 4 — One Source of Truth
 
-**Status:** 🚧 In progress  
+**Status:** ✅ Complete  
 **Branch:** `cursor/phase4-one-source-of-truth-9c23`  
 **Spine:** HDH / `main` testing architecture  
 **Production:** Read-only — no writes, publishes, or merges  
+**Completion report:** `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH_COMPLETION_REPORT.md`
 
 Policy: `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md`
 
 ---
 
-## Goal
+## Finish line (plain language)
 
-Eliminate duplicate or disconnected data models so every major object has **one authoritative source**, and every feature that references that object uses the same underlying data (not a separate copy).
+| Object | Where it lives |
+|---|---|
+| **Program** | `store.programs[programId]` |
+| **Child** | `store.programData[programId].child.data.Profiles` |
+| **Family** | `store.familyHouseholds[id]` — membership = `childIds`; names from Profiles |
+| **Staff** | `store.users` (programId / linkedProgramOwnerEmail) |
+| **Classroom** | `store.programData[programId].schedule.classrooms` |
+| **Lesson catalog** | `store.siteContent.curriculum.lessonPlans` |
+| **Lesson assignment** | `schedule.items` type `lesson_plan` |
+| **Weekly Plan** | Derived from schedule lesson snapshot (`llhWeeklyPlanner` = temporary fallback) |
+| **Daily logs / Observations / assigned Forms** | Same child blob |
+| **Billing** | `store.users` Stripe/plan fields |
+| **Message Support** | `store.messages` |
+| **Family Hub messages** | `store.familyHubMessages` |
+| **Care notes** | child blob `Communications` |
 
-Preserve existing data, relationships, IDs, and testing progress.  
-Do **not** create duplicate records. Do **not** migrate production.
-
----
-
-## Authoritative sources (declared)
-
-| Object | Canonical source | Notes |
-|---|---|---|
-| **Program** | `store.programs[programId]` | Stable id from owner email |
-| **Child** | `store.programData[programId].child.data.Profiles` | Synced via `/api/child-data`; LS is working cache |
-| **Family / Guardian** | `store.familyHouseholds[id]` | Membership via `childIds`; live names from Profiles |
-| **Staff** | `store.users` + `programMembers` / link fields | Role + `programId` / `linkedProgramOwnerEmail` |
-| **Classroom** | `store.programData[programId].schedule.classrooms` | Child `classroomId` must match |
-| **Lesson Plan** | `store.siteContent.curriculum.lessonPlans` | Catalog; assignments live on schedule items |
-| **Teaching Kit** | Embedded on lesson plan | Not a separate collection |
-| **Activity (catalog)** | `siteContent.curriculum.activities` | Distinct from care ActivityLogs |
-| **Daily Log** | Same child blob (`Meals`, `Naps`, `Attendance`, `ActivityLogs`, …) | One program child document |
-| **Observation** | Child blob `Observations` | CMS observation packs are templates only |
-| **Forms (assigned)** | Child blob `Documents` | CMS `siteContent.forms` = library templates |
-| **Billing** | `store.users` Stripe/plan fields | LLH membership — not tuition yet |
-| **Messages** | Support `store.messages` **or** FH `familyHubMessages` **or** care `Communications` | Three channels — do not merge blindly; label clearly |
-| **Calendar** | `store.programData[programId].schedule` | Prefer over legacy `scheduleByUser` / Weekly Planner dual-write |
+Every feature that needs a child, family, or staff row must read that same record.  
+`server/canonical-data.js` is a thin read/drift helper over those homes — **not** another database.
 
 ---
 
-## Relationship diagram
+## Relationship diagram (final implementation)
 
 ```mermaid
 flowchart TB
-  Program["Program<br/>programs[programId]"]
-  Staff["Staff / Users<br/>users + programMembers"]
-  Classroom["Classroom<br/>schedule.classrooms"]
-  Child["Child<br/>Profiles"]
-  Family["Family / Household<br/>familyHouseholds"]
-  DailyLog["Daily Logs<br/>Meals Naps Attendance ActivityLogs"]
+  Program["Program\nprograms[programId]"]
+  Staff["Staff\nusers"]
+  Classroom["Classroom\nschedule.classrooms"]
+  Child["Child\nProfiles"]
+  Family["Family\nfamilyHouseholds.childIds"]
+  DailyLog["Daily Logs\nMeals Naps Attendance ActivityLogs"]
   Observation["Observations"]
-  FormsDoc["Assigned Forms<br/>Documents"]
-  Lesson["Lesson Plan catalog"]
-  TK["Teaching Kit<br/>on lesson"]
-  ActivityCat["Activity catalog"]
-  Schedule["Calendar / Schedule items"]
+  FormsDoc["Assigned Forms\nDocuments"]
+  LessonCat["Lesson catalog\nsiteContent"]
+  Schedule["Calendar / Schedule\nprogramData.schedule"]
+  Weekly["Weekly Plan UI\nderived from schedule item"]
   FH["Family Hub Today"]
-  Billing["LLH Billing<br/>user plan / Stripe"]
-  MsgSupport["Message Support"]
-  MsgFH["Family Hub messages"]
+  Billing["Billing\nuser plan / Stripe"]
+  MsgSupport["Message Support\nmessages"]
+  MsgFH["FH messages\nfamilyHubMessages"]
 
   Program --> Staff
   Program --> Classroom
@@ -72,73 +65,55 @@ flowchart TB
   Child --> DailyLog
   Child --> Observation
   Child --> FormsDoc
-  Family --> Child
+  Family -->|"childIds only"| Child
   Family --> FH
   DailyLog --> FH
   Observation --> FH
   FormsDoc --> FH
+  Schedule --> FH
 
-  Lesson --> TK
-  Lesson --> Schedule
-  ActivityCat --> Schedule
+  LessonCat --> Schedule
+  Schedule --> Weekly
   Schedule --> Child
-  Schedule --> DailyLog
 
   Family --> MsgFH
   Staff --> MsgSupport
 ```
 
-### How Family Hub connects
+---
 
-- Households hold **membership** (`childIds`) and guardian contact info.  
-- Child identity, classroom, daily logs, observations, and assigned forms come from the **program child blob** (`Profiles` + care collections).  
-- Family Hub Today / calendar / documents **overlay** live child data — they do not own a second child roster.  
-- Parent messaging uses `familyHubMessages` (separate from Leah Message Support).
+## Temporary migration layers (not permanent architecture)
+
+| Layer | Role | Removal criteria |
+|---|---|---|
+| `llhWeeklyPlanner` | Dual-read fallback when no schedule item | Weeks on schedule; Calendar ≡ Weekly Plan without LS |
+| `scheduleByUser` / `childData` UID mirrors | Write mirror + read fallback (`CANONICAL_MIRROR_LEGACY`) | Drift clean; mirror off on testing; no UID readers |
+| Client `llhChild:*` / `llhScheduleItems:*` | Working caches | Always caches — durable truth stays programData |
+| `programMembers` | Membership **index** derived from users | Keep as index; users remain authoritative |
+
+See also: `docs/SCHEDULE_FOUNDATION.md`
 
 ---
 
-## Known duplicates / drift (work list)
+## Drift
 
-1. Child: LS ↔ `programData.child` ↔ legacy `childData[uid]` ↔ household `children` snapshots  
-2. Classroom: schedule rooms ↔ Profile.classroomId ↔ staff.classroomIds  
-3. Staff: programMembers ↔ users ↔ client `llhAccounts` ↔ tester invites  
-4. Forms: CMS library ↔ Documents ↔ local formTemplates  
-5. Messages: three channels (support / FH / care Communications)  
-6. Schedule vs Weekly Planner browser-global  
-
----
-
-## Delivered so far
-
-- Canonical read adapters: `server/canonical-data.js`  
-- Drift reporter: `reportCanonicalDrift` + Owner Admin dry-run `GET /api/admin/testing/canonical-drift?programId=`  
-- Owner Admin program detail reads via `buildCanonicalProgramBundle`  
-- Family Hub: `childIds` + Profiles preferred; invite/update resolve names from Profiles; unlink respects `childIds`  
-- `overlayLiveChildren` accepts authoritative `childIds`  
-- Tests: `npm run test:canonical-data-phase4`  
-- This diagram + source declaration  
-- Final nav review closed before this phase: `PHASE3_FINAL_NAVIGATION_REVIEW.md`
-
-## Next inside Phase 4 (not done yet)
-
-- Wire more read paths (classroom roster, staff lists) through adapters  
-- Dry-run drift on live testing stores (ops)  
-- Continue stopping new household roster copies when Profiles already exist  
-- Dual-read Weekly Planner → schedule (no delete yet)  
-- Phase 4 completion report when remaining drift work is stable  
+- `GET /api/admin/testing/canonical-drift?programId=` — read-only  
+- Reports duplicate / orphan / mismatched / stale relationships  
+- Suggests safe fixes; **does not auto-delete or rewrite**  
+- Tests: `npm run test:canonical-data-phase4`, `npm run test:canonical-fixtures-phase4`
 
 ---
 
 ## Production confirmation
 
-- [x] No production code deploy  
+- [x] No production deploy  
 - [x] No production DB / curriculum / kit writes  
+- [x] No production migration  
 - [x] Testing-only work  
-- [x] No production data migration  
 
 ---
 
 ## Related
 
-- Final nav review before this phase: `docs/audits/PHASE3_FINAL_NAVIGATION_REVIEW.md`  
-- Shared ownership: `docs/audits/SHARED_PROGRAM_OWNERSHIP_REPORT.md`
+- Completion report: `PHASE4_ONE_SOURCE_OF_TRUTH_COMPLETION_REPORT.md`  
+- Final nav review (Phase 3): `PHASE3_FINAL_NAVIGATION_REVIEW.md`

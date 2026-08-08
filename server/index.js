@@ -12546,30 +12546,66 @@ function handleAdminUserDetail(request, response, url) {
       createdAt: event.createdAt || "",
       label: event.detail?.title || event.detail?.category || event.detail?.tool || event.name,
     }));
-  const schedule = store.scheduleByUser?.[email] || null;
-  const calendarEntryCount = Array.isArray(schedule?.entries)
-    ? schedule.entries.length
-    : Array.isArray(schedule?.weeks)
-      ? schedule.weeks.length
-      : (schedule && typeof schedule === "object" ? Object.keys(schedule).length : 0);
-  const programKeys = Object.keys(store.programData || {}).filter((key) => {
-    const row = store.programData[key];
-    return normalizeEmail(row?.ownerEmail || row?.email || key) === email;
-  });
-  let childrenCount = Number(user.childrenCount) || 0;
+  const schedule = (() => {
+    // Phase 4: prefer program schedule; scheduleByUser is temporary legacy only.
+    try {
+      const ctx = programOwnership.resolveProgramContext(store, { email, uid: user.firebaseUid || user.uid || "" });
+      if (ctx?.ok && ctx.programId) {
+        const doc = programOwnership.readProgramSchedule(store, ctx, scheduleLib);
+        return doc || null;
+      }
+    } catch (_error) {
+      /* fall through */
+    }
+    return store.scheduleByUser?.[user.firebaseUid || user.uid] || store.scheduleByUser?.[email] || null;
+  })();
+  const calendarEntryCount = Array.isArray(schedule?.items)
+    ? schedule.items.length
+    : Array.isArray(schedule?.entries)
+      ? schedule.entries.length
+      : Array.isArray(schedule?.weeks)
+        ? schedule.weeks.length
+        : (schedule && typeof schedule === "object" ? Object.keys(schedule).length : 0);
+  // Phase 4: children live on programs[programId] → programData[id].child.data.Profiles
+  let childrenCount = Number(user.childProfiles) || Number(user.childrenCount) || 0;
   const childrenSample = [];
-  programKeys.forEach((key) => {
-    const row = store.programData[key] || {};
-    const kids = Array.isArray(row.children) ? row.children : (Array.isArray(row.childProfiles) ? row.childProfiles : []);
-    childrenCount = Math.max(childrenCount, kids.length);
-    kids.slice(0, 12).forEach((child) => {
+  const programId = user.programId
+    || (user.linkedProgramOwnerEmail
+      ? programOwnership.programIdForOwnerEmail(normalizeEmail(user.linkedProgramOwnerEmail))
+      : programOwnership.programIdForOwnerEmail(email));
+  if (programId && store.programData?.[programId]?.child?.data) {
+    const profiles = Array.isArray(store.programData[programId].child.data.Profiles)
+      ? store.programData[programId].child.data.Profiles
+      : [];
+    childrenCount = Math.max(childrenCount, profiles.length);
+    profiles.slice(0, 12).forEach((child) => {
       childrenSample.push({
         id: child.id || "",
         name: child.name || child.firstName || "Child",
         ageGroup: child.ageGroup || child.age || "",
+        classroomId: child.classroomId || "",
       });
     });
-  });
+  } else {
+    const programKeys = Object.keys(store.programData || {}).filter((key) => {
+      const row = store.programData[key];
+      return normalizeEmail(row?.ownerEmail || row?.email || "") === email
+        || String(key) === String(programId);
+    });
+    programKeys.forEach((key) => {
+      const profiles = store.programData[key]?.child?.data?.Profiles;
+      const kids = Array.isArray(profiles) ? profiles : [];
+      childrenCount = Math.max(childrenCount, kids.length);
+      kids.slice(0, 12).forEach((child) => {
+        childrenSample.push({
+          id: child.id || "",
+          name: child.name || child.firstName || "Child",
+          ageGroup: child.ageGroup || child.age || "",
+          classroomId: child.classroomId || "",
+        });
+      });
+    });
+  }
   const billingHistory = (store.billingEvents || [])
     .filter((event) => normalizeEmail(event.email || event.user || event.detail?.email) === email)
     .slice(0, 30);
@@ -14622,19 +14658,27 @@ async function handleFamilyHubHouseholdCreate(request, response) {
       .map((profile) => [String(profile?.id || ""), profile]),
   );
   const childrenInput = Array.isArray(body.children) ? body.children : [];
-  const children = childrenInput
-    .map((child) => {
-      const id = String(child?.id || "").trim();
-      if (!id) return null;
-      const live = profileById.get(id);
-      return {
-        id,
-        name: String(live?.name || child?.name || "Child").trim() || "Child",
-      };
-    })
-    .filter(Boolean);
+  const children = [];
+  const seen = new Set();
+  const unknownChildIds = [];
+  childrenInput.forEach((child) => {
+    const id = String(child?.id || "").trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    if (profileById.size && !profileById.has(id)) {
+      unknownChildIds.push(id);
+      return;
+    }
+    // Phase 4: membership is childIds only — do not store a second name roster.
+    children.push({ id });
+  });
   if (!children.length) {
-    jsonResponse(response, 400, { error: "Select at least one child for this household login." });
+    jsonResponse(response, 400, {
+      error: unknownChildIds.length
+        ? "Selected children were not found on the program roster (Profiles)."
+        : "Select at least one child for this household login.",
+      unknownChildIds,
+    });
     return;
   }
   const documents = Array.isArray(body.documents)
@@ -14687,7 +14731,10 @@ async function handleFamilyHubHouseholdCreate(request, response) {
   const householdId = `family-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
   const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
   const magicUrl = `${origin}/?familyHub=${encodeURIComponent(magicToken)}`;
-  const label = String(body.label || children.map((c) => c.name).join(" & ") || "Family").trim() || "Family";
+  const label = String(body.label || children.map((c) => {
+    const live = profileById.get(c.id);
+    return live?.name || "";
+  }).filter(Boolean).join(" & ") || "Family").trim() || "Family";
   const programName = String(body.programName || "Little Learner Hub program").trim() || "Little Learner Hub program";
   const household = {
     id: householdId,
@@ -14698,7 +14745,7 @@ async function handleFamilyHubHouseholdCreate(request, response) {
     email,
     phone,
     guardianEmails,
-    // childIds is the membership source of truth; children is a thin display cache (names from Profiles).
+    // childIds is the membership source of truth; children is id-only (names from Profiles).
     childIds: children.map((child) => child.id),
     children,
     documents,
@@ -14840,25 +14887,32 @@ async function handleFamilyHubHouseholdChildrenPatch(request, response, househol
   }
   const childrenInput = Array.isArray(body.children) ? body.children : [];
   const ownerChildData = readOwnerChildDataForFamilyHub(store, ownerEmail);
-  const profileById = new Map(
+  const profileIds = new Set(
     (Array.isArray(ownerChildData?.Profiles) ? ownerChildData.Profiles : [])
-      .map((profile) => [String(profile?.id || ""), profile]),
+      .map((profile) => String(profile?.id || ""))
+      .filter(Boolean),
   );
   const children = [];
   const seen = new Set();
+  const unknownChildIds = [];
   childrenInput.forEach((child) => {
     const childId = String(child?.id || "").trim();
     if (!childId || seen.has(childId)) return;
     seen.add(childId);
-    const live = profileById.get(childId);
-    children.push({
-      id: childId,
-      // Phase 4: Profiles name wins when the child exists in the program roster.
-      name: String(live?.name || child?.name || "Child").trim() || "Child",
-    });
+    if (profileIds.size && !profileIds.has(childId)) {
+      unknownChildIds.push(childId);
+      return;
+    }
+    // Phase 4: store id only — Profiles supply the live name.
+    children.push({ id: childId });
   });
   if (!children.length) {
-    jsonResponse(response, 400, { error: "Select at least one child for this household." });
+    jsonResponse(response, 400, {
+      error: unknownChildIds.length
+        ? "Selected children were not found on the program roster (Profiles)."
+        : "Select at least one child for this household.",
+      unknownChildIds,
+    });
     return;
   }
   household.children = children;
@@ -15860,10 +15914,8 @@ async function handleFamilyHubUnlinkChildPost(request, response) {
     if (!beforeIds.includes(childId)) return;
     unlinked += 1;
     const nextIds = beforeIds.filter((id) => id !== childId);
-    const nextChildren = nextIds.map((id) => {
-      const snap = beforeSnap.find((child) => String(child?.id || "") === id);
-      return snap || { id, name: "Child" };
-    });
+    // Keep id-only membership; names come from Profiles overlay.
+    const nextChildren = nextIds.map((id) => ({ id }));
     household.children = nextChildren;
     household.childIds = nextIds;
     household.updatedAt = now;

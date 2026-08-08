@@ -8859,13 +8859,21 @@ async function maybeLinkChildToFamilyHubHouseholds(child = {}) {
   let linked = 0;
   for (const household of targets) {
     const nextChildren = [
-      ...((household.children || []).map((item) => ({ id: item.id, name: item.name }))),
-      { id: child.id, name: child.name },
+      ...((household.childIds || []).map((id) => ({ id: String(id) }))),
+      { id: child.id },
     ];
+    // Dedupe by id — Family Hub membership is childIds, not a name roster.
+    const seen = new Set();
+    const children = nextChildren.filter((item) => {
+      const id = String(item.id || "");
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
     const response = await fetch(`/api/family-hub/households/${encodeURIComponent(household.id)}/children`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ children: nextChildren }),
+      body: JSON.stringify({ children }),
       cache: "no-store",
     });
     if (response.ok) linked += 1;
@@ -30381,14 +30389,53 @@ function currentWeekPlanner(existing = weeklyPlanner()) {
   };
 }
 
+/**
+ * Phase 4 — Weekly Planner dual-read (temporary migration).
+ *
+ * AUTHORITATIVE: program schedule lesson item for the focused week
+ *   (store.programData[programId].schedule → client scheduleDocCache).
+ * TEMPORARY FALLBACK: localStorage llhWeeklyPlanner (unscoped legacy cache).
+ *
+ * Before removing the fallback:
+ * 1. All Weekly Plan edits persist only via updateScheduleLessonSnapshot / schedule APIs
+ * 2. Drift shows no orphaned weeks that exist only in llhWeeklyPlanner
+ * 3. Migration flag llhScheduleMigrated:{email} is set for active testers
+ * 4. Ops confirms Calendar + View Weekly Plan match without LS planner
+ */
+function weeklyPlannerFromAuthoritativeSchedule(weekStartDate = "") {
+  const api = getScheduleApi();
+  if (!api || typeof api.buildPlannerFromLessonItem !== "function") return null;
+  const week = curriculumPlannerWeekStartIso(
+    weekStartDate || weeklyPlannerFocusWeek || new Date(),
+  );
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
+  if (!doc) return null;
+  const item = typeof api.lessonForWeek === "function" ? api.lessonForWeek(doc, week) : null;
+  if (!item) return null;
+  const planner = api.buildPlannerFromLessonItem(item);
+  if (!planner) return null;
+  return {
+    ...defaultPlanner(),
+    ...planner,
+    days: { ...defaultPlanner().days, ...(planner.days || {}) },
+    _canonicalSource: "schedule",
+    _scheduleItemId: item.id || "",
+  };
+}
+
 function weeklyPlanner() {
+  const fromSchedule = weeklyPlannerFromAuthoritativeSchedule();
+  if (fromSchedule) return fromSchedule;
+  // Temporary fallback only — not the permanent architecture.
   const saved = readSavedJson("llhWeeklyPlanner", null);
   const planner = { ...defaultPlanner(), ...(saved || {}) };
   planner.days = { ...defaultPlanner().days, ...(planner.days || {}) };
+  planner._canonicalSource = "llhWeeklyPlanner_fallback";
   return planner;
 }
 
 function saveWeeklyPlanner(planner) {
+  // Cache-only when schedule is authoritative; schedule writes go through updateScheduleLessonSnapshot.
   localStorage.setItem("llhWeeklyPlanner", JSON.stringify(planner));
   updateSidebarDashboard();
 }
@@ -31157,7 +31204,9 @@ function ensureClassroomCopyActivityId(item = {}) {
 
 /**
  * Update the classroom ScheduleItem.snapshot only — never mutates the library
- * curriculum lesson plan. Keeps Weekly Planner + Calendar in sync via dual-write.
+ * curriculum lesson plan.
+ * AUTHORITATIVE write path for Weekly Plan edits (schedule).
+ * dual-write to llhWeeklyPlanner is a temporary cache sync only.
  */
 async function updateScheduleLessonSnapshot(itemId, patchFn) {
   const api = getScheduleApi();
@@ -38671,13 +38720,9 @@ function activeScheduleClassrooms(doc = scheduleDocCache) {
   return rooms.filter((room) => room && room.id && !room.archived);
 }
 
-/** Classrooms for enrollment matching: schedule store first, then Program Settings. */
+/** Classrooms: schedule store is the only source (Phase 4). */
 function enrollmentClassroomCandidates() {
-  const scheduleRooms = activeScheduleClassrooms();
-  if (scheduleRooms.length) return scheduleRooms;
-  const settings = typeof getProgramSettings === "function" ? getProgramSettings() : {};
-  const fromSettings = Array.isArray(settings?.classrooms) ? settings.classrooms : [];
-  return fromSettings.filter((room) => room && room.id && !room.archived);
+  return activeScheduleClassrooms();
 }
 
 function resolveEnrollmentClassroom(desiredRoom) {
@@ -38723,6 +38768,10 @@ function familyHouseholdLabel(child = {}) {
   return `Family of ${child.name || "Child"}`;
 }
 
+/**
+ * Profile parentInfo groups — invite/contact helper only.
+ * NOT the Family Hub roster (that is store.familyHouseholds via /api/family-hub/households).
+ */
 function buildFamilyHouseholds(records = childRecords()) {
   const map = new Map();
   getActiveChildren(records).forEach((child) => {
@@ -39109,20 +39158,49 @@ function renderFamiliesPage() {
     return;
   }
   const records = childRecords();
-  const households = buildFamilyHouseholds(records);
+  const profileGroups = buildFamilyHouseholds(records);
+  const fhHouseholds = (familyHubHouseholdCache.households || []).filter((h) => h && h.status !== "revoked");
+  const profileById = new Map((records.children || []).map((c) => [String(c.id), c]));
   section.innerHTML = renderManageSurfaceShell({
     eyebrow: "Families",
     title: "Family management",
-    detail: "Households are grouped from Child Profiles. Add a parent/guardian on a child’s profile to combine siblings.",
+    detail: "Family Hub households are the membership source of truth (childIds). Profile parent contacts below edit Profiles only — not a second Family Hub roster.",
     actionsHtml: `
-      <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
+      <button class="primary-button" type="button" data-view="home-daycare-hub" data-hdh-jump="hdhFamilyHubPanel">Open Family Hub</button>
+      <button class="ghost-button" type="button" data-view="children">Child Profiles</button>
       <button class="ghost-button" type="button" data-view="enrollment">Enrollment</button>
+      <button class="ghost-button" type="button" data-refresh-families-canonical>Refresh</button>
     `,
     bodyHtml: `
       <section class="section-block platform-manage-card">
-        <h3>${households.length} household${households.length === 1 ? "" : "s"}</h3>
+        <h3>Family Hub households (${fhHouseholds.length})</h3>
+        <p class="muted-copy">Canonical membership from familyHouseholds — names from live Child Profiles.</p>
         <div class="platform-manage-list">
-          ${households.map((house) => `
+          ${fhHouseholds.map((house) => {
+            const ids = Array.isArray(house.childIds) && house.childIds.length
+              ? house.childIds
+              : (house.children || []).map((c) => c.id);
+            const names = ids.map((id) => profileById.get(String(id))?.name || String(id)).filter(Boolean);
+            return `
+            <article class="platform-manage-row platform-manage-row-stack">
+              <div>
+                <strong>${escapeHtml(house.label || "Household")}</strong>
+                <p class="muted-copy">${escapeHtml(house.email || "")}${house.status ? ` · ${escapeHtml(house.status)}` : ""} · ${ids.length} child${ids.length === 1 ? "" : "ren"}</p>
+              </div>
+              <div class="platform-family-children">
+                ${ids.map((id, index) => `
+                  <button class="ghost-button" type="button" data-open-child-profile="${escapeHtml(String(id))}">${escapeHtml(names[index] || "Child")}</button>
+                `).join("") || `<p class="muted-copy">No children linked.</p>`}
+              </div>
+            </article>`;
+          }).join("") || `<p class="muted-copy">No Family Hub households yet. Invite from Family Hub.</p>`}
+        </div>
+      </section>
+      <section class="section-block platform-manage-card">
+        <h3>Profile parent contacts (${profileGroups.length})</h3>
+        <p class="muted-copy">Edits parentInfo on Child Profiles only. Does not create Family Hub households.</p>
+        <div class="platform-manage-list">
+          ${profileGroups.map((house) => `
             <article class="platform-manage-row platform-manage-row-stack">
               <div>
                 <strong>${escapeHtml(house.label)}</strong>
@@ -39146,6 +39224,15 @@ function renderFamiliesPage() {
       </section>
     `,
   });
+  refreshFamilyHubHouseholds()
+    .then(() => {
+      const stillOnFamilies = document.querySelector("#view-families");
+      if (!stillOnFamilies) return;
+      if (!fhHouseholds.length && (familyHubHouseholdCache.households || []).length) {
+        renderFamiliesPage();
+      }
+    })
+    .catch(() => {});
 }
 
 function renderEnrollmentPage() {
@@ -64344,6 +64431,20 @@ document.addEventListener("click", async (event) => {
   if (refreshStaffInvitesBtn) {
     event.preventDefault();
     renderStaffManagementPage({ refresh: true });
+    return;
+  }
+
+  const refreshFamiliesCanonicalBtn = event.target.closest("[data-refresh-families-canonical]");
+  if (refreshFamiliesCanonicalBtn) {
+    event.preventDefault();
+    refreshFamilyHubHouseholds()
+      .then(() => {
+        renderFamiliesPage();
+        showActionFeedback("Families refreshed from Family Hub.");
+      })
+      .catch((error) => {
+        showActionFeedback(error.message || "Could not refresh Family Hub households.");
+      });
     return;
   }
 

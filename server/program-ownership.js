@@ -341,6 +341,19 @@ function legacyScheduleRecord(store, uid) {
   return store.scheduleByUser?.[uid] || null;
 }
 
+/**
+ * Phase 4: legacy UID mirrors are a temporary migration safety net.
+ * Authoritative homes are always programData[programId].{child|schedule}.
+ * Set CANONICAL_MIRROR_LEGACY=0 to stop writing new mirrors (reads still fall back).
+ */
+function shouldMirrorLegacy() {
+  const raw = String(process.env.CANONICAL_MIRROR_LEGACY || "").trim().toLowerCase();
+  if (["0", "false", "off", "no"].includes(raw)) return false;
+  if (["1", "true", "on", "yes"].includes(raw)) return true;
+  // Default: keep mirrors warm so older tooling/tests can still verify rollbacks.
+  return true;
+}
+
 function readProgramChildData(store, context) {
   ensureProgramsCollection(store);
   const programBucket = store.programData[context.programId] || {};
@@ -388,7 +401,7 @@ function readProgramChildData(store, context) {
   };
 }
 
-function writeProgramChildData(store, context, data, { mirrorLegacy = true, mergeScoped = true } = {}) {
+function writeProgramChildData(store, context, data, { mirrorLegacy = shouldMirrorLegacy(), mergeScoped = true } = {}) {
   ensureProgramsCollection(store);
   const updatedAt = new Date().toISOString();
   const existing = store.programData[context.programId]?.child?.data || emptyChildPayload();
@@ -497,7 +510,7 @@ function readProgramSchedule(store, context, scheduleLib) {
   };
 }
 
-function writeProgramSchedule(store, context, doc, scheduleLib, { mirrorLegacy = true } = {}) {
+function writeProgramSchedule(store, context, doc, scheduleLib, { mirrorLegacy = shouldMirrorLegacy() } = {}) {
   ensureProgramsCollection(store);
   const normalized = scheduleLib.normalizeScheduleDocument(doc);
   const updatedAt = normalized.updatedAt || new Date().toISOString();
@@ -886,6 +899,7 @@ module.exports = {
   publicProgramFields,
   emptyChildPayload,
   mergeChildDataForWriteScope,
+  shouldMirrorLegacy,
   ASSISTANT_WRITABLE_CHILD_KEYS,
   TEACHER_WRITABLE_CHILD_KEYS,
 };

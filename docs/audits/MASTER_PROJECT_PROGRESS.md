@@ -14,10 +14,10 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | 🚧 **Phase 4 in progress** — One source of truth |
-| **Overall completion** | **~30%** (3 of 11 major steps complete; Phase 4 underway) |
+| **Current phase** | 🚧 **Phase 5 in progress** — Daily Operations |
+| **Overall completion** | **~36%** (4 of 11 major steps complete; Phase 5 started) |
 | **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval |
-| **Testing status** | 🟢 Active — Phase 3 complete; Phase 4 foundations on testing branch |
+| **Testing status** | 🟢 Active — Phase 4 One Source of Truth complete on testing branch |
 | **Major blockers** | None |
 | **Known high-priority bugs** | None logged |
 
@@ -28,10 +28,10 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | # | Phase | Status |
 |---|---|---|
 | 1 | Safety + HDH/`main` confirmation | ✅ Completed |
-| 2 | Owner Admin (tester control + dashboard) | ✅ **Fully complete** (implementation + owner validation) |
+| 2 | Owner Admin (tester control + dashboard) | ✅ **Fully complete** |
 | 3 | Navigation cleanup | ✅ **Completed** (+ final nav review) |
-| 4 | One source of truth (children / staff / families) | 🚧 **In progress** |
-| 5 | Daily operations | ⏳ Remaining |
+| 4 | One source of truth (children / staff / families) | ✅ **Completed** |
+| 5 | Daily operations | 🚧 **In progress** |
 | 6 | Family Hub | ⏳ Remaining |
 | 7 | Forms | ⏳ Remaining |
 | 8 | Billing (testing) | ⏳ Remaining |
@@ -39,7 +39,7 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 10 | Live → Testing Feature Sync | ⏳ Remaining |
 | 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining — production deploy only with **written** approval |
 
-**Completion percentage:** 3/11 complete ≈ **27%** roadmap steps; ~**30%** with Phase 4 started.
+**Completion percentage:** 4/11 ≈ **36%**.
 
 ---
 
@@ -49,33 +49,33 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 - Confirmed HDH/`main` as testing spine; July branch not merged  
 
 ### 2. Owner Admin — fully complete
-- Owner validation finished 2026-08-08  
 - Report: `docs/audits/PHASE2_OWNER_ADMIN_COMPLETION_REPORT.md`  
 - PR: https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/572  
 
 ### 3. Navigation Cleanup — complete
-- Management / Curriculum / Family messages / Forms labeling / Testers-primary paths / HD Management shorten  
-- Final role/path review: `docs/audits/PHASE3_FINAL_NAVIGATION_REVIEW.md`  
 - Report: `docs/audits/PHASE3_NAVIGATION_CLEANUP_COMPLETION_REPORT.md`  
-- Branch: `cursor/navigation-cleanup-phase3-9c23`  
+- Final review: `docs/audits/PHASE3_FINAL_NAVIGATION_REVIEW.md`  
+
+### 4. One Source of Truth — complete
+- One durable home per major object; no second Family Hub roster  
+- Weekly Planner dual-read from schedule (temporary fallback documented)  
+- Drift report-first (no auto-delete); HD + Center fixtures  
+- Report: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH_COMPLETION_REPORT.md`  
+- Branch: `cursor/phase4-one-source-of-truth-9c23`  
 
 ---
 
 ## 🚧 Current phase
 
-### 4. One source of truth — in progress
-- Branch: `cursor/phase4-one-source-of-truth-9c23`  
-- Doc + relationship diagram: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH.md`  
-- Canonical adapters: `server/canonical-data.js`  
-- Drift dry-run API (testing admin, read-only): `GET /api/admin/testing/canonical-drift`  
-- Household membership prefers `childIds` + Profiles (no second roster)  
-- **Not complete** — continue wiring adapters; no production migrate  
+### 5. Daily Operations — just started
+- Builds on Phase 4 canonical Child / Classroom / Schedule / Daily Log homes  
+- Scope: attendance, meals, naps, activities, photos, end-of-day flow on testing  
+- Must not invent parallel child or classroom stores  
 
 ---
 
 ## ⏳ Remaining phases
 
-5. Daily operations  
 6. Family Hub  
 7. Forms  
 8. Billing (testing)  
@@ -119,8 +119,9 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 |---|---|
 | HDH/`main` testing architecture | Source of truth |
 | Owner Testing Admin | Validated |
-| Work-mode nav cleanup | Complete (final review done) |
-| One source of truth | Foundations started |
+| Work-mode nav cleanup | Complete |
+| One source of truth | Complete |
+| Daily operations | Started |
 | July Testing Lab merge | **Not** merged |
 
 ---

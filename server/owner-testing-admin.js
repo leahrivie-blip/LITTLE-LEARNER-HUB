@@ -1309,6 +1309,7 @@ function createOwnerTestingAdminApi(deps) {
       ok: true,
       testingOnly: true,
       readOnly: true,
+      homes: canonicalData.describeCanonicalHomes(),
       report,
     });
   }

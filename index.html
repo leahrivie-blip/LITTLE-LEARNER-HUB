@@ -124,7 +124,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260806-tk-editor-spacing-r3";
+      var SHELL_VERSION = "20260808-phase4-one-source";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -804,8 +804,8 @@
                 <p>Family communication, shared updates, and digital form workflows for invited households.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
-                <h3>Daily operations <span class="llh-status-pill">In Development</span></h3>
-                <p>Attendance, meals, naps, and daily logs for smoother classroom routines.</p>
+                <h3>Daily operations <span class="llh-status-pill">On Testing</span></h3>
+                <p>Attendance, meals, naps, and daily logs for smoother classroom routines — building on one shared child record.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
                 <h3>Enrollment tools <span class="llh-status-pill">Planned</span></h3>
