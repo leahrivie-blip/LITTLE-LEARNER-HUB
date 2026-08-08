@@ -172,11 +172,6 @@ async function main() {
   const apples = seedPlan({ id: APPLES_ID, title: "Amazing Apples", age: "Toddler", theme: "Apples" });
   const aam = seedPlan({ id: AAM_ID, title: "All About Me", age: "Preschool", theme: "All About Me" });
   const farm = seedPlan({ id: FARM_ID, title: "Farm Animals", age: "Preschool", theme: "Farm Animals" });
-  const applesPubBefore = publishedFingerprint(apples);
-  const aamPubBefore = publishedFingerprint(aam);
-  const farmPubBefore = publishedFingerprint(farm);
-  const applesActsBefore = activityLinkFingerprint(apples, []);
-  const farmActsBefore = activityLinkFingerprint(farm, []);
 
   const featureFlagsBefore = {
     teachingKitEnrichmentEditor: true,
@@ -295,6 +290,17 @@ async function main() {
     let stamp = stampRes.json.siteContent?.updatedAt;
     const lessonCountBefore = stampRes.json.siteContent.curriculum.lessonPlans.length;
     const activityCountBefore = stampRes.json.siteContent.curriculum.activities.length;
+    const plansBefore = stampRes.json.siteContent.curriculum.lessonPlans;
+    const activitiesBefore = stampRes.json.siteContent.curriculum.activities || [];
+    const farmBefore = plansBefore.find((p) => p.id === FARM_ID);
+    const applesBefore = plansBefore.find((p) => p.id === APPLES_ID);
+    const aamBefore = plansBefore.find((p) => p.id === AAM_ID);
+    const farmPubFp = publishedFingerprint(farmBefore);
+    const applesPubFp = publishedFingerprint(applesBefore);
+    const aamPubFp = publishedFingerprint(aamBefore);
+    const farmActsFp = activityLinkFingerprint(farmBefore, activitiesBefore);
+    const applesActsFp = activityLinkFingerprint(applesBefore, activitiesBefore);
+    const flagsBefore = { ...(stampRes.json.siteContent.featureFlags || {}) };
 
     const seed = await requestJson("POST", "/api/admin/curriculum/draft-review", {
       action: "submit-seed",
@@ -346,19 +352,19 @@ async function main() {
     const applesPlan = plans.find((p) => p.id === APPLES_ID);
     const aamPlan = plans.find((p) => p.id === AAM_ID);
     ok(!farmPlan.enrichmentDraft, "Farm Animals enrichment untouched");
-    ok(publishedFingerprint(farmPlan) === farmPubBefore, "Farm Animals published body unchanged");
-    ok(activityLinkFingerprint(farmPlan, activities) === farmActsBefore, "Farm Animals activity links unchanged");
+    ok(publishedFingerprint(farmPlan) === farmPubFp, "Farm Animals published body unchanged");
+    ok(activityLinkFingerprint(farmPlan, activities) === farmActsFp, "Farm Animals activity links unchanged");
     ok(Boolean(applesPlan.enrichmentDraft?.activities), "enrichment draft on Amazing Apples");
-    ok(publishedFingerprint(applesPlan) === applesPubBefore, "Amazing Apples published body unchanged");
-    ok(publishedFingerprint(aamPlan) === aamPubBefore, "All About Me published body unchanged");
-    ok(activityLinkFingerprint(applesPlan, activities) === applesActsBefore, "Amazing Apples activity links unchanged");
+    ok(publishedFingerprint(applesPlan) === applesPubFp, "Amazing Apples published body unchanged");
+    ok(publishedFingerprint(aamPlan) === aamPubFp, "All About Me published body unchanged");
+    ok(activityLinkFingerprint(applesPlan, activities) === applesActsFp, "Amazing Apples activity links unchanged");
     ok(plans.filter((p) => p.id === APPLES_ID).length === 1, "no duplicate Amazing Apples lesson");
     ok(plans.length === lessonCountBefore, "lesson totals unchanged");
     ok(activities.length === activityCountBefore, "activity totals unchanged");
 
     const flags = site.json.siteContent.featureFlags || {};
-    ok(flags.teachingKitEnrichmentEditor === featureFlagsBefore.teachingKitEnrichmentEditor, "customer TK enrichment flag unchanged");
-    ok(flags.playBasedCurriculum === featureFlagsBefore.playBasedCurriculum, "play-based curriculum flag unchanged");
+    ok(flags.teachingKitEnrichmentEditor === flagsBefore.teachingKitEnrichmentEditor, "customer TK enrichment flag unchanged");
+    ok(flags.playBasedCurriculum === flagsBefore.playBasedCurriculum, "play-based curriculum flag unchanged");
 
     const resourceId = get.json.draftResources[0].id;
     const publicFile = await requestJson("GET", `/api/curriculum/resources/file?id=${encodeURIComponent(resourceId)}`);
@@ -449,10 +455,10 @@ async function main() {
     const finalSite = await requestJson("GET", "/api/admin/site-content", null, ownerAuth);
     const finalPlans = finalSite.json.siteContent.curriculum.lessonPlans;
     const finalFarm = finalPlans.find((p) => p.id === FARM_ID);
-    ok(publishedFingerprint(finalFarm) === farmPubBefore, "Farm Animals still unchanged after discard/rollback");
+    ok(publishedFingerprint(finalFarm) === farmPubFp, "Farm Animals still unchanged after discard/rollback");
     ok(finalPlans.length === lessonCountBefore, "lesson totals still unchanged");
     ok((finalSite.json.siteContent.curriculum.activities || []).length === activityCountBefore, "activity totals still unchanged");
-    ok(finalSite.json.siteContent.featureFlags.playBasedCurriculum === true, "customer Teaching Kit flags unchanged");
+    ok(finalSite.json.siteContent.featureFlags.playBasedCurriculum === flagsBefore.playBasedCurriculum, "customer Teaching Kit flags unchanged");
 
     // UI layout smoke (no Playwright required for overflow text checks)
     ok(uiJs.includes("tk-draft-review-table-wrap"), "queue table has overflow wrapper");

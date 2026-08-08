@@ -111,6 +111,8 @@ function draftContentFingerprint(draft) {
   }
   return sha256Short(JSON.stringify(cloned));
 }
+
+function enrichmentHasContent(draft) {
   if (!draft || typeof draft !== "object" || Array.isArray(draft)) return false;
   const acts = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
   if (Object.keys(acts).some((k) => acts[k] && typeof acts[k] === "object" && Object.keys(acts[k]).length)) {
