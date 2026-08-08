@@ -116,61 +116,65 @@ function inspectLocalShellMarkers() {
 function inspectPrintHtmlForVisualDefects() {
   const Print = require(path.join(ROOT, "scripts/teaching-kit-print.js"));
   const Present = require(path.join(ROOT, "scripts/teaching-kit-present.js"));
+  const Mapper = require(path.join(ROOT, "scripts/teaching-kit-mapper.js"));
+  const fixture = require(path.join(ROOT, "scripts/fixtures/teaching-kit/farm-animals-enrichment-slice2.json"));
+  const mapped = Mapper.mapLessonPlanToTeachingKit(
+    fixture.lessonPlan,
+    fixture.activities || [],
+    fixture.resources || [],
+    { day: "monday" }
+  );
   const defects = [];
-  const kit = {
-    id: "tk-phase11-qa",
-    title: "Phase 11 Print Visual QA Kit",
-    theme: "Apples",
-    ageGroup: "Toddler",
-    weekOf: "2026-08-03",
-    activities: [
-      {
-        id: "act-1",
-        title: "Apple Taste Test",
-        domain: "Science",
-        materials: ["Apples", "Cutting board"],
-        steps: ["Wash apples", "Offer tastes", "Talk about sweet vs tart"],
-        tips: ["Watch for allergies"],
-      },
-      {
-        id: "act-2",
-        title: "Apple Song Circle",
-        domain: "Music",
-        materials: ["Song card"],
-        steps: ["Sing once", "Add motions", "Invite children to lead"],
-      },
-    ],
-    songs: [{ id: "song-1", title: "Way Up High in the Apple Tree", lyrics: "Way up high in the apple tree..." }],
-    books: [{ id: "book-1", title: "Ten Apples Up On Top" }],
-    printables: [{ id: "print-1", title: "Apple Sorting Mat", type: "printable" }],
-    materials: ["Apples", "Basket", "Song card"],
-  };
-  const plan = {
-    id: "lp-phase11-qa",
-    title: "Apple Week",
-    theme: "Apples",
-    ageGroup: "Toddler",
-    days: [
-      { day: "Monday", focus: "Taste", activities: ["Apple Taste Test"] },
-      { day: "Tuesday", focus: "Song", activities: ["Apple Song Circle"] },
-    ],
-  };
+  if (!mapped || mapped.ok !== true) {
+    return { ok: false, checks: [], defects: [{ id: "map-kit", pass: false, detail: "fixture mapping failed" }], htmlLength: 0 };
+  }
 
-  const binder = Print.buildEntireBinderKitHtml(kit, { plan, paperSize: "letter" });
+  const binder = Print.buildEntireBinderKitHtml(mapped, { plan: fixture.lessonPlan, paperSize: "letter" });
+  const weekly = Print.buildFullWeeklyLessonPlanHtml(mapped, { plan: fixture.lessonPlan });
   const html = String(binder.html || "");
+  const weeklyHtml = String(weekly.html || "");
+  const forbidden = [
+    /ACTIVITY_NAME\s*:/i,
+    /AGE_GROUP\s*:/i,
+    /\bundefined\b/,
+    /close-button/,
+    /data-close-modal/,
+    /aria-label="Close"/i,
+    /aria-modal="true"/i,
+  ];
+  const forbiddenHits = forbidden.filter((re) => re.test(html) || re.test(weeklyHtml)).map((re) => String(re));
+
   const checks = [
-    { id: "has-title", pass: /Phase 11 Print Visual QA Kit|Apple Week/i.test(html), detail: "kit/plan title present" },
-    { id: "no-raw-field-keys", pass: !/\b(activityId|lessonPlanId|__proto__|undefined)\b/.test(html), detail: "no raw field names / undefined" },
-    { id: "no-modal-chrome", pass: !/data-modal|class="modal"|aria-modal="true"/i.test(html), detail: "no browser/modal chrome" },
-    { id: "has-activity", pass: /Apple Taste Test/i.test(html), detail: "activity content present" },
-    { id: "has-song", pass: /Apple Tree|Apple Song/i.test(html), detail: "song content present" },
-    { id: "not-empty", pass: html.replace(/<[^>]+>/g, " ").trim().length > 400, detail: "substantial text content" },
+    { id: "binder-ok", pass: binder.ok === true && html.length > 1000, detail: "Entire Binder Kit builds with content" },
+    { id: "weekly-ok", pass: weekly.ok === true && weeklyHtml.length > 500, detail: "Full Weekly Lesson Plan builds" },
+    { id: "has-branding", pass: /Complete Teaching Kit|Teacher Binder|Farm/i.test(html), detail: "cover/branding present" },
+    { id: "has-activity", pass: /Farm Animal Discovery Basket|activity/i.test(html), detail: "activity content present" },
+    { id: "has-weekdays", pass: /Monday/.test(html) && /Friday/.test(html), detail: "weekdays present" },
+    { id: "no-forbidden", pass: forbiddenHits.length === 0, detail: "no raw fields / modal chrome / undefined" },
     { id: "friendly-preset", pass: Present.presentLabel("week_binder") === "Entire Binder Kit", detail: "preset label friendly" },
+    { id: "page-count-sane", pass: Number(binder.pageCount) >= 10 && Number(binder.pageCount) <= 55, detail: `binder pageCount=${binder.pageCount}` },
   ];
   for (const c of checks) {
     if (!c.pass) defects.push(c);
   }
-  return { ok: defects.length === 0, checks, defects, htmlLength: html.length };
+  // Persist sample HTML for manual visual review artifacts
+  try {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+    fs.writeFileSync(path.join(ARTIFACT_DIR, "farm-binder-visual-qa.html"), html);
+    fs.writeFileSync(path.join(ARTIFACT_DIR, "farm-weekly-visual-qa.html"), weeklyHtml);
+  } catch (_) {
+    /* ignore artifact write errors */
+  }
+  return {
+    ok: defects.length === 0,
+    checks,
+    defects,
+    forbiddenHits,
+    htmlLength: html.length,
+    weeklyHtmlLength: weeklyHtml.length,
+    binderPageCount: binder.pageCount,
+    weeklyPageCount: weekly.pageCount,
+  };
 }
 
 async function probeRemotes() {
@@ -252,9 +256,21 @@ async function main() {
 
   const areaRollup = {};
   for (const r of results) {
-    if (!areaRollup[r.area]) areaRollup[r.area] = { pass: 0, fail: 0, soft: [] };
-    areaRollup[r.area][r.ok ? "pass" : "fail"] += 1;
-    areaRollup[r.area].tests.push({ id: r.id, ok: r.ok, critical: r.critical, ms: r.ms });
+    const area = String(r.area || "Uncategorized");
+    const bucket = areaRollup[area] || (areaRollup[area] = { pass: 0, fail: 0, tests: [] });
+    if (r.ok) bucket.pass += 1;
+    else bucket.fail += 1;
+    bucket.tests.push({ id: r.id, ok: !!r.ok, critical: !!r.critical, ms: r.ms });
+  }
+
+  const releaseBlocking = [];
+  if (!localShell || !localShell.ok) releaseBlocking.push("Local shell version markers incomplete");
+  if (!printVisual || !printVisual.ok) releaseBlocking.push("Print HTML visual inspection failed");
+  if (criticalFailed > 0) releaseBlocking.push(String(criticalFailed) + " critical automated suite(s) failed");
+  if (remotes && remotes.testing && remotes.testing.staleVsPhase11) {
+    releaseBlocking.push(
+      "Remote testing Render deploy is stale vs Phase 11 shell (redeploy testing only before claiming remote Final QA complete)"
+    );
   }
 
   const report = {
@@ -283,20 +299,11 @@ async function main() {
     },
     areaRollup,
     results,
-    releaseBlocking: [],
+    releaseBlocking,
   };
 
-  if (!localShell.ok) report.releaseBlocking.push("Local shell version markers incomplete");
-  if (!printVisual.ok) report.releaseBlocking.push("Print HTML visual inspection failed");
-  if (criticalFailed > 0) report.releaseBlocking.push(`${criticalFailed} critical automated suite(s) failed`);
-  if (remotes.testing.staleVsPhase11) {
-    report.releaseBlocking.push(
-      "Remote testing Render deploy is stale vs Phase 11 shell (redeploy testing only before claiming remote Final QA complete)"
-    );
-  }
-
   report.verdict =
-    report.releaseBlocking.length === 0
+    releaseBlocking.length === 0
       ? "PASS — ready for owner written production deploy approval (still do not deploy)"
       : "NOT COMPLETE — release-blocking items remain (see releaseBlocking)";
 
@@ -304,10 +311,15 @@ async function main() {
   console.log("\n=== Phase 11 Final QA summary ===");
   console.log(JSON.stringify({ totals: report.totals, verdict: report.verdict, releaseBlocking: report.releaseBlocking }, null, 2));
   console.log("Wrote", ARTIFACT);
-  process.exit(report.releaseBlocking.filter((x) => !String(x).includes("Remote testing")).length > 0 ? 1 : 0);
+  const localBlockers = releaseBlocking.filter((x) => !String(x).includes("Remote testing"));
+  process.exit(localBlockers.length > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+module.exports = { EXPECTED_LOCAL_SHELL, SUITES };

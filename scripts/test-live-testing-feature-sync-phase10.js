@@ -89,9 +89,13 @@ function sourceParity() {
 function unitDocs() {
   const tracker = read("docs/audits/MASTER_PROJECT_PROGRESS.md");
   assert.match(tracker, /Phase 10/);
-  assert.match(tracker, /91%|10 of 11|10\/11/);
-  assert.match(tracker, /do not start until Phase 10 confirmed|Phase 11/i);
-  assert.match(tracker, /Do not deploy after Phase 10|written deploy approval/i);
+  // Phase 10 complete stays true after Phase 11 starts; accept either end-of-10 or in-progress-11 tracker wording.
+  assert.match(
+    tracker,
+    /91%|10 of 11|10\/11|~95%|Phase 11 in progress|Phase 10 complete|owner approved/i
+  );
+  assert.match(tracker, /Phase 11/i);
+  assert.match(tracker, /written deploy approval|DO NOT deploy production|Do not deploy after Phase 10/i);
   pass("tracker_phase10");
 }
 

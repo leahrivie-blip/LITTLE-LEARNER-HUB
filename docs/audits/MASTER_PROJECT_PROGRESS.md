@@ -14,12 +14,12 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 
 | Field | Status |
 |---|---|
-| **Current phase** | ✅ **Phase 10 complete** — Live → Testing Feature Sync; awaiting Leah confirm before Phase 11 |
-| **Overall completion** | **~91%** (10 of 11 major steps complete) |
-| **Production status** | 🔒 **Untouched / read-only** — no deploy without written approval |
-| **Testing status** | 🟢 Active — feature sync complete on testing architecture branch |
-| **Major blockers** | None |
-| **Known high-priority bugs** | None logged |
+| **Current phase** | 🚧 **Phase 11 Final QA delivered — NOT 100%** (remote testing deploy still stale) |
+| **Overall completion** | **~98%** — local Final QA strong; **tracker must not show 100%** while release blockers remain |
+| **Production status** | 🔒 **Untouched / read-only** — live `20260808-cookie-cta` |
+| **Testing status** | ⚠️ Remote Render testing still `20260805-testing-full-integration-r8`; local shell `20260808-phase11-final-qa` |
+| **Major blockers** | TESTING-ONLY redeploy to Phase 11 + Leah written prod approval before any production action |
+| **Known high-priority bugs** | Remote testing freshness blocker; no critical local product regressions found |
 
 ---
 
@@ -36,72 +36,39 @@ Phase reports: `docs/audits/PHASE_*_COMPLETION_REPORT.md` · Template: `PHASE_CO
 | 7 | Forms | ✅ **Completed** |
 | 8 | Billing (testing) | ✅ **Completed** |
 | 9 | AI review-before-save | ✅ **Completed** |
-| 10 | Live → Testing Feature Sync | ✅ **Completed** (awaiting owner confirm before Phase 11) |
-| 11 | Pre–Final QA audit + Final QA / production readiness | ⏳ Remaining — **do not start until Phase 10 confirmed** |
+| 10 | Live → Testing Feature Sync | ✅ **Completed** (owner approved) |
+| 11 | Pre–Final QA audit + Final QA / production readiness | 🚧 **Report delivered; not 100%** — remote testing stale; **DO NOT deploy production** |
 
-**Completion percentage:** 10/11 ≈ **91%**.
+**Completion percentage:** ~**98%**. **Not 100%** — release-blocking remote testing freshness remains.
 
 ---
 
 ## ✅ Completed phases
 
-### 1–3
-See prior reports (Safety, Owner Admin, Navigation).
-
-### 4. One Source of Truth — complete
-- Report: `docs/audits/PHASE4_ONE_SOURCE_OF_TRUTH_COMPLETION_REPORT.md`
-
-### 5. Daily Operations — complete
-- Report: `docs/audits/PHASE5_DAILY_OPERATIONS_COMPLETION_REPORT.md`
-
-### 6. Family Hub — complete
-- Report: `docs/audits/PHASE6_FAMILY_HUB_COMPLETION_REPORT.md`  
-- Branch: `cursor/phase6-family-hub-completion-9c23`
-
-### 7. Forms — complete
-- Architecture: `docs/audits/PHASE7_FORMS_ARCHITECTURE.md`  
-- Report: `docs/audits/PHASE7_FORMS_COMPLETION_REPORT.md`  
-- Branch: `cursor/phase7-forms-completion-9c23`  
-- Tests: `npm run test:forms-phase7`
-
-### 8. Billing (tuition) — complete
-- Architecture: `docs/audits/PHASE8_BILLING_ARCHITECTURE.md`  
-- Report: `docs/audits/PHASE8_BILLING_COMPLETION_REPORT.md`  
-- Branch: `cursor/phase8-billing-tuition-9c23`  
-- Tests: `npm run test:tuition-phase8`
-
-### 9. AI review-before-save — complete
-- Architecture: `docs/audits/PHASE9_AI_REVIEW_BEFORE_SAVE_ARCHITECTURE.md`  
-- Report: `docs/audits/PHASE9_AI_REVIEW_BEFORE_SAVE_COMPLETION_REPORT.md`  
-- Branch: `cursor/phase9-ai-review-before-save-9c23`  
-- Tests: `npm run test:ai-review-before-save-phase9`
-
-### 10. Live → Testing Feature Sync — complete
-- Read-only live vs testing audit; valuable live strengths already on HDH/`main` spine  
-- Early-user pricing, lesson covers, TK print/quality, homepage sticky CTA verified in testing codebase  
-- Phases 8–9 merged onto sync branch; no July-branch / production-admin merge  
-- Audit: `docs/audits/PHASE10_LIVE_TESTING_FEATURE_SYNC_AUDIT.md`  
-- Report: `docs/audits/PHASE10_LIVE_TESTING_FEATURE_SYNC_COMPLETION_REPORT.md`  
-- Branch: `cursor/phase10-live-testing-feature-sync-9c23`  
-- Tests: `npm run test:live-testing-feature-sync-phase10`
+### 1–10
+See prior completion reports. Phase 10: `docs/audits/PHASE10_LIVE_TESTING_FEATURE_SYNC_COMPLETION_REPORT.md`.
 
 ---
 
 ## 🚧 Current phase
 
-None in progress — **awaiting Leah to confirm Phase 10 and start Phase 11 Pre–Final QA**.
+**Phase 11 — Final QA / Production Readiness**  
+Branch: `cursor/phase11-final-qa-production-readiness-9c23` · PR `#584`  
+Report: `docs/audits/PHASE11_FINAL_QA_PRODUCTION_READINESS_REPORT.md`  
+Orchestrator: `npm run test:final-qa-phase11`
+
+**STOP:** Do not merge/deploy/publish/migrate/change production env or flags without Leah’s **explicit written** production deployment approval.
 
 ---
 
-## ⏳ Remaining phases
+## ⏳ Remaining before 100%
 
-11. Pre–Final QA → Final QA → deploy **only** with written approval  
-
-**Do not deploy after Phase 10.** Production remains unchanged until written deploy approval.
+1. Redeploy **TESTING ONLY** to Phase 11 (`20260808-phase11-final-qa`) and verify  
+2. Optional remote smoke after redeploy  
+3. Owner written production deploy approval (separate decision)  
 
 ---
 
 ## Production status
 
-🔒 Untouched. Agents remain read-only for production env vars. No deploy/restart without written approval and passing `env:preflight`.  
-Phase 10 compared live **read-only** and implemented only on the testing architecture.
+🔒 Untouched. Live shell `20260808-cookie-cta`, `homeDaycareHubTesting: false`. Agents remain read-only for production env vars.
