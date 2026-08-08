@@ -296,7 +296,7 @@ async function main() {
       option: "Activities Only",
       preset: "activities_only",
       expectPresent: [/<article[^>]*tk-print-activity-card/i, /Farm Animal Discovery Basket/i],
-      expectAbsent: [...FORBIDDEN_UI, /tk-print-wag-table/i],
+      expectAbsent: [...FORBIDDEN_UI, /<table class="tk-print-wag-table"/i, /data-tk-print-tab="Weekly Plan"/i],
     },
     {
       option: "One Activity",
