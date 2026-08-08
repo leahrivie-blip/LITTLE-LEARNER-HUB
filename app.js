@@ -42602,11 +42602,13 @@ function childProfileClassroomLabel(child = {}) {
   return cleanAgeText(byId?.name || child.classroom) || childAgeGroupLabel(child) || "Classroom not set";
 }
 
-function classroomOptionsHtml(selectedId = "", selectedName = "") {
+function classroomOptionsHtml(selectedId = "", selectedName = "", options = {}) {
   const rooms = activeScheduleClassrooms();
+  // First-run Add Child must not block on classroom assignment — name + age group are enough.
+  const requireClassroom = options.requireClassroom === true;
   if (!rooms.length) {
     return `
-      <label>Classroom / Room
+      <label>Classroom / Room <span class="muted-copy">(optional)</span>
         <input name="classroom" value="${escapeHtml(selectedName || "")}" placeholder="Add classrooms under Classrooms, or type a room name" />
       </label>
       <p class="form-note"><button class="ghost-button" type="button" data-view="classrooms">Create a classroom</button> so children can be assigned to a real room roster.</p>
@@ -42615,9 +42617,9 @@ function classroomOptionsHtml(selectedId = "", selectedName = "") {
   const selected = String(selectedId || "");
   const match = rooms.some((room) => String(room.id) === selected);
   return `
-    <label>Classroom
-      <select name="classroomId" required>
-        <option value="">Select classroom</option>
+    <label>Classroom ${requireClassroom ? "" : `<span class="muted-copy">(optional)</span>`}
+      <select name="classroomId" ${requireClassroom ? "required" : ""}>
+        <option value="">${requireClassroom ? "Select classroom" : "No classroom yet"}</option>
         ${rooms.map((room) => `
           <option value="${escapeHtml(room.id)}" ${String(room.id) === selected ? "selected" : ""}>${escapeHtml(room.name || "Classroom")}${room.ageGroupDefault ? ` · ${escapeHtml(room.ageGroupDefault)}` : ""}</option>
         `).join("")}
@@ -42661,6 +42663,14 @@ function renderChildManagement() {
     app.innerHTML = renderChildProfileFormScreen();
     updateChildAgePreview();
     dlcScrollPreserveY = null;
+    // First-run: land on the name field immediately — do not make testers hunt.
+    queueMicrotask(() => {
+      const nameInput = app.querySelector("#childProfileForm input[name='name'], #childFirstNameInput");
+      if (nameInput) {
+        try { nameInput.focus({ preventScroll: false }); } catch { nameInput.focus?.(); }
+        nameInput.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      }
+    });
     return;
   }
 
@@ -42753,49 +42763,74 @@ function renderChildProfileFormScreen(child = null) {
   const selectedGoals = Array.isArray(child?.goalAreas) ? child.goalAreas : childSelectedGoalAreas(child || {});
   const selectedSupports = childSelectedSupportAreas(child || {});
   const monthlyGoal = child?.monthlyObservationGoal || child?.observationsRequiredPerMonth || "4";
+  const advancedOpen = editing; // First-run add: keep goals/supports collapsed so the name field is obvious.
   return `
-    <section class="simple-child-page">
+    <section class="simple-child-page child-add-first-run">
       <button class="ghost-button back-button" ${editing ? `data-view-child-profile="${child.id}"` : `data-child-view="list"`} type="button">${editing ? `Back to ${escapeHtml(child.name)}` : "Back to Children"}</button>
       <div class="child-page-header compact">
         <div>
-          <h2>${editing ? "Edit Child Profile" : "Add Child"}</h2>
-          <p>Child details, goals, and support areas power recommendations across the platform.</p>
+          <h2>${editing ? "Edit Child Profile" : "Add Your First Child"}</h2>
+          <p>${editing
+            ? "Update this child’s details, goals, and support areas."
+            : "Start with the child’s name and age group. You can add more details anytime."}</p>
         </div>
       </div>
-      <section class="section-block simple-form-card wide-form-card">
-        <form id="childProfileForm" class="mini-form simple-child-form">
+      <section class="section-block simple-form-card ${editing ? "wide-form-card" : "child-add-basics-card"}">
+        <form id="childProfileForm" class="mini-form simple-child-form ${editing ? "" : "simple-child-form--first-run"}">
           <input name="childId" type="hidden" value="${escapeHtml(child?.id || "")}" />
-          <label>Child Name<input name="name" required value="${escapeHtml(child?.name || "")}" placeholder="Enter child's name" /></label>
+          <div class="wide child-add-basics" data-child-add-basics="true">
+            <p class="eyebrow">Required</p>
+            <label class="child-name-field" for="childFirstNameInput">
+              <span class="child-name-field-label">Child’s name <span class="required-mark" aria-hidden="true">*</span></span>
+              <input
+                id="childFirstNameInput"
+                name="name"
+                type="text"
+                required
+                autocomplete="name"
+                autofocus
+                aria-required="true"
+                value="${escapeHtml(child?.name || "")}"
+                placeholder="Example: Mia"
+              />
+              <span class="form-note child-name-field-hint">Enter the child’s real first name (or first + last). Placeholder names like “New Child” won’t save.</span>
+            </label>
+            <label>Age Group
+              <select name="ageGroup" required aria-required="true">
+                <option value="">Select age group</option>
+                ${["Infant", "Toddler", "Preschool", "Mixed Ages", "School Age"].map((age) => `<option ${normalizeAgeGroup(child?.ageGroup) === age ? "selected" : ""}>${age}</option>`).join("")}
+              </select>
+            </label>
+          </div>
           <label>Birthday<input id="childDobInput" name="dob" type="date" value="${escapeHtml(child?.dob || "")}" /></label>
           <label>Age<input id="childAgePreview" name="age" value="${escapeHtml(child ? childAgeLabel(child) : "")}" placeholder="Age will calculate automatically" /></label>
-          <label>Age Group
-            <select name="ageGroup" required>
-              <option value="">Select age group</option>
-              ${["Infant", "Toddler", "Preschool", "Mixed Ages", "School Age"].map((age) => `<option ${normalizeAgeGroup(child?.ageGroup) === age ? "selected" : ""}>${age}</option>`).join("")}
-            </select>
-          </label>
-          ${classroomOptionsHtml(child?.classroomId || "", child?.classroom || "")}
+          ${classroomOptionsHtml(child?.classroomId || "", child?.classroom || "", { requireClassroom: editing })}
           <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent name or email for Family Hub matching" /></label>
           <label>Emergency contact<input name="emergencyContact" value="${escapeHtml(child?.emergencyContact || child?.emergency || "")}" placeholder="Name + phone for emergencies" maxlength="200" /></label>
           <label>Authorized pickup<input name="pickupContacts" value="${escapeHtml(child?.pickupContacts || "")}" placeholder="Who can pick up this child" maxlength="240" /></label>
           <label>Enrollment Date<input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
-          <label>Observations Required Per Month
-            <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
-              ${["1", "2", "4"].map((value) => `<option value="${value}" ${String(monthlyGoal) === value ? "selected" : ""}>${value} per month</option>`).join("")}
-              <option value="custom" ${!["1", "2", "4"].includes(String(monthlyGoal)) ? "selected" : ""}>Custom number</option>
-            </select>
-          </label>
-          <label class="${["1", "2", "4"].includes(String(monthlyGoal)) ? "hidden-field" : ""}" id="customMonthlyObservationGoalWrap">Custom Number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" value="${!["1", "2", "4"].includes(String(monthlyGoal)) ? escapeHtml(String(monthlyGoal)) : ""}" placeholder="Example: 6" /></label>
-          <div class="wide profile-check-section">
-            <strong>Developmental Goals</strong>
-            <div class="profile-check-grid">${renderDevelopmentGoalChecks(selectedGoals)}</div>
-          </div>
-          <div class="wide profile-check-section">
-            <strong>Support Areas</strong>
-            <div class="profile-check-grid support-check-grid">${renderSupportAreaChecks(selectedSupports)}</div>
-          </div>
-          <label class="wide">Goals / Notes About Current Needs<textarea name="activeGoals" rows="3" placeholder="Example: Improve scissor skills, use 3-4 word sentences">${escapeHtml(child?.activeGoals || "")}</textarea></label>
-          <label class="wide">Notes<textarea name="notes" rows="3" placeholder="Helpful routines, family notes, strengths, concerns">${escapeHtml(child?.notes || "")}</textarea></label>
+          <details class="wide child-add-advanced" ${advancedOpen ? "open" : ""}>
+            <summary>${editing ? "Goals, supports & observation settings" : "Optional: goals, supports & more details"}</summary>
+            <div class="child-add-advanced-body">
+              <label>Observations Required Per Month
+                <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
+                  ${["1", "2", "4"].map((value) => `<option value="${value}" ${String(monthlyGoal) === value ? "selected" : ""}>${value} per month</option>`).join("")}
+                  <option value="custom" ${!["1", "2", "4"].includes(String(monthlyGoal)) ? "selected" : ""}>Custom number</option>
+                </select>
+              </label>
+              <label class="${["1", "2", "4"].includes(String(monthlyGoal)) ? "hidden-field" : ""}" id="customMonthlyObservationGoalWrap">Custom Number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" value="${!["1", "2", "4"].includes(String(monthlyGoal)) ? escapeHtml(String(monthlyGoal)) : ""}" placeholder="Example: 6" /></label>
+              <div class="wide profile-check-section">
+                <strong>Developmental Goals</strong>
+                <div class="profile-check-grid">${renderDevelopmentGoalChecks(selectedGoals)}</div>
+              </div>
+              <div class="wide profile-check-section">
+                <strong>Support Areas</strong>
+                <div class="profile-check-grid support-check-grid">${renderSupportAreaChecks(selectedSupports)}</div>
+              </div>
+              <label class="wide">Goals / Notes About Current Needs<textarea name="activeGoals" rows="3" placeholder="Example: Improve scissor skills, use 3-4 word sentences">${escapeHtml(child?.activeGoals || "")}</textarea></label>
+              <label class="wide">Notes<textarea name="notes" rows="3" placeholder="Helpful routines, family notes, strengths, concerns">${escapeHtml(child?.notes || "")}</textarea></label>
+            </div>
+          </details>
           <button class="primary-button" type="submit">${editing ? "Save Profile Changes" : "Save Child"}</button>
           ${!isProUser() ? `<p class="form-note">Free plan includes up to ${effectiveFreeChildProfileLimit()} child profiles.</p>` : ""}
         </form>
@@ -65918,6 +65953,11 @@ document.addEventListener("click", async (event) => {
   const childViewButton = event.target.closest("[data-child-view]");
   if (childViewButton) {
     event.preventDefault();
+    // Ensure Children view is active before rendering add/list modes (work-nav safe).
+    const childrenViewActive = document.querySelector("#view-children")?.classList.contains("active-view");
+    if (!childrenViewActive && typeof setView === "function") {
+      try { setView("children", { allowDuringBootVerification: true, skipAccessRedirect: true }); } catch { /* ignore */ }
+    }
     childManagementMode = childViewButton.dataset.childView || "list";
     activeChildProfileEditId = "";
     activeChildObservationEditId = "";

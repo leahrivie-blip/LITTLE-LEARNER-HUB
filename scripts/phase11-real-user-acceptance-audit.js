@@ -11,7 +11,7 @@ const path = require("node:path");
 
 const TESTING = "https://little-learner-hub-testing.onrender.com";
 const PRODUCTION = "https://littlelearnershubbyleah.com";
-const EXPECTED_SHELL = "20260808-phase11-tester-accept";
+const EXPECTED_SHELL = "20260808-phase11-tester-ready";
 const OUT = "/opt/cursor/artifacts/phase11-real-user-audit";
 const SHOTS = path.join(OUT, "screenshots");
 const PASSWORD = "AuditTest!23456";

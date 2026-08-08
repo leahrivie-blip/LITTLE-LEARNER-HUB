@@ -29019,3 +29019,69 @@ body.family-hub-invite-open .llh-home-footer {
 #familyHubAcceptPanel .fh-signin {
   background: #fff;
 }
+
+/* First-run Add Child — name field must be the obvious starting point */
+.child-add-basics-card {
+  max-width: 640px;
+}
+.simple-child-form--first-run .child-add-basics {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(91, 155, 213, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+.simple-child-form--first-run .child-name-field {
+  display: grid;
+  gap: 6px;
+}
+.simple-child-form--first-run .child-name-field-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink, #1a2b4a);
+}
+.simple-child-form--first-run .required-mark {
+  color: #b42318;
+}
+.simple-child-form--first-run #childFirstNameInput {
+  min-height: 48px;
+  font-size: 1.125rem;
+  padding: 12px 14px;
+}
+.simple-child-form--first-run .child-name-field-hint {
+  margin: 0;
+}
+.child-add-advanced {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(91, 155, 213, 0.18);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #fff;
+}
+.child-add-advanced > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink, #1a2b4a);
+  padding: 6px 0;
+}
+.child-add-advanced-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 12px;
+}
+.child-add-advanced-body .wide,
+.child-add-advanced-body .profile-check-section {
+  grid-column: 1 / -1;
+}
+@media (max-width: 720px) {
+  .child-add-advanced-body {
+    grid-template-columns: 1fr;
+  }
+  .simple-child-form--first-run #childFirstNameInput {
+    font-size: 16px; /* avoid iOS zoom */
+  }
+}
