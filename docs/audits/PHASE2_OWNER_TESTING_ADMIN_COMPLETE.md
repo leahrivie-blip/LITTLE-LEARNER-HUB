@@ -59,17 +59,24 @@ Automated check: `npm run test:owner-testing-admin-phase2`.
 
 ---
 
-## Roadmap (approved — Leah 2026-08-08)
+## Roadmap (approved and locked — Leah 2026-08-08)
+
+**Standing policy:** `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md` — testing is the future; production read-only until **written** deploy approval.
 
 1. Safety + HDH/`main` ✅  
 2. Owner Admin ✅ — **hold Phase 3 until Owner Admin validation finishes**; fix usability bugs found during validation first  
 3. Navigation cleanup *(on hold)*  
 4. One source of truth (children/staff/families)  
 5. Daily operations → Family Hub → Forms → Billing (testing) → AI review-before-save  
-6. **Live → Testing Feature Sync** — testing becomes the **complete future product**; production stays **read-only** (see `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md`)  
-7. Final QA / production readiness — production updates **only** after explicit approval  
+6. **Live → Testing Feature Sync** — testing becomes the **complete future product**; production stays **read-only**  
+7. Pre–Final QA audit (`docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md`)  
+8. Final QA / production readiness — deploy **only** with **written** approval  
 
 **Continuous quality:** In every remaining phase, fix bugs, polish UI/usability, and clear low-risk tech debt in the area being worked — do not defer obvious safe improvements.
+
+---
+
+## Still open / during your validation
 
 | Item | Notes |
 |---|---|
@@ -88,5 +95,7 @@ Automated check: `npm run test:owner-testing-admin-phase2`.
 - `styles/owner-testing-admin.css` — TESTING chrome  
 - `server/program-ownership.js` — write ACL  
 - `app.js` — calendar child picker + feedback testingSite tag  
-- `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md` — new phase brief  
+- `docs/audits/LIVE_TO_TESTING_FEATURE_SYNC_PHASE.md` — sync phase brief  
+- `docs/audits/TESTING_IS_THE_FUTURE_POLICY.md` — locked standing policy  
+- `docs/audits/PRE_FINAL_QA_PRODUCTION_UNTOUCHED_AUDIT.md` — pre–Final QA gate  
 - `scripts/test-owner-testing-admin-phase2.js` — regression  
