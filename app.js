@@ -37553,11 +37553,13 @@ function renderSupportCenterPage() {
   const topic = supportTopicById(activeSupportTopicId);
   if (topic) {
     section.innerHTML = renderSupportTopicPage(topic, records);
-    if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
-    return;
+  } else {
+    const category = supportCategoryById(activeSupportCategoryId);
+    section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
   }
-  const category = supportCategoryById(activeSupportCategoryId);
-  section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
+  // Keep the picker aligned with deliberate selection (never silently land on first child).
+  const supportChildSelect = section.querySelector("#supportCenterChildSelect");
+  if (supportChildSelect) supportChildSelect.value = activeSupportChildId || "";
   if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
 }
 
