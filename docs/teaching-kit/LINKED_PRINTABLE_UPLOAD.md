@@ -22,7 +22,7 @@ Root causes:
 3. Keep `adminTkPrintableDraft` for metadata + PDF/preview `File` objects across every re-render
 4. Hydrate the panel after Linked Resources / enrichment re-renders (restore values + filenames via `DataTransfer`)
 5. Save via `[data-tk-printable-save]` reading the draft — never the outer lesson form
-6. Still draft-only; never auto-publishes; no customer flag changes
+6. Starts as draft; when the parent lesson is already public, linked printables with files are promoted so customer Teaching Kit media URLs resolve. No customer flag changes.
 
 ## Endpoint
 

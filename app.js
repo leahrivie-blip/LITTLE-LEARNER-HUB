@@ -13921,7 +13921,15 @@ async function saveTeachingKitPrintableForm(panel) {
       renderAdminCurriculumLessonPlanManager();
       applyAdminSectionVisibility();
     }
-    setFormMessage("#adminCurriculumLessonPlanMessage", `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). Not published.`, true);
+    const publishedWithLesson = data?.autoPublished === true
+      || String(data?.resource?.status || "").toLowerCase() === "published";
+    setFormMessage(
+      "#adminCurriculumLessonPlanMessage",
+      publishedWithLesson
+        ? `✅ Printable saved, linked, and published with this lesson (${data?.resource?.title || "printable"}).`
+        : `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). It will publish when this lesson is published.`,
+      true,
+    );
   } catch (error) {
     setFormMessage(messageSelector, `❌ ${error.message || "Save failed."}`, false);
     adminTkPrintableSaving = false;
