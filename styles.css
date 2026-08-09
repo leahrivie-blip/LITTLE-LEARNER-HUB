@@ -27610,6 +27610,29 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   padding-left: 1.1rem;
   color: rgba(36, 49, 42, 0.75);
 }
+.tk-enrich-printable-idea {
+  margin: 0.55rem 0;
+  list-style: disc;
+}
+.tk-enrich-printable-idea-title {
+  font-weight: 600;
+  color: rgba(28, 40, 34, 0.92);
+  margin: 0.15rem 0 0.25rem;
+}
+.tk-enrich-printable-idea-field {
+  margin: 0.15rem 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+.tk-enrich-printable-idea-field .muted-copy {
+  display: inline-block;
+  min-width: 5.5rem;
+  margin-right: 0.35rem;
+}
+.tk-enrich-printable-idea-meta {
+  font-size: 0.88rem;
+}
 .tk-enrich-current-text {
   white-space: pre-wrap;
   background: rgba(247, 243, 236, 0.9);
