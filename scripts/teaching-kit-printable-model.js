@@ -316,7 +316,8 @@
       dayLabel: DAY_LABELS[day],
       focus: presentCopy(model.focus || dayPlan.theme || dayPlan.objectives || dayPlan.dailyTheme),
       objectives: presentCopy(dayPlan.objectives || dayPlan.dailyObjectives),
-      circleTime: asLines(dayPlan.circleTime || model.transitions),
+      // Circle Time must come from the circleTime field only — never transitions.
+      circleTime: asLines(dayPlan.circleTime),
       invitationToPlay: presentCopy(dayPlan.invitationToPlay),
       sensory: presentCopy(dayPlan.sensory),
       fineMotor: presentCopy(dayPlan.fineMotor),

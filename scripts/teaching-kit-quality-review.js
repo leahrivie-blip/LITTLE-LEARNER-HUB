@@ -50,6 +50,14 @@
     return null;
   }
 
+  function loadDayFieldMapping() {
+    if (root && root.LLHCurriculumDayFieldMapping) return root.LLHCurriculumDayFieldMapping;
+    if (typeof module === "object" && typeof require === "function") {
+      try { return require("./curriculum-day-field-mapping.js"); } catch (_e) { return null; }
+    }
+    return null;
+  }
+
   const SECTIONS = Object.freeze([
     { id: "developmental_fit", label: "Developmental appropriateness" },
     { id: "objectives", label: "Learning objectives" },
@@ -1087,6 +1095,17 @@
         message: "Setup time may be unrealistic for a typical childcare morning.",
         suggestion: "Keep Monday prep near 10–20 minutes with shortcuts and substitutions.",
       }));
+    }
+
+    // Day-field placement (family in schedule, safety in observations, etc.)
+    const dayFieldApi = loadDayFieldMapping();
+    if (dayFieldApi?.auditLessonDayFieldMappings && dayFieldApi?.findingsFromDayFieldAudit) {
+      try {
+        const audit = dayFieldApi.auditLessonDayFieldMappings(plan);
+        dayFieldApi.findingsFromDayFieldAudit(audit, finding).forEach((row) => findings.push(row));
+      } catch (_error) {
+        /* keep quality review resilient if audit helper fails */
+      }
     }
 
     // Apply ignored statuses before and after elevation so newly added gate

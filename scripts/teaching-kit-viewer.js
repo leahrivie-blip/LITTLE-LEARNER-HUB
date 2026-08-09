@@ -812,8 +812,16 @@
                 const meta = availability[key] || { available: true, count: null, reason: "" };
                 const available = meta.available !== false;
                 const checked = available && parts[key];
-                const countLabel = meta.count != null ? ` (${meta.count})` : "";
-                if (!available && !ownerPreview) return "";
+                const countLabel = printApi?.partCountLabel
+                  ? printApi.partCountLabel(key, meta.count)
+                  : (meta.count != null ? ` — ${meta.count} items` : "");
+                if (!available && !ownerPreview) {
+                  return `
+                  <label class="tk-check-inline is-disabled">
+                    <input type="checkbox" data-tk-print-part="${escapeHtml(key)}" disabled />
+                    <span>${escapeHtml(partLabels[key])} — ${escapeHtml(meta.reason || "Not available yet")}</span>
+                  </label>`;
+                }
                 return `
                   <label class="tk-check-inline${available ? "" : " is-disabled"}">
                     <input type="checkbox" data-tk-print-part="${escapeHtml(key)}" ${checked ? "checked" : ""} ${available ? "" : "disabled"} />

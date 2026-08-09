@@ -648,10 +648,12 @@
       ...asArray(plan.songs).map(songEntry).filter(Boolean),
     ]).slice(0, 3);
 
+    // Transitions stay transitions-only. Never fold Circle Time / family copy into
+    // schedule slots — that maps one authored field into unrelated sections.
     const transitions = uniqueStrings([
       ...asArray(dayPlan.transitions).map(text),
-      ...asArray(dayPlan.circleTime).map((item) => text(item)),
     ], 10);
+    const hasCircleTime = asArray(dayPlan.circleTime).map((item) => text(item)).some(Boolean);
 
     const schedule = [];
     let hour = 8;
@@ -666,7 +668,8 @@
       }
     }
     if (songs.length) pushSlot("song", `Arrival + ${songs[0].title}`);
-    if (transitions.length) pushSlot("transition", transitions[0]);
+    if (hasCircleTime) pushSlot("circle", "Circle time");
+    if (transitions.length) pushSlot("transition", "Transition");
     dayActivities.forEach((card) => pushSlot("activity", card.title));
     if (books.length) pushSlot("book", `Read-aloud · ${books[0].title}`);
     if (text(dayPlan.outdoorPlay)) pushSlot("outdoor", "Outdoor play");
@@ -911,9 +914,9 @@
               teacherPreparation: text(dayPlan.teacherPreparation || dayPlan.prep),
               suggestedQuestions: bulletLines(dayPlan.suggestedQuestions || dayPlan.questions),
               observationFocus: bulletLines(dayPlan.observations || dayPlan.observationFocus),
+              // Do not reuse circleTime here — Circle Time has its own section.
               transitionSupport: uniqueStrings([
                 ...asArray(dayPlan.transitions).map(text),
-                ...asArray(dayPlan.circleTime).map(text),
               ], 10),
               familyConnection: text(dayPlan.familyConnection),
               teacherNotes: text(dayPlan.teacherNotes || dayPlan.notes),

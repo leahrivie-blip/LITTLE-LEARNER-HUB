@@ -6467,6 +6467,44 @@ function markAppBootReady() {
   }
 }
 
+/** Auth-style modals that own `auth-modal-open` (resource viewer is NOT one of them). */
+function authStyleModalStillOpen(exceptEl = null) {
+  const nodes = document.querySelectorAll(
+    "#authModal.open, #feedbackModal.open, #ideaRequestModal.open, #proModal.open, "
+    + ".llh-confirm-dialog:not([hidden]), [data-llh-record-edit-dialog]:not([hidden]), "
+    + "[data-lesson-editor-leave-dialog]:not([hidden]), .founding-vs-pro-confirm-overlay",
+  );
+  return [...nodes].some((node) => node !== exceptEl);
+}
+
+function teardownTeachingKitWorkspace() {
+  if (typeof teachingKitWorkspaceUnbind === "function") {
+    try { teachingKitWorkspaceUnbind(); } catch { /* ignore */ }
+    teachingKitWorkspaceUnbind = null;
+  }
+  activeTeachingKitPayload = null;
+  activeTeachingKitFlags = null;
+  document.body.classList.remove(
+    "printing-teaching-kit",
+    "printing-resource",
+    "trial-curriculum-watermark-active",
+  );
+  document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => {
+    try { node.remove(); } catch { /* ignore */ }
+  });
+}
+
+function dismissFeedbackModalForNavigation() {
+  const modal = document.querySelector("#feedbackModal");
+  if (!modal?.classList.contains("open")) return;
+  try {
+    closeFeedbackModal({ discardDraft: false });
+  } catch {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
 /** Keep signed-in navigation shell consistent: one active view, no stuck overlays. */
 function ensureNavigationShellReady() {
   if (isAppBootInteractive()) {
@@ -6481,20 +6519,38 @@ function ensureNavigationShellReady() {
   }
   const viewerOpen = document.querySelector("#resourceViewerModal.open");
   if (!viewerOpen) {
+    teardownTeachingKitWorkspace();
     document.body.classList.remove(
       "resource-viewer-open",
       "lesson-workspace-open",
       "lesson-workspace-sheet-open",
       "lesson-workspace-more-open",
       "printing-resource",
+      "printing-teaching-kit",
     );
     resetLessonWorkspaceState();
+    // Resource viewer must never leave auth-modal-open stuck after close.
+    if (!authStyleModalStillOpen()) {
+      document.body.classList.remove("auth-modal-open");
+    }
   }
   const sheetOpen = document.querySelector(".lesson-workspace-action-sheet:not([hidden])");
   const moreOpen = document.querySelector(".lesson-workspace-more-menu:not([hidden])");
   if (!sheetOpen && !moreOpen) {
-    document.body.classList.remove("lesson-workspace-sheet-open");
+    document.body.classList.remove("lesson-workspace-sheet-open", "lesson-workspace-more-open");
   }
+  // Invisible backdrops must never intercept clicks after overlays close.
+  document.querySelectorAll(
+    "[data-lesson-workspace-more-backdrop], .mobile-nav-backdrop",
+  ).forEach((node) => {
+    if (node.hasAttribute("data-lesson-workspace-more-backdrop")) {
+      node.hidden = true;
+    }
+    if (node.classList.contains("mobile-nav-backdrop") && !document.body.classList.contains("mobile-nav-open")) {
+      node.style.pointerEvents = "none";
+    }
+  });
+  try { syncProviderBodyScrollLock(); } catch { /* boot-safe */ }
 }
 
 function guardNavigationDuringBootVerification() {
@@ -24543,11 +24599,20 @@ function closeResourceViewer() {
   const closingResource = activeResourceViewerResource
     || resources.find((item) => item.id === activeViewerResourceId)
     || null;
+  // Close stacked feedback first so Escape/X never leaves a dialog + frozen nav.
+  dismissFeedbackModalForNavigation();
+  teardownTeachingKitWorkspace();
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
+  document.body.classList.remove("printing-teaching-kit");
   document.body.classList.remove("resource-viewer-open");
   document.body.classList.remove("lesson-workspace-open");
+  document.body.classList.remove("lesson-workspace-sheet-open");
+  document.body.classList.remove("lesson-workspace-more-open");
+  if (!authStyleModalStillOpen()) {
+    document.body.classList.remove("auth-modal-open");
+  }
   activeGeneratedPdfResource = null;
   activeResourceViewerResource = null;
   activeViewerResourceId = "";
@@ -29740,6 +29805,8 @@ async function openResourceViewer(resourceId, options = {}) {
   if (guardNavigationDuringBootVerification()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
+  // Opening a lesson must never surface a leftover feedback dialog.
+  dismissFeedbackModalForNavigation();
   const preferredScroll = {
     scrollX: window.scrollX || window.pageXOffset || 0,
     scrollY: llhBodyScrollLockState?.scrollY
@@ -47857,46 +47924,90 @@ async function submitSupportTicket(form) {
   renderAdminTickets();
 }
 
-function feedbackDraftStorageKey(type = "General Feedback") {
+function feedbackDraftScopeKey(scope = {}) {
+  const activityId = String(scope.activityId || "").trim();
+  const lessonId = String(scope.lessonId || "").trim();
+  if (activityId) return `activity:${activityId}`;
+  if (lessonId) return `lesson:${lessonId}`;
+  return "general";
+}
+
+function feedbackDraftStorageKey(type = "General Feedback", scope = {}) {
+  const email = String(currentUser || "guest").trim().toLowerCase() || "guest";
+  return `llh-feedback-draft:${email}:${String(type || "General Feedback")}:${feedbackDraftScopeKey(scope)}`;
+}
+
+/** Legacy unscoped key used before lesson/activity draft isolation. */
+function legacyFeedbackDraftStorageKey(type = "General Feedback") {
   const email = String(currentUser || "guest").trim().toLowerCase() || "guest";
   return `llh-feedback-draft:${email}:${String(type || "General Feedback")}`;
 }
 
-function readFeedbackDraft(type = "General Feedback") {
+function readFeedbackDraft(type = "General Feedback", scope = {}) {
   try {
-    const raw = sessionStorage.getItem(feedbackDraftStorageKey(type));
+    const scopedKey = feedbackDraftStorageKey(type, scope);
+    let raw = sessionStorage.getItem(scopedKey);
+    if (!raw && feedbackDraftScopeKey(scope) === "general") {
+      raw = sessionStorage.getItem(legacyFeedbackDraftStorageKey(type));
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    const draftLesson = String(parsed.lessonId || "").trim();
+    const draftActivity = String(parsed.activityId || "").trim();
+    const wantLesson = String(scope.lessonId || "").trim();
+    const wantActivity = String(scope.activityId || "").trim();
+    // Never restore another lesson/activity's Needs Improvement draft.
+    if (wantActivity && draftActivity && draftActivity !== wantActivity) return null;
+    if (wantLesson && draftLesson && draftLesson !== wantLesson) return null;
+    if ((wantLesson || wantActivity) && !draftLesson && !draftActivity) {
+      // Unscoped legacy drafts must not reopen on a specific lesson.
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
-function writeFeedbackDraft(type = "General Feedback") {
+function writeFeedbackDraft(type = "General Feedback", scope = {}) {
   try {
     const subject = document.querySelector("#feedbackSubjectInput")?.value || "";
     const message = document.querySelector("#feedbackMessageInput")?.value || "";
+    const key = feedbackDraftStorageKey(type, scope);
     if (!String(subject).trim() && !String(message).trim()) {
-      sessionStorage.removeItem(feedbackDraftStorageKey(type));
+      sessionStorage.removeItem(key);
       return;
     }
-    sessionStorage.setItem(feedbackDraftStorageKey(type), JSON.stringify({
+    sessionStorage.setItem(key, JSON.stringify({
       subject,
       message,
+      lessonId: String(scope.lessonId || "").trim(),
+      activityId: String(scope.activityId || "").trim(),
       savedAt: new Date().toISOString(),
     }));
+    // Stop legacy unscoped drafts from resurrecting old lesson subjects.
+    sessionStorage.removeItem(legacyFeedbackDraftStorageKey(type));
   } catch {
     /* ignore quota / private mode */
   }
 }
 
-function clearFeedbackDraft(type = "General Feedback") {
+function clearFeedbackDraft(type = "General Feedback", scope = {}) {
   try {
-    sessionStorage.removeItem(feedbackDraftStorageKey(type));
+    sessionStorage.removeItem(feedbackDraftStorageKey(type, scope));
+    sessionStorage.removeItem(legacyFeedbackDraftStorageKey(type));
   } catch {
     /* ignore */
   }
+}
+
+function currentFeedbackDraftScope() {
+  const modal = document.querySelector("#feedbackModal");
+  return {
+    lessonId: String(modal?.dataset?.feedbackLessonId || "").trim(),
+    activityId: String(modal?.dataset?.feedbackActivityId || "").trim(),
+  };
 }
 
 const HOME_SHAPE_FEEDBACK_TYPES = new Set([
@@ -48155,9 +48266,14 @@ async function submitIdeaRequestForm(event) {
   }
 }
 
-function openFeedbackModal(type = "General Feedback") {
+function openFeedbackModal(type = "General Feedback", options = {}) {
   const modal = document.querySelector("#feedbackModal");
   if (!modal) return;
+  const opts = options && typeof options === "object" ? options : {};
+  const scope = {
+    lessonId: String(opts.lessonId || "").trim(),
+    activityId: String(opts.activityId || "").trim(),
+  };
   const alreadyOpenEarly = modal.classList.contains("open");
   if (!alreadyOpenEarly) {
     feedbackModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -48171,22 +48287,40 @@ function openFeedbackModal(type = "General Feedback") {
   const subjectInput = document.querySelector("#feedbackSubjectInput");
   const messageInput = document.querySelector("#feedbackMessageInput");
   const previousType = String(typeInput?.value || "").trim();
+  const previousScope = currentFeedbackDraftScope();
   const nextType = String(type || "General Feedback");
   const alreadyOpen = modal.classList.contains("open");
   // Preserve in-progress typing when reopening the same modal; only swap drafts
-  // when the feedback type changes (bug vs feature vs general).
-  if (alreadyOpen && previousType && previousType !== nextType) {
-    writeFeedbackDraft(previousType);
+  // when the feedback type or lesson/activity scope changes.
+  if (alreadyOpen && (previousType !== nextType
+    || previousScope.lessonId !== scope.lessonId
+    || previousScope.activityId !== scope.activityId)) {
+    writeFeedbackDraft(previousType || "General Feedback", previousScope);
   }
+  modal.dataset.feedbackLessonId = scope.lessonId;
+  modal.dataset.feedbackActivityId = scope.activityId;
   if (typeInput) typeInput.value = nextType;
   if (nameInput && !nameInput.value) nameInput.value = name;
   if (emailInput && !emailInput.value) emailInput.value = email;
   const liveSubject = String(subjectInput?.value || "").trim();
   const liveMessage = String(messageInput?.value || "").trim();
-  if (!(alreadyOpen && previousType === nextType && (liveSubject || liveMessage))) {
-    const draft = readFeedbackDraft(nextType);
-    if (subjectInput) subjectInput.value = draft?.subject || "";
-    if (messageInput) messageInput.value = draft?.message || "";
+  const sameScopedSession = alreadyOpen
+    && previousType === nextType
+    && previousScope.lessonId === scope.lessonId
+    && previousScope.activityId === scope.activityId
+    && (liveSubject || liveMessage);
+  if (!sameScopedSession) {
+    const draft = readFeedbackDraft(nextType, scope);
+    if (opts.forceSubject != null || opts.forceMessage != null) {
+      // Deliberate Needs Improvement / Suggest: start from the action text, not a stale draft.
+      if (subjectInput) subjectInput.value = opts.forceSubject != null ? String(opts.forceSubject) : (draft?.subject || "");
+      if (messageInput) messageInput.value = opts.forceMessage != null ? String(opts.forceMessage) : (draft?.message || "");
+    } else {
+      if (subjectInput) subjectInput.value = draft?.subject || "";
+      if (messageInput) messageInput.value = draft?.message || "";
+    }
+  } else if (opts.forceSubject != null && subjectInput) {
+    subjectInput.value = String(opts.forceSubject);
   }
   setFormMessage("#feedbackMessage", "");
   document.body.classList.add("auth-modal-open");
@@ -48202,13 +48336,16 @@ function closeFeedbackModal({ discardDraft = false } = {}) {
   if (!modal) return;
   const wasOpen = modal.classList.contains("open");
   const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
-  if (discardDraft) clearFeedbackDraft(type);
-  else writeFeedbackDraft(type);
+  const scope = currentFeedbackDraftScope();
+  if (discardDraft) clearFeedbackDraft(type, scope);
+  else writeFeedbackDraft(type, scope);
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
-  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+  // Resource viewer uses resource-viewer-open — do not keep auth-modal-open for it.
+  if (!authStyleModalStillOpen(modal) && !document.querySelector("#scheduleEventModal.open")) {
     document.body.classList.remove("auth-modal-open");
   }
+  try { syncProviderBodyScrollLock(); } catch { /* ignore */ }
   const returnFocus = feedbackModalReturnFocus;
   feedbackModalReturnFocus = null;
   if (wasOpen) restoreLlhFocus(returnFocus);
@@ -68174,13 +68311,12 @@ document.addEventListener("click", async (event) => {
     const parentTitle = activityFeedbackBtn.dataset.parentTitle || "";
     const statusEl = activityFeedbackBtn.closest("[data-activity-feedback-root]")?.querySelector("[data-activity-feedback-status]");
     if (sentiment === "suggest" || sentiment === "needs-improvement") {
-      openFeedbackModal("Activity Feedback");
-      const subjectInput = document.querySelector("#feedbackSubjectInput");
-      const messageInput = document.querySelector("#feedbackMessageInput");
       const label = sentiment === "suggest" ? "Suggest Improvement" : "Needs Improvement";
-      if (subjectInput) subjectInput.value = `Activity feedback: ${activityTitle} (${label})`;
-      if (messageInput) {
-        messageInput.value = [
+      openFeedbackModal("Activity Feedback", {
+        lessonId,
+        activityId,
+        forceSubject: `Activity feedback: ${activityTitle} (${label})`,
+        forceMessage: [
           `Activity: ${activityTitle}`,
           activityId ? `Activity ID: ${activityId}` : "",
           parentTitle ? `Parent lesson: ${parentTitle}` : "",
@@ -68188,9 +68324,9 @@ document.addEventListener("click", async (event) => {
           `Feedback: ${label}`,
           "",
           "",
-        ].filter((line, index, arr) => Boolean(line) || index >= arr.length - 2).join("\n");
-        messageInput.focus();
-      }
+        ].filter((line, index, arr) => Boolean(line) || index >= arr.length - 2).join("\n"),
+      });
+      document.querySelector("#feedbackMessageInput")?.focus();
       return;
     }
     if (statusEl) {
@@ -68220,15 +68356,13 @@ document.addEventListener("click", async (event) => {
     const lessonTitle = lessonFeedbackBtn.dataset.lessonTitle || activeResourceViewerResource?.title || "";
     const statusEl = lessonFeedbackBtn.closest("[data-lesson-feedback-root]")?.querySelector("[data-lesson-feedback-status]");
     if (sentiment === "suggest" || sentiment === "needs-improvement") {
-      openFeedbackModal("Lesson Plan Feedback");
-      const subjectInput = document.querySelector("#feedbackSubjectInput");
-      const messageInput = document.querySelector("#feedbackMessageInput");
       const label = sentiment === "suggest" ? "Suggest Improvement" : "Needs Improvement";
-      if (subjectInput) subjectInput.value = `Lesson plan feedback: ${lessonTitle} (${label})`;
-      if (messageInput) {
-        messageInput.value = `Lesson plan: ${lessonTitle}\nLesson ID: ${lessonId}\nFeedback: ${label}\n\n`;
-        messageInput.focus();
-      }
+      openFeedbackModal("Lesson Plan Feedback", {
+        lessonId,
+        forceSubject: `Lesson plan feedback: ${lessonTitle} (${label})`,
+        forceMessage: `Lesson plan: ${lessonTitle}\nLesson ID: ${lessonId}\nFeedback: ${label}\n\n`,
+      });
+      document.querySelector("#feedbackMessageInput")?.focus();
       return;
     }
     if (statusEl) {
@@ -70509,30 +70643,41 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     toggleLessonWorkspaceMoreMenu(false);
     return;
   }
   if (document.querySelector(".lesson-workspace-action-sheet:not([hidden])")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     toggleLessonWorkspaceActionSheet(false);
     return;
   }
-  if (document.querySelector("#resourceViewerModal.open")) {
-    requestResourceViewerClose();
-    return;
-  }
-  if (document.querySelector("#authModal.open")) {
-    event.preventDefault();
-    closeAuthModal();
-    return;
-  }
+  // Stacked dialogs: close feedback/auth before the lesson viewer so Escape
+  // never dismisses the Teaching Kit while leaving feedback open.
   if (document.querySelector("#feedbackModal.open")) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     closeFeedbackModal();
     return;
   }
   if (document.querySelector("#ideaRequestModal.open")) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     closeIdeaRequestModal();
+    return;
+  }
+  if (document.querySelector("#authModal.open")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closeAuthModal();
+    return;
+  }
+  if (document.querySelector("#resourceViewerModal.open")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    requestResourceViewerClose();
     return;
   }
   if (document.querySelector("#proModal.open")) {
@@ -71615,19 +71760,8 @@ document.addEventListener("keydown", (event) => {
     closeInstallAppModal();
     return;
   }
-  if (event.key === "Escape" && document.querySelector("#resourceViewerModal.open")) {
-    // Nested lesson sheets first, then the viewer.
-    if (document.body.classList.contains("lesson-workspace-sheet-open")) {
-      try { toggleLessonWorkspaceActionSheet(false); } catch { /* ignore */ }
-      return;
-    }
-    if (document.body.classList.contains("lesson-workspace-more-open")) {
-      try { toggleLessonWorkspaceMoreMenu(false); } catch { /* ignore */ }
-      return;
-    }
-    requestResourceViewerClose();
-    return;
-  }
+  // Feedback + resource viewer Escape are handled by the primary keydown
+  // listener (with stopImmediatePropagation) so stacked dialogs close one layer.
   if (event.key === "Escape" && document.body.classList.contains("mobile-nav-open")) {
     setMobileNavOpen(false);
     return;
