@@ -17014,10 +17014,15 @@ async function handleHdhTesterInvitePeek(request, response, url) {
     ok: true,
     invite: {
       email: invite.email,
+      name: invite.name || "",
       childName: invite.childName || "Demo Child",
       status: invite.status,
       invitedByEmail: invite.invitedByEmail || "",
       expiresAt: invite.expiresAt || "",
+      programName: invite.programName || "",
+      programType: invite.programType || "home_daycare",
+      role: invite.role || "owner",
+      invitedByAdmin: Boolean(invite.invitedByAdmin),
     },
   });
 }

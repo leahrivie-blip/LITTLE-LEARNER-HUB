@@ -72,7 +72,8 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 
 | ID | Date | Reporter | Summary | Area | Repro / notes | Status |
 |---|---|---|---|---|---|---|
-| — | — | — | *(none yet)* | — | — | — |
+| H1 | 2026-08-09 | Leah | After Owner Admin → Add Tester, no clear way to give tester access (Copy Invite Link / email-unavailable guidance) | Owner Admin / Testers | Create tester → unsure what to send; email not required on testing; tester must set own password | in-progress |
+| H2 | 2026-08-09 | Leah | Typing glitches / text disappears or resets while editing in Owner Admin | Owner Admin (and audit other data-entry) | Type in admin fields → text resets; investigate remount/autosave/stale overwrite | in-progress |
 
 ---
 
@@ -80,7 +81,7 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 
 | ID | Date | Reporter | Summary | Area | Repro / notes | Status |
 |---|---|---|---|---|---|---|
-| — | — | — | *(none yet)* | — | — | — |
+| U1 | 2026-08-09 | Leah | Tester invite/access flow unclear after create (paired with H1) | Owner Admin / Testers | Same as H1 — UX must show invite link + next step immediately | in-progress |
 
 ---
 

@@ -895,11 +895,20 @@
       if (data.curriculum && typeof applyCurriculumState === "function") {
         applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
       }
-      // Rehydrate from the verified server draft so reload matches what we just saved.
-      state.draft = JSON.parse(JSON.stringify(savedDraft));
+      // Keep a verified server snapshot for reload/compare — but never overwrite
+      // newer local typing that happened while this save was in flight.
       state.lastSavedDraft = JSON.parse(JSON.stringify(savedDraft));
-      state.dirty = false;
       state.lastSaveError = "";
+      if (state.dirty || state.saveQueued) {
+        // User kept editing during the request; preserve local draft + dirty.
+        state.statusText = silent
+          ? "Autosaved earlier changes… still editing"
+          : "Saved earlier draft. Keep typing — newest edits are still local until the next save.";
+        renderChromeOnly();
+        return true;
+      }
+      state.draft = JSON.parse(JSON.stringify(savedDraft));
+      state.dirty = false;
       // Only after successful draft save may unused replaced/removed assets be cleaned up.
       await flushPendingMediaCleanup(plan.id);
       state.statusText = silent

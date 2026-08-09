@@ -18,7 +18,7 @@ const http = require("node:http");
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/phase11-final-qa";
 const ARTIFACT = path.join(ARTIFACT_DIR, "final-qa-results.json");
-const EXPECTED_LOCAL_SHELL = "20260808-phase11-testers-go3";
+const EXPECTED_LOCAL_SHELL = "20260808-phase11-testers-go4";
 const PROD_SERVICE_ID = "srv-d8o3f3r6sc1c73comlc0";
 
 const SUITES = [
@@ -107,7 +107,7 @@ function inspectLocalShellMarkers() {
     manifestMatchesExpected: manifest.version === EXPECTED_LOCAL_SHELL,
     swHasVersion: sw.includes(EXPECTED_LOCAL_SHELL),
     indexHasVersion: indexHtml.includes(EXPECTED_LOCAL_SHELL),
-    indexCacheBust: /app\.js\?v=20260808-phase11-testers-go3/.test(indexHtml),
+    indexCacheBust: /app\.js\?v=20260808-phase11-testers-go4/.test(indexHtml),
   };
   checks.ok = checks.manifestMatchesExpected && checks.swHasVersion && checks.indexHasVersion && checks.indexCacheBust;
   return checks;

@@ -153,6 +153,7 @@ function publicInvite(invite = {}, { appOrigin = "" } = {}) {
     acceptedAt: invite.acceptedAt || "",
     expiresAt: invite.expiresAt || "",
     emailSent: Boolean(invite.emailSent),
+    emailError: invite.emailError || "",
     testingFocus: Array.isArray(invite.testingFocus) ? invite.testingFocus : [],
     features: invite.features || {},
     notes: invite.notes || "",

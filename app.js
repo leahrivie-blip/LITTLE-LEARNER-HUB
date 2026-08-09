@@ -39636,42 +39636,115 @@ async function acceptHdhTesterInviteToken(token) {
   return data;
 }
 
+function normalizeInviteEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function rememberPendingTesterInvite(token, email = "") {
+  try {
+    sessionStorage.setItem("llhPendingTesterInvite", JSON.stringify({
+      token: String(token || "").trim(),
+      email: normalizeInviteEmail(email),
+      at: Date.now(),
+    }));
+  } catch { /* ignore */ }
+}
+
+function readPendingTesterInvite() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem("llhPendingTesterInvite") || "null");
+    if (!parsed?.token) return null;
+    if (Date.now() - Number(parsed.at || 0) > 1000 * 60 * 60 * 6) {
+      sessionStorage.removeItem("llhPendingTesterInvite");
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingTesterInvite() {
+  try { sessionStorage.removeItem("llhPendingTesterInvite"); } catch { /* ignore */ }
+}
+
+async function maybeAutoAcceptPendingTesterInvite() {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  const pending = readPendingTesterInvite();
+  if (!pending?.token || !currentUser) return false;
+  if (pending.email && normalizeInviteEmail(currentUser) !== normalizeInviteEmail(pending.email)) return false;
+  try {
+    const result = await acceptHdhTesterInviteToken(pending.token);
+    clearPendingTesterInvite();
+    document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("testerInvite");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    showActionFeedback(result.message || "Tester invite accepted. Your program is ready.");
+    setView("children");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function maybeHandleHdhTesterInviteFromUrl() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const params = new URLSearchParams(window.location.search);
   const token = String(params.get("testerInvite") || consumePendingUrlSecret("testerInvite") || "").trim();
   if (!token) return false;
+  document.body.classList.add("tester-invite-open");
   const peek = await fetch("/api/home-daycare-hub/tester-invites/peek", {
     headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
     cache: "no-store",
   }).then((r) => r.json()).catch(() => ({}));
   const invite = peek?.invite;
   const panel = document.createElement("div");
-  panel.className = "section-block";
+  panel.className = "section-block fh-invite-accept-panel";
   panel.id = "hdhTesterInviteAcceptPanel";
-  panel.style.cssText = "max-width:640px;margin:24px auto;padding:20px;";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("aria-label", "Tester invite");
+  panel.style.cssText = "position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;background:rgba(26,43,74,0.55);";
+  const card = document.createElement("div");
+  card.className = "fh-signin fh-invite-accept-card";
+  card.style.cssText = "width:min(100%,560px);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:28px 24px;box-shadow:0 18px 48px rgba(15,23,42,0.35);";
   const mount = () => {
-    const home = document.querySelector("#view-home") || document.querySelector("main") || document.body;
     document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
-    home.prepend(panel);
+    panel.appendChild(card);
+    document.body.appendChild(panel);
+    document.body.classList.add("tester-invite-open");
   };
   if (!peek?.ok && !invite) {
-    panel.innerHTML = `<h3>Tester invite</h3><p>${escapeHtml(peek?.error || "This invite link is not valid.")}</p>`;
+    card.innerHTML = `<h3>Tester invite</h3><p>${escapeHtml(peek?.error || "This invite link is not valid.")}</p><button class="ghost-button" type="button" data-dismiss-tester-invite>Close</button>`;
     mount();
     return true;
   }
-  panel.innerHTML = `
-    <p class="eyebrow">Tester invite</p>
-    <h3>Get your own Teacher testing account</h3>
-    <p>You’ll get your <strong>own</strong> Teacher tools and your <strong>own</strong> starter child (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) — not shared with Leah’s kids or other testers.</p>
-    <p class="muted-copy">Sign in with <strong>${escapeHtml(invite.email)}</strong> to accept. No Admin. Questions → <strong>Messages → Message Leah</strong>.</p>
-    <div class="account-actions-row">
-      <button class="primary-button" type="button" data-accept-tester-invite="${escapeHtml(token)}">Accept invite</button>
-      <button class="ghost-button" type="button" data-dismiss-tester-invite>Not now</button>
+  rememberPendingTesterInvite(token, invite.email || "");
+  const programLabel = invite.programName || "your testing program";
+  const typeLabel = invite.programType === "center" ? "Center" : "Home Daycare";
+  const roleLabel = invite.role || "owner";
+  const loggedIn = Boolean(currentUser);
+  const emailMatch = loggedIn && normalizeInviteEmail(currentUser) === normalizeInviteEmail(invite.email);
+  card.innerHTML = `
+    <p class="fh-kicker">Tester invite</p>
+    <h2>Finish setting up your testing account</h2>
+    <p><strong>${escapeHtml(programLabel)}</strong> · ${escapeHtml(typeLabel)} · ${escapeHtml(roleLabel)}</p>
+    <p class="muted-copy">Use exactly this email: <strong>${escapeHtml(invite.email)}</strong>. Create your own password — no Admin password will be given to you.</p>
+    <p class="muted-copy">After setup you’ll enter this program. Later, use normal <strong>Log In</strong> on the testing site (you won’t need this link again).</p>
+    <div class="fh-account-actions account-actions-row">
+      ${emailMatch
+        ? `<button class="primary-button" type="button" data-accept-tester-invite="${escapeHtml(token)}">Enter my program</button>`
+        : `<button class="primary-button" type="button" data-tester-invite-signup="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">Create account &amp; continue</button>
+           <button class="ghost-button" type="button" data-tester-invite-login="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">I already have a password — Log In</button>`}
+      <button class="ghost-button fh-btn-secondary" type="button" data-dismiss-tester-invite>Not now</button>
     </div>
     <p class="form-message" id="hdhTesterInviteAcceptMessage" aria-live="polite"></p>
   `;
   mount();
+  if (emailMatch) {
+    maybeAutoAcceptPendingTesterInvite().catch(() => {});
+  }
   return true;
 }
 
@@ -66286,13 +66359,15 @@ document.addEventListener("click", async (event) => {
     acceptTesterInviteBtn.disabled = true;
     acceptHdhTesterInviteToken(token)
       .then((result) => {
+        clearPendingTesterInvite();
         const kid = result.demoChild?.name || "your starter child";
-        if (message) message.textContent = result.message || `Welcome! Your own Teacher account is ready with ${kid}.`;
-        showActionFeedback(`Tester invite accepted — your own kid (${kid}). Message Leah anytime.`);
+        if (message) message.textContent = result.message || `Welcome! Your testing program is ready${kid ? ` (${kid})` : ""}.`;
+        showActionFeedback(result.message || "Tester invite accepted. Your program is ready.");
         const url = new URL(window.location.href);
         url.searchParams.delete("testerInvite");
         window.history.replaceState({}, "", url.pathname + url.search + url.hash);
         document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+        document.body.classList.remove("tester-invite-open");
         setView("children");
       })
       .catch((error) => {
@@ -66305,10 +66380,49 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const testerInviteSignupBtn = event.target.closest("[data-tester-invite-signup]");
+  if (testerInviteSignupBtn) {
+    event.preventDefault();
+    const token = testerInviteSignupBtn.dataset.testerInviteSignup;
+    const email = testerInviteSignupBtn.dataset.testerInviteEmail || "";
+    rememberPendingTesterInvite(token, email);
+    openAuthModal("signup");
+    queueMicrotask(() => {
+      const emailInput = document.querySelector("#emailInput");
+      if (emailInput && email) {
+        emailInput.value = email;
+        emailInput.readOnly = true;
+        emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      const message = document.querySelector("#hdhTesterInviteAcceptMessage");
+      if (message) message.textContent = `Create your account with ${email}, choose your own password, then we’ll open your program.`;
+    });
+    return;
+  }
+
+  const testerInviteLoginBtn = event.target.closest("[data-tester-invite-login]");
+  if (testerInviteLoginBtn) {
+    event.preventDefault();
+    const token = testerInviteLoginBtn.dataset.testerInviteLogin;
+    const email = testerInviteLoginBtn.dataset.testerInviteEmail || "";
+    rememberPendingTesterInvite(token, email);
+    openAuthModal("login");
+    queueMicrotask(() => {
+      const emailInput = document.querySelector("#emailInput");
+      if (emailInput && email) {
+        emailInput.value = email;
+        emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+    return;
+  }
+
   const dismissTesterInviteBtn = event.target.closest("[data-dismiss-tester-invite]");
   if (dismissTesterInviteBtn) {
     event.preventDefault();
+    clearPendingTesterInvite();
     document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+    document.body.classList.remove("tester-invite-open");
     const url = new URL(window.location.href);
     url.searchParams.delete("testerInvite");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
@@ -72580,6 +72694,22 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           lastName,
           name: [firstName, lastName].filter(Boolean).join(" "),
         });
+        // Owner-admin tester invite: skip persona/plan wizard so we attach to the
+        // pre-created program instead of creating a second one.
+        const pendingTesterInvite = readPendingTesterInvite();
+        if (pendingTesterInvite?.token) {
+          setFormMessage("#authMessage", "Opening your testing program…", true);
+          submitButton.disabled = false;
+          await awaitPendingLocalPasswordSync(20000);
+          closeAuthModal();
+          markAppBootReady();
+          const accepted = await maybeAutoAcceptPendingTesterInvite();
+          if (!accepted) {
+            const msg = document.querySelector("#hdhTesterInviteAcceptMessage");
+            if (msg) msg.textContent = "Account created. Tap Enter my program to join the program Leah set up for you.";
+          }
+          return;
+        }
         // Advance the wizard immediately so Create Account never freezes behind
         // slow profile/welcome sync and blocks every other button on the page.
         signupWizardStep = 2;
@@ -72633,6 +72763,13 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     const result = await loginWithProvider(email, password);
     loadAccountState(result.email);
     markAccountLogin(result.email);
+    if (readPendingTesterInvite()?.token) {
+      setFormMessage("#authMessage", "Opening your testing program…", true);
+      closeAuthModal();
+      markAppBootReady();
+      const accepted = await maybeAutoAcceptPendingTesterInvite();
+      if (accepted) return;
+    }
     // Forced password change must win immediately. Do not let profile/subscription
     // sync failures surface as "login failed" after a successful temp-password auth.
     if (result.mustChangePassword || accountRequiresPasswordChange()) {

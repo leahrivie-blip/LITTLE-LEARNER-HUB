@@ -40,10 +40,156 @@
     loading: false,
     error: "",
     message: "",
+    toast: "",
     query: "",
     statusFilter: "",
     feedbackStatus: "",
+    /** Last created invite — kept visible so Leah always knows what to send. */
+    lastInvite: null,
+    addFormDraft: null,
+    editFormDraft: null,
+    focusRestore: null,
   };
+
+  function otaRoot() {
+    return document.querySelector("#ownerTestingAdminApp");
+  }
+
+  function isTypingInOta() {
+    const root = otaRoot();
+    const active = document.activeElement;
+    if (!root || !active || !root.contains(active)) return false;
+    const tag = String(active.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select";
+  }
+
+  function captureFormDrafts() {
+    const root = otaRoot();
+    if (!root) return;
+    const add = root.querySelector("[data-ota-add-form]");
+    if (add) {
+      state.addFormDraft = {
+        name: add.name?.value || "",
+        email: add.email?.value || "",
+        programName: add.programName?.value || "",
+        programType: add.programType?.value || "home_daycare",
+        role: add.role?.value || "owner",
+        programMode: add.programMode?.value || "new",
+        existingProgramId: add.existingProgramId?.value || "",
+        testingCohort: add.testingCohort?.value || "",
+        childName: add.childName?.value || "",
+        notes: add.notes?.value || "",
+        activateNow: Boolean(add.activateNow?.checked),
+        createSampleData: add.createSampleData ? Boolean(add.createSampleData.checked) : true,
+        sendEmail: add.sendEmail ? Boolean(add.sendEmail.checked) : true,
+        features: readFeaturesFromForm(add),
+      };
+    }
+    const edit = root.querySelector("[data-ota-edit-form]");
+    if (edit && state.selectedEmail) {
+      state.editFormDraft = {
+        email: state.selectedEmail,
+        role: edit.role?.value || "",
+        accountType: edit.accountType?.value || "",
+        testingCohort: edit.testingCohort?.value || "",
+        testingStatus: edit.testingStatus?.value || "",
+        notes: edit.notes?.value || "",
+        features: readFeaturesFromForm(edit),
+      };
+    }
+    const active = document.activeElement;
+    if (active && root.contains(active) && active.name) {
+      const form = active.closest("form");
+      state.focusRestore = {
+        form: form?.hasAttribute("data-ota-add-form") ? "add" : (form?.hasAttribute("data-ota-edit-form") ? "edit" : ""),
+        name: active.name,
+        start: typeof active.selectionStart === "number" ? active.selectionStart : null,
+        end: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
+      };
+    } else {
+      state.focusRestore = null;
+    }
+  }
+
+  function applySelectValue(select, value) {
+    if (!select) return;
+    const wanted = String(value ?? "");
+    if ([...select.options].some((opt) => opt.value === wanted)) select.value = wanted;
+  }
+
+  function restoreFormDrafts() {
+    const root = otaRoot();
+    if (!root) return;
+    const draft = state.addFormDraft;
+    const add = root.querySelector("[data-ota-add-form]");
+    if (add && draft) {
+      if (add.name) add.name.value = draft.name || "";
+      if (add.email) add.email.value = draft.email || "";
+      if (add.programName) add.programName.value = draft.programName || "";
+      applySelectValue(add.programType, draft.programType);
+      applySelectValue(add.role, draft.role);
+      applySelectValue(add.programMode, draft.programMode);
+      applySelectValue(add.existingProgramId, draft.existingProgramId);
+      if (add.testingCohort) add.testingCohort.value = draft.testingCohort || "";
+      if (add.childName) add.childName.value = draft.childName || "";
+      if (add.notes) add.notes.value = draft.notes || "";
+      if (add.activateNow) add.activateNow.checked = Boolean(draft.activateNow);
+      if (add.createSampleData) add.createSampleData.checked = draft.createSampleData !== false;
+      if (add.sendEmail) add.sendEmail.checked = draft.sendEmail !== false;
+      Object.keys(FEATURE_LABELS).forEach((key) => {
+        const box = add.querySelector(`[name="feat-${key}"]`);
+        if (box) box.checked = Boolean(draft.features?.[key]);
+      });
+    }
+    const editDraft = state.editFormDraft;
+    const edit = root.querySelector("[data-ota-edit-form]");
+    if (edit && editDraft && editDraft.email === state.selectedEmail) {
+      applySelectValue(edit.role, editDraft.role);
+      applySelectValue(edit.accountType, editDraft.accountType);
+      if (edit.testingCohort) edit.testingCohort.value = editDraft.testingCohort || "";
+      applySelectValue(edit.testingStatus, editDraft.testingStatus);
+      if (edit.notes) edit.notes.value = editDraft.notes || "";
+      Object.keys(FEATURE_LABELS).forEach((key) => {
+        const box = edit.querySelector(`[name="feat-${key}"]`);
+        if (box) box.checked = Boolean(editDraft.features?.[key]);
+      });
+    }
+    const focus = state.focusRestore;
+    if (focus?.name) {
+      const form = focus.form === "add"
+        ? root.querySelector("[data-ota-add-form]")
+        : (focus.form === "edit" ? root.querySelector("[data-ota-edit-form]") : null);
+      const field = form?.elements?.[focus.name] || form?.querySelector(`[name="${focus.name}"]`);
+      if (field && typeof field.focus === "function") {
+        field.focus();
+        try {
+          if (focus.start != null && typeof field.setSelectionRange === "function") {
+            field.setSelectionRange(focus.start, focus.end ?? focus.start);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+  }
+
+  function showToast(text) {
+    state.toast = String(text || "");
+    const root = otaRoot();
+    let el = root?.querySelector("[data-ota-toast]");
+    if (!el && root) {
+      root.insertAdjacentHTML("afterbegin", `<p class="form-message" data-ota-toast role="status"></p>`);
+      el = root.querySelector("[data-ota-toast]");
+    }
+    if (el) {
+      el.hidden = !state.toast;
+      el.textContent = state.toast;
+    }
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+      state.toast = "";
+      const node = otaRoot()?.querySelector("[data-ota-toast]");
+      if (node) { node.hidden = true; node.textContent = ""; }
+    }, 3200);
+  }
 
   function esc(value) {
     return typeof escapeHtml === "function" ? escapeHtml(String(value ?? "")) : String(value ?? "")
@@ -144,10 +290,14 @@
     return features;
   }
 
-  async function loadAll() {
-    state.loading = true;
-    state.error = "";
-    paint();
+  async function loadAll({ force = false } = {}) {
+    // Never wipe in-progress typing with a loading remount.
+    const busy = !force && isTypingInOta();
+    if (!busy) {
+      state.loading = true;
+      state.error = "";
+      paint();
+    }
     try {
       const [dash, testers, programs, flags, audit, feedback] = await Promise.all([
         api("/api/admin/testing/dashboard"),
@@ -167,17 +317,31 @@
       state.error = error.message || "Could not load testing admin.";
     } finally {
       state.loading = false;
-      paint();
+      if (!isTypingInOta() || force) paint();
     }
   }
 
   async function openDetail(email) {
     state.selectedEmail = email;
     state.detail = null;
-    paint();
+    if (!isTypingInOta()) paint();
     try {
       const data = await api(`/api/admin/testing/testers/${encodeURIComponent(email)}`);
       state.detail = data;
+      const inviteUrl = data?.tester?.invite?.acceptUrl || "";
+      if (inviteUrl) {
+        state.lastInvite = {
+          email: data.tester.email,
+          name: data.tester.name,
+          acceptUrl: inviteUrl,
+          programName: data.tester.programName || "",
+          accountType: data.tester.accountType || "",
+          role: data.tester.role || "",
+          emailSent: Boolean(data.tester.invite?.emailSent),
+          emailError: data.tester.invite?.emailError || "",
+          emailConfigured: data.tester.invite?.emailConfigured,
+        };
+      }
       paint();
     } catch (error) {
       state.error = error.message;
@@ -267,6 +431,43 @@
     `;
   }
 
+  function inviteAccessCardHtml(invite, { heading = "Send this invite link" } = {}) {
+    if (!invite?.acceptUrl) return "";
+    const emailOff = invite.emailSent
+      ? "Invite email was attempted."
+      : "Email delivery unavailable on testing. Copy and send this invite link manually.";
+    return `
+      <section class="ota-panel ota-invite-ready" data-ota-invite-ready>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Next step</p>
+            <h3>${esc(heading)}</h3>
+            <p class="muted-copy">
+              <strong>${esc(invite.name || "Tester")}</strong> · ${esc(invite.email || "")}
+              · ${esc(invite.accountType || "")} · ${esc(invite.role || "")}
+              · ${esc(invite.programName || "Program")}
+            </p>
+          </div>
+        </div>
+        <ol class="ota-invite-steps">
+          <li>Copy the invite link below.</li>
+          <li>Text or message it to the tester (do not use production).</li>
+          <li>They open it on the testing site, create their own password, and enter this program.</li>
+        </ol>
+        <div class="ota-invite-box">
+          <label>Invite / setup link
+            <textarea readonly rows="3" data-ota-invite-textarea>${esc(invite.acceptUrl)}</textarea>
+          </label>
+          <div class="account-actions-row">
+            <button type="button" class="primary-button" data-ota-copy="${esc(invite.acceptUrl)}">Copy Invite Link</button>
+            <button type="button" class="ghost-button" data-ota-open-tester="${esc(invite.email || "")}">Open tester detail</button>
+          </div>
+          <p class="ota-email-unavailable" role="status">${esc(emailOff)}</p>
+        </div>
+      </section>
+    `;
+  }
+
   function addTesterFormHtml() {
     const programOptions = (state.programs || []).map((p) => `
       <option value="${esc(p.id)}">${esc(p.name)} (${esc(p.accountType)})</option>
@@ -277,14 +478,14 @@
           <div>
             <p class="eyebrow">Testers</p>
             <h3>Add tester</h3>
-            <p class="muted-copy">Creates a testing invite (and optional instant login). No production accounts.</p>
+            <p class="muted-copy">Creates a testing program invite. You copy the link and send it yourself — the tester creates their own password. No production accounts.</p>
           </div>
         </div>
         <form data-ota-add-form class="ota-form">
           <div class="ota-form-grid">
-            <label>Name<input name="name" required placeholder="Jordan Rivera" /></label>
-            <label>Email<input name="email" type="email" required placeholder="jordan@example.com" /></label>
-            <label>Program name<input name="programName" placeholder="Sunshine Home Daycare TEST" /></label>
+            <label>Name<input name="name" required placeholder="Jordan Rivera" autocomplete="off" /></label>
+            <label>Email<input name="email" type="email" required placeholder="jordan@providermail.com" autocomplete="off" /></label>
+            <label>Program name<input name="programName" placeholder="Sunshine Home Daycare TEST" autocomplete="off" /></label>
             <label>Program type
               <select name="programType">
                 <option value="home_daycare">Home Daycare</option>
@@ -312,17 +513,21 @@
                 ${programOptions}
               </select>
             </label>
-            <label>Testing cohort<input name="testingCohort" placeholder="Family Hub beta" /></label>
-            <label>Starter child name<input name="childName" placeholder="Demo Child" /></label>
+            <label>Testing cohort<input name="testingCohort" placeholder="Family Hub beta" autocomplete="off" /></label>
+            <label>Starter child name<input name="childName" placeholder="Demo Child" autocomplete="off" /></label>
           </div>
           <fieldset>
             <legend>Feature access</legend>
             <div class="ota-check-grid">${featureChecks({ familyHub: true, forms: true, teacherWorkflow: true, fullPlatform: false })}</div>
           </fieldset>
           <label>Notes<textarea name="notes" rows="2" placeholder="What should they test?"></textarea></label>
-          <label class="ota-check"><input type="checkbox" name="activateNow" /> Generate test login now (temp password — testing only)</label>
           <label class="ota-check"><input type="checkbox" name="createSampleData" checked /> Create sample child / classrooms</label>
-          <label class="ota-check"><input type="checkbox" name="sendEmail" checked /> Send invite email when email is configured (always keep copy-link fallback)</label>
+          <label class="ota-check"><input type="checkbox" name="sendEmail" /> Also try invite email if delivery is configured (still show Copy Invite Link)</label>
+          <details class="ota-advanced">
+            <summary>Advanced (not for real testers)</summary>
+            <p class="muted-copy">Real providers should create their own password via the invite link. Do not use temp passwords for them.</p>
+            <label class="ota-check"><input type="checkbox" name="activateNow" /> Generate instant temp password login (owner debugging only)</label>
+          </details>
           <div class="account-actions-row">
             <button type="submit" class="primary-button">Add tester</button>
           </div>
@@ -355,20 +560,28 @@
         <div class="ota-table-wrap">
           <table class="ota-table">
             <thead>
-              <tr><th>Name</th><th>Email</th><th>Program</th><th>Type</th><th>Role</th><th>Status</th><th></th></tr>
+              <tr><th>Name</th><th>Email</th><th>Program</th><th>Type</th><th>Role</th><th>Invite / access</th><th></th></tr>
             </thead>
             <tbody>
-              ${rows.map((t) => `
+              ${rows.map((t) => {
+                const inviteUrl = t.invite?.acceptUrl || "";
+                const inviteLabel = inviteUrl
+                  ? "Invite ready"
+                  : (t.status === "invitation_pending" ? "Invite pending" : String(t.status || "").replace(/_/g, " "));
+                return `
                 <tr>
                   <td><strong>${esc(t.name)}</strong></td>
                   <td>${esc(t.email)}</td>
                   <td>${esc(t.programName || "—")}</td>
                   <td>${esc(t.accountType)}</td>
                   <td>${esc(t.role)}</td>
-                  <td>${statusChip(t.status)}</td>
-                  <td><button type="button" class="ghost-button" data-ota-open-tester="${esc(t.email)}">Open</button></td>
-                </tr>
-              `).join("") || `<tr><td colspan="7" class="muted-copy">No testers yet. Use Add Tester above.</td></tr>`}
+                  <td>${statusChip(t.status)} <span class="muted-copy">${esc(inviteLabel)}</span></td>
+                  <td class="ota-row-actions">
+                    ${inviteUrl ? `<button type="button" class="primary-button" data-ota-copy="${esc(inviteUrl)}">Copy Invite Link</button>` : ""}
+                    <button type="button" class="ghost-button" data-ota-open-tester="${esc(t.email)}">Open</button>
+                  </td>
+                </tr>`;
+              }).join("") || `<tr><td colspan="7" class="muted-copy">No testers yet. Use Add Tester above.</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -384,6 +597,11 @@
     }
     const t = data.tester;
     const inviteUrl = t.invite?.acceptUrl || "";
+    const emailNote = t.invite?.emailSent
+      ? "Last email attempt: sent."
+      : (t.invite?.emailError
+        ? `Email: ${t.invite.emailError}`
+        : "Email delivery unavailable on testing. Copy and send this invite link manually.");
     return `
       <section class="ota-panel" data-ota-detail>
         <div class="section-heading">
@@ -395,9 +613,12 @@
           <button type="button" class="ghost-button" data-ota-close-detail>Close</button>
         </div>
         <div class="ota-detail-grid">
+          <div><em>Name</em><strong>${esc(t.name || "—")}</strong></div>
+          <div><em>Email</em><strong>${esc(t.email || "—")}</strong></div>
+          <div><em>Home Daycare / Center</em><strong>${esc(t.accountType || "—")}</strong></div>
+          <div><em>Role</em><strong>${esc(t.role || "—")}</strong></div>
           <div><em>Program</em><strong>${esc(t.programName || "—")}</strong></div>
-          <div><em>Account type</em><strong>${esc(t.accountType)}</strong></div>
-          <div><em>Role</em><strong>${esc(t.role)}</strong></div>
+          <div><em>Invite / access</em><strong>${esc(String(t.status || "").replace(/_/g, " "))}${inviteUrl ? " · link ready" : ""}</strong></div>
           <div><em>Created</em><strong>${esc(t.createdAt || "—")}</strong></div>
           <div><em>Last login</em><strong>${esc(t.lastLoginAt || "—")}</strong></div>
           <div><em>Cohort</em><strong>${esc(t.testingCohort || "—")}</strong></div>
@@ -405,14 +626,23 @@
         <p class="muted-copy">${esc(t.notes || "No notes.")}</p>
         ${inviteUrl ? `
           <div class="ota-invite-box">
-            <label>Invite link<textarea readonly rows="2">${esc(inviteUrl)}</textarea></label>
+            <label>Invite / setup link<textarea readonly rows="3">${esc(inviteUrl)}</textarea></label>
             <div class="account-actions-row">
-              <button type="button" class="primary-button" data-ota-copy="${esc(inviteUrl)}">Copy invite link</button>
-              <button type="button" class="ghost-button" data-ota-resend>Resend invite (email + new link)</button>
+              <button type="button" class="primary-button" data-ota-copy="${esc(inviteUrl)}">Copy Invite Link</button>
+              <button type="button" class="ghost-button" data-ota-resend>Regenerate invite link</button>
             </div>
-            <p class="muted-copy">${t.invite?.emailSent ? "Last email attempt: sent." : (t.invite?.emailError ? `Email: ${esc(t.invite.emailError)}` : "Email may be off — use copy link.")}</p>
+            <p class="ota-email-unavailable" role="status">${esc(emailNote)}</p>
+            <p class="muted-copy">Tester opens this testing-site link, creates their own password, then uses normal Log In afterward.</p>
           </div>
-        ` : ""}
+        ` : `
+          <div class="ota-invite-box">
+            <p class="muted-copy">No pending invite link (already accepted, activated, or expired).</p>
+            <div class="account-actions-row">
+              <button type="button" class="ghost-button" data-ota-resend>Regenerate invite link</button>
+            </div>
+            <p class="ota-email-unavailable" role="status">Email delivery unavailable on testing. Copy and send the invite link manually after regenerating.</p>
+          </div>
+        `}
         <form data-ota-edit-form class="ota-form">
           <div class="ota-form-grid">
             <label>Role
@@ -716,6 +946,7 @@
     ensureViewAsBanner();
     const root = document.querySelector("#ownerTestingAdminApp");
     if (!root) return;
+    captureFormDrafts();
     if (!isTestingHost()) {
       root.innerHTML = `
         <section class="ota-panel">
@@ -740,11 +971,12 @@
           <button type="button" class="${state.tab === id ? "primary-button" : "ghost-button"}" data-ota-tab="${id}">${label}</button>
         `).join("")}
       </nav>
+      ${state.toast ? `<p class="form-message" data-ota-toast role="status">${esc(state.toast)}</p>` : `<p class="form-message" data-ota-toast hidden></p>`}
       ${state.error ? `<p class="form-message" role="alert">${esc(state.error)}</p>` : ""}
       ${state.message ? `<p class="form-message" role="status">${esc(state.message)}</p>` : ""}
       ${state.loading ? `<p class="muted-copy">Loading…</p>` : ""}
       ${state.tab === "dashboard" ? dashboardHtml() : ""}
-      ${state.tab === "testers" ? `${addTesterFormHtml()}${detailHtml()}${testersListHtml()}` : ""}
+      ${state.tab === "testers" ? `${inviteAccessCardHtml(state.lastInvite)}${addTesterFormHtml()}${detailHtml()}${testersListHtml()}` : ""}
       ${state.tab === "programs" ? programsHtml() : ""}
       ${state.tab === "flags" ? flagsHtml() : ""}
       ${state.tab === "viewas" ? viewAsHtml() : ""}
@@ -752,6 +984,7 @@
       ${state.tab === "audit" ? auditHtml() : ""}
     `;
     bind(root);
+    restoreFormDrafts();
   }
 
   function showMsg(sel, text, ok = true) {
@@ -827,11 +1060,14 @@
         const text = btn.getAttribute("data-ota-copy") || "";
         try {
           await navigator.clipboard.writeText(text);
-          state.message = "Copied.";
-          paint();
+          showToast("Invite link copied — send it to your tester.");
         } catch {
-          state.message = text;
-          paint();
+          const area = root.querySelector("[data-ota-invite-textarea]") || btn.closest(".ota-invite-box")?.querySelector("textarea");
+          if (area) {
+            area.focus();
+            area.select();
+          }
+          showToast("Select the link and copy it manually.");
         }
       });
     });
@@ -851,24 +1087,42 @@
         testingCohort: form.testingCohort.value,
         childName: form.childName.value || "Demo Child",
         notes: form.notes.value,
-        activateNow: form.activateNow.checked,
+        activateNow: Boolean(form.activateNow?.checked),
         createSampleData: form.createSampleData.checked,
-        sendEmail: form.sendEmail?.checked !== false,
+        sendEmail: Boolean(form.sendEmail?.checked),
         features: readFeaturesFromForm(form),
         appOrigin: window.location.origin,
         adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
       };
       try {
         const result = await api("/api/admin/testing/testers", { method: "POST", body });
+        const acceptUrl = result.acceptUrl || result.invite?.acceptUrl || "";
+        state.lastInvite = acceptUrl ? {
+          email: result.tester?.email || body.email,
+          name: result.tester?.name || body.name,
+          acceptUrl,
+          programName: result.tester?.programName || body.programName,
+          accountType: result.tester?.accountType || body.programType,
+          role: result.tester?.role || body.role,
+          emailSent: Boolean(result.email?.sent),
+          emailError: result.email?.error || "",
+          emailConfigured: result.email?.configured,
+        } : null;
+        state.addFormDraft = null;
         let msg = result.message || "Tester created.";
-        if (result.email?.sent) msg += " Invite email sent.";
-        else if (result.email?.configured === false) msg += " (Email not configured — use copy link.)";
-        if (result.acceptUrl) msg += ` Invite: ${result.acceptUrl}`;
-        if (result.temporaryPassword) msg += ` Temp password: ${result.temporaryPassword}`;
+        if (acceptUrl) {
+          msg = result.email?.sent
+            ? "Tester created. Invite email sent — you can still Copy Invite Link below."
+            : "Tester created. Email delivery unavailable on testing. Copy and send this invite link manually.";
+        }
+        if (result.temporaryPassword) {
+          msg += " Temp password was generated (advanced) — prefer invite link for real testers.";
+        }
         showMsg("[data-ota-add-message]", msg, true);
         state.message = msg;
-        await loadAll();
-        if (result.tester?.email) openDetail(result.tester.email);
+        await loadAll({ force: true });
+        if (result.tester?.email) await openDetail(result.tester.email);
+        document.querySelector("[data-ota-invite-ready]")?.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (error) {
         showMsg("[data-ota-add-message]", error.message, false);
       }
@@ -927,10 +1181,30 @@
       try {
         const result = await api(`/api/admin/testing/testers/${encodeURIComponent(state.selectedEmail)}/resend`, {
           method: "PATCH",
-          body: { appOrigin: window.location.origin, sendEmail: true },
+          body: { appOrigin: window.location.origin, sendEmail: false },
         });
-        showMsg("[data-ota-detail-message]", `${result.message || "Invite resent."} ${result.acceptUrl || ""}`, true);
+        const acceptUrl = result.acceptUrl || "";
+        if (acceptUrl) {
+          state.lastInvite = {
+            email: state.selectedEmail,
+            name: state.detail?.tester?.name || state.selectedEmail,
+            acceptUrl,
+            programName: state.detail?.tester?.programName || "",
+            accountType: state.detail?.tester?.accountType || "",
+            role: state.detail?.tester?.role || "",
+            emailSent: Boolean(result.email?.sent),
+            emailError: result.email?.error || "",
+          };
+        }
+        showMsg(
+          "[data-ota-detail-message]",
+          acceptUrl
+            ? "Invite link regenerated. Email delivery unavailable on testing — Copy Invite Link and send it manually."
+            : (result.message || "Invite updated."),
+          true,
+        );
         await openDetail(state.selectedEmail);
+        showToast(acceptUrl ? "New invite link ready — copy it below." : "Invite updated.");
       } catch (error) {
         showMsg("[data-ota-detail-message]", error.message, false);
       }

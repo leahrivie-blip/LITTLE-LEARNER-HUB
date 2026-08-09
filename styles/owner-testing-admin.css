@@ -290,6 +290,70 @@ body.llh-testing-environment .ota-view-as-banner {
   font-size: 0.9rem;
 }
 
+.ota-invite-ready {
+  border: 2px solid rgba(46, 125, 90, 0.35);
+  background: linear-gradient(180deg, #f3fbf6 0%, #ffffff 70%);
+}
+
+.ota-invite-steps {
+  margin: 0 0 14px 1.2rem;
+  padding: 0;
+  color: #1a2b4a;
+  line-height: 1.45;
+}
+
+.ota-invite-box {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(26, 43, 74, 0.12);
+  background: #fff;
+}
+
+.ota-invite-box textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.ota-email-unavailable {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff6e8;
+  color: #7a3b12;
+  font-weight: 600;
+}
+
+.ota-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.ota-advanced {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f6f7f9;
+}
+
+.ota-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+body.tester-invite-open .site-footer,
+body.tester-invite-open footer.site-footer,
+body.tester-invite-open .landing-nav,
+body.tester-invite-open #cookieNotice {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 @media (max-width: 720px) {
   .ota-testing-banner,
   .ota-view-as-banner {
