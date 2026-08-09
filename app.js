@@ -39616,35 +39616,40 @@ async function acceptHdhTesterInviteToken(token) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Could not accept tester invite.");
   if (data.account && currentUser) {
-    updateAccount(currentUser, {
-      role: data.account.role || "owner",
-      accountType: data.account.accountType || "home_daycare",
-      linkedProgramOwnerEmail: "",
-      programAccessViaOwner: false,
-      hdhIndependentTester: true,
-      hdhTesterInvitedByEmail: data.account.hdhTesterInvitedByEmail || "",
-      testingInviteAcceptedAt: data.account.testingInviteAcceptedAt || new Date().toISOString(),
-      plan: data.account.plan || "Pro",
-      subscriptionStatus: data.account.subscriptionStatus || "Pro Subscription Active",
-      programId: data.account.programId || "",
-      hdhVisibility: null,
-      visibilityPreset: "",
-    });
-    currentPlan = "Pro";
-    try { localStorage.setItem("llhPlan", "Pro"); } catch (_error) { /* ignore */ }
-    ensureAccountAccessMigrated(currentUser);
-    updateAuthButtons();
-    updatePlanLabel();
-    updateAdminNavVisibility();
-    syncPlatformNavVisibility();
-    syncHdhTesterSwitcherChrome();
     try {
-      await syncChildDataFromBackend({ render: true });
-    } catch (_error) { /* non-blocking */ }
-    if (!(childRecords().children || []).length) {
-      ensureTesterDemoChild();
-    }
-    renderNotificationBell();
+      updateAccount(currentUser, {
+        role: data.account.role || "owner",
+        accountType: data.account.accountType || "home_daycare",
+        linkedProgramOwnerEmail: "",
+        programAccessViaOwner: false,
+        hdhIndependentTester: true,
+        hdhTesterInvitedByEmail: data.account.hdhTesterInvitedByEmail || "",
+        testingInviteAcceptedAt: data.account.testingInviteAcceptedAt || new Date().toISOString(),
+        plan: data.account.plan || "Pro",
+        subscriptionStatus: data.account.subscriptionStatus || "Pro Subscription Active",
+        programId: data.account.programId || "",
+        hdhVisibility: null,
+        visibilityPreset: "",
+      });
+      currentPlan = "Pro";
+      try { localStorage.setItem("llhPlan", "Pro"); } catch (_error) { /* ignore */ }
+      ensureAccountAccessMigrated(currentUser);
+      updateAuthButtons();
+      updatePlanLabel();
+      updateAdminNavVisibility();
+      syncPlatformNavVisibility();
+      syncHdhTesterSwitcherChrome();
+      renderNotificationBell();
+    } catch (_error) { /* keep accept successful even if chrome refresh fails */ }
+    // Never block invite completion on child sync — seed locally if needed.
+    Promise.resolve()
+      .then(() => syncChildDataFromBackend({ render: true }))
+      .catch(() => {})
+      .finally(() => {
+        try {
+          if (!(childRecords().children || []).length) ensureTesterDemoChild();
+        } catch (_error) { /* ignore */ }
+      });
   }
   return data;
 }
@@ -39745,6 +39750,18 @@ async function maybeHandleHdhTesterInviteFromUrl() {
   const roleLabel = invite.role || "owner";
   const loggedIn = Boolean(currentUser);
   const emailMatch = loggedIn && normalizeInviteEmail(currentUser) === normalizeInviteEmail(invite.email);
+  const alreadyAccepted = String(invite.status || "").toLowerCase() === "accepted";
+  if (alreadyAccepted && emailMatch) {
+    clearPendingTesterInvite();
+    document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+    document.body.classList.remove("tester-invite-open");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("testerInvite");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    showActionFeedback("Your testing program is ready.");
+    setView("children");
+    return true;
+  }
   card.innerHTML = `
     <p class="fh-kicker">Tester invite</p>
     <h2>Finish setting up your testing account</h2>
@@ -72728,16 +72745,19 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         // pre-created program instead of creating a second one.
         const pendingTesterInvite = readPendingTesterInvite();
         if (pendingTesterInvite?.token) {
-          setFormMessage("#authMessage", "Opening your testing program…", true);
+          setFormMessage("#authMessage", "Saving your password and opening your testing program…", true);
           submitButton.disabled = false;
-          await awaitPendingLocalPasswordSync(20000);
-          try {
-            // Mint a member session so accept + later Log In share the same server password.
-            await loginWithServerPassword(result.email, password);
-          } catch (_error) { /* email-bridge accept can still succeed when Firebase is off */ }
+          // Wait for password sync, then accept immediately (email-bridge is enough on
+          // the Firebase-less testing host). Mint the member session afterward so a
+          // slow password-login cannot leave testers stuck on the invite panel.
+          await awaitPendingLocalPasswordSync(25000);
           closeAuthModal();
           markAppBootReady();
-          const accepted = await maybeAutoAcceptPendingTesterInvite();
+          let accepted = await maybeAutoAcceptPendingTesterInvite();
+          try {
+            await loginWithServerPassword(result.email, password);
+          } catch (_error) { /* later Log In can still use a retry once sync lands */ }
+          if (!accepted) accepted = await maybeAutoAcceptPendingTesterInvite();
           if (!accepted) {
             await maybeHandleHdhTesterInviteFromUrl();
             const msg = document.querySelector("#hdhTesterInviteAcceptMessage");
