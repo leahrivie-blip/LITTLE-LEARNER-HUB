@@ -180,7 +180,7 @@
   }
 
   function statusApi() {
-    return global.LLHTeachingKitStatus || null;
+    return root.LLHTeachingKitStatus || null;
   }
 
   /** Canonical publish eligibility for stepper, badges, and Publish controls. */
