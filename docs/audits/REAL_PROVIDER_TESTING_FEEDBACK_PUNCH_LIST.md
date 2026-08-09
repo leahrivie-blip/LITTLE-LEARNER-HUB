@@ -76,7 +76,7 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 | H1 | 2026-08-09 | Leah | After Owner Admin → Add Tester, no clear way to give tester access (Copy Invite Link / email-unavailable guidance) | Owner Admin / Testers | Create tester → unsure what to send; email not required on testing; tester must set own password. Fixed on testing shell `20260809-phase11-testers-go9`: invite-ready card + Copy Invite Link + email-unavailable copy; logged-out setup panel; tester sets own password; live HDH/Center/mobile invite→relogin verified | verified |
 | H2 | 2026-08-09 | Leah | Typing glitches / text disappears or resets while editing in Owner Admin | Owner Admin (and audit other data-entry) | Root cause: OTA `paint()`/`loadAll()` full remount wiped drafts. Fixed with capture/restore drafts + skip remount while typing; enrichment autosave no longer overwrites newer local edits. Deployed go9+ | verified |
 | H3 | 2026-08-09 | agent audit | Residual async remount risk on Staff/Families/Tuition/Daily Ops form shells | Staff / Families / Tuition / Daily Ops | Same class as H2 (refresh remounts form HTML). Staff invite refresh now skips remount while typing. Broader draft-capture deferred unless testers hit it | fixed-on-testing |
-| H4 | 2026-08-09 | Leah | Owner Admin desktop layout left-bunched / phone-narrow on PC | Owner Admin / Responsive | go12 fixed unlock/OTA grids, but signed-in providers still got ~268px left column: Admin hides `.sidebar` while `.app-shell` kept `268px 1fr`, so `.main` sat in the first track. Fixed on `20260809-phase11-ota-desktop-go13`: force single-column app-shell while `#view-admin` active. Hard-refresh after deploy | in-progress |
+| H4 | 2026-08-09 | Leah | Owner Admin desktop layout left-bunched / phone-narrow on PC | Owner Admin / Responsive | go12 fixed unlock/OTA grids, but signed-in providers still got ~268px left column: Admin hides `.sidebar` while `.app-shell` kept `268px 1fr`, so `.main` sat in the first track. Fixed on `20260809-phase11-ota-desktop-go13` (`d20e253`): force single-column app-shell while `#view-admin` active. Live verified signed-in mode at 1920/1440/1366/390 — main full width. Hard-refresh (Ctrl/Cmd+Shift+R) if still cached | fixed-on-testing |
 
 ---
 
@@ -119,7 +119,7 @@ Leah owns ongoing curriculum and cover updates. Log product-adjacent content iss
 | Category | Open | Fixed on testing | Notes |
 |---|---|---|---|
 | Critical bug | 0 | 0 | |
-| High functional issue | 0 | 4 | H1/H2/H4 verified; H3 fixed-on-testing |
+| High functional issue | 0 | 4 | H1/H2 verified; H3/H4 fixed-on-testing (H4 go13) |
 | Usability/confusion | 0 | 1 | U1 verified |
 | Feature request | 0 | — | Decisions pending |
 | Polish/later | 0 | 0 | |
