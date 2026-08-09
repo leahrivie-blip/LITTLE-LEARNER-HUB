@@ -118,8 +118,8 @@ Leah owns ongoing curriculum and cover updates. Log product-adjacent content iss
 | Category | Open | Fixed on testing | Notes |
 |---|---|---|---|
 | Critical bug | 0 | 0 | |
-| High functional issue | 0 | 0 | |
-| Usability/confusion | 0 | 0 | |
+| High functional issue | 0 | 3 | H1/H2 verified; H3 fixed-on-testing |
+| Usability/confusion | 0 | 1 | U1 verified |
 | Feature request | 0 | — | Decisions pending |
 | Polish/later | 0 | 0 | |
 | Curriculum/content | 0 | — | Separate track |
