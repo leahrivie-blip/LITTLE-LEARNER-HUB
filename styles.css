@@ -29338,3 +29338,21 @@ body.user-authenticated .llh-cal-week-strip {
 body.user-authenticated .main {
   overflow-x: clip;
 }
+
+
+/* Live-audit critical repairs */
+[data-schedule-event-status] { margin: 0 0 0.5rem; color: var(--llh-ink-muted, #5c5346); }
+[data-schedule-event-error].is-error,
+[data-child-cloud-save-status].is-error { color: #8b2e2e; }
+.support-selected-child-banner {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.75rem;
+  background: rgba(47, 107, 90, 0.08);
+  border-left: 3px solid rgba(47, 107, 90, 0.55);
+}
+.doc-helper-share-state {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}

@@ -152,6 +152,8 @@
     "test:provider-ui-polish-qa": "node scripts/test-provider-ui-polish-qa.js",
     "test:remaining-polish": "NODE_ENV=test node scripts/test-remaining-polish.js",
     "test:signup-modal-polish": "NODE_ENV=test node scripts/test-signup-modal-polish.js",
+    "test:ai-age-safety": "NODE_ENV=test node scripts/test-ai-age-safety.js",
+    "test:live-audit-critical-repairs": "NODE_ENV=test node scripts/test-live-audit-critical-repairs.js",
     "test:calendar-loading-guards": "NODE_ENV=test node scripts/test-calendar-loading-guards.js",
     "test:trial-length-system": "NODE_ENV=test node scripts/test-trial-length-system.js",
     "test:provider-overlay-scroll-lock": "node scripts/test-provider-overlay-scroll-lock.js",

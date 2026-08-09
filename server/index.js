@@ -12,6 +12,7 @@ const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js")
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const trialClassification = require("../scripts/trial-classification.js");
 const teachingKit = require("../scripts/teaching-kit.js");
+const aiAgeSafety = require("../scripts/ai-age-safety.js");
 const draftReviewModel = require("../scripts/curriculum-draft-review.js");
 const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
@@ -7675,6 +7676,19 @@ async function generateOpenAiContent({
     throw err;
   }
 
+  const observationGate = aiAgeSafety.validateObservationInput(prompt, {
+    tool: normalizedTool,
+    providerNotes,
+    note: prompt,
+  });
+  if (!observationGate.ok) {
+    const err = new Error(observationGate.message);
+    err.observationBlocked = true;
+    err.code = observationGate.code || "observation_blocked";
+    err.noRetry = true;
+    throw err;
+  }
+
   if (!OPENAI_API_KEY) {
     throw new Error("Document creation is not available right now. Please contact support or try again later.");
   }
@@ -7699,8 +7713,66 @@ async function generateOpenAiContent({
       if (attempt > 1) {
         console.log(`[helper-retry-success] requestId=${requestId} tool=${normalizedTool} email=${email} attempt=${attempt}`);
       }
+      const cleaned = aiAgeSafety.sanitizeProviderFacingCopy(output);
+      const ageGate = aiAgeSafety.validateAiContentForAge(cleaned, age, {
+        area: providerNotes || "",
+      });
+      if (ageGate.blocked) {
+        const err = new Error(`${ageGate.message} Suggested alternatives: ${ageGate.alternatives.join("; ")}`);
+        err.ageUnsafe = true;
+        err.alternatives = ageGate.alternatives;
+        err.noRetry = attempt > AI_MAX_RETRIES;
+        if (attempt <= AI_MAX_RETRIES) {
+          lastError = err;
+          const rewriteSystem = `${systemPrompt}\n\n${aiAgeSafety.ageSafetyRewriteInstruction(ageGate.ageGroup)}`;
+          try {
+            const rewrite = await callOpenAiOnce(rewriteSystem, userContent, email, `${label}-age-rewrite`, {
+              maxOutputTokens: aiMaxOutputTokensForTool(normalizedTool),
+              requestId,
+            });
+            const rewriteClean = aiAgeSafety.sanitizeProviderFacingCopy(rewrite.output);
+            const rewriteGate = aiAgeSafety.validateAiContentForAge(rewriteClean, age, {
+              area: providerNotes || "",
+            });
+            if (!rewriteGate.blocked) {
+              return {
+                output: rewriteClean,
+                model: OPENAI_MODEL,
+                requestId,
+                tool: normalizedTool,
+                ageSafetyRewritten: true,
+                inputTokens: rewrite.rawResponse?.usage?.input_tokens ?? rewrite.rawResponse?.usage?.prompt_tokens ?? null,
+                outputTokens: rewrite.rawResponse?.usage?.output_tokens ?? rewrite.rawResponse?.usage?.completion_tokens ?? null,
+                debug: debug ? {
+                  tool: normalizedTool,
+                  requestId,
+                  model: OPENAI_MODEL,
+                  systemPrompt: rewriteSystem,
+                  userPrompt: userContent,
+                  finalPrompt: buildDebugPromptSnapshot(rewriteSystem, userContent),
+                  rawResponse: rewrite.rawResponse,
+                  finalResponse: rewriteClean,
+                  attempts: attempt,
+                  ageSafetyRewritten: true,
+                } : null,
+              };
+            }
+          } catch (rewriteError) {
+            lastError = rewriteError.ageUnsafe ? rewriteError : err;
+          }
+          throw err;
+        }
+        throw err;
+      }
+      const lint = aiAgeSafety.lintAiProviderCopy(cleaned);
+      if (lint.some((item) => item.code === "placeholder")) {
+        const err = new Error("AI draft still contains unfinished placeholders. Revise before accepting as finished content.");
+        err.placeholderBlocked = true;
+        err.noRetry = true;
+        throw err;
+      }
       return {
-        output,
+        output: cleaned,
         model: OPENAI_MODEL,
         requestId,
         tool: normalizedTool,
@@ -7715,12 +7787,13 @@ async function generateOpenAiContent({
           userPrompt: userContent,
           finalPrompt: buildDebugPromptSnapshot(systemPrompt, userContent),
           rawResponse,
-          finalResponse: output,
+          finalResponse: cleaned,
           attempts: attempt,
         } : null,
       };
     } catch (error) {
       lastError = error;
+      if (error.ageUnsafe || error.placeholderBlocked || error.observationBlocked) throw error;
       const isRetryable = !error.noRetry && attempt <= AI_MAX_RETRIES;
       console.error(`[helper-generate-error] requestId=${requestId} tool=${normalizedTool} email=${email} attempt=${attempt}/${AI_MAX_RETRIES + 1} retryable=${isRetryable} error=${error.message}`);
       if (!isRetryable) break;
@@ -10895,11 +10968,29 @@ async function handleAiGenerate(request, response) {
       model: aiResult.model,
       requestId: aiResult.requestId || requestId,
       tool: aiResult.tool || tool,
+      ageSafetyRewritten: aiResult.ageSafetyRewritten === true,
       debug: aiResult.debug,
       ...recorded,
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
+    if (error?.observationBlocked) {
+      jsonResponse(response, 400, {
+        error: error.message,
+        code: error.code || "observation_blocked",
+        requestId,
+      });
+      return;
+    }
+    if (error?.ageUnsafe) {
+      jsonResponse(response, 422, {
+        error: error.message,
+        code: "age_unsafe",
+        alternatives: error.alternatives || [],
+        requestId,
+      });
+      return;
+    }
     if (error?.code === "store_not_persisted" || error?.code === "store_write_failed") {
       jsonResponse(response, 503, {
         error: "Your document was generated but could not be saved. Please try again.",

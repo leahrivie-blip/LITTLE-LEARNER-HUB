@@ -1209,6 +1209,16 @@
                 <button class="ghost-button" id="docHelperCreateAnotherBtn" type="button">Create Another</button>
               </div>
             </div>
+            <div id="docHelperShareState" class="doc-helper-share-state" aria-live="polite">
+              <p class="eyebrow">Sharing status</p>
+              <strong id="docHelperShareStateLabel">Draft</strong>
+              <p class="muted-copy" id="docHelperShareStateHint">Nothing is sent to families until you choose Share with Family.</p>
+              <label class="settings-check-label" id="docHelperShareFamilyLabel">
+                <input type="checkbox" id="docHelperShareFamily" />
+                Share with Family (opt-in only — never automatic)
+              </label>
+              <button class="ghost-button" id="docHelperPreviewShareBtn" type="button">Preview Before Sharing</button>
+            </div>
             <div id="docHelperDraftActions" class="doc-helper-draft-actions" hidden>
               <button class="ghost-button" type="button" data-doc-draft-action="regenerate">Regenerate</button>
               <button class="ghost-button" type="button" data-doc-draft-action="shorten">Shorten</button>
@@ -1218,6 +1228,12 @@
               <button class="ghost-button" type="button" data-doc-draft-action="start-over">Start Over</button>
             </div>
             <div id="docHelperOutput" class="ai-output-rendered" contenteditable="false" spellcheck="true"></div>
+            <div id="docHelperSharePreview" class="section-block" hidden style="margin-top:12px;">
+              <p class="eyebrow">Preview Before Sharing</p>
+              <strong>Family-facing preview</strong>
+              <p class="muted-copy">Internal provider notes are removed below. Nothing has been sent.</p>
+              <div id="docHelperSharePreviewBody" class="ai-output-rendered"></div>
+            </div>
             <div id="docHelperPostSavePanel" class="section-block" hidden style="margin-top:16px;">
               <p class="eyebrow">Saved</p>
               <strong id="docHelperPostSaveTitle">Saved to child profile</strong>
@@ -2095,6 +2111,7 @@
         </div>
         <form id="scheduleEventForm" class="panel-form">
           <p class="muted-copy" data-schedule-event-error hidden></p>
+          <p class="muted-copy" data-schedule-event-status role="status" aria-live="polite" hidden></p>
           <label>Category
             <select name="eventType" required>
               <option value="classroom_event">Classroom Event (Pajama Day, Water Day, Show and Tell…)</option>
@@ -2138,7 +2155,8 @@
             <textarea name="eventNotes" rows="3" maxlength="2000" placeholder="Any extra details for this item…"></textarea>
           </label>
           <div class="form-actions">
-            <button class="primary-button" type="submit">Save</button>
+            <button class="primary-button" type="submit" data-schedule-event-submit>Save</button>
+            <button class="ghost-button" type="button" data-schedule-event-retry hidden>Retry</button>
             <button class="ghost-button" type="button" data-close-schedule-event-modal>Cancel</button>
             <button class="ghost-button llh-schedule-event-delete" type="button" data-schedule-event-delete hidden>Delete Permanently</button>
           </div>
@@ -2506,7 +2524,8 @@
     <script src="scripts/curriculum-draft-printable-review.js?v=20260809-draft-pdf-pages" defer></script>
     <script src="scripts/curriculum-draft-review-ui.js?v=20260809-lesson-review-r1" defer></script>
     <script src="scripts/teaching-kit-authoring.js?v=20260803-tk-authoring" defer></script>
-    <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
+    <script src="scripts/ai-age-safety.js?v=20260809-live-audit-repairs-r1" defer></script>
+    <script src="scripts/llh-schedule.js?v=20260809-live-audit-repairs-r1" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260807-tk-download-present" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260807-tk-download-present" defer></script>
@@ -2519,7 +2538,7 @@
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/admin-analytics-diagnostics.js?v=20260804-analytics-diag-phase8-r1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260804-admin-login-trim-r2" defer></script>
-    <script src="app.js?v=20260809-lesson-review-r1" defer></script>
+    <script src="app.js?v=20260809-live-audit-repairs-r1" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260809-lesson-review-r1" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
