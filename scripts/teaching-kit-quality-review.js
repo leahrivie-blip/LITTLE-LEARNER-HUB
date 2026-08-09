@@ -848,26 +848,33 @@
         text(patch.safetyNotes),
         asArray(patch.teacherTips).map(text).join(" "),
       ].join(" ");
-      if (safetyPattern.test(actBody) || (band === "infant" && infantHazard.test(actBody))) {
-        safetyHit = { act, key };
+      const hazardMatch = actBody.match(safetyPattern)
+        || (band === "infant" ? actBody.match(infantHazard) : null);
+      if (hazardMatch) {
+        safetyHit = { act, key, condition: hazardMatch[0] };
       }
     });
-    if (!safetyHit && (safetyPattern.test(body) || (band === "infant" && infantHazard.test(body)))) {
-      safetyHit = { act: null, key: "" };
+    if (!safetyHit) {
+      const weekMatch = body.match(safetyPattern)
+        || (band === "infant" ? body.match(infantHazard) : null);
+      if (weekMatch) safetyHit = { act: null, key: "", condition: weekMatch[0] };
     }
     if (safetyHit) {
+      const condition = text(safetyHit.condition) || "hazardous material or practice";
+      const title = safetyHit.act ? text(safetyHit.act.title) : "";
+      const requiredFix = `Remove or replace “${condition}”, add clear supervision/safety notes, then re-check this activity.`;
       findings.push(finding({
         code: "safety_concern",
         section: "safety",
         severity: "blocking",
         blocking: true,
-        message: safetyHit.act
-          ? `Possible safety concern in “${text(safetyHit.act.title)}” for the selected age group.`
-          : "Possible safety concern for the selected age group.",
-        suggestion: "Remove or substitute hazardous materials; note supervision requirements.",
-        navigateTo: safetyHit.key ? `activity:${safetyHit.key}` : "week:safety",
+        message: title
+          ? `Safety concern in “${title}”: ${condition}. Required fix: ${requiredFix}`
+          : `Safety concern: ${condition}. Required fix: ${requiredFix}`,
+        suggestion: requiredFix,
+        navigateTo: safetyHit.key ? `activity:${safetyHit.key}` : (title ? `activity:${title}` : "week:safety"),
         activityKey: safetyHit.key || "",
-        activityTitle: safetyHit.act ? text(safetyHit.act.title) : "",
+        activityTitle: title,
       }));
     }
     if (/specialty store|must buy|expensive|laminator required|color printer only/i.test(body)) {

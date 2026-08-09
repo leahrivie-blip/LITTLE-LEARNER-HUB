@@ -203,7 +203,33 @@
         ? state.printableApprovalStatuses
         : null,
     };
-    if (typeof build === "function") return build(input);
+    const ui = typeof build === "function"
+      ? build(input)
+      : null;
+    if (ui) {
+      // Hard scrub: never render the words "Publish Ready" unless canPublish / published.
+      if (!ui.canPublish && !ui.published) {
+        if (/publish\s*ready/i.test(String(ui.readinessStepLabel || ""))) {
+          ui.readinessStepLabel = ui.blocked ? "Needs Changes" : "Not Ready";
+          ui.readinessStepKind = ui.blocked ? "needs_changes" : "not_ready";
+        }
+        (ui.chromeSteps || []).forEach((step) => {
+          if (step && /publish\s*ready/i.test(String(step.label || ""))) {
+            step.label = ui.readinessStepLabel || "Needs Changes";
+            step.kind = ui.readinessStepKind || "needs_changes";
+            step.className = String(step.className || "").replace(/\bis-done\b/g, "").trim();
+            if (!/\bis-active\b/.test(step.className)) step.className = `${step.className} is-active is-blocked`.trim();
+          }
+        });
+        (ui.summarySteps || []).forEach((step) => {
+          if (step && step.id === "readiness" && /publish\s*ready/i.test(String(step.label || ""))) {
+            step.label = ui.readinessStepLabel || "Needs Changes";
+            step.kind = ui.readinessStepKind || "needs_changes";
+          }
+        });
+      }
+      return ui;
+    }
     // Minimal fallback if status module missing — never imply Publish Ready while blocked.
     const blocked = Boolean(input.blocksPublish) || /^blocked$/i.test(String(input.blocking || ""));
     const publishReady = !blocked && /^(Publish Ready|Ready for Owner Review)$/i.test(String(input.workflow || ""));
@@ -368,7 +394,24 @@
       ? curriculumActivitiesForLesson(plan.id)
       : [];
     const draft = state.draft || plan?.enrichmentDraft || null;
+    if (!enrich || typeof enrich.flattenLessonActivities !== "function") {
+      return Array.isArray(storeActs) ? storeActs.slice() : [];
+    }
+    // Canonical overlay: proposedDailyPlans + remove decisions from the active draft.
     return enrich.flattenLessonActivities(plan, storeActs, draft);
+  }
+
+  function patchPlanEnrichmentDraft(planId, enrichmentDraft) {
+    if (!planId || !enrichmentDraft || typeof enrichmentDraft !== "object") return;
+    try {
+      if (typeof effectiveCurriculum !== "function" || typeof applyCurriculumState !== "function") return;
+      const curriculum = effectiveCurriculum() || {};
+      const plans = Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans.slice() : [];
+      const idx = plans.findIndex((p) => p && p.id === planId);
+      if (idx < 0) return;
+      plans[idx] = { ...plans[idx], enrichmentDraft: JSON.parse(JSON.stringify(enrichmentDraft)) };
+      applyCurriculumState({ ...curriculum, lessonPlans: plans });
+    } catch (_error) { /* best-effort client patch */ }
   }
 
   function draftKey(act) {
@@ -1125,77 +1168,109 @@
   }
 
   function open(planId, options = {}) {
-    const ownerDraftReview = isOwnerDraftReviewCaller(options);
-    if (!isEditorFlagEnabled() && !ownerDraftReview) {
-      if (typeof showActionFeedback === "function") {
-        showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+    try {
+      const ownerDraftReview = isOwnerDraftReviewCaller(options);
+      if (!isEditorFlagEnabled() && !ownerDraftReview) {
+        if (typeof showActionFeedback === "function") {
+          showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+        }
+        return false;
       }
+      // Prefer the exact Draft Review queue draft (proposed plan + removals) over a stale client plan.
+      const incomingDraft = options.enrichmentDraft && typeof options.enrichmentDraft === "object"
+        ? options.enrichmentDraft
+        : null;
+      if (incomingDraft) patchPlanEnrichmentDraft(planId, incomingDraft);
+      let plan = (options.lessonPlan && typeof options.lessonPlan === "object")
+        ? options.lessonPlan
+        : (typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(planId) : null);
+      if (!plan) {
+        if (typeof showActionFeedback === "function") {
+          showActionFeedback("Lesson not found for Draft Review.");
+        }
+        return false;
+      }
+      if (incomingDraft) {
+        plan = { ...plan, enrichmentDraft: JSON.parse(JSON.stringify(incomingDraft)) };
+      }
+      if (!host()) {
+        if (typeof showActionFeedback === "function") {
+          showActionFeedback("Teaching Kit editor host is missing on this page.");
+        }
+        return false;
+      }
+      if (!api()) {
+        if (typeof showActionFeedback === "function") {
+          showActionFeedback("Teaching Kit enrichment helpers failed to load.");
+        }
+        return false;
+      }
+      state.open = true;
+      state.planId = planId;
+      state.ownerDraftReview = ownerDraftReview === true;
+      state.draftReviewId = String(options.draftReviewId || "").trim();
+      state.draftReviewReturn = Boolean(options.returnToQueue);
+      state.printableApprovalStatuses = Array.isArray(options.printableApprovalStatuses)
+        ? options.printableApprovalStatuses.map((status) => String(status || "").trim()).filter(Boolean)
+        : null;
+      state.printableRejected = Boolean(options.printableRejected)
+        || (Array.isArray(state.printableApprovalStatuses)
+          && state.printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(status)));
+      state.mode = "activities";
+      state.dayFilter = "all";
+      state.jumpOpen = false;
+      state.jumpQuery = "";
+      state.lightboxUrl = "";
+      state.publishOpen = false;
+      state.pendingCleanupAssetIds = [];
+      resetAiTray();
+      const sourceDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+        ? plan.enrichmentDraft
+        : null;
+      state.lastSavedDraft = sourceDraft ? JSON.parse(JSON.stringify(sourceDraft)) : null;
+      state.draft = sourceDraft
+        ? JSON.parse(JSON.stringify(sourceDraft))
+        : { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
+      if (!state.draft.activities) state.draft.activities = {};
+      if (!state.draft.week) state.draft.week = {};
+      // Open focused on the activity studio — summary/analysis panels are one click away.
+      state.summaryOpen = false;
+      state.analysisOpen = false;
+      state.previewViewport = "desktop";
+      state.previewDay = "monday";
+      const activities = getActivities(plan);
+      const firstIncomplete = api()?.firstIncompleteActivityIndex;
+      state.activityIndex = typeof firstIncomplete === "function"
+        ? firstIncomplete(activities, state.draft.activities)
+        : 0;
+      if (!Number.isFinite(state.activityIndex) || state.activityIndex < 0) state.activityIndex = 0;
+      const first = activities[state.activityIndex];
+      if (first?.dayOfWeek) state.previewDay = String(first.dayOfWeek);
+      const analysis = refreshLessonAnalysis();
+      const gaps = analysis?.gapSectionIds?.length || 0;
+      state.statusText = gaps
+        ? `${gaps} area(s) to improve · Prepare AI Draft when ready (never auto-runs).`
+        : "Lesson loaded · edit manually, or Prepare AI Draft when ready.";
+      state._focusReturn = document.activeElement;
+      state.recoveryOpen = false;
+      state.compareOpen = false;
+      state.aiConfirmOpen = false;
+      state.aiConfirmScope = "";
+      document.body.classList.add("tk-enrich-open");
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.addEventListener("beforeunload", onBeforeUnload);
+      render();
+      requestAnimationFrame(() => {
+        document.querySelector("[data-enrich-exit]")?.focus?.();
+      });
+      return true;
+    } catch (error) {
+      state.open = false;
+      document.body.classList.remove("tk-enrich-open");
+      const message = error?.message || String(error) || "Open Review failed.";
+      if (typeof showActionFeedback === "function") showActionFeedback(message);
       return false;
     }
-    const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(planId) : null;
-    if (!plan) {
-      if (typeof showActionFeedback === "function") {
-        showActionFeedback("Lesson not found for Draft Review.");
-      }
-      return false;
-    }
-    state.open = true;
-    state.planId = planId;
-    state.ownerDraftReview = ownerDraftReview === true;
-    state.draftReviewId = String(options.draftReviewId || "").trim();
-    state.draftReviewReturn = Boolean(options.returnToQueue);
-    state.printableApprovalStatuses = Array.isArray(options.printableApprovalStatuses)
-      ? options.printableApprovalStatuses.map((status) => String(status || "").trim()).filter(Boolean)
-      : null;
-    state.printableRejected = Boolean(options.printableRejected)
-      || (Array.isArray(state.printableApprovalStatuses)
-        && state.printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(status)));
-    state.mode = "activities";
-    state.dayFilter = "all";
-    state.jumpOpen = false;
-    state.jumpQuery = "";
-    state.lightboxUrl = "";
-    state.publishOpen = false;
-    state.pendingCleanupAssetIds = [];
-    resetAiTray();
-    state.lastSavedDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
-      ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
-      : null;
-    state.draft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
-      ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
-      : { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
-    if (!state.draft.activities) state.draft.activities = {};
-    if (!state.draft.week) state.draft.week = {};
-    // Open focused on the activity studio — summary/analysis panels are one click away.
-    // Both open by default crushed the editable column and made tip cards unreadable.
-    state.summaryOpen = false;
-    state.analysisOpen = false;
-    state.previewViewport = "desktop";
-    state.previewDay = "monday";
-    const activities = getActivities(plan);
-    state.activityIndex = api().firstIncompleteActivityIndex(activities, state.draft.activities);
-    const first = activities[state.activityIndex];
-    if (first?.dayOfWeek) state.previewDay = String(first.dayOfWeek);
-    const analysis = refreshLessonAnalysis();
-    const gaps = analysis?.gapSectionIds?.length || 0;
-    // Opening Upgrade Lesson is read-only load only — never auto-run AI, consume usage,
-    // create proposals, autosave, or change scores/timestamps.
-    state.statusText = gaps
-      ? `${gaps} area(s) to improve · Prepare AI Draft when ready (never auto-runs).`
-      : "Lesson loaded · edit manually, or Prepare AI Draft when ready.";
-    state._focusReturn = document.activeElement;
-    state.recoveryOpen = false;
-    state.compareOpen = false;
-    state.aiConfirmOpen = false;
-    state.aiConfirmScope = "";
-    document.body.classList.add("tk-enrich-open");
-    window.removeEventListener("beforeunload", onBeforeUnload);
-    window.addEventListener("beforeunload", onBeforeUnload);
-    render();
-    requestAnimationFrame(() => {
-      document.querySelector("[data-enrich-exit]")?.focus?.();
-    });
-    return true;
   }
 
   function onBeforeUnload(event) {
@@ -1204,7 +1279,7 @@
     event.returnValue = "";
   }
 
-  async function close({ force = false, abandonUnsaved = false } = {}) {
+  async function close({ force = false, abandonUnsaved = false, skipReturnNavigation = false } = {}) {
     clearTimeout(state.autosaveTimer);
     clearTimeout(state._previewTimer);
     if (typeof state.previewUnbind === "function") {
@@ -1246,7 +1321,7 @@
       }
     }
     const returnFocus = state._focusReturn;
-    const returnToQueue = state.draftReviewReturn === true;
+    const returnToQueue = state.draftReviewReturn === true && !skipReturnNavigation;
     const returnDraftId = state.draftReviewId;
     state.open = false;
     state.dirty = false;
@@ -1272,7 +1347,7 @@
           }
         }).catch(() => {});
       }
-    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+    } else if (!skipReturnNavigation && typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
     }
     if (returnFocus && typeof returnFocus.focus === "function") {
@@ -1770,7 +1845,7 @@
             <button type="button" class="ghost-button" data-enrich-rollback>Rollback Last Publish</button>
             <p class="muted-copy">Loads the prior publish backup into a new draft. Providers keep seeing the current published kit until you Publish.</p>
           ` : ""}
-          <p class="muted-copy tk-enrich-summary-note">Structural % is field fill only. Publish Ready requires zero hard blockers and real images/printables. Draft save is never blocked.</p>
+          <p class="muted-copy tk-enrich-summary-note">Structural % is field fill only. Publishing requires zero hard blockers and real images/printables. Draft save is never blocked.</p>
         ` : ""}
       </aside>
     `;
@@ -1823,7 +1898,7 @@
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
-            <button type="button" class="primary-button" data-enrich-publish data-can-publish="${readinessUi.canPublish ? "true" : "false"}" ${blocked ? "title=\"Not Publish Ready — resolve hard blockers or use owner override\"" : ""}>${blocked ? "Publish blocked…" : "Publish…"}</button>
+            <button type="button" class="primary-button" data-enrich-publish data-can-publish="${readinessUi.canPublish ? "true" : "false"}" ${blocked ? "title=\"Publishing blocked — resolve hard blockers or use owner override\"" : ""}>${blocked ? "Publish blocked…" : "Publish…"}</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
         </div>
@@ -2510,7 +2585,16 @@
                 <h4>Unresolved blockers</h4>
                 <p class="muted-copy">Every open publish blocker (same list as Quality Review / Library Health):</p>
                 <ul>
-                  ${blockers.map((b) => `<li data-blocker-code="${esc(b.code || "")}">${esc(b.message || b.code || "Unresolved blocker")}</li>`).join("")}
+                  ${blockers.map((b) => `
+                    <li data-blocker-code="${esc(b.code || "")}">
+                      <span>${esc(b.message || b.code || "Unresolved blocker")}</span>
+                      ${b.navigateTo || b.activityKey || b.activityTitle ? `
+                        <button type="button" class="ghost-button" data-blocker-navigate="${esc(b.navigateTo || (b.activityKey ? `activity:${b.activityKey}` : `activity:${b.activityTitle}`))}">
+                          Open ${esc(b.activityTitle || "activity")}
+                        </button>
+                      ` : ""}
+                    </li>
+                  `).join("")}
                 </ul>
               </div>
             ` : ""}
@@ -3006,7 +3090,7 @@
       publishBtn.dataset.canPublish = readinessUi.canPublish ? "true" : "false";
       publishBtn.textContent = readinessUi.blocked ? "Publish blocked…" : "Publish…";
       publishBtn.title = readinessUi.blocked
-        ? "Not Publish Ready — resolve hard blockers or use owner override"
+        ? "Publishing blocked — resolve hard blockers or use owner override"
         : "Publish enrichment for this lesson";
     }
     const summaryPct = document.querySelector("[data-upgrade-summary] .tk-enrich-bar i");
@@ -3022,6 +3106,32 @@
     if (!raw) return;
     const plan = getPlan();
     const activities = getActivities(plan);
+    const activityMatch = raw.match(/^activity:(.+)$/i);
+    if (activityMatch) {
+      const key = String(activityMatch[1] || "").trim();
+      const keyLower = key.toLowerCase();
+      const targetIdx = activities.findIndex((a) => {
+        const id = String(a?.id || "").trim();
+        const itemId = String(a?.itemId || "").trim();
+        const title = String(a?.title || "").trim().toLowerCase();
+        const dk = draftKey(a);
+        return id === key
+          || itemId === key
+          || dk === key
+          || title === keyLower
+          || (itemId && key.endsWith(`:${itemId}`))
+          || (id && key.endsWith(id))
+          || (title && keyLower.includes(title));
+      });
+      state.mode = "activities";
+      if (targetIdx >= 0) state.activityIndex = targetIdx;
+      render();
+      requestAnimationFrame(() => {
+        document.querySelector(".tk-enrich-queue-item.is-active, [data-enrich-activity-panel], .tk-enrich-activity")
+          ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
     if (/^week:/i.test(raw) || /books|songs|printables|toolkit|family|vocabulary|objectives|materials|weekly_plan/i.test(raw)) {
       state.mode = "week";
       render();
@@ -3034,8 +3144,10 @@
       state.mode = "activities";
       const draftActs = state.draft.activities || {};
       const targetIdx = activities.findIndex((a) => {
-        const view = api().activityEnrichmentView(a, draftActs[draftKey(a)]);
-        const slots = view.imageSlots || {};
+        const view = api()?.activityEnrichmentView
+          ? api().activityEnrichmentView(a, draftActs[draftKey(a)])
+          : null;
+        const slots = view?.imageSlots || {};
         return (slots.needsSetup && !view.setupImageUrl) || (slots.needsExample && !view.exampleImageUrl);
       });
       if (targetIdx >= 0) state.activityIndex = targetIdx;
@@ -3315,6 +3427,7 @@
       }
       const blockerNav = event.target.closest("[data-blocker-navigate]");
       if (blockerNav) {
+        state.publishOpen = false;
         navigateToEnrichmentTarget(blockerNav.getAttribute("data-blocker-navigate") || "");
         return;
       }

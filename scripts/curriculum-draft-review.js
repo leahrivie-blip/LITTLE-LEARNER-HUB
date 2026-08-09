@@ -235,7 +235,7 @@ function decisionCounts(draft) {
   return counts;
 }
 
-function buildStats(draft, draftResourceIds = [], resources = []) {
+function buildStats(draft, draftResourceIds = [], resources = [], plan = null, activities = []) {
   const acts = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
   const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
   const decisions = decisionCounts(draft);
@@ -248,10 +248,29 @@ function buildStats(draft, draftResourceIds = [], resources = []) {
       proposedActivityCount += Array.isArray(proposedDays[day]?.items) ? proposedDays[day].items.length : 0;
     });
   }
+  // Apply the same proposed-plan + remove overlay the editor/preview/score use.
+  let activityCount = proposedActivityCount || Object.keys(acts).length;
+  try {
+    const enrich = require("./teaching-kit-enrichment.js");
+    if (typeof enrich.flattenLessonActivities === "function") {
+      activityCount = enrich.flattenLessonActivities(
+        plan || { id: "" },
+        Array.isArray(activities) ? activities : [],
+        draft,
+      ).length;
+    } else if (typeof enrich.applyActivityRemovals === "function" && proposedDays) {
+      const flat = [];
+      ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+        (proposedDays[day]?.items || []).forEach((item) => {
+          if (item?.title) flat.push({ title: item.title, itemId: item.itemId, id: item.activityId || item.itemId });
+        });
+      });
+      activityCount = enrich.applyActivityRemovals(flat, draft).length;
+    }
+  } catch (_error) { /* keep fallback count */ }
   const linkedResources = (Array.isArray(resources) ? resources : [])
     .filter((r) => (draftResourceIds || []).includes(r.id));
   const printablePages = linkedResources.reduce((sum, r) => sum + (Number(r.pageCount) || 0), 0);
-  const activityCount = proposedActivityCount || Object.keys(acts).length;
   return {
     activityCount,
     changedActivities: Object.keys(acts).length,
@@ -423,7 +442,8 @@ function listItem(entry) {
     publishReady: scores.publishReady === true,
     blockers: scores.blockers || [],
     blockerDetails: scores.blockerDetails || e.qualityResults?.blockingDetails || [],
-    activityCount: stats.activityCount ?? scores.activityCount ?? 0,
+    // Prefer flattened/scored count (removals applied) over raw stats when both exist.
+    activityCount: scores.activityCount ?? stats.activityCount ?? 0,
     changedActivities: stats.changedActivities ?? 0,
     activitiesAdded: stats.activitiesAdded ?? 0,
     activitiesRemoved: stats.activitiesRemoved ?? 0,

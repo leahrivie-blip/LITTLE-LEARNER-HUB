@@ -13576,8 +13576,30 @@ function renderAdminCurriculumResourceManager() {
 
 function isTeachingKitPrintableOwnerClient() {
   const sessionEmail = String(adminSession()?.email || "").trim().toLowerCase();
-  // Must match server Teaching Kit owner gate (session email — never trust body email).
-  return sessionEmail === "leahivie@icloud.com";
+  // Must match server ADMIN_EMAILS / DEFAULT_ADMIN_EMAIL_ALIASES (session email — never trust body email).
+  const ownerEmails = new Set([
+    "leahivie@icloud.com",
+    "leahrivie@icloud.com",
+    "leahrivie@gmail.com",
+    "little.learners.hub.customer@gmail.com",
+  ]);
+  return ownerEmails.has(sessionEmail);
+}
+
+/** When Teaching Kit editor is open, confirm before Admin sidebar navigation can proceed. */
+function confirmLeaveTeachingKitEditor() {
+  const editor = typeof LLHTeachingKitEnrichmentEditor !== "undefined" ? LLHTeachingKitEnrichmentEditor : null;
+  if (!editor || typeof editor.isOpen !== "function" || !editor.isOpen()) return true;
+  const dirty = typeof editor.isDirty === "function" ? editor.isDirty() : false;
+  const message = dirty
+    ? "Leave Teaching Kit editor? Unsaved draft changes on this screen will be lost."
+    : "Leave Teaching Kit editor and open another Admin section?";
+  if (!window.confirm(message)) return false;
+  if (typeof editor.close === "function") {
+    // skipReturnNavigation: caller is already navigating; do not bounce back to Draft Review.
+    editor.close({ force: true, abandonUnsaved: true, skipReturnNavigation: true });
+  }
+  return true;
 }
 
 function createAdminTkPrintableDraft(plan, resource) {
@@ -54262,6 +54284,8 @@ function setAdminSectionTab(tabId) {
   let resolvedTabId = tabId === "homepage" ? "images" : tabId;
   if (resolvedTabId === "lesson-plans") resolvedTabId = "curriculum-lesson-plans";
   if (resolvedTabId === "activities") resolvedTabId = "curriculum-activities";
+  // Editor close() clears isOpen before calling setAdminSectionTab for Draft Review return.
+  if (!confirmLeaveTeachingKitEditor()) return;
   if (resolvedTabId !== adminActiveSectionTab && adminAnalyticsAbortController) {
     try { adminAnalyticsAbortController.abort(); } catch { /* ignore */ }
     adminAnalyticsAbortController = null;
