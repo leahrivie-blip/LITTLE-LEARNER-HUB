@@ -1,0 +1,407 @@
+/* Owner Lesson Review & Editor — focused one-section workspace */
+
+#adminLessonReviewEditorHost {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(18, 24, 32, 0.28);
+  overflow: auto;
+}
+
+#adminLessonReviewEditorHost[hidden] {
+  display: none !important;
+}
+
+.llh-lre {
+  --lre-ink: #1f2a24;
+  --lre-muted: #5c6b63;
+  --lre-line: #d7e0d9;
+  --lre-panel: #f3f7f4;
+  --lre-accent: #2f6f5e;
+  --lre-warn: #8a5a12;
+  --lre-danger: #8a2f2f;
+  --lre-ok: #246b45;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(47, 111, 94, 0.14), transparent 55%),
+    linear-gradient(180deg, #eef5f1 0%, #f7faf8 40%, #eef2ef 100%);
+  color: var(--lre-ink);
+  font-family: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+}
+
+.llh-lre-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: blur(10px);
+  background: rgba(243, 247, 244, 0.92);
+  border-bottom: 1px solid var(--lre-line);
+  padding: 0.85rem 1.1rem;
+}
+
+.llh-lre-header-main {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.llh-lre-header h1 {
+  margin: 0.15rem 0;
+  font-size: clamp(1.45rem, 2vw, 1.9rem);
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.llh-lre-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  color: var(--lre-accent);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.llh-lre-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  position: sticky;
+  top: 0.5rem;
+}
+
+.llh-lre-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 0;
+  min-height: calc(100vh - 5.5rem);
+}
+
+.llh-lre-nav {
+  border-right: 1px solid var(--lre-line);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 0.75rem;
+}
+
+.llh-lre-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.llh-lre-nav-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  display: grid;
+  gap: 0.2rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.llh-lre-nav-btn small {
+  color: var(--lre-muted);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.llh-lre-nav-btn.is-active,
+.llh-lre-nav-btn:hover {
+  background: #fff;
+  border-color: var(--lre-line);
+}
+
+.llh-lre-nav-mobile {
+  display: none;
+  margin-bottom: 0.75rem;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+}
+
+.llh-lre-main {
+  padding: 1rem 1.15rem 2.5rem;
+  max-width: 920px;
+}
+
+.llh-lre-section-chrome {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--lre-line);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.llh-lre-section-chrome h2 {
+  margin: 0.2rem 0 0.45rem;
+  font-size: 1.55rem;
+}
+
+.llh-lre-section-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  align-items: center;
+  margin: 0.65rem 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+}
+
+.llh-lre-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  border: 1px solid var(--lre-line);
+  background: #fff;
+}
+
+.llh-lre-status--not-started { color: var(--lre-muted); }
+.llh-lre-status--needs-work { color: var(--lre-warn); border-color: #e2c08a; background: #fff8ea; }
+.llh-lre-status--complete { color: var(--lre-ok); border-color: #9dceb3; background: #eef8f2; }
+.llh-lre-status--approved { color: #184f8a; border-color: #9db7d8; background: #eef4fb; }
+
+.llh-lre-missing,
+.llh-lre-warnings {
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  margin: 0.55rem 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+}
+
+.llh-lre-missing { background: #fff1f0; border: 1px solid #efc2c0; }
+.llh-lre-warnings { background: #fff8ea; border: 1px solid #e2c08a; }
+.llh-lre-ok { color: var(--lre-ok); font-family: "Avenir Next", "Segoe UI", sans-serif; }
+
+.llh-lre-field {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0.8rem 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.llh-lre-label {
+  font-weight: 650;
+  color: var(--lre-ink);
+}
+
+.llh-lre-example {
+  color: var(--lre-muted);
+  font-size: 0.86rem;
+}
+
+.llh-lre-field input,
+.llh-lre-field textarea,
+.llh-lre-field select,
+.llh-lre-nav-mobile select {
+  width: 100%;
+  border: 1px solid var(--lre-line);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+
+.llh-lre-activity-cards {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.llh-lre-activity-card {
+  text-align: left;
+  border: 1px solid var(--lre-line);
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr auto 1fr auto;
+  gap: 0.4rem;
+  align-items: center;
+  cursor: pointer;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+}
+
+.llh-lre-activity-card.is-open {
+  border-color: var(--lre-accent);
+  box-shadow: 0 0 0 2px rgba(47, 111, 94, 0.12);
+}
+
+.llh-lre-activity-editor,
+.llh-lre-card-block {
+  border: 1px solid var(--lre-line);
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  margin: 0.8rem 0;
+}
+
+.llh-lre-sub {
+  border-top: 1px solid var(--lre-line);
+  margin-top: 0.75rem;
+  padding-top: 0.55rem;
+}
+
+.llh-lre-sub h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.llh-lre-thumb,
+.llh-lre-image,
+.llh-lre-cover {
+  display: block;
+  width: min(100%, 320px);
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--lre-line);
+  background: #e7eee9;
+}
+
+.llh-lre-thumb--empty,
+.llh-lre-image--empty {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  color: var(--lre-muted);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.llh-lre-check {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  margin: 0.5rem 0;
+}
+
+.llh-lre-blocker-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.llh-lre-blocker-link {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--lre-line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.llh-lre-publish-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.llh-lre-preview-frame {
+  border: 1px dashed var(--lre-line);
+  border-radius: 14px;
+  padding: 0.85rem;
+  margin: 0.85rem 0;
+  background: #fff;
+}
+
+.llh-lre-preview-frame--mobile {
+  max-width: 390px;
+}
+
+.llh-lre-preview-frame--print {
+  background: #fffef8;
+}
+
+.llh-lre-compare-pre {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  background: #f4f6f5;
+  padding: 0.75rem;
+  border-radius: 10px;
+}
+
+/* Screenshot mode: hide admin chrome + unrelated controls */
+body.llh-lre-screenshot #adminSectionNav,
+body.llh-lre-screenshot .admin-sidebar-brand,
+body.llh-lre-screenshot .admin-sidebar-footer,
+body.llh-lre-screenshot .tk-director-host,
+body.llh-lre-screenshot .tk-quality-host,
+body.llh-lre-screenshot .admin-content-filters,
+body.llh-lre-screenshot .admin-content-bulk-bar,
+body.llh-lre-screenshot #adminCurriculumLessonPlanList {
+  display: none !important;
+}
+
+.llh-lre.is-screenshot-mode .llh-lre-header-actions > :not([data-lre-screenshot-toggle]),
+.llh-lre.is-screenshot-mode .llh-lre-nav,
+.llh-lre.is-screenshot-mode .llh-lre-approve-row,
+.llh-lre.is-screenshot-mode .llh-lre-header .form-message {
+  display: none !important;
+}
+
+.llh-lre.is-screenshot-mode .llh-lre-header-actions {
+  display: flex;
+}
+
+.llh-lre.is-screenshot-mode .llh-lre-layout {
+  grid-template-columns: 1fr;
+}
+
+.llh-lre.is-screenshot-mode .llh-lre-main {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+body.llh-lre-open #adminSectionNav {
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+body.llh-lre-screenshot #adminSectionNav {
+  display: none !important;
+  opacity: 1;
+}
+
+@media (max-width: 900px) {
+  .llh-lre-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-lre-nav-list {
+    display: none;
+  }
+
+  .llh-lre-nav-mobile {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .llh-lre-activity-card {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .llh-lre-publish-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-lre-header-actions .primary-button {
+    order: -1;
+    flex: 1 1 100%;
+  }
+}

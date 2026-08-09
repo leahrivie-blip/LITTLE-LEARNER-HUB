@@ -205,8 +205,10 @@
         <div><p class="eyebrow">Content</p><h3>Content Home</h3><p class="muted-copy">Pick an area to manage. Imports and advanced tools are under Advanced.</p></div>
       </div>
       <div class="admin-card-grid">
-        ${landingCard("Lesson Plans", "Play-based curriculum lesson plans.", "curriculum-lesson-plans", "Curriculum")}
+        ${landingCard("Lesson Plans", "Choose a lesson, review sections, preview, then publish.", "curriculum-lesson-plans", "Curriculum")}
         ${landingCard("Draft Review Queue", "Owner review of incoming upgraded lesson drafts.", "curriculum-draft-review", "Curriculum")}
+        ${landingCard("Library Health", "Coverage, quality, and library analytics (separate from editing).", "curriculum-library-health", "Curriculum")}
+        ${landingCard("AI Curriculum Director", "Library-wide AI planning tools (separate from editing).", "curriculum-ai-director", "Curriculum")}
         ${landingCard("Activities", "Browse and manage curriculum activities.", "curriculum-activities", "Curriculum")}
         ${landingCard("Curriculum", "Resources and curriculum library tools.", "curriculum-resources", "Curriculum")}
         ${landingCard("Forms and Templates", "Forms library (not legacy uploads).", "forms", "Library")}

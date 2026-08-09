@@ -6817,7 +6817,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-draft-review","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-draft-review","curriculum-library-health","curriculum-ai-director","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -6834,7 +6834,7 @@ const adminGroups = [
   { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
-  { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-draft-review", "curriculum-activities", "curriculum-resources", "free-starter-library", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
+  { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-draft-review", "curriculum-library-health", "curriculum-ai-director", "curriculum-activities", "curriculum-resources", "free-starter-library", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
   { id: "messages", icon: "💬", label: "Messages", tabs: ["messages-home", "messages-conversations", "messages-automations", "admin-inbox", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-conversations" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "ai-health", "usage", "settings"], defaultTab: "ai-home" },
@@ -6888,6 +6888,8 @@ const adminGroupForTab = {
   "automations": "messages",
   "curriculum-lesson-plans": "content",
   "curriculum-draft-review": "content",
+  "curriculum-library-health": "content",
+  "curriculum-ai-director": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
   "forms": "content",
@@ -6969,6 +6971,8 @@ const adminTabLabels = {
   "automations": "Automations",
   "curriculum-lesson-plans": "Lesson Plans",
   "curriculum-draft-review": "Draft Review Queue",
+  "curriculum-library-health": "Library Health",
+  "curriculum-ai-director": "AI Curriculum Director",
   "curriculum-activities": "Activities",
   "curriculum-resources": "Curriculum",
   "forms": "Forms and Templates",
@@ -9146,8 +9150,17 @@ function curriculumActivitiesForLesson(lessonPlanId) {
 function curriculumResourcesForLesson(lessonPlanId) {
   const targetId = String(lessonPlanId || "").trim();
   if (!targetId) return [];
+  const plan = typeof curriculumLessonPlanById === "function"
+    ? curriculumLessonPlanById(targetId)
+    : (effectiveCurriculum().lessonPlans || []).find((item) => item.id === targetId);
+  const fromPlanIds = new Set(
+    Array.isArray(plan?.resourceIds) ? plan.resourceIds.map((id) => String(id || "").trim()).filter(Boolean) : [],
+  );
+  // Union of plan.resourceIds and resource.lessonPlanIds so draft packs are not "unlinked"
+  // while still appearing in the Link existing dropdown.
   return effectiveCurriculum().resources.filter((item) => (
-    Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(targetId)
+    fromPlanIds.has(String(item.id || "").trim())
+    || (Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(targetId))
   ));
 }
 
@@ -9899,10 +9912,24 @@ function readAdminCurriculumActivityFiltersFromDom() {
   };
 }
 
-function openAdminCurriculumLessonEditor(id, { scroll = false } = {}) {
+function openAdminCurriculumLessonEditor(id, { scroll = false, forceClassic = false } = {}) {
   if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
   adminCurriculumLessonEditorId = id;
   if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
+  // Owner default: focused Lesson Review & Editor (one section at a time). Classic mega-form remains available via forceClassic.
+  if (!forceClassic
+    && typeof isTeachingKitPrintableOwnerClient === "function"
+    && isTeachingKitPrintableOwnerClient()
+    && typeof LLHLessonReviewEditor !== "undefined"
+    && typeof LLHLessonReviewEditor.open === "function") {
+    const opened = LLHLessonReviewEditor.open(id, { sectionId: "basics" });
+    if (opened) {
+      // Keep list/management chrome out of the way while reviewing one lesson.
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+      return;
+    }
+  }
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
   const form = document.querySelector("#adminCurriculumLessonPlanForm");
@@ -12081,18 +12108,30 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
     || summary?.libraryStatus
     || summary?.blocking
     || (summary?.blocksPublish ? "Blocked" : "No blockers");
+  const blocksPublish = Boolean(evaluated?.blocksPublish || summary?.blocksPublish || libraryStatus === "Blocked");
+  let premiumReadinessPercent = Number(
+    evaluated?.premiumReadinessPercent
+      ?? summary?.premiumReadinessPercent
+      ?? 0,
+  );
+  // Honest display: never show 100% readiness beside Library Blocked / Needs Changes.
+  if (blocksPublish && premiumReadinessPercent >= 100) {
+    premiumReadinessPercent = 99;
+  }
+  let safeStage = stage;
+  if (blocksPublish && /publish\s*ready|ready for owner/i.test(String(safeStage || ""))) {
+    safeStage = "Needs Changes";
+  }
   return {
     percent: contentPercent,
     enrichmentFillPercent: enrichmentFill,
     contentPercent,
-    premiumReadinessPercent: evaluated?.premiumReadinessPercent
-      ?? summary?.premiumReadinessPercent
-      ?? 0,
+    premiumReadinessPercent,
     weekdayLabel: summary?.weekdayCoverageLabel || summary?.weekdayCoverage?.label || "",
     label,
-    stage,
-    libraryStatus,
-    blocksPublish: Boolean(evaluated?.blocksPublish || summary?.blocksPublish || libraryStatus === "Blocked"),
+    stage: safeStage,
+    libraryStatus: blocksPublish ? "Blocked" : libraryStatus,
+    blocksPublish,
     blockingIssues: evaluated?.blockingIssues || summary?.blockingIssues || [],
     summary,
     evaluated,
@@ -12185,11 +12224,12 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             ${enrichEnabled ? `<span class="tag ${enrichment.libraryStatus === "Blocked" || enrichment.blocksPublish ? "cover-quality-needs-upgrade" : ""}" title="Library Health / publish gate" data-library-status>Library ${escapeHtml(enrichment.blocksPublish ? "Blocked" : (enrichment.libraryStatus || "No blockers"))}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Content completion (weekday coverage)">${escapeHtml(enrichment.weekdayLabel || `${enrichment.contentPercent}% content`)}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
-            ${enrichEnabled ? `<span class="tag" title="Premium Teaching Kit readiness">${Number(enrichment.premiumReadinessPercent || 0)}% readiness</span>` : ""}
+            ${enrichEnabled ? `<span class="tag" title="Premium Teaching Kit readiness (capped while blocked)">${Number(enrichment.premiumReadinessPercent || 0)}% readiness${enrichment.blocksPublish ? " · not publish-ready" : ""}</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
             ${hasDraft ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
+            ${plan.disposableQaFixture === true ? `<span class="tag cover-quality-needs-upgrade">Disposable QA fixture</span>` : ""}
           </div>
-          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${Number(enrichment.premiumReadinessPercent || enrichment.contentPercent || 0)}%"></i></div>` : ""}
+          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${Number(enrichment.blocksPublish ? Math.min(Number(enrichment.premiumReadinessPercent || 0), 99) : (enrichment.premiumReadinessPercent || enrichment.contentPercent || 0))}%"></i></div>` : ""}
           ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
@@ -12220,6 +12260,14 @@ function filteredAdminCurriculumLessonPlans() {
     return metaCache.get(plan.id);
   };
   const filtered = curriculumLessonPlansForAdmin().filter((plan) => {
+    // Keep archived disposable QA fixtures out of the main lesson library unless explicitly filtering Archived.
+    if (
+      plan.disposableQaFixture === true
+      && String(plan.status || "").toLowerCase() === "archived"
+      && String(filters.status || "").toLowerCase() !== "archived"
+    ) {
+      return false;
+    }
     if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
     if (filters.age && !agesMatchForFilter(plan.age, filters.age)) return false;
@@ -12360,11 +12408,19 @@ function renderAdminCurriculumLessonPlanManager() {
     && LLHTeachingKitUpgradeWorkspace.workspaceCopy)
     ? LLHTeachingKitUpgradeWorkspace.workspaceCopy()
     : null;
+  const focusedEditorOpen = typeof LLHLessonReviewEditor !== "undefined"
+    && typeof LLHLessonReviewEditor.isOpen === "function"
+    && LLHLessonReviewEditor.isOpen();
+  const editingWithFocusedOwnerEditor = focusedEditorOpen
+    || (editingPlan
+      && typeof isTeachingKitPrintableOwnerClient === "function"
+      && isTeachingKitPrintableOwnerClient());
   target.innerHTML = `
     <div class="access-notice" role="status" style="margin-bottom:1rem;">
       <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
+      <p class="muted-copy">Owner workflow: Lesson Plans → choose lesson → review sections → preview → quality check → publish. AI Curriculum Director and Library Health live on their own Content screens.</p>
     </div>
-    ${upgradeWorkspaceOn && workspaceCopy ? `
+    ${upgradeWorkspaceOn && workspaceCopy && !editingWithFocusedOwnerEditor ? `
     <div class="access-notice tk-upgrade-workspace-banner" role="status" style="margin-bottom:1rem;">
       <p class="eyebrow">${escapeHtml(workspaceCopy.eyebrow)}</p>
       <strong>${escapeHtml(workspaceCopy.title)}</strong>
@@ -12372,22 +12428,22 @@ function renderAdminCurriculumLessonPlanManager() {
       <p class="muted-copy">${escapeHtml(workspaceCopy.oneAtATime)}</p>
     </div>
     ` : ""}
-    <div id="adminCurriculumDirectorHost" class="tk-director-host" hidden></div>
-    <div id="adminLibraryHealthHost" class="tk-quality-host" hidden></div>
     <div class="section-heading">
       <div>
-        <p class="eyebrow">${upgradeWorkspaceOn ? "Upgrade Workspace" : "Content Manager"}</p>
-        <h3>${upgradeWorkspaceOn ? "Lesson upgrade dashboard" : "Curriculum lesson plans"}</h3>
-        <p class="muted-copy">${upgradeWorkspaceOn
-          ? "Upgrade status, completion %, gaps, and AI Ready for every lesson. Review one lesson at a time — nothing publishes automatically."
-          : "File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities."}</p>
+        <p class="eyebrow">Lesson Plans</p>
+        <h3>Curriculum lesson plans</h3>
+        <p class="muted-copy">Choose a lesson to open the focused Review &amp; Editor. Filters and bulk tools stay on this list — not inside the editor.</p>
       </div>
-      <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
+      <div class="account-actions-row">
+        <button class="ghost-button" type="button" data-admin-section-tab="curriculum-library-health">Library Health</button>
+        <button class="ghost-button" type="button" data-admin-section-tab="curriculum-ai-director">AI Curriculum Director</button>
+        <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
+      </div>
     </div>
     ${mismatchBanner}
     ${banner}
-    ${renderCurriculumLessonImportPanel()}
-    <div class="admin-content-filters">
+    ${editingWithFocusedOwnerEditor ? "" : renderCurriculumLessonImportPanel()}
+    <div class="admin-content-filters" ${editingWithFocusedOwnerEditor ? "hidden" : ""}>
       <label><span>Search</span><input type="search" id="adminCurriculumFilterQuery" value="${escapeHtml(adminCurriculumListFilters.query || "")}" placeholder="Title, theme…" /></label>
       <label><span>Status</span>
         <select id="adminCurriculumFilterStatus">
@@ -12481,7 +12537,7 @@ function renderAdminCurriculumLessonPlanManager() {
         </select>
       </label>
     </div>
-    <div class="admin-content-bulk-bar" ${selectedCount ? "" : "hidden"}>
+    <div class="admin-content-bulk-bar" ${selectedCount && !editingWithFocusedOwnerEditor ? "" : "hidden"}>
       <strong>${selectedCount} selected</strong>
       <div class="account-actions-row">
         <button type="button" class="primary-button" data-curriculum-bulk="published">Publish</button>
@@ -12490,23 +12546,19 @@ function renderAdminCurriculumLessonPlanManager() {
         <button type="button" class="ghost-button" data-curriculum-bulk="clear">Clear selection</button>
       </div>
     </div>
-    <p class="muted-copy">${plans.length} of ${allPlans.length} lesson plans shown</p>
-    <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
+    <p class="muted-copy" ${editingWithFocusedOwnerEditor ? "hidden" : ""}>${plans.length} of ${allPlans.length} lesson plans shown · archived disposable fixtures stay hidden unless Status = Archived</p>
+    <div class="admin-mobile-list" id="adminCurriculumLessonPlanList" ${editingWithFocusedOwnerEditor ? "hidden" : ""}>
       ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || (mismatch
         ? `<div class="empty-state">Admin curriculum is still loading or needs a reload. Use Reload curriculum above — lesson plans are not deleted.</div>`
         : `<div class="empty-state">No lesson plans match these filters.</div>`)}
     </div>
-    ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
+    ${editingPlan && !focusedEditorOpen ? `
+      <p class="muted-copy">Classic editor (all fields). Owners normally use the focused Review &amp; Editor.</p>
+      ${renderAdminCurriculumLessonPlanForm(editingPlan)}
+    ` : ""}
     ${adminCurriculumQuickCoverState ? renderAdminCurriculumQuickCoverModal() : ""}
   `;
-  if (typeof LLHTeachingKitCurriculumDirectorUI !== "undefined"
-    && typeof LLHTeachingKitCurriculumDirectorUI.mount === "function") {
-    void LLHTeachingKitCurriculumDirectorUI.mount();
-  }
-  if (typeof LLHTeachingKitQualityReviewUI !== "undefined"
-    && typeof LLHTeachingKitQualityReviewUI.mount === "function") {
-    void LLHTeachingKitQualityReviewUI.mount();
-  }
+  // AI Curriculum Director + Library Health mount on their own admin tabs — not above the lesson editor.
   if (adminTkPrintableFormOpen) {
     hydrateAdminTkPrintableForm();
   }
@@ -13642,8 +13694,19 @@ function isTeachingKitPrintableOwnerClient() {
   return ownerEmails.has(sessionEmail);
 }
 
-/** When Teaching Kit editor is open, confirm before Admin sidebar navigation can proceed. */
+/** When Teaching Kit / Lesson Review editor is open, confirm before Admin sidebar navigation can proceed. */
 function confirmLeaveTeachingKitEditor() {
+  const review = typeof LLHLessonReviewEditor !== "undefined" ? LLHLessonReviewEditor : null;
+  if (review && typeof review.isOpen === "function" && review.isOpen()) {
+    const dirty = typeof review.isDirty === "function" ? review.isDirty() : false;
+    const message = dirty
+      ? "Leave Lesson Review & Editor? Unsaved draft changes on this screen will be lost."
+      : "Leave Lesson Review & Editor and open another Admin section?";
+    if (!window.confirm(message)) return false;
+    if (typeof review.close === "function") {
+      review.close({ force: true, skipReturnNavigation: true });
+    }
+  }
   const editor = typeof LLHTeachingKitEnrichmentEditor !== "undefined" ? LLHTeachingKitEnrichmentEditor : null;
   if (!editor || typeof editor.isOpen !== "function" || !editor.isOpen()) return true;
   const dirty = typeof editor.isDirty === "function" ? editor.isDirty() : false;
@@ -52810,6 +52873,28 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="curriculum-draft-review">
         <div id="adminDraftReviewQueueApp"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-library-health">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Content · Management</p>
+            <h3>Library Health</h3>
+            <p class="muted-copy">Quality coverage and analytics live here — not above the lesson editor.</p>
+          </div>
+          <button type="button" class="ghost-button" data-admin-section-tab="curriculum-lesson-plans">Back to Lesson Plans</button>
+        </div>
+        <div id="adminLibraryHealthHost" class="tk-quality-host"></div>
+      </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-ai-director">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Content · Management</p>
+            <h3>AI Curriculum Director</h3>
+            <p class="muted-copy">Library-wide AI planning tools live here — not above the lesson editor.</p>
+          </div>
+          <button type="button" class="ghost-button" data-admin-section-tab="curriculum-lesson-plans">Back to Lesson Plans</button>
+        </div>
+        <div id="adminCurriculumDirectorHost" class="tk-director-host"></div>
+      </section>
       <section class="admin-manager-section" data-admin-cm-section="curriculum-activities">
         <div id="adminCurriculumActivityApp"></div>
       </section>
@@ -52838,6 +52923,14 @@ function renderAdminContentManager() {
   `;
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
   if (adminActiveSectionTab === "curriculum-draft-review" && window.LLHDraftReviewQueue) window.LLHDraftReviewQueue.mount();
+  if (adminActiveSectionTab === "curriculum-library-health"
+    && window.LLHTeachingKitQualityReviewUI?.mount) {
+    void window.LLHTeachingKitQualityReviewUI.mount();
+  }
+  if (adminActiveSectionTab === "curriculum-ai-director"
+    && window.LLHTeachingKitCurriculumDirectorUI?.mount) {
+    void window.LLHTeachingKitCurriculumDirectorUI.mount();
+  }
   if (adminActiveSectionTab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
   if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
@@ -54586,7 +54679,7 @@ function renderAdminSectionNav() {
   }
 }
 
-const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-draft-review", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
+const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-draft-review", "curriculum-library-health", "curriculum-ai-director", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -54721,6 +54814,12 @@ function applyAdminSectionVisibility() {
     });
     if (tab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
     if (tab === "curriculum-draft-review" && window.LLHDraftReviewQueue) window.LLHDraftReviewQueue.mount();
+    if (tab === "curriculum-library-health" && window.LLHTeachingKitQualityReviewUI?.mount) {
+      void window.LLHTeachingKitQualityReviewUI.mount();
+    }
+    if (tab === "curriculum-ai-director" && window.LLHTeachingKitCurriculumDirectorUI?.mount) {
+      void window.LLHTeachingKitCurriculumDirectorUI.mount();
+    }
     if (tab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
     if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();
     if (tab === "forms") renderAdminFormsManager();

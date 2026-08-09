@@ -480,7 +480,7 @@
         <p class="muted-copy">${esc(entry.scores?.note || "Scores are diagnostic only. Hard blockers control readiness.")}</p>
         <div><h4>Blockers</h4>${renderBlockerList(list)}</div>
         <div class="form-actions tk-draft-review-actions">
-          <button type="button" class="primary-button" data-draft-review-open-editor>Open Review (Teaching Kit)</button>
+          <button type="button" class="primary-button" data-draft-review-open-editor>Open Review</button>
           <button type="button" class="primary-button" data-draft-review-preview>Preview Teaching Kit</button>
           <button type="button" class="ghost-button" data-draft-review-printables>Printable review</button>
           <button type="button" class="ghost-button" data-draft-review-images>Image review</button>
@@ -625,12 +625,6 @@
       render();
       return false;
     }
-    if (!global.LLHTeachingKitEnrichmentEditor?.open) {
-      state.message = "Teaching Kit editor is not available in this build.";
-      state.isSuccess = false;
-      render();
-      return false;
-    }
     const enrichmentDraft = state.detail?.enrichmentDraft
       || state.detail?.entry?.enrichmentDraft
       || null;
@@ -639,8 +633,14 @@
         ...state.detail.lessonPlan,
         enrichmentDraft: enrichmentDraft || state.detail.lessonPlan.enrichmentDraft || null,
       }
-      : null;
-    if (!enrichmentDraft) {
+      : (typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(lessonPlanId) : null);
+    if (!lessonPlan) {
+      state.message = "Lesson shell missing for this draft. Refresh the queue and try Open Review again.";
+      state.isSuccess = false;
+      render();
+      return false;
+    }
+    if (!enrichmentDraft && !options.allowMissingEnrichmentDraft) {
       state.message = "This queue item is missing its enrichment draft overlay.";
       state.isSuccess = false;
       render();
@@ -648,6 +648,39 @@
     }
     const approvals = state.detail?.entry?.resourceApprovals || state.detail?.resourceApprovals || {};
     const printableApprovalStatuses = Object.values(approvals).map((row) => row?.status || "pending");
+    const draftResourceIds = state.detail?.entry?.draftResourceIds
+      || state.detail?.draftResourceIds
+      || [];
+
+    // Prefer the focused Lesson Review & Editor (one section at a time). Fall back to Enrichment Editor.
+    if (global.LLHLessonReviewEditor?.open) {
+      const openedReview = global.LLHLessonReviewEditor.open(lessonPlanId, {
+        ownerDraftReview: true,
+        draftReviewId,
+        returnToQueue: true,
+        enrichmentDraft,
+        lessonPlan,
+        draftResourceIds,
+        resourceApprovals: approvals,
+        sectionId: options.mode === "preview" ? "publish" : "quality",
+        ...options,
+      });
+      if (openedReview) {
+        if (options.mode === "preview") {
+          setTimeout(() => {
+            document.querySelector('[data-lre-viewport="desktop"]')?.click?.();
+          }, 200);
+        }
+        return true;
+      }
+    }
+
+    if (!global.LLHTeachingKitEnrichmentEditor?.open) {
+      state.message = "Lesson Review / Teaching Kit editor is not available in this build.";
+      state.isSuccess = false;
+      render();
+      return false;
+    }
     const opened = global.LLHTeachingKitEnrichmentEditor.open(lessonPlanId, {
       ownerDraftReview: true,
       draftReviewId,
@@ -676,11 +709,41 @@
     await openDetail(id);
     await api("mark-in-review", { id }).catch(() => {});
     // Ensure client curriculum includes the lesson shell; draft overlay comes from the queue entry.
+    // Never hang Open Review on a slow/stalled admin content fetch.
     if (typeof loadAdminSiteContent === "function") {
-      try { await loadAdminSiteContent(); } catch (_error) { /* open still uses queue draft */ }
+      try {
+        await Promise.race([
+          loadAdminSiteContent(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("content_load_timeout")), 8000)),
+        ]);
+      } catch (_error) {
+        /* open still uses queue draft / lessonPlan from detail */
+      }
     }
     const opened = openTeachingKit();
     if (!opened) throw new Error(state.message || "Open Review failed.");
+  }
+
+  function goToContentHome() {
+    try {
+      if (global.LLHLessonReviewEditor?.isOpen?.()) {
+        global.LLHLessonReviewEditor.close({ force: true, skipReturnNavigation: true });
+      }
+      if (global.LLHTeachingKitEnrichmentEditor?.isOpen?.()) {
+        global.LLHTeachingKitEnrichmentEditor.close({
+          force: true,
+          abandonUnsaved: true,
+          skipReturnNavigation: true,
+        });
+      }
+    } catch (_error) { /* continue navigation */ }
+    if (typeof setAdminGroup === "function") {
+      setAdminGroup("content", { forceDefault: true });
+      return;
+    }
+    if (typeof setAdminSectionTab === "function") {
+      setAdminSectionTab("content-home");
+    }
   }
 
   document.addEventListener("click", async (event) => {
@@ -691,8 +754,8 @@
       return;
     }
     if (event.target.closest("[data-draft-review-back-content]")) {
-      if (typeof setAdminSectionTab === "function") setAdminSectionTab("content-home");
-      else if (typeof setAdminGroup === "function") setAdminGroup("content", { forceDefault: true });
+      event.preventDefault();
+      goToContentHome();
       return;
     }
     if (event.target.closest("[data-draft-review-close-detail]")) {
@@ -726,7 +789,10 @@
       return;
     }
     if (event.target.closest("[data-draft-review-open-editor]")) {
-      openTeachingKit();
+      await run(async () => {
+        const opened = openTeachingKit();
+        if (!opened) throw new Error(state.message || "Open Review failed.");
+      }, "Opened Lesson Review.");
       return;
     }
     if (event.target.closest("[data-draft-review-preview]")) {
