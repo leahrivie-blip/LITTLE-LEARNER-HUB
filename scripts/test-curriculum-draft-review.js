@@ -172,14 +172,16 @@ async function main() {
   ok(serverJs.includes("createDraftReviewApi"), "draft-review API factory wired");
   ok(modelJs.includes('"submitted"') && modelJs.includes('"revision_requested"'), "status model includes Submitted / Revision Requested");
   ok(modelJs.includes("ready_for_owner_approval"), "Ready for Owner Approval status present");
-  ok(modelJs.includes("phase2_required") || modelJs.includes("PHASE2_ONLY"), "Phase 2 actions blocked in model");
+  ok(modelJs.includes("PUBLISH_CONFIRM_PHRASE") || modelJs.includes("PUBLISH TEACHING KIT"), "publish confirm phrase in model");
   ok(appJs.includes("curriculum-draft-review"), "Admin nav tab wired");
   ok(uiJs.includes("Draft Review Queue"), "Queue UI present");
   ok(uiJs.includes("Open Review") || uiJs.includes("Open Teaching Kit Review"), "Open Review control present");
-  ok(uiJs.includes("Preview desktop") && uiJs.includes("Preview mobile"), "Desktop/mobile preview controls present");
+  ok(uiJs.includes("Preview Teaching Kit"), "Preview Teaching Kit control present");
   ok(uiJs.includes("tk-draft-review-cards"), "Mobile stacked cards markup present");
-  ok(uiJs.includes("unavailable in Phase 1"), "Phase 1 approve/publish disabled in UI");
-  ok(!uiJs.includes("data-draft-review-publish"), "No publish control in Phase 1 UI");
+  ok(uiJs.includes("data-draft-review-approve") && uiJs.includes("data-draft-review-open-publish"), "Approve/Publish controls present");
+  ok(uiJs.includes("PUBLISH TEACHING KIT") || modelJs.includes("PUBLISH TEACHING KIT"), "publish confirm phrase present");
+  ok(uiJs.includes("data-draft-review-back-content"), "Back to Content Home control present");
+  ok(uiJs.includes("ownerDraftReview: true"), "Open Review uses owner draft-review editor bypass");
   ok(fs.existsSync(path.join(ROOT, "scripts/llh-curriculum-gold-standard.js")), "gold standard validator present");
 
   // Proof #597 baggage is absent from this clean branch.
@@ -285,15 +287,16 @@ async function main() {
     });
     ok(customerDenied.status === 401, "customer / logged-out denied");
 
-    const phase2 = await requestJson("POST", "/api/admin/curriculum/draft-review", {
+    const publishNoId = await requestJson("POST", "/api/admin/curriculum/draft-review", {
       action: "publish",
+      confirmPhrase: "PUBLISH TEACHING KIT",
     }, ownerAuth);
-    ok(phase2.status === 400 && phase2.json.code === "phase2_required", "publish blocked in Phase 1");
+    ok([400, 404, 409].includes(publishNoId.status), "publish without draft id rejected");
 
-    const approve = await requestJson("POST", "/api/admin/curriculum/draft-review", {
+    const approveNoId = await requestJson("POST", "/api/admin/curriculum/draft-review", {
       action: "approve",
     }, ownerAuth);
-    ok(approve.status === 400 && approve.json.code === "phase2_required", "approve blocked in Phase 1");
+    ok([400, 404, 409].includes(approveNoId.status), "approve without draft id rejected");
 
     const unknown = await requestJson("POST", "/api/admin/curriculum/draft-review", {
       action: "submit",
@@ -348,7 +351,7 @@ async function main() {
       action: "list",
     }, ownerAuth);
     ok(list.status === 200 && list.json.items.length === 2, "queue lists two items (idempotent)");
-    ok(list.json.publishAvailable === false, "list advertises no publish in Phase 1");
+    ok(list.json.publishAvailable === true, "list advertises publish available (owner-gated)");
     ok(list.json.items.every((i) => ["submitted", "revised", "in_review"].includes(i.status)), "status Submitted/Revised");
     ok(list.json.items.every((i) => i.lessonPlanId !== FARM_ID), "Farm Animals not in queue");
 
@@ -356,6 +359,9 @@ async function main() {
     const aamEntry = list.json.items.find((i) => i.lessonPlanId === AAM_ID);
     ok(Boolean(applesEntry?.revisionId), "revision id present");
     ok(Boolean(applesEntry?.batchId), "batch id present");
+    ok(Number(applesEntry.activityCount || 0) === 17, "Amazing Apples canonical activity count is 17");
+    ok(Number(applesEntry.activitiesRemoved || 0) === 3, "Amazing Apples reports 3 removed activities");
+    ok(applesEntry.publishReady !== true, "Amazing Apples is not Publish Ready with draft printables / blockers");
 
     const get = await requestJson("POST", "/api/admin/curriculum/draft-review", {
       action: "get",
@@ -417,6 +423,34 @@ async function main() {
     }, ownerAuth);
     ok(compare.status === 200 && compare.json.compare, "compare returns summary");
     ok(Number(compare.json.compare.activityKeysTouched) > 0 || Number(compare.json.compare.weekFieldsTouched) > 0, "compare shows changed fields");
+    ok(Array.isArray(compare.json.compare.readable?.removed), "compare has readable removed list");
+    ok((compare.json.compare.readable?.removed || []).length === 3, "compare lists 3 removed activities");
+
+    const preview = await requestJson("POST", "/api/admin/curriculum/draft-review", {
+      action: "preview",
+      id: applesEntry.id,
+    }, ownerAuth);
+    ok(preview.status === 200 && preview.json.preview?.title, "owner preview returns teaching kit payload");
+    ok(preview.json.ownerOnly === true, "preview marked owner-only");
+
+    const printableReview = await requestJson("POST", "/api/admin/curriculum/draft-review", {
+      action: "printable-review",
+      id: applesEntry.id,
+    }, ownerAuth);
+    ok(printableReview.status === 200 && (printableReview.json.printables || []).length >= 1, "printable review returns draft PDFs");
+
+    const imageReview = await requestJson("POST", "/api/admin/curriculum/draft-review", {
+      action: "image-review",
+      id: applesEntry.id,
+    }, ownerAuth);
+    ok(imageReview.status === 200 && Array.isArray(imageReview.json.images), "image review returns grouped images");
+
+    const approveBlocked = await requestJson("POST", "/api/admin/curriculum/draft-review", {
+      action: "approve",
+      id: applesEntry.id,
+      expectedUpdatedAt: stamp,
+    }, ownerAuth);
+    ok(approveBlocked.status === 400 && approveBlocked.json.code === "hard_blockers", "approve blocked while hard blockers remain");
 
     // Draft survives refresh (re-list after re-read store)
     const listRefresh = await requestJson("POST", "/api/admin/curriculum/draft-review", { action: "list" }, ownerAuth);
@@ -497,8 +531,9 @@ async function main() {
     // UI layout smoke
     ok(uiJs.includes("tk-draft-review-table-wrap"), "queue table has overflow wrapper");
     ok(uiJs.includes("tk-draft-review-cards"), "mobile stacked cards present");
-    ok(uiJs.includes('data-draft-review-preview-viewport="mobile"'), "mobile preview control present");
-    ok(uiJs.includes('data-draft-review-preview-viewport="desktop"'), "desktop preview control present");
+    ok(uiJs.includes("data-draft-review-preview") || uiJs.includes("Preview Teaching Kit"), "owner preview control present");
+    ok(uiJs.includes("data-draft-review-printables"), "printable review control present");
+    ok(uiJs.includes("data-draft-review-images"), "image review control present");
     ok(uiJs.includes("Open Review") || uiJs.includes("Open Teaching Kit Review"), "Open Review opens real Teaching Kit path");
 
     const report = {

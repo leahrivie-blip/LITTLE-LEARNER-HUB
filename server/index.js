@@ -2062,6 +2062,31 @@ function normalizedCurriculumLessonPlan(value) {
       normalized.enrichmentDraft = null;
     }
   }
+  // Customer-visible published Teaching Kit (set by Enrichment Editor / Draft Review publish).
+  if (Object.prototype.hasOwnProperty.call(entry, "enrichmentPublished")) {
+    const published = entry.enrichmentPublished;
+    if (published && typeof published === "object" && !Array.isArray(published)) {
+      const knownPublished = {
+        updatedAt: normalizedShortText(published.updatedAt, 80) || "",
+        lastEditedBy: normalizedShortText(published.lastEditedBy, 180) || "",
+        activities: published.activities && typeof published.activities === "object" && !Array.isArray(published.activities)
+          ? published.activities
+          : {},
+        week: published.week && typeof published.week === "object" && !Array.isArray(published.week)
+          ? published.week
+          : {},
+        completionPercent: Math.max(0, Math.min(100, Math.round(Number(published.completionPercent) || 0))),
+        previewReady: published.previewReady === true,
+      };
+      const preservedPub = {};
+      Object.keys(published).forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(knownPublished, key)) preservedPub[key] = published[key];
+      });
+      normalized.enrichmentPublished = { ...preservedPub, ...knownPublished };
+    } else if (published == null) {
+      normalized.enrichmentPublished = null;
+    }
+  }
   if (Array.isArray(entry.enrichmentPublishHistory)) {
     normalized.enrichmentPublishHistory = entry.enrichmentPublishHistory
       .filter((item) => item && typeof item === "object")
@@ -24796,12 +24821,14 @@ function serveStatic(request, response, url) {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".webmanifest": "application/manifest+json; charset=utf-8",
     ".svg": "image/svg+xml",
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
+    ".pdf": "application/pdf",
   }[ext] || "application/octet-stream";
   response.writeHead(200, securityResponseHeaders({ "Content-Type": contentType }));
   if (request.method === "HEAD") {

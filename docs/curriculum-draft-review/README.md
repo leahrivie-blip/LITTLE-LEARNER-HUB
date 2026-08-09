@@ -6,21 +6,23 @@ Permanent Admin → Content → Draft Review Queue for proposed Teaching Kit upg
 
 - Owner-only (`leahivie@icloud.com` session email; client-supplied email/role ignored)
 - Draft packages target **existing** lesson IDs only — never silent lesson creation
-- Phase 1: submit, review, revise, discard, rollback — **no publish**
+- Full owner workflow: submit → open review → preview → printable/image review → compare → request revision → approve → publish (typed confirmation) → discard/rollback
 - First local seed packages: Amazing Apples (Toddler) and All About Me (Preschool)
+- Details: [OWNER-WORKFLOW.md](./OWNER-WORKFLOW.md)
 
 ## API
 
 `POST /api/admin/curriculum/draft-review` with `{ action, ... }`
 
-Phase 1 actions: `list`, `get`, `submit`, `submit-seed`, `save-edited`, `add-notes`, `request-revision`, `discard`, `rollback`, `compare`, `mark-in-review`
+Actions include: `list`, `get`, `submit`, `submit-seed`, `save-edited`, `add-notes`, `request-revision`, `discard`, `rollback`, `compare`, `mark-in-review`, `preview`, `printable-review`, `image-review`, `approve-printable`, `approve`, `publish`, `ready-for-approval`
 
-Optional future submit token: `CURRICULUM_DRAFT_SUBMIT_TOKEN` (server-side only; not required for owner review; do not set in production yet).
+Optional submit token: `CURRICULUM_DRAFT_SUBMIT_TOKEN` (server-side only; not required for owner review; do not set in production yet).
 
 ## Test
 
 ```bash
 npm run test:curriculum-draft-review
+npm run test:draft-review-owner-workflow
 ```
 
 ## Seed packages

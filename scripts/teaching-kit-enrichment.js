@@ -177,26 +177,42 @@
     return Array.isArray(value) ? value : [];
   }
 
-  function flattenLessonActivities(plan, activities) {
+  function draftWeekMeta(enrichmentDraft) {
+    const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : null;
+    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+    return week;
+  }
+
+  function removalSetsFromDraft(enrichmentDraft) {
+    const week = draftWeekMeta(enrichmentDraft);
+    const removedTitles = new Set(
+      asArray(week.removedActivityTitles).map((t) => text(t).toLowerCase()).filter(Boolean),
+    );
+    const removedIds = new Set(
+      asArray(week.removedItemIds).map((id) => text(id)).filter(Boolean),
+    );
+    asArray(week.activityDecisions).forEach((decision) => {
+      if (!decision || typeof decision !== "object") return;
+      const action = text(decision.decision || decision.action).toLowerCase();
+      if (action !== "remove" && action !== "removed") return;
+      const title = text(decision.title).toLowerCase();
+      const itemId = text(decision.itemId || decision.id);
+      if (title) removedTitles.add(title);
+      if (itemId) removedIds.add(itemId);
+    });
+    return { removedTitles, removedIds };
+  }
+
+  function flattenFromDailyPlans(plan, dailyPlans) {
     const planId = text(plan && plan.id);
-    const fromStore = asArray(activities).filter((a) => a && a.lessonPlanId === planId && a.status !== "archived");
-    if (fromStore.length) {
-      return fromStore
-        .slice()
-        .sort((a, b) => {
-          const da = WEEKDAYS.indexOf(String(a.dayOfWeek || "").toLowerCase());
-          const db = WEEKDAYS.indexOf(String(b.dayOfWeek || "").toLowerCase());
-          if (da !== db) return (da < 0 ? 99 : da) - (db < 0 ? 99 : db);
-          return text(a.title).localeCompare(text(b.title));
-        });
-    }
     const out = [];
+    const days = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : {};
     WEEKDAYS.forEach((day) => {
-      const items = asArray(plan?.dailyPlans?.[day]?.items);
+      const items = asArray(days?.[day]?.items);
       items.forEach((item, index) => {
         if (!text(item?.title)) return;
         out.push({
-          id: text(item.activityId) || text(item.sourceKey) || `${planId}:${day}:${item.itemId || index}`,
+          id: text(item.activityId) || text(item.sourceKey) || `${planId}:${text(item.itemId) || `${day}-${index}`}`,
           itemId: text(item.itemId) || `${day}-${index}`,
           lessonPlanId: planId,
           dayOfWeek: day,
@@ -216,6 +232,53 @@
       });
     });
     return out;
+  }
+
+  function applyActivityRemovals(list, enrichmentDraft) {
+    const { removedTitles, removedIds } = removalSetsFromDraft(enrichmentDraft);
+    if (!removedTitles.size && !removedIds.size) return asArray(list);
+    return asArray(list).filter((act) => {
+      const title = text(act?.title).toLowerCase();
+      const itemId = text(act?.itemId);
+      const id = text(act?.id);
+      if (itemId && removedIds.has(itemId)) return false;
+      if (id && removedIds.has(id)) return false;
+      if (title && removedTitles.has(title)) return false;
+      return true;
+    });
+  }
+
+  /**
+   * Canonical activity list for Teaching Kit scoring/editor/queue.
+   * When a draft includes proposedDailyPlans or remove decisions, those control the list
+   * so queue counts and the editor never disagree (e.g. 17 vs 20 after removals).
+   */
+  function flattenLessonActivities(plan, activities, enrichmentDraft) {
+    const planId = text(plan && plan.id);
+    const week = draftWeekMeta(enrichmentDraft);
+    const proposed = week.proposedDailyPlans && typeof week.proposedDailyPlans === "object"
+      ? week.proposedDailyPlans
+      : null;
+
+    let list = [];
+    if (proposed) {
+      list = flattenFromDailyPlans(plan, proposed);
+    } else {
+      const fromStore = asArray(activities).filter((a) => a && a.lessonPlanId === planId && a.status !== "archived");
+      if (fromStore.length) {
+        list = fromStore
+          .slice()
+          .sort((a, b) => {
+            const da = WEEKDAYS.indexOf(String(a.dayOfWeek || "").toLowerCase());
+            const db = WEEKDAYS.indexOf(String(b.dayOfWeek || "").toLowerCase());
+            if (da !== db) return (da < 0 ? 99 : da) - (db < 0 ? 99 : db);
+            return text(a.title).localeCompare(text(b.title));
+          });
+      } else {
+        list = flattenFromDailyPlans(plan, plan?.dailyPlans);
+      }
+    }
+    return applyActivityRemovals(list, enrichmentDraft);
   }
 
   function vocabularyListFrom(value) {
@@ -547,7 +610,7 @@
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
-    const list = flattenLessonActivities(plan, activities);
+    const list = flattenLessonActivities(plan, activities, draft);
     const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
     const songs = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
     const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
@@ -781,7 +844,7 @@
   }
 
   function buildJumpIndex(plan, activities, enrichmentDraft) {
-    const list = flattenLessonActivities(plan, activities);
+    const list = flattenLessonActivities(plan, activities, enrichmentDraft);
     const hits = [];
     list.forEach((act, index) => {
       hits.push({
@@ -842,7 +905,7 @@
       return { plan: planForProviderMapping(plan), activities: asArray(activities) };
     }
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
-    const baseActivities = flattenLessonActivities(plan, activities);
+    const baseActivities = flattenLessonActivities(plan, activities, draft);
     const nextActivities = baseActivities.map((act) => {
       const key = text(act.id) || text(act.itemId);
       const patch = draftActs[key] || draftActs[text(act.itemId)];
@@ -1093,7 +1156,7 @@
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : null;
     const draftActs = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
     const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
-    const list = flattenLessonActivities(plan, activities);
+    const list = flattenLessonActivities(plan, activities, draft);
     const readiness = computeReadinessScores(plan, list, draft, options);
     const percent = readiness.completionPercent;
     const label = completenessLabelFromPercent(percent, null);
@@ -1374,7 +1437,7 @@
   }
 
   function summarizePublishChanges(plan, activities, enrichmentDraft) {
-    const list = flattenLessonActivities(plan, activities);
+    const list = flattenLessonActivities(plan, activities, enrichmentDraft);
     const draftActs = enrichmentDraft?.activities || {};
     let photos = 0;
     let tips = 0;
@@ -1665,6 +1728,8 @@
     IMAGE_REQUIREMENT_OWNER_OPTIONS,
     IMAGE_REQUIREMENT_VALUES,
     flattenLessonActivities,
+    flattenFromDailyPlans,
+    applyActivityRemovals,
     activityEnrichmentView,
     activityStatus,
     activityStatusLabel,

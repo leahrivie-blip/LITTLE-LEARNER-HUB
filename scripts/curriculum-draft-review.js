@@ -1,6 +1,6 @@
 /**
  * Curriculum Draft Review Queue — shared model (permanent, reusable).
- * Phase 1: submit / review / revision / discard / rollback. No publish.
+ * Owner workflow: submit → review → preview → revise → approve → publish → rollback.
  */
 "use strict";
 
@@ -32,7 +32,7 @@ const STATUS_LABELS = Object.freeze({
   failed_validation: "Failed Validation",
 });
 
-const PHASE1_ACTIONS = Object.freeze([
+const OWNER_ACTIONS = Object.freeze([
   "list",
   "get",
   "submit",
@@ -44,9 +44,22 @@ const PHASE1_ACTIONS = Object.freeze([
   "rollback",
   "compare",
   "mark-in-review",
+  "preview",
+  "approve",
+  "publish",
+  "printable-review",
+  "image-review",
+  "approve-printable",
+  "request-printable-revision",
+  "record-printable-pages",
+  "replace-printable",
+  "ready-for-approval",
 ]);
 
-const PHASE2_ONLY = Object.freeze(["approve", "publish"]);
+/** @deprecated use OWNER_ACTIONS — kept for older tests/callers */
+const PHASE1_ACTIONS = OWNER_ACTIONS;
+const PHASE2_ONLY = Object.freeze([]);
+const PUBLISH_CONFIRM_PHRASE = "PUBLISH TEACHING KIT";
 
 function sha256Short(value) {
   return crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 24);
@@ -147,7 +160,7 @@ function remapEnrichmentActivitiesToPlan(plan, storeActivities, enrichmentDraft,
   const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? cloneJson(enrichmentDraft) : {};
   const src = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
   const flat = enrichApi?.flattenLessonActivities
-    ? enrichApi.flattenLessonActivities(plan, storeActivities || [])
+    ? enrichApi.flattenLessonActivities(plan, storeActivities || [], draft)
     : [];
   if (!flat.length) return draft;
   const next = {};
@@ -182,48 +195,156 @@ function countMissingRequiredImages(draft) {
   let missing = 0;
   Object.values(acts).forEach((act) => {
     if (!act || typeof act !== "object") return;
-    const req = String(act.imageRequirement || "").toLowerCase();
-    if (req === "required" || req === "setup_required" || req === "example_required") {
-      const has = Boolean(act.exampleImageUrl || act.setupImageUrl || act.exampleMediaAssetId || act.setupMediaAssetId);
-      if (!has) missing += 1;
-    }
+    const req = String(act.imageRequirement || "").toLowerCase().replace(/[\s-]+/g, "_");
+    const needsSetup = ["required", "setup_only", "setup_required", "setup_and_example"].includes(req);
+    const needsExample = ["required", "example_only", "example_required", "setup_and_example", "finished_example"].includes(req);
+    if (!needsSetup && !needsExample) return;
+    const hasSetup = Boolean(act.setupImageUrl || act.setupMediaAssetId);
+    const hasExample = Boolean(act.exampleImageUrl || act.exampleMediaAssetId);
+    if ((needsSetup && !hasSetup) || (needsExample && !hasExample)) missing += 1;
   });
   return missing;
 }
 
-function buildStats(draft, draftResourceIds = []) {
+function countRequiredImages(draft) {
+  const acts = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
+  let required = 0;
+  Object.values(acts).forEach((act) => {
+    if (!act || typeof act !== "object") return;
+    const req = String(act.imageRequirement || "").toLowerCase().replace(/[\s-]+/g, "_");
+    if (["required", "setup_only", "example_only", "setup_required", "example_required", "setup_and_example"].includes(req)) {
+      required += 1;
+    }
+  });
+  return required;
+}
+
+function decisionCounts(draft) {
+  const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+  const decisions = Array.isArray(week.activityDecisions) ? week.activityDecisions : [];
+  const counts = { added: 0, removed: 0, replaced: 0, preserved: 0, rewritten: 0, improved: 0 };
+  decisions.forEach((d) => {
+    const key = String(d?.decision || d?.action || "").toLowerCase();
+    if (key === "add" || key === "added") counts.added += 1;
+    else if (key === "remove" || key === "removed") counts.removed += 1;
+    else if (key === "replace" || key === "replaced") counts.replaced += 1;
+    else if (key === "keep" || key === "preserved" || key === "unchanged") counts.preserved += 1;
+    else if (key === "rewrite" || key === "rewritten") counts.rewritten += 1;
+    else if (key === "improve" || key === "improved" || key === "substantially_improve") counts.improved += 1;
+  });
+  return counts;
+}
+
+function buildStats(draft, draftResourceIds = [], resources = []) {
   const acts = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
   const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+  const decisions = decisionCounts(draft);
+  const proposedDays = week.proposedDailyPlans && typeof week.proposedDailyPlans === "object"
+    ? week.proposedDailyPlans
+    : null;
+  let proposedActivityCount = 0;
+  if (proposedDays) {
+    ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+      proposedActivityCount += Array.isArray(proposedDays[day]?.items) ? proposedDays[day].items.length : 0;
+    });
+  }
+  const linkedResources = (Array.isArray(resources) ? resources : [])
+    .filter((r) => (draftResourceIds || []).includes(r.id));
+  const printablePages = linkedResources.reduce((sum, r) => sum + (Number(r.pageCount) || 0), 0);
+  const activityCount = proposedActivityCount || Object.keys(acts).length;
   return {
+    activityCount,
     changedActivities: Object.keys(acts).length,
+    activitiesAdded: decisions.added,
+    activitiesRemoved: decisions.removed,
+    activitiesReplaced: decisions.replaced,
+    activitiesPreserved: decisions.preserved,
+    activitiesRewritten: decisions.rewritten,
+    activitiesImproved: decisions.improved,
     printables: Array.isArray(draftResourceIds) ? draftResourceIds.length : 0,
+    printablePages,
+    requiredImages: countRequiredImages(draft),
     missingRequiredImages: countMissingRequiredImages(draft),
     songCount: Array.isArray(week.songs) ? week.songs.length : 0,
     bookCount: Array.isArray(week.books) ? week.books.length : 0,
   };
 }
 
-function buildScores(qualityReport) {
+function plainLanguageBlockers(qualityReport) {
+  const raw = Array.isArray(qualityReport?.blockingIssues)
+    ? qualityReport.blockingIssues
+    : (Array.isArray(qualityReport?.publishBlockers) ? qualityReport.publishBlockers : []);
+  return raw.map((item) => {
+    if (typeof item === "string") {
+      return { code: item, message: item, navigateTo: "", activityKey: "", activityTitle: "" };
+    }
+    return {
+      code: String(item?.code || "").trim(),
+      message: String(item?.message || item?.code || "Blocking issue").trim(),
+      suggestion: String(item?.suggestion || "").trim(),
+      navigateTo: String(item?.navigateTo || "").trim(),
+      activityKey: String(item?.activityKey || item?.key || "").trim(),
+      activityTitle: String(item?.activityTitle || item?.title || "").trim(),
+    };
+  }).filter((b) => b.code || b.message).slice(0, 40);
+}
+
+function buildScores(qualityReport, extras = {}) {
   if (!qualityReport || typeof qualityReport !== "object") {
     return {
       structuralScore: null,
       premiumScore: null,
       overallScore: null,
       blockers: [],
+      blockerDetails: [],
+      workflow: extras.workflow || "",
+      libraryStatus: extras.blocking || "",
+      publishReady: false,
       scoringMode: "actual_draft_catalog",
     };
   }
-  const raw = Array.isArray(qualityReport.blockingIssues)
-    ? qualityReport.blockingIssues
-    : (Array.isArray(qualityReport.publishBlockers) ? qualityReport.publishBlockers : []);
+  const details = plainLanguageBlockers(qualityReport);
+  const blocksPublish = qualityReport.blocksPublish === true || details.length > 0
+    || String(qualityReport.publishReadiness || "").toLowerCase() === "blocked";
+  let workflow = extras.workflow || "";
+  if (blocksPublish && /publish\s*ready|ready for owner/i.test(workflow)) {
+    workflow = "Needs Changes";
+  }
+  let publishReady = !blocksPublish && String(qualityReport.publishReadiness || "").toLowerCase() === "ready";
+  let libraryStatus = blocksPublish ? "Blocked" : (extras.blocking || "No blockers");
+  try {
+    const statusApi = require("./teaching-kit-status.js");
+    if (typeof statusApi.buildPublishReadinessUi === "function") {
+      const ui = statusApi.buildPublishReadinessUi({
+        workflow,
+        blocking: libraryStatus,
+        blocksPublish,
+        publishReadiness: qualityReport.publishReadiness || "",
+        hasDraftOnlyPrintables: Boolean(extras.hasDraftOnlyPrintables),
+        hasRejectedPrintables: Boolean(extras.hasRejectedPrintables),
+        missingPrintables: Boolean(extras.missingPrintables),
+        incompleteActivities: Number(extras.incompleteActivities) || 0,
+        enrichmentFillPercent: Number(qualityReport.completionPercent) || 0,
+        printableApprovalStatuses: extras.printableApprovalStatuses || null,
+      });
+      workflow = ui.displayWorkflow || workflow;
+      publishReady = ui.publishReady === true;
+      libraryStatus = ui.libraryStatus || libraryStatus;
+    }
+  } catch { /* status module optional for older callers */ }
   return {
-      structuralScore: qualityReport.completionPercent ?? qualityReport.structuralScore ?? null,
-      premiumScore: qualityReport.premiumReadinessPercent ?? qualityReport.premiumScore ?? null,
-      overallScore: qualityReport.overallScore ?? null,
-      blockers: raw.map((item) => (typeof item === "string" ? item : (item?.code || item?.message || ""))).filter(Boolean).slice(0, 40),
-      scoringMode: "evaluateTeachingKit",
-      note: "Authoritative Teaching Kit editor scores. Draft printables never count as published.",
-    };
+    structuralScore: qualityReport.completionPercent ?? qualityReport.structuralScore ?? null,
+    premiumScore: qualityReport.premiumReadinessPercent ?? qualityReport.premiumScore ?? null,
+    overallScore: qualityReport.overallScore ?? null,
+    blockers: details.map((d) => d.code || d.message).filter(Boolean),
+    blockerDetails: details,
+    workflow,
+    libraryStatus,
+    publishReady,
+    activityCount: extras.activityCount ?? null,
+    scoringMode: "evaluateTeachingKit",
+    note: "Scores are diagnostic only. Hard blockers control readiness. Draft printables never count as published.",
+  };
 }
 
 function normalizeEntry(value) {
@@ -240,23 +361,30 @@ function normalizeEntry(value) {
     theme: String(e.theme || "").trim(),
     submissionKey: String(e.submissionKey || e.id).trim(),
     revisionId: String(e.revisionId || "").trim(),
+    revisionNumber: Number(e.revisionNumber) || Math.max(1, (Array.isArray(e.versions) ? e.versions.length : 0) + 1),
     batchId: String(e.batchId || "").trim(),
     batchName: String(e.batchName || "").trim(),
     source: String(e.source || "curriculum-tool").trim(),
     status,
     statusLabel: statusLabel(status),
+    publishedStatus: String(e.publishedStatus || "published").trim(),
     submittedAt: String(e.submittedAt || e.receivedAt || "").trim(),
     updatedAt: String(e.updatedAt || "").trim(),
     enrichmentDraft: e.enrichmentDraft && typeof e.enrichmentDraft === "object" ? e.enrichmentDraft : null,
     draftResourceIds: Array.isArray(e.draftResourceIds) ? e.draftResourceIds.map((x) => String(x || "").trim()).filter(Boolean) : [],
     versions: Array.isArray(e.versions) ? e.versions.slice(0, 30) : [],
     snapshots: e.snapshots && typeof e.snapshots === "object" ? e.snapshots : null,
+    publishSnapshot: e.publishSnapshot && typeof e.publishSnapshot === "object" ? e.publishSnapshot : null,
     reviewNotes: String(e.reviewNotes || "").trim(),
     notesHistory: Array.isArray(e.notesHistory) ? e.notesHistory.slice(0, 50) : [],
     scores: e.scores && typeof e.scores === "object" ? e.scores : buildScores(null),
     stats: e.stats && typeof e.stats === "object" ? e.stats : buildStats(e.enrichmentDraft, e.draftResourceIds),
     qualityResults: e.qualityResults && typeof e.qualityResults === "object" ? e.qualityResults : null,
+    resourceApprovals: e.resourceApprovals && typeof e.resourceApprovals === "object" ? e.resourceApprovals : {},
+    imageApprovals: e.imageApprovals && typeof e.imageApprovals === "object" ? e.imageApprovals : {},
     validationErrors: Array.isArray(e.validationErrors) ? e.validationErrors : [],
+    approvedAt: String(e.approvedAt || "").trim(),
+    publishedAt: String(e.publishedAt || "").trim(),
   };
 }
 
@@ -267,6 +395,9 @@ function normalizeQueue(value) {
 function listItem(entry) {
   const e = normalizeEntry(entry);
   if (!e) return null;
+  const stats = e.stats || {};
+  const scores = e.scores || {};
+  const publishedStatus = e.publishedStatus || "published";
   return {
     id: e.id,
     lessonPlanId: e.lessonPlanId,
@@ -274,20 +405,37 @@ function listItem(entry) {
     age: e.age,
     theme: e.theme,
     submittedAt: e.submittedAt,
+    updatedAt: e.updatedAt,
     batchId: e.batchId,
     batchName: e.batchName,
     revisionId: e.revisionId,
+    revisionNumber: Number(e.revisionNumber) || Math.max(1, (e.versions || []).length + 1),
     submissionKey: e.submissionKey,
     source: e.source,
     status: e.status,
     statusLabel: e.statusLabel,
-    structuralScore: e.scores?.structuralScore ?? null,
-    premiumScore: e.scores?.premiumScore ?? null,
-    blockers: e.scores?.blockers || [],
-    changedActivities: e.stats?.changedActivities ?? 0,
-    printables: e.stats?.printables ?? 0,
-    missingRequiredImages: e.stats?.missingRequiredImages ?? 0,
+    publishedStatus,
+    publishedStatusLabel: String(publishedStatus).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    structuralScore: scores.structuralScore ?? null,
+    premiumScore: scores.premiumScore ?? null,
+    workflow: scores.workflow || e.qualityResults?.workflow || "",
+    libraryStatus: scores.libraryStatus || e.qualityResults?.libraryStatus || "",
+    publishReady: scores.publishReady === true,
+    blockers: scores.blockers || [],
+    blockerDetails: scores.blockerDetails || e.qualityResults?.blockingDetails || [],
+    activityCount: stats.activityCount ?? scores.activityCount ?? 0,
+    changedActivities: stats.changedActivities ?? 0,
+    activitiesAdded: stats.activitiesAdded ?? 0,
+    activitiesRemoved: stats.activitiesRemoved ?? 0,
+    activitiesReplaced: stats.activitiesReplaced ?? 0,
+    activitiesPreserved: stats.activitiesPreserved ?? 0,
+    activitiesRewritten: stats.activitiesRewritten ?? 0,
+    printables: stats.printables ?? 0,
+    printablePages: stats.printablePages ?? 0,
+    requiredImages: stats.requiredImages ?? 0,
+    missingRequiredImages: stats.missingRequiredImages ?? 0,
     reviewNotes: e.reviewNotes,
+    notesPresent: Boolean(String(e.reviewNotes || "").trim()),
   };
 }
 
@@ -318,11 +466,37 @@ function buildCompare(publishedPlan, enrichmentDraft) {
     ? enrichmentDraft.activities
     : {};
   const week = enrichmentDraft?.week && typeof enrichmentDraft.week === "object" ? enrichmentDraft.week : {};
+  const decisions = Array.isArray(week.activityDecisions) ? week.activityDecisions : [];
+  const readable = {
+    added: [],
+    removed: [],
+    replaced: [],
+    rewritten: [],
+    unchanged: [],
+    improved: [],
+  };
+  decisions.forEach((d) => {
+    if (!d || typeof d !== "object") return;
+    const title = String(d.title || "").trim() || "Untitled activity";
+    const note = String(d.note || d.reason || "").trim();
+    const row = { title, note, decision: String(d.decision || "").trim() };
+    const key = String(d.decision || "").toLowerCase();
+    if (key === "add" || key === "added") readable.added.push(row);
+    else if (key === "remove" || key === "removed") readable.removed.push(row);
+    else if (key === "replace" || key === "replaced") readable.replaced.push(row);
+    else if (key === "rewrite" || key === "rewritten") readable.rewritten.push(row);
+    else if (key === "keep" || key === "preserved" || key === "unchanged") readable.unchanged.push(row);
+    else if (key === "improve" || key === "improved" || key === "substantially_improve") readable.improved.push(row);
+    else readable.rewritten.push(row);
+  });
   const changed = [];
   Object.keys(acts).forEach((key) => {
     Object.keys(acts[key] || {}).forEach((field) => changed.push({ scope: "activity", key, field }));
   });
   const weekFields = Object.keys(week).filter((field) => {
+    if (["proposedDailyPlans", "activityDecisions", "removedActivityTitles", "removedItemIds"].includes(field)) {
+      return false;
+    }
     const v = week[field];
     if (v == null || v === "") return false;
     if (Array.isArray(v)) return v.length > 0;
@@ -335,19 +509,34 @@ function buildCompare(publishedPlan, enrichmentDraft) {
     weekFieldsTouched: weekFields.length,
     changedFields: changed.slice(0, 400),
     weekFields: weekFields.slice(0, 100),
+    readable,
+    summaryLines: [
+      `${readable.added.length} added`,
+      `${readable.removed.length} removed`,
+      `${readable.replaced.length} replaced`,
+      `${readable.rewritten.length + readable.improved.length} rewritten/improved`,
+      `${readable.unchanged.length} unchanged`,
+    ],
   };
 }
 
-function phaseGate(action) {
-  const key = String(action || "").trim().toLowerCase();
-  if (PHASE2_ONLY.includes(key)) {
-    return {
-      blocked: true,
-      code: "phase2_required",
-      error: `“${key}” is unavailable in Phase 1. Publishing/approval will be added only after the queue workflow is approved.`,
-    };
-  }
+function phaseGate(_action) {
+  // Approve/publish are available but gated by hard blockers + owner confirmation in the API.
   return { blocked: false };
+}
+
+function canMarkPublishReady({ scores, stats, entry } = {}) {
+  const details = scores?.blockerDetails || [];
+  const blockers = scores?.blockers || [];
+  if (scores?.publishReady !== true) return { ok: false, reason: "Quality review is not Publish Ready." };
+  if (details.length || blockers.length) return { ok: false, reason: "Hard blockers remain." };
+  if (Number(stats?.missingRequiredImages || 0) > 0) {
+    return { ok: false, reason: "Required images are still missing." };
+  }
+  if (String(entry?.status || "") !== "approved" && String(entry?.status || "") !== "ready_for_owner_approval") {
+    return { ok: false, reason: "Owner has not approved the final draft." };
+  }
+  return { ok: true };
 }
 
 /** Optional local seed descriptors (first proof only — architecture is not limited to these). */
@@ -379,8 +568,10 @@ const LOCAL_SEED_PACKAGES = Object.freeze([
 module.exports = {
   STATUSES,
   STATUS_LABELS,
+  OWNER_ACTIONS,
   PHASE1_ACTIONS,
   PHASE2_ONLY,
+  PUBLISH_CONFIRM_PHRASE,
   LOCAL_SEED_PACKAGES,
   sha256Short,
   cloneJson,
@@ -396,10 +587,15 @@ module.exports = {
   sanitizeDraft,
   buildStats,
   buildScores,
+  plainLanguageBlockers,
   normalizeEntry,
   normalizeQueue,
   listItem,
   matchLesson,
   buildCompare,
   phaseGate,
+  canMarkPublishReady,
+  decisionCounts,
+  countMissingRequiredImages,
+  countRequiredImages,
 };

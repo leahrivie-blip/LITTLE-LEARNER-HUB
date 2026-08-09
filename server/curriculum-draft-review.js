@@ -49,6 +49,29 @@ function createDraftReviewApi(deps) {
     return model.normalizeQueue(siteContent?.curriculumDraftReviews);
   }
 
+  async function pageCountFromPdfBuffer(buffer) {
+    try {
+      const { PDFDocument } = require("pdf-lib");
+      const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      return doc.getPageCount() || 0;
+    } catch {
+      const marker = Buffer.from(buffer).toString("latin1").match(/\/Type\s*\/Page\b/g);
+      return marker ? marker.length : 0;
+    }
+  }
+
+  function pagesComplete(approval, pageCount) {
+    const viewed = Array.isArray(approval?.pagesViewed)
+      ? approval.pagesViewed.map(Number).filter((n) => n > 0)
+      : [];
+    const count = Number(pageCount) || Number(approval?.pageCount) || 0;
+    if (!count || viewed.length < count) return false;
+    for (let i = 1; i <= count; i += 1) {
+      if (!viewed.includes(i)) return false;
+    }
+    return true;
+  }
+
   function writeQueue(store, queue, stamp) {
     store.siteContent = store.siteContent || defaultSiteContentStore();
     store.siteContent.curriculumDraftReviews = model.normalizeQueue(queue);
@@ -83,12 +106,13 @@ function createDraftReviewApi(deps) {
     }
   }
 
-  function score(plan, activities, enrichmentDraft, resources) {
+  function score(plan, activities, enrichmentDraft, resources, entry = null) {
     try {
       const qualityApi = require("../scripts/teaching-kit-quality-review.js");
       const enrichmentApi = loadEnrichmentHelpers();
+      const statusApi = require("../scripts/teaching-kit-status.js");
       const flat = enrichmentApi.flattenLessonActivities
-        ? enrichmentApi.flattenLessonActivities(plan, activities)
+        ? enrichmentApi.flattenLessonActivities(plan, activities, enrichmentDraft)
         : activities;
       // Same authoritative path as Teaching Kit Enrichment Editor.
       const evaluated = qualityApi.evaluateTeachingKit
@@ -105,15 +129,50 @@ function createDraftReviewApi(deps) {
           : [],
         resources: resources || [],
       });
+      const printableApprovalStatuses = entry?.resourceApprovals && typeof entry.resourceApprovals === "object"
+        ? Object.values(entry.resourceApprovals).map((row) => row?.status || "pending")
+        : null;
+      const summaryForStatus = {
+        ...(evaluated?.summary || {}),
+        hasDraftOnlyPrintables: Boolean(evaluated?.summary?.hasDraftOnlyPrintables),
+        missingPrintables: Boolean(evaluated?.summary?.missingPrintables),
+        incompleteActivities: Number(evaluated?.summary?.incompleteActivities) || 0,
+      };
+      const canonical = statusApi.buildLessonStatus({
+        plan,
+        activities: flat,
+        enrichmentDraft,
+        upgradeSummary: summaryForStatus,
+        qualityReport: report,
+      });
+      // Hard rule: never advertise Publish Ready while blocked.
+      const workflow = (canonical.blocksPublish || report.blocksPublish)
+        && /publish\s*ready|ready for owner/i.test(String(canonical.workflow || ""))
+        ? "Needs Changes"
+        : canonical.workflow;
       return {
-        scores: model.buildScores(report),
+        scores: model.buildScores(report, {
+          workflow,
+          blocking: canonical.blocking,
+          activityCount: flat.length,
+          hasDraftOnlyPrintables: summaryForStatus.hasDraftOnlyPrintables,
+          missingPrintables: summaryForStatus.missingPrintables,
+          incompleteActivities: summaryForStatus.incompleteActivities,
+          hasRejectedPrintables: Array.isArray(printableApprovalStatuses)
+            && printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(String(status || ""))),
+          printableApprovalStatuses,
+        }),
         qualityResults: {
           overallScore: report.overallScore,
           overallLabel: report.overallLabel,
           publishReadiness: report.publishReadiness,
-          blocksPublish: report.blocksPublish === true,
+          blocksPublish: report.blocksPublish === true || canonical.blocksPublish === true,
           structuralScore: report.completionPercent,
           premiumScore: report.premiumReadinessPercent,
+          workflow,
+          libraryStatus: canonical.libraryStatus || canonical.blocking,
+          activityCount: flat.length,
+          blockingDetails: model.plainLanguageBlockers(report),
           scoringSource: "evaluateTeachingKit",
         },
       };
@@ -176,7 +235,7 @@ function createDraftReviewApi(deps) {
     return draft;
   }
 
-  function loadSeedPackage(packageId) {
+  async function loadSeedPackage(packageId) {
     const seed = model.LOCAL_SEED_PACKAGES.find((p) => p.packageId === packageId);
     if (!seed) {
       const err = new Error(`Unknown seed package: ${packageId}`);
@@ -204,16 +263,32 @@ function createDraftReviewApi(deps) {
     // Align printable IDs with the draft resource we actually create (not legacy proof IDs).
     if (!enrichmentDraft.week || typeof enrichmentDraft.week !== "object") enrichmentDraft.week = {};
     enrichmentDraft.week.printableIds = [seed.resourceId];
+    const decisions = Array.isArray(parsed.decisions) ? parsed.decisions : [];
+    // Proposed daily plan + remove decisions keep queue/editor activity counts aligned
+    // without mutating the published lesson body.
+    if (parsed.plan?.dailyPlans && typeof parsed.plan.dailyPlans === "object") {
+      enrichmentDraft.week.proposedDailyPlans = model.cloneJson(parsed.plan.dailyPlans);
+    }
+    if (decisions.length) {
+      enrichmentDraft.week.activityDecisions = model.cloneJson(decisions);
+      enrichmentDraft.week.removedActivityTitles = decisions
+        .filter((d) => String(d?.decision || "").toLowerCase() === "remove")
+        .map((d) => String(d?.title || "").trim())
+        .filter(Boolean);
+    }
     const pdfBuffer = fs.readFileSync(pdfPath);
+    let pageCount = Number(parsed.pageCount) || 0;
+    if (!pageCount) pageCount = await pageCountFromPdfBuffer(pdfBuffer);
     return {
       seed,
       enrichmentDraft,
       planSnapshot: parsed.plan || null,
-      decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+      decisions,
       pdf: {
         fileName: seed.pdfFile,
         dataUrl: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
         sha256: require("crypto").createHash("sha256").update(pdfBuffer).digest("hex"),
+        pageCount,
       },
     };
   }
@@ -233,6 +308,8 @@ function createDraftReviewApi(deps) {
       err.status = 400;
       throw err;
     }
+    let pageCount = Number(meta.pageCount) || 0;
+    if (!pageCount && parsed.buffer) pageCount = await pageCountFromPdfBuffer(parsed.buffer);
     let pdfFields;
     if (usePostgresStore()) {
       const stored = await persistCurriculumUploadToMediaAsset({
@@ -265,7 +342,7 @@ function createDraftReviewApi(deps) {
       description: meta.description || "",
       ageGroup: meta.ageGroup || plan.age || "",
       theme: meta.theme || plan.theme || "",
-      pageCount: meta.pageCount,
+      pageCount: pageCount || meta.pageCount || existing?.pageCount || 0,
       printingInstructions: meta.printingInstructions || "",
       accessLevel: "pro",
       ...pdfFields,
@@ -419,6 +496,8 @@ function createDraftReviewApi(deps) {
         meta: {
           ageGroup: packagePayload.seed.age,
           theme: packagePayload.seed.theme,
+          pageCount: packagePayload.pdf.pageCount || undefined,
+          printingInstructions: "Print US Letter, color optional, cut on solid lines.",
         },
       });
       draftResourceIds.push(packagePayload.seed.resourceId);
@@ -514,18 +593,25 @@ function createDraftReviewApi(deps) {
       throw err;
     }
 
+    const queue = readQueue(store.siteContent);
+    const existingIdx = queue.findIndex((item) => item.submissionKey === submissionKey
+      || (item.lessonPlanId === lessonPlanId && !["published", "discarded", "rolled_back"].includes(item.status)
+        && item.batchId === (body.batchId || item.batchId)));
+    const priorResourceIds = existingIdx >= 0 ? (queue[existingIdx].draftResourceIds || []) : [];
+    const mergedResourceIds = [...new Set([...priorResourceIds, ...draftResourceIds])];
+
     const scored = score(
       saved,
       (store.siteContent.curriculum.activities || []).filter((a) => a.lessonPlanId === lessonPlanId),
       saved.enrichmentDraft,
       store.siteContent.curriculum.resources || [],
+      existingIdx >= 0 ? queue[existingIdx] : null,
     );
-    const stats = model.buildStats(saved.enrichmentDraft, draftResourceIds);
-
-    const queue = readQueue(store.siteContent);
-    const existingIdx = queue.findIndex((item) => item.submissionKey === submissionKey
-      || (item.lessonPlanId === lessonPlanId && !["published", "discarded", "rolled_back"].includes(item.status)
-        && item.batchId === (body.batchId || item.batchId)));
+    const stats = model.buildStats(
+      saved.enrichmentDraft,
+      mergedResourceIds,
+      store.siteContent.curriculum.resources || [],
+    );
 
     let entry;
     let idempotent = false;
@@ -543,15 +629,17 @@ function createDraftReviewApi(deps) {
           title: saved.title,
           age: saved.age,
           theme: saved.theme,
+          publishedStatus: saved.status || prior.publishedStatus || "published",
           submissionKey,
           revisionId,
+          revisionNumber: (Number(prior.revisionNumber) || Math.max(1, (prior.versions || []).length + 1)) + 1,
           batchId: body.batchId || prior.batchId,
           batchName: body.batchName || prior.batchName,
           source: body.source || prior.source,
-          status: prior.status === "revision_requested" ? "revised" : "submitted",
+          status: prior.status === "revision_requested" || prior.status === "revised" ? "revised" : "submitted",
           updatedAt: now,
           enrichmentDraft: saved.enrichmentDraft,
-          draftResourceIds: [...new Set([...(prior.draftResourceIds || []), ...draftResourceIds])],
+          draftResourceIds: mergedResourceIds,
           versions: pushVersion(prior, "Revised submission", now),
           snapshots,
           scores: scored.scores,
@@ -567,8 +655,10 @@ function createDraftReviewApi(deps) {
         title: saved.title,
         age: saved.age,
         theme: saved.theme,
+        publishedStatus: saved.status || "published",
         submissionKey,
         revisionId,
+        revisionNumber: 1,
         batchId: body.batchId || "",
         batchName: body.batchName || "Curriculum draft batch",
         source: body.source || "curriculum-tool",
@@ -576,7 +666,7 @@ function createDraftReviewApi(deps) {
         submittedAt: now,
         updatedAt: now,
         enrichmentDraft: saved.enrichmentDraft,
-        draftResourceIds,
+        draftResourceIds: mergedResourceIds,
         versions: [],
         snapshots,
         scores: scored.scores,
@@ -625,6 +715,112 @@ function createDraftReviewApi(deps) {
     const beforePub = model.publishedBodyFingerprint(plan);
     const lessonCountBefore = (curriculum.lessonPlans || []).length;
     const activityCountBefore = (curriculum.activities || []).length;
+
+    // Post-publish rollback restores the entire previous customer-visible lesson + resources.
+    if (action === "rollback" && entry.status === "published" && entry.publishSnapshot) {
+      const snap = entry.publishSnapshot;
+      const restorePublished = snap.enrichmentPublishedBefore
+        ? model.cloneJson(snap.enrichmentPublishedBefore)
+        : null;
+      const restoreDraftFromPublish = snap.enrichmentPublishedApplied
+        ? model.cloneJson(snap.enrichmentPublishedApplied)
+        : (snap.enrichmentDraftBefore ? model.cloneJson(snap.enrichmentDraftBefore) : null);
+      const restoreResourceIds = Array.isArray(snap.draftResourceIds)
+        ? snap.draftResourceIds.map(String)
+        : (entry.draftResourceIds || []);
+      const resourcesMeta = Array.isArray(snap.resourcesMeta) ? snap.resourcesMeta : [];
+      let resources = [...(curriculum.resources || [])];
+      resources = resources.map((r) => {
+        const meta = resourcesMeta.find((m) => m.id === r.id);
+        if (!meta) return r;
+        // Revert draft printables that were published with this disposable publish.
+        if (restoreResourceIds.includes(r.id) && String(meta.status || "") === "draft") {
+          return normalizedCurriculumResource({
+            ...r,
+            status: "draft",
+            publishedAt: "",
+            updatedAt: now,
+          });
+        }
+        if (meta.status && meta.status !== r.status) {
+          return normalizedCurriculumResource({
+            ...r,
+            status: meta.status,
+            publishedAt: meta.status === "published" ? (r.publishedAt || now) : "",
+            updatedAt: now,
+          });
+        }
+        return r;
+      });
+      const nextPlan = normalizedCurriculumLessonPlan({
+        ...plan,
+        enrichmentPublished: restorePublished,
+        enrichmentDraft: model.enrichmentHasContent(restoreDraftFromPublish)
+          ? { ...restoreDraftFromPublish, updatedAt: now, lastEditedBy: sessionEmail }
+          : null,
+        resourceIds: Array.isArray(snap.resourceIdsBefore) ? [...snap.resourceIdsBefore] : (plan.resourceIds || []),
+        updatedAt: plan.updatedAt,
+      });
+      curriculum = normalizedCurriculumStore({
+        ...curriculum,
+        lessonPlans: (curriculum.lessonPlans || []).map((item) => (
+          item.id === entry.lessonPlanId ? { ...nextPlan, updatedAt: plan.updatedAt } : item
+        )),
+        resources,
+        updatedAt: now,
+      });
+      if ((curriculum.lessonPlans || []).length !== lessonCountBefore
+        || (curriculum.activities || []).length !== activityCountBefore) {
+        const err = new Error("Totals changed during publish rollback.");
+        err.code = "totals_changed";
+        err.status = 500;
+        throw err;
+      }
+      const writeResult = writeSiteCurriculum(store, curriculum, { updatedAt: now });
+      if (writeResult.wipeBlocked) {
+        const err = new Error("Wipe blocked");
+        err.code = "curriculum_wipe_blocked";
+        err.status = 409;
+        throw err;
+      }
+      const saved = (store.siteContent.curriculum.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
+      const afterPub = model.publishedBodyFingerprint(saved);
+      const queue = readQueue(store.siteContent);
+      const idx = queue.findIndex((item) => item.id === entry.id);
+      const updated = model.normalizeEntry({
+        ...entry,
+        status: "rolled_back",
+        updatedAt: now,
+        enrichmentDraft: saved?.enrichmentDraft || null,
+        draftResourceIds: restoreResourceIds,
+        publishSnapshot: null,
+        resourceApprovals: {},
+        notesHistory: [
+          { at: now, by: sessionEmail, action: "rollback_publish", note: notes || "Rolled back published disposable Teaching Kit" },
+          ...(entry.notesHistory || []),
+        ].slice(0, 50),
+      });
+      if (idx >= 0) queue[idx] = updated;
+      writeQueue(store, queue, now);
+      appendEnrichmentEditorAudit(store, {
+        action: "draft_review_rollback_publish",
+        lessonPlanId: entry.lessonPlanId,
+        versionId: entry.revisionId,
+        adminEmail: sessionEmail,
+        fingerprint: afterPub,
+        note: `publish rollback ${entry.id}`,
+      });
+      await writeStoreAsync(store);
+      return {
+        entry: model.listItem(updated),
+        publishedUnchanged: beforePub === afterPub,
+        customerRestored: true,
+        previousEnrichmentPublishedRestored: true,
+        lessonCountUnchanged: true,
+        activityCountUnchanged: true,
+        siteContentUpdatedAt: store.siteContent.updatedAt,
+      };
+    }
 
     let targetState = null;
     if (action === "rollback" && Array.isArray(entry.versions) && entry.versions.length) {
@@ -789,7 +985,8 @@ function createDraftReviewApi(deps) {
     const store = readStore();
     const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
 
-    if (["submit", "submit-seed", "save-edited", "request-revision", "discard", "rollback", "add-notes", "mark-in-review"].includes(action)) {
+    // record-printable-pages is intentionally omitted: page inspection persists without stamp races.
+    if (["submit", "submit-seed", "save-edited", "request-revision", "discard", "rollback", "add-notes", "mark-in-review", "approve", "publish", "approve-printable", "request-printable-revision", "replace-printable", "ready-for-approval"].includes(action)) {
       if (!tokenOk && curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
         curriculumConflictResponse(response, siteContent);
         return;
@@ -797,13 +994,15 @@ function createDraftReviewApi(deps) {
     }
 
     if (action === "list") {
+      const items = readQueue(siteContent).map(model.listItem).filter(Boolean);
       jsonResponse(response, 200, {
         ok: true,
-        phase: 1,
-        publishAvailable: false,
-        approveAvailable: false,
-        publishUnavailableReason: "Publishing will be added only after the queue workflow is approved (Phase 2).",
-        items: readQueue(siteContent).map(model.listItem).filter(Boolean),
+        phase: 2,
+        publishAvailable: true,
+        approveAvailable: true,
+        publishConfirmPhrase: model.PUBLISH_CONFIRM_PHRASE,
+        publishUnavailableReason: "Publish stays disabled while hard blockers remain, and requires owner Approve + typed confirmation.",
+        items,
         statuses: model.STATUSES.map((s) => ({ id: s, label: model.statusLabel(s) })),
       });
       return;
@@ -837,14 +1036,50 @@ function createDraftReviewApi(deps) {
         });
         return;
       }
+      const enrichmentDraft = entry.enrichmentDraft || plan?.enrichmentDraft || null;
+      const enrichmentApi = loadEnrichmentHelpers();
+      const flat = enrichmentApi.flattenLessonActivities
+        ? enrichmentApi.flattenLessonActivities(
+          plan,
+          (curriculum.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
+          enrichmentDraft,
+        )
+        : [];
       jsonResponse(response, 200, {
         ok: true,
-        phase: 1,
-        publishAvailable: false,
+        phase: 2,
+        publishAvailable: true,
+        approveAvailable: true,
+        publishConfirmPhrase: model.PUBLISH_CONFIRM_PHRASE,
         entry,
+        listItem: model.listItem(entry),
         lessonPlan: plan,
         draftResources: resources,
-        enrichmentDraft: entry.enrichmentDraft || plan?.enrichmentDraft || null,
+        enrichmentDraft,
+        activityCount: flat.length,
+        activities: flat.map((a) => ({
+          id: a.id,
+          itemId: a.itemId,
+          title: a.title,
+          dayOfWeek: a.dayOfWeek,
+        })),
+        revisionHistory: [
+          {
+            revisionId: entry.revisionId,
+            revisionNumber: entry.revisionNumber,
+            status: entry.status,
+            updatedAt: entry.updatedAt,
+            newest: true,
+          },
+          ...(entry.versions || []).map((v, idx) => ({
+            revisionId: v.versionId || v.revisionId || `v-${idx}`,
+            revisionNumber: Math.max(1, (entry.revisionNumber || 1) - idx - 1),
+            status: v.status || "prior",
+            updatedAt: v.savedAt || v.updatedAt || "",
+            note: v.note || "",
+            newest: false,
+          })),
+        ],
       });
       return;
     }
@@ -854,7 +1089,7 @@ function createDraftReviewApi(deps) {
       const batchName = normalizedShortText(body.batchName, 180) || "Phase 1 seed — Apples + All About Me";
       const results = [];
       for (const seed of model.LOCAL_SEED_PACKAGES) {
-        const packagePayload = loadSeedPackage(seed.packageId);
+        const packagePayload = await loadSeedPackage(seed.packageId);
         const live = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
         const result = await applySubmit({
           store,
@@ -889,7 +1124,7 @@ function createDraftReviewApi(deps) {
     if (action === "submit") {
       try {
         let packagePayload = null;
-        if (body.packageId) packagePayload = loadSeedPackage(String(body.packageId).toLowerCase());
+        if (body.packageId) packagePayload = await loadSeedPackage(String(body.packageId).toLowerCase());
         const result = await applySubmit({ store, siteContent, sessionEmail, body, packagePayload });
         jsonResponse(response, 200, { ok: true, action: "submit", phase: 1, autoPublished: false, ...result });
       } catch (error) {
@@ -910,7 +1145,7 @@ function createDraftReviewApi(deps) {
       return { queue, idx, entry: idx >= 0 ? queue[idx] : null };
     };
 
-    if (action === "mark-in-review" || action === "add-notes" || action === "request-revision" || action === "save-edited") {
+    if (action === "mark-in-review" || action === "add-notes" || action === "request-revision" || action === "save-edited" || action === "approve-printable" || action === "request-printable-revision" || action === "record-printable-pages" || action === "ready-for-approval") {
       const { queue, idx, entry } = findEntry();
       if (!entry) {
         jsonResponse(response, 404, { error: "Draft not found.", code: "not_found" });
@@ -930,6 +1165,8 @@ function createDraftReviewApi(deps) {
       let qualityResults = entry.qualityResults;
       let draftResourceIds = entry.draftResourceIds;
       let versions = entry.versions;
+      let resourceApprovals = { ...(entry.resourceApprovals || {}) };
+      let imageApprovals = { ...(entry.imageApprovals || {}) };
 
       if (action === "save-edited") {
         const plan = (siteContent.curriculum?.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
@@ -940,15 +1177,86 @@ function createDraftReviewApi(deps) {
           (siteContent.curriculum?.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
           enrichmentDraft,
           siteContent.curriculum?.resources || [],
+          entry,
         );
         scores = scored.scores;
         qualityResults = scored.qualityResults;
-        stats = model.buildStats(enrichmentDraft, draftResourceIds);
+        stats = model.buildStats(enrichmentDraft, draftResourceIds, siteContent.curriculum?.resources || []);
+      }
+
+      if (action === "record-printable-pages") {
+        const resourceId = normalizedShortText(body.resourceId, 160);
+        if (!resourceId || !(entry.draftResourceIds || []).includes(resourceId)) {
+          jsonResponse(response, 400, { error: "Unknown draft printable.", code: "printable_not_found" });
+          return;
+        }
+        const resource = (siteContent.curriculum?.resources || []).find((r) => r.id === resourceId);
+        const pageCount = Number(body.pageCount) || Number(resource?.pageCount) || 0;
+        const pagesViewed = Array.isArray(body.pagesViewed)
+          ? [...new Set(body.pagesViewed.map(Number).filter((n) => n > 0 && (!pageCount || n <= pageCount)))]
+          : [];
+        const prev = resourceApprovals[resourceId] || { status: "pending" };
+        resourceApprovals[resourceId] = {
+          ...prev,
+          status: prev.status || "pending",
+          pageCount,
+          pagesViewed,
+          pagesComplete: pagesComplete({ pagesViewed, pageCount }, pageCount),
+          checklist: body.checklist && typeof body.checklist === "object" ? body.checklist : (prev.checklist || {}),
+          pagesUpdatedAt: now,
+          by: sessionEmail,
+        };
+        // Opening/recording pages never auto-approves.
+        if (resourceApprovals[resourceId].status === "approved" && !resourceApprovals[resourceId].pagesComplete) {
+          resourceApprovals[resourceId].status = "pending";
+        }
+      }
+
+      if (action === "approve-printable" || action === "request-printable-revision") {
+        const resourceId = normalizedShortText(body.resourceId, 160);
+        if (!resourceId || !(entry.draftResourceIds || []).includes(resourceId)) {
+          jsonResponse(response, 400, { error: "Unknown draft printable.", code: "printable_not_found" });
+          return;
+        }
+        if (action === "approve-printable") {
+          const resource = (siteContent.curriculum?.resources || []).find((r) => r.id === resourceId);
+          const pageCount = Number(resource?.pageCount) || Number(resourceApprovals[resourceId]?.pageCount) || 0;
+          const approval = resourceApprovals[resourceId] || {};
+          if (!pageCount || !pagesComplete(approval, pageCount)) {
+            jsonResponse(response, 400, {
+              ok: false,
+              code: "pages_not_reviewed",
+              error: "Inspect every PDF page thumbnail/preview before approving this printable. Opening the file alone is not enough.",
+              pageCount,
+              pagesViewed: approval.pagesViewed || [],
+            });
+            return;
+          }
+        }
+        const prev = resourceApprovals[resourceId] || {};
+        resourceApprovals[resourceId] = {
+          ...prev,
+          status: action === "approve-printable" ? "approved" : "revision_requested",
+          at: now,
+          by: sessionEmail,
+          note: notes,
+          pagesComplete: action === "approve-printable" ? true : Boolean(prev.pagesComplete),
+        };
+      }
+
+      if (body.imageKey && body.imageApprovalStatus) {
+        imageApprovals[String(body.imageKey)] = {
+          status: String(body.imageApprovalStatus),
+          at: now,
+          by: sessionEmail,
+          note: notes,
+        };
       }
 
       let status = entry.status;
       if (action === "mark-in-review") status = "in_review";
       if (action === "request-revision") status = "revision_requested";
+      if (action === "ready-for-approval") status = "ready_for_owner_approval";
       if (action === "save-edited" && status === "revision_requested") status = "revised";
       if (action === "save-edited" && status === "submitted") status = "in_review";
 
@@ -962,13 +1270,20 @@ function createDraftReviewApi(deps) {
         scores,
         stats,
         qualityResults,
+        resourceApprovals,
+        imageApprovals,
         reviewNotes: notes || entry.reviewNotes,
-        notesHistory: notes
+        notesHistory: notes || action.startsWith("approve") || action.startsWith("request")
           ? [{ at: now, by: sessionEmail, action, note: notes }, ...(entry.notesHistory || [])].slice(0, 50)
           : entry.notesHistory,
       });
       queue[idx] = updated;
-      writeQueue(store, queue, now);
+      // Page inspection must not bump siteContent.updatedAt (avoids stamp races with Approve/Publish).
+      if (action === "record-printable-pages") {
+        writeQueue(store, queue, null);
+      } else {
+        writeQueue(store, queue, now);
+      }
       await writeStoreAsync(store);
       jsonResponse(response, 200, {
         ok: true,
@@ -978,6 +1293,96 @@ function createDraftReviewApi(deps) {
         siteContentUpdatedAt: store.siteContent.updatedAt,
         publishedUntouched: true,
       });
+      return;
+    }
+
+    if (action === "replace-printable") {
+      const { queue, idx, entry } = findEntry();
+      if (!entry) {
+        jsonResponse(response, 404, { error: "Draft not found.", code: "not_found" });
+        return;
+      }
+      const resourceId = normalizedShortText(body.resourceId, 160);
+      if (!resourceId || !(entry.draftResourceIds || []).includes(resourceId)) {
+        jsonResponse(response, 400, { error: "Unknown draft printable.", code: "printable_not_found" });
+        return;
+      }
+      const plan = (siteContent.curriculum?.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
+      if (!plan) {
+        jsonResponse(response, 404, { error: "Lesson not found.", code: "lesson_not_found" });
+        return;
+      }
+      const dataUrl = body.fileData || body.dataUrl || "";
+      const now = new Date().toISOString();
+      const existing = (siteContent.curriculum?.resources || []).find((r) => r.id === resourceId);
+      try {
+        const nextCurriculum = await upsertDraftPdf({
+          curriculum: siteContent.curriculum,
+          plan,
+          resourceId,
+          title: body.title || existing?.title || "Printable",
+          fileName: body.fileName || existing?.fileName || "printable.pdf",
+          dataUrl,
+          now,
+          meta: {
+            resourceType: existing?.resourceType,
+            description: existing?.description,
+            ageGroup: existing?.ageGroup,
+            theme: existing?.theme,
+            pageCount: body.pageCount,
+            printingInstructions: body.printingInstructions || existing?.printingInstructions || "",
+          },
+        });
+        // Keep enrichment draft / queue entry; only swap the draft PDF bytes + reset page review.
+        const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+        if (writeResult.wipeBlocked) {
+          jsonResponse(response, 409, { error: "Curriculum wipe blocked.", code: "curriculum_wipe_blocked" });
+          return;
+        }
+        const replaced = (store.siteContent.curriculum.resources || []).find((r) => r.id === resourceId);
+        const resourceApprovals = {
+          ...(entry.resourceApprovals || {}),
+          [resourceId]: {
+            status: "pending",
+            pagesViewed: [],
+            pageCount: Number(replaced?.pageCount) || 0,
+            pagesComplete: false,
+            checklist: {},
+            at: now,
+            by: sessionEmail,
+            note: "PDF replaced — re-inspect every page before approve",
+          },
+        };
+        const updated = model.normalizeEntry({
+          ...entry,
+          updatedAt: now,
+          resourceApprovals,
+          notesHistory: [
+            { at: now, by: sessionEmail, action: "replace-printable", note: `Replaced ${resourceId}` },
+            ...(entry.notesHistory || []),
+          ].slice(0, 50),
+        });
+        queue[idx] = updated;
+        writeQueue(store, queue, now);
+        await writeStoreAsync(store);
+        jsonResponse(response, 200, {
+          ok: true,
+          action,
+          entry: updated,
+          listItem: model.listItem(updated),
+          resourceId,
+          pageCount: Number(replaced?.pageCount) || 0,
+          lessonDraftPreserved: true,
+          enrichmentDraftPreserved: model.enrichmentHasContent(entry.enrichmentDraft),
+          siteContentUpdatedAt: store.siteContent.updatedAt,
+        });
+      } catch (error) {
+        jsonResponse(response, error.status || 400, {
+          ok: false,
+          error: error.message || "Replace failed",
+          code: error.code || "replace_failed",
+        });
+      }
       return;
     }
 
@@ -1007,11 +1412,450 @@ function createDraftReviewApi(deps) {
       return;
     }
 
+    if (action === "preview" || action === "printable-review" || action === "image-review") {
+      const { entry } = findEntry();
+      if (!entry) {
+        jsonResponse(response, 404, { error: "Draft not found.", code: "not_found" });
+        return;
+      }
+      const curriculum = siteContent.curriculum || {};
+      const plan = (curriculum.lessonPlans || []).find((p) => p.id === entry.lessonPlanId) || null;
+      const enrichmentDraft = entry.enrichmentDraft || plan?.enrichmentDraft || null;
+      const enrichmentApi = loadEnrichmentHelpers();
+      const resources = (curriculum.resources || []).filter((r) => (
+        (entry.draftResourceIds || []).includes(r.id) || (r.lessonPlanIds || []).includes(entry.lessonPlanId)
+      ));
+      const flat = enrichmentApi.flattenLessonActivities
+        ? enrichmentApi.flattenLessonActivities(
+          plan,
+          (curriculum.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
+          enrichmentDraft,
+        )
+        : [];
+
+      if (action === "preview") {
+        const week = enrichmentDraft?.week || {};
+        const hideEmpty = (value) => {
+          if (value == null) return false;
+          if (typeof value === "string") return Boolean(value.trim());
+          if (Array.isArray(value)) return value.length > 0;
+          if (typeof value === "object") return Object.keys(value).length > 0;
+          return true;
+        };
+        const preview = {
+          title: plan?.title || entry.title,
+          age: plan?.age || entry.age,
+          theme: plan?.theme || entry.theme,
+          overview: week.weeklyOverview || plan?.weeklyOverview || "",
+          objectives: week.objectives || plan?.objectives || "",
+          materials: week.weeklyMaterials || plan?.weeklyMaterials || "",
+          familyConnection: week.familyConnection || plan?.familyConnection || "",
+          teacherToolkit: week.teacherToolkit || null,
+          songs: Array.isArray(week.songs) ? week.songs : (plan?.songs || []),
+          books: Array.isArray(week.books) ? week.books : (plan?.books || []),
+          weekdays: {},
+          activities: flat.map((act) => {
+            const patch = enrichmentDraft?.activities?.[act.id] || enrichmentDraft?.activities?.[act.itemId] || {};
+            return {
+              id: act.id,
+              itemId: act.itemId,
+              title: act.title,
+              dayOfWeek: act.dayOfWeek,
+              objective: patch.objective || act.objective || "",
+              materials: patch.materials || act.materials || "",
+              setupImageUrl: patch.setupImageUrl || act.setupImageUrl || "",
+              exampleImageUrl: patch.exampleImageUrl || act.exampleImageUrl || "",
+              observationPrompts: patch.observationPrompts || act.observationOpportunities || "",
+              teacherTips: patch.teacherTips || act.teacherTips || [],
+            };
+          }),
+          printables: resources.map((r) => ({
+            id: r.id,
+            title: r.title,
+            status: r.status,
+            pageCount: r.pageCount || 0,
+            printingInstructions: r.printingInstructions || "",
+          })),
+        };
+        ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+          const proposed = week.proposedDailyPlans?.[day] || plan?.dailyPlans?.[day] || null;
+          if (!proposed) return;
+          const dayActs = preview.activities.filter((a) => a.dayOfWeek === day);
+          preview.weekdays[day] = {
+            theme: proposed.theme || "",
+            objectives: proposed.objectives || "",
+            materials: proposed.materials || "",
+            activities: dayActs,
+          };
+        });
+        Object.keys(preview).forEach((key) => {
+          if (key === "weekdays" || key === "activities" || key === "printables") return;
+          if (!hideEmpty(preview[key])) delete preview[key];
+        });
+        jsonResponse(response, 200, {
+          ok: true,
+          action,
+          ownerOnly: true,
+          entry: model.listItem(entry),
+          preview,
+        });
+        return;
+      }
+
+      if (action === "printable-review") {
+        jsonResponse(response, 200, {
+          ok: true,
+          action,
+          entry: model.listItem(entry),
+          reviewMode: "every_page_thumbnail",
+          note: "Approve requires inspecting every page. Opening the PDF alone does not mark a printable reviewed.",
+          printables: resources.map((r) => {
+            const approval = entry.resourceApprovals?.[r.id] || { status: "pending" };
+            const pageCount = Number(r.pageCount) || Number(approval.pageCount) || 0;
+            return {
+              id: r.id,
+              title: r.title || r.id,
+              type: r.resourceType || r.resourceCategory || "Printable",
+              status: r.status,
+              pageCount,
+              printingInstructions: r.printingInstructions || "",
+              linkedActivities: flat.filter((a) => {
+                const patch = enrichmentDraft?.activities?.[a.id] || {};
+                const ids = Array.isArray(patch.printableIds) ? patch.printableIds : (weekPrintableIds(enrichmentDraft));
+                return ids.includes(r.id);
+              }).map((a) => ({ id: a.id, title: a.title, dayOfWeek: a.dayOfWeek })),
+              approval: {
+                ...approval,
+                pagesComplete: pagesComplete(approval, pageCount),
+              },
+              dimensions: "US Letter (8.5 × 11 in)",
+              publicAccess: isCurriculumResourcePublic(r.status) ? "published" : "owner-only (404 for customers)",
+              ownerOnly: !isCurriculumResourcePublic(r.status),
+              downloadPath: `/api/admin/curriculum/resources/file?id=${encodeURIComponent(r.id)}`,
+              checklistHints: [
+                "branding",
+                "website address",
+                "cut lines",
+                "margins",
+                "labels",
+                "illustrations",
+              ],
+            };
+          }),
+        });
+        return;
+      }
+
+      // image-review
+      const images = [];
+      const pushImage = (row) => images.push(row);
+      if (plan?.coverImageUrl) {
+        pushImage({
+          group: "Cover",
+          url: plan.coverImageUrl,
+          thumbUrl: plan.coverImageUrl,
+          caption: plan.coverImageCaption || "Lesson cover",
+          altText: plan.coverImageAlt || plan.title || "Cover",
+          linkedActivity: "",
+          purpose: "cover",
+          requirement: "optional",
+          status: "published",
+          approval: entry.imageApprovals?.cover || { status: "pending" },
+        });
+      }
+      flat.forEach((act) => {
+        const patch = enrichmentDraft?.activities?.[act.id] || enrichmentDraft?.activities?.[act.itemId] || {};
+        const req = String(patch.imageRequirement || act.imageRequirement || "not_needed");
+        [
+          ["setupImageUrl", "setupImageThumbUrl", "Activity setup images", "setup"],
+          ["exampleImageUrl", "exampleImageThumbUrl", "Finished-example images", "finished_example"],
+          ["processImageUrl", "processImageThumbUrl", "Activity process images", "process"],
+        ].forEach(([field, thumbField, group, purpose]) => {
+          const url = patch[field] || act[field] || "";
+          if (!url && !["required", "setup_only", "example_only"].includes(req) && purpose !== "process") return;
+          if (!url && purpose === "process") return;
+          pushImage({
+            group,
+            url,
+            thumbUrl: patch[thumbField] || url,
+            caption: patch[`${purpose}Caption`] || `${act.title} · ${purpose}`,
+            altText: patch[`${purpose}Alt`] || `${act.title} ${purpose} image`,
+            linkedActivity: act.title,
+            activityKey: act.id,
+            purpose,
+            requirement: req,
+            status: url ? "draft" : "missing",
+            approval: entry.imageApprovals?.[`${act.id}:${purpose}`] || { status: url ? "pending" : "missing" },
+          });
+        });
+      });
+      resources.forEach((r) => {
+        if (r.previewImageUrl || r.thumbnailUrl) {
+          pushImage({
+            group: "Printable illustrations",
+            url: r.previewImageUrl || r.thumbnailUrl,
+            thumbUrl: r.thumbnailUrl || r.previewImageUrl,
+            caption: r.title || "Printable",
+            altText: r.title || "Printable illustration",
+            linkedActivity: "",
+            purpose: "printable_illustration",
+            requirement: "optional",
+            status: r.status,
+            approval: entry.imageApprovals?.[`printable:${r.id}`] || { status: "pending" },
+          });
+        }
+      });
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        entry: model.listItem(entry),
+        images,
+        groups: ["Cover", "Printable illustrations", "Activity setup images", "Activity process images", "Finished-example images"],
+      });
+      return;
+    }
+
+    if (action === "approve" || action === "publish") {
+      const { queue, idx, entry } = findEntry();
+      if (!entry) {
+        jsonResponse(response, 404, { error: "Draft not found.", code: "not_found" });
+        return;
+      }
+      const now = new Date().toISOString();
+      const curriculum = siteContent.curriculum || {};
+      const plan = (curriculum.lessonPlans || []).find((p) => p.id === entry.lessonPlanId) || null;
+      const scored = score(
+        plan,
+        (curriculum.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
+        entry.enrichmentDraft || plan?.enrichmentDraft,
+        curriculum.resources || [],
+        entry,
+      );
+      const stats = model.buildStats(
+        entry.enrichmentDraft || plan?.enrichmentDraft,
+        entry.draftResourceIds || [],
+        curriculum.resources || [],
+      );
+
+      if (action === "approve") {
+        const remaining = (scored.scores?.blockerDetails || []).filter((b) => {
+          if (b.code !== "draft_printables_only") return true;
+          const ids = entry.draftResourceIds || [];
+          if (!ids.length) return true;
+          return ids.some((id) => entry.resourceApprovals?.[id]?.status !== "approved");
+        });
+        if (remaining.length) {
+          jsonResponse(response, 400, {
+            ok: false,
+            code: "hard_blockers",
+            error: "Cannot approve while hard blockers remain.",
+            blockers: remaining,
+          });
+          return;
+        }
+        const updated = model.normalizeEntry({
+          ...entry,
+          status: "approved",
+          approvedAt: now,
+          updatedAt: now,
+          scores: scored.scores,
+          stats,
+          qualityResults: scored.qualityResults,
+          notesHistory: [
+            { at: now, by: sessionEmail, action: "approve", note: String(body.reviewNotes || "").trim() },
+            ...(entry.notesHistory || []),
+          ].slice(0, 50),
+        });
+        queue[idx] = updated;
+        writeQueue(store, queue, now);
+        await writeStoreAsync(store);
+        jsonResponse(response, 200, {
+          ok: true,
+          action,
+          entry: updated,
+          listItem: model.listItem(updated),
+          siteContentUpdatedAt: store.siteContent.updatedAt,
+        });
+        return;
+      }
+
+      // publish
+      const confirm = String(body.confirmPhrase || body.confirmationPhrase || "").trim();
+      if (confirm !== model.PUBLISH_CONFIRM_PHRASE) {
+        jsonResponse(response, 400, {
+          ok: false,
+          code: "confirm_phrase_required",
+          error: `Type exactly: ${model.PUBLISH_CONFIRM_PHRASE}`,
+          publishConfirmPhrase: model.PUBLISH_CONFIRM_PHRASE,
+        });
+        return;
+      }
+      if (entry.status !== "approved" && body.forceApproved !== true) {
+        jsonResponse(response, 400, {
+          ok: false,
+          code: "approve_required",
+          error: "Owner must Approve before Publish.",
+        });
+        return;
+      }
+      const draftResourceIds = entry.draftResourceIds || [];
+      const remaining = (scored.scores?.blockerDetails || []).filter((b) => {
+        if (b.code !== "draft_printables_only") return true;
+        if (!draftResourceIds.length) return true;
+        return draftResourceIds.some((id) => entry.resourceApprovals?.[id]?.status !== "approved");
+      });
+      if (remaining.length) {
+        jsonResponse(response, 400, {
+          ok: false,
+          code: "hard_blockers",
+          error: "Publish disabled while hard blockers remain.",
+          blockers: remaining,
+        });
+        return;
+      }
+
+      const unapprovedPrintables = draftResourceIds.filter((id) => {
+        const approval = entry.resourceApprovals?.[id];
+        return !(approval && approval.status === "approved");
+      });
+      // Publish draft printables only when owner explicitly includes them after approval.
+      const publishPrintables = body.publishPrintables === true;
+      if (draftResourceIds.length && unapprovedPrintables.length) {
+        jsonResponse(response, 400, {
+          ok: false,
+          code: "printable_dependency",
+          error: "Draft printables must be approved in Printable Review before they can publish with the lesson.",
+          unapprovedPrintables,
+        });
+        return;
+      }
+      if (draftResourceIds.length && !publishPrintables) {
+        jsonResponse(response, 400, {
+          ok: false,
+          code: "printable_publish_confirmation",
+          error: "This lesson has approved draft printables. Confirm publishPrintables:true to make them customer-visible, or publish enrichment only after detaching them.",
+          approvedPrintables: draftResourceIds,
+        });
+        return;
+      }
+
+      const beforePub = model.publishedBodyFingerprint(plan);
+      const appliedEnrichment = model.cloneJson(entry.enrichmentDraft || plan.enrichmentDraft || {});
+      const publishSnapshot = {
+        at: now,
+        by: sessionEmail,
+        publishedBodyFingerprint: beforePub,
+        enrichmentDraftBefore: plan?.enrichmentDraft ? model.cloneJson(plan.enrichmentDraft) : null,
+        enrichmentPublishedBefore: plan?.enrichmentPublished ? model.cloneJson(plan.enrichmentPublished) : null,
+        enrichmentPublishedApplied: appliedEnrichment,
+        draftResourceIds: [...draftResourceIds],
+        resourceIdsBefore: Array.isArray(plan?.resourceIds) ? [...plan.resourceIds] : [],
+        resourcesMeta: (curriculum.resources || [])
+          .filter((r) => draftResourceIds.includes(r.id) || (plan?.resourceIds || []).includes(r.id))
+          .map((r) => ({ id: r.id, status: r.status, title: r.title || "", pageCount: Number(r.pageCount) || 0 })),
+        lessonPlan: model.cloneJson({
+          ...plan,
+          enrichmentDraft: undefined,
+          enrichmentPublished: plan?.enrichmentPublished || null,
+        }),
+      };
+
+      let nextPlan = normalizedCurriculumLessonPlan({
+        ...plan,
+        enrichmentPublished: appliedEnrichment,
+        enrichmentDraft: null,
+        resourceIds: Array.from(new Set([
+          ...(Array.isArray(plan?.resourceIds) ? plan.resourceIds : []),
+          ...(publishPrintables ? draftResourceIds : []),
+        ])),
+        updatedAt: now,
+        publishedAt: plan.publishedAt || now,
+      });
+      let resources = [...(curriculum.resources || [])];
+      if (publishPrintables) {
+        resources = resources.map((r) => {
+          if (!draftResourceIds.includes(r.id)) return r;
+          return normalizedCurriculumResource({
+            ...r,
+            status: "published",
+            publishedAt: now,
+            updatedAt: now,
+          });
+        });
+      }
+
+      const nextCurriculum = normalizedCurriculumStore({
+        ...curriculum,
+        lessonPlans: (curriculum.lessonPlans || []).map((item) => (
+          item.id === entry.lessonPlanId ? nextPlan : item
+        )),
+        resources,
+        updatedAt: now,
+      });
+      const integrity = assertCurriculumIntegrityOrError(nextCurriculum);
+      if (integrity) {
+        jsonResponse(response, 400, integrity);
+        return;
+      }
+      const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+      if (writeResult.wipeBlocked) {
+        jsonResponse(response, 409, { error: "Curriculum wipe blocked.", code: "curriculum_wipe_blocked" });
+        return;
+      }
+
+      const updated = model.normalizeEntry({
+        ...entry,
+        status: "published",
+        publishedAt: now,
+        updatedAt: now,
+        publishSnapshot,
+        enrichmentDraft: null,
+        scores: scored.scores,
+        stats,
+        qualityResults: scored.qualityResults,
+        notesHistory: [
+          { at: now, by: sessionEmail, action: "publish", note: publishPrintables ? "Published with printables" : "Published lesson enrichment only" },
+          ...(entry.notesHistory || []),
+        ].slice(0, 50),
+      });
+      queue[idx] = updated;
+      writeQueue(store, queue, now);
+      appendEnrichmentEditorAudit(store, {
+        action: "draft_review_publish",
+        lessonPlanId: entry.lessonPlanId,
+        versionId: entry.revisionId,
+        adminEmail: sessionEmail,
+        fingerprint: model.publishedBodyFingerprint(nextPlan),
+        note: "Owner publish from Draft Review Queue",
+      });
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        entry: updated,
+        listItem: model.listItem(updated),
+        publishedResources: publishPrintables ? draftResourceIds : [],
+        customerVisible: {
+          lessonPlanId: entry.lessonPlanId,
+          title: entry.title,
+          enrichmentPublished: true,
+          printablesPublished: publishPrintables ? draftResourceIds : [],
+        },
+        siteContentUpdatedAt: store.siteContent.updatedAt,
+      });
+      return;
+    }
+
     jsonResponse(response, 400, {
       error: "Unknown action.",
       code: "unsupported_action",
-      allowed: model.PHASE1_ACTIONS,
+      allowed: model.OWNER_ACTIONS || model.PHASE1_ACTIONS,
     });
+  }
+
+  function weekPrintableIds(enrichmentDraft) {
+    const week = enrichmentDraft?.week && typeof enrichmentDraft.week === "object" ? enrichmentDraft.week : {};
+    return Array.isArray(week.printableIds) ? week.printableIds.map(String) : [];
   }
 
   return { handle };
