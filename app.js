@@ -72754,9 +72754,18 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           closeAuthModal();
           markAppBootReady();
           let accepted = await maybeAutoAcceptPendingTesterInvite();
-          try {
-            await loginWithServerPassword(result.email, password);
-          } catch (_error) { /* later Log In can still use a retry once sync lands */ }
+          // Mint member session so this browser session and later Log In share the
+          // password the tester just chose. Retry once — testing password-login can lag sync.
+          let sessionReady = false;
+          for (let attempt = 0; attempt < 2 && !sessionReady; attempt += 1) {
+            try {
+              if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1500));
+              await loginWithServerPassword(result.email, password);
+              sessionReady = Boolean(readMemberSessionToken());
+            } catch (_error) {
+              sessionReady = false;
+            }
+          }
           if (!accepted) accepted = await maybeAutoAcceptPendingTesterInvite();
           if (!accepted) {
             await maybeHandleHdhTesterInviteFromUrl();
@@ -72764,6 +72773,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
             const detail = window.__llhLastTesterInviteAcceptError
               || "Account created. Tap Enter my program to join the program set up for you.";
             if (msg) msg.textContent = detail;
+          } else if (!sessionReady) {
+            showActionFeedback("Program ready. If Log In fails later, wait a moment and try again — your password is still saving.");
           }
           return;
         }
