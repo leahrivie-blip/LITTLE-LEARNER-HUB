@@ -654,11 +654,14 @@
       <div class="llh-lre-printable-list">
         ${linked.map((resource) => {
           const status = text(resource.status || "draft");
-          const thumb = resource.previewImageUrl || resource.previewUrl || "";
+          const thumb = resource.previewImageUrl
+            || resource.previewUrl
+            || state.draft.coverImageUrl
+            || "/images/lesson-covers/default.svg";
           return `
             <article class="llh-lre-card-block" data-lre-resource="${esc(resource.id)}">
               <div class="llh-lre-printable-head">
-                ${thumb ? `<img class="llh-lre-thumb" src="${esc(thumb)}" alt="" />` : `<div class="llh-lre-thumb llh-lre-thumb--empty">PDF</div>`}
+                <img class="llh-lre-thumb" src="${esc(thumb)}" alt="Preview for ${esc(resource.title || "printable")}" />
                 <div>
                   <h3>${esc(resource.title || "Printable")}</h3>
                   <p class="muted-copy">${esc(status)} · ${esc(resource.fileName || resource.resourceType || "Printable")}</p>
@@ -1323,16 +1326,33 @@
     const previewRes = t.closest("[data-lre-resource-preview]");
     if (previewRes) {
       const id = previewRes.getAttribute("data-lre-resource-preview");
-      if (typeof global.LLHDraftPrintableReview?.open === "function") {
-        global.LLHDraftPrintableReview.open(id);
-      } else if (typeof openCurriculumResourcePreview === "function") {
-        openCurriculumResourcePreview(id);
-      } else {
-        document.querySelector(`[data-curriculum-resource-open="${id}"]`)?.click?.();
-        state.statusText = "Opened printable preview in Admin when available.";
-        state.isSuccess = true;
-        render();
+      let opened = false;
+      try {
+        if (typeof global.LLHDraftPrintableReview?.open === "function") {
+          global.LLHDraftPrintableReview.open(id);
+          opened = true;
+        } else if (typeof openCurriculumResourcePreview === "function") {
+          openCurriculumResourcePreview(id);
+          opened = true;
+        } else if (document.querySelector(`[data-curriculum-resource-open="${id}"]`)) {
+          document.querySelector(`[data-curriculum-resource-open="${id}"]`).click();
+          opened = true;
+        } else {
+          const resource = linkedResources(state.draft).find((row) => row.id === id);
+          const href = resource?.mediaUrl || resource?.fileData || resource?.previewImageUrl || resource?.previewUrl || "";
+          if (href) {
+            window.open(href, "_blank", "noopener");
+            opened = true;
+          }
+        }
+      } catch (_error) {
+        opened = false;
       }
+      state.statusText = opened
+        ? "Opened printable preview in Admin."
+        : "Preview is unavailable for this printable in this session.";
+      state.isSuccess = opened;
+      render();
       return;
     }
     const publishRes = t.closest("[data-lre-resource-publish]");
