@@ -28694,6 +28694,17 @@ function renderTeachingKitAttachmentPreviewNote(attachmentPlan, manifest) {
   </div>`;
 }
 
+function resolveTeachingKitPrintableFetchUrl(source) {
+  const ref = String(source || "").trim();
+  if (!ref) return "";
+  if (/^data:/i.test(ref) || /^https?:\/\//i.test(ref) || /^blob:/i.test(ref)) return ref;
+  // Curriculum media refs are usually site-relative (`/api/media/...`).
+  if (ref.startsWith("/") && typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}${ref}`;
+  }
+  return ref;
+}
+
 async function resolveTeachingKitPrintableBytes(source, attachment) {
   const mergeApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrintablePdfMerge : null;
   const ref = String(source || "").trim();
@@ -28709,9 +28720,9 @@ async function resolveTeachingKitPrintableBytes(source, attachment) {
   if (fileData && /^data:/i.test(fileData) && mergeApi?.dataUrlToBytes) {
     return mergeApi.dataUrlToBytes(fileData);
   }
-  const href = fileData || ref;
-  if (href && /^https?:\/\//i.test(href)) {
-    const res = await fetch(href);
+  const href = resolveTeachingKitPrintableFetchUrl(fileData || ref);
+  if (href && (/^https?:\/\//i.test(href) || /^blob:/i.test(href))) {
+    const res = await fetch(href, { credentials: "include" });
     if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
     return new Uint8Array(await res.arrayBuffer());
   }
