@@ -888,8 +888,14 @@
                 const actionEnabled = printEnabled && selectionSummary.canPrint;
                 const names = (selectionSummary.itemLabels || []).slice(0, 6).join(" · ");
                 return `
-              <p class="tk-muted" data-tk-print-summary><strong>${escapeHtml(selectionSummary.summary)}</strong>${names ? ` — ${escapeHtml(names)}${(selectionSummary.itemLabels || []).length > 6 ? "…" : ""}` : ""}</p>
-              <p class="tk-muted">${escapeHtml(String(includedCount))} kit activities · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
+              <p class="tk-muted" data-tk-print-summary><strong>${escapeHtml(selectionSummary.summary)}</strong>${
+                selectionSummary.estimatedPageCount && !(selectionSummary.summary || "").includes("~")
+                  ? ` · ~${escapeHtml(String(selectionSummary.estimatedPageCount))} pages`
+                  : ""
+              }${names && !(selectionSummary.summary || "").includes("includes ") ? ` — ${escapeHtml(names)}${(selectionSummary.itemLabels || []).length > 6 ? "…" : ""}` : ""}</p>
+              <p class="tk-muted">${escapeHtml(String(includedCount))} kit activities · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}${
+                selectionSummary.estimatedPageCount ? ` · ~${escapeHtml(String(selectionSummary.estimatedPageCount))} estimated pages` : ""
+              }</p>
               ${!selectionSummary.canPrint && printEnabled ? `<p class="tk-note" role="status">${escapeHtml(selectionSummary.emptyReason || "Select something to print.")}</p>` : ""}
               <div class="tk-build-cta-stack">
                 <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Print selection" : (printEnabled ? "Print (select items)" : "Print binder (unavailable)")}</button>
@@ -1568,10 +1574,27 @@
         return;
       }
 
+      const closePreview = event.target.closest("[data-tk-close-print-preview]");
+      if (closePreview) {
+        event.preventDefault();
+        const host = root.querySelector("[data-tk-print-preview-host]");
+        if (host) {
+          host.hidden = true;
+          host.innerHTML = "";
+        }
+        return;
+      }
+
       const printBtn = event.target.closest("[data-tk-print-binder], [data-tk-download-binder], [data-tk-preview-print]");
       if (printBtn) {
         event.preventDefault();
-        if (!state.printCenterEnabled || printBtn.disabled) return;
+        if (!state.printCenterEnabled || printBtn.disabled) {
+          const help = root.querySelector("#tk-print-help");
+          if (help) help.textContent = state.printCenterEnabled
+            ? "Select something to print."
+            : "Print Center is not available for this session.";
+          return;
+        }
         const selectionSummary = summarizeCurrentPrintSelection(kit, state);
         if (!selectionSummary.canPrint) {
           const help = root.querySelector("#tk-print-help");
@@ -1581,11 +1604,24 @@
         const intent = printBtn.hasAttribute("data-tk-download-binder")
           ? "download"
           : (printBtn.hasAttribute("data-tk-preview-print") ? "preview" : "print");
+        if (intent === "preview") {
+          // Prevent duplicate preview hosts / stacked busy clicks.
+          if (printBtn.getAttribute("aria-busy") === "true") return;
+          const host = root.querySelector("[data-tk-print-preview-host]");
+          if (host) {
+            host.hidden = false;
+            host.innerHTML = `<p class="tk-muted" data-tk-print-preview-loading>Building preview…</p>`;
+            try { host.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch { /* ignore */ }
+          }
+          printBtn.setAttribute("aria-busy", "true");
+        }
         if (typeof ctx.onPrint === "function") {
-          ctx.onPrint({
+          Promise.resolve(ctx.onPrint({
             ...buildCurrentPrintOptions(kit, state),
             adminPreview: isOwnerPreviewKit(kit, chrome),
             intent,
+          })).finally(() => {
+            printBtn.removeAttribute("aria-busy");
           });
         }
         return;
