@@ -27,11 +27,37 @@ body:has(#view-admin.active-view) .llh-public-nav {
   display: none;
 }
 
+/* Desktop Owner Admin: use the full content width (no phone-column shell). */
+#view-admin.admin-workspace-active,
+#view-admin:has(#adminProtectedContent:not([hidden])) {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
 #view-admin .admin-workspace-shell {
   display: grid;
   grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+#view-admin #adminProtectedContent:not([hidden]) {
+  display: block;
+  width: 100%;
+  max-width: none;
+}
+
+#view-admin .admin-workspace-main,
+#view-admin .admin-workspace-landing-panel,
+#view-admin .admin-testing-ops-panel {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 #view-admin .admin-workspace-sidebar {

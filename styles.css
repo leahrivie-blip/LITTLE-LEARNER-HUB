@@ -4696,12 +4696,38 @@ body.user-authenticated .view.active-view {
   margin: 9px 0;
 }
 
-.admin-lock-content,
-.admin-unlocked-bar {
+/* Unlock / unlocked chrome: usable desktop widths (not a phone-sized form column). */
+.admin-lock-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  gap: 18px;
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 480px);
+  gap: 28px 40px;
+  align-items: start;
+  width: 100%;
+  max-width: 1080px;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+.admin-unlocked-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.admin-unlocked-bar > div {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.admin-unlocked-bar > button,
+.admin-unlocked-bar .ghost-button,
+.admin-unlocked-bar .primary-button {
+  flex: 0 0 auto;
 }
 
 .admin-lock-content h3,
@@ -4718,9 +4744,21 @@ body.user-authenticated .view.active-view {
   line-height: 1.5;
 }
 
+@media (max-width: 900px) {
+  .admin-lock-content {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
+  .admin-unlocked-bar {
+    align-items: stretch;
+  }
+}
+
 .admin-unlock-form {
   display: grid;
   gap: 10px;
+  width: 100%;
 }
 
 .admin-unlock-form label {
@@ -11598,7 +11636,6 @@ body.force-password-required #forcePasswordModal * {
   .admin-layout,
   .admin-mobile-toolbar,
   .admin-lock-content,
-  .admin-unlocked-bar,
   .account-layout,
   .planner-dashboard,
   .planner-form,

@@ -4,7 +4,7 @@
 **Opened:** 2026-08-08  
 **Environment (testers only):** https://little-learner-hub-testing.onrender.com  
 **Live testing shell (at open):** `20260808-phase11-testers-go3`  
-**Live testing shell (current):** `20260809-phase11-testers-go11`  
+**Live testing shell (current):** `20260809-phase11-ota-desktop-go12`  
 **PR (keep unmerged):** https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/590  
 **Production:** Untouched until Leah gives **explicit written** production-release approval  
 
