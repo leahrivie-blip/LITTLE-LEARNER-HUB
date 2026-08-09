@@ -272,7 +272,7 @@
       bump(meaningfulText(plan.observationOpportunities, 4), "Observation opportunities", true);
     } else if (WEEKDAYS.includes(sectionId)) {
       const day = plan.dailyPlans?.[sectionId] || emptyDay();
-      bump(meaningfulText(day.theme || day.focus, 2), "Daily focus");
+      bump(meaningfulText(day.theme || day.focus, 1), "Daily focus");
       bump(meaningfulText(day.objectives, 4), "Daily objectives");
       bump(meaningfulText(day.materials, 3), "Daily materials (day-specific only — not the full weekly list)");
       bump(meaningfulText(day.preparation || day.setup, 3) || (day.circleTime || []).length > 0, "Preparation or circle-time plan");
