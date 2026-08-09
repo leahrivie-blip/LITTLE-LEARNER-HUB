@@ -2476,11 +2476,19 @@
       };
     }
 
-    const binderInput = options.host || built.html;
+    // Prefer a live host when it still contains binder pages. If Preview/cleanup
+    // already removed the host contents, fall back to the freshly built HTML.
+    const hostHasPages = Boolean(
+      options.host
+      && typeof options.host.querySelectorAll === "function"
+      && options.host.querySelectorAll(".tk-print-page").length,
+    );
+    const binderInput = hostHasPages ? options.host : built.html;
     const binderRendered = await binderApi.renderBinderPdf(binderInput, {
       paperSize: built.paperSize || options.paperSize || "letter",
       stylesHref: options.stylesHref,
-      forceBrowser: options.forceBrowser === true || Boolean(options.host),
+      // Only force the in-document host path when that host still has pages.
+      forceBrowser: options.forceBrowser === true && hostHasPages,
     });
     // Allow printable-only packs to skip binder pages when binder render is empty
     // but attachments exist (e.g. one_printable with cover omitted).

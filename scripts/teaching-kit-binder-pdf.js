@@ -182,8 +182,21 @@
 
     const restoreGradient = patchCanvasGradientForHtml2Canvas();
     try {
-      const pages = Array.from(host.querySelectorAll(".tk-print-page"));
-      if (!pages.length) return { ok: false, reason: "no_binder_pages", bytes: null };
+      let pages = Array.from(host.querySelectorAll(".tk-print-page"));
+      // If the live print host was cleared (Preview cleanup race), rebuild from
+      // its last HTML snapshot when available.
+      if (!pages.length && host.getAttribute("data-tk-print-html")) {
+        host.innerHTML = host.getAttribute("data-tk-print-html");
+        pages = Array.from(host.querySelectorAll(".tk-print-page"));
+      }
+      if (!pages.length) {
+        return {
+          ok: false,
+          reason: "no_binder_pages",
+          bytes: null,
+          message: "No binder pages were available to download. Please try Preview, then Download PDF again.",
+        };
+      }
       const paper = letterSize(options.paperSize);
       const pdfDoc = await PDFLib.PDFDocument.create();
       let pageErrors = 0;
