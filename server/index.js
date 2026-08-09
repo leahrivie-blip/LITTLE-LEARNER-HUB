@@ -12,6 +12,8 @@ const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js")
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const trialClassification = require("../scripts/trial-classification.js");
 const teachingKit = require("../scripts/teaching-kit.js");
+const draftReviewModel = require("../scripts/curriculum-draft-review.js");
+const { createDraftReviewApi } = require("./curriculum-draft-review.js");
 const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
@@ -1136,6 +1138,7 @@ function defaultSiteContentStore() {
     images: [],
     featureFlags: defaultFeatureFlags(),
     curriculum: defaultCurriculumStore(),
+    curriculumDraftReviews: [],
     updatedAt: "",
   };
 }
@@ -3627,6 +3630,7 @@ function normalizedSiteContent(value) {
     // Temporary member update banner — explicit false disables immediately; otherwise on.
     memberUpdateBannerEnabled: input.memberUpdateBannerEnabled !== false,
     curriculum: normalizedCurriculumStore(input.curriculum),
+    curriculumDraftReviews: draftReviewModel.normalizeQueue(input.curriculumDraftReviews),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
     teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
     // AI Curriculum Director master resources + planning notes (flag-gated).
@@ -20957,13 +20961,16 @@ async function handleEnrichmentRollback(request, response) {
   const now = new Date().toISOString();
   const adminEmail = normalizedShortText(body.publishedBy || body.adminEmail || "", 180) || "admin";
   const entryKind = normalizedShortText(entry.kind, 20) || "publish";
-  const isDraftRestore = entryKind === "draft" || (snap.enrichmentDraft && !snap.dailyPlans);
+  const isDraftRestore = entryKind === "draft"
+    || entryKind === "draft_review"
+    || (snap.enrichmentDraft && !snap.dailyPlans);
 
   if (isDraftRestore) {
     const draftSnap = snap.enrichmentDraft && typeof snap.enrichmentDraft === "object"
       ? snap.enrichmentDraft
       : null;
-    if (!enrichmentDraftHasContent(draftSnap)) {
+    const allowEmptyDraftRestore = entryKind === "draft_review";
+    if (!enrichmentDraftHasContent(draftSnap) && !allowEmptyDraftRestore) {
       jsonResponse(response, 400, {
         error: "That draft snapshot has no enrichment content to restore.",
         code: "enrichment_draft_restore_empty",
@@ -20972,11 +20979,13 @@ async function handleEnrichmentRollback(request, response) {
     }
     const restoredPlan = normalizedCurriculumLessonPlan({
       ...existingPlan,
-      enrichmentDraft: {
-        ...draftSnap,
-        updatedAt: now,
-        lastEditedBy: adminEmail,
-      },
+      enrichmentDraft: enrichmentDraftHasContent(draftSnap)
+        ? {
+          ...draftSnap,
+          updatedAt: now,
+          lastEditedBy: adminEmail,
+        }
+        : null,
       enrichmentPublishHistory: [
         {
           versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
@@ -28435,6 +28444,45 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/tk-printable") return await handleAdminTeachingKitPrintable(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/draft-review") {
+      if (!globalThis.__llhDraftReviewApi) {
+        globalThis.__llhDraftReviewApi = createDraftReviewApi({
+          readJson,
+          jsonResponse,
+          readStore,
+          writeStoreAsync,
+          requireTeachingKitOwnerAdminSession,
+          teachingKit,
+          normalizeEmail,
+          normalizedSiteContent,
+          defaultSiteContentStore,
+          curriculumConcurrencyConflict,
+          curriculumConflictResponse,
+          normalizedShortText,
+          normalizedCurriculumStore,
+          normalizedCurriculumLessonPlan,
+          normalizedCurriculumResource,
+          writeSiteCurriculum,
+          linkCurriculumResourceToLessonPlan,
+          unlinkCurriculumResourceFromLessonPlan,
+          parseCurriculumPdfUploadDataUrl,
+          sanitizeCurriculumUploadFileName,
+          persistCurriculumUploadToMediaAsset,
+          usePostgresStore,
+          MAX_CURRICULUM_UPLOAD_MB,
+          assertCurriculumIntegrityOrError,
+          curriculumResourceMetadata,
+          cloneJson,
+          appendEnrichmentEditorAudit,
+          loadEnrichmentHelpers,
+          isCurriculumResourcePublic,
+          crypto,
+          enrichmentMedia,
+          persistEnrichmentPhotoVariants,
+        });
+      }
+      return await globalThis.__llhDraftReviewApi.handle(request, response);
+    }
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);

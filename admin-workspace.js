@@ -206,6 +206,7 @@
       </div>
       <div class="admin-card-grid">
         ${landingCard("Lesson Plans", "Play-based curriculum lesson plans.", "curriculum-lesson-plans", "Curriculum")}
+        ${landingCard("Draft Review Queue", "Owner review of incoming upgraded lesson drafts.", "curriculum-draft-review", "Curriculum")}
         ${landingCard("Activities", "Browse and manage curriculum activities.", "curriculum-activities", "Curriculum")}
         ${landingCard("Curriculum", "Resources and curriculum library tools.", "curriculum-resources", "Curriculum")}
         ${landingCard("Forms and Templates", "Forms library (not legacy uploads).", "forms", "Library")}

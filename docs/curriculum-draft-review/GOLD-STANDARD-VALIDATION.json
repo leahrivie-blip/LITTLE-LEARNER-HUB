@@ -1,0 +1,268 @@
+{
+  "generatedAt": "2026-08-08T23:40:37.303Z",
+  "results": [
+    {
+      "ok": true,
+      "packageId": "amazing-apples",
+      "lessonPlanId": "cur-lp-toddler-amazing-apples",
+      "title": "Amazing Apples",
+      "age": "Toddler",
+      "decisions": [
+        {
+          "title": "Apple Investigation",
+          "decision": "rewrite",
+          "note": "Kept STEM look/touch; unique tips and allergy-safe boundaries."
+        },
+        {
+          "title": "Apple Stamp Painting",
+          "decision": "rewrite",
+          "note": "Process emphasis; example illustration linked."
+        },
+        {
+          "title": "Count the Apples",
+          "decision": "rewrite",
+          "note": "Dot matching before numerals; toddler dump-fill honored."
+        },
+        {
+          "title": "Pick the Apples",
+          "decision": "rewrite",
+          "note": "Two-height picks; music pause for safety."
+        },
+        {
+          "title": "Apple Color Sort",
+          "decision": "rewrite",
+          "note": "Sample anchors; purposeful substitutions."
+        },
+        {
+          "title": "My Favorite Apple Color",
+          "decision": "replace",
+          "note": "Replaced template tissue craft with Apple Peel Tear Collage."
+        },
+        {
+          "title": "Apple Color Investigation",
+          "decision": "remove",
+          "note": "Duplicate of Monday investigation."
+        },
+        {
+          "title": "Apple Color Dance",
+          "decision": "rewrite",
+          "note": "Short color-cue freezes."
+        },
+        {
+          "title": "Big or Small?",
+          "decision": "rewrite",
+          "note": "Clear size contrast; child debate welcomed."
+        },
+        {
+          "title": "Apple Measuring Station",
+          "decision": "rewrite",
+          "note": "Setup illustration; non-standard units."
+        },
+        {
+          "title": "Round Apple Collage",
+          "decision": "remove",
+          "note": "Duplicate of tear collage / stamp art."
+        },
+        {
+          "title": "Roll Like an Apple",
+          "decision": "rewrite",
+          "note": "Log rolls first; mat safety."
+        },
+        {
+          "title": "Apple Taste Test",
+          "decision": "rewrite",
+          "note": "Allergy protocol; equal non-taster roles."
+        },
+        {
+          "title": "Favorite Apple Graph",
+          "decision": "rewrite",
+          "note": "Uses picture cards; includes non-tasters."
+        },
+        {
+          "title": "Apple Market",
+          "decision": "rewrite",
+          "note": "Restock practice; polite phrase model."
+        },
+        {
+          "title": "Apple Basket Relay",
+          "decision": "remove",
+          "note": "Duplicate locomotion of Pick the Apples."
+        },
+        {
+          "title": "Apple Life Cycle",
+          "decision": "rewrite",
+          "note": "Uses PDF growth cards; setup image."
+        },
+        {
+          "title": "Apple Seed Discovery",
+          "decision": "rewrite",
+          "note": "Adult cut; sealed seed jar."
+        },
+        {
+          "title": "My Apple Tree",
+          "decision": "rewrite",
+          "note": "Process tree; no sticker rows."
+        },
+        {
+          "title": "Apple Harvest Celebration",
+          "decision": "rewrite",
+          "note": "Short parade; vocabulary share."
+        }
+      ],
+      "assets": {
+        "pdfs": [
+          "Amazing-Apples-Picture-Card-Pack.pdf"
+        ],
+        "images": [
+          "life-cycle-setup.png",
+          "measuring-station-setup.png",
+          "stamp-painting-example.png",
+          "tear-collage-example.png"
+        ],
+        "pdfOk": true,
+        "imageFilesOk": true
+      },
+      "scores": {
+        "structural": 96,
+        "premium": 89,
+        "publishReadiness": "blocked",
+        "blocksPublish": true,
+        "scoringSource": "evaluateTeachingKit",
+        "note": "Draft printables correctly prevent Publish Ready. Premium may cap at 89 until printables are published."
+      },
+      "blockers": [
+        {
+          "code": "draft_printables_only",
+          "message": "Linked printable(s) are still draft — draft printables do not count as published/usable printables.",
+          "suggestion": "Upload or link a printable and publish it (draft status must be cleared) before Publish Ready.",
+          "publishGate": "hard_blocker",
+          "navigateTo": "week:printables"
+        }
+      ],
+      "contradictionScan": {
+        "blocking": [],
+        "warnings": []
+      },
+      "activityCount": 17,
+      "enrichmentActivityKeys": 17
+    },
+    {
+      "ok": true,
+      "packageId": "all-about-me",
+      "lessonPlanId": "cur-lp-preschool-all-about-me",
+      "title": "All About Me",
+      "age": "Preschool",
+      "decisions": [
+        {
+          "title": "Mirror Me",
+          "decision": "rewrite",
+          "note": "Copy child first; inclusive mirrors."
+        },
+        {
+          "title": "My Name Discovery",
+          "decision": "rewrite",
+          "note": "Preferred names; setup illustration."
+        },
+        {
+          "title": "Family Photo Sharing",
+          "decision": "rewrite",
+          "note": "Drawings accepted; no forced structure talk."
+        },
+        {
+          "title": "Family Graph",
+          "decision": "replace",
+          "note": "Replaced with People in My Circle (no family-size ranking)."
+        },
+        {
+          "title": "Body Part Movement Game",
+          "decision": "rewrite",
+          "note": "Inclusive language; adapted motions."
+        },
+        {
+          "title": "Self-Portrait Studio",
+          "decision": "rewrite",
+          "note": "Process example image; no adult model."
+        },
+        {
+          "title": "Family Dramatic Play",
+          "decision": "rewrite",
+          "note": "Open role naming."
+        },
+        {
+          "title": "Friend Interview",
+          "decision": "rewrite",
+          "note": "Safe picture prompts only."
+        },
+        {
+          "title": "Name Letter Hunt",
+          "decision": "rewrite",
+          "note": "Name letters + decoys; no speed contests."
+        },
+        {
+          "title": "Height and Measure Me",
+          "decision": "replace",
+          "note": "Replaced with Build & Measure My Tower (measure objects, not children)."
+        },
+        {
+          "title": "Feelings Faces Art",
+          "decision": "rewrite",
+          "note": "Optional emotion cues; mixed feelings OK."
+        },
+        {
+          "title": "All About Me Book Making",
+          "decision": "rewrite",
+          "note": "Three pages; scribbles count."
+        },
+        {
+          "title": "Body Outline Tracing",
+          "decision": "replace",
+          "note": "Replaced with Friendship Scarf Path (no body outlines)."
+        },
+        {
+          "title": "Celebration Circle",
+          "decision": "rewrite",
+          "note": "Opt-in sharing."
+        },
+        {
+          "title": "All About Me Movement Parade",
+          "decision": "rewrite",
+          "note": "Mobility-device leaders included."
+        }
+      ],
+      "assets": {
+        "pdfs": [
+          "All-About-Me-Picture-Card-Pack.pdf"
+        ],
+        "images": [
+          "name-discovery-setup.png",
+          "self-portrait-example.png"
+        ],
+        "pdfOk": true,
+        "imageFilesOk": true
+      },
+      "scores": {
+        "structural": 96,
+        "premium": 89,
+        "publishReadiness": "blocked",
+        "blocksPublish": true,
+        "scoringSource": "evaluateTeachingKit",
+        "note": "Draft printables correctly prevent Publish Ready. Premium may cap at 89 until printables are published."
+      },
+      "blockers": [
+        {
+          "code": "draft_printables_only",
+          "message": "Linked printable(s) are still draft — draft printables do not count as published/usable printables.",
+          "suggestion": "Upload or link a printable and publish it (draft status must be cleared) before Publish Ready.",
+          "publishGate": "hard_blocker",
+          "navigateTo": "week:printables"
+        }
+      ],
+      "contradictionScan": {
+        "blocking": [],
+        "warnings": []
+      },
+      "activityCount": 15,
+      "enrichmentActivityKeys": 15
+    }
+  ]
+}
