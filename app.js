@@ -39624,6 +39624,12 @@ async function acceptHdhTesterInviteToken(token) {
   if (!response.ok) throw new Error(data?.error || "Could not accept tester invite.");
   if (data.account && currentUser) {
     try {
+      const testingFeatures = data.account.testingFeatures && typeof data.account.testingFeatures === "object"
+        ? data.account.testingFeatures
+        : {};
+      const multiRoleTester = typeof data.account.multiRoleTester === "boolean"
+        ? data.account.multiRoleTester
+        : Boolean(testingFeatures.multiRole);
       updateAccount(currentUser, {
         role: data.account.role || "owner",
         accountType: data.account.accountType || "home_daycare",
@@ -39637,6 +39643,8 @@ async function acceptHdhTesterInviteToken(token) {
         programId: data.account.programId || "",
         hdhVisibility: null,
         visibilityPreset: "",
+        multiRoleTester,
+        testingFeatures,
       });
       currentPlan = "Pro";
       try { localStorage.setItem("llhPlan", "Pro"); } catch (_error) { /* ignore */ }
@@ -39646,6 +39654,9 @@ async function acceptHdhTesterInviteToken(token) {
       updateAdminNavVisibility();
       syncPlatformNavVisibility();
       syncHdhTesterSwitcherChrome();
+      try {
+        if (typeof syncMultiRoleTesterChrome === "function") syncMultiRoleTesterChrome();
+      } catch (_error) { /* optional chrome helper */ }
       renderNotificationBell();
     } catch (_error) { /* keep accept successful even if chrome refresh fails */ }
     // Sync children from the server program. Do NOT auto-create a Demo Child —

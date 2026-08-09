@@ -17108,6 +17108,10 @@ async function handleHdhTesterInviteAccept(request, response) {
       plan: "Pro",
       subscriptionStatus: "Pro Subscription Active",
       programId: account.programId || "",
+      // So the client can show header Switch View immediately after invite accept
+      // without waiting for a later subscription sync.
+      multiRoleTester: Boolean(account.multiRoleTester),
+      testingFeatures: account.testingFeatures || {},
     },
     demoChild,
     message: alreadyHasKids
