@@ -25549,6 +25549,33 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   border-radius: 12px;
   background: #fff;
 }
+.teaching-kit-workspace .tk-print-preview-chrome {
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+}
+.teaching-kit-workspace .tk-print-preview-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--tk-line, #e8e0f4);
+  background: #faf8ff;
+}
+.teaching-kit-workspace .tk-print-preview-toolbar strong {
+  font-size: 0.95rem;
+}
+.teaching-kit-workspace .tk-print-preview-toolbar .tk-muted {
+  flex: 1 1 auto;
+  font-size: 0.85rem;
+}
+.teaching-kit-workspace [data-tk-print-preview-loading] {
+  padding: 16px 12px;
+}
 .teaching-kit-workspace .tk-print-attachment-preview {
   margin: 10px 12px;
   padding: 10px 12px;

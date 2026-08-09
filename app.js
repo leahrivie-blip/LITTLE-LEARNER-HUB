@@ -889,7 +889,8 @@ let pendingGoalArea = "";
 let activeSupportCategoryId = "";
 let activeSupportTopicId = "";
 let activeSupportTab = "why";
-let activeSupportChildId = selectedChildId;
+// Deliberate personalization only — never inherit the global selected child.
+let activeSupportChildId = "";
 let supportCenterSearch = "";
 let childTimelineSearch = "";
 let childTimelineTypeFilter = "All";
@@ -6477,6 +6478,23 @@ function authStyleModalStillOpen(exceptEl = null) {
   return [...nodes].some((node) => node !== exceptEl);
 }
 
+function closeTeachingKitPrintPreview() {
+  const hosts = document.querySelectorAll(
+    "#resourceViewerModal [data-tk-print-preview-host], [data-tk-print-preview-host]",
+  );
+  let closed = false;
+  hosts.forEach((host) => {
+    if (!host || host.hidden) return;
+    const hasContent = Boolean(host.querySelector(".tk-print-preview-chrome, [data-tk-print-preview-document], [data-tk-print-preview-loading]"))
+      || Boolean(String(host.innerHTML || "").trim());
+    if (!hasContent) return;
+    host.hidden = true;
+    host.innerHTML = "";
+    closed = true;
+  });
+  return closed;
+}
+
 function teardownTeachingKitWorkspace() {
   if (typeof teachingKitWorkspaceUnbind === "function") {
     try { teachingKitWorkspaceUnbind(); } catch { /* ignore */ }
@@ -6484,6 +6502,7 @@ function teardownTeachingKitWorkspace() {
   }
   activeTeachingKitPayload = null;
   activeTeachingKitFlags = null;
+  closeTeachingKitPrintPreview();
   document.body.classList.remove(
     "printing-teaching-kit",
     "printing-resource",
@@ -9741,7 +9760,7 @@ function curriculumActivityAdminCardHtml(activity) {
             <span class="tag">${escapeHtml(activity.activityCategory || "Play")}</span>
             <span class="tag">${escapeHtml(dayLabel)}</span>
           </div>
-          <small>Parent lesson: ${escapeHtml(parent?.title || "(missing lesson)")}</small>
+          <small>From lesson plan: ${escapeHtml(parent?.title || "(missing lesson)")}</small>
           <small>lessonPlanId: ${escapeHtml(activity.lessonPlanId || "")}</small>
         </div>
       </div>
@@ -9770,7 +9789,7 @@ function renderAdminCurriculumActivityDetail(activity) {
         <span class="tag">${escapeHtml(activity.activityCategory || "Play")}</span>
         <span class="tag">${escapeHtml(dayLabel)}</span>
       </div>
-      <p><strong>Parent lesson:</strong> ${escapeHtml(parent?.title || "(missing lesson)")}</p>
+      <p><strong>From lesson plan:</strong> ${escapeHtml(parent?.title || "(missing lesson)")}</p>
       <p><strong>lessonPlanId:</strong> <code>${escapeHtml(activity.lessonPlanId || "")}</code></p>
       <p><strong>sourceKey:</strong> <code>${escapeHtml(activity.sourceKey || "")}</code></p>
       <label>Description<textarea rows="3" readonly>${escapeHtml(activity.description || "")}</textarea></label>
@@ -9842,7 +9861,7 @@ function renderAdminCurriculumActivityBrowser() {
           `).join("")}
         </select>
       </label>
-      <label>Parent lesson
+      <label>From lesson plan
         <select id="adminCurriculumActivityLessonFilter">
           <option value="">All lessons</option>
           ${parentLessons.map((plan) => `
@@ -21549,7 +21568,7 @@ function resourceCard(resource) {
         <div class="lesson-card-context">
           <span><b>Category:</b> ${escapeHtml(resource.activityCategory || resource.theme || "Activity")}</span>
           ${activityDayLabel ? `<span><b>Day:</b> ${escapeHtml(activityDayLabel)}</span>` : ""}
-          ${parentLessonTitle ? `<span><b>Parent Lesson:</b> ${escapeHtml(parentLessonTitle)}</span>` : ""}
+          ${parentLessonTitle ? `<span><b>From lesson plan:</b> ${escapeHtml(parentLessonTitle)}</span>` : ""}
         </div>
       ` : ""}
       <div class="resource-actions">
@@ -27599,7 +27618,7 @@ async function submitActivityFeedback({
   const message = [
     `Activity: ${activityTitle || "Untitled"}`,
     activityId ? `Activity ID: ${activityId}` : "",
-    parentTitle ? `Parent lesson: ${parentTitle}` : "",
+    parentTitle ? `From lesson plan: ${parentTitle}` : "",
     lessonId ? `Lesson ID: ${lessonId}` : "",
     `Feedback: ${sentimentLabel}`,
     detail ? `\n${detail}` : (sentiment === "helpful" ? "\nMarked as helpful." : ""),
@@ -28069,16 +28088,30 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
       }
     },
     onPrint: (selection) => {
+      const intent = selection.intent || "print_center";
       void printTeachingKitBinder(viewerResource, result.teachingKit, {
         ...selection,
         plan: viewerResource?._curriculumLessonPlan || null,
-        intent: selection.intent || "print_center",
+        intent,
         forceDesigned: true,
       }, activeTeachingKitFlags).then((result) => {
         if (result && result.ok === false && result.reason && typeof showToast === "function") {
-          // Specific toasts are already shown for known failures; keep a last-resort notice.
-          if (!["print_flag_off", "trial_blocked", "trial_cancelled", "trial_exhausted", "watermark_required", "watermark_missing", "unavailable", "build_failed"].includes(result.reason)) {
-            showToast("Teaching Kit print could not start. Please try again.");
+          const silent = intent !== "preview" && [
+            "print_flag_off", "trial_blocked", "trial_cancelled", "trial_exhausted",
+            "watermark_required", "watermark_missing", "unavailable", "build_failed",
+          ].includes(result.reason);
+          if (!silent) {
+            const messages = {
+              print_flag_off: "Print Center is not available for this session.",
+              trial_blocked: "Print is not available on this plan right now.",
+              trial_cancelled: "Print was cancelled.",
+              trial_exhausted: "Trial print limit reached.",
+              preview_host_missing: "Stay on Build / Print, then try Preview again.",
+              unavailable: "Teaching Kit print is unavailable right now.",
+              build_failed: "Could not build this print selection.",
+              empty: "Select something to print first.",
+            };
+            showToast(messages[result.reason] || "Teaching Kit print could not start. Please try again.");
           }
         }
       }).catch(() => {
@@ -28172,8 +28205,17 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     return { ok: false, reason: preAuth.reason || "unavailable" };
   }
 
-  // Authorize BEFORE any binder HTML assembly (entitlement non-bypass).
-  const gate = await confirmTrialCurriculumExport(viewerResource, selection.intent === "download" ? "download" : "print");
+  // Preview is visual QA only — never consume a trial curriculum export or open
+  // a confirm dialog that makes Preview look like a no-op.
+  const gate = selection.intent === "preview"
+    ? {
+      allowed: true,
+      counted: false,
+      watermark: (typeof trialWatermarkForCurrentView === "function"
+        ? trialWatermarkForCurrentView(viewerResource)
+        : "") || "",
+    }
+    : await confirmTrialCurriculumExport(viewerResource, selection.intent === "download" ? "download" : "print");
   const auth = typeof printApi.evaluatePrintAuthorization === "function"
     ? printApi.evaluatePrintAuthorization({
       printCenterEnabled: flags.teachingKitPrintCenter === true,
@@ -28269,26 +28311,57 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   // Preview selection: mount the same document into Print Center for visual QA
   // without opening the system print dialog. Show which PDF attachments will merge.
   if (selection.intent === "preview") {
-    const previewHost = document.querySelector("[data-tk-print-preview-host]");
-    if (previewHost) {
-      previewHost.hidden = false;
-      const attachNote = renderTeachingKitAttachmentPreviewNote(attachmentPlan, built.manifest);
-      previewHost.innerHTML = `${attachNote}<div class="tk-print-preview-frame" data-tk-print-preview-document="${escapeHtml(documentMode)}">${built.html}</div>`;
-      const summary = built.summary?.summary || "Selection preview ready";
-      const attachSummary = attachmentPlan?.summary ? ` ${attachmentPlan.summary}.` : "";
-      if (typeof showToast === "function") {
-        showToast(`${summary}.${attachSummary} Preview matches Print / Download PDF scope.`);
+    const workspaceRoot = document.querySelector("#resourceViewerModal.open .teaching-kit-workspace, #resourceViewerBody.teaching-kit-mode");
+    let previewHost = workspaceRoot?.querySelector?.("[data-tk-print-preview-host]")
+      || document.querySelector("#resourceViewerModal.open [data-tk-print-preview-host]")
+      || document.querySelector("[data-tk-print-preview-host]");
+    // Rebuild a host if Build/Print re-rendered away during async prep.
+    if (!previewHost && workspaceRoot) {
+      const buildPanel = workspaceRoot.querySelector("[data-tk-panel='build'] .tk-build-cta-stack, [data-tk-panel='build']");
+      if (buildPanel) {
+        previewHost = document.createElement("div");
+        previewHost.className = "tk-print-preview-host";
+        previewHost.setAttribute("data-tk-print-preview-host", "");
+        buildPanel.appendChild(previewHost);
       }
     }
+    if (!previewHost) {
+      if (typeof showToast === "function") {
+        showToast("Preview could not open. Stay on Build / Print and try again.");
+      }
+      document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
+      return { ok: false, reason: "preview_host_missing" };
+    }
+    previewHost.hidden = false;
+    previewHost.setAttribute("aria-live", "polite");
+    const pageCount = Number(built.pageCount) || 0;
+    const summary = built.summary?.summary || "Selection preview ready";
+    const attachNote = renderTeachingKitAttachmentPreviewNote(attachmentPlan, built.manifest);
+    const attachSummary = attachmentPlan?.summary ? ` ${attachmentPlan.summary}.` : "";
+    previewHost.innerHTML = `
+      <div class="tk-print-preview-chrome">
+        <div class="tk-print-preview-toolbar">
+          <strong>Print preview</strong>
+          <span class="tk-muted">${escapeHtml(summary)}${pageCount ? ` · ~${pageCount} page${pageCount === 1 ? "" : "s"}` : ""}</span>
+          <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-close-print-preview aria-label="Close print preview">Close</button>
+        </div>
+        ${attachNote}
+        <div class="tk-print-preview-frame" data-tk-print-preview-document="${escapeHtml(documentMode)}" data-tk-print-preview-fingerprint="${escapeHtml(built.contentFingerprint || "")}">${built.html}</div>
+      </div>`;
+    try {
+      previewHost.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch { /* ignore */ }
+    if (typeof showToast === "function") {
+      showToast(`${summary}.${attachSummary} Preview matches Print / Download PDF scope.`);
+    }
     document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
-    // Keep host briefly so tests can inspect, then clear print chrome classes.
     setTimeout(() => {
       document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
     }, 500);
     return {
       ok: true,
       reason: "preview",
-      pageCount: built.pageCount || 0,
+      pageCount,
       paperSize: built.paperSize || selection.paperSize || "letter",
       designedDocument: true,
       documentMode,
@@ -34889,12 +34962,13 @@ function renderCalendarMonthView(app) {
               const shortTitle = title.length > 24 ? `${title.slice(0, 22)}…` : title;
               const dayNote = calendarDayNoteForDate({ items }, cell.iso);
               const hasDayNote = Boolean(String(dayNote?.notes || "").trim());
-              const ariaLabel = `${calendarLongDateLabel(cell.iso)}${cell.weekend ? ", weekend" : ""}${hasLesson ? `, lesson plan: ${title}` : ""}${hasDayNote ? ", has day note" : ""}${cell.dayItems.length ? `, ${cell.dayItems.length} item${cell.dayItems.length === 1 ? "" : "s"}` : ""}`;
+              const ariaLabel = `${calendarLongDateLabel(cell.iso)}${cell.weekend ? ", weekend" : ""}${hasLesson && !cell.weekend ? `, lesson plan: ${title}` : ""}${hasLesson && cell.weekend ? ", weekend (lesson plans teach Monday–Friday)" : ""}${hasDayNote ? ", has day note" : ""}${cell.dayItems.length ? `, ${cell.dayItems.length} item${cell.dayItems.length === 1 ? "" : "s"}` : ""}`;
               return `
-                <button type="button" class="llh-cal-cell ${cell.weekend ? "is-weekend" : ""} ${hasLesson ? "has-lesson" : ""} ${hasDayNote ? "has-day-note" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(ariaLabel)}">
+                <button type="button" class="llh-cal-cell ${cell.weekend ? "is-weekend" : ""} ${hasLesson && !cell.weekend ? "has-lesson" : ""} ${hasDayNote ? "has-day-note" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(ariaLabel)}">
                   <span class="llh-cal-daynum">${cell.day}${isToday ? '<span class="llh-cal-today-dot" aria-hidden="true"></span>' : ""}</span>
-                  ${hasLesson && isMonday ? `<span class="llh-cal-weekbar" title="${escapeHtml(title)}">${escapeHtml(shortTitle)}</span>` : ""}
+                  ${hasLesson && isMonday && !cell.weekend ? `<span class="llh-cal-weekbar" title="${escapeHtml(title)}">${escapeHtml(shortTitle)}</span>` : ""}
                   ${hasLesson && !isMonday && !cell.weekend ? `<span class="llh-cal-lesson-stripe" title="${escapeHtml(title)}" aria-hidden="true"></span>` : ""}
+                  ${cell.weekend && hasLesson ? `<span class="llh-cal-chip llh-cal-chip-weekend-note" title="Lesson plans teach Monday–Friday">Mon–Fri plan</span>` : ""}
                   ${hasDayNote ? `<span class="llh-cal-chip llh-cal-chip-day_note" title="Day note">Note</span>` : ""}
                   ${visibleItems.map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}" title="${escapeHtml(item.title)}">${escapeHtml(calendarEventTypeLabel(item.type))}: ${escapeHtml(item.title || item.type)}</span>`).join("")}
                   ${extraItems ? `<span class="llh-cal-more">+${extraItems} more</span>` : ""}
@@ -37159,11 +37233,79 @@ function supportTopicContent(topic = "", child = null) {
       parentNotes: ["We are helping name feelings and practice calm choices.", "Today we noticed transitions were hard, so we used a first-then cue.", "A short goodbye or transition routine may help us stay consistent."],
     },
     Biting: {
-      why: "Biting is often communication, teething, sensory seeking, frustration, or needing space.",
-      tips: ["Stay close during busy peer play.", "Offer words or a teether before biting happens.", "Comfort the hurt child and calmly redirect the child who bit."],
-      activities: ["Teether or chewy choice routine", "My space picture cards", "Gentle mouth sensory bin"],
-      observations: ["Was the child tired, crowded, excited, or frustrated?", "Who was nearby?", "What replacement helped?"],
-      parentNotes: ["We are watching for patterns and teaching safe replacement choices.", "We are using simple words like stop, space, and help.", "We will keep sharing triggers and what helps."],
+      why: "Biting is often communication, teething, sensory seeking, frustration, or needing space — not a diagnosis.",
+      tips: [
+        "Stay within arm’s reach during busy peer play when biting has been happening.",
+        "Offer a teether/chewy or simple word (“space,” “help”) before teeth meet skin.",
+        "Comfort the hurt child first, then calmly redirect the child who bit with one short phrase.",
+        "Watch for antecedents: crowding, toy conflict, fatigue, teething, or overstimulation.",
+      ],
+      activities: [
+        "Teether choice routine before peer play (relevance: replaces mouthing on people)",
+        "My-space picture card + pause spot (relevance: teaches physical space without shame)",
+        "Gentle mouth sensory bin with large baby-safe items only (relevance: sensory seeking via safe materials)",
+      ],
+      observations: [
+        "Antecedent: What happened in the 30 seconds before the bite?",
+        "Behavior: Bite attempt or contact? Intensity?",
+        "Response: What did adults and peers do immediately after?",
+        "Context: Location, group size, materials, time of day?",
+        "Frequency / duration: How often today? How long until calm?",
+        "Recovery: What helped the child reset without shaming?",
+      ],
+      parentNotes: [
+        "We are watching biting patterns (when/where) and teaching safe replacements — not labeling your child.",
+        "We use short words like stop, space, and help, and we comfort any hurt child right away.",
+        "Please tell us about teething, sleep, or similar moments at home so we can stay consistent.",
+      ],
+    },
+    Throwing: {
+      why: "Throwing can be experimentation, seeking attention, needing space, or still learning how objects move — address the throw itself, not a character judgment.",
+      tips: [
+        "Name the expectation: “Toys stay low” or “Balls are for throwing outside.”",
+        "Offer a legal throw target (basket, outdoor ball) before redirecting.",
+        "Block gently if someone could be hurt, then coach the replacement.",
+      ],
+      activities: [
+        "Basket drop / soft toss station (relevance: legal object release practice)",
+        "Outdoor ball throw zone with clear boundary (relevance: same motor urge, safe place)",
+        "Heavy work carry-and-place game (relevance: channels force without airborne toys indoors)",
+      ],
+      observations: [
+        "Antecedent: Was the child seeking a reaction, testing gravity, or avoiding a task?",
+        "Behavior: What was thrown? Aimed at people or open space?",
+        "Response / recovery: Which cue or alternative stopped repeats?",
+        "Context / frequency: Indoors vs outdoors? How often in the block?",
+      ],
+      parentNotes: [
+        "We are teaching where throwing is OK (outdoor balls) and keeping indoor toys low.",
+        "We stay calm and offer a legal toss target instead of long lectures.",
+        "Share what works at home if throwing shows up there too.",
+      ],
+    },
+    "Emotional Regulation": {
+      why: "Emotional regulation grows through co-regulation, predictable routines, and practice naming feelings — not through punishment for big feelings.",
+      tips: [
+        "Stay close and keep your voice low when feelings escalate.",
+        "Offer a calm tool (breath, squeeze, quiet spot) after the child is safe.",
+        "Name the feeling in short words; avoid shaming language.",
+      ],
+      activities: [
+        "Feelings face match with caregiver narration (relevance: labels the emotion)",
+        "Calm-down basket rehearsal during peaceful times (relevance: practices tools before crisis)",
+        "First-then transition song before hard changes (relevance: reduces dysregulation at transitions)",
+      ],
+      observations: [
+        "Antecedent: Hunger, transition, peer conflict, sensory load?",
+        "Behavior: Cry, shutdown, aggression, or withdrawal?",
+        "Duration / recovery: How long until calm with support?",
+        "What co-regulation strategy helped most?",
+      ],
+      parentNotes: [
+        "We are practicing calm tools and naming feelings with short, kind words.",
+        "Big feelings are welcomed; unsafe actions are redirected.",
+        "Tell us which soothing strategies work at home so we can match them.",
+      ],
     },
     Hitting: {
       why: "Hitting can happen when a child is frustrated, excited, overstimulated, or still learning safe ways to interact.",
@@ -37217,32 +37359,62 @@ function supportTopicContent(topic = "", child = null) {
   };
   const content = { ...base, ...(overrides[topic] || {}) };
   if (!child || !isInfantChild(child)) return content;
+  const infantTopicActivities = {
+    Biting: [
+      "Cold teether offer during teething cues (relevance: mouthing need without biting peers)",
+      "Supported floor play with one peer and close adult shadowing (relevance: reduces crowding antecedents)",
+      "Gentle body song + pause when baby shows overload (relevance: co-regulation before mouthing escalates)",
+    ],
+    Throwing: [
+      "Large soft ball roll on the floor (relevance: object release without airborne indoor toys)",
+      "Drop toys into a wide basket while seated (relevance: legal “let go” practice)",
+      "Caregiver-assisted reach-and-give game (relevance: redirects force into turn-taking)",
+    ],
+    "Emotional Regulation": [
+      "Face-to-face calm voice and pacing (relevance: co-regulation)",
+      "Swaddle-free comfort hold or soft lap hold if preferred (relevance: safety + soothing)",
+      "Dim lights / fewer toys when overloaded (relevance: reduces sensory antecedents)",
+    ],
+    Tantrums: [
+      "Stay close, narrate feelings in short words (relevance: co-regulation)",
+      "Offer a familiar comfort object (relevance: recovery support)",
+      "Simplify the environment until calm returns (relevance: lowers load)",
+    ],
+  };
   return {
     ...content,
     tips: [
-      "Use short one-to-one play moments and follow the baby's cues.",
-      "Use only large baby-safe materials and stay within arm's reach.",
+      "Stay within arm’s reach and follow the baby's cues for this specific behavior.",
+      "Use only large baby-safe materials — no beads, scissors, tracing, or preschool fine-motor tools.",
       "Stop when the baby shows fatigue, distress, or disinterest.",
+      ...(content.tips || []).slice(0, 2),
     ],
-    activities: suggestedActivitiesForArea(area || "Approaches to Learning", child).slice(0, 3),
-    observations: [
-      "What did the baby reach for, grasp, look at, babble toward, or try again?",
-      "Which support helped the baby stay calm and engaged?",
-      "How long did the baby participate before needing a break?",
-    ],
-    parentNotes: [
-      "We are using short, safe play moments that match your baby's age and cues.",
-      "Today we watched what your baby reached for, noticed, or tried again.",
-      "Simple floor play, songs, board books, and large safe toys are best right now.",
-    ],
+    // Keep topic-specific infant activities — never swap in unrelated turn-taking songs.
+    activities: infantTopicActivities[topic]
+      || (content.activities || []).slice(0, 3),
+    observations: content.observations?.length
+      ? content.observations
+      : [
+        "Antecedent: What happened right before?",
+        "Behavior / response: What did the baby do, and what did adults do?",
+        "Recovery: What helped the baby settle?",
+      ],
+    parentNotes: content.parentNotes?.length
+      ? content.parentNotes
+      : [
+        "We are using short, safe supports matched to this behavior and your baby's age.",
+        "We watch cues carefully and stay close during busy moments.",
+        "Simple floor play, songs, board books, and large safe toys stay our baseline.",
+      ],
   };
 }
 
 function supportCenterSelectedChild(records = childRecords()) {
-  return records.children.find((child) => child.id === activeSupportChildId)
-    || records.children.find((child) => child.id === selectedChildId)
-    || records.children[0]
-    || null;
+  // Deliberate selection only — never auto-pick the first child (e.g. Lynnox).
+  if (activeSupportChildId) {
+    return records.children.find((child) => child.id === activeSupportChildId) || null;
+  }
+  return null;
 }
 
 function supportSearchResults(query = "") {
@@ -40928,9 +41100,12 @@ function renderSupportChildPicker(topic, child, records = childRecords()) {
     <label class="support-child-picker">
       <span>Personalize for child</span>
       <select id="supportCenterChildSelect">
+        <option value="" ${child ? "" : "selected"}>No child selected</option>
         ${records.children.map((item) => `<option value="${item.id}" ${child?.id === item.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
       </select>
-      ${child ? `<small>${escapeHtml(childAgeLabel(child))}${child.ageGroup ? ` | ${escapeHtml(child.ageGroup)}` : ""}${selectedSupport ? " | Connected from profile" : ""}</small>` : ""}
+      ${child
+        ? `<small>${escapeHtml(childAgeLabel(child))}${child.ageGroup ? ` | ${escapeHtml(child.ageGroup)}` : ""}${selectedSupport ? " | Connected from profile" : ""}</small>`
+        : `<small>Choose a child only when you want personalized tips.</small>`}
     </label>
   `;
 }
@@ -41036,13 +41211,17 @@ function observationAnalysis(record, child = {}) {
   const safeActivities = isInfantChild(child)
     ? generatedActivities.filter((item) => !infantUnsafeRecommendationText(item))
     : generatedActivities;
+  const rawNext = record.nextSteps || nextStepForArea(primaryArea, child);
+  const nextSteps = isInfantChild(child) && infantUnsafeRecommendationText(rawNext)
+    ? nextStepForArea(primaryArea, child)
+    : rawNext;
   return {
     categories,
     primaryArea,
     developmentArea: primaryArea,
     supportAreaMatches: supportMatches,
     strengths: record.strengths || strengthForArea(primaryArea, childName),
-    nextSteps: record.nextSteps || nextStepForArea(primaryArea, child),
+    nextSteps,
     suggestedActivities: safeActivities.length ? safeActivities : suggestedActivitiesForArea(primaryArea, child),
     suggestedLessonPlans: record.suggestedLessonPlans || suggestedLessonPlansForArea(primaryArea),
     elgDomain: record.elgDomain || elg.domain,
@@ -41153,7 +41332,9 @@ function renderWeeklyPlanningDashboard(records, stats) {
     ...stats.thisWeekObservations.map((item) => item.developmentArea || item.area),
   ].filter(Boolean))).slice(0, 3);
   const lessonPlans = (activeAreas.length ? activeAreas : ["Fine Motor"]).flatMap(suggestedLessonPlansForArea).slice(0, 5);
-  const activities = (activeAreas.length ? activeAreas : ["Fine Motor"]).flatMap(suggestedActivitiesForArea).slice(0, 6);
+  const activities = (activeAreas.length ? activeAreas : ["Fine Motor"])
+    .flatMap((area) => suggestedActivitiesForArea(area, child))
+    .slice(0, 6);
   return `
     <section class="section-block weekly-planning-dashboard">
       <div class="section-heading">
@@ -41657,7 +41838,7 @@ function renderRecommendedForChild(child, records, portfolio) {
         <span class="tag">${escapeHtml(childAge)} | ${escapeHtml(displayArea)}</span>
       </div>
       <p class="muted-copy">These matches update automatically from the child's assigned age group, active goals, recent observations, and developmental areas.</p>
-      ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Activities`, activities, areas.flatMap(suggestedActivitiesForArea).slice(0, 6))}
+      ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Activities`, activities, areas.flatMap((area) => suggestedActivitiesForArea(area, child)).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Lesson Plans`, lessonPlans, areas.flatMap(suggestedLessonPlansForArea).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Observations`, observations, areas.map((area) => `${area} observation wording`))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Resources`, extraResources, ["Parent conference notes", "Progress report", "Goal planning form"])}
@@ -42885,7 +43066,7 @@ function renderChildReportsPhotosTab(child, records, observations, goals, suppor
             <p class="muted-copy">Capture and keep classroom moments with ${escapeHtml(child.name)}.</p>
           </div>
         </div>
-        ${renderDlcPhotoSection(records)}
+        ${renderDlcPhotoSection(records, { profileChildId: child.id })}
         <div class="resource-list compact">
           ${photos.length
             ? photos.slice(-8).reverse().map((item) => simpleRecordItem(item, { storeKey: "Photos" })).join("")
@@ -43422,7 +43603,7 @@ function renderChildLessonsTab(child, records, observations, goals, differentiat
   const primaryAreas = areas.length ? areas : childRecommendationAreas(child, goals, observations);
   const recommendedLessons = childLessonRecommendations(child, records, 3);
   const lessonPlans = primaryAreas.flatMap(suggestedLessonPlansForArea).slice(0, 5);
-  const activities = primaryAreas.flatMap(suggestedActivitiesForArea).slice(0, 5);
+  const activities = primaryAreas.flatMap((area) => suggestedActivitiesForArea(area, child)).slice(0, 5);
   return `
     <section class="section-block">
       <p class="eyebrow">Lesson Plans</p>
@@ -44103,19 +44284,52 @@ function renderDlcManual(records) {
   `;
 }
 
-function renderDlcChildSelector(records) {
-  const selected = dlcGetSelectedChildren(records);
-  if (selected.length <= 1) {
-    const childId = selected[0]?.id || "";
-    return `<input type="hidden" name="childIds" value="${childId}" />`;
+function renderDlcChildSelector(records, options = {}) {
+  const opts = options && typeof options === "object" ? options : {};
+  const lockedIds = Array.isArray(opts.lockChildIds)
+    ? opts.lockChildIds.map(String).filter(Boolean)
+    : [];
+  const defaultCheckedIds = Array.isArray(opts.defaultCheckedIds)
+    ? opts.defaultCheckedIds.map(String).filter(Boolean)
+    : null;
+  const children = Array.isArray(records?.children) ? records.children : [];
+  if (lockedIds.length === 1 && children.length) {
+    const only = children.find((child) => String(child.id) === lockedIds[0]);
+    if (only && !opts.allowMultiSelect) {
+      return `<input type="hidden" name="childIds" value="${escapeHtml(only.id)}" />
+        <p class="dlc-sel-summary">Photo applies to <strong>${escapeHtml(only.name)}</strong> only. Add other children only if you intend to share with each of their families.</p>
+        ${children.length > 1 ? `
+        <fieldset class="dlc-children-select dlc-acc-children" data-dlc-photo-apply-to>
+          <legend>Also apply to (optional):</legend>
+          <div class="dlc-children-grid">
+            ${children.filter((child) => String(child.id) !== lockedIds[0]).map((child) => `
+              <label class="dlc-child-check">
+                <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" />
+                <span>${escapeHtml(child.name)}</span>
+              </label>
+            `).join("")}
+            <input type="hidden" name="childIds" value="${escapeHtml(only.id)}" />
+          </div>
+        </fieldset>` : ""}`;
+    }
   }
+  const selected = defaultCheckedIds
+    ? children.filter((child) => defaultCheckedIds.includes(String(child.id)))
+    : dlcGetSelectedChildren(records);
+  if (selected.length <= 1 && !opts.showAllChildren) {
+    const childId = selected[0]?.id || "";
+    return `<input type="hidden" name="childIds" value="${escapeHtml(childId)}" />`;
+  }
+  const checkedSet = new Set((defaultCheckedIds || selected.map((c) => String(c.id))).map(String));
+  const list = opts.showAllChildren ? children : selected;
   return `
-    <fieldset class="dlc-children-select dlc-acc-children">
+    <fieldset class="dlc-children-select dlc-acc-children" data-dlc-photo-apply-to>
       <legend>Apply to:</legend>
+      <p class="muted-copy">Only checked children receive this photo. Other families never see it by accident.</p>
       <div class="dlc-children-grid">
-        ${selected.map((child) => `
+        ${list.map((child) => `
           <label class="dlc-child-check">
-            <input type="checkbox" name="childIds" value="${child.id}" checked />
+            <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${checkedSet.has(String(child.id)) ? "checked" : ""} />
             <span>${escapeHtml(child.name)}</span>
           </label>
         `).join("")}
@@ -44129,12 +44343,12 @@ function renderDlcShareFields(defaultShared = true) {
     <fieldset class="dlc-share-fieldset">
       <legend>Visibility</legend>
       <label class="dlc-check-label">
-        <input type="radio" name="shareWithFamily" value="true" ${defaultShared ? "checked" : ""} />
-        Share with Family
-      </label>
-      <label class="dlc-check-label">
         <input type="radio" name="shareWithFamily" value="false" ${defaultShared ? "" : "checked"} />
         Internal Only
+      </label>
+      <label class="dlc-check-label">
+        <input type="radio" name="shareWithFamily" value="true" ${defaultShared ? "checked" : ""} />
+        Share with Family
       </label>
     </fieldset>
   `;
@@ -44298,10 +44512,21 @@ function renderDlcAccordionForm(sectionId, records) {
   return "";
 }
 
-function renderDlcPhotoSection(records) {
+function renderDlcPhotoSection(records, options = {}) {
+  const profileChildId = String(options.profileChildId || "").trim();
+  const selector = profileChildId
+    ? renderDlcChildSelector(records, {
+      lockChildIds: [profileChildId],
+      defaultCheckedIds: [profileChildId],
+      showAllChildren: true,
+      allowMultiSelect: true,
+    })
+    : renderDlcChildSelector(records);
+  // Profile photos default to Internal Only until the provider chooses family share.
+  const defaultShared = profileChildId ? false : true;
   return `
-    <form id="dlcPhotoForm" class="dlc-photo-section">
-      ${renderDlcChildSelector(records)}
+    <form id="dlcPhotoForm" class="dlc-photo-section" data-photo-profile-child="${escapeHtml(profileChildId)}">
+      ${selector}
       <p class="dlc-sub">Photos are optional. Upload or take a photo to include with today's log.</p>
       <div class="dlc-photo-actions">
         <label class="dlc-photo-btn">
@@ -44315,7 +44540,7 @@ function renderDlcPhotoSection(records) {
       </div>
       <label class="dlc-form-label">Caption<input name="caption" placeholder="Optional photo note or learning moment" /></label>
       <div id="dlcPhotoPreview" class="dlc-photo-preview"></div>
-      ${renderDlcShareFields(true)}
+      ${renderDlcShareFields(defaultShared)}
       <button class="primary-button" type="submit">Save Photo Entry</button>
     </form>
   `;
@@ -45849,7 +46074,7 @@ function renderChildPlanningConnections(child, records, observations, goals) {
   const activeGoals = goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
   const areas = childSupportAreas(child.id, records);
   const primaryAreas = areas.length ? areas : ["Approaches to Learning"];
-  const activities = primaryAreas.flatMap(suggestedActivitiesForArea).slice(0, 8);
+  const activities = primaryAreas.flatMap((area) => suggestedActivitiesForArea(area, child)).slice(0, 8);
   const lessonPlans = primaryAreas.flatMap(suggestedLessonPlansForArea).slice(0, 6);
   const latestObservation = observations.slice(-1)[0];
   const latestAnalysis = latestObservation ? observationAnalysis(latestObservation, child) : observationAnalysis({ text: child.activeGoals || "", area: primaryAreas[0] }, child);
@@ -45892,7 +46117,7 @@ function renderGoalSupportIdeas(child, activeGoals, observations) {
     <div class="goal-support-box">
       <strong>Suggested activities based on ${escapeHtml(child.name)}'s goals</strong>
       <p>${escapeHtml(primaryArea)} support ideas are matched to ${escapeHtml(child.ageGroup || "this child's age group")}.</p>
-      ${renderChipList(areas.flatMap(suggestedActivitiesForArea).slice(0, 8))}
+      ${renderChipList(areas.flatMap((area) => suggestedActivitiesForArea(area, child)).slice(0, 8))}
     </div>
   `;
 }
@@ -46262,7 +46487,21 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record, options = {}) {
   const items = childStore(key);
-  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
+  const next = { ...(record || {}) };
+  // Clean provider-facing documentation before it becomes a saved record.
+  if (["Communications", "Reports", "Observations"].includes(key) && !options.skipSanitize) {
+    const ageSafety = (typeof globalThis !== "undefined" && globalThis.LLHAiAgeSafety)
+      || (typeof window !== "undefined" && window.LLHAiAgeSafety)
+      || null;
+    const sanitize = ageSafety?.sanitizeProviderFacingCopy
+      || (typeof sanitizeDocHelperDraftText === "function" ? sanitizeDocHelperDraftText : (value) => String(value || ""));
+    ["message", "summary", "title", "notes", "content", "body", "preview"].forEach((field) => {
+      if (next[field] != null && String(next[field]).trim()) {
+        next[field] = sanitize(String(next[field]));
+      }
+    });
+  }
+  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...next };
   saveChildStore(key, [...items, saved]);
   if (!options.skipRender) {
     if (activePortfolioChildId) {
@@ -65462,7 +65701,8 @@ document.addEventListener("click", async (event) => {
       activeSupportCategoryId = "";
       activeSupportTopicId = "";
       activeSupportTab = "why";
-      activeSupportChildId = selectedChildId;
+      // Match Documentation Helpers: start with No child selected.
+      activeSupportChildId = "";
       supportCenterSearch = "";
     }
     const requestedChildToolTab = childToolTabFromView(viewButton.dataset.view);
@@ -68319,7 +68559,7 @@ document.addEventListener("click", async (event) => {
         forceMessage: [
           `Activity: ${activityTitle}`,
           activityId ? `Activity ID: ${activityId}` : "",
-          parentTitle ? `Parent lesson: ${parentTitle}` : "",
+          parentTitle ? `From lesson plan: ${parentTitle}` : "",
           lessonId ? `Lesson ID: ${lessonId}` : "",
           `Feedback: ${label}`,
           "",
@@ -70672,6 +70912,14 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     event.stopImmediatePropagation();
     closeAuthModal();
+    return;
+  }
+  // Close Print Center preview before closing the Teaching Kit viewer.
+  if (document.querySelector("#resourceViewerModal.open")
+    && typeof closeTeachingKitPrintPreview === "function"
+    && closeTeachingKitPrintPreview()) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     return;
   }
   if (document.querySelector("#resourceViewerModal.open")) {
@@ -74999,15 +75247,31 @@ document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#dlcPhotoForm")) return;
   event.preventDefault();
   const form = event.target;
-  const childIds = dlcGetAccordionChildIds(form);
+  const childIds = [...new Set(dlcGetAccordionChildIds(form).map(String).filter(Boolean))];
   const uploadInput = form.querySelector(".dlc-photo-file");
   const captureInput = form.querySelector(".dlc-photo-capture");
   const files = [...Array.from(uploadInput?.files || []), ...Array.from(captureInput?.files || [])];
-  if (!childIds.length || !files.length) return;
+  if (!files.length) {
+    showActionFeedback("Add a photo before saving.");
+    return;
+  }
+  if (!childIds.length) {
+    showActionFeedback("Select at least one child before saving.");
+    return;
+  }
   const data = collectFormData(form);
-  const shareWithFamily = dlcFormShareFlag(form, true);
+  const shareWithFamily = dlcFormShareFlag(form, false);
   const today = dlcActiveDate();
   const records = childRecords();
+  const names = childIds
+    .map((id) => records.children.find((child) => String(child.id) === String(id))?.name || "Child")
+    .filter(Boolean);
+  if (shareWithFamily && childIds.length > 1) {
+    const confirmed = window.confirm(
+      `Share this photo with ${childIds.length} families?\n\nSelected children:\n- ${names.join("\n- ")}\n\nEach selected child's family will be able to see this photo.`,
+    );
+    if (!confirmed) return;
+  }
   if (!isProUser()) {
     const overLimitChild = childIds.find((childId) => ((records.photos || []).filter((item) => item.childId === childId && item.date === today).length + files.length) > dailyLogPhotoLimit());
     if (overLimitChild) {
@@ -75037,6 +75301,10 @@ document.addEventListener("submit", async (event) => {
         });
       });
     });
+    showActionFeedback(shareWithFamily
+      ? `Photo saved for ${names.join(", ")} (shared with family).`
+      : `Photo saved for ${names.join(", ")} (internal only).`);
+    try { renderChildManagement(); } catch { /* ignore */ }
   } catch (error) {
     alert(error.message || "Photo could not be saved.");
   }

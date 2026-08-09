@@ -570,13 +570,14 @@ function createCommsApi(deps) {
     const email = normalizeEmail(identity.email);
     const store = ensureCommsStore(ensureMessagingStore(readStore()));
 
-    const allowAdminTypes = isAdminMemberEmail(email);
+    // Provider Messages Center matches the member bell: never surface platform-wide
+    // admin_* events here. Leah uses Admin → Notification Center for those.
     const allMine = (store.notifications || [])
       .filter((n) => normalizeEmail(n.email) === email)
       .filter((n) => {
         const type = String(n?.type || "").toLowerCase();
         const adminOnly = type.startsWith("admin_") || type === "admin_message_reply";
-        return allowAdminTypes || !adminOnly;
+        return !adminOnly;
       })
       .sort(sortNewestFirst);
     const unread = allMine.filter((n) => !n.read);

@@ -274,18 +274,18 @@ function unitPrintAndMappingChecks(plan) {
   };
   const availability = printApi.evaluatePrintPartAvailability(fakeKit);
   ok(availability.setup.count === 60, "setup count is material count");
-  ok(printApi.partCountLabel("setup", 60).includes("60 materials"), "setup count labeled as materials");
+  ok(printApi.partCountLabel("setup", 60).includes("60 setup items"), "setup count labeled as setup items");
   ok(!/\(60\)/.test(printApi.partCountLabel("setup", 60)), "setup count is not a bare (60)");
 
   const presets = [
-    ["week_binder", "Entire Binder Kit selected"],
-    ["full_weekly_plan", "Full Weekly Lesson Plan selected"],
-    ["today_pack", "Monday selected"],
-    ["activities_only", "Activities Only selected"],
-    ["one_activity", "Discovery Basket selected"],
-    ["materials_list", "Materials List selected"],
-    ["teacher_toolkit", "Teacher Toolkit selected"],
-    ["all_printables", "Printables Only selected"],
+    ["week_binder", /^Entire Binder Kit selected/],
+    ["full_weekly_plan", /^Full Weekly Lesson Plan selected$/],
+    ["today_pack", /^Monday selected$/],
+    ["activities_only", /^Activities Only selected$/],
+    ["one_activity", /^Discovery Basket selected$/],
+    ["materials_list", /^Materials List selected$/],
+    ["teacher_toolkit", /^Teacher Toolkit selected$/],
+    ["all_printables", /^Printables Only selected$/],
     ["selected_resources", null],
   ];
   for (const [presetId, expected] of presets) {
@@ -314,7 +314,10 @@ function unitPrintAndMappingChecks(plan) {
     const manifest = printApi.resolvePrintManifest(fakeKit, req, model);
     const summary = printApi.summarizePrintSelection(manifest).summary;
     if (expected) {
-      ok(summary === expected, `${presetId} summary is "${expected}" (got "${summary}")`);
+      ok(expected.test(summary), `${presetId} summary matches ${expected} (got "${summary}")`);
+      if (presetId === "week_binder") {
+        ok(/~\d+ pages/.test(summary), "week_binder summary includes estimated pages");
+      }
     } else {
       ok(!/^\d+ items? selected$/.test(summary), `${presetId} does not use opaque item-count summary (${summary})`);
     }

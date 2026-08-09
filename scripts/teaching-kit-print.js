@@ -1090,7 +1090,7 @@
     if (!Number.isFinite(n) || n <= 0) return "";
     const units = {
       cover: n === 1 ? "page" : "pages",
-      setup: n === 1 ? "material" : "materials",
+      setup: n === 1 ? "setup item" : "setup items",
       daily: n === 1 ? "day with content" : "days with content",
       activities: n === 1 ? "activity" : "activities",
       songsBooks: n === 1 ? "song/book" : "songs/books",
@@ -1104,12 +1104,55 @@
     return ` — ${n} ${unit}`;
   }
 
+  /** Lightweight page estimate for Ready-to-print copy (not a second HTML build). */
+  function estimatePrintPageCount(manifest = {}) {
+    const mode = text(manifest.documentMode || manifest.presetId || "");
+    const activities = Array.isArray(manifest.activities) ? manifest.activities.length : 0;
+    const days = Array.isArray(manifest.days) ? manifest.days.length : 0;
+    const printables = Array.isArray(manifest.printables) ? manifest.printables.length : 0;
+    const songs = Array.isArray(manifest.songs) ? manifest.songs.length : 0;
+    const books = Array.isArray(manifest.books) ? manifest.books.length : 0;
+    if (mode === "one_activity") return Math.max(1, Math.ceil(Math.max(activities, 1) / 2));
+    if (mode === "materials" || mode === "song_lyrics") return 1 + (songs ? 1 : 0);
+    if (mode === "printables" || mode === "all_printables") return Math.max(1, printables || 1);
+    if (mode === "one_day") return 2 + Math.ceil(Math.max(activities, 1) / 3);
+    // Entire binder / full weekly / toolkit-style packs
+    let pages = 1; // cover
+    pages += 1; // setup / overview
+    pages += Math.max(days, mode === "entire_binder" || mode === "full_weekly" ? 5 : days);
+    pages += Math.ceil(Math.max(activities, 0) / 2);
+    if (songs || books) pages += 1;
+    if (printables) pages += printables;
+    pages += 1; // family / observation / notes buffer
+    return Math.max(1, pages);
+  }
+
   function summarizePrintSelection(manifest) {
-    if (!manifest) return { summary: "No items selected", itemCount: 0, itemLabels: [] };
+    if (!manifest) return { summary: "No items selected", itemCount: 0, itemLabels: [], estimatedPageCount: 0, sectionLabels: [] };
+    const itemLabels = Array.isArray(manifest.itemLabels) ? manifest.itemLabels.slice() : [];
+    const include = manifest.include && typeof manifest.include === "object" ? manifest.include : {};
+    const fromParts = Object.keys(PART_LABELS)
+      .filter((key) => include[key] === true)
+      .map((key) => PART_LABELS[key]);
+    const sectionLabels = fromParts.length
+      ? fromParts
+      : Array.from(new Set(itemLabels.map((label) => text(label)).filter(Boolean)));
+    const estimatedPageCount = Number(manifest.estimatedPageCount)
+      || estimatePrintPageCount(manifest);
+    const mode = text(manifest.documentMode || "");
+    let summary = manifest.summary || "No items selected";
+    if ((mode === "entire_binder" || text(manifest.presetId) === "week_binder") && estimatedPageCount) {
+      const sections = sectionLabels.length
+        ? ` · includes ${sectionLabels.slice(0, 8).join(", ")}${sectionLabels.length > 8 ? "…" : ""}`
+        : "";
+      summary = `Entire Binder Kit selected — ~${estimatedPageCount} pages${sections}`;
+    }
     return {
-      summary: manifest.summary || "No items selected",
+      summary,
       itemCount: Number(manifest.itemCount) || 0,
-      itemLabels: Array.isArray(manifest.itemLabels) ? manifest.itemLabels.slice() : [],
+      itemLabels,
+      sectionLabels,
+      estimatedPageCount,
       canPrint: manifest.canPrint !== false && !manifest.empty,
       emptyReason: manifest.emptyReason || "",
       documentMode: manifest.documentMode || "",
@@ -2481,6 +2524,7 @@
     normalizeSelection,
     resolvePrintManifest,
     summarizePrintSelection,
+    estimatePrintPageCount,
     humanPrintScopeSummary,
     partCountLabel,
     applyManifestToModel,
