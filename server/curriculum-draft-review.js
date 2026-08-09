@@ -106,7 +106,7 @@ function createDraftReviewApi(deps) {
     }
   }
 
-  function score(plan, activities, enrichmentDraft, resources) {
+  function score(plan, activities, enrichmentDraft, resources, entry = null) {
     try {
       const qualityApi = require("../scripts/teaching-kit-quality-review.js");
       const enrichmentApi = loadEnrichmentHelpers();
@@ -129,11 +129,20 @@ function createDraftReviewApi(deps) {
           : [],
         resources: resources || [],
       });
+      const printableApprovalStatuses = entry?.resourceApprovals && typeof entry.resourceApprovals === "object"
+        ? Object.values(entry.resourceApprovals).map((row) => row?.status || "pending")
+        : null;
+      const summaryForStatus = {
+        ...(evaluated?.summary || {}),
+        hasDraftOnlyPrintables: Boolean(evaluated?.summary?.hasDraftOnlyPrintables),
+        missingPrintables: Boolean(evaluated?.summary?.missingPrintables),
+        incompleteActivities: Number(evaluated?.summary?.incompleteActivities) || 0,
+      };
       const canonical = statusApi.buildLessonStatus({
         plan,
         activities: flat,
         enrichmentDraft,
-        upgradeSummary: evaluated?.summary || null,
+        upgradeSummary: summaryForStatus,
         qualityReport: report,
       });
       // Hard rule: never advertise Publish Ready while blocked.
@@ -142,7 +151,17 @@ function createDraftReviewApi(deps) {
         ? "Needs Changes"
         : canonical.workflow;
       return {
-        scores: model.buildScores(report, { workflow, blocking: canonical.blocking, activityCount: flat.length }),
+        scores: model.buildScores(report, {
+          workflow,
+          blocking: canonical.blocking,
+          activityCount: flat.length,
+          hasDraftOnlyPrintables: summaryForStatus.hasDraftOnlyPrintables,
+          missingPrintables: summaryForStatus.missingPrintables,
+          incompleteActivities: summaryForStatus.incompleteActivities,
+          hasRejectedPrintables: Array.isArray(printableApprovalStatuses)
+            && printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(String(status || ""))),
+          printableApprovalStatuses,
+        }),
         qualityResults: {
           overallScore: report.overallScore,
           overallLabel: report.overallLabel,
@@ -586,6 +605,7 @@ function createDraftReviewApi(deps) {
       (store.siteContent.curriculum.activities || []).filter((a) => a.lessonPlanId === lessonPlanId),
       saved.enrichmentDraft,
       store.siteContent.curriculum.resources || [],
+      existingIdx >= 0 ? queue[existingIdx] : null,
     );
     const stats = model.buildStats(
       saved.enrichmentDraft,
@@ -1157,6 +1177,7 @@ function createDraftReviewApi(deps) {
           (siteContent.curriculum?.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
           enrichmentDraft,
           siteContent.curriculum?.resources || [],
+          entry,
         );
         scores = scored.scores;
         qualityResults = scored.qualityResults;
@@ -1608,6 +1629,7 @@ function createDraftReviewApi(deps) {
         (curriculum.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
         entry.enrichmentDraft || plan?.enrichmentDraft,
         curriculum.resources || [],
+        entry,
       );
       const stats = model.buildStats(
         entry.enrichmentDraft || plan?.enrichmentDraft,

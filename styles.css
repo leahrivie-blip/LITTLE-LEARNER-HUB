@@ -27157,6 +27157,19 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 }
 .tk-enrich-stepper .is-active { color: #1f6b4a; font-weight: 700; }
 .tk-enrich-stepper .is-done { color: #24312a; }
+.tk-enrich-stepper .is-active.is-blocked,
+.tk-enrich-summary-stepper .is-active.is-blocked {
+  color: #9a3412;
+  font-weight: 700;
+}
+.tk-enrich-percent-row .tag.is-danger {
+  background: rgba(154, 52, 18, 0.12);
+  color: #9a3412;
+}
+.tk-enrich-percent-row .tag.is-success {
+  background: rgba(31, 107, 74, 0.12);
+  color: #1f6b4a;
+}
 .tk-enrich-bar,
 .tk-enrich-lib-bar {
   height: 0.45rem;
@@ -27677,6 +27690,16 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   letter-spacing: 0.02em;
   color: rgba(36, 49, 42, 0.45);
   margin-bottom: 0.35rem;
+}
+.tk-enrich-summary-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(36, 49, 42, 0.45);
+  margin: 0.35rem 0 0.5rem;
 }
 .tk-enrich-summary-stepper .is-active { color: #1f6b4a; font-weight: 700; }
 .tk-enrich-summary-stepper .is-done { color: #24312a; }

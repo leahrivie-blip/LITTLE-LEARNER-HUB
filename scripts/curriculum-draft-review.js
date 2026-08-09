@@ -310,6 +310,28 @@ function buildScores(qualityReport, extras = {}) {
   if (blocksPublish && /publish\s*ready|ready for owner/i.test(workflow)) {
     workflow = "Needs Changes";
   }
+  let publishReady = !blocksPublish && String(qualityReport.publishReadiness || "").toLowerCase() === "ready";
+  let libraryStatus = blocksPublish ? "Blocked" : (extras.blocking || "No blockers");
+  try {
+    const statusApi = require("./teaching-kit-status.js");
+    if (typeof statusApi.buildPublishReadinessUi === "function") {
+      const ui = statusApi.buildPublishReadinessUi({
+        workflow,
+        blocking: libraryStatus,
+        blocksPublish,
+        publishReadiness: qualityReport.publishReadiness || "",
+        hasDraftOnlyPrintables: Boolean(extras.hasDraftOnlyPrintables),
+        hasRejectedPrintables: Boolean(extras.hasRejectedPrintables),
+        missingPrintables: Boolean(extras.missingPrintables),
+        incompleteActivities: Number(extras.incompleteActivities) || 0,
+        enrichmentFillPercent: Number(qualityReport.completionPercent) || 0,
+        printableApprovalStatuses: extras.printableApprovalStatuses || null,
+      });
+      workflow = ui.displayWorkflow || workflow;
+      publishReady = ui.publishReady === true;
+      libraryStatus = ui.libraryStatus || libraryStatus;
+    }
+  } catch { /* status module optional for older callers */ }
   return {
     structuralScore: qualityReport.completionPercent ?? qualityReport.structuralScore ?? null,
     premiumScore: qualityReport.premiumReadinessPercent ?? qualityReport.premiumScore ?? null,
@@ -317,8 +339,8 @@ function buildScores(qualityReport, extras = {}) {
     blockers: details.map((d) => d.code || d.message).filter(Boolean),
     blockerDetails: details,
     workflow,
-    libraryStatus: blocksPublish ? "Blocked" : (extras.blocking || "No blockers"),
-    publishReady: !blocksPublish && String(qualityReport.publishReadiness || "").toLowerCase() === "ready",
+    libraryStatus,
+    publishReady,
     activityCount: extras.activityCount ?? null,
     scoringMode: "evaluateTeachingKit",
     note: "Scores are diagnostic only. Hard blockers control readiness. Draft printables never count as published.",

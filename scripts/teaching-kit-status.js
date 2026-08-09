@@ -154,6 +154,161 @@
   }
 
   /**
+   * Single publish-eligibility + stepper UI model.
+   * Editor stepper / badges / Publish controls must all use this so "Publish Ready"
+   * never appears as an active or implied state while blocked.
+   */
+  function buildPublishReadinessUi({
+    workflow = "",
+    blocking = "",
+    blocksPublish = false,
+    publishReadiness = "",
+    hasDraftOnlyPrintables = false,
+    hasRejectedPrintables = false,
+    missingPrintables = false,
+    incompleteActivities = 0,
+    enrichmentFillPercent = 0,
+    printableApprovalStatuses = null,
+  } = {}) {
+    const approvals = Array.isArray(printableApprovalStatuses) ? printableApprovalStatuses : [];
+    const awaitingPrintableReview = Boolean(hasDraftOnlyPrintables)
+      || approvals.some((status) => /^(pending|awaiting|awaiting_review)$/i.test(String(status || "")));
+    const rejectedPrintable = Boolean(hasRejectedPrintables)
+      || approvals.some((status) => /^(revision_requested|rejected|needs_replacement)$/i.test(String(status || "")));
+    const incomplete = Number(incompleteActivities) > 0
+      || Number(enrichmentFillPercent) < 50;
+    const blocked = Boolean(blocksPublish)
+      || /^blocked$/i.test(String(blocking || ""))
+      || /^blocked$/i.test(String(publishReadiness || ""))
+      || awaitingPrintableReview
+      || rejectedPrintable
+      || Boolean(missingPrintables);
+
+    const published = /^published$/i.test(String(workflow || ""));
+    let publishReady = !blocked
+      && !published
+      && /^(Publish Ready|Ready for Owner Review)$/i.test(String(workflow || ""));
+
+    let displayWorkflow = String(workflow || "Legacy").trim() || "Legacy";
+    if (published) {
+      displayWorkflow = "Published";
+      publishReady = false;
+    } else if (blocked) {
+      displayWorkflow = "Needs Changes";
+      publishReady = false;
+    } else if (publishReady) {
+      displayWorkflow = /^Ready for Owner Review$/i.test(String(workflow || ""))
+        ? "Ready for Owner Review"
+        : "Publish Ready";
+    }
+
+    // Third stepper label: never say "Publish Ready" unless actually eligible.
+    // When published, chrome's third slot becomes "Published" (summary keeps a 4th step).
+    let readinessStepLabel = "Not Ready";
+    let readinessStepKind = "not_ready";
+    if (published) {
+      readinessStepLabel = "Published";
+      readinessStepKind = "published";
+    } else if (publishReady) {
+      readinessStepLabel = "Publish Ready";
+      readinessStepKind = "publish_ready";
+    } else if (awaitingPrintableReview || rejectedPrintable) {
+      readinessStepLabel = "Needs Changes";
+      readinessStepKind = "needs_changes";
+    } else if (blocked && incomplete) {
+      readinessStepLabel = "Incomplete";
+      readinessStepKind = "incomplete";
+    } else if (blocked) {
+      readinessStepLabel = "Needs Changes";
+      readinessStepKind = "needs_changes";
+    }
+
+    const activeId = published
+      ? "published"
+      : (publishReady || blocked || readinessStepKind === "needs_changes" || readinessStepKind === "incomplete"
+        ? "readiness"
+        : (Number(enrichmentFillPercent) < 25 && /^Legacy$/i.test(displayWorkflow) ? "legacy" : "in_review"));
+
+    function classFor(id, { done = false, blockedActive = false } = {}) {
+      if (activeId === id) {
+        return blockedActive ? "is-active is-blocked" : "is-active";
+      }
+      return done ? "is-done" : "";
+    }
+
+    const readinessBlockedActive = activeId === "readiness"
+      && (readinessStepKind === "needs_changes" || readinessStepKind === "incomplete" || readinessStepKind === "not_ready");
+
+    const steps = [
+      {
+        id: "legacy",
+        label: "Legacy",
+        className: classFor("legacy", { done: activeId !== "legacy" }),
+      },
+      {
+        id: "in_review",
+        label: "In Review",
+        className: classFor("in_review", {
+          done: publishReady || published || activeId === "readiness",
+        }),
+      },
+      {
+        id: "readiness",
+        // Summary keeps "Publish Ready" as the completed gate before Published.
+        label: published ? "Publish Ready" : readinessStepLabel,
+        kind: published ? "publish_ready" : readinessStepKind,
+        className: classFor("readiness", {
+          done: published,
+          blockedActive: readinessBlockedActive,
+        }),
+      },
+      {
+        id: "published",
+        label: "Published",
+        className: classFor("published"),
+      },
+    ];
+
+    // Chrome is 3 slots; when published, the final slot must say Published (not Publish Ready).
+    const chromeSteps = published
+      ? [
+        { id: "legacy", label: "Legacy", className: "is-done" },
+        { id: "in_review", label: "In Review", className: "is-done" },
+        {
+          id: "readiness",
+          label: "Published",
+          kind: "published",
+          className: "is-active",
+        },
+      ]
+      : steps.slice(0, 3);
+
+    return {
+      blocked,
+      publishReady,
+      published,
+      canPublish: publishReady === true,
+      displayWorkflow,
+      libraryStatus: blocked ? "Blocked" : (String(blocking || "").trim() || "No blockers"),
+      awaitingPrintableReview,
+      rejectedPrintable,
+      readinessStepLabel,
+      readinessStepKind,
+      steps,
+      chromeSteps,
+      summarySteps: steps,
+      renderStepperHtml(stepList) {
+        return (stepList || steps).map((step) => {
+          const readyAttr = step.id === "readiness"
+            ? ` data-publish-ready-step data-readiness-kind="${String(step.kind || "")}"`
+            : "";
+          return `<span class="${String(step.className || "").trim()}"${readyAttr}>${String(step.label || "")}</span>`;
+        }).join("");
+      },
+    };
+  }
+
+  /**
    * Compose the canonical status object used by dashboard, cards, editor, and publish dialog.
    */
   function buildLessonStatus({
@@ -213,6 +368,21 @@
       ? "Needs Changes"
       : workflow;
 
+    const publishUi = buildPublishReadinessUi({
+      workflow: safeWorkflow,
+      blocking,
+      blocksPublish: qualityBlocked,
+      publishReadiness,
+      hasDraftOnlyPrintables: Boolean(summary.hasDraftOnlyPrintables),
+      hasRejectedPrintables: Boolean(summary.hasRejectedPrintables),
+      missingPrintables: Boolean(summary.missingPrintables),
+      incompleteActivities: Number(summary.incompleteActivities) || 0,
+      enrichmentFillPercent,
+      printableApprovalStatuses: Array.isArray(summary.printableApprovalStatuses)
+        ? summary.printableApprovalStatuses
+        : null,
+    });
+
     return {
       content: {
         enrichmentFillPercent,
@@ -228,18 +398,21 @@
         label: qualityLabel,
       },
       readiness: summary.readinessScores || null,
-      workflow: safeWorkflow,
+      workflow: publishUi.displayWorkflow || safeWorkflow,
       blocking,
-      libraryStatus: blocking,
+      libraryStatus: publishUi.libraryStatus || blocking,
       blocksPublish: qualityBlocked,
       blockingIssues: asArray(qualityReport?.blockingIssues),
       publishReadiness,
-      primaryStatus: safeWorkflow,
+      publishReady: publishUi.publishReady === true,
+      canPublish: publishUi.canPublish === true,
+      publishUi,
+      primaryStatus: publishUi.displayWorkflow || safeWorkflow,
       // Back-compat aliases for older UI
-      dashboardStage: safeWorkflow === "Published" ? "Published"
-        : (safeWorkflow === "Publish Ready" || safeWorkflow === "Ready for Owner Review" ? "Ready"
+      dashboardStage: publishUi.published ? "Published"
+        : (publishUi.publishReady ? "Ready"
           : (safeWorkflow === "Draft Started" ? "In Progress"
-            : (safeWorkflow === "In Review" || safeWorkflow === "Needs Changes" || safeWorkflow === "AI Draft Ready" ? "Needs Review" : safeWorkflow))),
+            : (safeWorkflow === "In Review" || safeWorkflow === "Needs Changes" || safeWorkflow === "AI Draft Ready" || publishUi.blocked ? "Needs Review" : safeWorkflow))),
       completionPercent: contentCompletionPercent,
       enrichmentFillPercent,
       premiumReadinessPercent,
@@ -253,6 +426,7 @@
     measureWeekdayCoverage,
     blockingStateFromReport,
     workflowStatusFromParts,
+    buildPublishReadinessUi,
     buildLessonStatus,
     clampPercent,
   };

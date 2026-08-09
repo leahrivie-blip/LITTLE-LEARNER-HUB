@@ -606,10 +606,13 @@
       render();
       return false;
     }
+    const approvals = state.detail?.entry?.resourceApprovals || state.detail?.resourceApprovals || {};
+    const printableApprovalStatuses = Object.values(approvals).map((row) => row?.status || "pending");
     const opened = global.LLHTeachingKitEnrichmentEditor.open(lessonPlanId, {
       ownerDraftReview: true,
       draftReviewId,
       returnToQueue: true,
+      printableApprovalStatuses,
       ...options,
     });
     if (opened === false) {

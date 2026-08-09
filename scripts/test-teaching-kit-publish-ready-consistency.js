@@ -364,6 +364,89 @@ function runUnitCases() {
   });
   ok(forced === "Needs Changes", "Publish Ready impossible while qualityBlocked");
 
+  // Shared stepper / badge eligibility model — states cannot disagree
+  const blockedUi = statusApi.buildPublishReadinessUi({
+    workflow: "Publish Ready",
+    blocking: "Blocked",
+    blocksPublish: true,
+    publishReadiness: "blocked",
+    hasDraftOnlyPrintables: true,
+    incompleteActivities: 2,
+    enrichmentFillPercent: 80,
+  });
+  ok(blockedUi.publishReady === false, "blocked ui: not publishReady");
+  ok(blockedUi.canPublish === false, "blocked ui: cannot publish");
+  ok(blockedUi.displayWorkflow === "Needs Changes", "blocked ui: Needs Changes label");
+  ok(blockedUi.readinessStepLabel !== "Publish Ready", "blocked ui: stepper does not say Publish Ready");
+  ok(/Needs Changes|Incomplete/i.test(blockedUi.readinessStepLabel), "blocked ui: stepper shows Needs Changes/Incomplete");
+  ok(blockedUi.chromeSteps.some((s) => s.id === "readiness" && /is-blocked/.test(s.className)), "blocked ui: readiness step marked blocked");
+
+  const needsChangesUi = statusApi.buildPublishReadinessUi({
+    workflow: "Needs Changes",
+    blocking: "Blocked",
+    blocksPublish: true,
+    publishReadiness: "blocked",
+    incompleteActivities: 0,
+    enrichmentFillPercent: 70,
+  });
+  ok(needsChangesUi.publishReady === false, "needs changes: not publishReady");
+  ok(needsChangesUi.displayWorkflow === "Needs Changes", "needs changes: display Needs Changes");
+  ok(needsChangesUi.readinessStepLabel === "Needs Changes", "needs changes: stepper Needs Changes");
+
+  const awaitingPrintableUi = statusApi.buildPublishReadinessUi({
+    workflow: "In Review",
+    blocking: "Blocked",
+    blocksPublish: true,
+    hasDraftOnlyPrintables: true,
+    printableApprovalStatuses: ["pending"],
+    enrichmentFillPercent: 90,
+  });
+  ok(awaitingPrintableUi.publishReady === false, "awaiting printable: not publishReady");
+  ok(awaitingPrintableUi.awaitingPrintableReview === true, "awaiting printable: flagged");
+  ok(awaitingPrintableUi.readinessStepLabel !== "Publish Ready", "awaiting printable: stepper not Publish Ready");
+
+  const rejectedPrintableUi = statusApi.buildPublishReadinessUi({
+    workflow: "In Review",
+    blocking: "Blocked",
+    blocksPublish: true,
+    hasRejectedPrintables: true,
+    printableApprovalStatuses: ["revision_requested"],
+    enrichmentFillPercent: 90,
+  });
+  ok(rejectedPrintableUi.publishReady === false, "rejected printable: not publishReady");
+  ok(rejectedPrintableUi.rejectedPrintable === true, "rejected printable: flagged");
+  ok(rejectedPrintableUi.readinessStepLabel === "Needs Changes", "rejected printable: Needs Changes step");
+
+  const readyUi = statusApi.buildPublishReadinessUi({
+    workflow: "Publish Ready",
+    blocking: "No blockers",
+    blocksPublish: false,
+    publishReadiness: "ready",
+    hasDraftOnlyPrintables: false,
+    incompleteActivities: 0,
+    enrichmentFillPercent: 95,
+  });
+  ok(readyUi.publishReady === true, "ready ui: publishReady");
+  ok(readyUi.canPublish === true, "ready ui: canPublish");
+  ok(readyUi.readinessStepLabel === "Publish Ready", "ready ui: stepper Publish Ready");
+  ok(readyUi.displayWorkflow === "Publish Ready", "ready ui: display Publish Ready");
+
+  const publishedUi = statusApi.buildPublishReadinessUi({
+    workflow: "Published",
+    blocking: "No blockers",
+    blocksPublish: false,
+    publishReadiness: "ready",
+    enrichmentFillPercent: 100,
+  });
+  ok(publishedUi.published === true, "published ui: published");
+  ok(publishedUi.publishReady === false, "published ui: not still publishReady");
+  ok(publishedUi.canPublish === false, "published ui: cannot publish again");
+  ok(publishedUi.displayWorkflow === "Published", "published ui: display Published");
+  ok(publishedUi.readinessStepLabel === "Published", "published ui: readiness label Published");
+  ok(publishedUi.chromeSteps.some((s) => s.id === "readiness" && s.label === "Published" && /is-active/.test(s.className)), "published ui: chrome shows Published");
+  ok(publishedUi.summarySteps.some((s) => s.id === "published" && /is-active/.test(s.className)), "published ui: Published step active");
+  ok(!publishedUi.chromeSteps.some((s) => s.label === "Publish Ready"), "published ui: chrome does not say Publish Ready");
+
   // Plain-language blockers list present
   ok(
     (draftEval.blockingIssues || []).every((b) => String(b.message || "").length > 8),
@@ -569,9 +652,13 @@ async function browserProof(ownerToken) {
       );
       const workflow = document.querySelector("[data-workflow-status-chrome]")?.textContent || "";
       const library = document.querySelector("[data-library-status-chrome]")?.textContent || "";
-      const publishStepActive = document.querySelector("[data-publish-ready-step]")?.classList.contains("is-active");
+      const publishStep = document.querySelector("[data-publish-ready-step]");
+      const publishStepLabel = publishStep?.textContent?.trim() || "";
+      const publishStepActive = Boolean(publishStep?.classList.contains("is-active"));
+      const publishStepBlocked = Boolean(publishStep?.classList.contains("is-blocked"));
+      const publishBtn = document.querySelector("[data-enrich-publish]");
       // Open publish dialog
-      document.querySelector("[data-enrich-publish]")?.click();
+      publishBtn?.click();
       await new Promise((r) => setTimeout(r, 200));
       const blockerLis = [...document.querySelectorAll("[data-publish-blocker-list] li")].map((li) => li.textContent.trim());
       const readiness = document.querySelector("[data-publish-readiness-label]")?.textContent || "";
@@ -580,7 +667,11 @@ async function browserProof(ownerToken) {
         evaluatedBlocking: evaluated.blocking,
         chromeWorkflow: workflow,
         chromeLibrary: library,
-        publishStepActive: Boolean(publishStepActive),
+        publishStepLabel,
+        publishStepActive,
+        publishStepBlocked,
+        publishBtnText: publishBtn?.textContent?.trim() || "",
+        canPublishAttr: publishBtn?.getAttribute("data-can-publish") || "",
         blockerLis,
         readiness,
         blocksPublish: evaluated.blocksPublish,
@@ -597,7 +688,12 @@ async function browserProof(ownerToken) {
     ok(result.blocksPublish === true, "browser evaluation blocks");
     ok(result.evaluatedWorkflow !== "Publish Ready", "browser workflow not Publish Ready");
     ok(/Blocked/i.test(result.chromeLibrary), `chrome library Blocked (got ${result.chromeLibrary})`);
-    ok(result.publishStepActive === false, "Publish Ready step not active while Blocked");
+    ok(!/Publish Ready/i.test(result.chromeWorkflow), `chrome workflow not Publish Ready (got ${result.chromeWorkflow})`);
+    ok(result.publishStepLabel !== "Publish Ready", `stepper label not Publish Ready (got ${result.publishStepLabel})`);
+    ok(/Needs Changes|Incomplete|Not Ready/i.test(result.publishStepLabel), `stepper shows blocked state (got ${result.publishStepLabel})`);
+    ok(result.publishStepBlocked === true || !/Publish Ready/i.test(result.publishStepLabel), "blocked stepper marked is-blocked or relabeled");
+    ok(result.canPublishAttr === "false", "Publish button data-can-publish=false while blocked");
+    ok(/blocked/i.test(result.publishBtnText), `Publish button text reflects blocked (got ${result.publishBtnText})`);
     ok(result.blockerLis.length > 0, "publish dialog lists blockers");
     ok(result.blockerLis.every((m) => m.length > 8), "blocker messages plain language");
     ok(/Blocked/i.test(result.readiness), `publish readiness Blocked (got ${result.readiness})`);

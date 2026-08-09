@@ -21,6 +21,8 @@
     ownerDraftReview: false,
     draftReviewId: "",
     draftReviewReturn: false,
+    printableApprovalStatuses: null,
+    printableRejected: false,
     mode: "activities", // activities | week | preview
     activityIndex: 0,
     dayFilter: "all",
@@ -174,6 +176,64 @@
       premiumReadinessPercent: report?.premiumReadinessPercent ?? summary?.premiumReadinessPercent,
       completionPercent: report?.completionPercent ?? summary?.completionPercent,
       blockingIssues: report?.blockingIssues || [],
+    };
+  }
+
+  function statusApi() {
+    return global.LLHTeachingKitStatus || null;
+  }
+
+  /** Canonical publish eligibility for stepper, badges, and Publish controls. */
+  function publishReadinessUi(evaluated) {
+    const summary = evaluated?.summary || {};
+    const build = statusApi()?.buildPublishReadinessUi;
+    const input = {
+      workflow: evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage || "",
+      blocking: evaluated?.blocking || summary.libraryStatus || summary.blocking || "",
+      blocksPublish: Boolean(evaluated?.blocksPublish || evaluated?.report?.blocksPublish || summary.blocksPublish),
+      publishReadiness: evaluated?.publishReadiness || evaluated?.report?.publishReadiness || "",
+      hasDraftOnlyPrintables: Boolean(summary.hasDraftOnlyPrintables),
+      missingPrintables: Boolean(summary.missingPrintables),
+      incompleteActivities: Number(summary.incompleteActivities) || 0,
+      enrichmentFillPercent: Number(
+        evaluated?.completionPercent ?? summary.enrichmentFillPercent ?? summary.completionPercent,
+      ) || 0,
+      hasRejectedPrintables: Boolean(state.printableRejected || summary.hasRejectedPrintables),
+      printableApprovalStatuses: Array.isArray(state.printableApprovalStatuses)
+        ? state.printableApprovalStatuses
+        : null,
+    };
+    if (typeof build === "function") return build(input);
+    // Minimal fallback if status module missing — never imply Publish Ready while blocked.
+    const blocked = Boolean(input.blocksPublish) || /^blocked$/i.test(String(input.blocking || ""));
+    const publishReady = !blocked && /^(Publish Ready|Ready for Owner Review)$/i.test(String(input.workflow || ""));
+    return {
+      blocked,
+      publishReady,
+      published: /^published$/i.test(String(input.workflow || "")),
+      canPublish: publishReady,
+      displayWorkflow: blocked ? "Needs Changes" : (input.workflow || "Legacy"),
+      libraryStatus: blocked ? "Blocked" : (input.blocking || "No blockers"),
+      readinessStepLabel: publishReady ? "Publish Ready" : (blocked ? "Needs Changes" : "Not Ready"),
+      chromeSteps: [
+        { id: "legacy", label: "Legacy", className: "is-done" },
+        { id: "in_review", label: "In Review", className: blocked || publishReady ? "is-done" : "is-active" },
+        {
+          id: "readiness",
+          label: publishReady ? "Publish Ready" : (blocked ? "Needs Changes" : "Not Ready"),
+          kind: publishReady ? "publish_ready" : (blocked ? "needs_changes" : "not_ready"),
+          className: publishReady ? "is-active" : (blocked ? "is-active is-blocked" : ""),
+        },
+      ],
+      summarySteps: null,
+      renderStepperHtml(steps) {
+        return (steps || []).map((step) => {
+          const readyAttr = step.id === "readiness"
+            ? ` data-publish-ready-step data-readiness-kind="${String(step.kind || "")}"`
+            : "";
+          return `<span class="${String(step.className || "").trim()}"${readyAttr}>${esc(step.label || "")}</span>`;
+        }).join("");
+      },
     };
   }
 
@@ -1084,6 +1144,12 @@
     state.ownerDraftReview = ownerDraftReview === true;
     state.draftReviewId = String(options.draftReviewId || "").trim();
     state.draftReviewReturn = Boolean(options.returnToQueue);
+    state.printableApprovalStatuses = Array.isArray(options.printableApprovalStatuses)
+      ? options.printableApprovalStatuses.map((status) => String(status || "").trim()).filter(Boolean)
+      : null;
+    state.printableRejected = Boolean(options.printableRejected)
+      || (Array.isArray(state.printableApprovalStatuses)
+        && state.printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(status)));
     state.mode = "activities";
     state.dayFilter = "all";
     state.jumpOpen = false;
@@ -1188,6 +1254,8 @@
     state.ownerDraftReview = false;
     state.draftReviewId = "";
     state.draftReviewReturn = false;
+    state.printableApprovalStatuses = null;
+    state.printableRejected = false;
     document.body.classList.remove("tk-enrich-open");
     window.removeEventListener("beforeunload", onBeforeUnload);
     revokeDraftMediaBlobs();
@@ -1621,9 +1689,18 @@
     const evaluated = evaluateCurrentKit();
     const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
     const scores = summary.readinessScores || {};
-    const workflow = evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage || summary.completenessLabel;
-    const libraryStatus = evaluated?.blocking || summary.libraryStatus || summary.blocking || "No blockers";
-    const publishReadyActive = workflow === "Publish Ready" && libraryStatus !== "Blocked" && !summary.blocksPublish;
+    const readinessUi = publishReadinessUi(evaluated);
+    const workflow = readinessUi.displayWorkflow
+      || evaluated?.workflow
+      || summary.canonicalStatus?.workflow
+      || summary.dashboardStage
+      || summary.completenessLabel;
+    const libraryStatus = readinessUi.libraryStatus
+      || evaluated?.blocking
+      || summary.libraryStatus
+      || summary.blocking
+      || "No blockers";
+    const publishReadyActive = readinessUi.publishReady === true;
     const rows = [
       ["incomplete", "Incomplete / In Progress activities", String(summary.incompleteActivities), summary.incompleteActivities > 0],
       ["setup", "Missing setup photos (real images)", String(summary.missingSetupPhotos), summary.missingSetupPhotos > 0],
@@ -1665,11 +1742,8 @@
             <div><span>Print</span><strong>${scores.printReadiness ?? "—"}%</strong></div>
             <div><span>Premium readiness</span><strong data-premium-readiness>${premium}%</strong></div>
           </div>
-          <div class="tk-enrich-summary-stepper" aria-hidden="true">
-            <span class="${/Legacy/i.test(workflow) ? "is-active" : "is-done"}">Legacy</span>
-            <span class="${/Draft Started|AI Draft|In Review|Needs Changes|In Progress|Needs Review/i.test(workflow) ? "is-active" : (structural >= 50 && !publishReadyActive ? "is-done" : "")}">In Review</span>
-            <span class="${publishReadyActive ? "is-active" : ""}" data-publish-ready-step>Publish Ready</span>
-            <span class="${/Published/i.test(workflow) ? "is-active" : ""}">Published</span>
+          <div class="tk-enrich-summary-stepper" aria-label="Teaching Kit readiness steps">
+            ${readinessUi.renderStepperHtml(readinessUi.summarySteps || readinessUi.chromeSteps)}
           </div>
           <div class="tk-enrich-bar" aria-hidden="true" title="Premium readiness"><i style="width:${premium}%"></i></div>
           <dl class="tk-enrich-summary-list">
@@ -1710,10 +1784,20 @@
     const evaluated = evaluateCurrentKit();
     const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
     const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? 0;
-    const workflow = evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage || label;
-    const libraryStatus = evaluated?.blocking || summary.libraryStatus || summary.blocking || "No blockers";
-    const blocked = Boolean(evaluated?.blocksPublish || state.qualityReport?.blocksPublish || libraryStatus === "Blocked");
-    const publishReadyActive = workflow === "Publish Ready" && !blocked && libraryStatus !== "Blocked";
+    const readinessUi = publishReadinessUi(evaluated);
+    const workflow = readinessUi.displayWorkflow
+      || evaluated?.workflow
+      || summary.canonicalStatus?.workflow
+      || summary.dashboardStage
+      || label;
+    const libraryStatus = readinessUi.libraryStatus
+      || evaluated?.blocking
+      || summary.libraryStatus
+      || summary.blocking
+      || "No blockers";
+    const blocked = readinessUi.blocked
+      || Boolean(evaluated?.blocksPublish || state.qualityReport?.blocksPublish || libraryStatus === "Blocked");
+    const publishReadyActive = readinessUi.publishReady === true;
     if (evaluated?.report) state.qualityReport = evaluated.report;
     return `
       <header class="tk-enrich-chrome">
@@ -1724,16 +1808,14 @@
             <span class="tk-enrich-chrome-title">${esc(plan.title || "Lesson")}</span>
           </div>
           <div class="tk-enrich-progress-block">
-            <div class="tk-enrich-stepper">
-              <span class="${percent < 50 ? "is-active" : "is-done"}">Legacy</span>
-              <span class="${!publishReadyActive && (percent >= 50 || /In Review|Needs Changes|Draft/i.test(workflow)) ? "is-active" : (publishReadyActive ? "is-done" : "")}">In Review</span>
-              <span class="${publishReadyActive ? "is-active" : ""}" data-publish-ready-step>Publish Ready</span>
+            <div class="tk-enrich-stepper" aria-label="Teaching Kit readiness steps">
+              ${readinessUi.renderStepperHtml(readinessUi.chromeSteps)}
             </div>
             <div class="tk-enrich-percent-row">
               <strong title="Structural completion (field fill)">Completion ${percent}%</strong>
               <span class="muted-copy" data-premium-readiness-chrome title="Premium Teaching Kit readiness">Readiness ${premium}%</span>
               <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${premium}%"></i></div>
-              <span class="tag" data-workflow-status-chrome>${esc(workflow)}</span>
+              <span class="tag ${blocked ? "is-danger" : (publishReadyActive ? "is-success" : "")}" data-workflow-status-chrome data-publish-ready="${publishReadyActive ? "true" : "false"}">${esc(workflow)}</span>
               <span class="tag ${libraryStatus === "Blocked" ? "is-danger" : ""}" data-library-status-chrome title="Same Library Health status">Library ${esc(libraryStatus)}</span>
             </div>
           </div>
@@ -1741,7 +1823,7 @@
             <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
-            <button type="button" class="primary-button" data-enrich-publish ${blocked ? "title=\"Resolve hard blockers or use owner override\"" : ""}>Publish…</button>
+            <button type="button" class="primary-button" data-enrich-publish data-can-publish="${readinessUi.canPublish ? "true" : "false"}" ${blocked ? "title=\"Not Publish Ready — resolve hard blockers or use owner override\"" : ""}>${blocked ? "Publish blocked…" : "Publish…"}</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
         </div>
@@ -2379,16 +2461,29 @@
     const qualityOn = isQualityReviewFlagEnabled();
     const report = evaluated?.report || state.qualityReport;
     if (report) state.qualityReport = report;
-    const blocked = qualityOn && (evaluated?.blocksPublish || report?.blocksPublish || evaluated?.blocking === "Blocked");
+    const readinessUi = publishReadinessUi(evaluated);
+    const blocked = qualityOn && (
+      readinessUi.blocked
+      || evaluated?.blocksPublish
+      || report?.blocksPublish
+      || evaluated?.blocking === "Blocked"
+    );
     const readiness = report?.publishReadinessLabel
-      || (blocked ? "Blocked" : (report?.publishReadiness === "ready" ? "Ready" : "Needs Review"));
+      || (blocked ? "Blocked" : (readinessUi.publishReady || report?.publishReadiness === "ready" ? "Ready" : "Needs Review"));
     const acceptedAi = Number(state.draft?.acceptedAiSuggestionCount || state._acceptedAiCount || 0);
     const manualEdits = Number(state.draft?.manualEditCount || (state.dirty ? 1 : 0));
     const warningCount = (report?.warnings || []).length;
     const blockers = report?.blockingIssues || evaluated?.blockingIssues || [];
     const blockerCount = blockers.length;
-    const workflow = evaluated?.workflow || upgrade.canonicalStatus?.workflow || upgrade.dashboardStage || "—";
-    const libraryStatus = evaluated?.blocking || upgrade.libraryStatus || (blocked ? "Blocked" : "No blockers");
+    const workflow = readinessUi.displayWorkflow
+      || evaluated?.workflow
+      || upgrade.canonicalStatus?.workflow
+      || upgrade.dashboardStage
+      || "—";
+    const libraryStatus = readinessUi.libraryStatus
+      || evaluated?.blocking
+      || upgrade.libraryStatus
+      || (blocked ? "Blocked" : "No blockers");
     return `
       <div class="tk-enrich-modal" data-publish-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-publish-title">
         <button type="button" class="tk-enrich-modal-backdrop" data-publish-cancel aria-label="Cancel publish"></button>
@@ -2866,25 +2961,60 @@
     const evaluated = evaluateCurrentKit();
     const summary = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
     const premium = evaluated?.premiumReadinessPercent ?? summary.premiumReadinessPercent ?? percent;
-    const workflow = evaluated?.workflow || summary.canonicalStatus?.workflow || summary.dashboardStage
+    const readinessUi = publishReadinessUi(evaluated);
+    const workflow = readinessUi.displayWorkflow
+      || evaluated?.workflow
+      || summary.canonicalStatus?.workflow
+      || summary.dashboardStage
       || api().completenessLabelFromPercent(percent, null);
-    const libraryStatus = evaluated?.blocking || summary.libraryStatus || summary.blocking || "No blockers";
+    const libraryStatus = readinessUi.libraryStatus
+      || evaluated?.blocking
+      || summary.libraryStatus
+      || summary.blocking
+      || "No blockers";
     percentEl.textContent = `Completion ${percent}%`;
     const readinessEl = chrome.querySelector("[data-premium-readiness-chrome]");
     if (readinessEl) readinessEl.textContent = `Readiness ${premium}%`;
     const bar = chrome.querySelector(".tk-enrich-bar i");
     if (bar) bar.style.width = `${premium}%`;
     const tag = chrome.querySelector("[data-workflow-status-chrome]");
-    if (tag) tag.textContent = workflow;
+    if (tag) {
+      tag.textContent = workflow;
+      tag.dataset.publishReady = readinessUi.publishReady ? "true" : "false";
+      tag.classList.toggle("is-danger", readinessUi.blocked);
+      tag.classList.toggle("is-success", readinessUi.publishReady);
+    }
     const libraryTag = chrome.querySelector("[data-library-status-chrome]");
-    if (libraryTag) libraryTag.textContent = `Library ${libraryStatus}`;
-    const publishStep = chrome.querySelector("[data-publish-ready-step]");
-    if (publishStep) {
-      const ready = workflow === "Publish Ready" && libraryStatus !== "Blocked";
-      publishStep.classList.toggle("is-active", ready);
+    if (libraryTag) {
+      libraryTag.textContent = `Library ${libraryStatus}`;
+      libraryTag.classList.toggle("is-danger", libraryStatus === "Blocked");
+    }
+    const stepper = chrome.querySelector(".tk-enrich-stepper");
+    if (stepper && typeof readinessUi.renderStepperHtml === "function") {
+      stepper.innerHTML = readinessUi.renderStepperHtml(readinessUi.chromeSteps);
+    } else {
+      const publishStep = chrome.querySelector("[data-publish-ready-step]");
+      if (publishStep) {
+        publishStep.textContent = readinessUi.readinessStepLabel || (readinessUi.publishReady ? "Publish Ready" : "Needs Changes");
+        publishStep.classList.toggle("is-active", readinessUi.publishReady || readinessUi.blocked);
+        publishStep.classList.toggle("is-blocked", readinessUi.blocked && !readinessUi.publishReady);
+        publishStep.dataset.readinessKind = readinessUi.readinessStepKind || "";
+      }
+    }
+    const publishBtn = chrome.querySelector("[data-enrich-publish]");
+    if (publishBtn) {
+      publishBtn.dataset.canPublish = readinessUi.canPublish ? "true" : "false";
+      publishBtn.textContent = readinessUi.blocked ? "Publish blocked…" : "Publish…";
+      publishBtn.title = readinessUi.blocked
+        ? "Not Publish Ready — resolve hard blockers or use owner override"
+        : "Publish enrichment for this lesson";
     }
     const summaryPct = document.querySelector("[data-upgrade-summary] .tk-enrich-bar i");
     if (summaryPct) summaryPct.style.width = `${premium}%`;
+    const summaryStepper = document.querySelector(".tk-enrich-summary-stepper");
+    if (summaryStepper && typeof readinessUi.renderStepperHtml === "function") {
+      summaryStepper.innerHTML = readinessUi.renderStepperHtml(readinessUi.summarySteps || readinessUi.chromeSteps);
+    }
   }
 
   function navigateToEnrichmentTarget(target) {
