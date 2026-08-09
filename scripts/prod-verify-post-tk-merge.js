@@ -32,7 +32,14 @@ async function waitForLiveCommit(expectedPrefix, timeoutMs = 120000) {
       const json = await res.json();
       // health may not include commit; probe cache-busted script presence instead
       const html = await fetch(`${BASE}/?_=${Date.now()}`).then((r) => r.text());
-      if (html.includes("tk-binder-pdf-fix-r2") || html.includes("tk-binder-pdf-fix-r1") || html.includes("20260809-tk-binder-pdf-fix")) {
+      if (
+        html.includes("tk-binder-pdf-fix-r5")
+        || html.includes("tk-binder-pdf-fix-r4")
+        || html.includes("tk-binder-pdf-fix-r3")
+        || html.includes("tk-binder-pdf-fix-r2")
+        || html.includes("tk-binder-pdf-fix-r1")
+        || html.includes("20260809-tk-binder-pdf-fix")
+      ) {
         return true;
       }
     } catch (_err) { /* retry */ }
@@ -336,7 +343,11 @@ async function main() {
       await page.screenshot({ path: path.join(ARTIFACT, "07-after-download.png"), fullPage: false });
 
       const statusAfter = await page.locator("[data-tk-download-status]").innerText().catch(() => "");
-      record("Post-download status visible", /Download started|failed|Preparing/i.test(statusAfter) || Boolean(download), statusAfter.slice(0, 160));
+      record(
+        "Post-download status visible",
+        /Download started|failed|Preparing|could not|try again|No binder pages/i.test(statusAfter) || Boolean(download),
+        statusAfter.slice(0, 160),
+      );
 
       // Open Digital Binder
       const binderBtn = page.locator('[data-tk-goto="binder"]').or(page.getByRole("button", { name: /Open Digital Binder/i })).first();

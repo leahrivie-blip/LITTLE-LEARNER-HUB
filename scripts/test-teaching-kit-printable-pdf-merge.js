@@ -427,6 +427,31 @@ async function runCases() {
 }
 
 async function main() {
+  console.log("0) Relative media URL resolution");
+  {
+    ok(typeof Merge.resolveFetchableUrl === "function", "resolveFetchableUrl exported");
+    ok(
+      Merge.resolveFetchableUrl("https://example.com/a.pdf") === "https://example.com/a.pdf",
+      "absolute https URLs unchanged",
+    );
+    ok(
+      Merge.resolveFetchableUrl("data:application/pdf;base64,abc") === "data:application/pdf;base64,abc",
+      "data URLs unchanged",
+    );
+    const prevLocation = globalThis.location;
+    globalThis.location = { origin: "https://littlelearnershubbyleah.com" };
+    try {
+      ok(
+        Merge.resolveFetchableUrl("/api/media/curriculum-resources/x")
+          === "https://littlelearnershubbyleah.com/api/media/curriculum-resources/x",
+        "site-relative media paths resolve against origin",
+      );
+    } finally {
+      if (prevLocation === undefined) delete globalThis.location;
+      else globalThis.location = prevLocation;
+    }
+  }
+
   await runCases();
   // Copy artifacts out
   for (const file of fs.readdirSync(ARTIFACT)) {

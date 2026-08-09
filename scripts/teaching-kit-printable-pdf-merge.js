@@ -56,16 +56,33 @@
     return null;
   }
 
+  function resolveFetchableUrl(source) {
+    const ref = text(source);
+    if (!ref) return "";
+    if (/^data:/i.test(ref) || /^https?:\/\//i.test(ref) || /^blob:/i.test(ref)) return ref;
+    // Browser merges often receive site-relative media paths from curriculum resources.
+    if (
+      ref.startsWith("/")
+      && typeof globalThis !== "undefined"
+      && globalThis.location
+      && globalThis.location.origin
+    ) {
+      return `${globalThis.location.origin}${ref}`;
+    }
+    return ref;
+  }
+
   async function defaultFetchBytes(source) {
     const ref = text(source);
     if (!ref) return null;
     if (/^data:/i.test(ref)) return dataUrlToBytes(ref);
-    if (typeof fetch === "function" && /^https?:\/\//i.test(ref)) {
-      const res = await fetch(ref);
+    const href = resolveFetchableUrl(ref);
+    if (typeof fetch === "function" && (/^https?:\/\//i.test(href) || /^blob:/i.test(href))) {
+      const res = await fetch(href, { credentials: "include" });
       if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
       return new Uint8Array(await res.arrayBuffer());
     }
-    if (typeof require === "function" && !/^https?:\/\//i.test(ref)) {
+    if (typeof require === "function" && !/^https?:\/\//i.test(ref) && !ref.startsWith("/")) {
       try {
         const fs = require("fs");
         if (fs.existsSync(ref)) return new Uint8Array(fs.readFileSync(ref));
@@ -358,5 +375,6 @@
     isPdfBytes,
     dataUrlToBytes,
     defaultFetchBytes,
+    resolveFetchableUrl,
   };
 });
