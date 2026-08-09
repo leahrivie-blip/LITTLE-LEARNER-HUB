@@ -76549,8 +76549,11 @@ async function initializeAppView(options = {}) {
       if (runId !== appBootRunId) return;
       markAppBootReady();
     } else {
-      // Parents open Family Hub via magic link without a provider login — still show the accept panel.
+      // Parents / invited testers open magic links without a provider login —
+      // still show the accept / setup panels on the testing host.
       await withBootVerificationTimeout("Family Hub invite", () => maybeHandleFamilyHubInviteFromUrl()).catch(() => {});
+      await withBootVerificationTimeout("Tester invite", () => maybeHandleHdhTesterInviteFromUrl()).catch(() => {});
+      await withBootVerificationTimeout("Staff invite", () => maybeHandleStaffInviteFromUrl()).catch(() => {});
       if (runId !== appBootRunId) return;
       if (!document.body.classList.contains("app-boot-ready")) {
         markAppBootReady();
