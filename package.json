@@ -390,6 +390,7 @@
     "test:teaching-kit-real-print-validation": "NODE_ENV=test node scripts/test-teaching-kit-real-print-validation.js",
     "test:teaching-kit-print-final-verify": "NODE_ENV=test node scripts/test-teaching-kit-print-final-verify.js",
     "test:curriculum-draft-review": "NODE_ENV=test node scripts/test-curriculum-draft-review.js",
+    "test:draft-review-owner-workflow": "NODE_ENV=test node scripts/test-draft-review-owner-workflow.js",
     "validate:curriculum-gold": "NODE_ENV=test node scripts/llh-curriculum-gold-standard.js"
   },
   "devDependencies": {

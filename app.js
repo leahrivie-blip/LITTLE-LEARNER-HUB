@@ -12101,7 +12101,11 @@ function curriculumLessonPlanAdminCardHtml(plan) {
     ? adminLessonUpdatedLabel(summary.lastEditedDate)
     : adminLessonUpdatedLabel(plan.updatedAt);
   const editedBy = summary?.lastEditedBy ? ` by ${summary.lastEditedBy}` : "";
-  const stage = enrichment?.stage || summary?.dashboardStage || enrichment?.label || "Legacy";
+  let stage = enrichment?.stage || summary?.dashboardStage || enrichment?.label || "Legacy";
+  // Canonical rule: Publish Ready can never appear beside Library Blocked / hard blockers.
+  if (enrichment?.blocksPublish && /publish\s*ready|ready for owner/i.test(String(stage))) {
+    stage = "Needs Changes";
+  }
   const aiReady = summary?.aiReady !== false;
   return `
     <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
@@ -12122,7 +12126,7 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${isKit ? "Teaching Kit" : "Legacy"}</span>
             <span class="${coverQualityStatusTagClass(coverQuality)}">Cover: ${escapeHtml(coverQualityStatusLabel(coverQuality))}</span>
             ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status" data-workflow-status>${escapeHtml(stage)}</span>` : ""}
-            ${enrichEnabled ? `<span class="tag ${enrichment.libraryStatus === "Blocked" ? "cover-quality-needs-upgrade" : ""}" title="Library Health / publish gate" data-library-status>Library ${escapeHtml(enrichment.libraryStatus || "No blockers")}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag ${enrichment.libraryStatus === "Blocked" || enrichment.blocksPublish ? "cover-quality-needs-upgrade" : ""}" title="Library Health / publish gate" data-library-status>Library ${escapeHtml(enrichment.blocksPublish ? "Blocked" : (enrichment.libraryStatus || "No blockers"))}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Content completion (weekday coverage)">${escapeHtml(enrichment.weekdayLabel || `${enrichment.contentPercent}% content`)}</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
             ${enrichEnabled ? `<span class="tag" title="Premium Teaching Kit readiness">${Number(enrichment.premiumReadinessPercent || 0)}% readiness</span>` : ""}
@@ -54358,8 +54362,13 @@ function setAdminGroup(groupId, options = {}) {
   // Alerts lives under the Admin Home group but has its own sidebar button.
   // Clicking Admin Home must never leave Alerts stuck on screen.
   const leavingAlertsForHome = groupId === "admin-home" && adminActiveSectionTab === "admin-notifications";
+  // Content sidebar should return to Content Home from Draft Review Queue (and other Content tabs).
+  const leavingContentChildForHome = groupId === "content"
+    && adminActiveSectionTab !== "content-home"
+    && group.tabs.includes(adminActiveSectionTab);
   const stayOnCurrent = !forceDefault
     && !leavingAlertsForHome
+    && !leavingContentChildForHome
     && group.tabs.includes(adminActiveSectionTab);
   const targetTab = stayOnCurrent ? adminActiveSectionTab : group.defaultTab;
   setAdminSectionTab(targetTab);

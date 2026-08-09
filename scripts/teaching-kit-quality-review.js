@@ -145,6 +145,8 @@
     blocking = false,
     navigateTo = "",
     publishGate = "",
+    activityKey = "",
+    activityTitle = "",
   }) {
     return {
       id: `${code}-${section}`,
@@ -156,6 +158,8 @@
       suggestion,
       blocking: blocking === true || severity === "blocking",
       navigateTo: text(navigateTo),
+      activityKey: text(activityKey),
+      activityTitle: text(activityTitle),
       publishGate: text(publishGate) || (blocking || severity === "blocking" ? "hard_blocker" : "quality"),
       status: "pending", // pending | ignored | improved
       actions: ["improve_with_ai", "ignore", "edit_manually"],
@@ -296,6 +300,8 @@
         suggestion: f.suggestion,
         publishGate: f.publishGate || "quality",
         navigateTo: f.navigateTo || "",
+        activityKey: f.activityKey || "",
+        activityTitle: f.activityTitle || "",
       })),
       warnings: activeFindings
         .filter((f) => f.severity === "high" || f.severity === "medium")
@@ -824,15 +830,44 @@
         suggestion: "Mix table, movement, sensory, and dramatic-play invitations.",
       }));
     }
-    if (/choking hazard|hot glue|glass|knife|bleach|unsupervised outdoors/i.test(body)
-      || (band === "infant" && /small bead|marble|coin|button/i.test(body))) {
+    const safetyPattern = /choking hazard|hot glue|glass|knife|bleach|unsupervised outdoors/i;
+    const infantHazard = /small bead|marble|coin|button/i;
+    let safetyHit = null;
+    list.forEach((act) => {
+      if (safetyHit) return;
+      const key = text(act.id || act.itemId);
+      const patch = draftActs[key] || {};
+      const actBody = [
+        text(act.title),
+        text(act.materials),
+        text(act.setup),
+        text(act.steps),
+        text(patch.materials),
+        text(patch.setup),
+        text(patch.steps),
+        text(patch.safetyNotes),
+        asArray(patch.teacherTips).map(text).join(" "),
+      ].join(" ");
+      if (safetyPattern.test(actBody) || (band === "infant" && infantHazard.test(actBody))) {
+        safetyHit = { act, key };
+      }
+    });
+    if (!safetyHit && (safetyPattern.test(body) || (band === "infant" && infantHazard.test(body)))) {
+      safetyHit = { act: null, key: "" };
+    }
+    if (safetyHit) {
       findings.push(finding({
         code: "safety_concern",
         section: "safety",
         severity: "blocking",
         blocking: true,
-        message: "Possible safety concern for the selected age group.",
+        message: safetyHit.act
+          ? `Possible safety concern in “${text(safetyHit.act.title)}” for the selected age group.`
+          : "Possible safety concern for the selected age group.",
         suggestion: "Remove or substitute hazardous materials; note supervision requirements.",
+        navigateTo: safetyHit.key ? `activity:${safetyHit.key}` : "week:safety",
+        activityKey: safetyHit.key || "",
+        activityTitle: safetyHit.act ? text(safetyHit.act.title) : "",
       }));
     }
     if (/specialty store|must buy|expensive|laminator required|color printer only/i.test(body)) {

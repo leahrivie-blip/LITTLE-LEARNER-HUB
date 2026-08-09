@@ -18,6 +18,9 @@
   const state = {
     open: false,
     planId: "",
+    ownerDraftReview: false,
+    draftReviewId: "",
+    draftReviewReturn: false,
     mode: "activities", // activities | week | preview
     activityIndex: 0,
     dayFilter: "all",
@@ -72,7 +75,21 @@
     },
   };
 
+  function isOwnerSessionEmail() {
+    try {
+      if (typeof isTeachingKitPrintableOwnerClient === "function") {
+        return isTeachingKitPrintableOwnerClient() === true;
+      }
+      const session = typeof adminSession === "function" ? adminSession() : null;
+      return String(session?.email || "").trim().toLowerCase() === "leahivie@icloud.com";
+    } catch {
+      return false;
+    }
+  }
+
   function isEditorFlagEnabled() {
+    // Owner Draft Review may use the real editor without enabling the global store flag.
+    if (state.ownerDraftReview === true && isOwnerSessionEmail()) return true;
     const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
     if (root.LLHTeachingKit?.isTeachingKitEnrichmentEditorEnabled) {
       return root.LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled(flags) === true;
@@ -290,7 +307,8 @@
     const storeActs = typeof curriculumActivitiesForLesson === "function"
       ? curriculumActivitiesForLesson(plan.id)
       : [];
-    return enrich.flattenLessonActivities(plan, storeActs);
+    const draft = state.draft || plan?.enrichmentDraft || null;
+    return enrich.flattenLessonActivities(plan, storeActs, draft);
   }
 
   function draftKey(act) {
@@ -1031,17 +1049,41 @@
     }
   }
 
-  function open(planId) {
-    if (!isEditorFlagEnabled()) {
+  function isOwnerDraftReviewCaller(options = {}) {
+    if (options && options.ownerDraftReview === true) {
+      try {
+        if (typeof isTeachingKitPrintableOwnerClient === "function") {
+          return isTeachingKitPrintableOwnerClient() === true;
+        }
+        const session = typeof adminSession === "function" ? adminSession() : null;
+        return String(session?.email || "").trim().toLowerCase() === "leahivie@icloud.com";
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  function open(planId, options = {}) {
+    const ownerDraftReview = isOwnerDraftReviewCaller(options);
+    if (!isEditorFlagEnabled() && !ownerDraftReview) {
       if (typeof showActionFeedback === "function") {
         showActionFeedback("Enrichment Editor is disabled (feature flag off).");
       }
-      return;
+      return false;
     }
     const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(planId) : null;
-    if (!plan) return;
+    if (!plan) {
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback("Lesson not found for Draft Review.");
+      }
+      return false;
+    }
     state.open = true;
     state.planId = planId;
+    state.ownerDraftReview = ownerDraftReview === true;
+    state.draftReviewId = String(options.draftReviewId || "").trim();
+    state.draftReviewReturn = Boolean(options.returnToQueue);
     state.mode = "activities";
     state.dayFilter = "all";
     state.jumpOpen = false;
@@ -1087,6 +1129,7 @@
     requestAnimationFrame(() => {
       document.querySelector("[data-enrich-exit]")?.focus?.();
     });
+    return true;
   }
 
   function onBeforeUnload(event) {
@@ -1137,15 +1180,31 @@
       }
     }
     const returnFocus = state._focusReturn;
+    const returnToQueue = state.draftReviewReturn === true;
+    const returnDraftId = state.draftReviewId;
     state.open = false;
     state.dirty = false;
     state._focusReturn = null;
+    state.ownerDraftReview = false;
+    state.draftReviewId = "";
+    state.draftReviewReturn = false;
     document.body.classList.remove("tk-enrich-open");
     window.removeEventListener("beforeunload", onBeforeUnload);
     revokeDraftMediaBlobs();
     const el = host();
     if (el) el.innerHTML = "";
-    if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+    if (returnToQueue && typeof setAdminSectionTab === "function") {
+      setAdminSectionTab("curriculum-draft-review");
+      if (root.LLHDraftReviewQueue?.mount) {
+        Promise.resolve(root.LLHDraftReviewQueue.mount()).then(() => {
+          if (returnDraftId && typeof root.LLHDraftReviewQueue.openDetail === "function") {
+            root.LLHDraftReviewQueue.openDetail(returnDraftId);
+          } else if (root.LLHDraftReviewQueue?.render) {
+            root.LLHDraftReviewQueue.render();
+          }
+        }).catch(() => {});
+      }
+    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
     }
     if (returnFocus && typeof returnFocus.focus === "function") {
