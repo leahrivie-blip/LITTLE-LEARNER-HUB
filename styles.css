@@ -4189,6 +4189,114 @@ body.user-authenticated .view.active-view {
   overflow-x: hidden;
   max-width: 100%;
 }
+.tk-draft-pdf-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.65rem;
+  margin: 0.75rem 0 1rem;
+}
+.tk-draft-pdf-thumb {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border: 1px solid rgba(47, 74, 120, 0.18);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.tk-draft-pdf-thumb img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 8.5 / 11;
+  object-fit: contain;
+  background: #f3f5f8;
+  border-radius: 6px;
+}
+.tk-draft-pdf-thumb.is-seen {
+  border-color: rgba(46, 125, 82, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(46, 125, 82, 0.25);
+}
+.tk-draft-pdf-count {
+  margin: 0.35rem 0;
+}
+.tk-draft-pdf-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.35rem 0.75rem;
+  margin: 0.65rem 0;
+}
+.tk-draft-pdf-check {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  font-size: 0.92rem;
+}
+.tk-draft-pdf-error {
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(176, 60, 40, 0.08);
+  border: 1px solid rgba(176, 60, 40, 0.22);
+}
+.tk-draft-pdf-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(20, 28, 40, 0.88);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 0.75rem;
+}
+.tk-draft-pdf-lightbox-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+.tk-draft-pdf-lightbox-bar .ghost-button {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border-color: rgba(255,255,255,0.28);
+}
+.tk-draft-pdf-lightbox-stage {
+  overflow: auto;
+  display: grid;
+  place-items: start center;
+  padding: 0.5rem;
+}
+.tk-draft-pdf-lightbox-stage canvas {
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+.tk-draft-pdf-replace {
+  position: relative;
+  overflow: hidden;
+}
+.tk-draft-pdf-replace input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.tk-draft-pdf-gate {
+  margin-top: 0.35rem;
+}
+@media (max-width: 720px) {
+  .tk-draft-pdf-thumbs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tk-draft-pdf-lightbox-bar .form-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .tk-draft-preview-day {
   margin: 0.5rem 0;
   padding: 0.5rem 0;

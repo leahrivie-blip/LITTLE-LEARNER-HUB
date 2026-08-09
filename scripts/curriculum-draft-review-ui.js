@@ -33,6 +33,7 @@
     compare: null,
     preview: null,
     printableReview: null,
+    printableViewers: {},
     imageReview: null,
     busy: false,
     loading: false,
@@ -110,6 +111,7 @@
     state.compare = null;
     state.preview = null;
     state.printableReview = null;
+    state.printableViewers = {};
     state.imageReview = null;
     state.publishPanelOpen = false;
     state.publishConfirm = "";
@@ -311,28 +313,54 @@
   function renderPrintablePanel() {
     const rows = state.printableReview?.printables || [];
     if (!state.printableReview) return "";
+    const pdfApi = global.LLHCurriculumDraftPrintableReview;
     return `
       <section class="tk-draft-printable-panel access-notice" aria-label="Printable review">
         <div class="section-heading">
-          <div><p class="eyebrow">Printable review</p><strong>Draft PDFs</strong></div>
+          <div>
+            <p class="eyebrow">Printable review</p>
+            <strong>Every page must be visible</strong>
+            <p class="muted-copy">Complete page count, thumbnails, large preview, zoom, download, and system print. Opening the file alone does not mark a printable reviewed.</p>
+          </div>
           <button type="button" class="ghost-button" data-draft-review-close-printable>Close</button>
         </div>
-        ${rows.length ? rows.map((r) => `
-          <article class="tk-draft-printable-card">
-            <h4>${esc(r.title)}</h4>
-            <p class="muted-copy">${esc(r.type)} · ${esc(r.status)} · ${Number(r.pageCount || 0)} pages · ${esc(r.dimensions || "US Letter")}</p>
-            <p>${esc(r.printingInstructions || "No printing directions yet.")}</p>
-            <p class="muted-copy">Linked activities: ${(r.linkedActivities || []).map((a) => a.title).join(", ") || "None listed"}</p>
-            <p class="muted-copy">Approval: ${esc(r.approval?.status || "pending")}</p>
-            <div class="form-actions">
-              <button type="button" class="primary-button" data-draft-review-open-resource="${esc(r.id)}">Open PDF / pages</button>
-              <button type="button" class="ghost-button" data-draft-review-approve-printable="${esc(r.id)}">Approve printable</button>
-              <button type="button" class="ghost-button" data-draft-review-revise-printable="${esc(r.id)}">Request printable revision</button>
-            </div>
-          </article>
-        `).join("") : `<p class="muted-copy">No draft printables linked.</p>`}
+        ${rows.length ? rows.map((r) => {
+          const viewer = state.printableViewers[r.id];
+          if (pdfApi && viewer) return pdfApi.renderCard(viewer);
+          return `
+            <article class="tk-draft-printable-card">
+              <h4>${esc(r.title)}</h4>
+              <p class="muted-copy">${esc(r.type)} · ${Number(r.pageCount || 0)} pages · loading page viewer…</p>
+            </article>
+          `;
+        }).join("") : `<p class="muted-copy">No draft printables linked.</p>`}
       </section>
     `;
+  }
+
+  async function ensurePrintableViewers() {
+    const pdfApi = global.LLHCurriculumDraftPrintableReview;
+    const rows = state.printableReview?.printables || [];
+    if (!pdfApi || !rows.length) return;
+    for (const row of rows) {
+      if (!state.printableViewers[row.id]) {
+        state.printableViewers[row.id] = pdfApi.createViewerState(row);
+      } else {
+        state.printableViewers[row.id].printable = row;
+      }
+    }
+    render();
+    await Promise.all(rows.map(async (row) => {
+      const viewer = state.printableViewers[row.id];
+      if (!viewer || viewer.pdfDoc || viewer.loading || viewer.error) return;
+      await pdfApi.loadDocument(viewer);
+      if (viewer.pageCount && state.selectedId) {
+        try {
+          await pdfApi.persistProgress(api, state.selectedId, viewer);
+        } catch { /* non-blocking */ }
+      }
+    }));
+    render();
   }
 
   function renderImagePanel() {
@@ -668,14 +696,115 @@
     if (event.target.closest("[data-draft-review-printables]")) {
       await run(async () => {
         state.printableReview = await api("printable-review", { id: state.selectedId });
+        state.printableViewers = {};
         state.preview = null;
         state.imageReview = null;
       }, "Printable review loaded.");
+      await ensurePrintableViewers();
       return;
     }
     if (event.target.closest("[data-draft-review-close-printable]")) {
       state.printableReview = null;
+      state.printableViewers = {};
       render();
+      return;
+    }
+
+    const pdfApi = global.LLHCurriculumDraftPrintableReview;
+    const pdfResource = (el) => el?.getAttribute?.("data-pdf-resource") || "";
+    const viewerFor = (resourceId) => state.printableViewers[resourceId];
+
+    const openPageBtn = event.target.closest("[data-pdf-open-page]");
+    if (openPageBtn && pdfApi) {
+      const resourceId = pdfResource(openPageBtn);
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        await pdfApi.openPage(viewer, openPageBtn.getAttribute("data-pdf-open-page"));
+        render();
+        await pdfApi.paintPreviewCanvas(viewer);
+        await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+        render();
+      }
+      return;
+    }
+    if (event.target.closest("[data-pdf-close]") && pdfApi) {
+      const resourceId = pdfResource(event.target.closest("[data-pdf-close]"));
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        pdfApi.closePreview(viewer);
+        await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+        render();
+      }
+      return;
+    }
+    if (event.target.closest("[data-pdf-prev]") && pdfApi) {
+      const resourceId = pdfResource(event.target.closest("[data-pdf-prev]"));
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        await pdfApi.openPage(viewer, Math.max(1, viewer.previewPage - 1));
+        render();
+        await pdfApi.paintPreviewCanvas(viewer);
+        await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+        render();
+      }
+      return;
+    }
+    if (event.target.closest("[data-pdf-next]") && pdfApi) {
+      const resourceId = pdfResource(event.target.closest("[data-pdf-next]"));
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        await pdfApi.openPage(viewer, Math.min(viewer.pageCount, viewer.previewPage + 1));
+        render();
+        await pdfApi.paintPreviewCanvas(viewer);
+        await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+        render();
+      }
+      return;
+    }
+    if (event.target.closest("[data-pdf-zoom-in]") && pdfApi) {
+      const resourceId = pdfResource(event.target.closest("[data-pdf-zoom-in]"));
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        viewer.zoom = Math.min(2.8, (viewer.zoom || 1) + 0.2);
+        render();
+        await pdfApi.paintPreviewCanvas(viewer);
+      }
+      return;
+    }
+    if (event.target.closest("[data-pdf-zoom-out]") && pdfApi) {
+      const resourceId = pdfResource(event.target.closest("[data-pdf-zoom-out]"));
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        viewer.zoom = Math.max(0.6, (viewer.zoom || 1) - 0.2);
+        render();
+        await pdfApi.paintPreviewCanvas(viewer);
+      }
+      return;
+    }
+    const downloadBtn = event.target.closest("[data-pdf-download]");
+    if (downloadBtn && pdfApi) {
+      await pdfApi.downloadPdf(downloadBtn.getAttribute("data-pdf-download"));
+      return;
+    }
+    const printBtn = event.target.closest("[data-pdf-print]");
+    if (printBtn && pdfApi) {
+      const resourceId = printBtn.getAttribute("data-pdf-print");
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        await pdfApi.systemPrint(viewer);
+        await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+        render();
+      }
+      return;
+    }
+    const checkEl = event.target.closest("[data-pdf-check]");
+    if (checkEl) {
+      const resourceId = checkEl.getAttribute("data-pdf-resource");
+      const viewer = viewerFor(resourceId);
+      if (viewer) {
+        viewer.checklist[checkEl.getAttribute("data-pdf-check")] = Boolean(checkEl.checked);
+        await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+      }
       return;
     }
     if (event.target.closest("[data-draft-review-images]")) {
@@ -734,12 +863,24 @@
     const approvePrintable = event.target.closest("[data-draft-review-approve-printable]");
     if (approvePrintable) {
       const resourceId = approvePrintable.getAttribute("data-draft-review-approve-printable");
+      const viewer = state.printableViewers[resourceId];
+      if (viewer && pdfApi && !pdfApi.allPagesViewed(viewer)) {
+        state.message = "Inspect every page before approving this printable.";
+        state.isSuccess = false;
+        render();
+        return;
+      }
       await run(async () => {
+        if (viewer && pdfApi) {
+          await pdfApi.persistProgress(api, state.selectedId, viewer).catch(() => {});
+        }
         await api("approve-printable", { id: state.selectedId, resourceId, reviewNotes: state.reviewNotes });
         state.printableReview = await api("printable-review", { id: state.selectedId });
         await openDetail(state.selectedId);
+        state.printableReview = await api("printable-review", { id: state.selectedId });
         await refreshList();
-      }, "Printable approved.");
+      }, "Printable approved after full page inspection.");
+      ensurePrintableViewers();
       return;
     }
     const revisePrintable = event.target.closest("[data-draft-review-revise-printable]");
@@ -799,14 +940,18 @@
       return;
     }
     if (event.target.closest("[data-draft-review-rollback]")) {
-      if (!window.confirm("Roll back to the prior draft version? Published lesson stays unchanged.")) return;
+      const isPublished = state.detail?.entry?.status === "published" || state.detail?.status === "published";
+      const msg = isPublished
+        ? "Roll back this published Teaching Kit? Customer-visible enrichment, printables, images, and links return to the previous set."
+        : "Roll back to the prior draft version? Published lesson body stays unchanged.";
+      if (!window.confirm(msg)) return;
       await run(async () => {
         await api("rollback", { id: state.selectedId });
         state.selectedId = "";
         state.detail = null;
         await refreshList();
         if (typeof loadAdminSiteContent === "function") await loadAdminSiteContent().catch(() => {});
-      }, "Rolled back.");
+      }, isPublished ? "Published Teaching Kit rolled back to previous set." : "Rolled back.");
       return;
     }
     if (event.target.closest("[data-draft-review-approve]")) {
@@ -851,10 +996,33 @@
     if (event.target.matches("[data-draft-review-publish-confirm]")) state.publishConfirm = event.target.value || "";
   });
 
-  document.addEventListener("change", (event) => {
+  document.addEventListener("change", async (event) => {
     if (event.target.matches("[data-draft-review-filter]")) {
       state.filterStatus = event.target.value || "";
       render();
+      return;
+    }
+    if (event.target.matches("[data-pdf-replace-input]") && event.target.files?.[0]) {
+      const resourceId = event.target.getAttribute("data-pdf-replace-input");
+      const file = event.target.files[0];
+      await run(async () => {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error("Could not read PDF file."));
+          reader.readAsDataURL(file);
+        });
+        await api("replace-printable", {
+          id: state.selectedId,
+          resourceId,
+          fileData: dataUrl,
+          fileName: file.name,
+        });
+        delete state.printableViewers[resourceId];
+        await openDetail(state.selectedId);
+        state.printableReview = await api("printable-review", { id: state.selectedId });
+      }, "Draft PDF replaced — lesson draft preserved. Re-inspect every page.");
+      ensurePrintableViewers();
     }
   });
 

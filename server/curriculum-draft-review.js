@@ -49,6 +49,29 @@ function createDraftReviewApi(deps) {
     return model.normalizeQueue(siteContent?.curriculumDraftReviews);
   }
 
+  async function pageCountFromPdfBuffer(buffer) {
+    try {
+      const { PDFDocument } = require("pdf-lib");
+      const doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      return doc.getPageCount() || 0;
+    } catch {
+      const marker = Buffer.from(buffer).toString("latin1").match(/\/Type\s*\/Page\b/g);
+      return marker ? marker.length : 0;
+    }
+  }
+
+  function pagesComplete(approval, pageCount) {
+    const viewed = Array.isArray(approval?.pagesViewed)
+      ? approval.pagesViewed.map(Number).filter((n) => n > 0)
+      : [];
+    const count = Number(pageCount) || Number(approval?.pageCount) || 0;
+    if (!count || viewed.length < count) return false;
+    for (let i = 1; i <= count; i += 1) {
+      if (!viewed.includes(i)) return false;
+    }
+    return true;
+  }
+
   function writeQueue(store, queue, stamp) {
     store.siteContent = store.siteContent || defaultSiteContentStore();
     store.siteContent.curriculumDraftReviews = model.normalizeQueue(queue);
@@ -193,7 +216,7 @@ function createDraftReviewApi(deps) {
     return draft;
   }
 
-  function loadSeedPackage(packageId) {
+  async function loadSeedPackage(packageId) {
     const seed = model.LOCAL_SEED_PACKAGES.find((p) => p.packageId === packageId);
     if (!seed) {
       const err = new Error(`Unknown seed package: ${packageId}`);
@@ -236,11 +259,7 @@ function createDraftReviewApi(deps) {
     }
     const pdfBuffer = fs.readFileSync(pdfPath);
     let pageCount = Number(parsed.pageCount) || 0;
-    if (!pageCount) {
-      // Best-effort page count for owner printable review (no full PDF parse required).
-      const marker = Buffer.from(pdfBuffer).toString("latin1").match(/\/Type\s*\/Page\b/g);
-      pageCount = marker ? marker.length : 0;
-    }
+    if (!pageCount) pageCount = await pageCountFromPdfBuffer(pdfBuffer);
     return {
       seed,
       enrichmentDraft,
@@ -270,6 +289,8 @@ function createDraftReviewApi(deps) {
       err.status = 400;
       throw err;
     }
+    let pageCount = Number(meta.pageCount) || 0;
+    if (!pageCount && parsed.buffer) pageCount = await pageCountFromPdfBuffer(parsed.buffer);
     let pdfFields;
     if (usePostgresStore()) {
       const stored = await persistCurriculumUploadToMediaAsset({
@@ -302,7 +323,7 @@ function createDraftReviewApi(deps) {
       description: meta.description || "",
       ageGroup: meta.ageGroup || plan.age || "",
       theme: meta.theme || plan.theme || "",
-      pageCount: meta.pageCount,
+      pageCount: pageCount || meta.pageCount || existing?.pageCount || 0,
       printingInstructions: meta.printingInstructions || "",
       accessLevel: "pro",
       ...pdfFields,
@@ -675,6 +696,112 @@ function createDraftReviewApi(deps) {
     const lessonCountBefore = (curriculum.lessonPlans || []).length;
     const activityCountBefore = (curriculum.activities || []).length;
 
+    // Post-publish rollback restores the entire previous customer-visible lesson + resources.
+    if (action === "rollback" && entry.status === "published" && entry.publishSnapshot) {
+      const snap = entry.publishSnapshot;
+      const restorePublished = snap.enrichmentPublishedBefore
+        ? model.cloneJson(snap.enrichmentPublishedBefore)
+        : null;
+      const restoreDraftFromPublish = snap.enrichmentPublishedApplied
+        ? model.cloneJson(snap.enrichmentPublishedApplied)
+        : (snap.enrichmentDraftBefore ? model.cloneJson(snap.enrichmentDraftBefore) : null);
+      const restoreResourceIds = Array.isArray(snap.draftResourceIds)
+        ? snap.draftResourceIds.map(String)
+        : (entry.draftResourceIds || []);
+      const resourcesMeta = Array.isArray(snap.resourcesMeta) ? snap.resourcesMeta : [];
+      let resources = [...(curriculum.resources || [])];
+      resources = resources.map((r) => {
+        const meta = resourcesMeta.find((m) => m.id === r.id);
+        if (!meta) return r;
+        // Revert draft printables that were published with this disposable publish.
+        if (restoreResourceIds.includes(r.id) && String(meta.status || "") === "draft") {
+          return normalizedCurriculumResource({
+            ...r,
+            status: "draft",
+            publishedAt: "",
+            updatedAt: now,
+          });
+        }
+        if (meta.status && meta.status !== r.status) {
+          return normalizedCurriculumResource({
+            ...r,
+            status: meta.status,
+            publishedAt: meta.status === "published" ? (r.publishedAt || now) : "",
+            updatedAt: now,
+          });
+        }
+        return r;
+      });
+      const nextPlan = normalizedCurriculumLessonPlan({
+        ...plan,
+        enrichmentPublished: restorePublished,
+        enrichmentDraft: model.enrichmentHasContent(restoreDraftFromPublish)
+          ? { ...restoreDraftFromPublish, updatedAt: now, lastEditedBy: sessionEmail }
+          : null,
+        resourceIds: Array.isArray(snap.resourceIdsBefore) ? [...snap.resourceIdsBefore] : (plan.resourceIds || []),
+        updatedAt: plan.updatedAt,
+      });
+      curriculum = normalizedCurriculumStore({
+        ...curriculum,
+        lessonPlans: (curriculum.lessonPlans || []).map((item) => (
+          item.id === entry.lessonPlanId ? { ...nextPlan, updatedAt: plan.updatedAt } : item
+        )),
+        resources,
+        updatedAt: now,
+      });
+      if ((curriculum.lessonPlans || []).length !== lessonCountBefore
+        || (curriculum.activities || []).length !== activityCountBefore) {
+        const err = new Error("Totals changed during publish rollback.");
+        err.code = "totals_changed";
+        err.status = 500;
+        throw err;
+      }
+      const writeResult = writeSiteCurriculum(store, curriculum, { updatedAt: now });
+      if (writeResult.wipeBlocked) {
+        const err = new Error("Wipe blocked");
+        err.code = "curriculum_wipe_blocked";
+        err.status = 409;
+        throw err;
+      }
+      const saved = (store.siteContent.curriculum.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
+      const afterPub = model.publishedBodyFingerprint(saved);
+      const queue = readQueue(store.siteContent);
+      const idx = queue.findIndex((item) => item.id === entry.id);
+      const updated = model.normalizeEntry({
+        ...entry,
+        status: "rolled_back",
+        updatedAt: now,
+        enrichmentDraft: saved?.enrichmentDraft || null,
+        draftResourceIds: restoreResourceIds,
+        publishSnapshot: null,
+        resourceApprovals: {},
+        notesHistory: [
+          { at: now, by: sessionEmail, action: "rollback_publish", note: notes || "Rolled back published disposable Teaching Kit" },
+          ...(entry.notesHistory || []),
+        ].slice(0, 50),
+      });
+      if (idx >= 0) queue[idx] = updated;
+      writeQueue(store, queue, now);
+      appendEnrichmentEditorAudit(store, {
+        action: "draft_review_rollback_publish",
+        lessonPlanId: entry.lessonPlanId,
+        versionId: entry.revisionId,
+        adminEmail: sessionEmail,
+        fingerprint: afterPub,
+        note: `publish rollback ${entry.id}`,
+      });
+      await writeStoreAsync(store);
+      return {
+        entry: model.listItem(updated),
+        publishedUnchanged: beforePub === afterPub,
+        customerRestored: true,
+        previousEnrichmentPublishedRestored: true,
+        lessonCountUnchanged: true,
+        activityCountUnchanged: true,
+        siteContentUpdatedAt: store.siteContent.updatedAt,
+      };
+    }
+
     let targetState = null;
     if (action === "rollback" && Array.isArray(entry.versions) && entry.versions.length) {
       targetState = entry.versions[0];
@@ -838,7 +965,8 @@ function createDraftReviewApi(deps) {
     const store = readStore();
     const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
 
-    if (["submit", "submit-seed", "save-edited", "request-revision", "discard", "rollback", "add-notes", "mark-in-review", "approve", "publish", "approve-printable", "request-printable-revision", "ready-for-approval"].includes(action)) {
+    // record-printable-pages is intentionally omitted: page inspection persists without stamp races.
+    if (["submit", "submit-seed", "save-edited", "request-revision", "discard", "rollback", "add-notes", "mark-in-review", "approve", "publish", "approve-printable", "request-printable-revision", "replace-printable", "ready-for-approval"].includes(action)) {
       if (!tokenOk && curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
         curriculumConflictResponse(response, siteContent);
         return;
@@ -941,7 +1069,7 @@ function createDraftReviewApi(deps) {
       const batchName = normalizedShortText(body.batchName, 180) || "Phase 1 seed — Apples + All About Me";
       const results = [];
       for (const seed of model.LOCAL_SEED_PACKAGES) {
-        const packagePayload = loadSeedPackage(seed.packageId);
+        const packagePayload = await loadSeedPackage(seed.packageId);
         const live = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
         const result = await applySubmit({
           store,
@@ -976,7 +1104,7 @@ function createDraftReviewApi(deps) {
     if (action === "submit") {
       try {
         let packagePayload = null;
-        if (body.packageId) packagePayload = loadSeedPackage(String(body.packageId).toLowerCase());
+        if (body.packageId) packagePayload = await loadSeedPackage(String(body.packageId).toLowerCase());
         const result = await applySubmit({ store, siteContent, sessionEmail, body, packagePayload });
         jsonResponse(response, 200, { ok: true, action: "submit", phase: 1, autoPublished: false, ...result });
       } catch (error) {
@@ -997,7 +1125,7 @@ function createDraftReviewApi(deps) {
       return { queue, idx, entry: idx >= 0 ? queue[idx] : null };
     };
 
-    if (action === "mark-in-review" || action === "add-notes" || action === "request-revision" || action === "save-edited" || action === "approve-printable" || action === "request-printable-revision" || action === "ready-for-approval") {
+    if (action === "mark-in-review" || action === "add-notes" || action === "request-revision" || action === "save-edited" || action === "approve-printable" || action === "request-printable-revision" || action === "record-printable-pages" || action === "ready-for-approval") {
       const { queue, idx, entry } = findEntry();
       if (!entry) {
         jsonResponse(response, 404, { error: "Draft not found.", code: "not_found" });
@@ -1035,17 +1163,63 @@ function createDraftReviewApi(deps) {
         stats = model.buildStats(enrichmentDraft, draftResourceIds, siteContent.curriculum?.resources || []);
       }
 
+      if (action === "record-printable-pages") {
+        const resourceId = normalizedShortText(body.resourceId, 160);
+        if (!resourceId || !(entry.draftResourceIds || []).includes(resourceId)) {
+          jsonResponse(response, 400, { error: "Unknown draft printable.", code: "printable_not_found" });
+          return;
+        }
+        const resource = (siteContent.curriculum?.resources || []).find((r) => r.id === resourceId);
+        const pageCount = Number(body.pageCount) || Number(resource?.pageCount) || 0;
+        const pagesViewed = Array.isArray(body.pagesViewed)
+          ? [...new Set(body.pagesViewed.map(Number).filter((n) => n > 0 && (!pageCount || n <= pageCount)))]
+          : [];
+        const prev = resourceApprovals[resourceId] || { status: "pending" };
+        resourceApprovals[resourceId] = {
+          ...prev,
+          status: prev.status || "pending",
+          pageCount,
+          pagesViewed,
+          pagesComplete: pagesComplete({ pagesViewed, pageCount }, pageCount),
+          checklist: body.checklist && typeof body.checklist === "object" ? body.checklist : (prev.checklist || {}),
+          pagesUpdatedAt: now,
+          by: sessionEmail,
+        };
+        // Opening/recording pages never auto-approves.
+        if (resourceApprovals[resourceId].status === "approved" && !resourceApprovals[resourceId].pagesComplete) {
+          resourceApprovals[resourceId].status = "pending";
+        }
+      }
+
       if (action === "approve-printable" || action === "request-printable-revision") {
         const resourceId = normalizedShortText(body.resourceId, 160);
         if (!resourceId || !(entry.draftResourceIds || []).includes(resourceId)) {
           jsonResponse(response, 400, { error: "Unknown draft printable.", code: "printable_not_found" });
           return;
         }
+        if (action === "approve-printable") {
+          const resource = (siteContent.curriculum?.resources || []).find((r) => r.id === resourceId);
+          const pageCount = Number(resource?.pageCount) || Number(resourceApprovals[resourceId]?.pageCount) || 0;
+          const approval = resourceApprovals[resourceId] || {};
+          if (!pageCount || !pagesComplete(approval, pageCount)) {
+            jsonResponse(response, 400, {
+              ok: false,
+              code: "pages_not_reviewed",
+              error: "Inspect every PDF page thumbnail/preview before approving this printable. Opening the file alone is not enough.",
+              pageCount,
+              pagesViewed: approval.pagesViewed || [],
+            });
+            return;
+          }
+        }
+        const prev = resourceApprovals[resourceId] || {};
         resourceApprovals[resourceId] = {
+          ...prev,
           status: action === "approve-printable" ? "approved" : "revision_requested",
           at: now,
           by: sessionEmail,
           note: notes,
+          pagesComplete: action === "approve-printable" ? true : Boolean(prev.pagesComplete),
         };
       }
 
@@ -1083,7 +1257,12 @@ function createDraftReviewApi(deps) {
           : entry.notesHistory,
       });
       queue[idx] = updated;
-      writeQueue(store, queue, now);
+      // Page inspection must not bump siteContent.updatedAt (avoids stamp races with Approve/Publish).
+      if (action === "record-printable-pages") {
+        writeQueue(store, queue, null);
+      } else {
+        writeQueue(store, queue, now);
+      }
       await writeStoreAsync(store);
       jsonResponse(response, 200, {
         ok: true,
@@ -1093,6 +1272,96 @@ function createDraftReviewApi(deps) {
         siteContentUpdatedAt: store.siteContent.updatedAt,
         publishedUntouched: true,
       });
+      return;
+    }
+
+    if (action === "replace-printable") {
+      const { queue, idx, entry } = findEntry();
+      if (!entry) {
+        jsonResponse(response, 404, { error: "Draft not found.", code: "not_found" });
+        return;
+      }
+      const resourceId = normalizedShortText(body.resourceId, 160);
+      if (!resourceId || !(entry.draftResourceIds || []).includes(resourceId)) {
+        jsonResponse(response, 400, { error: "Unknown draft printable.", code: "printable_not_found" });
+        return;
+      }
+      const plan = (siteContent.curriculum?.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
+      if (!plan) {
+        jsonResponse(response, 404, { error: "Lesson not found.", code: "lesson_not_found" });
+        return;
+      }
+      const dataUrl = body.fileData || body.dataUrl || "";
+      const now = new Date().toISOString();
+      const existing = (siteContent.curriculum?.resources || []).find((r) => r.id === resourceId);
+      try {
+        const nextCurriculum = await upsertDraftPdf({
+          curriculum: siteContent.curriculum,
+          plan,
+          resourceId,
+          title: body.title || existing?.title || "Printable",
+          fileName: body.fileName || existing?.fileName || "printable.pdf",
+          dataUrl,
+          now,
+          meta: {
+            resourceType: existing?.resourceType,
+            description: existing?.description,
+            ageGroup: existing?.ageGroup,
+            theme: existing?.theme,
+            pageCount: body.pageCount,
+            printingInstructions: body.printingInstructions || existing?.printingInstructions || "",
+          },
+        });
+        // Keep enrichment draft / queue entry; only swap the draft PDF bytes + reset page review.
+        const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+        if (writeResult.wipeBlocked) {
+          jsonResponse(response, 409, { error: "Curriculum wipe blocked.", code: "curriculum_wipe_blocked" });
+          return;
+        }
+        const replaced = (store.siteContent.curriculum.resources || []).find((r) => r.id === resourceId);
+        const resourceApprovals = {
+          ...(entry.resourceApprovals || {}),
+          [resourceId]: {
+            status: "pending",
+            pagesViewed: [],
+            pageCount: Number(replaced?.pageCount) || 0,
+            pagesComplete: false,
+            checklist: {},
+            at: now,
+            by: sessionEmail,
+            note: "PDF replaced — re-inspect every page before approve",
+          },
+        };
+        const updated = model.normalizeEntry({
+          ...entry,
+          updatedAt: now,
+          resourceApprovals,
+          notesHistory: [
+            { at: now, by: sessionEmail, action: "replace-printable", note: `Replaced ${resourceId}` },
+            ...(entry.notesHistory || []),
+          ].slice(0, 50),
+        });
+        queue[idx] = updated;
+        writeQueue(store, queue, now);
+        await writeStoreAsync(store);
+        jsonResponse(response, 200, {
+          ok: true,
+          action,
+          entry: updated,
+          listItem: model.listItem(updated),
+          resourceId,
+          pageCount: Number(replaced?.pageCount) || 0,
+          lessonDraftPreserved: true,
+          enrichmentDraftPreserved: model.enrichmentHasContent(entry.enrichmentDraft),
+          siteContentUpdatedAt: store.siteContent.updatedAt,
+        });
+      } catch (error) {
+        jsonResponse(response, error.status || 400, {
+          ok: false,
+          error: error.message || "Replace failed",
+          code: error.code || "replace_failed",
+        });
+      }
       return;
     }
 
@@ -1217,23 +1486,41 @@ function createDraftReviewApi(deps) {
           ok: true,
           action,
           entry: model.listItem(entry),
-          printables: resources.map((r) => ({
-            id: r.id,
-            title: r.title || r.id,
-            type: r.resourceType || r.resourceCategory || "Printable",
-            status: r.status,
-            pageCount: Number(r.pageCount) || 0,
-            printingInstructions: r.printingInstructions || "",
-            linkedActivities: flat.filter((a) => {
-              const patch = enrichmentDraft?.activities?.[a.id] || {};
-              const ids = Array.isArray(patch.printableIds) ? patch.printableIds : (weekPrintableIds(enrichmentDraft));
-              return ids.includes(r.id);
-            }).map((a) => ({ id: a.id, title: a.title, dayOfWeek: a.dayOfWeek })),
-            approval: entry.resourceApprovals?.[r.id] || { status: "pending" },
-            dimensions: "US Letter (8.5 × 11 in)",
-            publicAccess: isCurriculumResourcePublic(r.status) ? "published" : "403/404",
-            downloadPath: `/api/admin/curriculum/resources/file?id=${encodeURIComponent(r.id)}`,
-          })),
+          reviewMode: "every_page_thumbnail",
+          note: "Approve requires inspecting every page. Opening the PDF alone does not mark a printable reviewed.",
+          printables: resources.map((r) => {
+            const approval = entry.resourceApprovals?.[r.id] || { status: "pending" };
+            const pageCount = Number(r.pageCount) || Number(approval.pageCount) || 0;
+            return {
+              id: r.id,
+              title: r.title || r.id,
+              type: r.resourceType || r.resourceCategory || "Printable",
+              status: r.status,
+              pageCount,
+              printingInstructions: r.printingInstructions || "",
+              linkedActivities: flat.filter((a) => {
+                const patch = enrichmentDraft?.activities?.[a.id] || {};
+                const ids = Array.isArray(patch.printableIds) ? patch.printableIds : (weekPrintableIds(enrichmentDraft));
+                return ids.includes(r.id);
+              }).map((a) => ({ id: a.id, title: a.title, dayOfWeek: a.dayOfWeek })),
+              approval: {
+                ...approval,
+                pagesComplete: pagesComplete(approval, pageCount),
+              },
+              dimensions: "US Letter (8.5 × 11 in)",
+              publicAccess: isCurriculumResourcePublic(r.status) ? "published" : "owner-only (404 for customers)",
+              ownerOnly: !isCurriculumResourcePublic(r.status),
+              downloadPath: `/api/admin/curriculum/resources/file?id=${encodeURIComponent(r.id)}`,
+              checklistHints: [
+                "branding",
+                "website address",
+                "cut lines",
+                "margins",
+                "labels",
+                "illustrations",
+              ],
+            };
+          }),
         });
         return;
       }
@@ -1431,16 +1718,19 @@ function createDraftReviewApi(deps) {
       }
 
       const beforePub = model.publishedBodyFingerprint(plan);
+      const appliedEnrichment = model.cloneJson(entry.enrichmentDraft || plan.enrichmentDraft || {});
       const publishSnapshot = {
         at: now,
         by: sessionEmail,
         publishedBodyFingerprint: beforePub,
         enrichmentDraftBefore: plan?.enrichmentDraft ? model.cloneJson(plan.enrichmentDraft) : null,
         enrichmentPublishedBefore: plan?.enrichmentPublished ? model.cloneJson(plan.enrichmentPublished) : null,
+        enrichmentPublishedApplied: appliedEnrichment,
+        draftResourceIds: [...draftResourceIds],
         resourceIdsBefore: Array.isArray(plan?.resourceIds) ? [...plan.resourceIds] : [],
         resourcesMeta: (curriculum.resources || [])
           .filter((r) => draftResourceIds.includes(r.id) || (plan?.resourceIds || []).includes(r.id))
-          .map((r) => ({ id: r.id, status: r.status, title: r.title || "" })),
+          .map((r) => ({ id: r.id, status: r.status, title: r.title || "", pageCount: Number(r.pageCount) || 0 })),
         lessonPlan: model.cloneJson({
           ...plan,
           enrichmentDraft: undefined,
@@ -1450,8 +1740,12 @@ function createDraftReviewApi(deps) {
 
       let nextPlan = normalizedCurriculumLessonPlan({
         ...plan,
-        enrichmentPublished: model.cloneJson(entry.enrichmentDraft || plan.enrichmentDraft || {}),
+        enrichmentPublished: appliedEnrichment,
         enrichmentDraft: null,
+        resourceIds: Array.from(new Set([
+          ...(Array.isArray(plan?.resourceIds) ? plan.resourceIds : []),
+          ...(publishPrintables ? draftResourceIds : []),
+        ])),
         updatedAt: now,
         publishedAt: plan.publishedAt || now,
       });

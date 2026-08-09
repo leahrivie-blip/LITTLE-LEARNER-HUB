@@ -51,6 +51,8 @@ const OWNER_ACTIONS = Object.freeze([
   "image-review",
   "approve-printable",
   "request-printable-revision",
+  "record-printable-pages",
+  "replace-printable",
   "ready-for-approval",
 ]);
 

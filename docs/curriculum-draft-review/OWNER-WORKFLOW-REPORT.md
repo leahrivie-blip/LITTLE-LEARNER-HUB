@@ -1,88 +1,112 @@
 # Owner Draft Review Workflow — Implementation Report
 
 **Branch:** `cursor/admin-draft-review-workflow-a5dd`  
+**PR:** #600  
 **Date:** 2026-08-09  
 **Stop for owner approval — do not merge or deploy automatically.**
 
-## Root causes (production problems)
+## What this turn finished
 
-1. **Open Review did nothing**  
-   `Open Review` called `LLHTeachingKitEnrichmentEditor.open()`, which returned immediately when `featureFlags.teachingKitEnrichmentEditor` was `false` (production default).
+1. **Complete printable review** — every PDF page renders as a thumbnail; page count; large preview with previous/next/zoom; download; system print preview; branding/website/cut-lines/margins/labels/illustrations checklist; approve gated on inspecting every page; replace PDF without losing the lesson draft; draft PDFs remain owner-only.
+2. **Disposable publish workflow proof** — rich Mon–Fri fixture (15 activities after legacy removal, song, book, Teacher Toolkit, required example image, multi-page printable) through submit → revise → page-inspect → approve printable → Approve → `PUBLISH TEACHING KIT` → customer access change → full publish rollback → safe cleanup.
+3. **Production inventory (read-only)** — title not found in repo; live admin inventory blocked without owner credentials in this environment.
+4. **Status/count consistency** — queue / get / preview / compare / printable review share canonical activity + page counts; blocked drafts never report Publish Ready; draft printables never count as published.
+5. **Evidence** — desktop + mobile screenshots under `/opt/cursor/artifacts/screenshots/` and `/opt/cursor/artifacts/draft-review-owner-workflow/`.
 
-2. **Content sidebar did not return to Content Home**  
-   `setAdminGroup("content")` used `stayOnCurrent`, so clicking Content while already on Draft Review stayed on the queue.
+## Root causes (still accurate)
 
-3. **17 vs 20 Amazing Apples activities**  
-   Queue counted enrichment keys / proposed activities (17). The live editor flattened the published plan’s daily items (still 20, including three removals: Apple Color Investigation, Round Apple Collage, Apple Basket Relay). Removals lived only in seed `decisions`, not in a draft overlay the editor honored.
+1. Open Review no-oped when Enrichment Editor flag was off — fixed via owner Draft Review bypass.
+2. Content sidebar stayed on queue — fixed to return to Content Home.
+3. Amazing Apples 17 vs 20 — proposed daily plan + remove decisions now shared by queue/editor flatten.
+4. Publish Ready while blocked — canonical status forces Needs Changes while hard blockers remain.
+5. Approve/Publish were Phase-1 blocked — now Approve + typed `PUBLISH TEACHING KIT`.
+6. Printable “review” was only Open PDF — now every-page thumbnails + inspection gate.
+7. Draft Review publish wrote `enrichmentPublished` but normalizer dropped it — **fixed** so customer publish persists.
+8. Draft Review rollback did not restore a published kit — **fixed** via `publishSnapshot` full restore.
 
-4. **Contradictory statuses**  
-   Surfaces could show workflow + library labels independently; Publish Ready could still be inferred from fill % while blockers remained. Canonical status now forces **Needs Changes** whenever hard blockers exist.
+## Exact files changed (this completion)
 
-5. **Safety concern with no target**  
-   `safety_concern` was week-wide text with no activity link. It now attaches activity title + `navigateTo` when a specific activity matches.
+- `scripts/curriculum-draft-printable-review.js` — pdf.js every-page thumbnail + lightbox viewer
+- `scripts/vendor/pdf.min.mjs`, `scripts/vendor/pdf.worker.min.mjs` — vendored pdf.js
+- `scripts/curriculum-draft-review-ui.js` — printable panel wiring, replace PDF, publish-rollback copy
+- `scripts/curriculum-draft-review.js` — `record-printable-pages`, `replace-printable` actions
+- `server/curriculum-draft-review.js` — page-count via pdf-lib, page-inspection gate, replace-printable, publish snapshot + publish rollback
+- `server/index.js` — `.mjs` MIME; preserve `enrichmentPublished` in lesson normalizer
+- `styles.css` — printable thumb/lightbox styles
+- `index.html` / `package.json` — script include + pdfjs-dist + check target
+- `scripts/test-draft-review-owner-workflow.js` — rich disposable end-to-end + screenshots
+- `docs/curriculum-draft-review/OWNER-WORKFLOW-REPORT.md` — this report
 
-6. **Approve/Publish unavailable**  
-   Phase 1 explicitly blocked `approve` / `publish` (`phase2_required`).
+## Complete printable review — verified
 
-7. **DISPOSABLE TK Printable Prod Verify**  
-   Exact title not present in this repo. Closest fixtures are other `ZZ Disposable…` / QA kits. **Do not delete in production until a live inventory confirms zero referenced resources.**
-
-## Exact files changed
-
-- `scripts/curriculum-draft-review.js` — statuses, stats, plain-language blockers, readable compare, publish phrase
-- `server/curriculum-draft-review.js` — proposed plan overlay on seed submit, scoring/status, preview/printable/image review, approve/publish/rollback gates
-- `scripts/curriculum-draft-review-ui.js` — full owner queue UI
-- `scripts/teaching-kit-enrichment.js` — canonical activity flatten with proposedDailyPlans + remove decisions
-- `scripts/teaching-kit-enrichment-editor.js` — owner Draft Review bypass (flag off), return-to-queue
-- `scripts/teaching-kit-quality-review.js` — safety blocker activity targeting
-- `scripts/teaching-kit-status.js` — (already had Publish Ready vs Blocked hard rule; shared by queue)
-- `app.js` — Content → Content Home navigation; lesson-card status consistency
-- `styles.css` — queue/preview/image/publish panel styles; sticky Open Review column
-- `scripts/test-curriculum-draft-review.js` — expanded API coverage
-- `scripts/test-draft-review-owner-workflow.js` — disposable end-to-end + desktop/mobile screenshots
-- `docs/curriculum-draft-review/*` — workflow docs + report
-- `package.json` — `test:draft-review-owner-workflow`
-
-## Before / after behavior
-
-| Area | Before | After |
-| --- | --- | --- |
-| Open Review | Dead when Enrichment Editor flag off | Opens real editor for owner via `ownerDraftReview: true` |
-| Content nav | Stayed on queue | Returns to Content Home |
-| Activity count | Queue 17 / editor 20 | Shared flatten uses proposed plan + removals |
-| Status | Publish Ready could coexist with blockers | Needs Changes while blocked; Publish disabled |
-| Preview | Weak / editor-flag dependent | Owner-only `preview` API + UI panel |
-| Printables/images | Minimal links | Dedicated review panels + approve printable |
-| Compare | Field-key dump | Readable added/removed/replaced/rewritten/unchanged |
-| Approve/Publish | Phase-1 blocked | Approve → typed `PUBLISH TEACHING KIT` → Publish; blockers block both |
-| Auth | Owner gate present | Re-verified: owner allow; other admin/logged-out/forged deny; draft PDF public 404 |
-
-## Screenshots
-
-Desktop/mobile artifacts under `/opt/cursor/artifacts/draft-review-owner-workflow/`:
-
-- `queue-desktop.png` / `queue-mobile.png`
-- `open-review-desktop.png` / `open-review-mobile.png`
-- `content-home-desktop.png` / `content-home-mobile.png`
-
-## Authorization results
-
-| Actor | Result |
+| Requirement | Result |
 | --- | --- |
-| Owner `leahivie@icloud.com` | Allowed |
-| Other admin | 403 |
-| Logged out / forged claims | 401 |
-| Customer public draft PDF URL | 404 |
-| Owner draft PDF URL | 200 |
+| Complete page count | Shown (`4 pages`, long PDF replace → `12`) |
+| Every page thumbnail | Rendered (desktop + mobile) |
+| Click page → large preview | Lightbox with prev/next/zoom |
+| Download draft PDF | Owner admin file JSON → data URL download |
+| System print preview | Opens printable HTML + `window.print()` |
+| Branding / website / cut lines / margins / labels / illustrations | Checklist + multi-page fixture markers |
+| Approve / request revision | Approve blocked until every page inspected |
+| Replace PDF without losing lesson draft | Proven (`lessonDraftPreserved`) |
+| Opening file alone ≠ reviewed | `pages_not_reviewed` until `record-printable-pages` |
+| Multi-page / long / corrupt / mobile / refresh | Covered in owner-workflow test |
+| Draft files owner-only | Public draft PDF `404`; owner `200` |
 
-## Data-preservation evidence
+## Disposable publish workflow — proven
 
-From `npm run test:curriculum-draft-review` + `test:draft-review-owner-workflow`:
+Fixture includes: Mon–Fri Teaching Kit, activities, removed/replaced legacy activity (`OLD Disposable Sorting Cards`), song, book, 4-page printable, required example image URLs, Teacher Toolkit.
 
-- Farm Animals published body + activity links unchanged
-- Lesson/activity totals unchanged during draft submit/revise/rollback/discard
-- Customer Teaching Kit flags (`teachingKitViewer`, `teachingKitPrintCenter`, `teachingKitEnrichmentEditor`) remain `false`
-- Seed/revise never auto-publishes
+| Step | Result |
+| --- | --- |
+| Submit → queue | 1 item, **15** activities, **4** pages, removals counted |
+| Open Review | Editor opens with Enrichment flag **false** |
+| Inspect Teaching Kit / preview | Preview activities 15; legacy absent |
+| Inspect every PDF page | Page gate enforced |
+| Inspect image / compare | Required images listed; readable remove/replace |
+| Request revision → revise same item | Still 1 queue item |
+| Approve → type phrase → publish | Disposable published |
+| Customer printable access | Draft `404` → published Pro gate `403` (no longer missing) |
+| Old draft inaccessible after publish | `enrichmentDraft` cleared |
+| Rollback | Restores prior enrichmentPublished (none), restores draft, printable → draft, customer PDF `404` again |
+| Cleanup | Disposable archived/removed from test store |
+| Farm Animals / customer TK flags | Unchanged throughout |
+| Nothing real published | Disposable QA fixture only |
+
+## Status consistency
+
+Canonical surfaces checked in tests:
+
+- Draft Review Queue activity count **15** = get = owner preview
+- Printable pages **4** = queue = printable-review
+- Legacy removal appears in compare + proposed customer activities (not in live proposed items)
+- `publishReady !== true` while draft printables / blockers remain
+- Queue badges: **Needs Changes** / **Library Blocked** (not Publish Ready)
+
+**Known cosmetic inconsistency:** Enrichment Editor stepper still shows a greyed “Publish Ready” step label while the active badge correctly says Needs Changes. Do not treat that stepper label as readiness.
+
+## 3. Disposable production inventory — `DISPOSABLE TK Printable Prod Verify`
+
+**Read-only result from this environment:**
+
+| Field | Finding |
+| --- | --- |
+| Exact lesson ID | **Unknown** — title not present in git/seed fixtures |
+| Published/draft/archive status | **Unknown without owner Admin login** |
+| Linked printables / images / activities / calendar / history / shared resources | **Unknown** |
+| Would delete remove shared refs? | **Unknown — do not delete yet** |
+
+Production `GET /api/health` is healthy. Admin login without credentials correctly rejects. This cloud run has **no production Admin password / access code**, so a live inventory of the named lesson cannot be completed here.
+
+### Safe-cleanup recommendation (do not execute yet)
+
+1. Owner logs into production Admin as `leahivie@icloud.com`.
+2. Content → Lesson Plans: search exact title `DISPOSABLE TK Printable Prod Verify`; record `id`, status, `resourceIds`, enrichment history.
+3. Content → Resources: for each linked printable/image, list every `lessonPlanIds` entry.
+4. Delete **only if** every linked resource is referenced solely by this disposable lesson (or archive resources first).
+5. Prefer **Archive lesson + archive orphan draft resources** over hard delete.
+6. Re-check Farm Animals and Amazing Apples/All About Me IDs untouched.
+7. Keep a names-only inventory note before any delete.
 
 ## Test results
 
@@ -91,34 +115,51 @@ npm run test:curriculum-draft-review
 → PASS 99 assertions
 
 npm run test:draft-review-owner-workflow
-→ PASS 33 assertions
-  including Open Review desktop+mobile (flag off),
-  Content Home return, auth matrix, preview/printable/image/compare,
-  revise-same-item, publish phrase rejection, Farm Animals unchanged
+→ PASS 77 assertions
+  including every-page printable thumbs (desktop+mobile),
+  page-inspection approve gate, replace PDF, publish→rollback,
+  Farm Animals + customer TK flags unchanged, Content Home return
 ```
+
+## Evidence screenshots
+
+Under `/opt/cursor/artifacts/screenshots/`:
+
+- `queue-desktop.png` / `queue-mobile.png`
+- `open-review-desktop.png` / `open-review-mobile.png`
+- `content-home-desktop.png` / `content-home-mobile.png`
+- `teaching-kit-preview-desktop.png` / `teaching-kit-preview-mobile.png`
+- `printable-thumbs-desktop.png` / `printable-thumbs-mobile.png`
+- `printable-page-preview-desktop.png` / `printable-page-preview-mobile.png`
+- `image-review-desktop.png` / `image-review-mobile.png`
+- `compare-desktop.png` / `compare-mobile.png`
+- `revision-request-desktop.png` / `revision-request-mobile.png`
+
+API-proven (no customer UI flags enabled): publish disposable, customer printable access transition, successful publish rollback, cleanup.
 
 ## Remaining risks
 
-1. **Disposable fixture publish path** still hits real quality blockers (toolkit/books/songs/setup depth). Phrase + blocker gates are proven; a fully green disposable publish→rollback→purge path should be added once fixture content is thickened to pass `evaluateTeachingKit`.
-2. **Production disposable lesson** title not found in repo — needs live inventory before delete.
-3. **Printable page-thumbnail carousel** is metadata + PDF open today; richer per-page canvas thumbnails can be a follow-up.
-4. **Editor stepper** still labels a greyed “Publish Ready” step even when inactive (status badges already suppress active Publish Ready while blocked).
-5. Amazing Apples / All About Me still not owner-approved gold standards — **no next-ten batch**.
+1. Editor stepper still shows a greyed “Publish Ready” label while Needs Changes is the real status.
+2. Production disposable lesson inventory still needs owner Admin session.
+3. Amazing Apples / All About Me still need your manual gold-standard printable page review before any real publish.
+4. Customer Teaching Kit viewer/print flags remain off — published enrichment is stored, but customer TK surfaces stay gated by flags.
+5. Large PDF lightbox paint can briefly show empty canvas until render finishes (thumbs + page gate are authoritative).
 
-## GO / NO-GO
+## GO / NO-GO (separate verdicts)
 
 | Decision | Verdict | Why |
 | --- | --- | --- |
-| Merge | **NO-GO until owner approval** | Per your stop instruction; review screenshots + behavior first |
-| Deploy | **NO-GO** | Do not deploy until you approve merge and production smoke |
-| Use for next ten lessons | **NO-GO** | Workflow is much closer, but gold-standard manual approval of Amazing Apples + All About Me is still required before batch work |
+| **Merge PR #600** | **NO-GO until you approve** | Implementation + disposable proof are in; stop for your review of screenshots/behavior |
+| **Deploy PR #600** | **NO-GO** | Do not deploy until you approve merge and a production smoke |
+| **Use Admin to review Amazing Apples and All About Me** | **GO after deploy (or local/staging with seeds)** | Workflow is ready for owner review; do not publish yet |
+| **Publish either real lesson** | **NO-GO** | Gold-standard manual approval + printable every-page review still required |
+| **Begin the next lesson batch** | **NO-GO** | Wait until Amazing Apples + All About Me are manually approved |
 
-## Recommended owner smoke (production, after deploy)
+## Recommended owner smoke (after you approve deploy)
 
 1. Admin → Content → Draft Review Queue  
-2. Confirm Amazing Apples row shows **17** activities and plain-language blockers  
-3. Open Review (must open real editor; Enrichment flag can stay off)  
-4. Content sidebar → lands on Content Home  
-5. Preview / Printable review / Image review / Compare  
-6. Request revision → same queue item  
-7. Do **not** publish customer lessons until blockers clear and you intentionally Approve + type the phrase
+2. Amazing Apples: confirm **17** activities, plain-language blockers, not Publish Ready  
+3. Open Review → Content sidebar → Content Home  
+4. Printable review: see every page thumbnail, open large preview, prev/next/zoom  
+5. Request revision on a disposable only if needed  
+6. Do **not** publish Amazing Apples / All About Me until you intentionally Approve + type `PUBLISH TEACHING KIT`
