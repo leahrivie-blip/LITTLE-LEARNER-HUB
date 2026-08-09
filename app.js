@@ -72760,16 +72760,25 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           // Wait for password sync, then accept immediately (email-bridge is enough on
           // the Firebase-less testing host). Mint the member session afterward so a
           // slow password-login cannot leave testers stuck on the invite panel.
-          await awaitPendingLocalPasswordSync(25000);
+          await awaitPendingLocalPasswordSync(45000);
+          // If background sync timed out, force one more password write before accept/login.
+          if (!readMemberSessionToken()) {
+            try {
+              await syncPasswordAfterFirebaseAuth(password, "tester_invite_signup", result.email);
+            } catch (_error) { /* login retry below still attempts */ }
+          }
           closeAuthModal();
           markAppBootReady();
           let accepted = await maybeAutoAcceptPendingTesterInvite();
           // Mint member session so this browser session and later Log In share the
-          // password the tester just chose. Retry once — testing password-login can lag sync.
+          // password the tester just chose. Retry — testing password-login can lag sync.
           let sessionReady = false;
-          for (let attempt = 0; attempt < 2 && !sessionReady; attempt += 1) {
+          for (let attempt = 0; attempt < 4 && !sessionReady; attempt += 1) {
             try {
-              if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1500));
+              if (attempt > 0) {
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                await syncPasswordAfterFirebaseAuth(password, "tester_invite_login_retry", result.email);
+              }
               await loginWithServerPassword(result.email, password);
               sessionReady = Boolean(readMemberSessionToken());
             } catch (_error) {

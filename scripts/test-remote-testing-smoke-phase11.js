@@ -13,7 +13,7 @@ const path = require("node:path");
 
 const TESTING = "https://little-learner-hub-testing.onrender.com";
 const PRODUCTION = "https://little-learner-hub.onrender.com";
-const EXPECTED_SHELL = process.env.LLH_EXPECTED_TESTING_SHELL || "20260809-phase11-testers-go10";
+const EXPECTED_SHELL = process.env.LLH_EXPECTED_TESTING_SHELL || "20260809-phase11-testers-go11";
 const EXPECTED_COMMIT_HINT = "4474dff";
 const ARTIFACT = "/opt/cursor/artifacts/phase11-final-qa/remote-testing-smoke.json";
 
