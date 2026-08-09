@@ -1,0 +1,15 @@
+"use strict";
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+const root = path.join(__dirname, "..");
+const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const ota = fs.readFileSync(path.join(root, "scripts/owner-testing-admin-ui.js"), "utf8");
+assert.match(app, /data-admin-sign-out-member/);
+assert.match(app, /signed in as tester/);
+assert.match(app, /Do not log in or create a tester account here/);
+assert.match(app, /adminMemberDenied/);
+assert.match(app, /PREVIEW ONLY \(not logged in as/);
+assert.match(ota, /PREVIEW ONLY \(not logged in as/);
+assert.doesNotMatch(app, /return setView\("messages".*admin/);
+console.log("PASS admin-tester-session-clarity markers");

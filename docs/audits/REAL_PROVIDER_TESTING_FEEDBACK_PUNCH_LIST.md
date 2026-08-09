@@ -4,7 +4,7 @@
 **Opened:** 2026-08-08  
 **Environment (testers only):** https://little-learner-hub-testing.onrender.com  
 **Live testing shell (at open):** `20260808-phase11-testers-go3`  
-**Live testing shell (current):** `20260809-phase11-multirole-invite-go16`  
+**Live testing shell (current):** `20260809-phase11-admin-tester-session-go17`  
 **PR (keep unmerged):** https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/590  
 **Production:** Untouched until Leah gives **explicit written** production-release approval  
 
@@ -86,6 +86,7 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 | ID | Date | Reporter | Summary | Area | Repro / notes | Status |
 |---|---|---|---|---|---|---|
 | U2 | 2026-08-09 | Leah | Nowhere obvious for testers to switch roles / see other role views | Owner Admin / Multi-role | Admin View As is owner-only. Testers need Multi-role Switch View (header Switch View). Default multiRole on for new testers. go16: invite accept returns + applies `multiRoleTester` so Switch View shows immediately after signup — live on testing | fixed-on-testing |
+| U3 | 2026-08-09 | Leah | On Admin link but browser looks logged in as tester account | Owner Admin / Sessions | Same browser: invite signup/login as tester clears Admin unlock; /admin used to silently redirect testers to Messages. Fixed go17: block member login while Admin unlocked; /admin shows clear “signed in as tester” + Sign out; View As banner says preview only | fixed-on-testing |
 | U1 | 2026-08-09 | Leah | Tester invite/access flow unclear after create (paired with H1) | Owner Admin / Testers | Same as H1 — UX must show invite link + next step immediately. Verified on go9 with Copy Invite Link handoff | verified |
 
 ---
@@ -122,7 +123,7 @@ Leah owns ongoing curriculum and cover updates. Log product-adjacent content iss
 |---|---|---|---|
 | Critical bug | 0 | 0 | |
 | High functional issue | 0 | 5 | H1 verified; H2–H5 fixed-on-testing (H5 go15 isolation) |
-| Usability/confusion | 0 | 2 | U1 verified; U2 fixed-on-testing |
+| Usability/confusion | 0 | 3 | U1 verified; U2–U3 fixed-on-testing |
 | Feature request | 0 | — | Decisions pending |
 | Polish/later | 0 | 0 | |
 | Curriculum/content | 0 | — | Separate track |

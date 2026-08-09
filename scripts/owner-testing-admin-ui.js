@@ -326,7 +326,7 @@
       return;
     }
     const label = impersonating
-      ? `OWNER ADMIN — VIEWING AS ${adminImpersonationState?.account?.name || adminImpersonationState?.email || "TESTER"}`
+      ? `OWNER ADMIN — PREVIEW ONLY (not logged in as ${adminImpersonationState?.account?.name || adminImpersonationState?.email || "tester"})`
       : `OWNER ADMIN — VIEWING AS ${mode.toUpperCase()}`;
     if (!existing) {
       document.body.insertAdjacentHTML("afterbegin", `

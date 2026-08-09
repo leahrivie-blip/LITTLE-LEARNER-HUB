@@ -3567,6 +3567,22 @@ function syncNonessentialNoticesForAuthOverlay(open) {
 }
 
 function openAuthModal(mode = "login") {
+  // Owner Admin + member login share one browser. Creating/logging into a tester
+  // account while Admin is unlocked clears Admin and looks like “Admin became the tester.”
+  if (
+    (mode === "login" || mode === "signup")
+    && typeof isAdminUnlocked === "function"
+    && isAdminUnlocked()
+  ) {
+    const msg = "Owner Admin is unlocked on this browser. Do not log in or create a tester account here — that switches this browser into their account. Lock Admin first, or open a private/incognito window for the invite link. To preview a tester without logging in as them, use Admin → Testers → View As.";
+    try {
+      if (typeof showActionFeedback === "function") showActionFeedback(msg);
+      else window.alert(msg);
+    } catch (_error) {
+      window.alert(msg);
+    }
+    return;
+  }
   // Capture scroll before auth chrome mutates layout / focus.
   const preferredScroll = {
     scrollX: window.scrollX || window.pageXOffset || 0,
@@ -19389,13 +19405,15 @@ function setView(view, options = {}) {
     }
     options = { ...options, allowDashboard: true, workOwnerHome: true };
   }
-  // Invited testers / staff never open Admin (even via deep link).
+  // Invited testers / staff must not use Admin tools — but do NOT silently send them
+  // to Messages. Keep /admin so they see an explicit “signed in as tester” escape hatch
+  // (sign out → unlock Owner Admin). Silent Messages redirect felt like “Admin is the tester.”
   if (
     resolvedRequested === "admin"
     && (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount())
     && !options.allowAdminForLinkedStaff
   ) {
-    return setView("messages", { ...options, skipAccessRedirect: true });
+    options = { ...options, allowAdminForLinkedStaff: true, adminMemberDenied: true };
   }
   // Home Daycare Hub is testing-site only (HOME_DAYCARE_HUB_TESTING).
   if (resolvedRequested === "home-daycare-hub" && !isHomeDaycareHubTestingEnabled() && !options.allowHomeDaycareHubPreview) {
@@ -49828,7 +49846,7 @@ function refreshAdminPreviewBadge() {
   badge.hidden = false;
   if (isAdminImpersonating()) {
     if (label) {
-      label.textContent = `OWNER ADMIN — VIEWING AS ${adminImpersonationState.account?.name || adminImpersonationState.email}`;
+      label.textContent = `OWNER ADMIN — PREVIEW ONLY (not logged in as ${adminImpersonationState.account?.name || adminImpersonationState.email})`;
     }
     if (returnBtn) {
       returnBtn.hidden = false;
@@ -49891,7 +49909,7 @@ async function startAdminImpersonation(email) {
     document.body.dataset.adminImpersonation = detail.user.email;
     setAdminPreviewMode(["Free", "Trial", "Pro", "Founding"].includes(planPreview) ? planPreview : "Free");
     refreshAdminPreviewBadge();
-    showActionFeedback(`Viewing as ${detail.user.name || detail.user.email} (read-only sandbox).`);
+    showActionFeedback(`Preview only — still Owner Admin, not logged into ${detail.user.name || detail.user.email}. Exit tester view anytime.`);
     setView("home");
   } catch (error) {
     showActionFeedback(error?.message || "Could not start user view.");
@@ -51875,17 +51893,21 @@ function renderAdminAccessShell() {
     lockPanel.hidden = false;
     // Member sessions cannot unlock Owner Admin — keep the gate explicit (not a broken sync).
     if (currentUser && typeof isSignedInPlatformOwner === "function" && !isSignedInPlatformOwner()) {
+      const asTester = typeof isIndependentHdhTesterAccount === "function" && isIndependentHdhTesterAccount();
+      const asStaff = typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount();
+      const who = asTester ? "a tester account" : asStaff ? "a staff / helper account" : "a provider account";
       lockPanel.innerHTML = `
         <div class="admin-lock-content" data-admin-member-denied="true">
           <div>
             <p class="eyebrow">Private Owner Area</p>
-            <h3>Owner Admin is not available on this account</h3>
-            <p>You are signed in as <strong>${escapeHtml(currentUser)}</strong>. Owner Admin unlock is only for the platform owner (<code>leahivie@icloud.com</code>) and is separate from provider, director, teacher, assistant, and tester accounts.</p>
-            <p class="muted-copy">This is intentional security — member sessions never receive Admin access, even on a shared browser.</p>
+            <h3>This browser is signed in as ${escapeHtml(who)} — not Owner Admin</h3>
+            <p>You are currently signed in as <strong>${escapeHtml(currentUser)}</strong>.</p>
+            <p>Owner Admin (Testers, invites, View As) is separate. Opening a tester invite link or logging in with a tester email on this same browser switches you into <em>their</em> account and clears Admin unlock.</p>
+            <p class="muted-copy"><strong>What to do:</strong> sign out of this account below, then Unlock Admin with your owner email, password, and access code. To preview a tester without logging in as them, use Admin → View As after you unlock.</p>
           </div>
           <div class="account-actions-row">
-            <button class="primary-button" type="button" data-view="home">Back to Home</button>
-            <button class="ghost-button" type="button" data-view="messages">Message Support</button>
+            <button class="primary-button" type="button" data-admin-sign-out-member>Sign out of ${escapeHtml(asTester ? "tester" : "this")} account</button>
+            <button class="ghost-button" type="button" data-view="home">Back to Home</button>
           </div>
         </div>
       `;
@@ -70696,6 +70718,23 @@ document.addEventListener("click", async (event) => {
 
   const adminDelete = event.target.closest("[data-admin-delete]");
   if (adminDelete) await deleteAdminResource(adminDelete.dataset.adminDelete);
+
+  const adminSignOutMember = event.target.closest("[data-admin-sign-out-member]");
+  if (adminSignOutMember) {
+    event.preventDefault();
+    try {
+      // Skip multi-role logout survey — Leah is escaping back to Owner Admin.
+      sessionStorage.setItem("llhMultiRoleSessionPrompted", "1");
+    } catch (_error) { /* ignore */ }
+    Promise.resolve()
+      .then(() => signOut())
+      .catch(() => {})
+      .finally(() => {
+        setView("admin", { allowAdminForLinkedStaff: true });
+        showActionFeedback("Signed out of the tester/provider account. Unlock Owner Admin with your owner email, password, and access code.");
+      });
+    return;
+  }
 
   const adminLockButton = event.target.closest("[data-admin-lock], #adminLockButton");
   if (adminLockButton) {
