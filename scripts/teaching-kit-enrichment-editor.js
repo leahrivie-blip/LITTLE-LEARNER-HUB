@@ -372,11 +372,93 @@
   }
 
   function esc(value) {
+    // Objects must never become "[object Object]" in the UI.
+    if (value != null && typeof value === "object") return "";
     return String(value ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function normalizePrintableIdeaForDisplay(idea) {
+    const enrich = api();
+    if (enrich && typeof enrich.normalizePrintableIdea === "function") {
+      return enrich.normalizePrintableIdea(idea);
+    }
+    if (idea == null) return null;
+    if (typeof idea === "string") {
+      const title = String(idea).trim();
+      return title ? { title } : null;
+    }
+    if (typeof idea !== "object" || Array.isArray(idea)) return null;
+    return idea;
+  }
+
+  function renderPrintableIdeaListItem(idea) {
+    const item = normalizePrintableIdeaForDisplay(idea);
+    if (!item) return "";
+    const title = esc(item.title || item.name || item.label || "");
+    const description = esc(item.description || item.purpose || item.summary || "");
+    const type = esc(item.type || item.kind || item.format || "");
+    const instructions = esc(item.instructions || item.howTo || item.directions || "");
+    const notes = esc(item.notes || "");
+    const skip = new Set([
+      "title", "name", "label", "purpose", "description", "summary",
+      "type", "kind", "format", "instructions", "howTo", "directions", "notes",
+      "mediaAssetId", "id",
+    ]);
+    const metaBits = Object.keys(item)
+      .filter((key) => !skip.has(key))
+      .map((key) => {
+        const raw = item[key];
+        if (raw == null || typeof raw === "object") return "";
+        const val = String(raw).trim();
+        if (!val || val === "[object Object]") return "";
+        return `<span><span class="muted-copy">${esc(key)}</span> ${esc(val)}</span>`;
+      })
+      .filter(Boolean);
+    if (!title && !description && !type && !instructions && !notes && !metaBits.length) {
+      return "";
+    }
+    return `
+      <li class="tk-enrich-printable-idea">
+        <strong>Printable idea</strong>
+        ${title ? `<div class="tk-enrich-printable-idea-title">${title}</div>` : ""}
+        ${type ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Type</span> ${type}</div>` : ""}
+        ${description ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Description</span> ${description}</div>` : ""}
+        ${instructions ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Instructions</span> ${instructions}</div>` : ""}
+        ${notes ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Notes</span> ${notes}</div>` : ""}
+        ${metaBits.length ? `<div class="tk-enrich-printable-idea-field tk-enrich-printable-idea-meta">${metaBits.join(" · ")}</div>` : ""}
+      </li>
+    `;
+  }
+
+  function renderVocabCardListItem(card) {
+    const enrich = api();
+    if (enrich && typeof enrich.normalizeVocabCard === "function") {
+      const normalized = enrich.normalizeVocabCard(card);
+      if (normalized == null) return "";
+      if (typeof normalized === "string") {
+        return `<li><strong>Vocab card:</strong> ${esc(normalized)}</li>`;
+      }
+      const title = esc(normalized.title || "");
+      const definition = esc(normalized.definition || "");
+      if (!title && !definition) return "";
+      return `<li><strong>Vocab card:</strong> ${title}${definition ? ` — ${definition}` : ""}</li>`;
+    }
+    if (card == null) return "";
+    if (typeof card === "string") {
+      const label = String(card).trim();
+      return label ? `<li><strong>Vocab card:</strong> ${esc(label)}</li>` : "";
+    }
+    if (typeof card === "object" && !Array.isArray(card)) {
+      const title = esc(card.title || card.word || card.term || card.label || "");
+      const definition = esc(card.definition || card.description || card.meaning || "");
+      if (!title && !definition) return "";
+      return `<li><strong>Vocab card:</strong> ${title}${definition ? ` — ${definition}` : ""}</li>`;
+    }
+    return "";
   }
 
   function host() {
@@ -2213,8 +2295,8 @@
           <ul class="tk-enrich-checklist">
             ${draftBooks.map((book) => `<li><strong>Book:</strong> ${esc(book.title || "")}${book.author ? ` — ${esc(book.author)}` : ""}${book.questions ? ` · ${esc(book.questions)}` : ""}</li>`).join("") || "<li class=\"muted-copy\">No draft books yet</li>"}
             ${draftSongs.map((song) => `<li><strong>Song:</strong> ${esc(song.title || "")}</li>`).join("")}
-            ${printableIdeas.map((idea) => `<li><strong>Printable idea:</strong> ${esc(idea)}</li>`).join("")}
-            ${vocabCards.map((card) => `<li><strong>Vocab card:</strong> ${esc(card)}</li>`).join("")}
+            ${printableIdeas.map((idea) => renderPrintableIdeaListItem(idea)).join("")}
+            ${vocabCards.map((card) => renderVocabCardListItem(card)).join("")}
           </ul>
         </section>
         <section class="tk-enrich-card-block">
