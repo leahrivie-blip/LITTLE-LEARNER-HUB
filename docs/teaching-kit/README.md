@@ -27,6 +27,9 @@
 
 | Deliverable | Path |
 | --- | --- |
+| **Teaching Kit Master Specification (content bar — authoritative)** | [TEACHING_KIT_MASTER_SPECIFICATION.md](./TEACHING_KIT_MASTER_SPECIFICATION.md) |
+| Owner lesson examples & picture ideas | [owner-examples/README.md](./owner-examples/README.md) |
+| Lesson briefs (required before each upgrade) | [lesson-briefs/README.md](./lesson-briefs/README.md) |
 | Product specification (v4) | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
 | **Enrichment Editor UI spec** | [ENRICHMENT_EDITOR_UI_SPEC.md](./ENRICHMENT_EDITOR_UI_SPEC.md) |
 | **Enrichment Editor Slice 1** | [ENRICHMENT_EDITOR_SLICE1.md](./ENRICHMENT_EDITOR_SLICE1.md) |
