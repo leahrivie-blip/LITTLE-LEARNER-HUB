@@ -134,14 +134,25 @@
       updatedAt: new Date().toISOString(),
       schemaVersion: 1,
     };
+    const mutationId = String(item.clientMutationId || "").trim();
+    if (mutationId) {
+      const existingByMutation = next.items.find((entry) => entry.clientMutationId === mutationId);
+      if (existingByMutation) {
+        item = { ...item, id: existingByMutation.id, createdAt: existingByMutation.createdAt || item.createdAt };
+      }
+    }
     const normalized = {
       ...item,
       id: item.id || randomId("sch"),
+      clientMutationId: mutationId || String(item.clientMutationId || "").trim(),
       classroomId: item.classroomId || next.classrooms[0].id,
       updatedAt: new Date().toISOString(),
       createdAt: item.createdAt || new Date().toISOString(),
     };
     next.items = next.items.filter((entry) => entry.id !== normalized.id);
+    if (normalized.clientMutationId) {
+      next.items = next.items.filter((entry) => entry.clientMutationId !== normalized.clientMutationId);
+    }
     if (normalized.type === "lesson_plan") {
       next.items = next.items.filter(
         (entry) => !(

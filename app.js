@@ -889,7 +889,7 @@ let pendingGoalArea = "";
 let activeSupportCategoryId = "";
 let activeSupportTopicId = "";
 let activeSupportTab = "why";
-let activeSupportChildId = selectedChildId;
+let activeSupportChildId = ""; // Deliberate selection only — never auto-pick first child
 let supportCenterSearch = "";
 let childTimelineSearch = "";
 let childTimelineTypeFilter = "All";
@@ -6776,6 +6776,8 @@ let mainCalendarSelectedWeek = "";
 let mainCalendarSelectedDay = "";
 let mainCalendarSubView = "month"; // "month" | "day" | "week"
 let mainCalendarBusy = false;
+let calendarEventSaveInFlight = false;
+let calendarEventLastPayload = null;
 let mainCalendarActiveFilters = null;
 let mainCalendarEditingItemId = "";
 let pendingCalendarAssignNotice = "";
@@ -7029,6 +7031,7 @@ const sidebarViewAliases = {
   "child-tools-reports": "children",
   "child-tools-communication": "children",
   "child-tools-daily-logs": "children",
+  "daily-logs": "children",
   "documentation-incident-reports": "children",
   "documentation-behavior-reports": "children",
   "documentation-parent-messages": "children",
@@ -7064,6 +7067,7 @@ function childToolTabFromView(view) {
     "child-tools-reports": "reports",
     "child-tools-communication": "communication",
     "child-tools-daily-logs": "daily-logs",
+    "daily-logs": "daily-logs",
   };
   return map[view] || "";
 }
@@ -20217,9 +20221,22 @@ function formatDlcClock(value) {
   return dlcFormatTime(value) || String(value);
 }
 
+function setDailyLogSaveStatusForChild(childId, message, isError = false) {
+  const els = [
+    ...document.querySelectorAll(`[data-dlc-save-status="${CSS.escape(String(childId || ""))}"]`),
+    ...document.querySelectorAll("[data-child-cloud-save-status]"),
+  ];
+  els.forEach((el) => {
+    el.hidden = !message;
+    el.textContent = message || "";
+    el.classList.toggle("is-error", Boolean(isError));
+  });
+}
+
 function saveDailyLogQuickAction(actionId, childId, options = {}) {
   const child = childRecords().children.find((item) => item.id === childId);
   if (!child) return;
+  setDailyLogSaveStatusForChild(childId, `Saving ${child.name} · ${actionId}…`);
   const today = options.date || dlcActiveDate();
   const time = options.time || quickActionTime();
   if (actionId === "check-in") {
@@ -35400,6 +35417,12 @@ async function openCalendarAddItemDialog(options = {}) {
   const form = modal.querySelector("#scheduleEventForm");
   const editingItem = options.itemId ? calendarItemById(options.itemId) : null;
   mainCalendarEditingItemId = editingItem ? editingItem.id : "";
+  calendarEventLastPayload = null;
+  // Fresh create/edit modal session — do not reuse a prior mutation id.
+  if (form) {
+    delete form.dataset.calendarClientMutationId;
+    delete form.dataset.calendarItemId;
+  }
   const setVal = (name, value) => {
     const el = form?.querySelector(`[name="${name}"]`);
     if (el) el.value = value ?? "";
@@ -35455,9 +35478,47 @@ function closeCalendarAddItemDialog() {
   restoreLlhFocus(returnFocus);
 }
 
-async function submitCalendarAddItemForm(form) {
+function setCalendarEventSaveStatus(message, options = {}) {
+  const statusEl = document.querySelector("[data-schedule-event-status]");
+  const errorEl = document.querySelector("[data-schedule-event-error]");
+  const retryBtn = document.querySelector("[data-schedule-event-retry]");
+  const isError = options.isError === true;
+  if (errorEl && isError) {
+    errorEl.hidden = false;
+    errorEl.textContent = message || "Save failed.";
+  } else if (errorEl && !isError) {
+    errorEl.hidden = true;
+    errorEl.textContent = "";
+  }
+  if (statusEl) {
+    statusEl.hidden = !message || isError;
+    statusEl.textContent = isError ? "" : (message || "");
+    statusEl.classList.toggle("is-error", false);
+  }
+  if (retryBtn) retryBtn.hidden = !options.showRetry;
+}
+
+function newCalendarClientMutationId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `cm-${crypto.randomUUID()}`;
+  }
+  return `cm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function submitCalendarAddItemForm(form, options = {}) {
   const api = getScheduleApi();
-  if (!api || !form) return;
+  if (!api || !form) return false;
+  const submitBtn = form.querySelector("[data-schedule-event-submit], button[type='submit']");
+  const retryBtn = document.querySelector("[data-schedule-event-retry]");
+  // Disable Save immediately on first click — before any await — to block double submits.
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving…";
+  }
+  if (retryBtn) retryBtn.disabled = true;
+  if (calendarEventSaveInFlight) return false;
+  calendarEventSaveInFlight = true;
+
   const data = new FormData(form);
   const scheduleType = String(data.get("eventType") || "reminder");
   const title = String(data.get("eventTitle") || "").trim();
@@ -35469,43 +35530,88 @@ async function submitCalendarAddItemForm(form) {
   const ageGroup = String(data.get("eventAgeGroup") || "").trim();
   const itemsToBring = String(data.get("eventItemsToBring") || "").trim();
   const errorEl = document.querySelector("[data-schedule-event-error]");
-  if (!title || !date) {
-    if (errorEl) {
-      errorEl.hidden = false;
-      errorEl.textContent = "Add a title and a valid date.";
+  const unlockSubmit = () => {
+    calendarEventSaveInFlight = false;
+    mainCalendarBusy = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Save";
     }
-    return;
+    if (retryBtn) retryBtn.disabled = false;
+  };
+  if (!title || !date) {
+    setCalendarEventSaveStatus("Add a title and a valid date.", { isError: true, showRetry: false });
+    unlockSubmit();
+    return false;
   }
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    setCalendarEventSaveStatus("Log in to save this to your program calendar.", { isError: true, showRetry: true });
+    unlockSubmit();
+    return false;
+  }
+  const editingId = mainCalendarEditingItemId;
+  // Stable mutation + item ids across retries / double-clicks for this modal session.
+  let clientMutationId = String(
+    options.clientMutationId
+    || form.dataset.calendarClientMutationId
+    || calendarEventLastPayload?.clientMutationId
+    || "",
+  ).trim();
+  let stableItemId = String(editingId || form.dataset.calendarItemId || calendarEventLastPayload?.id || "").trim();
+  if (!editingId) {
+    if (!clientMutationId) clientMutationId = newCalendarClientMutationId();
+    if (!stableItemId) stableItemId = clientMutationId.replace(/^cm-/, "sch-");
+    form.dataset.calendarClientMutationId = clientMutationId;
+    form.dataset.calendarItemId = stableItemId;
+  } else if (!clientMutationId) {
+    clientMutationId = `cm-edit-${editingId}-${Date.now().toString(36)}`;
+    form.dataset.calendarClientMutationId = clientMutationId;
+  }
+  const payload = {
+    id: editingId || stableItemId,
+    clientMutationId,
+    type: scheduleType,
+    title,
+    startDate: date,
+    endDate: date,
+    weekStartDate: api.weekStartMonday(date),
+    allDay,
+    startTime,
+    endTime,
+    notes,
+    ageGroup,
+    itemsToBring,
+    classroomId: (scheduleDocCache || api.readCache(scheduleApiEmail())).classrooms?.[0]?.id || "classroom-main",
+  };
+  calendarEventLastPayload = payload;
   mainCalendarBusy = true;
+  setCalendarEventSaveStatus("Saving…", { showRetry: false });
   renderMainCalendar();
   try {
     await ensureScheduleLoaded();
-    const editingId = mainCalendarEditingItemId;
-    await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
-      ...(editingId ? { id: editingId } : {}),
-      type: scheduleType,
-      title,
-      startDate: date,
-      endDate: date,
-      weekStartDate: api.weekStartMonday(date),
-      allDay,
-      startTime,
-      endTime,
-      notes,
-      ageGroup,
-      itemsToBring,
-      classroomId: (scheduleDocCache || api.readCache(scheduleApiEmail())).classrooms?.[0]?.id || "classroom-main",
-    });
+    // Server acknowledgement required — never claim Saved from local cache alone.
+    // clientMutationId makes repeated PUTs idempotent if the network retries.
+    await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), payload, { requireCloud: true });
     scheduleDocCache = api.readCache(scheduleApiEmail());
+    setCalendarEventSaveStatus("Saved", { showRetry: false });
+    showActionFeedback("Saved to your program calendar.");
+    delete form.dataset.calendarClientMutationId;
+    delete form.dataset.calendarItemId;
     closeCalendarAddItemDialog();
     refreshCalendarSurfacesAfterScheduleChange(api.weekStartMonday(date));
+    return true;
   } catch (error) {
+    const message = error?.message || "Save failed. Your event was not confirmed on the server.";
+    setCalendarEventSaveStatus(message, { isError: true, showRetry: true });
     if (errorEl) {
       errorEl.hidden = false;
-      errorEl.textContent = error.message || "Could not save this calendar item.";
+      errorEl.textContent = message;
     }
+    showActionFeedback("Save failed — use Retry.");
+    return false;
   } finally {
-    mainCalendarBusy = false;
+    unlockSubmit();
     renderMainCalendar();
   }
 }
@@ -35526,7 +35632,7 @@ async function finalizeCalendarLessonRemoval(deletedLessonItem, api) {
   for (const eventId of linkedIds) {
     try {
       if (typeof api.deleteItem === "function") {
-        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), eventId);
+        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), eventId, { requireCloud: true });
       }
     } catch (error) {
       console.warn("[calendar] linked event cleanup failed", eventId, error?.message || error);
@@ -35574,7 +35680,7 @@ async function deleteCalendarItem(itemId, options = {}) {
   renderMainCalendar();
   try {
     await ensureScheduleLoaded();
-    await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), itemId);
+    await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), itemId, { requireCloud: true });
     scheduleDocCache = api.readCache(scheduleApiEmail());
     if (isPlacement) {
       await finalizeCalendarLessonRemoval(item, api);
@@ -36407,25 +36513,79 @@ async function firebaseAuthHeaders() {
   };
 }
 
-async function saveChildDataToBackend(options = {}) {
-  if (!currentUser || !canUseLaunchBackend()) return;
-  if (childCloudSyncing && !options.force) return;
-  const headers = await staffAuthHeaders();
-  if (!headers) return;
-  await fetch("/api/child-data", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ data: childDataSnapshot() }),
+let childCloudSaveStatus = { state: "idle", message: "", pendingKeys: [], lastError: "" };
+
+function setChildCloudSaveStatus(state, message = "", extra = {}) {
+  childCloudSaveStatus = {
+    state,
+    message,
+    pendingKeys: extra.pendingKeys || childCloudSaveStatus.pendingKeys || [],
+    lastError: extra.lastError || "",
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem("llhChildCloudSaveStatus", JSON.stringify(childCloudSaveStatus));
+  } catch (_e) { /* ignore quota */ }
+  document.querySelectorAll("[data-child-cloud-save-status]").forEach((el) => {
+    el.hidden = !message;
+    el.textContent = message || "";
+    el.dataset.state = state;
+    el.classList.toggle("is-error", state === "failed" || state === "conflict");
   });
 }
 
-function queueChildDataCloudSave() {
+async function saveChildDataToBackend(options = {}) {
+  if (!currentUser || !canUseLaunchBackend()) {
+    setChildCloudSaveStatus("local", "Saved on this device — sign in to sync to your account.");
+    return { ok: false, reason: "no-backend" };
+  }
+  if (childCloudSyncing && !options.force) return { ok: false, reason: "busy" };
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setChildCloudSaveStatus("failed", "Save failed — could not authorize sync. Tap Retry when online.", { lastError: "no-auth" });
+    return { ok: false, reason: "no-auth" };
+  }
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  if (offline) {
+    setChildCloudSaveStatus("offline", "Offline — your changes are kept on this device and will retry when you reconnect.");
+    return { ok: false, reason: "offline" };
+  }
+  setChildCloudSaveStatus("saving", options.statusMessage || "Saving… waiting for server confirmation.");
+  try {
+    const response = await fetch("/api/child-data", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ data: childDataSnapshot() }),
+    });
+    if (response.status === 409) {
+      setChildCloudSaveStatus("conflict", "Conflict — another session updated child records. Refresh carefully; unsynced local drafts are still on this device.", { lastError: "409" });
+      return { ok: false, reason: "conflict", status: 409 };
+    }
+    if (!response.ok) {
+      setChildCloudSaveStatus("failed", `Save failed (server ${response.status}). Local draft kept — tap Retry.`, { lastError: String(response.status) });
+      return { ok: false, reason: "http", status: response.status };
+    }
+    const remote = await response.json().catch(() => ({}));
+    if (remote?.updatedAt) localStorage.setItem(childCloudUpdatedKey(), remote.updatedAt);
+    setChildCloudSaveStatus("saved", options.successMessage || "Saved — server confirmed.");
+    return { ok: true, remote };
+  } catch (error) {
+    setChildCloudSaveStatus("failed", "Save failed — network error. Local draft kept — tap Retry.", { lastError: String(error?.message || error) });
+    return { ok: false, reason: "network", error };
+  }
+}
+
+function queueChildDataCloudSave(options = {}) {
   // Persist Forms / child records whenever the launch API is reachable — not only when Firebase is configured.
   // Family Hub reads live documents from /api/child-data, so local-only saves break the forms spine.
-  if (!currentUser || !canUseLaunchBackend()) return;
+  if (!currentUser || !canUseLaunchBackend()) {
+    setChildCloudSaveStatus("local", "Saved on this device only (not yet synced).");
+    return;
+  }
   clearTimeout(childCloudSaveTimer);
+  setChildCloudSaveStatus("pending", "Saving…");
   childCloudSaveTimer = setTimeout(() => {
-    saveChildDataToBackend().catch((error) => console.warn("Child data cloud save did not complete", error));
+    saveChildDataToBackend(options).catch((error) => console.warn("Child data cloud save did not complete", error));
   }, 700);
 }
 
@@ -36530,10 +36690,14 @@ async function syncChildDataFromBackend(options = {}) {
   return applied;
 }
 
-function saveChildStore(key, value) {
+function saveChildStore(key, value, options = {}) {
   saveChildStoreLocalOnly(key, value);
   updateSidebarDashboard();
-  queueChildDataCloudSave();
+  const pending = options.pendingLabel || key;
+  queueChildDataCloudSave({
+    statusMessage: options.statusMessage || `Saving ${pending}… waiting for server confirmation.`,
+    successMessage: options.successMessage || `Saved ${pending} — server confirmed.`,
+  });
 }
 
 function childRecords() {
@@ -36619,6 +36783,7 @@ function ageGroupFromDob(dob) {
 }
 
 function childAgeMonths(child = {}) {
+  if (!child || typeof child !== "object") return null;
   if (child.dob) {
     const birthDate = new Date(`${child.dob}T12:00:00`);
     if (!Number.isNaN(birthDate.getTime())) {
@@ -36637,6 +36802,7 @@ function childAgeMonths(child = {}) {
 }
 
 function isInfantChild(child = {}) {
+  if (!child || typeof child !== "object") return false;
   return normalizeAgeGroup(child.ageGroup) === "Infant" || (childAgeMonths(child) !== null && childAgeMonths(child) < 12);
 }
 
@@ -37279,33 +37445,122 @@ function supportTopicContent(topic = "", child = null) {
     },
   };
   const content = { ...base, ...(overrides[topic] || {}) };
-  if (!child || !isInfantChild(child)) return content;
-  return {
-    ...content,
-    tips: [
-      "Use short one-to-one play moments and follow the baby's cues.",
-      "Use only large baby-safe materials and stay within arm's reach.",
-      "Stop when the baby shows fatigue, distress, or disinterest.",
-    ],
-    activities: suggestedActivitiesForArea(area || "Approaches to Learning", child).slice(0, 3),
-    observations: [
-      "What did the baby reach for, grasp, look at, babble toward, or try again?",
-      "Which support helped the baby stay calm and engaged?",
-      "How long did the baby participate before needing a break?",
-    ],
-    parentNotes: [
-      "We are using short, safe play moments that match your baby's age and cues.",
-      "Today we watched what your baby reached for, noticed, or tried again.",
-      "Simple floor play, songs, board books, and large safe toys are best right now.",
-    ],
-  };
+  const ageLabel = String(child?.ageGroup || child?.age || "").toLowerCase();
+  const isYoungToddler = /young\s*toddler|12\s*[-–]\s*24|1\s*[-–]\s*2/.test(ageLabel)
+    || (typeof isYoungToddlerChild === "function" && isYoungToddlerChild(child));
+  const isToddler = !isInfantChild(child) && (/toddler/.test(ageLabel) || (typeof isToddlerChild === "function" && isToddlerChild(child)));
+  const isPreschool = /preschool|prek|3\s*[-–]\s*5|4\s*year/.test(ageLabel);
+
+  // Strip choking / small-parts materials from Fine Motor topic defaults for under-3.
+  if (topic === "Fine Motor" && (!child || (child && isInfantChild(child)) || isYoungToddler || isToddler)) {
+    content.activities = [
+      "Large stacking rings",
+      "Jumbo block stacking",
+      "Large fabric shape sorting (supervised)",
+    ];
+    content.tips = content.tips.map((tip) => tip
+      .replace(/bead threading/gi, "large ring stacking")
+      .replace(/scissor snip strips/gi, "tear large paper strips with help"));
+    content.parentNotes = content.parentNotes.map((note) => note
+      .replace(/Playdough, stickers, and safe cutting are good next steps\./gi,
+        "Large stacking rings, jumbo blocks, and fabric shapes are safer next steps."));
+  }
+
+  if (!child) {
+    return {
+      ...content,
+      tips: [
+        ...content.tips.slice(0, 2),
+        "Match strategies to the child's age before saving anything to a profile.",
+      ],
+    };
+  }
+
+  if (child && isInfantChild(child)) {
+    return {
+      ...content,
+      tips: [
+        "Focus on cues, routines, sensory needs, connection, and caregiver response.",
+        "Use only large baby-safe materials and stay within arm's reach.",
+        "Stop when the baby shows fatigue, distress, or disinterest.",
+        "Urgent safety concerns: follow program policy and seek professional guidance when needed.",
+      ],
+      activities: [
+        "Floor tummy time with close supervision",
+        "Large soft grasping toys / sealed sensory bottles",
+        "Board books and face-to-face songs",
+      ],
+      observations: [
+        "What did the baby reach for, grasp, look at, babble toward, or try again?",
+        "Which support helped the baby stay calm and engaged?",
+        "How long did the baby participate before needing a break?",
+      ],
+      parentNotes: [
+        "We are using short, safe play moments that match your baby's age and cues.",
+        "Today we watched what your baby reached for, noticed, or tried again.",
+        "Simple floor play, songs, board books, and large safe toys are best right now.",
+      ],
+    };
+  }
+
+  if (isYoungToddler || (isToddler && /young/.test(ageLabel))) {
+    return {
+      ...content,
+      tips: [
+        "Use co-regulation, simple language, choices, visual supports, modeling, and safe redirection.",
+        "Offer two clear choices and stay nearby during busy play.",
+        "Prevention: reduce wait times, preview transitions, and keep materials large and washable.",
+        "Urgent safety concerns: follow program policy and seek professional guidance when needed.",
+      ],
+      activities: [
+        "Large stacking rings and jumbo blocks",
+        "First-then picture cards for transitions",
+        "Sealed sensory containers (no loose beads, beans, or pom-poms)",
+      ],
+      observations: [
+        "What happened right before the hard moment?",
+        "Which co-regulation strategy helped recovery?",
+        "Did a choice, visual cue, or modeling help?",
+      ],
+      parentNotes: [
+        "We are practicing co-regulation with short, calm words and visual cues.",
+        "Today we used choices and safe redirection.",
+        "We will keep sharing what helps at school and ask what helps at home.",
+      ],
+    };
+  }
+
+  if (isToddler) {
+    return {
+      ...content,
+      tips: [
+        "Use co-regulation, simple language, choices, visual supports, modeling, and safe redirection.",
+        "Keep expectations realistic for the child's developmental level — avoid punishment-focused advice.",
+        "Name feelings and offer a replacement behavior.",
+        "Urgent safety concerns: follow program policy and seek professional guidance when needed.",
+      ],
+    };
+  }
+
+  if (isPreschool) {
+    return {
+      ...content,
+      tips: [
+        "Include problem-solving, emotional vocabulary, predictable limits, repair, and peer support.",
+        "Coach the child through repair with peers after hard moments.",
+        "Use clear, consistent limits without shame or labels.",
+        "Urgent safety concerns: follow program policy and seek professional guidance when needed.",
+      ],
+    };
+  }
+
+  return content;
 }
 
 function supportCenterSelectedChild(records = childRecords()) {
-  return records.children.find((child) => child.id === activeSupportChildId)
-    || records.children.find((child) => child.id === selectedChildId)
-    || records.children[0]
-    || null;
+  // Deliberate selection only — never inherit selectedChildId or auto-pick the first child.
+  if (!activeSupportChildId) return null;
+  return records.children.find((child) => child.id === activeSupportChildId) || null;
 }
 
 function supportSearchResults(query = "") {
@@ -37343,11 +37598,13 @@ function renderSupportCenterPage() {
   const topic = supportTopicById(activeSupportTopicId);
   if (topic) {
     section.innerHTML = renderSupportTopicPage(topic, records);
-    if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
-    return;
+  } else {
+    const category = supportCategoryById(activeSupportCategoryId);
+    section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
   }
-  const category = supportCategoryById(activeSupportCategoryId);
-  section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
+  // Keep the picker aligned with deliberate selection (never silently land on first child).
+  const supportChildSelect = section.querySelector("#supportCenterChildSelect");
+  if (supportChildSelect) supportChildSelect.value = activeSupportChildId || "";
   if (typeof refreshContextualViewBackButtons === "function") refreshContextualViewBackButtons();
 }
 
@@ -40991,9 +41248,12 @@ function renderSupportChildPicker(topic, child, records = childRecords()) {
     <label class="support-child-picker">
       <span>Personalize for child</span>
       <select id="supportCenterChildSelect">
+        <option value="" ${child ? "" : "selected"}>No child selected</option>
         ${records.children.map((item) => `<option value="${item.id}" ${child?.id === item.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
       </select>
-      ${child ? `<small>${escapeHtml(childAgeLabel(child))}${child.ageGroup ? ` | ${escapeHtml(child.ageGroup)}` : ""}${selectedSupport ? " | Connected from profile" : ""}</small>` : ""}
+      ${child
+        ? `<p class="support-selected-child-banner" role="status"><strong>Selected child: ${escapeHtml(child.name)}</strong> · ${escapeHtml(childAgeLabel(child))}${child.ageGroup ? ` · ${escapeHtml(child.ageGroup)}` : ""}${selectedSupport ? " · Connected from profile" : ""}</p>`
+        : `<small>No child selected — general guidance will not be saved to a profile.</small>`}
     </label>
   `;
 }
@@ -41051,7 +41311,9 @@ function renderSupportAiIdeas(topic = "", child = null, records = childRecords()
   const observations = child ? records.observations.filter((item) => item.childId === child.id).slice(-2) : [];
   const context = child ? childRecommendationContext(child, records) : null;
   const progress = child ? childProgressSummary(child.id, records) : null;
-  const childLabel = child ? `${child.name} | ${childAgeLabel(child)}${child.ageGroup ? ` | ${child.ageGroup}` : ""}` : "General support ideas";
+  const childLabel = child
+    ? `Selected child: ${child.name} | ${childAgeLabel(child)}${child.ageGroup ? ` | ${child.ageGroup}` : ""}`
+    : "No child selected — general guidance (not attached to a profile)";
   const activeGoalLabels = context
     ? context.portfolio.goals
       .filter((goal) => goalProgressPercent(goal.progress) < 100)
@@ -41059,9 +41321,24 @@ function renderSupportAiIdeas(topic = "", child = null, records = childRecords()
       .filter(Boolean)
     : [];
   const goalLabel = childGoalDisplayLabels(child || {}).join(", ") || Array.from(new Set(activeGoalLabels)).join(", ") || "None selected";
+  const prevention = [
+    "Preview transitions and reduce long waits.",
+    "Arrange the environment so busy toys have enough space.",
+    "Stay close during high-energy peer play.",
+  ];
+  const coRegulation = [
+    "Stay calm and close; name the feeling in short words.",
+    "Offer a regulated breath or quiet corner without shame.",
+    "Model the replacement behavior, then invite the child to try.",
+  ];
+  const familyTalk = content.parentNotes.slice(0, 3);
   const transitionIdeas = topic.toLowerCase().includes("transition") || topic === "Tantrums"
     ? ["Use a two-minute warning.", "Give a helper job.", "Use first-then wording."]
     : ["Practice the skill before the hard routine.", "Use a picture cue.", "Keep the routine predictable."];
+  const attachConfirm = child
+    ? `<p class="form-note">These ideas are personalized for <strong>${escapeHtml(child.name)}</strong>. Saving to a profile requires an explicit confirmation.</p>
+       <button class="primary-button" type="button" data-support-attach-child="${escapeHtml(child.id)}" data-support-attach-topic="${escapeHtml(topic)}">Save ideas to ${escapeHtml(child.name)}'s profile</button>`
+    : `<p class="form-note">General guidance only — choose a child above if you want to attach anything to a profile.</p>`;
   return `
     <div class="support-ai-panel">
       <div class="child-ai-context">
@@ -41069,16 +41346,20 @@ function renderSupportAiIdeas(topic = "", child = null, records = childRecords()
         ${context ? `<span>Goals: ${escapeHtml(goalLabel)}</span><span>Support: ${escapeHtml(childSelectedSupportAreas(child).join(", ") || topic)}</span>${progress?.hasGoalProgress ? `<span>Progress: ${progress.progressPercent}%</span>` : `<span>Progress: No goals yet</span>`}` : ""}
       </div>
       <div class="support-ai-grid">
-        <div><strong>Activities</strong>${renderSupportBulletList(content.activities.slice(0, 3))}</div>
-        <div><strong>Guidance Strategies</strong>${renderSupportBulletList(content.tips.slice(0, 3))}</div>
+        <div><strong>Practical strategies</strong>${renderSupportBulletList(content.tips.slice(0, 4))}</div>
+        <div><strong>Environmental / prevention</strong>${renderSupportBulletList(prevention)}</div>
+        <div><strong>Co-regulation language</strong>${renderSupportBulletList(coRegulation)}</div>
+        <div><strong>Activities (age-safe)</strong>${renderSupportBulletList(content.activities.slice(0, 3))}</div>
         <div><strong>Transition Ideas</strong>${renderSupportBulletList(transitionIdeas)}</div>
         <div><strong>Observation Prompts</strong>${renderSupportBulletList(observations.length ? observations.map((item) => `Build from: ${item.text}`) : content.observations.slice(0, 3))}</div>
-        <div><strong>Parent Communication</strong>${renderSupportBulletList(content.parentNotes.slice(0, 3))}</div>
+        <div><strong>Family communication</strong>${renderSupportBulletList(familyTalk)}</div>
         <div><strong>Related Resources</strong>${renderSupportBulletList([
           resourcesForTopic.lessons[0]?.title || "Create a matching lesson plan idea.",
           resourcesForTopic.activities[0]?.title || "Create a matching activity idea.",
         ])}</div>
       </div>
+      <p class="form-note" role="note"><strong>Urgent safety:</strong> If anyone is at immediate risk, follow your program's safety policy and seek professional guidance. These ideas are not a diagnosis or medical advice.</p>
+      ${attachConfirm}
     </div>
   `;
 }
@@ -43833,6 +44114,8 @@ function renderDlcDashboard(records) {
           <p class="eyebrow">Daily Logs</p>
           <p class="dlc-dashboard-date-label" aria-live="polite">${escapeHtml(dateLabel)}</p>
           <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
+          <p class="form-note" data-child-cloud-save-status role="status" aria-live="polite">${escapeHtml(childCloudSaveStatus?.message || "")}</p>
+          <button class="ghost-button" type="button" data-child-cloud-save-retry ${["failed","offline","conflict"].includes(childCloudSaveStatus?.state) ? "" : "hidden"}>Retry sync</button>
         </div>
         <div class="dlc-dashboard-date-picker">
           <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
@@ -60627,13 +60910,24 @@ async function generateToolOutputWithBackend(toolId, data, options = {}) {
     if (!result.output) {
       throw new Error("We couldn't create your document right now. Please try again.");
     }
+    let output = result.output;
+    if (typeof LLHAiAgeSafety?.sanitizeProviderFacingCopy === "function") {
+      output = LLHAiAgeSafety.sanitizeProviderFacingCopy(output);
+    }
+    if (typeof LLHAiAgeSafety?.validateAiContentForAge === "function") {
+      const gate = LLHAiAgeSafety.validateAiContentForAge(output, ageValue, { area: data.skill || data.topic || "" });
+      if (gate.blocked) {
+        throw new Error(`${gate.message} Suggested alternatives: ${gate.alternatives.join("; ")}`);
+      }
+    }
     return {
-      output: result.output,
+      output,
       backendUsed: true,
       used: result.used,
       limit: result.limit,
       model: result.model,
       requestId: result.requestId || "",
+      ageSafetyRewritten: result.ageSafetyRewritten === true,
       debug: result.debug || null,
     };
   } finally {
@@ -65481,6 +65775,35 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const supportAttachBtn = event.target.closest("[data-support-attach-child]");
+  if (supportAttachBtn) {
+    event.preventDefault();
+    const childId = supportAttachBtn.dataset.supportAttachChild || "";
+    const topic = supportAttachBtn.dataset.supportAttachTopic || "Support";
+    const child = childRecords().children.find((c) => c.id === childId);
+    if (!childId || !child) {
+      window.alert("Select a child before saving ideas to a profile.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Attach these Behavior & Support ideas to ${child.name}'s profile?\n\nSelected child: ${child.name}\nTopic: ${topic}\n\nNothing is shared with families unless you later choose to share.`,
+    );
+    if (!confirmed) return;
+    const output = document.querySelector("#supportAiOutput");
+    const text = (output?.innerText || "").trim().slice(0, 1800);
+    appendChildRecord("SupportPlans", {
+      childId,
+      date: new Date().toISOString().slice(0, 10),
+      title: `Behavior & Support | ${topic}`,
+      summary: text.slice(0, 200),
+      strategies: text,
+      status: "active",
+      shareWithFamily: false,
+    });
+    showActionFeedback(`Saved internally to ${child.name}'s profile (not shared with family).`);
+    return;
+  }
+
   const supportAiButton = event.target.closest("[data-support-ai]");
   if (supportAiButton) {
     event.preventDefault();
@@ -65561,7 +65884,8 @@ document.addEventListener("click", async (event) => {
       activeSupportCategoryId = "";
       activeSupportTopicId = "";
       activeSupportTab = "why";
-      activeSupportChildId = selectedChildId;
+      // Match Documentation Helpers: start with No child selected.
+      activeSupportChildId = "";
       supportCenterSearch = "";
     }
     const requestedChildToolTab = childToolTabFromView(viewButton.dataset.view);
@@ -70544,6 +70868,31 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const docHelperPreviewShareBtn = event.target.closest("#docHelperPreviewShareBtn");
+  if (docHelperPreviewShareBtn) {
+    event.preventDefault();
+    const outputEl = document.querySelector("#docHelperOutput");
+    const previewHost = document.querySelector("#docHelperSharePreview");
+    const previewBody = document.querySelector("#docHelperSharePreviewBody");
+    const docType = document.querySelector("#docHelperSaveBtn")?.dataset.docType
+      || docHelperDraftState?.docType
+      || "observation";
+    const raw = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
+    const familyText = prepareDocHelperSaveText(docType, raw, { shareWithFamily: true }) || sanitizeDocHelperDraftText(raw);
+    if (!familyText) {
+      window.alert("Nothing ready to preview yet.");
+      return;
+    }
+    if (previewHost) previewHost.hidden = false;
+    if (previewBody) {
+      if (typeof renderMarkdown === "function") previewBody.innerHTML = renderMarkdown(familyText);
+      else previewBody.textContent = familyText;
+    }
+    updateDocHelperShareStateLabel();
+    showActionFeedback("Preview only — nothing was sent to families.");
+    return;
+  }
+
   const docHelperCopyBtn = event.target.closest("#docHelperCopyBtn");
   if (docHelperCopyBtn) {
     const outputEl = document.querySelector("#docHelperOutput");
@@ -70551,7 +70900,7 @@ document.addEventListener("click", async (event) => {
     const docType = document.querySelector("#docHelperSaveBtn")?.dataset.docType
       || docHelperDraftState?.docType
       || "observation";
-    const shareWithFamily = ["daily-log", "parent-message"].includes(docType);
+    const shareWithFamily = document.querySelector("#docHelperShareFamily")?.checked === true;
     const raw = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
     const text = prepareDocHelperSaveText(docType, raw, { shareWithFamily }) || sanitizeDocHelperDraftText(raw);
     const finish = () => {
@@ -70652,8 +71001,7 @@ document.addEventListener("click", async (event) => {
       childSelect?.focus();
       return;
     }
-    const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
-      || document.querySelector("#docHelperShareFamily")?.checked === true;
+    const shareWithFamily = document.querySelector("#docHelperShareFamily")?.checked === true;
     const text = prepareDocHelperSaveText(docType, rawText, { shareWithFamily });
     if (!text) {
       window.alert("This draft still looks unfinished (placeholders or empty sections). Edit the note and create it again before saving.");
@@ -70666,10 +71014,13 @@ document.addEventListener("click", async (event) => {
       else outputEl.textContent = text;
     }
     const childName = childRecords().children.find((c) => c.id === childId)?.name || "this child";
+    const shareLine = shareWithFamily
+      ? "\n\nThis will be marked Shared with Family (you opted in)."
+      : "\n\nSharing status: Saved Internally — families will not see this unless you opt in to Share with Family.";
     const confirmed = window.confirm(
       config.key
-        ? `Save this ${docTypeLabels[docType] || "document"} to ${childName}'s profile?\n\nSelected child: ${childName}`
-        : "Save this document to your history?",
+        ? `Save this ${docTypeLabels[docType] || "document"} to ${childName}'s profile?\n\nSelected child: ${childName}${shareLine}`
+        : `Save this document to your history?${shareLine}`,
     );
     if (!confirmed) return;
     docHelperSaveBtn.dataset.saving = "1";
@@ -70725,13 +71076,19 @@ document.addEventListener("click", async (event) => {
       openChildBtn.dataset.childTab = config.childTab || "overview";
     }
     const hint = document.querySelector("#docHelperNextStepHint");
-    if (hint) hint.textContent = "Saved. Open the child profile, create another, or copy the text.";
+    if (hint) hint.textContent = shareWithFamily
+      ? "Saved and marked Shared with Family (you opted in). Nothing else is sent automatically."
+      : "Saved Internally. Families cannot see this until you opt in to Share with Family.";
+    try { localStorage.removeItem("llhDocHelperLocalDraft"); } catch (_e) {}
+    updateDocHelperShareStateLabel();
     setTimeout(() => {
       docHelperSaveBtn.textContent = childId ? "Save to Child Profile" : "Save";
       docHelperSaveBtn.disabled = false;
       delete docHelperSaveBtn.dataset.saving;
     }, 2500);
-    showActionFeedback(config.key ? "Saved to child profile." : "Saved to document history.");
+    showActionFeedback(config.key
+      ? (shareWithFamily ? "Saved to child profile and marked for family share." : "Saved internally to child profile.")
+      : "Saved to document history.");
     return;
   }
 });
@@ -71194,9 +71551,11 @@ document.addEventListener("change", (event) => {
     renderChildManagement();
   }
   if (event.target.matches("#supportCenterChildSelect")) {
-    activeSupportChildId = event.target.value;
-    selectedChildId = activeSupportChildId;
-    localStorage.setItem("llhSelectedChild", selectedChildId);
+    activeSupportChildId = event.target.value || "";
+    if (activeSupportChildId) {
+      selectedChildId = activeSupportChildId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+    }
     renderSupportCenterPage();
   }
   if (event.target.matches("#portfolioObservationArea")) {
@@ -73614,8 +73973,8 @@ const DOC_HELPER_INTERNAL_SECTION_RE = /^(provider notes?(?:\s*\(.*\))?|teacher 
  */
 function prepareDocHelperSaveText(docType, text, options) {
   const opts = options && typeof options === "object" ? options : {};
-  const shareWithFamily = opts.shareWithFamily === true
-    || ["daily-log", "parent-message"].includes(String(docType || ""));
+  // Opt-in only — never treat daily-log/parent-message as family-shared by default.
+  const shareWithFamily = opts.shareWithFamily === true;
   let cleaned = sanitizeDocHelperDraftText(text);
   if (!cleaned) return "";
 
@@ -73698,6 +74057,70 @@ function docHelperRequiresAge(docType) {
   return ["lesson-plan", "activity-idea", "behavior-note", "daily-log", "observation", "incident-report"].includes(String(docType || ""));
 }
 
+function updateDocHelperShareStateLabel() {
+  const label = document.querySelector("#docHelperShareStateLabel");
+  const hint = document.querySelector("#docHelperShareStateHint");
+  const shareChecked = document.querySelector("#docHelperShareFamily")?.checked === true;
+  const postSave = document.querySelector("#docHelperPostSavePanel");
+  const saved = postSave && !postSave.hidden;
+  if (!label) return;
+  if (saved && shareChecked) {
+    label.textContent = "Shared with Family";
+    if (hint) hint.textContent = "You opted in to share. Families only see shared items — never automatic.";
+  } else if (saved) {
+    label.textContent = "Saved Internally";
+    if (hint) hint.textContent = "Saved to the child file. Families cannot see this until you opt in to Share with Family.";
+  } else {
+    label.textContent = "Draft";
+    if (hint) hint.textContent = "Nothing is sent to families until you choose Share with Family.";
+  }
+}
+
+function persistDocHelperLocalDraft() {
+  try {
+    const outputEl = document.querySelector("#docHelperOutput");
+    const raw = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
+    if (!raw || /Creating your document|Generating/.test(raw)) return;
+    const payload = {
+      docType: docHelperDraftState.docType || document.querySelector("#docHelperType")?.value || "",
+      note: document.querySelector("#docHelperNote")?.value || docHelperDraftState.originalNote || "",
+      output: raw,
+      childId: document.querySelector("#docHelperChild")?.value || "",
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem("llhDocHelperLocalDraft", JSON.stringify(payload));
+  } catch (_e) { /* ignore */ }
+}
+
+function restoreDocHelperLocalDraftIfNeeded() {
+  try {
+    const raw = localStorage.getItem("llhDocHelperLocalDraft");
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (!payload?.output) return false;
+    const resultsEl = document.querySelector("#docHelperResults");
+    const outputEl = document.querySelector("#docHelperOutput");
+    if (!resultsEl || !outputEl) return false;
+    if ((outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim()) return false;
+    resultsEl.hidden = false;
+    outputEl.dataset.rawMarkdown = payload.output;
+    if (typeof renderMarkdown === "function") outputEl.innerHTML = renderMarkdown(payload.output);
+    else outputEl.textContent = payload.output;
+    docHelperDraftState.lastOutput = payload.output;
+    docHelperDraftState.docType = payload.docType || docHelperDraftState.docType;
+    docHelperDraftState.originalNote = payload.note || docHelperDraftState.originalNote;
+    const labelEl = document.querySelector("#docHelperResultLabel");
+    if (labelEl) labelEl.textContent = "Draft (restored)";
+    const hint = document.querySelector("#docHelperNextStepHint");
+    if (hint) hint.textContent = "Restored your unsaved draft from this device after refresh.";
+    updateDocHelperShareStateLabel();
+    setDocHelperDraftActionsVisible(true);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
 async function runDocHelperGeneration({ docType, note, childId, draftAction = "" } = {}) {
   const form = document.querySelector("#docHelperForm");
   const submitBtn = form?.querySelector("[type='submit']");
@@ -73755,6 +74178,32 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   const today = new Date().toISOString().slice(0, 10);
   const toolId = docHelperToolMap[docType] || "observation";
   const label = docTypeLabels[docType] || "Documentation";
+  if (typeof LLHAiAgeSafety?.validateObservationInput === "function") {
+    const obsGate = LLHAiAgeSafety.validateObservationInput(note, { tool: toolId, note });
+    if (!obsGate.ok) {
+      resultsEl.hidden = false;
+      outputEl.textContent = obsGate.message;
+      delete outputEl.dataset.rawMarkdown;
+      if (titleEl) titleEl.textContent = "Observed action needed";
+      if (labelEl) labelEl.textContent = "Notice";
+      setDocHelperDraftActionsVisible(false);
+      updateDocHelperComposeHint();
+      return;
+    }
+  }
+  if (typeof LLHAiAgeSafety?.validateAiContentForAge === "function" && ageGroup) {
+    // Pre-check provider note materials for under-3 activity helpers
+    const materialGate = LLHAiAgeSafety.validateAiContentForAge(note, ageGroup, { area: label });
+    if (materialGate.blocked && ["activity-idea", "lesson-plan", "behavior-note"].includes(docType)) {
+      resultsEl.hidden = false;
+      outputEl.textContent = `${materialGate.message}\n\nSafe substitutions: ${materialGate.alternatives.join("; ")}`;
+      delete outputEl.dataset.rawMarkdown;
+      if (titleEl) titleEl.textContent = "Age safety check";
+      if (labelEl) labelEl.textContent = "Blocked";
+      setDocHelperDraftActionsVisible(false);
+      return;
+    }
+  }
   docHelperGenerating = true;
 
   const missingFactWarnings = [];
@@ -73865,6 +74314,8 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
         ? "Review this draft before saving. Use Regenerate or tone options, or edit the text directly."
         : "Review this draft. Pick a child above before saving, or copy to use elsewhere.";
     }
+    persistDocHelperLocalDraft();
+    updateDocHelperShareStateLabel();
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     updateDocHelperComposeHint();
@@ -76439,3 +76890,28 @@ window.syncFoundingStatus = syncFoundingStatus;
 window.failCheckout = failCheckout;
 window.trackProUpgradeIntent = trackProUpgradeIntent;
 window.trackProCheckoutAbandoned = trackProCheckoutAbandoned;
+
+
+// Preserve Documentation Helper drafts across refresh; warn when an unsaved result would be lost.
+(function bindDocHelperDraftGuard() {
+  if (typeof window === "undefined") return;
+  window.llhDocHelperBeforeUnload = true;
+  window.addEventListener("beforeunload", (event) => {
+    try {
+      const outputEl = document.querySelector("#docHelperOutput");
+      const raw = (outputEl?.dataset.rawMarkdown || "").trim();
+      const postSave = document.querySelector("#docHelperPostSavePanel");
+      const saved = postSave && !postSave.hidden;
+      if (raw && !saved) {
+        persistDocHelperLocalDraft();
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    } catch (_e) { /* ignore */ }
+  });
+  window.addEventListener("online", () => {
+    if (childCloudSaveStatus?.state === "offline" || childCloudSaveStatus?.state === "failed") {
+      queueChildDataCloudSave({ statusMessage: "Reconnected — retrying save…", successMessage: "Saved — server confirmed after reconnect." });
+    }
+  });
+})();
