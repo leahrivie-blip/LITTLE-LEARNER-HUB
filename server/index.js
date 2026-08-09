@@ -2833,7 +2833,8 @@ function authorizedCurriculumLibraryDto(siteContent) {
         .map((resource) => {
           const meta = curriculumResourceMetadata(resource);
           if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
-          const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+          const linkedToPublicLesson = curriculumResourceLinkedToPublicLesson(store, resource).length > 0
+            || (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
           if (!linkedToPublicLesson) return null;
           return meta;
         })
@@ -2880,7 +2881,8 @@ function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
         .map((resource) => {
           const meta = curriculumResourceMetadata(resource);
           if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
-          const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+          const linkedToPublicLesson = curriculumResourceLinkedToPublicLesson(store, resource).length > 0
+            || (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
           if (!linkedToPublicLesson) return null;
           return meta;
         })
@@ -3158,6 +3160,81 @@ function linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId
     )),
     updatedAt: now,
   });
+}
+
+/**
+ * Promote draft printables linked to a public lesson so customer Teaching Kit
+ * media URLs resolve. Never invents files; skips archived / file-less stubs.
+ * Keeps lessonPlanIds ↔ resourceIds association bidirectional.
+ */
+function publishLinkedDraftResourcesForLesson(curriculum, lessonPlanId, { now } = {}) {
+  const stamp = now || new Date().toISOString();
+  const store = normalizedCurriculumStore(curriculum);
+  const planId = normalizedShortText(lessonPlanId, 160);
+  if (!planId) return { curriculum: store, publishedResourceIds: [] };
+  const plan = (store.lessonPlans || []).find((item) => item.id === planId);
+  if (!plan || !isCurriculumLessonPublic(plan.status)) {
+    return { curriculum: store, publishedResourceIds: [] };
+  }
+
+  const linkedIds = new Set(Array.isArray(plan.resourceIds) ? plan.resourceIds.filter(Boolean) : []);
+  (store.resources || []).forEach((resource) => {
+    if ((resource.lessonPlanIds || []).includes(planId)) linkedIds.add(resource.id);
+  });
+
+  const publishedResourceIds = [];
+  const resources = (store.resources || []).map((resource) => {
+    if (!linkedIds.has(resource.id)) return resource;
+    if (isCurriculumResourcePublic(resource.status)) return resource;
+    if (String(resource.status || "").toLowerCase() === "archived") return resource;
+    const hasFile = Boolean(
+      normalizedShortText(resource.mediaAssetId, 160)
+      || curriculumMedia.isInlineCurriculumFileData(resource.fileData)
+      || curriculumMedia.isHttpsCurriculumFileRef(resource.fileData)
+      || normalizedShortText(resource.mediaUrl, 500),
+    );
+    if (!hasFile) return resource;
+    publishedResourceIds.push(resource.id);
+    const lessonPlanIds = [...new Set([...(resource.lessonPlanIds || []), planId])];
+    return normalizedCurriculumResource({
+      ...resource,
+      status: "published",
+      publishedAt: resource.publishedAt || stamp,
+      lessonPlanIds,
+      updatedAt: stamp,
+    });
+  });
+
+  if (!publishedResourceIds.length) {
+    return { curriculum: store, publishedResourceIds: [] };
+  }
+
+  const resourceIds = [...new Set([
+    ...(plan.resourceIds || []),
+    ...publishedResourceIds,
+  ])];
+  return {
+    curriculum: normalizedCurriculumStore({
+      ...store,
+      resources,
+      lessonPlans: store.lessonPlans.map((item) => (
+        item.id === planId ? { ...item, resourceIds } : item
+      )),
+      updatedAt: stamp,
+    }),
+    publishedResourceIds,
+  };
+}
+
+function curriculumResourceLinkedToPublicLesson(curriculum, resource) {
+  if (!resource || !resource.id) return [];
+  const publicLessons = (curriculum.lessonPlans || [])
+    .map((plan) => ({ plan, meta: curriculumParentPlanMeta(plan) }))
+    .filter((entry) => entry.meta);
+  return publicLessons.filter(({ plan, meta }) => (
+    (resource.lessonPlanIds || []).includes(meta.id)
+    || (Array.isArray(plan.resourceIds) && plan.resourceIds.includes(resource.id))
+  )).map(({ meta }) => meta);
 }
 
 function unlinkCurriculumResourceFromLessonPlan(curriculum, resourceId, lessonPlanId) {
@@ -18268,7 +18345,9 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
 
   const access = await resolveCurriculumAccessUser(request, url);
   const activities = curriculum.activities.filter((item) => item.lessonPlanId === cleanId);
+  // Customer Teaching Kit must never advertise draft-only printables (broken media URLs).
   const resources = curriculum.resources.filter((item) => {
+    if (!isCurriculumResourcePublic(item.status)) return false;
     if ((plan.resourceIds || []).includes(item.id)) return true;
     return Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(cleanId);
   });
@@ -18393,13 +18472,8 @@ async function handlePublicCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  const publicLessons = curriculum.lessonPlans
-    .map((plan) => curriculumParentPlanMeta(plan))
-    .filter(Boolean);
-  const publicLessonIds = new Set(publicLessons.map((plan) => plan.id));
-  const linkedLessons = publicLessons.filter((plan) => (resource.lessonPlanIds || []).includes(plan.id));
-  const linkedToPublicLesson = linkedLessons.length > 0;
-  if (!linkedToPublicLesson) {
+  const linkedLessons = curriculumResourceLinkedToPublicLesson(curriculum, resource);
+  if (!linkedLessons.length) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
@@ -21410,12 +21484,14 @@ async function handlePublishEnrichment(request, response, ctx) {
     updatedAt: now,
   });
 
-  const nextCurriculum = normalizedCurriculumStore({
+  let nextCurriculum = normalizedCurriculumStore({
     ...existingCurriculum,
     lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (item.id === id ? nextPlan : item)),
     activities: nextActivities,
     updatedAt: now,
   });
+  const promotedPrintables = publishLinkedDraftResourcesForLesson(nextCurriculum, id, { now });
+  nextCurriculum = promotedPrintables.curriculum;
 
   // Atomic apply: promote visibility + write curriculum in one store commit path.
   await promoteEnrichmentAssetsToPublished(store, assetIds, id);
@@ -21466,6 +21542,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     priorVersionAvailable: true,
     ownerOverrideApplied: Boolean(ownerOverrideMeta),
     ownerPublishOverride: ownerOverrideMeta || null,
+    promotedPrintableIds: promotedPrintables.publishedResourceIds,
   });
 }
 
@@ -21746,10 +21823,18 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     }
 
     step = "syncActivities";
-    const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
+    let syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
     if (!syncedCurriculum) {
       jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
       return;
+    }
+    // Public lessons must promote linked draft printables that already have files,
+    // otherwise customer Teaching Kit advertises media URLs that 404.
+    let promotedPrintableIds = [];
+    if (willBePublic) {
+      const promoted = publishLinkedDraftResourcesForLesson(syncedCurriculum, id, { now });
+      syncedCurriculum = promoted.curriculum;
+      promotedPrintableIds = promoted.publishedResourceIds;
     }
     step = "integrity";
     const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
@@ -21784,6 +21869,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     console.log("[curriculum-lesson-save] ok", {
       id,
       activities: savedActivities.filter((item) => item.status !== "archived").length,
+      promotedPrintables: promotedPrintableIds.length,
       ms: Date.now() - startedAt,
     });
     jsonResponse(response, 200, {
@@ -21791,6 +21877,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       activities: savedActivities,
       curriculum: curriculumWithoutFileData(syncedCurriculum),
       siteContentUpdatedAt: writeResult.stamp,
+      promotedPrintableIds,
     });
   } catch (error) {
     console.error("[curriculum-lesson-save] failed at step", step, error);
@@ -21875,10 +21962,7 @@ async function authorizePublicCurriculumResource(store, resource, request, url) 
     return { ok: false, status: 404, error: "Resource not found." };
   }
   const curriculum = readSiteCurriculum(store);
-  const publicLessons = curriculum.lessonPlans
-    .map((plan) => curriculumParentPlanMeta(plan))
-    .filter(Boolean);
-  const linkedLessons = publicLessons.filter((plan) => (resource.lessonPlanIds || []).includes(plan.id));
+  const linkedLessons = curriculumResourceLinkedToPublicLesson(curriculum, resource);
   if (!linkedLessons.length) {
     return { ok: false, status: 404, error: "Resource not found." };
   }
@@ -22885,8 +22969,10 @@ async function handleAdminCurriculumMigrateInlineMedia(request, response) {
 
 /**
  * Owner-only Teaching Kit printable create/update from Linked Resources.
- * Always draft-only — never publishes. Auth uses admin session email only
- * (requireTeachingKitOwnerAdminSession); client-supplied email/role is ignored.
+ * Starts as draft; when the parent lesson is already public, linked printables
+ * with files are promoted so customer Teaching Kit media URLs resolve.
+ * Auth uses admin session email only (requireTeachingKitOwnerAdminSession);
+ * client-supplied email/role is ignored.
  */
 async function handleAdminTeachingKitPrintable(request, response) {
   const body = await readJson(request);
@@ -23152,6 +23238,15 @@ async function handleAdminTeachingKitPrintable(request, response) {
       return;
     }
 
+    // Uploader stays draft-first, but when the parent lesson is already public,
+    // promote linked printables that have files so customer media URLs work.
+    let promotedPrintableIds = [];
+    if (action === "create" || action === "update" || action === "replace_pdf" || action === "replace_preview") {
+      const promoted = publishLinkedDraftResourcesForLesson(curriculum, lessonPlanId, { now });
+      curriculum = promoted.curriculum;
+      promotedPrintableIds = promoted.publishedResourceIds;
+    }
+
     const writeResult = writeSiteCurriculum(store, curriculum, { updatedAt: now });
     if (writeResult.wipeBlocked) {
       jsonResponse(response, 409, {
@@ -23166,6 +23261,11 @@ async function handleAdminTeachingKitPrintable(request, response) {
     const resourceOut = touchedResourceId
       ? (curriculum.resources || []).find((item) => item.id === touchedResourceId) || null
       : null;
+    const autoPublished = Boolean(
+      resourceOut
+      && isCurriculumResourcePublic(resourceOut.status)
+      && promotedPrintableIds.includes(resourceOut.id),
+    );
 
     const enrichmentDraftAfter = savedLesson ? JSON.stringify(savedLesson.enrichmentDraft || null) : null;
     const enrichmentPublishedAfter = savedLesson ? JSON.stringify(savedLesson.enrichmentPublished || null) : null;
@@ -23173,7 +23273,8 @@ async function handleAdminTeachingKitPrintable(request, response) {
     jsonResponse(response, 200, {
       ok: true,
       action,
-      autoPublished: false,
+      autoPublished,
+      promotedPrintableIds,
       resource: curriculumResourceMetadata(resourceOut),
       lessonPlan: savedLesson ? {
         id: savedLesson.id,

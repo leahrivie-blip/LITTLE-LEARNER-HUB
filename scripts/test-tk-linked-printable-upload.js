@@ -28,6 +28,7 @@ const OTHER_ADMIN = {
 };
 const FIXTURE_LESSON = "cur-lp-tk-printable-upload-fixture";
 const SIBLING_LESSON = "cur-lp-tk-printable-upload-sibling";
+const PRO_USER = "tk-printable-pro@example.com";
 
 const MINIMAL_PDF = Buffer.from(
   "%PDF-1.1\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n",
@@ -137,7 +138,8 @@ async function main() {
   ok(serverJs.includes("handleAdminTeachingKitPrintable"), "server TK printable handler present");
   ok(serverJs.includes("/api/admin/curriculum/resources/tk-printable"), "tk-printable route registered");
   ok(serverJs.includes("requireTeachingKitOwnerAdminSession"), "owner session gate reused");
-  ok(serverJs.includes("autoPublished: false"), "create path never auto-publishes");
+  ok(serverJs.includes("publishLinkedDraftResourcesForLesson"), "public lessons promote linked draft printables");
+  ok(serverJs.includes("promotedPrintableIds"), "printable promote ids returned to admin clients");
   ok(appJs.includes("Create / Upload Printable"), "Linked Resources CTA present");
   ok(appJs.includes("tkPrintableEndpoint"), "client endpoint configured");
   ok(appJs.includes("isTeachingKitPrintableOwnerClient"), "client owner gate present");
@@ -164,6 +166,13 @@ async function main() {
         email: OTHER_ADMIN.email,
         role: "admin",
         plan: "Pro",
+      },
+      [PRO_USER]: {
+        email: PRO_USER,
+        plan: "Pro",
+        membershipStatus: "active",
+        stripeSubscriptionStatus: "active",
+        status: "active",
       },
     },
     siteContent: {
@@ -295,8 +304,10 @@ async function main() {
       disposableQaFixture: true,
     }, ownerAuth);
     ok(create.status === 200, "owner create printable succeeds");
-    ok(create.json?.autoPublished === false, "create response autoPublished false");
-    ok(create.json?.resource?.status === "draft", "resource saved as draft");
+    // Parent fixture lesson is already public — linked printables with files must
+    // promote so customer Teaching Kit media URLs resolve (Farm Animals prod bug).
+    ok(create.json?.autoPublished === true, "create auto-publishes when parent lesson is public");
+    ok(create.json?.resource?.status === "published", "resource published with public parent lesson");
     ok(create.json?.resource?.previewImageUrl || create.json?.resource?.previewUrl, "preview image stored");
     ok((create.json?.lessonPlan?.resourceIds || []).includes(create.json.resource.id), "auto-linked on lesson.resourceIds");
     ok(create.json?.preservation?.enrichmentDraftUnchanged === true, "enrichment draft preserved");
@@ -309,7 +320,7 @@ async function main() {
     const resourceAfter = stampRes.json.siteContent.curriculum.resources.find((r) => r.id === resourceId);
     ok(JSON.stringify(planAfter.enrichmentDraft) === JSON.stringify(enrichmentBefore), "enrichment draft identical after refresh");
     ok((planAfter.resourceIds || []).includes(resourceId), "link survives refresh");
-    ok(resourceAfter?.status === "draft", "draft status survives refresh");
+    ok(resourceAfter?.status === "published", "published status survives refresh");
     ok(resourceAfter?.previewImageUrl || resourceAfter?.previewUrl, "preview survives refresh");
     ok(resourceAfter?.pageCount === 4, "page count persisted");
     ok(resourceAfter?.printingInstructions?.includes("US Letter"), "printing instructions persisted");
@@ -320,16 +331,28 @@ async function main() {
     ok(siblingAfter === siblingBefore, "sibling lesson untouched");
     ok(JSON.stringify(stampRes.json.siteContent.curriculum.activities) === activityBefore, "activities untouched");
 
-    // Public file must 404 while draft
-    const publicFile = await requestJson("GET", `/api/curriculum/resources/file?id=${encodeURIComponent(resourceId)}`);
-    ok(publicFile.status === 404 || publicFile.status === 403, "draft printable hidden from public file API");
+    // Public file must resolve after promote (parent lesson is public Pro → member auth)
+    const publicFile = await requestJson(
+      "GET",
+      `/api/curriculum/resources/file?id=${encodeURIComponent(resourceId)}`,
+      null,
+      {
+        Authorization: `Bearer test:${PRO_USER}`,
+        "X-LLH-User-Email": PRO_USER,
+      },
+    );
+    ok(publicFile.status === 200, `published printable available on public file API (${publicFile.status})`);
+    ok(
+      publicFile.json?.resource?.fileData || publicFile.json?.resource?.mediaUrl || publicFile.json?.resource?.hasFile,
+      "public file payload includes file bytes or media URL",
+    );
 
     // Admin download/preview
     const adminFile = await requestJson(
       "GET",
       `/api/admin/curriculum/resources/file?id=${encodeURIComponent(resourceId)}&adminToken=${encodeURIComponent(ownerToken)}`,
     );
-    ok(adminFile.status === 200 && (adminFile.json?.resource?.fileData || adminFile.json?.resource?.mediaUrl || adminFile.json?.resource?.hasFile), "owner can download/preview draft file");
+    ok(adminFile.status === 200 && (adminFile.json?.resource?.fileData || adminFile.json?.resource?.mediaUrl || adminFile.json?.resource?.hasFile), "owner can download/preview printable file");
 
     // Teaching Kit mapper printables selection
     const { buildPrintables } = (() => {
@@ -365,7 +388,8 @@ async function main() {
     }, ownerAuth);
     ok(replace.status === 200, "replace PDF succeeds");
     ok(replace.json?.resource?.fileName === "farm-vocab-v2.pdf", "replacement filename stored");
-    ok(replace.json?.autoPublished === false, "replace does not publish");
+    ok(replace.json?.resource?.status === "published", "replace keeps published status on public lesson");
+    ok(Array.isArray(replace.json?.promotedPrintableIds), "replace returns promotedPrintableIds array");
 
     // Unlink
     stampRes = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(ownerToken)}`);
@@ -539,7 +563,7 @@ async function main() {
       await panel.locator("[data-tk-printable-save]").click();
       await page.waitForFunction(() => {
         const msg = document.querySelector("#adminCurriculumLessonPlanMessage")?.textContent || "";
-        return /Printable saved as draft/i.test(msg);
+        return /Printable saved/i.test(msg);
       }, null, { timeout: 20000 });
       ok(true, "Save draft & link succeeds from browser panel");
 
@@ -549,19 +573,27 @@ async function main() {
       const browserSavedPlan = (afterBrowserSave.json.siteContent?.curriculum?.lessonPlans || [])
         .find((p) => p.id === FIXTURE_LESSON);
       ok(Boolean(browserSavedResource), "browser-saved printable present in store");
-      ok(browserSavedResource?.status === "draft", "browser-saved printable is draft in store");
+      // Parent fixture lesson is already public — create/link promotes the printable.
+      ok(browserSavedResource?.status === "published", "browser-saved printable published with public parent lesson");
       ok((browserSavedPlan?.resourceIds || []).includes(browserSavedResource?.id), "browser-saved printable linked on lesson in store");
 
       await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
       await page.evaluate(() => setView("admin"));
+      await page.waitForTimeout(300);
       if (await page.locator("#adminUnlockForm").isVisible({ timeout: 3000 }).catch(() => false)) {
         await page.fill('input[name="adminEmail"]', OWNER.email);
         await page.fill('input[name="adminPassword"]', OWNER.password);
         await page.fill('input[name="adminCode"]', OWNER.code);
-        await page.click("#adminUnlockForm button[type='submit']");
+        await Promise.all([
+          page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 }),
+          page.click("#adminUnlockForm button[type='submit']"),
+        ]).catch(async () => {
+          await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+        });
+      } else {
+        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
       }
-      await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
       await page.evaluate(async (id) => {
         if (typeof loadAdminSiteContent === "function") {
           try { await loadAdminSiteContent(); } catch { /* continue */ }
@@ -573,12 +605,12 @@ async function main() {
         const text = document.querySelector("#admin-lesson-linked-resources")?.innerText || "";
         return /Browser Persist Vocabulary Cards/i.test(text)
           && /browser-persist\.pdf/i.test(text)
-          && /draft/i.test(text);
+          && /published/i.test(text);
       }, null, { timeout: 30000 });
       const linkedText = await page.evaluate(() => document.querySelector("#admin-lesson-linked-resources")?.innerText || "");
-      ok(/Browser Persist Vocabulary Cards/i.test(linkedText), "linked draft title persists after refresh");
-      ok(/draft/i.test(linkedText), "linked resource still draft after refresh");
-      ok(/browser-persist\.pdf/i.test(linkedText), "linked draft filename persists after refresh");
+      ok(/Browser Persist Vocabulary Cards/i.test(linkedText), "linked printable title persists after refresh");
+      ok(/published/i.test(linkedText), "linked printable shows published after refresh on public lesson");
+      ok(/browser-persist\.pdf/i.test(linkedText), "linked printable filename persists after refresh");
 
       await page.setViewportSize({ width: 390, height: 844 });
       const overflow = await page.evaluate(() => {
