@@ -475,7 +475,8 @@ function createTesterInvite(store, body, { actorEmail, appOrigin, programOwnersh
     testingFocus,
     testingCohort,
     notes,
-    createSampleData: body.createSampleData !== false,
+    // Opt-in only — real testers should start empty unless owner explicitly seeds a demo child.
+    createSampleData: body.createSampleData === true,
   };
   store.hdhTesterInvites[token] = invite;
 
@@ -615,7 +616,7 @@ function applyInviteAcceptOverrides(store, invite, identity, programOwnership, s
     store.programs[program.id].name = programName;
     store.users[email].programId = program.id;
     const context = programOwnership.resolveProgramContext(store, identity);
-    if (invite.createSampleData !== false) {
+    if (invite.createSampleData === true) {
       if (programType === "center" && scheduleLib) {
         const rooms = seedCenterClassrooms(scheduleLib, store, context, []);
         seedDemoChild(programOwnership, store, context, invite.childName || "Demo Child", rooms[0]?.id || "");
@@ -777,13 +778,18 @@ function resetTesterAccess(store, email, { actorEmail, tempPasswordAuth, mode = 
   const key = normalizeEmail(email);
   const user = store.users[key];
   if (!user) throw Object.assign(new Error("Tester not found."), { status: 404 });
-  if (mode === "data" || mode === "full") {
-    // Soft reset: clear sample operational arrays but keep Profiles shell.
+  if (mode === "data" || mode === "full" || mode === "children") {
+    // Soft reset: clear sample operational arrays.
     if (user.programId && store.programData?.[user.programId]?.child?.data) {
       const data = store.programData[user.programId].child.data;
       ["Attendance", "Meals", "Naps", "Diapers", "ActivityLogs", "Reports", "Communications", "Photos"].forEach((k) => {
         data[k] = [];
       });
+      // "children" / "full": also wipe Profiles so the tester starts empty after an owner sampled their invite.
+      if (mode === "children" || mode === "full") {
+        data.Profiles = [];
+        if (Array.isArray(data.Children)) data.Children = [];
+      }
       store.programData[user.programId].child.updatedAt = nowIso();
     }
   }
@@ -793,9 +799,16 @@ function resetTesterAccess(store, email, { actorEmail, tempPasswordAuth, mode = 
     const passwordHash = tempPasswordAuth.hashPasswordSha256(temporaryPassword);
     store.users[key] = tempPasswordAuth.applyTempPasswordToUser(user, { passwordHash });
   }
+  const action = mode === "data"
+    ? "tester_data_reset"
+    : mode === "children"
+      ? "tester_children_cleared"
+      : mode === "full"
+        ? "tester_full_reset"
+        : "tester_access_reset";
   appendAudit(store, {
     actorEmail,
-    action: mode === "data" ? "tester_data_reset" : mode === "full" ? "tester_full_reset" : "tester_access_reset",
+    action,
     targetEmail: key,
     programId: user.programId || "",
     detail: `Reset mode: ${mode}`,
@@ -1181,13 +1194,16 @@ function createOwnerTestingAdminApi(deps) {
         tempPasswordAuth,
         mode: body.mode || "password",
       });
+      const mode = String(body.mode || "password");
       await respondAfterPersist(store, response, 200, {
         ok: true,
         testingOnly: true,
         ...result,
         message: result.temporaryPassword
           ? "Access reset. Copy the temporary password now — it will not be shown again."
-          : "Tester demo care data cleared (profiles kept).",
+          : mode === "children"
+            ? "Children/profiles cleared. This tester starts empty."
+            : "Tester demo care data cleared (profiles kept).",
       }, "Could not reset tester access.");
     } catch (error) {
       jsonResponse(response, error.status || 400, { error: error.message || "Could not reset access." });
@@ -1380,7 +1396,7 @@ function createOwnerTestingAdminApi(deps) {
     if (programType === "center" && scheduleLib) {
       seedCenterClassrooms(scheduleLib, store, ctx, body.classrooms || []);
     }
-    if (body.createSampleData !== false) {
+    if (body.createSampleData === true) {
       seedDemoChild(programOwnership, store, ctx, body.childName || "Demo Child");
     }
     appendAudit(store, {

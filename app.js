@@ -39590,6 +39590,13 @@ async function createHdhIndependentTesterInviteRequest({ email, childName }) {
 async function acceptHdhTesterInviteToken(token) {
   const cleanToken = String(token || "").trim();
   if (!cleanToken) throw new Error("Missing invite token.");
+  // Owner Admin must not "sample" invite links — accepting writes into the tester's real program.
+  if (typeof isAdminUnlocked === "function" && isAdminUnlocked()) {
+    throw new Error(
+      "Admin is unlocked on this browser. Do not accept tester invite links yourself — that writes into their program. "
+      + "Lock Admin (or use a private window), or preview with Admin → View As / View as tester instead.",
+    );
+  }
   if (!currentUser) {
     openAuthModal("signup");
     throw new Error("Log in or create an account with the invited email to accept.");
@@ -39641,15 +39648,11 @@ async function acceptHdhTesterInviteToken(token) {
       syncHdhTesterSwitcherChrome();
       renderNotificationBell();
     } catch (_error) { /* keep accept successful even if chrome refresh fails */ }
-    // Never block invite completion on child sync — seed locally if needed.
+    // Sync children from the server program. Do NOT auto-create a Demo Child —
+    // real testers should start empty unless Owner Admin opted into sample data.
     Promise.resolve()
       .then(() => syncChildDataFromBackend({ render: true }))
-      .catch(() => {})
-      .finally(() => {
-        try {
-          if (!(childRecords().children || []).length) ensureTesterDemoChild();
-        } catch (_error) { /* ignore */ }
-      });
+      .catch(() => {});
   }
   return data;
 }
@@ -39762,23 +39765,32 @@ async function maybeHandleHdhTesterInviteFromUrl() {
     setView("children");
     return true;
   }
+  const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
   card.innerHTML = `
     <p class="fh-kicker">Tester invite</p>
     <h2>Finish setting up your testing account</h2>
     <p><strong>${escapeHtml(programLabel)}</strong> · ${escapeHtml(typeLabel)} · ${escapeHtml(roleLabel)}</p>
     <p class="muted-copy">Use exactly this email: <strong>${escapeHtml(invite.email)}</strong>. Create your own password — no Admin password will be given to you.</p>
     <p class="muted-copy">After setup you’ll enter this program. Later, use normal <strong>Log In</strong> on the testing site (you won’t need this link again).</p>
+    ${adminUnlocked ? `
+      <p class="form-message" role="alert">
+        Owner Admin is unlocked in this browser. <strong>Do not accept this invite here</strong> — that writes into the tester’s real program.
+        Lock Admin first, or preview with Admin → View As. Send this link to the tester instead.
+      </p>
+    ` : ""}
     <div class="fh-account-actions account-actions-row">
-      ${emailMatch
-        ? `<button class="primary-button" type="button" data-accept-tester-invite="${escapeHtml(token)}">Enter my program</button>`
-        : `<button class="primary-button" type="button" data-tester-invite-signup="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">Create account &amp; continue</button>
-           <button class="ghost-button" type="button" data-tester-invite-login="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">I already have a password — Log In</button>`}
+      ${adminUnlocked
+        ? `<button class="primary-button" type="button" data-dismiss-tester-invite>Close — use Admin View As</button>`
+        : (emailMatch
+          ? `<button class="primary-button" type="button" data-accept-tester-invite="${escapeHtml(token)}">Enter my program</button>`
+          : `<button class="primary-button" type="button" data-tester-invite-signup="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">Create account &amp; continue</button>
+             <button class="ghost-button" type="button" data-tester-invite-login="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">I already have a password — Log In</button>`)}
       <button class="ghost-button fh-btn-secondary" type="button" data-dismiss-tester-invite>Not now</button>
     </div>
     <p class="form-message" id="hdhTesterInviteAcceptMessage" aria-live="polite"></p>
   `;
   mount();
-  if (emailMatch) {
+  if (emailMatch && !adminUnlocked) {
     maybeAutoAcceptPendingTesterInvite().catch(() => {});
   }
   return true;

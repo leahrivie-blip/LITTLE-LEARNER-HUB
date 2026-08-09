@@ -159,7 +159,7 @@
         childName: d.childName || "",
         notes: d.notes || "",
         activateNow: Boolean(d.activateNow),
-        createSampleData: d.createSampleData !== false,
+        createSampleData: Boolean(d.createSampleData),
         sendEmail: Boolean(d.sendEmail),
         features: Object.keys(FEATURE_LABELS).reduce((acc, key) => {
           acc[key] = Boolean(d[`feat-${key}`]);
@@ -523,9 +523,14 @@
         </div>
         <ol class="ota-invite-steps">
           <li>Copy the invite link below.</li>
-          <li>Text or message it to the tester (do not use production).</li>
-          <li>They open it on the testing site, create their own password, and enter this program.</li>
+          <li>Text or message it to the <strong>tester</strong> only (do not use production).</li>
+          <li>They open it on the testing site, create their own password, and enter an empty program they fill themselves.</li>
         </ol>
+        <p class="ota-email-unavailable" role="status">
+          <strong>Do not open this link yourself to “try it.”</strong>
+          Accepting as this email writes into <em>their</em> real testing program — any child you add while sampling stays in their account.
+          To preview roles yourself, use Admin → <strong>View As</strong> (or Open tester detail → View as tester).
+        </p>
         <div class="ota-invite-box">
           <label>Invite / setup link
             <textarea readonly rows="3" data-ota-invite-textarea>${esc(invite.acceptUrl)}</textarea>
@@ -533,8 +538,10 @@
           <div class="account-actions-row">
             <button type="button" class="primary-button" data-ota-copy="${esc(invite.acceptUrl)}">Copy Invite Link</button>
             <button type="button" class="ghost-button" data-ota-open-tester="${esc(invite.email || "")}">Open tester detail</button>
+            <button type="button" class="ghost-button" data-ota-goto="viewas">Open View As</button>
           </div>
           <p class="ota-email-unavailable" role="status">${esc(emailOff)}</p>
+          <p class="muted-copy">Testers with <strong>Multi-role Switch View</strong> see a <strong>Switch View</strong> control in the app header (Owner / Director / Teacher / Assistant / Parent). That is separate from Admin View As.</p>
         </div>
       </section>
     `;
@@ -550,7 +557,7 @@
           <div>
             <p class="eyebrow">Testers</p>
             <h3>Add tester</h3>
-            <p class="muted-copy">Creates a testing program invite. You copy the link and send it yourself — the tester creates their own password. No production accounts.</p>
+            <p class="muted-copy">Creates a <strong>new empty</strong> testing program invite by default. You copy the link and send it — the tester creates their own password and adds their own children. No production accounts.</p>
           </div>
         </div>
         <form data-ota-add-form class="ota-form">
@@ -575,8 +582,8 @@
             </label>
             <label>Program setup
               <select name="programMode">
-                <option value="new">Create new test program</option>
-                <option value="existing">Add to existing test program</option>
+                <option value="new">Create new test program (recommended)</option>
+                <option value="existing">Add to existing test program (shared data)</option>
               </select>
             </label>
             <label>Existing program
@@ -586,19 +593,21 @@
               </select>
             </label>
             <label>Testing cohort<input name="testingCohort" placeholder="Family Hub beta" autocomplete="off" /></label>
-            <label>Starter child name<input name="childName" placeholder="Demo Child" autocomplete="off" /></label>
           </div>
           <fieldset>
             <legend>Feature access</legend>
-            <div class="ota-check-grid">${featureChecks({ familyHub: true, forms: true, teacherWorkflow: true, fullPlatform: false })}</div>
+            <div class="ota-check-grid">${featureChecks({ familyHub: true, forms: true, teacherWorkflow: true, multiRole: true, fullPlatform: false })}</div>
+            <p class="muted-copy">Multi-role Switch View lets the tester switch Owner / Director / Teacher / Assistant / Parent inside <em>their</em> sandbox (header control). That is how they preview roles — not Admin View As.</p>
           </fieldset>
           <label>Notes<textarea name="notes" rows="2" placeholder="What should they test?"></textarea></label>
-          <label class="ota-check"><input type="checkbox" name="createSampleData" checked /> Create sample child / classrooms</label>
           <label class="ota-check"><input type="checkbox" name="sendEmail" /> Also try invite email if delivery is configured (still show Copy Invite Link)</label>
           <details class="ota-advanced">
             <summary>Advanced (not for real testers)</summary>
-            <p class="muted-copy">Real providers should create their own password via the invite link. Do not use temp passwords for them.</p>
+            <p class="muted-copy">Leave these off for real providers. They should start empty and add their own children.</p>
+            <label class="ota-check"><input type="checkbox" name="createSampleData" /> Pre-seed a sample child / classrooms (owner demos only)</label>
+            <label>Starter child name<input name="childName" placeholder="Demo Child" autocomplete="off" /></label>
             <label class="ota-check"><input type="checkbox" name="activateNow" /> Generate instant temp password login (owner debugging only)</label>
+            <p class="muted-copy">Do not accept the invite link yourself — that writes into the tester’s program. Use Admin → View As instead.</p>
           </details>
           <div class="account-actions-row">
             <button type="submit" class="primary-button">Add tester</button>
@@ -705,6 +714,7 @@
             </div>
             <p class="ota-email-unavailable" role="status">${esc(emailNote)}</p>
             <p class="muted-copy">Tester opens this testing-site link, creates their own password, then uses normal Log In afterward.</p>
+            <p class="ota-email-unavailable" role="status"><strong>Do not sample this link yourself</strong> — accepting as this email writes into their program.</p>
           </div>
         ` : `
           <div class="ota-invite-box">
@@ -737,12 +747,14 @@
           <fieldset>
             <legend>Feature access</legend>
             <div class="ota-check-grid">${featureChecks(t.features || {})}</div>
+            <p class="muted-copy">Turn on <strong>Multi-role Switch View</strong> so this tester can switch roles in the app header. Your Admin → View As is for you only.</p>
           </fieldset>
           <label>Notes<textarea name="notes" rows="2">${esc(t.notes || "")}</textarea></label>
           <div class="account-actions-row">
             <button type="submit" class="primary-button">Save access</button>
             <button type="button" class="ghost-button" data-ota-reset-password>Reset access (temp password)</button>
             <button type="button" class="ghost-button" data-ota-reset-data>Reset demo care data</button>
+            <button type="button" class="ghost-button" data-ota-clear-children>Clear children (start empty)</button>
             <button type="button" class="ghost-button" data-ota-view-as-tester="${esc(t.email)}">View as tester</button>
             ${t.status === "disabled"
               ? `<button type="button" class="primary-button" data-ota-reactivate>Reactivate</button>`
@@ -852,7 +864,7 @@
             <label>Owner email (optional)<input name="ownerEmail" type="email" placeholder="owner@example.com" /></label>
             <label>Cohort<input name="testingCohort" placeholder="Week of Aug 10" /></label>
           </div>
-          <label class="ota-check"><input type="checkbox" name="createSampleData" checked /> Seed sample child / classrooms</label>
+          <label class="ota-check"><input type="checkbox" name="createSampleData" /> Seed sample child / classrooms (optional demo)</label>
           <button type="submit" class="primary-button">Create program</button>
           <p class="form-message" data-ota-create-program-message hidden></p>
         </form>
@@ -997,9 +1009,9 @@
       <section class="ota-panel">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">View As</p>
-            <h3>Preview real role experiences</h3>
-            <p class="muted-copy">Uses the same permission logic as real users. A sticky banner stays visible until you exit.</p>
+            <p class="eyebrow">View As (Owner Admin only)</p>
+            <h3>Preview roles without using the invite link</h3>
+            <p class="muted-copy">This is for <strong>you</strong> (Leah / Owner Admin). It does not log you into the tester’s account and does not write into their program.</p>
           </div>
         </div>
         <div class="account-actions-row">
@@ -1008,7 +1020,19 @@
           `).join("")}
           <button type="button" class="primary-button" data-ota-preview-role="Admin">Exit to Admin</button>
         </div>
-        <p class="muted-copy">For a specific tester, open their detail page and choose <strong>View as tester</strong>.</p>
+        <p class="muted-copy">For a specific tester’s plan/chrome, open their detail → <strong>View as tester</strong>.</p>
+        <hr style="border:0;border-top:1px solid rgba(0,0,0,0.08);margin:18px 0;" />
+        <h4>What testers use to switch roles</h4>
+        <p class="muted-copy">
+          Testers do <strong>not</strong> get this Admin View As screen.
+          When <strong>Multi-role Switch View</strong> is enabled on their access (default for new testers),
+          they see a <strong>Switch View</strong> control in the app header after they log into their own account —
+          Owner / Director / Teacher / Assistant / Parent inside their sandbox only.
+        </p>
+        <p class="ota-email-unavailable" role="status">
+          Never “sample” their invite link to try roles. That accepts into their program and any children you add stay there.
+          If you already did that, open tester detail → <strong>Clear children (start empty)</strong> before they begin.
+        </p>
       </section>
     `;
   }
@@ -1162,7 +1186,7 @@
         childName: val("childName") || "Demo Child",
         notes: val("notes"),
         activateNow: checked("activateNow"),
-        createSampleData: formControl(form, "createSampleData") ? checked("createSampleData") : true,
+        createSampleData: checked("createSampleData"),
         sendEmail: checked("sendEmail"),
         features: readFeaturesFromForm(form),
         appOrigin: window.location.origin,
@@ -1217,7 +1241,7 @@
             programType: val("programType"),
             ownerEmail: val("ownerEmail"),
             testingCohort: val("testingCohort"),
-            createSampleData: formControl(form, "createSampleData") ? checked("createSampleData") : true,
+            createSampleData: checked("createSampleData"),
             adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
           },
         });
@@ -1321,7 +1345,7 @@
     });
 
     root.querySelector("[data-ota-reset-data]")?.addEventListener("click", async () => {
-      const ok = window.confirm("Clear this tester's demo care logs (attendance/meals/naps/activities/reports)? Profiles are kept. Testing only.");
+      const ok = window.confirm("Clear this tester's demo care logs (attendance/meals/naps/activities/reports)? Profiles/children are kept. Testing only.");
       if (!ok) return;
       try {
         const result = await api(`/api/admin/testing/testers/${encodeURIComponent(state.selectedEmail)}/reset-access`, {
@@ -1329,6 +1353,25 @@
           body: { mode: "data" },
         });
         showMsg("[data-ota-detail-message]", result.message || "Demo data reset.", true);
+      } catch (error) {
+        showMsg("[data-ota-detail-message]", error.message, false);
+      }
+    });
+
+    root.querySelector("[data-ota-clear-children]")?.addEventListener("click", async () => {
+      const ok = window.confirm(
+        "Clear ALL children/profiles on this tester’s program so they start empty?\n\n"
+        + "Use this if you sampled their invite link and added a child by mistake.\n"
+        + "Care logs are also cleared. Testing only — cannot undo.",
+      );
+      if (!ok) return;
+      try {
+        const result = await api(`/api/admin/testing/testers/${encodeURIComponent(state.selectedEmail)}/reset-access`, {
+          method: "PATCH",
+          body: { mode: "children" },
+        });
+        showMsg("[data-ota-detail-message]", result.message || "Children cleared — tester starts empty.", true);
+        await openDetail(state.selectedEmail);
       } catch (error) {
         showMsg("[data-ota-detail-message]", error.message, false);
       }
