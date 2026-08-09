@@ -81,7 +81,7 @@
         notes: add.notes?.value || "",
         activateNow: Boolean(add.activateNow?.checked),
         createSampleData: add.createSampleData ? Boolean(add.createSampleData.checked) : true,
-        sendEmail: add.sendEmail ? Boolean(add.sendEmail.checked) : true,
+        sendEmail: add.sendEmail ? Boolean(add.sendEmail.checked) : false,
         features: readFeaturesFromForm(add),
       };
     }
@@ -135,7 +135,7 @@
       if (add.notes) add.notes.value = draft.notes || "";
       if (add.activateNow) add.activateNow.checked = Boolean(draft.activateNow);
       if (add.createSampleData) add.createSampleData.checked = draft.createSampleData !== false;
-      if (add.sendEmail) add.sendEmail.checked = draft.sendEmail !== false;
+      if (add.sendEmail) add.sendEmail.checked = Boolean(draft.sendEmail);
       Object.keys(FEATURE_LABELS).forEach((key) => {
         const box = add.querySelector(`[name="feat-${key}"]`);
         if (box) box.checked = Boolean(draft.features?.[key]);

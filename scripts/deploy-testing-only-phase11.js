@@ -18,7 +18,7 @@ const https = require("node:https");
 const fs = require("node:fs");
 
 const PROD_SERVICE_ID = "srv-d8o3f3r6sc1c73comlc0";
-const EXPECTED_SHELL = process.env.RENDER_TESTING_EXPECTED_SHELL || "20260808-phase11-testers-go5";
+const EXPECTED_SHELL = process.env.RENDER_TESTING_EXPECTED_SHELL || "20260809-phase11-testers-go6";
 const BRANCH = process.env.RENDER_TESTING_BRANCH || "cursor/phase11-final-qa-fix-wave-4eae";
 const COMMIT = process.env.RENDER_TESTING_COMMIT || "";
 const ARTIFACT = "/opt/cursor/artifacts/phase11-final-qa/testing-deploy.json";

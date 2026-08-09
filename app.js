@@ -39590,11 +39590,24 @@ async function createHdhIndependentTesterInviteRequest({ email, childName }) {
 async function acceptHdhTesterInviteToken(token) {
   const cleanToken = String(token || "").trim();
   if (!cleanToken) throw new Error("Missing invite token.");
+  if (!currentUser) {
+    openAuthModal("signup");
+    throw new Error("Log in or create an account with the invited email to accept.");
+  }
   const headers = await staffAuthHeaders();
   if (!headers) {
     openAuthModal("signup");
     throw new Error("Log in or create an account with the invited email to accept.");
   }
+  // Prefer a minted member session so hosted testing accept resolves the same
+  // identity password-login will use after logout.
+  const memberToken = readMemberSessionToken() || "";
+  if (memberToken && !String(headers.Authorization || "").includes("llh_member_")) {
+    headers.Authorization = `Bearer ${memberToken}`;
+  }
+  headers["X-LLH-User-Email"] = String(currentUser || "").trim().toLowerCase();
+  headers["Content-Type"] = "application/json";
+  headers.Accept = "application/json";
   const response = await fetch("/api/home-daycare-hub/tester-invites/accept", {
     method: "POST",
     headers,
@@ -39672,18 +39685,24 @@ async function maybeAutoAcceptPendingTesterInvite() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const pending = readPendingTesterInvite();
   if (!pending?.token || !currentUser) return false;
-  if (pending.email && normalizeInviteEmail(currentUser) !== normalizeInviteEmail(pending.email)) return false;
+  if (pending.email && normalizeInviteEmail(currentUser) !== normalizeInviteEmail(pending.email)) {
+    window.__llhLastTesterInviteAcceptError = `Sign in as ${pending.email} to join this testing program.`;
+    return false;
+  }
   try {
     const result = await acceptHdhTesterInviteToken(pending.token);
     clearPendingTesterInvite();
+    window.__llhLastTesterInviteAcceptError = "";
     document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+    document.body.classList.remove("tester-invite-open");
     const url = new URL(window.location.href);
     url.searchParams.delete("testerInvite");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
     showActionFeedback(result.message || "Tester invite accepted. Your program is ready.");
     setView("children");
     return true;
-  } catch {
+  } catch (error) {
+    window.__llhLastTesterInviteAcceptError = error?.message || "Could not accept tester invite.";
     return false;
   }
 }
@@ -40397,12 +40416,23 @@ let staffInviteRemoteCache = { invites: [], members: [], emailDeliveryReady: fal
 
 async function staffAuthHeaders() {
   const headers = await firebaseAuthHeaders();
-  if (headers) return headers;
+  if (headers) {
+    // Prefer a minted member session over a Firebase-less fallback when present.
+    const memberToken = readMemberSessionToken();
+    if (memberToken && /^Bearer test:/i.test(String(headers.Authorization || ""))) {
+      headers.Authorization = `Bearer ${memberToken}`;
+    }
+    if (currentUser && !headers["X-LLH-User-Email"]) {
+      headers["X-LLH-User-Email"] = currentUser;
+    }
+    return headers;
+  }
   if (!currentUser) return null;
+  const memberToken = readMemberSessionToken();
   return {
     "Content-Type": "application/json",
     "X-LLH-User-Email": currentUser,
-    Authorization: `Bearer test:${currentUser}`,
+    Authorization: memberToken ? `Bearer ${memberToken}` : `Bearer test:${currentUser}`,
   };
 }
 
@@ -72701,12 +72731,19 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           setFormMessage("#authMessage", "Opening your testing program…", true);
           submitButton.disabled = false;
           await awaitPendingLocalPasswordSync(20000);
+          try {
+            // Mint a member session so accept + later Log In share the same server password.
+            await loginWithServerPassword(result.email, password);
+          } catch (_error) { /* email-bridge accept can still succeed when Firebase is off */ }
           closeAuthModal();
           markAppBootReady();
           const accepted = await maybeAutoAcceptPendingTesterInvite();
           if (!accepted) {
+            await maybeHandleHdhTesterInviteFromUrl();
             const msg = document.querySelector("#hdhTesterInviteAcceptMessage");
-            if (msg) msg.textContent = "Account created. Tap Enter my program to join the program Leah set up for you.";
+            const detail = window.__llhLastTesterInviteAcceptError
+              || "Account created. Tap Enter my program to join the program set up for you.";
+            if (msg) msg.textContent = detail;
           }
           return;
         }
@@ -72769,6 +72806,12 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       markAppBootReady();
       const accepted = await maybeAutoAcceptPendingTesterInvite();
       if (accepted) return;
+      await maybeHandleHdhTesterInviteFromUrl();
+      const msg = document.querySelector("#hdhTesterInviteAcceptMessage");
+      if (msg) {
+        msg.textContent = window.__llhLastTesterInviteAcceptError
+          || "Signed in. Tap Enter my program to join your testing program.";
+      }
     }
     // Forced password change must win immediately. Do not let profile/subscription
     // sync failures surface as "login failed" after a successful temp-password auth.
