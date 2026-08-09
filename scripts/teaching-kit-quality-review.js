@@ -671,7 +671,7 @@
         severity: "blocking",
         blocking: true,
         message: `${bookEntries.length - completeBooks.length} book(s) are missing discussion questions (before/during/after guides).`,
-        suggestion: "Add why-it-fits plus before/during/after discussion questions for every book before Publish Ready.",
+        suggestion: "Add why-it-fits plus before/during/after discussion questions for every book before publishing.",
         navigateTo: "week:books",
       }));
     }
@@ -707,7 +707,7 @@
           : (printableIdeasOnly
             ? "Printable ideas exist, but no published printable file/resource is linked."
             : "Printables are missing — ideas and draft uploads never count as print-ready."),
-        suggestion: "Upload or link a printable and publish it (draft status must be cleared) before Publish Ready.",
+        suggestion: "Upload or link a printable and publish it (draft status must be cleared) before publishing.",
         navigateTo: "week:printables",
       }));
     }
@@ -729,7 +729,7 @@
         severity: "blocking",
         blocking: true,
         message: `${imageBriefsOnly} image brief(s) are present but do not count as setup/finished photos.`,
-        suggestion: "Convert briefs into reviewed, loadable images before Publish Ready.",
+        suggestion: "Convert briefs into reviewed, loadable images before publishing.",
         navigateTo: "activities:images",
       }));
     }
@@ -755,7 +755,7 @@
         severity: "blocking",
         blocking: true,
         message: `${incompleteActivities} of ${list.length} activities are still In Progress or Not Started (need required photos for the owner’s image requirement, plus teacher tips).`,
-        suggestion: "Finish every activity’s required photos and tips before Publish Ready. Optional / No image needed / Needs owner classification never create missing-image blockers. Image briefs alone are not enough.",
+        suggestion: "Finish every activity’s required photos and tips before publishing. Optional / No image needed / Needs owner classification never create missing-image blockers. Image briefs alone are not enough.",
         navigateTo: "activities:images",
       }));
     }
@@ -789,7 +789,7 @@
         severity: "blocking",
         blocking: true,
         message: "Placeholder or “coming soon” text is still present in the kit.",
-        suggestion: "Remove placeholders before Publish Ready.",
+        suggestion: "Remove placeholders before publishing.",
       }));
     }
 
