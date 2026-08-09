@@ -70643,10 +70643,14 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     toggleLessonWorkspaceMoreMenu(false);
     return;
   }
   if (document.querySelector(".lesson-workspace-action-sheet:not([hidden])")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     toggleLessonWorkspaceActionSheet(false);
     return;
   }
@@ -70654,20 +70658,25 @@ document.addEventListener("keydown", (event) => {
   // never dismisses the Teaching Kit while leaving feedback open.
   if (document.querySelector("#feedbackModal.open")) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     closeFeedbackModal();
     return;
   }
   if (document.querySelector("#ideaRequestModal.open")) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     closeIdeaRequestModal();
     return;
   }
   if (document.querySelector("#authModal.open")) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     closeAuthModal();
     return;
   }
   if (document.querySelector("#resourceViewerModal.open")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     requestResourceViewerClose();
     return;
   }
@@ -71751,23 +71760,8 @@ document.addEventListener("keydown", (event) => {
     closeInstallAppModal();
     return;
   }
-  if (event.key === "Escape" && document.querySelector("#feedbackModal.open")) {
-    closeFeedbackModal();
-    return;
-  }
-  if (event.key === "Escape" && document.querySelector("#resourceViewerModal.open")) {
-    // Nested lesson sheets first, then the viewer.
-    if (document.body.classList.contains("lesson-workspace-sheet-open")) {
-      try { toggleLessonWorkspaceActionSheet(false); } catch { /* ignore */ }
-      return;
-    }
-    if (document.body.classList.contains("lesson-workspace-more-open")) {
-      try { toggleLessonWorkspaceMoreMenu(false); } catch { /* ignore */ }
-      return;
-    }
-    requestResourceViewerClose();
-    return;
-  }
+  // Feedback + resource viewer Escape are handled by the primary keydown
+  // listener (with stopImmediatePropagation) so stacked dialogs close one layer.
   if (event.key === "Escape" && document.body.classList.contains("mobile-nav-open")) {
     setMobileNavOpen(false);
     return;

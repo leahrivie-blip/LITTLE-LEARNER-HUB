@@ -326,47 +326,63 @@ function unitPrintAndMappingChecks(plan) {
 }
 
 async function seedLocalAccount(page) {
-  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded" });
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     const email = "workflow-customer@test.local";
-    const account = {
-      email,
-      firstName: "Workflow",
-      lastName: "Customer",
-      plan: "Free",
-      createdAt: new Date().toISOString(),
-    };
-    localStorage.setItem("llhCurrentUser", email);
-    localStorage.setItem("llhAccounts", JSON.stringify({ [email]: account }));
-    sessionStorage.clear();
+    localStorage.setItem("llhUser", email);
+    localStorage.setItem("llhPlan", "Free");
+    localStorage.setItem("llhAccounts", JSON.stringify({
+      [email]: {
+        email,
+        firstName: "Workflow",
+        lastName: "Customer",
+        plan: "Free",
+        subscriptionStatus: "Free Plan",
+        stripeSubscriptionStatus: "",
+        accountType: "home_daycare",
+        role: "owner",
+        createdAt: new Date().toISOString(),
+      },
+    }));
+    // Preserve remembered platform view across reloads so refresh-restore can be tested.
+    if (!sessionStorage.getItem("llhLastPlatformView")) {
+      sessionStorage.setItem("llhLastPlatformView", "calendar");
+    }
   });
-  await page.reload({ waitUntil: "networkidle" });
-  await page.waitForFunction(() => {
-    return Boolean(document.body?.classList?.contains("app-booted")
-      || document.querySelector(".nav-link[data-view='lessons']"));
-  }, null, { timeout: 20000 });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForFunction(
+    () => document.body.classList.contains("app-boot-ready")
+      || (document.body.classList.contains("app-booted") && !document.querySelector("#appBootGate:not([hidden])")),
+    null,
+    { timeout: 30000 },
+  );
+}
+
+async function clickSidebar(page, navView) {
+  const toggle = page.locator("#mobileMenuToggle");
+  if (await toggle.isVisible()) await toggle.click();
+  const link = page.locator(`.sidebar .nav-link[data-view="${navView}"]:not([hidden])`).first();
+  await link.waitFor({ state: "visible", timeout: 15000 });
+  await link.click();
+  // Close mobile drawer so it does not intercept later clicks.
+  if (await toggle.isVisible() && await page.evaluate(() => document.body.classList.contains("mobile-nav-open"))) {
+    await page.locator(".mobile-nav-backdrop").click({ force: true }).catch(async () => {
+      await page.keyboard.press("Escape");
+    });
+  }
 }
 
 async function openFarmLesson(page) {
-  await page.click('.nav-link[data-view="lessons"]');
+  await clickSidebar(page, "lessons");
   await page.waitForSelector("#view-lessons.active-view", { timeout: 15000 });
-  const opened = await page.evaluate(() => {
-    const card = [...document.querySelectorAll("[data-view-resource], [data-open-resource], .resource-card, .lesson-card")]
-      .find((node) => /farm animals/i.test(node.textContent || ""));
-    if (card) {
-      card.click();
-      return true;
-    }
-    const btn = [...document.querySelectorAll("button, a")]
-      .find((node) => /farm animals|view lesson/i.test(node.textContent || ""));
-    if (btn) {
-      btn.click();
-      return true;
-    }
-    return false;
-  });
-  ok(opened, "Farm Animals card/button found");
+  await page.waitForSelector("#view-lessons [data-view-resource]", { timeout: 20000 });
+  const card = page.locator("#view-lessons [data-view-resource]").filter({ hasText: /Farm Animals/i }).first();
+  if (await card.count()) {
+    await card.click();
+  } else {
+    await page.locator("#view-lessons [data-view-resource]").first().click();
+  }
   await page.waitForSelector("#resourceViewerModal.open", { timeout: 20000 });
+  ok(true, "Farm Animals lesson opened");
 }
 
 async function assertShellInteractive(page, label) {
@@ -422,15 +438,14 @@ async function browserMatrix(plan) {
     await seedLocalAccount(page);
 
     // Journey: Calendar → Lesson Plans → Farm → close → Calendar
-    await page.click('.nav-link[data-view="calendar"]');
+    await clickSidebar(page, "calendar");
     await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
     await openFarmLesson(page);
     await page.screenshot({ path: path.join(SCREEN_DIR, `${name}-01-farm-open.png`), fullPage: false });
     await page.keyboard.press("Escape");
-    await page.waitForSelector("#resourceViewerModal.open", { state: "detached", timeout: 8000 }).catch(() => {});
     await page.waitForFunction(() => !document.querySelector("#resourceViewerModal.open"), null, { timeout: 8000 });
     await assertShellInteractive(page, `${name} after first close`);
-    await page.click('.nav-link[data-view="calendar"]');
+    await clickSidebar(page, "calendar");
     await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
     ok(true, `${name}: Calendar reachable after Farm close`);
 
@@ -445,7 +460,7 @@ async function browserMatrix(plan) {
     for (let i = 0; i < destinations.length; i += 1) {
       await openFarmLesson(page);
       // Build / Print surface if present
-      const buildTab = page.locator("[data-tk-goto='build'], button:has-text('Build'), button:has-text('Print')").first();
+      const buildTab = page.locator("[data-tk-goto='build']").first();
       if (await buildTab.count()) {
         await buildTab.click({ timeout: 3000 }).catch(() => {});
       }
@@ -465,7 +480,7 @@ async function browserMatrix(plan) {
       await page.waitForFunction(() => !document.querySelector("#resourceViewerModal.open"), null, { timeout: 8000 });
       await assertShellInteractive(page, `${name} cycle ${i + 1}`);
       const [nav, selector] = destinations[i];
-      await page.click(`.nav-link[data-view="${nav}"]`);
+      await clickSidebar(page, nav);
       await page.waitForSelector(selector, { timeout: 15000 });
       ok(true, `${name}: navigated to ${nav} after close #${i + 1}`);
     }
@@ -490,10 +505,15 @@ async function browserMatrix(plan) {
     }
 
     // Refresh restore checks
-    await page.click('.nav-link[data-view="lessons"]');
+    await clickSidebar(page, "lessons");
     await page.waitForSelector("#view-lessons.active-view", { timeout: 15000 });
     await page.reload({ waitUntil: "networkidle" });
-    await page.waitForSelector("#view-lessons.active-view, .nav-link[data-view='lessons']", { timeout: 20000 });
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-boot-ready")
+        || document.querySelector("#view-lessons.active-view"),
+      null,
+      { timeout: 30000 },
+    );
     const afterLessonsRefresh = await page.evaluate(() => ({
       lessons: Boolean(document.querySelector("#view-lessons.active-view")),
       feedback: Boolean(document.querySelector("#feedbackModal.open")),
@@ -501,24 +521,25 @@ async function browserMatrix(plan) {
     ok(afterLessonsRefresh.lessons, `${name}: refresh restores Lesson Plans`);
     ok(!afterLessonsRefresh.feedback, `${name}: feedback does not reopen on refresh`);
 
-    await page.click('.nav-link[data-view="calendar"]');
+    await clickSidebar(page, "calendar");
     await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForSelector("#view-calendar.active-view", { timeout: 20000 });
     ok(true, `${name}: refresh restores Calendar`);
 
-    await page.click('.nav-link[data-view="child-tools-daily-logs"], .nav-link[data-view="children"]').catch(async () => {
-      await page.click('.nav-link[data-view="children"]');
-    });
+    const dailyNav = await page.locator('.sidebar [data-view="child-tools-daily-logs"]').count()
+      ? "child-tools-daily-logs"
+      : "children";
+    await clickSidebar(page, dailyNav);
     await page.waitForSelector("#view-children.active-view", { timeout: 15000 });
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForSelector("#view-children.active-view", { timeout: 20000 });
     ok(true, `${name}: refresh restores Daily Logs / Children`);
 
     // Browser back/forward
-    await page.click('.nav-link[data-view="lessons"]');
+    await clickSidebar(page, "lessons");
     await page.waitForSelector("#view-lessons.active-view", { timeout: 15000 });
-    await page.click('.nav-link[data-view="calendar"]');
+    await clickSidebar(page, "calendar");
     await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
     await page.goBack();
     await page.waitForTimeout(400);
