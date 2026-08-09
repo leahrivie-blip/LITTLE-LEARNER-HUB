@@ -106,6 +106,60 @@
     return null;
   }
 
+  function patchCanvasGradientForHtml2Canvas() {
+    // html2canvas can throw "addColorStop: The provided double value is non-finite"
+    // when site CSS uses color-mix()/complex gradients. Guard the canvas API for the
+    // duration of binder PDF capture so one bad stop cannot abort the whole download.
+    if (typeof CanvasGradient === "undefined" || !CanvasGradient.prototype) {
+      return () => {};
+    }
+    const proto = CanvasGradient.prototype;
+    if (proto.__llhAddColorStopPatched) return () => {};
+    const original = proto.addColorStop;
+    proto.addColorStop = function patchedAddColorStop(offset, color) {
+      const value = Number(offset);
+      if (!Number.isFinite(value)) return undefined;
+      const clamped = Math.min(1, Math.max(0, value));
+      try {
+        return original.call(this, clamped, color);
+      } catch (_err) {
+        return undefined;
+      }
+    };
+    proto.__llhAddColorStopPatched = true;
+    return () => {
+      proto.addColorStop = original;
+      delete proto.__llhAddColorStopPatched;
+    };
+  }
+
+  function prepareClonedBinderDocument(clonedDoc) {
+    if (!clonedDoc) return;
+    const style = clonedDoc.createElement("style");
+    style.setAttribute("data-llh-binder-pdf-safe", "1");
+    style.textContent = `
+      html, body { background: #fff !important; }
+      .tk-print-page, .tk-print-page * {
+        backdrop-filter: none !important;
+        filter: none !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+      .tk-print-page {
+        background: #ffffff !important;
+        background-image: none !important;
+      }
+      .tk-print-cover,
+      .tk-print-title-bar,
+      .tk-print-running,
+      .tk-print-section-banner,
+      .tk-print-brand-mark {
+        background-image: none !important;
+      }
+    `;
+    (clonedDoc.head || clonedDoc.documentElement).appendChild(style);
+  }
+
   async function renderBinderPdfInBrowser(hostOrHtml, options = {}) {
     const PDFLib = pdfLibApi();
     const html2canvas = (typeof globalThis !== "undefined" && globalThis.html2canvas) || null;
@@ -126,24 +180,47 @@
       document.body.appendChild(host);
     }
 
+    const restoreGradient = patchCanvasGradientForHtml2Canvas();
     try {
       const pages = Array.from(host.querySelectorAll(".tk-print-page"));
       if (!pages.length) return { ok: false, reason: "no_binder_pages", bytes: null };
       const paper = letterSize(options.paperSize);
       const pdfDoc = await PDFLib.PDFDocument.create();
+      let pageErrors = 0;
       for (const pageEl of pages) {
-        const canvas = await html2canvas(pageEl, {
-          backgroundColor: "#ffffff",
-          scale: options.scale || 2,
-          useCORS: true,
-          logging: false,
-          windowWidth: pageEl.scrollWidth,
-        });
+        const width = Math.max(
+          Number(pageEl.scrollWidth) || 0,
+          Number(pageEl.offsetWidth) || 0,
+          Number(pageEl.clientWidth) || 0,
+          816,
+        );
+        const height = Math.max(
+          Number(pageEl.scrollHeight) || 0,
+          Number(pageEl.offsetHeight) || 0,
+          Number(pageEl.clientHeight) || 0,
+          1,
+        );
+        let canvas = null;
+        try {
+          canvas = await html2canvas(pageEl, {
+            backgroundColor: "#ffffff",
+            scale: options.scale || 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: width,
+            windowHeight: height,
+            onclone: prepareClonedBinderDocument,
+          });
+        } catch (err) {
+          pageErrors += 1;
+          console.warn("[llh-tk-pdf] html2canvas page failed", err?.message || err);
+          continue;
+        }
         const pngBytes = await canvasToPngBytes(canvas);
         if (!pngBytes) continue;
         const image = await pdfDoc.embedPng(pngBytes);
         const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
-        const imgRatio = image.width / image.height;
+        const imgRatio = image.width / Math.max(image.height, 1);
         const pageRatio = paper.width / paper.height;
         let drawW = paper.width;
         let drawH = paper.height;
@@ -152,11 +229,24 @@
         } else {
           drawW = drawH * imgRatio;
         }
+        if (!Number.isFinite(drawW) || !Number.isFinite(drawH) || drawW <= 0 || drawH <= 0) {
+          pageErrors += 1;
+          continue;
+        }
         const x = (paper.width - drawW) / 2;
         const y = (paper.height - drawH) / 2;
         pdfPage.drawImage(image, { x, y, width: drawW, height: drawH });
       }
-      if (!pdfDoc.getPageCount()) return { ok: false, reason: "no_binder_pages", bytes: null };
+      if (!pdfDoc.getPageCount()) {
+        return {
+          ok: false,
+          reason: pageErrors ? "binder_pdf_render_failed" : "no_binder_pages",
+          bytes: null,
+          message: pageErrors
+            ? "Could not render binder pages to PDF. Please try Print selection, or retry Download PDF."
+            : "No binder pages were available to download.",
+        };
+      }
       const bytes = await pdfDoc.save();
       return {
         ok: true,
@@ -165,8 +255,17 @@
         engine: "html2canvas",
         paperSize: paper.css.toLowerCase(),
         pageCount: pdfDoc.getPageCount(),
+        pageErrors,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: "binder_pdf_failed",
+        bytes: null,
+        message: error?.message || "Could not build the Teaching Kit PDF. Please try again.",
       };
     } finally {
+      try { restoreGradient(); } catch (_err) { /* ignore */ }
       if (temporary && host && host.parentNode) host.parentNode.removeChild(host);
     }
   }
