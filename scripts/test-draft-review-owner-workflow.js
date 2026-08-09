@@ -802,6 +802,38 @@ async function main() {
           await page.waitForTimeout(1500);
           const editorOpen = await page.evaluate(() => document.body.classList.contains("tk-enrich-open"));
           ok(editorOpen === true, `Open Review opens editor (${viewport.name})`);
+          const editorProbe = await page.evaluate(() => {
+            const draft = window.LLHTeachingKitEnrichmentEditor?.getDraft?.() || {};
+            const acts = window.LLHTeachingKitEnrichment?.flattenLessonActivities?.(
+              { id: "probe" },
+              [],
+              draft,
+            ) || [];
+            // Prefer live navigator if present
+            const navText = document.querySelector(".tk-enrich-chrome, [data-enrich-activity-nav]")?.textContent || "";
+            const activityOf = (navText.match(/Activity\s+(\d+)\s+of\s+(\d+)/i) || []).slice(1);
+            const stepLabel = document.querySelector("[data-publish-ready-step]")?.textContent?.trim() || "";
+            const workflow = document.querySelector("[data-workflow-status-chrome]")?.textContent?.trim() || "";
+            const titles = [...document.querySelectorAll(".tk-enrich-activity-list button, [data-enrich-activity-jump]")]
+              .map((el) => el.textContent.trim())
+              .filter(Boolean);
+            return {
+              flatCount: acts.length,
+              activityOf,
+              stepLabel,
+              workflow,
+              titles,
+              flagOff: (window.effectiveSiteContent?.()?.featureFlags?.teachingKitEnrichmentEditor !== true),
+            };
+          });
+          ok(editorProbe.flagOff === true, `Open Review works with enrichment editor flag off (${viewport.name})`);
+          if (editorProbe.activityOf[1]) {
+            ok(Number(editorProbe.activityOf[1]) === 15, `editor Activity N of 15 (${viewport.name}: ${editorProbe.activityOf.join("/")})`);
+          } else {
+            ok(editorProbe.flatCount === 15, `editor flatten count 15 with queue draft (${viewport.name}: ${editorProbe.flatCount})`);
+          }
+          ok(!/Publish Ready/i.test(editorProbe.stepLabel), `stepper not Publish Ready while reviewing disposable (${viewport.name}: ${editorProbe.stepLabel})`);
+          ok(!/Publish Ready/i.test(editorProbe.workflow), `workflow badge not Publish Ready (${viewport.name}: ${editorProbe.workflow})`);
           const shotEditor = path.join(ARTIFACT_DIR, `open-review-${viewport.name}.png`);
           await page.screenshot({ path: shotEditor, fullPage: true });
           report.screenshots.push(shotEditor);

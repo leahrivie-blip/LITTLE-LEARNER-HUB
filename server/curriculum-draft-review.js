@@ -607,10 +607,13 @@ function createDraftReviewApi(deps) {
       store.siteContent.curriculum.resources || [],
       existingIdx >= 0 ? queue[existingIdx] : null,
     );
+    const lessonActs = (store.siteContent.curriculum.activities || []).filter((a) => a.lessonPlanId === lessonPlanId);
     const stats = model.buildStats(
       saved.enrichmentDraft,
       mergedResourceIds,
       store.siteContent.curriculum.resources || [],
+      saved,
+      lessonActs,
     );
 
     let entry;
@@ -1181,7 +1184,13 @@ function createDraftReviewApi(deps) {
         );
         scores = scored.scores;
         qualityResults = scored.qualityResults;
-        stats = model.buildStats(enrichmentDraft, draftResourceIds, siteContent.curriculum?.resources || []);
+        stats = model.buildStats(
+          enrichmentDraft,
+          draftResourceIds,
+          siteContent.curriculum?.resources || [],
+          plan,
+          (siteContent.curriculum?.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
+        );
       }
 
       if (action === "record-printable-pages") {
@@ -1635,6 +1644,8 @@ function createDraftReviewApi(deps) {
         entry.enrichmentDraft || plan?.enrichmentDraft,
         entry.draftResourceIds || [],
         curriculum.resources || [],
+        plan,
+        (curriculum.activities || []).filter((a) => a.lessonPlanId === entry.lessonPlanId),
       );
 
       if (action === "approve") {

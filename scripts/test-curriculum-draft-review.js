@@ -182,6 +182,8 @@ async function main() {
   ok(uiJs.includes("PUBLISH TEACHING KIT") || modelJs.includes("PUBLISH TEACHING KIT"), "publish confirm phrase present");
   ok(uiJs.includes("data-draft-review-back-content"), "Back to Content Home control present");
   ok(uiJs.includes("ownerDraftReview: true"), "Open Review uses owner draft-review editor bypass");
+  ok(uiJs.includes("enrichmentDraft"), "Open Review passes queue enrichmentDraft into editor");
+  ok(uiJs.includes("Still working on the previous action") || uiJs.includes("while (state.busy"), "Open Review waits instead of silent busy no-op");
   ok(fs.existsSync(path.join(ROOT, "scripts/llh-curriculum-gold-standard.js")), "gold standard validator present");
 
   // Proof #597 baggage is absent from this clean branch.

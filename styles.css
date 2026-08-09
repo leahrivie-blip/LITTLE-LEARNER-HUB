@@ -27009,8 +27009,8 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   top: 0;
   right: 0;
   bottom: 0;
-  /* Leave admin section sidebar usable on desktop */
-  left: min(16.5rem, 28vw);
+  /* Full-bleed: do not leave sidebar clickable under the editor */
+  left: 0;
   z-index: 13050;
   background: #f7f3ec;
   color: #24312a;

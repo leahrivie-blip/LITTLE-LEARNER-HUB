@@ -66,7 +66,13 @@
         return isTeachingKitPrintableOwnerClient();
       }
       const session = typeof adminSession === "function" ? adminSession() : null;
-      return String(session?.email || "").trim().toLowerCase() === "leahivie@icloud.com";
+      const email = String(session?.email || "").trim().toLowerCase();
+      return [
+        "leahivie@icloud.com",
+        "leahrivie@icloud.com",
+        "leahrivie@gmail.com",
+        "little.learners.hub.customer@gmail.com",
+      ].includes(email);
     } catch {
       return false;
     }
@@ -563,7 +569,19 @@
   }
 
   async function run(actionFn, successMessage) {
-    if (state.busy) return;
+    if (state.busy) {
+      // Never silently ignore Open Review while a prior refresh/action is in flight.
+      const started = Date.now();
+      while (state.busy && Date.now() - started < 10000) {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+      if (state.busy) {
+        state.message = "Still working on the previous action — try again in a moment.";
+        state.isSuccess = false;
+        render();
+        return;
+      }
+    }
     state.busy = true;
     state.loading = true;
     state.message = "";
@@ -578,7 +596,18 @@
     } finally {
       state.busy = false;
       state.loading = false;
-      render();
+      // Keep Teaching Kit overlay on top; remounting the queue under it is fine, but
+      // do not wipe the success/error message when the editor owns the screen.
+      if (!(global.LLHTeachingKitEnrichmentEditor?.isOpen?.())) {
+        render();
+      } else {
+        // Light status update only — avoid replacing DOM under an open editor unnecessarily.
+        const host = document.querySelector("#adminDraftReviewQueueApp .form-message");
+        if (host) {
+          host.className = `form-message ${state.isSuccess ? "success" : "error"}`;
+          host.textContent = state.message || "";
+        }
+      }
     }
   }
 
@@ -588,7 +617,7 @@
   }
 
   function openTeachingKit(options = {}) {
-    const lessonPlanId = state.detail?.entry?.lessonPlanId;
+    const lessonPlanId = state.detail?.entry?.lessonPlanId || state.detail?.lessonPlan?.id;
     const draftReviewId = state.detail?.entry?.id || state.selectedId;
     if (!lessonPlanId) {
       state.message = "Missing lesson id for this draft.";
@@ -596,12 +625,23 @@
       render();
       return false;
     }
-    if (typeof loadAdminSiteContent === "function") {
-      // Best-effort refresh so editor sees latest enrichment draft.
-      loadAdminSiteContent().catch(() => {});
-    }
     if (!global.LLHTeachingKitEnrichmentEditor?.open) {
       state.message = "Teaching Kit editor is not available in this build.";
+      state.isSuccess = false;
+      render();
+      return false;
+    }
+    const enrichmentDraft = state.detail?.enrichmentDraft
+      || state.detail?.entry?.enrichmentDraft
+      || null;
+    const lessonPlan = state.detail?.lessonPlan
+      ? {
+        ...state.detail.lessonPlan,
+        enrichmentDraft: enrichmentDraft || state.detail.lessonPlan.enrichmentDraft || null,
+      }
+      : null;
+    if (!enrichmentDraft) {
+      state.message = "This queue item is missing its enrichment draft overlay.";
       state.isSuccess = false;
       render();
       return false;
@@ -613,10 +653,12 @@
       draftReviewId,
       returnToQueue: true,
       printableApprovalStatuses,
+      enrichmentDraft,
+      lessonPlan,
       ...options,
     });
     if (opened === false) {
-      state.message = "Could not open Teaching Kit editor for this draft.";
+      state.message = "Could not open Teaching Kit editor for this draft. Confirm you are signed in as the owner and hard-refresh if the Enrichment Editor flag is off.";
       state.isSuccess = false;
       render();
       return false;
@@ -633,6 +675,10 @@
   async function openReviewKit(id) {
     await openDetail(id);
     await api("mark-in-review", { id }).catch(() => {});
+    // Ensure client curriculum includes the lesson shell; draft overlay comes from the queue entry.
+    if (typeof loadAdminSiteContent === "function") {
+      try { await loadAdminSiteContent(); } catch (_error) { /* open still uses queue draft */ }
+    }
     const opened = openTeachingKit();
     if (!opened) throw new Error(state.message || "Open Review failed.");
   }
