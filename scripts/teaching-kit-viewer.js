@@ -881,19 +881,36 @@
                 <li>Blank sections are skipped automatically</li>
               </ul>
             </article>
-            <article class="tk-card tk-card-soft">
-              <h4>Ready to print</h4>
+            <article class="tk-card tk-card-soft" data-tk-ready-print-card>
               ${(() => {
                 const selectionSummary = summarizeCurrentPrintSelection(kit, state);
-                const actionEnabled = printEnabled && selectionSummary.canPrint;
-                const names = (selectionSummary.itemLabels || []).slice(0, 6).join(" · ");
+                const busy = state.downloadBusy === true;
+                const failed = state.downloadStatus === "error";
+                const actionEnabled = printEnabled && selectionSummary.canPrint && !busy;
+                const names = (selectionSummary.itemLabels || []).slice(0, 8).join(" · ");
+                const readyTitle = !printEnabled
+                  ? "Print Center unavailable"
+                  : (busy
+                    ? "Preparing your PDF…"
+                    : (failed
+                      ? "Download failed — retry"
+                      : (selectionSummary.canPrint ? "Ready to print" : "Selection incomplete")));
+                const statusMessage = busy
+                  ? (state.downloadStatusMessage || "Preparing your PDF…")
+                  : (failed
+                    ? (state.downloadStatusMessage || "PDF generation failed. Please try again.")
+                    : (state.downloadStatus === "started"
+                      ? (state.downloadStatusMessage || "Download started")
+                      : ""));
                 return `
-              <p class="tk-muted" data-tk-print-summary><strong>${escapeHtml(selectionSummary.summary)}</strong>${names ? ` — ${escapeHtml(names)}${(selectionSummary.itemLabels || []).length > 6 ? "…" : ""}` : ""}</p>
-              <p class="tk-muted">${escapeHtml(String(includedCount))} kit activities · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
+              <h4 data-tk-ready-title>${escapeHtml(readyTitle)}</h4>
+              <p class="tk-muted" data-tk-print-summary><strong>${escapeHtml(selectionSummary.summary)}</strong>${names ? ` — ${escapeHtml(names)}${(selectionSummary.itemLabels || []).length > 8 ? "…" : ""}` : ""}</p>
+              <p class="tk-muted">${escapeHtml(String(includedCount))} kit activities · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}${selectionSummary.itemCount ? ` · ${escapeHtml(String(selectionSummary.itemCount))} section${selectionSummary.itemCount === 1 ? "" : "s"}` : ""}</p>
               ${!selectionSummary.canPrint && printEnabled ? `<p class="tk-note" role="status">${escapeHtml(selectionSummary.emptyReason || "Select something to print.")}</p>` : ""}
+              ${statusMessage ? `<p class="tk-note" data-tk-download-status role="status">${escapeHtml(statusMessage)}</p>` : `<p class="tk-note" data-tk-download-status role="status" hidden></p>`}
               <div class="tk-build-cta-stack">
-                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Print selection" : (printEnabled ? "Print (select items)" : "Print binder (unavailable)")}</button>
-                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Download PDF" : (printEnabled ? "Download (select items)" : "Download PDF (unavailable)")}</button>
+                <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Print selection" : (printEnabled ? (busy ? "Working…" : "Print (select items)") : "Print binder (unavailable)")}</button>
+                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${busy ? "Preparing your PDF…" : (actionEnabled ? "Download PDF" : (printEnabled ? "Download (select items)" : "Download PDF (unavailable)"))}</button>
                 <button type="button" class="tk-btn tk-btn-ghost" data-tk-preview-print ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">Preview selection</button>
                 <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Open Digital Binder</button>
               </div>
@@ -1379,6 +1396,9 @@
       printActivityId: initialActivityId || (kit?.companion?.activities || [])[0]?.id || "",
       printSongId: "",
       printPrintableId: (kit?.companion?.printables || [])[0]?.id || "",
+      downloadBusy: false,
+      downloadStatus: "idle",
+      downloadStatusMessage: "",
       selectedResources: {
         overview: false,
         vocabulary: false,
@@ -1395,6 +1415,25 @@
         bookIds: [],
         printableIds: [],
       },
+    };
+  }
+
+  function emptySelectedResources() {
+    return {
+      overview: false,
+      vocabulary: false,
+      weekly: false,
+      activities: false,
+      songs: false,
+      books: false,
+      printables: false,
+      materials: false,
+      toolkit: false,
+      days: [],
+      activityIds: [],
+      songIds: [],
+      bookIds: [],
+      printableIds: [],
     };
   }
 
@@ -1528,172 +1567,61 @@
     }
 
     function onClick(event) {
-      const preset = event.target.closest("[data-tk-print-preset]");
-      if (preset) {
-        const id = preset.getAttribute("data-tk-print-preset") || preset.value;
-        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
-        state.printPreset = id || state.printPreset;
-        if (printApi?.defaultPartsForPreset) {
-          state.printParts = printApi.defaultPartsForPreset(state.printPreset);
-        }
-        rerender();
-        return;
-      }
-
-      const paper = event.target.closest("[data-tk-print-paper]");
-      if (paper) {
-        const id = paper.getAttribute("data-tk-print-paper") || paper.value;
-        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
-        state.paperSize = printApi?.normalizePaperSize
-          ? printApi.normalizePaperSize(id)
-          : (id === "a4" ? "a4" : "letter");
-        return;
-      }
-
-      const part = event.target.closest("[data-tk-print-part]");
-      if (part && part.matches("input")) {
-        if (part.disabled) return;
-        const key = part.getAttribute("data-tk-print-part");
-        if (key) {
-          state.printParts = { ...(state.printParts || {}), [key]: Boolean(part.checked) };
-        }
-        return;
-      }
-
-      const option = event.target.closest("[data-tk-print-option]");
-      if (option && option.matches("input")) {
-        const key = option.getAttribute("data-tk-print-option");
-        if (key === "includeImages") state.includeImages = Boolean(option.checked);
-        if (key === "inkSaver") state.inkSaver = Boolean(option.checked);
-        return;
-      }
+      // Print-pack radios/checkboxes sync on `change` so label-text clicks update state.
+      // (Clicking the label text does not target the input, which previously left the
+      // radio visually checked while state.printPreset stayed on Songs / Selected Resources.)
 
       const printBtn = event.target.closest("[data-tk-print-binder], [data-tk-download-binder], [data-tk-preview-print]");
       if (printBtn) {
         event.preventDefault();
-        if (!state.printCenterEnabled || printBtn.disabled) return;
+        if (!state.printCenterEnabled || printBtn.disabled || state.downloadBusy) return;
         const selectionSummary = summarizeCurrentPrintSelection(kit, state);
         if (!selectionSummary.canPrint) {
+          state.downloadStatus = "error";
+          state.downloadStatusMessage = selectionSummary.emptyReason || "Select something to print.";
           const help = root.querySelector("#tk-print-help");
-          if (help) help.textContent = selectionSummary.emptyReason || "Select something to print.";
+          if (help) help.textContent = state.downloadStatusMessage;
+          rerender({ preserveScroll: true });
           return;
         }
         const intent = printBtn.hasAttribute("data-tk-download-binder")
           ? "download"
           : (printBtn.hasAttribute("data-tk-preview-print") ? "preview" : "print");
-        if (typeof ctx.onPrint === "function") {
-          ctx.onPrint({
-            ...buildCurrentPrintOptions(kit, state),
-            adminPreview: isOwnerPreviewKit(kit, chrome),
-            intent,
-          });
+        if (typeof ctx.onPrint !== "function") return;
+        const payload = {
+          ...buildCurrentPrintOptions(kit, state),
+          adminPreview: isOwnerPreviewKit(kit, chrome),
+          intent,
+        };
+        if (intent === "download") {
+          state.downloadBusy = true;
+          state.downloadStatus = "preparing";
+          state.downloadStatusMessage = "Preparing your PDF…";
+          rerender({ preserveScroll: true });
         }
-        return;
-      }
-
-      const printDay = event.target.closest("[data-tk-print-day]");
-      if (printDay) {
-        state.day = printDay.getAttribute("data-tk-print-day") || state.day;
-        return;
-      }
-
-      const selectedRes = event.target.closest("[data-tk-selected-res]");
-      if (selectedRes && selectedRes.matches("input")) {
-        const key = selectedRes.getAttribute("data-tk-selected-res");
-        if (key) {
-          state.selectedResources = {
-            ...(state.selectedResources || {}),
-            [key]: Boolean(selectedRes.checked),
-          };
-          // Category "all" toggles clear specific ID picks so scope stays unambiguous.
-          if (selectedRes.checked && key === "activities") {
-            state.selectedResources.activityIds = [];
+        Promise.resolve(ctx.onPrint(payload)).then((result) => {
+          if (intent !== "download") return;
+          if (result && result.ok) {
+            state.downloadStatus = "started";
+            state.downloadStatusMessage = result.fileName
+              ? `Download started (${result.fileName})`
+              : "Download started";
+          } else {
+            state.downloadStatus = "error";
+            state.downloadStatusMessage = result?.message
+              || result?.reason
+              || "PDF generation failed. Please try again.";
           }
-          if (selectedRes.checked && key === "songs") {
-            state.selectedResources.songIds = [];
+        }).catch((error) => {
+          if (intent !== "download") return;
+          state.downloadStatus = "error";
+          state.downloadStatusMessage = error?.message || "PDF generation failed. Please try again.";
+        }).finally(() => {
+          if (intent === "download") {
+            state.downloadBusy = false;
+            rerender({ preserveScroll: true });
           }
-          if (selectedRes.checked && key === "books") {
-            state.selectedResources.bookIds = [];
-          }
-          if (selectedRes.checked && key === "printables") {
-            state.selectedResources.printableIds = [];
-          }
-        }
-        rerender({ preserveScroll: true });
-        return;
-      }
-
-      const selectedDay = event.target.closest("[data-tk-selected-day]");
-      if (selectedDay && selectedDay.matches("input")) {
-        const day = selectedDay.getAttribute("data-tk-selected-day");
-        const days = new Set(state.selectedResources?.days || []);
-        if (selectedDay.checked) days.add(day);
-        else days.delete(day);
-        state.selectedResources = {
-          ...(state.selectedResources || {}),
-          days: [...days],
-        };
-        rerender({ preserveScroll: true });
-        return;
-      }
-
-      const selectedActivity = event.target.closest("[data-tk-selected-activity]");
-      if (selectedActivity && selectedActivity.matches("input")) {
-        const id = selectedActivity.getAttribute("data-tk-selected-activity");
-        const ids = new Set(state.selectedResources?.activityIds || []);
-        if (selectedActivity.checked) ids.add(id);
-        else ids.delete(id);
-        state.selectedResources = {
-          ...(state.selectedResources || {}),
-          activityIds: [...ids],
-          activities: false,
-        };
-        rerender({ preserveScroll: true });
-        return;
-      }
-
-      const selectedSong = event.target.closest("[data-tk-selected-song]");
-      if (selectedSong && selectedSong.matches("input")) {
-        const id = selectedSong.getAttribute("data-tk-selected-song");
-        const ids = new Set(state.selectedResources?.songIds || []);
-        if (selectedSong.checked) ids.add(id);
-        else ids.delete(id);
-        state.selectedResources = {
-          ...(state.selectedResources || {}),
-          songIds: [...ids],
-          songs: false,
-        };
-        rerender({ preserveScroll: true });
-        return;
-      }
-
-      const selectedBook = event.target.closest("[data-tk-selected-book]");
-      if (selectedBook && selectedBook.matches("input")) {
-        const id = selectedBook.getAttribute("data-tk-selected-book");
-        const ids = new Set(state.selectedResources?.bookIds || []);
-        if (selectedBook.checked) ids.add(id);
-        else ids.delete(id);
-        state.selectedResources = {
-          ...(state.selectedResources || {}),
-          bookIds: [...ids],
-          books: false,
-        };
-        rerender({ preserveScroll: true });
-        return;
-      }
-
-      const selectedPrintable = event.target.closest("[data-tk-selected-printable]");
-      if (selectedPrintable && selectedPrintable.matches("input")) {
-        const id = selectedPrintable.getAttribute("data-tk-selected-printable");
-        const ids = new Set(state.selectedResources?.printableIds || []);
-        if (selectedPrintable.checked) ids.add(id);
-        else ids.delete(id);
-        state.selectedResources = {
-          ...(state.selectedResources || {}),
-          printableIds: [...ids],
-          printables: false,
-        };
-        rerender({ preserveScroll: true });
+        });
         return;
       }
 
@@ -1821,19 +1749,173 @@
     root.addEventListener("click", onClick);
     root.addEventListener("keydown", onKeydown);
     function onChange(event) {
-      const activitySelect = event.target.closest("[data-tk-print-activity]");
+      const target = event.target;
+      if (!target || !root.contains(target)) return;
+
+      // Radios/checkboxes: listen to change so label-text clicks sync selection state.
+      if (target.matches?.("input[data-tk-print-preset]")) {
+        const id = target.getAttribute("data-tk-print-preset") || target.value;
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        state.printPreset = id || state.printPreset;
+        if (printApi?.defaultPartsForPreset) {
+          state.printParts = printApi.defaultPartsForPreset(state.printPreset);
+        }
+        // Entire Binder Kit must not inherit a stale Selected Resources song pick.
+        if (state.printPreset === "week_binder" || state.printPreset === "full_weekly_plan") {
+          state.selectedResources = emptySelectedResources();
+        }
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-print-paper]")) {
+        const id = target.getAttribute("data-tk-print-paper") || target.value;
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        state.paperSize = printApi?.normalizePaperSize
+          ? printApi.normalizePaperSize(id)
+          : (id === "a4" ? "a4" : "letter");
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-print-day]")) {
+        state.day = target.getAttribute("data-tk-print-day") || target.value || state.day;
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-print-part]")) {
+        if (target.disabled) return;
+        const key = target.getAttribute("data-tk-print-part");
+        if (key) {
+          state.printParts = { ...(state.printParts || {}), [key]: Boolean(target.checked) };
+        }
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-print-option]")) {
+        const key = target.getAttribute("data-tk-print-option");
+        if (key === "includeImages") state.includeImages = Boolean(target.checked);
+        if (key === "inkSaver") state.inkSaver = Boolean(target.checked);
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-selected-res]")) {
+        const key = target.getAttribute("data-tk-selected-res");
+        if (key) {
+          state.selectedResources = {
+            ...(state.selectedResources || emptySelectedResources()),
+            [key]: Boolean(target.checked),
+          };
+          if (target.checked && key === "activities") state.selectedResources.activityIds = [];
+          if (target.checked && key === "songs") state.selectedResources.songIds = [];
+          if (target.checked && key === "books") state.selectedResources.bookIds = [];
+          if (target.checked && key === "printables") state.selectedResources.printableIds = [];
+        }
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-selected-day]")) {
+        const day = target.getAttribute("data-tk-selected-day");
+        const days = new Set(state.selectedResources?.days || []);
+        if (target.checked) days.add(day);
+        else days.delete(day);
+        state.selectedResources = {
+          ...(state.selectedResources || emptySelectedResources()),
+          days: [...days],
+        };
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-selected-activity]")) {
+        const id = target.getAttribute("data-tk-selected-activity");
+        const ids = new Set(state.selectedResources?.activityIds || []);
+        if (target.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || emptySelectedResources()),
+          activityIds: [...ids],
+          activities: false,
+        };
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-selected-song]")) {
+        const id = target.getAttribute("data-tk-selected-song");
+        const ids = new Set(state.selectedResources?.songIds || []);
+        if (target.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || emptySelectedResources()),
+          songIds: [...ids],
+          songs: false,
+        };
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-selected-book]")) {
+        const id = target.getAttribute("data-tk-selected-book");
+        const ids = new Set(state.selectedResources?.bookIds || []);
+        if (target.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || emptySelectedResources()),
+          bookIds: [...ids],
+          books: false,
+        };
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      if (target.matches?.("input[data-tk-selected-printable]")) {
+        const id = target.getAttribute("data-tk-selected-printable");
+        const ids = new Set(state.selectedResources?.printableIds || []);
+        if (target.checked) ids.add(id);
+        else ids.delete(id);
+        state.selectedResources = {
+          ...(state.selectedResources || emptySelectedResources()),
+          printableIds: [...ids],
+          printables: false,
+        };
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        rerender({ preserveScroll: true });
+        return;
+      }
+
+      const activitySelect = target.closest?.("[data-tk-print-activity]");
       if (activitySelect) {
         state.printActivityId = activitySelect.value || "";
         rerender({ preserveScroll: true });
         return;
       }
-      const songSelect = event.target.closest("[data-tk-print-song]");
+      const songSelect = target.closest?.("[data-tk-print-song]");
       if (songSelect) {
         state.printSongId = songSelect.value || "";
         rerender({ preserveScroll: true });
         return;
       }
-      const printableSelect = event.target.closest("[data-tk-print-printable]");
+      const printableSelect = target.closest?.("[data-tk-print-printable]");
       if (printableSelect) {
         state.printPrintableId = printableSelect.value || "";
         rerender({ preserveScroll: true });
@@ -1921,6 +2003,7 @@
     loadingWorkspaceHtml,
     renderLoadingWorkspace,
     defaultState,
+    emptySelectedResources,
     buildCurrentPrintOptions,
     summarizeCurrentPrintSelection,
     collectSelectedResourcePayload,

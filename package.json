@@ -393,6 +393,7 @@
     "test:teaching-kit-selective-print-matrix": "NODE_ENV=test node scripts/test-teaching-kit-selective-print-matrix.js",
     "test:teaching-kit-printable-pdf-merge": "NODE_ENV=test node scripts/test-teaching-kit-printable-pdf-merge.js",
     "test:teaching-kit-print-center-wiring": "NODE_ENV=test node scripts/test-teaching-kit-print-center-wiring.js",
+    "test:teaching-kit-binder-download-parity": "NODE_ENV=test node scripts/test-teaching-kit-binder-download-parity.js",
     "test:lesson-download-presentation": "NODE_ENV=test node scripts/test-lesson-download-presentation.js",
     "test:teaching-kit-real-print-validation": "NODE_ENV=test node scripts/test-teaching-kit-real-print-validation.js",
     "test:teaching-kit-print-final-verify": "NODE_ENV=test node scripts/test-teaching-kit-print-final-verify.js",

@@ -720,7 +720,131 @@
     const key = `${type}:${id || label}`;
     if (items._seen.has(key)) return;
     items._seen.add(key);
-    items.push({ type, id: text(id), label: text(label) || text(id) });
+    items.push({ type, id: text(id), label: text(label) || text(id), kind: type });
+  }
+
+  function dayHasPrintableContent(day) {
+    if (!day) return false;
+    return Boolean(
+      text(day.focus)
+      || (day.schedule || []).length
+      || (day.activities || []).length
+      || (day.books || []).length
+      || (day.songs || []).length
+      || (day.materials || []).length
+      || (day.observations || []).length
+      || text(day.parentMessage)
+      || text(day.invitationToPlay)
+      || text(day.sensory)
+      || text(day.fineMotor)
+      || text(day.grossMotor)
+      || text(day.outdoorPlay)
+      || text(day.art)
+      || text(day.stem)
+      || text(day.smallGroup)
+      || text(day.circleTime)
+    );
+  }
+
+  /**
+   * Entire Binder Kit section list — shared by summary, preview, print, and PDF.
+   * Only includes sections that exist for this kit and remain enabled by parts.
+   */
+  function resolveEntireBinderSectionItems(model, selection, include) {
+    const items = [];
+    items._seen = new Set();
+    const parts = selection?.parts || {};
+    const coverOn = parts.cover !== false;
+    const dailyOn = parts.daily !== false;
+    const activitiesOn = parts.activities !== false;
+    const songsBooksOn = parts.songsBooks !== false;
+    const setupOn = parts.setup !== false;
+    const printablesOn = parts.printables !== false;
+    const vocabOn = parts.vocabulary !== false;
+    const familyOn = parts.family !== false;
+    const observationsOn = parts.observations !== false;
+
+    if (coverOn) {
+      pushManifestItem(items, "section", "cover", "Branded cover");
+      if ((model.sections || []).some((section) => section.id === "toc")) {
+        pushManifestItem(items, "section", "toc", "Table of contents");
+      }
+    }
+    if (include.overview) {
+      pushManifestItem(items, "section", "overview", "Weekly overview");
+    }
+    if (include.weekly && dailyOn) {
+      pushManifestItem(items, "section", "weekly", "Weekly plan");
+    }
+    if (include.daily && dailyOn) {
+      (model.days || []).forEach((day) => {
+        if (!dayHasPrintableContent(day)) return;
+        pushManifestItem(items, "day", day.day, `${day.dayLabel} plan`);
+      });
+      pushManifestItem(items, "section", "daily_materials", "Daily materials and preparation");
+    }
+    if (include.activities && activitiesOn && (model.activities || []).length) {
+      pushManifestItem(items, "section", "activities", "Activity cards");
+    }
+    if (include.songs && songsBooksOn && (model.songs || []).length) {
+      pushManifestItem(items, "section", "songs", "Songs");
+    }
+    if (include.books && songsBooksOn && (model.books || []).length) {
+      pushManifestItem(items, "section", "books", "Books and discussion prompts");
+    }
+    if (include.vocabulary && vocabOn && (model.overview?.vocabulary || []).length) {
+      pushManifestItem(items, "section", "vocabulary", "Vocabulary");
+    }
+    if (observationsOn && (
+      (model.overview?.observationFocus || []).length
+      || (model.days || []).some((day) => (day.observations || []).length)
+      || (model.activities || []).some((activity) => (activity.observationIdeas || []).length)
+    )) {
+      pushManifestItem(items, "section", "observations", "Observation / documentation prompts");
+    }
+    if (familyOn && text(model.overview?.familyConnection)) {
+      pushManifestItem(items, "section", "family", "Family connection");
+    }
+    if (include.toolkit && setupOn) {
+      pushManifestItem(items, "section", "toolkit", "Teacher Toolkit");
+    }
+    if (include.materials && setupOn) {
+      pushManifestItem(items, "section", "materials", "Materials list");
+    }
+    if (include.printables && printablesOn && (model.printables || []).length) {
+      pushManifestItem(items, "section", "printables", "Approved / available printables");
+    }
+    if (selection?.includeImages !== false && activitiesOn && (model.examples || []).length) {
+      pushManifestItem(items, "section", "images", "Approved example images");
+    }
+    delete items._seen;
+    return items;
+  }
+
+  function titleCaseFileSlug(value) {
+    return String(value == null ? "" : value)
+      .trim()
+      .replace(/[^A-Za-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      || "Teaching-Kit";
+  }
+
+  /** Clear customer-facing PDF filename for Teaching Kit downloads. */
+  function teachingKitPdfFileName(kit, selection = {}, built = null) {
+    const titleSlug = titleCaseFileSlug(kit?.title || built?.model?.title || "Teaching-Kit");
+    const mode = text(built?.documentMode || selection.documentMode || selection.preset || "entire_binder");
+    if (mode === "entire_binder" || mode === "week_binder" || selection.preset === "week_binder") {
+      return `Little-Learner-Hub-${titleSlug}-Teacher-Binder.pdf`;
+    }
+    if (mode === "full_weekly" || selection.preset === "full_weekly_plan") {
+      return `Little-Learner-Hub-${titleSlug}-Full-Weekly-Lesson-Plan.pdf`;
+    }
+    const pack = titleCaseFileSlug(selection.presetLabel || selection.preset || mode);
+    return `Little-Learner-Hub-${titleSlug}-${pack}.pdf`;
+  }
+
+  function sectionManifestFromHtml(html) {
+    return [...String(html || "").matchAll(/data-tk-print-tab="([^"]+)"/g)].map((match) => match[1]);
   }
 
   /**
@@ -786,7 +910,18 @@
         printables: mode === "entire_binder",
         daily: true,
       };
-      pushManifestItem(items, "pack", mode, req.presetLabel || mode);
+      // Entire Binder Kit summary lists every applicable section — never songs alone.
+      const sectionItems = mode === "entire_binder"
+        ? resolveEntireBinderSectionItems(model, req, include)
+        : [{ type: "pack", id: mode, label: req.presetLabel || "Full Weekly Lesson Plan", kind: "pack" }];
+      if (mode === "entire_binder") {
+        sectionItems.forEach((item) => pushManifestItem(items, item.type || "section", item.id, item.label));
+        if (!items.length) {
+          pushManifestItem(items, "pack", mode, req.presetLabel || "Entire Binder Kit");
+        }
+      } else {
+        pushManifestItem(items, "pack", mode, req.presetLabel || mode);
+      }
     } else if (mode === "overview" || mode === "weekly_overview") {
       include.overview = true;
       include.weekly = true;
@@ -1059,11 +1194,13 @@
       return "Weekly Overview selected";
     }
     if (mode === "one_day" || presetId === "today_pack") {
-      const dayLabel = days[0]?.dayLabel || items.find((item) => item.kind === "day")?.label;
+      const dayLabel = days[0]?.dayLabel
+        || items.find((item) => item.kind === "day" || item.type === "day")?.label;
       return dayLabel ? `${dayLabel} selected` : "One day selected";
     }
     if (mode === "one_activity" || presetId === "one_activity") {
-      const title = activities[0]?.title || items.find((item) => item.kind === "activity")?.label;
+      const title = activities[0]?.title
+        || items.find((item) => item.kind === "activity" || item.type === "activity")?.label;
       return title ? `${title} selected` : "One activity selected";
     }
     if (mode === "activities" || presetId === "activities_only") return "Activities Only selected";
@@ -1072,12 +1209,18 @@
     if (mode === "printables" || mode === "all_printables" || presetId === "all_printables") {
       return "Printables Only selected";
     }
+    if (mode === "songs" || presetId === "songs_pack") return "Songs pack selected";
+    if (mode === "one_song" || presetId === "one_song") {
+      const title = items.find((item) => item.kind === "song" || item.type === "song")?.label;
+      return title ? `${title} selected` : "One song selected";
+    }
+    if (mode === "books" || presetId === "book_guide") return "Book Guide selected";
     if (mode === "song_lyrics" || presetId === "song_lyrics") return "Song Lyrics selected";
     if (mode === "selected" || mode === "selected_resources" || presetId === "selected_resources") {
       if (items.length === 1) return `${items[0].label} selected`;
       return `${items.length} selected resources`;
     }
-    if (items.length === 1 && items[0].kind === "pack") {
+    if (items.length === 1 && (items[0].kind === "pack" || items[0].type === "pack")) {
       return `${items[0].label} selected`;
     }
     if (preset && preset !== mode) return `${preset} selected`;
@@ -2257,15 +2400,27 @@
       validation: model.validation || null,
     };
     built.validation = model.validation || null;
+    built.sectionManifest = sectionManifestFromHtml(built.html);
+    built.fileName = teachingKitPdfFileName(kit, selection, built);
     // Content fingerprint so preview/print/download can assert same resolved selection.
+    const partKey = Object.keys(selection.parts || {})
+      .sort()
+      .map((key) => `${key}:${selection.parts[key] ? 1 : 0}`)
+      .join(",");
     built.contentFingerprint = [
       selection.documentMode,
+      selection.paperSize || "letter",
+      selection.inkSaver ? "ink1" : "ink0",
+      selection.includeImages === false ? "img0" : "img1",
+      partKey,
+      ...(manifest.itemLabels || []),
       ...(manifest.dayIds || []),
       ...(manifest.activityIds || []),
       ...(manifest.songIds || []),
       ...(manifest.bookIds || []),
       ...(manifest.printableIds || []),
       manifest.materialsScope || "",
+      ...(built.sectionManifest || []),
       ...(attachmentPlan.attachments || []).map((item) => item.id),
     ].join("|");
     return built;
@@ -2480,6 +2635,7 @@
     buildPrintRequest,
     normalizeSelection,
     resolvePrintManifest,
+    resolveEntireBinderSectionItems,
     summarizePrintSelection,
     humanPrintScopeSummary,
     partCountLabel,
@@ -2487,6 +2643,8 @@
     normalizePaperSize,
     pageSizeCss,
     pageSizeStyleTag,
+    teachingKitPdfFileName,
+    sectionManifestFromHtml,
     evaluatePrintAuthorization,
     evaluatePrintPartAvailability,
     evaluatePresetAvailability,
