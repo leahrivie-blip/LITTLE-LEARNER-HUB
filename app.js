@@ -28357,6 +28357,8 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   const documentMode = built.documentMode || selection.preset || "entire_binder";
   const host = ensureTeachingKitPrintHost();
   host.innerHTML = `<article class="printable-resource-page teaching-kit-print-article" data-tk-print-document="${escapeHtml(documentMode)}">${built.html}</article>`;
+  // Keep a snapshot so PDF merge can recover if Preview cleanup removes the host nodes.
+  try { host.setAttribute("data-tk-print-html", host.innerHTML); } catch (_err) { /* ignore */ }
   if (watermark) applyTrialCurriculumWatermark(host, watermark);
 
   const attachmentPlan = built.attachmentPlan || null;

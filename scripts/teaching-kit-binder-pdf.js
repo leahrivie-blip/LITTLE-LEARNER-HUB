@@ -160,6 +160,42 @@
     (clonedDoc.head || clonedDoc.documentElement).appendChild(style);
   }
 
+  function revealPrintHostForCapture(host) {
+    // Default CSS keeps `.llh-teaching-kit-print-host { display: none }` until
+    // body.printing-teaching-kit (browser print). PDF capture needs measurable
+    // layout without flashing the binder on screen.
+    if (!host || !host.style) return () => {};
+    const prev = {
+      display: host.style.display,
+      visibility: host.style.visibility,
+      position: host.style.position,
+      left: host.style.left,
+      top: host.style.top,
+      width: host.style.width,
+      height: host.style.height,
+      opacity: host.style.opacity,
+      pointerEvents: host.style.pointerEvents,
+      zIndex: host.style.zIndex,
+      overflow: host.style.overflow,
+    };
+    host.style.display = "block";
+    host.style.visibility = "visible";
+    host.style.position = "fixed";
+    host.style.left = "-12000px";
+    host.style.top = "0";
+    host.style.width = "816px";
+    host.style.height = "auto";
+    host.style.opacity = "1";
+    host.style.pointerEvents = "none";
+    host.style.zIndex = "-1";
+    host.style.overflow = "visible";
+    return () => {
+      Object.keys(prev).forEach((key) => {
+        host.style[key] = prev[key] || "";
+      });
+    };
+  }
+
   async function renderBinderPdfInBrowser(hostOrHtml, options = {}) {
     const PDFLib = pdfLibApi();
     const html2canvas = (typeof globalThis !== "undefined" && globalThis.html2canvas) || null;
@@ -174,13 +210,14 @@
     } else {
       temporary = true;
       host = document.createElement("div");
-      host.className = "llh-teaching-kit-print-host";
+      host.className = "llh-teaching-kit-print-host llh-teaching-kit-pdf-capture";
       host.setAttribute("aria-hidden", "true");
       host.innerHTML = `<article class="printable-resource-page teaching-kit-print-article">${hostOrHtml || ""}</article>`;
       document.body.appendChild(host);
     }
 
     const restoreGradient = patchCanvasGradientForHtml2Canvas();
+    const restoreHostVisibility = revealPrintHostForCapture(host);
     try {
       let pages = Array.from(host.querySelectorAll(".tk-print-page"));
       // If the live print host was cleared (Preview cleanup race), rebuild from
@@ -230,7 +267,10 @@
           continue;
         }
         const pngBytes = await canvasToPngBytes(canvas);
-        if (!pngBytes) continue;
+        if (!pngBytes) {
+          pageErrors += 1;
+          continue;
+        }
         const image = await pdfDoc.embedPng(pngBytes);
         const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
         const imgRatio = image.width / Math.max(image.height, 1);
@@ -278,7 +318,8 @@
         message: error?.message || "Could not build the Teaching Kit PDF. Please try again.",
       };
     } finally {
-      try { restoreGradient(); } catch (_err) { /* ignore */ }
+      try { restoreHostVisibility(); } catch (_err) { /* ignore */ }
+      try { restoreGradient(); } catch (_err2) { /* ignore */ }
       if (temporary && host && host.parentNode) host.parentNode.removeChild(host);
     }
   }
