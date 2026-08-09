@@ -2493,6 +2493,8 @@
         bytes: null,
         built,
         report: strictPlan,
+        message: binderRendered.message
+          || "Could not render the Teaching Kit binder to PDF. Please try again.",
       };
     }
 
