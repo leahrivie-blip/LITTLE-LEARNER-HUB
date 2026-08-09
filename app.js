@@ -40592,6 +40592,16 @@ function renderStaffManagementPage(options = {}) {
   refreshStaffInvitesFromBackend()
     .then(() => {
       if (document.querySelector(".active-view")?.id !== "view-staff") return;
+      // Do not wipe an in-progress invite form when the async refresh returns.
+      const active = document.activeElement;
+      const staffView = document.querySelector("#view-staff");
+      const typing = Boolean(
+        staffView
+        && active
+        && staffView.contains(active)
+        && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || ""),
+      );
+      if (typing) return;
       renderStaffManagementPage({ refresh: false });
     })
     .catch((error) => {
