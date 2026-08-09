@@ -1,0 +1,55 @@
+---
+description: Permanent Teaching Kit Master Spec — controls every lesson upgrade
+alwaysApply: true
+---
+
+# Teaching Kit Master Specification (always follow)
+
+**Canonical doc:** `docs/teaching-kit/TEACHING_KIT_MASTER_SPECIFICATION.md`
+
+When the owner provides lesson plan examples, picture ideas, or upgrade instructions, follow that Master Spec **and** the owner materials. Save owner examples under `docs/teaching-kit/owner-examples/`.
+
+## Goal
+
+Every Teaching Kit must feel like a complete, premium digital teacher binder a childcare provider would pay for and realistically use. Do **not** fill fields or chase scores to call work complete.
+
+## Before upgrading any lesson
+
+Create a lesson brief (owner review) with:
+
+- Title + exact age group
+- Weekly purpose + meaningful objectives
+- Five distinct Mon–Fri focuses
+- Keep / substantially improve / replace / remove for every existing activity, with reasons
+- Developmental balance (language, social-emotional, cognitive, fine motor, gross motor, sensory, creativity)
+- Exact printable plan (every page + classroom purpose)
+- Exact image plan (only activities that truly need setup / process / finished example)
+- Original or verified public-domain songs with motions + teaching directions
+- Real verified books (author, weekday, before/during/after questions, vocab, substitutes, no-book alternative)
+- Prep, affordable materials, substitutions, cleanup, safety, inclusion, mixed-age, support, challenge, observation, documentation, extensions, family connections
+
+## Activity rules
+
+Hands-on, play-based, open-ended, age-appropriate, affordable, realistic. Mix simple and involved. Do not keep weak legacy activities just to avoid change. No repetitive sorting/matching/coloring/worksheet variants. Each weekday needs its own focus, materials, questions, observations, book, song, and family connection.
+
+Never compare children, rank families, require private family disclosure, or assume one family structure/culture/ability/living situation.
+
+## Printables
+
+Real US Letter PDFs only (not HTML placeholders). Original theme-specific illustrations. Cards large enough for circle/matching/sorting/dramatic play/display. Clear cut lines, safe margins, readable labels, strong contrast, low-ink when possible. No worksheet-heavy / one-correct-answer pages. No generic abstract shapes. Small LLH branding + littlelearnershubbyleah.com on every page. Pinterest/teacher sites = inspiration only — never copy images, wording, layouts, or products.
+
+## Images
+
+Not required for obvious circle talk, read-alouds, songs, or simple movement. Require only when needed for art result, unfamiliar setup, construction, sensory invitation, printable use, or finished example. Original teacher-manual illustrations / paper mockups / believable classroom setups. No glossy fake AI classroom photos. Every image needs useful alt text + caption.
+
+## Workflow
+
+1. Complete lesson brief for owner review  
+2. Build/revise **one** Teaching Kit as a draft  
+3. Run contradiction, duplication, copyright, safety, age-fit, printable, image, completeness checks  
+4. Submit to owner-only Admin Draft Review Queue with before/after activity list + rationale  
+5. Never publish, deploy customer content, or modify the published lesson  
+6. Wait for owner feedback; revise the **same** queue item  
+7. Do **not** start a batch of ten until Amazing Apples and All About Me are manually approved as gold standards  
+
+Scores are diagnostic only. Human-quality review + owner approval required.

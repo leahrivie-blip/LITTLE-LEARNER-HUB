@@ -28,3 +28,9 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Writes only via `npm run env:apply` with `ENV_WRITE_MODE=merge-with-owner-approval`, a fresh full read, names-only diff, no protected-key removals, and Leah’s explicit approval token.
 - Before any production deploy/restart: `npm run env:preflight` must pass. Use `npm run env:deploy-guard` to wrap deploy triggers. If preflight fails, **do not deploy or restart**.
 - Never log or commit secret values. Prefer Environment Groups / Blueprint for non-secrets (`sync: false` for secrets in `render.yaml`).
+
+### Teaching Kit upgrades (CRITICAL)
+- Permanent content bar: `docs/teaching-kit/TEACHING_KIT_MASTER_SPECIFICATION.md`. Cursor rule: `.cursor/rules/teaching-kit-master-spec.mdc` (always applied).
+- Before upgrading a lesson: write a lesson brief under `docs/teaching-kit/lesson-briefs/`, then draft one kit, run checks, and submit to the owner-only Admin Draft Review Queue. Never publish or modify the live published lesson.
+- Save owner-supplied lesson plan examples and picture ideas under `docs/teaching-kit/owner-examples/` and follow them together with the Master Spec.
+- Scores are diagnostic only. Do not start a batch of ten until Amazing Apples and All About Me are manually approved as gold standards.
