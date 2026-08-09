@@ -1,5 +1,22 @@
 /* Admin-only workspace styles — scoped under #view-admin so signed-in/public UI is unaffected */
 
+/*
+  When Admin is open, the provider sidebar is hidden — but .app-shell still uses
+  grid-template-columns: 268px 1fr for signed-in users. With the sidebar display:none,
+  .main falls into the FIRST 268px track and Owner Admin looks phone-narrow / left-bunched.
+  Force a single full-width column whenever Admin is the active view.
+*/
+body:has(#view-admin.active-view) .app-shell {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+body:has(#view-admin.active-view) .app-shell > .main {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
 /* Hide signed-in provider sidebar while Admin workspace is the active view */
 body:has(#view-admin.active-view) .app-shell > .sidebar {
   display: none !important;
