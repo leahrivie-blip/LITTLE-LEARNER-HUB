@@ -398,6 +398,18 @@ async function runBrowserProofs() {
     } else {
       ok(supportState.hasNoChildOption, `${name}: Behavior no-child default reachable`);
     }
+    const noAutoChild = await page.evaluate(() => {
+      const banner = document.querySelector(".support-selected-child-banner")?.textContent || "";
+      const aiTitle = document.querySelector(".support-ai-card h3")?.textContent || "";
+      return {
+        banner,
+        aiTitle,
+        bannerClaimsChild: /Selected child:\s*\S+/i.test(banner),
+        aiPersonalized: /^Ideas for\s+/i.test(aiTitle),
+      };
+    });
+    ok(!noAutoChild.bannerClaimsChild, `${name}: no selected-child banner when none chosen`);
+    ok(!noAutoChild.aiPersonalized, `${name}: AI card not personalized until a child is chosen`);
     await page.screenshot({ path: path.join(SCREEN_DIR, `${name}-01-behavior-no-child.png`), fullPage: false });
 
     // --- Daily Logs canonical nav ---

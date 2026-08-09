@@ -36739,6 +36739,7 @@ function ageGroupFromDob(dob) {
 }
 
 function childAgeMonths(child = {}) {
+  if (!child || typeof child !== "object") return null;
   if (child.dob) {
     const birthDate = new Date(`${child.dob}T12:00:00`);
     if (!Number.isNaN(birthDate.getTime())) {
@@ -36757,6 +36758,7 @@ function childAgeMonths(child = {}) {
 }
 
 function isInfantChild(child = {}) {
+  if (!child || typeof child !== "object") return false;
   return normalizeAgeGroup(child.ageGroup) === "Infant" || (childAgeMonths(child) !== null && childAgeMonths(child) < 12);
 }
 
@@ -37406,7 +37408,7 @@ function supportTopicContent(topic = "", child = null) {
   const isPreschool = /preschool|prek|3\s*[-–]\s*5|4\s*year/.test(ageLabel);
 
   // Strip choking / small-parts materials from Fine Motor topic defaults for under-3.
-  if (topic === "Fine Motor" && (isInfantChild(child) || isYoungToddler || isToddler || !child)) {
+  if (topic === "Fine Motor" && (!child || (child && isInfantChild(child)) || isYoungToddler || isToddler)) {
     content.activities = [
       "Large stacking rings",
       "Jumbo block stacking",
@@ -37430,7 +37432,7 @@ function supportTopicContent(topic = "", child = null) {
     };
   }
 
-  if (isInfantChild(child)) {
+  if (child && isInfantChild(child)) {
     return {
       ...content,
       tips: [
@@ -37512,10 +37514,9 @@ function supportTopicContent(topic = "", child = null) {
 }
 
 function supportCenterSelectedChild(records = childRecords()) {
-  return records.children.find((child) => child.id === activeSupportChildId)
-    || records.children.find((child) => child.id === selectedChildId)
-    || records.children[0]
-    || null;
+  // Deliberate selection only — never inherit selectedChildId or auto-pick the first child.
+  if (!activeSupportChildId) return null;
+  return records.children.find((child) => child.id === activeSupportChildId) || null;
 }
 
 function supportSearchResults(query = "") {
