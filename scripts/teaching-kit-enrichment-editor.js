@@ -2585,7 +2585,16 @@
                 <h4>Unresolved blockers</h4>
                 <p class="muted-copy">Every open publish blocker (same list as Quality Review / Library Health):</p>
                 <ul>
-                  ${blockers.map((b) => `<li data-blocker-code="${esc(b.code || "")}">${esc(b.message || b.code || "Unresolved blocker")}</li>`).join("")}
+                  ${blockers.map((b) => `
+                    <li data-blocker-code="${esc(b.code || "")}">
+                      <span>${esc(b.message || b.code || "Unresolved blocker")}</span>
+                      ${b.navigateTo || b.activityKey || b.activityTitle ? `
+                        <button type="button" class="ghost-button" data-blocker-navigate="${esc(b.navigateTo || (b.activityKey ? `activity:${b.activityKey}` : `activity:${b.activityTitle}`))}">
+                          Open ${esc(b.activityTitle || "activity")}
+                        </button>
+                      ` : ""}
+                    </li>
+                  `).join("")}
                 </ul>
               </div>
             ` : ""}
@@ -3105,13 +3114,22 @@
         const id = String(a?.id || "").trim();
         const itemId = String(a?.itemId || "").trim();
         const title = String(a?.title || "").trim().toLowerCase();
-        return id === key || itemId === key || draftKey(a) === key || title === keyLower;
+        const dk = draftKey(a);
+        return id === key
+          || itemId === key
+          || dk === key
+          || title === keyLower
+          || (itemId && key.endsWith(`:${itemId}`))
+          || (id && key.endsWith(id))
+          || (title && keyLower.includes(title));
       });
       state.mode = "activities";
       if (targetIdx >= 0) state.activityIndex = targetIdx;
       render();
-      document.querySelector("[data-enrich-activity-panel], [data-activity-editor], .tk-enrich-activity")
-        ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => {
+        document.querySelector(".tk-enrich-queue-item.is-active, [data-enrich-activity-panel], .tk-enrich-activity")
+          ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      });
       return;
     }
     if (/^week:/i.test(raw) || /books|songs|printables|toolkit|family|vocabulary|objectives|materials|weekly_plan/i.test(raw)) {
@@ -3409,6 +3427,7 @@
       }
       const blockerNav = event.target.closest("[data-blocker-navigate]");
       if (blockerNav) {
+        state.publishOpen = false;
         navigateToEnrichmentTarget(blockerNav.getAttribute("data-blocker-navigate") || "");
         return;
       }
