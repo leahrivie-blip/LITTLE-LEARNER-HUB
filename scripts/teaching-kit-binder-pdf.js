@@ -267,7 +267,10 @@
           continue;
         }
         const pngBytes = await canvasToPngBytes(canvas);
-        if (!pngBytes) continue;
+        if (!pngBytes) {
+          pageErrors += 1;
+          continue;
+        }
         const image = await pdfDoc.embedPng(pngBytes);
         const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
         const imgRatio = image.width / Math.max(image.height, 1);
@@ -315,7 +318,8 @@
         message: error?.message || "Could not build the Teaching Kit PDF. Please try again.",
       };
     } finally {
-      try { restoreGradient(); } catch (_err) { /* ignore */ }
+      try { restoreHostVisibility(); } catch (_err) { /* ignore */ }
+      try { restoreGradient(); } catch (_err2) { /* ignore */ }
       if (temporary && host && host.parentNode) host.parentNode.removeChild(host);
     }
   }
