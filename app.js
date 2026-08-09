@@ -35417,6 +35417,12 @@ async function openCalendarAddItemDialog(options = {}) {
   const form = modal.querySelector("#scheduleEventForm");
   const editingItem = options.itemId ? calendarItemById(options.itemId) : null;
   mainCalendarEditingItemId = editingItem ? editingItem.id : "";
+  calendarEventLastPayload = null;
+  // Fresh create/edit modal session — do not reuse a prior mutation id.
+  if (form) {
+    delete form.dataset.calendarClientMutationId;
+    delete form.dataset.calendarItemId;
+  }
   const setVal = (name, value) => {
     const el = form?.querySelector(`[name="${name}"]`);
     if (el) el.value = value ?? "";
@@ -35492,10 +35498,27 @@ function setCalendarEventSaveStatus(message, options = {}) {
   if (retryBtn) retryBtn.hidden = !options.showRetry;
 }
 
+function newCalendarClientMutationId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `cm-${crypto.randomUUID()}`;
+  }
+  return `cm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 async function submitCalendarAddItemForm(form, options = {}) {
   const api = getScheduleApi();
   if (!api || !form) return false;
+  const submitBtn = form.querySelector("[data-schedule-event-submit], button[type='submit']");
+  const retryBtn = document.querySelector("[data-schedule-event-retry]");
+  // Disable Save immediately on first click — before any await — to block double submits.
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving…";
+  }
+  if (retryBtn) retryBtn.disabled = true;
   if (calendarEventSaveInFlight) return false;
+  calendarEventSaveInFlight = true;
+
   const data = new FormData(form);
   const scheduleType = String(data.get("eventType") || "reminder");
   const title = String(data.get("eventTitle") || "").trim();
@@ -35507,19 +35530,47 @@ async function submitCalendarAddItemForm(form, options = {}) {
   const ageGroup = String(data.get("eventAgeGroup") || "").trim();
   const itemsToBring = String(data.get("eventItemsToBring") || "").trim();
   const errorEl = document.querySelector("[data-schedule-event-error]");
-  const submitBtn = form.querySelector("[data-schedule-event-submit], button[type='submit']");
+  const unlockSubmit = () => {
+    calendarEventSaveInFlight = false;
+    mainCalendarBusy = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Save";
+    }
+    if (retryBtn) retryBtn.disabled = false;
+  };
   if (!title || !date) {
     setCalendarEventSaveStatus("Add a title and a valid date.", { isError: true, showRetry: false });
+    unlockSubmit();
     return false;
   }
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     openAuthModal("login");
     setCalendarEventSaveStatus("Log in to save this to your program calendar.", { isError: true, showRetry: true });
+    unlockSubmit();
     return false;
   }
   const editingId = mainCalendarEditingItemId;
+  // Stable mutation + item ids across retries / double-clicks for this modal session.
+  let clientMutationId = String(
+    options.clientMutationId
+    || form.dataset.calendarClientMutationId
+    || calendarEventLastPayload?.clientMutationId
+    || "",
+  ).trim();
+  let stableItemId = String(editingId || form.dataset.calendarItemId || calendarEventLastPayload?.id || "").trim();
+  if (!editingId) {
+    if (!clientMutationId) clientMutationId = newCalendarClientMutationId();
+    if (!stableItemId) stableItemId = clientMutationId.replace(/^cm-/, "sch-");
+    form.dataset.calendarClientMutationId = clientMutationId;
+    form.dataset.calendarItemId = stableItemId;
+  } else if (!clientMutationId) {
+    clientMutationId = `cm-edit-${editingId}-${Date.now().toString(36)}`;
+    form.dataset.calendarClientMutationId = clientMutationId;
+  }
   const payload = {
-    ...(editingId ? { id: editingId } : {}),
+    id: editingId || stableItemId,
+    clientMutationId,
     type: scheduleType,
     title,
     startDate: date,
@@ -35534,21 +35585,19 @@ async function submitCalendarAddItemForm(form, options = {}) {
     classroomId: (scheduleDocCache || api.readCache(scheduleApiEmail())).classrooms?.[0]?.id || "classroom-main",
   };
   calendarEventLastPayload = payload;
-  calendarEventSaveInFlight = true;
   mainCalendarBusy = true;
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Saving…";
-  }
   setCalendarEventSaveStatus("Saving…", { showRetry: false });
   renderMainCalendar();
   try {
     await ensureScheduleLoaded();
     // Server acknowledgement required — never claim Saved from local cache alone.
+    // clientMutationId makes repeated PUTs idempotent if the network retries.
     await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), payload, { requireCloud: true });
     scheduleDocCache = api.readCache(scheduleApiEmail());
     setCalendarEventSaveStatus("Saved", { showRetry: false });
     showActionFeedback("Saved to your program calendar.");
+    delete form.dataset.calendarClientMutationId;
+    delete form.dataset.calendarItemId;
     closeCalendarAddItemDialog();
     refreshCalendarSurfacesAfterScheduleChange(api.weekStartMonday(date));
     return true;
@@ -35562,12 +35611,7 @@ async function submitCalendarAddItemForm(form, options = {}) {
     showActionFeedback("Save failed — use Retry.");
     return false;
   } finally {
-    calendarEventSaveInFlight = false;
-    mainCalendarBusy = false;
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Save";
-    }
+    unlockSubmit();
     renderMainCalendar();
   }
 }

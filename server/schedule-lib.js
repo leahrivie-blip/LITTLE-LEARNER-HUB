@@ -189,6 +189,8 @@ function normalizeScheduleItem(raw = {}) {
     endTime: allDay ? "" : clampTime(raw.endTime),
     notes: clampString(raw.notes, 4000),
     colorTag: clampString(raw.colorTag, 40),
+    // Stable client key so retries / double-clicks cannot create duplicate events.
+    clientMutationId: clampString(raw.clientMutationId, 120),
     createdAt: clampString(raw.createdAt, 40) || now,
     updatedAt: clampString(raw.updatedAt, 40) || now,
     assignedBy: clampString(raw.assignedBy, 200),
@@ -374,8 +376,24 @@ function lessonPlanItemForWeek(items, weekStartDate, classroomId = "classroom-ma
 
 function upsertScheduleItem(doc, item) {
   const next = normalizeScheduleDocument(doc);
-  const normalized = normalizeScheduleItem(item);
+  let normalized = normalizeScheduleItem(item);
+  const mutationId = String(normalized.clientMutationId || "").trim();
+  if (mutationId) {
+    const existingByMutation = next.items.find((entry) => entry.clientMutationId === mutationId);
+    if (existingByMutation) {
+      // Idempotent replay of the same client create/edit attempt.
+      normalized = normalizeScheduleItem({
+        ...normalized,
+        id: existingByMutation.id,
+        createdAt: existingByMutation.createdAt || normalized.createdAt,
+        clientMutationId: mutationId,
+      });
+    }
+  }
   next.items = next.items.filter((entry) => entry.id !== normalized.id);
+  if (mutationId) {
+    next.items = next.items.filter((entry) => entry.clientMutationId !== mutationId);
+  }
   if (normalized.type === "lesson_plan" && normalized.weekStartDate) {
     next.items = next.items.filter(
       (entry) => !(
@@ -400,7 +418,7 @@ function upsertScheduleItem(doc, item) {
   next.items.push(normalized);
   next.items.sort((a, b) => `${a.startDate}-${a.type}-${a.title}`.localeCompare(`${b.startDate}-${b.type}-${b.title}`));
   next.updatedAt = new Date().toISOString();
-  return { doc: next, item: normalized };
+  return { doc: next, item: normalized, idempotentReplay: Boolean(mutationId && item && item.id !== normalized.id) };
 }
 
 function deleteScheduleItem(doc, itemId) {

@@ -14179,12 +14179,43 @@ async function handleScheduleItemUpsert(request, response, itemId) {
     const body = await readJson(request);
     const store = readStore();
     const current = readScheduleRecord(store, identity);
+    const mutationId = String(body.clientMutationId || "").trim().slice(0, 120);
+    if (mutationId) {
+      const existing = (current.items || []).find((entry) => entry.clientMutationId === mutationId);
+      if (existing) {
+        // Same client create/retry: return the original item; do not create a second event.
+        const { doc, item } = scheduleLib.upsertScheduleItem(current, {
+          ...body,
+          ...existing,
+          ...body,
+          id: existing.id,
+          clientMutationId: mutationId,
+          createdAt: existing.createdAt,
+        });
+        const saved = writeScheduleRecord(store, identity, doc);
+        await respondAfterPersist(store, response, 200, {
+          ok: true,
+          item,
+          updatedAt: saved.updatedAt,
+          classrooms: saved.classrooms,
+          idempotentReplay: true,
+        }, "Could not save schedule item.");
+        return;
+      }
+    }
     const { doc, item } = scheduleLib.upsertScheduleItem(current, {
       ...body,
       id: itemId || body.id,
+      clientMutationId: mutationId || body.clientMutationId || "",
     });
     const saved = writeScheduleRecord(store, identity, doc);
-    await respondAfterPersist(store, response, 200, { ok: true, item, updatedAt: saved.updatedAt, classrooms: saved.classrooms }, "Could not save schedule item.");
+    await respondAfterPersist(store, response, 200, {
+      ok: true,
+      item,
+      updatedAt: saved.updatedAt,
+      classrooms: saved.classrooms,
+      idempotentReplay: false,
+    }, "Could not save schedule item.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not save schedule item." });
   }
