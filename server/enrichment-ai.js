@@ -204,7 +204,39 @@ const IMAGE_STYLE_RULES = [
 ].join(" ");
 
 function text(value, max = 400) {
-  return String(value == null ? "" : value).trim().slice(0, max);
+  if (value == null) return "";
+  if (typeof value === "object") return "";
+  return String(value).trim().slice(0, max);
+}
+
+function printableIdeaCurrentText(value, max = 120) {
+  const helpers = loadEnrichmentHelpers();
+  if (helpers && typeof helpers.printableIdeaLabel === "function") {
+    return text(helpers.printableIdeaLabel(value), max);
+  }
+  if (value == null) return "";
+  if (typeof value === "string") return text(value, max);
+  if (typeof value !== "object") return "";
+  return text([
+    value.title || value.name || value.label,
+    value.purpose || value.description || value.summary,
+    value.type || value.kind || value.format,
+    value.instructions || value.howTo || value.directions,
+  ].filter((part) => part != null && typeof part !== "object" && String(part).trim()).join(" — "), max);
+}
+
+function vocabCardCurrentText(value, max = 120) {
+  const helpers = loadEnrichmentHelpers();
+  if (helpers && typeof helpers.vocabCardLabel === "function") {
+    return text(helpers.vocabCardLabel(value), max);
+  }
+  if (value == null) return "";
+  if (typeof value === "string") return text(value, max);
+  if (typeof value !== "object") return "";
+  return text([
+    value.title || value.word || value.term || value.label,
+    value.definition || value.description || value.meaning,
+  ].filter((part) => part != null && typeof part !== "object" && String(part).trim()).join(" — "), max);
 }
 
 function asArray(value) {
@@ -282,8 +314,12 @@ function currentValueForField(field, activityDraft, weekDraft, plan) {
     const list = draft.length ? draft : published;
     return list.length ? list.join(" · ") : "(none yet)";
   }
-  if (field === "printableIdeas" || field === "vocabCards") {
-    const list = asArray(weekDraft?.[field]).map((m) => text(m, 120)).filter(Boolean);
+  if (field === "printableIdeas") {
+    const list = asArray(weekDraft?.printableIdeas).map((m) => printableIdeaCurrentText(m, 120)).filter(Boolean);
+    return list.length ? list.join(" · ") : "(none yet)";
+  }
+  if (field === "vocabCards") {
+    const list = asArray(weekDraft?.vocabCards).map((m) => vocabCardCurrentText(m, 120)).filter(Boolean);
     return list.length ? list.join(" · ") : "(none yet)";
   }
   if (field === "teacherTips") {

@@ -11,7 +11,39 @@
   "use strict";
 
   function text(value) {
-    return String(value == null ? "" : value).trim();
+    if (value == null) return "";
+    if (typeof value === "object") return "";
+    return String(value).trim();
+  }
+
+  function printableIdeaText(value) {
+    const enrich = loadEnrichment();
+    if (enrich && typeof enrich.printableIdeaLabel === "function") {
+      return text(enrich.printableIdeaLabel(value));
+    }
+    if (value == null) return "";
+    if (typeof value === "string") return text(value);
+    if (typeof value !== "object") return "";
+    return [
+      text(value.title || value.name || value.label),
+      text(value.purpose || value.description || value.summary),
+      text(value.type || value.kind || value.format),
+      text(value.instructions || value.howTo || value.directions),
+    ].filter(Boolean).join(" — ");
+  }
+
+  function vocabCardText(value) {
+    const enrich = loadEnrichment();
+    if (enrich && typeof enrich.vocabCardLabel === "function") {
+      return text(enrich.vocabCardLabel(value));
+    }
+    if (value == null) return "";
+    if (typeof value === "string") return text(value);
+    if (typeof value !== "object") return "";
+    return [
+      text(value.title || value.word || value.term || value.label),
+      text(value.definition || value.description || value.meaning),
+    ].filter(Boolean).join(" — ");
   }
 
   function asArray(value) {
@@ -112,8 +144,8 @@
       text(plan?.vocabularyWords),
       text(week.teacherPreparation),
       text(week.teacherToolkit?.teacherPreparation),
-      ...asArray(week.vocabCards).map((c) => text(c?.title || c)),
-      ...asArray(week.printableIdeas).map((p) => text(p)),
+      ...asArray(week.vocabCards).map((c) => vocabCardText(c)),
+      ...asArray(week.printableIdeas).map((p) => printableIdeaText(p)),
       ...asArray(activities).flatMap((act) => {
         const key = text(act.id || act.itemId);
         const patch = draftActs[key] || {};
