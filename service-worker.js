@@ -1,13 +1,13 @@
-const CACHE_NAME = "llh-shell-v213-phase11-ota-desktop-go13";
-const SHELL_VERSION = "20260809-phase11-ota-desktop-go13";
+const CACHE_NAME = "llh-shell-v214-phase11-ota-typing-go14";
+const SHELL_VERSION = "20260809-phase11-ota-typing-go14";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260809-phase11-ota-desktop-go13",
-  "/styles/llh-admin-workspace.css?v=20260809-phase11-ota-desktop-go13",
+  "/styles.css?v=20260809-phase11-ota-typing-go14",
+  "/styles/llh-admin-workspace.css?v=20260809-phase11-ota-typing-go14",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260808-cookie-cta",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",

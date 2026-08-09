@@ -55115,52 +55115,70 @@ function applyAdminSectionVisibility() {
     const landingApp = document.querySelector("#adminWorkspaceLandingApp");
     if (landingPanel) landingPanel.hidden = false;
     const ws = window.AdminWorkspace;
-    // Clear prior section content so failed navigations never leave a stale screen.
-    if (landingApp) {
-      landingApp.innerHTML = `<p class="muted-copy" data-admin-section-loading>Loading ${escapeHtml(tab)}…</p>`;
+    const testingLandingTabs = {
+      "testing-home": "dashboard",
+      "testing-testers": "testers",
+      "testing-programs": "programs",
+      "testing-flags": "flags",
+      "testing-viewas": "viewas",
+      "testing-audit": "audit",
+    };
+    const isTestingLandingTab = Object.prototype.hasOwnProperty.call(testingLandingTabs, tab);
+    // Always snapshot Owner Testing Admin drafts before any landing remount.
+    if (typeof window.OwnerTestingAdmin?.captureDraftsBeforeUnmount === "function") {
+      window.OwnerTestingAdmin.captureDraftsBeforeUnmount();
     }
+    const existingOta = document.querySelector("#ownerTestingAdminApp");
+    const reuseOta = isTestingLandingTab
+      && existingOta
+      && landingApp
+      && landingApp.contains(existingOta)
+      && typeof window.OwnerTestingAdmin?.renderOwnerTestingAdmin === "function";
+
     try {
       if (!landingApp) throw new Error("Admin landing workspace is missing from the page.");
       if (!ws) throw new Error("Admin workspace helpers failed to load.");
-      if (tab === "admin-home") ws.renderAdminHomeWorkspace(landingApp);
-      else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
-      else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
-      else if (tab === "website-home") ws.renderAdminWebsiteHome(landingApp);
-      else if (tab === "ai-home") {
-        ws.renderAdminAiHome(landingApp);
-        if (!adminAiSettingsState?.aiSettings && !adminAiSettingsState?.loading) {
-          adminAiSettingsState.loading = true;
+
+      // Switching among Testing tabs: keep the same host so typed drafts are not wiped.
+      if (reuseOta) {
+        existingOta.dataset.otaPreferredTab = testingLandingTabs[tab] || "testers";
+        window.OwnerTestingAdmin.renderOwnerTestingAdmin(existingOta);
+      } else {
+        // Clear prior section content so failed navigations never leave a stale screen.
+        landingApp.innerHTML = `<p class="muted-copy" data-admin-section-loading>Loading ${escapeHtml(tab)}…</p>`;
+        if (tab === "admin-home") ws.renderAdminHomeWorkspace(landingApp);
+        else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
+        else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
+        else if (tab === "website-home") ws.renderAdminWebsiteHome(landingApp);
+        else if (tab === "ai-home") {
           ws.renderAdminAiHome(landingApp);
-          loadAdminAiSettings().finally(() => {
-            if (getAdminSectionTab() === "ai-home") ws.renderAdminAiHome(landingApp);
-          });
+          if (!adminAiSettingsState?.aiSettings && !adminAiSettingsState?.loading) {
+            adminAiSettingsState.loading = true;
+            ws.renderAdminAiHome(landingApp);
+            loadAdminAiSettings().finally(() => {
+              if (getAdminSectionTab() === "ai-home") ws.renderAdminAiHome(landingApp);
+            });
+          }
         }
-      }
-      else if (tab === "billing-home") ws.renderAdminBillingHome(landingApp);
-      else if (tab === "system-health") ws.renderAdminSystemHealth(landingApp);
-      else if (tab === "advanced-home") ws.renderAdminAdvancedHome(landingApp);
-      else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
-      else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
-      else if (tab === "messages-home") ws.renderAdminMessagesHome(landingApp);
-      else if (tab === "testing-home" || tab === "testing-testers" || tab === "testing-programs" || tab === "testing-flags" || tab === "testing-viewas" || tab === "testing-audit") {
-        landingApp.innerHTML = `<div id="ownerTestingAdminApp"></div>`;
-        const host = landingApp.querySelector("#ownerTestingAdminApp");
-        host.dataset.otaPreferredTab = ({
-          "testing-home": "dashboard",
-          "testing-testers": "testers",
-          "testing-programs": "programs",
-          "testing-flags": "flags",
-          "testing-viewas": "viewas",
-          "testing-audit": "audit",
-        })[tab] || "testers";
-        if (window.OwnerTestingAdmin?.renderOwnerTestingAdmin) {
-          window.OwnerTestingAdmin.renderOwnerTestingAdmin(host);
-        } else {
-          landingApp.innerHTML = `<p class="muted-copy">Owner Testing Admin UI failed to load. Hard-refresh and confirm scripts/owner-testing-admin-ui.js is present.</p>`;
+        else if (tab === "billing-home") ws.renderAdminBillingHome(landingApp);
+        else if (tab === "system-health") ws.renderAdminSystemHealth(landingApp);
+        else if (tab === "advanced-home") ws.renderAdminAdvancedHome(landingApp);
+        else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
+        else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
+        else if (tab === "messages-home") ws.renderAdminMessagesHome(landingApp);
+        else if (isTestingLandingTab) {
+          landingApp.innerHTML = `<div id="ownerTestingAdminApp"></div>`;
+          const host = landingApp.querySelector("#ownerTestingAdminApp");
+          host.dataset.otaPreferredTab = testingLandingTabs[tab] || "testers";
+          if (window.OwnerTestingAdmin?.renderOwnerTestingAdmin) {
+            window.OwnerTestingAdmin.renderOwnerTestingAdmin(host);
+          } else {
+            landingApp.innerHTML = `<p class="muted-copy">Owner Testing Admin UI failed to load. Hard-refresh and confirm scripts/owner-testing-admin-ui.js is present.</p>`;
+          }
         }
-      }
-      else {
-        throw new Error(`No landing renderer is registered for “${tab}”.`);
+        else {
+          throw new Error(`No landing renderer is registered for “${tab}”.`);
+        }
       }
     } catch (error) {
       console.error("[admin-nav] landing section failed", { tab, message: error?.message || String(error) });

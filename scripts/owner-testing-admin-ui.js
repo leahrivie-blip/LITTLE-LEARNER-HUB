@@ -46,9 +46,12 @@
     feedbackStatus: "",
     /** Last created invite — kept visible so Leah always knows what to send. */
     lastInvite: null,
+    /** Generic drafts for every OTA form — survives remounts / tab switches. */
+    formDrafts: Object.create(null),
     addFormDraft: null,
     editFormDraft: null,
     focusRestore: null,
+    draftListenersBound: false,
   };
 
   function otaRoot() {
@@ -63,52 +66,150 @@
     return tag === "input" || tag === "textarea" || tag === "select";
   }
 
+  /** Prefer elements.namedItem so we never collide with form IDL attrs. */
+  function formControl(form, fieldName) {
+    if (!form || !fieldName) return null;
+    const named = form.elements?.namedItem?.(fieldName);
+    if (named) {
+      if (typeof named.length === "number" && named[0] && !named.tagName) return named[0];
+      return named;
+    }
+    try {
+      return form.querySelector(`[name="${CSS.escape(String(fieldName))}"]`);
+    } catch {
+      return form.querySelector(`[name="${String(fieldName).replace(/"/g, '\\"')}"]`);
+    }
+  }
+
+  function formDraftKey(form) {
+    if (!form) return "";
+    if (form.hasAttribute("data-ota-add-form")) return "add";
+    if (form.hasAttribute("data-ota-edit-form")) return `edit:${state.selectedEmail || ""}`;
+    if (form.hasAttribute("data-ota-create-program-form")) return "create-program";
+    if (form.hasAttribute("data-ota-flags-form")) return "flags";
+    return form.getAttribute("data-ota-form") || form.id || "";
+  }
+
+  function readFormDraft(form) {
+    const draft = Object.create(null);
+    if (!form) return draft;
+    [...(form.elements || [])].forEach((el) => {
+      if (!el || !el.name || el.disabled) return;
+      const type = String(el.type || "").toLowerCase();
+      if (type === "button" || type === "submit" || type === "reset" || type === "file") return;
+      if (type === "radio") {
+        if (el.checked) draft[el.name] = el.value;
+        return;
+      }
+      if (type === "checkbox") {
+        draft[el.name] = Boolean(el.checked);
+        return;
+      }
+      draft[el.name] = el.value || "";
+    });
+    return draft;
+  }
+
+  function applyFormDraft(form, draft) {
+    if (!form || !draft) return;
+    Object.keys(draft).forEach((name) => {
+      const el = formControl(form, name);
+      if (!el) return;
+      const type = String(el.type || "").toLowerCase();
+      if (type === "checkbox") {
+        el.checked = Boolean(draft[name]);
+        return;
+      }
+      if (type === "radio") {
+        const radios = form.elements?.namedItem?.(name);
+        const list = radios && typeof radios.length === "number" && !radios.tagName ? [...radios] : [el];
+        list.forEach((radio) => { radio.checked = radio.value === draft[name]; });
+        return;
+      }
+      if (el.tagName === "SELECT") {
+        applySelectValue(el, draft[name]);
+        return;
+      }
+      el.value = draft[name] == null ? "" : String(draft[name]);
+    });
+  }
+
   function captureFormDrafts() {
     const root = otaRoot();
     if (!root) return;
-    const add = root.querySelector("[data-ota-add-form]");
-    if (add) {
+    root.querySelectorAll("form").forEach((form) => {
+      const key = formDraftKey(form);
+      if (!key) return;
+      state.formDrafts[key] = readFormDraft(form);
+    });
+    const search = root.querySelector("[data-ota-search]");
+    if (search) state.query = search.value || "";
+    // Keep legacy mirrors for older restore paths / tests.
+    if (state.formDrafts.add) {
+      const d = state.formDrafts.add;
       state.addFormDraft = {
-        name: add.name?.value || "",
-        email: add.email?.value || "",
-        programName: add.programName?.value || "",
-        programType: add.programType?.value || "home_daycare",
-        role: add.role?.value || "owner",
-        programMode: add.programMode?.value || "new",
-        existingProgramId: add.existingProgramId?.value || "",
-        testingCohort: add.testingCohort?.value || "",
-        childName: add.childName?.value || "",
-        notes: add.notes?.value || "",
-        activateNow: Boolean(add.activateNow?.checked),
-        createSampleData: add.createSampleData ? Boolean(add.createSampleData.checked) : true,
-        sendEmail: add.sendEmail ? Boolean(add.sendEmail.checked) : false,
-        features: readFeaturesFromForm(add),
+        name: d.name || "",
+        email: d.email || "",
+        programName: d.programName || "",
+        programType: d.programType || "home_daycare",
+        role: d.role || "owner",
+        programMode: d.programMode || "new",
+        existingProgramId: d.existingProgramId || "",
+        testingCohort: d.testingCohort || "",
+        childName: d.childName || "",
+        notes: d.notes || "",
+        activateNow: Boolean(d.activateNow),
+        createSampleData: d.createSampleData !== false,
+        sendEmail: Boolean(d.sendEmail),
+        features: Object.keys(FEATURE_LABELS).reduce((acc, key) => {
+          acc[key] = Boolean(d[`feat-${key}`]);
+          return acc;
+        }, {}),
       };
     }
-    const edit = root.querySelector("[data-ota-edit-form]");
-    if (edit && state.selectedEmail) {
+    const editKey = `edit:${state.selectedEmail || ""}`;
+    if (state.formDrafts[editKey] && state.selectedEmail) {
+      const d = state.formDrafts[editKey];
       state.editFormDraft = {
         email: state.selectedEmail,
-        role: edit.role?.value || "",
-        accountType: edit.accountType?.value || "",
-        testingCohort: edit.testingCohort?.value || "",
-        testingStatus: edit.testingStatus?.value || "",
-        notes: edit.notes?.value || "",
-        features: readFeaturesFromForm(edit),
+        role: d.role || "",
+        accountType: d.accountType || "",
+        testingCohort: d.testingCohort || "",
+        testingStatus: d.testingStatus || "",
+        notes: d.notes || "",
+        features: Object.keys(FEATURE_LABELS).reduce((acc, key) => {
+          acc[key] = Boolean(d[`feat-${key}`]);
+          return acc;
+        }, {}),
       };
     }
     const active = document.activeElement;
     if (active && root.contains(active) && active.name) {
       const form = active.closest("form");
       state.focusRestore = {
-        form: form?.hasAttribute("data-ota-add-form") ? "add" : (form?.hasAttribute("data-ota-edit-form") ? "edit" : ""),
+        formKey: formDraftKey(form),
         name: active.name,
         start: typeof active.selectionStart === "number" ? active.selectionStart : null,
         end: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
       };
-    } else {
-      state.focusRestore = null;
     }
+  }
+
+  function captureDraftsBeforeUnmount() {
+    captureFormDrafts();
+  }
+
+  function ensureDraftListeners() {
+    if (state.draftListenersBound) return;
+    state.draftListenersBound = true;
+    const sync = (event) => {
+      const root = otaRoot();
+      const target = event.target;
+      if (!root || !target || !root.contains(target)) return;
+      captureFormDrafts();
+    };
+    document.addEventListener("input", sync, true);
+    document.addEventListener("change", sync, true);
   }
 
   function applySelectValue(select, value) {
@@ -120,46 +221,17 @@
   function restoreFormDrafts() {
     const root = otaRoot();
     if (!root) return;
-    const draft = state.addFormDraft;
-    const add = root.querySelector("[data-ota-add-form]");
-    if (add && draft) {
-      if (add.name) add.name.value = draft.name || "";
-      if (add.email) add.email.value = draft.email || "";
-      if (add.programName) add.programName.value = draft.programName || "";
-      applySelectValue(add.programType, draft.programType);
-      applySelectValue(add.role, draft.role);
-      applySelectValue(add.programMode, draft.programMode);
-      applySelectValue(add.existingProgramId, draft.existingProgramId);
-      if (add.testingCohort) add.testingCohort.value = draft.testingCohort || "";
-      if (add.childName) add.childName.value = draft.childName || "";
-      if (add.notes) add.notes.value = draft.notes || "";
-      if (add.activateNow) add.activateNow.checked = Boolean(draft.activateNow);
-      if (add.createSampleData) add.createSampleData.checked = draft.createSampleData !== false;
-      if (add.sendEmail) add.sendEmail.checked = Boolean(draft.sendEmail);
-      Object.keys(FEATURE_LABELS).forEach((key) => {
-        const box = add.querySelector(`[name="feat-${key}"]`);
-        if (box) box.checked = Boolean(draft.features?.[key]);
-      });
-    }
-    const editDraft = state.editFormDraft;
-    const edit = root.querySelector("[data-ota-edit-form]");
-    if (edit && editDraft && editDraft.email === state.selectedEmail) {
-      applySelectValue(edit.role, editDraft.role);
-      applySelectValue(edit.accountType, editDraft.accountType);
-      if (edit.testingCohort) edit.testingCohort.value = editDraft.testingCohort || "";
-      applySelectValue(edit.testingStatus, editDraft.testingStatus);
-      if (edit.notes) edit.notes.value = editDraft.notes || "";
-      Object.keys(FEATURE_LABELS).forEach((key) => {
-        const box = edit.querySelector(`[name="feat-${key}"]`);
-        if (box) box.checked = Boolean(editDraft.features?.[key]);
-      });
-    }
+    root.querySelectorAll("form").forEach((form) => {
+      const key = formDraftKey(form);
+      if (!key) return;
+      applyFormDraft(form, state.formDrafts[key]);
+    });
+    const search = root.querySelector("[data-ota-search]");
+    if (search && state.query) search.value = state.query;
     const focus = state.focusRestore;
-    if (focus?.name) {
-      const form = focus.form === "add"
-        ? root.querySelector("[data-ota-add-form]")
-        : (focus.form === "edit" ? root.querySelector("[data-ota-edit-form]") : null);
-      const field = form?.elements?.[focus.name] || form?.querySelector(`[name="${focus.name}"]`);
+    if (focus?.name && focus.formKey) {
+      const form = [...root.querySelectorAll("form")].find((f) => formDraftKey(f) === focus.formKey);
+      const field = formControl(form, focus.name);
       if (field && typeof field.focus === "function") {
         field.focus();
         try {
@@ -1076,20 +1148,22 @@
     addForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
+      const val = (name) => formControl(form, name)?.value || "";
+      const checked = (name) => Boolean(formControl(form, name)?.checked);
       const body = {
-        name: form.name.value,
-        email: form.email.value,
-        programName: form.programName.value,
-        programType: form.programType.value,
-        role: form.role.value,
-        programMode: form.programMode.value,
-        existingProgramId: form.existingProgramId.value,
-        testingCohort: form.testingCohort.value,
-        childName: form.childName.value || "Demo Child",
-        notes: form.notes.value,
-        activateNow: Boolean(form.activateNow?.checked),
-        createSampleData: form.createSampleData.checked,
-        sendEmail: Boolean(form.sendEmail?.checked),
+        name: val("name"),
+        email: val("email"),
+        programName: val("programName"),
+        programType: val("programType") || "home_daycare",
+        role: val("role") || "owner",
+        programMode: val("programMode") || "new",
+        existingProgramId: val("existingProgramId"),
+        testingCohort: val("testingCohort"),
+        childName: val("childName") || "Demo Child",
+        notes: val("notes"),
+        activateNow: checked("activateNow"),
+        createSampleData: formControl(form, "createSampleData") ? checked("createSampleData") : true,
+        sendEmail: checked("sendEmail"),
         features: readFeaturesFromForm(form),
         appOrigin: window.location.origin,
         adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
@@ -1109,6 +1183,7 @@
           emailConfigured: result.email?.configured,
         } : null;
         state.addFormDraft = null;
+        delete state.formDrafts.add;
         let msg = result.message || "Tester created.";
         if (acceptUrl) {
           msg = result.email?.sent
@@ -1132,18 +1207,21 @@
     createProgramForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
+      const val = (name) => formControl(form, name)?.value || "";
+      const checked = (name) => Boolean(formControl(form, name)?.checked);
       try {
         const result = await api("/api/admin/testing/programs", {
           method: "POST",
           body: {
-            programName: form.programName.value,
-            programType: form.programType.value,
-            ownerEmail: form.ownerEmail.value,
-            testingCohort: form.testingCohort.value,
-            createSampleData: form.createSampleData.checked,
+            programName: val("programName"),
+            programType: val("programType"),
+            ownerEmail: val("ownerEmail"),
+            testingCohort: val("testingCohort"),
+            createSampleData: formControl(form, "createSampleData") ? checked("createSampleData") : true,
             adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
           },
         });
+        delete state.formDrafts["create-program"];
         showMsg("[data-ota-create-program-message]", result.message || "Program created.", true);
         await loadAll();
         if (result.program?.id) openProgram(result.program.id);
@@ -1156,19 +1234,22 @@
     editForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
+      const val = (name) => formControl(form, name)?.value || "";
       try {
         await api(`/api/admin/testing/testers/${encodeURIComponent(state.selectedEmail)}`, {
           method: "PATCH",
           body: {
-            role: form.role.value,
-            accountType: form.accountType.value,
-            testingCohort: form.testingCohort.value,
-            testingStatus: form.testingStatus.value,
-            notes: form.notes.value,
+            role: val("role"),
+            accountType: val("accountType"),
+            testingCohort: val("testingCohort"),
+            testingStatus: val("testingStatus"),
+            notes: val("notes"),
             features: readFeaturesFromForm(form),
             adminEmail: typeof adminSession === "function" ? adminSession()?.email : "admin",
           },
         });
+        delete state.formDrafts[`edit:${state.selectedEmail || ""}`];
+        state.editFormDraft = null;
         showMsg("[data-ota-detail-message]", "Tester access saved.", true);
         await openDetail(state.selectedEmail);
         await loadAll();
@@ -1369,6 +1450,8 @@
     const host = target || document.querySelector("#ownerTestingAdminApp");
     if (!host) return;
     if (!host.id) host.id = "ownerTestingAdminApp";
+    ensureDraftListeners();
+    captureFormDrafts();
     if (host.dataset.otaPreferredTab) {
       state.tab = host.dataset.otaPreferredTab;
     }
@@ -1380,9 +1463,11 @@
 
   window.OwnerTestingAdmin = {
     renderOwnerTestingAdmin,
+    captureDraftsBeforeUnmount,
     ensureBanner,
     ensureViewAsBanner,
     loadAll,
+    paint,
   };
 
   document.addEventListener("DOMContentLoaded", () => {

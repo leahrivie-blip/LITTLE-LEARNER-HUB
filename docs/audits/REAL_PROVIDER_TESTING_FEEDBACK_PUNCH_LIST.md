@@ -4,7 +4,7 @@
 **Opened:** 2026-08-08  
 **Environment (testers only):** https://little-learner-hub-testing.onrender.com  
 **Live testing shell (at open):** `20260808-phase11-testers-go3`  
-**Live testing shell (current):** `20260809-phase11-ota-desktop-go13`  
+**Live testing shell (current):** `20260809-phase11-ota-typing-go14`  
 **PR (keep unmerged):** https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/590  
 **Production:** Untouched until Leah gives **explicit written** production-release approval  
 
@@ -74,9 +74,9 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 | ID | Date | Reporter | Summary | Area | Repro / notes | Status |
 |---|---|---|---|---|---|---|
 | H1 | 2026-08-09 | Leah | After Owner Admin → Add Tester, no clear way to give tester access (Copy Invite Link / email-unavailable guidance) | Owner Admin / Testers | Create tester → unsure what to send; email not required on testing; tester must set own password. Fixed on testing shell `20260809-phase11-testers-go9`: invite-ready card + Copy Invite Link + email-unavailable copy; logged-out setup panel; tester sets own password; live HDH/Center/mobile invite→relogin verified | verified |
-| H2 | 2026-08-09 | Leah | Typing glitches / text disappears or resets while editing in Owner Admin | Owner Admin (and audit other data-entry) | Root cause: OTA `paint()`/`loadAll()` full remount wiped drafts. Fixed with capture/restore drafts + skip remount while typing; enrichment autosave no longer overwrites newer local edits. Deployed go9+ | verified |
+| H2 | 2026-08-09 | Leah | Typing disappears when moving between fields / tabs in Owner Admin | Owner Admin | Root: Admin sidebar remounted `#ownerTestingAdminApp` without capturing drafts; paint only captured on remount. Fixed on `20260809-phase11-ota-typing-go14`: live input draft capture for all OTA forms, capture-before-unmount, reuse OTA host across Testing tabs. Hard-refresh after deploy | fixed-on-testing |
 | H3 | 2026-08-09 | agent audit | Residual async remount risk on Staff/Families/Tuition/Daily Ops form shells | Staff / Families / Tuition / Daily Ops | Same class as H2 (refresh remounts form HTML). Staff invite refresh now skips remount while typing. Broader draft-capture deferred unless testers hit it | fixed-on-testing |
-| H4 | 2026-08-09 | Leah | Owner Admin desktop layout left-bunched / phone-narrow on PC | Owner Admin / Responsive | go12 fixed unlock/OTA grids, but signed-in providers still got ~268px left column: Admin hides `.sidebar` while `.app-shell` kept `268px 1fr`, so `.main` sat in the first track. Fixed on `20260809-phase11-ota-desktop-go13` (`d20e253`): force single-column app-shell while `#view-admin` active. Live verified signed-in mode at 1920/1440/1366/390 — main full width. Hard-refresh (Ctrl/Cmd+Shift+R) if still cached | fixed-on-testing |
+| H4 | 2026-08-09 | Leah | Owner Admin desktop layout left-bunched / phone-narrow on PC | Owner Admin / Responsive | go12 fixed unlock/OTA grids, but signed-in providers still got ~268px left column: Admin hides `.sidebar` while `.app-shell` kept `268px 1fr`, so `.main` sat in the first track. Fixed on `20260809-phase11-ota-typing-go14` (`d20e253`): force single-column app-shell while `#view-admin` active. Live verified signed-in mode at 1920/1440/1366/390 — main full width. Hard-refresh (Ctrl/Cmd+Shift+R) if still cached | fixed-on-testing |
 
 ---
 
@@ -119,7 +119,7 @@ Leah owns ongoing curriculum and cover updates. Log product-adjacent content iss
 | Category | Open | Fixed on testing | Notes |
 |---|---|---|---|
 | Critical bug | 0 | 0 | |
-| High functional issue | 0 | 4 | H1/H2 verified; H3/H4 fixed-on-testing (H4 go13) |
+| High functional issue | 0 | 4 | H1 verified; H2/H3/H4 fixed-on-testing (H2 go14 typing) |
 | Usability/confusion | 0 | 1 | U1 verified |
 | Feature request | 0 | — | Decisions pending |
 | Polish/later | 0 | 0 | |
