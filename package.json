@@ -334,6 +334,8 @@
     "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js",
     "test:full-site-release-audit": "node scripts/test-full-site-release-audit.js",
     "test:signed-in-live-audit-fixes": "node scripts/test-signed-in-live-audit-fixes.js",
+    "test:signed-in-customer-workflow-fixes": "node scripts/test-signed-in-customer-workflow-fixes.js",
+    "audit:farm-day-field-mapping": "node scripts/audit-farm-animals-day-field-mapping.js",
     "test:build-version-endpoint": "node scripts/test-build-version-endpoint.js",
     "test:release": "npm run test:full-site-release-audit",
     "test:e2e": "node e2e/scripts/free-port.js && playwright test",

@@ -999,9 +999,15 @@
 
     delete items._seen;
     const itemLabels = items.map((item) => item.label).filter(Boolean);
-    const summary = items.length
-      ? `${items.length} item${items.length === 1 ? "" : "s"} selected`
-      : "No items selected";
+    const summary = humanPrintScopeSummary({
+      mode,
+      presetId: req.presetId,
+      presetLabel: req.presetLabel,
+      items,
+      days,
+      activities,
+      empty,
+    });
 
     return {
       ok: !empty,
@@ -1035,6 +1041,69 @@
     };
   }
 
+  /** Customer-facing scope label — never "1 item selected" for a whole pack/day. */
+  function humanPrintScopeSummary({
+    mode = "",
+    presetId = "",
+    presetLabel = "",
+    items = [],
+    days = [],
+    activities = [],
+    empty = false,
+  } = {}) {
+    if (empty || !items.length) return "No items selected";
+    const preset = presentLabel(presetId || mode, presetLabel || mode);
+    if (mode === "entire_binder" || presetId === "week_binder") return "Entire Binder Kit selected";
+    if (mode === "full_weekly" || presetId === "full_weekly_plan") return "Full Weekly Lesson Plan selected";
+    if (mode === "overview" || mode === "weekly_overview" || presetId === "weekly_overview") {
+      return "Weekly Overview selected";
+    }
+    if (mode === "one_day" || presetId === "today_pack") {
+      const dayLabel = days[0]?.dayLabel || items.find((item) => item.kind === "day")?.label;
+      return dayLabel ? `${dayLabel} selected` : "One day selected";
+    }
+    if (mode === "one_activity" || presetId === "one_activity") {
+      const title = activities[0]?.title || items.find((item) => item.kind === "activity")?.label;
+      return title ? `${title} selected` : "One activity selected";
+    }
+    if (mode === "activities" || presetId === "activities_only") return "Activities Only selected";
+    if (mode === "materials" || presetId === "materials_list") return "Materials List selected";
+    if (mode === "toolkit" || presetId === "teacher_toolkit") return "Teacher Toolkit selected";
+    if (mode === "printables" || mode === "all_printables" || presetId === "all_printables") {
+      return "Printables Only selected";
+    }
+    if (mode === "song_lyrics" || presetId === "song_lyrics") return "Song Lyrics selected";
+    if (mode === "selected" || mode === "selected_resources" || presetId === "selected_resources") {
+      if (items.length === 1) return `${items[0].label} selected`;
+      return `${items.length} selected resources`;
+    }
+    if (items.length === 1 && items[0].kind === "pack") {
+      return `${items[0].label} selected`;
+    }
+    if (preset && preset !== mode) return `${preset} selected`;
+    if (items.length === 1) return `${items[0].label} selected`;
+    return `${items.length} resources selected`;
+  }
+
+  function partCountLabel(partKey, count) {
+    const n = Number(count);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const units = {
+      cover: n === 1 ? "page" : "pages",
+      setup: n === 1 ? "material" : "materials",
+      daily: n === 1 ? "day with content" : "days with content",
+      activities: n === 1 ? "activity" : "activities",
+      songsBooks: n === 1 ? "song/book" : "songs/books",
+      vocabulary: n === 1 ? "word" : "words",
+      family: n === 1 ? "message" : "messages",
+      observations: n === 1 ? "prompt" : "prompts",
+      printables: n === 1 ? "printable" : "printables",
+      images: n === 1 ? "photo" : "photos",
+    };
+    const unit = units[partKey] || (n === 1 ? "item" : "items");
+    return ` — ${n} ${unit}`;
+  }
+
   function summarizePrintSelection(manifest) {
     if (!manifest) return { summary: "No items selected", itemCount: 0, itemLabels: [] };
     return {
@@ -1043,6 +1112,8 @@
       itemLabels: Array.isArray(manifest.itemLabels) ? manifest.itemLabels.slice() : [],
       canPrint: manifest.canPrint !== false && !manifest.empty,
       emptyReason: manifest.emptyReason || "",
+      documentMode: manifest.documentMode || "",
+      presetLabel: manifest.presetLabel || "",
     };
   }
 
@@ -2410,6 +2481,8 @@
     normalizeSelection,
     resolvePrintManifest,
     summarizePrintSelection,
+    humanPrintScopeSummary,
+    partCountLabel,
     applyManifestToModel,
     normalizePaperSize,
     pageSizeCss,
