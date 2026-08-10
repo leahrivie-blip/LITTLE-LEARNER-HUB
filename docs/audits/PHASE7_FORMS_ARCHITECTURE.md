@@ -7,10 +7,11 @@
 
 | Concept | What it is | Where it lives |
 |---|---|---|
-| **Form template** | Reusable blank / wording | **System:** `formGroups` + `HOME_DAYCARE_FORMS_PACK` + optional `siteContent.forms`. **Provider:** `programSettings.formTemplates` (`sourceType: "provider"`). |
-| **Assigned form** | A template (or custom body) given to a recipient | **Child/family:** `programData[programId].child.data.Documents[]` with `childId`. **Staff:** `programSettings.staffFormDocuments[]` with `assigneeEmail` → `store.users`. |
+| **Form template** | Reusable blank / wording | **System:** `formGroups` + `HOME_DAYCARE_FORMS_PACK` + optional `siteContent.forms`. **Provider (authoritative):** `programData[programId].forms.templates[]`. Temporary read-only fallback: client `programSettings.formTemplates`. |
+| **Assigned form** | A template (or custom body) given to a recipient | **Child/family:** `programData[programId].child.data.Documents[]` with `childId`. **Staff (authoritative):** `programData[programId].forms.staffDocuments[]` with `assigneeEmail` → `store.users`. Temporary read-only fallback: client `programSettings.staffFormDocuments`. |
 | **Completed response** | Parent/staff progress + submission | Same assignment row: `parentProgressText`, `status`, timestamps. |
 | **Signature** | Who signed which version | Same assignment row: `signedAt`, `signedBy`, `signedRole`, `signedSnapshot`, `signedBodyHash`, `contentVersion` / `contentVersionSigned`. |
+| **Forms audit** | Append-only server evidence | `store.formsAudit` (+ `formsAuditArchive` for preservation moves). Never destructive FIFO. Clients cannot write/edit/delete. |
 
 There is **no** separate Forms child roster, family roster, or staff roster. Assignment always references canonical IDs.
 
@@ -44,10 +45,17 @@ Never copies child/family/staff name records into a Forms store.
 
 ## Family Hub
 
-- Visibility: Documents with `shareWithFamily === true` ∩ household `childIds` (`family-hub-lib.liveDocumentsForChildren`).
+- Visibility: Documents with **`shareWithFamily === true` only** ∩ household `childIds` (`family-hub-lib.liveDocumentsForChildren`).
+- **Default deny:** missing / null / undefined `shareWithFamily` never grants access (Wave 1). Invite/household snapshots must stamp `shareWithFamily: true` explicitly for shared docs only.
 - Progress: `POST /api/family-hub/documents/:id/progress` → `in_progress` + `parentProgressText` (does not overwrite provider `draftText`).
 - Sign: `POST .../acknowledge` → signature record; requires membership + share flag; idempotent on same body hash.
 - Content change after sign → `needs_correction` and cleared signature fields (`applyFormBodyEdit`).
+
+## Wave 1 durable namespace
+
+- `programData[programId].forms = { staffDocuments[], templates[], updatedAt }`
+- APIs: `GET /api/program-forms`, `POST .../migrate`, `POST .../staff-documents`, `POST .../templates`, `POST .../assign/validate`, `GET .../audit`
+- New writes go to server only. Fallback removal requires documented gate (not removed in Wave 1).
 
 ## Owner / Director tracking
 

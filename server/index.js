@@ -14347,6 +14347,7 @@ const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const familyHubLib = require("./family-hub-lib");
 const formsLib = require("./forms-lib");
+const { createProgramFormsRoutes } = require("./program-forms-routes");
 const tuitionBilling = require("./tuition-billing-lib");
 const LLH_ALLOW_EPHEMERAL_FAMILY_HUB = ["1", "true", "yes", "on"].includes(
   String(process.env.LLH_ALLOW_EPHEMERAL_FAMILY_HUB || "").trim().toLowerCase(),
@@ -14357,6 +14358,16 @@ function requireHomeDaycareHubTesting(response) {
   jsonResponse(response, 404, { error: "Family Hub is only available on the testing site." });
   return false;
 }
+
+const programFormsRoutes = createProgramFormsRoutes({
+  requireHomeDaycareHubTesting,
+  resolveScheduleIdentity,
+  readStore,
+  respondAfterPersist,
+  jsonResponse,
+  readJson,
+  programOwnership,
+});
 
 function getFamilyHubStorageStatus() {
   return familyHubLib.familyHubStorageStatus({
@@ -15715,8 +15726,8 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   const householdDocs = Array.isArray(household.documents) ? [...household.documents] : [];
   const householdIndex = householdDocs.findIndex((doc) => {
     if (String(doc?.id || "") !== id) return false;
-    // Fallback household docs: require shareWithFamily true when explicitly set false.
-    if (doc?.shareWithFamily === false || doc?.shareWithFamily === "false") return false;
+    // Wave 1 deny-default: missing/null shareWithFamily never grants access.
+    if (doc?.shareWithFamily !== true && doc?.shareWithFamily !== "true") return false;
     const docChildId = String(doc?.childId || "");
     if (docChildId && !childIds.has(docChildId)) return false;
     return true;
@@ -28873,6 +28884,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
+    {
+      const programFormsHandler = programFormsRoutes.match(request.method, url.pathname);
+      if (programFormsHandler) return await programFormsHandler(request, response, url);
+    }
     if (request.method === "GET" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdsList(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdCreate(request, response);
     if (request.method === "PATCH" && url.pathname.startsWith("/api/family-hub/households/") && url.pathname.endsWith("/children")) {

@@ -211,22 +211,29 @@ function publicFamilyDocument(doc = {}) {
     contentVersion: Number(doc.contentVersion || 1),
     bodyHash: String(doc.bodyHash || "").trim(),
     providerReviewed: Boolean(doc.providerReviewed),
-    shareWithFamily: doc.shareWithFamily !== false,
+    // Wave 1: expose strict boolean only — null/missing is NOT shared.
+    shareWithFamily: doc?.shareWithFamily === true || doc?.shareWithFamily === "true",
     canAcknowledge: documentNeedsParentAction(status) && !signed,
     canSaveProgress: documentNeedsParentAction(status) && !signed,
     viewOnly: !(documentNeedsParentAction(status) && !signed),
   };
 }
 
+function isDocumentSharedWithFamily(doc = {}) {
+  // Default DENY: missing/null/undefined/false never grants Family Hub visibility.
+  return doc?.shareWithFamily === true || doc?.shareWithFamily === "true";
+}
+
 function liveDocumentsForChildren(childData = null, childIds = [], fallbackDocuments = []) {
   const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
-  const sharedOnly = (doc) => doc?.shareWithFamily === true || doc?.shareWithFamily === "true";
   const live = (Array.isArray(childData?.Documents) ? childData.Documents : [])
-    .filter((doc) => idSet.has(String(doc?.childId || "")) && doc?.archived !== true && sharedOnly(doc))
+    .filter((doc) => idSet.has(String(doc?.childId || "")) && doc?.archived !== true && isDocumentSharedWithFamily(doc))
     .map((doc) => publicFamilyDocument(doc));
   if (live.length) return live;
+  // Invite/household snapshot fallback — still deny unless explicitly shared.
   return (Array.isArray(fallbackDocuments) ? fallbackDocuments : [])
-    .filter((doc) => sharedOnly(doc) || doc?.shareWithFamily == null)
+    .filter((doc) => idSet.size === 0 || !doc?.childId || idSet.has(String(doc.childId)))
+    .filter((doc) => isDocumentSharedWithFamily(doc))
     .map((doc) => publicFamilyDocument(doc));
 }
 
@@ -1104,15 +1111,19 @@ function buildFamilyHubDemoSeed({
     },
     childIds: [childA.id, childB.id],
     children: [childA, childB],
-    documents: childData.Documents.map((doc) => ({
-      id: doc.id,
-      childId: doc.childId,
-      title: doc.title,
-      category: doc.category,
-      status: doc.status,
-      statusLabel: doc.statusLabel,
-      notes: doc.notes,
-    })),
+    documents: childData.Documents
+      .filter((doc) => doc?.shareWithFamily === true || doc?.shareWithFamily === "true")
+      .map((doc) => ({
+        id: doc.id,
+        childId: doc.childId,
+        title: doc.title,
+        category: doc.category,
+        status: doc.status,
+        statusLabel: doc.statusLabel,
+        notes: doc.notes,
+        // Explicit stamp — missing/null must never imply shared.
+        shareWithFamily: true,
+      })),
     settings: defaultHouseholdSettings({ preferredName: "Sam" }),
     status: "invited",
     invitedAt,
@@ -1164,6 +1175,7 @@ module.exports = {
   familyHubDemoPortraitUri,
   liveDocumentsForChildren,
   publicFamilyDocument,
+  isDocumentSharedWithFamily,
   documentNeedsParentAction,
   sharedCommunicationsAsMessages,
   mergeFamilyHubMessages,

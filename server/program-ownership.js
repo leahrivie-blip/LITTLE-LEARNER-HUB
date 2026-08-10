@@ -103,7 +103,10 @@ function ensureProgramForOwner(store, ownerEmail, {
       programId,
       child: null,
       schedule: null,
+      forms: { staffDocuments: [], templates: [], updatedAt: "" },
     };
+  } else if (!store.programData[programId].forms || typeof store.programData[programId].forms !== "object") {
+    store.programData[programId].forms = { staffDocuments: [], templates: [], updatedAt: "" };
   }
   const owner = store.users[email] || { email };
   store.users[email] = {
@@ -409,6 +412,9 @@ function writeProgramChildData(store, context, data, { mirrorLegacy = shouldMirr
     ? mergeChildDataForWriteScope(existing, data, context)
     : data;
   store.programData[context.programId] = store.programData[context.programId] || { programId: context.programId };
+  if (!store.programData[context.programId].forms || typeof store.programData[context.programId].forms !== "object") {
+    store.programData[context.programId].forms = { staffDocuments: [], templates: [], updatedAt: "" };
+  }
   store.programData[context.programId].child = {
     data: scopedData,
     updatedAt,

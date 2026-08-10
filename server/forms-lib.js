@@ -305,6 +305,18 @@ function buildFormReminderStub(doc = {}, { now = new Date() } = {}) {
   };
 }
 
+/** Wave 1 re-export — full validation lives in program-forms-lib (canonical membership). */
+function validateAssignmentTargetsShape(request = {}) {
+  const mode = String(request.mode || "children").trim().toLowerCase();
+  const allowed = new Set(["children", "classroom", "household", "families", "family", "program", "staff"]);
+  if (!allowed.has(mode)) {
+    const err = new Error("Unsupported assignment mode.");
+    err.status = 400;
+    throw err;
+  }
+  return { ok: true, mode };
+}
+
 module.exports = {
   FORM_STATUSES,
   STATUS_ALIASES,
@@ -322,4 +334,5 @@ module.exports = {
   formsAttentionKind,
   formsDashboardSummary,
   buildFormReminderStub,
+  validateAssignmentTargetsShape,
 };

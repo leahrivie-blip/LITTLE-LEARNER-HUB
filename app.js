@@ -8604,29 +8604,161 @@ function normalizeFormLifecycleStatus(status = "") {
   return aliases[key] || key.replace(/\s+/g, "_") || "assigned";
 }
 
-function formsProgramTemplates() {
+/** Wave 1: server programData.forms is authoritative; client settings are read-only fallback. */
+window.__llhProgramFormsCache = window.__llhProgramFormsCache || {
+  loaded: false,
+  programId: "",
+  staffDocuments: [],
+  templates: [],
+  removalGate: null,
+};
+
+function formsClientFallbackTemplates() {
   const settings = getProgramSettings() || {};
   return Array.isArray(settings.formTemplates) ? settings.formTemplates : [];
 }
 
-function saveFormsProgramTemplates(templates) {
-  const settings = { ...(getProgramSettings() || {}), formTemplates: templates };
-  saveProgramSettings(settings);
-  return templates;
-}
-
-function formsStaffDocuments() {
+function formsClientFallbackStaffDocuments() {
   const settings = getProgramSettings() || {};
   return Array.isArray(settings.staffFormDocuments) ? settings.staffFormDocuments : [];
 }
 
-function saveFormsStaffDocuments(docs) {
-  const settings = { ...(getProgramSettings() || {}), staffFormDocuments: docs };
-  saveProgramSettings(settings);
-  return docs;
+function mergeFormsDualRead(serverRows, fallbackRows) {
+  const server = Array.isArray(serverRows) ? serverRows : [];
+  const fallback = Array.isArray(fallbackRows) ? fallbackRows : [];
+  const ids = new Set(server.map((row) => String(row?.id || "")));
+  const extras = fallback.filter((row) => row && row.id && !ids.has(String(row.id)));
+  return [...server, ...extras];
 }
 
-function duplicateFormTemplate(templateId) {
+function formsProgramTemplates() {
+  const cache = window.__llhProgramFormsCache || {};
+  if (cache.loaded) {
+    return mergeFormsDualRead(cache.templates, formsClientFallbackTemplates());
+  }
+  return formsClientFallbackTemplates();
+}
+
+function formsStaffDocuments() {
+  const cache = window.__llhProgramFormsCache || {};
+  if (cache.loaded) {
+    return mergeFormsDualRead(cache.staffDocuments, formsClientFallbackStaffDocuments());
+  }
+  return formsClientFallbackStaffDocuments();
+}
+
+async function ensureProgramFormsLoaded({ force = false } = {}) {
+  if (!canUseLaunchBackend()) return window.__llhProgramFormsCache;
+  const cache = window.__llhProgramFormsCache || {};
+  if (cache.loaded && !force && cache.loadingPromise) return cache.loadingPromise;
+  if (cache.loaded && !force) return cache;
+  const headers = await staffAuthHeaders();
+  if (!headers) return cache;
+  const loadPromise = fetch("/api/program-forms", { headers, cache: "no-store" })
+    .then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Could not load program forms.");
+      window.__llhProgramFormsCache = {
+        loaded: true,
+        programId: data.programId || "",
+        staffDocuments: Array.isArray(data.staffDocuments) ? data.staffDocuments : [],
+        templates: Array.isArray(data.templates) ? data.templates : [],
+        removalGate: data.removalGate || null,
+        authoritative: data.authoritative || "programData.forms",
+      };
+      return window.__llhProgramFormsCache;
+    })
+    .catch((error) => {
+      console.warn("[forms] program forms load failed; using client fallback", error);
+      return window.__llhProgramFormsCache;
+    });
+  window.__llhProgramFormsCache.loadingPromise = loadPromise;
+  return loadPromise;
+}
+
+async function migrateClientFormsToServer() {
+  if (!canUseLaunchBackend()) return null;
+  const headers = await staffAuthHeaders();
+  if (!headers) return null;
+  const body = {
+    staffDocuments: formsClientFallbackStaffDocuments(),
+    templates: formsClientFallbackTemplates(),
+  };
+  if (!body.staffDocuments.length && !body.templates.length) {
+    await ensureProgramFormsLoaded({ force: true });
+    return { skipped: true, reason: "nothing_to_migrate" };
+  }
+  const response = await fetch("/api/program-forms/migrate", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not migrate forms.");
+  await ensureProgramFormsLoaded({ force: true });
+  return data.migration || data;
+}
+
+/** Authoritative server write — does NOT persist templates into client programSettings. */
+async function saveFormsProgramTemplates(templates) {
+  const list = Array.isArray(templates) ? templates : [];
+  window.__llhProgramFormsCache = {
+    ...(window.__llhProgramFormsCache || {}),
+    loaded: true,
+    templates: list,
+  };
+  if (!canUseLaunchBackend()) {
+    // Local-only / offline: keep legacy path so existing local workflows still function.
+    const settings = { ...(getProgramSettings() || {}), formTemplates: list };
+    saveProgramSettings(settings);
+    return list;
+  }
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Sign in to save templates.");
+  // Persist each template via authoritative API (last write wins per id).
+  for (const template of list.slice(0, 80)) {
+    const response = await fetch("/api/program-forms/templates", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(template),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not save template.");
+  }
+  await ensureProgramFormsLoaded({ force: true });
+  return formsProgramTemplates();
+}
+
+/** Authoritative server write — does NOT persist staff docs into client programSettings. */
+async function saveFormsStaffDocuments(docs) {
+  const list = Array.isArray(docs) ? docs : [];
+  window.__llhProgramFormsCache = {
+    ...(window.__llhProgramFormsCache || {}),
+    loaded: true,
+    staffDocuments: list,
+  };
+  if (!canUseLaunchBackend()) {
+    const settings = { ...(getProgramSettings() || {}), staffFormDocuments: list };
+    saveProgramSettings(settings);
+    return list;
+  }
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Sign in to save staff paperwork.");
+  for (const doc of list.slice(0, 200)) {
+    const response = await fetch("/api/program-forms/staff-documents", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(doc),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not save staff document.");
+  }
+  await ensureProgramFormsLoaded({ force: true });
+  return formsStaffDocuments();
+}
+
+async function duplicateFormTemplate(templateId) {
+  await ensureProgramFormsLoaded();
   const source = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
   if (!source) throw new Error("Template not found.");
   const copy = {
@@ -8634,15 +8766,29 @@ function duplicateFormTemplate(templateId) {
     id: `form-template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     title: `${String(source.title || "Custom form").trim()} (copy)`,
     sourceType: "provider",
+    originTemplateId: source.id || source.originTemplateId || "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  if (canUseLaunchBackend()) {
+    const headers = await staffAuthHeaders();
+    if (!headers) throw new Error("Sign in to duplicate templates.");
+    const response = await fetch("/api/program-forms/templates", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(copy),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not duplicate template.");
+    await ensureProgramFormsLoaded({ force: true });
+    return data.template || copy;
+  }
   const next = [copy, ...formsProgramTemplates()].slice(0, 80);
-  saveFormsProgramTemplates(next);
+  await saveFormsProgramTemplates(next);
   return copy;
 }
 
-function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
+async function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
   const text = String(body || "").trim();
   if (!text) throw new Error("Generate or edit a draft before saving a template.");
   const template = {
@@ -8658,8 +8804,21 @@ function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", r
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  if (canUseLaunchBackend()) {
+    const headers = await staffAuthHeaders();
+    if (!headers) throw new Error("Sign in to save templates.");
+    const response = await fetch("/api/program-forms/templates", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(template),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not save template.");
+    await ensureProgramFormsLoaded({ force: true });
+    return data.template || template;
+  }
   const next = [template, ...formsProgramTemplates()].slice(0, 80);
-  saveFormsProgramTemplates(next);
+  await saveFormsProgramTemplates(next);
   return template;
 }
 
@@ -8913,9 +9072,10 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
   return saved;
 }
 
-function assignFormDocumentToStaff(assigneeEmail, formSpec = {}) {
+async function assignFormDocumentToStaff(assigneeEmail, formSpec = {}) {
   const email = String(assigneeEmail || "").trim().toLowerCase();
   if (!email || !email.includes("@")) throw new Error("Choose a staff member.");
+  await ensureProgramFormsLoaded();
   const draftText = String(formSpec.draftText || formSpec.body || "").trim();
   const bodyHash = hashFormBodyClient(draftText);
   const title = String(formSpec.title || "Staff form").trim() || "Staff form";
@@ -8930,47 +9090,71 @@ function assignFormDocumentToStaff(assigneeEmail, formSpec = {}) {
     )
   ));
   const now = new Date().toISOString();
+  const payload = existing && formSpec.allowDuplicate !== true
+    ? {
+      ...existing,
+      dueDate: String(formSpec.dueDate || existing.dueDate || "").trim(),
+      draftText: draftText || existing.draftText,
+      bodyHash: hashFormBodyClient(draftText || existing.draftText || ""),
+      status: "assigned",
+      statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
+      updatedAt: now,
+      lastNotifiedAt: now,
+    }
+    : {
+      id: `staff-form-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      assigneeType: "staff",
+      assigneeEmail: email,
+      title,
+      category: String(formSpec.category || "Staff").trim() || "Staff",
+      templateId: formSpec.templateId || "",
+      packFormId: formSpec.packFormId || "",
+      resourceId: formSpec.resourceId || "",
+      status: "assigned",
+      statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
+      draftText,
+      bodyHash,
+      contentVersion: 1,
+      dueDate: String(formSpec.dueDate || "").trim(),
+      assignedAt: now,
+      updatedAt: now,
+      providerReviewed: false,
+      requiresSignature: formSpec.requiresSignature !== false,
+      notes: String(formSpec.notes || "").trim(),
+      shareWithFamily: false,
+    };
+
+  if (canUseLaunchBackend()) {
+    const headers = await staffAuthHeaders();
+    if (!headers) throw new Error("Sign in to assign staff paperwork.");
+    // Server validates staff membership / program.
+    const validate = await fetch("/api/program-forms/assign/validate", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ mode: "staff", staffEmails: [email] }),
+    });
+    const validateData = await validate.json().catch(() => ({}));
+    if (!validate.ok) throw new Error(validateData?.error || "Staff assignment not allowed.");
+    const response = await fetch("/api/program-forms/staff-documents", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not assign staff form.");
+    await ensureProgramFormsLoaded({ force: true });
+    return data.staffDocument || payload;
+  }
+
   if (existing && formSpec.allowDuplicate !== true) {
     const next = formsStaffDocuments().map((doc) => (
-      String(doc.id) === String(existing.id)
-        ? {
-          ...doc,
-          dueDate: String(formSpec.dueDate || doc.dueDate || "").trim(),
-          draftText: draftText || doc.draftText,
-          bodyHash: hashFormBodyClient(draftText || doc.draftText || ""),
-          status: "assigned",
-          statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
-          updatedAt: now,
-          lastNotifiedAt: now,
-        }
-        : doc
+      String(doc.id) === String(existing.id) ? payload : doc
     ));
-    saveFormsStaffDocuments(next);
-    return next.find((doc) => String(doc.id) === String(existing.id));
+    await saveFormsStaffDocuments(next);
+    return payload;
   }
-  const doc = {
-    id: `staff-form-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    assigneeType: "staff",
-    assigneeEmail: email,
-    title,
-    category: String(formSpec.category || "Staff").trim() || "Staff",
-    templateId: formSpec.templateId || "",
-    packFormId: formSpec.packFormId || "",
-    resourceId: formSpec.resourceId || "",
-    status: "assigned",
-    statusLabel: homeDaycarePackDocumentStatusLabel("assigned"),
-    draftText,
-    bodyHash,
-    contentVersion: 1,
-    dueDate: String(formSpec.dueDate || "").trim(),
-    assignedAt: now,
-    updatedAt: now,
-    providerReviewed: false,
-    requiresSignature: formSpec.requiresSignature !== false,
-    notes: String(formSpec.notes || "").trim(),
-  };
-  saveFormsStaffDocuments([doc, ...formsStaffDocuments()].slice(0, 200));
-  return doc;
+  await saveFormsStaffDocuments([payload, ...formsStaffDocuments()].slice(0, 200));
+  return payload;
 }
 
 async function assignAndNotifyForm(formSpec = {}, childIds = []) {
@@ -8997,17 +9181,46 @@ async function assignAndNotifyForm(formSpec = {}, childIds = []) {
  */
 async function assignFormByTarget(formSpec = {}, target = {}) {
   const households = Array.isArray(target.households) ? target.households : (window.__llhFamilyHouseholdsCache || []);
-  const resolved = resolveFormAssignmentTargetsClient({
-    mode: target.mode || "children",
-    childIds: target.childIds || [],
-    classroomId: target.classroomId || "",
-    householdIds: target.householdIds || [],
-    staffEmails: target.staffEmails || [],
-    households,
-  });
+  // Prefer server-validated resolution when backend is available (Wave 1 foundation).
+  let resolved;
+  if (canUseLaunchBackend()) {
+    const headers = await staffAuthHeaders();
+    if (headers) {
+      const response = await fetch("/api/program-forms/assign/validate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          mode: target.mode || "children",
+          childIds: target.childIds || [],
+          classroomId: target.classroomId || "",
+          householdIds: target.householdIds || [],
+          staffEmails: target.staffEmails || [],
+          // Actor fields ignored server-side — sent only to prove they cannot forge identity.
+          actorUserId: target.actorUserId || "",
+          performedBy: target.performedBy || "",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Assignment validation failed.");
+      resolved = data.resolved || { childIds: [], staffEmails: [] };
+    }
+  }
+  if (!resolved) {
+    resolved = resolveFormAssignmentTargetsClient({
+      mode: target.mode || "children",
+      childIds: target.childIds || [],
+      classroomId: target.classroomId || "",
+      householdIds: target.householdIds || [],
+      staffEmails: target.staffEmails || [],
+      households,
+    });
+  }
   if ((target.mode || "children") === "staff") {
     if (!resolved.staffEmails.length) throw new Error("Select at least one staff member.");
-    const saved = resolved.staffEmails.map((email) => assignFormDocumentToStaff(email, formSpec));
+    const saved = [];
+    for (const email of resolved.staffEmails) {
+      saved.push(await assignFormDocumentToStaff(email, formSpec));
+    }
     saved.refreshedCount = 0;
     return saved;
   }
@@ -37965,14 +38178,18 @@ function familyHubAuthHeaders() {
 
 function familyHubDocumentSnapshotForChildren(childIds = []) {
   const idSet = new Set(childIds.map((id) => String(id)));
+  // Wave 1 deny-default: only explicitly shared docs enter invite/household snapshots.
   return (childStore("Documents") || [])
     .filter((doc) => idSet.has(String(doc.childId || "")))
+    .filter((doc) => doc?.shareWithFamily === true || doc?.shareWithFamily === "true")
     .map((doc) => ({
+      id: doc.id,
       childId: doc.childId,
       title: doc.title || "Form",
       category: doc.category || "Other",
       status: doc.status || "needed",
       statusLabel: doc.statusLabel || doc.status || "Needed",
+      shareWithFamily: true,
     }));
 }
 
@@ -40158,6 +40375,19 @@ function renderHomeDaycareHubPage(options = {}) {
       </section>
     `;
     return;
+  }
+  // Wave 1: load durable program forms + one-shot migrate client fallback (idempotent).
+  if (canUseLaunchBackend() && !window.__llhProgramFormsBootstrapStarted) {
+    window.__llhProgramFormsBootstrapStarted = true;
+    Promise.resolve()
+      .then(() => migrateClientFormsToServer())
+      .catch(() => ensureProgramFormsLoaded({ force: true }))
+      .then(() => {
+        if (document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+        }
+      })
+      .catch(() => {});
   }
   const children = childRecords().children || [];
   const firstChild = children[0] || null;
@@ -66753,24 +66983,24 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-hdh-ai-save-template]")) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
-    try {
-      const packForm = homeDaycareAiDraftSelectedPackForm();
-      const body = readHomeDaycareAiDraftOutputText();
-      const template = saveAiFormAsProgramTemplate({
+    const packForm = homeDaycareAiDraftSelectedPackForm();
+    const body = readHomeDaycareAiDraftOutputText();
+    Promise.resolve()
+      .then(() => saveAiFormAsProgramTemplate({
         title: packForm?.title || "Custom form",
         category: packForm?.category || "Other",
         body,
         packFormId: packForm?.id || "",
         resourceId: packForm?.resourceId || "",
-      });
-      showActionFeedback(`“${template.title}” saved as a program template. Assign it anytime from Templates.`);
-      if (document.querySelector("#view-home-daycare-hub.active-view")) {
-        renderHomeDaycareHubPage({ refreshHouseholds: false });
-        queueMicrotask(() => document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-      }
-    } catch (error) {
-      showActionFeedback(error.message || "Could not save template.");
-    }
+      }))
+      .then((template) => {
+        showActionFeedback(`“${template.title}” saved as a program template. Assign it anytime from Templates.`);
+        if (document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false });
+          queueMicrotask(() => document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        }
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not save template."));
     return;
   }
 
@@ -67548,9 +67778,18 @@ document.addEventListener("click", async (event) => {
   if (deleteTemplateBtn) {
     event.preventDefault();
     const templateId = deleteTemplateBtn.dataset.deleteFormTemplate;
-    saveFormsProgramTemplates(formsProgramTemplates().filter((item) => String(item.id) !== String(templateId)));
-    showActionFeedback("Template removed.");
-    renderHomeDaycareHubPage({ refreshHouseholds: false });
+    // Server path: archive via upsert; local path: remove from list.
+    const payload = canUseLaunchBackend()
+      ? formsProgramTemplates().map((item) => (
+        String(item.id) === String(templateId) ? { ...item, archived: true } : item
+      ))
+      : formsProgramTemplates().filter((item) => String(item.id) !== String(templateId));
+    Promise.resolve(saveFormsProgramTemplates(payload))
+      .then(() => {
+        showActionFeedback("Template removed.");
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not remove template."));
     return;
   }
 
@@ -67558,13 +67797,12 @@ document.addEventListener("click", async (event) => {
   if (duplicateTemplateBtn) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
-    try {
-      const copy = duplicateFormTemplate(duplicateTemplateBtn.dataset.duplicateFormTemplate);
-      showActionFeedback(`Duplicated as “${copy.title}”. Customize it, then assign.`);
-      renderHomeDaycareHubPage({ refreshHouseholds: false });
-    } catch (error) {
-      showActionFeedback(error.message || "Could not duplicate template.");
-    }
+    Promise.resolve(duplicateFormTemplate(duplicateTemplateBtn.dataset.duplicateFormTemplate))
+      .then((copy) => {
+        showActionFeedback(`Duplicated as “${copy.title}”. Customize it, then assign.`);
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not duplicate template."));
     return;
   }
 

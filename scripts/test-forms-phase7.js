@@ -221,9 +221,10 @@ function dashboardUnit() {
 function canonicalHomesUnit() {
   const homes = canonicalData.describeCanonicalHomes();
   assert.match(homes.FormsAssigned, /Documents/);
-  assert.match(homes.FormsAssigned, /staffFormDocuments/);
-  assert.match(homes.FormsLibrary, /formTemplates|formGroups/);
+  assert.match(homes.FormsAssigned, /staffDocuments|staffFormDocuments/);
+  assert.match(homes.FormsLibrary, /formTemplates|formGroups|forms\.templates/);
   assert.ok(homes.FormsSignatures);
+  assert.match(homes.FormsAudit || "", /formsAudit|append-only/i);
   pass("canonical_homes_forms");
 }
 
