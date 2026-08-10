@@ -6,7 +6,7 @@ const { chromium, devices } = require("playwright");
 const BASE = "https://little-learner-hub-testing.onrender.com";
 const PASSWORD = "SunshineDaycare9!";
 const OWNER = `leah.proxy.owner${Date.now()}@outlook.com`;
-const EXPECTED_SHELL = "20260810-tester-invite-login-fix5";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-tester-invite-login-fix6";
 
 async function api(method, path, { body, headers = {} } = {}) {
   const t0 = Date.now();
@@ -156,6 +156,7 @@ async function runFlow({ label, acceptUrl, email, mobile = false, slow = false }
       if (i % 5 === 0) console.log(label, "uiRelogin", i, st.msg.slice(0, 60), st.tok);
       if (st.tok && st.user === email) {
         uiReloginOk = true;
+        reloginOk = true;
         reloginMs = Date.now() - ls;
         break;
       }
