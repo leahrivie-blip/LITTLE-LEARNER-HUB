@@ -265,6 +265,21 @@ function runMatrixOnKit(name, fixture) {
       expectAbsent: [/<article[^>]*tk-print-activity-card/i],
       assertFn: (ctx) => {
         ok(ctx.manifest.materialsScope === "full_kit", "materials_list is full-kit scope");
+        ok((ctx.manifest.activityIds || []).length === 0, "materials manifest does not list activity IDs");
+        ok((ctx.manifest.printableIds || []).length === 0, "materials manifest does not list printable IDs");
+      },
+    },
+    {
+      option: "13b. Teacher Toolkit only",
+      options: { preset: "teacher_toolkit" },
+      expectPresent: [/Teacher Toolkit/i],
+      expectAbsent: [/<article[^>]*tk-print-activity-card/i, /data-tk-printable-id=/i],
+      assertFn: (ctx) => {
+        ok(ctx.manifest.include?.toolkit === true, "toolkit include on");
+        ok(ctx.manifest.include?.printables !== true, "toolkit does not include printables");
+        ok((ctx.manifest.printableIds || []).length === 0, "toolkit printableIds empty");
+        ok((ctx.manifest.activityIds || []).length === 0, "toolkit activityIds empty");
+        ok((ctx.manifest.dayIds || []).length === 0, "toolkit dayIds empty");
       },
     },
     {
@@ -356,6 +371,96 @@ function runMatrixOnKit(name, fixture) {
       assertFn: (ctx) => {
         if (!activities.length) return;
         ok(ctx.printBuilt.ok === false && ctx.printBuilt.reason === "selection_not_found", "wrong activity id does not fall back to first activity");
+      },
+    },
+    {
+      option: "Missing selected printable fails closed",
+      options: {
+        preset: "selected_resources",
+        parts: { cover: true },
+        selectedResources: {
+          days: ["monday"],
+          printableIds: ["definitely-not-a-real-printable-id"],
+        },
+      },
+      assertFn: (ctx) => {
+        ok(ctx.manifest.empty === true, "missing printable marks empty");
+        ok(ctx.printBuilt.ok === false && ctx.printBuilt.reason === "selection_not_found", "missing printable does not silently omit and continue");
+        ok(/not found/i.test(ctx.manifest.emptyReason || ""), "missing printable reason names not found");
+      },
+    },
+    {
+      option: "Stale printableId does not widen Songs pack",
+      options: {
+        preset: "songs_pack",
+        // Simulate leftover Print Center state from a prior One Printable / One Activity pick.
+        printableId: printableA?.id || "stale-printable",
+        activityId: actA?.id || "stale-activity",
+      },
+      assertFn: (ctx) => {
+        ok(ctx.request.printableIds.length === 0, "songs request drops stale printableId");
+        ok(ctx.request.activityIds.length === 0, "songs request drops stale activityId");
+        ok((ctx.manifest.printableIds || []).length === 0, "songs manifest printableIds empty");
+        ok((ctx.manifest.activityIds || []).length === 0, "songs manifest activityIds empty");
+        ok(ctx.manifest.include?.songs === true, "songs include remains on");
+        ok(ctx.printBuilt.ok === true, "songs pack still builds");
+      },
+    },
+    {
+      option: "One activity + one printable",
+      options: {
+        preset: "selected_resources",
+        parts: { cover: true },
+        selectedResources: {
+          activityIds: actA ? [actA.id] : [],
+          printableIds: printableA ? [printableA.id] : ["definitely-missing-printable-for-mix"],
+        },
+      },
+      assertFn: (ctx) => {
+        if (!actA) return;
+        if (!printableA) {
+          ok(ctx.printBuilt.ok === false && ctx.printBuilt.reason === "selection_not_found", "activity+missing printable fails closed");
+          return;
+        }
+        ok(ctx.manifest.activityIds.join(",") === actA.id, "activity+printable activity id");
+        ok(ctx.manifest.printableIds.join(",") === printableA.id, "activity+printable printable id");
+        ok(new RegExp(actA.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(ctx.printBuilt.html), "activity title in mix");
+        ok(new RegExp(printableA.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(ctx.printBuilt.html), "printable title in mix");
+        if (actB && actB.id !== actA.id) {
+          ok(!ctx.manifest.activityIds.includes(actB.id), "unselected activity excluded from mix");
+        }
+      },
+    },
+    {
+      option: "One day + selected printable",
+      options: {
+        preset: "selected_resources",
+        parts: { cover: true },
+        selectedResources: {
+          days: ["monday"],
+          printableIds: printableA ? [printableA.id] : ["definitely-missing-printable-for-day-mix"],
+        },
+      },
+      assertFn: (ctx) => {
+        if (!printableA) {
+          ok(ctx.printBuilt.ok === false && ctx.printBuilt.reason === "selection_not_found", "day+missing printable fails closed");
+          return;
+        }
+        ok(ctx.manifest.dayIds.join(",") === "monday", "day+printable monday only");
+        ok(!ctx.manifest.dayIds.includes("friday"), "day+printable friday excluded");
+        ok(ctx.manifest.printableIds.join(",") === printableA.id, "day+printable printable id");
+        ok(/Daily Plans/i.test(ctx.printBuilt.html), "day sheet present");
+        ok(new RegExp(printableA.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(ctx.printBuilt.html), "printable present with day");
+      },
+    },
+    {
+      option: "Repeated selection does not leak prior printable",
+      options: { preset: "weekly_overview", printableId: printableA?.id || "stale-printable", activityId: actA?.id || "stale-act" },
+      assertFn: (ctx) => {
+        ok((ctx.manifest.printableIds || []).length === 0, "overview printableIds empty after prior printable pick");
+        ok((ctx.manifest.activityIds || []).length === 0, "overview activityIds empty after prior activity pick");
+        ok(ctx.manifest.include?.printables !== true, "overview does not include printables");
+        ok(!/data-tk-printable-id=/i.test(ctx.printBuilt.html || ""), "overview HTML has no printable cards");
       },
     },
   ];

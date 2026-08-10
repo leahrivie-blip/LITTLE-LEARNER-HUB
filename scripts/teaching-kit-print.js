@@ -652,25 +652,31 @@
       dayIds = [text(opts.day) || "monday"];
     }
 
+    // Only accept singular UI picks for modes that use them. Stale activity/song/
+    // printable IDs left in Print Center state must not widen an unrelated preset.
+    const acceptActivityId = documentMode === "one_activity" || documentMode === "selected_resources";
+    const acceptSongId = documentMode === "one_song" || documentMode === "selected_resources";
+    const acceptBookId = documentMode === "selected_resources";
+    const acceptPrintableId = documentMode === "one_printable" || documentMode === "selected_resources";
     const activityIds = asIdList([
-      ...(Array.isArray(opts.activityIds) ? opts.activityIds : []),
+      ...(Array.isArray(opts.activityIds) && acceptActivityId ? opts.activityIds : []),
       ...(selectedResources && Array.isArray(selectedResources.activityIds) ? selectedResources.activityIds : []),
-      text(opts.activityId),
+      ...(acceptActivityId ? [text(opts.activityId)] : []),
     ].filter(Boolean));
     const songIds = asIdList([
-      ...(Array.isArray(opts.songIds) ? opts.songIds : []),
+      ...(Array.isArray(opts.songIds) && acceptSongId ? opts.songIds : []),
       ...(selectedResources && Array.isArray(selectedResources.songIds) ? selectedResources.songIds : []),
-      text(opts.songId),
+      ...(acceptSongId ? [text(opts.songId)] : []),
     ].filter(Boolean));
     const bookIds = asIdList([
-      ...(Array.isArray(opts.bookIds) ? opts.bookIds : []),
+      ...(Array.isArray(opts.bookIds) && acceptBookId ? opts.bookIds : []),
       ...(selectedResources && Array.isArray(selectedResources.bookIds) ? selectedResources.bookIds : []),
-      text(opts.bookId),
+      ...(acceptBookId ? [text(opts.bookId)] : []),
     ].filter(Boolean));
     const printableIds = asIdList([
-      ...(Array.isArray(opts.printableIds) ? opts.printableIds : []),
+      ...(Array.isArray(opts.printableIds) && acceptPrintableId ? opts.printableIds : []),
       ...(selectedResources && Array.isArray(selectedResources.printableIds) ? selectedResources.printableIds : []),
-      text(opts.printableId),
+      ...(acceptPrintableId ? [text(opts.printableId)] : []),
     ].filter(Boolean));
 
     const removedActivityIds = opts.removedActivityIds && typeof opts.removedActivityIds === "object"
@@ -1124,13 +1130,42 @@
         pushManifestItem(items, "materials", materialsScope, materialsLabel);
       }
 
-      if (!items.length) {
+      // Fail closed: explicit Selected Resources IDs must resolve. Never silently
+      // drop a missing printable/activity/song/book/day and still generate a pack.
+      const unresolved = [];
+      const resolvedActivityIds = new Set(activities.map((item) => item.id).filter(Boolean));
+      const resolvedSongIds = new Set(songs.map((item) => item.id).filter(Boolean));
+      const resolvedBookIds = new Set(books.map((item) => item.id).filter(Boolean));
+      const resolvedPrintableIds = new Set(printables.map((item) => item.id).filter(Boolean));
+      const resolvedDayIds = new Set(days.map((day) => day.day).filter(Boolean));
+      activityIdSet.forEach((id) => { if (!resolvedActivityIds.has(id)) unresolved.push(id); });
+      songIdSet.forEach((id) => { if (!resolvedSongIds.has(id)) unresolved.push(id); });
+      bookIdSet.forEach((id) => { if (!resolvedBookIds.has(id)) unresolved.push(id); });
+      printableIdSet.forEach((id) => { if (!resolvedPrintableIds.has(id)) unresolved.push(id); });
+      dayIdSet.forEach((id) => { if (!resolvedDayIds.has(id)) unresolved.push(id); });
+      if (unresolved.length) {
+        empty = true;
+        emptyReason = unresolved.length === 1
+          ? `The selected item “${unresolved[0]}” was not found in this Teaching Kit.`
+          : `Selected item(s) were not found in this Teaching Kit: ${unresolved.join(", ")}.`;
+      }
+
+      if (!items.length && !empty) {
         empty = true;
         emptyReason = "Select at least one resource before printing.";
       }
     } else {
       pushManifestItem(items, "pack", mode, req.presetLabel || mode);
     }
+
+    // Canonical selection fields: collections must match include flags so
+    // fingerprint / merge / UI summary never report unselected kit-wide IDs.
+    if (!include.activities) activities = [];
+    if (!include.songs) songs = [];
+    if (!include.books) books = [];
+    if (!include.printables) printables = [];
+    const keepMaterialsDay = include.materials && materialsScope === "selected_days";
+    if (!include.daily && !keepMaterialsDay) days = [];
 
     delete items._seen;
     const itemLabels = items.map((item) => item.label).filter(Boolean);
@@ -2331,9 +2366,10 @@
 
     const manifest = resolvePrintManifest(kit, selection, model);
     if (manifest.empty && selection.documentMode === "selected_resources") {
+      const notFound = /not found/i.test(text(manifest.emptyReason));
       return {
         ok: false,
-        reason: "empty_selection",
+        reason: notFound ? "selection_not_found" : "empty_selection",
         html: "",
         pageCount: 0,
         selection,

@@ -1764,6 +1764,17 @@
         if (state.printPreset === "week_binder" || state.printPreset === "full_weekly_plan") {
           state.selectedResources = emptySelectedResources();
         }
+        // Clear singular picks that do not apply to the new preset so the next
+        // Print/Download payload cannot reuse a previous activity/song/printable.
+        if (state.printPreset !== "one_activity" && state.printPreset !== "selected_resources") {
+          state.printActivityId = "";
+        }
+        if (state.printPreset !== "one_song" && state.printPreset !== "selected_resources") {
+          state.printSongId = "";
+        }
+        if (state.printPreset !== "one_printable" && state.printPreset !== "selected_resources") {
+          state.printPrintableId = "";
+        }
         state.downloadStatus = "idle";
         state.downloadStatusMessage = "";
         rerender({ preserveScroll: true });
