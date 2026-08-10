@@ -96,9 +96,28 @@ Supports body-only, fields-only, and hybrid templates. Duplicate creates new pro
 
 AI Form Builder may propose the same structured field schema. **Save as Template requires `#hdhAiReviewAck`** (Phase 9 gate — Wave 3 closed the audit gap). Server rejects `aiGenerated` saves without review acknowledgment.
 
+## Wave 4 — Confirm & Send / bulk routing
+
+One modular Assign / Send flow (`scripts/forms-assign-flow.js` + `POST /api/program-forms/assign/preview` + `POST /api/program-forms/assign/confirm-send`):
+
+Choose Form → Recipients → Configure → Review → Confirm & Send → Tracking
+
+| Concern | Behavior |
+|---|---|
+| Recipient resolve | Server-authoritative via Wave 1 `validateAndResolveAssignment` + `forms-assign-lib` |
+| Child vs household | `assignmentScope: child` (one Document per child) or `household` (one Document per household on anchor childId; sibling dedupe) |
+| Count safety | Client `expected` counts must match server resolve or `409 recipient_count_mismatch` |
+| Idempotency | Required `idempotencyKey`; replay returns original result (no duplicate paperwork) |
+| Snapshot | Confirm & Send copies title/body/fields/`templateVersion` onto assignment; later template edits do not mutate history |
+| Visibility | Family send sets `shareWithFamily: true` only when Director opts in (default on for family Confirm & Send). Staff always `false`. |
+| Audit | `ASSIGNED` + `SENT_SHARED` from authenticated actor (client actor fields ignored) |
+| Atomicity | Child Documents written in one `writeProgramChildData`; staff via existing upserts |
+
+Does **not** start Wave 5 signatures, uploads, auto-reminders, or formPackets migration.
+
 ## AI Form Builder
 
-Preserved: generate → edit → **explicit** Save to child / Save as template / Share. Does **not** auto-assign, auto-send, or invent child/family facts.
+Preserved: generate → edit → **explicit** Save to child / Save as template / Share. Does **not** auto-assign, auto-send, or invent child/family facts. After reviewed Save as Template, Confirm & Send may open — still requires human Confirm.
 
 ## Packets note
 

@@ -192,9 +192,16 @@ function publicFamilyDocument(doc = {}) {
   const status = String(doc.status || "needed").trim() || "needed";
   const signed = Boolean(doc.signedAt) || /^(signed|submitted|completed|on_file|on file|reviewed)\b/i.test(status);
   const bodyText = String(doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "").trim();
+  const assignmentScope = String(doc.assignmentScope || "child").trim().toLowerCase() === "household"
+    ? "household"
+    : "child";
   return {
     id: String(doc.id || ""),
     childId: String(doc.childId || ""),
+    householdId: String(doc.householdId || ""),
+    assignmentScope,
+    // Household-level forms should not look child-specific in Family Hub.
+    scopeLabel: assignmentScope === "household" ? "Family form" : "Child form",
     title: String(doc.title || "Form").trim() || "Form",
     category: String(doc.category || "Other").trim() || "Other",
     status,
@@ -211,6 +218,7 @@ function publicFamilyDocument(doc = {}) {
     contentVersion: Number(doc.contentVersion || 1),
     bodyHash: String(doc.bodyHash || "").trim(),
     providerReviewed: Boolean(doc.providerReviewed),
+    requiresSignature: doc.requiresSignature !== false,
     // Wave 1: expose strict boolean only — null/missing is NOT shared.
     shareWithFamily: doc?.shareWithFamily === true || doc?.shareWithFamily === "true",
     canAcknowledge: documentNeedsParentAction(status) && !signed,

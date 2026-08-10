@@ -567,6 +567,8 @@ let formBuilderState = {
   mode: "create", // create | edit | customize
   previewOpen: false,
 };
+/** Wave 4 — Confirm & Send wizard (one modular flow; not a second assignment system). */
+let assignFlowState = null;
 let templateLibraryState = {
   query: "",
   category: "all",
@@ -9528,6 +9530,167 @@ function getPaperworkSurfaces() {
     || null;
 }
 
+function getFormsAssignFlowApi() {
+  return (typeof window !== "undefined" && window.LlhFormsAssignFlow)
+    || (typeof globalThis !== "undefined" && globalThis.LlhFormsAssignFlow)
+    || null;
+}
+
+function openAssignSendFlow(seed = {}) {
+  const api = getFormsAssignFlowApi();
+  if (!api) {
+    showActionFeedback("Assign flow is unavailable. Refresh and try again.");
+    return;
+  }
+  const formSpec = seed.formSpec || {};
+  assignFlowState = api.createAssignFlowState({
+    entryPoint: seed.entryPoint || "template_library",
+    formSpec,
+    templateId: seed.templateId || formSpec.templateId || "",
+    audience: seed.audience || "family",
+    mode: seed.mode || (seed.audience === "staff" ? "staff" : "children"),
+    assignmentScope: seed.assignmentScope || "child",
+    childIds: seed.childIds || [],
+    staffEmails: seed.staffEmails || [],
+    classroomIds: seed.classroomIds || [],
+    householdIds: seed.householdIds || [],
+    dueDate: seed.dueDate || "",
+    shareWithFamily: seed.shareWithFamily !== false,
+    requiresSignature: seed.requiresSignature != null ? seed.requiresSignature !== false : formSpec.requiresSignature !== false,
+  });
+  assignFlowState.open = true;
+  assignFlowState.step = "recipients";
+  assignFlowState.idempotencyKey = api.newIdempotencyKey();
+  if (window.LlhFormsDirtyState) {
+    window.LlhFormsDirtyState.clearForm("assignFlow");
+    window.LlhFormsDirtyState.touch("assignFlow", "open", "1");
+  }
+  if (document.querySelector("#view-home-daycare-hub.active-view")) {
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    queueMicrotask(() => document.querySelector("[data-assign-flow]")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  } else if (typeof renderChildManagement === "function" && document.querySelector("#view-children.active-view")) {
+    renderChildManagement();
+  } else {
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+  }
+}
+
+function closeAssignSendFlow() {
+  if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("assignFlow");
+  assignFlowState = null;
+}
+
+function renderAssignSendFlowPanel() {
+  const api = getFormsAssignFlowApi();
+  if (!api || !assignFlowState?.open || !isHomeDaycareHubTestingEnabled()) return "";
+  const children = (childRecords().children || []).filter((child) => child && !child.archived);
+  const staff = listProgramStaffForForms();
+  const classrooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const households = Array.isArray(familyHubHouseholdCache?.households) ? familyHubHouseholdCache.households : [];
+  return api.renderWizardHtml(assignFlowState, {
+    isCenter: getAccountType() === ACCOUNT_TYPES.CENTER,
+    children,
+    staff,
+    classrooms,
+    households,
+  });
+}
+
+async function previewAssignSendFlow() {
+  const api = getFormsAssignFlowApi();
+  if (!api || !assignFlowState) throw new Error("Assign flow is not open.");
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Sign in to preview recipients.");
+  const target = api.buildTargetPayload(assignFlowState);
+  const response = await fetch("/api/program-forms/assign/preview", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(target),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not preview recipients.");
+  assignFlowState = api.touchState(assignFlowState, {
+    preview: data,
+    expected: data.counts || null,
+    error: "",
+  });
+  return data;
+}
+
+async function confirmAssignSendFlow() {
+  const api = getFormsAssignFlowApi();
+  if (!api || !assignFlowState) throw new Error("Assign flow is not open.");
+  if (assignFlowState.sending) return assignFlowState.result || null;
+  assignFlowState = api.touchState(assignFlowState, { sending: true, error: "" });
+  // Disable confirm immediately in DOM if present.
+  document.querySelectorAll("[data-assign-confirm]").forEach((btn) => {
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+  });
+  try {
+    if (!assignFlowState.idempotencyKey) {
+      assignFlowState.idempotencyKey = api.newIdempotencyKey();
+    }
+    if (!assignFlowState.preview || !assignFlowState.expected) {
+      await previewAssignSendFlow();
+    }
+    const headers = await staffAuthHeaders();
+    if (!headers) throw new Error("Sign in to send paperwork.");
+    const payload = api.buildConfirmPayload(assignFlowState);
+    const response = await fetch("/api/program-forms/assign/confirm-send", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 409 && data?.code === "recipient_count_mismatch") {
+      assignFlowState = api.touchState(assignFlowState, {
+        sending: false,
+        step: "review",
+        preview: { ...(assignFlowState.preview || {}), counts: data.counts },
+        expected: data.counts,
+        error: data.error || "Recipient list changed. Review the new counts, then Confirm & Send again.",
+        idempotencyKey: api.newIdempotencyKey(),
+      });
+      throw new Error(assignFlowState.error);
+    }
+    if (!response.ok) throw new Error(data?.error || "Confirm & Send failed.");
+    // Refresh local child + staff caches so Paperwork HQ reflects new rows.
+    try {
+      await ensureProgramFormsLoaded({ force: true });
+    } catch (_e) { /* non-fatal */ }
+    try {
+      if (typeof syncChildDataFromBackend === "function") {
+        await syncChildDataFromBackend({ render: false, force: true });
+      }
+    } catch (_e) { /* local-json still has client docs if server wrote */ }
+    // Soft Family Hub notify — assignment already persisted.
+    if (data.shareWithFamily && Array.isArray(data.createdIds)) {
+      for (const docId of data.createdIds.slice(0, 40)) {
+        try { await shareChildDocumentWithFamily(docId); } catch (_err) { /* notify optional */ }
+      }
+    }
+    assignFlowState = api.touchState(assignFlowState, {
+      sending: false,
+      step: "success",
+      result: data,
+      error: "",
+    });
+    return data;
+  } catch (error) {
+    if (assignFlowState && !assignFlowState.error) {
+      assignFlowState = api.touchState(assignFlowState, {
+        sending: false,
+        error: error.message || "Could not send.",
+        idempotencyKey: assignFlowState.idempotencyKey || api.newIdempotencyKey(),
+      });
+    } else if (assignFlowState) {
+      assignFlowState.sending = false;
+    }
+    throw error;
+  }
+}
+
 function archiveChildDocumentRecord(documentId) {
   const docs = childStore("Documents") || [];
   const next = docs.map((item) => (
@@ -9776,6 +9939,7 @@ function renderFormsAttentionPanel() {
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Assign templates</button>
+        <button class="primary-button" type="button" data-open-assign-flow="hq">Assign / Send</button>
         <button class="ghost-button" type="button" data-hdh-forms-refresh>Refresh</button>
       </div>
       <div data-paperwork-hq-results>
@@ -9872,6 +10036,10 @@ function renderStaffProfilePaperworkPanel(selectedEmail = "") {
         </select>
       </label>
       <p class="muted-copy">${escapeHtml(member?.name || email)} · ${enriched.length} record${enriched.length === 1 ? "" : "s"}</p>
+      <div class="account-actions-row" style="margin-bottom:12px;">
+        <button class="primary-button" type="button" data-assign-flow-staff="${escapeHtml(email)}">Assign form</button>
+        <button class="ghost-button" type="button" data-view="home-daycare-hub">Paperwork HQ</button>
+      </div>
       <div class="paperwork-bucket-rails" role="toolbar" aria-label="Staff paperwork buckets">
         ${buckets.map((b) => `
           <button type="button" class="paperwork-rail-btn ${bucket === b.id ? "is-active" : ""}" data-staff-profile-bucket="${escapeHtml(b.id)}" aria-pressed="${bucket === b.id ? "true" : "false"}">${escapeHtml(b.label)}</button>
@@ -10058,6 +10226,7 @@ function renderUnifiedTemplateLibraryPanel() {
   const categories = api?.LIBRARY_CATEGORIES || [];
   const children = (childRecords().children || []).filter((child) => !child.archived);
   return `
+    ${renderAssignSendFlowPanel()}
     <section class="section-block" id="hdhFormTemplatesPanel" data-template-library="true" data-account-type="${escapeHtml(getAccountType())}">
       <p class="eyebrow">Template Library</p>
       <h3>Forms you can reuse</h3>
@@ -10101,60 +10270,6 @@ function renderUnifiedTemplateLibraryPanel() {
                 : `<button class="primary-button" type="button" data-customize-library-template="${escapeHtml(template.id)}" data-source-kind="${escapeHtml(template.sourceKind || "")}">Duplicate &amp; customize</button>
                    ${template.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(template.packFormId)}">Use with AI</button>` : ""}`}
             </div>
-            ${isMine ? `
-            <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
-              <label>Due date (optional)<input type="date" name="dueDate" /></label>
-              <label>Assign to
-                <select name="assignMode" data-assign-mode-select>
-                  <option value="children">Selected children</option>
-                  <option value="classroom">Classroom</option>
-                  <option value="household">Family household(s)</option>
-                  <option value="program">Entire program</option>
-                  <option value="staff">Staff member(s)</option>
-                </select>
-              </label>
-              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="children">
-                <legend>Children (canonical Profiles)</legend>
-                <div class="hdh-child-pick-grid">
-                  ${children.map((child) => `
-                    <label class="area-check">
-                      <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${children.length === 1 ? "checked" : ""} />
-                      <span>${escapeHtml(child.name)}</span>
-                    </label>
-                  `).join("") || '<p class="muted-copy">Add a child first.</p>'}
-                </div>
-              </fieldset>
-              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="classroom" hidden>
-                <legend>Classroom</legend>
-                <label>Classroom id
-                  <select name="classroomId">
-                    ${[...new Set(children.map((c) => String(c.classroomId || "").trim()).filter(Boolean))]
-                      .map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join("")
-                      || '<option value="">No classrooms on Profiles yet</option>'}
-                  </select>
-                </label>
-              </fieldset>
-              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="household" hidden>
-                <legend>Households (Family Hub childIds)</legend>
-                <div class="hdh-child-pick-grid" data-assign-household-list>
-                  <p class="muted-copy">Open Family Hub households once so they can be selected here, or use Entire program.</p>
-                </div>
-              </fieldset>
-              <fieldset class="hdh-child-pick-fieldset" data-assign-panel="staff" hidden>
-                <legend>Staff (canonical users)</legend>
-                <div class="hdh-child-pick-grid">
-                  ${listProgramStaffForForms().map((staff) => `
-                    <label class="area-check">
-                      <input type="checkbox" name="staffEmails" value="${escapeHtml(staff.email)}" />
-                      <span>${escapeHtml(staff.name)} · ${escapeHtml(staff.role)}</span>
-                    </label>
-                  `).join("") || '<p class="muted-copy">No staff emails available.</p>'}
-                </div>
-              </fieldset>
-              <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub (child/family assigns)</label>
-              <label class="settings-check-label"><input type="checkbox" name="requiresSignature" value="true" checked /> Signature required</label>
-              <button class="primary-button" type="submit">Assign &amp; notify</button>
-            </form>` : ""}
           </article>`;
         }).join("")
         : `<div class="profile-empty-state"><strong>No templates match</strong><p>Try another category, create a form, or generate one with AI and Save as template after review.</p></div>`}
@@ -19461,32 +19576,75 @@ async function adminMarkConversationReadState(userEmail, read) {
 }
 
 document.addEventListener("change", async (event) => {
-  if (event.target.matches("[data-assign-mode-select]")) {
-    const form = event.target.closest("form");
-    if (!form) return;
-    const mode = String(event.target.value || "children");
-    form.querySelectorAll("[data-assign-panel]").forEach((panel) => {
-      const panelMode = panel.getAttribute("data-assign-panel");
-      if (mode === "program") {
-        panel.hidden = panelMode !== "children";
-        return;
-      }
-      panel.hidden = panelMode !== mode;
-    });
-    if (mode === "household") {
-      const list = form.querySelector("[data-assign-household-list]");
-      const households = window.__llhFamilyHouseholdsCache || [];
-      if (list) {
-        list.innerHTML = households.length
-          ? households.map((hh) => `
-              <label class="area-check">
-                <input type="checkbox" name="householdIds" value="${escapeHtml(hh.id)}" />
-                <span>${escapeHtml(hh.label || hh.email || "Family")} · ${(hh.children || []).map((c) => c.name || c.id).filter(Boolean).join(", ") || "children"}</span>
-              </label>
-            `).join("")
-          : `<p class="muted-copy">No households loaded yet. Open the Family Hub invite list once, then try again.</p>`;
-      }
+  // Wave 4 Confirm & Send wizard controls (dirty-state safe; no stale hydrate overwrite).
+  if (assignFlowState?.open && event.target.closest("[data-assign-flow]")) {
+    const api = getFormsAssignFlowApi();
+    if (!api) return;
+    if (event.target.matches("[data-assign-mode]")) {
+      assignFlowState = api.touchState(assignFlowState, { mode: event.target.value, error: "" });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "mode", event.target.value);
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      return;
     }
+    if (event.target.matches("[data-assign-child]")) {
+      const id = String(event.target.value || "");
+      const set = new Set(assignFlowState.childIds.map(String));
+      if (event.target.checked) set.add(id); else set.delete(id);
+      assignFlowState = api.touchState(assignFlowState, { childIds: [...set], mode: assignFlowState.mode === "program" ? "children" : assignFlowState.mode });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "childIds", [...set].join(","));
+      return;
+    }
+    if (event.target.matches("[data-assign-staff]")) {
+      const email = String(event.target.value || "").toLowerCase();
+      const set = new Set(assignFlowState.staffEmails.map((e) => String(e).toLowerCase()));
+      if (event.target.checked) set.add(email); else set.delete(email);
+      assignFlowState = api.touchState(assignFlowState, { staffEmails: [...set], mode: "staff" });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "staffEmails", [...set].join(","));
+      return;
+    }
+    if (event.target.matches("[data-assign-classroom]")) {
+      const roomId = String(event.target.value || "");
+      const children = (childRecords().children || []).filter((c) => c && !c.archived && String(c.classroomId || c.classroom || "") === roomId);
+      const childSet = new Set(assignFlowState.childIds.map(String));
+      const roomSet = new Set(assignFlowState.classroomIds.map(String));
+      if (event.target.checked) {
+        roomSet.add(roomId);
+        children.forEach((c) => childSet.add(String(c.id)));
+      } else {
+        roomSet.delete(roomId);
+        children.forEach((c) => childSet.delete(String(c.id)));
+      }
+      assignFlowState = api.touchState(assignFlowState, {
+        classroomIds: [...roomSet],
+        childIds: [...childSet],
+        mode: "classrooms",
+      });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "classroomIds", [...roomSet].join(","));
+      return;
+    }
+    if (event.target.matches("[data-assign-due]")) {
+      assignFlowState = api.touchState(assignFlowState, { dueDate: event.target.value || "" });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "dueDate", event.target.value || "");
+      return;
+    }
+    if (event.target.matches("[data-assign-signature]")) {
+      assignFlowState = api.touchState(assignFlowState, { requiresSignature: Boolean(event.target.checked) });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "requiresSignature", String(event.target.checked));
+      return;
+    }
+    if (event.target.matches("[data-assign-share]")) {
+      assignFlowState = api.touchState(assignFlowState, { shareWithFamily: Boolean(event.target.checked) });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "shareWithFamily", String(event.target.checked));
+      return;
+    }
+    if (event.target.matches("[data-assign-scope]")) {
+      assignFlowState = api.touchState(assignFlowState, { assignmentScope: event.target.value === "household" ? "household" : "child" });
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "assignmentScope", event.target.value);
+      return;
+    }
+  }
+  if (event.target.matches("[data-assign-mode-select]")) {
+    // Legacy inline assign panels removed in Wave 4 — keep no-op for safety.
     return;
   }
   if (event.target.matches("#adminMessageEmailAlertsToggle")) {
@@ -39515,7 +39673,9 @@ function renderFamilyHubFormsPanel(data) {
             <strong>${escapeHtml(doc.title || "Form")}</strong>
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
-          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""} · ID ${escapeHtml(doc.id || "")}</p>
+          <p class="fh-meta">${doc.assignmentScope === "household" || doc.scopeLabel === "Family form"
+            ? `Family form · ${escapeHtml(doc.scopeLabel || "Family form")}`
+            : `For ${escapeHtml(childName(doc.childId))} · Child form`} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""} · ID ${escapeHtml(doc.id || "")}</p>
           <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
           ${body ? `<details class="fh-form-body" open><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
           ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
@@ -44188,6 +44348,7 @@ function renderChildFormsRecordsTab(child, records) {
       </div>
       <div class="account-actions-row" style="margin-bottom:16px;">
         <button class="primary-button" type="button" data-view="home-daycare-hub">Paperwork HQ</button>
+        <button class="primary-button" type="button" data-assign-flow-child="${escapeHtml(child.id)}">Assign form</button>
         <button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
       </div>
@@ -67656,11 +67817,26 @@ document.addEventListener("click", async (event) => {
         requiresSignature: hdhAiDraftState.structuredMeta?.requiresSignature !== false,
       }))
       .then((template) => {
-        showActionFeedback(`“${template.title}” saved as a program template after review. Assign it anytime from the Template Library.`);
-        if (document.querySelector("#view-home-daycare-hub.active-view")) {
-          renderHomeDaycareHubPage({ refreshHouseholds: false });
-          queueMicrotask(() => document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        showActionFeedback(`“${template.title}” saved after review. Nothing was assigned yet — confirm recipients to send.`);
+        if (!document.querySelector("#view-home-daycare-hub.active-view")) {
+          setView("home-daycare-hub");
         }
+        openAssignSendFlow({
+          entryPoint: "ai_reviewed_template",
+          templateId: template.id,
+          formSpec: {
+            title: template.title,
+            category: template.category,
+            body: template.body || template.bodyText || body,
+            draftText: template.body || template.bodyText || body,
+            fields: Array.isArray(template.fields) ? template.fields : (hdhAiDraftState.fields || []),
+            templateId: template.id,
+            packFormId: template.packFormId || "",
+            contentVersion: template.contentVersion || 1,
+            requiresSignature: template.requiresSignature !== false,
+          },
+          requiresSignature: template.requiresSignature !== false,
+        });
       })
       .catch((error) => showActionFeedback(error.message || "Could not save template."));
     return;
@@ -68427,10 +68603,218 @@ document.addEventListener("click", async (event) => {
   if (assignTemplateBtn) {
     event.preventDefault();
     const templateId = assignTemplateBtn.dataset.assignFormTemplate;
-    const form = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
-    const editForm = document.querySelector(`[data-edit-template-form="${CSS.escape(templateId)}"]`);
-    if (editForm) editForm.hidden = true;
-    if (form) form.hidden = !form.hidden;
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+    if (!template) {
+      showActionFeedback("Template not found.");
+      return;
+    }
+    openAssignSendFlow({
+      entryPoint: "template_library",
+      templateId: template.id,
+      formSpec: {
+        title: template.title,
+        category: template.category,
+        body: template.body || template.bodyText || "",
+        draftText: template.body || template.bodyText || "",
+        fields: Array.isArray(template.fields) ? template.fields : [],
+        templateId: template.id,
+        packFormId: template.packFormId || "",
+        resourceId: template.resourceId || "",
+        contentVersion: template.contentVersion || 1,
+        requiresSignature: template.requiresSignature !== false,
+      },
+      audience: "family",
+      requiresSignature: template.requiresSignature !== false,
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-open-assign-flow]")) {
+    event.preventDefault();
+    const entry = event.target.closest("[data-open-assign-flow]").getAttribute("data-open-assign-flow") || "hq";
+    const templates = formsProgramTemplates().filter((t) => !t.archived && (t.sourceType === "provider" || t.sourceKind === "my_templates"));
+    const first = templates[0];
+    if (!first) {
+      showActionFeedback("Save a template first, then use Assign / Send.");
+      document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    openAssignSendFlow({
+      entryPoint: entry,
+      templateId: first.id,
+      formSpec: {
+        title: first.title,
+        category: first.category,
+        body: first.body || first.bodyText || "",
+        draftText: first.body || first.bodyText || "",
+        fields: Array.isArray(first.fields) ? first.fields : [],
+        templateId: first.id,
+        contentVersion: first.contentVersion || 1,
+        requiresSignature: first.requiresSignature !== false,
+      },
+    });
+    return;
+  }
+
+  const assignFlowChildBtn = event.target.closest("[data-assign-flow-child]");
+  if (assignFlowChildBtn) {
+    event.preventDefault();
+    const childId = assignFlowChildBtn.getAttribute("data-assign-flow-child");
+    const templates = formsProgramTemplates().filter((t) => !t.archived && (t.sourceType === "provider" || !t.sourceType || t.sourceKind === "my_templates"));
+    const first = templates[0];
+    if (!first) {
+      showActionFeedback("Save a template in Template Library first.");
+      return;
+    }
+    setActiveView("home-daycare-hub");
+    openAssignSendFlow({
+      entryPoint: "child_documents",
+      templateId: first.id,
+      childIds: childId ? [childId] : [],
+      audience: "family",
+      mode: "children",
+      formSpec: {
+        title: first.title,
+        category: first.category,
+        body: first.body || first.bodyText || "",
+        draftText: first.body || first.bodyText || "",
+        fields: Array.isArray(first.fields) ? first.fields : [],
+        templateId: first.id,
+        contentVersion: first.contentVersion || 1,
+        requiresSignature: first.requiresSignature !== false,
+      },
+    });
+    return;
+  }
+
+  const assignFlowStaffBtn = event.target.closest("[data-assign-flow-staff]");
+  if (assignFlowStaffBtn) {
+    event.preventDefault();
+    const staffEmail = String(assignFlowStaffBtn.getAttribute("data-assign-flow-staff") || "").toLowerCase();
+    const templates = formsProgramTemplates().filter((t) => !t.archived && (t.sourceType === "provider" || !t.sourceType || t.sourceKind === "my_templates"));
+    const first = templates[0];
+    if (!first) {
+      showActionFeedback("Save a template in Template Library first.");
+      return;
+    }
+    setActiveView("home-daycare-hub");
+    openAssignSendFlow({
+      entryPoint: "staff_documents",
+      templateId: first.id,
+      audience: "staff",
+      mode: "staff",
+      staffEmails: staffEmail ? [staffEmail] : [],
+      shareWithFamily: false,
+      formSpec: {
+        title: first.title,
+        category: first.category || "Staff",
+        body: first.body || first.bodyText || "",
+        draftText: first.body || first.bodyText || "",
+        fields: Array.isArray(first.fields) ? first.fields : [],
+        templateId: first.id,
+        contentVersion: first.contentVersion || 1,
+        requiresSignature: first.requiresSignature !== false,
+      },
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-assign-close]")) {
+    event.preventDefault();
+    closeAssignSendFlow();
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-assign-goto-hq]")) {
+    event.preventDefault();
+    closeAssignSendFlow();
+    paperworkHqState.rail = "needs_attention";
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    queueMicrotask(() => document.querySelector("#hdhFormsAttentionPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return;
+  }
+
+  if (event.target.closest("[data-assign-audience]")) {
+    event.preventDefault();
+    if (!assignFlowState) return;
+    const api = getFormsAssignFlowApi();
+    const audience = event.target.closest("[data-assign-audience]").getAttribute("data-assign-audience") || "family";
+    assignFlowState = api.touchState(assignFlowState, {
+      audience,
+      mode: audience === "staff" ? "staff" : "children",
+      childIds: audience === "staff" ? [] : assignFlowState.childIds,
+      staffEmails: audience === "family" ? [] : assignFlowState.staffEmails,
+      shareWithFamily: audience === "family" ? assignFlowState.shareWithFamily !== false : false,
+      error: "",
+    });
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("assignFlow", "audience", audience);
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-assign-back]")) {
+    event.preventDefault();
+    if (!assignFlowState || assignFlowState.sending) return;
+    const api = getFormsAssignFlowApi();
+    const order = ["recipients", "configure", "review", "success"];
+    const idx = order.indexOf(assignFlowState.step);
+    const prev = order[Math.max(0, idx - 1)] || "recipients";
+    assignFlowState = api.touchState(assignFlowState, { step: prev === "success" ? "review" : prev, error: "" });
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-assign-next-configure]")) {
+    event.preventDefault();
+    if (!assignFlowState) return;
+    const api = getFormsAssignFlowApi();
+    if (assignFlowState.audience === "staff") {
+      if (assignFlowState.mode === "staff" && !assignFlowState.staffEmails.length) {
+        assignFlowState = api.touchState(assignFlowState, { error: "Select at least one staff member." });
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+        return;
+      }
+    } else if (assignFlowState.mode !== "program" && !assignFlowState.childIds.length && !assignFlowState.classroomIds.length && !assignFlowState.householdIds.length) {
+      assignFlowState = api.touchState(assignFlowState, { error: "Select at least one recipient." });
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      return;
+    }
+    assignFlowState = api.touchState(assignFlowState, { step: "configure", error: "" });
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-assign-next-review]")) {
+    event.preventDefault();
+    if (!assignFlowState) return;
+    const api = getFormsAssignFlowApi();
+    assignFlowState = api.touchState(assignFlowState, { step: "review", error: "", sending: false });
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    previewAssignSendFlow()
+      .then(() => renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true }))
+      .catch((error) => {
+        assignFlowState = api.touchState(assignFlowState, { error: error.message || "Preview failed." });
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      });
+    return;
+  }
+
+  if (event.target.closest("[data-assign-confirm]")) {
+    event.preventDefault();
+    if (!assignFlowState || assignFlowState.sending) return;
+    const confirmBtn = event.target.closest("[data-assign-confirm]");
+    confirmBtn.disabled = true;
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    confirmAssignSendFlow()
+      .then(() => {
+        showActionFeedback("Paperwork sent.");
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      })
+      .catch((error) => {
+        showActionFeedback(error.message || "Could not send.");
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      });
     return;
   }
 
@@ -73174,6 +73558,33 @@ document.addEventListener("input", (event) => {
       window.LlhFormsDirtyState.touch("formBuilder", key, String(value));
     }
   }
+  if (assignFlowState?.open && event.target.matches("[data-assign-search]")) {
+    const api = getFormsAssignFlowApi();
+    if (!api) return;
+    const value = event.target.value || "";
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("assignFlow", "recipientSearch", value);
+    }
+    // Debounced re-render that restores caret (same pattern as template library search).
+    clearTimeout(window.__llhAssignSearchTimer);
+    const selStart = event.target.selectionStart;
+    const selEnd = event.target.selectionEnd;
+    window.__llhAssignSearchTimer = setTimeout(() => {
+      if (!assignFlowState?.open) return;
+      if (window.LlhFormsDirtyState?.shouldKeepLocal?.("assignFlow", "recipientSearch", assignFlowState.dirtyRev)) {
+        const kept = window.LlhFormsDirtyState.get("assignFlow", "recipientSearch");
+        assignFlowState = api.touchState(assignFlowState, { recipientSearch: kept?.value ?? value });
+      } else {
+        assignFlowState = api.touchState(assignFlowState, { recipientSearch: value });
+      }
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      const next = document.querySelector("[data-assign-search]");
+      if (next) {
+        next.focus();
+        try { next.setSelectionRange(selStart, selEnd); } catch (_e) { /* ignore */ }
+      }
+    }, 120);
+  }
   if (event.target.matches("[data-fb-field-prop]")) {
     const fieldId = event.target.getAttribute("data-fb-field-id");
     const prop = event.target.getAttribute("data-fb-field-prop");
@@ -77801,52 +78212,8 @@ document.addEventListener("submit", async (event) => {
   }
 
   if (event.target?.matches?.("[data-assign-template-form]")) {
+    // Wave 4: inline assign form removed — Use/Assign opens Confirm & Send wizard.
     event.preventDefault();
-    if (!isHomeDaycareHubTestingEnabled()) return;
-    const templateId = event.target.getAttribute("data-assign-template-form");
-    const template = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
-    if (!template) {
-      showActionFeedback("Template not found.");
-      return;
-    }
-    const data = collectFormData(event.target);
-    const mode = String(data.assignMode || event.target.querySelector('[name="assignMode"]')?.value || "children");
-    const childIds = Array.from(event.target.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
-    const staffEmails = Array.from(event.target.querySelectorAll('input[name="staffEmails"]:checked')).map((input) => input.value);
-    const householdIds = Array.from(event.target.querySelectorAll('input[name="householdIds"]:checked')).map((input) => input.value);
-    const classroomId = String(data.classroomId || "").trim();
-    const formSpec = {
-      title: template.title,
-      category: template.category,
-      body: template.body || template.bodyText || "",
-      draftText: template.body || template.bodyText || "",
-      fields: Array.isArray(template.fields) ? template.fields : [],
-      packFormId: template.packFormId || "",
-      resourceId: template.resourceId || "",
-      templateId: template.id,
-      dueDate: data.dueDate || "",
-      shareWithFamily: mode === "staff" ? false : event.target.querySelector('[name="shareWithFamily"]')?.checked !== false,
-      requiresSignature: event.target.querySelector('[name="requiresSignature"]')?.checked !== false,
-      notes: "Assigned from program template.",
-    };
-    assignFormByTarget(formSpec, {
-      mode,
-      childIds,
-      staffEmails,
-      householdIds,
-      classroomId,
-      households: window.__llhFamilyHouseholdsCache || [],
-    })
-      .then((saved) => {
-        const refreshed = Number(saved.refreshedCount || 0);
-        const who = mode === "staff" ? "staff member" : "child";
-        const message = refreshed
-          ? `Updated existing assignment for “${template.title}” (${refreshed} already open — no duplicate created).`
-          : `Assigned “${template.title}” to ${saved.length} ${who}${saved.length === 1 ? "" : "s"}.`;
-        showActionFeedback(message);
-        renderHomeDaycareHubPage({ refreshHouseholds: false });
-      })
-      .catch((error) => showActionFeedback(error.message || "Could not assign template."));
     return;
   }
 

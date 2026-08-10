@@ -16,6 +16,7 @@
 const crypto = require("node:crypto");
 const formsLib = require("./forms-lib.js");
 const formFieldsLib = require("./form-fields-lib.js");
+const formsAssignLib = require("./forms-assign-lib.js");
 
 const READ_ONLY_TEMPLATE_SOURCES = new Set(["system", "starter", "cms", "pack"]);
 
@@ -152,6 +153,7 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
   const id = cleanText(raw.id || "", 80) || newId("staff-form");
   const draftText = String(raw.draftText || raw.body || raw.bodyText || "").slice(0, 20000);
   const status = formsLib.normalizeFormStatus(raw.status || "assigned");
+  const fields = formFieldsLib.normalizeFormFields(raw.fields || [], { strict: false });
   return {
     id,
     programId: cleanText(programId || raw.programId || "", 80),
@@ -165,8 +167,11 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
     status,
     statusLabel: formsLib.formStatusLabel(raw.statusLabel || status),
     draftText,
+    fields,
+    fieldSchemaVersion: fields.length ? 1 : undefined,
     bodyHash: cleanText(raw.bodyHash || "", 80) || (draftText ? formsLib.hashFormBody(draftText) : ""),
     contentVersion: Math.max(1, Number(raw.contentVersion) || 1),
+    templateVersion: Math.max(1, Number(raw.templateVersion) || Number(raw.contentVersion) || 1),
     dueDate: cleanText(raw.dueDate || "", 20),
     assignedAt: cleanText(raw.assignedAt || raw.createdAt || nowIso(), 40),
     updatedAt: cleanText(raw.updatedAt || nowIso(), 40),
@@ -180,6 +185,7 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
     requiresSignature: raw.requiresSignature !== false,
     notes: cleanText(raw.notes || "", 500),
     archived: Boolean(raw.archived),
+    sendBatchId: cleanText(raw.sendBatchId || "", 80),
     shareWithFamily: false, // staff paperwork never family-visible
   };
 }
@@ -522,8 +528,30 @@ function isStrictlySharedWithFamily(doc = {}) {
   return doc?.shareWithFamily === true || doc?.shareWithFamily === "true";
 }
 
+function listProgramStaffDirectory(store, context) {
+  const programId = context.programId;
+  const ownerEmail = normalizeEmail(context.ownerEmail);
+  return Object.values(store.users || {})
+    .filter((u) => {
+      const email = normalizeEmail(u.email);
+      if (!email) return false;
+      if (u.accountStatus === "Disabled" || u.disabled === true) return false;
+      const userProgram = String(u.programId || "").trim();
+      const linked = normalizeEmail(u.linkedProgramOwnerEmail || "");
+      return userProgram === programId
+        || (linked && linked === ownerEmail)
+        || email === ownerEmail;
+    })
+    .map((u) => ({
+      email: normalizeEmail(u.email),
+      role: String(u.role || u.programRole || "staff").toLowerCase(),
+      classroomIds: Array.isArray(u.classroomIds) ? u.classroomIds.map(String) : [],
+      name: String(u.name || u.displayName || "").trim(),
+    }));
+}
+
 /**
- * Server-side assignment validation foundation (Wave 1).
+ * Server-side assignment validation foundation (Wave 1 + Wave 4 expand).
  * Resolves targets against canonical Profiles / households / staff; never trusts client lists alone.
  */
 function validateAndResolveAssignment(store, context, request = {}) {
@@ -533,7 +561,6 @@ function validateAndResolveAssignment(store, context, request = {}) {
     throw err;
   }
   const programId = context.programId;
-  const mode = String(request.mode || "children").trim().toLowerCase();
   const childData = context.readChild
     ? context.readChild()
     : null;
@@ -551,20 +578,8 @@ function validateAndResolveAssignment(store, context, request = {}) {
     });
 
   const ownerEmail = normalizeEmail(context.ownerEmail);
-  const programStaffEmails = new Set(
-    Object.values(store.users || {})
-      .filter((u) => {
-        const email = normalizeEmail(u.email);
-        if (!email) return false;
-        if (u.accountStatus === "Disabled" || u.disabled === true) return false;
-        const userProgram = String(u.programId || "").trim();
-        const linked = normalizeEmail(u.linkedProgramOwnerEmail || "");
-        return userProgram === programId
-          || (linked && linked === ownerEmail)
-          || email === ownerEmail;
-      })
-      .map((u) => normalizeEmail(u.email)),
-  );
+  const staffDirectory = listProgramStaffDirectory(store, context);
+  const programStaffEmails = new Set(staffDirectory.map((row) => row.email));
 
   // Reject forged programId if client sends one that doesn't match context.
   if (request.programId && String(request.programId).trim() !== programId) {
@@ -573,9 +588,22 @@ function validateAndResolveAssignment(store, context, request = {}) {
     throw err;
   }
 
-  const requestedStaff = (Array.isArray(request.staffEmails) ? request.staffEmails : [])
-    .map(normalizeEmail)
-    .filter(Boolean);
+  // Assistants cannot assign Documents / staff forms.
+  if (context.writeScope === "assistant" || context.role === "assistant") {
+    const err = new Error("Assistants cannot assign paperwork.");
+    err.status = 403;
+    throw err;
+  }
+
+  formsLib.validateAssignmentTargetsShape(request);
+
+  const expanded = formsAssignLib.expandAssignmentRequest(request, {
+    profiles,
+    staffDirectory,
+  });
+  const mode = expanded.mode;
+
+  const requestedStaff = expanded.staffEmails;
   if (mode === "staff") {
     const invalid = requestedStaff.filter((email) => !programStaffEmails.has(email));
     if (invalid.length) {
@@ -587,7 +615,7 @@ function validateAndResolveAssignment(store, context, request = {}) {
   }
 
   // Household membership: every requested household must belong to this program.
-  const requestedHouseholdIds = (Array.isArray(request.householdIds) ? request.householdIds : []).map(String);
+  const requestedHouseholdIds = expanded.householdIds;
   if ((mode === "household" || mode === "families" || mode === "family") && requestedHouseholdIds.length) {
     const allowed = new Set(households.map((h) => String(h.id)));
     const bad = requestedHouseholdIds.filter((id) => !allowed.has(id));
@@ -603,7 +631,7 @@ function validateAndResolveAssignment(store, context, request = {}) {
   const profileIds = new Set(
     profiles.filter((p) => p && !p.archived).map((p) => String(p.id)),
   );
-  const requestedChildIds = (Array.isArray(request.childIds) ? request.childIds : []).map(String).filter(Boolean);
+  const requestedChildIds = expanded.childIds;
   if (mode === "children" && requestedChildIds.length) {
     const bad = requestedChildIds.filter((id) => !profileIds.has(id));
     if (bad.length) {
@@ -615,7 +643,7 @@ function validateAndResolveAssignment(store, context, request = {}) {
   }
 
   if (mode === "classroom") {
-    const room = String(request.classroomId || "").trim();
+    const room = String(expanded.classroomId || "").trim();
     if (!room) {
       const err = new Error("classroomId is required for classroom assignment.");
       err.status = 400;
@@ -631,17 +659,23 @@ function validateAndResolveAssignment(store, context, request = {}) {
     }
   }
 
-  // Assistants cannot assign Documents / staff forms.
-  if (context.writeScope === "assistant" || context.role === "assistant") {
-    const err = new Error("Assistants cannot assign paperwork.");
-    err.status = 403;
-    throw err;
+  if (expanded.classroomIds.length > 1
+    && context.writeScope === "teacher"
+    && Array.isArray(context.classroomIds)
+    && context.classroomIds.length) {
+    const allowedRooms = new Set(context.classroomIds.map(String));
+    const badRoom = expanded.classroomIds.find((id) => !allowedRooms.has(String(id)));
+    if (badRoom) {
+      const err = new Error("You cannot assign forms for that classroom.");
+      err.status = 403;
+      throw err;
+    }
   }
 
   const resolved = formsLib.resolveFormAssignmentTargets({
     mode,
     childIds: requestedChildIds,
-    classroomId: request.classroomId || "",
+    classroomId: expanded.classroomId || "",
     householdIds: requestedHouseholdIds,
     profiles,
     households,
@@ -654,8 +688,339 @@ function validateAndResolveAssignment(store, context, request = {}) {
   resolved.staffEmails = resolved.staffEmails.filter((email) => programStaffEmails.has(normalizeEmail(email)));
   resolved.programId = programId;
   resolved.mode = mode;
+  resolved.audience = expanded.audience;
+  resolved.assignmentScope = expanded.assignmentScope;
+  resolved.classroomIds = expanded.classroomIds;
   resolved.ok = true;
+
+  const plan = formsAssignLib.buildRecipientPlan({
+    audience: expanded.audience,
+    mode,
+    assignmentScope: expanded.assignmentScope,
+    resolvedChildIds: resolved.childIds,
+    resolvedStaffEmails: resolved.staffEmails,
+    profiles,
+    households,
+    classroomIds: expanded.classroomIds,
+  });
+  resolved.plan = plan;
+  resolved.counts = plan.counts;
   return resolved;
+}
+
+/**
+ * Wave 4 preview — resolve recipients + counts without writing.
+ */
+function previewAssignment(store, context, request = {}) {
+  const resolved = validateAndResolveAssignment(store, context, request);
+  return {
+    ok: true,
+    programId: resolved.programId,
+    audience: resolved.audience,
+    mode: resolved.mode,
+    assignmentScope: resolved.assignmentScope,
+    childIds: resolved.childIds,
+    staffEmails: resolved.staffEmails,
+    classroomIds: resolved.classroomIds || [],
+    counts: resolved.counts,
+    plan: {
+      audience: resolved.plan.audience,
+      mode: resolved.plan.mode,
+      assignmentScope: resolved.plan.assignmentScope,
+      counts: resolved.plan.counts,
+      householdIds: resolved.plan.householdIds,
+      // Do not leak full assignment draft rows with sibling lists beyond ids needed for UI.
+      assignmentSummaries: (resolved.plan.assignments || []).slice(0, 200).map((row) => ({
+        kind: row.kind,
+        childId: row.childId || "",
+        householdId: row.householdId || "",
+        assigneeEmail: row.assigneeEmail || "",
+      })),
+    },
+  };
+}
+
+/**
+ * Wave 4 Confirm & Send — server resolves recipients, enforces expected counts,
+ * idempotency key, snapshots form body/fields, writes child Documents atomically
+ * and staffDocuments via existing upsert. Never mixes family + staff in one call.
+ */
+function confirmSendAssignments(store, context, request = {}, {
+  actorUserId = "",
+  actorRole = "",
+  writeChildData = null,
+  readChildData = null,
+} = {}) {
+  if (!context?.ok || !context.programId) {
+    throw Object.assign(new Error(context?.error || "Could not resolve program."), { status: 403 });
+  }
+  if (!(context.canManageStaff || context.role === "owner" || context.role === "director"
+    || context.writeScope === "teacher")) {
+    // Teachers may assign within classroom scope (validated below); assistants blocked in validate.
+    if (context.role === "assistant" || context.writeScope === "assistant") {
+      throw Object.assign(new Error("Assistants cannot assign paperwork."), { status: 403 });
+    }
+  }
+
+  const idempotencyKey = cleanText(request.idempotencyKey || "", 120);
+  if (!idempotencyKey || idempotencyKey.length < 8) {
+    throw Object.assign(new Error("idempotencyKey is required for Confirm & Send."), {
+      status: 400,
+      code: "idempotency_required",
+    });
+  }
+
+  const forms = ensureProgramFormsNamespace(store, context.programId);
+  const cached = formsAssignLib.readIdempotency(forms, idempotencyKey);
+  if (cached) {
+    return { ...cached, idempotentReplay: true };
+  }
+
+  const childData = typeof readChildData === "function"
+    ? (readChildData() || {})
+    : (context.readChild ? context.readChild() : {});
+  const profiles = Array.isArray(childData?.Profiles) ? childData.Profiles : [];
+  const docs = Array.isArray(childData?.Documents) ? [...childData.Documents] : [];
+
+  const templateId = cleanText(request.templateId || request.formSpec?.templateId || "", 80);
+  let template = null;
+  if (templateId) {
+    template = listTemplates(store, context.programId, { includeArchived: true })
+      .find((t) => String(t.id) === templateId) || null;
+    // Provider may assign provider templates in-program; system/starter templates are
+    // allowed as read-only sources (snapshot only — never mutate origin).
+    if (!template && !(request.formSpec?.title || request.formSpec?.body || request.formSpec?.bodyText)) {
+      throw Object.assign(new Error("Template not found in this program."), {
+        status: 404,
+        code: "template_not_found",
+      });
+    }
+  }
+
+  const formSpec = formsAssignLib.snapshotFormSpec(request.formSpec || request, template);
+  if (!formSpec.title) {
+    throw Object.assign(new Error("Form title is required."), { status: 400 });
+  }
+  if (!formSpec.draftText && !(formSpec.fields || []).length) {
+    throw Object.assign(new Error("Form body or fields are required."), { status: 400 });
+  }
+
+  const resolved = validateAndResolveAssignment(store, {
+    ...context,
+    readChild: () => childData,
+  }, {
+    ...(request.target || request),
+    profiles,
+    programId: request.programId,
+  });
+
+  const expected = request.expected || request.expectedCounts || {};
+  const match = formsAssignLib.countsMatch(expected, resolved.counts);
+  if (!match.ok) {
+    throw Object.assign(new Error("Recipient list changed since your review. Please review again."), {
+      status: 409,
+      code: "recipient_count_mismatch",
+      mismatches: match.mismatches,
+      counts: resolved.counts,
+      plan: resolved.plan,
+    });
+  }
+
+  if (!resolved.counts.assignmentCount) {
+    throw Object.assign(new Error("Select at least one recipient."), { status: 400 });
+  }
+
+  const audience = resolved.audience;
+  const dueDate = cleanText(request.dueDate || "", 20);
+  // Family send: shareWithFamily only when Director explicitly sends to family (default true for family audience).
+  // Internal child paperwork can set shareWithFamily:false. Staff always false.
+  let shareWithFamily = false;
+  if (audience === "family") {
+    if (request.shareWithFamily === false || request.shareWithFamily === "false") {
+      shareWithFamily = false;
+    } else if (request.shareWithFamily === true || request.shareWithFamily === "true") {
+      shareWithFamily = true;
+    } else {
+      // Confirm & Send to families defaults to Family Hub visibility.
+      shareWithFamily = true;
+    }
+  }
+
+  const sendBatchId = formsAssignLib.newId("send");
+  const created = [];
+  const refreshed = [];
+  const plan = resolved.plan;
+
+  if (audience === "staff") {
+    // Staff path: upsert each; open-assignment refresh is idempotent by email+template.
+    for (const email of plan.staffEmails) {
+      const existing = listStaffDocuments(store, context.programId)
+        .find((doc) => (
+          normalizeEmail(doc.assigneeEmail) === email
+          && formsAssignLib.isOpenAssignment(doc)
+          && formsAssignLib.matchesTemplate(doc, formSpec)
+        ));
+      const payload = existing
+        ? {
+          ...existing,
+          dueDate: dueDate || existing.dueDate || "",
+          draftText: formSpec.draftText || existing.draftText,
+          bodyHash: formSpec.bodyHash,
+          fields: formSpec.fields,
+          status: "assigned",
+          statusLabel: formsLib.formStatusLabel("assigned"),
+          requiresSignature: formSpec.requiresSignature !== false,
+          templateId: formSpec.templateId || existing.templateId,
+          templateVersion: formSpec.templateVersion,
+          sendBatchId,
+          updatedAt: nowIso(),
+          lastNotifiedAt: nowIso(),
+          shareWithFamily: false,
+        }
+        : {
+          id: formsAssignLib.newId("staff-form"),
+          assigneeEmail: email,
+          title: formSpec.title,
+          category: formSpec.category || "Staff",
+          templateId: formSpec.templateId,
+          packFormId: formSpec.packFormId,
+          resourceId: formSpec.resourceId,
+          draftText: formSpec.draftText,
+          fields: formSpec.fields,
+          bodyHash: formSpec.bodyHash,
+          contentVersion: 1,
+          templateVersion: formSpec.templateVersion,
+          dueDate,
+          status: "assigned",
+          requiresSignature: formSpec.requiresSignature !== false,
+          notes: formSpec.notes,
+          assignedAt: nowIso(),
+          sendBatchId,
+          shareWithFamily: false,
+        };
+      const saved = upsertStaffDocument(store, context.programId, payload, {
+        actorUserId,
+        actorRole,
+      });
+      if (existing) refreshed.push(saved.id);
+      else created.push(saved.id);
+      appendFormsAudit(store, {
+        programId: context.programId,
+        action: "SENT_SHARED",
+        actorUserId,
+        actorRole,
+        documentId: saved.id,
+        templateId: formSpec.templateId,
+        assigneeEmail: email,
+        meta: {
+          toStatus: saved.status,
+          recipientCount: 1,
+          mode: resolved.mode,
+          contentVersion: formSpec.templateVersion,
+          source: "confirm_send",
+        },
+        detail: existing ? "Staff assignment refreshed (idempotent)" : "Staff assignment sent",
+      });
+    }
+  } else {
+    // Family/child path: mutate Documents[] in one write for atomicity.
+    const nextDocs = [...docs];
+    for (const item of plan.assignments) {
+      const existing = formsAssignLib.findOpenChildDoc(nextDocs, {
+        childId: item.childId,
+        householdId: item.householdId,
+        assignmentScope: plan.assignmentScope,
+        formSpec,
+      });
+      const row = formsAssignLib.buildChildAssignmentRow(item, formSpec, {
+        dueDate,
+        shareWithFamily,
+        existing,
+        sendBatchId,
+      });
+      if (existing) {
+        const idx = nextDocs.findIndex((d) => String(d.id) === String(existing.id));
+        if (idx >= 0) nextDocs[idx] = row;
+        refreshed.push(row.id);
+      } else {
+        nextDocs.unshift(row);
+        created.push(row.id);
+      }
+      appendFormsAudit(store, {
+        programId: context.programId,
+        action: existing ? "EDITED" : "ASSIGNED",
+        actorUserId,
+        actorRole,
+        documentId: row.id,
+        templateId: formSpec.templateId,
+        childId: row.childId,
+        householdId: row.householdId || "",
+        meta: {
+          toStatus: row.status,
+          recipientCount: 1,
+          mode: resolved.mode,
+          contentVersion: formSpec.templateVersion,
+          source: "confirm_send",
+        },
+        detail: existing
+          ? "Child assignment refreshed (idempotent)"
+          : (row.assignmentScope === "household" ? "Household assignment created" : "Child assignment created"),
+      });
+      if (shareWithFamily) {
+        appendFormsAudit(store, {
+          programId: context.programId,
+          action: "SENT_SHARED",
+          actorUserId,
+          actorRole,
+          documentId: row.id,
+          templateId: formSpec.templateId,
+          childId: row.childId,
+          householdId: row.householdId || "",
+          meta: {
+            toStatus: row.status,
+            recipientCount: 1,
+            mode: resolved.mode,
+            source: "confirm_send",
+          },
+          detail: "Shared with Family Hub",
+        });
+      }
+    }
+    const nextChildData = { ...childData, Documents: nextDocs };
+    if (typeof writeChildData !== "function") {
+      throw Object.assign(new Error("Child data writer unavailable."), { status: 500 });
+    }
+    writeChildData(nextChildData);
+  }
+
+  const result = {
+    ok: true,
+    programId: context.programId,
+    sendBatchId,
+    audience,
+    mode: resolved.mode,
+    assignmentScope: resolved.assignmentScope,
+    counts: resolved.counts,
+    createdCount: created.length,
+    refreshedCount: refreshed.length,
+    createdIds: created,
+    refreshedIds: refreshed,
+    shareWithFamily,
+    requiresSignature: formSpec.requiresSignature !== false,
+    dueDate,
+    title: formSpec.title,
+    templateId: formSpec.templateId,
+    notification: {
+      attempted: audience === "family" && shareWithFamily,
+      // Email/push delivery is separate from assignment persistence.
+      deliveryRequiredForSuccess: false,
+      channel: audience === "family" && shareWithFamily ? "family_hub" : (audience === "staff" ? "my_paperwork" : "none"),
+    },
+    idempotentReplay: false,
+  };
+  formsAssignLib.rememberIdempotency(forms, idempotencyKey, result);
+  forms.updatedAt = nowIso();
+  return result;
 }
 
 function hashRequestIp(request) {
@@ -691,6 +1056,9 @@ module.exports = {
   dualReadMerge,
   isStrictlySharedWithFamily,
   validateAndResolveAssignment,
+  previewAssignment,
+  confirmSendAssignments,
+  listProgramStaffDirectory,
   hashRequestIp,
   describeFallbackRemovalGate,
 };

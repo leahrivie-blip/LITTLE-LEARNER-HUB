@@ -284,6 +284,78 @@ function createProgramFormsRoutes({
     }
   }
 
+  async function handlePreviewAssignment(request, response) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid preview payload." });
+      return;
+    }
+    try {
+      const childData = programOwnership.readProgramChildData(store, context)?.data || {};
+      const preview = programFormsLib.previewAssignment(store, {
+        ...context,
+        readChild: () => childData,
+      }, {
+        ...(body || {}),
+        programId: body?.programId,
+        profiles: childData.Profiles || [],
+      });
+      jsonResponse(response, 200, {
+        ...preview,
+        actorUserId: String(identity.email || "").toLowerCase(),
+        ignoredClientActor: Boolean(body?.actorUserId || body?.performedBy || body?.actorEmail),
+      });
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Assignment preview failed.",
+        code: error.code,
+        invalidChildIds: error.invalidChildIds,
+        invalidHouseholdIds: error.invalidHouseholdIds,
+        invalidStaffEmails: error.invalidStaffEmails,
+      });
+    }
+  }
+
+  async function handleConfirmSendAssignment(request, response) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid Confirm & Send payload." });
+      return;
+    }
+    const actor = actorFromContext(context, identity);
+    try {
+      const result = programFormsLib.confirmSendAssignments(store, context, body || {}, {
+        actorUserId: actor.actorUserId,
+        actorRole: actor.actorRole,
+        readChildData: () => programOwnership.readProgramChildData(store, context)?.data || {},
+        writeChildData: (nextData) => {
+          programOwnership.writeProgramChildData(store, context, nextData);
+        },
+      });
+      await respondAfterPersist(store, response, 200, { ok: true, ...result }, "Could not confirm send.");
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Confirm & Send failed.",
+        code: error.code,
+        mismatches: error.mismatches,
+        counts: error.counts,
+        invalidChildIds: error.invalidChildIds,
+        invalidHouseholdIds: error.invalidHouseholdIds,
+        invalidStaffEmails: error.invalidStaffEmails,
+      });
+    }
+  }
+
   async function handleGetFormsAudit(request, response, url) {
     const ctx = await withProgramContext(request, response);
     if (!ctx) return;
@@ -318,6 +390,8 @@ function createProgramFormsRoutes({
     if (pathname === "/api/program-forms/templates/duplicate" && method === "POST") return handleDuplicateTemplate;
     if (pathname === "/api/program-forms/fields/validate" && method === "POST") return handleValidateStructuredFields;
     if (pathname === "/api/program-forms/assign/validate" && method === "POST") return handleValidateAssignment;
+    if (pathname === "/api/program-forms/assign/preview" && method === "POST") return handlePreviewAssignment;
+    if (pathname === "/api/program-forms/assign/confirm-send" && method === "POST") return handleConfirmSendAssignment;
     if (pathname === "/api/program-forms/audit" && method === "GET") {
       return (req, res, url) => handleGetFormsAudit(req, res, url);
     }
