@@ -4436,6 +4436,13 @@ function saveAttribution(detail = {}) {
 
 function sendAnalyticsEvent(event) {
   if (!analyticsConfig.eventEndpoint || !canUseLaunchBackend()) return;
+  // During tester invite password/session handoff, skip analytics POSTs so auth
+  // requests are not starved by the browser's per-host connection limit.
+  if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) return;
+  if (typeof isTesterInviteBootPath === "function" && isTesterInviteBootPath()
+    && typeof readMemberSessionToken === "function" && !readMemberSessionToken()) {
+    return;
+  }
   const payload = JSON.stringify({ event });
   try {
     if (navigator.sendBeacon) {
@@ -5414,11 +5421,13 @@ async function fetchWithWakeRetry(input, init = {}, options = {}) {
   let lastError = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
+      if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const response = await fetch(input, init);
       if (!retryStatuses.has(response.status) || attempt >= maxAttempts) return response;
       await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
     } catch (error) {
       lastError = error;
+      if (error && (error.name === "AbortError" || init?.signal?.aborted)) throw error;
       if (attempt >= maxAttempts) throw error;
       await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
     }
@@ -5428,8 +5437,18 @@ async function fetchWithWakeRetry(input, init = {}, options = {}) {
 
 async function syncFoundingStatus(options = {}) {
   if (!stripeCheckoutConfig.foundingStatusEndpoint || !canUseLaunchBackend()) return foundingStatusCache;
+  if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) {
+    return foundingStatusCache;
+  }
+  if (typeof isTesterInviteBootPath === "function" && isTesterInviteBootPath()
+    && typeof readMemberSessionToken === "function" && !readMemberSessionToken()) {
+    return foundingStatusCache;
+  }
   try {
-    const response = await fetchWithWakeRetry(`${stripeCheckoutConfig.foundingStatusEndpoint}?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetchWithWakeRetry(`${stripeCheckoutConfig.foundingStatusEndpoint}?t=${Date.now()}`, {
+      cache: "no-store",
+      signal: typeof nonCriticalBootSignal === "function" ? nonCriticalBootSignal() : undefined,
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load founding status.");
     applyFoundingStatus(data?.founding || data);
@@ -16585,8 +16604,10 @@ function abortNonCriticalBootFetches(reason = "auth-priority") {
 }
 
 async function fetchWithAuthTimeout(url, init = {}, timeoutMs = 25000) {
-  // Free browser sockets before auth-critical calls (6-connection host limit).
-  abortNonCriticalBootFetches("auth-priority");
+  // Free browser sockets before password/session calls (not for invite peek).
+  if (/\/api\/auth\//.test(String(url || ""))) {
+    abortNonCriticalBootFetches("auth-priority");
+  }
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   const abortTimer = controller ? setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000)) : null;
   try {
@@ -40856,9 +40877,7 @@ async function completeTesterInviteCredentialFlow({ email, password, mode = "sig
       if (syncResult && syncResult.skipped) {
         throw new Error("This email cannot be used for a lasting testing password. Ask for a new invite with your real email.");
       }
-      if (!syncResult) {
-        throw new Error("Could not save your testing password. Check your connection and try again.");
-      }
+      // If sync timed out, still attempt login — a background sync may have landed.
 
       setTesterInviteFlowState({ stage: "creating_session" });
       setTesterInviteFlowMessage("Signing you in…", { busy: true });
@@ -49586,7 +49605,11 @@ async function loadUploadedResourcesFromBackend({ admin = false, migrateLocal = 
   const token = adminSession()?.token || "";
   const requestHeaders = admin && token ? { Authorization: `Bearer ${token}` } : {};
   try {
-    const response = await fetch(`${uploadedResourcesConfig.listEndpoint}?${params.toString()}`, { cache: "no-store", headers: requestHeaders });
+    const response = await fetch(`${uploadedResourcesConfig.listEndpoint}?${params.toString()}`, {
+      cache: "no-store",
+      headers: requestHeaders,
+      signal: nonCriticalBootSignal(),
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load uploaded resources.");
     const remoteUploads = dedupeUploadedResourcesList(data.uploads || []);
@@ -74883,6 +74906,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     }
   }
   submitButton.disabled = true;
+  // Drop heavy public boot fetches so password sync/login are not socket-starved.
+  abortNonCriticalBootFetches("auth-form-submit");
   setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
   try {
     if (currentAuthMode === "forgot") {
