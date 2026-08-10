@@ -16612,24 +16612,27 @@ async function awaitPendingLocalPasswordSync(timeoutMs = 20000) {
   const pending = pendingLocalPasswordSync;
   if (!pending) return null;
   let timedOut = false;
+  let settled = null;
   try {
-    await Promise.race([
-      pending,
+    settled = await Promise.race([
+      Promise.resolve(pending)
+        .then((value) => ({ ok: true, value }))
+        .catch((error) => ({ ok: false, error })),
       new Promise((resolve) => setTimeout(() => {
         timedOut = true;
-        resolve(null);
+        resolve({ ok: false, timedOut: true });
       }, Math.max(0, Number(timeoutMs) || 0))),
     ]);
   } catch {
-    /* sync helper already logs */
+    settled = { ok: false };
   }
-  if (timedOut && pendingLocalPasswordSync === pending) {
-    // Do not let a hung sync block invite login forever; a fresh sync follows.
-    pendingLocalPasswordSync = null;
-  } else if (pendingLocalPasswordSync === pending) {
+  if (pendingLocalPasswordSync === pending) {
+    // Clear the slot on timeout so a follow-up sync can start; the old fetch may
+    // still finish in the background without blocking invite login.
     pendingLocalPasswordSync = null;
   }
-  return pending;
+  if (settled && settled.ok) return settled.value;
+  return null;
 }
 
 async function signUpWithProvider(email, password, phone, firstName, lastName) {
@@ -40819,14 +40822,19 @@ async function completeTesterInviteCredentialFlow({ email, password, mode = "sig
         { busy: true },
       );
       setTesterInviteFlowState({ stage: "creating_credentials" });
-      await awaitPendingLocalPasswordSync(20000);
-      const syncResult = await syncPasswordAfterFirebaseAuth(
-        cleanPassword,
-        mode === "login" ? "tester_invite_login" : "tester_invite_signup",
-        cleanEmail,
-      );
+      let syncResult = await awaitPendingLocalPasswordSync(15000);
+      if (!syncResult || syncResult.skipped) {
+        syncResult = await syncPasswordAfterFirebaseAuth(
+          cleanPassword,
+          mode === "login" ? "tester_invite_login" : "tester_invite_signup",
+          cleanEmail,
+        );
+      }
       if (syncResult && syncResult.skipped) {
         throw new Error("This email cannot be used for a lasting testing password. Ask for a new invite with your real email.");
+      }
+      if (!syncResult) {
+        throw new Error("Could not save your testing password. Check your connection and try again.");
       }
 
       setTesterInviteFlowState({ stage: "creating_session" });
