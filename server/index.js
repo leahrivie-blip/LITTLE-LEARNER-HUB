@@ -14409,17 +14409,10 @@ function sanitizeChildDataPayload(data = {}) {
 }
 
 async function resolveChildDataIdentity(request) {
-  // Prefer Firebase in production; allow the same test/email bridges as schedule.
-  if (firebaseConfigStatus().ready) {
-    try {
-      return { ...(await verifyFirebaseUser(request)), source: "firebase" };
-    } catch (error) {
-      const authHeader = String(request.headers.authorization || "");
-      if (authHeader.startsWith("Bearer ") && !authHeader.startsWith("Bearer test:")) {
-        throw error;
-      }
-    }
-  }
+  // C3: One authoritative identity path shared with schedule APIs.
+  // Member recovery sessions (llh_member_*), Firebase ID tokens, and test/email
+  // bridges are validated in resolveScheduleIdentity — never authorize merely
+  // because a Bearer token string exists, and never treat llh_member_* as a JWT.
   return resolveScheduleIdentity(request);
 }
 
