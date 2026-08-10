@@ -95,40 +95,47 @@ function fingerprint(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value ?? null)).digest("hex");
 }
 
-/** Stable content fingerprint — ignores timestamps and normalize-only null→0 minutes. */
-function fingerprintProtectedPlan(plan) {
-  const p = plan && typeof plan === "object" ? plan : {};
-  const scrub = (value) => {
-    if (Array.isArray(value)) return value.map(scrub);
-    if (!value || typeof value !== "object") return value;
-    const out = {};
-    Object.keys(value).sort().forEach((key) => {
-      if (key === "updatedAt" || key === "createdAt" || key === "publishedAt") return;
-      let next = value[key];
-      if (key === "setupMinutes" && (next == null || next === 0)) next = 0;
-      out[key] = scrub(next);
+/** Strict plan fingerprint — no scrubbing of setupMinutes or any other field. */
+function fingerprintPlanStrict(plan) {
+  return fingerprint(plan);
+}
+
+function readStoreFile() {
+  return JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+}
+
+function curriculumFromStore(store) {
+  return store?.siteContent?.curriculum || { lessonPlans: [], activities: [], resources: [] };
+}
+
+function planFromStore(store, id) {
+  return (curriculumFromStore(store).lessonPlans || []).find((p) => p.id === id) || null;
+}
+
+/** Curriculum + feature flags only — analytics/session noise must not mask curriculum writes. */
+function fingerprintCurriculumAndFlags(store) {
+  return fingerprint({
+    featureFlags: store?.siteContent?.featureFlags || {},
+    curriculum: curriculumFromStore(store),
+  });
+}
+
+function collectSetupMinutes(plan) {
+  const out = [];
+  const days = plan?.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
+  Object.keys(days).forEach((day) => {
+    (days[day]?.items || []).forEach((item, idx) => {
+      out.push({
+        day,
+        idx,
+        title: item?.title || "",
+        setupMinutes: Object.prototype.hasOwnProperty.call(item || {}, "setupMinutes")
+          ? item.setupMinutes
+          : undefined,
+      });
     });
-    return out;
-  };
-  return fingerprint(scrub({
-    id: p.id || "",
-    title: p.title || "",
-    status: p.status || "",
-    age: p.age || "",
-    theme: p.theme || "",
-    plan: p.plan || "",
-    weeklyOverview: p.weeklyOverview || "",
-    objectives: p.objectives || "",
-    weeklyMaterials: p.weeklyMaterials || "",
-    vocabularyWords: p.vocabularyWords || "",
-    familyConnection: p.familyConnection || "",
-    books: p.books || [],
-    songs: p.songs || [],
-    resourceIds: p.resourceIds || [],
-    dailyPlans: p.dailyPlans || {},
-    enrichmentDraft: p.enrichmentDraft || null,
-    enrichmentPublished: p.enrichmentPublished || null,
-  }));
+  });
+  return out;
 }
 
 function loadSeedPackage(dir) {
@@ -230,7 +237,16 @@ function farmPlaceholderPlan() {
     songs: [],
     resourceIds: [],
     dailyPlans: {
-      monday: { theme: "Barn", items: [] },
+      monday: {
+        theme: "Barn",
+        items: [
+          { itemId: "item-farm-null", title: "Barn mirror play", setupMinutes: null },
+          { itemId: "item-farm-missing", title: "Hay sensory bin" },
+          { itemId: "item-farm-zero", title: "Zero-prep greeting", setupMinutes: 0 },
+          { itemId: "item-farm-positive", title: "Mud kitchen setup", setupMinutes: 12 },
+          { itemId: "item-farm-string", title: "Legacy string minutes", setupMinutes: "8" },
+        ],
+      },
       tuesday: { theme: "Mud", items: [] },
       wednesday: { theme: "Eggs", items: [] },
       thursday: { theme: "Hay", items: [] },
@@ -497,23 +513,39 @@ async function main() {
   ok(appJs.includes("captureAdminLessonListViewState"), "list view capture present");
   ok(appJs.includes("restoreAdminLessonListAfterTkEditorClose"), "list restore helper present");
   ok(appJs.includes("editingWithFocusedOwnerEditor"), "focused unmount branch present");
+  ok(
+    /forceClassic[\s\S]{0,200}isTeachingKitPrintableOwnerClient/.test(appJs)
+      || /isTeachingKitPrintableOwnerClient[\s\S]{0,120}forceClassic/.test(appJs),
+    "forceClassic gated by owner client session",
+  );
+  ok(
+    !/URLSearchParams\([^)]*\)[\s\S]{0,40}\.get\([^\)]*forceClassic/.test(appJs)
+      && !/localStorage\.getItem\([^\)]*forceClassic/.test(appJs),
+    "forceClassic not read from query/localStorage APIs",
+  );
   ok(editorJs.includes("ownerWorkspace"), "ownerWorkspace bypass present");
   ok(editorJs.includes("renderPrintableIdeaListItem"), "structured printable renderer present");
   ok(editorJs.includes("Age group"), "printable age group label present");
   ok(enrichJs.includes("normalizePrintableIdea"), "normalizePrintableIdea present");
   ok(!/Printable idea:<\/strong> \$\{esc\(idea\)\}/.test(editorJs), "no esc(idea) coercion path");
+  const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
+  ok(serverJs.includes("function normalizedOptionalMinutes"), "server minutes helper present");
+  ok(serverJs.includes("function writeSiteCurriculumTouched"), "surgical curriculum write helper present");
+  ok(serverJs.includes("Number(null)"), "documents Number(null) coercion trap");
 
   const aam = protectedPlanFromSeed(AAM, "all-about-me", "All About Me");
   const apples = protectedPlanFromSeed(APPLES, "amazing-apples", "Amazing Apples");
   const farm = farmPlaceholderPlan();
+  // Distinctive non-default mix — must remain byte-for-byte (not reset to code defaults).
   const flagsBefore = {
-    teachingKitViewer: false,
+    teachingKitViewer: true,
     teachingKitPrintCenter: false,
-    teachingKitAttachments: false,
+    teachingKitAttachments: true,
     teachingKitEnrichmentEditor: false,
     teachingKitAuthoring: false,
-    teachingKitCurriculumDirector: false,
+    teachingKitCurriculumDirector: true,
     teachingKitQualityReview: false,
+    customDeployedMarker: "prod-like-618-preserve",
   };
 
   fs.writeFileSync(STORE_PATH, JSON.stringify({
@@ -573,17 +605,27 @@ async function main() {
 
     const baseline = await requestJson("GET", "/api/admin/site-content", null, auth);
     ok(baseline.status === 200, "baseline site content loaded");
-    const baselinePlans = baseline.json?.siteContent?.curriculum?.lessonPlans || [];
+    // Canonical preservation source is the on-disk store (GET may normalize in memory).
+    const storeBaseline = readStoreFile();
     const protectedBefore = {};
+    const setupMinutesBefore = {};
     for (const id of [AAM, APPLES, FARM]) {
-      const plan = baselinePlans.find((p) => p.id === id);
-      ok(plan, `${id}: present in baseline store`);
-      protectedBefore[id] = fingerprintProtectedPlan(plan);
+      const plan = planFromStore(storeBaseline, id);
+      ok(plan, `${id}: present in baseline store file`);
+      protectedBefore[id] = fingerprintPlanStrict(plan);
+      setupMinutesBefore[id] = collectSetupMinutes(plan);
     }
-    const flagsBaseline = baseline.json?.siteContent?.featureFlags || {};
-    for (const key of Object.keys(flagsBefore)) {
-      ok(flagsBaseline[key] === false, `baseline flag ${key} is false`);
-    }
+    const flagsBaseline = storeBaseline.siteContent?.featureFlags || {};
+    ok(JSON.stringify(flagsBaseline) === JSON.stringify(flagsBefore),
+      "baseline feature flags byte-for-byte match seeded deployed values");
+    const farmMinutes = setupMinutesBefore[FARM];
+    ok(farmMinutes.some((row) => row.setupMinutes === null), "Farm Animals sample includes null setupMinutes");
+    ok(farmMinutes.some((row) => row.setupMinutes === undefined), "Farm Animals sample includes missing setupMinutes");
+    ok(farmMinutes.some((row) => row.setupMinutes === 0), "Farm Animals sample includes 0 setupMinutes");
+    ok(farmMinutes.some((row) => row.setupMinutes === 12), "Farm Animals sample includes positive setupMinutes");
+    ok(farmMinutes.some((row) => row.setupMinutes === "8"), "Farm Animals sample includes legacy string setupMinutes");
+    const curriculumFpBefore = fingerprint(curriculumFromStore(storeBaseline));
+    const storeFpBeforeOpen = fingerprint(storeBaseline);
 
     // Auth: draft printable endpoints reject logged-out / forged claims.
     const forged = await requestJson("POST", "/api/admin/curriculum/resources/tk-printable", {
@@ -643,6 +685,18 @@ async function main() {
       }));
       ok(beforeView.status === "draft", `${label}: draft filter applied before open`);
 
+      const storeBeforeUpgrade = fingerprintCurriculumAndFlags(readStoreFile());
+      await openViaUpgrade(page, label);
+      await closeEditor(page);
+      ok(fingerprintCurriculumAndFlags(readStoreFile()) === storeBeforeUpgrade,
+        `${label}: Upgrade Lesson open+close without save → zero curriculum/flag mutations`);
+
+      const storeBeforeEdit = fingerprintCurriculumAndFlags(readStoreFile());
+      await openViaEdit(page, label);
+      await closeEditor(page);
+      ok(fingerprintCurriculumAndFlags(readStoreFile()) === storeBeforeEdit,
+        `${label}: Edit open+close without save → zero curriculum/flag mutations`);
+
       await openViaUpgrade(page, label);
       await verifyWeekPrintables(page, label);
 
@@ -655,8 +709,18 @@ async function main() {
       }, FIXTURE);
       ok(dup === 1, `${label}: rapid reopen keeps a single editor`);
 
+      const storeBeforeUploader = fingerprintCurriculumAndFlags(readStoreFile());
       await verifyPrintableUploader(page, label);
+      // Cancel uploader without save.
+      const cancelBtn = page.locator("[data-tk-printable-cancel]").first();
+      if (await cancelBtn.count()) {
+        await cancelBtn.click({ timeout: 5000 }).catch(async () => cancelBtn.click({ force: true }));
+        await page.waitForTimeout(200);
+      }
+      ok(fingerprintCurriculumAndFlags(readStoreFile()) === storeBeforeUploader,
+        `${label}: printable uploader open+cancel → zero curriculum/flag mutations`);
 
+      const storeBeforeBack = fingerprintCurriculumAndFlags(readStoreFile());
       await page.locator("[data-enrich-back-to-list], [data-enrich-exit]").first().click({ timeout: 5000 })
         .catch(async () => closeEditor(page));
       await page.waitForFunction(
@@ -672,6 +736,8 @@ async function main() {
       }));
       ok(restored.listPresent && restored.cards > 0, `${label}: lesson list restored after Back`);
       ok(restored.status === beforeView.status, `${label}: filter status restored after Back`);
+      ok(fingerprintCurriculumAndFlags(readStoreFile()) === storeBeforeBack,
+        `${label}: Back to Lesson Plans restores UI without curriculum/flag writes`);
 
       // Failed open (editor closed) shows error and restores CTA (never stuck on Opening…).
       const fail = await page.evaluate(async () => {
@@ -698,9 +764,29 @@ async function main() {
         `${label}: useful open-error message shown (${failText.slice(0, 120) || "empty"})`,
       );
 
-      // Edit opens the same Teaching Kit editor.
-      await openViaEdit(page, label);
-      await closeEditor(page);
+      // forceClassic authorization (desktop pass is enough, still run both).
+      const classicAuth = await page.evaluate(async (id) => {
+        // Spoof non-owner client gate.
+        const previous = window.isTeachingKitPrintableOwnerClient;
+        window.isTeachingKitPrintableOwnerClient = () => false;
+        openAdminCurriculumLessonEditor(id, { forceClassic: true, scroll: false });
+        await new Promise((r) => setTimeout(r, 50));
+        const openedEnrich = Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.());
+        const classicForm = Boolean(document.querySelector("#adminCurriculumLessonPlanForm"));
+        window.isTeachingKitPrintableOwnerClient = previous;
+        if (window.LLHTeachingKitEnrichmentEditor?.isOpen?.()) {
+          await window.LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
+        }
+        return { openedEnrich, classicForm };
+      }, FIXTURE);
+      ok(
+        classicAuth.openedEnrich === true || classicAuth.classicForm === false,
+        `${label}: non-owner forceClassic cannot activate classic mega-form`,
+      );
+      ok(
+        !classicAuth.classicForm,
+        `${label}: forged non-owner forceClassic does not show classic form`,
+      );
 
       ok(pageErrors.length === 0, `${label}: no LLH page errors (${pageErrors.slice(0, 2).join(" | ") || "none"})`);
       // Soft-check console: ignore noisy third-party; fail on obvious app TypeErrors.
@@ -710,6 +796,12 @@ async function main() {
     }
 
     // Save draft printable + link via API (owner), then auth matrix for draft asset.
+    const storeBeforeCreate = readStoreFile();
+    const protectedFpBeforeCreate = {};
+    for (const id of [AAM, APPLES, FARM]) {
+      protectedFpBeforeCreate[id] = fingerprintPlanStrict(planFromStore(storeBeforeCreate, id));
+    }
+    const flagsBeforeCreate = JSON.stringify(storeBeforeCreate.siteContent?.featureFlags || {});
     const siteStamp = await requestJson("GET", "/api/admin/site-content", null, auth);
     const stamp = siteStamp.json.siteContent?.updatedAt;
     const create = await requestJson("POST", "/api/admin/curriculum/resources/tk-printable", {
@@ -764,33 +856,132 @@ async function main() {
     );
     ok([401, 403, 404].includes(publicFile.status), `public/customer draft file blocked (${publicFile.status})`);
 
-    const after = await requestJson("GET", "/api/admin/site-content", null, auth);
-    const plans = after.json?.siteContent?.curriculum?.lessonPlans || [];
-    const flagsAfter = after.json?.siteContent?.featureFlags || {};
-    const fixtureAfter = plans.find((p) => p.id === FIXTURE);
+    const storeAfterCreate = readStoreFile();
+    const curriculumAfter = curriculumFromStore(storeAfterCreate);
+    const fixtureAfter = planFromStore(storeAfterCreate, FIXTURE);
     ok(fixtureAfter?.status === "draft", "fixture lesson remains draft (not published)");
     ok(
       Array.isArray(fixtureAfter?.resourceIds) && fixtureAfter.resourceIds.includes(resourceId),
       "draft printable linked to disposable lesson",
     );
+    const resourceAfter = (curriculumAfter.resources || []).find((r) => r.id === resourceId);
+    ok(resourceAfter?.status === "draft", "created resource remains draft in store file");
 
+    // Strict protected-plan fingerprints from on-disk store — no scrubbed fields.
     for (const id of [AAM, APPLES, FARM]) {
-      const plan = plans.find((p) => p.id === id);
-      ok(plan, `${id}: protected plan still present`);
-      ok(fingerprintProtectedPlan(plan) === protectedBefore[id], `${id}: content fingerprint unchanged`);
+      const plan = planFromStore(storeAfterCreate, id);
+      ok(plan, `${id}: protected plan still present in store file`);
+      ok(
+        fingerprintPlanStrict(plan) === protectedFpBeforeCreate[id],
+        `${id}: strict store fingerprint unchanged after printable create`,
+      );
+      ok(
+        JSON.stringify(collectSetupMinutes(plan)) === JSON.stringify(setupMinutesBefore[id]),
+        `${id}: setupMinutes values unchanged (null/missing/0/positive/string)`,
+      );
     }
-    for (const key of Object.keys(flagsBefore)) {
-      ok(flagsAfter[key] === false, `customer flag ${key} unchanged (false)`);
+    ok(
+      JSON.stringify(storeAfterCreate.siteContent?.featureFlags || {}) === flagsBeforeCreate,
+      "feature flags byte-for-byte unchanged after printable create",
+    );
+
+    // Complete curriculum before/after diff: only fixture lesson + new resource may change.
+    const beforePlans = curriculumFromStore(storeBeforeCreate).lessonPlans || [];
+    const afterPlans = curriculumAfter.lessonPlans || [];
+    const beforeById = new Map(beforePlans.map((p) => [p.id, p]));
+    const changedPlanIds = afterPlans
+      .filter((p) => fingerprintPlanStrict(p) !== fingerprintPlanStrict(beforeById.get(p.id)))
+      .map((p) => p.id);
+    ok(
+      changedPlanIds.length === 1 && changedPlanIds[0] === FIXTURE,
+      `only disposable fixture lesson changed after printable create (${changedPlanIds.join(",") || "none"})`,
+    );
+    const beforeResIds = new Set((curriculumFromStore(storeBeforeCreate).resources || []).map((r) => r.id));
+    const afterResIds = (curriculumAfter.resources || []).map((r) => r.id);
+    const addedRes = afterResIds.filter((id) => !beforeResIds.has(id));
+    ok(addedRes.length === 1 && addedRes[0] === resourceId, "only the new draft printable resource was added");
+    ok(
+      JSON.stringify(curriculumFromStore(storeBeforeCreate).activities || [])
+        === JSON.stringify(curriculumAfter.activities || []),
+      "activities array unchanged after printable create",
+    );
+
+    // Disposable Teaching Kit draft save — only that lesson's enrichmentDraft may change.
+    const storeBeforeDraft = readStoreFile();
+    const draftStamp = storeBeforeDraft.siteContent?.updatedAt;
+    const fixtureBeforeDraft = planFromStore(storeBeforeDraft, FIXTURE);
+    const draftSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      saveMode: "enrichment_draft",
+      expectedUpdatedAt: draftStamp,
+      lessonPlan: {
+        id: FIXTURE,
+        enrichmentDraft: {
+          ...(fixtureBeforeDraft.enrichmentDraft || {}),
+          week: {
+            ...((fixtureBeforeDraft.enrichmentDraft || {}).week || {}),
+            weeklyOverview: "Fixture week overview (draft save regression)",
+          },
+          updatedAt: new Date().toISOString(),
+          lastEditedBy: OWNER.email,
+        },
+      },
+    }, auth);
+    ok(draftSave.status === 200, `owner enrichment draft save (${draftSave.status})`);
+    const storeAfterDraft = readStoreFile();
+    for (const id of [AAM, APPLES, FARM]) {
+      ok(
+        fingerprintPlanStrict(planFromStore(storeAfterDraft, id))
+          === fingerprintPlanStrict(planFromStore(storeBeforeDraft, id)),
+        `${id}: unchanged after disposable Teaching Kit draft save`,
+      );
     }
+    ok(
+      JSON.stringify(storeAfterDraft.siteContent?.featureFlags || {}) === flagsBeforeCreate,
+      "feature flags byte-for-byte unchanged after Teaching Kit draft save",
+    );
+    const fixtureDraftAfter = planFromStore(storeAfterDraft, FIXTURE);
+    ok(
+      fixtureDraftAfter?.enrichmentDraft?.week?.weeklyOverview === "Fixture week overview (draft save regression)",
+      "disposable lesson enrichment draft updated",
+    );
+    ok(
+      JSON.stringify(fixtureDraftAfter?.dailyPlans || {}) === JSON.stringify(fixtureBeforeDraft?.dailyPlans || {}),
+      "disposable lesson published dailyPlans unchanged by draft save",
+    );
+    ok(fixtureDraftAfter?.status === "draft", "draft save does not publish fixture lesson");
+    ok(
+      (curriculumFromStore(storeAfterDraft).resources || []).every((r) => r.status !== "published" || r.id !== resourceId),
+      "draft printable was not published by draft save",
+    );
 
     // Preserve structured printable ideas through save/refresh on disposable fixture only.
-    const ideas = fixtureAfter?.enrichmentDraft?.week?.printableIdeas || [];
+    const ideas = fixtureDraftAfter?.enrichmentDraft?.week?.printableIdeas || [];
     ok(ideas.some((idea) => idea && typeof idea === "object" && idea.title === "Fixture Color Sort Pack" && idea.pageCount === 4),
       "structured printable idea properties survive store refresh");
     ok(ideas.some((idea) => (
       (typeof idea === "string" && idea.includes("Legacy string"))
       || (idea && idea.title === "Legacy string printable idea")
     )), "legacy printable idea still present after refresh");
+
+    // Report store diff summary for the PR.
+    const diffReport = {
+      protectedFingerprintsBefore: protectedBefore,
+      protectedFingerprintsAfterCreate: Object.fromEntries(
+        [AAM, APPLES, FARM].map((id) => [id, fingerprintPlanStrict(planFromStore(storeAfterCreate, id))]),
+      ),
+      changedPlanIdsAfterPrintableCreate: changedPlanIds,
+      addedResourceIds: addedRes,
+      featureFlagsBefore: flagsBefore,
+      featureFlagsAfter: storeAfterDraft.siteContent?.featureFlags || {},
+      farmSetupMinutesBefore: setupMinutesBefore[FARM],
+      farmSetupMinutesAfter: collectSetupMinutes(planFromStore(storeAfterDraft, FARM)),
+    };
+    fs.mkdirSync("/opt/cursor/artifacts/tk-editor-open-focus", { recursive: true });
+    fs.writeFileSync(
+      "/opt/cursor/artifacts/tk-editor-open-focus/store-preservation-diff.json",
+      JSON.stringify(diffReport, null, 2),
+    );
+    ok(true, "wrote store-preservation-diff.json artifact");
 
     console.log(`\nPASS ${passed} checks`);
   } catch (error) {

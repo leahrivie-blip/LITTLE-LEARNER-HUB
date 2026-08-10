@@ -10117,7 +10117,14 @@ async function openOwnerTeachingKitEditor(planId, options = {}) {
   }
 }
 
-function openAdminCurriculumLessonEditor(id, { scroll = false, forceClassic = false, button = null } = {}) {
+function openAdminCurriculumLessonEditor(id, options = {}) {
+  const scroll = options.scroll === true;
+  const button = options.button && options.button.nodeType === 1 ? options.button : null;
+  // forceClassic is owner-session only. Ignore customer-controlled sources
+  // (query/body/localStorage/forged email/role) — only the authenticated owner client gate counts.
+  const forceClassic = options.forceClassic === true
+    && typeof isTeachingKitPrintableOwnerClient === "function"
+    && isTeachingKitPrintableOwnerClient() === true;
   if (forceClassic) {
     if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
     adminCurriculumLessonEditorId = id;
