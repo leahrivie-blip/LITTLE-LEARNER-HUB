@@ -1,12 +1,12 @@
-const CACHE_NAME = "llh-shell-v199-tk-binder-pdf-fix-r5";
-const SHELL_VERSION = "20260809-tk-binder-pdf-fix-r5";
+const CACHE_NAME = "llh-shell-v200-upgrade-lesson-open-fix-r1";
+const SHELL_VERSION = "20260810-upgrade-lesson-open-fix-r1";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260808-cookie-cta",
+  "/styles.css?v=20260810-upgrade-lesson-open-fix-r1",
   "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260808-cookie-cta",
