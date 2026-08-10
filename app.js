@@ -551,6 +551,25 @@ let hdhAiDraftState = {
   notes: "",
   lastOutput: "",
   editing: false,
+  fields: [],
+  structuredMeta: null,
+};
+/** Wave 3 — structured Form Builder working draft (provider templates only). */
+let formBuilderState = {
+  open: false,
+  templateId: "",
+  title: "",
+  category: "Other",
+  body: "",
+  fields: [],
+  requiresSignature: true,
+  originTemplateId: "",
+  mode: "create", // create | edit | customize
+  previewOpen: false,
+};
+let templateLibraryState = {
+  query: "",
+  category: "all",
 };
 /** Phase 9 — pending end-of-day / daily-report AI draft awaiting review-before-save. */
 let dlcAiReviewState = null;
@@ -8383,7 +8402,7 @@ function buildHomeDaycareAiFormDraftData(packForm, child, notes) {
     formType: packForm.title,
     program: programName || "Your home daycare",
     programName: programName || "Your home daycare",
-    purpose: `${packForm.description} Fill only facts provided. Leave blanks for missing information. Include a short reminder to check state licensing requirements.`,
+    purpose: `${packForm.description} Fill only facts provided. Leave blanks for missing information. Include a short reminder to check state licensing requirements. Also propose structured fillable fields.`,
     fieldsNeeded: "Program name, child name, parent/guardian name, date, required form fields, notes, parent signature, provider signature",
     childName: childName || "",
     age: ageGroup || "Mixed Ages",
@@ -8397,6 +8416,12 @@ function buildHomeDaycareAiFormDraftData(packForm, child, notes) {
       "",
       "Blank template reference (keep structure; fill only known facts):",
       templateExcerpt || packForm.title,
+      "",
+      "After the readable form text, append a fenced JSON block with this shape (template draft only — do NOT invent childIds, householdIds, or staff emails):",
+      '```json',
+      '{"title":"...","category":"...","bodyText":"plain instructions","requiresSignature":true,"fields":[{"id":"fld_1","type":"short_text|long_text|number|date|time|checkbox|yes_no|radio|dropdown|initials|signature|file|info","label":"...","helpText":"","required":true,"options":[{"label":"Option 1"},{"label":"Option 2"}],"order":0}]}',
+      "```",
+      "Allowed field types only. Radio/dropdown need at least 2 options. Unique field ids. Humans will review before any save.",
     ].join("\n"),
     date: today,
     childExplicitlySelected: Boolean(child),
@@ -8465,14 +8490,34 @@ async function runHomeDaycareAiFormDraft({ draftAction = "" } = {}) {
       if (hintEl) hintEl.textContent = "Local template draft ready. Edit before saving or printing. AI backend was not used.";
     }
     if (!output) throw new Error("We couldn't create your form draft. Please try again.");
-    hdhAiDraftState.lastOutput = output;
-    outputEl.innerHTML = renderMarkdown(output);
+    const api = getFormBuilderApi();
+    const extracted = api?.extractStructuredDraftFromAiText(output) || { bodyText: output, fields: [], meta: {} };
+    let safeFields = [];
+    try {
+      safeFields = api ? api.normalizeFormFields(extracted.fields || []) : (extracted.fields || []);
+    } catch (_error) {
+      safeFields = [];
+    }
+    hdhAiDraftState.fields = safeFields;
+    hdhAiDraftState.structuredMeta = extracted.meta || null;
+    hdhAiDraftState.lastOutput = extracted.bodyText || output;
+    outputEl.innerHTML = renderMarkdown(hdhAiDraftState.lastOutput);
+    if (safeFields.length) {
+      const fieldSummary = document.createElement("div");
+      fieldSummary.className = "hdh-ai-structured-fields";
+      fieldSummary.setAttribute("data-ai-structured-fields", "true");
+      fieldSummary.innerHTML = `<p class="form-note"><strong>${safeFields.length} structured field${safeFields.length === 1 ? "" : "s"}</strong> proposed — editable in Save as template / Form Builder after review. AI did not save or assign anything.</p>
+        <ul class="muted-copy">${safeFields.slice(0, 12).map((field) => `<li>${escapeHtml(field.label || field.id)} · ${escapeHtml(field.type)}${field.required ? " · required" : ""}</li>`).join("")}</ul>`;
+      outputEl.after(fieldSummary);
+    } else {
+      document.querySelector("[data-ai-structured-fields]")?.remove();
+    }
     if (hintEl && !/local template|unavailable/i.test(hintEl.textContent || "")) {
       hintEl.textContent = child
         ? `Draft ready for ${child.name}. Review and edit before saving. Nothing is sent to families yet.`
         : "Draft ready. Choose a child before saving to a file. Nothing is sent to families yet.";
     }
-    trackEvent("ai_generation_success", { tool: "home-daycare-form-draft", form: packForm.id, plan: currentPlan, draftAction: draftAction || "create" });
+    trackEvent("ai_generation_success", { tool: "home-daycare-form-draft", form: packForm.id, plan: currentPlan, draftAction: draftAction || "create", structuredFields: safeFields.length });
   } catch (error) {
     if (previousOutput) {
       hdhAiDraftState.lastOutput = previousOutput;
@@ -8548,6 +8593,7 @@ function saveHomeDaycareAiFormDraftToChild() {
     statusLabel: homeDaycarePackDocumentStatusLabel("draft"),
     notes: "AI-assisted draft. Review for accuracy and licensing before sharing with families.",
     draftText,
+    fields: Array.isArray(hdhAiDraftState.fields) ? hdhAiDraftState.fields.map((field, index) => ({ ...field, order: index })) : [],
     // Phase 9 — private until explicit Share with Family Hub.
     shareWithFamily: false,
     providerReviewed: true,
@@ -8785,6 +8831,10 @@ async function duplicateFormTemplate(templateId) {
     title: `${String(source.title || "Custom form").trim()} (copy)`,
     sourceType: "provider",
     originTemplateId: source.id || source.originTemplateId || "",
+    fields: Array.isArray(source.fields) ? source.fields.map((field, index) => ({ ...field, order: index })) : [],
+    body: source.body || source.bodyText || "",
+    bodyText: source.body || source.bodyText || "",
+    contentVersion: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -8806,21 +8856,51 @@ async function duplicateFormTemplate(templateId) {
   return copy;
 }
 
-async function saveAiFormAsProgramTemplate({ title, category, body, packFormId = "", resourceId = "" } = {}) {
+async function saveAiFormAsProgramTemplate({
+  title,
+  category,
+  body,
+  fields = [],
+  packFormId = "",
+  resourceId = "",
+  requiresSignature = true,
+} = {}) {
+  // Phase 9 / Wave 3 — Save as Template MUST use the same review acknowledgment.
+  const reviewAck = document.querySelector("#hdhAiReviewAck");
+  if (!reviewAck?.checked) {
+    throw new Error("Review this AI draft before saving it as a template.");
+  }
   const text = String(body || "").trim();
-  if (!text) throw new Error("Generate or edit a draft before saving a template.");
+  const fieldList = Array.isArray(fields) ? fields : (hdhAiDraftState.fields || []);
+  if (!text && !fieldList.length) throw new Error("Generate or edit a draft before saving a template.");
+  const api = getFormBuilderApi();
+  let normalizedFields = fieldList;
+  if (api) {
+    try {
+      normalizedFields = api.normalizeFormFields(fieldList);
+    } catch (error) {
+      throw new Error(error.message || "AI fields failed validation.");
+    }
+  }
   const template = {
     id: `form-template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    title: String(title || "Custom form").trim() || "Custom form",
-    category: String(category || "Other").trim() || "Other",
+    title: String(title || hdhAiDraftState.structuredMeta?.title || "Custom form").trim() || "Custom form",
+    category: String(category || hdhAiDraftState.structuredMeta?.category || "Other").trim() || "Other",
     body: text,
+    bodyText: text,
+    fields: normalizedFields,
     packFormId: String(packFormId || "").trim(),
     resourceId: String(resourceId || "").trim(),
     sourceType: "provider",
+    requiresSignature: requiresSignature !== false,
     bodyHash: hashFormBodyClient(text),
     contentVersion: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    aiGenerated: true,
+    aiReviewedBeforeSave: true,
+    reviewAcknowledged: true,
+    reviewAcknowledgedAt: new Date().toISOString(),
   };
   if (canUseLaunchBackend()) {
     const headers = await staffAuthHeaders();
@@ -9064,6 +9144,10 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
   const shareWithFamily = formSpec.shareWithFamily !== false;
   const status = shareWithFamily ? "notified" : "assigned";
   const now = new Date().toISOString();
+  // Snapshot fields onto the assignment — later template edits must not mutate this copy.
+  const fieldSnapshot = Array.isArray(formSpec.fields)
+    ? formSpec.fields.map((field, index) => ({ ...field, order: index }))
+    : [];
   const saved = appendChildRecord("Documents", {
     childId,
     title,
@@ -9075,6 +9159,8 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     statusLabel: homeDaycarePackDocumentStatusLabel(status),
     notes: String(formSpec.notes || "").trim(),
     draftText,
+    fields: fieldSnapshot,
+    fieldSchemaVersion: fieldSnapshot.length ? 1 : undefined,
     bodyHash,
     contentVersion: 1,
     dueDate,
@@ -9808,42 +9894,214 @@ function renderStaffProfilePaperworkPanel(selectedEmail = "") {
   `;
 }
 
-function renderProgramFormTemplatesPanel() {
+function getFormBuilderApi() {
+  return (typeof window !== "undefined" && window.LlhFormBuilder)
+    || (typeof globalThis !== "undefined" && globalThis.LlhFormBuilder)
+    || null;
+}
+
+function listSystemFormsForLibrary() {
+  try {
+    if (typeof formGroups !== "object" || !formGroups) return [];
+    return Object.entries(formGroups).flatMap(([group, forms]) => (
+      (Array.isArray(forms) ? forms : []).slice(0, 40).map((form, index) => ({
+        id: form.id || `system-${group}-${index}`,
+        title: form.title || form.name || "Form",
+        group,
+        category: group,
+        description: form.description || "",
+      }))
+    )).slice(0, 80);
+  } catch (_error) {
+    return [];
+  }
+}
+
+function openFormBuilderFromTemplate(template, mode = "edit") {
+  const api = getFormBuilderApi();
+  const fields = Array.isArray(template?.fields)
+    ? (api ? api.normalizeFormFields(template.fields) : template.fields)
+    : [];
+  formBuilderState = {
+    open: true,
+    templateId: mode === "customize" || mode === "create" ? "" : String(template?.id || ""),
+    title: String(template?.title || "Custom form"),
+    category: String(template?.category || "Other"),
+    body: String(template?.body || template?.bodyText || ""),
+    fields: fields.map((field, index) => ({ ...field, order: index })),
+    requiresSignature: template?.requiresSignature !== false,
+    originTemplateId: mode === "customize"
+      ? String(template?.id || template?.originTemplateId || "")
+      : String(template?.originTemplateId || ""),
+    mode,
+    previewOpen: false,
+  };
+}
+
+function renderFormBuilderFieldEditor(field, index) {
+  const api = getFormBuilderApi();
+  const typeLabel = api?.fieldTypeLabel(field.type) || field.type;
+  const needsOptions = field.type === "radio" || field.type === "dropdown";
+  const optionsText = (field.options || []).map((opt) => opt.label || opt.value || "").join("\n");
+  return `
+    <article class="fb-field-card" data-fb-field-id="${escapeHtml(field.id)}" data-fb-field-index="${index}">
+      <div class="fb-field-card-head">
+        <strong>${escapeHtml(typeLabel)}</strong>
+        <span class="muted-copy">#${index + 1}</span>
+      </div>
+      <div class="form-grid-two">
+        <label>Label
+          <input type="text" maxlength="200" data-fb-field-prop="label" data-fb-field-id="${escapeHtml(field.id)}" value="${escapeHtml(field.label || "")}" autocomplete="off" />
+        </label>
+        <label class="settings-check-label fb-required-check">
+          <input type="checkbox" data-fb-field-prop="required" data-fb-field-id="${escapeHtml(field.id)}" ${field.required ? "checked" : ""} ${field.type === "info" || field.type === "file" ? "disabled" : ""} />
+          Required
+        </label>
+      </div>
+      <label>Help text
+        <input type="text" maxlength="500" data-fb-field-prop="helpText" data-fb-field-id="${escapeHtml(field.id)}" value="${escapeHtml(field.helpText || "")}" autocomplete="off" />
+      </label>
+      ${needsOptions ? `
+        <label>Options (one per line)
+          <textarea rows="3" data-fb-field-prop="optionsText" data-fb-field-id="${escapeHtml(field.id)}" maxlength="2000">${escapeHtml(optionsText)}</textarea>
+        </label>
+      ` : ""}
+      <div class="hdh-forms-pack-actions">
+        <button class="ghost-button" type="button" data-fb-move-up="${escapeHtml(field.id)}" ${index === 0 ? "disabled" : ""}>Move up</button>
+        <button class="ghost-button" type="button" data-fb-move-down="${escapeHtml(field.id)}">Move down</button>
+        <button class="ghost-button" type="button" data-fb-delete-field="${escapeHtml(field.id)}">Delete field</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderFormBuilderPanel() {
+  if (!isHomeDaycareHubTestingEnabled() || !formBuilderState.open) return "";
+  const api = getFormBuilderApi();
+  const types = api?.fieldsLib?.FIELD_TYPES || [
+    "info", "short_text", "long_text", "number", "date", "time",
+    "checkbox", "yes_no", "radio", "dropdown", "initials", "signature", "file",
+  ];
+  const preview = formBuilderState.previewOpen && api
+    ? api.renderPreviewHtml({
+      title: formBuilderState.title,
+      body: formBuilderState.body,
+      fields: formBuilderState.fields,
+      requiresSignature: formBuilderState.requiresSignature,
+    }, { escape: escapeHtml })
+    : "";
+  return `
+    <section class="section-block form-builder-panel" id="hdhFormBuilderPanel" data-form-builder="true">
+      <p class="eyebrow">Structured Form Builder</p>
+      <h3>${formBuilderState.mode === "create" ? "Create form" : formBuilderState.mode === "customize" ? "Customize copy" : "Edit template"}</h3>
+      <p class="muted-copy">Add fields with labels and options — no JSON. Assigned forms keep their own snapshot when you change a template later.</p>
+      <form id="formBuilderMetaForm" class="panel-form" data-form-builder-meta="true" onsubmit="return false;">
+        <div class="form-grid-two">
+          <label>Title
+            <input name="title" data-fb-meta="title" maxlength="160" required value="${escapeHtml(formBuilderState.title || "")}" autocomplete="off" />
+          </label>
+          <label>Category
+            <select name="category" data-fb-meta="category">
+              ${HOME_DAYCARE_FORM_CATEGORIES.map((category) => `
+                <option value="${escapeHtml(category)}" ${formBuilderState.category === category ? "selected" : ""}>${escapeHtml(category)}</option>
+              `).join("")}
+            </select>
+          </label>
+        </div>
+        <label>Instructions / body text (optional — works with or without fields)
+          <textarea name="body" data-fb-meta="body" rows="5" maxlength="12000">${escapeHtml(formBuilderState.body || "")}</textarea>
+        </label>
+        <label class="settings-check-label">
+          <input type="checkbox" data-fb-meta="requiresSignature" ${formBuilderState.requiresSignature ? "checked" : ""} />
+          Signature required
+        </label>
+      </form>
+      <div class="fb-add-field-row">
+        <label>Add field
+          <select id="fbAddFieldType">
+            ${types.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(api?.fieldTypeLabel(type) || type)}</option>`).join("")}
+          </select>
+        </label>
+        <button class="primary-button" type="button" data-fb-add-field>Add field</button>
+      </div>
+      <div class="fb-field-list" data-fb-field-list>
+        ${formBuilderState.fields.length
+          ? formBuilderState.fields.map((field, index) => renderFormBuilderFieldEditor(field, index)).join("")
+          : `<p class="muted-copy">No structured fields yet — body-only templates still work. Add fields when you need fillable answers.</p>`}
+      </div>
+      <div class="account-actions-row" style="margin-top:14px;">
+        <button class="primary-button" type="button" data-fb-save>Save my template</button>
+        <button class="ghost-button" type="button" data-fb-preview>${formBuilderState.previewOpen ? "Hide preview" : "Preview"}</button>
+        <button class="ghost-button" type="button" data-fb-close>Close builder</button>
+      </div>
+      <p class="form-note">Dirty-state protected: typing is kept even if the hub refreshes. Preview never saves or assigns.</p>
+      ${preview}
+    </section>
+  `;
+}
+
+function renderUnifiedTemplateLibraryPanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
-  const templates = formsProgramTemplates();
+  const api = getFormBuilderApi();
+  const isCenter = getAccountType() === ACCOUNT_TYPES.CENTER;
+  const providerTemplates = formsProgramTemplates();
+  const rows = api
+    ? api.buildUnifiedTemplateLibrary({
+      providerTemplates,
+      starterPack: HOME_DAYCARE_FORMS_PACK,
+      systemForms: listSystemFormsForLibrary(),
+      query: templateLibraryState.query,
+      category: templateLibraryState.category,
+      accountType: getAccountType(),
+    })
+    : providerTemplates.map((tpl) => ({ ...tpl, sourceKind: "my_templates", canEdit: true, canDuplicate: true }));
+  const categories = api?.LIBRARY_CATEGORIES || [];
   const children = (childRecords().children || []).filter((child) => !child.archived);
   return `
-    <section class="section-block" id="hdhFormTemplatesPanel">
-      <p class="eyebrow">Templates</p>
-      <h3>Program form templates</h3>
-      <p class="muted-copy">Save AI drafts as reusable templates, then assign them to children and notify Family Hub in one step. Editing a template updates future assignments only — forms already sent keep their saved copy.</p>
-      ${templates.length
-        ? templates.map((template) => `
-          <article class="hdh-forms-pack-item">
+    <section class="section-block" id="hdhFormTemplatesPanel" data-template-library="true" data-account-type="${escapeHtml(getAccountType())}">
+      <p class="eyebrow">Template Library</p>
+      <h3>Forms you can reuse</h3>
+      <p class="muted-copy">${isCenter
+        ? "One library for your program — My Templates, starter pack, and system forms. Duplicate a starter to customize; originals stay read-only."
+        : "Simple template library for your home daycare. Start from a starter pack or your saved templates — no need to track where each one came from."}</p>
+      <div class="account-actions-row" style="margin-bottom:12px;">
+        <button class="primary-button" type="button" data-fb-create>Create form</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
+      </div>
+      <form class="hdh-forms-filters template-library-filters" data-template-library-filters="true" onsubmit="return false;">
+        <label>Search
+          <input type="search" name="query" data-template-library-filter="query" value="${escapeHtml(templateLibraryState.query || "")}" placeholder="Search templates…" autocomplete="off" />
+        </label>
+        <label>Category
+          <select name="category" data-template-library-filter="category">
+            <option value="all" ${templateLibraryState.category === "all" ? "selected" : ""}>All</option>
+            ${categories.map((cat) => `
+              <option value="${escapeHtml(cat.id)}" ${templateLibraryState.category === cat.id ? "selected" : ""}>${escapeHtml(cat.label)}</option>
+            `).join("")}
+          </select>
+        </label>
+      </form>
+      ${rows.length
+        ? rows.map((template) => {
+          const isMine = template.sourceKind === "my_templates" || template.sourceType === "provider";
+          const sourceBadge = isMine ? "My template" : (template.sourceKind === "starter" ? "Starter" : "System");
+          return `
+          <article class="hdh-forms-pack-item" data-template-id="${escapeHtml(template.id)}" data-source-kind="${escapeHtml(template.sourceKind || "")}">
             <div>
               <strong>${escapeHtml(template.title)}</strong>
-              <p class="muted-copy"><span class="hdh-form-source-badge">Provider template</span> · ${escapeHtml(template.category || "Other")} · saved ${escapeHtml(String(template.updatedAt || template.createdAt || "").slice(0, 10))}</p>
+              <p class="muted-copy"><span class="hdh-form-source-badge">${escapeHtml(sourceBadge)}</span> · ${escapeHtml(template.category || "Other")}${(template.fields || []).length ? ` · ${template.fields.length} fields` : (template.body || template.bodyText) ? " · Text" : ""}${template.updatedAt ? ` · saved ${escapeHtml(String(template.updatedAt).slice(0, 10))}` : ""}</p>
             </div>
             <div class="hdh-forms-pack-actions">
-              <button class="ghost-button" type="button" data-edit-form-template="${escapeHtml(template.id)}">Edit</button>
-              <button class="ghost-button" type="button" data-duplicate-form-template="${escapeHtml(template.id)}">Duplicate</button>
-              <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(template.id)}">Print</button>
-              <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Assign</button>
-              <button class="ghost-button" type="button" data-delete-form-template="${escapeHtml(template.id)}">Remove</button>
+              <button class="ghost-button" type="button" data-preview-library-template="${escapeHtml(template.id)}" data-source-kind="${escapeHtml(template.sourceKind || "")}">Preview</button>
+              ${isMine
+                ? `<button class="ghost-button" type="button" data-edit-form-template="${escapeHtml(template.id)}">Edit</button>
+                   <button class="primary-button" type="button" data-assign-form-template="${escapeHtml(template.id)}">Use / Assign</button>
+                   <button class="ghost-button" type="button" data-duplicate-form-template="${escapeHtml(template.id)}">Duplicate</button>
+                   <button class="ghost-button" type="button" data-archive-form-template="${escapeHtml(template.id)}">Archive</button>`
+                : `<button class="primary-button" type="button" data-customize-library-template="${escapeHtml(template.id)}" data-source-kind="${escapeHtml(template.sourceKind || "")}">Duplicate &amp; customize</button>
+                   ${template.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(template.packFormId)}">Use with AI</button>` : ""}`}
             </div>
-            <form class="panel-form hdh-edit-template-form" data-edit-template-form="${escapeHtml(template.id)}" hidden>
-              <label>Title<input name="title" required maxlength="120" value="${escapeHtml(template.title || "")}" /></label>
-              <label>Category
-                <select name="category">
-                  ${HOME_DAYCARE_FORM_CATEGORIES.map((category) => `
-                    <option value="${escapeHtml(category)}" ${category === (template.category || "Other") ? "selected" : ""}>${escapeHtml(category)}</option>
-                  `).join("")}
-                </select>
-              </label>
-              <label>Form body<textarea name="body" rows="8" required maxlength="12000">${escapeHtml(template.body || "")}</textarea></label>
-              <p class="form-note">Already-assigned child forms keep their original wording. New assigns use this edited body.</p>
-              <button class="primary-button" type="submit">Save template changes</button>
-            </form>
+            ${isMine ? `
             <form class="panel-form hdh-assign-template-form" data-assign-template-form="${escapeHtml(template.id)}" hidden>
               <label>Due date (optional)<input type="date" name="dueDate" /></label>
               <label>Assign to
@@ -9896,12 +10154,18 @@ function renderProgramFormTemplatesPanel() {
               <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Notify Family Hub (child/family assigns)</label>
               <label class="settings-check-label"><input type="checkbox" name="requiresSignature" value="true" checked /> Signature required</label>
               <button class="primary-button" type="submit">Assign &amp; notify</button>
-            </form>
-          </article>
-        `).join("")
-        : `<div class="profile-empty-state"><strong>No program templates yet</strong><p>Generate a form with AI, then tap Save as template. Your custom forms will show here for reuse.</p></div>`}
+            </form>` : ""}
+          </article>`;
+        }).join("")
+        : `<div class="profile-empty-state"><strong>No templates match</strong><p>Try another category, create a form, or generate one with AI and Save as template after review.</p></div>`}
+      ${renderFormBuilderPanel()}
     </section>
   `;
+}
+
+/** Backward-compatible alias — Wave 3 unified library. */
+function renderProgramFormTemplatesPanel() {
+  return renderUnifiedTemplateLibraryPanel();
 }
 
 function childAlreadyHasHomeDaycarePackForm(existingForChild, packForm) {
@@ -40790,14 +41054,19 @@ function renderHomeDaycareHubPage(options = {}) {
       if (!document.querySelector("#view-home-daycare-hub.active-view")) return;
       const active = document.activeElement;
       const hq = document.querySelector("[data-paperwork-hq]");
+      const builder = document.querySelector("[data-form-builder]");
+      const library = document.querySelector("[data-template-library]");
       const typing = Boolean(
-        hq
-        && active
-        && hq.contains(active)
-        && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || ""),
+        active
+        && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || "")
+        && (
+          (hq && hq.contains(active))
+          || (builder && builder.contains(active))
+          || (library && library.contains(active))
+        ),
       );
       if (typing) {
-        refreshPaperworkHqListInPlace();
+        if (hq && hq.contains(active)) refreshPaperworkHqListInPlace();
         return;
       }
       renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
@@ -67370,16 +67639,24 @@ document.addEventListener("click", async (event) => {
     if (!isHomeDaycareHubTestingEnabled()) return;
     const packForm = homeDaycareAiDraftSelectedPackForm();
     const body = readHomeDaycareAiDraftOutputText();
+    const reviewAck = document.querySelector("#hdhAiReviewAck");
+    if (!reviewAck?.checked) {
+      showActionFeedback("Review this AI draft before saving it as a template.");
+      reviewAck?.focus();
+      return;
+    }
     Promise.resolve()
       .then(() => saveAiFormAsProgramTemplate({
-        title: packForm?.title || "Custom form",
-        category: packForm?.category || "Other",
+        title: hdhAiDraftState.structuredMeta?.title || packForm?.title || "Custom form",
+        category: hdhAiDraftState.structuredMeta?.category || packForm?.category || "Other",
         body,
+        fields: hdhAiDraftState.fields || [],
         packFormId: packForm?.id || "",
         resourceId: packForm?.resourceId || "",
+        requiresSignature: hdhAiDraftState.structuredMeta?.requiresSignature !== false,
       }))
       .then((template) => {
-        showActionFeedback(`“${template.title}” saved as a program template. Assign it anytime from Templates.`);
+        showActionFeedback(`“${template.title}” saved as a program template after review. Assign it anytime from the Template Library.`);
         if (document.querySelector("#view-home-daycare-hub.active-view")) {
           renderHomeDaycareHubPage({ refreshHouseholds: false });
           queueMicrotask(() => document.querySelector("#hdhFormTemplatesPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -68161,10 +68438,320 @@ document.addEventListener("click", async (event) => {
   if (editTemplateBtn) {
     event.preventDefault();
     const templateId = editTemplateBtn.dataset.editFormTemplate;
-    const form = document.querySelector(`[data-edit-template-form="${CSS.escape(templateId)}"]`);
-    const assignForm = document.querySelector(`[data-assign-template-form="${CSS.escape(templateId)}"]`);
-    if (assignForm) assignForm.hidden = true;
-    if (form) form.hidden = !form.hidden;
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+    if (!template) {
+      showActionFeedback("Template not found.");
+      return;
+    }
+    openFormBuilderFromTemplate(template, "edit");
+    if (document.querySelector("#view-home-daycare-hub.active-view")) {
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-fb-create]")) {
+    event.preventDefault();
+    openFormBuilderFromTemplate({ title: "Custom form", category: "Other", body: "", fields: [] }, "create");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return;
+  }
+
+  if (event.target.closest("[data-fb-close]")) {
+    event.preventDefault();
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("formBuilder");
+    formBuilderState.open = false;
+    formBuilderState.previewOpen = false;
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-preview]")) {
+    event.preventDefault();
+    formBuilderState.previewOpen = !formBuilderState.previewOpen;
+    const panel = document.querySelector("#hdhFormBuilderPanel");
+    if (window.LlhFormsDirtyState && panel) window.LlhFormsDirtyState.captureFormDrafts(panel, "formBuilder");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    const next = document.querySelector("#hdhFormBuilderPanel");
+    if (window.LlhFormsDirtyState && next) window.LlhFormsDirtyState.restoreFormDrafts(next, "formBuilder");
+    return;
+  }
+
+  if (event.target.closest("[data-fb-add-field]")) {
+    event.preventDefault();
+    const api = getFormBuilderApi();
+    const type = document.querySelector("#fbAddFieldType")?.value || "short_text";
+    const field = api ? api.createEmptyField(type) : { id: `fld_${Date.now()}`, type, label: type, required: true, options: [], order: formBuilderState.fields.length };
+    formBuilderState.fields = [...formBuilderState.fields, { ...field, order: formBuilderState.fields.length }];
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  const deleteFieldBtn = event.target.closest("[data-fb-delete-field]");
+  if (deleteFieldBtn) {
+    event.preventDefault();
+    const id = deleteFieldBtn.getAttribute("data-fb-delete-field");
+    formBuilderState.fields = formBuilderState.fields
+      .filter((field) => String(field.id) !== String(id))
+      .map((field, index) => ({ ...field, order: index }));
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  const moveUpBtn = event.target.closest("[data-fb-move-up]");
+  if (moveUpBtn) {
+    event.preventDefault();
+    const api = getFormBuilderApi();
+    const id = moveUpBtn.getAttribute("data-fb-move-up");
+    const index = formBuilderState.fields.findIndex((field) => String(field.id) === String(id));
+    if (index > 0) {
+      formBuilderState.fields = (api?.reorderFields || ((list, from, to) => {
+        const next = list.slice();
+        const [item] = next.splice(from, 1);
+        next.splice(to, 0, item);
+        return next.map((field, order) => ({ ...field, order }));
+      }))(formBuilderState.fields, index, index - 1);
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    }
+    return;
+  }
+
+  const moveDownBtn = event.target.closest("[data-fb-move-down]");
+  if (moveDownBtn) {
+    event.preventDefault();
+    const api = getFormBuilderApi();
+    const id = moveDownBtn.getAttribute("data-fb-move-down");
+    const index = formBuilderState.fields.findIndex((field) => String(field.id) === String(id));
+    if (index >= 0 && index < formBuilderState.fields.length - 1) {
+      formBuilderState.fields = (api?.reorderFields || ((list, from, to) => {
+        const next = list.slice();
+        const [item] = next.splice(from, 1);
+        next.splice(to, 0, item);
+        return next.map((field, order) => ({ ...field, order }));
+      }))(formBuilderState.fields, index, index + 1);
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-fb-save]")) {
+    event.preventDefault();
+    const role = getUserRole();
+    if (role === USER_ROLES.ASSISTANT) {
+      showActionFeedback("Assistants cannot manage form templates.");
+      return;
+    }
+    const api = getFormBuilderApi();
+    let fields = formBuilderState.fields;
+    try {
+      fields = api ? api.normalizeFormFields(fields) : fields;
+    } catch (error) {
+      showActionFeedback(error.message || "Fix field validation errors before saving.");
+      return;
+    }
+    if (!String(formBuilderState.title || "").trim()) {
+      showActionFeedback("Add a title before saving.");
+      return;
+    }
+    if (!String(formBuilderState.body || "").trim() && !fields.length) {
+      showActionFeedback("Add instructions or at least one field.");
+      return;
+    }
+    const payload = {
+      id: formBuilderState.templateId || undefined,
+      title: formBuilderState.title,
+      category: formBuilderState.category,
+      body: formBuilderState.body,
+      bodyText: formBuilderState.body,
+      fields,
+      requiresSignature: formBuilderState.requiresSignature !== false,
+      sourceType: "provider",
+      originTemplateId: formBuilderState.originTemplateId || "",
+      contentVersion: 1,
+    };
+    Promise.resolve()
+      .then(async () => {
+        if (canUseLaunchBackend()) {
+          const headers = await staffAuthHeaders();
+          if (!headers) throw new Error("Sign in to save templates.");
+          const response = await fetch("/api/program-forms/templates", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data?.error || "Could not save template.");
+          await ensureProgramFormsLoaded({ force: true });
+          return data.template;
+        }
+        const list = formsProgramTemplates();
+        const id = payload.id || `form-template-${Date.now().toString(36)}`;
+        const saved = { ...payload, id, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() };
+        const next = [saved, ...list.filter((item) => String(item.id) !== String(id))].slice(0, 80);
+        await saveFormsProgramTemplates(next);
+        return saved;
+      })
+      .then((saved) => {
+        if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("formBuilder");
+        formBuilderState.open = false;
+        formBuilderState.previewOpen = false;
+        showActionFeedback(`“${saved.title}” saved to your Template Library.`);
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not save template."));
+    return;
+  }
+
+  const customizeBtn = event.target.closest("[data-customize-library-template]");
+  if (customizeBtn) {
+    event.preventDefault();
+    const id = customizeBtn.getAttribute("data-customize-library-template");
+    const kind = customizeBtn.getAttribute("data-source-kind");
+    let source = formsProgramTemplates().find((item) => String(item.id) === String(id));
+    if (!source && kind === "starter") {
+      const pack = HOME_DAYCARE_FORMS_PACK.find((item) => String(item.id) === String(id));
+      source = pack
+        ? {
+          id: pack.id,
+          title: pack.title,
+          category: pack.category,
+          body: `${pack.title}\n\n${pack.description || ""}\n\nParent signature: __________\nDate: __________`,
+          fields: [],
+          sourceType: "starter",
+          packFormId: pack.id,
+          resourceId: pack.resourceId || "",
+        }
+        : null;
+    }
+    if (!source && kind === "system") {
+      const sys = listSystemFormsForLibrary().find((item) => String(item.id) === String(id));
+      source = sys
+        ? {
+          id: sys.id,
+          title: sys.title,
+          category: sys.category || "System",
+          body: sys.description || sys.title,
+          fields: [],
+          sourceType: "system",
+          resourceId: sys.id,
+        }
+        : null;
+    }
+    if (!source) {
+      showActionFeedback("Template not found.");
+      return;
+    }
+    Promise.resolve()
+      .then(async () => {
+        if (canUseLaunchBackend()) {
+          const headers = await staffAuthHeaders();
+          if (!headers) throw new Error("Sign in to customize templates.");
+          const response = await fetch("/api/program-forms/templates/duplicate", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ template: source, templateId: source.id }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data?.error || "Could not duplicate template.");
+          await ensureProgramFormsLoaded({ force: true });
+          return data.template;
+        }
+        return duplicateFormTemplate(source.id).catch(async () => {
+          const copy = {
+            ...source,
+            id: `form-template-${Date.now().toString(36)}`,
+            sourceType: "provider",
+            originTemplateId: source.id,
+            title: `${source.title} (copy)`,
+          };
+          await saveFormsProgramTemplates([copy, ...formsProgramTemplates()].slice(0, 80));
+          return copy;
+        });
+      })
+      .then((copy) => {
+        openFormBuilderFromTemplate(copy, "edit");
+        showActionFeedback(`Editable copy created. Original “${source.title}” was not changed.`);
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+        queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not customize template."));
+    return;
+  }
+
+  const previewLibraryBtn = event.target.closest("[data-preview-library-template]");
+  if (previewLibraryBtn) {
+    event.preventDefault();
+    const id = previewLibraryBtn.getAttribute("data-preview-library-template");
+    const kind = previewLibraryBtn.getAttribute("data-source-kind");
+    let template = formsProgramTemplates().find((item) => String(item.id) === String(id));
+    if (!template && kind === "starter") {
+      const pack = HOME_DAYCARE_FORMS_PACK.find((item) => String(item.id) === String(id));
+      template = pack
+        ? { title: pack.title, body: pack.description || pack.title, fields: [], requiresSignature: true }
+        : null;
+    }
+    if (!template) {
+      showActionFeedback("Template not found.");
+      return;
+    }
+    const api = getFormBuilderApi();
+    const html = api
+      ? api.renderPreviewHtml(template, { escape: escapeHtml })
+      : `<pre>${escapeHtml(template.body || "")}</pre>`;
+    const host = document.querySelector("[data-template-library]") || document.querySelector("#hdhFormTemplatesPanel");
+    let previewHost = document.querySelector("[data-library-preview-host]");
+    if (!previewHost && host) {
+      previewHost = document.createElement("div");
+      previewHost.setAttribute("data-library-preview-host", "true");
+      host.appendChild(previewHost);
+    }
+    if (previewHost) {
+      previewHost.innerHTML = `${html}<div class="account-actions-row"><button class="ghost-button" type="button" data-close-library-preview>Close preview</button></div>`;
+      previewHost.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-close-library-preview]")) {
+    event.preventDefault();
+    document.querySelector("[data-library-preview-host]")?.remove();
+    return;
+  }
+
+  const archiveTemplateBtn = event.target.closest("[data-archive-form-template]");
+  if (archiveTemplateBtn) {
+    event.preventDefault();
+    const templateId = archiveTemplateBtn.dataset.archiveFormTemplate;
+    const template = formsProgramTemplates().find((item) => String(item.id) === String(templateId));
+    if (!template) return;
+    Promise.resolve()
+      .then(async () => {
+        if (canUseLaunchBackend()) {
+          const headers = await staffAuthHeaders();
+          if (!headers) throw new Error("Sign in to archive templates.");
+          const response = await fetch("/api/program-forms/templates", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ ...template, archived: true }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data?.error || "Could not archive template.");
+          await ensureProgramFormsLoaded({ force: true });
+          return;
+        }
+        const next = formsProgramTemplates().map((item) => (
+          String(item.id) === String(templateId) ? { ...item, archived: true } : item
+        ));
+        await saveFormsProgramTemplates(next);
+      })
+      .then(() => {
+        showActionFeedback("Template archived.");
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      })
+      .catch((error) => showActionFeedback(error.message || "Could not archive template."));
     return;
   }
 
@@ -72550,6 +73137,61 @@ document.addEventListener("input", (event) => {
       window.__llhPaperworkFilterTimer = window.setTimeout(() => {
         refreshPaperworkHqListInPlace();
       }, 120);
+    }
+  }
+  if (event.target.matches("[data-template-library-filter]")) {
+    const key = event.target.getAttribute("data-template-library-filter");
+    if (key === "query" || key === "category") {
+      templateLibraryState[key] = event.target.value;
+      if (window.LlhFormsDirtyState) {
+        window.LlhFormsDirtyState.touch("templateLibraryFilters", key, event.target.value);
+      }
+      window.clearTimeout(window.__llhTemplateLibraryFilterTimer);
+      window.__llhTemplateLibraryFilterTimer = window.setTimeout(() => {
+        const active = document.activeElement;
+        const typing = Boolean(active && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || ""));
+        const selStart = active?.selectionStart;
+        const selEnd = active?.selectionEnd;
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+        if (typing && key === "query") {
+          const next = document.querySelector('[data-template-library-filter="query"]');
+          if (next) {
+            next.focus();
+            try { next.setSelectionRange(selStart, selEnd); } catch (_e) { /* ignore */ }
+          }
+        }
+      }, 140);
+    }
+  }
+  if (event.target.matches("[data-fb-meta]")) {
+    const key = event.target.getAttribute("data-fb-meta");
+    const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    if (key === "title") formBuilderState.title = value;
+    if (key === "category") formBuilderState.category = value;
+    if (key === "body") formBuilderState.body = value;
+    if (key === "requiresSignature") formBuilderState.requiresSignature = Boolean(value);
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("formBuilder", key, String(value));
+    }
+  }
+  if (event.target.matches("[data-fb-field-prop]")) {
+    const fieldId = event.target.getAttribute("data-fb-field-id");
+    const prop = event.target.getAttribute("data-fb-field-prop");
+    formBuilderState.fields = formBuilderState.fields.map((field) => {
+      if (String(field.id) !== String(fieldId)) return field;
+      if (prop === "required") return { ...field, required: Boolean(event.target.checked) };
+      if (prop === "optionsText") {
+        const options = String(event.target.value || "")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((label, index) => ({ id: `opt_${index + 1}`, label, value: label }));
+        return { ...field, options };
+      }
+      return { ...field, [prop]: event.target.value };
+    });
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("formBuilder", `${fieldId}:${prop}`, event.target.type === "checkbox" ? String(event.target.checked) : event.target.value);
     }
   }
   if (event.target.matches("[data-staff-profile-email]")) {
@@ -77176,8 +77818,9 @@ document.addEventListener("submit", async (event) => {
     const formSpec = {
       title: template.title,
       category: template.category,
-      body: template.body,
-      draftText: template.body,
+      body: template.body || template.bodyText || "",
+      draftText: template.body || template.bodyText || "",
+      fields: Array.isArray(template.fields) ? template.fields : [],
       packFormId: template.packFormId || "",
       resourceId: template.resourceId || "",
       templateId: template.id,

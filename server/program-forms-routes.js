@@ -5,6 +5,7 @@
 "use strict";
 
 const programFormsLib = require("./program-forms-lib.js");
+const formFieldsLib = require("./form-fields-lib.js");
 
 function createProgramFormsRoutes({
   requireHomeDaycareHubTesting,
@@ -145,6 +146,11 @@ function createProgramFormsRoutes({
       jsonResponse(response, 403, { error: "Not allowed to save templates." });
       return;
     }
+    // Assistants cannot manage the template library/builder.
+    if (context.role === "assistant") {
+      jsonResponse(response, 403, { error: "Assistants cannot manage form templates." });
+      return;
+    }
     let body;
     try {
       body = await readJson(request);
@@ -157,6 +163,8 @@ function createProgramFormsRoutes({
       const saved = programFormsLib.upsertTemplate(store, context.programId, {
         ...(body || {}),
         createdByEmail: actor.actorUserId,
+        // Ignore client-forged programId — always bind to resolved context.
+        programId: context.programId,
       }, actor);
       await respondAfterPersist(store, response, 200, {
         ok: true,
@@ -164,7 +172,77 @@ function createProgramFormsRoutes({
         template: saved,
       }, "Could not save template.");
     } catch (error) {
-      jsonResponse(response, error.status || 400, { error: error.message || "Could not save template." });
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Could not save template.",
+        code: error.code || undefined,
+      });
+    }
+  }
+
+  async function handleDuplicateTemplate(request, response) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    if (!(context.canManageStaff || context.role === "owner" || context.role === "director" || context.role === "teacher")) {
+      jsonResponse(response, 403, { error: "Not allowed to duplicate templates." });
+      return;
+    }
+    if (context.role === "assistant") {
+      jsonResponse(response, 403, { error: "Assistants cannot manage form templates." });
+      return;
+    }
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid duplicate payload." });
+      return;
+    }
+    const actor = actorFromContext(context, identity);
+    try {
+      // Prefer server template; allow starter/system payload for first-time customize.
+      const serverTemplates = programFormsLib.listTemplates(store, context.programId, { includeArchived: true });
+      const fromServer = serverTemplates.find((t) => String(t.id) === String(body?.templateId || body?.id || ""));
+      const source = fromServer || body?.template || body || {};
+      if (!source || (!source.body && !source.bodyText && !(source.fields || []).length && !source.title)) {
+        jsonResponse(response, 404, { error: "Template not found." });
+        return;
+      }
+      const saved = programFormsLib.duplicateTemplateAsProvider(store, context.programId, source, actor);
+      await respondAfterPersist(store, response, 200, {
+        ok: true,
+        authoritative: "programData.forms.templates",
+        template: saved,
+        originTemplateId: saved.originTemplateId,
+      }, "Could not duplicate template.");
+    } catch (error) {
+      jsonResponse(response, error.status || 400, { error: error.message || "Could not duplicate template." });
+    }
+  }
+
+  async function handleValidateStructuredFields(request, response) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid field payload." });
+      return;
+    }
+    try {
+      if (body?.aiDraft || body?.source === "ai_structured_draft") {
+        const draft = formFieldsLib.validateAiStructuredDraft(body.aiDraft || body, { strict: true });
+        jsonResponse(response, 200, { ok: true, draft });
+        return;
+      }
+      const fields = formFieldsLib.normalizeFormFields(body?.fields || [], { strict: true });
+      jsonResponse(response, 200, { ok: true, fields });
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Invalid structured fields.",
+        code: error.code || undefined,
+      });
     }
   }
 
@@ -237,6 +315,8 @@ function createProgramFormsRoutes({
     if (pathname === "/api/program-forms/migrate" && method === "POST") return handleMigrateProgramForms;
     if (pathname === "/api/program-forms/staff-documents" && method === "POST") return handleUpsertStaffDocument;
     if (pathname === "/api/program-forms/templates" && method === "POST") return handleUpsertTemplate;
+    if (pathname === "/api/program-forms/templates/duplicate" && method === "POST") return handleDuplicateTemplate;
+    if (pathname === "/api/program-forms/fields/validate" && method === "POST") return handleValidateStructuredFields;
     if (pathname === "/api/program-forms/assign/validate" && method === "POST") return handleValidateAssignment;
     if (pathname === "/api/program-forms/audit" && method === "GET") {
       return (req, res, url) => handleGetFormsAudit(req, res, url);

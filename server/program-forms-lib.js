@@ -15,6 +15,9 @@
 
 const crypto = require("node:crypto");
 const formsLib = require("./forms-lib.js");
+const formFieldsLib = require("./form-fields-lib.js");
+
+const READ_ONLY_TEMPLATE_SOURCES = new Set(["system", "starter", "cms", "pack"]);
 
 const CRITICAL_AUDIT_ACTIONS = Object.freeze([
   "CREATED",
@@ -181,20 +184,27 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
   };
 }
 
-function normalizeTemplate(raw = {}, { programId = "" } = {}) {
+function normalizeTemplate(raw = {}, { programId = "", strictFields = true } = {}) {
   const id = cleanText(raw.id || "", 80) || newId("form-template");
-  const body = String(raw.body || raw.bodyText || raw.draftText || "").slice(0, 20000);
+  const body = formFieldsLib.cleanText(raw.body || raw.bodyText || raw.draftText || "", 20000);
+  const fields = formFieldsLib.normalizeFormFields(raw.fields || [], { strict: strictFields });
+  if (!body && !fields.length && strictFields) {
+    // Allow empty during non-strict dual-read normalize of legacy rows only when caller opts out.
+  }
+  const fp = formFieldsLib.templateContentFingerprint({ body, fields });
+  const sourceType = cleanText(raw.sourceType || "provider", 40) || "provider";
   return {
     id,
     programId: cleanText(programId || raw.programId || "", 80),
-    sourceType: cleanText(raw.sourceType || "provider", 40) || "provider",
+    sourceType,
     originTemplateId: cleanText(raw.originTemplateId || "", 80),
     title: cleanText(raw.title || "Custom form", 160) || "Custom form",
     category: cleanText(raw.category || "Other", 80) || "Other",
+    libraryCategory: cleanText(raw.libraryCategory || "", 80),
     description: cleanText(raw.description || "", 500),
     body,
     bodyText: body,
-    fields: Array.isArray(raw.fields) ? raw.fields : [],
+    fields,
     fieldSchemaVersion: Number(raw.fieldSchemaVersion) || 1,
     requiresSignature: raw.requiresSignature !== false,
     defaultDueInDays: raw.defaultDueInDays == null ? null : Number(raw.defaultDueInDays),
@@ -208,12 +218,15 @@ function normalizeTemplate(raw = {}, { programId = "" } = {}) {
     ),
     packFormId: cleanText(raw.packFormId || "", 80),
     resourceId: cleanText(raw.resourceId || "", 80),
-    bodyHash: cleanText(raw.bodyHash || "", 80) || (body ? formsLib.hashFormBody(body) : ""),
+    bodyHash: cleanText(raw.bodyHash || "", 80) || fp.bodyHash,
+    fieldsHash: cleanText(raw.fieldsHash || "", 80) || fp.fieldsHash,
     contentVersion: Math.max(1, Number(raw.contentVersion) || 1),
     createdAt: cleanText(raw.createdAt || nowIso(), 40),
     updatedAt: cleanText(raw.updatedAt || nowIso(), 40),
     createdByEmail: normalizeEmail(raw.createdByEmail || ""),
     archived: Boolean(raw.archived),
+    aiGenerated: Boolean(raw.aiGenerated),
+    aiReviewedBeforeSave: Boolean(raw.aiReviewedBeforeSave),
   };
 }
 
@@ -263,28 +276,117 @@ function upsertStaffDocument(store, programId, raw, { actorUserId, actorRole } =
 
 function upsertTemplate(store, programId, raw, { actorUserId, actorRole } = {}) {
   const forms = ensureProgramFormsNamespace(store, programId);
-  const template = normalizeTemplate(raw, { programId });
+  const incomingId = cleanText(raw?.id || "", 80);
+  const existing = incomingId
+    ? forms.templates.find((t) => String(t.id) === String(incomingId))
+    : null;
+
+  // System / starter / CMS originals are never mutated in-place.
+  if (existing && READ_ONLY_TEMPLATE_SOURCES.has(String(existing.sourceType || "").toLowerCase())) {
+    throw Object.assign(new Error("System and starter templates are read-only. Duplicate to customize."), {
+      status: 403,
+      code: "template_readonly",
+    });
+  }
+  if (READ_ONLY_TEMPLATE_SOURCES.has(String(raw?.sourceType || "").toLowerCase()) && !existing) {
+    // Clients cannot insert forged system rows into the provider store.
+    raw = { ...raw, sourceType: "provider" };
+  }
+
+  // AI-sourced saves must carry explicit review acknowledgment (Phase 9 / Wave 3 gate).
+  if (raw?.aiGenerated === true || raw?.source === "ai_structured_draft" || raw?.requireAiReview === true) {
+    const reviewed = raw?.aiReviewedBeforeSave === true
+      || raw?.reviewAcknowledged === true
+      || Boolean(raw?.reviewAcknowledgedAt);
+    if (!reviewed) {
+      throw Object.assign(new Error("Review this AI draft before saving it as a template."), {
+        status: 400,
+        code: "ai_review_required",
+      });
+    }
+  }
+
+  let template;
+  try {
+    template = normalizeTemplate({
+      ...raw,
+      sourceType: existing?.sourceType || raw?.sourceType || "provider",
+      programId,
+      createdByEmail: existing?.createdByEmail || raw?.createdByEmail || actorUserId,
+    }, { programId, strictFields: true });
+  } catch (error) {
+    throw Object.assign(error, { status: error.status || 400 });
+  }
+
   if (!String(template.body || "").trim() && !(Array.isArray(template.fields) && template.fields.length)) {
     throw Object.assign(new Error("Template body or fields are required."), { status: 400 });
   }
+
+  // Cross-program id swap fails closed: template.programId must match.
+  if (template.programId && String(template.programId) !== String(programId)) {
+    throw Object.assign(new Error("Template belongs to another program."), { status: 403 });
+  }
+  template.programId = String(programId);
+
   const idx = forms.templates.findIndex((t) => String(t.id) === String(template.id));
-  const existing = idx >= 0 ? forms.templates[idx] : null;
   if (idx >= 0) {
-    forms.templates[idx] = { ...existing, ...template, updatedAt: nowIso() };
+    const prev = forms.templates[idx];
+    const materialChange = String(prev.bodyHash || "") !== String(template.bodyHash || "")
+      || String(prev.fieldsHash || "") !== String(template.fieldsHash || "")
+      || String(prev.title || "") !== String(template.title || "");
+    const nextVersion = materialChange
+      ? Math.max(1, Number(prev.contentVersion || 1) + 1)
+      : Math.max(1, Number(prev.contentVersion || 1));
+    forms.templates[idx] = {
+      ...prev,
+      ...template,
+      id: prev.id,
+      createdAt: prev.createdAt || template.createdAt,
+      originTemplateId: prev.originTemplateId || template.originTemplateId,
+      contentVersion: nextVersion,
+      updatedAt: nowIso(),
+    };
   } else {
-    forms.templates.unshift(template);
+    forms.templates.unshift({ ...template, updatedAt: nowIso() });
   }
   forms.updatedAt = nowIso();
+  const saved = forms.templates.find((t) => String(t.id) === String(template.id));
   appendFormsAudit(store, {
     programId,
-    action: existing ? "EDITED" : "CREATED",
+    action: idx >= 0 ? "EDITED" : "CREATED",
     actorUserId,
     actorRole,
-    templateId: template.id,
-    meta: { contentVersion: template.contentVersion, source: "server" },
-    detail: existing ? "Provider template updated" : "Provider template created",
+    templateId: saved.id,
+    meta: {
+      contentVersion: saved.contentVersion,
+      source: "server",
+      originTemplateId: saved.originTemplateId || "",
+      aiGenerated: Boolean(saved.aiGenerated),
+    },
+    detail: idx >= 0 ? "Provider template updated" : "Provider template created",
   });
-  return forms.templates.find((t) => String(t.id) === String(template.id));
+  return saved;
+}
+
+/** Duplicate any template into a provider-owned copy (new id + originTemplateId). */
+function duplicateTemplateAsProvider(store, programId, source, { actorUserId, actorRole } = {}) {
+  const origin = normalizeTemplate(source || {}, { programId, strictFields: false });
+  const copy = {
+    ...origin,
+    id: newId("form-template"),
+    programId,
+    sourceType: "provider",
+    originTemplateId: origin.id || origin.originTemplateId || "",
+    title: `${origin.title || "Custom form"} (copy)`.slice(0, 160),
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+    createdByEmail: normalizeEmail(actorUserId || ""),
+    archived: false,
+    contentVersion: 1,
+    aiGenerated: false,
+    aiReviewedBeforeSave: false,
+  };
+  return upsertTemplate(store, programId, copy, { actorUserId, actorRole });
 }
 
 /**
@@ -316,7 +418,14 @@ function migrateClientFormsPayload(store, programId, payload = {}, { actorUserId
 
   const templateIds = new Set(forms.templates.map((t) => String(t.id)));
   clientTemplates.forEach((raw) => {
-    const normalized = normalizeTemplate(raw, { programId });
+    // Legacy client templates may be body-only; do not fail migration on empty/invalid fields.
+    let normalized;
+    try {
+      normalized = normalizeTemplate(raw, { programId, strictFields: false });
+    } catch (_error) {
+      return;
+    }
+    if (!String(normalized.body || "").trim() && !(normalized.fields || []).length) return;
     if (templateIds.has(String(normalized.id))) {
       templatesSkippedExisting += 1;
       return;
@@ -565,6 +674,7 @@ function hashRequestIp(request) {
 
 module.exports = {
   CRITICAL_AUDIT_ACTIONS,
+  READ_ONLY_TEMPLATE_SOURCES,
   emptyProgramForms,
   ensureProgramFormsNamespace,
   ensureFormsAuditStore,
@@ -576,6 +686,7 @@ module.exports = {
   listTemplates,
   upsertStaffDocument,
   upsertTemplate,
+  duplicateTemplateAsProvider,
   migrateClientFormsPayload,
   dualReadMerge,
   isStrictlySharedWithFamily,

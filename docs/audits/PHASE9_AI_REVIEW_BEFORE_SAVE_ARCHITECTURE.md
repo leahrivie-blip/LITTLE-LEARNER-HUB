@@ -31,7 +31,7 @@ SaaS Stripe / tuition billing are **never** triggered by AI.
 |---|---|---|---|
 | **AI Guide** | Draft only | Requires `#aiGuideReviewAck` → Save as Draft | No send/publish buttons |
 | **Documentation Helpers** | Editable draft | Requires `#docHelperReviewAck` + confirm | `#docHelperShareFamily` **off by default** |
-| **HDH AI Form Builder** | Editable draft | Requires `#hdhAiReviewAck` | Private draft (`shareWithFamily: false`); Share is separate |
+| **HDH AI Form Builder** | Editable draft (+ optional structured fields) | Requires `#hdhAiReviewAck` for **Save to child** and **Save as template** | Private draft (`shareWithFamily: false`); Share is separate. Server also rejects `aiGenerated` template upserts without review ack (Wave 3). |
 | **Daily Logs end-of-day AI** | Stages `dlcAiReviewState` | Requires review ack + Save draft | Share checkbox opt-in |
 | **Generate daily report** | Same review panel | Same | Same |
 | **Observation → goal** | Pending suggestion | Accept via `data-ai-accept-suggestion` | Goals stay private |

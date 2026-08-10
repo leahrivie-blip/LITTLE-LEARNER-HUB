@@ -23282,6 +23282,140 @@ body.hdh-persona-parent .main {
   margin-top: 6px;
 }
 
+/* Wave 3 — Structured Form Builder + Template Library */
+.form-builder-panel,
+[data-template-library] {
+  scroll-margin-top: 88px;
+}
+
+.fb-add-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0;
+}
+
+.fb-add-field-row label {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 240px);
+  font-weight: 700;
+}
+
+.fb-add-field-row select {
+  min-height: 42px;
+}
+
+.fb-field-list {
+  display: grid;
+  gap: 12px;
+}
+
+.fb-field-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.fb-field-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fb-required-check {
+  align-self: end;
+}
+
+.fb-preview,
+.fb-preview-field {
+  margin-top: 12px;
+}
+
+.fb-preview {
+  padding: 14px;
+  border: 1px dashed var(--line, rgba(36, 48, 71, 0.25));
+  border-radius: 8px;
+  background: #fff;
+}
+
+.fb-preview-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.fb-preview-label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.fb-preview-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.fb-signature-placeholder {
+  min-height: 72px;
+  border: 1px solid #c9d2c4;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: #6b7280;
+  background: repeating-linear-gradient(
+    -45deg,
+    #f7f8f4,
+    #f7f8f4 8px,
+    #eef1ea 8px,
+    #eef1ea 16px
+  );
+}
+
+.fb-required {
+  color: #8a3b2b;
+  margin-left: 4px;
+}
+
+.template-library-filters {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+}
+
+@media (min-width: 1100px) {
+  .form-builder-panel .form-grid-two {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .fb-add-field-row,
+  .template-library-filters {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .fb-add-field-row .primary-button,
+  .fb-field-card .ghost-button,
+  .form-builder-panel .account-actions-row .primary-button,
+  .form-builder-panel .account-actions-row .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .fb-add-field-row select,
+  .fb-field-card input,
+  .fb-field-card textarea,
+  .form-builder-panel textarea,
+  .form-builder-panel input,
+  .form-builder-panel select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
 /* Wave 2 — Paperwork HQ / connected surfaces */
 .paperwork-hq {
   scroll-margin-top: 88px;

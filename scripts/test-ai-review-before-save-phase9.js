@@ -74,6 +74,16 @@ function sourceMarkers() {
     assert.match(saveFn, /shareWithFamily:\s*false/);
     assert.doesNotMatch(saveFn, /shareWithFamily:\s*true/);
   }
+  // Wave 3 — Save as Template uses the same review acknowledgment (audit gap closed).
+  {
+    const saveTpl = appJs.slice(
+      appJs.indexOf("async function saveAiFormAsProgramTemplate"),
+      appJs.indexOf("async function saveAiFormAsProgramTemplate") + 2200,
+    );
+    assert.match(saveTpl, /hdhAiReviewAck/);
+    assert.match(saveTpl, /aiReviewedBeforeSave:\s*true/);
+    assert.match(saveTpl, /Review this AI draft before saving it as a template/);
+  }
 
   // Daily Logs end-of-day — generate stages review; no auto share strings
   assert.match(appJs, /function generateDailyReportDraftFromChild/);

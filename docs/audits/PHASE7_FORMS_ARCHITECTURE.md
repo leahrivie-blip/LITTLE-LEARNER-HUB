@@ -83,6 +83,19 @@ Derived presentation rails (not new persisted enums): Awaiting Signature, Not Op
 
 Foundation only: `lastNotifiedAt` on assign/notify + `buildFormReminderStub`. Manual “Remind family” / “Notify again” remains. No unreliable auto-push engine in this phase. Wave 2 surfaces the existing manual reminder from Paperwork HQ only.
 
+## Wave 3 — Structured Form Builder + Template Library
+
+| Piece | Where |
+|---|---|
+| Field schema | `server/form-fields-lib.js` — types, normalize/validate, AI draft extract |
+| Provider templates | Still `programData[programId].forms.templates[]` (no second store) |
+| Builder UI | `scripts/form-builder-lib.js` + HDH Template Library / Form Builder in `app.js` |
+| Unified library | View over My Templates + Starter Pack + System Library (read-only origins) |
+
+Supports body-only, fields-only, and hybrid templates. Duplicate creates new provider id + `originTemplateId`. Assigned forms snapshot `fields` + `draftText` so later template edits do not mutate history.
+
+AI Form Builder may propose the same structured field schema. **Save as Template requires `#hdhAiReviewAck`** (Phase 9 gate — Wave 3 closed the audit gap). Server rejects `aiGenerated` saves without review acknowledgment.
+
 ## AI Form Builder
 
 Preserved: generate → edit → **explicit** Save to child / Save as template / Share. Does **not** auto-assign, auto-send, or invent child/family facts.
