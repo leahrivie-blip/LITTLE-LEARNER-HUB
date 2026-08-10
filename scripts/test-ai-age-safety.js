@@ -88,7 +88,22 @@ console.log("blank / vague / contradictory / minimal observation inputs");
   ok(contra.ok, "contradictory-but-observed note is allowed through (provider owns facts)");
 
   const nonObs = ai.validateObservationInput("", { tool: "parent-message" });
-  ok(nonObs.ok, "blank parent-message not forced through observation gate");
+  ok(nonObs.ok, "blank parent-message not forced through observation-only gate");
+
+  const blankParent = ai.validateDocumentationInput("", { tool: "parent-message" });
+  ok(!blankParent.ok && blankParent.code === "blank_documentation", "blank parent-message blocked by documentation gate");
+
+  const blankDaily = ai.validateDocumentationInput("", { tool: "daily-log" });
+  ok(!blankDaily.ok, "blank daily-log blocked by documentation gate");
+
+  const wsDaily = ai.validateDocumentationInput("  \n\t ", { tool: "daily" });
+  ok(!wsDaily.ok, "whitespace-only daily blocked");
+
+  const validDaily = ai.validateDocumentationInput("Ate a cheese sandwich and built with blocks after nap.", { tool: "daily" });
+  ok(validDaily.ok, "valid daily notes accepted");
+
+  const unknownBlank = ai.validateDocumentationInput("", { tool: "unknown" });
+  ok(!unknownBlank.ok, "unknown tool blank cannot bypass documentation gate");
 }
 
 console.log("sanitize residue");
