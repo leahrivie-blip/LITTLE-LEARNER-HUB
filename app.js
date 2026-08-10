@@ -6209,6 +6209,11 @@ async function retryAdminCurriculumLoad() {
 
 async function refreshPublicCurriculumLibrary() {
   if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) return effectiveSiteContent();
+  // Never compete with an open auth modal / invite credential handoff for sockets.
+  if (document.body.classList.contains("auth-modal-open")) return effectiveSiteContent();
+  if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) {
+    return effectiveSiteContent();
+  }
   if (siteContentLoadPromise) return siteContentLoadPromise;
   curriculumLibraryLoading = true;
   curriculumLibraryLoadFailed = false;
@@ -17222,7 +17227,11 @@ function syncWhatsNewNavVisibility() {
   }
   setWhatsNewNavVisible(false);
   if (whatsNewNavSyncPromise) return;
-  whatsNewNavSyncPromise = fetch("/api/release-notes", { cache: "no-store" })
+  if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) return;
+  whatsNewNavSyncPromise = fetch("/api/release-notes", {
+    cache: "no-store",
+    signal: typeof nonCriticalBootSignal === "function" ? nonCriticalBootSignal() : undefined,
+  })
     .then((res) => (res.ok ? res.json() : {}))
     .then((data) => {
       const notes = Array.isArray(data.releaseNotes) ? data.releaseNotes : [];
@@ -18107,10 +18116,17 @@ function messagingRelativeTime(iso) {
 }
 
 async function fetchNotificationsFromBackend() {
+  if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) {
+    return { notifications: [], unreadCount: 0 };
+  }
   const headers = await messagingAuthHeaders();
   if (!headers) return { notifications: [], unreadCount: 0 };
   try {
-    const res = await fetch("/api/notifications?limit=50", { headers, cache: "no-store" });
+    const res = await fetch("/api/notifications?limit=50", {
+      headers,
+      cache: "no-store",
+      signal: typeof nonCriticalBootSignal === "function" ? nonCriticalBootSignal() : undefined,
+    });
     if (!res.ok) return { notifications: [], unreadCount: 0 };
     return await res.json();
   } catch (error) {
