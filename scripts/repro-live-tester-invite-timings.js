@@ -58,7 +58,7 @@ async function main() {
   timings.domContentLoaded = now() - t0;
 
   // Wait for invite panel or auth
-  const panelSel = "#hdhTesterInviteAcceptPanel, [data-tester-invite-signup], text=Finish setting up";
+  const panelSel = "#hdhTesterInviteAcceptPanel, [data-tester-invite-signup]";
   try {
     await page.waitForSelector(panelSel, { timeout: 90000 });
     timings.invitePanelVisible = now() - t0;

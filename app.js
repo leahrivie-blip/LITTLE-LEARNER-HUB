@@ -40867,9 +40867,15 @@ async function completeTesterInviteCredentialFlow({ email, password, mode = "sig
 
       setTesterInviteFlowState({ stage: "accepting_invite" });
       setTesterInviteFlowMessage("Connecting you to your program…", { busy: true });
+      // Keep the invite panel visible with progress while auth modal closes.
       closeAuthModal();
       markAppBootReady();
       let accepted = await maybeAutoAcceptPendingTesterInvite();
+      if (!accepted) {
+        setTesterInviteFlowMessage("Connecting you to your program… (retrying)", { busy: true });
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        accepted = await maybeAutoAcceptPendingTesterInvite();
+      }
       if (!accepted) {
         // Remount invite UI only; do not recurse into credential flow.
         await maybeHandleHdhTesterInviteFromUrl({ allowDuringCredentialFlow: true });
