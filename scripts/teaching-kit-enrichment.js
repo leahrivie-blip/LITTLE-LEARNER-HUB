@@ -210,23 +210,48 @@
       return title ? { title } : null;
     }
     if (typeof value !== "object" || Array.isArray(value)) return null;
-    const out = { ...value };
+    // Preserve unknown scalar metadata; never stringify nested objects.
+    const out = {};
+    Object.keys(value).forEach((key) => {
+      const raw = value[key];
+      if (raw == null) return;
+      if (typeof raw === "object") {
+        // Keep only known nested ids as strings; drop nested objects that would coerce badly.
+        if (key === "mediaAssetId" || key === "id") {
+          const id = text(raw);
+          if (id) out[key] = id;
+        }
+        return;
+      }
+      out[key] = raw;
+    });
     const title = text(value.title || value.name || value.label);
     const purpose = text(value.purpose);
     const description = text(value.description || (!purpose ? value.summary : ""));
     const type = text(value.type || value.kind || value.format);
     const instructions = text(value.instructions || value.howTo || value.directions);
     const notes = text(value.notes);
+    const ageGroup = text(value.ageGroup || value.age || value.ageBand);
+    const theme = text(value.theme);
+    const pageCountRaw = value.pageCount != null ? value.pageCount : value.pages;
+    const pageCount = pageCountRaw == null || typeof pageCountRaw === "object"
+      ? ""
+      : String(pageCountRaw).trim();
+    const relatedActivity = text(value.relatedActivity || value.activityTitle || value.activity);
+    const accessLevel = text(value.accessLevel);
     if (title) out.title = title;
-    else {
-      delete out.title;
-    }
+    else delete out.title;
     if (purpose) out.purpose = purpose;
     if (description) out.description = description;
     else if (!purpose && text(value.summary)) out.purpose = text(value.summary);
     if (type) out.type = type;
     if (instructions) out.instructions = instructions;
     if (notes) out.notes = notes;
+    if (ageGroup) out.ageGroup = ageGroup;
+    if (theme) out.theme = theme;
+    if (pageCount) out.pageCount = /^\d+$/.test(pageCount) ? Number(pageCount) : pageCount;
+    if (relatedActivity) out.relatedActivity = relatedActivity;
+    if (accessLevel) out.accessLevel = accessLevel;
     const hasContent = Boolean(
       title
       || purpose
@@ -234,6 +259,11 @@
       || type
       || instructions
       || notes
+      || ageGroup
+      || theme
+      || pageCount
+      || relatedActivity
+      || accessLevel
       || text(value.mediaAssetId)
       || text(value.id),
     );

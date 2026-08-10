@@ -1173,7 +1173,7 @@
     state.ownerDraftReview = false;
     state.returnToQueue = false;
     state.draftReviewId = "";
-    document.body.classList.remove("llh-lre-open", "llh-lre-screenshot");
+    document.body.classList.remove("llh-lre-open", "llh-lre-screenshot", "tk-editor-focused");
     const el = host();
     if (el) {
       el.innerHTML = "";
@@ -1184,6 +1184,8 @@
       if (global.LLHDraftReviewQueue?.openDetail && draftReviewId) {
         Promise.resolve(global.LLHDraftReviewQueue.openDetail(draftReviewId)).catch(() => {});
       }
+    } else if (!skipReturnNavigation && typeof global.restoreAdminLessonListAfterTkEditorClose === "function") {
+      global.restoreAdminLessonListAfterTkEditorClose();
     } else if (typeof setAdminSectionTab === "function") {
       if (typeof adminCurriculumLessonEditorId !== "undefined") {
         try { adminCurriculumLessonEditorId = ""; } catch (_error) { /* ignore */ }

@@ -27010,8 +27010,14 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 #adminTeachingKitEnrichmentHost {
   display: none;
 }
-body.tk-enrich-open {
+body.tk-enrich-open,
+body.tk-editor-focused {
   overflow: hidden;
+}
+body.tk-editor-focused [data-tk-editor-focused-workspace] {
+  max-width: 42rem;
+  margin: 0.75rem auto 0;
+  padding: 0 1rem;
 }
 /* Cookie / promo banners must not cover the editor reading surface */
 body.tk-enrich-open .cookie-banner,

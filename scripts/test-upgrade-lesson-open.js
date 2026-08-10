@@ -372,11 +372,18 @@ async function main() {
   // Source guards
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const enrichJs = fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-enrichment-editor.js"), "utf8");
+  ok(appJs.includes("function openOwnerTeachingKitEditor"), "app.js defines shared Teaching Kit editor opener");
   ok(appJs.includes("function openAdminCurriculumLessonUpgrade"), "app.js defines Upgrade Lesson open helper");
   ok(appJs.includes("data-curriculum-lesson-enrich"), "app.js click path handles Upgrade Lesson");
   ok(appJs.includes("Opening…") || appJs.includes("Opening..."), "loading label present");
-  ok(enrichJs.includes("openAdminCurriculumLessonUpgrade"), "enrichment editor delegates to app.js open helper");
+  ok(appJs.includes("editingWithFocusedOwnerEditor"), "app.js unmounts lesson list while editor focused");
+  ok(
+    enrichJs.includes("openOwnerTeachingKitEditor") || enrichJs.includes("openAdminCurriculumLessonUpgrade"),
+    "enrichment editor delegates to app.js open helper",
+  );
   ok(enrichJs.includes("renderPrintableIdeaListItem"), "structured printable idea renderer present");
+  ok(enrichJs.includes("ownerWorkspace"), "enrichment editor supports owner workspace bypass");
+  ok(enrichJs.includes("Back to Lesson Plans"), "enrichment editor Back restores Lesson Plans");
 
   const child = spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
