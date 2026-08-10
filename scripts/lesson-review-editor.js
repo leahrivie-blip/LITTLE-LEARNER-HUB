@@ -647,10 +647,41 @@
     `;
   }
 
+  function renderPrintableIdeaCard(idea) {
+    const enrich = global.LLHTeachingKitEnrichment;
+    const item = enrich && typeof enrich.normalizePrintableIdea === "function"
+      ? enrich.normalizePrintableIdea(idea)
+      : (idea && typeof idea === "object" ? idea : (typeof idea === "string" ? { title: idea } : null));
+    if (!item) return "";
+    const title = esc(item.title || item.name || item.label || "");
+    const description = esc(item.description || item.purpose || item.summary || "");
+    const type = esc(item.type || item.kind || item.format || "");
+    const instructions = esc(item.instructions || item.howTo || item.directions || "");
+    const notes = esc(item.notes || "");
+    if (!title && !description && !type && !instructions && !notes) return "";
+    return `
+      <article class="llh-lre-card-block llh-lre-printable-idea" data-lre-printable-idea="1">
+        <h3>${title || "Printable idea"}</h3>
+        ${type ? `<p><span class="muted-copy">Type</span> ${type}</p>` : ""}
+        ${description ? `<p><span class="muted-copy">Description</span> ${description}</p>` : ""}
+        ${instructions ? `<p><span class="muted-copy">Instructions</span> ${instructions}</p>` : ""}
+        ${notes ? `<p><span class="muted-copy">Notes</span> ${notes}</p>` : ""}
+      </article>
+    `;
+  }
+
   function renderPrintablesSection() {
     const linked = linkedResources(state.draft);
+    const ideaList = Array.isArray(state.draft?.enrichmentDraft?.week?.printableIdeas)
+      ? state.draft.enrichmentDraft.week.printableIdeas
+      : [];
+    const ideaCards = ideaList.map((idea) => renderPrintableIdeaCard(idea)).filter(Boolean).join("");
     return `
       <p class="muted-copy">Printable previews stay inside Admin. Nothing publishes automatically.</p>
+      ${ideaCards ? `
+        <h3>Printable ideas from upgrade draft</h3>
+        <div class="llh-lre-printable-idea-list">${ideaCards}</div>
+      ` : ""}
       <div class="llh-lre-printable-list">
         ${linked.map((resource) => {
           const status = text(resource.status || "draft");

@@ -170,11 +170,108 @@
   }
 
   function text(value) {
-    return String(value == null ? "" : value).trim();
+    // Never coerce plain objects via String() — that yields "[object Object]".
+    if (value == null) return "";
+    if (typeof value === "object") return "";
+    return String(value).trim();
   }
 
   function asArray(value) {
     return Array.isArray(value) ? value : [];
+  }
+
+  /**
+   * Printable ideas may be plain strings or structured objects
+   * ({ title, purpose/description, type, instructions, … }).
+   * Always preserve object shape — never stringify to "[object Object]".
+   */
+  function printableIdeaLabel(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return text(value);
+    if (typeof value !== "object" || Array.isArray(value)) return "";
+    const title = text(value.title || value.name || value.label);
+    const purpose = text(value.purpose || value.description || value.summary);
+    const type = text(value.type || value.kind || value.format);
+    const instructions = text(value.instructions || value.howTo || value.directions);
+    const notes = text(value.notes);
+    const bits = [];
+    if (title) bits.push(title);
+    if (purpose) bits.push(purpose);
+    if (type) bits.push(type);
+    if (instructions) bits.push(instructions);
+    if (notes) bits.push(notes);
+    return bits.join(" — ");
+  }
+
+  function normalizePrintableIdea(value) {
+    if (value == null) return null;
+    if (typeof value === "string") {
+      const title = text(value);
+      return title ? { title } : null;
+    }
+    if (typeof value !== "object" || Array.isArray(value)) return null;
+    const out = { ...value };
+    const title = text(value.title || value.name || value.label);
+    const purpose = text(value.purpose);
+    const description = text(value.description || (!purpose ? value.summary : ""));
+    const type = text(value.type || value.kind || value.format);
+    const instructions = text(value.instructions || value.howTo || value.directions);
+    const notes = text(value.notes);
+    if (title) out.title = title;
+    else {
+      delete out.title;
+    }
+    if (purpose) out.purpose = purpose;
+    if (description) out.description = description;
+    else if (!purpose && text(value.summary)) out.purpose = text(value.summary);
+    if (type) out.type = type;
+    if (instructions) out.instructions = instructions;
+    if (notes) out.notes = notes;
+    const hasContent = Boolean(
+      title
+      || purpose
+      || description
+      || type
+      || instructions
+      || notes
+      || text(value.mediaAssetId)
+      || text(value.id),
+    );
+    return hasContent ? out : null;
+  }
+
+  function normalizePrintableIdeas(list) {
+    return asArray(list).map(normalizePrintableIdea).filter(Boolean).slice(0, 24);
+  }
+
+  function vocabCardLabel(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return text(value);
+    if (typeof value !== "object" || Array.isArray(value)) return "";
+    const title = text(value.title || value.word || value.term || value.label);
+    const definition = text(value.definition || value.description || value.meaning);
+    if (title && definition) return `${title} — ${definition}`;
+    return title || definition;
+  }
+
+  function normalizeVocabCard(value) {
+    if (value == null) return null;
+    if (typeof value === "string") {
+      const label = text(value);
+      return label || null;
+    }
+    if (typeof value !== "object" || Array.isArray(value)) return null;
+    const title = text(value.title || value.word || value.term || value.label);
+    const definition = text(value.definition || value.description || value.meaning);
+    if (!title && !definition) return null;
+    const out = { ...value };
+    if (title) out.title = title;
+    if (definition) out.definition = definition;
+    return out;
+  }
+
+  function normalizeVocabCards(list) {
+    return asArray(list).map(normalizeVocabCard).filter(Boolean).slice(0, 40);
   }
 
   function draftWeekMeta(enrichmentDraft) {
@@ -1042,8 +1139,8 @@
 
     const milestones = asArray(week.milestones).map(text).filter(Boolean).slice(0, 16);
     const printableIds = asArray(week.printableIds).map(text).filter(Boolean).slice(0, 100);
-    const printableIdeas = asArray(week.printableIdeas).map(text).filter(Boolean).slice(0, 24);
-    const vocabCards = asArray(week.vocabCards).map(text).filter(Boolean).slice(0, 40);
+    const printableIdeas = normalizePrintableIdeas(week.printableIdeas);
+    const vocabCards = normalizeVocabCards(week.vocabCards);
     if (printableIds.length) {
       const existingIds = asArray(nextPlan.resourceIds).map(text).filter(Boolean);
       const mergedIds = [...existingIds];
@@ -1590,12 +1687,42 @@
           fields.add(field);
           return;
         }
-        if (field === "milestones" || field === "printableIdeas" || field === "vocabCards") {
+        if (field === "milestones") {
           const label = text(sug.proposedValue || sug.proposedText);
           if (!label) return;
-          const list = asArray(draft.week[field]).map(text).filter(Boolean);
+          const list = asArray(draft.week.milestones).map(text).filter(Boolean);
           if (!list.includes(label)) list.push(label);
-          draft.week[field] = list.slice(0, field === "milestones" ? 16 : 40);
+          draft.week.milestones = list.slice(0, 16);
+          inserted.push(sug.id);
+          fields.add(field);
+          return;
+        }
+        if (field === "printableIdeas") {
+          const proposed = normalizePrintableIdea(
+            sug.proposedValue != null ? sug.proposedValue : sug.proposedText,
+          );
+          if (!proposed) return;
+          const list = normalizePrintableIdeas(draft.week.printableIdeas);
+          const key = printableIdeaLabel(proposed).toLowerCase();
+          if (key && !list.some((item) => printableIdeaLabel(item).toLowerCase() === key)) {
+            list.push(proposed);
+          }
+          draft.week.printableIdeas = list.slice(0, 24);
+          inserted.push(sug.id);
+          fields.add(field);
+          return;
+        }
+        if (field === "vocabCards") {
+          const proposed = normalizeVocabCard(
+            sug.proposedValue != null ? sug.proposedValue : sug.proposedText,
+          );
+          if (!proposed) return;
+          const list = normalizeVocabCards(draft.week.vocabCards);
+          const key = vocabCardLabel(proposed).toLowerCase();
+          if (key && !list.some((item) => vocabCardLabel(item).toLowerCase() === key)) {
+            list.push(proposed);
+          }
+          draft.week.vocabCards = list.slice(0, 40);
           inserted.push(sug.id);
           fields.add(field);
           return;
@@ -1769,5 +1896,12 @@
     summarizePublishChanges,
     applySuggestionsToDraft,
     clampPercent,
+    printableIdeaLabel,
+    normalizePrintableIdea,
+    normalizePrintableIdeas,
+    vocabCardLabel,
+    normalizeVocabCard,
+    normalizeVocabCards,
   };
 });
+

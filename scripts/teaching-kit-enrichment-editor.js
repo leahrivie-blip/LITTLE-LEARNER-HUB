@@ -372,11 +372,93 @@
   }
 
   function esc(value) {
+    // Objects must never become "[object Object]" in the UI.
+    if (value != null && typeof value === "object") return "";
     return String(value ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function normalizePrintableIdeaForDisplay(idea) {
+    const enrich = api();
+    if (enrich && typeof enrich.normalizePrintableIdea === "function") {
+      return enrich.normalizePrintableIdea(idea);
+    }
+    if (idea == null) return null;
+    if (typeof idea === "string") {
+      const title = String(idea).trim();
+      return title ? { title } : null;
+    }
+    if (typeof idea !== "object" || Array.isArray(idea)) return null;
+    return idea;
+  }
+
+  function renderPrintableIdeaListItem(idea) {
+    const item = normalizePrintableIdeaForDisplay(idea);
+    if (!item) return "";
+    const title = esc(item.title || item.name || item.label || "");
+    const description = esc(item.description || item.purpose || item.summary || "");
+    const type = esc(item.type || item.kind || item.format || "");
+    const instructions = esc(item.instructions || item.howTo || item.directions || "");
+    const notes = esc(item.notes || "");
+    const skip = new Set([
+      "title", "name", "label", "purpose", "description", "summary",
+      "type", "kind", "format", "instructions", "howTo", "directions", "notes",
+      "mediaAssetId", "id",
+    ]);
+    const metaBits = Object.keys(item)
+      .filter((key) => !skip.has(key))
+      .map((key) => {
+        const raw = item[key];
+        if (raw == null || typeof raw === "object") return "";
+        const val = String(raw).trim();
+        if (!val || val === "[object Object]") return "";
+        return `<span><span class="muted-copy">${esc(key)}</span> ${esc(val)}</span>`;
+      })
+      .filter(Boolean);
+    if (!title && !description && !type && !instructions && !notes && !metaBits.length) {
+      return "";
+    }
+    return `
+      <li class="tk-enrich-printable-idea">
+        <strong>Printable idea</strong>
+        ${title ? `<div class="tk-enrich-printable-idea-title">${title}</div>` : ""}
+        ${type ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Type</span> ${type}</div>` : ""}
+        ${description ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Description</span> ${description}</div>` : ""}
+        ${instructions ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Instructions</span> ${instructions}</div>` : ""}
+        ${notes ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Notes</span> ${notes}</div>` : ""}
+        ${metaBits.length ? `<div class="tk-enrich-printable-idea-field tk-enrich-printable-idea-meta">${metaBits.join(" · ")}</div>` : ""}
+      </li>
+    `;
+  }
+
+  function renderVocabCardListItem(card) {
+    const enrich = api();
+    if (enrich && typeof enrich.normalizeVocabCard === "function") {
+      const normalized = enrich.normalizeVocabCard(card);
+      if (normalized == null) return "";
+      if (typeof normalized === "string") {
+        return `<li><strong>Vocab card:</strong> ${esc(normalized)}</li>`;
+      }
+      const title = esc(normalized.title || "");
+      const definition = esc(normalized.definition || "");
+      if (!title && !definition) return "";
+      return `<li><strong>Vocab card:</strong> ${title}${definition ? ` — ${definition}` : ""}</li>`;
+    }
+    if (card == null) return "";
+    if (typeof card === "string") {
+      const label = String(card).trim();
+      return label ? `<li><strong>Vocab card:</strong> ${esc(label)}</li>` : "";
+    }
+    if (typeof card === "object" && !Array.isArray(card)) {
+      const title = esc(card.title || card.word || card.term || card.label || "");
+      const definition = esc(card.definition || card.description || card.meaning || "");
+      if (!title && !definition) return "";
+      return `<li><strong>Vocab card:</strong> ${title}${definition ? ` — ${definition}` : ""}</li>`;
+    }
+    return "";
   }
 
   function host() {
@@ -1172,7 +1254,7 @@
       const ownerDraftReview = isOwnerDraftReviewCaller(options);
       if (!isEditorFlagEnabled() && !ownerDraftReview) {
         if (typeof showActionFeedback === "function") {
-          showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+          showActionFeedback("Enrichment Editor is disabled (feature flag off).", null, { allowDuringOverlay: true });
         }
         return false;
       }
@@ -1216,7 +1298,8 @@
       state.printableRejected = Boolean(options.printableRejected)
         || (Array.isArray(state.printableApprovalStatuses)
           && state.printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(status)));
-      state.mode = "activities";
+      const requestedMode = String(options.initialMode || options.mode || "activities").toLowerCase();
+      state.mode = requestedMode === "week" || requestedMode === "preview" ? requestedMode : "activities";
       state.dayFilter = "all";
       state.jumpOpen = false;
       state.jumpQuery = "";
@@ -1267,8 +1350,10 @@
     } catch (error) {
       state.open = false;
       document.body.classList.remove("tk-enrich-open");
-      const message = error?.message || String(error) || "Open Review failed.";
-      if (typeof showActionFeedback === "function") showActionFeedback(message);
+      const message = error?.message || String(error) || "Could not open the Teaching Kit editor.";
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback(message, null, { allowDuringOverlay: true, ttlMs: 8000 });
+      }
       return false;
     }
   }
@@ -2213,8 +2298,8 @@
           <ul class="tk-enrich-checklist">
             ${draftBooks.map((book) => `<li><strong>Book:</strong> ${esc(book.title || "")}${book.author ? ` — ${esc(book.author)}` : ""}${book.questions ? ` · ${esc(book.questions)}` : ""}</li>`).join("") || "<li class=\"muted-copy\">No draft books yet</li>"}
             ${draftSongs.map((song) => `<li><strong>Song:</strong> ${esc(song.title || "")}</li>`).join("")}
-            ${printableIdeas.map((idea) => `<li><strong>Printable idea:</strong> ${esc(idea)}</li>`).join("")}
-            ${vocabCards.map((card) => `<li><strong>Vocab card:</strong> ${esc(card)}</li>`).join("")}
+            ${printableIdeas.map((idea) => renderPrintableIdeaListItem(idea)).join("")}
+            ${vocabCards.map((card) => renderVocabCardListItem(card)).join("")}
           </ul>
         </section>
         <section class="tk-enrich-card-block">
@@ -3231,12 +3316,24 @@
 
   function bind() {
     document.addEventListener("click", async (event) => {
-      const openBtn = event.target.closest("[data-curriculum-lesson-enrich]");
+      const eventEl = event.target && event.target.nodeType === 1
+        ? event.target
+        : event.target?.parentElement;
+      const openBtn = eventEl?.closest?.("[data-curriculum-lesson-enrich]");
       if (openBtn) {
         event.preventDefault();
+        event.stopPropagation();
+        // Prefer the app.js open path (loading state + visible errors + owner fallback).
+        if (typeof root.openAdminCurriculumLessonUpgrade === "function") {
+          void root.openAdminCurriculumLessonUpgrade(
+            openBtn.getAttribute("data-curriculum-lesson-enrich") || "",
+            { button: openBtn },
+          );
+          return;
+        }
         if (!isEditorFlagEnabled()) {
           if (typeof showActionFeedback === "function") {
-            showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+            showActionFeedback("Enrichment Editor is disabled (feature flag off).", null, { allowDuringOverlay: true });
           }
           return;
         }

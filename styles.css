@@ -5591,6 +5591,20 @@ body.user-authenticated .view.active-view {
 
 .admin-lesson-card-actions {
   flex-wrap: wrap;
+  position: relative;
+  z-index: 4;
+}
+.admin-content-card .admin-lesson-card-actions .primary-button,
+.admin-content-card .admin-lesson-card-actions .ghost-button {
+  position: relative;
+  z-index: 4;
+}
+@media (max-width: 760px) {
+  .admin-content-card-list,
+  #adminCurriculumLessonPlanManager .admin-content-list,
+  [data-admin-curriculum-lesson-list] {
+    padding-bottom: 5.5rem;
+  }
 }
 
 .cover-quality-good {
@@ -21534,6 +21548,13 @@ body.lesson-editor-view .main {
   font-size: 0.92rem;
   font-weight: 600;
   color: #2f5f8a;
+  /* Badge chrome must not block Upgrade Lesson / Edit on short viewports. */
+  pointer-events: none;
+}
+.admin-preview-badge .ghost-button,
+.admin-preview-badge button,
+.admin-preview-badge a {
+  pointer-events: auto;
 }
 
 .admin-preview-badge.is-simulating {
@@ -27141,6 +27162,18 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   background: rgba(251, 248, 242, 0.96);
   backdrop-filter: blur(4px);
   padding: 0.5rem 0;
+  /* Sticky chrome must not swallow clicks on lesson card actions that scroll underneath. */
+  pointer-events: none;
+}
+.admin-content-filters label,
+.admin-content-filters input,
+.admin-content-filters select,
+.admin-content-filters button,
+.curriculum-activity-filters label,
+.curriculum-activity-filters input,
+.curriculum-activity-filters select,
+.curriculum-activity-filters button {
+  pointer-events: auto;
 }
 .tk-enrich-progress-block {
   flex: 1 1 16rem;
@@ -27609,6 +27642,42 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   margin: 0.4rem 0 0.75rem;
   padding-left: 1.1rem;
   color: rgba(36, 49, 42, 0.75);
+}
+.tk-upgrade-open-error {
+  margin: 0.75rem 0 1rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.45rem;
+  background: rgba(156, 45, 45, 0.08);
+  color: #7a1f1f;
+  font-weight: 600;
+}
+button.primary-button.is-loading[data-curriculum-lesson-enrich],
+button.primary-button.is-loading[data-upgrade-lesson-cta] {
+  opacity: 0.85;
+  cursor: wait;
+}
+.tk-enrich-printable-idea {
+  margin: 0.55rem 0;
+  list-style: disc;
+}
+.tk-enrich-printable-idea-title {
+  font-weight: 600;
+  color: rgba(28, 40, 34, 0.92);
+  margin: 0.15rem 0 0.25rem;
+}
+.tk-enrich-printable-idea-field {
+  margin: 0.15rem 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+.tk-enrich-printable-idea-field .muted-copy {
+  display: inline-block;
+  min-width: 5.5rem;
+  margin-right: 0.35rem;
+}
+.tk-enrich-printable-idea-meta {
+  font-size: 0.88rem;
 }
 .tk-enrich-current-text {
   white-space: pre-wrap;
