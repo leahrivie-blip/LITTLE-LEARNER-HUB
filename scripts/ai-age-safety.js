@@ -64,6 +64,46 @@
     "portfolio-entry",
   ]);
 
+  /** Documentation Helpers that must never invent facts from blank/whitespace notes. */
+  const DOCUMENTATION_HELPER_TOOLS = new Set([
+    "observation",
+    "observations",
+    "learning-story",
+    "learningstory",
+    "portfolio",
+    "portfolio-entry",
+    "daily",
+    "daily-log",
+    "daily-report",
+    "dailylog",
+    "dailyreport",
+    "parentmessage",
+    "parent-message",
+    "parent_message",
+    "behaviornote",
+    "behavior",
+    "behavior-note",
+    "behavior_note",
+    "incidentreport",
+    "incident",
+    "incident-report",
+    "incident_report",
+    // Fail closed: missing/unknown tool must not bypass blank gates.
+    "unknown",
+    "",
+  ]);
+
+  const NON_DOCUMENTATION_TOOLS = new Set([
+    "lesson",
+    "lesson-plan",
+    "lesson_plan",
+    "activity",
+    "activity-idea",
+    "form",
+    "form-builder",
+    "daycareform",
+  ]);
+
   const VAGUE_ONLY = /^(the child|child|they|he|she|baby|toddler|preschooler|kid)(\s+was)?(\s+good|\s+fine|\s+okay|\s+ok|\s+happy|\s+sad|\s+nice|\s+busy)?[.!]?$/i;
 
   function text(value) {
@@ -178,9 +218,23 @@
     };
   }
 
+  function normalizeToolKey(tool) {
+    return text(tool).replace(/_/g, "-").toLowerCase();
+  }
+
   function isObservationTool(tool) {
-    const id = text(tool).replace(/_/g, "-");
-    return OBSERVATION_TOOLS.has(id) || /observation|learning.?story|portfolio/i.test(id);
+    const id = normalizeToolKey(tool);
+    return OBSERVATION_TOOLS.has(id)
+      || OBSERVATION_TOOLS.has(text(tool))
+      || /observation|learning.?story|portfolio/i.test(id);
+  }
+
+  function isDocumentationHelperTool(tool) {
+    const id = normalizeToolKey(tool);
+    if (NON_DOCUMENTATION_TOOLS.has(id)) return false;
+    if (DOCUMENTATION_HELPER_TOOLS.has(id)) return true;
+    if (isObservationTool(tool)) return true;
+    return /^(daily|parent|behavior|incident)/i.test(id);
   }
 
   /**
@@ -226,6 +280,43 @@
         ok: false,
         code: "no_observed_action",
         message: "Describe what you observed the child do. Without an observed action, documentation helpers will not generate developmental claims.",
+      };
+    }
+
+    return { ok: true, code: "", message: "" };
+  }
+
+  /**
+   * Blank / whitespace / too-thin gates for all Documentation Helpers.
+   * Observation tools keep the stricter observed-action checks.
+   * Returns { ok, code, message } — when ok=false, do not call the model.
+   */
+  function validateDocumentationInput(prompt, options = {}) {
+    const tool = options.tool || "unknown";
+    const note = text(prompt || options.providerNotes || options.note || "");
+    const force = options.forceDocumentationCheck === true;
+
+    if (!force && !isDocumentationHelperTool(tool)) {
+      return { ok: true, code: "", message: "" };
+    }
+
+    if (isObservationTool(tool) || options.forceObservationCheck === true) {
+      return validateObservationInput(prompt, { ...options, tool, forceObservationCheck: true });
+    }
+
+    if (!note) {
+      return {
+        ok: false,
+        code: "blank_documentation",
+        message: "Enter real classroom notes before generating. AI will not invent meals, naps, incidents, activities, emotions, or family information from a blank request.",
+      };
+    }
+
+    if (note.length < 12 || VAGUE_ONLY.test(note)) {
+      return {
+        ok: false,
+        code: "too_short_documentation",
+        message: "Add clearer notes before generating. AI will not invent childcare documentation from vague or empty details.",
       };
     }
 
@@ -297,7 +388,9 @@
     infantAlternatives: safeSubstitutions,
     validateAiContentForAge,
     validateObservationInput,
+    validateDocumentationInput,
     isObservationTool,
+    isDocumentationHelperTool,
     lintAiProviderCopy,
     sanitizeProviderFacingCopy,
     ageSafetyRewriteInstruction,

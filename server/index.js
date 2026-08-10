@@ -7676,15 +7676,17 @@ async function generateOpenAiContent({
     throw err;
   }
 
-  const observationGate = aiAgeSafety.validateObservationInput(prompt, {
+  // C2: reject blank/whitespace/too-thin notes for all Documentation Helpers
+  // (observation keeps stricter observed-action checks inside validateDocumentationInput).
+  const documentationGate = aiAgeSafety.validateDocumentationInput(prompt, {
     tool: normalizedTool,
     providerNotes,
     note: prompt,
   });
-  if (!observationGate.ok) {
-    const err = new Error(observationGate.message);
-    err.observationBlocked = true;
-    err.code = observationGate.code || "observation_blocked";
+  if (!documentationGate.ok) {
+    const err = new Error(documentationGate.message);
+    err.observationBlocked = true; // reuse existing 400 path in handleAiGenerate
+    err.code = documentationGate.code || "documentation_blocked";
     err.noRetry = true;
     throw err;
   }
