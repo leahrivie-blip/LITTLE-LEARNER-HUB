@@ -4,7 +4,8 @@
 **Opened:** 2026-08-08  
 **Environment (testers only):** https://little-learner-hub-testing.onrender.com  
 **Live testing shell (at open):** `20260808-phase11-testers-go3`  
-**Live testing shell (current):** `20260809-phase11-admin-tester-session-go17`  
+**Live testing shell (current):** `20260810-tester-invite-login-fix` (deploying / verifying)  
+**Real tester invite readiness:** **NOT READY FOR NEW REAL TESTER INVITES**  
 **PR (keep unmerged):** https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/590  
 **Production:** Untouched until Leah gives **explicit written** production-release approval  
 
@@ -65,7 +66,7 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 
 | ID | Date | Reporter | Summary | Area | Repro / notes | Status |
 |---|---|---|---|---|---|---|
-| — | — | — | *(none yet)* | — | — | — |
+| C1 | 2026-08-10 | Leah | Real tester invite link: very slow first load, then stuck on “Signing you in…” / password setup never finishes | Auth / Tester invite / Testing perf | Open `/?testerInvite=` on testing → create password → spinner never resolves. Root: (1) cold Render wake + (2) boot `site-content`/`uploads`/`analytics` saturating browser connections so `/api/auth/sync-password-after-firebase` + `password-login` starve; (3) accept-before-session ordering; (4) password-login had no client timeout / no finite error state. Fix branch `cursor/tester-invite-login-perf-4eae` shell `20260810-tester-invite-login-fix`: defer heavy boot on invite path, FSM + timeouts, session-before-accept, idempotent re-accept, SW invite nav timeout. **Do not send new real invites until live re-verify PASSes.** | in-progress |
 
 ---
 
@@ -121,12 +122,20 @@ Leah owns ongoing curriculum and cover updates. Log product-adjacent content iss
 
 | Category | Open | Fixed on testing | Notes |
 |---|---|---|---|
-| Critical bug | 0 | 0 | |
+| Critical bug | 1 | 0 | C1 tester invite login/perf — **NOT READY FOR NEW REAL TESTER INVITES** until live verify |
 | High functional issue | 0 | 5 | H1 verified; H2–H5 fixed-on-testing (H5 go15 isolation) |
 | Usability/confusion | 0 | 3 | U1 verified; U2–U3 fixed-on-testing |
 | Feature request | 0 | — | Decisions pending |
 | Polish/later | 0 | 0 | |
 | Curriculum/content | 0 | — | Separate track |
+
+---
+
+## Real tester invite gate (temporary)
+
+**Verdict: NOT READY FOR NEW REAL TESTER INVITES**
+
+Pause sending new real childcare-provider invite links until C1 is verified on the deployed testing site (fresh disposable Home Daycare + Center flows, mobile ~390px, slow network, existing testers still login).
 
 ---
 

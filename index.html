@@ -108,9 +108,9 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260808-cookie-cta" />
-  <link rel="stylesheet" href="styles.css?v=20260810-forms-wave4" />
-  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260810-forms-wave4" />
-  <link rel="stylesheet" href="styles/owner-testing-admin.css?v=20260810-forms-wave4" />
+  <link rel="stylesheet" href="styles.css?v=20260810-tester-invite-login-fix" />
+  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260810-tester-invite-login-fix" />
+  <link rel="stylesheet" href="styles/owner-testing-admin.css?v=20260810-tester-invite-login-fix" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260805-tk-owner-preview-r2" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
@@ -124,7 +124,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260810-forms-wave4";
+      var SHELL_VERSION = "20260810-tester-invite-login-fix";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -217,6 +217,33 @@
     })();
   </script>
   <script>
+    // Tester invite deep links: show an immediate onboarding signal before app.js.
+    (function () {
+      try {
+        if (!/[?&]testerInvite=/.test(String(location.search || ""))) return;
+        document.documentElement.classList.add("llh-tester-invite-boot");
+        document.addEventListener("DOMContentLoaded", function () {
+          if (document.getElementById("llhTesterInviteBootBanner")) return;
+          var banner = document.createElement("div");
+          banner.id = "llhTesterInviteBootBanner";
+          banner.setAttribute("role", "status");
+          banner.style.cssText = "position:fixed;inset:0;z-index:11000;display:grid;place-items:center;padding:24px;background:rgba(26,43,74,0.45);";
+          banner.innerHTML = '<div style="width:min(100%,420px);background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 16px 40px rgba(15,23,42,0.28);font-family:Georgia,serif;color:#1a2b4a"><p style="margin:0 0 8px;letter-spacing:.04em;text-transform:uppercase;font-size:12px;opacity:.7">Tester invite</p><h2 style="margin:0 0 8px;font-size:1.35rem">Opening your testing invite…</h2><p style="margin:0;line-height:1.45;opacity:.85">Hang tight while we prepare your setup screen.</p></div>';
+          document.body.appendChild(banner);
+          var remove = function () {
+            if (document.getElementById("hdhTesterInviteAcceptPanel") || document.body.classList.contains("app-boot-ready")) {
+              banner.remove();
+              return true;
+            }
+            return false;
+          };
+          var timer = setInterval(function () {
+            if (remove()) clearInterval(timer);
+          }, 200);
+          setTimeout(function () { clearInterval(timer); banner.remove(); }, 45000);
+        });
+      } catch (error) { /* ignore */ }
+    })();
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
     (function () {
       try {
@@ -2525,11 +2552,11 @@
     <script src="scripts/forms-dirty-state.js?v=20260810-forms-wave1" defer></script>
     <script src="scripts/paperwork-surfaces.js?v=20260810-forms-wave2" defer></script>
     <script src="scripts/form-builder-lib.js?v=20260810-forms-wave3" defer></script>
-    <script src="scripts/forms-assign-flow.js?v=20260810-forms-wave4" defer></script>
-    <script src="app.js?v=20260810-forms-wave3" defer></script>
+    <script src="scripts/forms-assign-flow.js?v=20260810-tester-invite-login-fix" defer></script>
+    <script src="app.js?v=20260810-tester-invite-login-fix" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260806-tk-admin-flags-settings" defer></script>
-    <script src="scripts/owner-testing-admin-ui.js?v=20260810-forms-wave4" defer></script>
+    <script src="scripts/owner-testing-admin-ui.js?v=20260810-tester-invite-login-fix" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="comms-center.js?v=20260804-perf-bounded-r1" defer></script>
   </body>

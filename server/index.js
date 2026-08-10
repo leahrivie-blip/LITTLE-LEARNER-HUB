@@ -17083,6 +17083,38 @@ async function handleHdhTesterInviteAccept(request, response) {
     return;
   }
 
+  // Idempotent re-accept: never create a second program/membership when the
+  // tester retries, double-clicks, or reopens the same invite link.
+  if (String(invite.status || "").toLowerCase() === "accepted") {
+    const account = store.users?.[normalizeEmail(identity.email)] || {};
+    const context = programOwnership.resolveProgramContext(store, identity);
+    const existingChild = context?.ok ? programOwnership.readProgramChildData(store, context) : null;
+    const demoChild = Array.isArray(existingChild?.data?.Profiles) ? existingChild.data.Profiles[0] : null;
+    jsonResponse(response, 200, {
+      ok: true,
+      alreadyAccepted: true,
+      invite: publicHdhTesterInvite(invite),
+      account: {
+        email: identity.email,
+        role: account.role || invite.role || "owner",
+        accountType: account.accountType || invite.programType || "home_daycare",
+        linkedProgramOwnerEmail: account.linkedProgramOwnerEmail || "",
+        programAccessViaOwner: Boolean(account.programAccessViaOwner),
+        hdhIndependentTester: Boolean(account.hdhIndependentTester),
+        hdhTesterInvitedByEmail: invite.invitedByEmail || account.hdhTesterInvitedByEmail || "",
+        testingInviteAcceptedAt: account.testingInviteAcceptedAt || invite.acceptedAt || "",
+        plan: account.plan || "Pro",
+        subscriptionStatus: account.subscriptionStatus || "Pro Subscription Active",
+        programId: account.programId || invite.programId || "",
+        multiRoleTester: Boolean(account.multiRoleTester),
+        testingFeatures: account.testingFeatures || {},
+      },
+      demoChild,
+      message: "This testing invite was already accepted. Your program is ready.",
+    });
+    return;
+  }
+
   const childName = String(body.childName || invite.childName || "Demo Child").trim() || "Demo Child";
   invite.childName = childName;
   if (!invite.programName && !invite.invitedByAdmin) {

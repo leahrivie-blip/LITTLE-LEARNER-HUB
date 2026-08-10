@@ -162,6 +162,7 @@
     "test:doc-helpers-simplify-qa": "node scripts/test-doc-helpers-simplify-qa.js",
     "test:center-surfaces-phase7": "node scripts/test-center-surfaces-phase7.js",
     "test:staff-invite-flow": "NODE_ENV=test node scripts/test-staff-invite-flow.js",
+    "test:tester-invite-login-fsm": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-tester-invite-login-fsm.js",
     "test:daily-logs-attendance": "node scripts/test-daily-logs-attendance.js",
     "test:daily-operations-phase5": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-daily-operations-phase5.js",
     "test:daily-operations-mobile-phase5": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-daily-operations-mobile-phase5.js",

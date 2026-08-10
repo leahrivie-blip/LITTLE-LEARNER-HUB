@@ -1,13 +1,14 @@
-const CACHE_NAME = "llh-shell-v218-forms-wave4";
-const SHELL_VERSION = "20260810-forms-wave4";
+const CACHE_NAME = "llh-shell-v219-tester-invite-login-fix";
+const SHELL_VERSION = "20260810-tester-invite-login-fix";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
+const INVITE_NAV_TIMEOUT_MS = 15000;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260810-forms-wave4",
-  "/styles/llh-admin-workspace.css?v=20260810-forms-wave4",
+  "/styles.css?v=20260810-tester-invite-login-fix",
+  "/styles/llh-admin-workspace.css?v=20260810-tester-invite-login-fix",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260808-cookie-cta",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -47,7 +48,7 @@ const APP_SHELL = [
   "/scripts/teaching-kit-quality-review-ui.js?v=20260803-tk-quality-review",
   "/scripts/teaching-kit-enrichment-editor.js?v=20260806-tk-editor-spacing-r3",
   "/scripts/teaching-kit-authoring.js?v=20260803-tk-authoring",
-  "/app.js?v=20260808-tk-quality-pass",
+  "/app.js?v=20260810-tester-invite-login-fix",
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260806-tk-admin-flags-settings",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",
@@ -169,9 +170,13 @@ self.addEventListener("fetch", (event) => {
   }
 
   // HTML navigations: try network quickly, then fall back to cached shell.
+  // Tester/staff/family invite deep links need a longer network window so a cold
+  // Render wake does not serve a stale shell that breaks invite setup.
   if (isNavigationRequest(event.request, requestUrl)) {
+    const inviteNav = /(?:^|[?&])(?:testerInvite|staffInvite|familyHub|inviteToken)=/.test(requestUrl.search || "");
+    const navTimeout = inviteNav ? INVITE_NAV_TIMEOUT_MS : NETWORK_TIMEOUT_MS;
     event.respondWith(
-      networkWithTimeout(event.request, NETWORK_TIMEOUT_MS)
+      networkWithTimeout(event.request, navTimeout)
         .then((response) => {
           putInCache(event.request, response);
           return response;

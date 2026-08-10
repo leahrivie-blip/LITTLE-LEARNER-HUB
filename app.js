@@ -16550,19 +16550,66 @@ function setAuthMode(mode) {
 
 /** In-flight local signup → server password persistence (Firebase Auth off). */
 let pendingLocalPasswordSync = null;
+/** Prevents double-submit / retry storms during tester invite password setup. */
+let testerInviteAuthFlowLock = null;
+
+function isTesterInviteBootPath() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    if (String(params.get("testerInvite") || "").trim()) return true;
+  } catch (_error) { /* ignore */ }
+  try {
+    if (readPendingTesterInvite()?.token) return true;
+  } catch (_error) { /* ignore */ }
+  return false;
+}
+
+async function fetchWithAuthTimeout(url, init = {}, timeoutMs = 25000) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const abortTimer = controller ? setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000)) : null;
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller ? controller.signal : init.signal,
+    });
+  } catch (error) {
+    if (error && (error.name === "AbortError" || /aborted/i.test(String(error.message || "")))) {
+      throw new Error("This step is taking too long. Check your connection and try again.");
+    }
+    throw error;
+  } finally {
+    if (abortTimer) clearTimeout(abortTimer);
+  }
+}
+
+function setTesterInviteFlowMessage(text, { busy = true } = {}) {
+  const clean = String(text || "").trim();
+  setFormMessage("#authMessage", clean, busy);
+  const inviteMsg = document.querySelector("#hdhTesterInviteAcceptMessage");
+  if (inviteMsg && clean) inviteMsg.textContent = clean;
+}
 
 async function awaitPendingLocalPasswordSync(timeoutMs = 20000) {
   const pending = pendingLocalPasswordSync;
   if (!pending) return null;
+  let timedOut = false;
   try {
     await Promise.race([
       pending,
-      new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(timeoutMs) || 0))),
+      new Promise((resolve) => setTimeout(() => {
+        timedOut = true;
+        resolve(null);
+      }, Math.max(0, Number(timeoutMs) || 0))),
     ]);
   } catch {
     /* sync helper already logs */
   }
-  if (pendingLocalPasswordSync === pending) pendingLocalPasswordSync = null;
+  if (timedOut && pendingLocalPasswordSync === pending) {
+    // Do not let a hung sync block invite login forever; a fresh sync follows.
+    pendingLocalPasswordSync = null;
+  } else if (pendingLocalPasswordSync === pending) {
+    pendingLocalPasswordSync = null;
+  }
   return pending;
 }
 
@@ -16623,19 +16670,19 @@ async function loginWithServerPassword(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   // If signup just kicked off a local password sync, wait for it before login.
   await awaitPendingLocalPasswordSync(20000);
-  let response = await fetch("/api/auth/password-login", {
+  let response = await fetchWithAuthTimeout("/api/auth/password-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: cleanEmail, password }),
-  });
+  }, 25000);
   // One short retry covers slow Postgres commits right after signup.
   if (!response.ok && response.status === 401) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    response = await fetch("/api/auth/password-login", {
+    response = await fetchWithAuthTimeout("/api/auth/password-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: cleanEmail, password }),
-    });
+    }, 25000);
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -16671,18 +16718,16 @@ async function syncPasswordAfterFirebaseAuth(password, source = "firebase_login"
       if (!token) return null;
       headers.Authorization = `Bearer ${token}`;
     }
-    const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const abortTimer = controller ? setTimeout(() => controller.abort(), 20000) : null;
     let response;
     try {
-      response = await fetch("/api/auth/sync-password-after-firebase", {
+      response = await fetchWithAuthTimeout("/api/auth/sync-password-after-firebase", {
         method: "POST",
         headers,
         body: JSON.stringify(body),
-        signal: controller ? controller.signal : undefined,
-      });
-    } finally {
-      if (abortTimer) clearTimeout(abortTimer);
+      }, 20000);
+    } catch (error) {
+      console.warn("[auth] firebase password sync error", error);
+      return null;
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -40616,11 +40661,11 @@ async function acceptHdhTesterInviteToken(token) {
   headers["X-LLH-User-Email"] = String(currentUser || "").trim().toLowerCase();
   headers["Content-Type"] = "application/json";
   headers.Accept = "application/json";
-  const response = await fetch("/api/home-daycare-hub/tester-invites/accept", {
+  const response = await fetchWithAuthTimeout("/api/home-daycare-hub/tester-invites/accept", {
     method: "POST",
     headers,
     body: JSON.stringify({ token: cleanToken }),
-  });
+  }, 30000);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Could not accept tester invite.");
   if (data.account && currentUser) {
@@ -40727,16 +40772,140 @@ async function maybeAutoAcceptPendingTesterInvite() {
   }
 }
 
+/**
+ * Finite-state tester invite credential handoff (Firebase-less testing path).
+ * States: creating_credentials → creating_session → accepting_invite → loading_program → complete|error
+ * Every async step resolves or fails with a recoverable error (no infinite spinner).
+ */
+async function completeTesterInviteCredentialFlow({ email, password, mode = "signup" } = {}) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanPassword = String(password || "");
+  if (!cleanEmail || cleanPassword.length < 8) {
+    throw new Error("Enter the invited email and a password with at least 8 characters.");
+  }
+  if (testerInviteAuthFlowLock) {
+    return testerInviteAuthFlowLock;
+  }
+  const flow = (async () => {
+    const state = { stage: "creating_credentials", accepted: false, sessionReady: false, error: "" };
+    window.__llhTesterInviteFlowState = state;
+    try {
+      setTesterInviteFlowMessage(
+        mode === "login" ? "Signing you in…" : "Creating your testing account…",
+        { busy: true },
+      );
+      state.stage = "creating_credentials";
+      await awaitPendingLocalPasswordSync(20000);
+      const syncResult = await syncPasswordAfterFirebaseAuth(
+        cleanPassword,
+        mode === "login" ? "tester_invite_login" : "tester_invite_signup",
+        cleanEmail,
+      );
+      if (syncResult && syncResult.skipped) {
+        throw new Error("This email cannot be used for a lasting testing password. Ask for a new invite with your real email.");
+      }
+
+      state.stage = "creating_session";
+      setTesterInviteFlowMessage("Signing you in…", { busy: true });
+      let sessionReady = false;
+      let lastLoginError = null;
+      for (let attempt = 0; attempt < 3 && !sessionReady; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            setTesterInviteFlowMessage("Signing you in… (retrying)", { busy: true });
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            await syncPasswordAfterFirebaseAuth(cleanPassword, "tester_invite_login_retry", cleanEmail);
+          }
+          await loginWithServerPassword(cleanEmail, cleanPassword);
+          sessionReady = Boolean(readMemberSessionToken());
+        } catch (error) {
+          lastLoginError = error;
+          sessionReady = false;
+        }
+      }
+      state.sessionReady = sessionReady;
+      if (!sessionReady) {
+        throw new Error(
+          lastLoginError?.message
+          || "Your password was saved, but sign-in did not finish. Tap Log In with the same email and password.",
+        );
+      }
+      loadAccountState(cleanEmail);
+      markAccountLogin(cleanEmail);
+
+      state.stage = "accepting_invite";
+      setTesterInviteFlowMessage("Connecting you to your program…", { busy: true });
+      closeAuthModal();
+      markAppBootReady();
+      let accepted = await maybeAutoAcceptPendingTesterInvite();
+      if (!accepted) {
+        await maybeHandleHdhTesterInviteFromUrl();
+        accepted = await maybeAutoAcceptPendingTesterInvite();
+      }
+      state.accepted = accepted;
+      if (!accepted) {
+        const detail = window.__llhLastTesterInviteAcceptError
+          || "Signed in, but the testing program did not open. Tap Enter my program, or Log In again.";
+        const msg = document.querySelector("#hdhTesterInviteAcceptMessage");
+        if (msg) msg.textContent = detail;
+        setTesterInviteFlowMessage(detail, { busy: false });
+        state.stage = "error";
+        state.error = detail;
+        return state;
+      }
+
+      state.stage = "loading_program";
+      setTesterInviteFlowMessage("Opening your testing program…", { busy: true });
+      try {
+        await Promise.race([
+          syncChildDataFromBackend({ render: true }),
+          new Promise((resolve) => setTimeout(resolve, 12000)),
+        ]);
+      } catch (_error) { /* program chrome can finish loading after landing */ }
+      setView("children");
+      state.stage = "complete";
+      setFormMessage("#authMessage", "", false);
+      showActionFeedback("Your testing program is ready.");
+      return state;
+    } catch (error) {
+      state.stage = "error";
+      state.error = error?.message || "Could not finish testing account setup.";
+      setTesterInviteFlowMessage(state.error, { busy: false });
+      switchAuthMode("login");
+      const emailInput = document.querySelector("#emailInput");
+      if (emailInput && cleanEmail) {
+        emailInput.value = cleanEmail;
+        emailInput.readOnly = false;
+      }
+      throw error;
+    } finally {
+      if (testerInviteAuthFlowLock === flow) testerInviteAuthFlowLock = null;
+    }
+  })();
+  testerInviteAuthFlowLock = flow;
+  return flow;
+}
+
 async function maybeHandleHdhTesterInviteFromUrl() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const params = new URLSearchParams(window.location.search);
   const token = String(params.get("testerInvite") || consumePendingUrlSecret("testerInvite") || "").trim();
   if (!token) return false;
   document.body.classList.add("tester-invite-open");
-  const peek = await fetch("/api/home-daycare-hub/tester-invites/peek", {
-    headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
-    cache: "no-store",
-  }).then((r) => r.json()).catch(() => ({}));
+  window.__llhTesterInviteFlowState = { stage: "invite_loading" };
+  let peek = {};
+  try {
+    const peekResponse = await fetchWithAuthTimeout("/api/home-daycare-hub/tester-invites/peek", {
+      headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
+      cache: "no-store",
+    }, 20000);
+    peek = await peekResponse.json().catch(() => ({}));
+    if (!peekResponse.ok && !peek.error) {
+      peek = { error: peek.error || "Could not open this tester invite right now." };
+    }
+  } catch (error) {
+    peek = { error: error?.message || "Could not open this tester invite right now." };
+  }
   const invite = peek?.invite;
   const panel = document.createElement("div");
   panel.className = "section-block fh-invite-accept-panel";
@@ -40775,9 +40944,26 @@ async function maybeHandleHdhTesterInviteFromUrl() {
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
     showActionFeedback("Your testing program is ready.");
     setView("children");
+    window.__llhTesterInviteFlowState = { stage: "complete", alreadyAccepted: true };
     return true;
   }
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
+  if (alreadyAccepted && !adminUnlocked) {
+    card.innerHTML = `
+      <p class="fh-kicker">Tester invite</p>
+      <h2>This invite is already set up</h2>
+      <p><strong>${escapeHtml(programLabel)}</strong> · ${escapeHtml(typeLabel)} · ${escapeHtml(roleLabel)}</p>
+      <p class="muted-copy">Use <strong>Log In</strong> with <strong>${escapeHtml(invite.email)}</strong> and the password you created. You do not need this invite link again.</p>
+      <div class="fh-account-actions account-actions-row">
+        <button class="primary-button" type="button" data-tester-invite-login="${escapeHtml(token)}" data-tester-invite-email="${escapeHtml(invite.email)}">Log In to my testing account</button>
+        <button class="ghost-button fh-btn-secondary" type="button" data-dismiss-tester-invite>Not now</button>
+      </div>
+      <p class="form-message" id="hdhTesterInviteAcceptMessage" aria-live="polite"></p>
+    `;
+    mount();
+    window.__llhTesterInviteFlowState = { stage: "invite_ready", alreadyAccepted: true };
+    return true;
+  }
   card.innerHTML = `
     <p class="fh-kicker">Tester invite</p>
     <h2>Finish setting up your testing account</h2>
@@ -40802,6 +40988,7 @@ async function maybeHandleHdhTesterInviteFromUrl() {
     <p class="form-message" id="hdhTesterInviteAcceptMessage" aria-live="polite"></p>
   `;
   mount();
+  window.__llhTesterInviteFlowState = { stage: "invite_ready" };
   if (emailMatch && !adminUnlocked) {
     maybeAutoAcceptPendingTesterInvite().catch(() => {});
   }
@@ -74666,45 +74853,15 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         // pre-created program instead of creating a second one.
         const pendingTesterInvite = readPendingTesterInvite();
         if (pendingTesterInvite?.token) {
-          setFormMessage("#authMessage", "Saving your password and opening your testing program…", true);
           submitButton.disabled = false;
-          // Wait for password sync, then accept immediately (email-bridge is enough on
-          // the Firebase-less testing host). Mint the member session afterward so a
-          // slow password-login cannot leave testers stuck on the invite panel.
-          await awaitPendingLocalPasswordSync(45000);
-          // If background sync timed out, force one more password write before accept/login.
-          if (!readMemberSessionToken()) {
-            try {
-              await syncPasswordAfterFirebaseAuth(password, "tester_invite_signup", result.email);
-            } catch (_error) { /* login retry below still attempts */ }
-          }
-          closeAuthModal();
-          markAppBootReady();
-          let accepted = await maybeAutoAcceptPendingTesterInvite();
-          // Mint member session so this browser session and later Log In share the
-          // password the tester just chose. Retry — testing password-login can lag sync.
-          let sessionReady = false;
-          for (let attempt = 0; attempt < 4 && !sessionReady; attempt += 1) {
-            try {
-              if (attempt > 0) {
-                await new Promise((resolve) => setTimeout(resolve, 2000));
-                await syncPasswordAfterFirebaseAuth(password, "tester_invite_login_retry", result.email);
-              }
-              await loginWithServerPassword(result.email, password);
-              sessionReady = Boolean(readMemberSessionToken());
-            } catch (_error) {
-              sessionReady = false;
-            }
-          }
-          if (!accepted) accepted = await maybeAutoAcceptPendingTesterInvite();
-          if (!accepted) {
-            await maybeHandleHdhTesterInviteFromUrl();
-            const msg = document.querySelector("#hdhTesterInviteAcceptMessage");
-            const detail = window.__llhLastTesterInviteAcceptError
-              || "Account created. Tap Enter my program to join the program set up for you.";
-            if (msg) msg.textContent = detail;
-          } else if (!sessionReady) {
-            showActionFeedback("Program ready. If Log In fails later, wait a moment and try again — your password is still saving.");
+          try {
+            await completeTesterInviteCredentialFlow({
+              email: result.email,
+              password,
+              mode: "signup",
+            });
+          } catch (_error) {
+            // completeTesterInviteCredentialFlow already surfaces a recoverable error.
           }
           return;
         }
@@ -74758,11 +74915,25 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       }
       return;
     }
+    if (readPendingTesterInvite()?.token && !firebaseAuthEnabled) {
+      // Prefer the finite invite handoff on the Firebase-less testing host so
+      // password sync + session + accept never leave an infinite spinner.
+      try {
+        await completeTesterInviteCredentialFlow({
+          email,
+          password,
+          mode: "login",
+        });
+      } catch (_error) {
+        /* message already set */
+      }
+      return;
+    }
     const result = await loginWithProvider(email, password);
     loadAccountState(result.email);
     markAccountLogin(result.email);
     if (readPendingTesterInvite()?.token) {
-      setFormMessage("#authMessage", "Opening your testing program…", true);
+      setFormMessage("#authMessage", "Connecting you to your program…", true);
       closeAuthModal();
       markAppBootReady();
       const accepted = await maybeAutoAcceptPendingTesterInvite();
@@ -78463,8 +78634,40 @@ if (!currentUser) {
     setView(earlyLanding, { fromBoot: true, replaceHistory: true });
   }
 }
-loadSiteContentFromBackend().catch(() => {});
-loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: false }).catch(() => {});
+function scheduleDeferredPublicBootLoads() {
+  const run = () => {
+    loadSiteContentFromBackend().catch(() => {});
+    loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: false }).catch(() => {});
+  };
+  // Tester invite onboarding must not compete with large public fetches for the
+  // browser's per-host connection budget (that was starving password sync/login).
+  if (!isTesterInviteBootPath()) {
+    run();
+    return;
+  }
+  const startedAt = Date.now();
+  const timer = window.setInterval(() => {
+    const inviteOpen = document.body.classList.contains("tester-invite-open");
+    const pending = Boolean(readPendingTesterInvite()?.token);
+    const flowStage = String(window.__llhTesterInviteFlowState?.stage || "");
+    const finished = (!inviteOpen && !pending)
+      || flowStage === "complete"
+      || flowStage === "error"
+      || (Date.now() - startedAt > 25000);
+    if (!finished) return;
+    window.clearInterval(timer);
+    run();
+  }, 400);
+}
+
+// Prioritize invite recognition before heavy public boot fetches.
+if (isTesterInviteBootPath()) {
+  document.body.classList.add("tester-invite-open");
+  Promise.resolve()
+    .then(() => maybeHandleHdhTesterInviteFromUrl())
+    .catch(() => {});
+}
+scheduleDeferredPublicBootLoads();
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
