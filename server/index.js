@@ -1900,6 +1900,20 @@ function normalizedCurriculumDailyPlanDay(value) {
   };
 }
 
+/**
+ * Optional activity timing minutes.
+ * CRITICAL: Number(null) === 0 in JavaScript — never use Number.isFinite(Number(null)).
+ * Preserve null / missing / "" as null unless the owner explicitly set a numeric value
+ * (including legacy numeric strings like "10"). Booleans/objects are rejected.
+ */
+function normalizedOptionalMinutes(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "boolean" || typeof value === "object") return null;
+  const n = typeof value === "number" ? value : Number(String(value).trim());
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(180, Math.round(n)));
+}
+
 function normalizedCurriculumDailyPlanItem(value) {
   const entry = value && typeof value === "object" ? value : {};
   const title = normalizedShortText(entry.title, 180);
@@ -1933,10 +1947,10 @@ function normalizedCurriculumDailyPlanItem(value) {
     ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
     printableInstructions: normalizedMultilineText(entry.printableInstructions, 4000),
-    setupMinutes: Number.isFinite(Number(entry.setupMinutes)) ? Math.max(0, Math.min(180, Math.round(Number(entry.setupMinutes)))) : null,
-    durationMinutes: Number.isFinite(Number(entry.durationMinutes || entry.activityDurationMinutes))
-      ? Math.max(0, Math.min(180, Math.round(Number(entry.durationMinutes || entry.activityDurationMinutes))))
-      : null,
+    setupMinutes: normalizedOptionalMinutes(entry.setupMinutes),
+    durationMinutes: normalizedOptionalMinutes(
+      entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
+    ),
     groupSize: normalizedShortText(entry.groupSize, 80),
     dailyPlacement: normalizedShortText(entry.dailyPlacement || entry.placement, 120),
     // Teaching Kit enrichment (additive — empty keeps legacy behavior).
@@ -2208,12 +2222,10 @@ function normalizedCurriculumActivity(value) {
     purpose: normalizedMultilineText(entry.purpose, 4000),
     extraSupport: normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000),
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
-    setupMinutes: Number.isFinite(Number(entry.setupMinutes))
-      ? Math.max(0, Math.min(180, Math.round(Number(entry.setupMinutes))))
-      : null,
-    durationMinutes: Number.isFinite(Number(entry.durationMinutes || entry.activityDurationMinutes))
-      ? Math.max(0, Math.min(180, Math.round(Number(entry.durationMinutes || entry.activityDurationMinutes))))
-      : null,
+    setupMinutes: normalizedOptionalMinutes(entry.setupMinutes),
+    durationMinutes: normalizedOptionalMinutes(
+      entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
+    ),
     groupSize: normalizedShortText(entry.groupSize, 80),
     dailyPlacement: normalizedShortText(entry.dailyPlacement || entry.placement, 120),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
@@ -3139,53 +3151,223 @@ function writeSiteCurriculum(store, curriculum, { updatedAt, allowReplace = fals
   return { stamp, wipeBlocked: false };
 }
 
+/**
+ * Persist curriculum changes without re-normalizing untouched records.
+ * Only lessonPlans / resources / activities whose ids appear in `touched*`
+ * are taken from `incomingCurriculum` (and normalized individually). All other
+ * records are copied by reference from the existing store so unrelated
+ * setupMinutes / drafts / updatedAt values cannot drift.
+ */
+function writeSiteCurriculumTouched(store, incomingCurriculum, {
+  updatedAt,
+  touchedLessonPlanIds = [],
+  touchedResourceIds = [],
+  touchedActivityIds = [],
+  removeResourceIds = [],
+  allowReplace = false,
+} = {}) {
+  const existing = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const stamp = normalizedShortText(updatedAt, 80) || new Date().toISOString();
+  const existingCur = existing.curriculum && typeof existing.curriculum === "object"
+    ? existing.curriculum
+    : defaultCurriculumStore();
+  const incoming = incomingCurriculum && typeof incomingCurriculum === "object"
+    ? incomingCurriculum
+    : {};
+
+  const touchPlans = new Set(
+    (touchedLessonPlanIds || []).map((id) => normalizedShortText(id, 160)).filter(Boolean),
+  );
+  const touchResources = new Set(
+    (touchedResourceIds || []).map((id) => normalizedShortText(id, 160)).filter(Boolean),
+  );
+  const touchActivities = new Set(
+    (touchedActivityIds || []).map((id) => normalizedShortText(id, 160)).filter(Boolean),
+  );
+  const removeResources = new Set(
+    (removeResourceIds || []).map((id) => normalizedShortText(id, 160)).filter(Boolean),
+  );
+
+  const existingPlans = Array.isArray(existingCur.lessonPlans) ? existingCur.lessonPlans : [];
+  const existingActivities = Array.isArray(existingCur.activities) ? existingCur.activities : [];
+  const existingResources = Array.isArray(existingCur.resources) ? existingCur.resources : [];
+  const incomingPlans = Array.isArray(incoming.lessonPlans) ? incoming.lessonPlans : [];
+  const incomingActivities = Array.isArray(incoming.activities) ? incoming.activities : [];
+  const incomingResources = Array.isArray(incoming.resources) ? incoming.resources : [];
+
+  const incomingPlanById = new Map(
+    incomingPlans.filter((p) => p && p.id).map((p) => [String(p.id), p]),
+  );
+  const incomingActivityById = new Map(
+    incomingActivities.filter((a) => a && a.id).map((a) => [String(a.id), a]),
+  );
+  const incomingResourceById = new Map(
+    incomingResources.filter((r) => r && r.id).map((r) => [String(r.id), r]),
+  );
+
+  const nextPlans = existingPlans.map((plan) => {
+    if (!plan?.id || !touchPlans.has(plan.id)) return plan;
+    const incomingPlan = incomingPlanById.get(plan.id);
+    if (!incomingPlan) return plan;
+    // Surgical patches keep published dailyPlans by reference and never
+    // re-normalize unrelated activity timing fields on this lesson.
+    if (incomingPlan.dailyPlans === plan.dailyPlans) {
+      const linkOnly = (
+        incomingPlan.enrichmentDraft === plan.enrichmentDraft
+        && incomingPlan.enrichmentPublished === plan.enrichmentPublished
+        && incomingPlan.enrichmentDraftUndo === plan.enrichmentDraftUndo
+        && incomingPlan.enrichmentPublishHistory === plan.enrichmentPublishHistory
+      );
+      if (linkOnly) {
+        return {
+          ...plan,
+          resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+          updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
+            ? incomingPlan.updatedAt
+            : plan.updatedAt,
+        };
+      }
+      return {
+        ...plan,
+        enrichmentDraft: incomingPlan.enrichmentDraft,
+        enrichmentDraftUndo: incomingPlan.enrichmentDraftUndo,
+        enrichmentPublishHistory: incomingPlan.enrichmentPublishHistory,
+        enrichmentPublished: incomingPlan.enrichmentPublished,
+        resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
+          ? incomingPlan.updatedAt
+          : plan.updatedAt,
+      };
+    }
+    return normalizedCurriculumLessonPlan(incomingPlan);
+  });
+  touchPlans.forEach((planId) => {
+    if (existingPlans.some((p) => p.id === planId)) return;
+    const incomingPlan = incomingPlanById.get(planId);
+    if (incomingPlan) nextPlans.push(normalizedCurriculumLessonPlan(incomingPlan));
+  });
+
+  const nextActivities = existingActivities.map((activity) => {
+    if (!activity?.id || !touchActivities.has(activity.id)) return activity;
+    const incomingActivity = incomingActivityById.get(activity.id);
+    return incomingActivity ? normalizedCurriculumActivity(incomingActivity) : activity;
+  });
+  touchActivities.forEach((activityId) => {
+    if (existingActivities.some((a) => a.id === activityId)) return;
+    const incomingActivity = incomingActivityById.get(activityId);
+    if (incomingActivity) nextActivities.push(normalizedCurriculumActivity(incomingActivity));
+  });
+
+  const nextResources = existingResources
+    .filter((resource) => resource?.id && !removeResources.has(resource.id))
+    .map((resource) => {
+      if (!touchResources.has(resource.id)) return resource;
+      const incomingResource = incomingResourceById.get(resource.id);
+      return incomingResource ? normalizedCurriculumResource(incomingResource) : resource;
+    });
+  touchResources.forEach((resourceId) => {
+    if (removeResources.has(resourceId)) return;
+    if (existingResources.some((r) => r.id === resourceId)) return;
+    const incomingResource = incomingResourceById.get(resourceId);
+    if (incomingResource) nextResources.push(normalizedCurriculumResource(incomingResource));
+  });
+
+  const nextCurriculum = {
+    ...existingCur,
+    lessonPlans: nextPlans,
+    activities: nextActivities,
+    resources: nextResources,
+    series: Array.isArray(existingCur.series) ? existingCur.series : [],
+    updatedAt: stamp,
+  };
+
+  if (shouldPreserveExistingCurriculum(existingCur, nextCurriculum, { allowReplace })) {
+    console.warn("[curriculum-wipe-guard] writeSiteCurriculumTouched: refused to shrink curriculum — preserving existing library", {
+      existingLessonPlans: (existingCur.lessonPlans || []).length,
+      incomingLessonPlans: nextPlans.length,
+      existingActivities: (existingCur.activities || []).length,
+      incomingActivities: nextActivities.length,
+    });
+    maybeAlertStoreSafety("curriculum_wipe_blocked_write_site_curriculum_touched", {
+      existingLessonPlans: (existingCur.lessonPlans || []).length,
+      incomingLessonPlans: nextPlans.length,
+    }).catch(() => {});
+    store.siteContent = {
+      ...existing,
+      curriculum: existingCur,
+      updatedAt: stamp,
+    };
+    return { stamp, wipeBlocked: true };
+  }
+
+  store.siteContent = {
+    ...existing,
+    curriculum: nextCurriculum,
+    updatedAt: stamp,
+  };
+  return { stamp, wipeBlocked: false };
+}
+
 function unlinkCurriculumResourceFromAllLessonPlans(curriculum, resourceId) {
   const now = new Date().toISOString();
-  const store = normalizedCurriculumStore(curriculum);
   const targetResourceId = normalizedShortText(resourceId, 160);
   if (!targetResourceId) return null;
-  return normalizedCurriculumStore({
-    ...store,
-    resources: store.resources.map((item) => (
+  const resources = Array.isArray(curriculum?.resources) ? curriculum.resources : [];
+  const lessonPlans = Array.isArray(curriculum?.lessonPlans) ? curriculum.lessonPlans : [];
+  const touchedPlanIds = new Set(
+    lessonPlans
+      .filter((item) => Array.isArray(item.resourceIds) && item.resourceIds.includes(targetResourceId))
+      .map((item) => item.id),
+  );
+  return {
+    ...curriculum,
+    resources: resources.map((item) => (
       item.id === targetResourceId
         ? { ...item, lessonPlanIds: [], updatedAt: now }
         : item
     )),
-    lessonPlans: store.lessonPlans.map((item) => (
-      item.resourceIds.includes(targetResourceId)
+    lessonPlans: lessonPlans.map((item) => (
+      touchedPlanIds.has(item.id)
         ? {
           ...item,
-          resourceIds: item.resourceIds.filter((id) => id !== targetResourceId),
+          resourceIds: (item.resourceIds || []).filter((id) => id !== targetResourceId),
           updatedAt: now,
         }
         : item
     )),
     updatedAt: now,
-  });
+  };
 }
 
+/**
+ * Link one resource ↔ one lesson without re-normalizing the rest of the library.
+ * Untouched plans/resources keep their original object references/values.
+ */
 function linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId) {
   const now = new Date().toISOString();
-  const store = normalizedCurriculumStore(curriculum);
   const targetResourceId = normalizedShortText(resourceId, 160);
   const targetLessonPlanId = normalizedShortText(lessonPlanId, 160);
   if (!targetResourceId || !targetLessonPlanId) return null;
-  const resource = store.resources.find((item) => item.id === targetResourceId);
-  const lessonPlan = store.lessonPlans.find((item) => item.id === targetLessonPlanId);
+  const resources = Array.isArray(curriculum?.resources) ? curriculum.resources : [];
+  const lessonPlans = Array.isArray(curriculum?.lessonPlans) ? curriculum.lessonPlans : [];
+  const resource = resources.find((item) => item.id === targetResourceId);
+  const lessonPlan = lessonPlans.find((item) => item.id === targetLessonPlanId);
   if (!resource || !lessonPlan) return null;
 
-  const lessonPlanIds = [...new Set([...resource.lessonPlanIds, targetLessonPlanId])];
-  const resourceIds = [...new Set([...lessonPlan.resourceIds, targetResourceId])];
-  return normalizedCurriculumStore({
-    ...store,
-    resources: store.resources.map((item) => (
+  const lessonPlanIds = [...new Set([...(resource.lessonPlanIds || []), targetLessonPlanId])];
+  const resourceIds = [...new Set([...(lessonPlan.resourceIds || []), targetResourceId])];
+  return {
+    ...curriculum,
+    resources: resources.map((item) => (
       item.id === targetResourceId ? { ...item, lessonPlanIds, updatedAt: now } : item
     )),
-    lessonPlans: store.lessonPlans.map((item) => (
+    lessonPlans: lessonPlans.map((item) => (
       item.id === targetLessonPlanId ? { ...item, resourceIds, updatedAt: now } : item
     )),
     updatedAt: now,
-  });
+  };
 }
 
 /**
@@ -3195,21 +3377,24 @@ function linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId
  */
 function publishLinkedDraftResourcesForLesson(curriculum, lessonPlanId, { now } = {}) {
   const stamp = now || new Date().toISOString();
-  const store = normalizedCurriculumStore(curriculum);
+  // Do NOT whole-store normalize here — return the same curriculum object graph
+  // when nothing is promoted so unrelated lesson fields cannot drift.
   const planId = normalizedShortText(lessonPlanId, 160);
-  if (!planId) return { curriculum: store, publishedResourceIds: [] };
-  const plan = (store.lessonPlans || []).find((item) => item.id === planId);
+  if (!planId) return { curriculum, publishedResourceIds: [] };
+  const lessonPlans = Array.isArray(curriculum?.lessonPlans) ? curriculum.lessonPlans : [];
+  const resourcesIn = Array.isArray(curriculum?.resources) ? curriculum.resources : [];
+  const plan = lessonPlans.find((item) => item.id === planId);
   if (!plan || !isCurriculumLessonPublic(plan.status)) {
-    return { curriculum: store, publishedResourceIds: [] };
+    return { curriculum, publishedResourceIds: [] };
   }
 
   const linkedIds = new Set(Array.isArray(plan.resourceIds) ? plan.resourceIds.filter(Boolean) : []);
-  (store.resources || []).forEach((resource) => {
+  resourcesIn.forEach((resource) => {
     if ((resource.lessonPlanIds || []).includes(planId)) linkedIds.add(resource.id);
   });
 
   const publishedResourceIds = [];
-  const resources = (store.resources || []).map((resource) => {
+  const resources = resourcesIn.map((resource) => {
     if (!linkedIds.has(resource.id)) return resource;
     if (isCurriculumResourcePublic(resource.status)) return resource;
     if (String(resource.status || "").toLowerCase() === "archived") return resource;
@@ -3232,7 +3417,7 @@ function publishLinkedDraftResourcesForLesson(curriculum, lessonPlanId, { now } 
   });
 
   if (!publishedResourceIds.length) {
-    return { curriculum: store, publishedResourceIds: [] };
+    return { curriculum, publishedResourceIds: [] };
   }
 
   const resourceIds = [...new Set([
@@ -3240,14 +3425,14 @@ function publishLinkedDraftResourcesForLesson(curriculum, lessonPlanId, { now } 
     ...publishedResourceIds,
   ])];
   return {
-    curriculum: normalizedCurriculumStore({
-      ...store,
+    curriculum: {
+      ...curriculum,
       resources,
-      lessonPlans: store.lessonPlans.map((item) => (
+      lessonPlans: lessonPlans.map((item) => (
         item.id === planId ? { ...item, resourceIds } : item
       )),
       updatedAt: stamp,
-    }),
+    },
     publishedResourceIds,
   };
 }
@@ -3265,25 +3450,36 @@ function curriculumResourceLinkedToPublicLesson(curriculum, resource) {
 
 function unlinkCurriculumResourceFromLessonPlan(curriculum, resourceId, lessonPlanId) {
   const now = new Date().toISOString();
-  const store = normalizedCurriculumStore(curriculum);
   const targetResourceId = normalizedShortText(resourceId, 160);
   const targetLessonPlanId = normalizedShortText(lessonPlanId, 160);
   if (!targetResourceId || !targetLessonPlanId) return null;
+  const resources = Array.isArray(curriculum?.resources) ? curriculum.resources : [];
+  const lessonPlans = Array.isArray(curriculum?.lessonPlans) ? curriculum.lessonPlans : [];
+  if (!resources.some((item) => item.id === targetResourceId)) return null;
+  if (!lessonPlans.some((item) => item.id === targetLessonPlanId)) return null;
 
-  return normalizedCurriculumStore({
-    ...store,
-    resources: store.resources.map((item) => (
+  return {
+    ...curriculum,
+    resources: resources.map((item) => (
       item.id === targetResourceId
-        ? { ...item, lessonPlanIds: item.lessonPlanIds.filter((id) => id !== targetLessonPlanId), updatedAt: now }
+        ? {
+          ...item,
+          lessonPlanIds: (item.lessonPlanIds || []).filter((id) => id !== targetLessonPlanId),
+          updatedAt: now,
+        }
         : item
     )),
-    lessonPlans: store.lessonPlans.map((item) => (
+    lessonPlans: lessonPlans.map((item) => (
       item.id === targetLessonPlanId
-        ? { ...item, resourceIds: item.resourceIds.filter((id) => id !== targetResourceId), updatedAt: now }
+        ? {
+          ...item,
+          resourceIds: (item.resourceIds || []).filter((id) => id !== targetResourceId),
+          updatedAt: now,
+        }
         : item
     )),
     updatedAt: now,
-  });
+  };
 }
 
 function curriculumActivityIdFromItemId(itemId, lessonPlanId = "") {
@@ -21742,15 +21938,9 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
 
     // Teaching Kit Enrichment Editor — draft-only save (published member view unchanged).
     if (saveMode === "enrichment_draft") {
+      // Owner session required. Do not require or mutate the customer-facing
+      // teachingKitEnrichmentEditor flag — owner draft saves must leave flags untouched.
       if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
-      const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
-      if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
-        jsonResponse(response, 404, {
-          error: "Teaching Kit Enrichment Editor is disabled.",
-          code: "enrichment_editor_disabled",
-        });
-        return;
-      }
       if (!existingPlan) {
         jsonResponse(response, 404, { error: "Lesson plan not found for enrichment draft." });
         return;
@@ -21840,7 +22030,9 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
           ...previousHistory,
         ].slice(0, ENRICHMENT_HISTORY_LIMIT);
       }
-      const draftPlan = normalizedCurriculumLessonPlan({
+      // Surgical draft plan: keep published body / dailyPlans from the existing record.
+      // Only enrichmentDraft (+ undo/history) change — never whole-library normalize.
+      const draftPlan = {
         ...existingPlan,
         enrichmentDraft: {
           ...draftForSave,
@@ -21849,8 +22041,8 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         enrichmentDraftUndo: undoStash,
         enrichmentPublishHistory: nextHistory,
         updatedAt: existingPlan.updatedAt,
-      });
-      // Verify normalized draft still carries activity/week content when we intended to save it.
+      };
+      // Verify draft still carries activity/week content when we intended to save it.
       if (enrichmentDraftHasContent(draftForSave) && !enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
         jsonResponse(response, 500, {
           error: "Draft save failed verification — enrichment content did not persist. Nothing was written.",
@@ -21858,14 +22050,17 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         });
         return;
       }
-      const nextCurriculum = normalizedCurriculumStore({
+      const nextCurriculum = {
         ...existingCurriculum,
         lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (
-          item.id === id ? { ...draftPlan, updatedAt: existingPlan.updatedAt } : item
+          item.id === id ? draftPlan : item
         )),
         updatedAt: now,
+      };
+      const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+        updatedAt: now,
+        touchedLessonPlanIds: [id],
       });
-      const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
       if (writeResult.wipeBlocked) {
         jsonResponse(response, 409, {
           error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23152,12 +23347,18 @@ async function handleAdminTeachingKitPrintable(request, response) {
 
   const now = new Date().toISOString();
   const store = readStore();
-  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  // Read the raw siteContent/curriculum — do not whole-normalize the library up front.
+  // Normalization of unrelated plans would persist null→0 setupMinutes and similar drift.
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
   if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
     curriculumConflictResponse(response, siteContent);
     return;
   }
-  let curriculum = siteContent.curriculum || defaultCurriculumStore();
+  let curriculum = siteContent.curriculum && typeof siteContent.curriculum === "object"
+    ? siteContent.curriculum
+    : defaultCurriculumStore();
   const lessonPlan = (curriculum.lessonPlans || []).find((item) => item.id === lessonPlanId) || null;
   if (lessonPlanId && !lessonPlan) {
     jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
@@ -23172,6 +23373,8 @@ async function handleAdminTeachingKitPrintable(request, response) {
     ? JSON.stringify(lessonPlan.enrichmentPublished || null)
     : null;
   const activityCountBefore = (curriculum.activities || []).length;
+  const plansBeforeByRef = new Map((curriculum.lessonPlans || []).map((p) => [p.id, p]));
+  const resourcesBeforeByRef = new Map((curriculum.resources || []).map((r) => [r.id, r]));
 
   const applyPdfToResource = async (resourceId, fileData, fileName) => {
     const parsed = parseCurriculumPdfUploadDataUrl(fileData);
@@ -23272,11 +23475,12 @@ async function handleAdminTeachingKitPrintable(request, response) {
         publishedAt: "",
         disposableQaFixture: body.disposableQaFixture === true || lessonPlan.disposableQaFixture === true,
       });
-      curriculum = normalizedCurriculumStore({
+      // Surgical: append the new resource only — do not re-normalize the library.
+      curriculum = {
         ...curriculum,
         resources: [...(curriculum.resources || []), resource],
         updatedAt: now,
-      });
+      };
       curriculum = linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId);
       if (!curriculum) {
         jsonResponse(response, 404, { error: "Could not link printable to lesson.", code: "link_failed" });
@@ -23337,11 +23541,11 @@ async function handleAdminTeachingKitPrintable(request, response) {
       }
       next.updatedAt = now;
       const resource = normalizedCurriculumResource(next);
-      curriculum = normalizedCurriculumStore({
+      curriculum = {
         ...curriculum,
         resources: (curriculum.resources || []).map((item) => (item.id === resource.id ? resource : item)),
         updatedAt: now,
-      });
+      };
       if (!(resource.lessonPlanIds || []).includes(lessonPlanId)) {
         curriculum = linkCurriculumResourceToLessonPlan(curriculum, resource.id, lessonPlanId) || curriculum;
       }
@@ -23364,11 +23568,11 @@ async function handleAdminTeachingKitPrintable(request, response) {
       }
       const disposable = existing.disposableQaFixture === true || body.disposableQaFixture === true;
       if (disposable) {
-        curriculum = normalizedCurriculumStore({
+        curriculum = {
           ...curriculum,
           resources: (curriculum.resources || []).filter((item) => item.id !== resourceIdIncoming),
           updatedAt: now,
-        });
+        };
       } else {
         const archived = normalizedCurriculumResource({
           ...((curriculum.resources || []).find((item) => item.id === resourceIdIncoming) || existing),
@@ -23376,14 +23580,15 @@ async function handleAdminTeachingKitPrintable(request, response) {
           lessonPlanIds: [],
           updatedAt: now,
         });
-        curriculum = normalizedCurriculumStore({
+        curriculum = {
           ...curriculum,
           resources: (curriculum.resources || []).map((item) => (item.id === resourceIdIncoming ? archived : item)),
           updatedAt: now,
-        });
+        };
       }
     }
 
+    // Integrity check uses an in-memory normalized view — never persist that view.
     const integrityError = assertCurriculumIntegrityOrError(curriculum);
     if (integrityError) {
       jsonResponse(response, 400, integrityError);
@@ -23399,7 +23604,28 @@ async function handleAdminTeachingKitPrintable(request, response) {
       promotedPrintableIds = promoted.publishedResourceIds;
     }
 
-    const writeResult = writeSiteCurriculum(store, curriculum, { updatedAt: now });
+    // Touch only records whose object identity changed (or new/removed resources).
+    const touchedLessonPlanIds = (curriculum.lessonPlans || [])
+      .filter((plan) => plan?.id && plansBeforeByRef.get(plan.id) !== plan)
+      .map((plan) => plan.id);
+    const touchedResourceIds = [
+      ...(curriculum.resources || [])
+        .filter((resource) => resource?.id && resourcesBeforeByRef.get(resource.id) !== resource)
+        .map((resource) => resource.id),
+      ...promotedPrintableIds,
+      ...(touchedResourceId ? [touchedResourceId] : []),
+    ];
+    const removeResourceIds = (action === "delete" && resourceIdIncoming
+      && !(curriculum.resources || []).some((item) => item.id === resourceIdIncoming))
+      ? [resourceIdIncoming]
+      : [];
+
+    const writeResult = writeSiteCurriculumTouched(store, curriculum, {
+      updatedAt: now,
+      touchedLessonPlanIds: [...new Set(touchedLessonPlanIds.filter(Boolean))],
+      touchedResourceIds: [...new Set(touchedResourceIds.filter(Boolean))],
+      removeResourceIds: [...new Set(removeResourceIds.filter(Boolean))],
+    });
     if (writeResult.wipeBlocked) {
       jsonResponse(response, 409, {
         error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",

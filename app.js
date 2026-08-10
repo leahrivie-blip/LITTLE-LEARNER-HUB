@@ -6737,6 +6737,10 @@ let adminActionCenterDismissed = new Set(
 );
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
+/** Prevents duplicate Teaching Kit editor opens from rapid Edit / Upgrade clicks. */
+let adminTkEditorOpenInFlight = "";
+/** Snapshot of Lesson Plans list filters + scroll so Back restores the prior view. */
+let adminLessonListViewState = null;
 let adminCurriculumResourceEditorId = "";
 let adminCurriculumActivityViewerId = "";
 let adminCurriculumActivityFilters = {
@@ -9916,43 +9920,69 @@ function readAdminCurriculumActivityFiltersFromDom() {
   };
 }
 
-function openAdminCurriculumLessonEditor(id, { scroll = false, forceClassic = false } = {}) {
-  if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
-  adminCurriculumLessonEditorId = id;
-  if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
-  // Owner default: focused Lesson Review & Editor (one section at a time). Classic mega-form remains available via forceClassic.
-  if (!forceClassic
-    && typeof isTeachingKitPrintableOwnerClient === "function"
-    && isTeachingKitPrintableOwnerClient()
-    && typeof LLHLessonReviewEditor !== "undefined"
-    && typeof LLHLessonReviewEditor.open === "function") {
-    const opened = LLHLessonReviewEditor.open(id, { sectionId: "basics" });
-    if (opened) {
-      // Keep list/management chrome out of the way while reviewing one lesson.
-      renderAdminCurriculumLessonPlanManager();
-      applyAdminSectionVisibility();
-      return;
-    }
+function captureAdminLessonListViewState() {
+  const list = document.querySelector("#adminCurriculumLessonPlanList");
+  adminLessonListViewState = {
+    scrollY: Number(window.scrollY) || 0,
+    listScrollTop: list ? Number(list.scrollTop) || 0 : 0,
+    filters: { ...(adminCurriculumListFilters || {}) },
+  };
+}
+
+function restoreAdminLessonListViewState() {
+  if (!adminLessonListViewState || typeof adminLessonListViewState !== "object") return;
+  if (adminLessonListViewState.filters && typeof adminLessonListViewState.filters === "object") {
+    adminCurriculumListFilters = {
+      ...(adminCurriculumListFilters || {}),
+      ...adminLessonListViewState.filters,
+    };
+  }
+  const snap = adminLessonListViewState;
+  requestAnimationFrame(() => {
+    const list = document.querySelector("#adminCurriculumLessonPlanList");
+    if (list && Number.isFinite(snap.listScrollTop)) list.scrollTop = snap.listScrollTop;
+    if (Number.isFinite(snap.scrollY)) window.scrollTo(0, snap.scrollY);
+  });
+}
+
+function isOwnerTeachingKitEditorOpen() {
+  const enrichOpen = typeof LLHTeachingKitEnrichmentEditor !== "undefined"
+    && typeof LLHTeachingKitEnrichmentEditor.isOpen === "function"
+    && LLHTeachingKitEnrichmentEditor.isOpen() === true;
+  const reviewOpen = typeof LLHLessonReviewEditor !== "undefined"
+    && typeof LLHLessonReviewEditor.isOpen === "function"
+    && LLHLessonReviewEditor.isOpen() === true;
+  return Boolean(enrichOpen || reviewOpen);
+}
+
+function restoreAdminLessonListAfterTkEditorClose() {
+  adminCurriculumLessonEditorId = "";
+  adminTkEditorOpenInFlight = "";
+  document.body.classList.remove("tk-editor-focused", "tk-enrich-open");
+  if (adminActiveSectionTab !== "curriculum-lesson-plans" && typeof setAdminSectionTab === "function") {
+    setAdminSectionTab("curriculum-lesson-plans");
   }
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
-  const form = document.querySelector("#adminCurriculumLessonPlanForm");
-  if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
+  restoreAdminLessonListViewState();
 }
 
 /**
- * Lesson Plans → Upgrade Lesson.
- * Primary path lives in app.js so the CTA cannot become a silent no-op when the
- * enrichment editor module fails to bind. Shows loading + clear errors.
+ * Shared owner opener for Lesson Plans → Edit and Upgrade Lesson.
+ * Opens the same Teaching Kit enrichment editor (Week + Linked Resources).
+ * Shows Opening…, never leaves the CTA stuck on Working…/Opening…, and
+ * unmounts the lesson-management list while editing.
  */
-async function openAdminCurriculumLessonUpgrade(planId, options = {}) {
+async function openOwnerTeachingKitEditor(planId, options = {}) {
   const id = String(planId || "").trim();
+  const source = String(options.source || "edit").toLowerCase() === "upgrade" ? "upgrade" : "edit";
   const button = options.button && options.button.nodeType === 1 ? options.button : null;
-  const previousLabel = button ? String(button.textContent || "Upgrade Lesson") : "Upgrade Lesson";
-  const showUpgradeError = (message) => {
+  const defaultLabel = source === "upgrade" ? "Upgrade Lesson" : "Edit";
+  const previousLabel = button ? String(button.textContent || defaultLabel) : defaultLabel;
+  const showEditorError = (message) => {
     const text = String(message || "Could not open the Teaching Kit editor.").trim();
     showActionFeedback(text, null, { allowDuringOverlay: true, ttlMs: 8000 });
-    const msgEl = document.querySelector("#adminCurriculumLessonPlanMessage");
+    const msgEl = document.querySelector("#adminCurriculumLessonPlanMessage, #adminCurriculumLessonPlanBanner");
     if (msgEl && typeof setFormMessage === "function") {
       setFormMessage(msgEl, `❌ ${text}`, false);
     }
@@ -9970,36 +10000,63 @@ async function openAdminCurriculumLessonUpgrade(planId, options = {}) {
       banner.hidden = false;
     }
   };
-  const clearUpgradeError = () => {
+  const clearEditorError = () => {
     document.querySelectorAll("[data-upgrade-lesson-error]").forEach((node) => {
       node.hidden = true;
       node.textContent = "";
     });
   };
+  const restoreButton = () => {
+    if (!button || !document.body.contains(button)) return;
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    button.classList.remove("is-loading");
+    const stuck = /^(opening|working)\b/i.test(String(previousLabel || "").trim());
+    button.textContent = stuck ? defaultLabel : (previousLabel || defaultLabel);
+  };
 
   if (!id) {
-    showUpgradeError("Upgrade Lesson needs a lesson id.");
-    return false;
-  }
-  if (typeof isTeachingKitEnrichmentEditorEnabled === "function" && !isTeachingKitEnrichmentEditorEnabled()) {
-    showUpgradeError("Enrichment Editor is disabled (feature flag off). Turn it on under Admin Settings to use Upgrade Lesson.");
+    showEditorError("Choose a lesson before opening the Teaching Kit editor.");
     return false;
   }
 
+  // Deduplicate rapid / double clicks — never open a second editor shell.
+  if (adminTkEditorOpenInFlight) return false;
+  if (isOwnerTeachingKitEditorOpen()) {
+    const enrichState = typeof LLHTeachingKitEnrichmentEditor?.getState === "function"
+      ? LLHTeachingKitEnrichmentEditor.getState()
+      : null;
+    const reviewState = typeof LLHLessonReviewEditor?.getState === "function"
+      ? LLHLessonReviewEditor.getState()
+      : null;
+    const openId = String(enrichState?.planId || reviewState?.planId || "").trim();
+    if (openId && openId === id) return true;
+    showEditorError("A Teaching Kit editor is already open. Use Back to Lesson Plans, then open another lesson.");
+    return false;
+  }
+
+  adminTkEditorOpenInFlight = id;
   if (button) {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
     button.classList.add("is-loading");
     button.textContent = "Opening…";
   }
-  clearUpgradeError();
+  clearEditorError();
 
   try {
-    // Paint the loading label before heavy open/render work.
     await new Promise((resolve) => {
       if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
       else setTimeout(resolve, 0);
     });
+
+    captureAdminLessonListViewState();
+    if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
+    adminCurriculumLessonEditorId = id;
+    if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
+
+    const isOwner = typeof isTeachingKitPrintableOwnerClient === "function"
+      && isTeachingKitPrintableOwnerClient() === true;
 
     const enrichEditor = typeof LLHTeachingKitEnrichmentEditor !== "undefined"
       ? LLHTeachingKitEnrichmentEditor
@@ -10007,53 +10064,83 @@ async function openAdminCurriculumLessonUpgrade(planId, options = {}) {
     if (enrichEditor && typeof enrichEditor.open === "function") {
       const opened = enrichEditor.open(id, {
         initialMode: options.initialMode || "activities",
+        // Owner Lesson Plans CTA may open the real editor without flipping customer flags.
+        ownerWorkspace: isOwner === true,
       });
       if (opened) {
-        document.body.classList.add("tk-enrich-open");
+        document.body.classList.add("tk-enrich-open", "tk-editor-focused");
         const host = document.querySelector("#adminTeachingKitEnrichmentHost");
         if (host) {
           host.hidden = false;
           host.removeAttribute("hidden");
-          if (!host.style.display || host.style.display === "none") host.style.display = "block";
+          host.style.display = "block";
         }
+        renderAdminCurriculumLessonPlanManager();
+        applyAdminSectionVisibility();
         return true;
       }
-      showUpgradeError("Could not open the Teaching Kit editor for this lesson. Confirm the lesson still exists, then try again.");
-    } else {
-      showUpgradeError("Teaching Kit editor script did not load. Hard refresh this page, then try Upgrade Lesson again.");
+    } else if (!enrichEditor) {
+      showEditorError("Teaching Kit editor script did not load. Hard refresh this page, then try again.");
     }
 
-    // Owner fallback: never leave Upgrade Lesson as a dead click.
+    // Fallback: focused Lesson Review editor (still owner-only).
     if (
-      typeof isTeachingKitPrintableOwnerClient === "function"
-      && isTeachingKitPrintableOwnerClient()
+      isOwner
       && typeof LLHLessonReviewEditor !== "undefined"
       && typeof LLHLessonReviewEditor.open === "function"
     ) {
-      const openedReview = LLHLessonReviewEditor.open(id, { sectionId: options.fallbackSectionId || "printables" });
+      const openedReview = LLHLessonReviewEditor.open(id, {
+        sectionId: options.sectionId || options.fallbackSectionId || "basics",
+      });
       if (openedReview) {
+        document.body.classList.add("tk-editor-focused", "llh-lre-open");
         renderAdminCurriculumLessonPlanManager();
         applyAdminSectionVisibility();
-        showActionFeedback(
-          "Opened focused Lesson Review editor because Upgrade editor was unavailable.",
-          null,
-          { allowDuringOverlay: true, ttlMs: 6000 },
-        );
         return true;
       }
     }
+
+    showEditorError("Could not open the Teaching Kit editor for this lesson. Confirm it still exists, then try again.");
+    adminCurriculumLessonEditorId = "";
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
     return false;
   } catch (error) {
-    showUpgradeError(error?.message || "Upgrade Lesson failed to open.");
+    adminCurriculumLessonEditorId = "";
+    showEditorError(error?.message || "Teaching Kit editor failed to open.");
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
     return false;
   } finally {
-    if (button && document.body.contains(button)) {
-      button.disabled = false;
-      button.removeAttribute("aria-busy");
-      button.classList.remove("is-loading");
-      button.textContent = previousLabel || "Upgrade Lesson";
-    }
+    adminTkEditorOpenInFlight = "";
+    restoreButton();
   }
+}
+
+function openAdminCurriculumLessonEditor(id, options = {}) {
+  const scroll = options.scroll === true;
+  const button = options.button && options.button.nodeType === 1 ? options.button : null;
+  // forceClassic is owner-session only. Ignore customer-controlled sources
+  // (query/body/localStorage/forged email/role) — only the authenticated owner client gate counts.
+  const forceClassic = options.forceClassic === true
+    && typeof isTeachingKitPrintableOwnerClient === "function"
+    && isTeachingKitPrintableOwnerClient() === true;
+  if (forceClassic) {
+    if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
+    adminCurriculumLessonEditorId = id;
+    if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  void openOwnerTeachingKitEditor(id, { source: "edit", button, scroll });
+}
+
+/** Lesson Plans → Upgrade Lesson (same Teaching Kit editor as Edit). */
+async function openAdminCurriculumLessonUpgrade(planId, options = {}) {
+  return openOwnerTeachingKitEditor(planId, { ...options, source: "upgrade" });
 }
 
 function createAdminCurriculumLessonPlan() {
@@ -12357,7 +12444,9 @@ function curriculumLessonPlanAdminCardHtml(plan) {
         </div>
       </div>
       <div class="form-actions admin-lesson-card-actions">
-        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>` : ""}
+        ${(enrichEnabled || (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient()))
+          ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>`
+          : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-quick-cover="${escapeHtml(plan.id)}">Change Cover</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user="${escapeHtml(plan.id)}">Preview as User</button>
@@ -12528,19 +12617,26 @@ function renderAdminCurriculumLessonPlanManager() {
     && LLHTeachingKitUpgradeWorkspace.workspaceCopy)
     ? LLHTeachingKitUpgradeWorkspace.workspaceCopy()
     : null;
-  const focusedEditorOpen = typeof LLHLessonReviewEditor !== "undefined"
+  const enrichEditorOpen = typeof LLHTeachingKitEnrichmentEditor !== "undefined"
+    && typeof LLHTeachingKitEnrichmentEditor.isOpen === "function"
+    && LLHTeachingKitEnrichmentEditor.isOpen() === true;
+  const focusedEditorOpen = (
+    typeof LLHLessonReviewEditor !== "undefined"
     && typeof LLHLessonReviewEditor.isOpen === "function"
-    && LLHLessonReviewEditor.isOpen();
-  const editingWithFocusedOwnerEditor = focusedEditorOpen
-    || (editingPlan
-      && typeof isTeachingKitPrintableOwnerClient === "function"
-      && isTeachingKitPrintableOwnerClient());
-  target.innerHTML = `
+    && LLHLessonReviewEditor.isOpen() === true
+  ) || enrichEditorOpen;
+  // Focused workspace: unmount list chrome while an owner editor is actually open.
+  const editingWithFocusedOwnerEditor = focusedEditorOpen === true;
+  target.innerHTML = editingWithFocusedOwnerEditor ? `
+    <div class="tk-editor-focused-workspace" data-tk-editor-focused-workspace>
+      <p class="muted-copy tk-editor-focused-hint" data-tk-editor-focused-hint>Teaching Kit editor is open in a focused workspace. Lesson Plans list tools are hidden. Use <strong>Back to Lesson Plans</strong> in the editor to restore your previous search, filters, and scroll position.</p>
+    </div>
+  ` : `
     <div class="access-notice" role="status" style="margin-bottom:1rem;">
       <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
       <p class="muted-copy">Owner workflow: Lesson Plans → choose lesson → review sections → preview → quality check → publish. AI Curriculum Director and Library Health live on their own Content screens.</p>
     </div>
-    ${upgradeWorkspaceOn && workspaceCopy && !editingWithFocusedOwnerEditor ? `
+    ${upgradeWorkspaceOn && workspaceCopy ? `
     <div class="access-notice tk-upgrade-workspace-banner" role="status" style="margin-bottom:1rem;">
       <p class="eyebrow">${escapeHtml(workspaceCopy.eyebrow)}</p>
       <strong>${escapeHtml(workspaceCopy.title)}</strong>
@@ -12552,7 +12648,7 @@ function renderAdminCurriculumLessonPlanManager() {
       <div>
         <p class="eyebrow">Lesson Plans</p>
         <h3>Curriculum lesson plans</h3>
-        <p class="muted-copy">Choose a lesson to open the focused Review &amp; Editor. Filters and bulk tools stay on this list — not inside the editor.</p>
+        <p class="muted-copy">Choose a lesson to open the focused Teaching Kit editor. Filters and bulk tools stay on this list — not inside the editor.</p>
       </div>
       <div class="account-actions-row">
         <button class="ghost-button" type="button" data-admin-section-tab="curriculum-library-health">Library Health</button>
@@ -12562,8 +12658,8 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ${mismatchBanner}
     ${banner}
-    ${editingWithFocusedOwnerEditor ? "" : renderCurriculumLessonImportPanel()}
-    <div class="admin-content-filters" ${editingWithFocusedOwnerEditor ? "hidden" : ""}>
+    ${renderCurriculumLessonImportPanel()}
+    <div class="admin-content-filters">
       <label><span>Search</span><input type="search" id="adminCurriculumFilterQuery" value="${escapeHtml(adminCurriculumListFilters.query || "")}" placeholder="Title, theme…" /></label>
       <label><span>Status</span>
         <select id="adminCurriculumFilterStatus">
@@ -12657,7 +12753,7 @@ function renderAdminCurriculumLessonPlanManager() {
         </select>
       </label>
     </div>
-    <div class="admin-content-bulk-bar" ${selectedCount && !editingWithFocusedOwnerEditor ? "" : "hidden"}>
+    <div class="admin-content-bulk-bar" ${selectedCount ? "" : "hidden"}>
       <strong>${selectedCount} selected</strong>
       <div class="account-actions-row">
         <button type="button" class="primary-button" data-curriculum-bulk="published">Publish</button>
@@ -12666,14 +12762,14 @@ function renderAdminCurriculumLessonPlanManager() {
         <button type="button" class="ghost-button" data-curriculum-bulk="clear">Clear selection</button>
       </div>
     </div>
-    <p class="muted-copy" ${editingWithFocusedOwnerEditor ? "hidden" : ""}>${plans.length} of ${allPlans.length} lesson plans shown · archived disposable fixtures stay hidden unless Status = Archived</p>
-    <div class="admin-mobile-list" id="adminCurriculumLessonPlanList" ${editingWithFocusedOwnerEditor ? "hidden" : ""}>
+    <p class="muted-copy">${plans.length} of ${allPlans.length} lesson plans shown · archived disposable fixtures stay hidden unless Status = Archived</p>
+    <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
       ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || (mismatch
         ? `<div class="empty-state">Admin curriculum is still loading or needs a reload. Use Reload curriculum above — lesson plans are not deleted.</div>`
         : `<div class="empty-state">No lesson plans match these filters.</div>`)}
     </div>
     ${editingPlan && !focusedEditorOpen ? `
-      <p class="muted-copy">Classic editor (all fields). Owners normally use the focused Review &amp; Editor.</p>
+      <p class="muted-copy">Classic editor (all fields). Owners normally use the focused Teaching Kit editor.</p>
       ${renderAdminCurriculumLessonPlanForm(editingPlan)}
     ` : ""}
     ${adminCurriculumQuickCoverState ? renderAdminCurriculumQuickCoverModal() : ""}
@@ -14184,15 +14280,20 @@ async function saveTeachingKitPrintableForm(panel) {
     }
     const publishedWithLesson = data?.autoPublished === true
       || String(data?.resource?.status || "").toLowerCase() === "published";
-    setFormMessage(
-      "#adminCurriculumLessonPlanMessage",
-      publishedWithLesson
-        ? `✅ Printable saved, linked, and published with this lesson (${data?.resource?.title || "printable"}).`
-        : `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). It will publish when this lesson is published.`,
-      true,
-    );
+    const successMsg = publishedWithLesson
+      ? `✅ Printable saved, linked, and published with this lesson (${data?.resource?.title || "printable"}).`
+      : `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). It will publish when this lesson is published.`;
+    // Lesson Plans banner may be unmounted while the focused Teaching Kit editor is open.
+    setFormMessage("#adminCurriculumLessonPlanMessage", successMsg, true);
+    setFormMessage(messageSelector, successMsg, true);
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(successMsg.replace(/^✅\s*/, ""), null, { allowDuringOverlay: true, ttlMs: 8000 });
+    }
   } catch (error) {
     setFormMessage(messageSelector, `❌ ${error.message || "Save failed."}`, false);
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(error?.message || "Printable save failed.", null, { allowDuringOverlay: true, ttlMs: 8000 });
+    }
     adminTkPrintableSaving = false;
     const resourcesHost = document.querySelector("#admin-lesson-resources");
     if (resourcesHost && adminCurriculumLessonEditorId) {
@@ -73424,9 +73525,19 @@ document.addEventListener("click", async (event) => {
     );
     return;
   }
-  const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
+  const editEventEl = event.target && event.target.nodeType === 1
+    ? event.target
+    : event.target?.parentElement;
+  const curriculumLessonEditButton = editEventEl?.closest?.("[data-curriculum-lesson-edit]");
   if (curriculumLessonEditButton) {
-    openAdminCurriculumLessonEditor(curriculumLessonEditButton.dataset.curriculumLessonEdit, { scroll: true });
+    event.preventDefault();
+    event.stopPropagation();
+    openAdminCurriculumLessonEditor(
+      curriculumLessonEditButton.getAttribute("data-curriculum-lesson-edit")
+        || curriculumLessonEditButton.dataset.curriculumLessonEdit
+        || "",
+      { scroll: true, button: curriculumLessonEditButton },
+    );
     return;
   }
   const fixtureDeleteButton = event.target.closest("[data-curriculum-fixture-permanent-delete]");

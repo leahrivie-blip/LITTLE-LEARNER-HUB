@@ -19,6 +19,7 @@
     open: false,
     planId: "",
     ownerDraftReview: false,
+    ownerWorkspace: false,
     draftReviewId: "",
     draftReviewReturn: false,
     printableApprovalStatuses: null,
@@ -90,8 +91,11 @@
   }
 
   function isEditorFlagEnabled() {
-    // Owner Draft Review may use the real editor without enabling the global store flag.
-    if (state.ownerDraftReview === true && isOwnerSessionEmail()) return true;
+    // Owner Draft Review / Lesson Plans workspace may use the real editor without
+    // flipping the global customer-facing store flag.
+    if ((state.ownerDraftReview === true || state.ownerWorkspace === true) && isOwnerSessionEmail()) {
+      return true;
+    }
     const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
     if (root.LLHTeachingKit?.isTeachingKitEnrichmentEditorEnabled) {
       return root.LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled(flags) === true;
@@ -395,41 +399,67 @@
     return idea;
   }
 
+  function printableIdeaScalar(value) {
+    if (value == null) return "";
+    if (typeof value === "object") return "";
+    const text = String(value).trim();
+    if (!text || text === "[object Object]") return "";
+    return text;
+  }
+
   function renderPrintableIdeaListItem(idea) {
+    // Legacy plain-string ideas stay one-line readable titles.
+    if (typeof idea === "string") {
+      const title = esc(printableIdeaScalar(idea));
+      return title
+        ? `<li class="tk-enrich-printable-idea"><strong>Printable idea</strong><div class="tk-enrich-printable-idea-title">${title}</div></li>`
+        : "";
+    }
     const item = normalizePrintableIdeaForDisplay(idea);
-    if (!item) return "";
-    const title = esc(item.title || item.name || item.label || "");
-    const description = esc(item.description || item.purpose || item.summary || "");
-    const type = esc(item.type || item.kind || item.format || "");
-    const instructions = esc(item.instructions || item.howTo || item.directions || "");
-    const notes = esc(item.notes || "");
-    const skip = new Set([
+    if (!item || typeof item !== "object") return "";
+    const pick = (...keys) => {
+      for (const key of keys) {
+        const val = printableIdeaScalar(item[key]);
+        if (val) return esc(val);
+      }
+      return "";
+    };
+    const rows = [
+      ["Title", pick("title", "name", "label")],
+      ["Type", pick("type", "kind", "format")],
+      ["Purpose", pick("purpose")],
+      ["Description", pick("description", "summary")],
+      ["Instructions", pick("instructions", "howTo", "directions")],
+      ["Age group", pick("ageGroup", "age", "ageBand")],
+      ["Theme", pick("theme")],
+      ["Page count", pick("pageCount", "pages")],
+      ["Related activity", pick("relatedActivity", "activityTitle", "activity")],
+      ["Access level", pick("accessLevel")],
+      ["Notes", pick("notes")],
+    ].filter(([, value]) => Boolean(value));
+    const used = new Set([
       "title", "name", "label", "purpose", "description", "summary",
       "type", "kind", "format", "instructions", "howTo", "directions", "notes",
+      "ageGroup", "age", "ageBand", "theme", "pageCount", "pages",
+      "relatedActivity", "activityTitle", "activity", "accessLevel",
       "mediaAssetId", "id",
     ]);
-    const metaBits = Object.keys(item)
-      .filter((key) => !skip.has(key))
-      .map((key) => {
-        const raw = item[key];
-        if (raw == null || typeof raw === "object") return "";
-        const val = String(raw).trim();
-        if (!val || val === "[object Object]") return "";
-        return `<span><span class="muted-copy">${esc(key)}</span> ${esc(val)}</span>`;
-      })
-      .filter(Boolean);
-    if (!title && !description && !type && !instructions && !notes && !metaBits.length) {
-      return "";
-    }
+    Object.keys(item).forEach((key) => {
+      if (used.has(key)) return;
+      const val = printableIdeaScalar(item[key]);
+      if (!val) return;
+      rows.push([key, esc(val)]);
+    });
+    if (!rows.length) return "";
+    const titleRow = rows.find(([label]) => label === "Title");
+    const bodyRows = rows.filter(([label]) => label !== "Title");
     return `
-      <li class="tk-enrich-printable-idea">
+      <li class="tk-enrich-printable-idea" data-tk-printable-idea="1">
         <strong>Printable idea</strong>
-        ${title ? `<div class="tk-enrich-printable-idea-title">${title}</div>` : ""}
-        ${type ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Type</span> ${type}</div>` : ""}
-        ${description ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Description</span> ${description}</div>` : ""}
-        ${instructions ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Instructions</span> ${instructions}</div>` : ""}
-        ${notes ? `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">Notes</span> ${notes}</div>` : ""}
-        ${metaBits.length ? `<div class="tk-enrich-printable-idea-field tk-enrich-printable-idea-meta">${metaBits.join(" · ")}</div>` : ""}
+        ${titleRow ? `<div class="tk-enrich-printable-idea-title">${titleRow[1]}</div>` : ""}
+        ${bodyRows.map(([label, value]) => (
+          `<div class="tk-enrich-printable-idea-field"><span class="muted-copy">${esc(label)}</span> ${value}</div>`
+        )).join("")}
       </li>
     `;
   }
@@ -1252,10 +1282,16 @@
   function open(planId, options = {}) {
     try {
       const ownerDraftReview = isOwnerDraftReviewCaller(options);
-      if (!isEditorFlagEnabled() && !ownerDraftReview) {
+      const ownerWorkspace = options.ownerWorkspace === true && isOwnerSessionEmail();
+      // Stash before flag check so owner Lesson Plans CTAs can open without flipping store flags.
+      state.ownerWorkspace = ownerWorkspace === true;
+      state.ownerDraftReview = ownerDraftReview === true;
+      if (!isEditorFlagEnabled() && !ownerDraftReview && !ownerWorkspace) {
         if (typeof showActionFeedback === "function") {
           showActionFeedback("Enrichment Editor is disabled (feature flag off).", null, { allowDuringOverlay: true });
         }
+        state.ownerWorkspace = false;
+        state.ownerDraftReview = false;
         return false;
       }
       // Prefer the exact Draft Review queue draft (proposed plan + removals) over a stale client plan.
@@ -1267,8 +1303,10 @@
         ? options.lessonPlan
         : (typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(planId) : null);
       if (!plan) {
+        state.ownerWorkspace = false;
+        state.ownerDraftReview = false;
         if (typeof showActionFeedback === "function") {
-          showActionFeedback("Lesson not found for Draft Review.");
+          showActionFeedback("Lesson not found for Teaching Kit editor.");
         }
         return false;
       }
@@ -1276,12 +1314,16 @@
         plan = { ...plan, enrichmentDraft: JSON.parse(JSON.stringify(incomingDraft)) };
       }
       if (!host()) {
+        state.ownerWorkspace = false;
+        state.ownerDraftReview = false;
         if (typeof showActionFeedback === "function") {
           showActionFeedback("Teaching Kit editor host is missing on this page.");
         }
         return false;
       }
       if (!api()) {
+        state.ownerWorkspace = false;
+        state.ownerDraftReview = false;
         if (typeof showActionFeedback === "function") {
           showActionFeedback("Teaching Kit enrichment helpers failed to load.");
         }
@@ -1290,6 +1332,7 @@
       state.open = true;
       state.planId = planId;
       state.ownerDraftReview = ownerDraftReview === true;
+      state.ownerWorkspace = ownerWorkspace === true;
       state.draftReviewId = String(options.draftReviewId || "").trim();
       state.draftReviewReturn = Boolean(options.returnToQueue);
       state.printableApprovalStatuses = Array.isArray(options.printableApprovalStatuses)
@@ -1339,7 +1382,7 @@
       state.compareOpen = false;
       state.aiConfirmOpen = false;
       state.aiConfirmScope = "";
-      document.body.classList.add("tk-enrich-open");
+      document.body.classList.add("tk-enrich-open", "tk-editor-focused");
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.addEventListener("beforeunload", onBeforeUnload);
       render();
@@ -1349,7 +1392,8 @@
       return true;
     } catch (error) {
       state.open = false;
-      document.body.classList.remove("tk-enrich-open");
+      state.ownerWorkspace = false;
+      document.body.classList.remove("tk-enrich-open", "tk-editor-focused");
       const message = error?.message || String(error) || "Could not open the Teaching Kit editor.";
       if (typeof showActionFeedback === "function") {
         showActionFeedback(message, null, { allowDuringOverlay: true, ttlMs: 8000 });
@@ -1412,11 +1456,12 @@
     state.dirty = false;
     state._focusReturn = null;
     state.ownerDraftReview = false;
+    state.ownerWorkspace = false;
     state.draftReviewId = "";
     state.draftReviewReturn = false;
     state.printableApprovalStatuses = null;
     state.printableRejected = false;
-    document.body.classList.remove("tk-enrich-open");
+    document.body.classList.remove("tk-enrich-open", "tk-editor-focused");
     window.removeEventListener("beforeunload", onBeforeUnload);
     revokeDraftMediaBlobs();
     const el = host();
@@ -1432,7 +1477,13 @@
           }
         }).catch(() => {});
       }
-    } else if (!skipReturnNavigation && typeof renderAdminCurriculumLessonPlanManager === "function") {
+    } else if (!skipReturnNavigation && typeof root.restoreAdminLessonListAfterTkEditorClose === "function") {
+      root.restoreAdminLessonListAfterTkEditorClose();
+    } else if (typeof root.restoreAdminLessonListAfterTkEditorClose === "function") {
+      // Even when skipReturnNavigation is set (tests / chained opens), remount Lesson Plans
+      // chrome so focused unmount cannot leave an empty list behind the next action.
+      root.restoreAdminLessonListAfterTkEditorClose();
+    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
     }
     if (returnFocus && typeof returnFocus.focus === "function") {
@@ -1963,7 +2014,7 @@
       <header class="tk-enrich-chrome">
         <div class="tk-enrich-chrome-top">
           <div class="tk-enrich-chrome-nav">
-            <button type="button" class="ghost-button" data-enrich-exit data-enrich-back-to-list>← Back</button>
+            <button type="button" class="ghost-button" data-enrich-exit data-enrich-back-to-list>← Back to Lesson Plans</button>
             <button type="button" class="ghost-button tk-enrich-chrome-secondary" data-enrich-close title="Close editor">Close</button>
             <span class="tk-enrich-chrome-title">${esc(plan.title || "Lesson")}</span>
           </div>
@@ -3323,7 +3374,14 @@
       if (openBtn) {
         event.preventDefault();
         event.stopPropagation();
-        // Prefer the app.js open path (loading state + visible errors + owner fallback).
+        // Prefer the shared app.js opener (Edit + Upgrade Lesson → same Teaching Kit editor).
+        if (typeof root.openOwnerTeachingKitEditor === "function") {
+          void root.openOwnerTeachingKitEditor(
+            openBtn.getAttribute("data-curriculum-lesson-enrich") || "",
+            { button: openBtn, source: "upgrade" },
+          );
+          return;
+        }
         if (typeof root.openAdminCurriculumLessonUpgrade === "function") {
           void root.openAdminCurriculumLessonUpgrade(
             openBtn.getAttribute("data-curriculum-lesson-enrich") || "",
@@ -4625,8 +4683,15 @@
     close,
     saveDraft,
     refreshLinkedResources,
-    isOpen: () => state.open,
+    isOpen: () => state.open === true,
     isEnabled: isEditorFlagEnabled,
+    getState: () => ({
+      open: state.open === true,
+      planId: String(state.planId || ""),
+      mode: String(state.mode || ""),
+      ownerWorkspace: state.ownerWorkspace === true,
+      ownerDraftReview: state.ownerDraftReview === true,
+    }),
     getDraft: () => state.draft,
     isDirty: () => state.dirty,
     lastSaveError: () => state.lastSaveError,
