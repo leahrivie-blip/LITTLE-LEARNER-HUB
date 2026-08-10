@@ -1254,7 +1254,7 @@
       const ownerDraftReview = isOwnerDraftReviewCaller(options);
       if (!isEditorFlagEnabled() && !ownerDraftReview) {
         if (typeof showActionFeedback === "function") {
-          showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+          showActionFeedback("Enrichment Editor is disabled (feature flag off).", null, { allowDuringOverlay: true });
         }
         return false;
       }
@@ -1298,7 +1298,8 @@
       state.printableRejected = Boolean(options.printableRejected)
         || (Array.isArray(state.printableApprovalStatuses)
           && state.printableApprovalStatuses.some((status) => /revision_requested|rejected|needs_replacement/i.test(status)));
-      state.mode = "activities";
+      const requestedMode = String(options.initialMode || options.mode || "activities").toLowerCase();
+      state.mode = requestedMode === "week" || requestedMode === "preview" ? requestedMode : "activities";
       state.dayFilter = "all";
       state.jumpOpen = false;
       state.jumpQuery = "";
@@ -1349,8 +1350,10 @@
     } catch (error) {
       state.open = false;
       document.body.classList.remove("tk-enrich-open");
-      const message = error?.message || String(error) || "Open Review failed.";
-      if (typeof showActionFeedback === "function") showActionFeedback(message);
+      const message = error?.message || String(error) || "Could not open the Teaching Kit editor.";
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback(message, null, { allowDuringOverlay: true, ttlMs: 8000 });
+      }
       return false;
     }
   }
@@ -3313,12 +3316,24 @@
 
   function bind() {
     document.addEventListener("click", async (event) => {
-      const openBtn = event.target.closest("[data-curriculum-lesson-enrich]");
+      const eventEl = event.target && event.target.nodeType === 1
+        ? event.target
+        : event.target?.parentElement;
+      const openBtn = eventEl?.closest?.("[data-curriculum-lesson-enrich]");
       if (openBtn) {
         event.preventDefault();
+        event.stopPropagation();
+        // Prefer the app.js open path (loading state + visible errors + owner fallback).
+        if (typeof root.openAdminCurriculumLessonUpgrade === "function") {
+          void root.openAdminCurriculumLessonUpgrade(
+            openBtn.getAttribute("data-curriculum-lesson-enrich") || "",
+            { button: openBtn },
+          );
+          return;
+        }
         if (!isEditorFlagEnabled()) {
           if (typeof showActionFeedback === "function") {
-            showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+            showActionFeedback("Enrichment Editor is disabled (feature flag off).", null, { allowDuringOverlay: true });
           }
           return;
         }

@@ -9940,6 +9940,122 @@ function openAdminCurriculumLessonEditor(id, { scroll = false, forceClassic = fa
   if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/**
+ * Lesson Plans → Upgrade Lesson.
+ * Primary path lives in app.js so the CTA cannot become a silent no-op when the
+ * enrichment editor module fails to bind. Shows loading + clear errors.
+ */
+async function openAdminCurriculumLessonUpgrade(planId, options = {}) {
+  const id = String(planId || "").trim();
+  const button = options.button && options.button.nodeType === 1 ? options.button : null;
+  const previousLabel = button ? String(button.textContent || "Upgrade Lesson") : "Upgrade Lesson";
+  const showUpgradeError = (message) => {
+    const text = String(message || "Could not open the Teaching Kit editor.").trim();
+    showActionFeedback(text, null, { allowDuringOverlay: true, ttlMs: 8000 });
+    const msgEl = document.querySelector("#adminCurriculumLessonPlanMessage");
+    if (msgEl && typeof setFormMessage === "function") {
+      setFormMessage(msgEl, `❌ ${text}`, false);
+    }
+    const listHost = document.querySelector("#adminCurriculumLessonPlanManager, [data-admin-curriculum-lesson-list]");
+    if (listHost) {
+      let banner = listHost.querySelector("[data-upgrade-lesson-error]");
+      if (!banner) {
+        banner = document.createElement("div");
+        banner.className = "form-message is-error tk-upgrade-open-error";
+        banner.setAttribute("data-upgrade-lesson-error", "1");
+        banner.setAttribute("role", "alert");
+        listHost.prepend(banner);
+      }
+      banner.textContent = text;
+      banner.hidden = false;
+    }
+  };
+  const clearUpgradeError = () => {
+    document.querySelectorAll("[data-upgrade-lesson-error]").forEach((node) => {
+      node.hidden = true;
+      node.textContent = "";
+    });
+  };
+
+  if (!id) {
+    showUpgradeError("Upgrade Lesson needs a lesson id.");
+    return false;
+  }
+  if (typeof isTeachingKitEnrichmentEditorEnabled === "function" && !isTeachingKitEnrichmentEditorEnabled()) {
+    showUpgradeError("Enrichment Editor is disabled (feature flag off). Turn it on under Admin Settings to use Upgrade Lesson.");
+    return false;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.classList.add("is-loading");
+    button.textContent = "Opening…";
+  }
+  clearUpgradeError();
+
+  try {
+    // Paint the loading label before heavy open/render work.
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+      else setTimeout(resolve, 0);
+    });
+
+    const enrichEditor = typeof LLHTeachingKitEnrichmentEditor !== "undefined"
+      ? LLHTeachingKitEnrichmentEditor
+      : null;
+    if (enrichEditor && typeof enrichEditor.open === "function") {
+      const opened = enrichEditor.open(id, {
+        initialMode: options.initialMode || "activities",
+      });
+      if (opened) {
+        document.body.classList.add("tk-enrich-open");
+        const host = document.querySelector("#adminTeachingKitEnrichmentHost");
+        if (host) {
+          host.hidden = false;
+          host.removeAttribute("hidden");
+          if (!host.style.display || host.style.display === "none") host.style.display = "block";
+        }
+        return true;
+      }
+      showUpgradeError("Could not open the Teaching Kit editor for this lesson. Confirm the lesson still exists, then try again.");
+    } else {
+      showUpgradeError("Teaching Kit editor script did not load. Hard refresh this page, then try Upgrade Lesson again.");
+    }
+
+    // Owner fallback: never leave Upgrade Lesson as a dead click.
+    if (
+      typeof isTeachingKitPrintableOwnerClient === "function"
+      && isTeachingKitPrintableOwnerClient()
+      && typeof LLHLessonReviewEditor !== "undefined"
+      && typeof LLHLessonReviewEditor.open === "function"
+    ) {
+      const openedReview = LLHLessonReviewEditor.open(id, { sectionId: options.fallbackSectionId || "printables" });
+      if (openedReview) {
+        renderAdminCurriculumLessonPlanManager();
+        applyAdminSectionVisibility();
+        showActionFeedback(
+          "Opened focused Lesson Review editor because Upgrade editor was unavailable.",
+          null,
+          { allowDuringOverlay: true, ttlMs: 6000 },
+        );
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    showUpgradeError(error?.message || "Upgrade Lesson failed to open.");
+    return false;
+  } finally {
+    if (button && document.body.contains(button)) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      button.classList.remove("is-loading");
+      button.textContent = previousLabel || "Upgrade Lesson";
+    }
+  }
+}
+
 function createAdminCurriculumLessonPlan() {
   const id = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   adminCurriculumLessonImportDraft = null;
@@ -12241,7 +12357,7 @@ function curriculumLessonPlanAdminCardHtml(plan) {
         </div>
       </div>
       <div class="form-actions admin-lesson-card-actions">
-        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Upgrade Lesson</button>` : ""}
+        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-quick-cover="${escapeHtml(plan.id)}">Change Cover</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user="${escapeHtml(plan.id)}">Preview as User</button>
@@ -73275,6 +73391,21 @@ document.addEventListener("click", async (event) => {
     } catch (error) {
       setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Could not unlink resource."}`, false);
     }
+    return;
+  }
+  const upgradeEventEl = event.target && event.target.nodeType === 1
+    ? event.target
+    : event.target?.parentElement;
+  const curriculumLessonUpgradeButton = upgradeEventEl?.closest?.("[data-curriculum-lesson-enrich]");
+  if (curriculumLessonUpgradeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    await openAdminCurriculumLessonUpgrade(
+      curriculumLessonUpgradeButton.getAttribute("data-curriculum-lesson-enrich")
+        || curriculumLessonUpgradeButton.dataset.curriculumLessonEnrich
+        || "",
+      { button: curriculumLessonUpgradeButton },
+    );
     return;
   }
   const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
