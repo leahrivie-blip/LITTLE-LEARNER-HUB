@@ -69,15 +69,28 @@ async function main() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert.match(appJs, /async function completeTesterInviteCredentialFlow/);
   assert.match(appJs, /async function fetchWithAuthTimeout/);
+  assert.match(appJs, /function beginAuthNetworkPriority/);
+  assert.match(appJs, /function endAuthNetworkPriority/);
   assert.match(appJs, /function scheduleDeferredPublicBootLoads/);
   assert.match(appJs, /creating_credentials/);
   assert.match(appJs, /creating_session/);
   assert.match(appJs, /accepting_invite/);
+  assert.match(appJs, /memberSessionToken/);
+  assert.match(appJs, /Sign-in is taking longer than usual\. Wait a moment and try Log In again/);
+  // Sticky auth priority must be caller-owned; fetchWithAuthTimeout only aborts sockets.
+  assert.match(appJs, /abortNonCriticalBootFetches\("auth-priority"\)/);
+  {
+    const start = appJs.indexOf("async function fetchWithAuthTimeout");
+    const end = appJs.indexOf("function setTesterInviteFlowMessage", start);
+    const fetchFn = start >= 0 && end > start ? appJs.slice(start, end) : "";
+    assert.ok(fetchFn.includes("abortNonCriticalBootFetches"));
+    assert.ok(!fetchFn.includes("beginAuthNetworkPriority"), "fetchWithAuthTimeout must not sticky-begin auth priority");
+  }
   console.log("PASS  client FSM / timeout markers");
 
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
   assert.match(sw, /INVITE_NAV_TIMEOUT_MS/);
-  assert.match(sw, /20260810-tester-invite-login-fix6/);
+  assert.match(sw, /20260810-tester-invite-login-fix7/);
   console.log("PASS  service worker invite nav timeout + shell");
 
   const punch = fs.readFileSync(path.join(ROOT, "docs/audits/REAL_PROVIDER_TESTING_FEEDBACK_PUNCH_LIST.md"), "utf8");
@@ -253,7 +266,7 @@ async function main() {
       ok: true,
       panelMs,
       programId1,
-      shell: "20260810-tester-invite-login-fix6",
+      shell: "20260810-tester-invite-login-fix7",
     }));
   } finally {
     if (browser) await browser.close().catch(() => {});

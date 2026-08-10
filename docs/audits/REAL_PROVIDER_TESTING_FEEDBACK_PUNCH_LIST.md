@@ -4,9 +4,9 @@
 **Opened:** 2026-08-08  
 **Environment (testers only):** https://little-learner-hub-testing.onrender.com  
 **Live testing shell (at open):** `20260808-phase11-testers-go3`  
-**Live testing shell (current):** `20260810-tester-invite-login-fix6`  
+**Live testing shell (current):** `20260810-tester-invite-login-fix7`  
 **Real tester invite readiness:** **NOT READY FOR NEW REAL TESTER INVITES**  
-**Live verify note (2026-08-10):** Invite FSM no longer hangs forever (HD/Center/slow reach `complete` + program). Remaining blockers for YES: end-to-end still ~75–100s on testing Postgres/Render, and post-logout UI Log In remains intermittently socket-starved / 502.  
+**Live verify note (2026-08-10):** Invite FSM reaches `complete` on testing. fix7 targets residual post-logout UI Log In: no local-hash “success” without `memberSessionToken`, sticky auth-network priority with begin/end, password-login retry on 502/timeout. Re-verify required before YES.  
 **PR (keep unmerged):** https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/590  
 **Production:** Untouched until Leah gives **explicit written** production-release approval  
 

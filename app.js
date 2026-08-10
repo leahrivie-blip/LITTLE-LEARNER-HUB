@@ -4438,6 +4438,7 @@ function sendAnalyticsEvent(event) {
   if (!analyticsConfig.eventEndpoint || !canUseLaunchBackend()) return;
   // During tester invite password/session handoff, skip analytics POSTs so auth
   // requests are not starved by the browser's per-host connection limit.
+  if (typeof authNetworkPriorityBlocksBackground === "function" && authNetworkPriorityBlocksBackground()) return;
   if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) return;
   if (typeof isTesterInviteBootPath === "function" && isTesterInviteBootPath()
     && typeof readMemberSessionToken === "function" && !readMemberSessionToken()) {
@@ -5437,6 +5438,9 @@ async function fetchWithWakeRetry(input, init = {}, options = {}) {
 
 async function syncFoundingStatus(options = {}) {
   if (!stripeCheckoutConfig.foundingStatusEndpoint || !canUseLaunchBackend()) return foundingStatusCache;
+  if (typeof authNetworkPriorityBlocksBackground === "function" && authNetworkPriorityBlocksBackground()) {
+    return foundingStatusCache;
+  }
   if (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy()) {
     return foundingStatusCache;
   }
@@ -16591,6 +16595,23 @@ function isTesterInviteBootPath() {
 
 /** Aborts large public boot fetches so auth password sync/login can obtain a socket. */
 let nonCriticalBootAbortController = typeof AbortController === "function" ? new AbortController() : null;
+/** While true, skip founding/analytics/curriculum/notification network work. */
+let authNetworkPriorityActive = false;
+
+function beginAuthNetworkPriority(reason = "auth") {
+  authNetworkPriorityActive = true;
+  abortNonCriticalBootFetches(reason);
+}
+
+function endAuthNetworkPriority() {
+  authNetworkPriorityActive = false;
+}
+
+function authNetworkPriorityBlocksBackground() {
+  return authNetworkPriorityActive
+    || (typeof document !== "undefined" && document.body?.classList?.contains("auth-modal-open"))
+    || (typeof testerInviteCredentialFlowBusy === "function" && testerInviteCredentialFlowBusy());
+}
 
 function nonCriticalBootSignal() {
   if (!nonCriticalBootAbortController && typeof AbortController === "function") {
@@ -16610,8 +16631,12 @@ function abortNonCriticalBootFetches(reason = "auth-priority") {
 
 async function fetchWithAuthTimeout(url, init = {}, timeoutMs = 25000) {
   // Free browser sockets before password/session calls (not for invite peek).
+  // Abort only — sticky authNetworkPriorityActive is owned by begin/end callers
+  // so a lone sync/login fetch cannot suppress founding/analytics forever.
   if (/\/api\/auth\//.test(String(url || ""))) {
     abortNonCriticalBootFetches("auth-priority");
+    // Let aborted noncritical fetches release sockets before auth starts.
+    await new Promise((resolve) => setTimeout(resolve, 30));
   }
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   const abortTimer = controller ? setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000)) : null;
@@ -16741,11 +16766,28 @@ async function loginWithServerPassword(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   // If signup just kicked off a local password sync, wait for it before login.
   await awaitPendingLocalPasswordSync(20000);
-  let response = await fetchWithAuthTimeout("/api/auth/password-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: cleanEmail, password }),
-  }, 25000);
+  let response;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      if (attempt > 0) {
+        beginAuthNetworkPriority("password-login-retry");
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+      response = await fetchWithAuthTimeout("/api/auth/password-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      }, 35000);
+      break;
+    } catch (error) {
+      lastError = error;
+      response = null;
+    }
+  }
+  if (!response) {
+    throw lastError || new Error("Sign-in is taking longer than usual. Wait a moment and try Log In again.");
+  }
   // One short retry covers slow Postgres commits right after signup.
   if (!response.ok && response.status === 401) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -16753,20 +16795,34 @@ async function loginWithServerPassword(email, password) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: cleanEmail, password }),
-    }, 25000);
+    }, 35000);
+  }
+  if (!response.ok && (response.status === 502 || response.status === 503 || response.status === 504)) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    response = await fetchWithAuthTimeout("/api/auth/password-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail, password }),
+    }, 35000);
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error || "The email or password did not match. Please try again.");
   }
+  if (!data.memberSessionToken) {
+    throw new Error("Sign-in could not create a session. Wait a moment and try Log In again.");
+  }
   ensureAccount(cleanEmail);
   updateAccount(cleanEmail, {
     mustChangePassword: Boolean(data.mustChangePassword),
-    serverPasswordAuth: Boolean(data.serverPasswordAuth),
+    serverPasswordAuth: true,
     tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
     authProvider: "Email & password",
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
+  if (!readMemberSessionToken()) {
+    throw new Error("Sign-in session could not be saved in this browser. Try again, or use a private window.");
+  }
   return {
     email: cleanEmail,
     verified: true,
@@ -16861,7 +16917,19 @@ async function loginWithProvider(email, password) {
   try {
     return await loginWithServerPassword(cleanEmail, password);
   } catch (serverError) {
+    const serverMsg = String(serverError?.message || "");
+    const timedOutOrNetwork = /taking too long|try Log In again|failed to fetch|network|offline|aborted|session/i.test(serverMsg);
     const account = accounts()[cleanEmail];
+    const testingHost = typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled();
+    // Hosted Firebase-less / testing accounts must mint a member session. A local
+    // passwordHash "success" without a session looks signed-in but breaks APIs and
+    // was the residual post-invite Log In hang/empty-state bug.
+    if (canUseLaunchBackend() && (testingHost || account?.serverPasswordAuth || timedOutOrNetwork)) {
+      if (timedOutOrNetwork) {
+        throw new Error("Sign-in is taking longer than usual. Wait a moment and try Log In again.");
+      }
+      throw serverError;
+    }
     if (!account) throw serverError;
     if (account.passwordHash) {
       const hash = await localPasswordHash(password);
@@ -40869,6 +40937,7 @@ async function completeTesterInviteCredentialFlow({ email, password, mode = "sig
     return testerInviteAuthFlowLock;
   }
   const flow = (async () => {
+    beginAuthNetworkPriority("tester-invite-credential-flow");
     const state = setTesterInviteFlowState({
       stage: "creating_credentials",
       accepted: false,
@@ -40976,6 +41045,7 @@ async function completeTesterInviteCredentialFlow({ email, password, mode = "sig
       throw error;
     } finally {
       if (testerInviteAuthFlowLock === flow) testerInviteAuthFlowLock = null;
+      endAuthNetworkPriority();
     }
   })();
   testerInviteAuthFlowLock = flow;
@@ -74923,7 +74993,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   }
   submitButton.disabled = true;
   // Drop heavy public boot fetches so password sync/login are not socket-starved.
-  abortNonCriticalBootFetches("auth-form-submit");
+  beginAuthNetworkPriority("auth-form-submit");
   setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
   try {
     if (currentAuthMode === "forgot") {
@@ -75100,6 +75170,10 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
     submitButton.disabled = false;
+    // Invite credential flow owns its own begin/end; do not clear mid-handoff.
+    if (typeof testerInviteCredentialFlowBusy !== "function" || !testerInviteCredentialFlowBusy()) {
+      endAuthNetworkPriority();
+    }
   }
 });
 

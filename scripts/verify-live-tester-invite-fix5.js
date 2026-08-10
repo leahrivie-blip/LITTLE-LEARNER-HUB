@@ -6,7 +6,7 @@ const { chromium, devices } = require("playwright");
 const BASE = "https://little-learner-hub-testing.onrender.com";
 const PASSWORD = "SunshineDaycare9!";
 const OWNER = `leah.proxy.owner${Date.now()}@outlook.com`;
-const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-tester-invite-login-fix6";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-tester-invite-login-fix7";
 
 async function api(method, path, { body, headers = {} } = {}) {
   const t0 = Date.now();
@@ -147,24 +147,29 @@ async function runFlow({ label, acceptUrl, email, mobile = false, slow = false }
     await page.fill("#passwordInput", PASSWORD);
     const ls = Date.now();
     await page.click("#authSubmitButton");
-    for (let i = 0; i < 45; i += 1) {
+    // password-login timeout is 35s with a retry — allow enough wall time.
+    for (let i = 0; i < 90; i += 1) {
       const st = await page.evaluate(() => ({
         tok: !!(localStorage.getItem("llhMemberSessionToken") || sessionStorage.getItem("llhMemberSessionToken")),
         user: localStorage.getItem("llhUser") || "",
         msg: document.querySelector("#authMessage")?.textContent || "",
+        modalOpen: document.body.classList.contains("auth-modal-open"),
       }));
-      if (i % 5 === 0) console.log(label, "uiRelogin", i, st.msg.slice(0, 60), st.tok);
+      if (i % 5 === 0) console.log(label, "uiRelogin", i, st.msg.slice(0, 60), st.tok, "modal="+st.modalOpen);
       if (st.tok && st.user === email) {
         uiReloginOk = true;
-        reloginOk = true;
         reloginMs = Date.now() - ls;
         break;
       }
-      if (/did not match|too long|try again|could not/i.test(st.msg) && i > 2) {
+      // Finite error (not still "Signing you in…") — fail this UI path.
+      if (/did not match|taking longer than usual|try Log In again|could not create a session|could not be saved/i.test(st.msg) && i > 3) {
         error = `${error ? `${error}; ` : ""}ui-relogin:${st.msg}`;
         break;
       }
       await page.waitForTimeout(1000);
+    }
+    if (!uiReloginOk && !error) {
+      error = `${error ? `${error}; ` : ""}ui-relogin:no-member-session-after-login`;
     }
   }
 
@@ -258,6 +263,12 @@ async function main() {
     && hdResult.reloginOk
     && centerResult.reloginOk
     && slowResult.reloginOk
+    && hdResult.uiReloginOk
+    && centerResult.uiReloginOk
+    && slowResult.uiReloginOk
+    && hdResult.refreshOk
+    && centerResult.refreshOk
+    && slowResult.refreshOk
     && existing.status === 200
     && man.json?.version === EXPECTED_SHELL
   );
