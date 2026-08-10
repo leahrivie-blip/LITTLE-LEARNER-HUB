@@ -5535,34 +5535,17 @@ async function verifyFirebaseUser(request) {
 }
 
 async function resolveCurriculumAccessUser(request, url) {
-  // Prefer Authorization Bearer (same as other admin APIs); legacy ?adminToken= still works.
+  // Prefer a *validated* admin session (not merely any Bearer string).
+  // Member/Firebase/test identity uses the same authoritative path as schedule/child-data (C3).
   const adminToken = extractAdminToken(request, url);
   if (adminToken && validAdminToken(adminToken)) {
     return { authorized: true, email: "", user: null, source: "admin" };
   }
   let identity = null;
-  if (firebaseConfigStatus().ready) {
-    try {
-      identity = await verifyFirebaseUser(request);
-    } catch {
-      identity = null;
-    }
-  }
-  if (!identity && process.env.NODE_ENV === "test") {
-    const authHeader = String(request.headers.authorization || "");
-    if (authHeader.startsWith("Bearer test:")) {
-      const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
-      if (email) identity = { uid: `test-${email}`, email };
-    }
-  }
-  // Local/demo fallback so Free grandfathering can personalize curriculum without Firebase.
-  if (!identity) {
-    const allowHeaderIdentity = process.env.NODE_ENV === "test"
-      || String(process.env.DATABASE_PROVIDER || "").toLowerCase() === "local-json";
-    if (allowHeaderIdentity) {
-      const headerEmail = normalizeEmail(request.headers["x-llh-user-email"] || "");
-      if (headerEmail) identity = { uid: `local-${headerEmail}`, email: headerEmail };
-    }
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch {
+    identity = null;
   }
   if (!identity?.email) {
     return { authorized: false, email: "", user: null, source: "anonymous" };
@@ -18412,29 +18395,13 @@ function parseTeachingKitReadyMaterials(url) {
  * (server-enforced). Member identity alone or foreign admin tokens never elevate.
  */
 async function resolveTeachingKitCallerContext(request, url) {
+  // Same authoritative member/Firebase/test identity path as schedule + child-data (C3).
+  // Firebase being configured must not disable valid llh_member_* sessions.
   let identity = null;
-  if (firebaseConfigStatus().ready) {
-    try {
-      identity = await verifyFirebaseUser(request);
-    } catch {
-      identity = null;
-    }
-  }
-  if (!identity && process.env.NODE_ENV === "test") {
-    const authHeader = String(request.headers.authorization || "");
-    if (authHeader.startsWith("Bearer test:")) {
-      const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
-      if (email) identity = { uid: `test-${email}`, email };
-    }
-  }
-  if (!identity) {
-    const allowHeaderIdentity = process.env.NODE_ENV === "test"
-      || String(process.env.DATABASE_PROVIDER || "").toLowerCase() === "local-json";
-    if (allowHeaderIdentity) {
-      const headerRaw = String(request.headers["x-llh-user-email"] || "").trim();
-      const headerEmail = normalizeEmail(headerRaw.split(",")[0] || "");
-      if (headerEmail) identity = { uid: `local-${headerEmail}`, email: headerEmail };
-    }
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch {
+    identity = null;
   }
 
   // Prefer a *validated* admin session token. extractAdminToken() returns the raw

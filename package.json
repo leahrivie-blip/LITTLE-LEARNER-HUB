@@ -157,6 +157,8 @@
     "test:calendar-create-idempotency": "NODE_ENV=test node scripts/test-calendar-create-idempotency.js",
     "test:ai-age-safety": "NODE_ENV=test node scripts/test-ai-age-safety.js",
     "test:c1-c2-c3-security-repairs": "NODE_ENV=test node scripts/test-c1-c2-c3-security-repairs.js",
+    "test:teaching-kit-auth-sessions": "NODE_ENV=test node scripts/test-teaching-kit-auth-sessions.js",
+    "test:cross-account-security-matrix": "NODE_ENV=test node scripts/test-cross-account-security-matrix.js",
     "test:live-audit-critical-repairs": "NODE_ENV=test node scripts/test-live-audit-critical-repairs.js",
     "test:calendar-loading-guards": "NODE_ENV=test node scripts/test-calendar-loading-guards.js",
     "test:trial-length-system": "NODE_ENV=test node scripts/test-trial-length-system.js",
