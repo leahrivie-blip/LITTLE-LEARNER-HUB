@@ -29504,3 +29504,34 @@ body.family-hub-invite-open .fh-signin--quiet {
     font-size: 16px; /* avoid iOS zoom */
   }
 }
+
+/* ── Provider nav IA cleanup (testing) ─────────────────────────────── */
+.dlc-care-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.library-filter-summary {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(123, 168, 201, 0.12);
+}
+.library-filter-summary .ghost-button {
+  margin-top: 6px;
+}
+.library-load-more {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 8px;
+}
+[data-hdh-section-active="true"] {
+  outline: 2px solid rgba(91, 155, 213, 0.55);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+.nav-section-work .nav-link[hidden],
+.nav-section-work .nav-link[aria-hidden="true"] {
+  display: none !important;
+}

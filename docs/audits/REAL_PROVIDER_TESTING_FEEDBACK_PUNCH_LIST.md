@@ -4,9 +4,10 @@
 **Opened:** 2026-08-08  
 **Environment (testers only):** https://little-learner-hub-testing.onrender.com  
 **Live testing shell (at open):** `20260808-phase11-testers-go3`  
-**Live testing shell (current):** `20260810-tester-invite-login-fix7`  
+**Live testing shell (current):** `20260810-tester-invite-login-fix7` (deployed)  
+**Draft nav IA shell (not deployed):** `20260810-provider-nav-ia-cleanup`  
 **Real tester invite readiness:** **YES — NEW REAL TESTER INVITES ARE RELIABLE**  
-**Live verify note (2026-08-10):** Live matrix PASS on shell `20260810-tester-invite-login-fix7` (HD mobile / Center desktop / slow network): invite → `complete` + program, refresh session, API + **UI** Log In with `memberSessionToken`, already-accepted invite panel, existing tester login. PR #590 still unmerged; production untouched.  
+**Live verify note (2026-08-10):** Live matrix PASS on shell `20260810-tester-invite-login-fix7`. Provider nav IA cleanup is draft-only / not deployed yet. PR #590 still unmerged; production untouched.  
 **PR (keep unmerged):** https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/590  
 **Production:** Untouched until Leah gives **explicit written** production-release approval  
 
@@ -67,7 +68,7 @@ Copy a row into the right table. Use the next free ID in that category (`C#`, `H
 
 | ID | Date | Reporter | Summary | Area | Repro / notes | Status |
 |---|---|---|---|---|---|---|
-| C1 | 2026-08-10 | Leah | Real tester invite link: very slow first load, then stuck on “Signing you in…” / password setup never finishes | Auth / Tester invite / Testing perf | Open `/?testerInvite=` on testing → create password → spinner never resolves. Root: (1) cold Render wake + (2) boot connection starvation; (3) accept-before-session; (4) no client timeout; (5) peek race; (6) UI Log In local-hash success without session. Fixed on `cursor/tester-invite-login-perf-4eae` shell `20260810-tester-invite-login-fix7`. Live verify PASS (HD/Center/slow + UI relogin). First usable dashboard still ~56–76s on testing Postgres/Render — slow but finite. | verified |
+| C1 | 2026-08-10 | Leah | Real tester invite link: very slow first load, then stuck on “Signing you in…” / password setup never finishes | Auth / Tester invite / Testing perf | Open `/?testerInvite=` on testing → create password → spinner never resolves. Root: (1) cold Render wake + (2) boot connection starvation; (3) accept-before-session; (4) no client timeout; (5) peek race; (6) UI Log In local-hash success without session. Fixed on `cursor/tester-invite-login-perf-4eae` shell `20260810-provider-nav-ia-cleanup`. Live verify PASS (HD/Center/slow + UI relogin). First usable dashboard still ~56–76s on testing Postgres/Render — slow but finite. | verified |
 
 ---
 

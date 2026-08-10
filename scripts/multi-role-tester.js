@@ -121,6 +121,7 @@
   }
 
   function clearView({ silent } = {}) {
+    const wasParent = getActiveViewRole() === "Parent";
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     try {
       if (typeof global.setHdhTesterPersona === "function") {
@@ -128,8 +129,39 @@
         if (persona.role === "parent") global.setHdhTesterPersona({ role: "teacher" });
       }
     } catch { /* ignore */ }
+
+    // Root-cause fix: Parent Switch View mounts Family Hub. Returning must
+    // immediately clear FH-only transient state and restore the provider shell
+    // without requiring a full reload.
+    if (wasParent || document.body.classList.contains("family-hub-parent-mode")) {
+      try {
+        if (typeof global.exitFamilyHubParentPreview === "function") {
+          global.exitFamilyHubParentPreview({ skipNavigate: true });
+        } else {
+          if (typeof global.clearFamilyHubSession === "function") global.clearFamilyHubSession();
+          document.body.classList.remove("family-hub-parent-mode", "hdh-persona-parent");
+          const app = document.querySelector("#familyHubParentApp");
+          if (app) app.innerHTML = "";
+        }
+      } catch { /* ignore */ }
+    }
+
     applyChrome();
     refreshPlatform();
+
+    try {
+      if (typeof global.setView === "function") {
+        const landing = (typeof global.workModeLandingView === "function")
+          ? global.workModeLandingView()
+          : "home";
+        global.setView(landing, {
+          allowDashboard: true,
+          skipAccessRedirect: true,
+          replaceHistory: true,
+        });
+      }
+    } catch { /* ignore */ }
+
     if (!silent && typeof global.showActionFeedback === "function") {
       global.showActionFeedback("Returned to your tester view.");
     }
@@ -154,6 +186,17 @@
         }
       }
     } catch { /* ignore */ }
+
+    if (previous === "Parent" && next !== "Parent") {
+      try {
+        if (typeof global.exitFamilyHubParentPreview === "function") {
+          global.exitFamilyHubParentPreview({ skipNavigate: true });
+        } else if (typeof global.clearFamilyHubSession === "function") {
+          global.clearFamilyHubSession();
+          document.body.classList.remove("family-hub-parent-mode", "hdh-persona-parent");
+        }
+      } catch { /* ignore */ }
+    }
 
     applyChrome();
     refreshPlatform();

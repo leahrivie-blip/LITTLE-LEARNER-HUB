@@ -603,6 +603,8 @@ let dlcSelectedOutputs = ["daily-report", "parent-message", "observation", "port
 let dlcParentSummaryDrafts = {};
 let dlcManualSection = ""; // which accordion section is expanded in manual mode
 let dlcDashboardDate = ""; // date shown on Daily Logs dashboard (empty = today)
+/** One-shot Daily Care action from hub tiles (ai-notes | end-of-day). */
+let pendingDailyCareAction = "";
 let lessonPlanWorkflowState = {
   step: 1,
   generating: false,
@@ -3093,7 +3095,7 @@ const proNavLabels = {
   "child-tools-meals": "Meal Tracking",
   "child-tools-reports": "Daily Reports",
   "child-tools-communication": "Parent Communication",
-  "child-tools-daily-logs": "Daily Logs",
+  "child-tools-daily-logs": "Daily Care",
   portfolio: "Portfolio Builder",
   reports: "Reports & Analytics",
   favorites: "Saved Favorites",
@@ -7680,14 +7682,14 @@ function renderAiGuidePage() {
             <p>AI Guide isn’t available on this site yet. Continue with Documentation Helpers for now.</p>
           </div>
         </div>
-        <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
+        <button class="ghost-button" type="button" data-nav-origin-back data-fallback-view="home">${escapeHtml(typeof fallbackBackLabel === "function" ? fallbackBackLabel(typeof platformBackView === "function" ? platformBackView("home") : "home") : "← Back")}</button>
       </section>
     `;
     return;
   }
   section.innerHTML = `
     <section class="simple-child-page ai-guide-page">
-      <button class="ghost-button back-button" data-view="calendar" type="button">← Back to Calendar</button>
+      <button class="ghost-button back-button" type="button" data-nav-origin-back data-fallback-view="home">${escapeHtml(typeof fallbackBackLabel === "function" ? fallbackBackLabel(typeof platformBackView === "function" ? platformBackView("home") : "home") : "← Back")}</button>
       <div class="child-page-header">
         <div>
           <p class="eyebrow">Early access</p>
@@ -17374,6 +17376,15 @@ function workModeLandingView(role = workModeRole()) {
   return "home";
 }
 
+/** Role-correct workspace headline from effective role (never hard-coded Teacher). */
+function roleWorkspaceHeadline(role = workModeRole()) {
+  if (role === "director") return "This is your director workspace.";
+  if (role === "teacher") return "This is your classroom workspace.";
+  if (role === "assistant") return "This is your limited classroom workspace.";
+  return "This is your owner workspace.";
+}
+window.roleWorkspaceHeadline = roleWorkspaceHeadline;
+
 function syncWorkModeNav() {
   const enabled = isWorkModeNavEnabled();
   const role = workModeRole();
@@ -17507,12 +17518,12 @@ function renderOwnerHomeDashboard() {
       <section class="work-hub-section">
         <h3>Next actions</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs AI", detail: "Organize notes → review before save" })}
-          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
-          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Lessons, meals, schedule" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Care", detail: checkedIn ? "Continue the care day" : "Check children in", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Organize notes with AI", detail: "Action inside Daily Care — review before save", attrs: 'data-daily-care-action="ai-notes"' })}
+          ${workHubTile({ view: "ai", title: "Write observation", detail: "Documentation Helpers", attrs: 'data-quick-doc-type="observation"' })}
           ${workHubTile({ view: "children", title: "Children", detail: "Profiles & files" })}
           ${workHubTile({ view: "families", title: "Families", detail: "Family Hub & family messages" })}
+          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Run the care day" })}
         </div>
       </section>
 
@@ -17569,22 +17580,21 @@ function renderTeacherTodayPage() {
       <section class="work-hub-section">
         <h3>Run the day</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Attendance & Daily Logs", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs AI", detail: "Organize notes → review before save" })}
-          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "End-of-day reports", detail: `${eodReady} ready from today’s facts`, primary: true }) : ""}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Care", detail: checkedIn ? "Continue logging" : "Check-in to start", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Organize notes with AI", detail: "Action inside Daily Care", attrs: 'data-daily-care-action="ai-notes"' })}
+          ${eodReady ? workHubTile({ view: "child-tools-daily-logs", title: "Prepare end-of-day reports", detail: `${eodReady} ready from today’s facts`, attrs: 'data-daily-care-action="end-of-day"' }) : ""}
           ${workHubTile({ view: "lessons", title: "Today's Lesson", detail: "Open assigned plan" })}
-          ${workHubTile({ view: "activities", title: "Suggested activities", detail: "Activity Center" })}
           ${workHubTile({ view: "calendar", title: "Today's Schedule", detail: "Calendar & events" })}
         </div>
       </section>
       <section class="work-hub-section">
         <h3>Quick capture</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
-          ${workHubTile({ view: "ai", title: "Quick Observation", detail: "AI writes from your note", attrs: 'data-quick-doc-type="observation"' })}
+          ${workHubTile({ view: "ai", title: "Write observation", detail: "Documentation Helpers", attrs: 'data-quick-doc-type="observation"' })}
+          ${workHubTile({ view: "ai", title: "Create incident report", detail: "Documentation Helpers", attrs: 'data-quick-doc-type="incident-report"' })}
+          ${workHubTile({ view: "ai", title: "Draft parent message", detail: "Documentation Helpers", attrs: 'data-quick-doc-type="parent-message"' })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
-          ${workHubTile({ view: role === "assistant" ? "home-daycare-hub" : "families", title: "Quick Message", detail: role === "assistant" ? "Family Hub parent thread" : "Family Hub / families" })}
-          ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Messages", detail: "Parent conversations", attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
           ${isHomeDaycareHubTestingEnabled() ? workHubTile({ view: "home-daycare-hub", title: "My Paperwork", detail: "Forms assigned to you", attrs: 'data-hdh-jump="hdhMyPaperworkPanel"' }) : ""}
         </div>
       </section>
@@ -17592,7 +17602,7 @@ function renderTeacherTodayPage() {
         <h3>My children & classroom</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "children", title: role === "teacher" ? "My Children" : "Children", detail: "Assigned children" })}
-          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Plans, materials, schedule" })}
+          ${workHubTile({ view: "classroom", title: "Classroom", detail: "Run the care day" })}
         </div>
       </section>
     `,
@@ -17606,35 +17616,33 @@ function renderClassroomHubPage() {
   section.innerHTML = workHubShell({
     eyebrow: "Classroom",
     title: "Classroom",
-    subtitle: role === "teacher" || role === "assistant"
-      ? "Where teachers spend the day — care logs, lessons, and today's schedule."
-      : "Care-day tools live here. Curriculum is also in the sidebar; Management stays separate.",
+    subtitle: "Run the care day — Daily Care, today’s lesson, schedule, and quick documentation. Full curriculum planning lives under Curriculum.",
     body: `
       <section class="work-hub-section">
-        <h3>Daily care</h3>
+        <h3>Run the care day</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs", detail: "Attendance, meals, naps, diapers, activities", primary: true })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs AI", detail: "Organize notes → review before save" })}
-          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "End-of-Day Report", detail: "AI summary from today's facts" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Care", detail: "Attendance, meals, naps, diapers, activities", primary: true })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Organize notes with AI", detail: "Action inside Daily Care", attrs: 'data-daily-care-action="ai-notes"' })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Prepare end-of-day reports", detail: "From today’s facts", attrs: 'data-daily-care-action="end-of-day"' })}
+          ${workHubTile({ view: "lessons", title: "Today's lesson", detail: "Open assigned plan" })}
+          ${workHubTile({ view: "calendar", title: "Today's schedule", detail: "What’s on the calendar" })}
+          ${workHubTile({ view: "children", title: role === "teacher" ? "Assigned children" : "Children", detail: "Who’s in your care" })}
+        </div>
+      </section>
+      <section class="work-hub-section">
+        <h3>Quick documentation</h3>
+        <div class="work-hub-grid">
+          ${workHubTile({ view: "ai", title: "Write observation", detail: "Documentation Helpers", attrs: 'data-quick-doc-type="observation"' })}
+          ${workHubTile({ view: "ai", title: "Document behavior", detail: "Documentation Helpers", attrs: 'data-quick-doc-type="behavior-note"' })}
+          ${workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" })}
         </div>
       </section>
       <section class="work-hub-section">
         <h3>Curriculum</h3>
+        <p class="muted-copy">Lesson Plans, Activity Library, and planning live in Curriculum — not as a second directory here.</p>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "lessons", title: "Lesson Plans", detail: "Library & week assign", primary: true })}
-          ${workHubTile({ view: "activities", title: "Activity Center", detail: "Activities library" })}
-          ${workHubTile({ view: "calendar", title: "Calendar", detail: "Today's schedule & events" })}
-          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
+          ${workHubTile({ view: "lessons", title: "Open full Curriculum", detail: "Lesson Plans & planning tools", primary: true })}
           ${role === "owner" || role === "director" ? workHubTile({ view: "classrooms", title: "Room setup", detail: "Manage classrooms" }) : ""}
-        </div>
-      </section>
-      <section class="work-hub-section">
-        <h3>Support tools</h3>
-        <div class="work-hub-grid">
-          ${workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" })}
-          ${workHubTile({ view: "ai-guide", title: "AI Guide", detail: "Guided helpers" })}
-          ${workHubTile({ view: "resources", title: "Materials", detail: "Resources hub" })}
         </div>
       </section>
     `,
@@ -17654,39 +17662,40 @@ function renderFamiliesHubPage() {
   section.innerHTML = workHubShell({
     eyebrow: "Families",
     title: "Families",
-    subtitle: "Parent communication, Family Hub, forms, and pickup changes — separate from Message Support to Leah.",
+    subtitle: "Each tile opens its intended Family Hub subsection — not the top of a giant catch-all page. Family Tuition is parent childcare balances, not LLH membership billing.",
     body: `
       <section class="work-hub-section">
-        <h3>Family Hub & family messages</h3>
+        <h3>Family Hub</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Invites, households, parent portal", primary: true })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Family messages", detail: "Parent threads in Family Hub", attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Family tuition", detail: "Parent balances (simulated — not SaaS billing)", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Share end-of-day updates" })}
-          ${workHubTile({ view: "children", title: "Photos & notes", detail: "From each child's file" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Household access & invitations", primary: true, attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Messages", detail: "Family conversations", attrs: 'data-hdh-jump="hdhFamilyHubPanel" data-hdh-focus="messages"' })}
+          ${canManage ? workHubTile({ view: "home-daycare-hub", title: "Family Tuition", detail: "Parent tuition balances — not LLH SaaS billing", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' }) : ""}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Family-facing end-of-day updates", attrs: 'data-daily-care-action="end-of-day"' })}
+          ${workHubTile({ view: "children", title: "Photos & Notes", detail: "From each child’s file" })}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Forms & requests</h3>
+        <h3>Forms & calendar</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "forms", title: "Forms", detail: "Primary forms library — assign & review", primary: true })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Forms packs & requests", detail: "Packets, absences, pickups (Family Hub)" })}
-          ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Paperwork HQ · templates · Confirm & Send", primary: true })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Paperwork HQ", detail: "Assignments & tracking", attrs: 'data-hdh-jump="hdhFormsAttentionPanel"' })}
+          ${workHubTile({ view: "calendar", title: "Family Calendar", detail: "Family-visible events" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Contacts</h3>
+        <h3>Contacts & licensing</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "children", title: "Parents & guardians", detail: "On each child profile" })}
-          ${workHubTile({ view: "children", title: "Emergency & authorized pickup", detail: "Child file → contacts" })}
+          ${workHubTile({ view: "children", title: "Parents / Guardians", detail: "Household & guardian management" })}
+          ${workHubTile({ view: "children", title: "Pickup Contacts", detail: "Authorized pickup on child file" })}
+          ${canManage ? workHubTile({ view: "home-daycare-hub", title: "Licensing Helpers", detail: "Trainings & packets", attrs: 'data-hdh-jump="hdhTrainingsPanel"' }) : ""}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Support tools</h3>
+        <h3>Documentation</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing from your notes" })}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Logs & AI notes", detail: "Care-day logs and AI drafts" })}
+          ${workHubTile({ view: "ai", title: "Draft parent message", detail: "Opens Documentation Helpers", attrs: 'data-quick-doc-type="parent-message"' })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Care", detail: "Care-day logs for family updates" })}
         </div>
       </section>
     `,
@@ -17720,37 +17729,35 @@ function renderBusinessHubPage() {
     eyebrow: "Management",
     title: "Management",
     subtitle: role === "director"
-      ? "Director tools for running the program. Billing stays with the owner."
+      ? "Director tools for running the program. LLH Billing & Subscription stays with the owner."
       : (homeDaycare
-        ? "Owner tools for your home program — enrollment, settings, and billing. Classrooms & staff stay optional."
-        : "Owner tools — staff, classrooms, enrollment, billing, and testing."),
+        ? "Owner tools for your home program. Family Tuition is parent childcare balances — separate from LLH membership billing."
+        : "Owner tools — Staff & Access, classrooms, enrollment, and LLH membership billing."),
     body: `
       <section class="work-hub-section">
         <h3>Program</h3>
         <div class="work-hub-grid">
           ${workHubTile({ view: "enrollment", title: "Enrollment", detail: "New children & families", primary: true })}
-          ${workHubTile({ view: "settings", title: "Program Settings", detail: "Program name & preferences", attrs: 'data-settings-anchor="program"' })}
+          ${workHubTile({ view: "settings", title: "Program Settings", detail: "Opens Settings → Program section", attrs: 'data-settings-anchor="program"' })}
           ${workHubTile({ view: "reports", title: "Reports", detail: "Program reporting" })}
-          ${!homeDaycare ? workHubTile({ view: "staff", title: "Staff", detail: "Invites, roles, classrooms", primary: true }) : ""}
+          ${workHubTile({ view: "staff", title: "Staff & Access", detail: "Staff, roles, classroom assignments, invitations", primary: !homeDaycare })}
           ${!homeDaycare ? workHubTile({ view: "classrooms", title: "Classrooms", detail: "Rooms & rosters" }) : ""}
         </div>
       </section>
       ${homeDaycare ? `
       <section class="work-hub-section">
         <h3>Optional center-style setup</h3>
-        <p class="muted-copy">Home daycares can skip these. Open only if you want rooms or staff invites.</p>
+        <p class="muted-copy">Home daycares can skip rooms. Staff & Access is available when you invite helpers.</p>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "staff", title: "Staff", detail: "Optional invites & roles" })}
           ${workHubTile({ view: "classrooms", title: "Classrooms", detail: "Optional rooms & rosters" })}
         </div>
       </section>` : ""}
       <section class="work-hub-section">
-        <h3>Membership</h3>
+        <h3>Money — keep these separate</h3>
         <div class="work-hub-grid">
-          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Your Little Learner Hub membership" }) : `<div class="work-hub-note muted-copy">Billing is owner-only.</div>`}
-          ${workHubTile({ view: "home-daycare-hub", title: "Family tuition", detail: "Parent balances — not SaaS billing", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Licensing helpers", detail: "Packets & trainings (testing)" })}
-          ${workHubTile({ view: "staff", title: "Users & access", detail: "Staff invites and roles" })}
+          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Little Learner Hub SaaS membership" }) : `<div class="work-hub-note muted-copy">LLH Billing & Subscription is owner-only.</div>`}
+          ${workHubTile({ view: "home-daycare-hub", title: "Family Tuition", detail: "Provider ↔ family childcare tuition (not SaaS)", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Licensing Helpers", detail: "Trainings & packets", attrs: 'data-hdh-jump="hdhTrainingsPanel"' })}
         </div>
       </section>
       ${adminUnlocked ? `
@@ -17769,20 +17776,23 @@ function renderMoreHubPage() {
   const section = document.querySelector("#view-more");
   if (!section) return;
   const role = workModeRole();
+  const canManage = role === "owner" || role === "director";
   section.innerHTML = workHubShell({
     eyebrow: "More",
     title: "More",
-    subtitle: "Secondary tools for your role — kept out of the daily path on purpose.",
+    subtitle: "Secondary tools kept out of the daily path on purpose.",
     body: `
       <div class="work-hub-grid">
         ${workHubTile({ view: "settings", title: "Settings", detail: "Account & preferences" })}
+        ${workHubTile({ view: "classroom", title: "Classroom", detail: "Run-the-day care hub" })}
+        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "One writing toolkit — open with a type when needed" })}
         ${workHubTile({ view: "messages", title: "Message Support", detail: "Contact Leah / product support (not Family Hub)" })}
-        ${workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates & marketing notes" })}
         ${workHubTile({ view: "resources", title: "Resources", detail: "Guides & materials" })}
-        ${workHubTile({ view: "ai", title: "Documentation Helpers", detail: "AI writing tools" })}
-        ${role === "teacher" ? workHubTile({ view: "lessons", title: "Curriculum", detail: "Lesson Plans library (also in sidebar)" }) : ""}
-        ${role === "teacher" ? workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" }) : ""}
-        ${workHubTile({ view: "account", title: "Account", detail: "Membership display" })}
+        ${workHubTile({ view: "behavior-support", title: "Behavior & Support", detail: "Guidance library" })}
+        ${role === "teacher" || role === "assistant" ? workHubTile({ view: "activities", title: "Activity Library", detail: "Browse activities calmly" }) : ""}
+        ${canManage ? workHubTile({ view: "whats-new", title: "What's New", detail: "Product updates" }) : ""}
+        ${canManage ? workHubTile({ view: "account", title: "Account", detail: "Membership display" }) : ""}
+        ${role === "owner" && canAccessPlatformFeature("billing") ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "LLH SaaS membership" }) : ""}
       </div>
     `,
   });
@@ -20678,6 +20688,10 @@ function setView(view, options = {}) {
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
       activePortfolioChildId = "";
+      // Consume one-shot hub actions after the Daily Care shell paints.
+      queueMicrotask(() => {
+        try { applyPendingDailyCareAction(); } catch (_e) { /* ignore */ }
+      });
     }
   } else if (requestedChildToolTab) {
     childManagementMode = "tools";
@@ -26365,25 +26379,44 @@ function handleLessonNavPopState(event) {
 function lessonWorkspaceBackButtonLabel() {
   if (resourceViewerReturnToId) return "← Back to Lesson Plan";
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+  const originApi = typeof window !== "undefined" ? window.LlhNavOrigin : null;
+  const origin = originApi?.peekOrigin?.();
+  if (origin) return originApi.labelFor(origin);
   if (activeView === "curriculum-planner") return "← Back to Curriculum Planner";
   if (activeView === "planner") return "← Back to Calendar";
-  if (activeView === "activities") return "← Back to Activities";
+  if (activeView === "activities") return "← Back to Activity Library";
   if (activeView === "forms") return "← Back to Forms";
   if (activeView === "menus") return "← Back to Menu Center";
   if (activeView === "support-center") return "← Back to Behavior & Support";
   if (activeView === "children") return "← Back to Children";
+  if (activeView === "classroom") return "← Back to Classroom";
+  if (activeView === "child-tools-daily-logs") return "← Back to Daily Care";
+  if (activeView === "today") return "← Back to Today";
   if (activeView === "calendar") return "← Back to Calendar";
-  if (activeView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
-  return "← Back to Lesson Plans";
+  if (activeView === "lessons") return "← Back to Curriculum";
+  if (activeView === "home") return "← Back to Home";
+  return "← Back to Curriculum";
 }
 
 function fallbackBackLabel(view) {
-  if (view === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
+  const originApi = typeof window !== "undefined" ? window.LlhNavOrigin : null;
+  if (originApi?.isAllowed?.(view)) return originApi.labelFor(view);
+  if (view === "home") {
+    if (typeof isWorkModeNavEnabled === "function" && isWorkModeNavEnabled()) return "← Back to Home";
+    return isLoggedIn() || hasAdminFullAccess() ? "← Back to Home" : "← Back to Home";
+  }
+  if (view === "child-tools-daily-logs") return "← Back to Daily Care";
+  if (view === "today") return "← Back to Today";
+  if (view === "classroom") return "← Back to Classroom";
+  if (view === "families") return "← Back to Families";
+  if (view === "business") return "← Back to Management";
+  if (view === "more") return "← Back to More";
+  if (view === "lessons") return "← Back to Curriculum";
   if (view === "calendar") return "← Back to Calendar";
   if (view === "planner") return "← Back to Calendar";
   if (view === "curriculum-planner") return "← Back to Curriculum Planner";
   if (view === "account") return "← Back to Account";
-  if (view === "billing") return "← Back to Billing Management";
+  if (view === "billing") return "← Back to Billing & Subscription";
   if (view === "children") return "← Back to Children";
   if (view === "ai") return "← Back to Documentation Helpers";
   if (view === "director-center") return "← Back to Director Center";
@@ -26454,6 +26487,17 @@ function navigateContextualBack(view, fallbackView = "home") {
     setView(context.view, { replaceHistory: false });
     return;
   }
+  // Allowlisted origin stack (never arbitrary query return URLs).
+  const originApi = typeof window !== "undefined" ? window.LlhNavOrigin : null;
+  if (originApi?.peekOrigin?.()) {
+    const resolved = originApi.resolveBack({
+      roleLanding: typeof workModeLandingView === "function" ? workModeLandingView() : "home",
+      fallback: fallbackView,
+    });
+    originApi.popOrigin();
+    setView(resolved.view, { replaceHistory: false });
+    return;
+  }
   // Prefer real browser history so Back matches the browser Back stack.
   const canUseHistoryBack = platformHistoryPrimed
     && window.history?.length > 1
@@ -26462,7 +26506,10 @@ function navigateContextualBack(view, fallbackView = "home") {
     window.history.back();
     return;
   }
-  const resolvedFallback = (fallbackView === "home" && isLoggedIn()) ? "calendar" : fallbackView;
+  // Work-mode: role landing — never Calendar as a generic fallback.
+  const resolvedFallback = (typeof platformBackView === "function")
+    ? platformBackView(fallbackView)
+    : fallbackView;
   setView(resolvedFallback, { replaceHistory: false });
 }
 
@@ -31577,11 +31624,12 @@ function renderCategoryPage(view) {
         </div>
       `;
     } else if (useBrowseRows) {
-      const rows = buildLessonBrowseRows(items);
+      // Calm initial Curriculum: fewer overlapping browse rows on first paint.
+      const rows = buildLessonBrowseRows(items).slice(0, 4);
       // Defer in-library upgrade strips for brand-new Free explorers until a value moment.
       const deferUpgrade = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
       browseBody = `
-        <div class="resource-grid lesson-library-grid library-browse-shell">
+        <div class="resource-grid lesson-library-grid library-browse-shell" data-curriculum-initial-limit="4">
           ${freeStarterLibraryBannerHtml()}
           ${deferUpgrade ? "" : lessonUpgradeBanner}
           ${activeFilter === "All" ? featuredLessonBannerHtml(items) : ""}
@@ -31618,10 +31666,16 @@ function renderCategoryPage(view) {
   if (category === "Activity Center") {
     const activityItems = filterActivityBrowseItems(items);
     const activityUpgradeBanner = !isProUser() ? libraryCompactUpgradeStripHtml() : "";
-    const categoryBackTarget = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
+    const categoryBackTarget = (typeof platformBackView === "function")
+      ? platformBackView(activeActivityLessonPlanId ? "lessons" : "home")
+      : (activeActivityLessonPlanId ? "lessons" : "home");
+    const originApi = typeof window !== "undefined" ? window.LlhNavOrigin : null;
+    const originLabel = originApi?.peekOrigin?.()
+      ? originApi.labelFor(originApi.peekOrigin())
+      : fallbackBackLabel(categoryBackTarget);
     const categoryBackButton = activeActivityLessonPlanId
       ? `<button class="ghost-button back-button" data-contextual-back="activities" data-fallback-view="lessons" data-always-visible="true" type="button">${escapeHtml(contextualBackLabel("activities", "lessons"))}</button>`
-      : `<button class="ghost-button back-button" data-view="${categoryBackTarget}" type="button">${escapeHtml(fallbackBackLabel(categoryBackTarget))}</button>`;
+      : `<button class="ghost-button back-button" type="button" data-nav-origin-back data-fallback-view="${escapeHtml(categoryBackTarget)}">${escapeHtml(originLabel)}</button>`;
     const quickFilters = activityQuickFilterOptions();
     const hasSearchOrAdvanced = Boolean(
       searchInput.value.trim()
@@ -31632,9 +31686,23 @@ function renderCategoryPage(view) {
       || activeActivityLessonPlanId,
     );
     const activityAccess = curriculumActivityAccessStats(visibleResourcesForCategory("Activity Center"));
+    const ACTIVITY_PAGE_SIZE = 24;
+    if (!Number.isFinite(window.__llhActivityPageOffset)) window.__llhActivityPageOffset = 0;
     const activityStatsLine = (curriculumLibraryLoading || siteContentLoadPromise)
       ? `<p class="library-stats-line" role="status" aria-live="polite">Syncing activity library…</p>`
       : `<p class="library-stats-line" data-activity-access-stats="canonical">${activityAccess.total} Activities · ${activityAccess.freeTotal} Free · ${activityAccess.proTotal} Pro</p>`;
+    const filterSummaryBits = [];
+    if (searchInput.value.trim()) filterSummaryBits.push(`Search: “${searchInput.value.trim()}”`);
+    if (activeFilter !== "All") filterSummaryBits.push(`Age/type: ${activeFilter}`);
+    if (activityLibraryPlanFilter !== "All") filterSummaryBits.push(`Access: ${activityLibraryPlanFilter}`);
+    if (activityLibraryShowSavedOnly) filterSummaryBits.push("Saved only");
+    if (activityLibraryShowRecentOnly) filterSummaryBits.push("Recently used");
+    const filterSummaryHtml = filterSummaryBits.length
+      ? `<div class="library-filter-summary" data-activity-filter-summary>
+          <p><strong>Active filters:</strong> ${escapeHtml(filterSummaryBits.join(" · "))}</p>
+          <button type="button" class="ghost-button" data-clear-activity-filters>Clear filters</button>
+        </div>`
+      : `<div class="library-filter-summary muted-copy">Start with search or a filter — we won’t dump thousands of cards at once.</div>`;
     let activityBody = "";
     if (activityLibraryViewAllKey || hasSearchOrAdvanced) {
       const viewAllItems = activityLibraryViewAllKey
@@ -31646,6 +31714,9 @@ function renderCategoryPage(view) {
       const freeActivityPrimary = !activityLibraryViewAllKey
         && activityLibraryPlanFilter === "Free"
         && !isProUser();
+      const offset = Math.max(0, Number(window.__llhActivityPageOffset) || 0);
+      const pageItems = viewAllItems.slice(0, offset + ACTIVITY_PAGE_SIZE);
+      const remaining = Math.max(0, viewAllItems.length - pageItems.length);
       activityBody = `
         ${activityLibraryViewAllKey ? `
           <div class="browse-view-all-bar">
@@ -31657,13 +31728,16 @@ function renderCategoryPage(view) {
             <h3>Your Included Free Activities</h3>
           </div>
         ` : "")}
-        <div class="resource-grid library-browse-shell is-filtered-grid">
+        <div class="resource-grid library-browse-shell is-filtered-grid" data-activity-page-root>
           ${activityUpgradeBanner}
-          ${viewAllItems.length ? viewAllItems.map(activityBrowseCard).join("") : emptyStateHtml}
+          ${pageItems.length ? pageItems.map(activityBrowseCard).join("") : emptyStateHtml}
         </div>
+        ${viewAllItems.length ? `<p class="library-stats-line" data-activity-page-status>Showing ${pageItems.length} of ${viewAllItems.length}</p>` : ""}
+        ${remaining > 0 ? `<div class="library-load-more"><button type="button" class="primary-button" data-activity-load-more>Show more (${remaining} left)</button></div>` : ""}
       `;
     } else {
-      const rows = buildActivityBrowseRows(activityItems);
+      window.__llhActivityPageOffset = 0;
+      const rows = buildActivityBrowseRows(activityItems).slice(0, 6);
       activityBody = `
         <div class="resource-grid library-browse-shell">
           ${activityUpgradeBanner}
@@ -31677,11 +31751,12 @@ function renderCategoryPage(view) {
       ${categoryBackButton}
       <header class="library-compact-header">
         <div class="library-compact-title-row">
-          <h2>Activity Center</h2>
+          <h2>Activity Library</h2>
           ${libraryAccessBadgeHtml()}
         </div>
-        <p class="library-compact-subtitle">Browse ready-to-use activities by age, theme, or activity type.</p>
+        <p class="library-compact-subtitle">Search and filter first. Browse a calm starter set — then load more when you need it.</p>
         ${activityStatsLine}
+        ${filterSummaryHtml}
       </header>
       ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
       ${activeActivityLessonPlanId ? renderActivityLessonFilterBanner() : ""}
@@ -38666,6 +38741,47 @@ function clearFamilyHubSession() {
   setFamilyHubSessionToken("");
 }
 
+/**
+ * Leave Multi-Role / tester Parent preview without a full reload.
+ * Clears Family Hub-only transient UI while preserving real parent auth paths
+ * that still hold a Family Hub session token for an actual parent login.
+ */
+function exitFamilyHubParentPreview(options = {}) {
+  const hadParentView = (() => {
+    try {
+      return String(localStorage.getItem("llhMultiRoleTesterView") || "").toLowerCase() === "parent"
+        || getHdhTesterPersona().role === "parent"
+        || document.body.classList.contains("family-hub-parent-mode");
+    } catch (_error) {
+      return document.body.classList.contains("family-hub-parent-mode");
+    }
+  })();
+  // Tester Switch View Parent does not mint a durable Family Hub session for a
+  // real guardian — clear any leftover preview token + mounted login shell.
+  clearFamilyHubSession();
+  try { localStorage.removeItem(FAMILY_HUB_TESTER_INVITE_KEY); } catch (_error) { /* ignore */ }
+  familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
+  const app = document.querySelector("#familyHubParentApp");
+  if (app) app.innerHTML = "";
+  const fhView = document.querySelector("#view-family-hub");
+  if (fhView) {
+    fhView.classList.remove("active-view");
+    // Remove login/empty shells that otherwise stay mounted until reload.
+    const login = fhView.querySelector(".family-hub-login, #familyHubLoginPanel, [data-family-hub-login]");
+    if (login) login.remove();
+  }
+  document.body.classList.remove("family-hub-parent-mode", "hdh-persona-parent");
+  syncFamilyHubParentChrome();
+  if (!options.skipNavigate && hadParentView && typeof setView === "function") {
+    setView(typeof workModeLandingView === "function" ? workModeLandingView() : "home", {
+      allowDashboard: true,
+      skipAccessRedirect: true,
+      replaceHistory: true,
+    });
+  }
+}
+window.exitFamilyHubParentPreview = exitFamilyHubParentPreview;
+
 function isFamilyHubParentMode() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   // Multi-Role Tester Parent view — Family Hub only.
@@ -38675,11 +38791,17 @@ function isFamilyHubParentMode() {
       return true;
     }
   } catch (_error) { /* ignore */ }
-  const onFamilyHub = Boolean(document.querySelector("#view-family-hub.active-view"));
-  if (!getFamilyHubSessionToken()) return onFamilyHub;
-  // Pure parent session, or provider intentionally previewing as parent.
-  if (!isLoggedIn()) return true;
-  return getHdhTesterPersona().role === "parent" || onFamilyHub;
+  // Real Family Hub parent session (token present). Do not treat a leftover
+  // #view-family-hub mount as parent mode after Return to My Tester View.
+  if (getFamilyHubSessionToken()) {
+    if (!isLoggedIn()) return true;
+    return getHdhTesterPersona().role === "parent"
+      || Boolean(document.querySelector("#view-family-hub.active-view"));
+  }
+  if (!isLoggedIn()) {
+    return Boolean(document.querySelector("#view-family-hub.active-view"));
+  }
+  return getHdhTesterPersona().role === "parent";
 }
 
 function syncFamilyHubParentChrome() {
@@ -41393,7 +41515,7 @@ function renderHomeDaycareTesterGuidePanel() {
     return `
       <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
         <p class="eyebrow">Your testing account</p>
-        <h3>This is your own Teacher space</h3>
+        <h3>${escapeHtml(typeof roleWorkspaceHeadline === "function" ? roleWorkspaceHeadline() : "This is your workspace")}</h3>
         <p class="muted-copy">You have your own kids and tools — not shared with other testers. Starter child: <strong>${escapeHtml(kidName)}</strong>. No Admin. Questions or bugs? Message Leah in the site.</p>
         <div class="account-actions-row hdh-tester-jumps">
           <button class="primary-button" type="button" data-view="messages">Message Leah</button>
@@ -45525,9 +45647,9 @@ function renderDlcDashboard(records) {
     <div class="dlc-dashboard dlc-dashboard-attendance">
       <div class="dlc-dashboard-date-row">
         <div>
-          <p class="eyebrow">Daily Logs</p>
+          <p class="eyebrow">Daily Care</p>
           <p class="dlc-dashboard-date-label" aria-live="polite">${escapeHtml(dateLabel)}</p>
-          <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
+          <p class="dlc-sub">Check children in, log meals, naps, diapers, and activities — then prepare reports when you’re ready.</p>
         </div>
         <div class="dlc-dashboard-date-picker">
           <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
@@ -45601,23 +45723,74 @@ function renderDlcDashboard(records) {
 }
 
 function dlcBackLabel(target) {
-  if (target === "home" || target === "dashboard") return "← Back to Daily Logs";
+  if (target === "home" || target === "dashboard") return "← Back to Daily Care";
   if (target === "step2") return "← Back to update options";
   if (target === "step1-multiple" || target === "step1-one") return "← Back to child selection";
   if (target === "ai-input") return "← Back to AI notes";
+  const originApi = typeof window !== "undefined" ? window.LlhNavOrigin : null;
+  const origin = originApi?.peekOrigin?.();
+  if (origin) return originApi.labelFor(origin);
   return "← Back";
+}
+
+/** Apply hub/tile actions inside Daily Care (not separate nav products). */
+function applyPendingDailyCareAction() {
+  const action = String(pendingDailyCareAction || "").trim();
+  pendingDailyCareAction = "";
+  if (!action) return;
+  if (action === "ai-notes") {
+    const panel = document.querySelector(".dlc-optional-ai");
+    if (panel) {
+      try { panel.open = true; } catch (_e) { /* ignore */ }
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.querySelector("#dlcDashboardNote")?.focus?.();
+    } else {
+      // Wizard AI path when dashboard panel is unavailable.
+      dailyLogsSection = "individual";
+      dlcNewStep = "ai-input";
+      if (typeof renderChildManagement === "function") renderChildManagement();
+    }
+    return;
+  }
+  if (action === "end-of-day") {
+    const btn = document.querySelector("[data-dlc-mode=\"ai\"], #dlcDashOrganizeBtn");
+    if (document.querySelector(".dlc-optional-ai")) {
+      const panel = document.querySelector(".dlc-optional-ai");
+      try { panel.open = true; } catch (_e) { /* ignore */ }
+      const reportOpt = document.querySelector('[data-dlc-output-option][value="daily-report"]');
+      if (reportOpt) reportOpt.checked = true;
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+      showActionFeedback?.("Prepare end-of-day reports from today’s facts — review before save.");
+    } else if (btn) {
+      btn.click();
+    } else {
+      dailyLogsSection = "individual";
+      dlcNewStep = "ai-input";
+      dlcSelectedOutputs = Array.from(new Set([...(dlcSelectedOutputs || []), "daily-report"]));
+      if (typeof renderChildManagement === "function") renderChildManagement();
+    }
+  }
 }
 
 function renderDailyLogsCenter(records) {
   const backTarget = dlcBackTarget();
+  const originApi = typeof window !== "undefined" ? window.LlhNavOrigin : null;
+  const originBack = originApi?.peekOrigin?.()
+    ? `<button class="ghost-button back-button" type="button" data-nav-origin-back>${escapeHtml(originApi.labelFor(originApi.peekOrigin()))}</button>`
+    : "";
   return `
-    <section class="simple-child-page daily-logs-page">
+    <section class="simple-child-page daily-logs-page" data-daily-care-root>
       <div class="child-page-header">
         <div>
-          <h2>Daily Logs</h2>
-          <p>See who's here, check children in and out, and log the day as it happens.</p>
+          <h2>Daily Care</h2>
+          <p>One place for attendance, meals, bottles, naps, diapers, activities, mood/notes, photos, group logging, report preview, end-of-day reports, and organizing notes with AI.</p>
         </div>
-        ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">${dlcBackLabel(backTarget)}</button>` : ""}
+        ${originBack || (backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">${dlcBackLabel(backTarget)}</button>` : "")}
+      </div>
+      <div class="dlc-care-actions" role="group" aria-label="Daily Care actions">
+        <button class="ghost-button" type="button" data-daily-care-action="ai-notes">Organize notes with AI</button>
+        <button class="ghost-button" type="button" data-daily-care-action="end-of-day">Prepare end-of-day reports</button>
+        <button class="ghost-button" type="button" data-view="ai" data-quick-doc-type="daily-log">Write daily report</button>
       </div>
       ${renderDlcContent(records)}
     </section>
@@ -67399,6 +67572,10 @@ document.addEventListener("click", async (event) => {
   if (viewButton) {
     const nextView = viewButton.dataset.view || "";
     const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+    // Record allowlisted origin so Back labels match where the user came from.
+    if (previousView && nextView && previousView !== nextView) {
+      try { window.LlhNavOrigin?.pushOrigin?.(previousView); } catch (_e) { /* ignore */ }
+    }
     if (viewButton.dataset.dashSelectWeek) {
       mainCalendarSelectedWeek = viewButton.dataset.dashSelectWeek;
     }
@@ -67415,6 +67592,9 @@ document.addEventListener("click", async (event) => {
     const requestedLessonLibraryMode = viewButton.dataset.lessonLibraryMode || "";
     if (viewButton.dataset.quickDocType) {
       pendingAiDocType = viewButton.dataset.quickDocType;
+    }
+    if (viewButton.hasAttribute("data-daily-care-action")) {
+      pendingDailyCareAction = String(viewButton.getAttribute("data-daily-care-action") || "").trim();
     }
     if (viewButton.dataset.view === "plans" || viewButton.dataset.view === "upgrade") {
       trackEvent("upgrade_click", { targetView: viewButton.dataset.view });
@@ -67482,11 +67662,12 @@ document.addEventListener("click", async (event) => {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
     }
     const resolvedNext = resolveSidebarView(nextView);
-    if (previousView && previousView !== resolvedNext && previousView !== "home") {
+    if (previousView && previousView !== resolvedNext) {
+      const returnView = previousView;
       setViewReturnContext(resolvedNext, {
         type: "view",
-        view: previousView === "home" && isLoggedIn() ? "calendar" : previousView,
-        label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
+        view: returnView,
+        label: fallbackBackLabel(returnView),
       });
     }
     if (viewButton.dataset.settingsAnchor) {
@@ -67497,6 +67678,25 @@ document.addEventListener("click", async (event) => {
       requestAnimationFrame(() => {
         document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
+    }
+    // Hub tiles often combine data-view + data-hdh-jump; apply subsection focus after paint.
+    const jumpId = String(viewButton.getAttribute("data-hdh-jump") || "").trim();
+    if (jumpId) {
+      const focusHdhSection = (attempt = 0) => {
+        document.querySelectorAll("[data-hdh-section-active]").forEach((el) => {
+          el.removeAttribute("data-hdh-section-active");
+        });
+        const target = document.getElementById(jumpId);
+        if (target) {
+          target.setAttribute("data-hdh-section-active", "true");
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          target.classList.add("hdh-jump-flash");
+          window.setTimeout(() => target.classList.remove("hdh-jump-flash"), 1400);
+          return;
+        }
+        if (attempt < 16) window.setTimeout(() => focusHdhSection(attempt + 1), 75);
+      };
+      window.setTimeout(() => focusHdhSection(0), 0);
     }
     return;
   }
@@ -68244,22 +68444,59 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const navOriginBack = event.target.closest("[data-nav-origin-back]");
+  if (navOriginBack) {
+    event.preventDefault();
+    const originApi = window.LlhNavOrigin;
+    if (originApi?.peekOrigin?.()) {
+      const resolved = originApi.resolveBack({
+        roleLanding: typeof workModeLandingView === "function" ? workModeLandingView() : "home",
+      });
+      originApi.popOrigin();
+      setView(resolved.view, { replaceHistory: false });
+      return;
+    }
+    setView(typeof platformBackView === "function" ? platformBackView("home") : "home");
+    return;
+  }
+
+  const dailyCareAction = event.target.closest("[data-daily-care-action]");
+  if (dailyCareAction) {
+    event.preventDefault();
+    const action = String(dailyCareAction.getAttribute("data-daily-care-action") || "").trim();
+    const fromView = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || "";
+    try { window.LlhNavOrigin?.pushOrigin?.(fromView); } catch (_e) { /* ignore */ }
+    pendingDailyCareAction = action;
+    setView("child-tools-daily-logs");
+    return;
+  }
+
   const hdhJump = event.target.closest("[data-hdh-jump]");
   if (hdhJump) {
     event.preventDefault();
     const targetId = String(hdhJump.dataset.hdhJump || "").trim();
     if (!targetId) return;
+    const fromView = document.querySelector(".active-view")?.id?.replace(/^view-/, "") || "";
+    try { window.LlhNavOrigin?.pushOrigin?.(fromView); } catch (_e) { /* ignore */ }
     if (!document.querySelector("#view-home-daycare-hub.active-view")) {
       setView("home-daycare-hub");
     }
-    queueMicrotask(() => {
+    const focusHdhSection = (attempt = 0) => {
+      document.querySelectorAll("[data-hdh-section-active]").forEach((el) => {
+        el.removeAttribute("data-hdh-section-active");
+      });
       const target = document.getElementById(targetId);
       if (target) {
+        target.setAttribute("data-hdh-section-active", "true");
         target.scrollIntoView({ behavior: "smooth", block: "start" });
         target.classList.add("hdh-jump-flash");
+        try { target.focus?.({ preventScroll: true }); } catch (_e) { /* ignore */ }
         window.setTimeout(() => target.classList.remove("hdh-jump-flash"), 1400);
+        return;
       }
-    });
+      if (attempt < 12) window.setTimeout(() => focusHdhSection(attempt + 1), 50);
+    };
+    queueMicrotask(() => focusHdhSection(0));
     return;
   }
 
@@ -70940,6 +71177,31 @@ document.addEventListener("click", async (event) => {
   if (clearActivityViewAll) {
     event.preventDefault();
     activityLibraryViewAllKey = "";
+    window.__llhActivityPageOffset = 0;
+    renderCategoryPage("activities");
+    return;
+  }
+
+  const clearActivityFilters = event.target.closest("[data-clear-activity-filters]");
+  if (clearActivityFilters) {
+    event.preventDefault();
+    activeFilter = "All";
+    activityLibraryPlanFilter = "All";
+    activityLibraryShowSavedOnly = false;
+    activityLibraryShowRecentOnly = false;
+    activityLibraryViewAllKey = "";
+    window.__llhActivityPageOffset = 0;
+    if (searchInput) searchInput.value = "";
+    const activitySearch = document.querySelector("#activityCenterSearch");
+    if (activitySearch) activitySearch.value = "";
+    renderCategoryPage("activities");
+    return;
+  }
+
+  const activityLoadMore = event.target.closest("[data-activity-load-more]");
+  if (activityLoadMore) {
+    event.preventDefault();
+    window.__llhActivityPageOffset = (Number(window.__llhActivityPageOffset) || 0) + 24;
     renderCategoryPage("activities");
     return;
   }

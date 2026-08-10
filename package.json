@@ -183,6 +183,7 @@
     "test:forms-wave3-viewport": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave3-viewport-smoke.js",
     "test:forms-wave4-assign": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave4-assign.js",
     "test:forms-wave4-viewport": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave4-viewport-smoke.js",
+    "test:provider-nav-ia": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-provider-nav-ia-cleanup.js",
     "test:tuition-phase8": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-tuition-phase8.js",
     "test:family-hub-phase2-acceptance": "node scripts/test-family-hub-phase2-acceptance.js",
     "test:ecosystem-phase3-acceptance": "node scripts/test-ecosystem-phase3-acceptance.js",

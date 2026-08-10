@@ -90,7 +90,7 @@ async function main() {
 
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
   assert.match(sw, /INVITE_NAV_TIMEOUT_MS/);
-  assert.match(sw, /20260810-tester-invite-login-fix7/);
+  assert.match(sw, /20260810-provider-nav-ia-cleanup/);
   console.log("PASS  service worker invite nav timeout + shell");
 
   const punch = fs.readFileSync(path.join(ROOT, "docs/audits/REAL_PROVIDER_TESTING_FEEDBACK_PUNCH_LIST.md"), "utf8");
@@ -267,7 +267,7 @@ async function main() {
       ok: true,
       panelMs,
       programId1,
-      shell: "20260810-tester-invite-login-fix7",
+      shell: "20260810-provider-nav-ia-cleanup",
     }));
   } finally {
     if (browser) await browser.close().catch(() => {});
