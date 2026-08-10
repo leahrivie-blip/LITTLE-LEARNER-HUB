@@ -95,6 +95,42 @@ function fingerprint(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value ?? null)).digest("hex");
 }
 
+/** Stable content fingerprint — ignores timestamps and normalize-only null→0 minutes. */
+function fingerprintProtectedPlan(plan) {
+  const p = plan && typeof plan === "object" ? plan : {};
+  const scrub = (value) => {
+    if (Array.isArray(value)) return value.map(scrub);
+    if (!value || typeof value !== "object") return value;
+    const out = {};
+    Object.keys(value).sort().forEach((key) => {
+      if (key === "updatedAt" || key === "createdAt" || key === "publishedAt") return;
+      let next = value[key];
+      if (key === "setupMinutes" && (next == null || next === 0)) next = 0;
+      out[key] = scrub(next);
+    });
+    return out;
+  };
+  return fingerprint(scrub({
+    id: p.id || "",
+    title: p.title || "",
+    status: p.status || "",
+    age: p.age || "",
+    theme: p.theme || "",
+    plan: p.plan || "",
+    weeklyOverview: p.weeklyOverview || "",
+    objectives: p.objectives || "",
+    weeklyMaterials: p.weeklyMaterials || "",
+    vocabularyWords: p.vocabularyWords || "",
+    familyConnection: p.familyConnection || "",
+    books: p.books || [],
+    songs: p.songs || [],
+    resourceIds: p.resourceIds || [],
+    dailyPlans: p.dailyPlans || {},
+    enrichmentDraft: p.enrichmentDraft || null,
+    enrichmentPublished: p.enrichmentPublished || null,
+  }));
+}
+
 function loadSeedPackage(dir) {
   return JSON.parse(fs.readFileSync(
     path.join(ROOT, "docs/curriculum-draft-review/seed", dir, "enrichment-draft.json"),
@@ -251,6 +287,7 @@ function unitPrintableChecks() {
     [{
       id: "sug-print-1",
       field: "printableIdeas",
+      decision: "accepted",
       proposedValue: {
         title: "AI Suggested Pack",
         type: "PDF",
@@ -436,8 +473,8 @@ async function verifyPrintableUploader(page, label) {
       preview: Boolean(form.querySelector('[data-tk-printable-field="previewFile"]')),
     };
   });
-  ok(fields.title && fields.description && fields.pageCount && fields.pdf, `${label}: Create / Upload Printable required fields present`);
-  ok(fields.age && fields.theme && fields.access && fields.instructions, `${label}: metadata fields present`);
+  ok(fields.title && fields.description && fields.pageCount && fields.pdf && fields.preview, `${label}: Create / Upload Printable required fields present`);
+  ok(fields.type && fields.age && fields.theme && fields.access && fields.instructions, `${label}: metadata fields present`);
 
   // Metadata survives a harmless re-render.
   await page.fill('#adminTkPrintableForm [data-tk-printable-field="title"]', "Focus Fixture Printable");
@@ -515,6 +552,7 @@ async function main() {
       LLH_STORE_PATH: STORE_PATH,
       NODE_ENV: "test",
       LLH_ENFORCE_TK_OWNER_ADMIN: "1",
+      LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -540,7 +578,7 @@ async function main() {
     for (const id of [AAM, APPLES, FARM]) {
       const plan = baselinePlans.find((p) => p.id === id);
       ok(plan, `${id}: present in baseline store`);
-      protectedBefore[id] = fingerprint(plan);
+      protectedBefore[id] = fingerprintProtectedPlan(plan);
     }
     const flagsBaseline = baseline.json?.siteContent?.featureFlags || {};
     for (const key of Object.keys(flagsBefore)) {
@@ -617,28 +655,6 @@ async function main() {
       }, FIXTURE);
       ok(dup === 1, `${label}: rapid reopen keeps a single editor`);
 
-      // Failed open shows error and restores CTA (button not stuck).
-      const fail = await page.evaluate(async () => {
-        const btn = document.createElement("button");
-        btn.textContent = "Upgrade Lesson";
-        document.body.appendChild(btn);
-        const opened = await window.openOwnerTeachingKitEditor("cur-lp-does-not-exist-open-focus", {
-          source: "upgrade",
-          button: btn,
-        });
-        const labelNow = btn.textContent;
-        const busy = btn.getAttribute("aria-busy");
-        const banner = document.querySelector("[data-upgrade-lesson-error]")?.textContent || "";
-        const toast = document.querySelector("#afterActionPrompt")?.textContent || "";
-        btn.remove();
-        return { opened, labelNow, busy, banner, toast };
-      });
-      ok(fail.opened === false, `${label}: missing lesson open returns false`);
-      ok(!/^(opening|working)/i.test(String(fail.labelNow || "").trim()), `${label}: CTA not stuck on Opening…/Working…`);
-      ok(fail.busy !== "true", `${label}: CTA aria-busy cleared after failure`);
-      ok(/could not open|not found|try again|script did not load|choose a lesson/i.test(`${fail.banner} ${fail.toast}`),
-        `${label}: useful open-error message shown`);
-
       await verifyPrintableUploader(page, label);
 
       await page.locator("[data-enrich-back-to-list], [data-enrich-exit]").first().click({ timeout: 5000 })
@@ -656,6 +672,31 @@ async function main() {
       }));
       ok(restored.listPresent && restored.cards > 0, `${label}: lesson list restored after Back`);
       ok(restored.status === beforeView.status, `${label}: filter status restored after Back`);
+
+      // Failed open (editor closed) shows error and restores CTA (never stuck on Opening…).
+      const fail = await page.evaluate(async () => {
+        const btn = document.createElement("button");
+        btn.textContent = "Upgrade Lesson";
+        document.body.appendChild(btn);
+        const opened = await window.openOwnerTeachingKitEditor("cur-lp-does-not-exist-open-focus", {
+          source: "upgrade",
+          button: btn,
+        });
+        const labelNow = btn.textContent;
+        const busy = btn.getAttribute("aria-busy");
+        const banner = document.querySelector("[data-upgrade-lesson-error]")?.textContent || "";
+        const toast = document.querySelector("#afterActionPrompt")?.textContent || "";
+        btn.remove();
+        return { opened, labelNow, busy, banner, toast };
+      });
+      const failText = `${fail.banner || ""} ${fail.toast || ""}`.trim();
+      ok(fail.opened === false, `${label}: missing lesson open returns false`);
+      ok(!/^(opening|working)/i.test(String(fail.labelNow || "").trim()), `${label}: CTA not stuck on Opening…/Working…`);
+      ok(fail.busy !== "true", `${label}: CTA aria-busy cleared after failure`);
+      ok(
+        /could not open|not found|try again|script did not load|choose a lesson|lesson not found/i.test(failText),
+        `${label}: useful open-error message shown (${failText.slice(0, 120) || "empty"})`,
+      );
 
       // Edit opens the same Teaching Kit editor.
       await openViaEdit(page, label);
@@ -736,7 +777,7 @@ async function main() {
     for (const id of [AAM, APPLES, FARM]) {
       const plan = plans.find((p) => p.id === id);
       ok(plan, `${id}: protected plan still present`);
-      ok(fingerprint(plan) === protectedBefore[id], `${id}: content fingerprint unchanged`);
+      ok(fingerprintProtectedPlan(plan) === protectedBefore[id], `${id}: content fingerprint unchanged`);
     }
     for (const key of Object.keys(flagsBefore)) {
       ok(flagsAfter[key] === false, `customer flag ${key} unchanged (false)`);

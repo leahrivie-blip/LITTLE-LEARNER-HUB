@@ -1479,7 +1479,11 @@
       }
     } else if (!skipReturnNavigation && typeof root.restoreAdminLessonListAfterTkEditorClose === "function") {
       root.restoreAdminLessonListAfterTkEditorClose();
-    } else if (!skipReturnNavigation && typeof renderAdminCurriculumLessonPlanManager === "function") {
+    } else if (typeof root.restoreAdminLessonListAfterTkEditorClose === "function") {
+      // Even when skipReturnNavigation is set (tests / chained opens), remount Lesson Plans
+      // chrome so focused unmount cannot leave an empty list behind the next action.
+      root.restoreAdminLessonListAfterTkEditorClose();
+    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
     }
     if (returnFocus && typeof returnFocus.focus === "function") {
@@ -4679,8 +4683,15 @@
     close,
     saveDraft,
     refreshLinkedResources,
-    isOpen: () => state.open,
+    isOpen: () => state.open === true,
     isEnabled: isEditorFlagEnabled,
+    getState: () => ({
+      open: state.open === true,
+      planId: String(state.planId || ""),
+      mode: String(state.mode || ""),
+      ownerWorkspace: state.ownerWorkspace === true,
+      ownerDraftReview: state.ownerDraftReview === true,
+    }),
     getDraft: () => state.draft,
     isDirty: () => state.dirty,
     lastSaveError: () => state.lastSaveError,

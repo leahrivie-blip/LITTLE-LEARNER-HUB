@@ -452,22 +452,45 @@ async function main() {
       page.on("dialog", async (dialog) => { await dialog.accept(); });
 
       await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-      await page.evaluate(() => setView("admin"));
-      const unlockForm = page.locator("#adminUnlockForm");
-      if (await unlockForm.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await page.fill('input[name="adminEmail"]', OWNER.email);
-        await page.fill('input[name="adminPassword"]', OWNER.password);
-        await page.fill('input[name="adminCode"]', OWNER.code);
-        await page.click("#adminUnlockForm button[type='submit']");
-        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
-      }
-      await page.evaluate((id) => {
+      await page.waitForFunction(
+        () => typeof setView === "function" && typeof setAdminSession === "function",
+        null,
+        { timeout: 30000 },
+      );
+      await page.evaluate(({ owner, ownerToken }) => {
+        setAdminSession({
+          email: owner.email,
+          name: "Owner",
+          token: ownerToken,
+          mode: "server",
+          trustedDevice: true,
+        });
+        localStorage.setItem("llhAdminPreviewMode", "Admin");
+        localStorage.setItem("llhAdminActiveSection", "curriculum-lesson-plans");
+      }, { owner: OWNER, ownerToken });
+      await page.evaluate(async () => {
+        if (typeof setView === "function") setView("admin");
+        if (typeof loadAdminSiteContent === "function") await loadAdminSiteContent();
         if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
-        if (typeof openAdminCurriculumLessonEditor === "function") {
-          openAdminCurriculumLessonEditor(id, { scroll: true });
+        if (typeof applyAdminSectionVisibility === "function") applyAdminSectionVisibility();
+      });
+      const opened = await page.evaluate(async (id) => {
+        if (typeof openOwnerTeachingKitEditor === "function") {
+          return openOwnerTeachingKitEditor(id, { source: "edit", initialMode: "week" });
         }
+        if (typeof openAdminCurriculumLessonEditor === "function") {
+          openAdminCurriculumLessonEditor(id, { scroll: true, forceClassic: true });
+          return true;
+        }
+        return false;
       }, FIXTURE_LESSON);
+      ok(opened === true, "Playwright opens Teaching Kit / lesson editor for disposable fixture");
+      await page.waitForSelector(".tk-enrich-shell, #adminTkCreatePrintableButton", { timeout: 20000 });
+      const weekTab = page.locator('[data-enrich-mode="week"]').first();
+      if (await weekTab.count()) {
+        await weekTab.click({ timeout: 5000 }).catch(async () => weekTab.click({ force: true }));
+        await page.waitForTimeout(300);
+      }
       await page.waitForSelector("#adminTkCreatePrintableButton", { timeout: 20000 });
       await page.click("#adminTkCreatePrintableButton");
       await page.waitForSelector("#adminTkPrintableForm", { timeout: 10000 });
@@ -560,10 +583,16 @@ async function main() {
       await page.screenshot({ path: path.join(ARTIFACT_DIR, "tk-printable-form-persist-mobile.png"), fullPage: true });
       await page.setViewportSize({ width: 1280, height: 900 });
 
-      await panel.locator("[data-tk-printable-save]").click();
+      await page.locator("#adminTkPrintableForm [data-tk-printable-save]").click();
       await page.waitForFunction(() => {
-        const msg = document.querySelector("#adminCurriculumLessonPlanMessage")?.textContent || "";
-        return /Printable saved/i.test(msg);
+        const msg = [
+          document.querySelector("#adminTkPrintableMessage")?.textContent || "",
+          document.querySelector("#adminCurriculumLessonPlanMessage")?.textContent || "",
+          document.querySelector("#afterActionPrompt")?.textContent || "",
+        ].join(" ");
+        const linked = document.querySelector("[data-tk-enrich-linked-resources], #admin-lesson-linked-resources")?.innerText || "";
+        return /Printable saved|saved as draft and linked|saved, linked, and published/i.test(msg)
+          || /Browser Persist Vocabulary Cards/i.test(linked);
       }, null, { timeout: 20000 });
       ok(true, "Save draft & link succeeds from browser panel");
 
@@ -577,44 +606,59 @@ async function main() {
       ok(browserSavedResource?.status === "published", "browser-saved printable published with public parent lesson");
       ok((browserSavedPlan?.resourceIds || []).includes(browserSavedResource?.id), "browser-saved printable linked on lesson in store");
 
-      await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-      await page.evaluate(() => setView("admin"));
-      await page.waitForTimeout(300);
-      if (await page.locator("#adminUnlockForm").isVisible({ timeout: 3000 }).catch(() => false)) {
-        await page.fill('input[name="adminEmail"]', OWNER.email);
-        await page.fill('input[name="adminPassword"]', OWNER.password);
-        await page.fill('input[name="adminCode"]', OWNER.code);
-        await Promise.all([
-          page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 }),
-          page.click("#adminUnlockForm button[type='submit']"),
-        ]).catch(async () => {
-          await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
+      await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load", timeout: 30000 });
+      await page.waitForFunction(
+        () => typeof setView === "function" && typeof setAdminSession === "function" && typeof openOwnerTeachingKitEditor === "function",
+        null,
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(400);
+      await page.evaluate(({ owner, ownerToken }) => {
+        setAdminSession({
+          email: owner.email,
+          name: "Owner",
+          token: ownerToken,
+          mode: "server",
+          trustedDevice: true,
         });
-      } else {
-        await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
-      }
+        localStorage.setItem("llhAdminPreviewMode", "Admin");
+        localStorage.setItem("llhAdminActiveSection", "curriculum-lesson-plans");
+      }, { owner: OWNER, ownerToken });
+      await page.evaluate(async () => {
+        if (typeof setView === "function") setView("admin");
+        if (typeof loadAdminSiteContent === "function") await loadAdminSiteContent();
+        if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
+      });
+      await page.waitForTimeout(200);
       await page.evaluate(async (id) => {
-        if (typeof loadAdminSiteContent === "function") {
-          try { await loadAdminSiteContent(); } catch { /* continue */ }
+        if (typeof openOwnerTeachingKitEditor === "function") {
+          await openOwnerTeachingKitEditor(id, { source: "edit", initialMode: "week" });
+          return;
         }
-        setAdminSectionTab("curriculum-lesson-plans");
         openAdminCurriculumLessonEditor(id, { scroll: true });
       }, FIXTURE_LESSON);
+      await page.waitForSelector(".tk-enrich-shell, #admin-lesson-linked-resources", { timeout: 20000 });
+      const weekTabAfter = page.locator('[data-enrich-mode="week"]').first();
+      if (await weekTabAfter.count()) {
+        await weekTabAfter.click({ timeout: 5000 }).catch(async () => weekTabAfter.click({ force: true }));
+        await page.waitForTimeout(300);
+      }
       await page.waitForFunction(() => {
-        const text = document.querySelector("#admin-lesson-linked-resources")?.innerText || "";
+        const text = document.querySelector("[data-tk-enrich-linked-resources], #admin-lesson-linked-resources")?.innerText || "";
         return /Browser Persist Vocabulary Cards/i.test(text)
           && /browser-persist\.pdf/i.test(text)
           && /published/i.test(text);
       }, null, { timeout: 30000 });
-      const linkedText = await page.evaluate(() => document.querySelector("#admin-lesson-linked-resources")?.innerText || "");
+      const linkedText = await page.evaluate(() => (
+        document.querySelector("[data-tk-enrich-linked-resources], #admin-lesson-linked-resources")?.innerText || ""
+      ));
       ok(/Browser Persist Vocabulary Cards/i.test(linkedText), "linked printable title persists after refresh");
       ok(/published/i.test(linkedText), "linked printable shows published after refresh on public lesson");
       ok(/browser-persist\.pdf/i.test(linkedText), "linked printable filename persists after refresh");
 
       await page.setViewportSize({ width: 390, height: 844 });
       const overflow = await page.evaluate(() => {
-        const el = document.querySelector(".curriculum-linked-resources");
+        const el = document.querySelector(".curriculum-linked-resources, [data-tk-enrich-linked-resources]");
         if (!el) return { ok: false };
         return {
           ok: true,

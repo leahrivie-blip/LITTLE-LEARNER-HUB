@@ -346,11 +346,21 @@ async function verifyLesson(page, planId, meta, viewportLabel) {
     fullPage: false,
   });
 
-  await page.evaluate(() => {
-    window.LLHTeachingKitEnrichmentEditor?.close?.({ force: true, abandonUnsaved: true, skipReturnNavigation: true });
-    window.LLHLessonReviewEditor?.close?.({ force: true, skipReturnNavigation: true });
+  await page.evaluate(async () => {
+    if (window.LLHTeachingKitEnrichmentEditor?.isOpen?.()) {
+      await window.LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
+    }
+    if (window.LLHLessonReviewEditor?.isOpen?.()) {
+      await window.LLHLessonReviewEditor.close({ force: true });
+    }
   });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(
+    () => !window.LLHTeachingKitEnrichmentEditor?.isOpen?.()
+      && Boolean(document.querySelector("#adminCurriculumLessonPlanList")),
+    null,
+    { timeout: 10000 },
+  ).catch(() => {});
+  await page.waitForTimeout(200);
 }
 
 async function verifyErrorPath(page) {

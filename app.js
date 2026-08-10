@@ -14273,15 +14273,20 @@ async function saveTeachingKitPrintableForm(panel) {
     }
     const publishedWithLesson = data?.autoPublished === true
       || String(data?.resource?.status || "").toLowerCase() === "published";
-    setFormMessage(
-      "#adminCurriculumLessonPlanMessage",
-      publishedWithLesson
-        ? `✅ Printable saved, linked, and published with this lesson (${data?.resource?.title || "printable"}).`
-        : `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). It will publish when this lesson is published.`,
-      true,
-    );
+    const successMsg = publishedWithLesson
+      ? `✅ Printable saved, linked, and published with this lesson (${data?.resource?.title || "printable"}).`
+      : `✅ Printable saved as draft and linked (${data?.resource?.title || "printable"}). It will publish when this lesson is published.`;
+    // Lesson Plans banner may be unmounted while the focused Teaching Kit editor is open.
+    setFormMessage("#adminCurriculumLessonPlanMessage", successMsg, true);
+    setFormMessage(messageSelector, successMsg, true);
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(successMsg.replace(/^✅\s*/, ""), null, { allowDuringOverlay: true, ttlMs: 8000 });
+    }
   } catch (error) {
     setFormMessage(messageSelector, `❌ ${error.message || "Save failed."}`, false);
+    if (typeof showActionFeedback === "function") {
+      showActionFeedback(error?.message || "Printable save failed.", null, { allowDuringOverlay: true, ttlMs: 8000 });
+    }
     adminTkPrintableSaving = false;
     const resourcesHost = document.querySelector("#admin-lesson-resources");
     if (resourcesHost && adminCurriculumLessonEditorId) {
