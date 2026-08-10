@@ -23282,6 +23282,112 @@ body.hdh-persona-parent .main {
   margin-top: 6px;
 }
 
+/* Wave 2 — Paperwork HQ / connected surfaces */
+.paperwork-hq {
+  scroll-margin-top: 88px;
+}
+
+.paperwork-hq-rails,
+.paperwork-bucket-rails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.paperwork-rail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.16));
+  border-radius: 8px;
+  background: #f7f8f4;
+  color: var(--ink, #243047);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.paperwork-rail-btn strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.paperwork-rail-btn.is-active,
+.paperwork-rail-btn[aria-pressed="true"] {
+  background: #e7f0e4;
+  border-color: #6f8f6a;
+  color: #243b28;
+}
+
+.paperwork-hq-filters {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.paperwork-hq-row,
+.paperwork-hq-actions {
+  max-width: 100%;
+}
+
+.paperwork-my-panel {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line, rgba(36, 48, 71, 0.12));
+}
+
+.paperwork-staff-select {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  max-width: 420px;
+  font-weight: 700;
+}
+
+.paperwork-staff-select select {
+  min-height: 42px;
+  width: 100%;
+}
+
+.fh-forms-rails {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 720px) {
+  .paperwork-hq-rails,
+  .paperwork-bucket-rails {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .paperwork-rail-btn {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+
+  .paperwork-hq-actions,
+  .paperwork-hq .hdh-forms-pack-actions {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .paperwork-hq-actions .primary-button,
+  .paperwork-hq-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .paperwork-hq-filters {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .hdh-forms-filters {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));

@@ -61,9 +61,27 @@ Never copies child/family/staff name records into a Forms store.
 
 HDH Forms attention panel + `formsStatusSummary` / `formsDashboardSummary`: assigned, awaiting, overdue, needs review, complete — with assignee labels for child or staff.
 
+## Wave 2 — Connected Paperwork UX
+
+Presentation-only surfaces over the Wave 1 stores (no second roster / dual-write):
+
+| Surface | Source records | Notes |
+|---|---|---|
+| **Paperwork HQ** | Child `Documents[]` + `forms.staffDocuments[]` | Work-queue rails + filters; HDH simple; Center may show classroom/staff filters |
+| **Child → Documents & Forms** | Same child `Documents[]` | Buckets: Needs Action / In Progress / Completed / Uploads (if data) / Archived |
+| **Staff Profile → Documents & Forms** | `forms.staffDocuments[]` for selected staff | Owner/Director only; never Family Hub; teachers cannot browse peers |
+| **My Paperwork** | Own `forms.staffDocuments[]` rows | Staff self-service; blank templates may surface; child Incident → child Documents |
+| **Family Hub Forms** | ACL-filtered child `Documents[]` only | Needs Attention / Needs Signature / In Progress / Completed |
+
+Helpers: `scripts/paperwork-surfaces.js` (derived rails/buckets). Dirty-state: `scripts/forms-dirty-state.js` for filter/progress inputs.
+
+**Same record everywhere:** opening a document from HQ / Child / Staff / My Paperwork / Family Hub resolves to the same canonical `id`.
+
+Derived presentation rails (not new persisted enums): Awaiting Signature, Not Opened, Due Soon, Overdue.
+
 ## Reminders
 
-Foundation only: `lastNotifiedAt` on assign/notify + `buildFormReminderStub`. Manual “Remind family” / “Notify again” remains. No unreliable auto-push engine in this phase.
+Foundation only: `lastNotifiedAt` on assign/notify + `buildFormReminderStub`. Manual “Remind family” / “Notify again” remains. No unreliable auto-push engine in this phase. Wave 2 surfaces the existing manual reminder from Paperwork HQ only.
 
 ## AI Form Builder
 

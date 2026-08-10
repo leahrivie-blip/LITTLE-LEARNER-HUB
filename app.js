@@ -527,6 +527,24 @@ let childProfileTab = "overview";
 let childFormsRecordsQuery = "";
 let childFormsRecordsStatus = "all";
 let childFormsRecordsCategory = "all";
+/** Wave 2 — Paperwork HQ / profile surface filter state (presentation only). */
+let paperworkHqState = {
+  rail: "needs_attention",
+  query: "",
+  childId: "",
+  family: "",
+  staffEmail: "",
+  classroomId: "",
+  formType: "",
+  status: "all",
+  dueFrom: "",
+  dueTo: "",
+};
+let childDocsBucket = "needs_action";
+let staffProfilePaperworkEmail = "";
+let staffProfilePaperworkBucket = "needs_signature";
+let myPaperworkBucket = "needs_signature";
+let familyHubFormsBucket = "needs_attention";
 let hdhAiDraftState = {
   packFormId: "",
   childId: "",
@@ -9418,18 +9436,187 @@ function renderTuitionBillingPanel() {
   `;
 }
 
+function getPaperworkSurfaces() {
+  return (typeof window !== "undefined" && window.LlhPaperworkSurfaces)
+    || (typeof globalThis !== "undefined" && globalThis.LlhPaperworkSurfaces)
+    || null;
+}
+
+function archiveChildDocumentRecord(documentId) {
+  const docs = childStore("Documents") || [];
+  const next = docs.map((item) => (
+    String(item.id) === String(documentId)
+      ? { ...item, archived: true, updatedAt: new Date().toISOString() }
+      : item
+  ));
+  saveChildStore("Documents", next);
+}
+
+async function archiveStaffDocumentRecord(documentId) {
+  const docs = formsStaffDocuments();
+  const target = docs.find((item) => String(item.id) === String(documentId));
+  if (!target) throw new Error("Staff document not found.");
+  const next = docs.map((item) => (
+    String(item.id) === String(documentId)
+      ? { ...item, archived: true, updatedAt: new Date().toISOString() }
+      : item
+  ));
+  await saveFormsStaffDocuments(next);
+  return target;
+}
+
+function collectPaperworkHqRows() {
+  const api = getPaperworkSurfaces();
+  const records = childRecords();
+  const children = (records.children || []).filter((child) => child && !child.archived);
+  const documents = Array.isArray(records.documents) ? records.documents : (childStore("Documents") || []);
+  const households = Array.isArray(familyHubHouseholdCache?.households) ? familyHubHouseholdCache.households : [];
+  const classrooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const staffDirectory = listProgramStaffForForms();
+  if (!api) {
+    return formsAttentionDocuments(records).map((doc) => ({
+      ...doc,
+      recordId: String(doc.id || ""),
+      canonicalStore: doc.assigneeType === "staff" ? "forms.staffDocuments" : "child.Documents",
+      primaryRail: doc.attention || "needs_attention",
+      hqRails: [doc.attention || "needs_attention"].filter(Boolean),
+      statusLabel: doc.statusLabel || doc.status || "",
+      signatureStatus: doc.signedAt ? "signed" : "awaiting",
+    }));
+  }
+  return api.buildPaperworkHqRows({
+    childDocuments: documents,
+    staffDocuments: formsStaffDocuments(),
+    children,
+    households,
+    classrooms,
+    staffDirectory,
+  });
+}
+
+function paperworkHqActionButtons(item) {
+  const id = escapeHtml(item.recordId || item.id || "");
+  const childId = escapeHtml(item.childId || "");
+  const isStaff = item.assigneeType === "staff" || item.canonicalStore === "forms.staffDocuments";
+  const awaiting = (item.hqRails || []).includes("awaiting_signature")
+    || (item.hqRails || []).includes("overdue")
+    || (item.hqRails || []).includes("not_opened");
+  const buttons = [];
+  if (!isStaff && childId) {
+    buttons.push(`<button class="primary-button" type="button" data-view-child-profile="${childId}" data-open-child-tab="forms-records" data-paperwork-record-id="${id}">Open</button>`);
+    buttons.push(`<button class="ghost-button" type="button" data-print-child-document="${id}">Preview</button>`);
+    buttons.push(`<button class="ghost-button" type="button" data-view-child-profile="${childId}" data-open-child-tab="forms-records" data-paperwork-record-id="${id}">Track</button>`);
+    if (awaiting && item.shareWithFamily) {
+      buttons.push(`<button class="ghost-button" type="button" data-share-child-document="${id}">Remind family</button>`);
+    }
+    if (item.signedAt && !item.providerReviewed) {
+      buttons.push(`<button class="primary-button" type="button" data-review-child-document="${id}">Mark reviewed</button>`);
+    }
+    if (!item.archived) {
+      buttons.push(`<button class="ghost-button" type="button" data-archive-child-document="${id}">Archive</button>`);
+    }
+  } else {
+    buttons.push(`<button class="primary-button" type="button" data-view="staff" data-paperwork-staff-email="${escapeHtml(item.assigneeEmail || "")}" data-paperwork-record-id="${id}">Open</button>`);
+    if ((item.draftText || item.signedSnapshot)) {
+      buttons.push(`<button class="ghost-button" type="button" data-preview-staff-document="${id}">Preview</button>`);
+    }
+    if (!item.archived) {
+      buttons.push(`<button class="ghost-button" type="button" data-archive-staff-document="${id}">Archive</button>`);
+    }
+  }
+  return buttons.join("");
+}
+
+function renderPaperworkHqRow(item) {
+  const api = getPaperworkSurfaces();
+  const railLabel = (api?.HQ_RAILS || []).find((r) => r.id === item.primaryRail)?.label || item.primaryRail || "";
+  const who = item.assigneeType === "staff"
+    ? (item.staffName || item.assigneeEmail || "Staff")
+    : (item.childName || "Child");
+  const meta = [
+    item.category || "Form",
+    item.statusLabel || item.lifecycleStatus || item.status || "",
+    item.assigneeType === "staff" ? "Staff" : "Child/family",
+    item.familyLabel ? `Family: ${item.familyLabel}` : "",
+    item.classroomName ? `Room: ${item.classroomName}` : "",
+    item.assignedAt ? `Assigned ${String(item.assignedAt).slice(0, 10)}` : "",
+    item.dueDate ? `Due ${item.dueDate}` : "",
+    item.signatureStatus === "signed" ? `Signed ${String(item.signedAt || "").slice(0, 10)}` : (item.signatureStatus === "awaiting" ? "Signature pending" : ""),
+    item.completedDate ? `Completed ${item.completedDate}` : "",
+    railLabel ? `Rail: ${railLabel}` : "",
+    `ID ${item.recordId || item.id || ""}`,
+  ].filter(Boolean).join(" · ");
+  return `
+    <article class="resource-row paperwork-hq-row" data-paperwork-record-id="${escapeHtml(item.recordId || item.id || "")}" data-canonical-store="${escapeHtml(item.canonicalStore || "")}">
+      <div>
+        <strong>${escapeHtml(item.title || "Form")}</strong>
+        <p class="muted-copy">${escapeHtml(who)} · ${escapeHtml(meta)}</p>
+      </div>
+      <div class="hdh-forms-pack-actions paperwork-hq-actions">
+        ${paperworkHqActionButtons(item)}
+      </div>
+    </article>`;
+}
+
+function renderPaperworkHqListHtml(rows) {
+  if (!rows.length) {
+    return `<div class="profile-empty-state" data-paperwork-hq-empty="true"><strong>Nothing in this queue</strong><p>Try another rail or clear filters. Create, AI draft, and Assign still live in the panels below.</p></div>`;
+  }
+  return `<div class="resource-list compact" data-paperwork-hq-list>${rows.slice(0, 40).map(renderPaperworkHqRow).join("")}</div>`;
+}
+
+function refreshPaperworkHqListInPlace() {
+  const host = document.querySelector("[data-paperwork-hq-results]");
+  if (!host) return false;
+  const api = getPaperworkSurfaces();
+  const allRows = collectPaperworkHqRows();
+  const filtered = api ? api.filterHqRows(allRows, paperworkHqState) : allRows;
+  host.innerHTML = renderPaperworkHqListHtml(filtered);
+  const counts = api ? api.railCounts(allRows) : {};
+  document.querySelectorAll("[data-paperwork-rail]").forEach((btn) => {
+    const id = btn.getAttribute("data-paperwork-rail");
+    const countEl = btn.querySelector("[data-rail-count]");
+    if (countEl && id) countEl.textContent = String(counts[id] || 0);
+    btn.classList.toggle("is-active", paperworkHqState.rail === id);
+    btn.setAttribute("aria-pressed", paperworkHqState.rail === id ? "true" : "false");
+  });
+  return true;
+}
+
 function renderFormsAttentionPanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
-  const items = formsAttentionDocuments();
+  const api = getPaperworkSurfaces();
+  const isCenter = getAccountType() === ACCOUNT_TYPES.CENTER;
+  const role = getUserRole();
+  const canManage = role === USER_ROLES.OWNER || role === USER_ROLES.DIRECTOR;
   const summary = formsStatusSummary();
-  const signed = items.filter((item) => item.attention === "signed_review");
-  const awaiting = items.filter((item) => item.attention === "awaiting_parent");
-  const overdue = items.filter((item) => item.attention === "overdue");
+  const allRows = collectPaperworkHqRows();
+  const counts = api ? api.railCounts(allRows) : {};
+  const filtered = api ? api.filterHqRows(allRows, paperworkHqState) : allRows;
+  const children = (childRecords().children || []).filter((child) => child && !child.archived);
+  const households = Array.isArray(familyHubHouseholdCache?.households) ? familyHubHouseholdCache.households : [];
+  const familyNames = [...new Set(households.map((hh) => hh.name || hh.familyName || hh.label).filter(Boolean))];
+  const classrooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const staffDirectory = listProgramStaffForForms();
+  const categories = [...new Set(allRows.map((row) => row.category).filter(Boolean))].sort();
+  const rails = api?.HQ_RAILS || [
+    { id: "needs_attention", label: "Needs Attention" },
+    { id: "awaiting_signature", label: "Awaiting Signature" },
+    { id: "not_opened", label: "Not Opened" },
+    { id: "in_progress", label: "In Progress" },
+    { id: "due_soon", label: "Due Soon" },
+    { id: "overdue", label: "Overdue" },
+    { id: "needs_correction", label: "Needs Correction" },
+    { id: "completed", label: "Completed" },
+    { id: "archived", label: "Archived" },
+  ];
   return `
-    <section class="section-block" id="hdhFormsAttentionPanel">
-      <p class="eyebrow">Forms system</p>
-      <h3>Forms needing attention</h3>
-      <p class="muted-copy">Signed forms ready for your review, shared forms waiting on parents, and anything past due — all from one place.</p>
+    <section class="section-block paperwork-hq" id="hdhFormsAttentionPanel" data-paperwork-hq="true" data-account-type="${escapeHtml(getAccountType())}">
+      <p class="eyebrow">Paperwork HQ</p>
+      <h3>Work queue</h3>
+      <p class="muted-copy">${isCenter
+        ? "Center paperwork queue across classrooms, families, and staff — same canonical records as Child and Staff profiles."
+        : "Home Daycare paperwork queue. Same forms as each child’s Documents &amp; Forms tab — one record everywhere."}</p>
       <div class="forms-status-summary" role="status" aria-label="Forms status summary">
         <span class="hdh-form-status-chip is-pending"><strong>${summary.assigned || 0}</strong> assigned</span>
         <span class="hdh-form-status-chip is-pending"><strong>${summary.pending}</strong> awaiting</span>
@@ -9437,50 +9624,186 @@ function renderFormsAttentionPanel() {
         <span class="hdh-form-status-chip is-review"><strong>${summary.needsReview}</strong> to review</span>
         <span class="hdh-form-status-chip is-complete"><strong>${summary.complete}</strong> complete</span>
       </div>
-      <div class="account-actions-row" style="margin-bottom:12px;">
+      <div class="paperwork-hq-rails" role="toolbar" aria-label="Paperwork rails">
+        ${rails.map((rail) => `
+          <button type="button" class="paperwork-rail-btn ${paperworkHqState.rail === rail.id ? "is-active" : ""}" data-paperwork-rail="${escapeHtml(rail.id)}" aria-pressed="${paperworkHqState.rail === rail.id ? "true" : "false"}">
+            <span>${escapeHtml(rail.label)}</span>
+            <strong data-rail-count>${counts[rail.id] || 0}</strong>
+          </button>`).join("")}
+      </div>
+      <form class="hdh-forms-filters paperwork-hq-filters" id="paperworkHqFilters" data-paperwork-hq-filters="true" onsubmit="return false;" aria-label="Filter paperwork queue">
+        <label>Search
+          <input type="search" name="query" data-paperwork-filter="query" value="${escapeHtml(paperworkHqState.query || "")}" placeholder="Title, child, staff, ID…" autocomplete="off" />
+        </label>
+        <label>Child
+          <select name="childId" data-paperwork-filter="childId">
+            <option value="">All children</option>
+            ${children.map((child) => `<option value="${escapeHtml(child.id)}" ${paperworkHqState.childId === child.id ? "selected" : ""}>${escapeHtml(child.name)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Family
+          <select name="family" data-paperwork-filter="family">
+            <option value="">All families</option>
+            ${familyNames.map((name) => `<option value="${escapeHtml(name)}" ${paperworkHqState.family === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
+        </label>
+        ${isCenter || canManage ? `
+          <label>Staff
+            <select name="staffEmail" data-paperwork-filter="staffEmail">
+              <option value="">All staff</option>
+              ${staffDirectory.map((member) => `<option value="${escapeHtml(member.email)}" ${paperworkHqState.staffEmail === member.email ? "selected" : ""}>${escapeHtml(member.name || member.email)}</option>`).join("")}
+            </select>
+          </label>
+        ` : ""}
+        ${isCenter ? `
+          <label>Classroom
+            <select name="classroomId" data-paperwork-filter="classroomId">
+              <option value="">All classrooms</option>
+              ${classrooms.map((room) => `<option value="${escapeHtml(room.id)}" ${paperworkHqState.classroomId === room.id ? "selected" : ""}>${escapeHtml(room.name || room.id)}</option>`).join("")}
+            </select>
+          </label>
+        ` : ""}
+        <label>Form / type
+          <select name="formType" data-paperwork-filter="formType">
+            <option value="">All types</option>
+            ${categories.map((cat) => `<option value="${escapeHtml(String(cat).toLowerCase())}" ${paperworkHqState.formType === String(cat).toLowerCase() ? "selected" : ""}>${escapeHtml(cat)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Status
+          <select name="status" data-paperwork-filter="status">
+            <option value="all" ${paperworkHqState.status === "all" ? "selected" : ""}>All statuses</option>
+            <option value="assigned" ${paperworkHqState.status === "assigned" ? "selected" : ""}>Assigned</option>
+            <option value="in_progress" ${paperworkHqState.status === "in_progress" ? "selected" : ""}>In progress</option>
+            <option value="submitted" ${paperworkHqState.status === "submitted" ? "selected" : ""}>Submitted</option>
+            <option value="needs_correction" ${paperworkHqState.status === "needs_correction" ? "selected" : ""}>Needs correction</option>
+            <option value="completed" ${paperworkHqState.status === "completed" ? "selected" : ""}>Completed</option>
+          </select>
+        </label>
+        <label>Due from
+          <input type="date" name="dueFrom" data-paperwork-filter="dueFrom" value="${escapeHtml(paperworkHqState.dueFrom || "")}" />
+        </label>
+        <label>Due to
+          <input type="date" name="dueTo" data-paperwork-filter="dueTo" value="${escapeHtml(paperworkHqState.dueTo || "")}" />
+        </label>
+      </form>
+      <div class="account-actions-row paperwork-hq-toolbar" style="margin-bottom:12px;">
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
-        <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Program templates</button>
-        <button class="ghost-button" type="button" data-hdh-forms-refresh>Refresh statuses</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Assign templates</button>
+        <button class="ghost-button" type="button" data-hdh-forms-refresh>Refresh</button>
       </div>
-      ${!items.length
-        ? `<div class="profile-empty-state"><strong>You’re caught up</strong><p>${summary.complete ? `${summary.complete} form${summary.complete === 1 ? "" : "s"} on file. ` : ""}When parents sign shared forms, they’ll land here for review and printable PDF.</p></div>`
-        : `
-        ${signed.length ? `
-          <h4>Signed — review &amp; file</h4>
-          <div class="resource-list compact">${signed.slice(0, 8).map((item) => `
-            <article class="resource-row">
-              <div>
-                <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · signed ${escapeHtml(String(item.signedAt || "").slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}${item.signedRole ? ` (${escapeHtml(item.signedRole)})` : ""}</p>
-              </div>
-              <div class="hdh-forms-pack-actions">
-                <button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>
-                <button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>
-                <button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(item.childId)}" data-open-child-tab="forms-records">Open file</button>
-              </div>
-            </article>`).join("")}</div>` : ""}
-        ${overdue.length ? `
-          <h4>Past due</h4>
-          <div class="resource-list compact">${overdue.slice(0, 6).map((item) => `
-            <article class="resource-row">
-              <div>
-                <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · due ${escapeHtml(item.dueDate || "")}</p>
-              </div>
-              <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Remind family</button>
-            </article>`).join("")}</div>` : ""}
-        ${awaiting.length ? `
-          <h4>Awaiting parent</h4>
-          <div class="resource-list compact">${awaiting.slice(0, 6).map((item) => `
-            <article class="resource-row">
-              <div>
-                <strong>${escapeHtml(item.title || "Form")}</strong>
-                <p class="muted-copy">${escapeHtml(item.assigneeLabel || item.childName || "Assignee")} · ${escapeHtml(item.statusLabel || item.status || "Shared")}${item.assignedAt ? ` · assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}</p>
-              </div>
-              <button class="ghost-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Notify again</button>
-            </article>`).join("")}</div>` : ""}
-        `}
+      <div data-paperwork-hq-results>
+        ${renderPaperworkHqListHtml(filtered)}
+      </div>
+      ${renderMyPaperworkPanel()}
+    </section>
+  `;
+}
+
+function renderMyPaperworkPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const api = getPaperworkSurfaces();
+  const role = getUserRole();
+  const email = String(currentAccount()?.email || currentUser || "").trim().toLowerCase();
+  if (!email) return "";
+  // Owners still see a compact self queue when they have assigned staff docs.
+  const mine = api
+    ? api.staffSelfServiceDocuments(formsStaffDocuments(), email)
+    : formsStaffDocuments().filter((doc) => String(doc.assigneeEmail || "").toLowerCase() === email);
+  const enriched = (api ? mine.map((doc) => api.enrichCanonicalRow({ ...doc, assigneeType: "staff" })) : mine);
+  const bucket = myPaperworkBucket || "needs_signature";
+  const rows = api
+    ? api.filterByBucket(enriched, bucket, "staffBuckets")
+    : enriched;
+  const buckets = api?.STAFF_BUCKETS || [];
+  const templates = formsProgramTemplates().filter((tpl) => !tpl.archived).slice(0, 6);
+  const showSelf = role === USER_ROLES.TEACHER || role === USER_ROLES.ASSISTANT || mine.length > 0;
+  if (!showSelf) return "";
+  return `
+    <div class="paperwork-my-panel" id="hdhMyPaperworkPanel" data-my-paperwork="true">
+      <h4>My Paperwork</h4>
+      <p class="muted-copy">Your assigned staff documents from the program store. Starting a child Incident Report still uses that child’s Documents file — it does not open peer staff paperwork.</p>
+      <div class="paperwork-bucket-rails" role="toolbar" aria-label="My paperwork buckets">
+        ${buckets.filter((b) => b.id !== "archived" || enriched.some((r) => (r.staffBuckets || []).includes("archived"))).map((b) => `
+          <button type="button" class="paperwork-rail-btn ${bucket === b.id ? "is-active" : ""}" data-my-paperwork-bucket="${escapeHtml(b.id)}" aria-pressed="${bucket === b.id ? "true" : "false"}">${escapeHtml(b.label)}</button>
+        `).join("")}
+      </div>
+      <div class="resource-list compact">
+        ${rows.length ? rows.map((item) => `
+          <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}">
+            <div>
+              <strong>${escapeHtml(item.title || "Staff form")}</strong>
+              <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : " · Needs signature"} · ID ${escapeHtml(item.id)}</p>
+            </div>
+            <div class="hdh-forms-pack-actions">
+              ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Open</button>` : `<span class="muted-copy">Assigned</span>`}
+            </div>
+          </article>`).join("") : `<div class="profile-empty-state"><strong>No items in this bucket</strong><p>Forms assigned to ${escapeHtml(email)} appear here.</p></div>`}
+      </div>
+      ${templates.length ? `
+        <details class="hdh-pack-details" style="margin-top:12px;">
+          <summary>Authorized blank templates</summary>
+          <p class="muted-copy">Open a blank classroom/program template. Child-linked forms (like Incident Reports) save to the child’s Documents record.</p>
+          <div class="hdh-forms-pack-list">
+            ${templates.map((tpl) => `
+              <article class="hdh-forms-pack-item">
+                <div><strong>${escapeHtml(tpl.title || "Template")}</strong><p class="muted-copy">${escapeHtml(tpl.category || "Other")}</p></div>
+                <div class="hdh-forms-pack-actions">
+                  <button class="ghost-button" type="button" data-print-form-template="${escapeHtml(tpl.id)}">Preview blank</button>
+                  <button class="primary-button" type="button" data-hdh-jump="hdhAiDraftPanel">Start child form</button>
+                </div>
+              </article>`).join("")}
+          </div>
+        </details>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderStaffProfilePaperworkPanel(selectedEmail = "") {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const api = getPaperworkSurfaces();
+  const role = getUserRole();
+  if (!(api?.canBrowseStaffPaperwork(role) || role === USER_ROLES.OWNER || role === USER_ROLES.DIRECTOR)) {
+    return "";
+  }
+  const members = listProgramStaffForForms();
+  const email = String(selectedEmail || staffProfilePaperworkEmail || members[0]?.email || "").trim().toLowerCase();
+  staffProfilePaperworkEmail = email;
+  const docs = formsStaffDocuments().filter((doc) => String(doc.assigneeEmail || "").toLowerCase() === email);
+  const enriched = api ? docs.map((doc) => api.enrichCanonicalRow({ ...doc, assigneeType: "staff" })) : docs;
+  const bucket = staffProfilePaperworkBucket || "needs_signature";
+  const rows = api ? api.filterByBucket(enriched, bucket, "staffBuckets") : enriched;
+  const buckets = api?.STAFF_BUCKETS || [];
+  const member = members.find((m) => m.email === email);
+  return `
+    <section class="section-block platform-manage-card" id="staffProfilePaperworkPanel" data-staff-profile-paperwork="true">
+      <h3>Documents &amp; Forms</h3>
+      <p class="muted-copy">Manager view of paperwork assigned to this staff member from <code>programData.forms.staffDocuments</code>. Teachers cannot browse peer staff files. Never shown in Family Hub.</p>
+      <label class="paperwork-staff-select">Staff member
+        <select data-staff-profile-email>
+          ${members.map((m) => `<option value="${escapeHtml(m.email)}" ${m.email === email ? "selected" : ""}>${escapeHtml(m.name || m.email)} · ${escapeHtml(m.role || "staff")}</option>`).join("")}
+        </select>
+      </label>
+      <p class="muted-copy">${escapeHtml(member?.name || email)} · ${enriched.length} record${enriched.length === 1 ? "" : "s"}</p>
+      <div class="paperwork-bucket-rails" role="toolbar" aria-label="Staff paperwork buckets">
+        ${buckets.map((b) => `
+          <button type="button" class="paperwork-rail-btn ${bucket === b.id ? "is-active" : ""}" data-staff-profile-bucket="${escapeHtml(b.id)}" aria-pressed="${bucket === b.id ? "true" : "false"}">${escapeHtml(b.label)}</button>
+        `).join("")}
+      </div>
+      <div class="resource-list compact">
+        ${rows.length ? rows.map((item) => `
+          <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}">
+            <div>
+              <strong>${escapeHtml(item.title || "Staff form")}</strong>
+              <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.archived ? " · Archived" : ""} · ID ${escapeHtml(item.id)}</p>
+            </div>
+            <div class="hdh-forms-pack-actions">
+              ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Open</button>` : ""}
+              ${!item.archived ? `<button class="ghost-button" type="button" data-archive-staff-document="${escapeHtml(item.id)}">Archive</button>` : ""}
+            </div>
+          </article>`).join("") : `<div class="profile-empty-state"><strong>No paperwork in this bucket</strong><p>Assign a staff template from Paperwork HQ / Program templates.</p></div>`}
+      </div>
     </section>
   `;
 }
@@ -16695,6 +17018,7 @@ function renderTeacherTodayPage() {
           ${workHubTile({ view: "child-tools-daily-logs", title: "Quick Photo", detail: "Adds to profile, report & Family Hub" })}
           ${workHubTile({ view: role === "assistant" ? "home-daycare-hub" : "families", title: "Quick Message", detail: role === "assistant" ? "Family Hub parent thread" : "Family Hub / families" })}
           ${workHubTile({ view: "ai", title: "Quick Incident", detail: "Record + parent draft + director alert", attrs: 'data-quick-doc-type="incident-report"' })}
+          ${isHomeDaycareHubTestingEnabled() ? workHubTile({ view: "home-daycare-hub", title: "My Paperwork", detail: "Forms assigned to you", attrs: 'data-hdh-jump="hdhMyPaperworkPanel"' }) : ""}
         </div>
       </section>
       <section class="work-hub-section">
@@ -38882,6 +39206,7 @@ async function loadFamilyHubTuition() {
 }
 
 function renderFamilyHubFormsPanel(data) {
+  const api = getPaperworkSurfaces();
   const children = Array.isArray(data?.children) ? data.children : [];
   const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
   const documents = Array.isArray(data?.documents) ? data.documents : [];
@@ -38892,10 +39217,27 @@ function renderFamilyHubFormsPanel(data) {
       icon: "forms",
     });
   }
+  // Server already deny-defaults: only shareWithFamily === true ∩ household. Keep that lock.
+  const enriched = api
+    ? documents.map((doc) => api.enrichCanonicalRow(doc, { childName: childName(doc.childId) }))
+    : documents.map((doc) => ({ ...doc, familyBuckets: doc.signedAt ? ["completed"] : ["needs_attention", "needs_signature"] }));
+  const bucket = familyHubFormsBucket || "needs_attention";
+  const buckets = api?.FAMILY_BUCKETS || [
+    { id: "needs_attention", label: "Needs Attention" },
+    { id: "needs_signature", label: "Needs Signature" },
+    { id: "in_progress", label: "In Progress" },
+    { id: "completed", label: "Completed" },
+  ];
+  const visible = api ? api.filterByBucket(enriched, bucket, "familyBuckets") : enriched;
   return `
-    <div class="fh-panel-stack">
-      <p class="fh-meta">Review each form, save progress if you need more time, then sign. Your provider sees the update in Forms &amp; Records.</p>
-      ${documents.map((doc) => {
+    <div class="fh-panel-stack" data-family-hub-forms="true">
+      <p class="fh-meta">Review each form, save progress if you need more time, then sign. Same document IDs your provider sees in Paperwork HQ and the child’s file.</p>
+      <div class="paperwork-bucket-rails fh-forms-rails" role="toolbar" aria-label="Family forms buckets">
+        ${buckets.map((b) => `
+          <button type="button" class="paperwork-rail-btn ${bucket === b.id ? "is-active" : ""}" data-fh-forms-bucket="${escapeHtml(b.id)}" aria-pressed="${bucket === b.id ? "true" : "false"}">${escapeHtml(b.label)}</button>
+        `).join("")}
+      </div>
+      ${visible.length ? visible.map((doc) => {
         const canSign = Boolean(doc.canAcknowledge);
         const canSave = Boolean(doc.canSaveProgress);
         const signedMeta = doc.signedAt
@@ -38904,27 +39246,27 @@ function renderFamilyHubFormsPanel(data) {
         const body = String(doc.bodyText || "").trim();
         const progress = String(doc.parentProgressText || "").trim();
         return `
-        <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
+        <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}" data-paperwork-record-id="${escapeHtml(doc.id || "")}" data-canonical-store="child.Documents">
           <div class="fh-card-head">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
-          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""}</p>
+          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""} · ID ${escapeHtml(doc.id || "")}</p>
           <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
           ${body ? `<details class="fh-form-body" open><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
           ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
           ${canSave && doc.id ? `
             <label class="fh-meta">Your notes / progress
-              <textarea class="fh-form-progress" data-fh-progress-input="${escapeHtml(doc.id)}" rows="3" maxlength="4000" placeholder="Optional notes before you sign…">${escapeHtml(progress)}</textarea>
+              <textarea class="fh-form-progress" data-fh-progress-input="${escapeHtml(doc.id)}" name="fhProgress_${escapeHtml(doc.id)}" rows="3" maxlength="4000" placeholder="Optional notes before you sign…">${escapeHtml(progress)}</textarea>
             </label>
             <div class="fh-account-actions">
               <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-save-progress="${escapeHtml(doc.id)}">Save progress</button>
               ${canSign ? `<button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign &amp; submit</button>` : ""}
-              <p class="fh-meta">Testing signature — records your name, role, time, and form version for the provider.</p>
+              <p class="fh-meta">Testing signature — records your name, role, time, and form version for the provider. Drawn signatures come later.</p>
             </div>
-          ` : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : "")}
+          ` : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : `<p class="fh-meta">Open/read only for this completed or locked record.</p>`)}
         </article>`;
-      }).join("")}
+      }).join("") : `<div class="fh-empty"><strong>No forms in this bucket</strong><p class="fh-meta">Try Needs Attention or Completed.</p></div>`}
     </div>
   `;
 }
@@ -40396,8 +40738,8 @@ function renderHomeDaycareHubPage(options = {}) {
       <div class="child-page-header">
         <div>
           <p class="eyebrow">Home Daycare Hub</p>
-          <h2>Run paperwork &amp; family access here</h2>
-          <p>Forms system, Family Hub invites, and staff tools — connected so AI drafts, parent signatures, and child files stay in one place.</p>
+          <h2>Paperwork HQ &amp; family access</h2>
+          <p>Work-queue paperwork, Family Hub invites, and staff tools — AI drafts, parent signatures, and child files stay on the same canonical records.</p>
         </div>
       </div>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
@@ -40432,10 +40774,11 @@ function renderHomeDaycareHubPage(options = {}) {
         ${renderHomeDaycarePacketsPanel()}
         <section class="section-block" id="hdhFormsRecordsPanel">
           <p class="eyebrow">Getting started</p>
-          <h3>Child Forms &amp; Records</h3>
-          <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
+          <h3>Child Documents &amp; Forms</h3>
+          <p class="muted-copy">Each child’s profile has a Documents &amp; Forms tab — the same record IDs as Paperwork HQ above.</p>
           <div class="account-actions-row">
             <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
+            <button class="ghost-button" type="button" data-view="staff">Staff Documents &amp; Forms</button>
           </div>
         </section>
       </div>
@@ -40443,12 +40786,26 @@ function renderHomeDaycareHubPage(options = {}) {
   `;
   refreshHdhProviderInbox().catch(() => {});
   if (options.refreshHouseholds !== false) {
+    const safeRefreshPaperworkHq = () => {
+      if (!document.querySelector("#view-home-daycare-hub.active-view")) return;
+      const active = document.activeElement;
+      const hq = document.querySelector("[data-paperwork-hq]");
+      const typing = Boolean(
+        hq
+        && active
+        && hq.contains(active)
+        && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || ""),
+      );
+      if (typing) {
+        refreshPaperworkHqListInPlace();
+        return;
+      }
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    };
     // Pull parent sign-offs into Forms attention so statuses stay current.
     syncChildDataFromBackend({ render: false, force: false })
       .then((applied) => {
-        if (applied && document.querySelector("#view-home-daycare-hub.active-view")) {
-          renderHomeDaycareHubPage({ refreshHouseholds: false });
-        }
+        if (applied) safeRefreshPaperworkHq();
       })
       .catch(() => {});
     Promise.all([
@@ -40459,8 +40816,7 @@ function renderHomeDaycareHubPage(options = {}) {
       refreshHdhPackets().catch(() => {}),
       refreshTuitionBillingDashboard().catch(() => {}),
     ]).then(() => {
-      if (!document.querySelector("#view-home-daycare-hub.active-view")) return;
-      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      safeRefreshPaperworkHq();
     });
   }
 }
@@ -40857,8 +41213,13 @@ function renderStaffManagementPage(options = {}) {
           <span class="form-message" id="staffInviteMessage" aria-live="polite"></span>
         </form>
       </section>
+      ${isHomeDaycareHubTestingEnabled() ? renderStaffProfilePaperworkPanel(staffProfilePaperworkEmail) : ""}
+      ${isHomeDaycareHubTestingEnabled() ? renderMyPaperworkPanel() : ""}
     `,
   });
+  if (isHomeDaycareHubTestingEnabled() && canUseLaunchBackend()) {
+    ensureProgramFormsLoaded().catch(() => {});
+  }
   if (!shouldRefresh) return;
   refreshStaffInvitesFromBackend()
     .then(() => {
@@ -40872,7 +41233,10 @@ function renderStaffManagementPage(options = {}) {
         && staffView.contains(active)
         && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || ""),
       );
-      if (typing) return;
+      if (typing || (typeof window.LlhFormsDirtyState?.shouldKeepLocal === "function"
+        && window.LlhFormsDirtyState.shouldKeepLocal("staffInviteForm", "email"))) {
+        return;
+      }
       renderStaffManagementPage({ refresh: false });
     })
     .catch((error) => {
@@ -43381,7 +43745,7 @@ function renderChildProfileTabs() {
     ["observations", "Observations"],
     ["goals", "Goals"],
     ["reports", "Reports & Photos"],
-    ...(isHomeDaycareHubTestingEnabled() ? [["forms-records", "Forms & Records"]] : []),
+    ...(isHomeDaycareHubTestingEnabled() ? [["forms-records", "Documents & Forms"]] : []),
     ["records", "Records"],
   ];
   return `
@@ -43476,12 +43840,21 @@ function renderChildRecordsTab(child, records) {
 }
 
 function renderChildFormsRecordsTab(child, records) {
+  const api = getPaperworkSurfaces();
   const documents = (records.documents || []).filter((item) => item.childId === child.id);
   const query = String(childFormsRecordsQuery || "").trim().toLowerCase();
   const statusFilter = String(childFormsRecordsStatus || "all").toLowerCase();
   const categoryFilter = String(childFormsRecordsCategory || "all");
-  const filtered = documents.filter((item) => {
-    if (statusFilter !== "all" && String(item.status || "").toLowerCase() !== statusFilter) return false;
+  const bucket = childDocsBucket || "needs_action";
+  const enriched = api
+    ? documents.map((doc) => api.enrichCanonicalRow(doc, { childName: child.name, classroomId: child.classroomId || "" }))
+    : documents.map((doc) => ({ ...doc, recordId: doc.id, childBuckets: doc.archived ? ["archived"] : ["needs_action"] }));
+  const bucketed = api ? api.filterByBucket(enriched, bucket, "childBuckets") : enriched;
+  const filtered = bucketed.filter((item) => {
+    if (statusFilter !== "all") {
+      const life = normalizeFormLifecycleStatus(item.status);
+      if (life !== statusFilter && String(item.status || "").toLowerCase() !== statusFilter) return false;
+    }
     if (categoryFilter !== "all" && String(item.category || "Other") !== categoryFilter) return false;
     if (!query) return true;
     const haystack = [
@@ -43490,6 +43863,7 @@ function renderChildFormsRecordsTab(child, records) {
       item.status,
       item.category,
       item.notes,
+      item.recordId || item.id,
     ].map((part) => String(part || "").toLowerCase()).join(" ");
     return haystack.includes(query);
   });
@@ -43497,44 +43871,54 @@ function renderChildFormsRecordsTab(child, records) {
   const categoryOptions = HOME_DAYCARE_FORM_CATEGORIES.map((category) => (
     `<option value="${escapeHtml(category)}" ${categoryFilter === category ? "selected" : ""}>${escapeHtml(category)}</option>`
   )).join("");
+  const buckets = api?.CHILD_BUCKETS || [
+    { id: "needs_action", label: "Needs Action" },
+    { id: "in_progress", label: "In Progress" },
+    { id: "completed", label: "Completed" },
+    { id: "uploads", label: "Uploads" },
+    { id: "archived", label: "Archived" },
+  ];
+  const showUploads = buckets.some((b) => b.id === "uploads")
+    && enriched.some((row) => (row.childBuckets || []).includes("uploads"));
   return `
-    <section class="section-block child-documents-tab child-forms-records-tab">
+    <section class="section-block child-documents-tab child-forms-records-tab" data-child-documents-forms="true">
       <div class="child-page-header" style="margin-bottom:12px;">
         <div>
-          <p class="eyebrow">Forms &amp; Records</p>
+          <p class="eyebrow">Documents &amp; Forms</p>
           <h3>Child file for ${escapeHtml(child.name)}</h3>
-          <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
+          <p class="muted-copy">Canonical <code>Documents[]</code> for this child — the same record IDs as Paperwork HQ and Family Hub (when shared).</p>
         </div>
       </div>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
-      <div class="hdh-forms-filters" aria-label="Search and filter forms">
+      <div class="paperwork-bucket-rails" role="toolbar" aria-label="Child document buckets">
+        ${buckets.filter((b) => b.id !== "uploads" || showUploads).map((b) => `
+          <button type="button" class="paperwork-rail-btn ${bucket === b.id ? "is-active" : ""}" data-child-docs-bucket="${escapeHtml(b.id)}" aria-pressed="${bucket === b.id ? "true" : "false"}">${escapeHtml(b.label)}</button>
+        `).join("")}
+      </div>
+      <div class="hdh-forms-filters" aria-label="Search and filter forms" data-child-docs-filters="true">
         <label>Search
-          <input type="search" data-hdh-forms-search value="${escapeHtml(childFormsRecordsQuery || "")}" placeholder="Search title, notes, status…" />
+          <input type="search" data-hdh-forms-search name="childDocsQuery" value="${escapeHtml(childFormsRecordsQuery || "")}" placeholder="Search title, notes, status, ID…" autocomplete="off" />
         </label>
         <label>Status
-          <select data-hdh-forms-status>
+          <select data-hdh-forms-status name="childDocsStatus">
             <option value="all" ${statusFilter === "all" ? "selected" : ""}>All statuses</option>
             <option value="draft" ${statusFilter === "draft" ? "selected" : ""}>Draft</option>
-            <option value="needed" ${statusFilter === "needed" ? "selected" : ""}>Needed</option>
             <option value="assigned" ${statusFilter === "assigned" ? "selected" : ""}>Assigned</option>
-            <option value="notified" ${statusFilter === "notified" ? "selected" : ""}>Shared — awaiting parent</option>
             <option value="in_progress" ${statusFilter === "in_progress" ? "selected" : ""}>In progress</option>
             <option value="submitted" ${statusFilter === "submitted" ? "selected" : ""}>Submitted</option>
-            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed</option>
             <option value="completed" ${statusFilter === "completed" ? "selected" : ""}>Completed</option>
-            <option value="on_file" ${statusFilter === "on_file" ? "selected" : ""}>On file</option>
             <option value="needs_correction" ${statusFilter === "needs_correction" ? "selected" : ""}>Needs correction</option>
           </select>
         </label>
         <label>Category
-          <select data-hdh-forms-category>
+          <select data-hdh-forms-category name="childDocsCategory">
             <option value="all" ${categoryFilter === "all" ? "selected" : ""}>All categories</option>
             ${categoryOptions}
           </select>
         </label>
       </div>
       <div class="account-actions-row" style="margin-bottom:16px;">
-        <button class="primary-button" type="button" data-view="home-daycare-hub">Home Daycare Hub</button>
+        <button class="primary-button" type="button" data-view="home-daycare-hub">Paperwork HQ</button>
         <button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
       </div>
@@ -43577,20 +43961,21 @@ function renderChildFormsRecordsTab(child, records) {
         <button class="primary-button" type="submit">Save to Child File</button>
         <p class="form-note">Connected path: save → share → parent signs in Family Hub → review here → print PDF.</p>
       </form>
-      <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list>
+      <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list data-child-docs-list>
         ${sorted.length
           ? sorted.map((item) => `
-            <article class="resource-row">
+            <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}" data-canonical-store="child.Documents">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedBy ? ` · Signed by ${escapeHtml(item.signedBy)}${item.signedRole ? ` (${escapeHtml(item.signedRole)})` : ""}` : ""}${item.signedAt ? ` · ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : " · Provider only"}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signature: signed ${escapeHtml(String(item.signedAt).slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}` : " · Signature: awaiting"}${item.completedDate || item.completedAt || item.reviewedAt ? ` · Completed ${escapeHtml(String(item.completedDate || item.completedAt || item.reviewedAt).slice(0, 10))}` : ""} · ID ${escapeHtml(item.id)}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
-                ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Print PDF</button>` : ""}
+                ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Preview / Print</button>` : ""}
                 ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
                 ${item.signedAt && !item.providerReviewed ? `<button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>` : ""}
                 ${!(item.status === "signed" || item.signedAt) ? `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>` : ""}
+                ${!item.archived ? `<button class="ghost-button" type="button" data-archive-child-document="${escapeHtml(item.id)}">Archive</button>` : ""}
                 <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
               </div>
             </article>
@@ -43598,7 +43983,7 @@ function renderChildFormsRecordsTab(child, records) {
           : renderProfileEmptyState({
             title: documents.length ? "No forms match these filters" : "No forms in this child’s file yet",
             body: documents.length
-              ? "Try clearing search or choosing All statuses / All categories."
+              ? "Try another bucket or clear search / status filters."
               : "Add forms from the pack above, generate an AI draft, or save a custom form to this file.",
             actionsHtml: `<button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>`,
           })}
@@ -67602,6 +67987,110 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const paperworkRail = event.target.closest("[data-paperwork-rail]");
+  if (paperworkRail) {
+    event.preventDefault();
+    paperworkHqState.rail = paperworkRail.getAttribute("data-paperwork-rail") || "needs_attention";
+    if (!refreshPaperworkHqListInPlace()) renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  const childDocsBucketBtn = event.target.closest("[data-child-docs-bucket]");
+  if (childDocsBucketBtn) {
+    event.preventDefault();
+    childDocsBucket = childDocsBucketBtn.getAttribute("data-child-docs-bucket") || "needs_action";
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    renderChildManagement();
+    return;
+  }
+
+  const staffProfileBucketBtn = event.target.closest("[data-staff-profile-bucket]");
+  if (staffProfileBucketBtn) {
+    event.preventDefault();
+    staffProfilePaperworkBucket = staffProfileBucketBtn.getAttribute("data-staff-profile-bucket") || "needs_signature";
+    renderStaffManagementPage({ refresh: false });
+    return;
+  }
+
+  const myPaperworkBucketBtn = event.target.closest("[data-my-paperwork-bucket]");
+  if (myPaperworkBucketBtn) {
+    event.preventDefault();
+    myPaperworkBucket = myPaperworkBucketBtn.getAttribute("data-my-paperwork-bucket") || "needs_signature";
+    if (document.querySelector("#view-staff.active-view")) renderStaffManagementPage({ refresh: false });
+    else if (document.querySelector("#view-home-daycare-hub.active-view")) {
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    }
+    return;
+  }
+
+  const fhFormsBucketBtn = event.target.closest("[data-fh-forms-bucket]");
+  if (fhFormsBucketBtn) {
+    event.preventDefault();
+    const dirtyApi = window.LlhFormsDirtyState;
+    const panel = document.querySelector("[data-family-hub-forms]");
+    if (dirtyApi && panel) dirtyApi.captureFormDrafts(panel, "familyHubForms");
+    familyHubFormsBucket = fhFormsBucketBtn.getAttribute("data-fh-forms-bucket") || "needs_attention";
+    if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
+    const nextPanel = document.querySelector("[data-family-hub-forms]");
+    if (dirtyApi && nextPanel) dirtyApi.restoreFormDrafts(nextPanel, "familyHubForms");
+    return;
+  }
+
+  const archiveChildDocument = event.target.closest("[data-archive-child-document]");
+  if (archiveChildDocument) {
+    event.preventDefault();
+    const docId = archiveChildDocument.dataset.archiveChildDocument;
+    if (!docId) return;
+    archiveChildDocumentRecord(docId);
+    showActionFeedback("Form archived (record preserved).");
+    if (document.querySelector("#view-home-daycare-hub.active-view")) {
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    } else {
+      childProfileTab = "forms-records";
+      childManagementMode = "profile";
+      renderChildManagement();
+    }
+    return;
+  }
+
+  const archiveStaffDocument = event.target.closest("[data-archive-staff-document]");
+  if (archiveStaffDocument) {
+    event.preventDefault();
+    const docId = archiveStaffDocument.dataset.archiveStaffDocument;
+    archiveStaffDocument.disabled = true;
+    archiveStaffDocumentRecord(docId)
+      .then(() => {
+        showActionFeedback("Staff paperwork archived.");
+        if (document.querySelector("#view-staff.active-view")) renderStaffManagementPage({ refresh: false });
+        else renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      })
+      .catch((error) => {
+        archiveStaffDocument.disabled = false;
+        showActionFeedback(error.message || "Could not archive staff document.");
+      });
+    return;
+  }
+
+  const previewStaffDocument = event.target.closest("[data-preview-staff-document]");
+  if (previewStaffDocument) {
+    event.preventDefault();
+    const docId = previewStaffDocument.dataset.previewStaffDocument;
+    const doc = formsStaffDocuments().find((item) => String(item.id) === String(docId));
+    if (!doc) {
+      showActionFeedback("Staff document not found.");
+      return;
+    }
+    const body = String(doc.signedSnapshot || doc.draftText || doc.notes || doc.title || "Staff form").trim();
+    printTextDocument(doc.title || "Staff form", body);
+    return;
+  }
+
+  const staffOpenFromHq = event.target.closest("[data-paperwork-staff-email]");
+  if (staffOpenFromHq && staffOpenFromHq.dataset.paperworkStaffEmail) {
+    staffProfilePaperworkEmail = String(staffOpenFromHq.dataset.paperworkStaffEmail || "").toLowerCase();
+  }
+
   const shareChildDocument = event.target.closest("[data-share-child-document]");
   if (shareChildDocument) {
     event.preventDefault();
@@ -67610,6 +68099,14 @@ document.addEventListener("click", async (event) => {
     shareChildDocument.disabled = true;
     shareChildDocumentWithFamily(docId)
       .then(() => {
+        // Manual reminder path: stamp lastNotifiedAt on the same canonical row.
+        const docs = childStore("Documents") || [];
+        const next = docs.map((item) => (
+          String(item.id) === String(docId)
+            ? { ...item, lastNotifiedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+            : item
+        ));
+        saveChildStore("Documents", next);
         childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
         childManagementMode = "profile";
         if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage({ refreshHouseholds: false });
@@ -67675,11 +68172,21 @@ document.addEventListener("click", async (event) => {
   if (formsRefreshBtn) {
     event.preventDefault();
     formsRefreshBtn.disabled = true;
-    syncChildDataFromBackend({ render: true, force: true })
-      .then((applied) => {
+    Promise.all([
+      syncChildDataFromBackend({ render: false, force: true }),
+      ensureProgramFormsLoaded({ force: true }),
+    ])
+      .then(([applied]) => {
         showActionFeedback(applied ? "Form statuses refreshed from Family Hub." : "Statuses checked — nothing new to pull.");
         if (document.querySelector("#view-home-daycare-hub.active-view")) {
-          renderHomeDaycareHubPage({ refreshHouseholds: false });
+          const active = document.activeElement;
+          const typing = Boolean(
+            active
+            && document.querySelector("[data-paperwork-hq]")?.contains(active)
+            && /^(INPUT|TEXTAREA|SELECT)$/i.test(active.tagName || ""),
+          );
+          if (typing) refreshPaperworkHqListInPlace();
+          else renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
         }
       })
       .catch(() => showActionFeedback("Could not refresh form statuses right now."))
@@ -72031,18 +72538,51 @@ document.addEventListener("input", (event) => {
     childObservationSearch = event.target.value;
     renderChildManagement();
   }
+  if (event.target.matches("[data-paperwork-filter]")) {
+    const key = event.target.getAttribute("data-paperwork-filter");
+    if (key && Object.prototype.hasOwnProperty.call(paperworkHqState, key)) {
+      paperworkHqState[key] = event.target.value;
+      if (window.LlhFormsDirtyState) {
+        window.LlhFormsDirtyState.touch("paperworkHqFilters", key, event.target.value);
+      }
+      // In-place list refresh — never remount the whole HQ while typing/filtering.
+      window.clearTimeout(window.__llhPaperworkFilterTimer);
+      window.__llhPaperworkFilterTimer = window.setTimeout(() => {
+        refreshPaperworkHqListInPlace();
+      }, 120);
+    }
+  }
+  if (event.target.matches("[data-staff-profile-email]")) {
+    staffProfilePaperworkEmail = String(event.target.value || "").toLowerCase();
+    renderStaffManagementPage({ refresh: false });
+  }
   if (event.target.matches("[data-hdh-forms-search]")) {
     childFormsRecordsQuery = event.target.value;
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("childDocsFilters", "query", event.target.value);
+    }
     const active = document.activeElement;
     const selectionStart = active?.selectionStart;
     const selectionEnd = active?.selectionEnd;
-    renderChildManagement();
-    const next = document.querySelector("[data-hdh-forms-search]");
-    if (next) {
-      next.focus();
-      if (Number.isFinite(selectionStart) && Number.isFinite(selectionEnd)) {
-        try { next.setSelectionRange(selectionStart, selectionEnd); } catch { /* ignore */ }
+    window.clearTimeout(window.__llhChildDocsSearchTimer);
+    window.__llhChildDocsSearchTimer = window.setTimeout(() => {
+      renderChildManagement();
+      const next = document.querySelector("[data-hdh-forms-search]");
+      if (next) {
+        next.focus();
+        if (Number.isFinite(selectionStart) && Number.isFinite(selectionEnd)) {
+          try { next.setSelectionRange(selectionStart, selectionEnd); } catch { /* ignore */ }
+        }
+        if (window.LlhFormsDirtyState?.shouldKeepLocal("childDocsFilters", "query")) {
+          const kept = window.LlhFormsDirtyState.get("childDocsFilters", "query");
+          if (kept) next.value = kept.value;
+        }
       }
+    }, 140);
+  }
+  if (event.target.matches("[data-fh-progress-input]")) {
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("familyHubForms", event.target.name || event.target.getAttribute("data-fh-progress-input"), event.target.value);
     }
   }
   if (event.target.matches("#childObservationDate")) {

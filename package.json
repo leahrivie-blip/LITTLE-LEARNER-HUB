@@ -176,6 +176,8 @@
     "test:forms-phase1-acceptance": "node scripts/test-forms-phase1-acceptance.js",
     "test:forms-phase7": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-phase7.js",
     "test:forms-wave1-foundations": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave1-foundations.js",
+    "test:forms-wave2-surfaces": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave2-surfaces.js",
+    "test:forms-wave2-viewport": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave2-viewport-smoke.js",
     "test:tuition-phase8": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-tuition-phase8.js",
     "test:family-hub-phase2-acceptance": "node scripts/test-family-hub-phase2-acceptance.js",
     "test:ecosystem-phase3-acceptance": "node scripts/test-ecosystem-phase3-acceptance.js",
