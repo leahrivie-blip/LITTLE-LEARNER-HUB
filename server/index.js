@@ -10930,14 +10930,44 @@ async function handleStripeWebhook(request, response) {
 
 async function handleAiGenerate(request, response) {
   const body = await readJson(request);
-  const email = normalizeEmail(body.email || "guest");
+  const requestId = createAiRequestId();
+  // C1: Never trust body.email / body.plan as identity or entitlement.
+  // Quota and access bind to the authenticated server-side session only.
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, {
+      error: error.message || "Please log in before using documentation helpers.",
+      code: "auth_required",
+      requestId,
+    });
+    return;
+  }
+  const email = normalizeEmail(identity.email || "");
+  if (!email) {
+    jsonResponse(response, 401, {
+      error: "Please log in before using documentation helpers.",
+      code: "auth_required",
+      requestId,
+    });
+    return;
+  }
+  const claimedEmail = normalizeEmail(body.email || "");
+  if (claimedEmail && claimedEmail !== "guest" && claimedEmail !== email) {
+    jsonResponse(response, 403, {
+      error: "The signed-in account does not match this request.",
+      code: "email_mismatch",
+      requestId,
+    });
+    return;
+  }
   const store = readStore();
   const user = store.users?.[email] || null;
   const plan = resolvedPlanForUser(user);
-  const rawTool = String(body.tool || "unknown");
+  const rawTool = String(body.tool || body.type || "unknown");
   const tool = normalizeAiToolId(rawTool);
-  const requestId = createAiRequestId();
-  console.log(`[access] ai-generate requestId=${requestId} email=${email} tool=${tool} rawTool=${rawTool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
+  console.log(`[access] ai-generate requestId=${requestId} email=${email} tool=${tool} rawTool=${rawTool} source=${identity.source || "session"} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const lessonTools = new Set(["lesson", "lesson-plan", "lesson_plan"]);
   // Testing site: allow lesson AI for invited testers so the full daycare workflow can be exercised.
   if ((lessonTools.has(rawTool) || lessonTools.has(tool)) && !HOME_DAYCARE_HUB_TESTING) {
@@ -10951,7 +10981,7 @@ async function handleAiGenerate(request, response) {
       return;
     }
   }
-  const usage = canUseServerAi(email, plan);
+  const usage = canUseServerAi(email, plan, user);
   if (!usage.allowed) {
     jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit, requestId });
     return;
@@ -11809,16 +11839,29 @@ async function handleAdminBillingReconciliationApply(request, response) {
   });
 }
 
-function handleUserAiUsage(request, response, url) {
-  const email = normalizeEmail(url.searchParams.get("email"));
+async function handleUserAiUsage(request, response, url) {
+  // Same C1 pattern: usage is private to the authenticated session (query email is not authoritative).
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before viewing AI usage." });
+    return;
+  }
+  const email = normalizeEmail(identity.email || "");
   if (!email) {
-    jsonResponse(response, 400, { error: "email is required." });
+    jsonResponse(response, 401, { error: "Please log in before viewing AI usage." });
+    return;
+  }
+  const claimedEmail = normalizeEmail(url.searchParams.get("email") || "");
+  if (claimedEmail && claimedEmail !== email) {
+    jsonResponse(response, 403, { error: "The signed-in account does not match this request.", code: "email_mismatch" });
     return;
   }
   const store = readStore();
   const user = store.users?.[email] || null;
-  const plan = user?.plan || "Free";
-  const usage = canUseServerAi(email, plan);
+  const plan = resolvedPlanForUser(user);
+  const usage = canUseServerAi(email, plan, user);
   jsonResponse(response, 200, {
     aiUsage: {
       email,
@@ -28842,7 +28885,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/cancel-subscription") return await handleCancelSubscription(request, response);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return await handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return await handleAdminAnalytics(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/notifications") return await handleAdminNotificationsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/notifications/mark-read") return await handleAdminNotificationsMarkRead(request, response);

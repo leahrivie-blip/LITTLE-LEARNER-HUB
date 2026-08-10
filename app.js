@@ -20047,7 +20047,12 @@ async function loadUserAiUsage(email) {
   const cleanEmail = String(email || currentUser || "").trim().toLowerCase();
   if (!cleanEmail || !userAiUsageConfig.endpoint || !canUseLaunchBackend()) return;
   try {
-    const res = await fetch(`${userAiUsageConfig.endpoint}?email=${encodeURIComponent(cleanEmail)}`);
+    const authHeaders = typeof firebaseAuthHeaders === "function" ? await firebaseAuthHeaders() : null;
+    if (!authHeaders || !authHeaders.Authorization) return;
+    const res = await fetch(`${userAiUsageConfig.endpoint}?email=${encodeURIComponent(cleanEmail)}`, {
+      headers: { ...authHeaders },
+      cache: "no-store",
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return;
     const usage = data?.aiUsage;
@@ -61097,11 +61102,19 @@ async function generateToolOutputWithBackend(toolId, data, options = {}) {
   try {
     let response;
     try {
+      // C1: send verified session headers; server ignores spoofed body.email for identity/quota.
+      const authHeaders = typeof firebaseAuthHeaders === "function" ? await firebaseAuthHeaders() : null;
+      if (!authHeaders || !authHeaders.Authorization) {
+        throw new Error("Please log in before using documentation helpers.");
+      }
       response = await fetch(aiGenerationConfig.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({
-          email: currentUser || "guest",
+          email: currentUser || "",
           plan: currentPlan,
           tool: toolId,
           age: ageValue,
@@ -61118,6 +61131,9 @@ async function generateToolOutputWithBackend(toolId, data, options = {}) {
     } catch (err) {
       if (err.name === "AbortError") {
         throw new Error("The request timed out. Please check your connection and try again.");
+      }
+      if (/log in before using documentation helpers/i.test(String(err.message || ""))) {
+        throw err;
       }
       throw new Error("We couldn't create your document right now. Please try again.");
     } finally {

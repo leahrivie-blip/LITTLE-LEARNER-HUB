@@ -156,6 +156,7 @@
     "test:signup-modal-polish": "NODE_ENV=test node scripts/test-signup-modal-polish.js",
     "test:calendar-create-idempotency": "NODE_ENV=test node scripts/test-calendar-create-idempotency.js",
     "test:ai-age-safety": "NODE_ENV=test node scripts/test-ai-age-safety.js",
+    "test:c1-c2-c3-security-repairs": "NODE_ENV=test node scripts/test-c1-c2-c3-security-repairs.js",
     "test:live-audit-critical-repairs": "NODE_ENV=test node scripts/test-live-audit-critical-repairs.js",
     "test:calendar-loading-guards": "NODE_ENV=test node scripts/test-calendar-loading-guards.js",
     "test:trial-length-system": "NODE_ENV=test node scripts/test-trial-length-system.js",
