@@ -94,9 +94,10 @@ async function main() {
   console.log("PASS  service worker invite nav timeout + shell");
 
   const punch = fs.readFileSync(path.join(ROOT, "docs/audits/REAL_PROVIDER_TESTING_FEEDBACK_PUNCH_LIST.md"), "utf8");
-  assert.match(punch, /NOT READY FOR NEW REAL TESTER INVITES/);
+  assert.match(punch, /YES — NEW REAL TESTER INVITES ARE RELIABLE/);
   assert.match(punch, /\bC1\b/);
-  console.log("PASS  punch list gate is NOT READY");
+  assert.match(punch, /\|\s*verified\s*\|/);
+  console.log("PASS  punch list gate is READY (live verify PASS)");
 
   fs.writeFileSync(STORE, JSON.stringify({ users: {} }, null, 2));
   const child = spawn(process.execPath, ["server/index.js"], {
