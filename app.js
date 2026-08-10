@@ -6199,6 +6199,7 @@ async function refreshPublicCurriculumLibrary() {
       const response = await fetchWithWakeRetry(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
         cache: "no-store",
         headers: await siteContentRequestHeaders(),
+        signal: nonCriticalBootSignal(),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Could not refresh curriculum library.");
@@ -16564,12 +16565,34 @@ function isTesterInviteBootPath() {
   return false;
 }
 
+/** Aborts large public boot fetches so auth password sync/login can obtain a socket. */
+let nonCriticalBootAbortController = typeof AbortController === "function" ? new AbortController() : null;
+
+function nonCriticalBootSignal() {
+  if (!nonCriticalBootAbortController && typeof AbortController === "function") {
+    nonCriticalBootAbortController = new AbortController();
+  }
+  return nonCriticalBootAbortController ? nonCriticalBootAbortController.signal : undefined;
+}
+
+function abortNonCriticalBootFetches(reason = "auth-priority") {
+  try {
+    if (nonCriticalBootAbortController) nonCriticalBootAbortController.abort(reason);
+  } catch (_error) { /* ignore */ }
+  nonCriticalBootAbortController = typeof AbortController === "function" ? new AbortController() : null;
+  // Clear sticky site-content promise so a later refresh can retry after auth.
+  try { siteContentLoadPromise = null; } catch (_error) { /* ignore */ }
+}
+
 async function fetchWithAuthTimeout(url, init = {}, timeoutMs = 25000) {
+  // Free browser sockets before auth-critical calls (6-connection host limit).
+  abortNonCriticalBootFetches("auth-priority");
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   const abortTimer = controller ? setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000)) : null;
   try {
     return await fetch(url, {
       ...init,
+      priority: init.priority || "high",
       signal: controller ? controller.signal : init.signal,
     });
   } catch (error) {
