@@ -144,10 +144,16 @@ function lifecycleUnit() {
     signedSnapshot: "Hello family",
     status: "submitted",
   };
+  // Wave 5: material edits preserve signed history in versions[] and open a new unsigned version.
   const invalidated = formsLib.applyFormBodyEdit(signed, "Hello family changed");
   assert.equal(invalidated.status, "needs_correction");
   assert.equal(invalidated.signedAt, "");
-  assert.ok(invalidated.signatureInvalidatedReason);
+  assert.ok(Array.isArray(invalidated.versions) && invalidated.versions.length >= 2);
+  const priorSigned = invalidated.versions.find((ver) => ver.signature?.signedAt);
+  assert.ok(priorSigned, "prior signed version must remain historically accessible");
+  assert.equal(priorSigned.signature.signedBy, "Parent");
+  assert.ok(invalidated.currentVersionId);
+  assert.notEqual(invalidated.currentVersionId, priorSigned.id);
 
   const sig = formsLib.buildSignatureRecord({
     draftText: "Policy text",

@@ -149,12 +149,14 @@ function listFormsAuditForProgram(store, programId, { limit = 200 } = {}) {
 }
 
 function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
+  const formsSignatureLib = require("./forms-signature-lib.js");
   const email = normalizeEmail(raw.assigneeEmail || raw.email || "");
   const id = cleanText(raw.id || "", 80) || newId("staff-form");
   const draftText = String(raw.draftText || raw.body || raw.bodyText || "").slice(0, 20000);
   const status = formsLib.normalizeFormStatus(raw.status || "assigned");
   const fields = formFieldsLib.normalizeFormFields(raw.fields || [], { strict: false });
-  return {
+  const answers = raw.answers && typeof raw.answers === "object" ? raw.answers : {};
+  const base = {
     id,
     programId: cleanText(programId || raw.programId || "", 80),
     assigneeType: "staff",
@@ -168,10 +170,13 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
     statusLabel: formsLib.formStatusLabel(raw.statusLabel || status),
     draftText,
     fields,
+    answers,
     fieldSchemaVersion: fields.length ? 1 : undefined,
     bodyHash: cleanText(raw.bodyHash || "", 80) || (draftText ? formsLib.hashFormBody(draftText) : ""),
     contentVersion: Math.max(1, Number(raw.contentVersion) || 1),
     templateVersion: Math.max(1, Number(raw.templateVersion) || Number(raw.contentVersion) || 1),
+    currentVersionId: cleanText(raw.currentVersionId || "", 80),
+    versions: Array.isArray(raw.versions) ? raw.versions : undefined,
     dueDate: cleanText(raw.dueDate || "", 20),
     assignedAt: cleanText(raw.assignedAt || raw.createdAt || nowIso(), 40),
     updatedAt: cleanText(raw.updatedAt || nowIso(), 40),
@@ -181,13 +186,18 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
     signedRole: cleanText(raw.signedRole || "staff", 40),
     signedSnapshot: String(raw.signedSnapshot || "").slice(0, 20000),
     signedBodyHash: cleanText(raw.signedBodyHash || "", 80),
+    signatureMethod: cleanText(raw.signatureMethod || "", 40),
+    signerUserId: normalizeEmail(raw.signerUserId || ""),
     providerReviewed: Boolean(raw.providerReviewed),
     requiresSignature: raw.requiresSignature !== false,
     notes: cleanText(raw.notes || "", 500),
     archived: Boolean(raw.archived),
     sendBatchId: cleanText(raw.sendBatchId || "", 80),
     shareWithFamily: false, // staff paperwork never family-visible
+    voidedAt: cleanText(raw.voidedAt || "", 40),
+    voidReason: cleanText(raw.voidReason || "", 240),
   };
+  return formsSignatureLib.ensureDocumentVersions(base);
 }
 
 function normalizeTemplate(raw = {}, { programId = "", strictFields = true } = {}) {
@@ -1024,17 +1034,274 @@ function confirmSendAssignments(store, context, request = {}, {
 }
 
 function hashRequestIp(request) {
-  try {
-    const raw = String(
-      request?.headers?.["x-forwarded-for"]
-      || request?.socket?.remoteAddress
-      || "",
-    ).split(",")[0].trim();
-    if (!raw) return "";
-    return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 20);
-  } catch (_error) {
-    return "";
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  return formsSignatureLib.hashRequestIp(request);
+}
+
+/**
+ * Wave 5 — staff signs their own assigned paperwork (session-bound).
+ */
+function signStaffDocument(store, context, documentId, requestBody = {}, {
+  actorUserId = "",
+  actorRole = "staff",
+  ipHash = "",
+} = {}) {
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  const forms = ensureProgramFormsNamespace(store, context.programId);
+  const id = String(documentId || "").trim();
+  const idx = forms.staffDocuments.findIndex((d) => String(d.id) === id);
+  if (idx < 0) {
+    throw Object.assign(new Error("Staff paperwork not found."), { status: 404, code: "not_found" });
   }
+  const current = formsSignatureLib.ensureDocumentVersions(forms.staffDocuments[idx]);
+  const assignee = normalizeEmail(current.assigneeEmail);
+  const actor = normalizeEmail(actorUserId);
+  if (!actor || assignee !== actor) {
+    throw Object.assign(new Error("Staff can only sign their own assigned paperwork."), {
+      status: 403,
+      code: "assignee_mismatch",
+    });
+  }
+  // Disabled / archived staff cannot submit as active staff.
+  const user = store.users?.[actor] || {};
+  const status = String(user.accountStatus || "Active").toLowerCase();
+  if (status === "disabled" || status === "deleted" || user.archived === true) {
+    throw Object.assign(new Error("This staff account cannot sign paperwork."), {
+      status: 403,
+      code: "staff_inactive",
+    });
+  }
+  if (String(current.programId || context.programId) !== String(context.programId)) {
+    throw Object.assign(new Error("Cross-program signing is not allowed."), {
+      status: 403,
+      code: "cross_program",
+    });
+  }
+
+  const answers = formsSignatureLib.sanitizeAnswers(requestBody.answers || current.answers || {});
+  formsSignatureLib.validateRequiredAnswers(current.fields || [], answers);
+  const bodyText = String(current.draftText || current.bodyText || "").trim();
+  const currentHash = String(current.bodyHash || formsLib.hashFormBody(bodyText));
+  const expectedVersionId = cleanText(requestBody.expectedVersionId || requestBody.versionId || "", 80);
+  const expectedBodyHash = cleanText(requestBody.expectedBodyHash || requestBody.bodyHash || "", 80);
+
+  if (formsSignatureLib.isIdempotentResign(current, {
+    signerUserId: actor,
+    expectedBodyHash: expectedBodyHash || currentHash,
+  })) {
+    return { staffDocument: current, idempotentReplay: true };
+  }
+
+  const displayName = cleanText(
+    requestBody.typedSignature || requestBody.signerName || user.name || actor,
+    120,
+  ) || actor;
+  const working = {
+    ...current,
+    draftText: bodyText,
+    bodyHash: currentHash,
+    answers,
+  };
+  const signature = formsLib.buildSignatureRecord(working, {
+    signerName: displayName,
+    typedSignature: requestBody.typedSignature || displayName,
+    signedRole: cleanText(actorRole || "staff", 40) || "staff",
+    signatureMethod: requestBody.signatureMethod || requestBody.method || "acknowledgment_text",
+    signerUserId: actor,
+    drawnSignatureDataUrl: requestBody.drawnSignatureDataUrl || "",
+    versionId: expectedVersionId || working.currentVersionId || "",
+    ipHash,
+    programId: context.programId,
+    assignmentId: working.id,
+    answers,
+  });
+  const frozen = formsSignatureLib.attachSignatureToVersion(working, signature, {
+    expectedVersionId,
+    expectedBodyHash,
+  });
+  forms.staffDocuments[idx] = frozen;
+  forms.updatedAt = nowIso();
+  appendFormsAudit(store, {
+    programId: context.programId,
+    action: "SIGNED",
+    actorUserId: actor,
+    actorRole: cleanText(actorRole || "staff", 40) || "staff",
+    documentId: id,
+    versionId: frozen.currentVersionId || "",
+    assigneeEmail: actor,
+    meta: { mode: signature.signatureMethod, contentVersion: frozen.contentVersion, ipHash },
+    detail: "Staff electronic signature",
+  });
+  appendFormsAudit(store, {
+    programId: context.programId,
+    action: "SUBMITTED",
+    actorUserId: actor,
+    actorRole: cleanText(actorRole || "staff", 40) || "staff",
+    documentId: id,
+    versionId: frozen.currentVersionId || "",
+    assigneeEmail: actor,
+    detail: "Staff paperwork submitted after signature",
+  });
+  return { staffDocument: frozen, idempotentReplay: false };
+}
+
+function voidSignedDocumentVersion(store, context, {
+  documentId = "",
+  assigneeType = "staff",
+  voidReason = "",
+  actorUserId = "",
+  actorRole = "director",
+  childDataWrite = null,
+} = {}) {
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  const id = String(documentId || "").trim();
+  if (!id) throw Object.assign(new Error("Missing document id."), { status: 400 });
+  if (!(context.canManageStaff || context.role === "owner" || context.role === "director")) {
+    throw Object.assign(new Error("Only Owner/Director can void signed versions."), { status: 403 });
+  }
+
+  if (assigneeType === "staff") {
+    const forms = ensureProgramFormsNamespace(store, context.programId);
+    const idx = forms.staffDocuments.findIndex((d) => String(d.id) === id);
+    if (idx < 0) throw Object.assign(new Error("Document not found."), { status: 404 });
+    const next = formsSignatureLib.voidCurrentSignedVersion(forms.staffDocuments[idx], {
+      voidedBy: actorUserId,
+      voidReason,
+    });
+    forms.staffDocuments[idx] = next;
+    forms.updatedAt = nowIso();
+    appendFormsAudit(store, {
+      programId: context.programId,
+      action: "VOIDED",
+      actorUserId,
+      actorRole,
+      documentId: id,
+      versionId: next.currentVersionId || "",
+      detail: cleanText(voidReason, 240),
+    });
+    return { document: next, assigneeType: "staff" };
+  }
+
+  if (typeof childDataWrite !== "function") {
+    throw Object.assign(new Error("Child document void requires child data writer."), { status: 500 });
+  }
+  const result = childDataWrite((docs) => {
+    const idx = docs.findIndex((d) => String(d.id) === id);
+    if (idx < 0) throw Object.assign(new Error("Document not found."), { status: 404 });
+    const next = formsSignatureLib.voidCurrentSignedVersion(docs[idx], {
+      voidedBy: actorUserId,
+      voidReason,
+    });
+    const copy = docs.slice();
+    copy[idx] = next;
+    return { docs: copy, document: next };
+  });
+  appendFormsAudit(store, {
+    programId: context.programId,
+    action: "VOIDED",
+    actorUserId,
+    actorRole,
+    documentId: id,
+    versionId: result.document.currentVersionId || "",
+    childId: result.document.childId || "",
+    detail: cleanText(voidReason, 240),
+  });
+  return { document: result.document, assigneeType: "child" };
+}
+
+function supersedeSignedDocument(store, context, {
+  documentId = "",
+  assigneeType = "staff",
+  nextBody = "",
+  nextFields = null,
+  reason = "",
+  voidPrior = false,
+  actorUserId = "",
+  actorRole = "director",
+  childDataWrite = null,
+} = {}) {
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  const id = String(documentId || "").trim();
+  if (!id) throw Object.assign(new Error("Missing document id."), { status: 400 });
+  if (!(context.canManageStaff || context.role === "owner" || context.role === "director")) {
+    throw Object.assign(new Error("Only Owner/Director can supersede signed versions."), { status: 403 });
+  }
+  if (!cleanText(reason, 240)) {
+    throw Object.assign(new Error("A reason is required to supersede a signed version."), {
+      status: 400,
+      code: "supersede_reason_required",
+    });
+  }
+
+  const apply = (doc) => formsSignatureLib.createSupersedingVersion(doc, {
+    nextBody: nextBody != null ? nextBody : doc.draftText,
+    nextFields: nextFields != null ? nextFields : doc.fields,
+    createdBy: actorUserId,
+    reason,
+    voidPrior,
+    voidReason: reason,
+  });
+
+  if (assigneeType === "staff") {
+    const forms = ensureProgramFormsNamespace(store, context.programId);
+    const idx = forms.staffDocuments.findIndex((d) => String(d.id) === id);
+    if (idx < 0) throw Object.assign(new Error("Document not found."), { status: 404 });
+    const next = apply(forms.staffDocuments[idx]);
+    forms.staffDocuments[idx] = next;
+    forms.updatedAt = nowIso();
+    appendFormsAudit(store, {
+      programId: context.programId,
+      action: "VERSION_CREATED",
+      actorUserId,
+      actorRole,
+      documentId: id,
+      versionId: next.currentVersionId || "",
+      detail: cleanText(reason, 240),
+    });
+    appendFormsAudit(store, {
+      programId: context.programId,
+      action: voidPrior ? "SUPERSEDED" : "NEEDS_CORRECTION",
+      actorUserId,
+      actorRole,
+      documentId: id,
+      versionId: next.currentVersionId || "",
+      detail: cleanText(reason, 240),
+    });
+    return { document: next, assigneeType: "staff" };
+  }
+
+  if (typeof childDataWrite !== "function") {
+    throw Object.assign(new Error("Child document supersede requires child data writer."), { status: 500 });
+  }
+  const result = childDataWrite((docs) => {
+    const idx = docs.findIndex((d) => String(d.id) === id);
+    if (idx < 0) throw Object.assign(new Error("Document not found."), { status: 404 });
+    const next = apply(docs[idx]);
+    const copy = docs.slice();
+    copy[idx] = next;
+    return { docs: copy, document: next };
+  });
+  appendFormsAudit(store, {
+    programId: context.programId,
+    action: "VERSION_CREATED",
+    actorUserId,
+    actorRole,
+    documentId: id,
+    versionId: result.document.currentVersionId || "",
+    childId: result.document.childId || "",
+    detail: cleanText(reason, 240),
+  });
+  appendFormsAudit(store, {
+    programId: context.programId,
+    action: voidPrior ? "SUPERSEDED" : "NEEDS_CORRECTION",
+    actorUserId,
+    actorRole,
+    documentId: id,
+    versionId: result.document.currentVersionId || "",
+    childId: result.document.childId || "",
+    detail: cleanText(reason, 240),
+  });
+  return { document: result.document, assigneeType: "child" };
 }
 
 module.exports = {
@@ -1060,5 +1327,8 @@ module.exports = {
   confirmSendAssignments,
   listProgramStaffDirectory,
   hashRequestIp,
+  signStaffDocument,
+  voidSignedDocumentVersion,
+  supersedeSignedDocument,
   describeFallbackRemovalGate,
 };

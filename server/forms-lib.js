@@ -114,60 +114,19 @@ function isFormOverdue(doc = {}, todayIso = "") {
 }
 
 /**
- * When body changes after a signature, invalidate signature fields.
- * Returns next document fields (does not mutate input).
+ * When body changes after a signature, preserve the signed version and open a
+ * new unsigned version (Wave 5). Legacy callers still receive needs_correction
+ * on the current row without destroying historical evidence in versions[].
  */
-function applyFormBodyEdit(doc = {}, nextBody = "") {
-  const body = String(nextBody || "").trim();
-  const nextHash = hashFormBody(body);
-  const prevHash = String(doc.bodyHash || "").trim();
-  const hadSignature = Boolean(doc.signedAt) || Boolean(doc.signedSnapshot);
-  const materialChange = hadSignature && prevHash && prevHash !== nextHash;
-  const base = {
-    ...doc,
-    draftText: body,
-    bodyHash: nextHash,
-    contentVersion: Number(doc.contentVersion || 1) + (materialChange || !doc.contentVersion ? 1 : 0),
-    updatedAt: new Date().toISOString(),
-  };
-  if (!materialChange) return base;
-  return {
-    ...base,
-    signedAt: "",
-    signedBy: "",
-    signedRole: "",
-    signedSnapshot: "",
-    signedBodyHash: "",
-    providerReviewed: false,
-    status: FORM_STATUSES.NEEDS_CORRECTION,
-    statusLabel: formStatusLabel(FORM_STATUSES.NEEDS_CORRECTION),
-    signatureInvalidatedAt: new Date().toISOString(),
-    signatureInvalidatedReason: "Form content changed after signature — re-sign required.",
-  };
+function applyFormBodyEdit(doc = {}, nextBody = "", options = {}) {
+  // Lazy require avoids a circular dependency at module load.
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  return formsSignatureLib.applyFormBodyEditPreservingHistory(doc, nextBody, options);
 }
 
-function buildSignatureRecord(doc = {}, {
-  signerName = "",
-  signedRole = "guardian",
-  signedAt = "",
-} = {}) {
-  const body = String(doc.draftText || doc.bodyText || doc.signedSnapshot || "").trim();
-  const bodyHash = String(doc.bodyHash || hashFormBody(body));
-  const at = signedAt || new Date().toISOString();
-  return {
-    status: FORM_STATUSES.SUBMITTED,
-    statusLabel: formStatusLabel(FORM_STATUSES.SUBMITTED),
-    signedAt: at,
-    signedBy: String(signerName || "Parent").trim().slice(0, 120),
-    signedRole: String(signedRole || "guardian").trim().slice(0, 80),
-    signedSnapshot: body,
-    signedBodyHash: bodyHash,
-    bodyHash,
-    contentVersion: Number(doc.contentVersion || 1),
-    contentVersionSigned: Number(doc.contentVersion || 1),
-    providerReviewed: false,
-    updatedAt: at,
-  };
+function buildSignatureRecord(doc = {}, options = {}) {
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  return formsSignatureLib.buildSignatureRecord(doc, options);
 }
 
 /**
@@ -235,6 +194,9 @@ function resolveFormAssignmentTargets({
 }
 
 function publicStaffFormDocument(doc = {}) {
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  const ensured = formsSignatureLib.ensureDocumentVersions(doc);
+  const { current } = formsSignatureLib.getCurrentVersion(ensured);
   return {
     id: String(doc.id || ""),
     assigneeEmail: String(doc.assigneeEmail || "").toLowerCase(),
@@ -248,10 +210,15 @@ function publicStaffFormDocument(doc = {}) {
     signedAt: String(doc.signedAt || "").trim(),
     signedBy: String(doc.signedBy || "").trim(),
     signedRole: String(doc.signedRole || "staff").trim(),
+    signatureMethod: String(doc.signatureMethod || current?.signature?.method || "").trim(),
     templateId: String(doc.templateId || "").trim(),
     bodyHash: String(doc.bodyHash || "").trim(),
     contentVersion: Number(doc.contentVersion || 1),
+    currentVersionId: String(ensured.currentVersionId || current?.id || "").trim(),
+    versionCount: Array.isArray(ensured.versions) ? ensured.versions.length : 0,
+    requiresSignature: doc.requiresSignature !== false,
     updatedAt: String(doc.updatedAt || "").trim(),
+    versions: (ensured.versions || []).map((ver) => formsSignatureLib.publicVersionSummary(ver)),
   };
 }
 

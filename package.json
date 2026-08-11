@@ -402,7 +402,9 @@
     "test:lesson-download-presentation": "NODE_ENV=test node scripts/test-lesson-download-presentation.js",
     "test:teaching-kit-real-print-validation": "NODE_ENV=test node scripts/test-teaching-kit-real-print-validation.js",
     "test:remote-testing-smoke-phase11": "node scripts/test-remote-testing-smoke-phase11.js",
-    "deploy:testing-only-phase11": "node scripts/deploy-testing-only-phase11.js"
+    "deploy:testing-only-phase11": "node scripts/deploy-testing-only-phase11.js",
+    "test:forms-wave5-signatures": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave5-signatures.js",
+    "test:postgres-readstore-no-clone": "NODE_ENV=test node scripts/test-postgres-readstore-no-clone.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

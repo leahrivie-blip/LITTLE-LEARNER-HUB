@@ -9160,13 +9160,17 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
         assigneeType: "child",
       };
       if (materialChange) {
+        // Wave 5: do not destroy historical signature evidence. Keep prior versions[]
+        // when present; clear only current-row signature fields for the new content.
+        const priorVersions = Array.isArray(item.versions) ? item.versions.slice() : [];
+        patched.versions = priorVersions;
         patched.signedAt = "";
         patched.signedBy = "";
         patched.signedRole = "";
         patched.signedSnapshot = "";
         patched.signedBodyHash = "";
         patched.providerReviewed = false;
-        patched.signatureInvalidatedReason = "Form content changed after signature — re-sign required.";
+        patched.signatureInvalidatedReason = "Form content changed after signature — new version requires re-sign.";
       }
       return patched;
     });
@@ -10019,7 +10023,8 @@ function renderMyPaperworkPanel() {
               <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : " · Needs signature"} · ID ${escapeHtml(item.id)}</p>
             </div>
             <div class="hdh-forms-pack-actions">
-              ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Open</button>` : `<span class="muted-copy">Assigned</span>`}
+              ${(item.draftText || item.signedSnapshot || (item.fields || []).length) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Open</button>` : `<span class="muted-copy">Assigned</span>`}
+              ${!item.signedAt && item.requiresSignature !== false ? `<button class="primary-button" type="button" data-my-paperwork-sign="${escapeHtml(item.id)}">Sign &amp; Submit</button>` : ""}
             </div>
           </article>`).join("") : `<div class="profile-empty-state"><strong>No items in this bucket</strong><p>Forms assigned to ${escapeHtml(email)} appear here.</p></div>`}
       </div>
@@ -40132,8 +40137,8 @@ function renderFamilyHubFormsPanel(data) {
             </label>
             <div class="fh-account-actions">
               <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-save-progress="${escapeHtml(doc.id)}">Save progress</button>
-              ${canSign ? `<button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign &amp; submit</button>` : ""}
-              <p class="fh-meta">Testing signature — records your name, role, time, and form version for the provider. Drawn signatures come later.</p>
+              ${canSign ? `<button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign &amp; Submit</button>` : ""}
+              <p class="fh-meta">Electronic Signature — type or draw your signature, then Sign &amp; Submit. Your signed version is saved as a Signature Record for the provider.</p>
             </div>
           ` : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : `<p class="fh-meta">Open/read only for this completed or locked record.</p>`)}
         </article>`;
@@ -40669,7 +40674,7 @@ async function signOutFamilyHubParent() {
   familyHubParentToast("Signed out of Family Hub.");
 }
 
-async function acknowledgeFamilyHubDocument(documentId) {
+async function acknowledgeFamilyHubDocument(documentId, signPayload = null) {
   const headers = familyHubAuthHeaders();
   if (!headers) throw new Error("Sign in to Family Hub to sign forms.");
   const preferredName = String(
@@ -40677,19 +40682,58 @@ async function acknowledgeFamilyHubDocument(documentId) {
     || familyHubParentState?.data?.household?.label
     || "",
   ).trim();
+  const docs = Array.isArray(familyHubParentState?.data?.documents)
+    ? familyHubParentState.data.documents
+    : [];
+  const current = docs.find((doc) => String(doc.id || "") === String(documentId)) || {};
+  let payload = signPayload;
+  if (!payload && globalThis.LLHFormsSignatureUi?.openSignatureModal) {
+    const modalResult = await globalThis.LLHFormsSignatureUi.openSignatureModal({
+      documentId,
+      title: current.title || "Form",
+      bodyText: current.bodyText || "",
+      fields: current.fields || [],
+      answers: current.answers || {},
+      currentVersionId: current.currentVersionId || "",
+      bodyHash: current.bodyHash || "",
+      preferredName,
+      audience: "family",
+    });
+    if (modalResult?.cancelled) return { cancelled: true };
+    payload = modalResult;
+  }
+  payload = payload || { signatureMethod: "acknowledgment_text", typedSignature: preferredName };
   const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/acknowledge`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ signerName: preferredName, signedRole: "guardian" }),
+    body: JSON.stringify({
+      signatureMethod: payload.signatureMethod || "acknowledgment_text",
+      typedSignature: payload.typedSignature || preferredName,
+      drawnSignatureDataUrl: payload.drawnSignatureDataUrl || "",
+      answers: payload.answers || {},
+      expectedVersionId: payload.expectedVersionId || current.currentVersionId || "",
+      expectedBodyHash: payload.expectedBodyHash || current.bodyHash || "",
+      // Display-only; server ignores forged identity fields.
+      signerName: payload.typedSignature || preferredName,
+      signedRole: "guardian",
+    }),
     cache: "no-store",
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || "Could not sign this form.");
+  if (!response.ok) {
+    if (data?.code === "stale_version") {
+      throw new Error(data.error || "This form was updated. Please review the latest version before signing.");
+    }
+    if (data?.code === "required_fields_missing") {
+      throw new Error(data.error || "Please complete required fields before signing.");
+    }
+    throw new Error(data?.error || "Could not sign this form.");
+  }
   // Mirror signed status into the provider's local Documents store when available.
   try {
     if (isLoggedIn() && data?.document?.id && typeof saveChildStore === "function") {
-      const docs = childStore("Documents") || [];
-      const next = docs.map((doc) => (
+      const localDocs = childStore("Documents") || [];
+      const next = localDocs.map((doc) => (
         String(doc.id || "") === String(data.document.id)
           ? {
             ...doc,
@@ -40698,19 +40742,76 @@ async function acknowledgeFamilyHubDocument(documentId) {
             signedAt: data.document.signedAt || new Date().toISOString(),
             signedBy: data.document.signedBy || preferredName,
             signedRole: data.document.signedRole || "guardian",
+            signatureMethod: data.document.signatureMethod || doc.signatureMethod,
             contentVersion: data.document.contentVersion || doc.contentVersion,
+            currentVersionId: data.document.currentVersionId || doc.currentVersionId,
+            versions: data.document.versions || doc.versions,
             bodyHash: data.document.bodyHash || doc.bodyHash,
             updatedAt: data.document.updatedAt || new Date().toISOString(),
           }
           : doc
       ));
-      if (next.some((doc, index) => doc !== docs[index])) {
+      if (next.some((doc, index) => doc !== localDocs[index])) {
         saveChildStore("Documents", next);
         const signedDoc = next.find((doc) => String(doc.id || "") === String(data.document.id));
         if (signedDoc && typeof runFormSignedAutomation === "function") runFormSignedAutomation(signedDoc);
       }
     }
   } catch (_error) { /* non-blocking */ }
+  return data;
+}
+
+async function signStaffPaperworkDocument(documentId) {
+  const email = normalizeEmail(currentAccount()?.email || "");
+  if (!email) throw new Error("Sign in to complete My Paperwork.");
+  const list = typeof formsStaffDocuments === "function"
+    ? (formsStaffDocuments() || [])
+    : (getProgramSettings()?.staffFormDocuments || []);
+  const current = (Array.isArray(list) ? list : []).find((doc) => String(doc.id || "") === String(documentId)) || {};
+  if (!globalThis.LLHFormsSignatureUi?.openSignatureModal) {
+    throw new Error("Signature UI is unavailable.");
+  }
+  const modalResult = await globalThis.LLHFormsSignatureUi.openSignatureModal({
+    documentId,
+    title: current.title || "Staff form",
+    bodyText: current.draftText || current.bodyText || "",
+    fields: current.fields || [],
+    answers: current.answers || {},
+    currentVersionId: current.currentVersionId || "",
+    bodyHash: current.bodyHash || "",
+    preferredName: String(currentAccount()?.name || email).trim(),
+    audience: "staff",
+  });
+  if (modalResult?.cancelled) return { cancelled: true };
+  const headers = typeof staffAuthHeaders === "function"
+    ? await staffAuthHeaders()
+    : {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-LLH-User-Email": email,
+      Authorization: `Bearer test:${email}`,
+    };
+  if (!headers) throw new Error("Sign in to complete My Paperwork.");
+  const response = await fetch(`/api/program-forms/staff-documents/${encodeURIComponent(documentId)}/sign`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      signatureMethod: modalResult.signatureMethod,
+      typedSignature: modalResult.typedSignature,
+      drawnSignatureDataUrl: modalResult.drawnSignatureDataUrl || "",
+      answers: modalResult.answers || {},
+      expectedVersionId: modalResult.expectedVersionId || current.currentVersionId || "",
+      expectedBodyHash: modalResult.expectedBodyHash || current.bodyHash || "",
+    }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not sign staff paperwork.");
+  }
+  if (typeof ensureProgramFormsLoaded === "function") {
+    await ensureProgramFormsLoaded({ force: true }).catch(() => null);
+  }
   return data;
 }
 
@@ -68852,8 +68953,12 @@ document.addEventListener("click", async (event) => {
     if (!documentId) return;
     signFormBtn.disabled = true;
     acknowledgeFamilyHubDocument(documentId)
-      .then(async () => {
-        familyHubParentToast("Form signed. Your provider can see the update.");
+      .then(async (result) => {
+        if (result?.cancelled) {
+          signFormBtn.disabled = false;
+          return;
+        }
+        familyHubParentToast("Form signed electronically. Your provider can see the Signature Record.");
         await loadFamilyHubParentDashboard({
           panel: "forms",
           childId: familyHubParentState.childId || "",
@@ -68862,6 +68967,37 @@ document.addEventListener("click", async (event) => {
       .catch((error) => {
         signFormBtn.disabled = false;
         familyHubParentToast(error.message || "Could not sign this form.");
+        if (/updated\. Please review/i.test(String(error.message || ""))) {
+          loadFamilyHubParentDashboard({
+            panel: "forms",
+            childId: familyHubParentState.childId || "",
+          }).catch(() => null);
+        }
+      });
+    return;
+  }
+
+  const myPaperworkSignBtn = event.target.closest("[data-my-paperwork-sign]");
+  if (myPaperworkSignBtn) {
+    event.preventDefault();
+    const documentId = String(myPaperworkSignBtn.getAttribute("data-my-paperwork-sign") || "").trim();
+    if (!documentId) return;
+    myPaperworkSignBtn.disabled = true;
+    signStaffPaperworkDocument(documentId)
+      .then(async (result) => {
+        if (result?.cancelled) {
+          myPaperworkSignBtn.disabled = false;
+          return;
+        }
+        showActionFeedback("Staff paperwork signed electronically.");
+        if (typeof ensureProgramFormsLoaded === "function") {
+          await ensureProgramFormsLoaded({ force: true }).catch(() => null);
+        }
+        renderApp();
+      })
+      .catch((error) => {
+        myPaperworkSignBtn.disabled = false;
+        showActionFeedback(error.message || "Could not sign staff paperwork.");
       });
     return;
   }

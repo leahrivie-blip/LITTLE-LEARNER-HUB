@@ -189,12 +189,20 @@ function documentNeedsParentAction(status = "") {
 }
 
 function publicFamilyDocument(doc = {}) {
-  const status = String(doc.status || "needed").trim() || "needed";
-  const signed = Boolean(doc.signedAt) || /^(signed|submitted|completed|on_file|on file|reviewed)\b/i.test(status);
-  const bodyText = String(doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "").trim();
+  const formsSignatureLib = require("./forms-signature-lib.js");
+  const ensured = formsSignatureLib.ensureDocumentVersions(doc);
+  const { current } = formsSignatureLib.getCurrentVersion(ensured);
+  const status = String(ensured.status || doc.status || "needed").trim() || "needed";
+  const signed = Boolean(ensured.signedAt) || /^(signed|submitted|completed|on_file|on file|reviewed)\b/i.test(status);
+  const bodyText = String(
+    current?.bodyText || ensured.draftText || doc.draftText || doc.bodyText || doc.signedSnapshot || doc.content || "",
+  ).trim();
   const assignmentScope = String(doc.assignmentScope || "child").trim().toLowerCase() === "household"
     ? "household"
     : "child";
+  const fields = Array.isArray(current?.fields)
+    ? current.fields
+    : (Array.isArray(ensured.fields) ? ensured.fields : (Array.isArray(doc.fields) ? doc.fields : []));
   return {
     id: String(doc.id || ""),
     childId: String(doc.childId || ""),
@@ -205,25 +213,33 @@ function publicFamilyDocument(doc = {}) {
     title: String(doc.title || "Form").trim() || "Form",
     category: String(doc.category || "Other").trim() || "Other",
     status,
-    statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
+    statusLabel: String(ensured.statusLabel || doc.statusLabel || doc.status || "Needed").trim() || "Needed",
     notes: String(doc.notes || doc.summary || "").trim(),
     bodyText: bodyText.slice(0, 12000),
+    fields,
+    answers: (current?.answers && typeof current.answers === "object")
+      ? current.answers
+      : (ensured.answers && typeof ensured.answers === "object" ? ensured.answers : {}),
     parentProgressText: String(doc.parentProgressText || "").trim().slice(0, 12000),
     dueDate: String(doc.dueDate || "").trim(),
     assignedAt: String(doc.assignedAt || doc.createdAt || "").trim(),
-    updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
-    signedAt: String(doc.signedAt || "").trim(),
-    signedBy: String(doc.signedBy || "").trim(),
-    signedRole: String(doc.signedRole || "").trim(),
-    contentVersion: Number(doc.contentVersion || 1),
-    bodyHash: String(doc.bodyHash || "").trim(),
-    providerReviewed: Boolean(doc.providerReviewed),
+    updatedAt: String(ensured.updatedAt || doc.updatedAt || doc.createdAt || "").trim(),
+    signedAt: String(ensured.signedAt || "").trim(),
+    signedBy: String(ensured.signedBy || "").trim(),
+    signedRole: String(ensured.signedRole || "").trim(),
+    signatureMethod: String(ensured.signatureMethod || current?.signature?.method || "").trim(),
+    contentVersion: Number(ensured.contentVersion || doc.contentVersion || 1),
+    currentVersionId: String(ensured.currentVersionId || current?.id || "").trim(),
+    bodyHash: String(ensured.bodyHash || current?.bodyHash || doc.bodyHash || "").trim(),
+    providerReviewed: Boolean(ensured.providerReviewed || doc.providerReviewed),
     requiresSignature: doc.requiresSignature !== false,
     // Wave 1: expose strict boolean only — null/missing is NOT shared.
     shareWithFamily: doc?.shareWithFamily === true || doc?.shareWithFamily === "true",
     canAcknowledge: documentNeedsParentAction(status) && !signed,
     canSaveProgress: documentNeedsParentAction(status) && !signed,
     viewOnly: !(documentNeedsParentAction(status) && !signed),
+    // Version summaries for Family Hub — no raw IP / drawn payloads.
+    versions: (ensured.versions || []).map((ver) => formsSignatureLib.publicVersionSummary(ver)),
   };
 }
 

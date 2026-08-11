@@ -382,6 +382,142 @@ function createProgramFormsRoutes({
     });
   }
 
+  async function handleSignStaffDocument(request, response, documentId) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid sign payload." });
+      return;
+    }
+    const actor = actorFromContext(context, identity);
+    // Ignore forged assignee identity from the client.
+    if (body && Object.prototype.hasOwnProperty.call(body, "assigneeEmail")) {
+      delete body.assigneeEmail;
+    }
+    if (body && Object.prototype.hasOwnProperty.call(body, "signerUserId")) {
+      delete body.signerUserId;
+    }
+    try {
+      const result = programFormsLib.signStaffDocument(store, context, documentId, body || {}, {
+        actorUserId: actor.actorUserId,
+        actorRole: actor.actorRole,
+        ipHash: programFormsLib.hashRequestIp(request),
+      });
+      await respondAfterPersist(store, response, 200, {
+        ok: true,
+        testingOnly: true,
+        idempotentReplay: Boolean(result.idempotentReplay),
+        staffDocument: formsLibPublicStaff(result.staffDocument),
+      }, "Could not save staff signature.");
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Could not sign staff paperwork.",
+        code: error.code || "sign_failed",
+        missingFields: error.missingFields || undefined,
+        currentVersionId: error.currentVersionId || undefined,
+        currentBodyHash: error.currentBodyHash || undefined,
+      });
+    }
+  }
+
+  function formsLibPublicStaff(doc) {
+    const formsLib = require("./forms-lib.js");
+    return formsLib.publicStaffFormDocument(doc);
+  }
+
+  function childDataWriter(store, context) {
+    return (mutator) => {
+      const saved = programOwnership.readProgramChildData(store, context);
+      const childData = saved?.data && typeof saved.data === "object" ? { ...saved.data } : {};
+      const docs = Array.isArray(childData.Documents) ? childData.Documents.slice() : [];
+      const result = mutator(docs);
+      childData.Documents = result.docs;
+      programOwnership.writeProgramChildData(store, context, childData);
+      return result;
+    };
+  }
+
+  async function handleVoidVersion(request, response) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid void payload." });
+      return;
+    }
+    const actor = actorFromContext(context, identity);
+    try {
+      const result = programFormsLib.voidSignedDocumentVersion(store, context, {
+        documentId: body?.documentId || body?.id,
+        assigneeType: body?.assigneeType === "child" || body?.assigneeType === "family" ? "child" : "staff",
+        voidReason: body?.voidReason || body?.reason || "",
+        actorUserId: actor.actorUserId,
+        actorRole: actor.actorRole,
+        childDataWrite: childDataWriter(store, context),
+      });
+      await respondAfterPersist(store, response, 200, {
+        ok: true,
+        testingOnly: true,
+        assigneeType: result.assigneeType,
+        document: result.assigneeType === "staff"
+          ? formsLibPublicStaff(result.document)
+          : result.document,
+      }, "Could not void signed version.");
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Could not void signed version.",
+        code: error.code || "void_failed",
+      });
+    }
+  }
+
+  async function handleSupersedeVersion(request, response) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (_error) {
+      jsonResponse(response, 400, { error: "Invalid supersede payload." });
+      return;
+    }
+    const actor = actorFromContext(context, identity);
+    try {
+      const result = programFormsLib.supersedeSignedDocument(store, context, {
+        documentId: body?.documentId || body?.id,
+        assigneeType: body?.assigneeType === "child" || body?.assigneeType === "family" ? "child" : "staff",
+        nextBody: body?.nextBody != null ? body.nextBody : body?.draftText,
+        nextFields: body?.nextFields || body?.fields || null,
+        reason: body?.reason || body?.voidReason || "",
+        voidPrior: body?.voidPrior === true,
+        actorUserId: actor.actorUserId,
+        actorRole: actor.actorRole,
+        childDataWrite: childDataWriter(store, context),
+      });
+      await respondAfterPersist(store, response, 200, {
+        ok: true,
+        testingOnly: true,
+        assigneeType: result.assigneeType,
+        document: result.assigneeType === "staff"
+          ? formsLibPublicStaff(result.document)
+          : result.document,
+      }, "Could not supersede signed version.");
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Could not supersede signed version.",
+        code: error.code || "supersede_failed",
+      });
+    }
+  }
+
   function match(method, pathname) {
     if (pathname === "/api/program-forms" && method === "GET") return handleGetProgramForms;
     if (pathname === "/api/program-forms/migrate" && method === "POST") return handleMigrateProgramForms;
@@ -392,6 +528,13 @@ function createProgramFormsRoutes({
     if (pathname === "/api/program-forms/assign/validate" && method === "POST") return handleValidateAssignment;
     if (pathname === "/api/program-forms/assign/preview" && method === "POST") return handlePreviewAssignment;
     if (pathname === "/api/program-forms/assign/confirm-send" && method === "POST") return handleConfirmSendAssignment;
+    if (pathname === "/api/program-forms/versions/void" && method === "POST") return handleVoidVersion;
+    if (pathname === "/api/program-forms/versions/supersede" && method === "POST") return handleSupersedeVersion;
+    const staffSignMatch = pathname.match(/^\/api\/program-forms\/staff-documents\/([^/]+)\/sign$/);
+    if (staffSignMatch && method === "POST") {
+      const documentId = decodeURIComponent(staffSignMatch[1]);
+      return (req, res) => handleSignStaffDocument(req, res, documentId);
+    }
     if (pathname === "/api/program-forms/audit" && method === "GET") {
       return (req, res, url) => handleGetFormsAudit(req, res, url);
     }

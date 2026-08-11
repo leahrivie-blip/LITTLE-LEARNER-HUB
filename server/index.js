@@ -14451,6 +14451,8 @@ const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const familyHubLib = require("./family-hub-lib");
 const formsLib = require("./forms-lib");
+const formsSignatureLib = require("./forms-signature-lib");
+const programFormsLib = require("./program-forms-lib");
 const { createProgramFormsRoutes } = require("./program-forms-routes");
 const tuitionBilling = require("./tuition-billing-lib");
 const LLH_ALLOW_EPHEMERAL_FAMILY_HUB = ["1", "true", "yes", "on"].includes(
@@ -15767,18 +15769,23 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   const { household, store, token, session } = resolved;
   touchFamilySession(store, token, session);
   // Phase 6: membership = childIds ∪ children; only family-shared docs may be acknowledged.
+  // Wave 5: signer identity is ALWAYS session-derived (client signerUserId ignored).
   const childIds = familyHubHouseholdChildIdSet(household);
-  const signerName = String(
-    body?.signerName
-    || session?.email
+  const signerUserId = normalizeEmail(session?.email || household.email || "");
+  const displayName = String(
+    body?.typedSignature
+    || body?.signerName
     || household.settings?.preferredName
     || household.label
+    || session?.email
     || household.email
     || "Parent",
   ).trim().slice(0, 120);
-  const signedRole = String(body?.signedRole || body?.relationship || "guardian").trim().slice(0, 80) || "guardian";
+  const signedRole = "guardian";
   const now = new Date().toISOString();
+  const ipHash = formsSignatureLib.hashRequestIp(request);
   let updatedDoc = null;
+  let idempotentReplay = false;
 
   const ownerEmail = normalizeEmail(household.ownerEmail);
   const ownerUser = store.users?.[ownerEmail] || { email: ownerEmail };
@@ -15801,28 +15808,97 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
       return true;
     });
     if (index >= 0) {
-      const current = docs[index];
-      // Idempotent: same signer + same body hash → return existing signature (no duplicate).
-      const bodyText = String(current.draftText || current.bodyText || current.signedSnapshot || "").trim();
-      const currentHash = String(current.bodyHash || formsLib.hashFormBody(bodyText));
-      if (current.signedAt && String(current.signedBodyHash || current.bodyHash || "") === currentHash) {
-        updatedDoc = current;
-      } else {
-        const signature = formsLib.buildSignatureRecord({
-          ...current,
-          draftText: bodyText,
-          bodyHash: currentHash,
-          contentVersion: Number(current.contentVersion || 1),
-        }, { signerName, signedRole, signedAt: now });
-        docs[index] = {
-          ...current,
-          ...signature,
-          notes: String(current.notes || "").trim()
-            || "Parent signed this form in Family Hub (testing acknowledgment).",
-        };
-        childData.Documents = docs;
-        programOwnership.writeProgramChildData(store, context, childData);
-        updatedDoc = docs[index];
+      try {
+        const current = formsSignatureLib.ensureDocumentVersions(docs[index]);
+        if (current.requiresSignature === false && body?.forceSignature !== true) {
+          // Still allow acknowledgment_text submit path for shared forms that are "acknowledge only".
+        }
+        const answers = formsSignatureLib.sanitizeAnswers(body?.answers || current.answers || {});
+        formsSignatureLib.validateRequiredAnswers(current.fields || [], answers);
+        const bodyText = String(current.draftText || current.bodyText || current.signedSnapshot || "").trim();
+        const currentHash = String(current.bodyHash || formsLib.hashFormBody(bodyText));
+        const expectedVersionId = String(body?.expectedVersionId || body?.versionId || "").trim();
+        const expectedBodyHash = String(body?.expectedBodyHash || body?.bodyHash || "").trim();
+        if (formsSignatureLib.isIdempotentResign(current, {
+          signerUserId,
+          expectedBodyHash: expectedBodyHash || currentHash,
+        })) {
+          updatedDoc = current;
+          idempotentReplay = true;
+        } else {
+          const working = {
+            ...current,
+            draftText: bodyText,
+            bodyHash: currentHash,
+            answers,
+            contentVersion: Number(current.contentVersion || 1),
+          };
+          const signature = formsLib.buildSignatureRecord(working, {
+            signerName: displayName,
+            typedSignature: body?.typedSignature || displayName,
+            signedRole,
+            signedAt: now,
+            signatureMethod: body?.signatureMethod || body?.method || "acknowledgment_text",
+            signerUserId,
+            drawnSignatureDataUrl: body?.drawnSignatureDataUrl || "",
+            versionId: expectedVersionId || working.currentVersionId || "",
+            ipHash,
+            programId: context.programId || "",
+            householdId: household.id || "",
+            childId: working.childId || "",
+            assignmentId: working.id || id,
+            answers,
+          });
+          const frozen = formsSignatureLib.attachSignatureToVersion(working, signature, {
+            expectedVersionId,
+            expectedBodyHash,
+          });
+          docs[index] = {
+            ...frozen,
+            notes: String(current.notes || "").trim()
+              || "Parent signed this form in Family Hub (electronic signature record).",
+          };
+          childData.Documents = docs;
+          programOwnership.writeProgramChildData(store, context, childData);
+          updatedDoc = docs[index];
+          programFormsLib.appendFormsAudit(store, {
+            programId: context.programId,
+            action: "SIGNED",
+            actorUserId: signerUserId,
+            actorRole: "guardian",
+            documentId: id,
+            versionId: updatedDoc.currentVersionId || "",
+            childId: updatedDoc.childId || "",
+            householdId: household.id || "",
+            meta: {
+              mode: signature.signatureMethod,
+              contentVersion: updatedDoc.contentVersion,
+              ipHash,
+            },
+            detail: "Family Hub electronic signature",
+          });
+          programFormsLib.appendFormsAudit(store, {
+            programId: context.programId,
+            action: "SUBMITTED",
+            actorUserId: signerUserId,
+            actorRole: "guardian",
+            documentId: id,
+            versionId: updatedDoc.currentVersionId || "",
+            childId: updatedDoc.childId || "",
+            householdId: household.id || "",
+            detail: "Submitted after electronic signature",
+          });
+        }
+      } catch (error) {
+        jsonResponse(response, error.status || 400, {
+          error: error.message || "Could not sign this form.",
+          code: error.code || "sign_failed",
+          missingFields: error.missingFields || undefined,
+          currentVersionId: error.currentVersionId || undefined,
+          currentBodyHash: error.currentBodyHash || undefined,
+          testingOnly: true,
+        });
+        return;
       }
     }
   }
@@ -15842,8 +15918,12 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
       status: updatedDoc?.status || formsLib.FORM_STATUSES.SUBMITTED,
       statusLabel: updatedDoc?.statusLabel || formsLib.formStatusLabel(formsLib.FORM_STATUSES.SUBMITTED),
       signedAt: updatedDoc?.signedAt || now,
-      signedBy: updatedDoc?.signedBy || signerName,
+      signedBy: updatedDoc?.signedBy || displayName,
       signedRole: updatedDoc?.signedRole || signedRole,
+      signatureMethod: updatedDoc?.signatureMethod || "",
+      currentVersionId: updatedDoc?.currentVersionId || "",
+      bodyHash: updatedDoc?.bodyHash || householdDocs[householdIndex].bodyHash || "",
+      contentVersion: updatedDoc?.contentVersion || householdDocs[householdIndex].contentVersion || 1,
       updatedAt: now,
     };
     household.documents = householdDocs;
@@ -15857,8 +15937,10 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
       status: updatedDoc.status || formsLib.FORM_STATUSES.SUBMITTED,
       statusLabel: updatedDoc.statusLabel || "Submitted",
       signedAt: updatedDoc.signedAt || now,
-      signedBy: updatedDoc.signedBy || signerName,
+      signedBy: updatedDoc.signedBy || displayName,
       signedRole: updatedDoc.signedRole || signedRole,
+      signatureMethod: updatedDoc.signatureMethod || "",
+      currentVersionId: updatedDoc.currentVersionId || "",
       updatedAt: now,
       notes: updatedDoc.notes || "",
       shareWithFamily: true,
@@ -15874,19 +15956,21 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   }
 
   store.familyHouseholds[household.id] = household;
-  store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
-  store.familyHubNotifications.unshift({
-    id: `fh-notif-form-${Date.now().toString(36)}`,
-    householdId: household.id,
-    type: "form_signed",
-    title: "Form signed — review needed",
-    body: `${signerName} signed “${updatedDoc.title || "Form"}”. Open the child’s Forms & Records to review and print.`,
-    href: "forms",
-    childId: updatedDoc.childId || "",
-    read: false,
-    createdAt: now,
-    audience: "provider",
-  });
+  if (!idempotentReplay) {
+    store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
+    store.familyHubNotifications.unshift({
+      id: `fh-notif-form-${Date.now().toString(36)}`,
+      householdId: household.id,
+      type: "form_signed",
+      title: "Form signed — review needed",
+      body: `${displayName} signed “${updatedDoc.title || "Form"}”. Open the child’s Forms & Records to review and print.`,
+      href: "forms",
+      childId: updatedDoc.childId || "",
+      read: false,
+      createdAt: now,
+      audience: "provider",
+    });
+  }
 
   try {
     await persistFamilyHubStore(store);
@@ -15902,6 +15986,7 @@ async function handleFamilyHubDocumentAcknowledge(request, response, documentId)
   jsonResponse(response, 200, {
     ok: true,
     testingOnly: true,
+    idempotentReplay,
     document: familyHubLib.publicFamilyDocument(updatedDoc),
   });
 }
