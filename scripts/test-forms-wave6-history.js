@@ -120,7 +120,7 @@ function sourceMarkers() {
   );
   assert.match(appJs, /LLHFormsDocumentDetail|openPaperworkDocumentDetail|data-open-document-detail/);
   assert.match(indexHtml, /forms-document-detail\.js/);
-  assert.match(indexHtml, /20260811-forms-wave7-uploads1/);
+  assert.match(indexHtml, /20260811-forms-wave8-closeout1/);
   assert.match(detailJs, /SUPERSEDED \/ HISTORICAL VERSION|Signed Electronically|renderCompletedRecordPrintHtml/);
   // No Teaching Kit PDF rewrite
   assert.doesNotMatch(detailJs, /teaching-kit-print|buildTrialWatermarkedPdfBuffer/);

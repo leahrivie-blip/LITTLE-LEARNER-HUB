@@ -134,7 +134,7 @@ function sourceMarkers() {
   assert.match(formsLib, /UPLOADED/);
   assert.match(appJs, /data-upload-document|remindPaperworkDocument|openPaperworkUploadModal|formsProgramDocuments/);
   assert.match(indexHtml, /forms-upload-ui\.js/);
-  assert.match(indexHtml, /20260811-forms-wave7-uploads1/);
+  assert.match(indexHtml, /20260811-forms-wave8-closeout1/);
   assert.match(uploadUi, /selectedFile|LLHFormsDirtyState|idempotencyKey/);
   assert.match(surfaces, /expiring_soon|documentExpirationState|programDocuments/);
   assert.doesNotMatch(

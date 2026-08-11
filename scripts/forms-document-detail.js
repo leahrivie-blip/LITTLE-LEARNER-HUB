@@ -178,6 +178,8 @@
             ${isUpload
               ? `<button type="button" class="primary-button" data-llh-doc-open-upload ${!doc.mediaUrl ? "disabled" : ""} data-media-url="${escapeHtml(doc.mediaUrl || "")}">Preview / download file</button>`
               : `<button type="button" class="primary-button" data-llh-doc-print-current ${caps.canPrint === false ? "disabled" : ""}>Print / download completed record</button>`}
+            ${caps.canCorrectReissue ? `<button type="button" class="ghost-button" data-llh-doc-correct-reissue>Correct / reissue</button>` : ""}
+            ${caps.canVoid ? `<button type="button" class="ghost-button llh-doc-void-btn" data-llh-doc-void>Void signed version</button>` : ""}
             <button type="button" class="ghost-button" data-llh-doc-detail-close>Done</button>
           </footer>
         </div>
@@ -460,6 +462,126 @@
             global.showActionFeedback(err.message || "Could not open version record.");
           }
         });
+        return;
+      }
+
+      // Wave 8 — Owner/Director void / correct-reissue from the same detail panel.
+      const voidBtn = event.target.closest("[data-llh-doc-void]");
+      if (voidBtn) {
+        event.preventDefault();
+        if (!detail.capabilities?.canVoid) return;
+        const reason = window.prompt("Void reason (required). This keeps the signed history but marks it VOIDED.");
+        if (reason == null) return;
+        const trimmed = String(reason || "").trim();
+        if (!trimmed) {
+          if (typeof global.showActionFeedback === "function") {
+            global.showActionFeedback("A void reason is required.");
+          }
+          return;
+        }
+        voidBtn.disabled = true;
+        voidBtn.textContent = "Voiding…";
+        (async () => {
+          try {
+            const headers = typeof getStaffHeaders === "function" ? await getStaffHeaders() : {};
+            const res = await fetch("/api/program-forms/versions/void", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" },
+              body: JSON.stringify({
+                documentId,
+                assigneeType: assigneeType || detail.document?.assigneeType || "child",
+                voidReason: trimmed,
+              }),
+              cache: "no-store",
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || "Could not void signed version.");
+            if (typeof global.showActionFeedback === "function") {
+              global.showActionFeedback("Signed version voided. History kept.");
+            }
+            teardown();
+            if (typeof options.onChanged === "function") options.onChanged({ action: "void", document: json.document });
+            else {
+              await openCanonicalDocumentDetail({
+                documentId,
+                assigneeType: assigneeType || detail.document?.assigneeType || "",
+                surface,
+                getStaffHeaders,
+                getFamilyHeaders,
+                onChanged: options.onChanged,
+              });
+            }
+          } catch (err) {
+            voidBtn.disabled = false;
+            voidBtn.textContent = "Void signed version";
+            if (typeof global.showActionFeedback === "function") {
+              global.showActionFeedback(err.message || "Could not void signed version.");
+            }
+          }
+        })();
+        return;
+      }
+
+      const correctBtn = event.target.closest("[data-llh-doc-correct-reissue]");
+      if (correctBtn) {
+        event.preventDefault();
+        if (!detail.capabilities?.canCorrectReissue) return;
+        const reason = window.prompt("Correction reason (required). Creates a new unsigned version and voids the prior signed one.");
+        if (reason == null) return;
+        const trimmed = String(reason || "").trim();
+        if (!trimmed) {
+          if (typeof global.showActionFeedback === "function") {
+            global.showActionFeedback("A correction reason is required.");
+          }
+          return;
+        }
+        const nextBody = window.prompt(
+          "Updated form text for the new version (edit as needed):",
+          String(detail.document?.bodyPreview || ""),
+        );
+        if (nextBody == null) return;
+        correctBtn.disabled = true;
+        correctBtn.textContent = "Reissuing…";
+        (async () => {
+          try {
+            const headers = typeof getStaffHeaders === "function" ? await getStaffHeaders() : {};
+            const res = await fetch("/api/program-forms/versions/supersede", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" },
+              body: JSON.stringify({
+                documentId,
+                assigneeType: assigneeType || detail.document?.assigneeType || "child",
+                reason: trimmed,
+                nextBody: String(nextBody || ""),
+                voidPrior: true,
+              }),
+              cache: "no-store",
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || "Could not correct / reissue.");
+            if (typeof global.showActionFeedback === "function") {
+              global.showActionFeedback("New version created. Prior signature voided — recipient must resign.");
+            }
+            teardown();
+            if (typeof options.onChanged === "function") options.onChanged({ action: "supersede", document: json.document });
+            else {
+              await openCanonicalDocumentDetail({
+                documentId,
+                assigneeType: assigneeType || detail.document?.assigneeType || "",
+                surface,
+                getStaffHeaders,
+                getFamilyHeaders,
+                onChanged: options.onChanged,
+              });
+            }
+          } catch (err) {
+            correctBtn.disabled = false;
+            correctBtn.textContent = "Correct / reissue";
+            if (typeof global.showActionFeedback === "function") {
+              global.showActionFeedback(err.message || "Could not correct / reissue.");
+            }
+          }
+        })();
       }
     });
     return detail;

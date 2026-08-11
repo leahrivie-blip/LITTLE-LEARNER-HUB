@@ -124,7 +124,7 @@ function sourceMarkers() {
   assert.match(appJs, /LLHFormsSignatureUi/);
   assert.match(appJs, /signStaffPaperworkDocument/);
   assert.match(indexHtml, /forms-signature-ui\.js/);
-  assert.match(indexHtml, /20260811-forms-wave7-uploads1/);
+  assert.match(indexHtml, /20260811-forms-wave8-closeout1/);
   // Phase 9: AI must never auto-sign
   assert.doesNotMatch(appJs, /AI[\s\S]{0,40}auto[\s\S]{0,20}sign|signForParent\(/i);
   pass("source_markers_wave5_and_memory_guard");

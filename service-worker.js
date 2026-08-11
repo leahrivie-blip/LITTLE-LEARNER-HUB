@@ -1,5 +1,5 @@
-const CACHE_NAME = "llh-shell-v233-forms-wave7-uploads1";
-const SHELL_VERSION = "20260811-forms-wave7-uploads1";
+const CACHE_NAME = "llh-shell-v234-forms-wave8-closeout1";
+const SHELL_VERSION = "20260811-forms-wave8-closeout1";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const INVITE_NAV_TIMEOUT_MS = 15000;
@@ -7,8 +7,8 @@ const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260811-forms-wave7-uploads1",
-  "/styles/llh-admin-workspace.css?v=20260811-forms-wave7-uploads1",
+  "/styles.css?v=20260811-forms-wave8-closeout1",
+  "/styles/llh-admin-workspace.css?v=20260811-forms-wave8-closeout1",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260808-cookie-cta",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -48,7 +48,7 @@ const APP_SHELL = [
   "/scripts/teaching-kit-quality-review-ui.js?v=20260803-tk-quality-review",
   "/scripts/teaching-kit-enrichment-editor.js?v=20260806-tk-editor-spacing-r3",
   "/scripts/teaching-kit-authoring.js?v=20260803-tk-authoring",
-  "/app.js?v=20260811-forms-wave7-uploads1",
+  "/app.js?v=20260811-forms-wave8-closeout1",
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260806-tk-admin-flags-settings",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",

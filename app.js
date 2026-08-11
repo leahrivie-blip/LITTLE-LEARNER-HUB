@@ -10124,6 +10124,9 @@ function renderFormsAttentionPanel() {
         <label>Due to
           <input type="date" name="dueTo" data-paperwork-filter="dueTo" value="${escapeHtml(paperworkHqState.dueTo || "")}" />
         </label>
+        <div class="paperwork-hq-filter-actions">
+          <button class="ghost-button" type="button" data-paperwork-clear-filters>Clear filters</button>
+        </div>
       </form>
       <div class="account-actions-row paperwork-hq-toolbar" style="margin-bottom:12px;">
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
@@ -69495,6 +69498,26 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-paperwork-clear-filters]")) {
+    event.preventDefault();
+    paperworkHqState = {
+      ...paperworkHqState,
+      query: "",
+      childId: "",
+      family: "",
+      staffEmail: "",
+      classroomId: "",
+      formType: "",
+      status: "all",
+      dueFrom: "",
+      dueTo: "",
+    };
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("paperworkHqFilters");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    queueMicrotask(() => document.querySelector("#hdhFormsAttentionPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return;
+  }
+
   const childDocsBucketBtn = event.target.closest("[data-child-docs-bucket]");
   if (childDocsBucketBtn) {
     event.preventDefault();
@@ -69996,6 +70019,10 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-fb-close]")) {
     event.preventDefault();
+    if (window.LlhFormsDirtyState?.hasDirty?.("formBuilder")) {
+      const leave = window.confirm("You have unsaved form edits. Close without saving?");
+      if (!leave) return;
+    }
     if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("formBuilder");
     formBuilderState.open = false;
     formBuilderState.previewOpen = false;

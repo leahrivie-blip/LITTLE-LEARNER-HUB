@@ -474,6 +474,18 @@ function buildDocumentDetailDto({
       canOpenCompletedRecord: isUpload
         ? Boolean(ensured.mediaUrl || ensured.fileUrl || ensured.mediaAssetId)
         : Boolean(sig?.signedAt || formsLib.isTerminalFormStatus?.(ensured.status)),
+      // Wave 8 closeout — Owner/Director management actions (server-gated; UI hints only).
+      canVoid: Boolean(
+        !isUpload
+        && auth.level === "director"
+        && sig?.signedAt
+        && !(current && current.voided)
+      ),
+      canCorrectReissue: Boolean(
+        !isUpload
+        && auth.level === "director"
+        && sig?.signedAt
+      ),
       isUploadedDocument: Boolean(isUpload),
       accessLevel: auth.level,
     },

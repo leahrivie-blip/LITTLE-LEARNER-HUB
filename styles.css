@@ -23586,6 +23586,16 @@ body.hdh-persona-parent .main {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+.paperwork-hq-filter-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.llh-doc-void-btn {
+  color: #8a2f2f;
+}
+
 .paperwork-hq-row,
 .paperwork-hq-actions {
   max-width: 100%;

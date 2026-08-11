@@ -106,6 +106,26 @@
     return restored;
   }
 
+  function hasDirty(formId = "") {
+    const prefix = formId ? `${String(formId).trim()}::` : "";
+    for (const [key, row] of store.entries()) {
+      if (!row || !row.dirty) continue;
+      if (!prefix || key.startsWith(prefix)) return true;
+    }
+    return false;
+  }
+
+  function installLeaveGuard() {
+    if (typeof window === "undefined" || window.__llhFormsDirtyLeaveGuard) return;
+    window.__llhFormsDirtyLeaveGuard = true;
+    window.addEventListener("beforeunload", (event) => {
+      // Wave 8 — warn on browser close/refresh when builder/assign drafts are dirty.
+      if (!hasDirty("formBuilder") && !hasDirty("assignFlow")) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+  }
+
   const api = {
     touch,
     get,
@@ -115,9 +135,16 @@
     applyIfNotStale,
     captureFormDrafts,
     restoreFormDrafts,
+    hasDirty,
+    installLeaveGuard,
     _store: store,
   };
 
   global.FormsDirtyState = api;
+  global.LlhFormsDirtyState = api;
+  global.LLHFormsDirtyState = api;
+  if (typeof window !== "undefined") {
+    try { installLeaveGuard(); } catch (_e) { /* ignore */ }
+  }
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
