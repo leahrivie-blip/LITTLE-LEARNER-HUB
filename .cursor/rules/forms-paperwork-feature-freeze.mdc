@@ -1,0 +1,42 @@
+---
+description: Forms & Paperwork feature freeze — bug-fix only after Wave 8 acceptance
+alwaysApply: true
+---
+
+# Forms & Paperwork — FEATURE FREEZE
+
+Accepted **TESTING** baseline (do not regress):
+
+- Commit: `1fb141e`
+- Deploy: `dep-d9tog2rm8hqs73dms7f0`
+- Shell: `20260811-forms-wave8-closeout1`
+- Cache: `llh-shell-v234-forms-wave8-closeout1`
+- Draft PR: #633 (Wave 8 closeout)
+- Waves 1–8 suites must remain PASS
+
+## Freeze rule
+
+Forms/Paperwork is **feature-frozen**. Changes are **BUG-FIX ONLY** unless the owner explicitly approves a new feature in the conversation.
+
+Protected surfaces include (non-exhaustive): `app.js` Forms/Paperwork HQ/builder/assign/Family Hub/staff paperwork paths; `scripts/paperwork-surfaces.js`, `forms-*.js`, `form-builder-lib.js`; `server/forms-*.js`, `program-forms-*.js`, Family Hub authorization for documents; `scripts/test-forms-wave1-*.js` through `test-forms-wave8-closeout.js`; shell/manifest/service-worker version pins for the Wave 8 shell.
+
+## Forbidden without explicit owner approval
+
+- Wave 9 or any new Forms feature wave
+- Redesign / architecture rewrite / second Forms store
+- Automatic reminders, compliance engine, multi-signer/witness
+- Uploaded-document replacement/versioning, new PDF engine
+- Replacing working Forms logic “for cleanup”
+- Polishing prompt-based Void / Correct & Reissue unless testers mark it a usability blocker
+- Production deploy/merge of Forms as part of freeze work
+- Merging PR #590 as part of Forms work
+
+## Allowed
+
+- Genuine blocker / security / data-integrity / major UX-confusion bug fixes from supervised testing (categories 1–3)
+- Minimal, modular, isolated diffs; preserve strict auth and isolation
+- Continuing to treat PR #626 memory protections as mandatory (no `structuredClone(storeCache)` on hot paths; do not retain upload buffers)
+
+## Next priority (not Forms)
+
+Real-provider supervised testing of the **complete** Little Learner Hub testing experience. Collect feedback before coding; only categories 1–3 interrupt the cycle. Preserve the testing site baseline while testers use it.
