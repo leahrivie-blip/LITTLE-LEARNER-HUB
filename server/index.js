@@ -2749,6 +2749,14 @@ const CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS = Math.max(
   5_000,
   Math.min(120_000, Number(process.env.CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS) || 30_000),
 );
+/** Keep this tiny — each entry can retain a ~1MB activities DTO graph. */
+const CURRICULUM_LIBRARY_DTO_CACHE_MAX_ENTRIES = Math.max(
+  2,
+  Math.min(6, Number(process.env.CURRICULUM_LIBRARY_DTO_CACHE_MAX_ENTRIES) || 3),
+);
+/** Ephemeral testing-only diagnostics token (logged once at boot; not a long-lived secret). */
+const TESTING_MEMORY_BOOT_TOKEN = crypto.randomBytes(24).toString("hex");
+const PROCESS_STARTED_AT_ISO = new Date().toISOString();
 
 function curriculumLibraryDtoCacheKey(kind, siteContent, accessContext = {}) {
   const updatedAt = siteContent?.curriculum?.updatedAt || siteContent?.updatedAt || "";
@@ -2763,7 +2771,7 @@ function withCurriculumLibraryDtoCache(cacheKey, build) {
   if (hit && hit.expiresAt > now) return hit.value;
   const value = build();
   curriculumLibraryDtoCache.set(cacheKey, { expiresAt: now + CURRICULUM_LIBRARY_DTO_CACHE_TTL_MS, value });
-  if (curriculumLibraryDtoCache.size > 12) {
+  while (curriculumLibraryDtoCache.size > CURRICULUM_LIBRARY_DTO_CACHE_MAX_ENTRIES) {
     const oldest = curriculumLibraryDtoCache.keys().next().value;
     curriculumLibraryDtoCache.delete(oldest);
   }
@@ -4292,9 +4300,23 @@ function ensureStore() {
 }
 
 function readStore() {
-  if (usePostgresStore()) return structuredClone(storeCache || defaultStore());
+  if (usePostgresStore()) {
+    // Return the shared in-memory document. Full structuredClone of the multi-MB
+    // Postgres-backed store under concurrent requests OOMed the Render free tier
+    // (512Mi) on 2026-08-11. Mutating callers persist via writeStore/writeStoreAsync.
+    // Use cloneStore() only when a true isolated snapshot is required.
+    if (!storeCache) storeCache = defaultStore();
+    return storeCache;
+  }
   ensureStore();
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
+}
+
+/** Deep-clone the store. Expensive — avoid on request hot paths. */
+function cloneStore(store = null) {
+  const source = store || (usePostgresStore() ? (storeCache || defaultStore()) : null);
+  if (source) return structuredClone(source);
+  return readStore();
 }
 
 /** In-process mutable store for helpers that batch writes (deferPersist / webhook flush). */
@@ -4321,7 +4343,8 @@ async function readStoreFresh() {
         console.warn("[store] readStoreFresh fell back to in-memory cache:", error.message || error);
       }
     }
-    return structuredClone(storeCache || defaultStore());
+    // Rare path: callers that asked for a fresh snapshot get an isolated clone.
+    return cloneStore(storeCache || defaultStore());
   }
   return readStore();
 }
@@ -5429,7 +5452,7 @@ function foundingSpotsRemaining(store) {
   return Math.max(FOUNDING_LIMIT - foundingClaimedCount(store), 0);
 }
 
-function foundingStatusPayload(store = readStore()) {
+function foundingStatusPayload(store = peekStore()) {
   seedDefaultPromoCodes(store);
   purgeExpiredFoundingReservations(store);
   const claimed = foundingClaimedCount(store);
@@ -9754,6 +9777,10 @@ function storeHealthSnapshot(store = peekStore()) {
     : {};
   const sparse = userEmails.length > 0 && userEmails.length <= 5;
   const mem = process.memoryUsage();
+  const programData = store.programData && typeof store.programData === "object" ? store.programData : {};
+  const familyHouseholds = store.familyHouseholds && typeof store.familyHouseholds === "object"
+    ? store.familyHouseholds
+    : {};
   return {
     database: {
       provider: DATABASE_PROVIDER,
@@ -9779,12 +9806,21 @@ function storeHealthSnapshot(store = peekStore()) {
       activities: Array.isArray(store.siteContent?.curriculum?.activities)
         ? store.siteContent.curriculum.activities.length
         : 0,
+      formsAudit: Array.isArray(store.formsAudit) ? store.formsAudit.length : 0,
+      formsAuditArchive: Array.isArray(store.formsAuditArchive) ? store.formsAuditArchive.length : 0,
+      ownerTestingAudit: Array.isArray(store.ownerTestingAudit) ? store.ownerTestingAudit.length : 0,
+      membershipAudit: Array.isArray(store.membershipAudit) ? store.membershipAudit.length : 0,
+      programs: Object.keys(programData).length,
+      familyHouseholds: Object.keys(familyHouseholds).length,
     },
     memory: {
       heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
       heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
       rssMb: Math.round(mem.rss / 1024 / 1024),
       externalMb: Math.round((mem.external || 0) / 1024 / 1024),
+      arrayBuffersMb: Math.round((mem.arrayBuffers || 0) / 1024 / 1024),
+      uptimeSec: Math.round(process.uptime()),
+      startedAt: PROCESS_STARTED_AT_ISO,
       maxOldSpaceMb: (() => {
         const match = String(process.env.NODE_OPTIONS || "").match(/--max-old-space-size=(\d+)/);
         return match ? Number(match[1]) : null;
@@ -11601,6 +11637,56 @@ function handleAdminStoreHealth(request, response, url) {
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
 }
 
+function testingMemoryDiagnosticsAuthorized(request, url) {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  const adminToken = extractAdminToken(request, url) || "";
+  if (adminToken && validAdminToken(adminToken)) return true;
+  const provided = String(
+    request.headers["x-llh-diagnostics-token"]
+    || url.searchParams.get("diagnosticsToken")
+    || "",
+  ).trim();
+  if (!provided) return false;
+  const envToken = String(process.env.TESTING_DIAGNOSTICS_TOKEN || "").trim();
+  if (envToken && timingSafeEqualText(provided, envToken)) return true;
+  return timingSafeEqualText(provided, TESTING_MEMORY_BOOT_TOKEN);
+}
+
+/** TESTING-ONLY secured memory snapshot — no PII, no store payloads. */
+function handleTestingMemoryHealth(request, response, url) {
+  if (!isHomeDaycareHubTestingEnabled()) {
+    jsonResponse(response, 404, { error: "Not found." });
+    return;
+  }
+  if (!testingMemoryDiagnosticsAuthorized(request, url)) {
+    jsonResponse(response, 401, {
+      error: "Testing diagnostics authorization required.",
+      code: "testing_diagnostics_unauthorized",
+    });
+    return;
+  }
+  const health = storeHealthSnapshot();
+  const build = buildVersionPayload();
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    build: {
+      commit: build.commit,
+      shortSha: build.shortSha,
+      branch: build.branch,
+      serviceId: build.serviceId,
+      shellVersion: build.shellVersion,
+    },
+    memory: health.memory,
+    counts: health.counts,
+    database: {
+      provider: health.database?.provider,
+      ready: health.database?.ready,
+      usingPostgres: health.database?.usingPostgres,
+    },
+  });
+}
+
 async function getPostgresDatabaseSizeMb() {
   if (!usePostgresStore() || !postgresPool || !databaseReady) return null;
   try {
@@ -11631,11 +11717,29 @@ async function buildProductionMonitoringSnapshot() {
 
 async function runProductionMonitoringTick() {
   const snapshot = await buildProductionMonitoringSnapshot();
+  const memoryCheck = Array.isArray(snapshot?.checks)
+    ? snapshot.checks.find((check) => check?.id === "memory")
+    : null;
+  if (isHomeDaycareHubTestingEnabled()) {
+    const mem = memoryCheck?.value || {};
+    console.log("[testing-memory]", {
+      state: memoryCheck?.state || "unknown",
+      rssMb: mem.rssMb,
+      heapUsedMb: mem.heapUsedMb,
+      externalMb: Math.round((process.memoryUsage().external || 0) / 1024 / 1024),
+      uptimeSec: Math.round(process.uptime()),
+      detail: memoryCheck?.detail || "",
+    });
+  }
   const due = productionMonitoring.alertsDue(snapshot);
   if (!due.length) return snapshot;
   const emailStatus = supportEmailConfigStatus();
   if (!emailStatus.ready) {
-    console.warn("[production-monitoring] alerts due but email is not configured:", due.map((c) => c.id).join(", "));
+    console.warn(
+      "[production-monitoring] alerts due but email is not configured:",
+      due.map((c) => c.id).join(", "),
+      memoryCheck?.detail || "",
+    );
     return snapshot;
   }
   const { subject, text } = productionMonitoring.formatAlertEmail(snapshot, due, SITE_URL);
@@ -29107,6 +29211,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return await handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/domain-dns-check") return await handleDomainDnsCheck(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
+    if (request.method === "GET" && url.pathname === "/api/testing/memory-health") {
+      return handleTestingMemoryHealth(request, response, url);
+    }
     if (request.method === "GET" && url.pathname === "/api/build-version") return handleBuildVersion(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/build-version") {
       return headResponse(response, 200, "application/json; charset=utf-8");
@@ -29178,6 +29285,20 @@ initializeStorage()
       console.log("[production-monitoring] periodic checks started");
     } catch (error) {
       console.warn("[production-monitoring] could not start:", error.message || error);
+    }
+    if (isHomeDaycareHubTestingEnabled()) {
+      const bootMem = process.memoryUsage();
+      console.log("[testing-memory] boot", {
+        startedAt: PROCESS_STARTED_AT_ISO,
+        rssMb: Math.round(bootMem.rss / 1024 / 1024),
+        heapUsedMb: Math.round(bootMem.heapUsed / 1024 / 1024),
+        heapTotalMb: Math.round(bootMem.heapTotal / 1024 / 1024),
+        externalMb: Math.round((bootMem.external || 0) / 1024 / 1024),
+        diagnosticsToken: TESTING_MEMORY_BOOT_TOKEN,
+        endpoint: "/api/testing/memory-health",
+      });
+      // Immediate baseline snapshot (same cadence as monitor ticks; not a tight poll loop).
+      runProductionMonitoringTick().catch(() => {});
     }
     try {
       startStoreBackupScheduler();

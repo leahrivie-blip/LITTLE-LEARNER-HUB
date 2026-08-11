@@ -2,100 +2,100 @@
   "storeJsonMb": 1.74,
   "lessonPlans": 130,
   "activities": 2080,
-  "peakRssMb": 366,
-  "peakHeapMb": 178,
+  "peakRssMb": 383,
+  "peakHeapMb": 126,
   "workflows": [
     {
       "workflow": "startup",
       "status": 200,
-      "bytes": 1226,
+      "bytes": 1411,
       "rssBeforeMb": null,
-      "rssAfterMb": 366,
+      "rssAfterMb": 377,
       "heapBeforeMb": null,
-      "heapAfterMb": 178,
+      "heapAfterMb": 33,
       "deltaRssMb": null
     },
     {
       "workflow": "site-content (curriculum library)",
       "status": 200,
-      "bytes": 1331425,
-      "rssBeforeMb": 366,
-      "rssAfterMb": 347,
-      "heapBeforeMb": 178,
-      "heapAfterMb": 23,
-      "deltaRssMb": -19
+      "bytes": 1331557,
+      "rssBeforeMb": 377,
+      "rssAfterMb": 382,
+      "heapBeforeMb": 33,
+      "heapAfterMb": 72,
+      "deltaRssMb": 5
     },
     {
       "workflow": "site-content x5 (cache)",
       "status": 200,
-      "bytes": 1331425,
-      "rssBeforeMb": 347,
-      "rssAfterMb": 350,
-      "heapBeforeMb": 23,
-      "heapAfterMb": 40,
-      "deltaRssMb": 3
+      "bytes": 1331557,
+      "rssBeforeMb": 383,
+      "rssAfterMb": 383,
+      "heapBeforeMb": 73,
+      "heapAfterMb": 121,
+      "deltaRssMb": 0
     },
     {
       "workflow": "home-inventory",
       "status": 200,
       "bytes": 155,
-      "rssBeforeMb": 350,
-      "rssAfterMb": 348,
-      "heapBeforeMb": 40,
-      "heapAfterMb": 45,
-      "deltaRssMb": -2
+      "rssBeforeMb": 383,
+      "rssAfterMb": 380,
+      "heapBeforeMb": 121,
+      "heapAfterMb": 117,
+      "deltaRssMb": -3
     },
     {
       "workflow": "lesson viewer",
       "status": 200,
       "bytes": 702,
-      "rssBeforeMb": 348,
-      "rssAfterMb": 348,
-      "heapBeforeMb": 45,
-      "heapAfterMb": 44,
+      "rssBeforeMb": 380,
+      "rssAfterMb": 380,
+      "heapBeforeMb": 117,
+      "heapAfterMb": 126,
       "deltaRssMb": 0
     },
     {
       "workflow": "activity detail",
       "status": 403,
       "bytes": 53,
-      "rssBeforeMb": 348,
-      "rssAfterMb": 348,
-      "heapBeforeMb": 44,
-      "heapAfterMb": 23,
+      "rssBeforeMb": 380,
+      "rssAfterMb": 380,
+      "heapBeforeMb": 127,
+      "heapAfterMb": 25,
       "deltaRssMb": 0
     },
     {
       "workflow": "admin production-monitoring",
       "status": 200,
-      "bytes": 2784,
-      "rssBeforeMb": 348,
-      "rssAfterMb": 348,
-      "heapBeforeMb": 23,
-      "heapAfterMb": 23,
+      "bytes": 2788,
+      "rssBeforeMb": 380,
+      "rssAfterMb": 380,
+      "heapBeforeMb": 25,
+      "heapAfterMb": 25,
       "deltaRssMb": 0
     },
     {
       "workflow": "admin analytics",
       "status": 200,
-      "bytes": 14287,
-      "rssBeforeMb": 348,
-      "rssAfterMb": 348,
-      "heapBeforeMb": 23,
-      "heapAfterMb": 34,
-      "deltaRssMb": 0
+      "bytes": 14321,
+      "rssBeforeMb": 380,
+      "rssAfterMb": 381,
+      "heapBeforeMb": 25,
+      "heapAfterMb": 36,
+      "deltaRssMb": 1
     }
   ],
   "memoryCheck": {
     "state": "healthy",
     "warningMb": 921,
     "criticalMb": 1433,
-    "detail": "RSS 348 MB · Heap 34 MB · 17% of 2048 MB instance · warning ≥ 921 MB · critical ≥ 1433 MB."
+    "detail": "RSS 381 MB · Heap 36 MB · 18.6% of 2048 MB instance · warning ≥ 921 MB · critical ≥ 1433 MB."
   },
   "profiler": {
     "label": "profiler-process",
-    "rssMb": 82.7,
+    "rssMb": 82.6,
     "heapUsedMb": 11.9,
-    "heapTotalMb": 29.8
+    "heapTotalMb": 29.1
   }
 }
