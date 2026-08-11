@@ -21,7 +21,11 @@ body.llh-lre-open .cookie-banner,
 body.llh-lre-open .llh-meta-cookie-notice,
 body.llh-lre-open #llhMetaCookieNotice,
 body.llh-lre-screenshot .llh-meta-cookie-notice,
-body.llh-lre-screenshot #llhMetaCookieNotice {
+body.llh-lre-screenshot #llhMetaCookieNotice,
+body.llh-lre-screenshot .cookie-consent,
+body.llh-lre-screenshot [data-cookie-banner],
+body.llh-lre-screenshot .cookie-banner,
+body.llh-lre-screenshot .site-footer {
   display: none !important;
 }
 
@@ -55,8 +59,13 @@ body.llh-lre-screenshot #llhMetaCookieNotice {
   color: var(--lre-ok, #246b45);
 }
 
-.llh-lre-core-flag.is-incomplete {
+.llh-lre-core-flag.is-incomplete,
+.llh-lre-core-flag.is-thin {
   color: var(--lre-warn, #8a5a12);
+}
+
+.llh-lre-core-flag.is-safety {
+  color: var(--lre-danger, #9b2c2c);
 }
 
 .llh-lre-activity-editor-head {
@@ -411,15 +420,23 @@ body.llh-lre-screenshot #llhMetaCookieNotice {
   border-radius: 10px;
 }
 
-/* Screenshot mode: hide admin chrome + unrelated controls */
+/* Screenshot mode: hide admin chrome + unrelated floating controls */
 body.llh-lre-screenshot #adminSectionNav,
+body.llh-lre-screenshot .admin-workspace-sidebar,
 body.llh-lre-screenshot .admin-sidebar-brand,
 body.llh-lre-screenshot .admin-sidebar-footer,
 body.llh-lre-screenshot .tk-director-host,
 body.llh-lre-screenshot .tk-quality-host,
 body.llh-lre-screenshot .admin-content-filters,
 body.llh-lre-screenshot .admin-content-bulk-bar,
-body.llh-lre-screenshot #adminCurriculumLessonPlanList {
+body.llh-lre-screenshot #adminCurriculumLessonPlanList,
+body.llh-lre-screenshot .after-action-prompt,
+body.llh-lre-screenshot .llh-action-toast,
+body.llh-lre-screenshot [data-llh-floating],
+body.llh-lre-screenshot .llh-floating-control,
+body.llh-lre-screenshot .site-header,
+body.llh-lre-screenshot .global-nav,
+body.llh-lre-screenshot #siteHeader {
   display: none !important;
 }
 
@@ -427,6 +444,12 @@ body.llh-lre-screenshot #adminCurriculumLessonPlanList {
 .llh-lre.is-screenshot-mode .llh-lre-nav,
 .llh-lre.is-screenshot-mode .llh-lre-approve-row,
 .llh-lre.is-screenshot-mode .llh-lre-header .form-message {
+  display: none !important;
+}
+
+/* Keep one open activity clean — hide the card grid in screenshot mode */
+.llh-lre.is-screenshot-mode.has-open-activity .llh-lre-activity-cards,
+.llh-lre.is-screenshot-mode.has-open-activity .llh-lre-activity-list > .muted-copy {
   display: none !important;
 }
 
@@ -443,14 +466,39 @@ body.llh-lre-screenshot #adminCurriculumLessonPlanList {
   margin: 0 auto;
 }
 
+/* Preserve lesson title, section title, activity name, labels, contents, warnings */
+.llh-lre.is-screenshot-mode .llh-lre-header h1,
+.llh-lre.is-screenshot-mode [data-lre-section-chrome] h2,
+.llh-lre.is-screenshot-mode [data-lre-activity-title],
+.llh-lre.is-screenshot-mode .llh-lre-label,
+.llh-lre.is-screenshot-mode [data-lre-core-missing],
+.llh-lre.is-screenshot-mode [data-lre-core-blockers],
+.llh-lre.is-screenshot-mode textarea,
+.llh-lre.is-screenshot-mode input,
+.llh-lre.is-screenshot-mode select {
+  visibility: visible !important;
+}
+
 body.llh-lre-open #adminSectionNav {
   pointer-events: none;
   opacity: 0.35;
 }
 
-body.llh-lre-screenshot #adminSectionNav {
+body.llh-lre-screenshot #adminSectionNav,
+body.llh-lre-screenshot .admin-workspace-sidebar {
   display: none !important;
   opacity: 1;
+}
+
+@media (max-width: 900px) {
+  body.llh-lre-screenshot .admin-workspace-shell {
+    display: block;
+  }
+
+  body.llh-lre-screenshot .admin-workspace-main {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 900px) {

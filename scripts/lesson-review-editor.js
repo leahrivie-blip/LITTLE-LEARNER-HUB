@@ -201,13 +201,24 @@
     return text(value).length >= 3;
   }
 
-  function meaningfulText(value, minWords = 3) {
+  function meaningfulText(value, minWords = 3, options = {}) {
     const raw = text(value);
     if (!raw) return false;
-    if (/^(tbd|todo|n\/?a|none|placeholder|lorem|asdf|xxx|test)\b/i.test(raw)) return false;
+    if (/^(tbd|todo|n\/?a|none|placeholder|lorem|asdf|xxx|test|add later|coming soon|to be (added|determined)|fix me)\b/i.test(raw)) {
+      return false;
+    }
+    if (/add later|coming soon|to be determined|fill in later|placeholder/i.test(raw) && raw.split(/\s+/).length <= 8) {
+      return false;
+    }
     if (/^example:/i.test(raw)) return false;
     const words = raw.split(/\s+/).filter(Boolean);
-    return words.length >= minWords;
+    if (words.length < minWords) return false;
+    const title = text(options.title || "").toLowerCase().replace(/[^\w\s]/g, "").trim();
+    const normalized = raw.toLowerCase().replace(/[^\w\s]/g, "").trim();
+    if (title && (normalized === title || normalized === `the ${title}` || normalized === `${title} activity`)) {
+      return false;
+    }
+    return true;
   }
 
   function bookComplete(book) {
@@ -265,23 +276,84 @@
     return item?.[key] || "";
   }
 
-  function coreActivityMissing(item) {
+  /**
+   * Modular Core Activity validator used by cards, Quality Review, and future lessons.
+   * Incomplete Core fields are review warnings by default. Only safety-critical /
+   * unrunnable / gold-standard-required gaps become blockers.
+   */
+  function assessCoreActivity(item, plan = state.draft) {
+    const title = text(item?.title);
     const missing = [];
-    if (!meaningfulText(item?.title, 1)) missing.push("Activity name");
+    if (!meaningfulText(title, 1)) missing.push("Activity name");
     CORE_ACTIVITY_FIELDS.forEach((field) => {
-      if (!meaningfulText(coreFieldValue(item, field.key), field.minWords)) {
+      if (!meaningfulText(coreFieldValue(item, field.key), field.minWords, { title })) {
         missing.push(field.label);
       }
     });
-    return missing;
+    const complete = missing.length === 0;
+    const description = coreFieldValue(item, "description");
+    const steps = coreFieldValue(item, "steps");
+    const safetyNotes = coreFieldValue(item, "safetyNotes");
+    const materials = coreFieldValue(item, "materials");
+    const age = text(plan?.age || item?.age || item?.ageBand || item?.recommendedAge || "");
+    const riskHay = `${age} ${title} ${item?.activityCategory || ""} ${materials} ${description} ${steps}`;
+    const elevatedRisk = /infant|toddler|chok|small part|bead|pom.?pom|button|taste|food|eat|cut|scissor|knife|hot|allergen|mouth|coin|marble|glitter|paint|glue/i.test(riskHay);
+    const safetyOk = meaningfulText(safetyNotes, 4, { title });
+    const safetyCritical = !safetyOk && elevatedRisk;
+    const unrunnable = !meaningfulText(steps, 8, { title }) && !meaningfulText(description, 10, { title });
+    const goldRequired = item?.coreRequired === true
+      || item?.goldStandardRequired === true
+      || item?.ownerCoreRequired === true
+      || item?.requireCoreComplete === true;
+    const tooThin = !complete && (
+      missing.length >= 6
+      || (Boolean(text(description)) && !meaningfulText(description, 12, { title }))
+      || (Boolean(text(steps)) && !meaningfulText(steps, 8, { title }))
+    );
+
+    const warnings = missing.map((label) => `Core Activity: add meaningful ${label.toLowerCase()}.`);
+    const blockers = [];
+    if (safetyCritical) {
+      blockers.push("Safety and supervision is missing or too thin for this age/activity risk.");
+    }
+    if (unrunnable) {
+      blockers.push("Provider cannot run this activity — add meaningful “What children will do” and step-by-step directions.");
+    }
+    if (goldRequired && !complete) {
+      blockers.push("Core Activity marked required by gold-standard validation.");
+    }
+
+    let statusLabel = "Complete";
+    if (!complete) {
+      if (safetyCritical) statusLabel = "Missing Safety Detail";
+      else if (tooThin || unrunnable) statusLabel = "Too Thin";
+      else statusLabel = "Needs Work";
+    }
+
+    return {
+      complete,
+      missing,
+      statusLabel,
+      warnings,
+      blockers,
+      tooThin,
+      safetyCritical,
+      unrunnable,
+      goldRequired,
+    };
   }
 
-  function coreActivityComplete(item) {
-    return coreActivityMissing(item).length === 0;
+  function coreActivityMissing(item, plan) {
+    return assessCoreActivity(item, plan).missing;
   }
 
-  function activityWarnings(item) {
-    const warnings = coreActivityMissing(item).map((label) => `Core Activity: add meaningful ${label.toLowerCase()}.`);
+  function coreActivityComplete(item, plan) {
+    return assessCoreActivity(item, plan).complete;
+  }
+
+  function activityWarnings(item, plan) {
+    const assessed = assessCoreActivity(item, plan);
+    const warnings = assessed.warnings.slice();
     const req = imageRequirementForActivity(item);
     const hasSetup = Boolean(text(item?.setupImageUrl));
     const hasExample = Boolean(text(item?.exampleImageUrl || item?.imageUrl));
@@ -293,13 +365,14 @@
     return warnings;
   }
 
-  function activityStatus(item) {
-    const warnings = activityWarnings(item);
+  function activityStatus(item, plan) {
+    const warnings = activityWarnings(item, plan);
+    const core = assessCoreActivity(item, plan);
     const approvals = state.ownerApprovals[`activity:${item._key}`];
-    if (approvals === "approved" && !warnings.length && coreActivityComplete(item)) return "Approved";
+    if (approvals === "approved" && !warnings.length && core.complete) return "Approved";
     if (!meaningfulText(item?.title, 1) && !meaningfulText(coreFieldValue(item, "steps"), 1)) return "Not Started";
     // Never mark Complete while Core Activity fields are thin/filler.
-    if (!coreActivityComplete(item) || warnings.length) return "Needs Work";
+    if (!core.complete || warnings.length) return "Needs Work";
     return "Complete";
   }
 
@@ -334,13 +407,13 @@
     } else if (sectionId === "activities") {
       const items = flattenActivities(plan);
       bump(items.some((item) => meaningfulText(item?.title, 1)), "At least one named activity");
-      const incompleteCore = items.filter((item) => !coreActivityComplete(item));
-      bump(incompleteCore.length === 0, "Every activity has a complete Core Activity section");
-      incompleteCore.slice(0, 8).forEach((item) => {
-        warnings.push(`${item.title || "Activity"}: Core Activity incomplete (${coreActivityMissing(item).slice(0, 3).join(", ")}${coreActivityMissing(item).length > 3 ? "…" : ""})`);
-      });
+      const assessed = items.map((item) => ({ item, core: assessCoreActivity(item, plan) }));
+      const incompleteCore = assessed.filter((row) => !row.core.complete);
+      // Incomplete Core = owner review warnings by default (not lesson-level blockers).
+      // Safety-critical / unrunnable Core gaps are promoted in evaluateQuality via assessCoreActivity.
+      bump(incompleteCore.length === 0, "Every activity has a complete Core Activity section", true);
       items.forEach((item) => {
-        activityWarnings(item)
+        activityWarnings(item, plan)
           .filter((warning) => !/^Core Activity:/i.test(warning))
           .forEach((warning) => warnings.push(`${item.title || "Activity"}: ${warning}`));
       });
@@ -415,6 +488,7 @@
   function evaluateQuality(plan) {
     const blockers = [];
     const warnings = [];
+    const ownerNotes = [];
     SECTION_DEFS.forEach((section) => {
       if (section.id === "quality" || section.id === "publish") return;
       const info = computeSectionStatus(section.id, plan, { skipPublish: true });
@@ -426,7 +500,7 @@
           activityKey: "",
         });
       }
-      info.warnings.slice(0, 3).forEach((warning, index) => {
+      info.warnings.slice(0, 6).forEach((warning, index) => {
         warnings.push({
           id: `warn:${section.id}:${index}`,
           sectionId: section.id,
@@ -434,28 +508,53 @@
           activityKey: "",
         });
       });
+      if (state.ownerApprovals[`section:${section.id}`] === "rejected") {
+        ownerNotes.push({
+          id: `note:section:${section.id}`,
+          sectionId: section.id,
+          label: `${section.label}: owner requested changes`,
+          activityKey: "",
+        });
+      }
     });
-    const incompleteCore = [];
     flattenActivities(plan).forEach((item) => {
-      activityWarnings(item).forEach((warning, index) => {
-        // Per-field Core/image gaps are clickable warnings (not 50 header blockers).
+      const core = assessCoreActivity(item, plan);
+      // Core gaps are warnings unless assessCoreActivity promotes a safety/unrunnable blocker.
+      core.warnings.forEach((warning, index) => {
         warnings.push({
-          id: `activity:${item._key}:${index}`,
-          sectionId: /image/i.test(warning) ? "images" : "activities",
+          id: `activity-core:${item._key}:${index}`,
+          sectionId: "activities",
           label: `${item.title || "Activity"} (${item.dayOfWeek}): ${warning}`,
           activityKey: item._key,
         });
       });
-      if (!coreActivityComplete(item)) incompleteCore.push(item);
-    });
-    if (incompleteCore.length) {
-      blockers.push({
-        id: "core-incomplete",
-        sectionId: "activities",
-        label: `${incompleteCore.length} activit${incompleteCore.length === 1 ? "y has" : "ies have"} incomplete Core Activity fields`,
-        activityKey: incompleteCore[0]._key,
+      core.blockers.forEach((blocker, index) => {
+        blockers.push({
+          id: `activity-core-block:${item._key}:${index}`,
+          sectionId: "activities",
+          label: `${item.title || "Activity"} (${item.dayOfWeek}): ${blocker}`,
+          activityKey: item._key,
+        });
       });
-    }
+      activityWarnings(item, plan)
+        .filter((warning) => !/^Core Activity:/i.test(warning))
+        .forEach((warning, index) => {
+          warnings.push({
+            id: `activity:${item._key}:${index}`,
+            sectionId: /image/i.test(warning) ? "images" : "activities",
+            label: `${item.title || "Activity"} (${item.dayOfWeek}): ${warning}`,
+            activityKey: item._key,
+          });
+        });
+      if (state.ownerApprovals[`activity:${item._key}`] === "rejected") {
+        ownerNotes.push({
+          id: `note:activity:${item._key}`,
+          sectionId: "activities",
+          label: `${item.title || "Activity"}: owner requested changes`,
+          activityKey: item._key,
+        });
+      }
+    });
     const linked = linkedResources(plan);
     if (linked.some((row) => /rejected|revision/i.test(text(row.status)))) {
       blockers.push({
@@ -473,7 +572,14 @@
         activityKey: "",
       });
     }
-    return { blockers, warnings };
+    return { blockers, warnings, ownerNotes };
+  }
+
+  function ownerSummaryStatus(progress) {
+    if (progress.publishReady) return "Ready for Owner Review";
+    if (progress.blockerCount > 0) return "Blocked";
+    if (progress.warningCount > 0) return "Needs Review";
+    return "Draft";
   }
 
   function overallProgress(plan) {
@@ -481,19 +587,26 @@
     const required = rows.reduce((sum, row) => sum + row.required, 0);
     const complete = rows.reduce((sum, row) => sum + row.complete, 0);
     const percent = required ? Math.round((complete / required) * 100) : 0;
-    const blockers = evaluateQuality(plan).blockers;
+    const report = evaluateQuality(plan);
     const incompleteSections = rows.filter((row) => row.status === "Not Started" || row.status === "Needs Work").length;
     const approvedSections = rows.filter((row) => row.status === "Approved").length;
-    const publishReady = blockers.length === 0 && incompleteSections === 0;
+    const publishReady = report.blockers.length === 0 && incompleteSections === 0;
     return {
       percent,
       required,
       complete,
-      blockerCount: blockers.length,
+      blockerCount: report.blockers.length,
+      warningCount: report.warnings.length,
+      ownerNoteCount: (report.ownerNotes || []).length,
       incompleteSections,
       approvedSections,
       publishReady,
       draftStatus: text(plan.status || "draft"),
+      summaryStatus: ownerSummaryStatus({
+        publishReady,
+        blockerCount: report.blockers.length,
+        warningCount: report.warnings.length,
+      }),
     };
   }
 
@@ -559,7 +672,10 @@
     const status = activityStatus(item);
     const warnings = activityWarnings(item);
     const req = imageRequirementForActivity(item);
-    const coreOk = coreActivityComplete(item);
+    const core = assessCoreActivity(item);
+    const coreClass = core.complete
+      ? "is-complete"
+      : (core.safetyCritical ? "is-safety" : (core.tooThin || core.unrunnable ? "is-thin" : "is-incomplete"));
     const domain = item.activityCategory || item.learningDomain || item.domain || "Activity";
     return `
       <button type="button" class="llh-lre-activity-card ${state.openActivityKey === item._key ? "is-open" : ""}" data-lre-open-activity="${esc(item._key)}">
@@ -567,7 +683,7 @@
         <span>${esc(item.dayOfWeek || "")}</span>
         <span>${esc(domain)}</span>
         ${statusBadge(status)}
-        <span class="llh-lre-core-flag ${coreOk ? "is-complete" : "is-incomplete"}">Core: ${coreOk ? "Complete" : "Incomplete"}</span>
+        <span class="llh-lre-core-flag ${coreClass}" data-lre-core-status="${esc(core.statusLabel)}">Core: ${esc(core.statusLabel)}</span>
         <span>Images: ${esc(imageRequirementLabel(req))}</span>
         <span>${warnings.length} warning${warnings.length === 1 ? "" : "s"}</span>
       </button>
@@ -579,7 +695,8 @@
     const day = item.dayOfWeek;
     const index = item._index;
     const base = `dailyPlans.${day}.items.${index}`;
-    const coreMissing = coreActivityMissing(item);
+    const core = assessCoreActivity(item);
+    const coreMissing = core.missing;
     const req = imageRequirementForActivity(item);
     const teacherTips = Array.isArray(item.teacherTips) ? item.teacherTips.join("\n") : (item.teacherTips || "");
     const observationPrompts = Array.isArray(item.observationPrompts)
@@ -593,15 +710,22 @@
       <article class="llh-lre-activity-editor" data-lre-activity-editor="${esc(item._key)}">
         <div class="llh-lre-activity-editor-head">
           <div>
-            <h3>Editing: ${esc(item.title || "Untitled activity")}</h3>
-            <p class="muted-copy">${esc(day)} · ${esc(item.activityCategory || "Activity")} · Core ${coreMissing.length ? "incomplete" : "complete"} · Screenshot this activity to ask for help filling it.</p>
+            <h3 data-lre-activity-title>Editing: ${esc(item.title || "Untitled activity")}</h3>
+            <p class="muted-copy">${esc(day)} · ${esc(item.activityCategory || "Activity")} · Core: ${esc(core.statusLabel)} · Screenshot this activity to ask for help filling it.</p>
           </div>
           <button type="button" class="ghost-button" data-lre-close-activity>Close activity</button>
         </div>
+        ${core.blockers.length ? `
+          <div class="llh-lre-missing" data-lre-core-blockers>
+            <strong>Blocking Core issues:</strong>
+            <ul>${core.blockers.map((label) => `<li>${esc(label)}</li>`).join("")}</ul>
+          </div>
+        ` : ""}
         ${coreMissing.length ? `
-          <div class="llh-lre-missing" data-lre-core-missing>
-            <strong>Core Activity still needs:</strong>
+          <div class="llh-lre-warnings" data-lre-core-missing>
+            <strong>Core Activity review warnings:</strong>
             <ul>${coreMissing.map((label) => `<li>${esc(label)}</li>`).join("")}</ul>
+            <p class="muted-copy">These count as review warnings unless they are safety-critical or the activity cannot be run.</p>
           </div>
         ` : `<p class="llh-lre-ok">Core Activity fields look complete for this activity.</p>`}
 
@@ -848,20 +972,21 @@
 
   function renderQualitySection() {
     const report = evaluateQuality(state.draft);
+    const jumpList = (rows, emptyHtml) => `
+      <ul class="llh-lre-blocker-list">
+        ${(rows || []).map((row) => `
+          <li><button type="button" class="llh-lre-blocker-link" data-lre-jump-section="${esc(row.sectionId)}" data-lre-jump-activity="${esc(row.activityKey || "")}">${esc(row.label)}</button></li>
+        `).join("") || emptyHtml}
+      </ul>
+    `;
     return `
-      <p class="muted-copy">Click a blocker to open the exact section or activity that needs work.</p>
-      <h3>Blockers (${report.blockers.length})</h3>
-      <ul class="llh-lre-blocker-list">
-        ${report.blockers.map((row) => `
-          <li><button type="button" class="llh-lre-blocker-link" data-lre-jump-section="${esc(row.sectionId)}" data-lre-jump-activity="${esc(row.activityKey || "")}">${esc(row.label)}</button></li>
-        `).join("") || "<li class='llh-lre-ok'>No hard blockers right now.</li>"}
-      </ul>
-      <h3>Warnings (${report.warnings.length})</h3>
-      <ul class="llh-lre-blocker-list">
-        ${report.warnings.map((row) => `
-          <li><button type="button" class="llh-lre-blocker-link" data-lre-jump-section="${esc(row.sectionId)}" data-lre-jump-activity="${esc(row.activityKey || "")}">${esc(row.label)}</button></li>
-        `).join("") || "<li class='muted-copy'>No quality warnings.</li>"}
-      </ul>
+      <p class="muted-copy">Core Activity gaps are review warnings by default. Only safety-critical, unrunnable, or gold-standard-required Core issues become blockers.</p>
+      <h3>Blocking issues (${report.blockers.length})</h3>
+      ${jumpList(report.blockers, "<li class='llh-lre-ok'>No hard blockers right now.</li>")}
+      <h3>Review warnings (${report.warnings.length})</h3>
+      ${jumpList(report.warnings, "<li class='muted-copy'>No review warnings.</li>")}
+      <h3>Owner notes needed (${(report.ownerNotes || []).length})</h3>
+      ${jumpList(report.ownerNotes, "<li class='muted-copy'>No owner change requests yet.</li>")}
     `;
   }
 
@@ -876,9 +1001,7 @@
       title: item.title,
       ok: activityWarnings(item).every((warning) => !/image/i.test(warning)),
     }));
-    const ownerStatus = progress.publishReady
-      ? "Ready for Owner Review"
-      : (progress.blockerCount ? "Blocked" : "Draft");
+    const ownerStatus = progress.summaryStatus || ownerSummaryStatus(progress);
     return `
       <div class="llh-lre-publish-grid">
         <article class="llh-lre-card-block">
@@ -888,8 +1011,10 @@
           <p>${sections.filter((row) => row.status === "Complete" || row.status === "Approved").length} / ${sections.length}</p>
           <h3>Sections approved</h3>
           <p>${progress.approvedSections} / ${sections.length}</p>
-          <h3>Outstanding blockers</h3>
+          <h3>Blocking issues</h3>
           <p>${progress.blockerCount}</p>
+          <h3>Review warnings</h3>
+          <p>${progress.warningCount || 0}</p>
         </article>
         <article class="llh-lre-card-block">
           <h3>Printable statuses</h3>
@@ -991,7 +1116,7 @@
           <div>
             <p class="llh-lre-kicker">Lesson Review & Editor · Owner only</p>
             <h1>${esc(state.draft.title || "Untitled lesson")}</h1>
-            <p class="muted-copy">${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")} · ${esc(progress.blockerCount ? "Blocked" : (progress.publishReady ? "Ready for Owner Review" : "Draft"))} · Progress ${progress.percent}% · Blockers ${progress.blockerCount}</p>
+            <p class="muted-copy" data-lre-summary-status>${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")} · ${esc(progress.summaryStatus || ownerSummaryStatus(progress))} · Progress ${progress.percent}% · Blocking ${progress.blockerCount} · Warnings ${progress.warningCount || 0}</p>
           </div>
           <div class="llh-lre-header-actions">
             <button type="button" class="ghost-button" data-lre-preview>Preview</button>
@@ -1032,7 +1157,7 @@
     const progress = overallProgress(state.draft);
     el.hidden = false;
     el.innerHTML = `
-      <div class="llh-lre ${state.screenshotMode ? "is-screenshot-mode" : ""}" data-lesson-review-editor>
+      <div class="llh-lre ${state.screenshotMode ? "is-screenshot-mode" : ""} ${state.openActivityKey ? "has-open-activity" : ""}" data-lesson-review-editor data-lre-lesson-title="${esc(state.draft.title || "")}">
         ${renderHeader(progress)}
         <div class="llh-lre-layout">
           ${renderNav()}
@@ -1047,6 +1172,9 @@
     `;
     document.body.classList.toggle("llh-lre-open", true);
     document.body.classList.toggle("llh-lre-screenshot", state.screenshotMode);
+    if (state.screenshotMode) {
+      document.querySelector(".llh-meta-cookie-dismiss, [data-cookie-dismiss], #llhMetaCookieNotice button")?.click?.();
+    }
     if (section.id === "publish") mountPreview();
   }
 
@@ -1756,7 +1884,10 @@
       dirty: state.dirty,
     }),
     SECTION_DEFS,
+    CORE_ACTIVITY_FIELDS,
+    assessCoreActivity,
     computeSectionStatus: (sectionId, plan) => computeSectionStatus(sectionId, plan || state.draft),
+    evaluateQuality: (plan) => evaluateQuality(plan || state.draft),
     overallProgress: (plan) => overallProgress(plan || state.draft),
   };
 })(typeof window !== "undefined" ? window : globalThis);
