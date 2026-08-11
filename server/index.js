@@ -1310,7 +1310,10 @@ function sanitizedActivityImageUrl(value, maxLength = 8_000_000) {
   const published = enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(value);
   if (published) return published.slice(0, maxLength);
   if (enrichmentMedia.isAdminEnrichmentMediaUrl(value)) return "";
-  return sanitizedResourceUrl(value, maxLength);
+  const resource = sanitizedResourceUrl(value, maxLength);
+  if (resource) return resource;
+  // Preserve site-relative curriculum image paths (e.g. /images/lesson-covers/...).
+  return sanitizedImageSource(value, maxLength);
 }
 
 const validLessonPlanResourceCategories = new Set([
@@ -3302,6 +3305,51 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         enrichmentPublishHistory: incomingPlan.enrichmentPublishHistory,
         enrichmentPublished: incomingPlan.enrichmentPublished,
         resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
+          ? incomingPlan.updatedAt
+          : plan.updatedAt,
+      };
+    }
+    // Enrichment publish may relocate/replace only touched activities while keeping
+    // untouched sibling activity objects by reference. Do not whole-lesson normalize.
+    if (incomingPlan.__llhSurgicalDailyPlans === true) {
+      return {
+        ...plan,
+        enrichmentDraft: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentDraft")
+          ? incomingPlan.enrichmentDraft
+          : plan.enrichmentDraft,
+        enrichmentDraftUndo: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentDraftUndo")
+          ? incomingPlan.enrichmentDraftUndo
+          : plan.enrichmentDraftUndo,
+        enrichmentPublishHistory: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentPublishHistory")
+          ? incomingPlan.enrichmentPublishHistory
+          : plan.enrichmentPublishHistory,
+        enrichmentPublished: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentPublished")
+          ? incomingPlan.enrichmentPublished
+          : plan.enrichmentPublished,
+        teachingKit: Object.prototype.hasOwnProperty.call(incomingPlan, "teachingKit")
+          ? incomingPlan.teachingKit
+          : plan.teachingKit,
+        weeklyOverview: Object.prototype.hasOwnProperty.call(incomingPlan, "weeklyOverview")
+          ? incomingPlan.weeklyOverview
+          : plan.weeklyOverview,
+        objectives: Object.prototype.hasOwnProperty.call(incomingPlan, "objectives")
+          ? incomingPlan.objectives
+          : plan.objectives,
+        familyConnection: Object.prototype.hasOwnProperty.call(incomingPlan, "familyConnection")
+          ? incomingPlan.familyConnection
+          : plan.familyConnection,
+        weeklyMaterials: Object.prototype.hasOwnProperty.call(incomingPlan, "weeklyMaterials")
+          ? incomingPlan.weeklyMaterials
+          : plan.weeklyMaterials,
+        books: Object.prototype.hasOwnProperty.call(incomingPlan, "books")
+          ? incomingPlan.books
+          : plan.books,
+        songs: Object.prototype.hasOwnProperty.call(incomingPlan, "songs")
+          ? incomingPlan.songs
+          : plan.songs,
+        resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        dailyPlans: incomingPlan.dailyPlans,
         updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
           ? incomingPlan.updatedAt
           : plan.updatedAt,
@@ -21236,8 +21284,8 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
     if (!match) return act;
     return normalizedCurriculumActivity({
       ...act,
-      setupImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
-      exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
+      setupImageUrl: sanitizedActivityImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
+      exampleImageUrl: sanitizedActivityImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
       setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId) ? match.setupMediaAssetId : (act.setupMediaAssetId || ""),
       exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.exampleMediaAssetId) ? match.exampleMediaAssetId : (act.exampleMediaAssetId || ""),
       imageRequirement: match.imageRequirement || act.imageRequirement || "",
@@ -21664,6 +21712,69 @@ async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId)
   }
 }
 
+/** itemIds present in an enrichment draft (planId:itemId or bare itemId keys). */
+function enrichmentDraftTouchedItemIds(enrichmentDraft, planId) {
+  const ids = new Set();
+  const acts = enrichmentDraft?.activities && typeof enrichmentDraft.activities === "object"
+    ? enrichmentDraft.activities
+    : {};
+  const prefix = `${String(planId || "")}:`;
+  Object.keys(acts).forEach((key) => {
+    const act = acts[key];
+    if (!act || typeof act !== "object") return;
+    if (act.itemId) ids.add(String(act.itemId));
+    if (prefix && key.startsWith(prefix)) {
+      ids.add(key.slice(prefix.length));
+      return;
+    }
+    if (!key.includes(":")) {
+      ids.add(key);
+      return;
+    }
+    const parts = String(key).split(":");
+    if (parts.length >= 2) ids.add(parts.slice(1).join(":"));
+  });
+  return ids;
+}
+
+/**
+ * Keep untouched sibling activities by exact existing object reference.
+ * Only draft-touched activities use merged values (plus safe image sanitize).
+ */
+function surgicalEnrichmentPublishDailyPlans(existingPlan, mergedDailyPlans, touchedItemIds) {
+  const existingById = new Map();
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    (existingPlan?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      if (item?.itemId) existingById.set(String(item.itemId), item);
+    });
+  });
+  const next = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const mergedDay = mergedDailyPlans?.[day] && typeof mergedDailyPlans[day] === "object"
+      ? mergedDailyPlans[day]
+      : {};
+    const existingDay = existingPlan?.dailyPlans?.[day] && typeof existingPlan.dailyPlans[day] === "object"
+      ? existingPlan.dailyPlans[day]
+      : {};
+    next[day] = {
+      ...existingDay,
+      ...mergedDay,
+      items: (Array.isArray(mergedDay.items) ? mergedDay.items : []).map((item) => {
+        const itemId = String(item?.itemId || "");
+        if (!itemId || !touchedItemIds.has(itemId)) {
+          return existingById.get(itemId) || item;
+        }
+        return {
+          ...item,
+          setupImageUrl: sanitizedActivityImageUrl(item.setupImageUrl || ""),
+          exampleImageUrl: sanitizedActivityImageUrl(item.exampleImageUrl || ""),
+        };
+      }),
+    };
+  });
+  return next;
+}
+
 async function handlePublishEnrichment(request, response, ctx) {
   const {
     store,
@@ -21834,20 +21945,19 @@ async function handlePublishEnrichment(request, response, ctx) {
   const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft);
   const assetIds = [...enrichmentMedia.collectDraftMediaAssetIds(promotedDraft)];
 
-  // Sanitize merged plan image fields — strip any leftover admin URLs.
+  // Touch only draft-owned activities. Untouched siblings keep the exact existing
+  // activity object reference so Publish cannot remap categories, invent empty
+  // canonical fields, or strip relative curriculum image paths on siblings.
+  const touchedItemIds = enrichmentDraftTouchedItemIds(promotedDraft, id);
+  const surgicalDailyPlans = surgicalEnrichmentPublishDailyPlans(
+    existingPlan,
+    merged.plan?.dailyPlans || {},
+    touchedItemIds,
+  );
   const mergedPlan = {
     ...merged.plan,
-    dailyPlans: merged.plan.dailyPlans || {},
+    dailyPlans: surgicalDailyPlans,
   };
-  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
-    const dayPlan = mergedPlan.dailyPlans[day];
-    if (!dayPlan?.items) return;
-    dayPlan.items = dayPlan.items.map((item) => ({
-      ...item,
-      setupImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(item.setupImageUrl || ""),
-      exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(item.exampleImageUrl || ""),
-    }));
-  });
 
   const priorSnapshot = snapshotEnrichmentPublishedState(existingPlan, existingCurriculum.activities || []);
   const versionId = `epub-${crypto.randomBytes(12).toString("hex")}`;
@@ -21891,7 +22001,9 @@ async function handlePublishEnrichment(request, response, ctx) {
     id,
   );
   const ownerOverrideMeta = body?._ownerPublishOverrideApplied || null;
-  const nextPlan = normalizedCurriculumLessonPlan({
+  // Do NOT run whole-lesson normalizedCurriculumLessonPlan here — that rewrites
+  // every dailyPlans item (categories, empty canonical fields, image URLs).
+  const nextPlan = {
     ...existingPlan,
     ...mergedPlan,
     enrichmentDraft: null,
@@ -21913,7 +22025,9 @@ async function handlePublishEnrichment(request, response, ctx) {
       } : {}),
     },
     updatedAt: now,
-  });
+    dailyPlans: surgicalDailyPlans,
+    __llhSurgicalDailyPlans: true,
+  };
 
   // Surgical curriculum graph — do NOT call normalizedCurriculumStore() here.
   // Whole-library normalize would rewrite sibling setupMinutes / custom fields.
