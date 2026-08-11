@@ -338,7 +338,10 @@
       const items = asArray(days?.[day]?.items);
       items.forEach((item, index) => {
         if (!text(item?.title)) return;
+        // Preserve unknown/legacy keys from the daily-plan item (null/0/custom).
+        // Overlay only the normalized identity + known editor fields.
         out.push({
+          ...item,
           id: text(item.activityId) || text(item.sourceKey) || `${planId}:${text(item.itemId) || `${day}-${index}`}`,
           itemId: text(item.itemId) || `${day}-${index}`,
           lessonPlanId: planId,
@@ -346,6 +349,18 @@
           title: text(item.title),
           activityCategory: text(item.activityCategory),
           objective: text(item.objective),
+          description: text(item.description),
+          purpose: text(item.purpose),
+          preparation: text(item.preparation || item.prep),
+          setup: text(item.setup),
+          steps: text(item.steps || item.directions),
+          teacherLanguage: text(item.teacherLanguage),
+          safetyNotes: text(item.safetyNotes),
+          cleanupTips: text(item.cleanupTips || item.cleanup || item.resetNotes),
+          ageModifications: text(item.ageModifications),
+          adaptations: text(item.adaptations),
+          extensions: text(item.extensions),
+          mixedAgeAdaptations: text(item.mixedAgeAdaptations || item.mixedAge),
           imageRequirement: text(item.imageRequirement),
           setupImageUrl: text(item.setupImageUrl),
           exampleImageUrl: text(item.exampleImageUrl || item.examplePhotoUrl),
@@ -354,7 +369,18 @@
           settingTags: asArray(item.settingTags).map(text).filter(Boolean),
           observationOpportunities: text(item.observationOpportunities),
           vocabulary: text(item.vocabulary),
-          materials: text(item.materials),
+          materials: Array.isArray(item.materials)
+            ? materialsToEditorText(item.materials)
+            : text(item.materials),
+          // Keep duration/setup minutes as-is (do not coerce missing → 0).
+          durationMinutes: Object.prototype.hasOwnProperty.call(item, "durationMinutes")
+            ? item.durationMinutes
+            : (Object.prototype.hasOwnProperty.call(item, "activityDurationMinutes")
+              ? item.activityDurationMinutes
+              : item.durationMinutes),
+          setupMinutes: Object.prototype.hasOwnProperty.call(item, "setupMinutes")
+            ? item.setupMinutes
+            : item.setupMinutes,
         });
       });
     });
@@ -417,6 +443,202 @@
     const draft = text(draftValue);
     if (draft) return draft;
     return text(publishedValue);
+  }
+
+  /**
+   * Owned draft text: if the draft key was explicitly set (including ""), use it.
+   * Otherwise fall back to published. Empty owned values never invent content.
+   */
+  function pickOwnedDraftText(draftObj, key, publishedValue) {
+    if (draftObj && typeof draftObj === "object" && Object.prototype.hasOwnProperty.call(draftObj, key)) {
+      return text(draftObj[key]);
+    }
+    return text(publishedValue);
+  }
+
+  /** Materials may be multiline string or legacy array — editor always uses text. */
+  function materialsToEditorText(value) {
+    if (Array.isArray(value)) {
+      return value.map((item) => text(item)).filter(Boolean).join("\n");
+    }
+    return text(value);
+  }
+
+  /**
+   * Duration display without coercing missing/null into "0".
+   * Preserves numeric 0 and string values such as "15".
+   */
+  function getDurationFieldValue(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : null;
+    if (d && Object.prototype.hasOwnProperty.call(d, "durationMinutes")) {
+      const v = d.durationMinutes;
+      if (v === "" || v === null || v === undefined) return "";
+      return String(v);
+    }
+    if (activity && Object.prototype.hasOwnProperty.call(activity, "durationMinutes")) {
+      if (activity.durationMinutes === null || activity.durationMinutes === undefined) return "";
+      return String(activity.durationMinutes);
+    }
+    if (activity && Object.prototype.hasOwnProperty.call(activity, "activityDurationMinutes")) {
+      if (activity.activityDurationMinutes === null || activity.activityDurationMinutes === undefined) return "";
+      return String(activity.activityDurationMinutes);
+    }
+    return "";
+  }
+
+  function parseDurationInput(raw) {
+    const s = String(raw ?? "").trim();
+    if (!s) return "";
+    if (/^\d+$/.test(s)) return Number(s);
+    return s;
+  }
+
+  function cleanupToEditorText(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : null;
+    if (d && Object.prototype.hasOwnProperty.call(d, "cleanupTips")) {
+      return text(d.cleanupTips);
+    }
+    return text(activity?.cleanupTips || activity?.cleanup || activity?.resetNotes);
+  }
+
+  function preparationToEditorText(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : null;
+    if (d && Object.prototype.hasOwnProperty.call(d, "preparation")) {
+      return text(d.preparation);
+    }
+    return text(activity?.preparation || activity?.prep);
+  }
+
+  /** Canonical Core Activity keys stored on enrichmentDraft.activities[key] until Publish. */
+  const OWNER_CORE_ACTIVITY_FIELD_KEYS = Object.freeze([
+    "title",
+    "dayOfWeek",
+    "activityCategory",
+    "ageModifications",
+    "durationMinutes",
+    "objective",
+    "description",
+    "materials",
+    "preparation",
+    "setup",
+    "steps",
+    "teacherLanguage",
+    "observationOpportunities",
+    "safetyNotes",
+    "cleanupTips",
+  ]);
+
+  /**
+   * Required for Core Activity completion % (enrichment fields excluded).
+   * Whitespace-only does not count as complete.
+   */
+  const OWNER_CORE_ACTIVITY_REQUIRED_FIELDS = Object.freeze([
+    { key: "title", label: "Activity name" },
+    { key: "dayOfWeek", label: "Weekday" },
+    { key: "activityCategory", label: "Category / developmental domain" },
+    { key: "ageModifications", label: "Recommended age" },
+    { key: "durationMinutes", label: "Estimated duration" },
+    { key: "objective", label: "Activity objective" },
+    { key: "description", label: "What children will do" },
+    { key: "materials", label: "Materials" },
+    { key: "preparation", label: "Teacher preparation" },
+    { key: "setup", label: "Setup" },
+    { key: "steps", label: "Step-by-step directions" },
+    { key: "teacherLanguage", label: "Suggested questions to ask" },
+    { key: "observationOpportunities", label: "Learning and observation focus" },
+    { key: "safetyNotes", label: "Safety and supervision" },
+    { key: "cleanupTips", label: "Cleanup" },
+  ]);
+
+  function getCoreActivityFieldValue(activity, draftActivity, key) {
+    const act = activity && typeof activity === "object" ? activity : {};
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
+    if (key === "durationMinutes") return getDurationFieldValue(act, d);
+    if (key === "materials") {
+      if (Object.prototype.hasOwnProperty.call(d, "materials")) return materialsToEditorText(d.materials);
+      return materialsToEditorText(act.materials);
+    }
+    if (key === "cleanupTips") return cleanupToEditorText(act, d);
+    if (key === "preparation") return preparationToEditorText(act, d);
+    if (key === "dayOfWeek") {
+      return pickOwnedDraftText(d, "dayOfWeek", act.dayOfWeek).toLowerCase();
+    }
+    if (key === "steps") {
+      return pickOwnedDraftText(d, "steps", act.steps || act.directions);
+    }
+    return pickOwnedDraftText(d, key, act[key]);
+  }
+
+  function mapActivityToOwnerEditorModel(activity, draftActivity, plan) {
+    const model = {};
+    OWNER_CORE_ACTIVITY_FIELD_KEYS.forEach((key) => {
+      model[key] = getCoreActivityFieldValue(activity, draftActivity, key);
+    });
+    model.planAge = text(plan?.age);
+    model.legacyFieldsPreserved = true;
+    return model;
+  }
+
+  /**
+   * Apply owner Core Activity edits onto a draft activity patch.
+   * Only sets keys present in `patch`. Does not delete unknown/legacy draft keys.
+   * Empty strings are stored as ownership markers; they never invent published content.
+   */
+  function applyOwnerActivityCorePatch(draftActivity, patch) {
+    const next = draftActivity && typeof draftActivity === "object" && !Array.isArray(draftActivity)
+      ? draftActivity
+      : {};
+    if (!patch || typeof patch !== "object") return next;
+    OWNER_CORE_ACTIVITY_FIELD_KEYS.forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(patch, key)) return;
+      if (key === "durationMinutes") {
+        next.durationMinutes = patch.durationMinutes;
+        return;
+      }
+      if (key === "dayOfWeek") {
+        const day = text(patch.dayOfWeek).toLowerCase();
+        next.dayOfWeek = WEEKDAYS.includes(day) ? day : text(patch.dayOfWeek);
+        return;
+      }
+      next[key] = patch[key] == null ? "" : patch[key];
+    });
+    return next;
+  }
+
+  function coreFieldIsFilled(model, key) {
+    if (key === "durationMinutes") {
+      const raw = model?.durationMinutes;
+      if (raw === "" || raw === null || raw === undefined) return false;
+      return true; // includes 0 and "15"
+    }
+    return Boolean(text(model?.[key]));
+  }
+
+  function computeActivityCompletion(activity, draftActivity, plan) {
+    const model = mapActivityToOwnerEditorModel(activity, draftActivity, plan);
+    const missing = [];
+    OWNER_CORE_ACTIVITY_REQUIRED_FIELDS.forEach((field) => {
+      if (!coreFieldIsFilled(model, field.key)) missing.push(field.label);
+    });
+    const total = OWNER_CORE_ACTIVITY_REQUIRED_FIELDS.length;
+    const filled = total - missing.length;
+    const percent = total ? Math.round((filled / total) * 100) : 0;
+    return { percent, missing, filled, total, model };
+  }
+
+  function renderActivityMissingItems(missing) {
+    const list = asArray(missing).map(text).filter(Boolean);
+    if (!list.length) return "None — core fields complete";
+    return list.join(", ");
+  }
+
+  /** Merge a non-empty owned draft text field onto a published value (blank never wipes). */
+  function mergeOwnedTextField(patch, key, publishedValue) {
+    if (!patch || !Object.prototype.hasOwnProperty.call(patch, key)) {
+      return publishedValue;
+    }
+    const owned = text(patch[key]);
+    return owned || publishedValue;
   }
 
   function normalizeImageRequirement(value) {
@@ -593,8 +815,33 @@
       outdoorAlternatives: pickDraftOrPublishedText(d.outdoorAlternatives, activity?.outdoorAlternatives),
       adaptations: pickDraftOrPublishedText(d.adaptations, activity?.adaptations),
       extensions: pickDraftOrPublishedText(d.extensions, activity?.extensions),
-      setup: pickDraftOrPublishedText(d.setup, activity?.setup),
-      steps: pickDraftOrPublishedText(d.steps, activity?.steps),
+      mixedAgeAdaptations: pickDraftOrPublishedText(
+        d.mixedAgeAdaptations,
+        activity?.mixedAgeAdaptations || activity?.mixedAge,
+      ),
+      setup: pickOwnedDraftText(d, "setup", activity?.setup),
+      steps: pickOwnedDraftText(d, "steps", activity?.steps || activity?.directions),
+      // Core Activity overlay (canonical property names; blank draft never invents content)
+      title: pickOwnedDraftText(d, "title", activity?.title),
+      dayOfWeek: pickOwnedDraftText(d, "dayOfWeek", activity?.dayOfWeek).toLowerCase()
+        || text(activity?.dayOfWeek).toLowerCase(),
+      activityCategory: pickOwnedDraftText(d, "activityCategory", activity?.activityCategory),
+      ageModifications: pickOwnedDraftText(d, "ageModifications", activity?.ageModifications),
+      durationMinutesDisplay: getDurationFieldValue(activity, d),
+      objective: pickOwnedDraftText(d, "objective", activity?.objective),
+      description: pickOwnedDraftText(d, "description", activity?.description),
+      materials: Object.prototype.hasOwnProperty.call(d, "materials")
+        ? materialsToEditorText(d.materials)
+        : materialsToEditorText(activity?.materials),
+      preparation: preparationToEditorText(activity, d),
+      teacherLanguage: pickOwnedDraftText(d, "teacherLanguage", activity?.teacherLanguage),
+      observationOpportunities: pickOwnedDraftText(
+        d,
+        "observationOpportunities",
+        activity?.observationOpportunities,
+      ),
+      safetyNotes: pickOwnedDraftText(d, "safetyNotes", activity?.safetyNotes),
+      cleanupTips: cleanupToEditorText(activity, d),
       imageBriefSetup: text(d.imageBriefSetup),
       imageBriefExample: text(d.imageBriefExample),
     };
@@ -1038,8 +1285,30 @@
       const patch = draftActs[key] || draftActs[text(act.itemId)];
       if (!patch) return act;
       const view = activityEnrichmentView(act, patch);
-      return {
+      const ownedObs = Object.prototype.hasOwnProperty.call(patch, "observationOpportunities")
+        ? text(patch.observationOpportunities)
+        : "";
+      const next = {
         ...act,
+        title: mergeOwnedTextField(patch, "title", act.title) || act.title,
+        dayOfWeek: (() => {
+          const day = text(mergeOwnedTextField(patch, "dayOfWeek", act.dayOfWeek)).toLowerCase();
+          return WEEKDAYS.includes(day) ? day : act.dayOfWeek;
+        })(),
+        activityCategory: mergeOwnedTextField(patch, "activityCategory", act.activityCategory)
+          || act.activityCategory,
+        ageModifications: mergeOwnedTextField(patch, "ageModifications", act.ageModifications),
+        objective: mergeOwnedTextField(patch, "objective", act.objective),
+        description: mergeOwnedTextField(patch, "description", act.description),
+        materials: mergeOwnedTextField(patch, "materials", materialsToEditorText(act.materials)),
+        preparation: mergeOwnedTextField(patch, "preparation", act.preparation || act.prep),
+        teacherLanguage: mergeOwnedTextField(patch, "teacherLanguage", act.teacherLanguage),
+        safetyNotes: mergeOwnedTextField(patch, "safetyNotes", act.safetyNotes),
+        cleanupTips: mergeOwnedTextField(
+          patch,
+          "cleanupTips",
+          act.cleanupTips || act.cleanup || act.resetNotes,
+        ),
         imageRequirement: view.imageRequirement || act.imageRequirement || "",
         setupImageUrl: view.setupImageUrl,
         exampleImageUrl: view.exampleImageUrl,
@@ -1050,54 +1319,93 @@
         teacherTips: view.teacherTips,
         substitutions: view.substitutions,
         settingTags: view.settingTags,
-        observationOpportunities: view.observationPrompts.join("\n") || act.observationOpportunities,
+        observationOpportunities: ownedObs
+          || (view.observationPrompts.length ? view.observationPrompts.join("\n") : "")
+          || act.observationOpportunities,
         vocabulary: view.vocabulary.join(", ") || act.vocabulary,
         indoorAlternatives: view.indoorAlternatives || act.indoorAlternatives,
         outdoorAlternatives: view.outdoorAlternatives || act.outdoorAlternatives,
         adaptations: view.adaptations || act.adaptations,
         extensions: view.extensions || act.extensions,
+        mixedAgeAdaptations: view.mixedAgeAdaptations || act.mixedAgeAdaptations || act.mixedAge,
         setup: view.setup || act.setup,
         steps: view.steps || act.steps,
       };
+      if (Object.prototype.hasOwnProperty.call(patch, "durationMinutes")) {
+        const dur = patch.durationMinutes;
+        if (!(dur === "" || dur === null || dur === undefined)) {
+          next.durationMinutes = dur;
+        }
+      }
+      return next;
     });
-    const byItemDay = new Map();
+    const byItemId = new Map();
+    const byTitle = new Map();
     nextActivities.forEach((act) => {
-      byItemDay.set(`${text(act.dayOfWeek)}:${text(act.itemId)}`, act);
-      byItemDay.set(`${text(act.dayOfWeek)}:${text(act.title).toLowerCase()}`, act);
+      if (text(act.itemId)) byItemId.set(text(act.itemId), act);
+      byTitle.set(`${text(act.dayOfWeek)}:${text(act.title).toLowerCase()}`, act);
+      byTitle.set(`*:${text(act.title).toLowerCase()}`, act);
     });
     const nextPlan = { ...(plan || {}) };
     const daily = { ...(nextPlan.dailyPlans || {}) };
+    // Flatten → rehome by (possibly edited) dayOfWeek so weekday edits relocate safely.
+    const relocated = {};
+    WEEKDAYS.forEach((day) => { relocated[day] = []; });
     WEEKDAYS.forEach((day) => {
-      const dayPlan = {
+      asArray(daily[day]?.items).forEach((item) => {
+        const match = byItemId.get(text(item.itemId))
+          || byTitle.get(`${day}:${text(item.title).toLowerCase()}`)
+          || byTitle.get(`*:${text(item.title).toLowerCase()}`);
+        if (!match) {
+          relocated[day].push(item);
+          return;
+        }
+        const targetDay = WEEKDAYS.includes(text(match.dayOfWeek).toLowerCase())
+          ? text(match.dayOfWeek).toLowerCase()
+          : day;
+        relocated[targetDay].push({
+          ...item,
+          title: match.title || item.title,
+          dayOfWeek: targetDay,
+          activityCategory: match.activityCategory || item.activityCategory,
+          ageModifications: text(match.ageModifications) || item.ageModifications,
+          durationMinutes: match.durationMinutes != null && match.durationMinutes !== ""
+            ? match.durationMinutes
+            : item.durationMinutes,
+          objective: match.objective || item.objective,
+          description: match.description || item.description,
+          materials: match.materials || item.materials,
+          preparation: match.preparation || item.preparation,
+          teacherLanguage: match.teacherLanguage || item.teacherLanguage,
+          safetyNotes: match.safetyNotes || item.safetyNotes,
+          cleanupTips: match.cleanupTips || item.cleanupTips,
+          imageRequirement: match.imageRequirement || item.imageRequirement || "",
+          setupImageUrl: match.setupImageUrl || item.setupImageUrl,
+          exampleImageUrl: match.exampleImageUrl || item.exampleImageUrl,
+          setupImageThumbUrl: match.setupImageThumbUrl || item.setupImageThumbUrl,
+          exampleImageThumbUrl: match.exampleImageThumbUrl || item.exampleImageThumbUrl,
+          setupMediaAssetId: match.setupMediaAssetId || item.setupMediaAssetId,
+          exampleMediaAssetId: match.exampleMediaAssetId || item.exampleMediaAssetId,
+          teacherTips: match.teacherTips || item.teacherTips,
+          substitutions: match.substitutions || item.substitutions,
+          settingTags: match.settingTags || item.settingTags,
+          observationOpportunities: match.observationOpportunities || item.observationOpportunities,
+          vocabulary: match.vocabulary || item.vocabulary,
+          indoorAlternatives: match.indoorAlternatives || item.indoorAlternatives,
+          outdoorAlternatives: match.outdoorAlternatives || item.outdoorAlternatives,
+          adaptations: match.adaptations || item.adaptations,
+          extensions: match.extensions || item.extensions,
+          mixedAgeAdaptations: match.mixedAgeAdaptations || item.mixedAgeAdaptations,
+          setup: match.setup || item.setup,
+          steps: match.steps || item.steps,
+        });
+      });
+    });
+    WEEKDAYS.forEach((day) => {
+      daily[day] = {
         ...(daily[day] || {}),
-        items: asArray(daily[day]?.items).map((item) => {
-          const match = byItemDay.get(`${day}:${text(item.itemId)}`)
-            || byItemDay.get(`${day}:${text(item.title).toLowerCase()}`);
-          if (!match) return item;
-          return {
-            ...item,
-            imageRequirement: match.imageRequirement || item.imageRequirement || "",
-            setupImageUrl: match.setupImageUrl,
-            exampleImageUrl: match.exampleImageUrl,
-            setupImageThumbUrl: match.setupImageThumbUrl,
-            exampleImageThumbUrl: match.exampleImageThumbUrl,
-            setupMediaAssetId: match.setupMediaAssetId,
-            exampleMediaAssetId: match.exampleMediaAssetId,
-            teacherTips: match.teacherTips,
-            substitutions: match.substitutions,
-            settingTags: match.settingTags,
-            observationOpportunities: match.observationOpportunities,
-            vocabulary: match.vocabulary,
-            indoorAlternatives: match.indoorAlternatives,
-            outdoorAlternatives: match.outdoorAlternatives,
-            adaptations: match.adaptations,
-            extensions: match.extensions,
-            setup: match.setup,
-            steps: match.steps,
-          };
-        }),
+        items: relocated[day],
       };
-      daily[day] = dayPlan;
     });
     nextPlan.dailyPlans = daily;
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
@@ -1890,6 +2198,16 @@
     activityEnrichmentView,
     activityStatus,
     activityStatusLabel,
+    OWNER_CORE_ACTIVITY_FIELD_KEYS,
+    OWNER_CORE_ACTIVITY_REQUIRED_FIELDS,
+    getCoreActivityFieldValue,
+    mapActivityToOwnerEditorModel,
+    applyOwnerActivityCorePatch,
+    computeActivityCompletion,
+    renderActivityMissingItems,
+    getDurationFieldValue,
+    parseDurationInput,
+    materialsToEditorText,
     firstIncompleteActivityIndex,
     normalizeImageRequirement,
     imageRequirementLabel,

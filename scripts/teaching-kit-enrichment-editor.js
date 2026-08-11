@@ -27,6 +27,14 @@
     mode: "activities", // activities | week | preview
     activityIndex: 0,
     dayFilter: "all",
+    /** Accordion open-state for the owner Core Activity editor (per session). */
+    activitySectionsOpen: {
+      core: true,
+      teaching: true,
+      safety: false,
+      enrichment: false,
+      images: false,
+    },
     draft: { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false },
     autosaveTimer: null,
     dirty: false,
@@ -2080,173 +2088,307 @@
     `;
   }
 
+  function coreFieldHelp(key, value) {
+    if (String(value || "").trim()) return "";
+    const helps = {
+      objective: "Example: Children will practice matching animal sounds to familiar farm animals.",
+      description: "Example: Children choose an animal, imitate its movement and sound, and match it to the correct picture.",
+      preparation: "Example: Print the animal cards, cut them apart, and place them in a basket before children arrive.",
+      setup: "Example: Place the basket and 4–6 toy farm animals on a low table where children can reach them.",
+      steps: "Example:\n1. Invite 2–4 children to the table.\n2. Let each child choose an animal.\n3. Model the animal sound.\n4. Ask children to match it to the picture card.",
+      safetyNotes: "Example: Use large, age-appropriate pieces and supervise children who still mouth materials.",
+      cleanupTips: "Example: Return animals and cards to the labeled basket and wipe the table.",
+      teacherLanguage: "Example: What sound does your animal make? How does it move?",
+      observationOpportunities: "Example: Notice whether children match sound to picture and take turns choosing animals.",
+      materials: "Example: Animal picture cards, basket, 4–6 toy farm animals",
+      ageModifications: "Example: Toddlers — fewer cards. Preschool — add matching by habitat.",
+      activityCategory: "Example: Dramatic Play / Language / Sensory",
+    };
+    const textHelp = helps[key];
+    if (!textHelp) return "";
+    return `<p class="tk-enrich-field-help" data-core-help="${esc(key)}">${esc(textHelp)}</p>`;
+  }
+
+  function coreField(label, key, value, { rows = 3, type = "textarea", options = null } = {}) {
+    const help = coreFieldHelp(key, value);
+    if (type === "select" && Array.isArray(options)) {
+      return `
+        <label class="tk-enrich-core-field">
+          <span>${esc(label)}</span>
+          ${help}
+          <select data-core-field="${esc(key)}">
+            ${options.map((opt) => {
+              const val = typeof opt === "string" ? opt : opt.value;
+              const lab = typeof opt === "string" ? opt : opt.label;
+              const selected = String(value || "").toLowerCase() === String(val).toLowerCase() ? "selected" : "";
+              return `<option value="${esc(val)}" ${selected}>${esc(lab)}</option>`;
+            }).join("")}
+          </select>
+        </label>`;
+    }
+    if (type === "input") {
+      return `
+        <label class="tk-enrich-core-field">
+          <span>${esc(label)}</span>
+          ${help}
+          <input type="text" data-core-field="${esc(key)}" value="${esc(value || "")}" />
+        </label>`;
+    }
+    return `
+      <label class="tk-enrich-core-field">
+        <span>${esc(label)}</span>
+        ${help}
+        <textarea data-core-field="${esc(key)}" rows="${rows}">${esc(value || "")}</textarea>
+      </label>`;
+  }
+
+  function accordionSection(id, title, bodyHtml) {
+    const isOpen = state.activitySectionsOpen && Object.prototype.hasOwnProperty.call(state.activitySectionsOpen, id)
+      ? Boolean(state.activitySectionsOpen[id])
+      : (id === "core" || id === "teaching");
+    return `
+      <details class="tk-enrich-accordion" data-core-section="${esc(id)}" ${isOpen ? "open" : ""}>
+        <summary class="tk-enrich-accordion-summary">${esc(title)}</summary>
+        <div class="tk-enrich-accordion-body">${bodyHtml}</div>
+      </details>
+    `;
+  }
+
   function renderActivityMode(plan, activities) {
     const enrich = api();
     const current = activities[state.activityIndex] || null;
-    const byDay = WEEKDAYS.map((day) => ({
-      day,
-      items: activities.filter((a) => a.dayOfWeek === day),
-    }));
     const queue = state.dayFilter === "all"
       ? activities
       : activities.filter((a) => a.dayOfWeek === state.dayFilter);
+    const isPublished = ["published", "featured"].includes(String(plan?.status || "").toLowerCase());
 
     let stage = `<div class="empty-state">No activities on this lesson yet.</div>`;
     if (current) {
       const key = draftKey(current);
-      const view = enrich.activityEnrichmentView(current, state.draft.activities[key]);
+      const draftAct = state.draft.activities[key] || {};
+      const view = enrich.activityEnrichmentView(current, draftAct);
+      const model = enrich.mapActivityToOwnerEditorModel
+        ? enrich.mapActivityToOwnerEditorModel(current, draftAct, plan)
+        : view;
+      const completion = enrich.computeActivityCompletion
+        ? enrich.computeActivityCompletion(current, draftAct, plan)
+        : { percent: 0, missing: [] };
+      const missingText = enrich.renderActivityMissingItems
+        ? enrich.renderActivityMissingItems(completion.missing)
+        : (completion.missing || []).join(", ");
       const tags = new Set(view.settingTags);
+      const displayTitle = model.title || current.title || "Untitled activity";
+      const displayDay = model.dayOfWeek || current.dayOfWeek;
       stage = `
-        <article class="tk-enrich-stage" data-activity-key="${esc(key)}" data-activity-studio>
+        <article class="tk-enrich-stage" data-activity-key="${esc(key)}" data-activity-studio data-owner-core-editor>
           <div class="tk-enrich-stage-head">
             <div>
-              <h3 data-enrich-title>${esc(current.title)}</h3>
-              <p class="muted-copy">${esc(DAY_LABEL[current.dayOfWeek] || current.dayOfWeek)} · ${esc(current.activityCategory || "Activity")}</p>
+              <p class="tk-enrich-activity-count">Activity ${state.activityIndex + 1} of ${activities.length}</p>
+              <h3 data-enrich-title>${esc(displayTitle)}</h3>
+              <p class="muted-copy">${esc(DAY_LABEL[displayDay] || displayDay)} · ${esc(model.activityCategory || current.activityCategory || "Activity")}</p>
+              <p class="tk-enrich-completion" data-core-completion>
+                Completion: <strong>${completion.percent}%</strong>
+                <span class="tk-enrich-missing">Missing: ${esc(missingText)}</span>
+              </p>
+              <p class="muted-copy" data-core-edit-channel>
+                ${isPublished
+                  ? "Editing draft overlay — customer version stays published until you Publish."
+                  : "Editing draft activity content — Save Draft never publishes."}
+              </p>
             </div>
             <button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>
             <button type="button" class="ghost-button" data-ai-suggest="lesson">Prepare full lesson draft</button>
           </div>
-          <section class="tk-enrich-card-block" data-image-requirement-block>
-            <h4>Image requirement</h4>
-            <p class="muted-copy">Owner-controlled. Based on instructional value — not every activity needs photos. Existing images are kept even when marked Optional or No image needed. Briefs never count as photos. Unclassified activities do not create missing-image blockers.</p>
-            <label class="muted-copy" for="tk-image-requirement-${esc(key)}">Requirement for this activity</label>
-            <select id="tk-image-requirement-${esc(key)}" data-image-requirement>
-              <option value="" ${!view.ownerClassified ? "selected" : ""}>Needs owner classification</option>
-              ${(enrich.IMAGE_REQUIREMENT_OWNER_OPTIONS || ["not_needed", "example_only", "setup_only", "required", "optional"]).map((value) => {
-                const label = (enrich.IMAGE_REQUIREMENT_LABELS && enrich.IMAGE_REQUIREMENT_LABELS[value])
-                  || value;
-                const selected = view.ownerClassified && view.imageRequirement === value ? "selected" : "";
-                return `<option value="${esc(value)}" ${selected}>${esc(label)}</option>`;
-              }).join("")}
-            </select>
-            ${view.recommendedImageRequirement
-              ? `<p class="muted-copy" data-image-requirement-recommendation>AI recommendation (not applied): <strong>${esc(view.recommendedImageRequirementLabel || view.recommendedImageRequirement)}</strong>${view.imageRequirementAiSuggestion ? ` · saved suggestion: ${esc(enrich.imageRequirementLabel?.(view.imageRequirementAiSuggestion) || view.imageRequirementAiSuggestion)}` : ""}</p>`
-              : ""}
-          </section>
-          <div class="tk-enrich-photo-grid" data-activity-images>
-            ${view.imageSlots?.needsOwnerClassification && !view.setupImageUrl && !view.exampleImageUrl
-              ? `<p class="muted-copy" data-images-needs-classification>Needs owner classification — classify above before treating empty photos as gaps. Empty sections stay hidden from customers and print.</p>`
-              : ""}
-            ${view.imageSlots?.imagesNotNeeded && !view.setupImageUrl && !view.exampleImageUrl
-              ? `<p class="muted-copy" data-images-not-needed>No image needed for this activity. Change the requirement above if you still want to upload.</p>`
-              : ""}
-            ${view.imageSlots?.imagesNotNeeded && (view.setupImageUrl || view.exampleImageUrl)
-              ? `<p class="muted-copy">Photos are not required, but existing uploads are preserved.</p>`
-              : ""}
-            ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional || view.setupImageUrl
-              ? photoZoneHtml(
-                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded || view.imageSlots?.needsOwnerClassification
-                  ? "Setup photo (optional)"
-                  : "Setup photo (before)",
-                "setupImageUrl",
-                view,
-                key,
-              )
-              : ""}
-            ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional || view.exampleImageUrl
-              ? photoZoneHtml(
-                view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded || view.imageSlots?.needsOwnerClassification
-                  ? "Finished example (optional)"
-                  : "Finished example (after)",
-                "exampleImageUrl",
-                view,
-                key,
-              )
-              : ""}
-          </div>
-          <section class="tk-enrich-card-block">
-            <h4>Group &amp; setting</h4>
-            <p class="muted-copy">Small-group / large-group ideas and indoor / outdoor options.</p>
-            <div class="tk-enrich-chips" data-setting-tags>
-              ${[["small_group", "Small group"], ["large_group", "Large group"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]].map(([id, label]) => `
-                <button type="button" class="tk-enrich-chip ${tags.has(id) ? "is-on" : ""}" data-setting-tag="${id}">${label}</button>
-              `).join("")}
+
+          ${accordionSection("core", "Core Activity", `
+            <h4 class="tk-enrich-core-heading">CORE ACTIVITY</h4>
+            ${coreField("Activity name", "title", model.title, { type: "input" })}
+            ${coreField("Weekday", "dayOfWeek", displayDay, {
+              type: "select",
+              options: WEEKDAYS.map((d) => ({ value: d, label: DAY_LABEL[d] || d })),
+            })}
+            ${coreField("Category / developmental domain", "activityCategory", model.activityCategory, { type: "input" })}
+            ${coreField("Recommended age", "ageModifications", model.ageModifications, {
+              type: "input",
+            })}
+            ${model.planAge ? `<p class="muted-copy">Lesson age band: ${esc(model.planAge)}</p>` : ""}
+            ${coreField("Estimated duration", "durationMinutes", model.durationMinutes, { type: "input" })}
+            ${coreField("Activity objective", "objective", model.objective, { rows: 2 })}
+            ${coreField("What children will do", "description", model.description, { rows: 5 })}
+            ${coreField("Materials", "materials", model.materials, { rows: 4 })}
+            ${coreField("Teacher preparation", "preparation", model.preparation, { rows: 3 })}
+            ${coreField("Setup", "setup", model.setup, { rows: 3 })}
+          `)}
+
+          ${accordionSection("teaching", "Teaching & Learning", `
+            ${coreField("Step-by-step directions", "steps", model.steps, { rows: 8 })}
+            <p class="muted-copy">One numbered step per line. Existing structured steps are kept as written — not auto-flattened.</p>
+            ${coreField("Suggested questions to ask", "teacherLanguage", model.teacherLanguage, { rows: 3 })}
+            ${coreField("Learning and observation focus", "observationOpportunities", model.observationOpportunities, { rows: 3 })}
+          `)}
+
+          ${accordionSection("safety", "Safety & Cleanup", `
+            ${coreField("Safety and supervision", "safetyNotes", model.safetyNotes, { rows: 3 })}
+            ${coreField("Cleanup", "cleanupTips", model.cleanupTips, { rows: 3 })}
+          `)}
+
+          ${accordionSection("enrichment", "Enrichment", `
+            <section class="tk-enrich-card-block">
+              <h4>Group &amp; setting</h4>
+              <p class="muted-copy">Small-group / large-group ideas and indoor / outdoor options.</p>
+              <div class="tk-enrich-chips" data-setting-tags>
+                ${[["small_group", "Small group"], ["large_group", "Large group"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]].map(([id, label]) => `
+                  <button type="button" class="tk-enrich-chip ${tags.has(id) ? "is-on" : ""}" data-setting-tag="${id}">${label}</button>
+                `).join("")}
+              </div>
+            </section>
+            <section class="tk-enrich-card-block">
+              <div class="tk-enrich-card-head"><h4>Teacher tips</h4></div>
+              <div class="tk-enrich-tip-list">
+                ${view.teacherTips.map((tip, i) => `
+                  <div class="tk-enrich-tip-card">
+                    <span>${esc(tip)}</span>
+                    <button type="button" data-tip-remove="${i}" aria-label="Remove tip">×</button>
+                  </div>
+                `).join("") || `<p class="muted-copy">Add a short classroom tip.</p>`}
+              </div>
+              <form class="tk-enrich-inline-add" data-tip-add>
+                <input type="text" maxlength="280" placeholder="Add a tip (one line)" />
+                <button class="ghost-button" type="submit">Add</button>
+              </form>
+            </section>
+            <section class="tk-enrich-card-block">
+              <h4>Supply substitutions</h4>
+              <div class="tk-enrich-sub-list">
+                ${view.substitutions.map((sub, i) => `
+                  <div class="tk-enrich-tip-card">
+                    <span>No <strong>${esc(sub.need)}</strong> → use <strong>${esc(sub.use)}</strong></span>
+                    <button type="button" data-sub-remove="${i}" aria-label="Remove substitution">×</button>
+                  </div>
+                `).join("") || `<p class="muted-copy">Add classroom-friendly swaps.</p>`}
+              </div>
+              <form class="tk-enrich-inline-add" data-sub-add>
+                <input name="need" type="text" placeholder="If missing…" maxlength="120" />
+                <input name="use" type="text" placeholder="Use instead…" maxlength="120" />
+                <button class="ghost-button" type="submit">Add</button>
+              </form>
+            </section>
+            <label class="tk-enrich-core-field">
+              <span>Support adaptations</span>
+              <textarea data-enrich-text-field="adaptations" rows="3">${esc(view.adaptations || "")}</textarea>
+            </label>
+            <label class="tk-enrich-core-field">
+              <span>Added challenge</span>
+              <textarea data-enrich-text-field="extensions" rows="3">${esc(view.extensions || "")}</textarea>
+            </label>
+            <label class="tk-enrich-core-field">
+              <span>Mixed-age adaptations</span>
+              <textarea data-enrich-text-field="mixedAgeAdaptations" rows="3">${esc(view.mixedAgeAdaptations || "")}</textarea>
+            </label>
+            <section class="tk-enrich-card-block">
+              <h4>Observation prompts</h4>
+              <div class="tk-enrich-tip-list">
+                ${view.observationPrompts.map((prompt, i) => `
+                  <div class="tk-enrich-tip-card">
+                    <span>${esc(prompt)}</span>
+                    <button type="button" data-obs-remove="${i}" aria-label="Remove prompt">×</button>
+                  </div>
+                `).join("") || `<p class="muted-copy">Add what to watch for during this activity.</p>`}
+              </div>
+              <form class="tk-enrich-inline-add" data-obs-add>
+                <input type="text" maxlength="280" placeholder="Add an observation prompt" />
+                <button class="ghost-button" type="submit">Add</button>
+              </form>
+            </section>
+            <section class="tk-enrich-card-block">
+              <h4>Vocabulary for this activity</h4>
+              <div class="tk-enrich-vocab-list">
+                ${view.vocabulary.map((word, i) => `
+                  <span class="tk-enrich-vocab-chip">
+                    ${esc(word)}
+                    <button type="button" data-vocab-remove="${i}" aria-label="Remove ${esc(word)}">×</button>
+                  </span>
+                `).join("") || `<p class="muted-copy">Add words children will hear and use.</p>`}
+              </div>
+              <form class="tk-enrich-inline-add" data-vocab-add>
+                <input type="text" maxlength="80" placeholder="Add a vocabulary word" />
+                <button class="ghost-button" type="submit">Add</button>
+              </form>
+            </section>
+          `)}
+
+          ${accordionSection("images", "Images", `
+            <section class="tk-enrich-card-block" data-image-requirement-block>
+              <h4>Image requirement</h4>
+              <p class="muted-copy">Owner-controlled. Based on instructional value — not every activity needs photos. Existing images are kept even when marked Optional or No image needed. Briefs never count as photos. Unclassified activities do not create missing-image blockers.</p>
+              <label class="muted-copy" for="tk-image-requirement-${esc(key)}">Requirement for this activity</label>
+              <select id="tk-image-requirement-${esc(key)}" data-image-requirement>
+                <option value="" ${!view.ownerClassified ? "selected" : ""}>Needs owner classification</option>
+                ${(enrich.IMAGE_REQUIREMENT_OWNER_OPTIONS || ["not_needed", "example_only", "setup_only", "required", "optional"]).map((value) => {
+                  const label = (enrich.IMAGE_REQUIREMENT_LABELS && enrich.IMAGE_REQUIREMENT_LABELS[value])
+                    || value;
+                  const selected = view.ownerClassified && view.imageRequirement === value ? "selected" : "";
+                  return `<option value="${esc(value)}" ${selected}>${esc(label)}</option>`;
+                }).join("")}
+              </select>
+              ${view.recommendedImageRequirement
+                ? `<p class="muted-copy" data-image-requirement-recommendation>AI recommendation (not applied): <strong>${esc(view.recommendedImageRequirementLabel || view.recommendedImageRequirement)}</strong>${view.imageRequirementAiSuggestion ? ` · saved suggestion: ${esc(enrich.imageRequirementLabel?.(view.imageRequirementAiSuggestion) || view.imageRequirementAiSuggestion)}` : ""}</p>`
+                : ""}
+            </section>
+            <div class="tk-enrich-photo-grid" data-activity-images>
+              ${view.imageSlots?.needsOwnerClassification && !view.setupImageUrl && !view.exampleImageUrl
+                ? `<p class="muted-copy" data-images-needs-classification>Needs owner classification — classify above before treating empty photos as gaps. Empty sections stay hidden from customers and print.</p>`
+                : ""}
+              ${view.imageSlots?.imagesNotNeeded && !view.setupImageUrl && !view.exampleImageUrl
+                ? `<p class="muted-copy" data-images-not-needed>No image needed for this activity. Change the requirement above if you still want to upload.</p>`
+                : ""}
+              ${view.imageSlots?.imagesNotNeeded && (view.setupImageUrl || view.exampleImageUrl)
+                ? `<p class="muted-copy">Photos are not required, but existing uploads are preserved.</p>`
+                : ""}
+              ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional || view.setupImageUrl
+                ? photoZoneHtml(
+                  view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded || view.imageSlots?.needsOwnerClassification
+                    ? "Setup photo (optional)"
+                    : "Setup photo (before)",
+                  "setupImageUrl",
+                  view,
+                  key,
+                )
+                : ""}
+              ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional || view.exampleImageUrl
+                ? photoZoneHtml(
+                  view.imageSlots?.imagesOptional || view.imageSlots?.imagesNotNeeded || view.imageSlots?.needsOwnerClassification
+                    ? "Finished example (optional)"
+                    : "Finished example (after)",
+                  "exampleImageUrl",
+                  view,
+                  key,
+                )
+                : ""}
             </div>
-          </section>
-          <section class="tk-enrich-card-block">
-            <div class="tk-enrich-card-head">
-              <h4>Teacher tips</h4>
-            </div>
-            <div class="tk-enrich-tip-list">
-              ${view.teacherTips.map((tip, i) => `
-                <div class="tk-enrich-tip-card">
-                  <span>${esc(tip)}</span>
-                  <button type="button" data-tip-remove="${i}" aria-label="Remove tip">×</button>
-                </div>
-              `).join("") || `<p class="muted-copy">Add a short classroom tip.</p>`}
-            </div>
-            <form class="tk-enrich-inline-add" data-tip-add>
-              <input type="text" maxlength="280" placeholder="Add a tip (one line)" />
-              <button class="ghost-button" type="submit">Add</button>
-            </form>
-          </section>
-          <section class="tk-enrich-card-block">
-            <h4>Supply substitutions</h4>
-            <div class="tk-enrich-sub-list">
-              ${view.substitutions.map((sub, i) => `
-                <div class="tk-enrich-tip-card">
-                  <span>No <strong>${esc(sub.need)}</strong> → use <strong>${esc(sub.use)}</strong></span>
-                  <button type="button" data-sub-remove="${i}" aria-label="Remove substitution">×</button>
-                </div>
-              `).join("") || `<p class="muted-copy">Add classroom-friendly swaps.</p>`}
-            </div>
-            <form class="tk-enrich-inline-add" data-sub-add>
-              <input name="need" type="text" placeholder="If missing…" maxlength="120" />
-              <input name="use" type="text" placeholder="Use instead…" maxlength="120" />
-              <button class="ghost-button" type="submit">Add</button>
-            </form>
-          </section>
-          <section class="tk-enrich-card-block">
-            <h4>Observation prompts</h4>
-            <div class="tk-enrich-tip-list">
-              ${view.observationPrompts.map((prompt, i) => `
-                <div class="tk-enrich-tip-card">
-                  <span>${esc(prompt)}</span>
-                  <button type="button" data-obs-remove="${i}" aria-label="Remove prompt">×</button>
-                </div>
-              `).join("") || `<p class="muted-copy">Add what to watch for during this activity.</p>`}
-            </div>
-            <form class="tk-enrich-inline-add" data-obs-add>
-              <input type="text" maxlength="280" placeholder="Add an observation prompt" />
-              <button class="ghost-button" type="submit">Add</button>
-            </form>
-          </section>
-          <section class="tk-enrich-card-block">
-            <h4>Vocabulary for this activity</h4>
-            <div class="tk-enrich-vocab-list">
-              ${view.vocabulary.map((word, i) => `
-                <span class="tk-enrich-vocab-chip">
-                  ${esc(word)}
-                  <button type="button" data-vocab-remove="${i}" aria-label="Remove ${esc(word)}">×</button>
-                </span>
-              `).join("") || `<p class="muted-copy">Add words children will hear and use.</p>`}
-            </div>
-            <form class="tk-enrich-inline-add" data-vocab-add>
-              <input type="text" maxlength="80" placeholder="Add a vocabulary word" />
-              <button class="ghost-button" type="submit">Add</button>
-            </form>
-          </section>
-          <section class="tk-enrich-card-block">
-            <h4>Example image briefs (style guide)</h4>
-            <p class="muted-copy">AI drafts classroom-style briefs only — never glossy stock. Upload photos that match, or use the brief when creating images. Briefs do not publish as photos.</p>
-            ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional
-              ? `<label class="muted-copy">Setup example brief</label>
-            <textarea data-image-brief-setup rows="2" placeholder="Simple tray setup, ordinary materials, natural light…">${esc(view.imageBriefSetup || "")}</textarea>`
-              : (view.imageBriefSetup
-                ? `<label class="muted-copy">Setup example brief (kept)</label>
-            <textarea data-image-brief-setup rows="2">${esc(view.imageBriefSetup || "")}</textarea>`
-                : "")}
-            ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional
-              ? `<label class="muted-copy">Finished example brief</label>
-            <textarea data-image-brief-example rows="2" placeholder="Achievable craft / play result, teacher-manual style…">${esc(view.imageBriefExample || "")}</textarea>`
-              : (view.imageBriefExample
-                ? `<label class="muted-copy">Finished example brief (kept)</label>
-            <textarea data-image-brief-example rows="2">${esc(view.imageBriefExample || "")}</textarea>`
-                : "")}
-            ${view.imageSlots?.imagesNotNeeded && !view.imageBriefSetup && !view.imageBriefExample
-              ? `<p class="muted-copy">Image briefs are hidden while photos are marked Not needed.</p>`
-              : ""}
-          </section>
+            <section class="tk-enrich-card-block">
+              <h4>Example image briefs (style guide)</h4>
+              <p class="muted-copy">AI drafts classroom-style briefs only — never glossy stock. Upload photos that match, or use the brief when creating images. Briefs do not publish as photos.</p>
+              ${view.imageSlots?.needsSetup || view.imageSlots?.imagesOptional
+                ? `<label class="muted-copy">Setup example brief</label>
+              <textarea data-image-brief-setup rows="2" placeholder="Simple tray setup, ordinary materials, natural light…">${esc(view.imageBriefSetup || "")}</textarea>`
+                : (view.imageBriefSetup
+                  ? `<label class="muted-copy">Setup example brief (kept)</label>
+              <textarea data-image-brief-setup rows="2">${esc(view.imageBriefSetup || "")}</textarea>`
+                  : "")}
+              ${view.imageSlots?.needsExample || view.imageSlots?.imagesOptional
+                ? `<label class="muted-copy">Finished example brief</label>
+              <textarea data-image-brief-example rows="2" placeholder="Achievable craft / play result, teacher-manual style…">${esc(view.imageBriefExample || "")}</textarea>`
+                : (view.imageBriefExample
+                  ? `<label class="muted-copy">Finished example brief (kept)</label>
+              <textarea data-image-brief-example rows="2">${esc(view.imageBriefExample || "")}</textarea>`
+                  : "")}
+              ${view.imageSlots?.imagesNotNeeded && !view.imageBriefSetup && !view.imageBriefExample
+                ? `<p class="muted-copy">Image briefs are hidden while photos are marked Not needed.</p>`
+                : ""}
+            </section>
+          `)}
+
           <div class="tk-enrich-stage-nav">
             <button type="button" class="ghost-button" data-enrich-skip>Skip for now</button>
             <button type="button" class="primary-button" data-enrich-save-next>Save &amp; next →</button>
@@ -3366,6 +3508,18 @@
   }
 
   function bind() {
+    document.addEventListener("toggle", (event) => {
+      if (!state.open) return;
+      const details = event.target?.closest?.("[data-core-section]");
+      if (!details || event.target !== details) return;
+      const id = details.getAttribute("data-core-section") || "";
+      if (!id) return;
+      if (!state.activitySectionsOpen || typeof state.activitySectionsOpen !== "object") {
+        state.activitySectionsOpen = {};
+      }
+      state.activitySectionsOpen[id] = details.open === true;
+    }, true);
+
     document.addEventListener("click", async (event) => {
       const eventEl = event.target && event.target.nodeType === 1
         ? event.target
@@ -3928,7 +4082,14 @@
       }
       const queueItem = event.target.closest("[data-activity-index]");
       if (queueItem) {
-        state.activityIndex = Number(queueItem.getAttribute("data-activity-index")) || 0;
+        const nextIndex = Number(queueItem.getAttribute("data-activity-index")) || 0;
+        if (nextIndex !== state.activityIndex && state.dirty) {
+          const stay = !window.confirm(
+            "You have unsaved activity edits.\n\nOK to switch activities (keep unsaved draft in memory).\nCancel to stay on this activity and Save Draft first.",
+          );
+          if (stay) return;
+        }
+        state.activityIndex = nextIndex;
         state.mode = "activities";
         render();
         return;
@@ -4422,6 +4583,52 @@
         state.jumpQuery = event.target.value || "";
         const plan = getPlan();
         renderJumpResults(plan, getActivities(plan));
+        return;
+      }
+      if (event.target.matches("[data-core-field]")) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        if (!act) return;
+        const key = draftKey(act);
+        const field = event.target.getAttribute("data-core-field") || "";
+        if (!field) return;
+        const draftAct = ensureDraftActivity(key);
+        const enrich = api();
+        let value = event.target.value;
+        if (field === "durationMinutes" && enrich.parseDurationInput) {
+          value = enrich.parseDurationInput(value);
+        }
+        if (enrich.applyOwnerActivityCorePatch) {
+          enrich.applyOwnerActivityCorePatch(draftAct, { [field]: value });
+        } else {
+          draftAct[field] = value;
+        }
+        // Refresh completion line without destroying focus/caret.
+        const completion = enrich.computeActivityCompletion?.(act, draftAct, plan);
+        const completionNode = document.querySelector("[data-core-completion]");
+        if (completion && completionNode) {
+          const missingText = enrich.renderActivityMissingItems?.(completion.missing) || "";
+          completionNode.innerHTML = `Completion: <strong>${completion.percent}%</strong>
+            <span class="tk-enrich-missing">Missing: ${esc(missingText)}</span>`;
+        }
+        const titleNode = document.querySelector("[data-enrich-title]");
+        if (field === "title" && titleNode) titleNode.textContent = String(draftAct.title || act.title || "");
+        // Owner workspace / Draft Review: explicit Save Draft only (no silent autosave).
+        const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
+        markDirty({ autosave: !explicitOnly });
+        return;
+      }
+      if (event.target.matches("[data-enrich-text-field]")) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        if (!act) return;
+        const key = draftKey(act);
+        const field = event.target.getAttribute("data-enrich-text-field") || "";
+        if (!field) return;
+        const draftAct = ensureDraftActivity(key);
+        draftAct[field] = event.target.value || "";
+        const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
+        markDirty({ autosave: !explicitOnly });
         return;
       }
       if (event.target.matches("[data-image-brief-setup]") || event.target.matches("[data-image-brief-example]")) {
