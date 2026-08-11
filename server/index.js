@@ -1165,6 +1165,17 @@ function normalizedFreePlanAccess(value) {
 }
 
 function normalizedMultilineText(value, maxLength = 12000) {
+  // Arrays (legacy materials/directions/steps) must join with newlines — never
+  // String(array) which yields comma-separated corruption ("a,b,c").
+  if (Array.isArray(value)) {
+    value = value
+      .map((item) => {
+        if (item == null || typeof item === "object") return "";
+        return String(item).replace(/\r\n?/g, "\n").trim();
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
   const text = String(value || "").replace(/\r\n?/g, "\n").trim();
   if (!text) return "";
   if (curriculumSentinel.isSentinelValue(text)) return "";
@@ -1920,69 +1931,124 @@ function normalizedCurriculumDailyPlanItem(value) {
   if (!title) return null;
   let itemId = normalizedShortText(entry.itemId, 120);
   if (!itemId) itemId = generateCurriculumItemId();
-  return {
-    itemId,
-    importKey: normalizedShortText(entry.importKey, 160),
-    activityCategory: normalizedPlayActivityCategory(entry.activityCategory),
-    title,
-    objective: normalizedMultilineText(entry.objective, 4000),
-    purpose: normalizedMultilineText(entry.purpose, 4000),
-    description: normalizedMultilineText(entry.description, 4000),
-    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
-    developmentalDomains: normalizedList(entry.developmentalDomains || entry.domains, 12, (item) => normalizedShortText(item, 80)).filter(Boolean),
-    materials: normalizedMultilineText(entry.materials, 4000),
-    setup: normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT),
-    steps: normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT),
-    preparation: normalizedMultilineText(entry.preparation || entry.prep, 4000),
-    teacherRole: normalizedMultilineText(entry.teacherRole, 4000),
-    teacherLanguage: normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT),
-    learningGoals: normalizedList(entry.learningGoals, 20, (item) => normalizedMultilineText(item, 500)).filter(Boolean),
-    observationOpportunities: normalizedMultilineText(entry.observationOpportunities, 4000),
-    vocabulary: normalizedMultilineText(entry.vocabulary, 4000),
-    extensions: normalizedMultilineText(entry.extensions || entry.challengeExtension, 4000),
-    adaptations: normalizedMultilineText(entry.adaptations, 4000),
-    extraSupport: normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000),
-    mixedAgeAdaptations: normalizedMultilineText(entry.mixedAgeAdaptations || entry.mixedAge, 4000),
-    safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
-    ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
-    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
-    printableInstructions: normalizedMultilineText(entry.printableInstructions, 4000),
-    setupMinutes: normalizedOptionalMinutes(entry.setupMinutes),
-    durationMinutes: normalizedOptionalMinutes(
-      entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
-    ),
-    groupSize: normalizedShortText(entry.groupSize, 80),
-    dailyPlacement: normalizedShortText(entry.dailyPlacement || entry.placement, 120),
-    // Teaching Kit enrichment (additive — empty keeps legacy behavior).
-    // Public enrichment media paths or HTTPS/data — never private admin draft URLs.
-    setupImageUrl: sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
-    exampleImageUrl: sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
-    exampleImageCaption: normalizedShortText(entry.exampleImageCaption || entry.exampleCaption, 240),
-    setupImageCaption: normalizedShortText(entry.setupImageCaption || entry.setupCaption, 240),
-    exampleImageAlt: normalizedShortText(entry.exampleImageAlt || entry.exampleAlt, 240),
-    setupImageAlt: normalizedShortText(entry.setupImageAlt || entry.setupAlt, 240),
-    setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
-    exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
-    imageRequirement: normalizedImageRequirement(entry.imageRequirement),
-    teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
-    substitutions: normalizedList(entry.substitutions, 12, (item) => {
-      if (!item || typeof item !== "object") return null;
-      const need = normalizedShortText(item.need || item.from, 120);
-      const use = normalizedShortText(item.use || item.to, 120);
-      if (!need || !use) return null;
-      return { need, use };
-    }).filter(Boolean),
-    settingTags: normalizedList(entry.settingTags, 8, (item) => {
-      const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
-      return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
-    }).filter(Boolean),
-    // Complete Teaching Kit binder authoring (additive).
-    indoorAlternative: normalizedMultilineText(entry.indoorAlternative || entry.indoorAlternatives || entry.indoor, 4000),
-    outdoorOption: normalizedMultilineText(entry.outdoorOption || entry.outdoorAlternatives || entry.outdoor, 4000),
-    indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives || entry.indoorAlternative, 4000),
-    outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives || entry.outdoorOption, 4000),
-    cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
-  };
+
+  // Preserve unknown/legacy keys (directions, prep, cleanup, custom*, nulls)
+  // so publish/GET normalize cannot strip sibling activity bytes.
+  const normalized = { ...entry };
+
+  normalized.itemId = itemId;
+  normalized.importKey = normalizedShortText(entry.importKey, 160);
+  normalized.activityCategory = normalizedPlayActivityCategory(entry.activityCategory);
+  normalized.title = title;
+  normalized.objective = normalizedMultilineText(entry.objective, 4000);
+  normalized.purpose = normalizedMultilineText(entry.purpose, 4000);
+  normalized.description = normalizedMultilineText(entry.description, 4000);
+  normalized.learningDomains = normalizedCurriculumLearningDomains(entry.learningDomains);
+  normalized.developmentalDomains = normalizedList(
+    entry.developmentalDomains || entry.domains,
+    12,
+    (item) => normalizedShortText(item, 80),
+  ).filter(Boolean);
+  // Keep materials[] shape when present; strings stay multiline text.
+  normalized.materials = Array.isArray(entry.materials)
+    ? normalizedList(entry.materials, 80, (item) => normalizedShortText(item, 280)).filter(Boolean)
+    : normalizedMultilineText(entry.materials, 4000);
+  normalized.setup = normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  // Steps: preserve array shape. When only legacy directions[] exists, do not
+  // invent a corrupted comma-joined steps string — keep directions[].
+  if (Array.isArray(entry.steps)) {
+    normalized.steps = normalizedList(
+      entry.steps,
+      40,
+      (item) => normalizedMultilineText(item, 500),
+    ).filter(Boolean);
+  } else if (entry.steps != null && String(entry.steps).trim() !== "") {
+    normalized.steps = normalizedMultilineText(entry.steps, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  } else if (Array.isArray(entry.directions)) {
+    delete normalized.steps;
+    normalized.directions = normalizedList(
+      entry.directions,
+      40,
+      (item) => normalizedMultilineText(item, 500),
+    ).filter(Boolean);
+  } else {
+    normalized.steps = normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  }
+  normalized.preparation = normalizedMultilineText(entry.preparation || entry.prep, 4000);
+  normalized.teacherRole = normalizedMultilineText(entry.teacherRole, 4000);
+  normalized.teacherLanguage = normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  normalized.learningGoals = normalizedList(
+    entry.learningGoals,
+    20,
+    (item) => normalizedMultilineText(item, 500),
+  ).filter(Boolean);
+  normalized.observationOpportunities = normalizedMultilineText(entry.observationOpportunities, 4000);
+  normalized.vocabulary = normalizedMultilineText(entry.vocabulary, 4000);
+  normalized.extensions = normalizedMultilineText(entry.extensions || entry.challengeExtension, 4000);
+  normalized.adaptations = normalizedMultilineText(entry.adaptations, 4000);
+  normalized.extraSupport = normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000);
+  normalized.mixedAgeAdaptations = normalizedMultilineText(entry.mixedAgeAdaptations || entry.mixedAge, 4000);
+  normalized.safetyNotes = normalizedMultilineText(entry.safetyNotes, 4000);
+  normalized.ageModifications = normalizedMultilineText(entry.ageModifications, 4000);
+  normalized.familyConnection = normalizedMultilineText(entry.familyConnection, 4000);
+  normalized.printableInstructions = normalizedMultilineText(entry.printableInstructions, 4000);
+  normalized.setupMinutes = normalizedOptionalMinutes(entry.setupMinutes);
+  normalized.durationMinutes = normalizedOptionalMinutes(
+    entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
+  );
+  normalized.groupSize = normalizedShortText(entry.groupSize, 80);
+  normalized.dailyPlacement = normalizedShortText(entry.dailyPlacement || entry.placement, 120);
+  // Teaching Kit enrichment (additive — empty keeps legacy behavior).
+  // Public enrichment media paths or HTTPS/data — never private admin draft URLs.
+  normalized.setupImageUrl = sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || "");
+  normalized.exampleImageUrl = sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || "");
+  normalized.exampleImageCaption = normalizedShortText(entry.exampleImageCaption || entry.exampleCaption, 240);
+  normalized.setupImageCaption = normalizedShortText(entry.setupImageCaption || entry.setupCaption, 240);
+  normalized.exampleImageAlt = normalizedShortText(entry.exampleImageAlt || entry.exampleAlt, 240);
+  normalized.setupImageAlt = normalizedShortText(entry.setupImageAlt || entry.setupAlt, 240);
+  normalized.setupMediaAssetId = enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId)
+    ? String(entry.setupMediaAssetId)
+    : "";
+  normalized.exampleMediaAssetId = enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId)
+    ? String(entry.exampleMediaAssetId)
+    : "";
+  normalized.imageRequirement = normalizedImageRequirement(entry.imageRequirement);
+  normalized.teacherTips = normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean);
+  normalized.substitutions = normalizedList(entry.substitutions, 12, (item) => {
+    if (!item || typeof item !== "object") return null;
+    const need = normalizedShortText(item.need || item.from, 120);
+    const use = normalizedShortText(item.use || item.to, 120);
+    if (!need || !use) return null;
+    return { need, use };
+  }).filter(Boolean);
+  normalized.settingTags = normalizedList(entry.settingTags, 8, (item) => {
+    const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
+    return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
+  }).filter(Boolean);
+  // Complete Teaching Kit binder authoring (additive).
+  normalized.indoorAlternative = normalizedMultilineText(
+    entry.indoorAlternative || entry.indoorAlternatives || entry.indoor,
+    4000,
+  );
+  normalized.outdoorOption = normalizedMultilineText(
+    entry.outdoorOption || entry.outdoorAlternatives || entry.outdoor,
+    4000,
+  );
+  normalized.indoorAlternatives = normalizedMultilineText(
+    entry.indoorAlternatives || entry.indoorAlternative,
+    4000,
+  );
+  normalized.outdoorAlternatives = normalizedMultilineText(
+    entry.outdoorAlternatives || entry.outdoorOption,
+    4000,
+  );
+  // cleanup / resetNotes are legacy aliases — map into cleanupTips for display
+  // but keep the original keys via the shallow copy above.
+  normalized.cleanupTips = normalizedMultilineText(
+    entry.cleanupTips || entry.cleanup || entry.resetNotes,
+    4000,
+  );
+  return normalized;
 }
 
 function normalizedCurriculumDailyPlans(value, lessonPlanId) {

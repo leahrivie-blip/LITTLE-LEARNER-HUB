@@ -351,36 +351,21 @@
           objective: text(item.objective),
           description: text(item.description),
           purpose: text(item.purpose),
-          preparation: text(item.preparation || item.prep),
-          setup: text(item.setup),
-          steps: text(item.steps || item.directions),
-          teacherLanguage: text(item.teacherLanguage),
-          safetyNotes: text(item.safetyNotes),
-          cleanupTips: text(item.cleanupTips || item.cleanup || item.resetNotes),
-          ageModifications: text(item.ageModifications),
-          adaptations: text(item.adaptations),
-          extensions: text(item.extensions),
-          mixedAgeAdaptations: text(item.mixedAgeAdaptations || item.mixedAge),
+          // Keep structured core fields as stored (...item). Do not invent
+          // preparation/cleanupTips/steps-string aliases here — display helpers
+          // read prep/directions/cleanup/resetNotes fallbacks without mutating shape.
           imageRequirement: text(item.imageRequirement),
           setupImageUrl: text(item.setupImageUrl),
           exampleImageUrl: text(item.exampleImageUrl || item.examplePhotoUrl),
           teacherTips: asArray(item.teacherTips).map(text).filter(Boolean),
           substitutions: asArray(item.substitutions),
           settingTags: asArray(item.settingTags).map(text).filter(Boolean),
-          observationOpportunities: text(item.observationOpportunities),
-          vocabulary: text(item.vocabulary),
-          materials: Array.isArray(item.materials)
-            ? materialsToEditorText(item.materials)
-            : text(item.materials),
           // Keep duration/setup minutes as-is (do not coerce missing → 0).
           durationMinutes: Object.prototype.hasOwnProperty.call(item, "durationMinutes")
             ? item.durationMinutes
             : (Object.prototype.hasOwnProperty.call(item, "activityDurationMinutes")
               ? item.activityDurationMinutes
               : item.durationMinutes),
-          setupMinutes: Object.prototype.hasOwnProperty.call(item, "setupMinutes")
-            ? item.setupMinutes
-            : item.setupMinutes,
         });
       });
     });
@@ -458,6 +443,17 @@
 
   /** Materials may be multiline string or legacy array — editor always uses text. */
   function materialsToEditorText(value) {
+    if (Array.isArray(value)) {
+      return value.map((item) => text(item)).filter(Boolean).join("\n");
+    }
+    return text(value);
+  }
+
+  /**
+   * Steps may be multiline string or legacy string[].
+   * Display as one step per line — never String(array) / "[object Object]" / auto-numbering.
+   */
+  function stepsToEditorText(value) {
     if (Array.isArray(value)) {
       return value.map((item) => text(item)).filter(Boolean).join("\n");
     }
@@ -564,7 +560,8 @@
       return pickOwnedDraftText(d, "dayOfWeek", act.dayOfWeek).toLowerCase();
     }
     if (key === "steps") {
-      return pickOwnedDraftText(d, "steps", act.steps || act.directions);
+      if (Object.prototype.hasOwnProperty.call(d, "steps")) return stepsToEditorText(d.steps);
+      return stepsToEditorText(act.steps || act.directions);
     }
     return pickOwnedDraftText(d, key, act[key]);
   }
@@ -819,8 +816,12 @@
         d.mixedAgeAdaptations,
         activity?.mixedAgeAdaptations || activity?.mixedAge,
       ),
-      setup: pickOwnedDraftText(d, "setup", activity?.setup),
-      steps: pickOwnedDraftText(d, "steps", activity?.steps || activity?.directions),
+      setup: Object.prototype.hasOwnProperty.call(d, "setup")
+        ? text(d.setup)
+        : text(activity?.setup),
+      steps: Object.prototype.hasOwnProperty.call(d, "steps")
+        ? stepsToEditorText(d.steps)
+        : stepsToEditorText(activity?.steps || activity?.directions),
       // Core Activity overlay (canonical property names; blank draft never invents content)
       title: pickOwnedDraftText(d, "title", activity?.title),
       dayOfWeek: pickOwnedDraftText(d, "dayOfWeek", activity?.dayOfWeek).toLowerCase()
@@ -1300,15 +1301,8 @@
         ageModifications: mergeOwnedTextField(patch, "ageModifications", act.ageModifications),
         objective: mergeOwnedTextField(patch, "objective", act.objective),
         description: mergeOwnedTextField(patch, "description", act.description),
-        materials: mergeOwnedTextField(patch, "materials", materialsToEditorText(act.materials)),
-        preparation: mergeOwnedTextField(patch, "preparation", act.preparation || act.prep),
         teacherLanguage: mergeOwnedTextField(patch, "teacherLanguage", act.teacherLanguage),
         safetyNotes: mergeOwnedTextField(patch, "safetyNotes", act.safetyNotes),
-        cleanupTips: mergeOwnedTextField(
-          patch,
-          "cleanupTips",
-          act.cleanupTips || act.cleanup || act.resetNotes,
-        ),
         imageRequirement: view.imageRequirement || act.imageRequirement || "",
         setupImageUrl: view.setupImageUrl,
         exampleImageUrl: view.exampleImageUrl,
@@ -1328,9 +1322,24 @@
         adaptations: view.adaptations || act.adaptations,
         extensions: view.extensions || act.extensions,
         mixedAgeAdaptations: view.mixedAgeAdaptations || act.mixedAgeAdaptations || act.mixedAge,
-        setup: view.setup || act.setup,
-        steps: view.steps || act.steps,
       };
+      if (Object.prototype.hasOwnProperty.call(patch, "materials")) {
+        next.materials = text(patch.materials) || act.materials;
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "preparation")) {
+        next.preparation = text(patch.preparation) || act.preparation || act.prep;
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "cleanupTips")) {
+        next.cleanupTips = text(patch.cleanupTips) || act.cleanupTips || act.cleanup || act.resetNotes;
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "setup")) {
+        next.setup = text(patch.setup) || act.setup;
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "steps")) {
+        // Owner-edited steps save as multiline text (canonical). Unowned legacy
+        // directions[] / steps[] stay untouched — never invent a steps alias.
+        next.steps = text(patch.steps) || act.steps || act.directions;
+      }
       if (Object.prototype.hasOwnProperty.call(patch, "durationMinutes")) {
         const dur = patch.durationMinutes;
         if (!(dur === "" || dur === null || dur === undefined)) {
@@ -1363,22 +1372,15 @@
         const targetDay = WEEKDAYS.includes(text(match.dayOfWeek).toLowerCase())
           ? text(match.dayOfWeek).toLowerCase()
           : day;
-        relocated[targetDay].push({
+        const mergedItem = {
           ...item,
           title: match.title || item.title,
           dayOfWeek: targetDay,
           activityCategory: match.activityCategory || item.activityCategory,
-          ageModifications: text(match.ageModifications) || item.ageModifications,
-          durationMinutes: match.durationMinutes != null && match.durationMinutes !== ""
-            ? match.durationMinutes
-            : item.durationMinutes,
           objective: match.objective || item.objective,
           description: match.description || item.description,
-          materials: match.materials || item.materials,
-          preparation: match.preparation || item.preparation,
           teacherLanguage: match.teacherLanguage || item.teacherLanguage,
           safetyNotes: match.safetyNotes || item.safetyNotes,
-          cleanupTips: match.cleanupTips || item.cleanupTips,
           imageRequirement: match.imageRequirement || item.imageRequirement || "",
           setupImageUrl: match.setupImageUrl || item.setupImageUrl,
           exampleImageUrl: match.exampleImageUrl || item.exampleImageUrl,
@@ -1396,9 +1398,25 @@
           adaptations: match.adaptations || item.adaptations,
           extensions: match.extensions || item.extensions,
           mixedAgeAdaptations: match.mixedAgeAdaptations || item.mixedAgeAdaptations,
-          setup: match.setup || item.setup,
-          steps: match.steps || item.steps,
-        });
+        };
+        if (text(match.ageModifications) || Object.prototype.hasOwnProperty.call(item, "ageModifications")) {
+          mergedItem.ageModifications = text(match.ageModifications) || item.ageModifications;
+        }
+        if (match.durationMinutes != null && match.durationMinutes !== "") {
+          mergedItem.durationMinutes = match.durationMinutes;
+        } else if (Object.prototype.hasOwnProperty.call(item, "durationMinutes")) {
+          mergedItem.durationMinutes = item.durationMinutes;
+        }
+        if (match.materials != null && match.materials !== "") mergedItem.materials = match.materials;
+        if (match.preparation != null && match.preparation !== "") mergedItem.preparation = match.preparation;
+        if (match.cleanupTips != null && match.cleanupTips !== "") mergedItem.cleanupTips = match.cleanupTips;
+        if (match.setup != null && match.setup !== "") mergedItem.setup = match.setup;
+        // Only write steps when match actually carries an owned/canonical steps value.
+        // Never invent steps from legacy directions[] during an unrelated field publish.
+        if (Object.prototype.hasOwnProperty.call(match, "steps") && match.steps != null && match.steps !== "") {
+          mergedItem.steps = match.steps;
+        }
+        relocated[targetDay].push(mergedItem);
       });
     });
     WEEKDAYS.forEach((day) => {
@@ -2208,6 +2226,7 @@
     getDurationFieldValue,
     parseDurationInput,
     materialsToEditorText,
+    stepsToEditorText,
     firstIncompleteActivityIndex,
     normalizeImageRequirement,
     imageRequirementLabel,

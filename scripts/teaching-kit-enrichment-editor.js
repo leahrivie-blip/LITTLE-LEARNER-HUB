@@ -595,13 +595,36 @@
       // Empty intentional save (metadata-only) is allowed when the local draft is also empty.
       return true;
     }
-    const haystack = JSON.stringify(draft || {});
+    // Activity keys are planId:itemId (contain ":"), and materials often include
+    // real newlines. Do not parse markers with naive split(":") or search a
+    // JSON.stringify haystack (newlines become "\\n" escapes there).
+    const activities = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
+    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
     return markers.every((marker) => {
-      const parts = marker.split(":");
-      // act:<key>:tip:<text> or week:family:<text>
-      const text = parts.length >= 4 ? parts.slice(3).join(":") : parts.slice(2).join(":");
-      const needle = String(text || "").slice(0, 40);
-      return needle && haystack.includes(needle);
+      const raw = String(marker || "");
+      if (raw.startsWith("week:family:")) {
+        const needle = raw.slice("week:family:".length).slice(0, 40);
+        return needle && String(week.familyConnection || "").includes(needle);
+      }
+      if (raw.startsWith("act:")) {
+        const tipIdx = raw.indexOf(":tip:");
+        if (tipIdx !== -1) {
+          const key = raw.slice("act:".length, tipIdx);
+          const needle = raw.slice(tipIdx + ":tip:".length).slice(0, 40);
+          const act = activities[key] || {};
+          const tip = String(act.teacherTip || act.setupTip || act.tip || "");
+          return needle && tip.includes(needle);
+        }
+        const matIdx = raw.indexOf(":mat:");
+        if (matIdx !== -1) {
+          const key = raw.slice("act:".length, matIdx);
+          const needle = raw.slice(matIdx + ":mat:".length).slice(0, 40);
+          const act = activities[key] || {};
+          const materials = String(act.materials || "");
+          return needle && materials.includes(needle);
+        }
+      }
+      return false;
     });
   }
 

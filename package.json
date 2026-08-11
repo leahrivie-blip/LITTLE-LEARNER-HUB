@@ -45,6 +45,7 @@
     "test:tk-enrichment-publish-sibling-preserve": "NODE_ENV=test node scripts/test-tk-enrichment-publish-sibling-preserve.js",
     "test:classic-lre-save-sibling-preserve": "NODE_ENV=test node scripts/test-classic-lre-save-sibling-preserve.js",
     "test:owner-tk-core-activity-editor": "NODE_ENV=test node scripts/test-owner-tk-core-activity-editor.js",
+    "test:owner-tk-core-activity-verify": "NODE_ENV=test node scripts/test-owner-tk-core-activity-verify.js",
     "test:teaching-kit-image-requirement": "NODE_ENV=test node scripts/test-teaching-kit-image-requirement.js",
     "test:teaching-kit-enrichment-slice-1": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-1.js",
     "test:teaching-kit-enrichment-slice-2": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-2.js",
