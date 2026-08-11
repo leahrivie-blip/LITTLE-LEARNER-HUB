@@ -4029,6 +4029,11 @@ function mergeEnrichmentDraftPatch(existingDraft, patch) {
 /** True when a draft has real activity/week enrichment content (not just timestamps). */
 function enrichmentDraftHasContent(draft) {
   if (!draft || typeof draft !== "object" || Array.isArray(draft)) return false;
+  const basics = draft.lessonBasicsDraft && typeof draft.lessonBasicsDraft === "object"
+    && !Array.isArray(draft.lessonBasicsDraft)
+    ? draft.lessonBasicsDraft
+    : null;
+  if (basics && Object.keys(basics).length > 0) return true;
   const activities = draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
     ? draft.activities
     : {};
@@ -4044,6 +4049,26 @@ function enrichmentDraftHasContent(draft) {
     if (typeof value === "object") return Object.keys(value).length > 0;
     return true;
   });
+}
+
+/** Apply owner Lesson Basics draft overlay onto a plan without mutating the source objects. */
+function applyLessonBasicsDraftToPlan(plan, basicsDraft) {
+  if (!plan || typeof plan !== "object") return plan;
+  if (!basicsDraft || typeof basicsDraft !== "object" || Array.isArray(basicsDraft)) return plan;
+  const next = { ...plan };
+  const keys = [
+    "title", "age", "theme", "plan", "learningDomains",
+    "weeklyOverview", "objectives", "weeklyMaterials", "vocabularyWords",
+    "observationOpportunities", "adaptations", "familyConnection",
+    "books", "songs", "dailyPlans",
+    "coverImageUrl", "coverImageAlt", "coverImageSource", "coverImagePosition", "coverQualityStatus",
+  ];
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(basicsDraft, key)) {
+      next[key] = basicsDraft[key];
+    }
+  });
+  return next;
 }
 
 /**
@@ -4066,7 +4091,7 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
   if (previousHasContent && !incomingHasContent && !allowEmptyOverwrite) {
     return { draft: previous, rejectedEmptyOverwrite: true };
   }
-  // Explicit discard: empty incoming + allowEmptyOverwrite clears activity/week content.
+  // Explicit discard: empty incoming + allowEmptyOverwrite clears activity/week/basics content.
   if (!incomingHasContent && allowEmptyOverwrite) {
     return {
       draft: {
@@ -4087,6 +4112,7 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
     "week",
     "completionPercent",
     "previewReady",
+    "lessonBasicsDraft",
   ]);
   const merged = {
     ...(previous || {}),
@@ -4140,6 +4166,13 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
     merged.week = { ...prevWeek, ...nextWeek };
   } else {
     merged.week = { ...prevWeek };
+  }
+
+  // Preserve Lesson Basics draft overlay when a Teaching Kit save omits it.
+  if (!Object.prototype.hasOwnProperty.call(incoming, "lessonBasicsDraft")
+    && previous?.lessonBasicsDraft
+    && typeof previous.lessonBasicsDraft === "object") {
+    merged.lessonBasicsDraft = previous.lessonBasicsDraft;
   }
 
   return { draft: merged, rejectedEmptyOverwrite: false };
@@ -20718,19 +20751,26 @@ async function handleAdminCurriculumDirector(request, response) {
     let applied = 0;
     const latest = readStore();
     const cur = readSiteCurriculum(latest);
+    const touchedLessonPlanIds = [];
     const nextPlans = (cur.lessonPlans || []).map((plan) => {
       const patch = draftPatches.find((p) => p.planId === plan.id);
       if (!patch) return plan;
       applied += 1;
+      touchedLessonPlanIds.push(plan.id);
       return {
         ...plan,
         enrichmentDraft: mergeEnrichmentDraftPatch(plan.enrichmentDraft, patch.enrichmentDraftPatch),
       };
     });
-    const writeResult = writeSiteCurriculum(latest, {
+    if (!touchedLessonPlanIds.length) return 0;
+    const stamp = new Date().toISOString();
+    const writeResult = writeSiteCurriculumTouched(latest, {
       ...cur,
       lessonPlans: nextPlans,
-    }, { updatedAt: new Date().toISOString() });
+    }, {
+      updatedAt: stamp,
+      touchedLessonPlanIds,
+    });
     if (writeResult.wipeBlocked) return 0;
     await writeStoreAsync(latest);
     Object.assign(store, latest);
@@ -21423,12 +21463,15 @@ async function handleEnrichmentRollback(request, response) {
       ].slice(0, ENRICHMENT_HISTORY_LIMIT),
       updatedAt: existingPlan.updatedAt,
     });
-    const nextCurriculum = normalizedCurriculumStore({
+    const nextCurriculum = {
       ...curriculum,
       lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
       updatedAt: now,
+    };
+    const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+      updatedAt: now,
+      touchedLessonPlanIds: [planId],
     });
-    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
     if (writeResult.wipeBlocked) {
       jsonResponse(response, 409, {
         error: "Rollback refused to protect curriculum integrity.",
@@ -21494,12 +21537,15 @@ async function handleEnrichmentRollback(request, response) {
     ].slice(0, ENRICHMENT_HISTORY_LIMIT),
     updatedAt: existingPlan.updatedAt,
   });
-  const nextCurriculum = normalizedCurriculumStore({
+  const nextCurriculum = {
     ...curriculum,
     lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
     updatedAt: now,
+  };
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [planId],
   });
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "Rollback refused to protect curriculum integrity.",
@@ -21732,9 +21778,15 @@ async function handlePublishEnrichment(request, response, ctx) {
     || (Array.isArray(weekToolkit.observationFocus) && weekToolkit.observationFocus.length),
   );
   const hasActivityEnrichment = Boolean(Object.keys(incomingDraft?.activities || {}).length);
+  const hasLessonBasicsDraft = Boolean(
+    incomingDraft?.lessonBasicsDraft
+    && typeof incomingDraft.lessonBasicsDraft === "object"
+    && !Array.isArray(incomingDraft.lessonBasicsDraft)
+    && Object.keys(incomingDraft.lessonBasicsDraft).length > 0,
+  );
   // Idempotent duplicate publish: no draft left / same fingerprint → no new version.
-  const draftEmpty = !incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment);
-  if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint)) {
+  const draftEmpty = !incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment && !hasLessonBasicsDraft);
+  if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint && !hasLessonBasicsDraft)) {
     jsonResponse(response, 200, {
       ok: true,
       saveMode: "publish_enrichment",
@@ -21746,7 +21798,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     });
     return;
   }
-  if (!incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment)) {
+  if (!incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment && !hasLessonBasicsDraft)) {
     jsonResponse(response, 400, {
       error: "No enrichment draft to publish for this lesson.",
       code: "enrichment_draft_empty",
@@ -21756,6 +21808,10 @@ async function handlePublishEnrichment(request, response, ctx) {
 
   const linkedActivities = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
   // Promote photo URLs in a draft copy so merge writes public URLs (never admin draft URLs).
+  // Apply Lesson Basics draft overlay onto the published body only at explicit Publish time.
+  const planForMerge = hasLessonBasicsDraft
+    ? applyLessonBasicsDraftToPlan(existingPlan, incomingDraft.lessonBasicsDraft)
+    : existingPlan;
   const promotedDraft = {
     ...incomingDraft,
     activities: Object.fromEntries(
@@ -21765,7 +21821,8 @@ async function handlePublishEnrichment(request, response, ctx) {
       ]),
     ),
   };
-  const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft);
+  delete promotedDraft.lessonBasicsDraft;
+  const merged = enrichmentApi.mergeDraftIntoPlan(planForMerge, linkedActivities, promotedDraft);
   const assetIds = [...enrichmentMedia.collectDraftMediaAssetIds(promotedDraft)];
 
   // Sanitize merged plan image fields — strip any leftover admin URLs.
@@ -22168,6 +22225,23 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     const nextStatus = normalizedShortText(incomingPlan.status, 20);
     const wasPublic = isCurriculumLessonPublic(existingPlan?.status || "");
     const willBePublic = isCurriculumLessonPublic(nextStatus);
+    // Guard: full-save must not demote (or silently rewrite) a live published lesson.
+    // Owner Save Draft uses enrichment_draft + lessonBasicsDraft instead.
+    // Explicit demotion (bulk Move to Draft) must pass allowDemotePublished.
+    if (wasPublic && !willBePublic && body?.allowDemotePublished !== true) {
+      console.warn("[curriculum-lesson-save] refused published→draft demotion", {
+        id,
+        incomingStatus: nextStatus,
+      });
+      jsonResponse(response, 409, {
+        error: "This lesson is published. Save Draft cannot unpublish or replace the customer version. Use Teaching Kit / Lesson Basics draft save, or Move to Draft explicitly.",
+        code: "published_demotion_refused",
+        lessonPlan: existingPlan,
+        curriculum: existingCurriculum,
+        siteContentUpdatedAt: siteContent.updatedAt,
+      });
+      return;
+    }
     let publishedAt = normalizedShortText(existingPlan?.publishedAt, 80)
       || normalizedShortText(incomingPlan.publishedAt, 80)
       || "";
@@ -22179,6 +22253,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     }
     const planInput = withAutoAssignedLessonCover({
       ...incomingPlan,
+      status: nextStatus,
       // Preserve an existing cover when the client omits cover fields on update.
       coverImageUrl: incomingPlan.coverImageUrl || existingPlan?.coverImageUrl || "",
       coverImageAlt: incomingPlan.coverImageAlt || existingPlan?.coverImageAlt || "",
@@ -23841,18 +23916,21 @@ async function handleAdminCurriculumResourceSave(request, response) {
     jsonResponse(response, 400, { error: "Resource could not be normalized." });
     return;
   }
-  const nextResources = [...curriculum.resources.filter((item) => item.id !== id), resource];
-  const nextCurriculum = normalizedCurriculumStore({
+  // Keep siblings by reference — do not whole-normalize before write (#623/#625 pattern).
+  const nextCurriculum = {
     ...curriculum,
-    resources: nextResources,
+    resources: [...curriculum.resources.filter((item) => item.id !== id), resource],
     updatedAt: now,
-  });
+  };
   const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
   if (integrityError) {
     jsonResponse(response, 400, integrityError);
     return;
   }
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedResourceIds: [id],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23867,9 +23945,16 @@ async function handleAdminCurriculumResourceSave(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be saved." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
+  const savedResource = (persistedCurriculum.resources || []).find((item) => item.id === id) || resource;
   jsonResponse(response, 200, {
-    resource,
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: savedResource,
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
@@ -23898,6 +23983,10 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
+  const touchedLessonPlanIds = (curriculum.lessonPlans || [])
+    .filter((item) => Array.isArray(item.resourceIds) && item.resourceIds.includes(id))
+    .map((item) => item.id)
+    .filter(Boolean);
   const unlinked = unlinkCurriculumResourceFromAllLessonPlans(curriculum, id);
   if (!unlinked) {
     jsonResponse(response, 400, { error: "Resource could not be unlinked from lesson plans." });
@@ -23909,17 +23998,22 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     lessonPlanIds: [],
     updatedAt: now,
   });
-  const nextCurriculum = normalizedCurriculumStore({
+  // Archive only rewrites the target resource + previously linked lesson plans.
+  const nextCurriculum = {
     ...unlinked,
     resources: unlinked.resources.map((item) => (item.id === id ? resource : item)),
     updatedAt: now,
-  });
+  };
   const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
   if (integrityError) {
     jsonResponse(response, 400, integrityError);
     return;
   }
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds,
+    touchedResourceIds: [id],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23933,9 +24027,16 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be archived." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
+  const savedResource = (persistedCurriculum.resources || []).find((item) => item.id === id) || resource;
   jsonResponse(response, 200, {
-    resource: curriculumResourceMetadata(resource),
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: curriculumResourceMetadata(savedResource),
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
@@ -23970,7 +24071,11 @@ async function handleAdminCurriculumResourceLink(request, response) {
     return;
   }
   const now = new Date().toISOString();
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [lessonPlanId],
+    touchedResourceIds: [resourceId],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23984,10 +24089,18 @@ async function handleAdminCurriculumResourceLink(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be linked." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
   jsonResponse(response, 200, {
-    resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
-    lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: curriculumResourceMetadata(
+      (persistedCurriculum.resources || []).find((item) => item.id === resourceId),
+    ),
+    lessonPlan: (persistedCurriculum.lessonPlans || []).find((item) => item.id === lessonPlanId),
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
@@ -24022,7 +24135,11 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     return;
   }
   const now = new Date().toISOString();
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [lessonPlanId],
+    touchedResourceIds: [resourceId],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -24036,10 +24153,18 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be unlinked." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
   jsonResponse(response, 200, {
-    resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
-    lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: curriculumResourceMetadata(
+      (persistedCurriculum.resources || []).find((item) => item.id === resourceId),
+    ),
+    lessonPlan: (persistedCurriculum.lessonPlans || []).find((item) => item.id === lessonPlanId),
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }

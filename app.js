@@ -6737,6 +6737,8 @@ let adminActionCenterDismissed = new Set(
 );
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
+/** When set, classic Lesson Basics Back returns to this Teaching Kit workspace. */
+let adminCurriculumReturnToTeachingKitId = "";
 /** Prevents duplicate Teaching Kit editor opens from rapid Edit / Upgrade clicks. */
 let adminTkEditorOpenInFlight = "";
 /** Snapshot of Lesson Plans list filters + scroll so Back restores the prior view. */
@@ -10128,7 +10130,9 @@ function openAdminCurriculumLessonEditor(id, options = {}) {
   if (forceClassic) {
     if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
     adminCurriculumLessonEditorId = id;
+    adminCurriculumReturnToTeachingKitId = options.returnToTeachingKit === true ? String(id || "").trim() : "";
     if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
+    document.body.classList.remove("tk-enrich-open", "tk-editor-focused");
     renderAdminCurriculumLessonPlanManager();
     applyAdminSectionVisibility();
     const form = document.querySelector("#adminCurriculumLessonPlanForm");
@@ -10223,6 +10227,36 @@ function curriculumSongsToText(songs = []) {
   return songs.map((song) => [song.title, song.notes].filter(Boolean).join(" | ")).join("\n");
 }
 
+/** Fields Lesson Basics may draft-overlay without demoting a live published lesson. */
+const LESSON_BASICS_DRAFT_KEYS = [
+  "title", "age", "theme", "plan", "learningDomains",
+  "weeklyOverview", "objectives", "weeklyMaterials", "vocabularyWords",
+  "observationOpportunities", "adaptations", "familyConnection",
+  "books", "songs", "dailyPlans",
+  "coverImageUrl", "coverImageAlt", "coverImageSource", "coverImagePosition", "coverQualityStatus",
+];
+
+function pickLessonBasicsDraftFields(plan) {
+  if (!plan || typeof plan !== "object") return null;
+  const draft = {};
+  LESSON_BASICS_DRAFT_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(plan, key)) draft[key] = plan[key];
+  });
+  draft.savedAt = new Date().toISOString();
+  return draft;
+}
+
+function applyLessonBasicsDraftOverlay(plan) {
+  if (!plan || typeof plan !== "object") return plan;
+  const basics = plan.enrichmentDraft?.lessonBasicsDraft;
+  if (!basics || typeof basics !== "object") return plan;
+  const next = { ...plan };
+  LESSON_BASICS_DRAFT_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(basics, key)) next[key] = basics[key];
+  });
+  return next;
+}
+
 function curriculumLessonEditorRecord() {
   const editingId = adminCurriculumLessonEditorId;
   if (!editingId) return null;
@@ -10246,9 +10280,11 @@ function curriculumLessonEditorRecord() {
     songs: [],
     dailyPlans: emptyCurriculumDailyPlans(),
   };
+  // Owner Lesson Basics draft overlay: show saved draft edits while customer body stays live.
+  const withBasicsDraft = applyLessonBasicsDraftOverlay(base);
   return adminCurriculumLessonImportDraft
-    ? normalizeCurriculumLessonPlanForRender({ ...base, ...adminCurriculumLessonImportDraft, id: editingId })
-    : normalizeCurriculumLessonPlanForRender(base);
+    ? normalizeCurriculumLessonPlanForRender({ ...withBasicsDraft, ...adminCurriculumLessonImportDraft, id: editingId })
+    : normalizeCurriculumLessonPlanForRender(withBasicsDraft);
 }
 
 function snapshotCurriculumDailyItemIds(form) {
@@ -11622,6 +11658,8 @@ function curriculumLessonHasUnpublishedChanges(plan) {
   if (!plan) return false;
   if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
     const draft = plan.enrichmentDraft;
+    if (draft.lessonBasicsDraft && typeof draft.lessonBasicsDraft === "object"
+      && Object.keys(draft.lessonBasicsDraft).length) return true;
     if (draft.activities && typeof draft.activities === "object" && Object.keys(draft.activities).length) return true;
     if (draft.week && typeof draft.week === "object" && Object.keys(draft.week).length) return true;
     if (draft.previewReady === true) return true;
@@ -12028,6 +12066,9 @@ function renderAdminCurriculumLessonPlanForm(plan) {
   const previewAsOptions = ADMIN_LESSON_PREVIEW_AS_OPTIONS.map((opt) => (
     `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`
   )).join("");
+  const returnToTk = Boolean(adminCurriculumReturnToTeachingKitId)
+    && adminCurriculumReturnToTeachingKitId === String(record.id || "");
+  const backLabel = returnToTk ? "← Back to Teaching Kit" : "Back to Lesson Plans";
   return `
     <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form curriculum-premium-editor">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
@@ -12035,13 +12076,13 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <div class="admin-lesson-sticky-bar__identity">
           <img class="admin-lesson-sticky-cover" src="${escapeHtml(coverThumb)}" alt="" width="64" height="36" style="object-fit:cover;object-position:${escapeHtml(record.coverImagePosition || "center")}" />
           <div>
-            <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
+            <strong>Lesson Basics · ${escapeHtml(record.title || "New Lesson Plan")}</strong>
             <small>${escapeHtml(record.age || "Preschool")} · ${escapeHtml(statusSummary)}</small>
             ${unpublished ? `<span class="tag cover-quality-needs-upgrade">Unpublished Changes</span>` : ""}
           </div>
         </div>
         <div class="admin-lesson-sticky-bar__actions account-actions-row">
-          <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
+          <button class="ghost-button" type="button" data-curriculum-lesson-back>${backLabel}</button>
           <label class="admin-lesson-preview-as">
             <span class="visually-hidden">Preview as</span>
             <select data-admin-lesson-preview-as aria-label="Preview as user type">
@@ -12054,8 +12095,8 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
         </div>
       </div>
-      <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>← Back to Lesson Plan List</button>
-      <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
+      <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>${returnToTk ? "← Back to Teaching Kit" : "← Back to Lesson Plan List"}</button>
+      <h4>Lesson Basics: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
       <p class="muted-copy">${escapeHtml(statusSummary)}. Save Draft keeps work unpublished. Publish makes it visible to customers. Preview as User never publishes.</p>
       ${adminCurriculumLessonJumpNavHtml()}
       <div class="access-notice curriculum-activity-sync-notice" role="status">
@@ -12136,7 +12177,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         ${dayEditors}
       </div>
       <div class="form-actions admin-lesson-form-actions">
-        <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to Lesson Plans</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-back>${backLabel}</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user>Preview as User</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-save-draft ${adminCurriculumLessonSaving ? "disabled" : ""}>Save Draft</button>
         <button class="primary-button" type="button" data-curriculum-lesson-publish ${adminCurriculumLessonSaving ? "disabled" : ""}>Publish</button>
@@ -12445,9 +12486,8 @@ function curriculumLessonPlanAdminCardHtml(plan) {
       </div>
       <div class="form-actions admin-lesson-card-actions">
         ${(enrichEnabled || (typeof isTeachingKitPrintableOwnerClient === "function" && isTeachingKitPrintableOwnerClient()))
-          ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-upgrade-lesson-cta="1">Upgrade Lesson</button>`
-          : ""}
-        <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
+          ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}" data-open-teaching-kit="1" data-upgrade-lesson-cta="1">Open Teaching Kit</button>`
+          : `<button class="primary-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Open Teaching Kit</button>`}
         <button class="ghost-button" type="button" data-curriculum-quick-cover="${escapeHtml(plan.id)}">Change Cover</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview-as-user="${escapeHtml(plan.id)}">Preview as User</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-view-published="${escapeHtml(plan.id)}" ${isPublic ? "" : "disabled"}>View Published Version</button>
@@ -12553,6 +12593,29 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
     return;
   }
   const plans = curriculumLessonPlansForAdmin().filter((plan) => ids.includes(plan.id));
+  if (String(status || "").toLowerCase() === "published") {
+    const titles = plans.map((plan) => `• ${plan.title || plan.id}`).slice(0, 40);
+    const draftPrintableCount = plans.reduce((count, plan) => {
+      const idsForPlan = Array.isArray(plan.resourceIds) ? plan.resourceIds : [];
+      return count + idsForPlan.filter((resourceId) => {
+        const resource = curriculumResourceById(resourceId);
+        return resource && String(resource.status || "").toLowerCase() === "draft";
+      }).length;
+    }, 0);
+    const printableNote = draftPrintableCount
+      ? `\n\nThis will also publish ${draftPrintableCount} linked draft printable${draftPrintableCount === 1 ? "" : "s"} on lessons that become public.`
+      : "\n\nLinked draft printables on these lessons will also be promoted when a lesson is public.";
+    const confirmed = window.confirm(
+      `Bulk publish ${plans.length} selected lesson${plans.length === 1 ? "" : "s"}?\n\n`
+      + `${titles.join("\n")}${plans.length > 40 ? `\n…and ${plans.length - 40} more` : ""}`
+      + printableNote
+      + "\n\nOK to publish. Cancel to keep current statuses.",
+    );
+    if (!confirmed) {
+      showActionFeedback("Bulk publish canceled — nothing was published.");
+      return;
+    }
+  }
   let saved = 0;
   let failed = 0;
   for (const plan of plans) {
@@ -12565,6 +12628,8 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
         body: JSON.stringify({
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
           lessonPlan: { ...plan, status },
+          // Bulk Move to Draft is an intentional demotion (not Save Draft).
+          allowDemotePublished: String(status || "").toLowerCase() === "draft",
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -12753,10 +12818,10 @@ function renderAdminCurriculumLessonPlanManager() {
         </select>
       </label>
     </div>
-    <div class="admin-content-bulk-bar" ${selectedCount ? "" : "hidden"}>
-      <strong>${selectedCount} selected</strong>
+    <div class="admin-content-bulk-bar admin-content-bulk-bar--danger-zone" ${selectedCount ? "" : "hidden"}>
+      <strong>${selectedCount} selected · bulk tools (separate from single-kit editing)</strong>
       <div class="account-actions-row">
-        <button type="button" class="primary-button" data-curriculum-bulk="published">Publish</button>
+        <button type="button" class="ghost-button" data-curriculum-bulk="published">Bulk Publish…</button>
         <button type="button" class="ghost-button" data-curriculum-bulk="draft">Move to Draft</button>
         <button type="button" class="ghost-button" data-curriculum-bulk="archived">Archive</button>
         <button type="button" class="ghost-button" data-curriculum-bulk="clear">Clear selection</button>
@@ -12769,7 +12834,9 @@ function renderAdminCurriculumLessonPlanManager() {
         : `<div class="empty-state">No lesson plans match these filters.</div>`)}
     </div>
     ${editingPlan && !focusedEditorOpen ? `
-      <p class="muted-copy">Classic editor (all fields). Owners normally use the focused Teaching Kit editor.</p>
+      <p class="muted-copy">${adminCurriculumReturnToTeachingKitId
+        ? "Lesson Basics — title, days, activities, and core fields. Save Draft keeps work unpublished. Use Back to Teaching Kit when finished."
+        : "Lesson Basics — title, days, activities, and core fields. Save Draft keeps work unpublished. Publish makes the lesson visible to customers."}</p>
       ${renderAdminCurriculumLessonPlanForm(editingPlan)}
     ` : ""}
     ${adminCurriculumQuickCoverState ? renderAdminCurriculumQuickCoverModal() : ""}
@@ -12851,8 +12918,8 @@ function ensureAdminLessonPreviewBanner({ mode = "draft", previewAs = "Pro" } = 
   const text = banner.querySelector("[data-admin-lesson-preview-banner-text]");
   if (text) {
     text.textContent = mode === "published"
-      ? `Viewing published version · Preview as ${previewAs} · Not editing`
-      : `Draft / admin changes · Preview as ${previewAs} · Not published by this action`;
+      ? `ADMIN PREVIEW — published customer version · Preview as ${previewAs} · NOT LIVE editing`
+      : `ADMIN PREVIEW — NOT LIVE TO CUSTOMERS · may include unpublished draft changes · Preview as ${previewAs}`;
   }
   banner.hidden = false;
   document.body.classList.add("admin-lesson-preview-active");
@@ -12874,7 +12941,8 @@ function exitAdminLessonUserPreview() {
   setAdminPreviewMode(previousMode === "Admin" ? "Admin" : previousMode);
   setView("admin");
   if (returnEditorId) {
-    openAdminCurriculumLessonEditor(returnEditorId, { scroll: true });
+    // Return to the owner Teaching Kit workspace (not a competing editor).
+    void openOwnerTeachingKitEditor(returnEditorId, { source: "edit" });
   } else {
     renderAdminCurriculumLessonPlanManager();
   }
@@ -13359,6 +13427,50 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
   return collected;
 }
 
+/**
+ * Published Lesson Basics → Save Draft.
+ * Stores edits in enrichmentDraft.lessonBasicsDraft via the surgical enrichment_draft
+ * path so customer status/content stay live until explicit Publish.
+ */
+async function savePublishedLessonBasicsAsDraft(form, collectedPlan, token) {
+  const id = String(collectedPlan?.id || "").trim();
+  const existing = curriculumLessonPlanById(id);
+  if (!id || !existing) throw new Error("Lesson plan not found for draft save.");
+  const basicsDraft = pickLessonBasicsDraftFields(collectedPlan);
+  const previousEnrichment = existing.enrichmentDraft && typeof existing.enrichmentDraft === "object"
+    ? existing.enrichmentDraft
+    : {};
+  const enrichmentDraft = {
+    ...previousEnrichment,
+    lessonBasicsDraft: basicsDraft,
+    updatedAt: new Date().toISOString(),
+    lastEditedBy: String(adminSession()?.email || adminSession()?.name || previousEnrichment.lastEditedBy || "admin").trim(),
+  };
+  if (!curriculumExpectedUpdatedAt()) {
+    try { await loadAdminSiteContent(); } catch (_error) { /* continue */ }
+  }
+  const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      saveMode: "enrichment_draft",
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      adminEmail: enrichmentDraft.lastEditedBy,
+      lessonPlan: { id, enrichmentDraft },
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Draft save failed (${response.status}).`);
+  }
+  if (data.curriculum || data.lessonPlan) {
+    applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+      siteContentUpdatedAt: data.siteContentUpdatedAt,
+    });
+  }
+  return data;
+}
+
 async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
   if (adminCurriculumLessonSaving) {
     setAdminCurriculumLessonSaveBanner("Already saving — please wait. If this persists, refresh the page and try again.", false);
@@ -13386,11 +13498,46 @@ async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
   if (!lessonPlan.id) {
     lessonPlan.id = adminCurriculumLessonEditorId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   }
+
+  const existingBeforeSave = curriculumLessonPlanById(lessonPlan.id);
+  const existingIsPublic = ["published", "featured"].includes(String(existingBeforeSave?.status || "").toLowerCase());
+  // Owner / classic Save Draft on a LIVE lesson must not demote or replace the customer version.
+  // Persist Lesson Basics edits into enrichmentDraft.lessonBasicsDraft instead.
+  if (options.forceStatus === "draft" && existingIsPublic) {
+    adminCurriculumLessonSaving = true;
+    setAdminCurriculumLessonSaveBanner(`Saving draft of “${lessonPlan.title}” — customer version stays published…`, true);
+    form.querySelectorAll("[data-curriculum-lesson-save-draft], [data-curriculum-lesson-publish], button[type='submit']").forEach((btn) => {
+      btn.disabled = true;
+    });
+    try {
+      await savePublishedLessonBasicsAsDraft(form, lessonPlan, token);
+      setAdminCurriculumLessonSaveBanner(
+        `✅ Draft saved for “${lessonPlan.title}”. Customer version stays published until you Publish.`,
+        true,
+      );
+      showActionFeedback("Draft saved. Customer version unchanged until Publish.");
+    } catch (error) {
+      setAdminCurriculumLessonSaveBanner(`❌ ${error.message || "Draft save failed."}`, false);
+    } finally {
+      adminCurriculumLessonSaving = false;
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+      document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    return;
+  }
+
   // Explicit Save Draft / Publish actions set status without relying on the dropdown alone.
   if (options.forceStatus) {
     lessonPlan.status = options.forceStatus;
     const statusSelect = form.querySelector('[name="status"]');
     if (statusSelect) statusSelect.value = options.forceStatus;
+  }
+  // Publishing from Lesson Basics clears any basics draft overlay (form values become live).
+  if (options.forceStatus === "published" && lessonPlan.enrichmentDraft && typeof lessonPlan.enrichmentDraft === "object") {
+    const nextEnrichment = { ...lessonPlan.enrichmentDraft };
+    delete nextEnrichment.lessonBasicsDraft;
+    lessonPlan.enrichmentDraft = nextEnrichment;
   }
   adminCurriculumLessonEditorId = lessonPlan.id;
   const activityCount = countCurriculumDailyPlanItems(lessonPlan.dailyPlans);
@@ -14220,6 +14367,27 @@ async function saveTeachingKitPrintableForm(panel) {
     || draft?.lessonPlanId
     || "";
   if (!lessonPlanId || !draft) return;
+  const parentPlan = curriculumLessonPlanById(lessonPlanId);
+  const parentPublic = ["published", "featured"].includes(String(parentPlan?.status || "").toLowerCase());
+  const existingResource = normalizedShortText(draft.resourceId)
+    ? curriculumResourceById(draft.resourceId)
+    : null;
+  const willAutoPublish = parentPublic && (
+    !existingResource
+    || String(existingResource.status || "").toLowerCase() !== "published"
+    || Boolean(draft.pdfFile && draft.pdfFile.size)
+  );
+  if (willAutoPublish) {
+    const confirmed = window.confirm(
+      `“${parentPlan?.title || "This lesson"}” is already published to customers.\n\n`
+      + "Saving this printable will also publish it (or keep it published) so customers can download it.\n\n"
+      + "OK to continue. Cancel to leave the printable unchanged.",
+    );
+    if (!confirmed) {
+      setFormMessage("#adminTkPrintableMessage", "Printable save canceled — nothing was published.", true);
+      return;
+    }
+  }
   adminTkPrintableSaving = true;
   const messageSelector = "#adminTkPrintableMessage";
   setFormMessage(messageSelector, "Saving draft printable…", true);
@@ -73618,10 +73786,16 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("[data-curriculum-lesson-back]")) {
+    const returnTkId = String(adminCurriculumReturnToTeachingKitId || "").trim();
     adminCurriculumLessonEditorId = "";
+    adminCurriculumReturnToTeachingKitId = "";
     adminCurriculumLessonImportDraft = null;
     adminCurriculumLessonImportTextCache = "";
     resetCurriculumLessonImportPreviewState();
+    if (returnTkId) {
+      void openOwnerTeachingKitEditor(returnTkId, { source: "edit" });
+      return;
+    }
     renderAdminCurriculumLessonPlanManager();
     return;
   }

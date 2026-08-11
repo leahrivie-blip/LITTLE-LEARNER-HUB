@@ -539,11 +539,21 @@
     return api().computeCompletionPercent(plan, activities, state.draft, scoringOptions());
   }
 
+  function ownerExplicitSaveOnly() {
+    // Owner Teaching Kit workspace: require explicit Save Draft (no silent persist).
+    return state.ownerWorkspace === true;
+  }
+
   function markDirty({ autosave = true } = {}) {
     state.dirty = true;
     refreshLessonAnalysis();
-    state.statusText = autosave ? "Unsaved changes…" : "AI suggestions in draft (not saved). Click Save draft when ready.";
-    if (autosave) scheduleAutosave();
+    const allowAutosave = autosave && !ownerExplicitSaveOnly() && state.mode !== "preview";
+    state.statusText = allowAutosave
+      ? "Unsaved changes…"
+      : (state.mode === "preview"
+        ? "Unsaved draft changes — Save Draft to keep them. Live Preview does not save or publish."
+        : "Unsaved changes — click Save Draft when ready. Save Draft never publishes.");
+    if (allowAutosave) scheduleAutosave();
     else clearTimeout(state.autosaveTimer);
     renderChromeOnly();
     schedulePreviewRefresh();
@@ -560,7 +570,9 @@
 
   function scheduleAutosave() {
     clearTimeout(state.autosaveTimer);
+    if (ownerExplicitSaveOnly() || state.mode === "preview") return;
     state.autosaveTimer = setTimeout(() => {
+      if (ownerExplicitSaveOnly() || state.mode === "preview") return;
       void saveDraft({ silent: true });
     }, 1200);
   }
@@ -599,6 +611,10 @@
 
   function enrichmentDraftLooksPopulated(draft) {
     if (!draft || typeof draft !== "object") return false;
+    const basics = draft.lessonBasicsDraft && typeof draft.lessonBasicsDraft === "object"
+      ? draft.lessonBasicsDraft
+      : null;
+    if (basics && Object.keys(basics).length) return true;
     const acts = draft.activities && typeof draft.activities === "object" ? Object.keys(draft.activities) : [];
     if (acts.length) return true;
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
@@ -1208,7 +1224,9 @@
       state.saveInFlight = false;
       if (state.saveQueued) {
         state.saveQueued = false;
-        if (state.dirty) void saveDraft({ silent: true });
+        if (state.dirty && !ownerExplicitSaveOnly() && state.mode !== "preview") {
+          void saveDraft({ silent: true });
+        }
       }
     }
   }
@@ -2010,13 +2028,27 @@
       || Boolean(evaluated?.blocksPublish || state.qualityReport?.blocksPublish || libraryStatus === "Blocked");
     const publishReadyActive = readinessUi.publishReady === true;
     if (evaluated?.report) state.qualityReport = evaluated.report;
+    const lessonStatus = String(plan.status || "draft").toLowerCase();
+    const customerLive = lessonStatus === "published" || lessonStatus === "featured";
+    const hasDraftChanges = Boolean(state.dirty)
+      || Boolean(plan.enrichmentDraft && typeof plan.enrichmentDraft === "object");
+    const statusLine = customerLive
+      ? (hasDraftChanges
+        ? "Status: Published to customers · You have draft changes (not live until Publish)"
+        : "Status: Published to customers · No unpublished draft changes")
+      : (hasDraftChanges
+        ? "Status: Draft / unpublished · Draft changes are not live to customers"
+        : "Status: Draft / unpublished · Not live to customers");
     return `
       <header class="tk-enrich-chrome">
         <div class="tk-enrich-chrome-top">
           <div class="tk-enrich-chrome-nav">
             <button type="button" class="ghost-button" data-enrich-exit data-enrich-back-to-list>← Back to Lesson Plans</button>
-            <button type="button" class="ghost-button tk-enrich-chrome-secondary" data-enrich-close title="Close editor">Close</button>
-            <span class="tk-enrich-chrome-title">${esc(plan.title || "Lesson")}</span>
+            <div class="tk-enrich-chrome-identity">
+              <span class="tk-enrich-chrome-kicker">Teaching Kit Editor</span>
+              <span class="tk-enrich-chrome-title">${esc(plan.title || "Lesson")}</span>
+              <p class="tk-enrich-chrome-status" data-owner-status-line role="status">${esc(statusLine)}</p>
+            </div>
           </div>
           <div class="tk-enrich-progress-block">
             <div class="tk-enrich-stepper" aria-label="Teaching Kit readiness steps">
@@ -2031,9 +2063,10 @@
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
-            <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
+            <button type="button" class="ghost-button" data-enrich-edit-basics title="Edit title, days, activities, and core lesson fields">Edit Lesson Basics</button>
+            <button type="button" class="ghost-button" data-ai-suggest="lesson">Prepare AI Draft</button>
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
-            <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
+            <button type="button" class="ghost-button" data-enrich-save-draft title="Save draft only — does not publish">Save Draft</button>
             <button type="button" class="primary-button" data-enrich-publish data-can-publish="${readinessUi.canPublish ? "true" : "false"}" ${blocked ? "title=\"Publishing blocked — resolve hard blockers or use owner override\"" : ""}>${blocked ? "Publish blocked…" : "Publish…"}</button>
             <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
@@ -2064,17 +2097,21 @@
               </div>
             ` : ""}
           </div>
-          <p class="tk-enrich-status">${esc(state.statusText || "Draft autosave on")}</p>
+          <p class="tk-enrich-status">${esc(state.statusText || (ownerExplicitSaveOnly() ? "Save Draft keeps work unpublished. Publish is a separate step." : "Draft autosave on"))}</p>
         </div>
         ${isPublished ? `
-          <div class="tk-enrich-published-banner" role="status">
-            Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.
+          <div class="tk-enrich-published-banner" role="status" data-owner-published-banner>
+            Customer version is published. Your edits stay as draft until you choose Publish.
           </div>
-        ` : ""}
-        <nav class="tk-enrich-modes" role="tablist" aria-label="Enrichment modes">
-          <button type="button" role="tab" aria-selected="${state.mode === "activities" ? "true" : "false"}" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
-          <button type="button" role="tab" aria-selected="${state.mode === "week" ? "true" : "false"}" class="${state.mode === "week" ? "is-active" : ""}" data-enrich-mode="week">Week</button>
-          <button type="button" role="tab" aria-selected="${state.mode === "preview" ? "true" : "false"}" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview">Live Preview</button>
+        ` : `
+          <div class="tk-enrich-published-banner tk-enrich-draft-banner" role="status" data-owner-draft-banner>
+            This lesson is not live to customers. Save Draft never publishes.
+          </div>
+        `}
+        <nav class="tk-enrich-modes" role="tablist" aria-label="Teaching Kit workspace sections">
+          <button type="button" role="tab" aria-selected="${state.mode === "activities" ? "true" : "false"}" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Teaching Kit Details</button>
+          <button type="button" role="tab" aria-selected="${state.mode === "week" ? "true" : "false"}" class="${state.mode === "week" ? "is-active" : ""}" data-enrich-mode="week">Week &amp; Printables</button>
+          <button type="button" role="tab" aria-selected="${state.mode === "preview" ? "true" : "false"}" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview">Preview</button>
         </nav>
       </header>
     `;
@@ -2383,11 +2420,15 @@
   }
 
   function renderPreviewMode() {
+    const plan = getPlan() || {};
+    const customerLive = ["published", "featured"].includes(String(plan.status || "").toLowerCase());
     return `
       <div class="tk-enrich-preview-full">
-        <div class="tk-enrich-draft-preview-label" role="status">
-          <strong>Draft Preview</strong>
-          <span>Same Teaching Kit UI providers see — driven by your current draft. The published lesson is unchanged until you Publish.</span>
+        <div class="tk-enrich-draft-preview-label" role="status" data-admin-preview-not-live>
+          <strong>ADMIN PREVIEW — NOT LIVE TO CUSTOMERS</strong>
+          <span>${customerLive
+            ? "Showing your current draft changes. Customers still see the last published version until you Publish."
+            : "Showing your current draft. This lesson is not published to customers."}</span>
         </div>
         <div class="tk-enrich-preview-toolbar">
           <div class="tk-enrich-preview-viewports" role="group" aria-label="Preview viewport">
@@ -2663,12 +2704,27 @@
     `;
   }
 
+  function linkedDraftPrintablesForPlan(plan) {
+    const ids = Array.isArray(plan?.resourceIds) ? plan.resourceIds : [];
+    const catalog = typeof curriculumResourcesForAdmin === "function"
+      ? curriculumResourcesForAdmin()
+      : (typeof effectiveCurriculum === "function" ? (effectiveCurriculum()?.resources || []) : []);
+    const byId = new Map((catalog || []).map((row) => [String(row?.id || ""), row]));
+    return ids
+      .map((id) => byId.get(String(id || "")))
+      .filter((resource) => resource && String(resource.status || "").toLowerCase() === "draft");
+  }
+
   function renderPublishModal(plan, activities) {
     if (!state.publishOpen) return "";
     const summary = api().summarizePublishChanges(plan, activities, state.draft);
     const evaluated = evaluateCurrentKit();
     const upgrade = evaluated?.summary || api().buildUpgradeSummary(plan, activities, state.draft, scoringOptions());
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
+    const draftPrintables = linkedDraftPrintablesForPlan(plan);
+    const draftPrintableCount = draftPrintables.length;
+    const willPromotePrintables = draftPrintableCount > 0
+      && ["published", "featured", "draft"].includes(String(plan.status || "").toLowerCase());
     const qualityOn = isQualityReviewFlagEnabled();
     const report = evaluated?.report || state.qualityReport;
     if (report) state.qualityReport = report;
@@ -2700,10 +2756,19 @@
         <button type="button" class="tk-enrich-modal-backdrop" data-publish-cancel aria-label="Cancel publish"></button>
         <div class="tk-enrich-modal-card tk-enrich-publish-card" tabindex="-1">
           <div class="tk-enrich-publish-scroll">
-            <h3 id="tk-enrich-publish-title">Publish enrichment for this lesson?</h3>
-            <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. AI cannot publish. Save Draft never publishes. Cancel leaves everything unchanged.</p>
+            <h3 id="tk-enrich-publish-title">Publish Teaching Kit for “${esc(plan.title || "this lesson")}”?</h3>
+            <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. Save Draft never publishes. Cancel leaves everything unchanged.</p>
+            ${willPromotePrintables ? `
+              <div class="access-notice" role="status" data-publish-printable-disclosure>
+                <strong>Printable publish notice:</strong>
+                Publishing this Teaching Kit will also publish
+                <strong>${draftPrintableCount}</strong> linked draft printable${draftPrintableCount === 1 ? "" : "s"}
+                ${draftPrintableCount ? `(${draftPrintables.slice(0, 5).map((r) => esc(r.title || r.id)).join(", ")}${draftPrintableCount > 5 ? ",…" : ""})` : ""}.
+              </div>
+            ` : ""}
             <ul class="tk-enrich-publish-summary">
-              <li><strong>Current published version:</strong> ${historyCount ? `${historyCount} snapshot(s) on file` : "None yet — first enrichment publish"}</li>
+              <li><strong>Lesson:</strong> ${esc(plan.title || plan.id || "this lesson")}</li>
+              <li><strong>Current published version:</strong> ${historyCount ? `${historyCount} snapshot(s) on file` : "None yet — first Teaching Kit publish"}</li>
               <li><strong>Draft version:</strong> ${esc(upgrade.draftOrPublished)} · structural ${upgrade.completionPercent ?? "—"}% · premium ${evaluated?.premiumReadinessPercent ?? upgrade.premiumReadinessPercent ?? "—"}%</li>
               <li><strong>Workflow / Library status:</strong> ${esc(workflow)} · ${esc(libraryStatus)}</li>
               <li><strong>Sections changing:</strong> ${summary.photoChanges} photo(s), ${summary.tipChanges} tip(s), ${summary.linkedActivitiesAffected} linked activit${summary.linkedActivitiesAffected === 1 ? "y" : "ies"}</li>
@@ -2712,8 +2777,9 @@
               <li><strong>Remaining warnings:</strong> ${warningCount}</li>
               <li><strong>Hard blockers:</strong> ${blockerCount}${blocked ? " — Publish disabled until resolved or owner override" : ""}</li>
               <li><strong>Images added/removed:</strong> ${summary.photoChanges} photo field update(s)</li>
-              <li><strong>Printables:</strong> ${upgrade.missingPrintables || upgrade.hasDraftOnlyPrintables ? "Still missing a published printable (drafts/ideas do not count)" : "Published printable resources linked"}</li>
-              <li><strong>Customer-visible result:</strong> ${summary.isPublished ? "Providers see enrichment only after this publish succeeds" : "Lesson is not published/featured yet"}</li>
+              <li><strong>Linked draft printables:</strong> ${draftPrintableCount ? `${draftPrintableCount} will publish with this kit` : "None pending"}</li>
+              <li><strong>Printables readiness:</strong> ${upgrade.missingPrintables || upgrade.hasDraftOnlyPrintables ? "Still missing a published printable (drafts/ideas do not count until promoted)" : "Published printable resources linked"}</li>
+              <li><strong>Customer-visible result:</strong> Providers see these updates only after this publish succeeds</li>
               <li><strong>Publish readiness:</strong> <span data-publish-readiness-label>${esc(qualityOn ? readiness : "Quality Review off")}</span></li>
             </ul>
             ${blockerCount ? `
@@ -3403,6 +3469,34 @@
         void close();
         return;
       }
+      if (event.target.closest("[data-enrich-edit-basics]")) {
+        const plan = getPlan();
+        const id = String(plan?.id || state.planId || "").trim();
+        if (!id) return;
+        if (state.dirty) {
+          const saveFirst = window.confirm(
+            "You have unsaved Teaching Kit draft changes.\n\n"
+            + "OK — Save Draft first, then open Lesson Basics.\n"
+            + "Cancel — stay in the Teaching Kit editor.",
+          );
+          if (!saveFirst) return;
+          const saved = await saveDraft({ silent: false });
+          if (!saved && state.dirty) {
+            state.statusText = "Could not save draft — Lesson Basics was not opened.";
+            renderChromeOnly();
+            return;
+          }
+        }
+        await close({ force: true, skipReturnNavigation: true });
+        if (typeof openAdminCurriculumLessonEditor === "function") {
+          openAdminCurriculumLessonEditor(id, {
+            forceClassic: true,
+            returnToTeachingKit: true,
+            scroll: true,
+          });
+        }
+        return;
+      }
       if (event.target.closest("[data-enrich-cancel]")) {
         void close({ abandonUnsaved: true });
         return;
@@ -3873,6 +3967,7 @@
       if (modeBtn) {
         state.mode = modeBtn.getAttribute("data-enrich-mode");
         if (state.mode === "preview") {
+          clearTimeout(state.autosaveTimer);
           const act = getActivities(getPlan())[state.activityIndex];
           if (act?.dayOfWeek) state.previewDay = String(act.dayOfWeek);
         }
@@ -4694,6 +4789,7 @@
     }),
     getDraft: () => state.draft,
     isDirty: () => state.dirty,
+    markDirty,
     lastSaveError: () => state.lastSaveError,
     getLessonAnalysis: () => state.lessonAnalysis,
     refreshLessonAnalysis,

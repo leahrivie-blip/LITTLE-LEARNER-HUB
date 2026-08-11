@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Disposable-fixture coverage for Admin Teaching Kit editor open/focus fixes:
- * 1) Upgrade Lesson + Edit open the same owner Teaching Kit editor
+ * 1) Open Teaching Kit opens the owner Teaching Kit editor (single primary CTA)
  * 2) Structured printable ideas never render as [object Object]
  * 3) Focused workspace unmounts Lesson Plans list chrome
  *
@@ -347,7 +347,7 @@ async function unlockPage(page, token) {
     if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
     if (typeof applyAdminSectionVisibility === "function") applyAdminSectionVisibility();
   });
-  await page.waitForSelector(`[data-curriculum-lesson-enrich="${FIXTURE}"], [data-curriculum-lesson-edit="${FIXTURE}"]`, {
+  await page.waitForSelector(`[data-curriculum-lesson-enrich="${FIXTURE}"], [data-open-teaching-kit="1"]`, {
     timeout: 20000,
   });
 }
@@ -362,7 +362,7 @@ async function assertEditorOpen(page, label) {
   );
   const state = await page.evaluate(() => {
     const list = document.querySelector("#adminCurriculumLessonPlanList");
-    const cards = document.querySelectorAll("[data-curriculum-lesson-enrich], [data-curriculum-lesson-edit]");
+    const cards = document.querySelectorAll("[data-curriculum-lesson-enrich], [data-open-teaching-kit]");
     const filters = document.querySelector(".admin-content-filters");
     const importer = document.querySelector("#adminCurriculumLessonImportPanel, [data-curriculum-lesson-import]");
     return {
@@ -389,8 +389,10 @@ async function assertEditorOpen(page, label) {
 }
 
 async function openViaUpgrade(page, label) {
-  const btn = page.locator(`[data-curriculum-lesson-enrich="${FIXTURE}"]`).first();
+  const btn = page.locator(`[data-curriculum-lesson-enrich="${FIXTURE}"], [data-open-teaching-kit="1"]`).first();
   await btn.waitFor({ state: "visible", timeout: 15000 });
+  const labelText = (await btn.textContent()) || "";
+  ok(/Open Teaching Kit/i.test(labelText), `${label}: primary CTA labeled Open Teaching Kit`);
   await btn.scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(OUT, `${label}-before-upgrade.png`), fullPage: false });
   try {
@@ -401,22 +403,16 @@ async function openViaUpgrade(page, label) {
       el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
     }, FIXTURE);
   }
-  await assertEditorOpen(page, `${label}/upgrade`);
+  await assertEditorOpen(page, `${label}/open-teaching-kit`);
   await page.screenshot({ path: path.join(OUT, `${label}-after-upgrade-editor.png`), fullPage: false });
 }
 
 async function openViaEdit(page, label) {
-  const btn = page.locator(`[data-curriculum-lesson-edit="${FIXTURE}"]`).first();
-  await btn.waitFor({ state: "visible", timeout: 15000 });
-  try {
-    await btn.click({ timeout: 5000 });
-  } catch {
-    await page.evaluate((id) => {
-      const el = document.querySelector(`[data-curriculum-lesson-edit="${id}"]`);
-      el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-    }, FIXTURE);
-  }
-  await assertEditorOpen(page, `${label}/edit`);
+  // Edit CTA was merged into Open Teaching Kit — reopen via the shared opener API.
+  await page.evaluate(async (id) => {
+    await window.openOwnerTeachingKitEditor(id, { source: "edit" });
+  }, FIXTURE);
+  await assertEditorOpen(page, `${label}/edit-api`);
   await page.screenshot({ path: path.join(OUT, `${label}-after-edit-editor.png`), fullPage: false });
 }
 
@@ -689,13 +685,13 @@ async function main() {
       await openViaUpgrade(page, label);
       await closeEditor(page);
       ok(fingerprintCurriculumAndFlags(readStoreFile()) === storeBeforeUpgrade,
-        `${label}: Upgrade Lesson open+close without save → zero curriculum/flag mutations`);
+        `${label}: Open Teaching Kit open+close without save → zero curriculum/flag mutations`);
 
       const storeBeforeEdit = fingerprintCurriculumAndFlags(readStoreFile());
       await openViaEdit(page, label);
       await closeEditor(page);
       ok(fingerprintCurriculumAndFlags(readStoreFile()) === storeBeforeEdit,
-        `${label}: Edit open+close without save → zero curriculum/flag mutations`);
+        `${label}: openOwnerTeachingKitEditor(edit) open+close without save → zero curriculum/flag mutations`);
 
       await openViaUpgrade(page, label);
       await verifyWeekPrintables(page, label);
@@ -732,7 +728,7 @@ async function main() {
       const restored = await page.evaluate(() => ({
         status: document.querySelector("#adminCurriculumFilterStatus")?.value || "",
         listPresent: Boolean(document.querySelector("#adminCurriculumLessonPlanList")),
-        cards: document.querySelectorAll("[data-curriculum-lesson-enrich], [data-curriculum-lesson-edit]").length,
+        cards: document.querySelectorAll("[data-curriculum-lesson-enrich], [data-open-teaching-kit]").length,
       }));
       ok(restored.listPresent && restored.cards > 0, `${label}: lesson list restored after Back`);
       ok(restored.status === beforeView.status, `${label}: filter status restored after Back`);
@@ -742,7 +738,7 @@ async function main() {
       // Failed open (editor closed) shows error and restores CTA (never stuck on Opening…).
       const fail = await page.evaluate(async () => {
         const btn = document.createElement("button");
-        btn.textContent = "Upgrade Lesson";
+        btn.textContent = "Open Teaching Kit";
         document.body.appendChild(btn);
         const opened = await window.openOwnerTeachingKitEditor("cur-lp-does-not-exist-open-focus", {
           source: "upgrade",
