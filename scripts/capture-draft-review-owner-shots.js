@@ -245,7 +245,10 @@ async function main() {
     });
     await page.waitForTimeout(800);
     if (await page.locator("[data-draft-review-printables]").count()) {
-      await page.locator("[data-draft-review-printables]").first().click({ force: true });
+      await page.evaluate(() => {
+        const buttons = [...document.querySelectorAll("[data-draft-review-printables]")];
+        (buttons.find((btn) => btn.offsetParent !== null) || buttons[0])?.click();
+      });
       await page.waitForTimeout(1200);
       await page.screenshot({ path: path.join(OUT, "draft-review-printable-preview-desktop.png"), fullPage: false });
     } else {
@@ -253,7 +256,10 @@ async function main() {
     }
 
     if (await page.locator("[data-draft-review-compare]").count()) {
-      await page.locator("[data-draft-review-compare]").first().click({ force: true });
+      await page.evaluate(() => {
+        const buttons = [...document.querySelectorAll("[data-draft-review-compare]")];
+        (buttons.find((btn) => btn.offsetParent !== null) || buttons[0])?.click();
+      });
       await page.waitForTimeout(700);
       await page.screenshot({ path: path.join(OUT, "draft-review-compare-desktop.png"), fullPage: false });
     } else {
