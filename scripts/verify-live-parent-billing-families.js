@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const BASE = "https://little-learner-hub-testing.onrender.com";
-const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup3";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup4";
 const PASSWORD = "SunshineDaycare9!";
 const OUT = "/opt/cursor/artifacts/live-parent-billing-families";
 const stamp = Date.now();
@@ -114,7 +114,11 @@ async function bootProvider(page, email, token) {
 
 async function shot(page, name) {
   const file = path.join(OUT, `${name}.png`);
-  await page.screenshot({ path: file, fullPage: false });
+  try {
+    await page.screenshot({ path: file, fullPage: false, timeout: 10000 });
+  } catch (_e) {
+    await page.screenshot({ path: file, fullPage: false, timeout: 10000, animations: "disabled" }).catch(() => {});
+  }
   return file;
 }
 
@@ -316,17 +320,22 @@ async function main() {
   await shot(page, "billing-switch-view");
 
   // ---------- Families focus ----------
-  await page.evaluate(async () => {
-    localStorage.removeItem("llhMultiRoleTesterView");
+  // Ensure local child store matches API before Photos/Pickup profile focus.
+  for (let i = 0; i < 6; i += 1) {
+    const synced = await page.evaluate(async () => {
+      localStorage.removeItem("llhMultiRoleTesterView");
+      try {
+        if (typeof syncChildDataFromBackend === "function") {
+          await syncChildDataFromBackend({ render: false, force: true });
+        }
+      } catch (_e) { /* ignore */ }
+      return (typeof childRecords === "function" ? childRecords().children : [])?.length || 0;
+    });
+    if (synced > 0) break;
+    await page.waitForTimeout(1500);
+  }
+  await page.evaluate(() => {
     syncPlatformNavVisibility?.();
-    try {
-      if (typeof syncChildDataFromBackend === "function") {
-        await Promise.race([
-          syncChildDataFromBackend({ render: false, force: true }),
-          new Promise((r) => setTimeout(r, 15000)),
-        ]);
-      }
-    } catch (_e) { /* continue */ }
     setView("families", { allowDashboard: true });
   });
   await page.waitForTimeout(600);
@@ -338,15 +347,18 @@ async function main() {
     ["Paperwork HQ", "paperwork-hq"],
     ["Daily Reports", "daily-reports"],
   ]) {
-    await page.evaluate(() => setView("families", { allowDashboard: true }));
-    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      pendingFamiliesDestinationFocus = "";
+      setView("families", { allowDashboard: true });
+    });
+    await page.waitForTimeout(400);
     const tile = page.locator(`#view-families .work-hub-tile[data-families-focus="${focus}"]`).first();
     if (!(await tile.count())) {
       familyChecks[label] = { ok: false, reason: "tile missing" };
       continue;
     }
     await tile.click();
-    await page.waitForTimeout(1100);
+    await page.waitForTimeout(2200);
     familyChecks[label] = await page.evaluate((f) => {
       const active = document.querySelector(".active-view")?.id || "";
       const back = window.LlhNavOrigin?.labelFor?.(window.LlhNavOrigin.peekOrigin?.()) || "";

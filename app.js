@@ -17758,15 +17758,13 @@ function applyFamiliesDestinationFocus(focusKey = "", { attempt = 0 } = {}) {
     return;
   }
   if (focus === "daily-reports") {
+    try { window.LlhNavOrigin?.pushOrigin?.("families"); } catch (_e) { /* ignore */ }
     const root = document.querySelector("[data-daily-care-root]");
-    const action = document.querySelector('[data-daily-care-action="end-of-day"]');
-    const target = action || root;
+    const action = document.querySelector('[data-daily-care-root] [data-daily-care-action="end-of-day"], [data-daily-care-action="end-of-day"]');
+    const target = root || action;
     if (target) {
       target.setAttribute("data-families-section-active", "true");
       target.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (action && typeof action.click === "function" && !action.closest("[data-daily-care-root] [data-daily-care-action='end-of-day']")) {
-        /* hub tile already requested end-of-day; in-page action may still need open */
-      }
       try { action?.click?.(); } catch (_e) { /* ignore */ }
     } else if (attempt < 12) {
       window.setTimeout(() => applyFamiliesDestinationFocus(focus, { attempt: attempt + 1 }), 80);
@@ -67837,9 +67835,8 @@ document.addEventListener("click", async (event) => {
     }
     const familiesFocus = String(viewButton.getAttribute("data-families-focus") || "").trim();
     if (familiesFocus) {
-      // Queue before/around setView so post-render consume + retries can open the subsection
-      // after child data sync completes (list render alone is not enough).
-      pendingFamiliesDestinationFocus = familiesFocus;
+      // Early queue already set before setView; retry apply after paint/sync without
+      // re-arming pending (re-arming left a sticky focus for the next click).
       window.setTimeout(() => applyFamiliesDestinationFocus(familiesFocus), jumpId ? 160 : 40);
     }
     return;
