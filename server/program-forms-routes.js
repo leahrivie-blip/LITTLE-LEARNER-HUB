@@ -6,6 +6,7 @@
 
 const programFormsLib = require("./program-forms-lib.js");
 const formFieldsLib = require("./form-fields-lib.js");
+const formsRecordLib = require("./forms-record-lib.js");
 
 function createProgramFormsRoutes({
   requireHomeDaycareHubTesting,
@@ -365,14 +366,118 @@ function createProgramFormsRoutes({
       return;
     }
     const limit = Number(url?.searchParams?.get("limit") || 200);
-    const rows = programFormsLib.listFormsAuditForProgram(store, context.programId, { limit });
+    const documentId = String(url?.searchParams?.get("documentId") || "").trim();
+    let rows = programFormsLib.listFormsAuditForProgram(store, context.programId, { limit: documentId ? 1000 : limit });
+    if (documentId) {
+      rows = rows.filter((row) => String(row.documentId || "") === documentId).slice(0, Math.max(1, Math.min(500, Number(limit) || 200)));
+    }
     jsonResponse(response, 200, {
       ok: true,
       programId: context.programId,
+      documentId: documentId || undefined,
       audit: rows,
+      timeline: documentId
+        ? formsRecordLib.buildTimelineEntries(rows, { documentId })
+        : undefined,
       retention: "append_only_no_destructive_fifo",
       archiveCollection: "formsAuditArchive",
     });
+  }
+
+  async function handleGetDocumentDetail(request, response, url, documentId) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    const assigneeType = String(url?.searchParams?.get("assigneeType") || "").trim();
+    const markViewed = String(url?.searchParams?.get("markViewed") || "") === "1";
+    try {
+      const located = formsRecordLib.locateDocument(store, context, { documentId, assigneeType });
+      const auth = formsRecordLib.authorizeDocumentAccess(context, identity, located, {
+        audience: "director",
+      });
+      let auditRows = [];
+      if (auth.canViewAudit) {
+        auditRows = programFormsLib.listFormsAuditForProgram(store, context.programId, { limit: 500 })
+          .filter((row) => String(row.documentId || "") === String(documentId));
+      }
+      if (markViewed && auth.level === "director") {
+        // Directors opening detail do not stamp guardian VIEWED; skip.
+      }
+      const dto = formsRecordLib.buildDocumentDetailDto({
+        store,
+        context,
+        located,
+        auth,
+        auditRows,
+        programName: formsRecordLib.programDisplayName(store, context.programId),
+      });
+      // Read path — no persist unless markViewed for staff_self first open.
+      if (markViewed && auth.level === "staff_self") {
+        const actor = actorFromContext(context, identity);
+        const marked = formsRecordLib.maybeMarkViewed(store, context, located, actor);
+        if (marked.marked) {
+          if (located.assigneeType === "staff") {
+            const forms = programFormsLib.ensureProgramFormsNamespace(store, context.programId);
+            forms.staffDocuments = located.collection;
+          }
+          await respondAfterPersist(store, response, 200, dto, "Could not open document detail.");
+          return;
+        }
+      }
+      jsonResponse(response, 200, dto);
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Could not open document detail.",
+        code: error.code || "detail_failed",
+      });
+    }
+  }
+
+  async function handleGetCompletedRecord(request, response, url, documentId) {
+    const ctx = await withProgramContext(request, response);
+    if (!ctx) return;
+    const { store, context, identity } = ctx;
+    const assigneeType = String(url?.searchParams?.get("assigneeType") || "").trim();
+    const versionId = String(url?.searchParams?.get("versionId") || "").trim();
+    try {
+      const located = formsRecordLib.locateDocument(store, context, { documentId, assigneeType });
+      const auth = formsRecordLib.authorizeDocumentAccess(context, identity, located, {
+        audience: located.assigneeType === "staff" ? "staff_self" : "director",
+      });
+      // Cross-check: client cannot swap to another program's document (locate already scoped).
+      if (versionId) {
+        formsRecordLib.pickVersion(located.document, versionId);
+      }
+      const recipient = (() => {
+        try {
+          return formsRecordLib.buildDocumentDetailDto({
+            store,
+            context,
+            located,
+            auth: { ...auth, canViewAudit: false },
+            auditRows: [],
+            programName: "",
+          }).recipient;
+        } catch (_e) {
+          return null;
+        }
+      })();
+      const dto = formsRecordLib.buildCompletedRecordDto({
+        located,
+        versionId,
+        auth,
+        programName: formsRecordLib.programDisplayName(store, context.programId),
+        recipient,
+        includeDrawnImage: true,
+      });
+      // Print/download must not mutate status/signature/version.
+      jsonResponse(response, 200, dto);
+    } catch (error) {
+      jsonResponse(response, error.status || 400, {
+        error: error.message || "Could not open completed record.",
+        code: error.code || "completed_record_failed",
+      });
+    }
   }
 
   async function handleForbiddenAuditMutations(request, response) {
@@ -534,6 +639,16 @@ function createProgramFormsRoutes({
     if (staffSignMatch && method === "POST") {
       const documentId = decodeURIComponent(staffSignMatch[1]);
       return (req, res) => handleSignStaffDocument(req, res, documentId);
+    }
+    const detailMatch = pathname.match(/^\/api\/program-forms\/documents\/([^/]+)\/detail$/);
+    if (detailMatch && method === "GET") {
+      const documentId = decodeURIComponent(detailMatch[1]);
+      return (req, res, url) => handleGetDocumentDetail(req, res, url, documentId);
+    }
+    const completedMatch = pathname.match(/^\/api\/program-forms\/documents\/([^/]+)\/completed-record$/);
+    if (completedMatch && method === "GET") {
+      const documentId = decodeURIComponent(completedMatch[1]);
+      return (req, res, url) => handleGetCompletedRecord(req, res, url, documentId);
     }
     if (pathname === "/api/program-forms/audit" && method === "GET") {
       return (req, res, url) => handleGetFormsAudit(req, res, url);

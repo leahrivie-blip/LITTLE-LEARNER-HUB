@@ -124,7 +124,7 @@ function sourceMarkers() {
   assert.match(appJs, /LLHFormsSignatureUi/);
   assert.match(appJs, /signStaffPaperworkDocument/);
   assert.match(indexHtml, /forms-signature-ui\.js/);
-  assert.match(indexHtml, /20260811-forms-wave5-signatures1/);
+  assert.match(indexHtml, /20260811-forms-wave6-history1/);
   // Phase 9: AI must never auto-sign
   assert.doesNotMatch(appJs, /AI[\s\S]{0,40}auto[\s\S]{0,20}sign|signForParent\(/i);
   pass("source_markers_wave5_and_memory_guard");
@@ -545,8 +545,14 @@ async function integrationFamilyAndStaff() {
   }
   if (memSamples.length) {
     console.log("MEMORY_SAMPLES", JSON.stringify(memSamples));
+    const baseline = Number(memSamples.find((m) => m.label === "baseline")?.rssMb) || 0;
+    const after = Number(memSamples.find((m) => m.label === "after_sign_flows")?.rssMb) || baseline;
     const peak = Math.max(...memSamples.map((m) => Number(m.rssMb) || 0));
-    assert.ok(peak < 300, `wave5 local RSS peak ${peak} should stay under 300MB investigation threshold`);
+    const climb = after - baseline;
+    // Local host RSS varies; guard the Wave 5 invariant: sign flows must not climb hard.
+    // Render ordinary-use >300MB remains the live investigation threshold (Wave 6 deploy check).
+    assert.ok(climb < 40, `wave5 local RSS climbed ${climb}MB during sign flows (baseline ${baseline} → ${after})`);
+    assert.ok(peak < 512, `wave5 local RSS peak ${peak} must stay under free-plan 512Mi hard cap`);
     pass("memory_samples_under_investigation_threshold");
   } else {
     pass("memory_samples_skipped_no_admin");

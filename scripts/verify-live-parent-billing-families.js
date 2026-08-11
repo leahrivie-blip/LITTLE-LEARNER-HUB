@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const BASE = "https://little-learner-hub-testing.onrender.com";
-const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260811-forms-wave5-signatures1";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260811-forms-wave6-history1";
 const PASSWORD = "SunshineDaycare9!";
 const OUT = "/opt/cursor/artifacts/live-parent-billing-families";
 const stamp = Date.now();

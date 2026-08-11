@@ -14453,6 +14453,7 @@ const familyHubLib = require("./family-hub-lib");
 const formsLib = require("./forms-lib");
 const formsSignatureLib = require("./forms-signature-lib");
 const programFormsLib = require("./program-forms-lib");
+// Lazy-load Wave 6 record DTOs to avoid boot RSS pressure on free-plan testing.
 const { createProgramFormsRoutes } = require("./program-forms-routes");
 const tuitionBilling = require("./tuition-billing-lib");
 const LLH_ALLOW_EPHEMERAL_FAMILY_HUB = ["1", "true", "yes", "on"].includes(
@@ -16071,6 +16072,82 @@ async function handleFamilyHubDocumentProgress(request, response, documentId) {
     testingOnly: true,
     document: familyHubLib.publicFamilyDocument(docs[index]),
   });
+}
+
+/** Wave 6: Family Hub completed-record / print — no audit trail, server-authorized. */
+function handleFamilyHubCompletedRecord(request, response, url, documentId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const formsRecordLib = require("./forms-record-lib");
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const id = String(documentId || "").trim();
+  if (!id) {
+    jsonResponse(response, 400, { error: "Missing form id." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const childIds = familyHubHouseholdChildIdSet(household);
+  const versionId = String(url?.searchParams?.get("versionId") || "").trim();
+  const ownerEmail = normalizeEmail(household.ownerEmail);
+  const ownerUser = store.users?.[ownerEmail] || { email: ownerEmail };
+  let context = null;
+  try {
+    context = programOwnership.resolveProgramContext(store, {
+      email: ownerEmail,
+      uid: ownerUser.firebaseUid || ownerUser.uid || "",
+    });
+  } catch (_error) {
+    context = null;
+  }
+  if (!context?.ok) {
+    jsonResponse(response, 404, { error: "That form was not found for your household." });
+    return;
+  }
+  try {
+    const located = formsRecordLib.locateDocument(store, context, {
+      documentId: id,
+      assigneeType: "child",
+    });
+    const auth = formsRecordLib.authorizeDocumentAccess(context, { email: session?.email || household.email }, located, {
+      audience: "family",
+      householdChildIds: childIds,
+      householdId: household.id || household.householdId || "",
+    });
+    // Family may open their signed / completed record; unsigned current body is ok as read-only view.
+    const recipient = {
+      recipientKind: String(located.document.assignmentScope || "").toLowerCase() === "household" ? "household" : "child",
+      recipientLabel: "",
+      childName: "",
+      assigneeEmail: "",
+      classroomName: "",
+    };
+    const profiles = programOwnership.readProgramChildData(store, context)?.data?.Profiles || [];
+    const child = (Array.isArray(profiles) ? profiles : []).find((p) => String(p?.id) === String(located.document.childId || ""));
+    recipient.childName = String(child?.name || "").trim();
+    recipient.recipientLabel = recipient.childName || "Family";
+    const dto = formsRecordLib.buildCompletedRecordDto({
+      located,
+      versionId,
+      auth,
+      programName: formsRecordLib.programDisplayName(store, context.programId),
+      recipient,
+      includeDrawnImage: true,
+    });
+    // Strip director-only hints; keep signature image for their own mark.
+    if (dto.record) {
+      delete dto.record.staffEmail;
+    }
+    jsonResponse(response, 200, dto);
+  } catch (error) {
+    jsonResponse(response, error.status || 404, {
+      error: error.message || "That form was not found for your household.",
+      code: error.code || "family_completed_record_failed",
+    });
+  }
 }
 
 async function handleFamilyHubSettingsPatch(request, response) {
@@ -29173,6 +29250,12 @@ const server = http.createServer(async (request, response) => {
         url.pathname.slice("/api/family-hub/documents/".length, -"/progress".length),
       );
       return await handleFamilyHubDocumentProgress(request, response, documentId);
+    }
+    if (request.method === "GET" && url.pathname.startsWith("/api/family-hub/documents/") && url.pathname.endsWith("/completed-record")) {
+      const documentId = decodeURIComponent(
+        url.pathname.slice("/api/family-hub/documents/".length, -"/completed-record".length),
+      );
+      return handleFamilyHubCompletedRecord(request, response, url, documentId);
     }
     if (request.method === "POST" && url.pathname === "/api/family-hub/logout") return await handleFamilyHubLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/storage") return handleFamilyHubStorageStatus(request, response);

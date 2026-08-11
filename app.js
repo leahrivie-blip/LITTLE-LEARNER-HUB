@@ -9388,22 +9388,65 @@ function markChildDocumentReviewed(documentId) {
   saveChildStore("Documents", next);
 }
 
+function getFormsDocumentDetailApi() {
+  return globalThis.LLHFormsDocumentDetail || null;
+}
+
+async function openPaperworkDocumentDetail({
+  documentId,
+  assigneeType = "child",
+  surface = "director",
+  mode = "detail",
+  versionId = "",
+} = {}) {
+  const api = getFormsDocumentDetailApi();
+  if (!api?.openCanonicalDocumentDetail) {
+    throw new Error("Document detail is not available. Refresh and try again.");
+  }
+  if (surface === "family") {
+    return api.openCanonicalDocumentDetail({
+      documentId,
+      surface: "family",
+      mode,
+      versionId,
+      getFamilyHeaders: async () => familyHubAuthHeaders(),
+    });
+  }
+  return api.openCanonicalDocumentDetail({
+    documentId,
+    assigneeType,
+    surface,
+    mode,
+    versionId,
+    getStaffHeaders: async () => staffAuthHeaders(),
+  });
+}
+
 function printChildDocumentRecord(documentId) {
-  const doc = (childStore("Documents") || []).find((item) => String(item.id) === String(documentId));
-  if (!doc) throw new Error("Form not found.");
-  const child = (childStore("Profiles") || []).find((item) => String(item.id) === String(doc.childId));
-  const body = String(doc.signedSnapshot || doc.draftText || doc.notes || "").trim()
-    || `${doc.title || "Form"}\n\nStatus: ${doc.statusLabel || doc.status || "Needed"}`;
-  const banner = [
-    doc.signedAt ? `SIGNED in Family Hub on ${String(doc.signedAt).slice(0, 10)}` : "DRAFT / UNSIGNED",
-    doc.signedBy ? `Signer: ${doc.signedBy}` : "",
-    doc.signedRole ? `Role: ${doc.signedRole}` : "",
-    doc.contentVersionSigned || doc.contentVersion ? `Form version: ${doc.contentVersionSigned || doc.contentVersion}` : "",
-    child?.name ? `Child: ${child.name}` : "",
-    doc.dueDate ? `Due: ${doc.dueDate}` : "",
-    "Testing acknowledgment — not a legal e-signature.",
-  ].filter(Boolean).join("\n");
-  printTextDocument(doc.title || "Form", `${banner}\n\n---\n\n${body}`);
+  // Wave 6: prefer canonical completed-record / detail renderer (server-authorized).
+  return openPaperworkDocumentDetail({
+    documentId,
+    assigneeType: "child",
+    surface: "director",
+    mode: "print",
+  }).catch((error) => {
+    // Offline/local fallback for unsigned drafts when API unavailable.
+    const doc = (childStore("Documents") || []).find((item) => String(item.id) === String(documentId));
+    if (!doc) throw error;
+    const child = (childStore("Profiles") || []).find((item) => String(item.id) === String(doc.childId));
+    const body = String(doc.signedSnapshot || doc.draftText || doc.notes || "").trim()
+      || `${doc.title || "Form"}\n\nStatus: ${doc.statusLabel || doc.status || "Needed"}`;
+    const banner = [
+      doc.signedAt ? `Signed electronically on ${String(doc.signedAt).slice(0, 10)}` : "Draft / unsigned",
+      doc.signedBy ? `Signer: ${doc.signedBy}` : "",
+      doc.signedRole ? `Role: ${doc.signedRole}` : "",
+      doc.contentVersionSigned || doc.contentVersion ? `Form version: ${doc.contentVersionSigned || doc.contentVersion}` : "",
+      child?.name ? `Child: ${child.name}` : "",
+      doc.dueDate ? `Due: ${doc.dueDate}` : "",
+      "Electronic Signature · Signature Record",
+    ].filter(Boolean).join("\n");
+    printTextDocument(doc.title || "Form", `${banner}\n\n---\n\n${body}`);
+  });
 }
 
 
@@ -9784,14 +9827,23 @@ function paperworkHqActionButtons(item) {
   const id = escapeHtml(item.recordId || item.id || "");
   const childId = escapeHtml(item.childId || "");
   const isStaff = item.assigneeType === "staff" || item.canonicalStore === "forms.staffDocuments";
+  const assigneeType = isStaff ? "staff" : "child";
   const awaiting = (item.hqRails || []).includes("awaiting_signature")
     || (item.hqRails || []).includes("overdue")
     || (item.hqRails || []).includes("not_opened");
   const buttons = [];
-  if (!isStaff && childId) {
-    buttons.push(`<button class="primary-button" type="button" data-view-child-profile="${childId}" data-open-child-tab="forms-records" data-paperwork-record-id="${id}">Open</button>`);
+  // Wave 6: Open / History / Print all use the same canonical document-detail experience.
+  buttons.push(`<button class="primary-button" type="button" data-open-document-detail="${id}" data-assignee-type="${assigneeType}">Open</button>`);
+  buttons.push(`<button class="ghost-button" type="button" data-open-document-detail="${id}" data-assignee-type="${assigneeType}" data-detail-focus="history">View history</button>`);
+  if (item.signedAt || item.signatureStatus === "signed" || (item.hqRails || []).includes("completed")) {
+    buttons.push(`<button class="ghost-button" type="button" data-open-completed-record="${id}" data-assignee-type="${assigneeType}">Print / download</button>`);
+  } else if (!isStaff) {
     buttons.push(`<button class="ghost-button" type="button" data-print-child-document="${id}">Preview</button>`);
-    buttons.push(`<button class="ghost-button" type="button" data-view-child-profile="${childId}" data-open-child-tab="forms-records" data-paperwork-record-id="${id}">Track</button>`);
+  } else if (item.draftText || item.signedSnapshot) {
+    buttons.push(`<button class="ghost-button" type="button" data-preview-staff-document="${id}">Preview</button>`);
+  }
+  if (!isStaff && childId) {
+    buttons.push(`<button class="ghost-button" type="button" data-view-child-profile="${childId}" data-open-child-tab="forms-records" data-paperwork-record-id="${id}">Child file</button>`);
     if (awaiting && item.shareWithFamily) {
       buttons.push(`<button class="ghost-button" type="button" data-share-child-document="${id}">Remind family</button>`);
     }
@@ -9802,9 +9854,8 @@ function paperworkHqActionButtons(item) {
       buttons.push(`<button class="ghost-button" type="button" data-archive-child-document="${id}">Archive</button>`);
     }
   } else {
-    buttons.push(`<button class="primary-button" type="button" data-view="staff" data-paperwork-staff-email="${escapeHtml(item.assigneeEmail || "")}" data-paperwork-record-id="${id}">Open</button>`);
-    if ((item.draftText || item.signedSnapshot)) {
-      buttons.push(`<button class="ghost-button" type="button" data-preview-staff-document="${id}">Preview</button>`);
+    if (item.assigneeEmail) {
+      buttons.push(`<button class="ghost-button" type="button" data-view="staff" data-paperwork-staff-email="${escapeHtml(item.assigneeEmail || "")}" data-paperwork-record-id="${id}">Staff profile</button>`);
     }
     if (!item.archived) {
       buttons.push(`<button class="ghost-button" type="button" data-archive-staff-document="${id}">Archive</button>`);
@@ -9830,7 +9881,6 @@ function renderPaperworkHqRow(item) {
     item.signatureStatus === "signed" ? `Signed electronically ${String(item.signedAt || "").slice(0, 10)}${item.contentVersion ? ` · v${item.contentVersion}` : ""}${item.hasVoidedVersion ? " · prior version voided" : ""}` : (item.signatureStatus === "awaiting" ? "Awaiting signature" : ""),
     item.completedDate ? `Completed ${item.completedDate}` : "",
     railLabel ? `Rail: ${railLabel}` : "",
-    `ID ${item.recordId || item.id || ""}`,
   ].filter(Boolean).join(" · ");
   return `
     <article class="resource-row paperwork-hq-row" data-paperwork-record-id="${escapeHtml(item.recordId || item.id || "")}" data-canonical-store="${escapeHtml(item.canonicalStore || "")}">
@@ -10023,7 +10073,9 @@ function renderMyPaperworkPanel() {
               <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : " · Needs signature"} · ID ${escapeHtml(item.id)}</p>
             </div>
             <div class="hdh-forms-pack-actions">
-              ${(item.draftText || item.signedSnapshot || (item.fields || []).length) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Open</button>` : `<span class="muted-copy">Assigned</span>`}
+              <button class="ghost-button" type="button" data-open-document-detail="${escapeHtml(item.id)}" data-assignee-type="staff">Open</button>
+              ${item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="staff">Print / download</button>` : ""}
+              ${(item.draftText || item.signedSnapshot || (item.fields || []).length) && !item.signedAt ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Preview</button>` : (!item.signedAt && !(item.draftText || item.signedSnapshot || (item.fields || []).length) ? `<span class="muted-copy">Assigned</span>` : "")}
               ${!item.signedAt && item.requiresSignature !== false ? `<button class="primary-button" type="button" data-my-paperwork-sign="${escapeHtml(item.id)}">Sign &amp; Submit</button>` : ""}
             </div>
           </article>`).join("") : `<div class="profile-empty-state"><strong>No items in this bucket</strong><p>Forms assigned to ${escapeHtml(email)} appear here.</p></div>`}
@@ -10091,7 +10143,8 @@ function renderStaffProfilePaperworkPanel(selectedEmail = "") {
               <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.archived ? " · Archived" : ""} · ID ${escapeHtml(item.id)}</p>
             </div>
             <div class="hdh-forms-pack-actions">
-              ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Open</button>` : ""}
+              <button class="ghost-button" type="button" data-open-document-detail="${escapeHtml(item.id)}" data-assignee-type="staff">Open</button>
+              ${item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="staff">Print / download</button>` : ((item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Preview</button>` : "")}
               ${!item.archived ? `<button class="ghost-button" type="button" data-archive-staff-document="${escapeHtml(item.id)}">Archive</button>` : ""}
             </div>
           </article>`).join("") : `<div class="profile-empty-state"><strong>No paperwork in this bucket</strong><p>Assign a staff template from Paperwork HQ / Program templates.</p></div>`}
@@ -40127,7 +40180,7 @@ function renderFamilyHubFormsPanel(data) {
           </div>
           <p class="fh-meta">${doc.assignmentScope === "household" || doc.scopeLabel === "Family form"
             ? `Family form · ${escapeHtml(doc.scopeLabel || "Family form")}`
-            : `For ${escapeHtml(childName(doc.childId))} · Child form`} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""} · ID ${escapeHtml(doc.id || "")}</p>
+            : `For ${escapeHtml(childName(doc.childId))} · Child form`} · ${escapeHtml(doc.category || "Other")}${doc.dueDate ? ` · Due ${escapeHtml(doc.dueDate)}` : ""}${doc.assignedAt ? ` · Assigned ${escapeHtml(String(doc.assignedAt).slice(0, 10))}` : ""}</p>
           <p>${escapeHtml(doc.notes || "Review this form and sign when ready.")}</p>
           ${body ? `<details class="fh-form-body" open><summary>Read full form</summary><pre class="fh-form-pre">${escapeHtml(body)}</pre></details>` : ""}
           ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
@@ -40140,7 +40193,13 @@ function renderFamilyHubFormsPanel(data) {
               ${canSign ? `<button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign &amp; Submit</button>` : ""}
               <p class="fh-meta">Electronic Signature — type or draw your signature, then Sign &amp; Submit. Your signed version is saved as a Signature Record for the provider.</p>
             </div>
-          ` : (doc.signedAt ? `<p class="fh-meta">You’re all set on this form.</p>` : `<p class="fh-meta">Open/read only for this completed or locked record.</p>`)}
+          ` : (doc.signedAt ? `
+            <p class="fh-meta">You’re all set on this form.</p>
+            <div class="fh-account-actions">
+              <button class="primary-button" type="button" data-family-hub-completed-record="${escapeHtml(doc.id)}">View completed record</button>
+              <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-print-record="${escapeHtml(doc.id)}">Print / download</button>
+            </div>
+          ` : `<p class="fh-meta">Open/read only for this completed or locked record.</p>`)}
         </article>`;
       }).join("") : `<div class="fh-empty"><strong>No forms in this bucket</strong><p class="fh-meta">Try Needs Attention or Completed.</p></div>`}
     </div>
@@ -45107,11 +45166,12 @@ function renderChildFormsRecordsTab(child, records) {
             <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}" data-canonical-store="child.Documents">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : " · Provider only"}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signature: signed ${escapeHtml(String(item.signedAt).slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}` : " · Signature: awaiting"}${item.completedDate || item.completedAt || item.reviewedAt ? ` · Completed ${escapeHtml(String(item.completedDate || item.completedAt || item.reviewedAt).slice(0, 10))}` : ""} · ID ${escapeHtml(item.id)}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : " · Provider only"}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signature: signed ${escapeHtml(String(item.signedAt).slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}` : " · Signature: awaiting"}${item.completedDate || item.completedAt || item.reviewedAt ? ` · Completed ${escapeHtml(String(item.completedDate || item.completedAt || item.reviewedAt).slice(0, 10))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
-                ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
-                ${(item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Preview / Print</button>` : ""}
+                <button class="primary-button" type="button" data-open-document-detail="${escapeHtml(item.id)}" data-assignee-type="child">Open</button>
+                ${item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="child">Print / download</button>` : ((item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Preview</button>` : "")}
+                ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Library form</button>` : ""}
                 ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
                 ${item.signedAt && !item.providerReviewed ? `<button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>` : ""}
                 ${!(item.status === "signed" || item.signedAt) ? `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>` : ""}
@@ -69400,17 +69460,51 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openDocumentDetail = event.target.closest("[data-open-document-detail]");
+  if (openDocumentDetail) {
+    event.preventDefault();
+    const docId = openDocumentDetail.getAttribute("data-open-document-detail");
+    const assigneeType = openDocumentDetail.getAttribute("data-assignee-type") || "child";
+    openPaperworkDocumentDetail({ documentId: docId, assigneeType, surface: "director", mode: "detail" })
+      .catch((error) => showActionFeedback(error.message || "Could not open document detail."));
+    return;
+  }
+
+  const openCompletedRecordBtn = event.target.closest("[data-open-completed-record]");
+  if (openCompletedRecordBtn) {
+    event.preventDefault();
+    const docId = openCompletedRecordBtn.getAttribute("data-open-completed-record");
+    const assigneeType = openCompletedRecordBtn.getAttribute("data-assignee-type") || "child";
+    openPaperworkDocumentDetail({ documentId: docId, assigneeType, surface: "director", mode: "print" })
+      .catch((error) => showActionFeedback(error.message || "Could not open completed record."));
+    return;
+  }
+
+  const familyCompletedRecord = event.target.closest("[data-family-hub-completed-record], [data-family-hub-print-record]");
+  if (familyCompletedRecord) {
+    event.preventDefault();
+    const docId = familyCompletedRecord.getAttribute("data-family-hub-completed-record")
+      || familyCompletedRecord.getAttribute("data-family-hub-print-record");
+    const mode = familyCompletedRecord.hasAttribute("data-family-hub-completed-record") ? "detail" : "print";
+    openPaperworkDocumentDetail({ documentId: docId, surface: "family", mode })
+      .catch((error) => showActionFeedback(error.message || "Could not open completed record."));
+    return;
+  }
+
   const previewStaffDocument = event.target.closest("[data-preview-staff-document]");
   if (previewStaffDocument) {
     event.preventDefault();
     const docId = previewStaffDocument.dataset.previewStaffDocument;
-    const doc = formsStaffDocuments().find((item) => String(item.id) === String(docId));
-    if (!doc) {
-      showActionFeedback("Staff document not found.");
-      return;
-    }
-    const body = String(doc.signedSnapshot || doc.draftText || doc.notes || doc.title || "Staff form").trim();
-    printTextDocument(doc.title || "Staff form", body);
+    openPaperworkDocumentDetail({ documentId: docId, assigneeType: "staff", surface: "director", mode: "detail" })
+      .catch(() => {
+        const doc = formsStaffDocuments().find((item) => String(item.id) === String(docId));
+        if (!doc) {
+          showActionFeedback("Staff document not found.");
+          return;
+        }
+        const body = String(doc.signedSnapshot || doc.draftText || doc.notes || doc.title || "Staff form").trim();
+        printTextDocument(doc.title || "Staff form", body);
+      });
     return;
   }
 
@@ -69451,11 +69545,8 @@ document.addEventListener("click", async (event) => {
   const printChildDocument = event.target.closest("[data-print-child-document]");
   if (printChildDocument) {
     event.preventDefault();
-    try {
-      printChildDocumentRecord(printChildDocument.dataset.printChildDocument);
-    } catch (error) {
-      showActionFeedback(error.message || "Could not print this form.");
-    }
+    Promise.resolve(printChildDocumentRecord(printChildDocument.dataset.printChildDocument))
+      .catch((error) => showActionFeedback(error.message || "Could not print this form."));
     return;
   }
 
