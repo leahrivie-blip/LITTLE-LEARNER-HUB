@@ -21712,27 +21712,139 @@ async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId)
   }
 }
 
-/** itemIds present in an enrichment draft (planId:itemId or bare itemId keys). */
-function enrichmentDraftTouchedItemIds(enrichmentDraft, planId) {
+/**
+ * Locate which weekday currently holds a canonical dailyPlans itemId.
+ * @param {object|null|undefined} dailyPlans
+ * @param {string} itemId
+ * @returns {string} weekday key or ""
+ */
+function enrichmentDraftItemDayOfWeek(dailyPlans, itemId) {
+  const target = String(itemId || "").trim();
+  if (!target || !dailyPlans || typeof dailyPlans !== "object") return "";
+  for (let i = 0; i < CURRICULUM_WEEKDAYS.length; i += 1) {
+    const day = CURRICULUM_WEEKDAYS[i];
+    const items = dailyPlans[day]?.items;
+    if (!Array.isArray(items)) continue;
+    if (items.some((item) => item && String(item.itemId || "") === target)) return day;
+  }
+  return "";
+}
+
+/**
+ * Resolve one enrichmentDraft.activities key to a canonical identity.
+ * Supports draft keys shaped as:
+ *   - canonical itemId
+ *   - planId:itemId
+ *   - synced curriculum.activities id (e.g. cur-act-*)
+ * Prefer linkedActivities / dailyPlans relationships over string-shape guesses.
+ *
+ * @returns {{
+ *   draftKey: string,
+ *   activityId: string,
+ *   itemId: string,
+ *   dayOfWeek: string,
+ * } | null}
+ */
+function resolveEnrichmentDraftActivityIdentity({
+  draftKey,
+  draftActivity,
+  planId,
+  linkedActivities = [],
+  dailyPlans = null,
+} = {}) {
+  const key = String(draftKey || "").trim();
+  const patch = draftActivity && typeof draftActivity === "object" ? draftActivity : null;
+  if (!key || !patch) return null;
+
+  const linked = Array.isArray(linkedActivities) ? linkedActivities : [];
+  const prefix = `${String(planId || "").trim()}:`;
+  let itemId = "";
+  let activityId = "";
+  let dayOfWeek = "";
+
+  // Hardening: explicit itemId on the draft patch wins when present.
+  if (Object.prototype.hasOwnProperty.call(patch, "itemId")) {
+    const fromPatch = String(patch.itemId || "").trim();
+    if (fromPatch) itemId = fromPatch;
+  }
+
+  // Compound draft keys: planId:itemId (or legacy *:itemId).
+  if (!itemId && prefix && key.startsWith(prefix)) {
+    itemId = key.slice(prefix.length).trim();
+  } else if (!itemId && key.includes(":")) {
+    const parts = key.split(":");
+    if (parts.length >= 2) itemId = parts.slice(1).join(":").trim();
+  }
+
+  // Deterministic sync-id → itemId via this lesson's linked activities.
+  const byActivityId = linked.find((act) => act && String(act.id || "") === key) || null;
+  if (byActivityId) {
+    activityId = String(byActivityId.id || "").trim();
+    if (!itemId) itemId = String(byActivityId.itemId || "").trim();
+    dayOfWeek = String(byActivityId.dayOfWeek || "").trim().toLowerCase();
+  }
+
+  // Bare key already is the canonical itemId among linked activities.
+  if (!itemId) {
+    const byItemId = linked.find((act) => act && String(act.itemId || "") === key) || null;
+    if (byItemId) {
+      itemId = String(byItemId.itemId || "").trim();
+      if (!activityId) activityId = String(byItemId.id || "").trim();
+      if (!dayOfWeek) dayOfWeek = String(byItemId.dayOfWeek || "").trim().toLowerCase();
+    }
+  }
+
+  // Bare key present as a dailyPlans itemId (itemId-keyed drafts / empty activities[] fixtures).
+  if (!itemId && !key.includes(":")) {
+    const dayFromPlans = enrichmentDraftItemDayOfWeek(dailyPlans, key);
+    if (dayFromPlans) {
+      itemId = key;
+      if (!dayOfWeek) dayOfWeek = dayFromPlans;
+    }
+  }
+
+  // Backward-compatible bare key: treat as itemId only when it is NOT a synced activity id
+  // that maps to a different canonical itemId (the production cur-act-* failure mode).
+  if (!itemId && !key.includes(":") && !byActivityId) {
+    itemId = key;
+  }
+
+  if (!itemId) return null;
+
+  if (!activityId) {
+    const linkedForItem = linked.find((act) => act && String(act.itemId || "") === itemId) || null;
+    if (linkedForItem?.id) activityId = String(linkedForItem.id).trim();
+  }
+  if (!dayOfWeek) {
+    dayOfWeek = enrichmentDraftItemDayOfWeek(dailyPlans, itemId);
+  }
+
+  return {
+    draftKey: key,
+    activityId,
+    itemId,
+    dayOfWeek: dayOfWeek || "",
+  };
+}
+
+/**
+ * Canonical dailyPlans itemIds touched by an enrichment draft.
+ * Resolves both itemId-keyed and synced activity-id-keyed draft entries.
+ */
+function enrichmentDraftTouchedItemIds(enrichmentDraft, planId, linkedActivities = [], dailyPlans = null) {
   const ids = new Set();
   const acts = enrichmentDraft?.activities && typeof enrichmentDraft.activities === "object"
     ? enrichmentDraft.activities
     : {};
-  const prefix = `${String(planId || "")}:`;
   Object.keys(acts).forEach((key) => {
-    const act = acts[key];
-    if (!act || typeof act !== "object") return;
-    if (act.itemId) ids.add(String(act.itemId));
-    if (prefix && key.startsWith(prefix)) {
-      ids.add(key.slice(prefix.length));
-      return;
-    }
-    if (!key.includes(":")) {
-      ids.add(key);
-      return;
-    }
-    const parts = String(key).split(":");
-    if (parts.length >= 2) ids.add(parts.slice(1).join(":"));
+    const identity = resolveEnrichmentDraftActivityIdentity({
+      draftKey: key,
+      draftActivity: acts[key],
+      planId,
+      linkedActivities,
+      dailyPlans,
+    });
+    if (identity?.itemId) ids.add(identity.itemId);
   });
   return ids;
 }
@@ -21948,7 +22060,13 @@ async function handlePublishEnrichment(request, response, ctx) {
   // Touch only draft-owned activities. Untouched siblings keep the exact existing
   // activity object reference so Publish cannot remap categories, invent empty
   // canonical fields, or strip relative curriculum image paths on siblings.
-  const touchedItemIds = enrichmentDraftTouchedItemIds(promotedDraft, id);
+  // Resolve cur-act-* draft keys → canonical dailyPlans itemIds via linkedActivities.
+  const touchedItemIds = enrichmentDraftTouchedItemIds(
+    promotedDraft,
+    id,
+    linkedActivities,
+    existingPlan?.dailyPlans || null,
+  );
   const surgicalDailyPlans = surgicalEnrichmentPublishDailyPlans(
     existingPlan,
     merged.plan?.dailyPlans || {},
