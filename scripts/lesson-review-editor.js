@@ -1388,12 +1388,106 @@
       render();
       return;
     }
+    const replaceRes = t.closest("[data-lre-resource-replace]");
+    if (replaceRes) {
+      const resourceId = replaceRes.getAttribute("data-lre-resource-replace");
+      const resource = linkedResources(state.draft).find((row) => row.id === resourceId);
+      if (!resourceId || !resource) {
+        state.statusText = "Printable not found for replace.";
+        state.isSuccess = false;
+        render();
+        return;
+      }
+      const parentPublic = /^(published|featured)$/i.test(String(state.draft?.status || ""));
+      if (parentPublic) {
+        const okPromote = window.confirm(
+          `“${state.draft?.title || "This lesson"}” is already published.\n\n`
+          + "Replacing this printable PDF will keep/publish the same resource id for customers.\n\n"
+          + "OK to choose a replacement PDF. Cancel to leave it unchanged.",
+        );
+        if (!okPromote) return;
+      }
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/pdf";
+      input.addEventListener("change", async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+          if (typeof global.postTeachingKitPrintableAction !== "function") {
+            throw new Error("Printable replace handler is unavailable in this session.");
+          }
+          const fileData = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Could not read PDF."));
+            reader.readAsDataURL(file);
+          });
+          if (!fileData) throw new Error("Could not read PDF.");
+          await global.postTeachingKitPrintableAction({
+            action: "replace_pdf",
+            resourceId,
+            lessonPlanId: state.planId,
+            fileData,
+            fileName: file.name || resource.fileName || "printable.pdf",
+          });
+          state.statusText = "Printable PDF replaced (same resource link preserved).";
+          state.isSuccess = true;
+          render();
+        } catch (error) {
+          state.statusText = error?.message || "Printable replace failed.";
+          state.isSuccess = false;
+          render();
+        }
+      }, { once: true });
+      input.click();
+      return;
+    }
     const publishRes = t.closest("[data-lre-resource-publish]");
     if (publishRes) {
-      if (!window.confirm("Publish this resource only? The lesson itself will not publish.")) return;
-      state.statusText = "Use Curriculum Resources or Draft Review printable Publish to publish a resource deliberately. Lesson stays unpublished.";
-      state.isSuccess = true;
-      render();
+      const resourceId = publishRes.getAttribute("data-lre-resource-publish");
+      const resource = linkedResources(state.draft).find((row) => row.id === resourceId);
+      if (!resourceId || !resource) {
+        state.statusText = "Printable not found.";
+        state.isSuccess = false;
+        render();
+        return;
+      }
+      if (!window.confirm(
+        `Publish printable “${resource.title || resourceId}” only?\n\n`
+        + "The lesson itself will not publish. Customers will see this printable once it is published and linked to a public lesson.",
+      )) return;
+      try {
+        const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
+        if (!token) throw new Error("Admin unlock required.");
+        const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+          ? curriculumExpectedUpdatedAt()
+          : "";
+        const response = await fetch("/api/admin/curriculum/resources/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            expectedUpdatedAt,
+            resource: {
+              ...resource,
+              id: resourceId,
+              status: "published",
+            },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        if (data.curriculum && typeof applyCurriculumState === "function") {
+          applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+        }
+        state.statusText = `Published printable “${resource.title || resourceId}”. Lesson status unchanged.`;
+        state.isSuccess = true;
+        render();
+      } catch (error) {
+        state.statusText = error?.message || "Printable publish failed.";
+        state.isSuccess = false;
+        render();
+      }
       return;
     }
     const clearImage = t.closest("[data-lre-clear-image]");

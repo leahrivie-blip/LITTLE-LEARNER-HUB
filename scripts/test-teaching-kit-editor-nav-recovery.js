@@ -164,7 +164,12 @@ async function main() {
   ok(/Escape[\s\S]*void close\(\)/.test(editorJs) || editorJs.includes("void close();\n        return;"),
     "Escape can leave editor after overlays");
   ok(stylesCss.includes("tk-enrich-publish-actions"), "sticky publish/recovery actions CSS");
-  ok(stylesCss.includes("left: min(16.5rem, 28vw)"), "editor leaves admin sidebar room");
+  // Focused Teaching Kit editor is intentionally full-bleed so Admin sidebar
+  // clicks cannot trap the owner under an open editor (#618).
+  ok(
+    /body\.tk-enrich-open #adminTeachingKitEnrichmentHost[\s\S]*?left:\s*0/.test(stylesCss),
+    "focused Teaching Kit editor is full-bleed (sidebar not clickable underneath)",
+  );
   ok(serverJs.includes("Explicit discard: empty incoming"), "server empty discard path");
   console.log("PASS static nav/recovery markers");
 
