@@ -122,6 +122,7 @@
     state.publishPanelOpen = false;
     state.publishConfirm = "";
     state.reviewNotes = data.entry?.reviewNotes || "";
+    render();
   }
 
   function scoreCell(value) {
@@ -474,10 +475,9 @@
         <div class="tk-draft-score-row" style="margin-bottom:0.75rem;">
           ${scoreBadge("Structural", entry.scores?.structuralScore ?? list.structuralScore)}
           ${scoreBadge("Premium", entry.scores?.premiumScore ?? list.premiumScore)}
-          <span class="tag">${esc(entry.scores?.workflow || list.workflow || "—")}</span>
-          <span class="tag ${hardBlocked(list) ? "cover-quality-needs-upgrade" : ""}">Library ${esc(entry.scores?.libraryStatus || list.libraryStatus || "—")}</span>
+          ${statusBadge(list)}
         </div>
-        <p class="muted-copy">${esc(entry.scores?.note || "Scores are diagnostic only. Hard blockers control readiness.")}</p>
+        <p class="muted-copy">${esc(entry.scores?.note || "Scores are diagnostic only. Hard blockers control readiness. One owner status only — never Publish Ready while blocked.")}</p>
         <div><h4>Blockers</h4>${renderBlockerList(list)}</div>
         <div class="form-actions tk-draft-review-actions">
           <button type="button" class="primary-button" data-draft-review-open-editor>Open Review</button>

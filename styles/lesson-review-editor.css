@@ -8,6 +8,19 @@
   overflow: auto;
 }
 
+/* Keep Draft Review / admin chrome from peeking under the focused editor */
+body.llh-lre-open {
+  overflow: hidden;
+}
+
+body.llh-lre-open #adminDraftReviewQueueApp,
+body.llh-lre-open .site-footer,
+body.llh-lre-open .cookie-consent,
+body.llh-lre-open [data-cookie-banner],
+body.llh-lre-open .cookie-banner {
+  display: none !important;
+}
+
 #adminLessonReviewEditorHost[hidden] {
   display: none !important;
 }
