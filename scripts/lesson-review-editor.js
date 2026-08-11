@@ -435,17 +435,27 @@
         });
       });
     });
+    const incompleteCore = [];
     flattenActivities(plan).forEach((item) => {
       activityWarnings(item).forEach((warning, index) => {
-        const target = /image/i.test(warning) ? warnings : blockers;
-        target.push({
+        // Per-field Core/image gaps are clickable warnings (not 50 header blockers).
+        warnings.push({
           id: `activity:${item._key}:${index}`,
           sectionId: /image/i.test(warning) ? "images" : "activities",
           label: `${item.title || "Activity"} (${item.dayOfWeek}): ${warning}`,
           activityKey: item._key,
         });
       });
+      if (!coreActivityComplete(item)) incompleteCore.push(item);
     });
+    if (incompleteCore.length) {
+      blockers.push({
+        id: "core-incomplete",
+        sectionId: "activities",
+        label: `${incompleteCore.length} activit${incompleteCore.length === 1 ? "y has" : "ies have"} incomplete Core Activity fields`,
+        activityKey: incompleteCore[0]._key,
+      });
+    }
     const linked = linkedResources(plan);
     if (linked.some((row) => /rejected|revision/i.test(text(row.status)))) {
       blockers.push({

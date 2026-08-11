@@ -17,7 +17,11 @@ body.llh-lre-open #adminDraftReviewQueueApp,
 body.llh-lre-open .site-footer,
 body.llh-lre-open .cookie-consent,
 body.llh-lre-open [data-cookie-banner],
-body.llh-lre-open .cookie-banner {
+body.llh-lre-open .cookie-banner,
+body.llh-lre-open .llh-meta-cookie-notice,
+body.llh-lre-open #llhMetaCookieNotice,
+body.llh-lre-screenshot .llh-meta-cookie-notice,
+body.llh-lre-screenshot #llhMetaCookieNotice {
   display: none !important;
 }
 
