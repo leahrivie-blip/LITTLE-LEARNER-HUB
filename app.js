@@ -9827,7 +9827,7 @@ function renderPaperworkHqRow(item) {
     item.classroomName ? `Room: ${item.classroomName}` : "",
     item.assignedAt ? `Assigned ${String(item.assignedAt).slice(0, 10)}` : "",
     item.dueDate ? `Due ${item.dueDate}` : "",
-    item.signatureStatus === "signed" ? `Signed ${String(item.signedAt || "").slice(0, 10)}` : (item.signatureStatus === "awaiting" ? "Signature pending" : ""),
+    item.signatureStatus === "signed" ? `Signed electronically ${String(item.signedAt || "").slice(0, 10)}${item.contentVersion ? ` · v${item.contentVersion}` : ""}${item.hasVoidedVersion ? " · prior version voided" : ""}` : (item.signatureStatus === "awaiting" ? "Awaiting signature" : ""),
     item.completedDate ? `Completed ${item.completedDate}` : "",
     railLabel ? `Rail: ${railLabel}` : "",
     `ID ${item.recordId || item.id || ""}`,

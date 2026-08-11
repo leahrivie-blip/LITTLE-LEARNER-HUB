@@ -317,6 +317,11 @@
       signatureStatus: doc.signedAt
         ? "signed"
         : (isAwaitingSignature(doc) ? "awaiting" : (isCompleted(doc) ? "complete" : "none")),
+      signatureMethod: String(doc.signatureMethod || "").trim(),
+      currentVersionId: String(doc.currentVersionId || "").trim(),
+      contentVersion: Number(doc.contentVersion || 1) || 1,
+      versionCount: Array.isArray(doc.versions) ? doc.versions.length : 0,
+      hasVoidedVersion: Array.isArray(doc.versions) && doc.versions.some((v) => v && v.voided),
       completedDate: String(doc.completedAt || (doc.providerReviewed ? (doc.reviewedAt || doc.signedAt || "") : "") || "").slice(0, 10),
     };
   }
