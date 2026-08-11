@@ -20718,19 +20718,26 @@ async function handleAdminCurriculumDirector(request, response) {
     let applied = 0;
     const latest = readStore();
     const cur = readSiteCurriculum(latest);
+    const touchedLessonPlanIds = [];
     const nextPlans = (cur.lessonPlans || []).map((plan) => {
       const patch = draftPatches.find((p) => p.planId === plan.id);
       if (!patch) return plan;
       applied += 1;
+      touchedLessonPlanIds.push(plan.id);
       return {
         ...plan,
         enrichmentDraft: mergeEnrichmentDraftPatch(plan.enrichmentDraft, patch.enrichmentDraftPatch),
       };
     });
-    const writeResult = writeSiteCurriculum(latest, {
+    if (!touchedLessonPlanIds.length) return 0;
+    const stamp = new Date().toISOString();
+    const writeResult = writeSiteCurriculumTouched(latest, {
       ...cur,
       lessonPlans: nextPlans,
-    }, { updatedAt: new Date().toISOString() });
+    }, {
+      updatedAt: stamp,
+      touchedLessonPlanIds,
+    });
     if (writeResult.wipeBlocked) return 0;
     await writeStoreAsync(latest);
     Object.assign(store, latest);
@@ -21423,12 +21430,15 @@ async function handleEnrichmentRollback(request, response) {
       ].slice(0, ENRICHMENT_HISTORY_LIMIT),
       updatedAt: existingPlan.updatedAt,
     });
-    const nextCurriculum = normalizedCurriculumStore({
+    const nextCurriculum = {
       ...curriculum,
       lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
       updatedAt: now,
+    };
+    const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+      updatedAt: now,
+      touchedLessonPlanIds: [planId],
     });
-    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
     if (writeResult.wipeBlocked) {
       jsonResponse(response, 409, {
         error: "Rollback refused to protect curriculum integrity.",
@@ -21494,12 +21504,15 @@ async function handleEnrichmentRollback(request, response) {
     ].slice(0, ENRICHMENT_HISTORY_LIMIT),
     updatedAt: existingPlan.updatedAt,
   });
-  const nextCurriculum = normalizedCurriculumStore({
+  const nextCurriculum = {
     ...curriculum,
     lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
     updatedAt: now,
+  };
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [planId],
   });
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "Rollback refused to protect curriculum integrity.",
@@ -23841,18 +23854,21 @@ async function handleAdminCurriculumResourceSave(request, response) {
     jsonResponse(response, 400, { error: "Resource could not be normalized." });
     return;
   }
-  const nextResources = [...curriculum.resources.filter((item) => item.id !== id), resource];
-  const nextCurriculum = normalizedCurriculumStore({
+  // Keep siblings by reference — do not whole-normalize before write (#623/#625 pattern).
+  const nextCurriculum = {
     ...curriculum,
-    resources: nextResources,
+    resources: [...curriculum.resources.filter((item) => item.id !== id), resource],
     updatedAt: now,
-  });
+  };
   const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
   if (integrityError) {
     jsonResponse(response, 400, integrityError);
     return;
   }
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedResourceIds: [id],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23867,9 +23883,16 @@ async function handleAdminCurriculumResourceSave(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be saved." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
+  const savedResource = (persistedCurriculum.resources || []).find((item) => item.id === id) || resource;
   jsonResponse(response, 200, {
-    resource,
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: savedResource,
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
@@ -23898,6 +23921,10 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
+  const touchedLessonPlanIds = (curriculum.lessonPlans || [])
+    .filter((item) => Array.isArray(item.resourceIds) && item.resourceIds.includes(id))
+    .map((item) => item.id)
+    .filter(Boolean);
   const unlinked = unlinkCurriculumResourceFromAllLessonPlans(curriculum, id);
   if (!unlinked) {
     jsonResponse(response, 400, { error: "Resource could not be unlinked from lesson plans." });
@@ -23909,17 +23936,22 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     lessonPlanIds: [],
     updatedAt: now,
   });
-  const nextCurriculum = normalizedCurriculumStore({
+  // Archive only rewrites the target resource + previously linked lesson plans.
+  const nextCurriculum = {
     ...unlinked,
     resources: unlinked.resources.map((item) => (item.id === id ? resource : item)),
     updatedAt: now,
-  });
+  };
   const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
   if (integrityError) {
     jsonResponse(response, 400, integrityError);
     return;
   }
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds,
+    touchedResourceIds: [id],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23933,9 +23965,16 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be archived." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
+  const savedResource = (persistedCurriculum.resources || []).find((item) => item.id === id) || resource;
   jsonResponse(response, 200, {
-    resource: curriculumResourceMetadata(resource),
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: curriculumResourceMetadata(savedResource),
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
@@ -23970,7 +24009,11 @@ async function handleAdminCurriculumResourceLink(request, response) {
     return;
   }
   const now = new Date().toISOString();
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [lessonPlanId],
+    touchedResourceIds: [resourceId],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -23984,10 +24027,18 @@ async function handleAdminCurriculumResourceLink(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be linked." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
   jsonResponse(response, 200, {
-    resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
-    lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: curriculumResourceMetadata(
+      (persistedCurriculum.resources || []).find((item) => item.id === resourceId),
+    ),
+    lessonPlan: (persistedCurriculum.lessonPlans || []).find((item) => item.id === lessonPlanId),
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
@@ -24022,7 +24073,11 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     return;
   }
   const now = new Date().toISOString();
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds: [lessonPlanId],
+    touchedResourceIds: [resourceId],
+  });
   if (writeResult.wipeBlocked) {
     jsonResponse(response, 409, {
       error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
@@ -24036,10 +24091,18 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be unlinked." });
     return;
   }
+  const persistedCurriculum = store.siteContent?.curriculum || nextCurriculum;
   jsonResponse(response, 200, {
-    resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
-    lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
-    curriculum: curriculumWithoutFileData(nextCurriculum),
+    resource: curriculumResourceMetadata(
+      (persistedCurriculum.resources || []).find((item) => item.id === resourceId),
+    ),
+    lessonPlan: (persistedCurriculum.lessonPlans || []).find((item) => item.id === lessonPlanId),
+    curriculum: {
+      ...persistedCurriculum,
+      resources: (persistedCurriculum.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
     siteContentUpdatedAt: writeResult.stamp,
   });
 }
