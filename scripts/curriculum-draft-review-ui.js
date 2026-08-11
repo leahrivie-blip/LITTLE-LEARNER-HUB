@@ -12,16 +12,16 @@
   ];
 
   const STATUS_LABELS = {
-    submitted: "Submitted",
-    in_review: "In Review",
-    revision_requested: "Revision Requested",
-    revised: "Revised",
-    ready_for_owner_approval: "Ready for Owner Approval",
+    submitted: "Draft",
+    in_review: "Ready for Owner Review",
+    revision_requested: "Needs Changes",
+    revised: "Ready for Owner Review",
+    ready_for_owner_approval: "Ready for Owner Review",
     approved: "Approved",
     published: "Published",
     discarded: "Discarded",
-    rolled_back: "Rolled Back",
-    failed_validation: "Failed Validation",
+    rolled_back: "Draft",
+    failed_validation: "Blocked",
   };
 
   const PUBLISH_PHRASE = "PUBLISH TEACHING KIT";
@@ -662,7 +662,7 @@
         lessonPlan,
         draftResourceIds,
         resourceApprovals: approvals,
-        sectionId: options.mode === "preview" ? "publish" : "quality",
+        sectionId: options.mode === "preview" ? "publish" : (options.sectionId || "basics"),
         ...options,
       });
       if (openedReview) {

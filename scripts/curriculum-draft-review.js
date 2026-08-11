@@ -32,6 +32,20 @@ const STATUS_LABELS = Object.freeze({
   failed_validation: "Failed Validation",
 });
 
+/** Owner-facing queue labels — one clear state, never Publish Ready while blocked. */
+const OWNER_DISPLAY_STATUS_LABELS = Object.freeze({
+  submitted: "Draft",
+  in_review: "Ready for Owner Review",
+  revision_requested: "Needs Changes",
+  revised: "Ready for Owner Review",
+  ready_for_owner_approval: "Ready for Owner Review",
+  approved: "Approved",
+  published: "Published",
+  discarded: "Discarded",
+  rolled_back: "Draft",
+  failed_validation: "Blocked",
+});
+
 const OWNER_ACTIONS = Object.freeze([
   "list",
   "get",
@@ -76,6 +90,25 @@ function normalizeStatus(value) {
 
 function statusLabel(status) {
   return STATUS_LABELS[normalizeStatus(status)] || status;
+}
+
+function ownerDisplayStatus(entryOrStatus, scores = null) {
+  const status = typeof entryOrStatus === "string"
+    ? normalizeStatus(entryOrStatus)
+    : normalizeStatus(entryOrStatus?.status);
+  const scoreBag = scores || (entryOrStatus && typeof entryOrStatus === "object" ? entryOrStatus.scores : null) || {};
+  const hardBlocked = scoreBag.publishReady !== true
+    && (
+      String(scoreBag.libraryStatus || "").toLowerCase() === "blocked"
+      || (Array.isArray(scoreBag.blockers) && scoreBag.blockers.length > 0)
+      || /needs\s*changes|blocked/i.test(String(scoreBag.workflow || ""))
+    );
+  if (status === "revision_requested") return "Needs Changes";
+  if (status === "failed_validation") return "Blocked";
+  if (hardBlocked && !["approved", "published", "discarded"].includes(status)) {
+    return "Blocked";
+  }
+  return OWNER_DISPLAY_STATUS_LABELS[status] || statusLabel(status);
 }
 
 function generateId(prefix) {
@@ -372,6 +405,7 @@ function normalizeEntry(value) {
   const lessonPlanId = String(e.lessonPlanId || "").trim();
   if (!id || !lessonPlanId) return null;
   const status = normalizeStatus(e.status);
+  const scores = e.scores && typeof e.scores === "object" ? e.scores : buildScores(null);
   return {
     id,
     lessonPlanId,
@@ -385,7 +419,7 @@ function normalizeEntry(value) {
     batchName: String(e.batchName || "").trim(),
     source: String(e.source || "curriculum-tool").trim(),
     status,
-    statusLabel: statusLabel(status),
+    statusLabel: ownerDisplayStatus({ status, scores }),
     publishedStatus: String(e.publishedStatus || "published").trim(),
     submittedAt: String(e.submittedAt || e.receivedAt || "").trim(),
     updatedAt: String(e.updatedAt || "").trim(),
@@ -396,7 +430,7 @@ function normalizeEntry(value) {
     publishSnapshot: e.publishSnapshot && typeof e.publishSnapshot === "object" ? e.publishSnapshot : null,
     reviewNotes: String(e.reviewNotes || "").trim(),
     notesHistory: Array.isArray(e.notesHistory) ? e.notesHistory.slice(0, 50) : [],
-    scores: e.scores && typeof e.scores === "object" ? e.scores : buildScores(null),
+    scores,
     stats: e.stats && typeof e.stats === "object" ? e.stats : buildStats(e.enrichmentDraft, e.draftResourceIds),
     qualityResults: e.qualityResults && typeof e.qualityResults === "object" ? e.qualityResults : null,
     resourceApprovals: e.resourceApprovals && typeof e.resourceApprovals === "object" ? e.resourceApprovals : {},
@@ -432,7 +466,7 @@ function listItem(entry) {
     submissionKey: e.submissionKey,
     source: e.source,
     status: e.status,
-    statusLabel: e.statusLabel,
+    statusLabel: ownerDisplayStatus(e),
     publishedStatus,
     publishedStatusLabel: String(publishedStatus).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     structuralScore: scores.structuralScore ?? null,
@@ -588,6 +622,7 @@ const LOCAL_SEED_PACKAGES = Object.freeze([
 module.exports = {
   STATUSES,
   STATUS_LABELS,
+  OWNER_DISPLAY_STATUS_LABELS,
   OWNER_ACTIONS,
   PHASE1_ACTIONS,
   PHASE2_ONLY,
@@ -597,6 +632,7 @@ module.exports = {
   cloneJson,
   normalizeStatus,
   statusLabel,
+  ownerDisplayStatus,
   generateId,
   publishedBodyFingerprint,
   activityLinkFingerprint,

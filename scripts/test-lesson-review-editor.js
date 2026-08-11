@@ -282,12 +282,15 @@ async function runBrowserTests(token) {
   const textboxCount = await page.locator("[data-lre-section-body] input, [data-lre-section-body] textarea").count();
   ok(textboxCount > 0 && textboxCount < 40, `Basics section shows a manageable field count (${textboxCount})`);
 
-  // Section navigation — only one section body.
-  await page.click('[data-lre-section="monday"]');
+  // Section navigation — only one section body; Activities opens one card at a time.
+  await page.click('[data-lre-section="week"]');
   await page.waitForTimeout(200);
-  ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Monday", "Monday section opens");
+  ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Week Plan", "Week Plan section opens");
+  await page.click('[data-lre-section="activities"]');
+  await page.waitForTimeout(200);
+  ok(await page.locator("[data-lre-section-chrome] h2").innerText() === "Activities", "Activities section opens");
   const activityCards = await page.locator(".llh-lre-activity-card").count();
-  ok(activityCards >= 1, `Weekday shows activity summary cards (${activityCards})`);
+  ok(activityCards >= 1, `Activities shows summary cards (${activityCards})`);
   await page.locator(".llh-lre-activity-card").first().click();
   await page.waitForSelector("[data-lre-activity-editor]", { timeout: 5000 });
   ok(await page.locator("[data-lre-activity-editor]").count() === 1, "Only one activity editor open");
@@ -475,10 +478,10 @@ async function runBrowserTests(token) {
   await unlock(mobilePage);
   await mobilePage.evaluate((planId) => LLHLessonReviewEditor.open(planId, { sectionId: "basics" }), FIXTURE_ID);
   await mobilePage.waitForSelector("[data-lre-section-select]", { timeout: 10000 });
-  await mobilePage.selectOption("[data-lre-section-select]", "tuesday");
+  await mobilePage.selectOption("[data-lre-section-select]", "activities");
   await mobilePage.waitForTimeout(200);
-  ok(await mobilePage.locator("[data-lre-section-chrome] h2").innerText() === "Tuesday", "Mobile section dropdown navigates");
-  await mobilePage.screenshot({ path: path.join(ARTIFACT_DIR, "lesson-review-mobile-tuesday.png"), fullPage: false });
+  ok(await mobilePage.locator("[data-lre-section-chrome] h2").innerText() === "Activities", "Mobile section dropdown navigates");
+  await mobilePage.screenshot({ path: path.join(ARTIFACT_DIR, "lesson-review-mobile-activities.png"), fullPage: false });
 
   // Owner-only gate
   const otherBlocked = await page.evaluate(() => {

@@ -277,8 +277,8 @@ async function main() {
       ok(coverVisible, "Basics section shows cover image");
       await page.screenshot({ path: path.join(OUT, "verify-basics-cover.png"), fullPage: false });
 
-      // Monday activities + open art activity with image
-      await page.click('[data-lre-section="monday"]');
+      // Activities section + open art activity with image
+      await page.click('[data-lre-section="activities"]');
       await page.waitForTimeout(200);
       await page.locator(".llh-lre-activity-card", { hasText: "Feeling Collage" }).click();
       await page.waitForSelector("[data-lre-activity-editor]");

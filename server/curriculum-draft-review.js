@@ -986,7 +986,7 @@ function createDraftReviewApi(deps) {
     }
 
     const store = readStore();
-    const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+    let siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
 
     // record-printable-pages is intentionally omitted: page inspection persists without stamp races.
     if (["submit", "submit-seed", "save-edited", "request-revision", "discard", "rollback", "add-notes", "mark-in-review", "approve", "publish", "approve-printable", "request-printable-revision", "replace-printable", "ready-for-approval"].includes(action)) {
@@ -1172,8 +1172,37 @@ function createDraftReviewApi(deps) {
       let imageApprovals = { ...(entry.imageApprovals || {}) };
 
       if (action === "save-edited") {
-        const plan = (siteContent.curriculum?.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
-        enrichmentDraft = plan?.enrichmentDraft || entry.enrichmentDraft;
+        let plan = (siteContent.curriculum?.lessonPlans || []).find((p) => p.id === entry.lessonPlanId);
+        // Prefer an explicit enrichmentDraft from the owner editor so queue + plan stay aligned.
+        // Never auto-publish; this only refreshes the draft review item / enrichmentDraft overlay.
+        if (body.enrichmentDraft && typeof body.enrichmentDraft === "object") {
+          enrichmentDraft = model.sanitizeDraft
+            ? model.sanitizeDraft(body.enrichmentDraft, { lastEditedBy: sessionEmail })
+            : model.cloneJson(body.enrichmentDraft);
+          if (plan) {
+            const curriculum = cloneJson(siteContent.curriculum || { lessonPlans: [], activities: [], resources: [] });
+            const planIdx = (curriculum.lessonPlans || []).findIndex((p) => p.id === entry.lessonPlanId);
+            if (planIdx >= 0) {
+              curriculum.lessonPlans[planIdx] = {
+                ...curriculum.lessonPlans[planIdx],
+                enrichmentDraft: model.cloneJson(enrichmentDraft),
+                updatedAt: now,
+              };
+              const writeResult = writeSiteCurriculum(store, curriculum, { updatedAt: now });
+              if (writeResult?.ok === false) {
+                jsonResponse(response, 409, {
+                  error: writeResult.error || "Could not save enrichment draft onto the lesson.",
+                  code: writeResult.code || "curriculum_write_blocked",
+                });
+                return;
+              }
+              siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+              plan = (siteContent.curriculum?.lessonPlans || []).find((p) => p.id === entry.lessonPlanId) || plan;
+            }
+          }
+        } else {
+          enrichmentDraft = plan?.enrichmentDraft || entry.enrichmentDraft;
+        }
         versions = pushVersion(entry, "Owner saved edited draft", now);
         const scored = score(
           plan,
