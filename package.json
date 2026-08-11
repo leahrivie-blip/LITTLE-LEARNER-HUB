@@ -48,6 +48,7 @@
     "test:owner-tk-core-activity-verify": "NODE_ENV=test node scripts/test-owner-tk-core-activity-verify.js",
     "test:owner-tk-core-merge-readiness": "NODE_ENV=test node scripts/test-owner-tk-core-merge-readiness.js",
     "test:owner-tk-publish-cur-act-identity": "NODE_ENV=test node scripts/test-owner-tk-publish-cur-act-identity.js",
+    "test:owner-tk-publish-activity-projection-sync": "NODE_ENV=test node scripts/test-owner-tk-publish-activity-projection-sync.js",
     "test:teaching-kit-image-requirement": "NODE_ENV=test node scripts/test-teaching-kit-image-requirement.js",
     "test:teaching-kit-enrichment-slice-1": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-1.js",
     "test:teaching-kit-enrichment-slice-2": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-2.js",

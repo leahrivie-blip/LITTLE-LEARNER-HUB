@@ -2249,12 +2249,17 @@ function normalizedCurriculumActivity(value) {
     itemId: itemId || "",
     sourceKey,
     dayOfWeek: CURRICULUM_WEEKDAYS.has(dayOfWeek) ? dayOfWeek : "",
-    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    // Preserve owner-authored categories outside the play allow-list (e.g. Core
+    // editor "Language"). Only invent the default when category is blank —
+    // never silently remap a published Core category during projection sync.
+    activityCategory: category || "Open-Ended Exploration",
     title: normalizedShortText(entry.title, 180) || "Activity",
     objective: normalizedMultilineText(entry.objective, 4000),
     description: normalizedMultilineText(entry.description, 4000),
     learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
     materials: normalizedMultilineText(entry.materials, 4000),
+    // Teacher preparation — Activity Center projection of dailyPlans.preparation/prep.
+    preparation: normalizedMultilineText(entry.preparation || entry.prep, 4000),
     setup: normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT),
     steps: normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT),
     teacherRole: normalizedMultilineText(entry.teacherRole, 4000),
@@ -2302,6 +2307,38 @@ function normalizedCurriculumActivity(value) {
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
+}
+
+/**
+ * Normalize a curriculum activity for persistence while keeping custom/unknown/null
+ * keys that normalizedCurriculumActivity does not model (Enrichment Publish projection
+ * sync must not strip owner customLegacy / unknownField markers).
+ */
+function mergeNormalizedCurriculumActivityPreservingCustoms(incomingActivity, existingActivity = null) {
+  const typed = normalizedCurriculumActivity(incomingActivity);
+  if (!typed) return existingActivity || null;
+  const source = incomingActivity && typeof incomingActivity === "object" ? incomingActivity : {};
+  const extras = {};
+  Object.keys(source).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(typed, key)) {
+      extras[key] = source[key];
+    }
+  });
+  const result = {
+    ...typed,
+    ...extras,
+    id: (existingActivity && existingActivity.id) || typed.id,
+    lessonPlanId: (existingActivity && existingActivity.lessonPlanId) || typed.lessonPlanId,
+    itemId: (existingActivity && existingActivity.itemId) || typed.itemId || "",
+    sourceKey: (existingActivity && existingActivity.sourceKey) || typed.sourceKey || "",
+  };
+  // Keep legacy array shapes when the incoming row still carries them (unowned Core
+  // fields). Owned Core materials/steps publish as canonical strings upstream.
+  if (Array.isArray(source.materials)) result.materials = source.materials;
+  if (Array.isArray(source.steps)) result.steps = source.steps;
+  if (Array.isArray(source.teacherTips)) result.teacherTips = source.teacherTips;
+  if (Array.isArray(source.settingTags)) result.settingTags = source.settingTags;
+  return result;
 }
 
 function sanitizedCurriculumFileData(value) {
@@ -2781,12 +2818,14 @@ function authorizedCurriculumActivityDto(activity, parentPlan) {
   return {
     id: entry.id,
     lessonPlanId: entry.lessonPlanId,
+    itemId: entry.itemId,
     dayOfWeek: entry.dayOfWeek,
     activityCategory: entry.activityCategory,
     title: entry.title,
     objective: entry.objective,
     description: entry.description,
     materials: entry.materials,
+    preparation: entry.preparation,
     setup: entry.setup,
     steps: entry.steps,
     teacherRole: entry.teacherRole,
@@ -2797,6 +2836,8 @@ function authorizedCurriculumActivityDto(activity, parentPlan) {
     adaptations: entry.adaptations,
     safetyNotes: entry.safetyNotes,
     ageModifications: entry.ageModifications,
+    cleanupTips: entry.cleanupTips,
+    durationMinutes: entry.durationMinutes,
     learningDomains: entry.learningDomains,
     learningGoals: entry.learningGoals,
     plan: parentPlan.plan,
@@ -3366,12 +3407,15 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
   const nextActivities = existingActivities.map((activity) => {
     if (!activity?.id || !touchActivities.has(activity.id)) return activity;
     const incomingActivity = incomingActivityById.get(activity.id);
-    return incomingActivity ? normalizedCurriculumActivity(incomingActivity) : activity;
+    if (!incomingActivity) return activity;
+    return mergeNormalizedCurriculumActivityPreservingCustoms(incomingActivity, activity);
   });
   touchActivities.forEach((activityId) => {
     if (existingActivities.some((a) => a.id === activityId)) return;
     const incomingActivity = incomingActivityById.get(activityId);
-    if (incomingActivity) nextActivities.push(normalizedCurriculumActivity(incomingActivity));
+    if (incomingActivity) {
+      nextActivities.push(mergeNormalizedCurriculumActivityPreservingCustoms(incomingActivity, null));
+    }
   });
 
   const nextResources = existingResources
@@ -21271,37 +21315,194 @@ function snapshotEnrichmentPublishedState(plan, activities) {
   };
 }
 
-function applyMergedEnrichmentToActivities(existingActivities, mergedActivities, planId) {
+/**
+ * Resolve the draft patch for one curriculum.activities row using stable identity
+ * (activity id / itemId / planId:itemId) — never title or weekday.
+ */
+function enrichmentDraftPatchForActivity(draftActivities, planId, activity) {
+  const drafts = draftActivities && typeof draftActivities === "object" ? draftActivities : {};
+  const activityId = String(activity?.id || "").trim();
+  const itemId = String(activity?.itemId || "").trim();
+  const compound = planId && itemId ? `${planId}:${itemId}` : "";
+  if (activityId && drafts[activityId] && typeof drafts[activityId] === "object") {
+    return drafts[activityId];
+  }
+  if (itemId && drafts[itemId] && typeof drafts[itemId] === "object") {
+    return drafts[itemId];
+  }
+  if (compound && drafts[compound] && typeof drafts[compound] === "object") {
+    return drafts[compound];
+  }
+  return null;
+}
+
+function activityRowIsEnrichmentTouched(activity, touchedItemIds) {
+  if (!(touchedItemIds instanceof Set) || touchedItemIds.size === 0) return false;
+  const itemId = String(activity?.itemId || "").trim();
+  const activityId = String(activity?.id || "").trim();
+  return (itemId && touchedItemIds.has(itemId)) || (activityId && touchedItemIds.has(activityId));
+}
+
+/**
+ * Apply enrichment Publish onto curriculum.activities projection rows.
+ * - Other lessons: object reference unchanged.
+ * - Untouched siblings in this lesson: object reference unchanged.
+ * - Touched rows: copy owned Core fields + enrichment/media from merged activity;
+ *   preserve identity, images when not replaced, custom/unknown/null fields.
+ */
+function applyMergedEnrichmentToActivities(existingActivities, mergedActivities, planId, options = {}) {
   const byId = new Map();
   const byItem = new Map();
-  mergedActivities.forEach((act) => {
+  (mergedActivities || []).forEach((act) => {
     if (act?.id) byId.set(act.id, act);
-    if (act?.itemId) byItem.set(act.itemId, act);
+    if (act?.itemId) byItem.set(String(act.itemId), act);
   });
+  const touchedItemIds = options.touchedItemIds instanceof Set ? options.touchedItemIds : null;
+  const draftActivities = options.draftActivities && typeof options.draftActivities === "object"
+    ? options.draftActivities
+    : {};
+
   return (existingActivities || []).map((act) => {
     if (act.lessonPlanId !== planId) return act;
-    const match = byId.get(act.id) || byItem.get(act.itemId);
+    if (!activityRowIsEnrichmentTouched(act, touchedItemIds)) return act;
+
+    const match = byId.get(act.id) || byItem.get(String(act.itemId || ""));
     if (!match) return act;
-    return normalizedCurriculumActivity({
+
+    const patch = enrichmentDraftPatchForActivity(draftActivities, planId, act) || {};
+    const owned = (key) => Object.prototype.hasOwnProperty.call(patch, key);
+
+    // Start from the existing row so unknown/custom/null fields survive.
+    const next = {
       ...act,
-      setupImageUrl: sanitizedActivityImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
-      exampleImageUrl: sanitizedActivityImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
-      setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId) ? match.setupMediaAssetId : (act.setupMediaAssetId || ""),
-      exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.exampleMediaAssetId) ? match.exampleMediaAssetId : (act.exampleMediaAssetId || ""),
-      imageRequirement: match.imageRequirement || act.imageRequirement || "",
-      teacherTips: Array.isArray(match.teacherTips) ? match.teacherTips : act.teacherTips,
-      substitutions: Array.isArray(match.substitutions) ? match.substitutions : act.substitutions,
-      settingTags: Array.isArray(match.settingTags) ? match.settingTags : act.settingTags,
-      observationOpportunities: match.observationOpportunities || act.observationOpportunities || "",
-      vocabulary: match.vocabulary || act.vocabulary || "",
-      indoorAlternatives: match.indoorAlternatives || act.indoorAlternatives || "",
-      outdoorAlternatives: match.outdoorAlternatives || act.outdoorAlternatives || "",
-      adaptations: match.adaptations || act.adaptations || "",
-      extensions: match.extensions || act.extensions || "",
-      setup: match.setup || act.setup || "",
-      steps: match.steps || act.steps || "",
+      id: act.id,
+      itemId: act.itemId || "",
+      lessonPlanId: act.lessonPlanId,
+      sourceKey: act.sourceKey || (act.itemId ? curriculumActivitySourceKey(planId, act.itemId) : act.sourceKey || ""),
       updatedAt: new Date().toISOString(),
+    };
+
+    // Owned Core Activity fields only — never invent blanks for unowned keys.
+    if (owned("title") && match.title != null && String(match.title).trim()) {
+      next.title = match.title;
+    }
+    if (owned("dayOfWeek")) {
+      const day = String(match.dayOfWeek || "").trim().toLowerCase();
+      if (CURRICULUM_WEEKDAYS.has(day)) next.dayOfWeek = day;
+    }
+    if (owned("activityCategory") && match.activityCategory != null && String(match.activityCategory).trim()) {
+      next.activityCategory = match.activityCategory;
+    }
+    if (owned("ageModifications")) {
+      next.ageModifications = match.ageModifications != null ? match.ageModifications : "";
+    }
+    if (owned("durationMinutes")) {
+      const dur = match.durationMinutes;
+      if (!(dur === "" || dur === null || dur === undefined)) {
+        next.durationMinutes = dur;
+      }
+    }
+    if (owned("objective")) {
+      next.objective = match.objective != null ? match.objective : "";
+    }
+    if (owned("description")) {
+      next.description = match.description != null ? match.description : "";
+    }
+    if (owned("materials")) {
+      next.materials = match.materials != null ? match.materials : "";
+    }
+    if (owned("preparation")) {
+      next.preparation = match.preparation != null ? match.preparation : "";
+    }
+    if (owned("setup")) {
+      next.setup = match.setup != null ? match.setup : "";
+    }
+    if (owned("steps")) {
+      next.steps = match.steps != null ? match.steps : "";
+    }
+    if (owned("teacherLanguage")) {
+      next.teacherLanguage = match.teacherLanguage != null ? match.teacherLanguage : "";
+    }
+    if (owned("observationOpportunities")) {
+      next.observationOpportunities = match.observationOpportunities != null
+        ? match.observationOpportunities
+        : "";
+    }
+    if (owned("safetyNotes")) {
+      next.safetyNotes = match.safetyNotes != null ? match.safetyNotes : "";
+    }
+    if (owned("cleanupTips")) {
+      next.cleanupTips = match.cleanupTips != null ? match.cleanupTips : "";
+    }
+
+    // Enrichment/media fields (pre-existing publish sync) — only when merged provides them.
+    if (match.setupImageUrl || act.setupImageUrl) {
+      next.setupImageUrl = sanitizedActivityImageUrl(match.setupImageUrl || act.setupImageUrl || "");
+    }
+    if (match.exampleImageUrl || act.exampleImageUrl) {
+      next.exampleImageUrl = sanitizedActivityImageUrl(match.exampleImageUrl || act.exampleImageUrl || "");
+    }
+    if (enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId)) {
+      next.setupMediaAssetId = match.setupMediaAssetId;
+    }
+    if (enrichmentMedia.isEnrichmentMediaAssetId(match.exampleMediaAssetId)) {
+      next.exampleMediaAssetId = match.exampleMediaAssetId;
+    }
+    if (match.imageRequirement) next.imageRequirement = match.imageRequirement;
+    if (Array.isArray(match.teacherTips)) next.teacherTips = match.teacherTips;
+    if (Array.isArray(match.substitutions)) next.substitutions = match.substitutions;
+    if (Array.isArray(match.settingTags)) next.settingTags = match.settingTags;
+    if (Object.prototype.hasOwnProperty.call(patch, "adaptations")) {
+      next.adaptations = match.adaptations || "";
+    }
+    if (match.vocabulary) next.vocabulary = match.vocabulary;
+    if (match.indoorAlternatives) next.indoorAlternatives = match.indoorAlternatives;
+    if (match.outdoorAlternatives) next.outdoorAlternatives = match.outdoorAlternatives;
+    if (match.extensions) next.extensions = match.extensions;
+
+    // Light normalize for Activity Center typed fields, then restore unowned Core
+    // shapes (e.g. legacy materials[]) and custom/unknown keys from the existing row.
+    const typed = normalizedCurriculumActivity(next);
+    if (!typed) return act;
+    const customKeys = Object.keys(next).filter((key) => !Object.prototype.hasOwnProperty.call(typed, key));
+    const preservedCustoms = {};
+    customKeys.forEach((key) => { preservedCustoms[key] = next[key]; });
+    const result = {
+      ...typed,
+      ...preservedCustoms,
+      id: act.id,
+      itemId: act.itemId || typed.itemId || "",
+      lessonPlanId: act.lessonPlanId,
+      sourceKey: act.sourceKey || typed.sourceKey || "",
+      status: act.status || typed.status,
+      createdAt: act.createdAt || typed.createdAt,
+      publishedAt: act.publishedAt || typed.publishedAt,
+      updatedAt: next.updatedAt,
+    };
+    [
+      "title", "dayOfWeek", "activityCategory", "ageModifications", "durationMinutes",
+      "objective", "description", "materials", "preparation", "setup", "steps",
+      "teacherLanguage", "observationOpportunities", "safetyNotes", "cleanupTips",
+    ].forEach((key) => {
+      if (owned(key)) return;
+      if (Object.prototype.hasOwnProperty.call(act, key)) {
+        result[key] = act[key];
+      }
     });
+    // Do not let Activity Center category allow-list remap an owned Core category
+    // (e.g. "Language") during projection sync — dailyPlans remains authorship truth.
+    if (owned("activityCategory") && match.activityCategory != null && String(match.activityCategory).trim()) {
+      result.activityCategory = match.activityCategory;
+    }
+    if (owned("materials")) {
+      result.materials = typeof match.materials === "string" || Array.isArray(match.materials)
+        ? match.materials
+        : typed.materials;
+    }
+    if (owned("preparation")) {
+      result.preparation = match.preparation != null ? String(match.preparation) : typed.preparation;
+    }
+    return result;
   }).filter(Boolean);
 }
 
@@ -22112,11 +22313,16 @@ async function handlePublishEnrichment(request, response, ctx) {
     existingResources.filter((r) => r?.id).map((r) => [r.id, r]),
   );
 
-  // applyMergedEnrichmentToActivities keeps other lessons' activity objects by reference.
+  // Projection sync: only draft-touched curriculum.activities rows receive Core
+  // field updates. Other lessons + untouched siblings keep object identity.
   const nextActivities = applyMergedEnrichmentToActivities(
     existingActivities,
     merged.activities,
     id,
+    {
+      touchedItemIds,
+      draftActivities: promotedDraft?.activities || {},
+    },
   );
   const ownerOverrideMeta = body?._ownerPublishOverrideApplied || null;
   // Do NOT run whole-lesson normalizedCurriculumLessonPlan here — that rewrites

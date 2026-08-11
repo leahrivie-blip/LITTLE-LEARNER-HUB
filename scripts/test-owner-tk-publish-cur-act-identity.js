@@ -723,6 +723,19 @@ async function main() {
     ok(placedCur.item.nullField === null, "cur-act-*: nullField survives");
     ok(placedCur.item.unknownField === "edit-unknown", "cur-act-*: unknownField survives");
 
+    // curriculum.activities projection must receive the same owned Core values.
+    const storeAct = (afterCur.siteContent.curriculum.activities || []).find((a) => a.id === ACT_EDIT_SYNC);
+    ok(storeAct?.id === ACT_EDIT_SYNC, "cur-act-*: B-store id stable");
+    ok(storeAct?.itemId === ACT_EDIT_ITEM, "cur-act-*: B-store itemId stable");
+    ok(storeAct?.title === CORE.title, "cur-act-*: B-store title synced");
+    ok(storeAct?.objective === CORE.objective, "cur-act-*: B-store objective synced");
+    ok(String(storeAct?.dayOfWeek).toLowerCase() === "wednesday", "cur-act-*: B-store weekday synced");
+    ok(String(storeAct?.materials) === CORE.materials, "cur-act-*: B-store materials synced");
+    ok(String(storeAct?.preparation) === CORE.preparation, "cur-act-*: B-store preparation synced");
+    ok(storeAct?.setup === CORE.setup, "cur-act-*: B-store setup synced");
+    ok(String(storeAct?.steps) === CORE.steps, "cur-act-*: B-store steps synced");
+    ok(storeAct?.activityCategory === CORE.activityCategory, "cur-act-*: B-store category synced");
+
     const legacyAfter = findItem(pubCur, ACT_LEGACY_ITEM)?.item;
     const canonAfter = findItem(pubCur, ACT_CANON_ITEM)?.item;
     const thuAfter = findItem(pubCur, ACT_THU_ITEM)?.item;
