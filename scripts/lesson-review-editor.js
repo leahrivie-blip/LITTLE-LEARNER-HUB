@@ -28,19 +28,28 @@
     { id: "both_setup_and_finished", label: "Both setup and finished example needed" },
   ]);
 
+  /** Core Activity fields — must be meaningful before an activity counts Complete. */
+  const CORE_ACTIVITY_FIELDS = Object.freeze([
+    { key: "objective", label: "Activity objective", minWords: 4, example: "Toddlers practice gentle touch while exploring whole apples with sight and smell." },
+    { key: "description", label: "What children will do", minWords: 12, example: "Children sit at a low table with whole apples. They look, touch, and smell the fruit while the teacher narrates stem, skin, cool, and bumpy — without tasting today." },
+    { key: "materials", label: "Materials", minWords: 3, example: "Three whole apples with different skins\nWashable placemats\nDamp cloth" },
+    { key: "preparation", label: "Teacher preparation", minWords: 4, example: "Wash apples. Stage one apple per placemat before arrival. Keep tasting apples refrigerated for later in the week." },
+    { key: "setup", label: "Setup", minWords: 4, example: "Place one apple on each placemat with a damp cloth nearby. Keep tasting for Thursday." },
+    { key: "steps", label: "Step-by-step directions", minWords: 10, example: "1. Invite children to look and gently touch.\n2. Narrate stem, skin, cool, bumpy.\n3. Offer a view-finder for close looking.\n4. End before anyone bites; refrigerate leftovers." },
+    { key: "teacherLanguage", label: "Teacher questions", minWords: 4, example: "What do you notice with your eyes?\nHow does the apple feel in your hands?\nWhere is the stem?" },
+    { key: "observationOpportunities", label: "Learning and observation", minWords: 4, example: "Does the child use new sensory words? Do they stay gentle with the fruit?" },
+    { key: "safetyNotes", label: "Safety and supervision", minWords: 4, example: "Whole apples only — no cutting or tasting today. Watch for mouthing. Adult stays at the table." },
+    { key: "cleanupTips", label: "Cleanup", minWords: 3, example: "Wipe placemats. Refrigerate apples. Return cloths to laundry basket." },
+  ]);
+
   const ACTIVITY_SUBSECTIONS = [
-    { id: "core", label: "Core activity" },
-    { id: "materials", label: "Materials and setup" },
-    { id: "directions", label: "Directions" },
-    { id: "guidance", label: "Teacher guidance" },
-    { id: "learning", label: "Learning and observation" },
-    { id: "adaptations", label: "Adaptations" },
-    { id: "cleanup", label: "Setting and cleanup" },
+    { id: "core", label: "Core Activity" },
+    { id: "enrichment", label: "Enrichment" },
     { id: "images", label: "Images" },
   ];
 
-  const NO_IMAGE_CATEGORIES = /circle|song|music|movement|conversation|discussion|book|story|talk|greeting|transition/i;
-  const MAY_NEED_IMAGE = /art|craft|paint|collage|sensory|setup|printable|project|build|construct|science|experiment/i;
+  const NO_IMAGE_CATEGORIES = /circle|song|music|movement|conversation|discussion|book|story|talk|greeting|transition|self.?explanatory|sound game|freeze dance|sorting|counting/i;
+  const MAY_NEED_IMAGE = /art|craft|paint|collage|sensory|setup|printable|picture card|project|build|construct|science|experiment|invitation|unusual|finished product/i;
 
   const state = {
     open: false,
@@ -193,7 +202,11 @@
   }
 
   function meaningfulText(value, minWords = 3) {
-    const words = text(value).split(/\s+/).filter(Boolean);
+    const raw = text(value);
+    if (!raw) return false;
+    if (/^(tbd|todo|n\/?a|none|placeholder|lorem|asdf|xxx|test)\b/i.test(raw)) return false;
+    if (/^example:/i.test(raw)) return false;
+    const words = raw.split(/\s+/).filter(Boolean);
     return words.length >= minWords;
   }
 
@@ -239,12 +252,36 @@
     return IMAGE_REQUIREMENT_OPTIONS.find((row) => row.id === req)?.label || String(req || "optional").replace(/_/g, " ");
   }
 
+  function coreFieldValue(item, key) {
+    if (key === "steps") return item?.steps || item?.directions || "";
+    if (key === "cleanupTips") return item?.cleanupTips || item?.cleanup || item?.resetNotes || "";
+    if (key === "preparation") return item?.preparation || item?.prep || "";
+    if (key === "observationOpportunities") {
+      return Array.isArray(item?.observationOpportunities)
+        ? item.observationOpportunities.join("\n")
+        : (item?.observationOpportunities || item?.observationFocus || "");
+    }
+    if (key === "teacherLanguage") return item?.teacherLanguage || item?.teacherQuestions || "";
+    return item?.[key] || "";
+  }
+
+  function coreActivityMissing(item) {
+    const missing = [];
+    if (!meaningfulText(item?.title, 1)) missing.push("Activity name");
+    CORE_ACTIVITY_FIELDS.forEach((field) => {
+      if (!meaningfulText(coreFieldValue(item, field.key), field.minWords)) {
+        missing.push(field.label);
+      }
+    });
+    return missing;
+  }
+
+  function coreActivityComplete(item) {
+    return coreActivityMissing(item).length === 0;
+  }
+
   function activityWarnings(item) {
-    const warnings = [];
-    if (!meaningfulText(item?.title, 1)) warnings.push("Add an activity name.");
-    if (!meaningfulText(item?.objective || item?.description, 4)) warnings.push("Add a clear objective or description.");
-    if (!meaningfulText(item?.materials, 2)) warnings.push("List the materials for this activity.");
-    if (!meaningfulText(item?.steps || item?.directions, 4)) warnings.push("Add step-by-step directions.");
+    const warnings = coreActivityMissing(item).map((label) => `Core Activity: add meaningful ${label.toLowerCase()}.`);
     const req = imageRequirementForActivity(item);
     const hasSetup = Boolean(text(item?.setupImageUrl));
     const hasExample = Boolean(text(item?.exampleImageUrl || item?.imageUrl));
@@ -259,9 +296,10 @@
   function activityStatus(item) {
     const warnings = activityWarnings(item);
     const approvals = state.ownerApprovals[`activity:${item._key}`];
-    if (approvals === "approved" && !warnings.length) return "Approved";
-    if (!meaningfulText(item?.title, 1) && !meaningfulText(item?.steps || item?.directions, 1)) return "Not Started";
-    if (warnings.length) return "Needs Work";
+    if (approvals === "approved" && !warnings.length && coreActivityComplete(item)) return "Approved";
+    if (!meaningfulText(item?.title, 1) && !meaningfulText(coreFieldValue(item, "steps"), 1)) return "Not Started";
+    // Never mark Complete while Core Activity fields are thin/filler.
+    if (!coreActivityComplete(item) || warnings.length) return "Needs Work";
     return "Complete";
   }
 
@@ -296,8 +334,15 @@
     } else if (sectionId === "activities") {
       const items = flattenActivities(plan);
       bump(items.some((item) => meaningfulText(item?.title, 1)), "At least one named activity");
+      const incompleteCore = items.filter((item) => !coreActivityComplete(item));
+      bump(incompleteCore.length === 0, "Every activity has a complete Core Activity section");
+      incompleteCore.slice(0, 8).forEach((item) => {
+        warnings.push(`${item.title || "Activity"}: Core Activity incomplete (${coreActivityMissing(item).slice(0, 3).join(", ")}${coreActivityMissing(item).length > 3 ? "…" : ""})`);
+      });
       items.forEach((item) => {
-        activityWarnings(item).forEach((warning) => warnings.push(`${item.title || "Activity"}: ${warning}`));
+        activityWarnings(item)
+          .filter((warning) => !/^Core Activity:/i.test(warning))
+          .forEach((warning) => warnings.push(`${item.title || "Activity"}: ${warning}`));
       });
     } else if (sectionId === "songs") {
       const songs = [...(plan.songs || [])];
@@ -504,12 +549,15 @@
     const status = activityStatus(item);
     const warnings = activityWarnings(item);
     const req = imageRequirementForActivity(item);
+    const coreOk = coreActivityComplete(item);
+    const domain = item.activityCategory || item.learningDomain || item.domain || "Activity";
     return `
       <button type="button" class="llh-lre-activity-card ${state.openActivityKey === item._key ? "is-open" : ""}" data-lre-open-activity="${esc(item._key)}">
         <strong>${esc(item.title || "Untitled activity")}</strong>
-        <span>${esc(item.activityCategory || "Activity")}</span>
-        <span>${esc(item.dayOfWeek)}</span>
+        <span>${esc(item.dayOfWeek || "")}</span>
+        <span>${esc(domain)}</span>
         ${statusBadge(status)}
+        <span class="llh-lre-core-flag ${coreOk ? "is-complete" : "is-incomplete"}">Core: ${coreOk ? "Complete" : "Incomplete"}</span>
         <span>Images: ${esc(imageRequirementLabel(req))}</span>
         <span>${warnings.length} warning${warnings.length === 1 ? "" : "s"}</span>
       </button>
@@ -521,72 +569,80 @@
     const day = item.dayOfWeek;
     const index = item._index;
     const base = `dailyPlans.${day}.items.${index}`;
+    const coreMissing = coreActivityMissing(item);
+    const req = imageRequirementForActivity(item);
+    const teacherTips = Array.isArray(item.teacherTips) ? item.teacherTips.join("\n") : (item.teacherTips || "");
+    const observationPrompts = Array.isArray(item.observationPrompts)
+      ? item.observationPrompts.join("\n")
+      : (item.observationPrompts || "");
+    const substitutions = Array.isArray(item.substitutions)
+      ? item.substitutions.map((row) => (typeof row === "string" ? row : `${row?.need || ""} → ${row?.use || ""}`)).join("\n")
+      : (item.supplySubstitutions || item.substitutionsText || "");
+    const settingTags = Array.isArray(item.settingTags) ? item.settingTags.join(", ") : (item.groupSetting || item.setting || "");
     return `
       <article class="llh-lre-activity-editor" data-lre-activity-editor="${esc(item._key)}">
         <div class="llh-lre-activity-editor-head">
-          <h3>Editing: ${esc(item.title || "Untitled activity")}</h3>
+          <div>
+            <h3>Editing: ${esc(item.title || "Untitled activity")}</h3>
+            <p class="muted-copy">${esc(day)} · ${esc(item.activityCategory || "Activity")} · Core ${coreMissing.length ? "incomplete" : "complete"} · Screenshot this activity to ask for help filling it.</p>
+          </div>
           <button type="button" class="ghost-button" data-lre-close-activity>Close activity</button>
         </div>
-        ${ACTIVITY_SUBSECTIONS.map((sub) => {
-          if (sub.id === "core") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${input("Activity name", `${base}.title`, item.title, "Mirror Play Faces")}
-              ${input("Weekday", `${base}.dayOfWeek`, item.dayOfWeek || day, "monday")}
-              ${input("Category", `${base}.activityCategory`, item.activityCategory || "", "Art / Circle Time / Sensory")}
-              ${textarea("Objective / purpose", `${base}.objective`, item.objective, "Children notice and name feelings on their own faces.")}
-              ${textarea("Short description", `${base}.description`, item.description, "A quick teacher-facing summary of the play invitation.")}
-            </section>`;
-          }
-          if (sub.id === "materials") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Materials", `${base}.materials`, item.materials, "Hand mirrors, feeling cards, basket")}
-              ${textarea("Setup", `${base}.setup`, item.setup, "Place mirrors at child height near the feeling cards.")}
-            </section>`;
-          }
-          if (sub.id === "directions") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Full activity directions", `${base}.steps`, item.steps || item.directions || "", "1. Invite two friends… 2. Model one feeling…")}
-            </section>`;
-          }
-          if (sub.id === "guidance") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Teacher tips", `${base}.teacherTips`, Array.isArray(item.teacherTips) ? item.teacherTips.join("\n") : (item.teacherTips || item.teacherRole || ""), "Model, then step back and narrate gently.")}
-              ${textarea("Teacher language / questions", `${base}.teacherLanguage`, item.teacherLanguage, "What do your eyebrows do when you feel surprised?")}
-            </section>`;
-          }
-          if (sub.id === "learning") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Observation prompts", `${base}.observationPrompts`, Array.isArray(item.observationPrompts) ? item.observationPrompts.join("\n") : (item.observationPrompts || item.observationOpportunities || ""), "Does the child try a new expression without prompting?")}
-              ${textarea("Vocabulary", `${base}.vocabulary`, item.vocabulary, "happy, calm, eyebrows, mirror")}
-            </section>`;
-          }
-          if (sub.id === "adaptations") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Support adaptations", `${base}.supportAdaptations`, item.supportAdaptations || item.adaptations || "", "Offer photos instead of mirrors for children who prefer still images.")}
-              ${textarea("Challenge adaptations", `${base}.challengeAdaptations`, item.challengeAdaptations || item.extensions || "", "Invite children to draw the face they practiced.")}
-            </section>`;
-          }
-          if (sub.id === "cleanup") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Safety notes", `${base}.safetyNotes`, item.safetyNotes, "Use unbreakable mirrors only.")}
-              ${textarea("Cleanup / reset", `${base}.cleanup`, item.cleanup || item.resetNotes || "", "Wipe mirrors and return cards to the basket.")}
-            </section>`;
-          }
-          const req = imageRequirementForActivity(item);
-          return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-            <label class="llh-lre-field">
-              <span class="llh-lre-label">Image requirement</span>
-              <select data-lre-path="${esc(base)}.imageRequirement">
-                ${IMAGE_REQUIREMENT_OPTIONS.map((opt) => `<option value="${esc(opt.id)}" ${req === opt.id ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
-              </select>
-            </label>
-            ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
-            ${input("Finished example image URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "Upload via Images section when possible")}
-            <p class="muted-copy">Circle time, songs, movement, and simple conversations usually do not need a picture. Unusual setups and unclear finished products usually do.</p>
-            ${item.setupImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "activity")}" /><figcaption>Setup · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
-            ${item.exampleImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.exampleImageUrl)}" alt="Finished example for ${esc(item.title || "activity")}" /><figcaption>Finished example · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
-          </section>`;
-        }).join("")}
+        ${coreMissing.length ? `
+          <div class="llh-lre-missing" data-lre-core-missing>
+            <strong>Core Activity still needs:</strong>
+            <ul>${coreMissing.map((label) => `<li>${esc(label)}</li>`).join("")}</ul>
+          </div>
+        ` : `<p class="llh-lre-ok">Core Activity fields look complete for this activity.</p>`}
+
+        <section class="llh-lre-sub llh-lre-core-section" data-lre-core-section>
+          <h4>Core Activity</h4>
+          <p class="muted-copy">Fill these first. One-line filler does not count as complete.</p>
+          ${input("Activity name", `${base}.title`, item.title, "Apple Investigation")}
+          ${input("Weekday", `${base}.dayOfWeek`, item.dayOfWeek || day, "monday")}
+          ${input("Category / developmental domain", `${base}.activityCategory`, item.activityCategory || "", "STEM/Discovery")}
+          ${CORE_ACTIVITY_FIELDS.map((field) => {
+            const pathKey = field.key === "cleanupTips" ? "cleanupTips" : field.key;
+            const value = coreFieldValue(item, field.key);
+            const rows = field.key === "description" || field.key === "steps" ? 6 : 3;
+            return `
+              <label class="llh-lre-field">
+                <span class="llh-lre-label">${esc(field.label)}</span>
+                <span class="llh-lre-example">Example: ${esc(field.example)}</span>
+                <textarea data-lre-path="${esc(base)}.${esc(pathKey)}" rows="${rows}">${esc(value)}</textarea>
+              </label>
+            `;
+          }).join("")}
+        </section>
+
+        <section class="llh-lre-sub" data-lre-enrichment-section>
+          <h4>Enrichment</h4>
+          <p class="muted-copy">Optional depth after Core Activity is solid. Keep tips short and classroom-ready.</p>
+          ${textarea("Group and setting", `${base}.groupSetting`, settingTags, "small group, indoor")}
+          ${textarea("Teacher tips", `${base}.teacherTips`, teacherTips, "Stay at the table and narrate gently. End before anyone bites.")}
+          ${textarea("Supply substitutions", `${base}.substitutionsText`, substitutions, "No view-finders → use empty paper-towel tubes\nNo placemats → use trays")}
+          ${textarea("Observation prompts", `${base}.observationPrompts`, observationPrompts, "Does the child try a new sensory word without prompting?")}
+          ${textarea("Vocabulary", `${base}.vocabulary`, item.vocabulary || "", "apple, stem, skin, cool, bumpy")}
+          ${textarea("Support adaptations", `${base}.supportAdaptations`, item.supportAdaptations || item.adaptations || "", "Offer hand-over-hand exploring for children who need motor support.")}
+          ${textarea("Challenge adaptations", `${base}.challengeAdaptations`, item.challengeAdaptations || item.extensions || "", "Invite children to sort apples by color after looking.")}
+        </section>
+
+        <section class="llh-lre-sub" data-lre-images-section>
+          <h4>Images</h4>
+          <label class="llh-lre-field">
+            <span class="llh-lre-label">Image requirement</span>
+            <select data-lre-path="${esc(base)}.imageRequirement">
+              ${IMAGE_REQUIREMENT_OPTIONS.map((opt) => `<option value="${esc(opt.id)}" ${req === opt.id ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
+            </select>
+          </label>
+          <p class="muted-copy">Circle time, songs, movement, and obvious activities can be No image needed. Art, unclear finished products, printable/card work, and unusual setups usually need pictures.</p>
+          ${textarea("Setup image brief", `${base}.imageBriefSetup`, item.imageBriefSetup || "", "Low table with three whole apples on placemats; damp cloth nearby; no tasting props.")}
+          ${textarea("Finished example image brief", `${base}.imageBriefExample`, item.imageBriefExample || "", "Child-led stamp sheet with imperfect apple prints — not an adult craft model.")}
+          ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
+          ${input("Finished example image URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "")}
+          ${item.setupImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "activity")}" /><figcaption>Setup · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
+          ${item.exampleImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.exampleImageUrl)}" alt="Finished example for ${esc(item.title || "activity")}" /><figcaption>Finished example · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
+        </section>
       </article>
     `;
   }
@@ -614,9 +670,11 @@
   function renderActivitiesSection() {
     const items = flattenActivities(state.draft);
     const open = items.find((item) => item._key === state.openActivityKey) || null;
+    const coreCompleteCount = items.filter((item) => coreActivityComplete(item)).length;
     return `
       <div class="llh-lre-activity-list">
-        <p class="muted-copy">Activity cards first. Open only one activity at a time. Screenshot mode hides sidebar clutter.</p>
+        <p class="muted-copy">Open one activity at a time. Fill the <strong>Core Activity</strong> fields first — then enrichment. Screenshot mode hides sidebar clutter so you can ask for help on that exact activity.</p>
+        <p class="muted-copy">Core complete: ${coreCompleteCount} / ${items.length}</p>
         <div class="llh-lre-activity-cards">${items.map(renderActivityCard).join("") || "<p class='muted-copy'>No activities in this draft yet.</p>"}</div>
         ${open ? renderOpenActivity(open) : ""}
       </div>
@@ -1038,11 +1096,15 @@
         const overlay = keyCandidates.map((key) => overlays[key]).find((row) => row && typeof row === "object") || null;
         if (!overlay) return;
         [
-          "objective", "description", "materials", "setup", "steps", "directions",
-          "teacherTips", "teacherLanguage", "teacherRole", "observationPrompts",
-          "observationOpportunities", "supportAdaptations", "challengeAdaptations",
-          "adaptations", "extensions", "safetyNotes", "cleanup", "vocabulary",
+          "title", "dayOfWeek", "activityCategory",
+          "objective", "description", "materials", "preparation", "prep", "setup",
+          "steps", "directions", "teacherLanguage", "observationOpportunities",
+          "safetyNotes", "cleanupTips", "cleanup", "resetNotes",
+          "teacherTips", "teacherRole", "observationPrompts", "vocabulary",
+          "supportAdaptations", "challengeAdaptations", "adaptations", "extensions",
+          "groupSetting", "settingTags", "substitutions", "substitutionsText",
           "exampleImageUrl", "setupImageUrl", "imageUrl", "imageRequirement",
+          "imageBriefSetup", "imageBriefExample",
         ].forEach((field) => {
           if (overlay[field] != null && overlay[field] !== "") item[field] = clone(overlay[field]);
         });
@@ -1076,22 +1138,37 @@
       const prev = existing.activities[key] && typeof existing.activities[key] === "object"
         ? existing.activities[key]
         : {};
+      const imageReq = normalizeImageRequirement(item.imageRequirement || imageRequirementForActivity(item));
       existing.activities[key] = {
         ...prev,
         title: item.title || prev.title || "",
+        dayOfWeek: item.dayOfWeek || prev.dayOfWeek || "",
+        activityCategory: item.activityCategory || prev.activityCategory || "",
         objective: item.objective || "",
         description: item.description || "",
         materials: item.materials || "",
+        preparation: item.preparation || item.prep || "",
         setup: item.setup || "",
         steps: item.steps || item.directions || "",
+        teacherLanguage: item.teacherLanguage || "",
+        observationOpportunities: item.observationOpportunities || "",
+        safetyNotes: item.safetyNotes || "",
+        cleanupTips: item.cleanupTips || item.cleanup || item.resetNotes || "",
+        groupSetting: item.groupSetting || "",
         teacherTips: item.teacherTips || prev.teacherTips || "",
+        substitutionsText: item.substitutionsText || "",
         observationPrompts: item.observationPrompts || prev.observationPrompts || "",
+        vocabulary: item.vocabulary || "",
         supportAdaptations: item.supportAdaptations || item.adaptations || "",
         challengeAdaptations: item.challengeAdaptations || item.extensions || "",
+        adaptations: item.supportAdaptations || item.adaptations || "",
+        extensions: item.challengeAdaptations || item.extensions || "",
+        imageBriefSetup: item.imageBriefSetup || "",
+        imageBriefExample: item.imageBriefExample || "",
         exampleImageUrl: item.exampleImageUrl || "",
         setupImageUrl: item.setupImageUrl || "",
-        imageRequirement: normalizeImageRequirement(item.imageRequirement || imageRequirementForActivity(item)),
-        noImageNeeded: normalizeImageRequirement(item.imageRequirement || imageRequirementForActivity(item)) === "no_image_needed",
+        imageRequirement: imageReq,
+        noImageNeeded: imageReq === "no_image_needed",
       };
     });
     existing.updatedAt = new Date().toISOString();

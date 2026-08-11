@@ -294,6 +294,25 @@ async function runBrowserTests(token) {
   await page.locator(".llh-lre-activity-card").first().click();
   await page.waitForSelector("[data-lre-activity-editor]", { timeout: 5000 });
   ok(await page.locator("[data-lre-activity-editor]").count() === 1, "Only one activity editor open");
+  const coreHeading = await page.locator("[data-lre-core-section] h4").innerText();
+  ok(/Core Activity/i.test(coreHeading), "Core Activity section is visible");
+  const coreLabels = await page.locator("[data-lre-core-section] .llh-lre-label").allTextContents();
+  [
+    "Activity objective",
+    "What children will do",
+    "Materials",
+    "Teacher preparation",
+    "Setup",
+    "Step-by-step directions",
+    "Teacher questions",
+    "Learning and observation",
+    "Safety and supervision",
+    "Cleanup",
+  ].forEach((label) => {
+    ok(coreLabels.some((row) => row.includes(label)), `Core field present: ${label}`);
+  });
+  ok(await page.locator("[data-lre-enrichment-section]").count() === 1, "Enrichment section follows Core Activity");
+  ok(await page.locator(".llh-lre-core-flag").count() >= 1, "Activity cards show Core complete/incomplete flag");
 
   // Screenshot mode
   await page.click("[data-lre-screenshot-toggle]");
