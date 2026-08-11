@@ -21802,8 +21802,25 @@ async function handlePublishEnrichment(request, response, ctx) {
     ...(Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory : []),
   ].slice(0, ENRICHMENT_HISTORY_LIMIT);
 
+  const existingActivities = Array.isArray(existingCurriculum.activities)
+    ? existingCurriculum.activities
+    : [];
+  const existingResources = Array.isArray(existingCurriculum.resources)
+    ? existingCurriculum.resources
+    : [];
+  const plansBeforeByRef = new Map(
+    (existingCurriculum.lessonPlans || []).filter((p) => p?.id).map((p) => [p.id, p]),
+  );
+  const activitiesBeforeByRef = new Map(
+    existingActivities.filter((a) => a?.id).map((a) => [a.id, a]),
+  );
+  const resourcesBeforeByRef = new Map(
+    existingResources.filter((r) => r?.id).map((r) => [r.id, r]),
+  );
+
+  // applyMergedEnrichmentToActivities keeps other lessons' activity objects by reference.
   const nextActivities = applyMergedEnrichmentToActivities(
-    existingCurriculum.activities || [],
+    existingActivities,
     merged.activities,
     id,
   );
@@ -21832,18 +21849,45 @@ async function handlePublishEnrichment(request, response, ctx) {
     updatedAt: now,
   });
 
-  let nextCurriculum = normalizedCurriculumStore({
+  // Surgical curriculum graph — do NOT call normalizedCurriculumStore() here.
+  // Whole-library normalize would rewrite sibling setupMinutes / custom fields.
+  let nextCurriculum = {
     ...existingCurriculum,
-    lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (item.id === id ? nextPlan : item)),
+    lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (
+      item.id === id ? nextPlan : item
+    )),
     activities: nextActivities,
     updatedAt: now,
-  });
+  };
   const promotedPrintables = publishLinkedDraftResourcesForLesson(nextCurriculum, id, { now });
   nextCurriculum = promotedPrintables.curriculum;
 
-  // Atomic apply: promote visibility + write curriculum in one store commit path.
+  const touchedLessonPlanIds = [...new Set([
+    id,
+    ...((nextCurriculum.lessonPlans || [])
+      .filter((plan) => plan?.id && plansBeforeByRef.get(plan.id) !== plan)
+      .map((plan) => plan.id)),
+  ].filter(Boolean))];
+  const touchedActivityIds = [...new Set(
+    (nextCurriculum.activities || [])
+      .filter((activity) => activity?.id && activitiesBeforeByRef.get(activity.id) !== activity)
+      .map((activity) => activity.id),
+  )];
+  const touchedResourceIds = [...new Set([
+    ...((nextCurriculum.resources || [])
+      .filter((resource) => resource?.id && resourcesBeforeByRef.get(resource.id) !== resource)
+      .map((resource) => resource.id)),
+    ...(promotedPrintables.publishedResourceIds || []),
+  ].filter(Boolean))];
+
+  // Atomic apply: promote visibility + write only touched curriculum records.
   await promoteEnrichmentAssetsToPublished(store, assetIds, id);
-  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds,
+    touchedActivityIds,
+    touchedResourceIds,
+  });
   if (writeResult.wipeBlocked) {
     // Roll back registry promotions for this attempt (assets stay draft_private).
     assetIds.forEach((assetId) => {
