@@ -95,14 +95,21 @@ async function main() {
   assert.match(html, /data-work-nav="more"[^>]*data-work-roles="owner,director,teacher,assistant"/);
   assert.match(appJs, /function roleWorkspaceHeadline/);
   assert.match(appJs, /function exitFamilyHubParentPreview/);
+  assert.match(appJs, /function applyFamiliesDestinationFocus/);
   assert.match(appJs, /function applyPendingDailyCareAction/);
   assert.match(appJs, /data-daily-care-action/);
+  assert.match(appJs, /data-families-focus="photos"/);
+  assert.match(appJs, /data-families-focus="pickup"/);
+  assert.match(appJs, /data-families-focus="paperwork-hq"/);
+  assert.match(appJs, /data-billing-gate-note/);
   assert.match(appJs, /data-activity-load-more/);
   assert.match(appJs, /data-clear-activity-filters/);
   assert.match(appJs, /data-curriculum-initial-limit="4"/);
   assert.match(appJs, /Staff & Access/);
   assert.doesNotMatch(appJs, /This is your own Teacher space/);
   assert.match(multi, /exitFamilyHubParentPreview/);
+  assert.match(multi, /ensureTesterParentHouseholdSession/);
+  assert.match(appJs, /window\.ensureTesterParentHouseholdSession/);
   assert.match(punch, /YES — NEW REAL TESTER INVITES ARE RELIABLE/);
   // Forms waves + invite markers still present
   assert.match(appJs, /completeTesterInviteCredentialFlow/);
@@ -273,6 +280,72 @@ async function main() {
     assert.match(mgmtText, /Billing & Subscription/);
     assert.match(mgmtText, /Family Tuition/);
     pass("runtime.management-staff-access");
+
+    // Families subsection focus — Photos opens child Reports & Photos tab
+    await page.evaluate(() => setView("families", { allowDashboard: true }));
+    await page.waitForTimeout(300);
+    await page.locator('#view-families .work-hub-tile[data-families-focus="photos"]').first().click();
+    await page.waitForTimeout(900);
+    const photosFocus = await page.evaluate(() => ({
+      active: document.querySelector(".active-view")?.id || "",
+      tab: typeof childProfileTab !== "undefined" ? childProfileTab : "",
+      mode: typeof childManagementMode !== "undefined" ? childManagementMode : "",
+      back: window.LlhNavOrigin?.labelFor?.(window.LlhNavOrigin.peekOrigin?.()) || "",
+    }));
+    assert.ok(/children/i.test(photosFocus.active), "Photos focus should open children view");
+    assert.equal(photosFocus.mode, "profile");
+    assert.ok(/reports|photos/i.test(photosFocus.tab), "Photos focus should open reports/photos tab");
+    pass("runtime.families-photos-focus");
+
+    // Paperwork HQ jump-active from Families
+    await page.evaluate(() => setView("families", { allowDashboard: true }));
+    await page.waitForTimeout(300);
+    await page.locator('#view-families .work-hub-tile[data-families-focus="paperwork-hq"]').first().click();
+    await page.waitForSelector("#hdhFormsAttentionPanel", { timeout: 15000 });
+    await page.waitForFunction(() => (
+      document.getElementById("hdhFormsAttentionPanel")?.getAttribute("data-hdh-section-active") === "true"
+    ), { timeout: 10000 }).catch(() => null);
+    const paperworkActive = await page.evaluate(() => (
+      document.getElementById("hdhFormsAttentionPanel")?.getAttribute("data-hdh-section-active") === "true"
+    ));
+    assert.ok(paperworkActive, "Paperwork HQ jump should mark section active");
+    pass("runtime.families-paperwork-hq-jump");
+
+    // Billing gate: Switch View simulation hides SaaS billing tile intentionally
+    await page.evaluate(() => {
+      localStorage.setItem("llhMultiRoleTesterView", "Owner");
+      syncPlatformNavVisibility?.();
+      setView("business", { allowDashboard: true });
+    });
+    await page.waitForTimeout(400);
+    const billingWhileSim = await page.evaluate(() => ({
+      simulating: typeof isMultiRoleTesterSimulating === "function" ? isMultiRoleTesterSimulating() : null,
+      canBilling: typeof canAccessPlatformFeature === "function" ? canAccessPlatformFeature("billing") : null,
+      tile: !!document.querySelector('#view-business .work-hub-tile[data-view="billing"]'),
+      note: !!document.querySelector('[data-billing-gate-note="switch-view"]'),
+      tuition: !!document.querySelector('#view-business .work-hub-tile[data-hdh-jump="hdhTuitionBillingPanel"]'),
+    }));
+    assert.equal(billingWhileSim.simulating, true);
+    assert.equal(billingWhileSim.canBilling, false);
+    assert.equal(billingWhileSim.tile, false);
+    assert.equal(billingWhileSim.note, true);
+    assert.equal(billingWhileSim.tuition, true);
+    // Clear simulation — real owner entitlement should allow billing capability
+    await page.evaluate(() => {
+      localStorage.removeItem("llhMultiRoleTesterView");
+      syncPlatformNavVisibility?.();
+      setView("business", { allowDashboard: true });
+    });
+    await page.waitForTimeout(400);
+    const billingClear = await page.evaluate(() => ({
+      simulating: typeof isMultiRoleTesterSimulating === "function" ? isMultiRoleTesterSimulating() : null,
+      canBilling: typeof canAccessPlatformFeature === "function" ? canAccessPlatformFeature("billing") : null,
+      tile: !!document.querySelector('#view-business .work-hub-tile[data-view="billing"]'),
+    }));
+    assert.equal(billingClear.simulating, false);
+    assert.equal(billingClear.canBilling, true);
+    assert.equal(billingClear.tile, true);
+    pass("runtime.billing-gate-switch-view-fence");
 
     // Classroom no longer a curriculum directory
     await page.evaluate(() => setView("classroom", { allowDashboard: true }));

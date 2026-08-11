@@ -202,6 +202,18 @@
     refreshPlatform();
 
     if (next === "Parent" && typeof global.setView === "function") {
+      // Match HDH Parent switcher: mint/reuse a real Family Hub household session
+      // so Switch View Parent is a signed-in walkthrough, not only the login form.
+      try {
+        if (typeof global.ensureTesterParentHouseholdSession === "function") {
+          await global.ensureTesterParentHouseholdSession();
+        }
+      } catch (error) {
+        if (typeof global.showActionFeedback === "function") {
+          global.showActionFeedback(error?.message || "Could not open signed-in Parent view.");
+        }
+        throw error;
+      }
       try { global.setView("family-hub", { skipAccessRedirect: true }); } catch { /* ignore */ }
     } else if (typeof global.setView === "function") {
       const landing = next === "Teacher" || next === "Assistant" ? "today" : "home";

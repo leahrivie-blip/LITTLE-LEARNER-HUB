@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const BASE = "https://little-learner-hub-testing.onrender.com";
-const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup2";
 const PASSWORD = "SunshineDaycare9!";
 const OUT = "/opt/cursor/artifacts/live-nav-ia-verify";
 const stamp = Date.now();

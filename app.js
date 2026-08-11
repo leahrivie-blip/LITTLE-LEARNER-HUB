@@ -17670,15 +17670,15 @@ function renderFamiliesHubPage() {
           ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Household access & invitations", primary: true, attrs: 'data-hdh-jump="hdhFamilyHubPanel"' })}
           ${workHubTile({ view: "home-daycare-hub", title: "Family Messages", detail: "Family conversations", attrs: 'data-hdh-jump="hdhFamilyHubPanel" data-hdh-focus="messages"' })}
           ${canManage ? workHubTile({ view: "home-daycare-hub", title: "Family Tuition", detail: "Parent tuition balances — not LLH SaaS billing", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' }) : ""}
-          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Family-facing end-of-day updates", attrs: 'data-daily-care-action="end-of-day"' })}
-          ${workHubTile({ view: "children", title: "Photos & Notes", detail: "From each child’s file" })}
+          ${workHubTile({ view: "child-tools-daily-logs", title: "Daily Reports", detail: "Family-facing end-of-day updates", attrs: 'data-daily-care-action="end-of-day" data-families-focus="daily-reports"' })}
+          ${workHubTile({ view: "children", title: "Photos & Notes", detail: "From each child’s file", attrs: 'data-families-focus="photos"' })}
         </div>
       </section>
       <section class="work-hub-section">
         <h3>Forms & calendar</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "forms", title: "Forms", detail: "Paperwork HQ · templates · Confirm & Send", primary: true })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Paperwork HQ", detail: "Assignments & tracking", attrs: 'data-hdh-jump="hdhFormsAttentionPanel"' })}
+          ${workHubTile({ view: "forms", title: "Forms", detail: "Templates · Confirm & Send · assignments", primary: true })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Paperwork HQ", detail: "Assignments & tracking", attrs: 'data-hdh-jump="hdhFormsAttentionPanel" data-families-focus="paperwork-hq"' })}
           ${workHubTile({ view: "calendar", title: "Family Calendar", detail: "Family-visible events" })}
           ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
         </div>
@@ -17686,8 +17686,8 @@ function renderFamiliesHubPage() {
       <section class="work-hub-section">
         <h3>Contacts & licensing</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "children", title: "Parents / Guardians", detail: "Household & guardian management" })}
-          ${workHubTile({ view: "children", title: "Pickup Contacts", detail: "Authorized pickup on child file" })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Parents / Guardians", detail: "Household invites & guardian access", attrs: 'data-hdh-jump="hdhFamilyHubPanel" data-families-focus="guardians"' })}
+          ${workHubTile({ view: "children", title: "Pickup Contacts", detail: "Authorized pickup on child file", attrs: 'data-families-focus="pickup"' })}
           ${canManage ? workHubTile({ view: "home-daycare-hub", title: "Licensing Helpers", detail: "Trainings & packets", attrs: 'data-hdh-jump="hdhTrainingsPanel"' }) : ""}
         </div>
       </section>
@@ -17714,6 +17714,75 @@ function isHomeDaycareWorkAccount() {
   }
 }
 
+/** Families hub tiles that reuse Children / Daily Care — open the intended subsection. */
+function applyFamiliesDestinationFocus(focusKey = "", { attempt = 0 } = {}) {
+  const focus = String(focusKey || "").trim().toLowerCase();
+  if (!focus) return;
+  if (focus === "photos" || focus === "pickup") {
+    const children = (typeof childRecords === "function" ? childRecords().children : []) || [];
+    const first = children[0];
+    if (!first?.id) return;
+    selectedChildId = first.id;
+    try { localStorage.setItem("llhSelectedChild", selectedChildId); } catch (_e) { /* ignore */ }
+    childManagementMode = "profile";
+    childProfileTab = focus === "photos" ? "reports" : "overview";
+    if (typeof renderChildManagement === "function") renderChildManagement();
+    const scrollTo = () => {
+      const target = focus === "photos"
+        ? document.querySelector(".profile-photos-panel, #view-children .profile-combined-tab")
+        : document.querySelector("#view-children .portfolio-overview, #view-children [class*='portfolio']");
+      if (target) {
+        target.setAttribute("data-families-section-active", "true");
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        target.classList.add("hdh-jump-flash");
+        window.setTimeout(() => target.classList.remove("hdh-jump-flash"), 1400);
+        return true;
+      }
+      return false;
+    };
+    if (!scrollTo() && attempt < 12) {
+      window.setTimeout(() => applyFamiliesDestinationFocus(focus, { attempt: attempt + 1 }), 80);
+    }
+    return;
+  }
+  if (focus === "daily-reports") {
+    const root = document.querySelector("[data-daily-care-root]");
+    const action = document.querySelector('[data-daily-care-action="end-of-day"]');
+    const target = action || root;
+    if (target) {
+      target.setAttribute("data-families-section-active", "true");
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (action && typeof action.click === "function" && !action.closest("[data-daily-care-root] [data-daily-care-action='end-of-day']")) {
+        /* hub tile already requested end-of-day; in-page action may still need open */
+      }
+      try { action?.click?.(); } catch (_e) { /* ignore */ }
+    } else if (attempt < 12) {
+      window.setTimeout(() => applyFamiliesDestinationFocus(focus, { attempt: attempt + 1 }), 80);
+    }
+    return;
+  }
+  if (focus === "paperwork-hq" || focus === "guardians" || focus === "messages") {
+    const jumpId = focus === "paperwork-hq" ? "hdhFormsAttentionPanel" : "hdhFamilyHubPanel";
+    const target = document.getElementById(jumpId);
+    if (target) {
+      document.querySelectorAll("[data-hdh-section-active]").forEach((el) => el.removeAttribute("data-hdh-section-active"));
+      target.setAttribute("data-hdh-section-active", "true");
+      target.setAttribute("data-families-section-active", "true");
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.classList.add("hdh-jump-flash");
+      window.setTimeout(() => target.classList.remove("hdh-jump-flash"), 1400);
+      if (focus === "messages") {
+        const messagesBtn = target.querySelector("[data-hdh-family-messages], [data-open-family-messages], button, a");
+        const msgHit = [...target.querySelectorAll("button, a, [role='tab']")]
+          .find((el) => /message/i.test(el.textContent || ""));
+        try { (msgHit || messagesBtn)?.click?.(); } catch (_e) { /* ignore */ }
+      }
+    } else if (attempt < 20) {
+      window.setTimeout(() => applyFamiliesDestinationFocus(focus, { attempt: attempt + 1 }), 100);
+    }
+  }
+}
+
 function renderBusinessHubPage() {
   const section = document.querySelector("#view-business");
   if (!section) return;
@@ -17722,9 +17791,17 @@ function renderBusinessHubPage() {
     setView(workModeLandingView(role));
     return;
   }
+  const simulating = typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating();
   const showBilling = role === "owner" && canAccessPlatformFeature("billing");
   const adminUnlocked = typeof isAdminUnlocked === "function" && isAdminUnlocked();
   const homeDaycare = isHomeDaycareWorkAccount();
+  const billingGateNote = showBilling
+    ? ""
+    : (simulating && (role === "owner" || role === "director")
+      ? `<div class="work-hub-note muted-copy" data-billing-gate-note="switch-view">LLH Billing &amp; Subscription is hidden while Switch View is on (sandbox fence). Return to <strong>My Tester View</strong> to manage your Little Learner Hub membership. Family Tuition below is still parent childcare balances — not SaaS billing.</div>`
+      : (role === "owner"
+        ? `<div class="work-hub-note muted-copy" data-billing-gate-note="owner-unavailable">LLH Billing &amp; Subscription isn’t available for this account entitlement right now.</div>`
+        : `<div class="work-hub-note muted-copy" data-billing-gate-note="owner-only">LLH Billing &amp; Subscription is owner-only.</div>`));
   section.innerHTML = workHubShell({
     eyebrow: "Management",
     title: "Management",
@@ -17755,7 +17832,7 @@ function renderBusinessHubPage() {
       <section class="work-hub-section">
         <h3>Money — keep these separate</h3>
         <div class="work-hub-grid">
-          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Little Learner Hub SaaS membership" }) : `<div class="work-hub-note muted-copy">LLH Billing & Subscription is owner-only.</div>`}
+          ${showBilling ? workHubTile({ view: "billing", title: "Billing & Subscription", detail: "Little Learner Hub SaaS membership" }) : billingGateNote}
           ${workHubTile({ view: "home-daycare-hub", title: "Family Tuition", detail: "Provider ↔ family childcare tuition (not SaaS)", attrs: 'data-hdh-jump="hdhTuitionBillingPanel"' })}
           ${workHubTile({ view: "home-daycare-hub", title: "Licensing Helpers", detail: "Trainings & packets", attrs: 'data-hdh-jump="hdhTrainingsPanel"' })}
         </div>
@@ -38756,10 +38833,10 @@ function exitFamilyHubParentPreview(options = {}) {
       return document.body.classList.contains("family-hub-parent-mode");
     }
   })();
-  // Tester Switch View Parent does not mint a durable Family Hub session for a
-  // real guardian — clear any leftover preview token + mounted login shell.
+  // Leaving Parent preview must unmount Family Hub immediately. Keep the cached
+  // tester invite (email/code) so Switch View → Parent can re-enter quickly, but
+  // always drop the active session token so provider shell is not FH-scoped.
   clearFamilyHubSession();
-  try { localStorage.removeItem(FAMILY_HUB_TESTER_INVITE_KEY); } catch (_error) { /* ignore */ }
   familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
   const app = document.querySelector("#familyHubParentApp");
   if (app) app.innerHTML = "";
@@ -39164,6 +39241,8 @@ async function ensureTesterParentHouseholdSession() {
   }
   throw new Error("Could not open Parent view — invite was created without a usable link.");
 }
+
+window.ensureTesterParentHouseholdSession = ensureTesterParentHouseholdSession;
 
 async function switchHdhTesterRole(role) {
   if (!isHomeDaycareHubTestingEnabled()) {
@@ -67692,11 +67771,17 @@ document.addEventListener("click", async (event) => {
           target.scrollIntoView({ behavior: "smooth", block: "start" });
           target.classList.add("hdh-jump-flash");
           window.setTimeout(() => target.classList.remove("hdh-jump-flash"), 1400);
+          const hdhFocus = String(viewButton.getAttribute("data-hdh-focus") || "").trim();
+          if (hdhFocus) applyFamiliesDestinationFocus(hdhFocus === "messages" ? "messages" : hdhFocus);
           return;
         }
-        if (attempt < 16) window.setTimeout(() => focusHdhSection(attempt + 1), 75);
+        if (attempt < 20) window.setTimeout(() => focusHdhSection(attempt + 1), 75);
       };
       window.setTimeout(() => focusHdhSection(0), 0);
+    }
+    const familiesFocus = String(viewButton.getAttribute("data-families-focus") || "").trim();
+    if (familiesFocus) {
+      window.setTimeout(() => applyFamiliesDestinationFocus(familiesFocus), jumpId ? 120 : 0);
     }
     return;
   }
