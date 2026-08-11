@@ -223,6 +223,50 @@ function removeLocalFormsAsset(dir, assetId) {
   try { fs.unlinkSync(`${base}.json`); } catch (_e) { /* ignore */ }
 }
 
+function mediaAssetIdForIdempotency({ programId = "", idempotencyKey = "" } = {}) {
+  const key = String(idempotencyKey || "").trim();
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(key)) return newMediaId();
+  const digest = crypto
+    .createHash("sha256")
+    .update(`forms-upload:${cleanText(programId, 80)}:${key}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `forms-media-${digest}`;
+}
+
+/**
+ * Best-effort delete for Wave 7 forms-paperwork orphans only.
+ * Never deletes other media kinds.
+ */
+async function removeFormsMediaAsset({
+  mediaAssetId,
+  storePath,
+  postgresPool = null,
+  usePostgres = false,
+} = {}) {
+  const id = String(mediaAssetId || "").trim();
+  if (!isFormsMediaAssetId(id)) {
+    return { ok: false, code: "invalid_media_id" };
+  }
+  if (usePostgres && postgresPool) {
+    try {
+      const result = await postgresPool.query(
+        `DELETE FROM llh_media_assets WHERE id = $1 AND kind = $2`,
+        [id, FORMS_MEDIA_KIND],
+      );
+      return { ok: true, deleted: Number(result.rowCount || 0) > 0, backend: "postgres" };
+    } catch (error) {
+      return { ok: false, code: "postgres_delete_failed", error: error.message || "delete_failed" };
+    }
+  }
+  try {
+    removeLocalFormsAsset(localMediaDirFromStorePath(storePath), id);
+    return { ok: true, deleted: true, backend: "local" };
+  } catch (error) {
+    return { ok: false, code: "local_delete_failed", error: error.message || "delete_failed" };
+  }
+}
+
 async function persistFormsUpload({
   parsed,
   programId,
@@ -231,8 +275,11 @@ async function persistFormsUpload({
   storePath,
   postgresPool = null,
   usePostgres = false,
+  idempotencyKey = "",
 }) {
-  const assetId = newMediaId();
+  // Deterministic media id when idempotencyKey present → retries overwrite same asset
+  // instead of leaking endless orphan blobs.
+  const assetId = mediaAssetIdForIdempotency({ programId, idempotencyKey });
   const mediaUrl = formsMediaUrl(assetId);
   const meta = {
     programId: cleanText(programId, 80),
@@ -478,6 +525,8 @@ module.exports = {
   loadFormsUploadBytes,
   localMediaDirFromStorePath,
   removeLocalFormsAsset,
+  removeFormsMediaAsset,
+  mediaAssetIdForIdempotency,
   buildUploadDocumentRow,
   publicUploadSummary,
   expirationState,

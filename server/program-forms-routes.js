@@ -787,6 +787,7 @@ function createProgramFormsRoutes({
           storePath: getStorePath(),
           postgresPool: getPostgresPool(),
           usePostgres: usePostgresStore(),
+          idempotencyKey: body.idempotencyKey || "",
         });
         const row = formsUploadLib.buildUploadDocumentRow({
           assigneeType,
@@ -836,14 +837,33 @@ function createProgramFormsRoutes({
           upload: formsUploadLib.publicUploadSummary(savedDoc),
         }, "Could not save upload.");
       } catch (error) {
-        // Metadata save failed after bytes landed — best-effort local orphan cleanup.
-        if (fileRef?.mediaAssetId && !usePostgresStore()) {
-          try {
-            formsUploadLib.removeLocalFormsAsset(
-              formsUploadLib.localMediaDirFromStorePath(getStorePath()),
-              fileRef.mediaAssetId,
-            );
-          } catch (_cleanupErr) { /* ignore */ }
+        // Metadata save failed after bytes landed — reconcile orphan mediaAssetId.
+        if (fileRef?.mediaAssetId) {
+          const cleanup = await formsUploadLib.removeFormsMediaAsset({
+            mediaAssetId: fileRef.mediaAssetId,
+            storePath: getStorePath(),
+            postgresPool: getPostgresPool(),
+            usePostgres: usePostgresStore(),
+          });
+          // Never log file bytes/contents — names/ids only for reconciliation.
+          console.warn("[forms-upload] metadata_persist_failed_orphan_cleanup", {
+            mediaAssetId: fileRef.mediaAssetId,
+            programId: context.programId,
+            documentId: provisionalId,
+            assigneeType,
+            cleanupOk: Boolean(cleanup?.ok),
+            cleanupDeleted: Boolean(cleanup?.deleted),
+            cleanupCode: cleanup?.code || "",
+            backend: cleanup?.backend || (usePostgresStore() ? "postgres" : "local"),
+          });
+          error.code = error.code || "upload_metadata_failed";
+          error.recoverable = true;
+          error.orphanMediaAssetId = fileRef.mediaAssetId;
+          error.orphanCleanup = {
+            ok: Boolean(cleanup?.ok),
+            deleted: Boolean(cleanup?.deleted),
+            code: cleanup?.code || "",
+          };
         }
         throw error;
       }
@@ -851,6 +871,9 @@ function createProgramFormsRoutes({
       jsonResponse(response, error.status || 400, {
         error: error.message || "Could not upload paperwork.",
         code: error.code || "upload_failed",
+        recoverable: error.recoverable === true,
+        orphanMediaAssetId: error.orphanMediaAssetId || undefined,
+        orphanCleanup: error.orphanCleanup || undefined,
         invalidStaffEmails: error.invalidStaffEmails,
       });
     }
@@ -981,14 +1004,17 @@ function createProgramFormsRoutes({
       });
       return;
     }
+    const payload = asset.buffer;
+    // Drop local reference after copy for end() so GC can reclaim promptly.
+    asset.buffer = null;
     response.writeHead(200, {
       "Content-Type": asset.mimeType || "application/octet-stream",
-      "Content-Length": asset.buffer.length,
+      "Content-Length": payload.length,
       "Content-Disposition": `inline; filename="${String(asset.fileName || doc.fileName || "document").replace(/"/g, "")}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     });
-    response.end(asset.buffer);
+    response.end(payload);
   }
 
   async function handleRemindDocument(request, response, documentId) {

@@ -187,6 +187,18 @@ function unitUploadParseAndExpiration() {
   assert.equal(api.EXPIRING_SOON_DAYS, 30);
   assert.ok(api.HQ_RAILS.some((r) => r.id === "expiring_soon"));
   assert.ok(api.HQ_RAILS.some((r) => r.id === "expired"));
+
+  // Deterministic media ids prevent endless Postgres orphans on retry.
+  const a = formsUploadLib.mediaAssetIdForIdempotency({ programId: "prog1", idempotencyKey: "idemkey0000000001" });
+  const b = formsUploadLib.mediaAssetIdForIdempotency({ programId: "prog1", idempotencyKey: "idemkey0000000001" });
+  const c = formsUploadLib.mediaAssetIdForIdempotency({ programId: "prog1", idempotencyKey: "idemkey0000000002" });
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+  assert.equal(formsUploadLib.isFormsMediaAssetId(a), true);
+  assert.match(
+    fs.readFileSync(path.join(ROOT, "server/program-forms-routes.js"), "utf8"),
+    /metadata_persist_failed_orphan_cleanup|removeFormsMediaAsset/,
+  );
   pass("unit_upload_parse_expiration_reminder_packets");
 }
 
