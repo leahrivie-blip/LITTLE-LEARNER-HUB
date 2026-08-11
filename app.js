@@ -524,6 +524,8 @@ let childPortfolioDateFilter = "";
 let activeObservationEditId = "";
 let childManagementMode = "list";
 let childProfileTab = "overview";
+/** Queued Families-hub subsection focus (photos/pickup/etc.) consumed after destination render. */
+let pendingFamiliesDestinationFocus = "";
 let childFormsRecordsQuery = "";
 let childFormsRecordsStatus = "all";
 let childFormsRecordsCategory = "all";
@@ -17721,7 +17723,17 @@ function applyFamiliesDestinationFocus(focusKey = "", { attempt = 0 } = {}) {
   if (focus === "photos" || focus === "pickup") {
     const children = (typeof childRecords === "function" ? childRecords().children : []) || [];
     const first = children[0];
-    if (!first?.id) return;
+    if (!first?.id) {
+      if (attempt < 24) {
+        try {
+          if (typeof syncChildDataFromBackend === "function") {
+            syncChildDataFromBackend({ render: false, force: attempt === 0 }).catch(() => {});
+          }
+        } catch (_e) { /* ignore */ }
+        window.setTimeout(() => applyFamiliesDestinationFocus(focus, { attempt: attempt + 1 }), 120);
+      }
+      return;
+    }
     selectedChildId = first.id;
     try { localStorage.setItem("llhSelectedChild", selectedChildId); } catch (_e) { /* ignore */ }
     childManagementMode = "profile";
@@ -17740,7 +17752,7 @@ function applyFamiliesDestinationFocus(focusKey = "", { attempt = 0 } = {}) {
       }
       return false;
     };
-    if (!scrollTo() && attempt < 12) {
+    if (!scrollTo() && attempt < 16) {
       window.setTimeout(() => applyFamiliesDestinationFocus(focus, { attempt: attempt + 1 }), 80);
     }
     return;
@@ -20975,6 +20987,12 @@ function setView(view, options = {}) {
     syncFamilyHubParentChrome();
   } else {
     document.body.classList.remove("family-hub-parent-mode");
+  }
+  // Families hub tiles may queue a subsection focus for shared destinations.
+  if (pendingFamiliesDestinationFocus) {
+    const queuedFocus = pendingFamiliesDestinationFocus;
+    pendingFamiliesDestinationFocus = "";
+    window.setTimeout(() => applyFamiliesDestinationFocus(queuedFocus), 0);
   }
   syncHdhTesterSwitcherChrome();
   if (resolvedView === "ai-guide") renderAiGuidePage();
@@ -39181,6 +39199,14 @@ async function ensureTesterParentHouseholdSession() {
   }
 
   ensureTesterDemoChild();
+  try {
+    if (typeof syncChildDataFromBackend === "function") {
+      await Promise.race([
+        syncChildDataFromBackend({ render: false, force: true }),
+        new Promise((r) => setTimeout(r, 8000)),
+      ]);
+    }
+  } catch (_e) { /* continue with local children */ }
   const children = (childRecords().children || []).map((child) => ({
     id: child.id,
     name: child.name,
@@ -39209,9 +39235,35 @@ async function ensureTesterParentHouseholdSession() {
         programName: settings.programName || settings.businessName || "Little Learner Hub program",
         appOrigin: window.location.origin,
       }),
-    }, 10000));
-  } catch (error) {
-    throw new Error("Parent view is taking too long. Check your connection and tap Parent again.");
+    }, 25000));
+  } catch (_error) {
+    // Fallback: seed-demo is usually faster and still yields email + loginCode.
+    try {
+      const seed = await fetchJsonWithTimeout("/api/family-hub/seed-demo", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          appOrigin: window.location.origin,
+          programName: settings.programName || settings.businessName || "Little Learner Hub program",
+        }),
+      }, 20000);
+      if (seed.response.ok && (seed.data?.demo?.loginCode || seed.data?.loginCode)) {
+        response = seed.response;
+        result = {
+          loginCode: seed.data.demo?.loginCode || seed.data.loginCode,
+          magicUrl: seed.data.demo?.magicUrl || seed.data.magicUrl || "",
+          household: seed.data.demo || seed.data.household || {},
+        };
+        // Prefer demo parent email when seed-demo created one.
+        if (seed.data?.demo?.parentEmail || seed.data?.demo?.guardianEmail) {
+          result._email = seed.data.demo.parentEmail || seed.data.demo.guardianEmail;
+        }
+      } else {
+        throw new Error("seed failed");
+      }
+    } catch (_seedErr) {
+      throw new Error("Parent view is taking too long. Check your connection and tap Parent again.");
+    }
   }
   if (!response.ok) throw new Error(result?.error || "Could not create tester parent household.");
   const magicUrl = String(result.magicUrl || result.household?.magicUrl || "");
@@ -39222,22 +39274,23 @@ async function ensureTesterParentHouseholdSession() {
     token = "";
   }
   const loginCode = String(result.loginCode || result.household?.loginCode || "");
-  saveTesterFamilyHubInvite({ token, email, loginCode, magicUrl });
+  const sessionEmail = String(result._email || email || "").trim().toLowerCase();
+  saveTesterFamilyHubInvite({ token, email: sessionEmail, loginCode, magicUrl });
   if (token) {
     await redeemFamilyHubInviteToken(token);
-    return { created: true, email, magicUrl, loginCode };
+    return { created: true, email: sessionEmail, magicUrl, loginCode };
   }
   if (loginCode) {
     const login = await fetchJsonWithTimeout("/api/family-hub/login", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ email, code: loginCode }),
-    }, 8000);
+      body: JSON.stringify({ email: sessionEmail, code: loginCode }),
+    }, 15000);
     if (!login.response.ok || !login.data.sessionToken) {
       throw new Error(login.data?.error || "Could not open Parent view.");
     }
     setFamilyHubSessionToken(login.data.sessionToken);
-    return { created: true, email, magicUrl, loginCode };
+    return { created: true, email: sessionEmail, magicUrl, loginCode };
   }
   throw new Error("Could not open Parent view — invite was created without a usable link.");
 }
@@ -67651,6 +67704,9 @@ document.addEventListener("click", async (event) => {
   if (viewButton) {
     const nextView = viewButton.dataset.view || "";
     const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+    // Queue Families subsection focus before setView so destination render can consume it.
+    const familiesFocusEarly = String(viewButton.getAttribute("data-families-focus") || "").trim();
+    if (familiesFocusEarly) pendingFamiliesDestinationFocus = familiesFocusEarly;
     // Record allowlisted origin so Back labels match where the user came from.
     if (previousView && nextView && previousView !== nextView) {
       try { window.LlhNavOrigin?.pushOrigin?.(previousView); } catch (_e) { /* ignore */ }
@@ -67781,7 +67837,10 @@ document.addEventListener("click", async (event) => {
     }
     const familiesFocus = String(viewButton.getAttribute("data-families-focus") || "").trim();
     if (familiesFocus) {
-      window.setTimeout(() => applyFamiliesDestinationFocus(familiesFocus), jumpId ? 120 : 0);
+      // Queue before/around setView so post-render consume + retries can open the subsection
+      // after child data sync completes (list render alone is not enough).
+      pendingFamiliesDestinationFocus = familiesFocus;
+      window.setTimeout(() => applyFamiliesDestinationFocus(familiesFocus), jumpId ? 160 : 40);
     }
     return;
   }

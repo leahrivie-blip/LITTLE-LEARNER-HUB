@@ -210,9 +210,9 @@
         }
       } catch (error) {
         if (typeof global.showActionFeedback === "function") {
-          global.showActionFeedback(error?.message || "Could not open signed-in Parent view.");
+          global.showActionFeedback(error?.message || "Could not open signed-in Parent view — showing Family Hub login.");
         }
-        throw error;
+        // Still open Family Hub so Return path / login remain testable.
       }
       try { global.setView("family-hub", { skipAccessRedirect: true }); } catch { /* ignore */ }
     } else if (typeof global.setView === "function") {

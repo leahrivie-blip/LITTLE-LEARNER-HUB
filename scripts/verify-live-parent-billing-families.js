@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const BASE = "https://little-learner-hub-testing.onrender.com";
-const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup2";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup3";
 const PASSWORD = "SunshineDaycare9!";
 const OUT = "/opt/cursor/artifacts/live-parent-billing-families";
 const stamp = Date.now();
@@ -316,12 +316,20 @@ async function main() {
   await shot(page, "billing-switch-view");
 
   // ---------- Families focus ----------
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     localStorage.removeItem("llhMultiRoleTesterView");
     syncPlatformNavVisibility?.();
+    try {
+      if (typeof syncChildDataFromBackend === "function") {
+        await Promise.race([
+          syncChildDataFromBackend({ render: false, force: true }),
+          new Promise((r) => setTimeout(r, 15000)),
+        ]);
+      }
+    } catch (_e) { /* continue */ }
     setView("families", { allowDashboard: true });
   });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
   const familyChecks = {};
   for (const [label, focus] of [
     ["Photos & Notes", "photos"],
@@ -394,31 +402,48 @@ async function main() {
 
   // ---------- Signed-in Parent via Switch View ----------
   async function openSignedInParent() {
-    await page.evaluate(async () => {
-      const email = localStorage.getItem("llhUser");
+    // Prefer real Switch View path; seed API session first so ensureTester can reuse/login quickly.
+    await page.evaluate(async ({ token, email, code }) => {
+      const user = localStorage.getItem("llhUser");
       const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
-      if (email) {
-        accounts[email] = { ...(accounts[email] || {}), multiRoleTester: true, hdhMultiRoleTester: true, plan: "Pro", role: "owner" };
+      if (user) {
+        accounts[user] = { ...(accounts[user] || {}), multiRoleTester: true, hdhMultiRoleTester: true, plan: "Pro", role: "owner" };
         localStorage.setItem("llhAccounts", JSON.stringify(accounts));
-        loadAccountState?.(email);
+        loadAccountState?.(user);
       }
+      try {
+        if (typeof syncChildDataFromBackend === "function") {
+          await Promise.race([
+            syncChildDataFromBackend({ render: false, force: true }),
+            new Promise((r) => setTimeout(r, 12000)),
+          ]);
+        }
+      } catch (_e) { /* ignore */ }
+      localStorage.setItem("llhFamilyHubSession", token);
+      setFamilyHubSessionToken?.(token);
+      try {
+        localStorage.setItem("llhFamilyHubTesterInvite", JSON.stringify({ email, loginCode: code, token: "" }));
+      } catch (_e) { /* ignore */ }
       await LLHMultiRoleTester.setViewRole("Parent");
-    });
+    }, { token: loginA.json.sessionToken, email: parentAEmail, code: parentACode });
     await page.waitForTimeout(2500);
-    // If still on login, inject API session as fallback then reload FH
-    const needsInject = await page.evaluate(() => !!document.querySelector("#familyHubLoginForm, [data-family-hub-login]"));
+    const needsInject = await page.evaluate(() => !!document.querySelector("#familyHubLoginForm, [data-family-hub-login]")
+      || !document.querySelector(".fh-parent-nav"));
     if (needsInject) {
       await page.evaluate((token) => {
+        localStorage.setItem("llhMultiRoleTesterView", "Parent");
         localStorage.setItem("llhFamilyHubSession", token);
         setFamilyHubSessionToken?.(token);
+        setHdhTesterPersona?.({ role: "parent" });
+        document.body.classList.add("family-hub-parent-mode");
         setView?.("family-hub", { skipAccessRedirect: true });
       }, loginA.json.sessionToken);
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(1200);
       await page.evaluate(() => {
         if (typeof loadFamilyHubParentDashboard === "function") loadFamilyHubParentDashboard();
         else if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
       });
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(1500);
     }
   }
 

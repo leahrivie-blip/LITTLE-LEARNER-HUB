@@ -6,7 +6,7 @@ const { chromium, devices } = require("playwright");
 const BASE = "https://little-learner-hub-testing.onrender.com";
 const PASSWORD = "SunshineDaycare9!";
 const OWNER = `leah.proxy.owner${Date.now()}@outlook.com`;
-const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup2";
+const EXPECTED_SHELL = process.env.EXPECTED_SHELL || "20260810-provider-nav-ia-cleanup3";
 
 async function api(method, path, { body, headers = {} } = {}) {
   const t0 = Date.now();
