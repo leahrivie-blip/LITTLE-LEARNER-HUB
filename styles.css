@@ -27284,6 +27284,101 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-queue,
 .tk-enrich-live,
 .tk-enrich-stage,
+.tk-enrich-accordion {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  border-radius: 0.65rem;
+  background: #fff;
+  margin: 0 0 0.65rem;
+  overflow: hidden;
+}
+.tk-enrich-accordion-summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 650;
+  font-size: 0.98rem;
+  padding: 0.7rem 0.9rem;
+  background: rgba(31, 107, 74, 0.06);
+}
+.tk-enrich-accordion-summary::-webkit-details-marker { display: none; }
+.tk-enrich-accordion-summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 0.45rem;
+  font-size: 0.65rem;
+  transition: transform 0.15s ease;
+}
+.tk-enrich-accordion[open] > .tk-enrich-accordion-summary::before {
+  transform: rotate(90deg);
+}
+.tk-enrich-accordion-body {
+  padding: 0.75rem 0.9rem 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.tk-enrich-core-heading {
+  margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1f6b4a;
+}
+.tk-enrich-core-field {
+  display: grid;
+  gap: 0.28rem;
+  font: inherit;
+}
+.tk-enrich-core-field > span {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.tk-enrich-core-field input,
+.tk-enrich-core-field select,
+.tk-enrich-core-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  border: 1px solid rgba(36, 49, 42, 0.2);
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  min-height: 2.4rem;
+}
+.tk-enrich-core-field textarea {
+  min-height: 5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+.tk-enrich-field-help {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(36, 49, 42, 0.72);
+  white-space: pre-wrap;
+}
+.tk-enrich-activity-count {
+  margin: 0 0 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: #1f6b4a;
+}
+.tk-enrich-completion {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+}
+.tk-enrich-missing {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(36, 49, 42, 0.75);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  .tk-enrich-accordion-body {
+    padding: 0.65rem 0.7rem 0.85rem;
+  }
+  .tk-enrich-stage[data-owner-core-editor] {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+}
 .tk-enrich-card-block {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(36, 49, 42, 0.1);

@@ -1165,6 +1165,17 @@ function normalizedFreePlanAccess(value) {
 }
 
 function normalizedMultilineText(value, maxLength = 12000) {
+  // Arrays (legacy materials/directions/steps) must join with newlines — never
+  // String(array) which yields comma-separated corruption ("a,b,c").
+  if (Array.isArray(value)) {
+    value = value
+      .map((item) => {
+        if (item == null || typeof item === "object") return "";
+        return String(item).replace(/\r\n?/g, "\n").trim();
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
   const text = String(value || "").replace(/\r\n?/g, "\n").trim();
   if (!text) return "";
   if (curriculumSentinel.isSentinelValue(text)) return "";
@@ -1299,7 +1310,10 @@ function sanitizedActivityImageUrl(value, maxLength = 8_000_000) {
   const published = enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(value);
   if (published) return published.slice(0, maxLength);
   if (enrichmentMedia.isAdminEnrichmentMediaUrl(value)) return "";
-  return sanitizedResourceUrl(value, maxLength);
+  const resource = sanitizedResourceUrl(value, maxLength);
+  if (resource) return resource;
+  // Preserve site-relative curriculum image paths (e.g. /images/lesson-covers/...).
+  return sanitizedImageSource(value, maxLength);
 }
 
 const validLessonPlanResourceCategories = new Set([
@@ -1920,69 +1934,124 @@ function normalizedCurriculumDailyPlanItem(value) {
   if (!title) return null;
   let itemId = normalizedShortText(entry.itemId, 120);
   if (!itemId) itemId = generateCurriculumItemId();
-  return {
-    itemId,
-    importKey: normalizedShortText(entry.importKey, 160),
-    activityCategory: normalizedPlayActivityCategory(entry.activityCategory),
-    title,
-    objective: normalizedMultilineText(entry.objective, 4000),
-    purpose: normalizedMultilineText(entry.purpose, 4000),
-    description: normalizedMultilineText(entry.description, 4000),
-    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
-    developmentalDomains: normalizedList(entry.developmentalDomains || entry.domains, 12, (item) => normalizedShortText(item, 80)).filter(Boolean),
-    materials: normalizedMultilineText(entry.materials, 4000),
-    setup: normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT),
-    steps: normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT),
-    preparation: normalizedMultilineText(entry.preparation || entry.prep, 4000),
-    teacherRole: normalizedMultilineText(entry.teacherRole, 4000),
-    teacherLanguage: normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT),
-    learningGoals: normalizedList(entry.learningGoals, 20, (item) => normalizedMultilineText(item, 500)).filter(Boolean),
-    observationOpportunities: normalizedMultilineText(entry.observationOpportunities, 4000),
-    vocabulary: normalizedMultilineText(entry.vocabulary, 4000),
-    extensions: normalizedMultilineText(entry.extensions || entry.challengeExtension, 4000),
-    adaptations: normalizedMultilineText(entry.adaptations, 4000),
-    extraSupport: normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000),
-    mixedAgeAdaptations: normalizedMultilineText(entry.mixedAgeAdaptations || entry.mixedAge, 4000),
-    safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
-    ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
-    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
-    printableInstructions: normalizedMultilineText(entry.printableInstructions, 4000),
-    setupMinutes: normalizedOptionalMinutes(entry.setupMinutes),
-    durationMinutes: normalizedOptionalMinutes(
-      entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
-    ),
-    groupSize: normalizedShortText(entry.groupSize, 80),
-    dailyPlacement: normalizedShortText(entry.dailyPlacement || entry.placement, 120),
-    // Teaching Kit enrichment (additive — empty keeps legacy behavior).
-    // Public enrichment media paths or HTTPS/data — never private admin draft URLs.
-    setupImageUrl: sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
-    exampleImageUrl: sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
-    exampleImageCaption: normalizedShortText(entry.exampleImageCaption || entry.exampleCaption, 240),
-    setupImageCaption: normalizedShortText(entry.setupImageCaption || entry.setupCaption, 240),
-    exampleImageAlt: normalizedShortText(entry.exampleImageAlt || entry.exampleAlt, 240),
-    setupImageAlt: normalizedShortText(entry.setupImageAlt || entry.setupAlt, 240),
-    setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
-    exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
-    imageRequirement: normalizedImageRequirement(entry.imageRequirement),
-    teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
-    substitutions: normalizedList(entry.substitutions, 12, (item) => {
-      if (!item || typeof item !== "object") return null;
-      const need = normalizedShortText(item.need || item.from, 120);
-      const use = normalizedShortText(item.use || item.to, 120);
-      if (!need || !use) return null;
-      return { need, use };
-    }).filter(Boolean),
-    settingTags: normalizedList(entry.settingTags, 8, (item) => {
-      const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
-      return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
-    }).filter(Boolean),
-    // Complete Teaching Kit binder authoring (additive).
-    indoorAlternative: normalizedMultilineText(entry.indoorAlternative || entry.indoorAlternatives || entry.indoor, 4000),
-    outdoorOption: normalizedMultilineText(entry.outdoorOption || entry.outdoorAlternatives || entry.outdoor, 4000),
-    indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives || entry.indoorAlternative, 4000),
-    outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives || entry.outdoorOption, 4000),
-    cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
-  };
+
+  // Preserve unknown/legacy keys (directions, prep, cleanup, custom*, nulls)
+  // so publish/GET normalize cannot strip sibling activity bytes.
+  const normalized = { ...entry };
+
+  normalized.itemId = itemId;
+  normalized.importKey = normalizedShortText(entry.importKey, 160);
+  normalized.activityCategory = normalizedPlayActivityCategory(entry.activityCategory);
+  normalized.title = title;
+  normalized.objective = normalizedMultilineText(entry.objective, 4000);
+  normalized.purpose = normalizedMultilineText(entry.purpose, 4000);
+  normalized.description = normalizedMultilineText(entry.description, 4000);
+  normalized.learningDomains = normalizedCurriculumLearningDomains(entry.learningDomains);
+  normalized.developmentalDomains = normalizedList(
+    entry.developmentalDomains || entry.domains,
+    12,
+    (item) => normalizedShortText(item, 80),
+  ).filter(Boolean);
+  // Keep materials[] shape when present; strings stay multiline text.
+  normalized.materials = Array.isArray(entry.materials)
+    ? normalizedList(entry.materials, 80, (item) => normalizedShortText(item, 280)).filter(Boolean)
+    : normalizedMultilineText(entry.materials, 4000);
+  normalized.setup = normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  // Steps: preserve array shape. When only legacy directions[] exists, do not
+  // invent a corrupted comma-joined steps string — keep directions[].
+  if (Array.isArray(entry.steps)) {
+    normalized.steps = normalizedList(
+      entry.steps,
+      40,
+      (item) => normalizedMultilineText(item, 500),
+    ).filter(Boolean);
+  } else if (entry.steps != null && String(entry.steps).trim() !== "") {
+    normalized.steps = normalizedMultilineText(entry.steps, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  } else if (Array.isArray(entry.directions)) {
+    delete normalized.steps;
+    normalized.directions = normalizedList(
+      entry.directions,
+      40,
+      (item) => normalizedMultilineText(item, 500),
+    ).filter(Boolean);
+  } else {
+    normalized.steps = normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  }
+  normalized.preparation = normalizedMultilineText(entry.preparation || entry.prep, 4000);
+  normalized.teacherRole = normalizedMultilineText(entry.teacherRole, 4000);
+  normalized.teacherLanguage = normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT);
+  normalized.learningGoals = normalizedList(
+    entry.learningGoals,
+    20,
+    (item) => normalizedMultilineText(item, 500),
+  ).filter(Boolean);
+  normalized.observationOpportunities = normalizedMultilineText(entry.observationOpportunities, 4000);
+  normalized.vocabulary = normalizedMultilineText(entry.vocabulary, 4000);
+  normalized.extensions = normalizedMultilineText(entry.extensions || entry.challengeExtension, 4000);
+  normalized.adaptations = normalizedMultilineText(entry.adaptations, 4000);
+  normalized.extraSupport = normalizedMultilineText(entry.extraSupport || entry.differentiation, 4000);
+  normalized.mixedAgeAdaptations = normalizedMultilineText(entry.mixedAgeAdaptations || entry.mixedAge, 4000);
+  normalized.safetyNotes = normalizedMultilineText(entry.safetyNotes, 4000);
+  normalized.ageModifications = normalizedMultilineText(entry.ageModifications, 4000);
+  normalized.familyConnection = normalizedMultilineText(entry.familyConnection, 4000);
+  normalized.printableInstructions = normalizedMultilineText(entry.printableInstructions, 4000);
+  normalized.setupMinutes = normalizedOptionalMinutes(entry.setupMinutes);
+  normalized.durationMinutes = normalizedOptionalMinutes(
+    entry.durationMinutes != null ? entry.durationMinutes : entry.activityDurationMinutes,
+  );
+  normalized.groupSize = normalizedShortText(entry.groupSize, 80);
+  normalized.dailyPlacement = normalizedShortText(entry.dailyPlacement || entry.placement, 120);
+  // Teaching Kit enrichment (additive — empty keeps legacy behavior).
+  // Public enrichment media paths or HTTPS/data — never private admin draft URLs.
+  normalized.setupImageUrl = sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || "");
+  normalized.exampleImageUrl = sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || "");
+  normalized.exampleImageCaption = normalizedShortText(entry.exampleImageCaption || entry.exampleCaption, 240);
+  normalized.setupImageCaption = normalizedShortText(entry.setupImageCaption || entry.setupCaption, 240);
+  normalized.exampleImageAlt = normalizedShortText(entry.exampleImageAlt || entry.exampleAlt, 240);
+  normalized.setupImageAlt = normalizedShortText(entry.setupImageAlt || entry.setupAlt, 240);
+  normalized.setupMediaAssetId = enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId)
+    ? String(entry.setupMediaAssetId)
+    : "";
+  normalized.exampleMediaAssetId = enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId)
+    ? String(entry.exampleMediaAssetId)
+    : "";
+  normalized.imageRequirement = normalizedImageRequirement(entry.imageRequirement);
+  normalized.teacherTips = normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean);
+  normalized.substitutions = normalizedList(entry.substitutions, 12, (item) => {
+    if (!item || typeof item !== "object") return null;
+    const need = normalizedShortText(item.need || item.from, 120);
+    const use = normalizedShortText(item.use || item.to, 120);
+    if (!need || !use) return null;
+    return { need, use };
+  }).filter(Boolean);
+  normalized.settingTags = normalizedList(entry.settingTags, 8, (item) => {
+    const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
+    return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
+  }).filter(Boolean);
+  // Complete Teaching Kit binder authoring (additive).
+  normalized.indoorAlternative = normalizedMultilineText(
+    entry.indoorAlternative || entry.indoorAlternatives || entry.indoor,
+    4000,
+  );
+  normalized.outdoorOption = normalizedMultilineText(
+    entry.outdoorOption || entry.outdoorAlternatives || entry.outdoor,
+    4000,
+  );
+  normalized.indoorAlternatives = normalizedMultilineText(
+    entry.indoorAlternatives || entry.indoorAlternative,
+    4000,
+  );
+  normalized.outdoorAlternatives = normalizedMultilineText(
+    entry.outdoorAlternatives || entry.outdoorOption,
+    4000,
+  );
+  // cleanup / resetNotes are legacy aliases — map into cleanupTips for display
+  // but keep the original keys via the shallow copy above.
+  normalized.cleanupTips = normalizedMultilineText(
+    entry.cleanupTips || entry.cleanup || entry.resetNotes,
+    4000,
+  );
+  return normalized;
 }
 
 function normalizedCurriculumDailyPlans(value, lessonPlanId) {
@@ -3236,6 +3305,51 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
         enrichmentPublishHistory: incomingPlan.enrichmentPublishHistory,
         enrichmentPublished: incomingPlan.enrichmentPublished,
         resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
+          ? incomingPlan.updatedAt
+          : plan.updatedAt,
+      };
+    }
+    // Enrichment publish may relocate/replace only touched activities while keeping
+    // untouched sibling activity objects by reference. Do not whole-lesson normalize.
+    if (incomingPlan.__llhSurgicalDailyPlans === true) {
+      return {
+        ...plan,
+        enrichmentDraft: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentDraft")
+          ? incomingPlan.enrichmentDraft
+          : plan.enrichmentDraft,
+        enrichmentDraftUndo: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentDraftUndo")
+          ? incomingPlan.enrichmentDraftUndo
+          : plan.enrichmentDraftUndo,
+        enrichmentPublishHistory: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentPublishHistory")
+          ? incomingPlan.enrichmentPublishHistory
+          : plan.enrichmentPublishHistory,
+        enrichmentPublished: Object.prototype.hasOwnProperty.call(incomingPlan, "enrichmentPublished")
+          ? incomingPlan.enrichmentPublished
+          : plan.enrichmentPublished,
+        teachingKit: Object.prototype.hasOwnProperty.call(incomingPlan, "teachingKit")
+          ? incomingPlan.teachingKit
+          : plan.teachingKit,
+        weeklyOverview: Object.prototype.hasOwnProperty.call(incomingPlan, "weeklyOverview")
+          ? incomingPlan.weeklyOverview
+          : plan.weeklyOverview,
+        objectives: Object.prototype.hasOwnProperty.call(incomingPlan, "objectives")
+          ? incomingPlan.objectives
+          : plan.objectives,
+        familyConnection: Object.prototype.hasOwnProperty.call(incomingPlan, "familyConnection")
+          ? incomingPlan.familyConnection
+          : plan.familyConnection,
+        weeklyMaterials: Object.prototype.hasOwnProperty.call(incomingPlan, "weeklyMaterials")
+          ? incomingPlan.weeklyMaterials
+          : plan.weeklyMaterials,
+        books: Object.prototype.hasOwnProperty.call(incomingPlan, "books")
+          ? incomingPlan.books
+          : plan.books,
+        songs: Object.prototype.hasOwnProperty.call(incomingPlan, "songs")
+          ? incomingPlan.songs
+          : plan.songs,
+        resourceIds: Array.isArray(incomingPlan.resourceIds) ? incomingPlan.resourceIds : plan.resourceIds,
+        dailyPlans: incomingPlan.dailyPlans,
         updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
           ? incomingPlan.updatedAt
           : plan.updatedAt,
@@ -21170,8 +21284,8 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
     if (!match) return act;
     return normalizedCurriculumActivity({
       ...act,
-      setupImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
-      exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
+      setupImageUrl: sanitizedActivityImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
+      exampleImageUrl: sanitizedActivityImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
       setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId) ? match.setupMediaAssetId : (act.setupMediaAssetId || ""),
       exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.exampleMediaAssetId) ? match.exampleMediaAssetId : (act.exampleMediaAssetId || ""),
       imageRequirement: match.imageRequirement || act.imageRequirement || "",
@@ -21598,6 +21712,69 @@ async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId)
   }
 }
 
+/** itemIds present in an enrichment draft (planId:itemId or bare itemId keys). */
+function enrichmentDraftTouchedItemIds(enrichmentDraft, planId) {
+  const ids = new Set();
+  const acts = enrichmentDraft?.activities && typeof enrichmentDraft.activities === "object"
+    ? enrichmentDraft.activities
+    : {};
+  const prefix = `${String(planId || "")}:`;
+  Object.keys(acts).forEach((key) => {
+    const act = acts[key];
+    if (!act || typeof act !== "object") return;
+    if (act.itemId) ids.add(String(act.itemId));
+    if (prefix && key.startsWith(prefix)) {
+      ids.add(key.slice(prefix.length));
+      return;
+    }
+    if (!key.includes(":")) {
+      ids.add(key);
+      return;
+    }
+    const parts = String(key).split(":");
+    if (parts.length >= 2) ids.add(parts.slice(1).join(":"));
+  });
+  return ids;
+}
+
+/**
+ * Keep untouched sibling activities by exact existing object reference.
+ * Only draft-touched activities use merged values (plus safe image sanitize).
+ */
+function surgicalEnrichmentPublishDailyPlans(existingPlan, mergedDailyPlans, touchedItemIds) {
+  const existingById = new Map();
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    (existingPlan?.dailyPlans?.[day]?.items || []).forEach((item) => {
+      if (item?.itemId) existingById.set(String(item.itemId), item);
+    });
+  });
+  const next = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const mergedDay = mergedDailyPlans?.[day] && typeof mergedDailyPlans[day] === "object"
+      ? mergedDailyPlans[day]
+      : {};
+    const existingDay = existingPlan?.dailyPlans?.[day] && typeof existingPlan.dailyPlans[day] === "object"
+      ? existingPlan.dailyPlans[day]
+      : {};
+    next[day] = {
+      ...existingDay,
+      ...mergedDay,
+      items: (Array.isArray(mergedDay.items) ? mergedDay.items : []).map((item) => {
+        const itemId = String(item?.itemId || "");
+        if (!itemId || !touchedItemIds.has(itemId)) {
+          return existingById.get(itemId) || item;
+        }
+        return {
+          ...item,
+          setupImageUrl: sanitizedActivityImageUrl(item.setupImageUrl || ""),
+          exampleImageUrl: sanitizedActivityImageUrl(item.exampleImageUrl || ""),
+        };
+      }),
+    };
+  });
+  return next;
+}
+
 async function handlePublishEnrichment(request, response, ctx) {
   const {
     store,
@@ -21768,20 +21945,19 @@ async function handlePublishEnrichment(request, response, ctx) {
   const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft);
   const assetIds = [...enrichmentMedia.collectDraftMediaAssetIds(promotedDraft)];
 
-  // Sanitize merged plan image fields — strip any leftover admin URLs.
+  // Touch only draft-owned activities. Untouched siblings keep the exact existing
+  // activity object reference so Publish cannot remap categories, invent empty
+  // canonical fields, or strip relative curriculum image paths on siblings.
+  const touchedItemIds = enrichmentDraftTouchedItemIds(promotedDraft, id);
+  const surgicalDailyPlans = surgicalEnrichmentPublishDailyPlans(
+    existingPlan,
+    merged.plan?.dailyPlans || {},
+    touchedItemIds,
+  );
   const mergedPlan = {
     ...merged.plan,
-    dailyPlans: merged.plan.dailyPlans || {},
+    dailyPlans: surgicalDailyPlans,
   };
-  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
-    const dayPlan = mergedPlan.dailyPlans[day];
-    if (!dayPlan?.items) return;
-    dayPlan.items = dayPlan.items.map((item) => ({
-      ...item,
-      setupImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(item.setupImageUrl || ""),
-      exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(item.exampleImageUrl || ""),
-    }));
-  });
 
   const priorSnapshot = snapshotEnrichmentPublishedState(existingPlan, existingCurriculum.activities || []);
   const versionId = `epub-${crypto.randomBytes(12).toString("hex")}`;
@@ -21825,7 +22001,9 @@ async function handlePublishEnrichment(request, response, ctx) {
     id,
   );
   const ownerOverrideMeta = body?._ownerPublishOverrideApplied || null;
-  const nextPlan = normalizedCurriculumLessonPlan({
+  // Do NOT run whole-lesson normalizedCurriculumLessonPlan here — that rewrites
+  // every dailyPlans item (categories, empty canonical fields, image URLs).
+  const nextPlan = {
     ...existingPlan,
     ...mergedPlan,
     enrichmentDraft: null,
@@ -21847,7 +22025,9 @@ async function handlePublishEnrichment(request, response, ctx) {
       } : {}),
     },
     updatedAt: now,
-  });
+    dailyPlans: surgicalDailyPlans,
+    __llhSurgicalDailyPlans: true,
+  };
 
   // Surgical curriculum graph — do NOT call normalizedCurriculumStore() here.
   // Whole-library normalize would rewrite sibling setupMinutes / custom fields.
