@@ -178,20 +178,42 @@ async function main() {
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(OUT, "draft-review-open-review-desktop.png"), fullPage: false });
 
-    // Section-based editor — Activities
+    // Section-based editor — Activities (cards + Core Activity focused editor)
     await page.evaluate(() => {
       const btn = document.querySelector('[data-lre-section="activities"]');
       if (btn) btn.click();
     });
     await page.waitForTimeout(300);
-    await page.locator(".llh-lre-activity-card").first().click().catch(() => {});
-    await page.waitForTimeout(250);
+    await page.locator(".llh-lre-activity-list").scrollIntoViewIfNeeded().catch(() => {});
+    await page.screenshot({ path: path.join(OUT, "draft-review-activities-cards-apples-desktop.png"), fullPage: false });
     await page.screenshot({ path: path.join(OUT, "draft-review-section-editor-desktop.png"), fullPage: false });
+
+    await page.evaluate(() => {
+      const cards = [...document.querySelectorAll("[data-lre-open-activity]")];
+      const incomplete = cards.find((el) => /Core:\s*Incomplete/i.test(el.textContent || ""));
+      (incomplete || cards[0])?.click();
+    });
+    await page.waitForSelector(".llh-lre-core-activity, [data-lre-core-section]", { timeout: 10000 });
+    await page.waitForTimeout(300);
+    await page.locator(".llh-lre-activity-editor-head, .llh-lre-core-activity").first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(OUT, "draft-review-core-activity-apples-desktop.png"), fullPage: false });
+    await page.locator("[data-lre-core-field='steps'], .llh-lre-core-field").nth(5).scrollIntoViewIfNeeded().catch(() => {});
+    await page.screenshot({ path: path.join(OUT, "draft-review-core-activity-steps-apples-desktop.png"), fullPage: false });
+    await page.locator(".llh-lre-activity-enrichment, [data-lre-enrichment-section]").first()
+      .scrollIntoViewIfNeeded()
+      .catch(() => {});
+    await page.screenshot({ path: path.join(OUT, "draft-review-activity-enrichment-apples-desktop.png"), fullPage: false });
+    await page.evaluate(() => document.querySelector(".llh-lre-screenshot-toggle, [data-lre-screenshot-toggle]")?.click());
+    await page.waitForTimeout(250);
+    await page.locator(".llh-lre-core-activity, [data-lre-core-section]").first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(OUT, "draft-review-core-activity-screenshot-mode.png"), fullPage: false });
+    await page.evaluate(() => document.querySelector(".llh-lre-screenshot-toggle, [data-lre-screenshot-toggle]")?.click());
 
     // Images
     await page.evaluate(() => document.querySelector('[data-lre-section="images"]')?.click());
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, "draft-review-image-preview-desktop.png"), fullPage: false });
+    await page.screenshot({ path: path.join(OUT, "draft-review-image-preview-apples-desktop.png"), fullPage: false });
 
     // Close editor back to queue detail / printables via Draft Review UI
     await page.evaluate(() => {
@@ -202,47 +224,89 @@ async function main() {
     await page.waitForTimeout(400);
     await page.evaluate(async () => {
       setAdminSectionTab("curriculum-draft-review");
+      if (typeof applyAdminSectionVisibility === "function") applyAdminSectionVisibility();
       if (window.LLHDraftReviewQueue?.mount) await window.LLHDraftReviewQueue.mount();
     });
-    await page.waitForSelector("[data-draft-review-open-kit]", { timeout: 15000 });
-    // Open first detail then printable + compare panels
-    await page.click("[data-draft-review-open-kit]");
-    await page.waitForTimeout(800);
-    // If editor opened again, close and open detail actions from queue table path
-    await page.evaluate(() => {
-      if (window.LLHLessonReviewEditor?.isOpen?.()) {
-        window.LLHLessonReviewEditor.close({ force: true, skipReturnNavigation: true });
-      }
-    });
-    await page.waitForTimeout(300);
+    await page.waitForFunction(
+      () => document.querySelector("[data-draft-review-open-kit]") || document.querySelector("[data-draft-review-printables]"),
+      null,
+      { timeout: 20000 },
+    );
+    // Prefer openDetail so printables/compare controls appear without re-entering Open Review.
     await page.evaluate(async () => {
-      setAdminSectionTab("curriculum-draft-review");
-      if (window.LLHDraftReviewQueue?.mount) await window.LLHDraftReviewQueue.mount();
-      const id = document.querySelector("[data-draft-review-open-kit]")?.getAttribute("data-draft-review-open-kit");
-      if (id && window.LLHDraftReviewQueue?.openDetail) await window.LLHDraftReviewQueue.openDetail(id);
+      const id = document.querySelector("[data-draft-review-open-kit]")?.getAttribute("data-draft-review-open-kit")
+        || document.querySelector("[data-draft-review-detail]")?.getAttribute("data-draft-review-detail");
+      if (id && window.LLHDraftReviewQueue?.openDetail) {
+        await window.LLHDraftReviewQueue.openDetail(id);
+        return;
+      }
+      // Fallback: click first detail control if present
+      document.querySelector("[data-draft-review-detail]")?.click();
     });
-    await page.waitForSelector("[data-draft-review-printables]", { timeout: 15000 });
-    await page.click("[data-draft-review-printables]");
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: path.join(OUT, "draft-review-printable-preview-desktop.png"), fullPage: false });
+    await page.waitForTimeout(800);
+    if (await page.locator("[data-draft-review-printables]").count()) {
+      await page.locator("[data-draft-review-printables]").first().click({ force: true });
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: path.join(OUT, "draft-review-printable-preview-desktop.png"), fullPage: false });
+    } else {
+      console.log("· printable control missing; skipping printable screenshot");
+    }
 
-    await page.click("[data-draft-review-compare]");
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: path.join(OUT, "draft-review-compare-desktop.png"), fullPage: false });
+    if (await page.locator("[data-draft-review-compare]").count()) {
+      await page.locator("[data-draft-review-compare]").first().click({ force: true });
+      await page.waitForTimeout(700);
+      await page.screenshot({ path: path.join(OUT, "draft-review-compare-desktop.png"), fullPage: false });
+    } else {
+      console.log("· compare control missing; skipping compare screenshot");
+    }
 
-    // Mobile queue + open review
+    // Mobile queue + open review (use evaluate click — desktop/mobile markup can leave attached-but-hidden buttons)
     const mobilePage = await mobile.newPage();
     await unlock(mobilePage);
     await mobilePage.screenshot({ path: path.join(OUT, "draft-review-queue-mobile.png"), fullPage: true });
-    await mobilePage.locator("[data-draft-review-open-kit]").first().click();
+    await mobilePage.evaluate(() => {
+      const cards = [...document.querySelectorAll(".tk-draft-review-card, tr")];
+      const apples = cards.find((el) => /Amazing Apples/i.test(el.textContent || ""));
+      const btn = apples?.querySelector("[data-draft-review-open-kit]") || document.querySelector("[data-draft-review-open-kit]");
+      btn?.click();
+    });
     await mobilePage.waitForFunction(() => Boolean(window.LLHLessonReviewEditor?.isOpen?.()), null, { timeout: 15000 });
     await mobilePage.waitForTimeout(400);
     await mobilePage.screenshot({ path: path.join(OUT, "draft-review-open-review-mobile.png"), fullPage: false });
     if (await mobilePage.locator("[data-lre-section-select]").count()) {
       await mobilePage.selectOption("[data-lre-section-select]", "activities");
       await mobilePage.waitForTimeout(300);
+    } else {
+      await mobilePage.evaluate(() => document.querySelector('[data-lre-section="activities"]')?.click());
+      await mobilePage.waitForTimeout(300);
     }
     await mobilePage.screenshot({ path: path.join(OUT, "draft-review-section-editor-mobile.png"), fullPage: false });
+    await mobilePage.evaluate(() => {
+      const cards = [...document.querySelectorAll("[data-lre-open-activity]")];
+      const incomplete = cards.find((el) => /Core:\s*Incomplete/i.test(el.textContent || ""));
+      (incomplete || cards[0])?.click();
+    });
+    await mobilePage.waitForSelector(".llh-lre-core-activity, [data-lre-core-section]", { timeout: 10000 }).catch(() => {});
+    await mobilePage.waitForTimeout(300);
+    if (await mobilePage.locator(".llh-lre-core-activity, [data-lre-core-section]").count()) {
+      await mobilePage.locator(".llh-lre-core-activity, [data-lre-core-section]").first().scrollIntoViewIfNeeded();
+      await mobilePage.screenshot({ path: path.join(OUT, "draft-review-core-activity-apples-mobile.png"), fullPage: false });
+    }
+
+    // Alias names used in PR body
+    for (const [from, to] of [
+      ["draft-review-queue-desktop.png", "draft-review-queue-apples-desktop.png"],
+      ["draft-review-open-review-desktop.png", "draft-review-open-review-apples-desktop.png"],
+      ["draft-review-section-editor-desktop.png", "draft-review-section-editor-apples-desktop.png"],
+      ["draft-review-printable-preview-desktop.png", "draft-review-printable-preview-apples-desktop.png"],
+      ["draft-review-compare-desktop.png", "draft-review-compare-apples-desktop.png"],
+      ["draft-review-queue-mobile.png", "draft-review-queue-apples-mobile.png"],
+      ["draft-review-section-editor-mobile.png", "draft-review-section-editor-apples-mobile.png"],
+    ]) {
+      const src = path.join(OUT, from);
+      const dest = path.join(OUT, to);
+      if (fs.existsSync(src)) fs.copyFileSync(src, dest);
+    }
 
     await browser.close();
     console.log("Captured Draft Review owner screenshots to", OUT);

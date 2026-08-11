@@ -605,7 +605,7 @@
           </div>
         ` : `<p class="llh-lre-ok">Core Activity fields look complete for this activity.</p>`}
 
-        <section class="llh-lre-sub llh-lre-core-section" data-lre-core-section>
+        <section class="llh-lre-sub llh-lre-core-section llh-lre-core-activity" data-lre-core-section>
           <h4>Core Activity</h4>
           <p class="muted-copy">Fill these first. One-line filler does not count as complete.</p>
           ${input("Activity name", `${base}.title`, item.title, "Apple Investigation")}
@@ -616,7 +616,7 @@
             const value = coreFieldValue(item, field.key);
             const rows = field.key === "description" || field.key === "steps" ? 6 : 3;
             return `
-              <label class="llh-lre-field">
+              <label class="llh-lre-field llh-lre-core-field" data-lre-core-field="${esc(field.key)}">
                 <span class="llh-lre-label">${esc(field.label)}</span>
                 <span class="llh-lre-example">Example: ${esc(field.example)}</span>
                 <textarea data-lre-path="${esc(base)}.${esc(pathKey)}" rows="${rows}">${esc(value)}</textarea>
@@ -625,7 +625,7 @@
           }).join("")}
         </section>
 
-        <section class="llh-lre-sub" data-lre-enrichment-section>
+        <section class="llh-lre-sub llh-lre-activity-enrichment" data-lre-enrichment-section>
           <h4>Enrichment</h4>
           <p class="muted-copy">Optional depth after Core Activity is solid. Keep tips short and classroom-ready.</p>
           ${textarea("Group and setting", `${base}.groupSetting`, settingTags, "small group, indoor")}
