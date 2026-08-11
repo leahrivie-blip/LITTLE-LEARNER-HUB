@@ -22235,10 +22235,25 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       return;
     }
 
-    const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
-    const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
-    step = "writeSiteCurriculum";
-    const writeResult = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
+    // Classic / LRE full save: persist ONLY this lesson + its activities (+ any
+    // printables promoted for this lesson). syncCurriculumActivitiesForLessonPlan
+    // whole-normalizes in memory, so do NOT identity-diff the synced graph and do
+    // NOT call writeSiteCurriculum (that would rewrite unrelated siblings on disk).
+    const touchedLessonPlanIds = [id];
+    const touchedActivityIds = [...new Set(
+      (syncedCurriculum.activities || [])
+        .filter((activity) => activity?.lessonPlanId === id && activity?.id)
+        .map((activity) => activity.id),
+    )];
+    const touchedResourceIds = [...new Set((promotedPrintableIds || []).filter(Boolean))];
+
+    step = "writeSiteCurriculumTouched";
+    const writeResult = writeSiteCurriculumTouched(store, syncedCurriculum, {
+      updatedAt: now,
+      touchedLessonPlanIds,
+      touchedActivityIds,
+      touchedResourceIds,
+    });
     if (writeResult.wipeBlocked) {
       console.error("[curriculum-lesson-save] refused — would have shrunk the live curriculum unexpectedly", { id, step });
       jsonResponse(response, 409, {
@@ -22257,16 +22272,26 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       return;
     }
 
+    const persistedCurriculum = store.siteContent.curriculum || syncedCurriculum;
+    const savedPlan = (persistedCurriculum.lessonPlans || []).find((item) => item.id === id);
+    const savedActivities = (persistedCurriculum.activities || []).filter((activity) => activity.lessonPlanId === id);
     console.log("[curriculum-lesson-save] ok", {
       id,
       activities: savedActivities.filter((item) => item.status !== "archived").length,
       promotedPrintables: promotedPrintableIds.length,
       ms: Date.now() - startedAt,
     });
+    // Return the surgically persisted curriculum (siblings by reference) with
+    // resource file payloads stripped — do not re-emit the whole-normalized sync graph.
     jsonResponse(response, 200, {
       lessonPlan: savedPlan,
       activities: savedActivities,
-      curriculum: curriculumWithoutFileData(syncedCurriculum),
+      curriculum: {
+        ...persistedCurriculum,
+        resources: (persistedCurriculum.resources || [])
+          .map((item) => curriculumResourceMetadata(item))
+          .filter(Boolean),
+      },
       siteContentUpdatedAt: writeResult.stamp,
       promotedPrintableIds,
     });
