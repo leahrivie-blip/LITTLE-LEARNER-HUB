@@ -45,11 +45,14 @@ const ACT_CANON_ITEM = "item-proj-sync-canon";
 const ACT_CANON_SYNC = "cur-act-test-canon";
 const ACT_PARTIAL_ITEM = "item-proj-sync-partial";
 const ACT_PARTIAL_SYNC = "cur-act-test-partial";
+const ACT_BAD_CAT_SYNC = "cur-act-cat-allowlist-bad";
+const ACT_LANG_CAT_SYNC = "cur-act-cat-allowlist-lang";
 
 const CORE = {
   title: "PROJ_NAME_Distinct",
   dayOfWeek: "wednesday",
-  activityCategory: "Language",
+  // Allow-listed play category — shared normalizedCurriculumActivity must keep these.
+  activityCategory: "Literacy",
   ageModifications: "PROJ_AGE_Preschool",
   durationMinutes: 27,
   objective: "PROJ_OBJ_Distinct",
@@ -154,7 +157,7 @@ function buildStore() {
     itemId: ACT_EDIT_ITEM,
     title: "Seed Title",
     dayOfWeek: "monday",
-    activityCategory: "Language",
+    activityCategory: "Literacy",
     objective: "SEED_OBJ",
     description: "SEED_DESC",
     materials: "SEED_MAT",
@@ -348,6 +351,29 @@ function buildStore() {
           row(ACT_PARTIAL_SYNC, partial, "thursday"),
           row("cur-act-proj-fri", fri, "friday"),
           { id: "cur-act-proj-sib", lessonPlanId: SIBLING, itemId: "item-proj-sib", title: "Sib", dayOfWeek: "monday", objective: "sib", status: "published" },
+          // Store may historically hold non-allow-list strings; DTO/read must still fall back.
+          {
+            id: ACT_BAD_CAT_SYNC,
+            lessonPlanId: FIXTURE,
+            itemId: "item-cat-allowlist-bad",
+            title: "Bad Cat Probe",
+            dayOfWeek: "tuesday",
+            activityCategory: "NotARealCategory!!!",
+            objective: "bad-cat-obj",
+            status: "published",
+            sourceKey: `${FIXTURE}:item-cat-allowlist-bad`,
+          },
+          {
+            id: ACT_LANG_CAT_SYNC,
+            lessonPlanId: FIXTURE,
+            itemId: "item-cat-allowlist-lang",
+            title: "Language Cat Probe",
+            dayOfWeek: "tuesday",
+            activityCategory: "Language",
+            objective: "lang-cat-obj",
+            status: "published",
+            sourceKey: `${FIXTURE}:item-cat-allowlist-lang`,
+          },
         ],
         resources: [
           { id: "cur-res-proj-sync-pub", title: "Proj sync printable", type: "printable", status: "published", lessonPlanIds: [FIXTURE] },
@@ -645,6 +671,52 @@ async function main() {
     // editActBefore id still present (no duplicate created)
     const editRows = (readStore().siteContent.curriculum.activities || []).filter((a) => a.itemId === ACT_EDIT_ITEM);
     ok(editRows.length === 1 && editRows[0].id === ACT_EDIT_SYNC, "no duplicate activity row for edited item");
+
+    // ---------- Shared category allow-list regression (PR #632 scope fix) ----------
+    const serverSrc = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
+    const normSlice = serverSrc.slice(
+      serverSrc.indexOf("function normalizedCurriculumActivity"),
+      serverSrc.indexOf("function mergeNormalizedCurriculumActivityPreservingCustoms"),
+    );
+    ok(
+      /activityCategory:\s*PLAY_ACTIVITY_CATEGORIES\.has\(category\)\s*\?\s*category\s*:\s*"Open-Ended Exploration"/.test(normSlice),
+      "shared normalizedCurriculumActivity restores PLAY_ACTIVITY_CATEGORIES allow-list",
+    );
+    ok(
+      !/activityCategory:\s*category\s*\|\|\s*"Open-Ended Exploration"/.test(normSlice),
+      "shared normalizedCurriculumActivity does not preserve arbitrary non-empty categories",
+    );
+    ok(
+      serverSrc.includes("Publish-scoped only: restore the owned draft category"),
+      "publish-scoped owned category restore remains in applyMergedEnrichmentToActivities",
+    );
+
+    // Activity API / DTO path uses shared normalizer — malformed + non-allow-list fall back.
+    ok(activity(readStore(), ACT_BAD_CAT_SYNC)?.activityCategory === "NotARealCategory!!!",
+      "fixture store retained raw malformed category (DTO must still remap)");
+    ok(activity(readStore(), ACT_LANG_CAT_SYNC)?.activityCategory === "Language",
+      "fixture store retained raw Language category (DTO must still remap)");
+    const badApi = await requestJson("GET", `/api/curriculum/activities/${ACT_BAD_CAT_SYNC}`, null, auth);
+    const langApi = await requestJson("GET", `/api/curriculum/activities/${ACT_LANG_CAT_SYNC}`, null, auth);
+    ok(badApi.status === 200 && langApi.status === 200, "category allow-list probe APIs 200");
+    ok(
+      badApi.json?.activity?.activityCategory === "Open-Ended Exploration",
+      "shared normalizer: NotARealCategory!!! falls back on Activity API/DTO",
+    );
+    ok(
+      langApi.json?.activity?.activityCategory === "Open-Ended Exploration",
+      "shared normalizer: Language falls back on Activity API/DTO (not globally preserved)",
+    );
+    const litApi = await requestJson("GET", `/api/curriculum/activities/${ACT_EDIT_SYNC}`, null, auth);
+    ok(
+      litApi.json?.activity?.activityCategory === "Literacy",
+      "shared normalizer: allow-listed Literacy preserved on Activity API",
+    );
+    ok(
+      activity(readStore(), ACT_EDIT_SYNC)?.activityCategory === "Literacy"
+      && findItem(plan(readStore(), FIXTURE), ACT_EDIT_ITEM)?.item?.activityCategory === "Literacy",
+      "Publish path: allow-listed Core category agrees on dailyPlans + curriculum.activities",
+    );
 
     console.log(`\nPASS ${passed} checks — activity projection sync`);
   } catch (error) {

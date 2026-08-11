@@ -57,7 +57,8 @@ const ITEM_EDIT_SYNC = "cur-act-itemid-shape-001";
 const CORE = {
   title: "CURACT_NAME_EditedOnce",
   dayOfWeek: "wednesday",
-  activityCategory: "Language",
+  // Allow-listed play category — shared normalizedCurriculumActivity must keep these.
+  activityCategory: "Literacy",
   ageModifications: "CURACT_AGE_Preschool",
   durationMinutes: 22,
   objective: "CURACT_OBJ_OnlyEdit",
@@ -194,7 +195,7 @@ function makeEditedItem(itemId) {
     itemId,
     title: "Seed Edit Target",
     dayOfWeek: "monday",
-    activityCategory: "Language",
+    activityCategory: "Literacy",
     objective: "KEEP_OBJ_EditTarget",
     description: "KEEP_DESC_LineOne.\n\nKEEP_DESC_LineTwo.",
     materials: "KEEP_MAT_one\nKEEP_MAT_two",

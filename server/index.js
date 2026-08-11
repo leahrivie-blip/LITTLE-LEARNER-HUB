@@ -2249,10 +2249,7 @@ function normalizedCurriculumActivity(value) {
     itemId: itemId || "",
     sourceKey,
     dayOfWeek: CURRICULUM_WEEKDAYS.has(dayOfWeek) ? dayOfWeek : "",
-    // Preserve owner-authored categories outside the play allow-list (e.g. Core
-    // editor "Language"). Only invent the default when category is blank —
-    // never silently remap a published Core category during projection sync.
-    activityCategory: category || "Open-Ended Exploration",
+    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
     title: normalizedShortText(entry.title, 180) || "Activity",
     objective: normalizedMultilineText(entry.objective, 4000),
     description: normalizedMultilineText(entry.description, 4000),
@@ -2338,6 +2335,14 @@ function mergeNormalizedCurriculumActivityPreservingCustoms(incomingActivity, ex
   if (Array.isArray(source.steps)) result.steps = source.steps;
   if (Array.isArray(source.teacherTips)) result.teacherTips = source.teacherTips;
   if (Array.isArray(source.settingTags)) result.settingTags = source.settingTags;
+  // Surgical touched writes may carry a Publish-owned category restored by
+  // applyMergedEnrichmentToActivities. Persist that source value here so the
+  // shared allow-list in normalizedCurriculumActivity is not applied twice on
+  // the write path. DTO/read/sync callers still use the allow-list directly.
+  const sourceCategory = normalizedShortText(source.activityCategory, 80);
+  if (sourceCategory) {
+    result.activityCategory = sourceCategory;
+  }
   return result;
 }
 
@@ -21489,8 +21494,9 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
         result[key] = act[key];
       }
     });
-    // Do not let Activity Center category allow-list remap an owned Core category
-    // (e.g. "Language") during projection sync — dailyPlans remains authorship truth.
+    // Publish-scoped only: restore the owned draft category onto this touched row
+    // after shared allow-list normalize. Does not change normalizedCurriculumActivity
+    // validation used by DTO/read/sync paths.
     if (owned("activityCategory") && match.activityCategory != null && String(match.activityCategory).trim()) {
       result.activityCategory = match.activityCategory;
     }
