@@ -4029,6 +4029,11 @@ function mergeEnrichmentDraftPatch(existingDraft, patch) {
 /** True when a draft has real activity/week enrichment content (not just timestamps). */
 function enrichmentDraftHasContent(draft) {
   if (!draft || typeof draft !== "object" || Array.isArray(draft)) return false;
+  const basics = draft.lessonBasicsDraft && typeof draft.lessonBasicsDraft === "object"
+    && !Array.isArray(draft.lessonBasicsDraft)
+    ? draft.lessonBasicsDraft
+    : null;
+  if (basics && Object.keys(basics).length > 0) return true;
   const activities = draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
     ? draft.activities
     : {};
@@ -4044,6 +4049,26 @@ function enrichmentDraftHasContent(draft) {
     if (typeof value === "object") return Object.keys(value).length > 0;
     return true;
   });
+}
+
+/** Apply owner Lesson Basics draft overlay onto a plan without mutating the source objects. */
+function applyLessonBasicsDraftToPlan(plan, basicsDraft) {
+  if (!plan || typeof plan !== "object") return plan;
+  if (!basicsDraft || typeof basicsDraft !== "object" || Array.isArray(basicsDraft)) return plan;
+  const next = { ...plan };
+  const keys = [
+    "title", "age", "theme", "plan", "learningDomains",
+    "weeklyOverview", "objectives", "weeklyMaterials", "vocabularyWords",
+    "observationOpportunities", "adaptations", "familyConnection",
+    "books", "songs", "dailyPlans",
+    "coverImageUrl", "coverImageAlt", "coverImageSource", "coverImagePosition", "coverQualityStatus",
+  ];
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(basicsDraft, key)) {
+      next[key] = basicsDraft[key];
+    }
+  });
+  return next;
 }
 
 /**
@@ -4066,7 +4091,7 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
   if (previousHasContent && !incomingHasContent && !allowEmptyOverwrite) {
     return { draft: previous, rejectedEmptyOverwrite: true };
   }
-  // Explicit discard: empty incoming + allowEmptyOverwrite clears activity/week content.
+  // Explicit discard: empty incoming + allowEmptyOverwrite clears activity/week/basics content.
   if (!incomingHasContent && allowEmptyOverwrite) {
     return {
       draft: {
@@ -4087,6 +4112,7 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
     "week",
     "completionPercent",
     "previewReady",
+    "lessonBasicsDraft",
   ]);
   const merged = {
     ...(previous || {}),
@@ -4140,6 +4166,13 @@ function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyO
     merged.week = { ...prevWeek, ...nextWeek };
   } else {
     merged.week = { ...prevWeek };
+  }
+
+  // Preserve Lesson Basics draft overlay when a Teaching Kit save omits it.
+  if (!Object.prototype.hasOwnProperty.call(incoming, "lessonBasicsDraft")
+    && previous?.lessonBasicsDraft
+    && typeof previous.lessonBasicsDraft === "object") {
+    merged.lessonBasicsDraft = previous.lessonBasicsDraft;
   }
 
   return { draft: merged, rejectedEmptyOverwrite: false };
@@ -21745,9 +21778,15 @@ async function handlePublishEnrichment(request, response, ctx) {
     || (Array.isArray(weekToolkit.observationFocus) && weekToolkit.observationFocus.length),
   );
   const hasActivityEnrichment = Boolean(Object.keys(incomingDraft?.activities || {}).length);
+  const hasLessonBasicsDraft = Boolean(
+    incomingDraft?.lessonBasicsDraft
+    && typeof incomingDraft.lessonBasicsDraft === "object"
+    && !Array.isArray(incomingDraft.lessonBasicsDraft)
+    && Object.keys(incomingDraft.lessonBasicsDraft).length > 0,
+  );
   // Idempotent duplicate publish: no draft left / same fingerprint → no new version.
-  const draftEmpty = !incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment);
-  if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint)) {
+  const draftEmpty = !incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment && !hasLessonBasicsDraft);
+  if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint && !hasLessonBasicsDraft)) {
     jsonResponse(response, 200, {
       ok: true,
       saveMode: "publish_enrichment",
@@ -21759,7 +21798,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     });
     return;
   }
-  if (!incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment)) {
+  if (!incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment && !hasLessonBasicsDraft)) {
     jsonResponse(response, 400, {
       error: "No enrichment draft to publish for this lesson.",
       code: "enrichment_draft_empty",
@@ -21769,6 +21808,10 @@ async function handlePublishEnrichment(request, response, ctx) {
 
   const linkedActivities = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
   // Promote photo URLs in a draft copy so merge writes public URLs (never admin draft URLs).
+  // Apply Lesson Basics draft overlay onto the published body only at explicit Publish time.
+  const planForMerge = hasLessonBasicsDraft
+    ? applyLessonBasicsDraftToPlan(existingPlan, incomingDraft.lessonBasicsDraft)
+    : existingPlan;
   const promotedDraft = {
     ...incomingDraft,
     activities: Object.fromEntries(
@@ -21778,7 +21821,8 @@ async function handlePublishEnrichment(request, response, ctx) {
       ]),
     ),
   };
-  const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft);
+  delete promotedDraft.lessonBasicsDraft;
+  const merged = enrichmentApi.mergeDraftIntoPlan(planForMerge, linkedActivities, promotedDraft);
   const assetIds = [...enrichmentMedia.collectDraftMediaAssetIds(promotedDraft)];
 
   // Sanitize merged plan image fields — strip any leftover admin URLs.
@@ -22181,6 +22225,23 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     const nextStatus = normalizedShortText(incomingPlan.status, 20);
     const wasPublic = isCurriculumLessonPublic(existingPlan?.status || "");
     const willBePublic = isCurriculumLessonPublic(nextStatus);
+    // Guard: full-save must not demote (or silently rewrite) a live published lesson.
+    // Owner Save Draft uses enrichment_draft + lessonBasicsDraft instead.
+    // Explicit demotion (bulk Move to Draft) must pass allowDemotePublished.
+    if (wasPublic && !willBePublic && body?.allowDemotePublished !== true) {
+      console.warn("[curriculum-lesson-save] refused published→draft demotion", {
+        id,
+        incomingStatus: nextStatus,
+      });
+      jsonResponse(response, 409, {
+        error: "This lesson is published. Save Draft cannot unpublish or replace the customer version. Use Teaching Kit / Lesson Basics draft save, or Move to Draft explicitly.",
+        code: "published_demotion_refused",
+        lessonPlan: existingPlan,
+        curriculum: existingCurriculum,
+        siteContentUpdatedAt: siteContent.updatedAt,
+      });
+      return;
+    }
     let publishedAt = normalizedShortText(existingPlan?.publishedAt, 80)
       || normalizedShortText(incomingPlan.publishedAt, 80)
       || "";
@@ -22192,6 +22253,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     }
     const planInput = withAutoAssignedLessonCover({
       ...incomingPlan,
+      status: nextStatus,
       // Preserve an existing cover when the client omits cover fields on update.
       coverImageUrl: incomingPlan.coverImageUrl || existingPlan?.coverImageUrl || "",
       coverImageAlt: incomingPlan.coverImageAlt || existingPlan?.coverImageAlt || "",

@@ -331,8 +331,15 @@ async function main() {
       "canceled publish left printable draft",
     );
 
-    // Edit Lesson Basics → forceClassic → back to TK (no save — avoid demoting published fixture).
-    const statusBeforeBasics = plan(readStore(), FIXTURE).status;
+    // PRIMARY: published → Edit Lesson Basics → Save Draft must NOT demote or replace customer body.
+    const customerTitleBefore = plan(readStore(), FIXTURE).title;
+    const customerBodyFpBefore = fp({
+      title: plan(readStore(), FIXTURE).title,
+      weeklyOverview: plan(readStore(), FIXTURE).weeklyOverview,
+      dailyPlans: plan(readStore(), FIXTURE).dailyPlans,
+      status: plan(readStore(), FIXTURE).status,
+    });
+    const siblingResBefore = fp(readStore().siteContent.curriculum.resources.find((r) => r.id === DRAFT_RES));
     await page.click("[data-enrich-edit-basics]");
     await page.waitForSelector("#adminCurriculumLessonPlanForm", { timeout: 15000 });
     const basics = await page.evaluate(() => ({
@@ -346,14 +353,102 @@ async function main() {
     ok(/Back to Teaching Kit/i.test(basics.back), "Back to Teaching Kit label present");
     ok(basics.forceForm && basics.dayEditors >= 5 && !basics.tkOpen, "forceClassic Lesson Basics form open; TK editor closed");
     await page.screenshot({ path: path.join(OUT, "owner-tk-lesson-basics-desktop.png"), fullPage: false });
-    ok(plan(readStore(), FIXTURE).status === statusBeforeBasics, "opening Lesson Basics did not change lesson status");
-    ok(fp(plan(readStore(), SIBLING)) === siblingBefore, "opening Lesson Basics left sibling untouched");
+
+    const DRAFT_TITLE = "Owner Workspace Disposable Fixture (draft basics edit)";
+    await page.fill('#adminCurriculumLessonPlanForm [name="title"]', DRAFT_TITLE);
+    await page.click("[data-curriculum-lesson-save-draft]");
+    await page.waitForFunction(() => {
+      const banner = document.querySelector("#adminCurriculumLessonPlanBanner")?.textContent || "";
+      return /Draft saved/i.test(banner) && /stays published|Customer version/i.test(banner);
+    }, null, { timeout: 20000 });
+
+    const afterBasicsDraft = plan(readStore(), FIXTURE);
+    ok(afterBasicsDraft.status === "published", "Basics Save Draft kept customer status published");
+    ok(afterBasicsDraft.title === customerTitleBefore, "Basics Save Draft did not replace customer title");
+    ok(
+      fp({
+        title: afterBasicsDraft.title,
+        weeklyOverview: afterBasicsDraft.weeklyOverview,
+        dailyPlans: afterBasicsDraft.dailyPlans,
+        status: afterBasicsDraft.status,
+      }) === customerBodyFpBefore,
+      "Basics Save Draft left customer content fingerprint unchanged",
+    );
+    ok(
+      afterBasicsDraft.enrichmentDraft?.lessonBasicsDraft?.title === DRAFT_TITLE,
+      "Basics Save Draft stored intended edit in owner draft overlay",
+    );
+    ok(
+      afterBasicsDraft.enrichmentDraft?.week?.weeklyOverview === "Saved owner draft overview",
+      "Basics Save Draft preserved prior Teaching Kit draft week edits",
+    );
+    ok(
+      String(readStore().siteContent.curriculum.resources.find((r) => r.id === DRAFT_RES)?.status) === "draft",
+      "Basics Save Draft did not publish draft printable",
+    );
+    ok(fp(plan(readStore(), SIBLING)) === siblingBefore, "Basics Save Draft left sibling lesson unchanged");
+    ok(
+      fp(readStore().siteContent.curriculum.resources.find((r) => r.id === DRAFT_RES)) === siblingResBefore,
+      "Basics Save Draft left draft printable resource fingerprint unchanged",
+    );
+
+    // Belt-and-suspenders: classic full-save demotion attempt must be refused (409),
+    // not silently rewrite the published customer body under a preserved status.
+    const demoteStampRes = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
+    const demoteStamp = demoteStampRes.json?.siteContent?.updatedAt || readStore().siteContent.updatedAt;
+    const livePlan = plan(readStore(), FIXTURE);
+    const demoteAttempt = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      expectedUpdatedAt: demoteStamp,
+      lessonPlan: {
+        ...livePlan,
+        title: "SHOULD NOT APPLY demotion body",
+        status: "draft",
+      },
+    }, { Authorization: `Bearer ${token}` });
+    ok(demoteAttempt.status === 409, `full-save demotion refused with 409 (got ${demoteAttempt.status})`);
+    ok(demoteAttempt.json?.code === "published_demotion_refused", "demotion refusal uses published_demotion_refused");
+    ok(plan(readStore(), FIXTURE).title === customerTitleBefore, "refused demotion left customer title unchanged");
+    ok(plan(readStore(), FIXTURE).status === "published", "refused demotion left status published");
 
     await page.click("[data-curriculum-lesson-back]");
     await page.waitForFunction(() => window.LLHTeachingKitEnrichmentEditor?.isOpen?.() === true, null, { timeout: 15000 });
     ok(true, "Back to Teaching Kit reopened TK workspace");
 
-    // Mobile smoke
+    // Explicit Publish promotes draft (including basics overlay) — disposable fixture only.
+    const stampRes = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
+    const stamp = stampRes.json?.siteContent?.updatedAt || readStore().siteContent.updatedAt;
+    const publishRes = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      saveMode: "publish_enrichment",
+      expectedUpdatedAt: stamp,
+      publishedBy: OWNER.email,
+      ownerPublishOverride: {
+        confirmed: true,
+        reason: "Disposable fixture publish for owner workspace regression only.",
+      },
+      lessonPlan: {
+        id: FIXTURE,
+        enrichmentDraft: plan(readStore(), FIXTURE).enrichmentDraft,
+      },
+    }, { Authorization: `Bearer ${token}` });
+    ok(publishRes.status === 200, `explicit Publish returned 200 (got ${publishRes.status}: ${publishRes.json?.error || ""})`);
+    const afterPublish = plan(readStore(), FIXTURE);
+    ok(afterPublish.status === "published", "Publish kept/left lesson published");
+    ok(afterPublish.title === DRAFT_TITLE, "Publish promoted Lesson Basics draft title to customer version");
+    ok(!afterPublish.enrichmentDraft?.lessonBasicsDraft, "Publish cleared lessonBasicsDraft overlay");
+    ok(
+      String(readStore().siteContent.curriculum.resources.find((r) => r.id === DRAFT_RES)?.status) === "published",
+      "Publish promoted linked draft printable",
+    );
+    ok(fp(plan(readStore(), SIBLING)) === siblingBefore, "Publish left sibling lesson unchanged");
+
+    // Mobile smoke on reopened editor
+    await page.evaluate(async (id) => {
+      if (window.LLHTeachingKitEnrichmentEditor?.isOpen?.()) {
+        await window.LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true, skipReturnNavigation: true });
+      }
+      await window.openOwnerTeachingKitEditor(id, { source: "edit" });
+    }, FIXTURE);
+    await page.waitForFunction(() => window.LLHTeachingKitEnrichmentEditor?.isOpen?.() === true, null, { timeout: 15000 });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(200);
     const mobile = await page.evaluate(() => {

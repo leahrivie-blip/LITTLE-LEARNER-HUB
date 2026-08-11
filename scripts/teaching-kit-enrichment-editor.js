@@ -611,6 +611,10 @@
 
   function enrichmentDraftLooksPopulated(draft) {
     if (!draft || typeof draft !== "object") return false;
+    const basics = draft.lessonBasicsDraft && typeof draft.lessonBasicsDraft === "object"
+      ? draft.lessonBasicsDraft
+      : null;
+    if (basics && Object.keys(basics).length) return true;
     const acts = draft.activities && typeof draft.activities === "object" ? Object.keys(draft.activities) : [];
     if (acts.length) return true;
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};

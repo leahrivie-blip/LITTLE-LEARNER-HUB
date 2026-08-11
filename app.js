@@ -10227,6 +10227,36 @@ function curriculumSongsToText(songs = []) {
   return songs.map((song) => [song.title, song.notes].filter(Boolean).join(" | ")).join("\n");
 }
 
+/** Fields Lesson Basics may draft-overlay without demoting a live published lesson. */
+const LESSON_BASICS_DRAFT_KEYS = [
+  "title", "age", "theme", "plan", "learningDomains",
+  "weeklyOverview", "objectives", "weeklyMaterials", "vocabularyWords",
+  "observationOpportunities", "adaptations", "familyConnection",
+  "books", "songs", "dailyPlans",
+  "coverImageUrl", "coverImageAlt", "coverImageSource", "coverImagePosition", "coverQualityStatus",
+];
+
+function pickLessonBasicsDraftFields(plan) {
+  if (!plan || typeof plan !== "object") return null;
+  const draft = {};
+  LESSON_BASICS_DRAFT_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(plan, key)) draft[key] = plan[key];
+  });
+  draft.savedAt = new Date().toISOString();
+  return draft;
+}
+
+function applyLessonBasicsDraftOverlay(plan) {
+  if (!plan || typeof plan !== "object") return plan;
+  const basics = plan.enrichmentDraft?.lessonBasicsDraft;
+  if (!basics || typeof basics !== "object") return plan;
+  const next = { ...plan };
+  LESSON_BASICS_DRAFT_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(basics, key)) next[key] = basics[key];
+  });
+  return next;
+}
+
 function curriculumLessonEditorRecord() {
   const editingId = adminCurriculumLessonEditorId;
   if (!editingId) return null;
@@ -10250,9 +10280,11 @@ function curriculumLessonEditorRecord() {
     songs: [],
     dailyPlans: emptyCurriculumDailyPlans(),
   };
+  // Owner Lesson Basics draft overlay: show saved draft edits while customer body stays live.
+  const withBasicsDraft = applyLessonBasicsDraftOverlay(base);
   return adminCurriculumLessonImportDraft
-    ? normalizeCurriculumLessonPlanForRender({ ...base, ...adminCurriculumLessonImportDraft, id: editingId })
-    : normalizeCurriculumLessonPlanForRender(base);
+    ? normalizeCurriculumLessonPlanForRender({ ...withBasicsDraft, ...adminCurriculumLessonImportDraft, id: editingId })
+    : normalizeCurriculumLessonPlanForRender(withBasicsDraft);
 }
 
 function snapshotCurriculumDailyItemIds(form) {
@@ -11626,6 +11658,8 @@ function curriculumLessonHasUnpublishedChanges(plan) {
   if (!plan) return false;
   if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object") {
     const draft = plan.enrichmentDraft;
+    if (draft.lessonBasicsDraft && typeof draft.lessonBasicsDraft === "object"
+      && Object.keys(draft.lessonBasicsDraft).length) return true;
     if (draft.activities && typeof draft.activities === "object" && Object.keys(draft.activities).length) return true;
     if (draft.week && typeof draft.week === "object" && Object.keys(draft.week).length) return true;
     if (draft.previewReady === true) return true;
@@ -12594,6 +12628,8 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
         body: JSON.stringify({
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
           lessonPlan: { ...plan, status },
+          // Bulk Move to Draft is an intentional demotion (not Save Draft).
+          allowDemotePublished: String(status || "").toLowerCase() === "draft",
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -13391,6 +13427,50 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
   return collected;
 }
 
+/**
+ * Published Lesson Basics → Save Draft.
+ * Stores edits in enrichmentDraft.lessonBasicsDraft via the surgical enrichment_draft
+ * path so customer status/content stay live until explicit Publish.
+ */
+async function savePublishedLessonBasicsAsDraft(form, collectedPlan, token) {
+  const id = String(collectedPlan?.id || "").trim();
+  const existing = curriculumLessonPlanById(id);
+  if (!id || !existing) throw new Error("Lesson plan not found for draft save.");
+  const basicsDraft = pickLessonBasicsDraftFields(collectedPlan);
+  const previousEnrichment = existing.enrichmentDraft && typeof existing.enrichmentDraft === "object"
+    ? existing.enrichmentDraft
+    : {};
+  const enrichmentDraft = {
+    ...previousEnrichment,
+    lessonBasicsDraft: basicsDraft,
+    updatedAt: new Date().toISOString(),
+    lastEditedBy: String(adminSession()?.email || adminSession()?.name || previousEnrichment.lastEditedBy || "admin").trim(),
+  };
+  if (!curriculumExpectedUpdatedAt()) {
+    try { await loadAdminSiteContent(); } catch (_error) { /* continue */ }
+  }
+  const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      saveMode: "enrichment_draft",
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      adminEmail: enrichmentDraft.lastEditedBy,
+      lessonPlan: { id, enrichmentDraft },
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Draft save failed (${response.status}).`);
+  }
+  if (data.curriculum || data.lessonPlan) {
+    applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+      siteContentUpdatedAt: data.siteContentUpdatedAt,
+    });
+  }
+  return data;
+}
+
 async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
   if (adminCurriculumLessonSaving) {
     setAdminCurriculumLessonSaveBanner("Already saving — please wait. If this persists, refresh the page and try again.", false);
@@ -13418,11 +13498,46 @@ async function saveAdminCurriculumLessonPlanForm(form, options = {}) {
   if (!lessonPlan.id) {
     lessonPlan.id = adminCurriculumLessonEditorId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   }
+
+  const existingBeforeSave = curriculumLessonPlanById(lessonPlan.id);
+  const existingIsPublic = ["published", "featured"].includes(String(existingBeforeSave?.status || "").toLowerCase());
+  // Owner / classic Save Draft on a LIVE lesson must not demote or replace the customer version.
+  // Persist Lesson Basics edits into enrichmentDraft.lessonBasicsDraft instead.
+  if (options.forceStatus === "draft" && existingIsPublic) {
+    adminCurriculumLessonSaving = true;
+    setAdminCurriculumLessonSaveBanner(`Saving draft of “${lessonPlan.title}” — customer version stays published…`, true);
+    form.querySelectorAll("[data-curriculum-lesson-save-draft], [data-curriculum-lesson-publish], button[type='submit']").forEach((btn) => {
+      btn.disabled = true;
+    });
+    try {
+      await savePublishedLessonBasicsAsDraft(form, lessonPlan, token);
+      setAdminCurriculumLessonSaveBanner(
+        `✅ Draft saved for “${lessonPlan.title}”. Customer version stays published until you Publish.`,
+        true,
+      );
+      showActionFeedback("Draft saved. Customer version unchanged until Publish.");
+    } catch (error) {
+      setAdminCurriculumLessonSaveBanner(`❌ ${error.message || "Draft save failed."}`, false);
+    } finally {
+      adminCurriculumLessonSaving = false;
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+      document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    return;
+  }
+
   // Explicit Save Draft / Publish actions set status without relying on the dropdown alone.
   if (options.forceStatus) {
     lessonPlan.status = options.forceStatus;
     const statusSelect = form.querySelector('[name="status"]');
     if (statusSelect) statusSelect.value = options.forceStatus;
+  }
+  // Publishing from Lesson Basics clears any basics draft overlay (form values become live).
+  if (options.forceStatus === "published" && lessonPlan.enrichmentDraft && typeof lessonPlan.enrichmentDraft === "object") {
+    const nextEnrichment = { ...lessonPlan.enrichmentDraft };
+    delete nextEnrichment.lessonBasicsDraft;
+    lessonPlan.enrichmentDraft = nextEnrichment;
   }
   adminCurriculumLessonEditorId = lessonPlan.id;
   const activityCount = countCurriculumDailyPlanItems(lessonPlan.dailyPlans);
