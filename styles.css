@@ -29837,3 +29837,129 @@ body.llh-doc-detail-open {
     flex-direction: column;
   }
 }
+
+
+/* Wave 7 — Paperwork upload modal */
+body.llh-upload-open { overflow: hidden; }
+.llh-upload-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12100;
+  display: grid;
+  place-items: end center;
+  background: rgba(20, 28, 26, 0.45);
+}
+.llh-upload-sheet {
+  width: min(100%, 560px);
+  max-height: min(94vh, 860px);
+  overflow: auto;
+  background: linear-gradient(180deg, #f7faf8 0%, #eef4f1 100%);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 32px rgba(20, 28, 26, 0.18);
+  padding: 0 0 12px;
+}
+.llh-upload-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(31, 42, 36, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+}
+.llh-upload-kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2f5f5c;
+  font-weight: 700;
+}
+.llh-upload-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1f3d3a;
+}
+.llh-upload-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+}
+.llh-upload-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: #1f3d3a;
+}
+.llh-upload-field input,
+.llh-upload-field select {
+  font: inherit;
+  font-weight: 400;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(31, 42, 36, 0.18);
+  background: #fff;
+}
+.llh-upload-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-weight: 500;
+  color: #1f3d3a;
+}
+.llh-upload-help {
+  margin: 0;
+  color: #5a6663;
+  font-size: 0.9rem;
+}
+.llh-upload-file-name {
+  margin: 0;
+  color: #2f5f5c;
+  font-weight: 600;
+}
+.llh-upload-error {
+  margin: 0;
+  color: #8a2f2f;
+  font-weight: 600;
+}
+.llh-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  padding-top: 8px;
+  background: linear-gradient(180deg, rgba(238, 244, 241, 0), #eef4f1 35%);
+}
+.llh-upload-actions .primary-button,
+.llh-upload-actions .ghost-button {
+  min-height: 44px;
+}
+.paperwork-hq-row[data-expiration-state="expired"] strong::after,
+.resource-row[data-expiration-state="expired"] strong::after {
+  content: " · Expired";
+  color: #8a2f2f;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.paperwork-hq-row[data-expiration-state="expiring_soon"] strong::after,
+.resource-row[data-expiration-state="expiring_soon"] strong::after {
+  content: " · Expiring Soon";
+  color: #8a5a2f;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+@media (min-width: 900px) {
+  .llh-upload-modal { place-items: center; padding: 24px; }
+  .llh-upload-sheet {
+    border-radius: 16px;
+    width: min(100%, 600px);
+  }
+}
+@media (max-width: 420px) {
+  .llh-upload-sheet {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}

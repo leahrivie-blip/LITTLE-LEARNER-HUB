@@ -96,62 +96,78 @@
     const recipient = detail.recipient || {};
     const tracking = detail.tracking || {};
     const caps = detail.capabilities || {};
+    const isUpload = caps.isUploadedDocument || doc.presentation === "uploaded_document" || doc.sourceType === "upload";
     const who = recipient.recipientKind === "staff"
       ? (recipient.assigneeEmail || "Staff")
-      : (recipient.childName || recipient.recipientLabel || "Recipient");
+      : (doc.assigneeType === "program"
+        ? "Program"
+        : (recipient.childName || recipient.recipientLabel || "Recipient"));
     const trackingBits = [
       tracking.assignedAt ? `Assigned ${formatLocalDateTime(tracking.assignedAt)}` : "",
-      tracking.viewedAt ? `Viewed ${formatLocalDateTime(tracking.viewedAt)}` : "Not opened yet",
+      !isUpload && tracking.viewedAt ? `Viewed ${formatLocalDateTime(tracking.viewedAt)}` : (!isUpload ? "Not opened yet" : ""),
       tracking.startedAt ? `Started ${formatLocalDateTime(tracking.startedAt)}` : "",
       tracking.submittedAt ? `Submitted ${formatLocalDateTime(tracking.submittedAt)}` : "",
       tracking.completedAt ? `Completed ${formatLocalDateTime(tracking.completedAt)}` : "",
       tracking.remindedAt ? `Reminded ${formatLocalDateTime(tracking.remindedAt)}` : "",
+      doc.uploadedAt ? `Uploaded ${formatLocalDateTime(doc.uploadedAt)}` : "",
+      doc.expiresAt ? `Expires ${formatLocalDate(doc.expiresAt)}${doc.expirationLabel ? ` · ${doc.expirationLabel}` : ""}` : "",
       tracking.archived ? "Archived (hidden from active queues; history kept)" : "",
     ].filter(Boolean);
 
     return `
-      <div class="llh-doc-detail" data-llh-doc-detail-root="1" role="dialog" aria-modal="true" aria-labelledby="llhDocDetailTitle">
+      <div class="llh-doc-detail" data-llh-doc-detail-root="1" role="dialog" aria-modal="true" aria-labelledby="llhDocDetailTitle" data-presentation="${escapeHtml(isUpload ? "uploaded_document" : "llh_form")}">
         <div class="llh-doc-detail-sheet">
           <header class="llh-doc-detail-head">
             <div>
-              <p class="llh-doc-kicker">Document detail</p>
+              <p class="llh-doc-kicker">${isUpload ? "Uploaded document" : "Document detail"}</p>
               <h2 id="llhDocDetailTitle">${escapeHtml(doc.title || "Form")}</h2>
-              <p class="llh-doc-muted">${escapeHtml(doc.typeLabel || "")} · ${escapeHtml(doc.category || "")} · ${escapeHtml(doc.statusLabel || doc.status || "")}</p>
+              <p class="llh-doc-muted">${escapeHtml(doc.typeLabel || "")} · ${escapeHtml(doc.category || "")} · ${escapeHtml(doc.statusLabel || doc.status || "")}${doc.expirationLabel ? ` · ${escapeHtml(doc.expirationLabel)}` : ""}</p>
             </div>
             <button type="button" class="ghost-button" data-llh-doc-detail-close aria-label="Close document detail">Close</button>
           </header>
           <div class="llh-doc-detail-body">
             <section class="llh-doc-section" aria-labelledby="llhDocRecip">
-              <h3 id="llhDocRecip">Recipient</h3>
+              <h3 id="llhDocRecip">${isUpload ? "Linked to" : "Recipient"}</h3>
               <p><strong>${escapeHtml(who)}</strong>${recipient.classroomName ? ` · ${escapeHtml(recipient.classroomName)}` : ""}</p>
-              <p class="llh-doc-muted">Assigned ${escapeHtml(formatLocalDate(doc.assignedAt))}${doc.dueDate ? ` · Due ${escapeHtml(formatLocalDate(doc.dueDate))}` : ""}</p>
+              <p class="llh-doc-muted">${isUpload ? "On file" : "Assigned"} ${escapeHtml(formatLocalDate(doc.assignedAt || doc.uploadedAt))}${doc.dueDate ? ` · Due ${escapeHtml(formatLocalDate(doc.dueDate))}` : ""}</p>
             </section>
-            <section class="llh-doc-section" aria-labelledby="llhDocSig">
-              <h3 id="llhDocSig">Signature</h3>
-              <p>${sig.required === false ? "Signature not required" : (sig.status === "signed"
-                ? `<strong>Signed electronically</strong> by ${escapeHtml(sig.signerDisplayName || "Signer")} (${escapeHtml(sig.signerRoleLabel || sig.signerRole || "")})`
-                : "<strong>Awaiting signature</strong>")}</p>
-              ${sig.signedAt ? `<p class="llh-doc-muted">${escapeHtml(formatLocalDateTime(sig.signedAt))} · ${escapeHtml(sig.methodLabel || "")}${sig.versionSigned ? ` · Version ${escapeHtml(String(sig.versionSigned))}` : ""}</p>` : ""}
-            </section>
+            ${isUpload ? `
+              <section class="llh-doc-section" aria-labelledby="llhDocFile">
+                <h3 id="llhDocFile">File</h3>
+                <p><strong>${escapeHtml(doc.fileName || "Uploaded file")}</strong></p>
+                <p class="llh-doc-muted">${escapeHtml(doc.mimeType || "file")}${doc.mediaUrl ? "" : " · file reference missing"}</p>
+                <p class="llh-doc-muted">This is an uploaded document, not an LLH completed form.</p>
+              </section>
+            ` : `
+              <section class="llh-doc-section" aria-labelledby="llhDocSig">
+                <h3 id="llhDocSig">Signature</h3>
+                <p>${sig.required === false ? "Signature not required" : (sig.status === "signed"
+                  ? `<strong>Signed electronically</strong> by ${escapeHtml(sig.signerDisplayName || "Signer")} (${escapeHtml(sig.signerRoleLabel || sig.signerRole || "")})`
+                  : "<strong>Awaiting signature</strong>")}</p>
+                ${sig.signedAt ? `<p class="llh-doc-muted">${escapeHtml(formatLocalDateTime(sig.signedAt))} · ${escapeHtml(sig.methodLabel || "")}${sig.versionSigned ? ` · Version ${escapeHtml(String(sig.versionSigned))}` : ""}</p>` : ""}
+              </section>
+            `}
             <section class="llh-doc-section" aria-labelledby="llhDocTrack">
               <h3 id="llhDocTrack">Tracking</h3>
               <ul class="llh-doc-track-list">${trackingBits.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>
             </section>
-            <section class="llh-doc-section" aria-labelledby="llhDocVer">
-              <h3 id="llhDocVer">Versions</h3>
-              <p class="llh-doc-muted">Current version ${escapeHtml(String(doc.currentVersionNumber || 1))}. Opening an older signed version shows exactly what was signed.</p>
-              ${renderVersionsHtml(detail.versions || [], {
-                selectedVersionId: doc.currentVersionId,
-                canOpenRecord: caps.canPrint !== false,
-              })}
-            </section>
+            ${!isUpload ? `
+              <section class="llh-doc-section" aria-labelledby="llhDocVer">
+                <h3 id="llhDocVer">Versions</h3>
+                <p class="llh-doc-muted">Current version ${escapeHtml(String(doc.currentVersionNumber || 1))}. Opening an older signed version shows exactly what was signed.</p>
+                ${renderVersionsHtml(detail.versions || [], {
+                  selectedVersionId: doc.currentVersionId,
+                  canOpenRecord: caps.canPrint !== false,
+                })}
+              </section>
+            ` : ""}
             ${caps.canViewAudit ? `
               <section class="llh-doc-section" aria-labelledby="llhDocHist">
                 <h3 id="llhDocHist">History</h3>
                 ${renderTimelineHtml(detail.timeline || [])}
               </section>
             ` : (surface === "family" ? "" : `<p class="llh-doc-muted">Full audit history is available to Owners and Directors.</p>`)}
-            ${doc.bodyPreview ? `
+            ${!isUpload && doc.bodyPreview ? `
               <section class="llh-doc-section" aria-labelledby="llhDocBody">
                 <h3 id="llhDocBody">Current form text</h3>
                 <pre class="llh-doc-pre">${escapeHtml(doc.bodyPreview)}</pre>
@@ -159,7 +175,9 @@
             ` : ""}
           </div>
           <footer class="llh-doc-detail-foot">
-            <button type="button" class="primary-button" data-llh-doc-print-current ${caps.canPrint === false ? "disabled" : ""}>Print / download completed record</button>
+            ${isUpload
+              ? `<button type="button" class="primary-button" data-llh-doc-open-upload ${!doc.mediaUrl ? "disabled" : ""} data-media-url="${escapeHtml(doc.mediaUrl || "")}">Preview / download file</button>`
+              : `<button type="button" class="primary-button" data-llh-doc-print-current ${caps.canPrint === false ? "disabled" : ""}>Print / download completed record</button>`}
             <button type="button" class="ghost-button" data-llh-doc-detail-close>Done</button>
           </footer>
         </div>
@@ -392,6 +410,21 @@
     root.addEventListener("click", (event) => {
       if (event.target.closest("[data-llh-doc-detail-close]")) {
         teardown();
+        return;
+      }
+      const uploadOpen = event.target.closest("[data-llh-doc-open-upload]");
+      if (uploadOpen) {
+        event.preventDefault();
+        const mediaUrl = uploadOpen.getAttribute("data-media-url")
+          || detail.document?.mediaUrl
+          || "";
+        if (!mediaUrl) {
+          if (typeof global.showActionFeedback === "function") {
+            global.showActionFeedback("No file is attached to this record.");
+          }
+          return;
+        }
+        window.open(mediaUrl, "_blank", "noopener,noreferrer");
         return;
       }
       const printBtn = event.target.closest("[data-llh-doc-print-current]");

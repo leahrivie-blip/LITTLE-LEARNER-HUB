@@ -38,6 +38,8 @@ const CRITICAL_AUDIT_ACTIONS = Object.freeze([
   "SUPERSEDED",
   "ARCHIVED",
   "MIGRATED",
+  // Wave 7 — paperwork file upload onto the canonical Documents / staffDocuments spine.
+  "UPLOADED",
 ]);
 
 function nowIso() {
@@ -60,6 +62,8 @@ function emptyProgramForms() {
   return {
     staffDocuments: [],
     templates: [],
+    // Wave 7 — program-level paperwork (policies/licensing refs); not a Dropbox.
+    programDocuments: [],
     updatedAt: "",
   };
 }
@@ -78,6 +82,7 @@ function ensureProgramFormsNamespace(store, programId) {
   }
   if (!Array.isArray(bucket.forms.staffDocuments)) bucket.forms.staffDocuments = [];
   if (!Array.isArray(bucket.forms.templates)) bucket.forms.templates = [];
+  if (!Array.isArray(bucket.forms.programDocuments)) bucket.forms.programDocuments = [];
   return bucket.forms;
 }
 
@@ -178,6 +183,20 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
     currentVersionId: cleanText(raw.currentVersionId || "", 80),
     versions: Array.isArray(raw.versions) ? raw.versions : undefined,
     dueDate: cleanText(raw.dueDate || "", 20),
+    expiresAt: cleanText(raw.expiresAt || "", 20),
+    lastNotifiedAt: cleanText(raw.lastNotifiedAt || raw.remindedAt || "", 40),
+    sourceType: cleanText(raw.sourceType || "", 40),
+    documentKind: cleanText(raw.documentKind || "", 40),
+    mediaAssetId: cleanText(raw.mediaAssetId || "", 80),
+    mediaUrl: cleanText(raw.mediaUrl || raw.fileUrl || "", 400),
+    fileUrl: cleanText(raw.fileUrl || raw.mediaUrl || "", 400),
+    fileName: cleanText(raw.fileName || "", 180),
+    mimeType: cleanText(raw.mimeType || "", 80),
+    byteLen: Number.isFinite(Number(raw.byteLen)) ? Number(raw.byteLen) : 0,
+    sha256: cleanText(raw.sha256 || "", 80),
+    uploadedAt: cleanText(raw.uploadedAt || "", 40),
+    uploadedBy: normalizeEmail(raw.uploadedBy || ""),
+    presentation: cleanText(raw.presentation || "", 40),
     assignedAt: cleanText(raw.assignedAt || raw.createdAt || nowIso(), 40),
     updatedAt: cleanText(raw.updatedAt || nowIso(), 40),
     completedAt: cleanText(raw.completedAt || "", 40),

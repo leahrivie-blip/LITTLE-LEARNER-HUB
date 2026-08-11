@@ -14474,6 +14474,52 @@ const programFormsRoutes = createProgramFormsRoutes({
   jsonResponse,
   readJson,
   programOwnership,
+  getStorePath: () => storePath,
+  usePostgresStore: () => usePostgresStore(),
+  getPostgresPool: () => (typeof postgresPool !== "undefined" ? postgresPool : null),
+  resolveFamilySession,
+  sendFamilyHubFormReminder: async (store, context, document, actor) => {
+    // Best-effort Family Hub notification; testing may lack email.
+    try {
+      const households = store.familyHouseholds || {};
+      const childId = String(document.childId || "");
+      let notified = 0;
+      Object.values(households).forEach((hh) => {
+        if (hh?.status === "revoked") return;
+        const ids = new Set([
+          ...(Array.isArray(hh?.childIds) ? hh.childIds : []),
+          ...(Array.isArray(hh?.children) ? hh.children.map((c) => c?.id || c) : []),
+        ].map(String));
+        if (!ids.has(childId)) return;
+        hh.notifications = Array.isArray(hh.notifications) ? hh.notifications : [];
+        hh.notifications.unshift({
+          id: `fn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          type: "form",
+          title: `Reminder: ${document.title || "Form"}`,
+          body: "Your program sent a reminder about an outstanding form.",
+          href: "forms",
+          createdAt: new Date().toISOString(),
+          read: false,
+          actorUserId: actor?.actorUserId || "",
+        });
+        notified += 1;
+      });
+      return {
+        channel: "family_hub_notification",
+        ok: notified > 0,
+        detail: notified > 0
+          ? `In-app reminder recorded for ${notified} household(s).`
+          : "No linked Family Hub household found; reminder still audited.",
+        notifiedHouseholds: notified,
+      };
+    } catch (error) {
+      return {
+        channel: "family_hub_notification",
+        ok: false,
+        detail: error.message || "Could not write Family Hub notification.",
+      };
+    }
+  },
 });
 
 function getFamilyHubStorageStatus() {
@@ -17564,7 +17610,24 @@ function publicStaffTraining(item = {}) {
   };
 }
 
-function publicFormPacket(packet = {}) {
+function publicFormPacket(packet = {}, { documentsById = null } = {}) {
+  const formsUploadLib = require("./forms-upload-lib");
+  const items = (Array.isArray(packet.items) ? packet.items : []).map((item) => {
+    const documentId = String(item?.documentId || "").trim();
+    if (!documentId || !documentsById) {
+      return {
+        id: item.id || "",
+        packFormId: item.packFormId || "",
+        title: item.title || "",
+        category: item.category || "",
+        status: item.status || "needed",
+        statusLabel: item.statusLabel || item.status || "Needed",
+        documentId: documentId || undefined,
+        linked: Boolean(documentId),
+      };
+    }
+    return formsUploadLib.resolvePacketItemFromDocument(item, documentsById.get(documentId) || null);
+  });
   return {
     id: packet.id || "",
     title: packet.title || "Enrollment packet",
@@ -17575,7 +17638,7 @@ function publicFormPacket(packet = {}) {
     status: packet.status || "open",
     createdAt: packet.createdAt || "",
     updatedAt: packet.updatedAt || "",
-    items: Array.isArray(packet.items) ? packet.items : [],
+    items,
   };
 }
 
@@ -17672,10 +17735,21 @@ async function handleHdhPacketsList(request, response) {
     return;
   }
   const store = ensureHomeDaycareHubCollections(readStore());
+  let documentsById = null;
+  try {
+    const context = programOwnership.resolveProgramContext(store, identity);
+    if (context?.ok) {
+      const saved = programOwnership.readProgramChildData(store, context);
+      const docs = Array.isArray(saved?.data?.Documents) ? saved.data.Documents : [];
+      documentsById = new Map(docs.map((d) => [String(d.id || ""), d]));
+    }
+  } catch (_e) {
+    documentsById = null;
+  }
   jsonResponse(response, 200, {
     ok: true,
     testingOnly: true,
-    packets: listFormPacketsForOwner(store, identity.email).map(publicFormPacket),
+    packets: listFormPacketsForOwner(store, identity.email).map((p) => publicFormPacket(p, { documentsById })),
   });
 }
 

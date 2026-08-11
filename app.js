@@ -8708,6 +8708,7 @@ window.__llhProgramFormsCache = window.__llhProgramFormsCache || {
   loaded: false,
   programId: "",
   staffDocuments: [],
+  programDocuments: [],
   templates: [],
   removalGate: null,
 };
@@ -8746,6 +8747,11 @@ function formsStaffDocuments() {
   return formsClientFallbackStaffDocuments();
 }
 
+function formsProgramDocuments() {
+  const cache = window.__llhProgramFormsCache || {};
+  return Array.isArray(cache.programDocuments) ? cache.programDocuments : [];
+}
+
 async function ensureProgramFormsLoaded({ force = false } = {}) {
   if (!canUseLaunchBackend()) return window.__llhProgramFormsCache;
   const cache = window.__llhProgramFormsCache || {};
@@ -8761,6 +8767,7 @@ async function ensureProgramFormsLoaded({ force = false } = {}) {
         loaded: true,
         programId: data.programId || "",
         staffDocuments: Array.isArray(data.staffDocuments) ? data.staffDocuments : [],
+        programDocuments: Array.isArray(data.programDocuments) ? data.programDocuments : [],
         templates: Array.isArray(data.templates) ? data.templates : [],
         removalGate: data.removalGate || null,
         authoritative: data.authoritative || "programData.forms",
@@ -9794,6 +9801,89 @@ async function archiveStaffDocumentRecord(documentId) {
   return target;
 }
 
+async function archiveProgramDocumentRecord(documentId) {
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Please sign in to archive program paperwork.");
+  const response = await fetch(`/api/program-forms/documents/${encodeURIComponent(documentId)}/archive`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ assigneeType: "program" }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not archive program document.");
+  await ensureProgramFormsLoaded({ force: true });
+  return data.document || null;
+}
+
+async function remindPaperworkDocument(documentId, assigneeType = "child") {
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Please sign in to send a reminder.");
+  const response = await fetch(`/api/program-forms/documents/${encodeURIComponent(documentId)}/remind`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ assigneeType }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not send reminder.");
+  if (assigneeType === "child" && data.document) {
+    const docs = childStore("Documents") || [];
+    saveChildStore("Documents", docs.map((item) => (
+      String(item.id) === String(documentId) ? { ...item, ...data.document } : item
+    )));
+  } else {
+    await ensureProgramFormsLoaded({ force: true });
+  }
+  return data;
+}
+
+async function openPaperworkUploadModal({ assigneeType = "child", childId = "", assigneeEmail = "" } = {}) {
+  const api = window.LLHFormsUploadUi;
+  if (!api?.openUploadModal) throw new Error("Upload UI is not available.");
+  const children = (childRecords().children || []).filter((c) => c && !c.archived).map((c) => ({ id: c.id, name: c.name }));
+  const staffOptions = listProgramStaffForForms().map((s) => ({ email: s.email, name: s.name || s.email }));
+  return new Promise((resolve) => {
+    api.openUploadModal({
+      assigneeType,
+      childId,
+      assigneeEmail,
+      childOptions: children,
+      staffOptions,
+      getStaffHeaders: async () => staffAuthHeaders(),
+      onClose: async (result) => {
+        if (result && !result.cancelled) {
+          try {
+            await ensureProgramFormsLoaded({ force: true });
+            if (result.result?.document && assigneeType === "child") {
+              const docs = childStore("Documents") || [];
+              const doc = result.result.document;
+              if (!docs.some((d) => String(d.id) === String(doc.id))) {
+                saveChildStore("Documents", [doc, ...docs]);
+              } else {
+                saveChildStore("Documents", docs.map((d) => (String(d.id) === String(doc.id) ? { ...d, ...doc } : d)));
+              }
+            }
+            showActionFeedback("Document uploaded to paperwork records.");
+            if (document.querySelector("#view-home-daycare-hub.active-view")) {
+              renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+            } else if (document.querySelector("#view-staff.active-view")) {
+              renderStaffManagementPage({ refresh: false });
+            } else {
+              childProfileTab = "forms-records";
+              childManagementMode = "profile";
+              renderChildManagement();
+            }
+          } catch (error) {
+            showActionFeedback(error.message || "Uploaded, but refresh failed.");
+          }
+        }
+        resolve(result || { cancelled: true });
+      },
+    });
+  });
+}
+
 function collectPaperworkHqRows() {
   const api = getPaperworkSurfaces();
   const records = childRecords();
@@ -9816,6 +9906,7 @@ function collectPaperworkHqRows() {
   return api.buildPaperworkHqRows({
     childDocuments: documents,
     staffDocuments: formsStaffDocuments(),
+    programDocuments: formsProgramDocuments(),
     children,
     households,
     classrooms,
@@ -9827,39 +9918,48 @@ function paperworkHqActionButtons(item) {
   const id = escapeHtml(item.recordId || item.id || "");
   const childId = escapeHtml(item.childId || "");
   const isStaff = item.assigneeType === "staff" || item.canonicalStore === "forms.staffDocuments";
-  const assigneeType = isStaff ? "staff" : "child";
+  const isProgram = item.assigneeType === "program" || item.canonicalStore === "forms.programDocuments";
+  const assigneeType = isStaff ? "staff" : (isProgram ? "program" : "child");
   const awaiting = (item.hqRails || []).includes("awaiting_signature")
     || (item.hqRails || []).includes("overdue")
     || (item.hqRails || []).includes("not_opened");
+  const isUpload = item.isUpload || item.presentation === "uploaded_document" || item.sourceType === "upload";
   const buttons = [];
   // Wave 6: Open / History / Print all use the same canonical document-detail experience.
   buttons.push(`<button class="primary-button" type="button" data-open-document-detail="${id}" data-assignee-type="${assigneeType}">Open</button>`);
   buttons.push(`<button class="ghost-button" type="button" data-open-document-detail="${id}" data-assignee-type="${assigneeType}" data-detail-focus="history">View history</button>`);
-  if (item.signedAt || item.signatureStatus === "signed" || (item.hqRails || []).includes("completed")) {
+  if (isUpload && (item.mediaUrl || item.fileUrl)) {
+    buttons.push(`<button class="ghost-button" type="button" data-open-upload-file="${id}" data-assignee-type="${assigneeType}" data-media-url="${escapeHtml(item.mediaUrl || item.fileUrl || "")}">Preview / download</button>`);
+  } else if (item.signedAt || item.signatureStatus === "signed" || (item.hqRails || []).includes("completed")) {
     buttons.push(`<button class="ghost-button" type="button" data-open-completed-record="${id}" data-assignee-type="${assigneeType}">Print / download</button>`);
-  } else if (!isStaff) {
+  } else if (!isStaff && !isProgram) {
     buttons.push(`<button class="ghost-button" type="button" data-print-child-document="${id}">Preview</button>`);
   } else if (item.draftText || item.signedSnapshot) {
     buttons.push(`<button class="ghost-button" type="button" data-preview-staff-document="${id}">Preview</button>`);
   }
-  if (!isStaff && childId) {
+  if (!isStaff && !isProgram && childId) {
     buttons.push(`<button class="ghost-button" type="button" data-view-child-profile="${childId}" data-open-child-tab="forms-records" data-paperwork-record-id="${id}">Child file</button>`);
     if (awaiting && item.shareWithFamily) {
-      buttons.push(`<button class="ghost-button" type="button" data-share-child-document="${id}">Remind family</button>`);
+      buttons.push(`<button class="ghost-button" type="button" data-remind-document="${id}" data-assignee-type="child">Remind family</button>`);
     }
-    if (item.signedAt && !item.providerReviewed) {
+    if (item.signedAt && !item.providerReviewed && !isUpload) {
       buttons.push(`<button class="primary-button" type="button" data-review-child-document="${id}">Mark reviewed</button>`);
     }
     if (!item.archived) {
       buttons.push(`<button class="ghost-button" type="button" data-archive-child-document="${id}">Archive</button>`);
     }
-  } else {
+  } else if (isStaff) {
     if (item.assigneeEmail) {
       buttons.push(`<button class="ghost-button" type="button" data-view="staff" data-paperwork-staff-email="${escapeHtml(item.assigneeEmail || "")}" data-paperwork-record-id="${id}">Staff profile</button>`);
+    }
+    if (awaiting) {
+      buttons.push(`<button class="ghost-button" type="button" data-remind-document="${id}" data-assignee-type="staff">Remind staff</button>`);
     }
     if (!item.archived) {
       buttons.push(`<button class="ghost-button" type="button" data-archive-staff-document="${id}">Archive</button>`);
     }
+  } else if (isProgram && !item.archived) {
+    buttons.push(`<button class="ghost-button" type="button" data-archive-program-document="${id}">Archive</button>`);
   }
   return buttons.join("");
 }
@@ -9869,21 +9969,24 @@ function renderPaperworkHqRow(item) {
   const railLabel = (api?.HQ_RAILS || []).find((r) => r.id === item.primaryRail)?.label || item.primaryRail || "";
   const who = item.assigneeType === "staff"
     ? (item.staffName || item.assigneeEmail || "Staff")
-    : (item.childName || "Child");
+    : (item.assigneeType === "program" ? "Program" : (item.childName || "Child"));
   const meta = [
     item.category || "Form",
     item.statusLabel || item.lifecycleStatus || item.status || "",
-    item.assigneeType === "staff" ? "Staff" : "Child/family",
+    item.assigneeType === "staff" ? "Staff" : (item.assigneeType === "program" ? "Program" : "Child/family"),
+    item.isUpload || item.presentation === "uploaded_document" ? "Uploaded document" : "",
+    item.expirationLabel || "",
+    item.expiresAt ? `Expires ${item.expiresAt}` : "",
     item.familyLabel ? `Family: ${item.familyLabel}` : "",
     item.classroomName ? `Room: ${item.classroomName}` : "",
     item.assignedAt ? `Assigned ${String(item.assignedAt).slice(0, 10)}` : "",
     item.dueDate ? `Due ${item.dueDate}` : "",
-    item.signatureStatus === "signed" ? `Signed electronically ${String(item.signedAt || "").slice(0, 10)}${item.contentVersion ? ` · v${item.contentVersion}` : ""}${item.hasVoidedVersion ? " · prior version voided" : ""}` : (item.signatureStatus === "awaiting" ? "Awaiting signature" : ""),
+    item.signatureStatus === "signed" ? `Signed electronically ${String(item.signedAt || "").slice(0, 10)}${item.contentVersion ? ` · v${item.contentVersion}` : ""}${item.hasVoidedVersion ? " · prior version voided" : ""}` : (item.signatureStatus === "awaiting" && !item.isUpload ? "Awaiting signature" : ""),
     item.completedDate ? `Completed ${item.completedDate}` : "",
     railLabel ? `Rail: ${railLabel}` : "",
   ].filter(Boolean).join(" · ");
   return `
-    <article class="resource-row paperwork-hq-row" data-paperwork-record-id="${escapeHtml(item.recordId || item.id || "")}" data-canonical-store="${escapeHtml(item.canonicalStore || "")}">
+    <article class="resource-row paperwork-hq-row" data-paperwork-record-id="${escapeHtml(item.recordId || item.id || "")}" data-canonical-store="${escapeHtml(item.canonicalStore || "")}" data-expiration-state="${escapeHtml(item.expirationState || "")}">
       <div>
         <strong>${escapeHtml(item.title || "Form")}</strong>
         <p class="muted-copy">${escapeHtml(who)} · ${escapeHtml(meta)}</p>
@@ -10027,6 +10130,8 @@ function renderFormsAttentionPanel() {
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhFormTemplatesPanel">Assign templates</button>
         <button class="primary-button" type="button" data-open-assign-flow="hq">Assign / Send</button>
+        ${canManage ? `<button class="ghost-button" type="button" data-upload-document="child">Upload document</button>
+        <button class="ghost-button" type="button" data-upload-document="program">Upload program file</button>` : ""}
         <button class="ghost-button" type="button" data-hdh-forms-refresh>Refresh</button>
       </div>
       <div data-paperwork-hq-results>
@@ -10128,6 +10233,7 @@ function renderStaffProfilePaperworkPanel(selectedEmail = "") {
       <p class="muted-copy">${escapeHtml(member?.name || email)} · ${enriched.length} record${enriched.length === 1 ? "" : "s"}</p>
       <div class="account-actions-row" style="margin-bottom:12px;">
         <button class="primary-button" type="button" data-assign-flow-staff="${escapeHtml(email)}">Assign form</button>
+        <button class="primary-button" type="button" data-upload-document="staff" data-assignee-email="${escapeHtml(email)}">Upload Document</button>
         <button class="ghost-button" type="button" data-view="home-daycare-hub">Paperwork HQ</button>
       </div>
       <div class="paperwork-bucket-rails" role="toolbar" aria-label="Staff paperwork buckets">
@@ -10137,14 +10243,17 @@ function renderStaffProfilePaperworkPanel(selectedEmail = "") {
       </div>
       <div class="resource-list compact">
         ${rows.length ? rows.map((item) => `
-          <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}">
+          <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}" data-expiration-state="${escapeHtml(item.expirationState || "")}">
             <div>
               <strong>${escapeHtml(item.title || "Staff form")}</strong>
-              <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.archived ? " · Archived" : ""} · ID ${escapeHtml(item.id)}</p>
+              <p class="muted-copy">${escapeHtml(item.category || "Staff")} · ${escapeHtml(item.statusLabel || item.status || "")}${item.isUpload || item.presentation === "uploaded_document" ? " · Uploaded document" : ""}${item.expirationLabel ? ` · ${escapeHtml(item.expirationLabel)}` : ""}${item.expiresAt ? ` · Expires ${escapeHtml(item.expiresAt)}` : ""}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : ""}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signed ${escapeHtml(String(item.signedAt).slice(0, 10))}` : ""}${item.archived ? " · Archived" : ""} · ID ${escapeHtml(item.id)}</p>
             </div>
             <div class="hdh-forms-pack-actions">
               <button class="ghost-button" type="button" data-open-document-detail="${escapeHtml(item.id)}" data-assignee-type="staff">Open</button>
-              ${item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="staff">Print / download</button>` : ((item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Preview</button>` : "")}
+              ${(item.isUpload || item.presentation === "uploaded_document") && (item.mediaUrl || item.fileUrl)
+                ? `<button class="ghost-button" type="button" data-open-upload-file="${escapeHtml(item.id)}" data-assignee-type="staff" data-media-url="${escapeHtml(item.mediaUrl || item.fileUrl || "")}">Preview / download</button>`
+                : (item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="staff">Print / download</button>` : ((item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-preview-staff-document="${escapeHtml(item.id)}">Preview</button>` : ""))}
+              ${!(item.signedAt || item.isUpload) ? `<button class="ghost-button" type="button" data-remind-document="${escapeHtml(item.id)}" data-assignee-type="staff">Remind staff</button>` : ""}
               ${!item.archived ? `<button class="ghost-button" type="button" data-archive-staff-document="${escapeHtml(item.id)}">Archive</button>` : ""}
             </div>
           </article>`).join("") : `<div class="profile-empty-state"><strong>No paperwork in this bucket</strong><p>Assign a staff template from Paperwork HQ / Program templates.</p></div>`}
@@ -45118,6 +45227,7 @@ function renderChildFormsRecordsTab(child, records) {
       <div class="account-actions-row" style="margin-bottom:16px;">
         <button class="primary-button" type="button" data-view="home-daycare-hub">Paperwork HQ</button>
         <button class="primary-button" type="button" data-assign-flow-child="${escapeHtml(child.id)}">Assign form</button>
+        <button class="primary-button" type="button" data-upload-document="child" data-child-id="${escapeHtml(child.id)}">Upload Document</button>
         <button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
       </div>
@@ -45163,20 +45273,22 @@ function renderChildFormsRecordsTab(child, records) {
       <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list data-child-docs-list>
         ${sorted.length
           ? sorted.map((item) => `
-            <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}" data-canonical-store="child.Documents">
+            <article class="resource-row" data-paperwork-record-id="${escapeHtml(item.id)}" data-canonical-store="child.Documents" data-expiration-state="${escapeHtml(item.expirationState || "")}">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : " · Provider only"}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${item.signedAt ? ` · Signature: signed ${escapeHtml(String(item.signedAt).slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}` : " · Signature: awaiting"}${item.completedDate || item.completedAt || item.reviewedAt ? ` · Completed ${escapeHtml(String(item.completedDate || item.completedAt || item.reviewedAt).slice(0, 10))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.isUpload || item.presentation === "uploaded_document" ? " · Uploaded document" : ""}${item.expirationLabel ? ` · ${escapeHtml(item.expirationLabel)}` : ""}${item.expiresAt ? ` · Expires ${escapeHtml(item.expiresAt)}` : ""}${item.shareWithFamily ? " · Shared with family" : " · Provider only"}${item.assignedAt ? ` · Assigned ${escapeHtml(String(item.assignedAt).slice(0, 10))}` : (item.date ? ` · ${escapeHtml(item.date)}` : "")}${item.dueDate ? ` · Due ${escapeHtml(item.dueDate)}` : ""}${!(item.isUpload || item.presentation === "uploaded_document") ? (item.signedAt ? ` · Signature: signed ${escapeHtml(String(item.signedAt).slice(0, 10))}${item.signedBy ? ` by ${escapeHtml(item.signedBy)}` : ""}` : " · Signature: awaiting") : ""}${item.completedDate || item.completedAt || item.reviewedAt ? ` · Completed ${escapeHtml(String(item.completedDate || item.completedAt || item.reviewedAt).slice(0, 10))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 <button class="primary-button" type="button" data-open-document-detail="${escapeHtml(item.id)}" data-assignee-type="child">Open</button>
-                ${item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="child">Print / download</button>` : ((item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Preview</button>` : "")}
+                ${(item.isUpload || item.presentation === "uploaded_document") && (item.mediaUrl || item.fileUrl)
+                  ? `<button class="ghost-button" type="button" data-open-upload-file="${escapeHtml(item.id)}" data-assignee-type="child" data-media-url="${escapeHtml(item.mediaUrl || item.fileUrl || "")}">Preview / download</button>`
+                  : (item.signedAt ? `<button class="ghost-button" type="button" data-open-completed-record="${escapeHtml(item.id)}" data-assignee-type="child">Print / download</button>` : ((item.draftText || item.signedSnapshot) ? `<button class="ghost-button" type="button" data-print-child-document="${escapeHtml(item.id)}">Preview</button>` : ""))}
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Library form</button>` : ""}
                 ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
-                ${item.signedAt && !item.providerReviewed ? `<button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>` : ""}
-                ${!(item.status === "signed" || item.signedAt) ? `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>` : ""}
+                ${item.signedAt && !item.providerReviewed && !(item.isUpload || item.presentation === "uploaded_document") ? `<button class="primary-button" type="button" data-review-child-document="${escapeHtml(item.id)}">Mark reviewed</button>` : ""}
+                ${!(item.status === "signed" || item.signedAt) && !(item.isUpload || item.presentation === "uploaded_document") ? `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>` : ""}
+                ${!(item.signedAt) && item.shareWithFamily && !(item.isUpload || item.presentation === "uploaded_document") ? `<button class="ghost-button" type="button" data-remind-document="${escapeHtml(item.id)}" data-assignee-type="child">Remind family</button>` : ""}
                 ${!item.archived ? `<button class="ghost-button" type="button" data-archive-child-document="${escapeHtml(item.id)}">Archive</button>` : ""}
-                <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
               </div>
             </article>
           `).join("")
@@ -69513,6 +69625,79 @@ document.addEventListener("click", async (event) => {
     staffProfilePaperworkEmail = String(staffOpenFromHq.dataset.paperworkStaffEmail || "").toLowerCase();
   }
 
+  const uploadDocumentBtn = event.target.closest("[data-upload-document]");
+  if (uploadDocumentBtn) {
+    event.preventDefault();
+    const assigneeType = uploadDocumentBtn.getAttribute("data-upload-document") || "child";
+    const childId = uploadDocumentBtn.getAttribute("data-child-id") || "";
+    const assigneeEmail = uploadDocumentBtn.getAttribute("data-assignee-email") || "";
+    openPaperworkUploadModal({ assigneeType, childId, assigneeEmail })
+      .catch((error) => showActionFeedback(error.message || "Could not open upload."));
+    return;
+  }
+
+  const remindDocumentBtn = event.target.closest("[data-remind-document]");
+  if (remindDocumentBtn) {
+    event.preventDefault();
+    if (remindDocumentBtn.disabled) return;
+    remindDocumentBtn.disabled = true;
+    const docId = remindDocumentBtn.getAttribute("data-remind-document");
+    const assigneeType = remindDocumentBtn.getAttribute("data-assignee-type") || "child";
+    remindPaperworkDocument(docId, assigneeType)
+      .then((data) => {
+        const delivery = data?.delivery || {};
+        const msg = data?.idempotentReplay
+          ? "Reminder already sent recently — not duplicated."
+          : (delivery.ok
+            ? (delivery.detail || "Reminder sent.")
+            : `Reminder recorded. Delivery: ${delivery.detail || "channel unavailable in testing."}`);
+        showActionFeedback(msg);
+        if (document.querySelector("#view-home-daycare-hub.active-view")) {
+          renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+        } else if (document.querySelector("#view-staff.active-view")) {
+          renderStaffManagementPage({ refresh: false });
+        } else {
+          childProfileTab = "forms-records";
+          childManagementMode = "profile";
+          renderChildManagement();
+        }
+      })
+      .catch((error) => {
+        remindDocumentBtn.disabled = false;
+        showActionFeedback(error.message || "Could not send reminder.");
+      });
+    return;
+  }
+
+  const openUploadFileBtn = event.target.closest("[data-open-upload-file]");
+  if (openUploadFileBtn) {
+    event.preventDefault();
+    const mediaUrl = openUploadFileBtn.getAttribute("data-media-url") || "";
+    if (!mediaUrl) {
+      showActionFeedback("No file is attached to this record.");
+      return;
+    }
+    window.open(mediaUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  const archiveProgramDocument = event.target.closest("[data-archive-program-document]");
+  if (archiveProgramDocument) {
+    event.preventDefault();
+    const docId = archiveProgramDocument.getAttribute("data-archive-program-document");
+    archiveProgramDocument.disabled = true;
+    archiveProgramDocumentRecord(docId)
+      .then(() => {
+        showActionFeedback("Program document archived (file preserved).");
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      })
+      .catch((error) => {
+        archiveProgramDocument.disabled = false;
+        showActionFeedback(error.message || "Could not archive program document.");
+      });
+    return;
+  }
+
   const shareChildDocument = event.target.closest("[data-share-child-document]");
   if (shareChildDocument) {
     event.preventDefault();
@@ -69521,7 +69706,7 @@ document.addEventListener("click", async (event) => {
     shareChildDocument.disabled = true;
     shareChildDocumentWithFamily(docId)
       .then(() => {
-        // Manual reminder path: stamp lastNotifiedAt on the same canonical row.
+        // First share path: stamp lastNotifiedAt on the same canonical row.
         const docs = childStore("Documents") || [];
         const next = docs.map((item) => (
           String(item.id) === String(docId)

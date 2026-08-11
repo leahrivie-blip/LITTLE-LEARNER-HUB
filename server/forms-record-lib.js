@@ -56,6 +56,7 @@ function actionLabel(action) {
     SUPERSEDED: "Previous version superseded",
     ARCHIVED: "Archived",
     MIGRATED: "Migrated",
+    UPLOADED: "Document uploaded",
   };
   const key = String(action || "").trim().toUpperCase();
   return map[key] || cleanText(action, 60) || "Updated";
@@ -84,8 +85,9 @@ function locateDocument(store, context, { documentId, assigneeType = "" } = {}) 
     throw err;
   }
   const prefer = String(assigneeType || "").trim().toLowerCase();
-  const tryStaff = prefer !== "child" && prefer !== "family";
-  const tryChild = prefer !== "staff";
+  const tryStaff = prefer !== "child" && prefer !== "family" && prefer !== "program";
+  const tryChild = prefer !== "staff" && prefer !== "program";
+  const tryProgram = prefer === "program" || !prefer;
 
   if (tryStaff) {
     const forms = store.programData?.[context.programId]?.forms;
@@ -94,6 +96,19 @@ function locateDocument(store, context, { documentId, assigneeType = "" } = {}) 
     if (idx >= 0) {
       return {
         assigneeType: "staff",
+        document: list[idx],
+        index: idx,
+        collection: list,
+      };
+    }
+  }
+  if (tryProgram) {
+    const forms = store.programData?.[context.programId]?.forms;
+    const list = Array.isArray(forms?.programDocuments) ? forms.programDocuments : [];
+    const idx = list.findIndex((d) => String(d?.id || "") === id);
+    if (idx >= 0) {
+      return {
+        assigneeType: "program",
         document: list[idx],
         index: idx,
         collection: list,
@@ -215,6 +230,18 @@ function normalizeEmail(value) {
 
 function resolveRecipientMeta(store, context, doc, assigneeType) {
   const programOwnership = require("./program-ownership.js");
+  if (assigneeType === "program") {
+    return {
+      recipientKind: "program",
+      recipientLabel: "Program",
+      assigneeEmail: "",
+      childId: "",
+      childName: "",
+      householdId: "",
+      householdLabel: "",
+      classroomName: "",
+    };
+  }
   if (assigneeType === "staff") {
     return {
       recipientKind: "staff",
@@ -382,6 +409,15 @@ function buildDocumentDetailDto({
     archived: Boolean(ensured.archived),
   };
 
+  const isUpload = ensured.sourceType === "upload"
+    || ensured.documentKind === "upload"
+    || ensured.presentation === "uploaded_document"
+    || Boolean(ensured.mediaAssetId);
+  const formsUploadLib = isUpload ? require("./forms-upload-lib.js") : null;
+  const expState = formsUploadLib
+    ? formsUploadLib.expirationState(ensured.expiresAt)
+    : "";
+
   return {
     ok: true,
     testingOnly: true,
@@ -389,23 +425,35 @@ function buildDocumentDetailDto({
       id: String(ensured.id || ""),
       title: cleanText(ensured.title || "Form", 160) || "Form",
       category: cleanText(ensured.category || "Form", 80) || "Form",
-      typeLabel: located.assigneeType === "staff" ? "Staff paperwork" : "Child / family form",
+      typeLabel: isUpload
+        ? "Uploaded document"
+        : (located.assigneeType === "staff" ? "Staff paperwork" : "Child / family form"),
       assigneeType: located.assigneeType,
       status: formsLib.normalizeFormStatus(ensured.status),
       statusLabel: formsLib.formStatusLabel(ensured.statusLabel || ensured.status),
       assignedAt: tracking.assignedAt,
       dueDate: cleanText(ensured.dueDate, 20),
       archived: tracking.archived,
-      requiresSignature: ensured.requiresSignature !== false,
+      requiresSignature: isUpload ? false : ensured.requiresSignature !== false,
       shareWithFamily: ensured.shareWithFamily === true || ensured.shareWithFamily === "true",
       programName: cleanText(programName, 160),
       currentVersionId: String(ensured.currentVersionId || current?.id || ""),
       currentVersionNumber: Number(current?.versionNumber || ensured.contentVersion || 1),
-      bodyPreview: String(current?.bodyText || ensured.draftText || "").slice(0, 4000),
+      bodyPreview: isUpload ? "" : String(current?.bodyText || ensured.draftText || "").slice(0, 4000),
+      presentation: isUpload ? "uploaded_document" : "llh_form",
+      sourceType: cleanText(ensured.sourceType || (isUpload ? "upload" : ""), 40),
+      mediaAssetId: cleanText(ensured.mediaAssetId || "", 80),
+      mediaUrl: cleanText(ensured.mediaUrl || ensured.fileUrl || "", 400),
+      fileName: cleanText(ensured.fileName || "", 180),
+      mimeType: cleanText(ensured.mimeType || "", 80),
+      uploadedAt: asIso(ensured.uploadedAt),
+      expiresAt: cleanText(ensured.expiresAt || "", 20),
+      expirationState: expState,
+      expirationLabel: formsUploadLib ? formsUploadLib.expirationLabel(expState) : "",
     },
     recipient,
     signature: {
-      required: ensured.requiresSignature !== false,
+      required: isUpload ? false : ensured.requiresSignature !== false,
       status: sig?.signedAt ? "signed" : "unsigned",
       signerDisplayName: cleanText(sig?.signerDisplayName || sig?.signedBy || "", 120),
       signerRole: cleanText(sig?.signerRole || "", 40),
@@ -416,14 +464,17 @@ function buildDocumentDetailDto({
       versionSigned: signedVer ? Number(signedVer.versionNumber || 0) : null,
       versionId: signedVer ? String(signedVer.id || "") : "",
     },
-    versions: versionHistoryEntries(ensured),
+    versions: isUpload ? [] : versionHistoryEntries(ensured),
     tracking,
     timeline: auth.canViewAudit ? buildTimelineEntries(auditRows, { documentId: ensured.id }) : [],
     capabilities: {
       canViewAudit: Boolean(auth.canViewAudit),
-      canViewVersions: Boolean(auth.canViewVersions),
+      canViewVersions: Boolean(auth.canViewVersions) && !isUpload,
       canPrint: Boolean(auth.canPrint),
-      canOpenCompletedRecord: Boolean(sig?.signedAt || formsLib.isTerminalFormStatus?.(ensured.status)),
+      canOpenCompletedRecord: isUpload
+        ? Boolean(ensured.mediaUrl || ensured.fileUrl || ensured.mediaAssetId)
+        : Boolean(sig?.signedAt || formsLib.isTerminalFormStatus?.(ensured.status)),
+      isUploadedDocument: Boolean(isUpload),
       accessLevel: auth.level,
     },
   };

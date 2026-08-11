@@ -84,10 +84,15 @@
     { id: "in_progress", label: "In Progress" },
     { id: "due_soon", label: "Due Soon" },
     { id: "overdue", label: "Overdue" },
+    { id: "expiring_soon", label: "Expiring Soon" },
+    { id: "expired", label: "Expired" },
     { id: "needs_correction", label: "Needs Correction" },
     { id: "completed", label: "Completed" },
     { id: "archived", label: "Archived" },
   ]);
+
+  /** Wave 7 — document expiresAt horizon (not assignment dueDate). */
+  const EXPIRING_SOON_DAYS = 30;
 
   const CHILD_BUCKETS = Object.freeze([
     { id: "needs_action", label: "Needs Action" },
@@ -102,6 +107,7 @@
     { id: "assigned", label: "Assigned" },
     { id: "due_soon", label: "Due Soon" },
     { id: "overdue", label: "Overdue" },
+    { id: "uploads", label: "Uploads" },
     { id: "completed", label: "Completed" },
     { id: "archived", label: "Archived" },
   ]);
@@ -170,10 +176,19 @@
 
   function looksLikeUpload(doc) {
     if (!doc) return false;
-    if (doc.uploadUrl || doc.fileUrl || doc.attachmentUrl || doc.storageKey) return true;
+    if (doc.mediaAssetId || doc.uploadUrl || doc.fileUrl || doc.attachmentUrl || doc.storageKey) return true;
     if (doc.sourceType === "upload" || doc.kind === "upload" || doc.documentKind === "upload") return true;
     const cat = String(doc.category || "").toLowerCase();
     return cat.includes("upload") || cat.includes("scan") || cat.includes("photo copy");
+  }
+
+  function documentExpirationState(doc, today = todayIso()) {
+    const exp = String(doc?.expiresAt || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(exp)) return "";
+    if (exp < today) return "expired";
+    const horizon = addDaysIso(today, EXPIRING_SOON_DAYS);
+    if (exp <= horizon) return "expiring_soon";
+    return "current";
   }
 
   function needsProviderAttention(doc, today = todayIso()) {
@@ -183,13 +198,18 @@
     if (signedNeedsReview) return true;
     if (formsLib.isFormOverdue(doc, today)) return true;
     if (n === formsLib.FORM_STATUSES.NEEDS_CORRECTION) return true;
+    if (documentExpirationState(doc, today) === "expired") return true;
     return false;
   }
 
   /** Ordered primary HQ rail for a row (single chip). */
   function primaryHqRail(doc, today = todayIso()) {
     if (isArchived(doc)) return "archived";
-    if (isCompleted(doc)) return "completed";
+    const expState = documentExpirationState(doc, today);
+    if (expState === "expired") return "expired";
+    if (expState === "expiring_soon") return "expiring_soon";
+    if (isCompleted(doc) && !looksLikeUpload(doc)) return "completed";
+    if (isCompleted(doc) && looksLikeUpload(doc)) return "completed";
     const n = statusOf(doc);
     if (n === formsLib.FORM_STATUSES.NEEDS_CORRECTION) return "needs_correction";
     if (formsLib.isFormOverdue(doc, today)) return "overdue";
@@ -211,6 +231,9 @@
       rails.add("archived");
       return [...rails];
     }
+    const expState = documentExpirationState(doc, today);
+    if (expState === "expired") rails.add("expired");
+    if (expState === "expiring_soon") rails.add("expiring_soon");
     if (needsProviderAttention(doc, today)) rails.add("needs_attention");
     if (isAwaitingSignature(doc)) rails.add("awaiting_signature");
     if (isAwaitingSignature(doc) && !hasBeenOpened(doc)) rails.add("not_opened");
@@ -252,6 +275,7 @@
       buckets.add("archived");
       return [...buckets];
     }
+    if (looksLikeUpload(doc)) buckets.add("uploads");
     if (isCompleted(doc)) {
       buckets.add("completed");
       return [...buckets];
@@ -296,7 +320,9 @@
     return {
       ...doc,
       recordId: String(doc.id || ""),
-      canonicalStore: assigneeType === "staff" ? "forms.staffDocuments" : "child.Documents",
+      canonicalStore: assigneeType === "staff"
+        ? "forms.staffDocuments"
+        : (assigneeType === "program" ? "forms.programDocuments" : "child.Documents"),
       assigneeType,
       childId: String(doc.childId || ""),
       assigneeEmail: String(doc.assigneeEmail || "").toLowerCase(),
@@ -323,6 +349,17 @@
       versionCount: Array.isArray(doc.versions) ? doc.versions.length : 0,
       hasVoidedVersion: Array.isArray(doc.versions) && doc.versions.some((v) => v && v.voided),
       completedDate: String(doc.completedAt || (doc.providerReviewed ? (doc.reviewedAt || doc.signedAt || "") : "") || "").slice(0, 10),
+      isUpload: looksLikeUpload(doc),
+      expirationState: documentExpirationState(doc, today),
+      expirationLabel: (() => {
+        const s = documentExpirationState(doc, today);
+        if (s === "expired") return "Expired";
+        if (s === "expiring_soon") return "Expiring Soon";
+        if (s === "current") return "Current";
+        return "";
+      })(),
+      expiresAt: String(doc.expiresAt || "").slice(0, 10),
+      presentation: looksLikeUpload(doc) ? "uploaded_document" : (doc.presentation || "llh_form"),
     };
   }
 
@@ -333,6 +370,7 @@
   function buildPaperworkHqRows({
     childDocuments = [],
     staffDocuments = [],
+    programDocuments = [],
     children = [],
     households = [],
     classrooms = [],
@@ -381,7 +419,14 @@
         });
       });
 
-    return [...childRows, ...staffRows].sort((a, b) => (
+    const programRows = (Array.isArray(programDocuments) ? programDocuments : [])
+      .filter((doc) => doc && doc.id)
+      .map((doc) => enrichCanonicalRow({ ...doc, assigneeType: "program" }, {
+        today,
+        staffName: "Program",
+      }));
+
+    return [...childRows, ...staffRows, ...programRows].sort((a, b) => (
       String(b.updatedAt || b.signedAt || b.assignedAt || "").localeCompare(
         String(a.updatedAt || a.signedAt || a.assignedAt || ""),
       )
@@ -489,6 +534,7 @@
     STAFF_BUCKETS,
     FAMILY_BUCKETS,
     DUE_SOON_DAYS,
+    EXPIRING_SOON_DAYS,
     todayIso,
     statusOf,
     isCompleted,
@@ -497,6 +543,7 @@
     isAwaitingSignature,
     isDueSoon,
     looksLikeUpload,
+    documentExpirationState,
     needsProviderAttention,
     primaryHqRail,
     hqRailsForDoc,

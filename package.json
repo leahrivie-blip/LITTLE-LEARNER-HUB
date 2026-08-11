@@ -405,7 +405,8 @@
     "deploy:testing-only-phase11": "node scripts/deploy-testing-only-phase11.js",
     "test:forms-wave5-signatures": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave5-signatures.js",
     "test:forms-wave6-history": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave6-history.js",
-    "test:postgres-readstore-no-clone": "NODE_ENV=test node scripts/test-postgres-readstore-no-clone.js"
+    "test:postgres-readstore-no-clone": "NODE_ENV=test node scripts/test-postgres-readstore-no-clone.js",
+    "test:forms-wave7-uploads": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave7-uploads.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

@@ -197,6 +197,10 @@ function publicStaffFormDocument(doc = {}) {
   const formsSignatureLib = require("./forms-signature-lib.js");
   const ensured = formsSignatureLib.ensureDocumentVersions(doc);
   const { current } = formsSignatureLib.getCurrentVersion(ensured);
+  const isUpload = doc.sourceType === "upload"
+    || doc.documentKind === "upload"
+    || doc.presentation === "uploaded_document"
+    || Boolean(doc.mediaAssetId);
   return {
     id: String(doc.id || ""),
     assigneeEmail: String(doc.assigneeEmail || "").toLowerCase(),
@@ -205,6 +209,7 @@ function publicStaffFormDocument(doc = {}) {
     status: normalizeFormStatus(doc.status),
     statusLabel: formStatusLabel(doc.status),
     dueDate: String(doc.dueDate || "").trim(),
+    expiresAt: String(doc.expiresAt || "").trim(),
     assignedAt: String(doc.assignedAt || doc.createdAt || "").trim(),
     completedAt: String(doc.completedAt || doc.signedAt || "").trim(),
     signedAt: String(doc.signedAt || "").trim(),
@@ -216,9 +221,23 @@ function publicStaffFormDocument(doc = {}) {
     contentVersion: Number(doc.contentVersion || 1),
     currentVersionId: String(ensured.currentVersionId || current?.id || "").trim(),
     versionCount: Array.isArray(ensured.versions) ? ensured.versions.length : 0,
-    requiresSignature: doc.requiresSignature !== false,
+    requiresSignature: isUpload ? false : doc.requiresSignature !== false,
     updatedAt: String(doc.updatedAt || "").trim(),
-    versions: (ensured.versions || []).map((ver) => formsSignatureLib.publicVersionSummary(ver)),
+    archived: Boolean(doc.archived),
+    shareWithFamily: false,
+    // Wave 7 upload FileRef fields (never include file bytes)
+    sourceType: String(doc.sourceType || "").trim(),
+    documentKind: String(doc.documentKind || "").trim(),
+    presentation: isUpload ? "uploaded_document" : String(doc.presentation || "").trim(),
+    mediaAssetId: String(doc.mediaAssetId || "").trim(),
+    mediaUrl: String(doc.mediaUrl || doc.fileUrl || "").trim(),
+    fileUrl: String(doc.fileUrl || doc.mediaUrl || "").trim(),
+    fileName: String(doc.fileName || "").trim(),
+    mimeType: String(doc.mimeType || "").trim(),
+    byteLen: Number(doc.byteLen || 0) || 0,
+    uploadedAt: String(doc.uploadedAt || "").trim(),
+    uploadedBy: String(doc.uploadedBy || "").trim(),
+    versions: isUpload ? [] : (ensured.versions || []).map((ver) => formsSignatureLib.publicVersionSummary(ver)),
   };
 }
 
