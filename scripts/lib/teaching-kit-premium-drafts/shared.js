@@ -316,7 +316,7 @@ function completeToolkitForAdmin(toolkit, planMeta = {}) {
         { need: "Printed cards", use: "Bold board-book pages held still" },
       ]
       : [
-        { need: "Specialty props", use: "Classroom dress-up + labeled picture cards" },
+        { need: "Dress-up hats", use: "Paper badges + picture cards" },
         { need: "Outdoor investigation", use: "Window observation + indoor sensory tray" },
       ];
   }

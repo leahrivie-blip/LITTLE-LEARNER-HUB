@@ -261,16 +261,33 @@ async function buildCommunityPrintables() {
     cards,
   );
   const signs = path.join(dir, "helper-place-signs.pdf");
-  const places = ["Clinic", "Post Office", "Library", "Market", "Build Zone", "Recycling"];
+  const places = [
+    ["Clinic", "#22c55e", `<circle cx="256" cy="200" r="70" fill="#22c55e"/><rect x="236" y="140" width="40" height="120" fill="#fff"/><rect x="196" y="180" width="120" height="40" fill="#fff"/>`],
+    ["Post Office", "#3b82f6", `<rect x="150" y="160" width="212" height="140" rx="16" fill="#3b82f6"/><polygon points="150,160 256,90 362,160" fill="#60a5fa"/><rect x="230" y="220" width="52" height="80" fill="#dbeafe"/>`],
+    ["Library", "#a855f7", `<rect x="140" y="140" width="50" height="180" fill="#7c3aed"/><rect x="210" y="140" width="50" height="180" fill="#a855f7"/><rect x="280" y="140" width="50" height="180" fill="#c084fc"/><rect x="130" y="320" width="220" height="24" fill="#581c87"/>`],
+    ["Market", "#14b8a6", `<rect x="150" y="180" width="212" height="150" rx="12" fill="#14b8a6"/><circle cx="200" cy="160" r="28" fill="#f97316"/><circle cx="256" cy="150" r="32" fill="#ef4444"/><circle cx="312" cy="162" r="26" fill="#eab308"/>`],
+    ["Build Zone", "#f59e0b", `<rect x="170" y="220" width="170" height="110" fill="#f59e0b"/><polygon points="160,220 256,120 352,220" fill="#fbbf24"/><rect x="230" y="260" width="50" height="70" fill="#fff7ed"/>`],
+    ["Recycling", "#64748b", `<circle cx="256" cy="220" r="90" fill="none" stroke="#16a34a" stroke-width="22"/><path d="M256 140 L280 190 L232 190 Z" fill="#16a34a"/><path d="M320 250 L270 270 L290 220 Z" fill="#15803d"/><path d="M200 270 L220 220 L250 270 Z" fill="#166534"/>`],
+  ];
   await buildPdfFromPages(
-    places.map((place) => async (pdf) => {
+    places.map(([place, _accent, art]) => async (pdf) => {
       const page = pdf.addPage([792, 612]);
       const font = await pdf.embedFont(StandardFonts.HelveticaBold);
       const fontReg = await pdf.embedFont(StandardFonts.Helvetica);
-      page.drawText("DRAFT Place Sign", { x: 48, y: 560, size: 12, font: fontReg, color: rgb(0.4, 0.35, 0.45) });
-      page.drawRectangle({ x: 80, y: 160, width: 632, height: 320, borderColor: rgb(0.2, 0.2, 0.25), borderWidth: 6, color: rgb(0.98, 0.96, 0.93) });
-      page.drawText(place.toUpperCase(), { x: 120, y: 290, size: 54, font, color: rgb(0.15, 0.15, 0.2) });
-      page.drawText("Community Helpers dramatic play · Little Learner Hub draft", {
+      const icon = await svgToPng(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="400"><rect width="100%" height="100%" fill="#fffaf5"/>${art}</svg>`,
+        512,
+        400,
+      );
+      const image = await pdf.embedPng(icon);
+      page.drawText("DRAFT Place Sign · Community Helpers", { x: 48, y: 560, size: 12, font: fontReg, color: rgb(0.4, 0.35, 0.45) });
+      page.drawRectangle({ x: 80, y: 120, width: 632, height: 400, borderColor: rgb(0.2, 0.2, 0.25), borderWidth: 6, color: rgb(0.98, 0.96, 0.93) });
+      page.drawImage(image, { x: 120, y: 220, width: 220, height: 170 });
+      page.drawText(place.toUpperCase(), { x: 360, y: 290, size: 40, font, color: rgb(0.15, 0.15, 0.2) });
+      page.drawText("Hang at child height in dramatic play", {
+        x: 360, y: 250, size: 12, font: fontReg, color: rgb(0.35, 0.35, 0.4),
+      });
+      page.drawText("Community Helpers dramatic play · Little Learner Hub draft · Not published", {
         x: 48, y: 48, size: 11, font: fontReg, color: rgb(0.4, 0.4, 0.45),
       });
     }),
@@ -295,39 +312,87 @@ async function buildWeatherPrintables() {
     symbols,
   );
   const chart = path.join(dir, "weekly-weather-observation-chart.pdf");
+  const legendKinds = ["sunny", "cloudy", "rainy", "windy", "stormy"];
+  const legendPngs = {};
+  for (const kind of legendKinds) {
+    legendPngs[kind] = await svgToPng(weatherIconSvg(kind), 128, 128);
+  }
   await buildPdfFromPages([
     async (pdf) => {
       const page = pdf.addPage([792, 612]);
       const font = await pdf.embedFont(StandardFonts.HelveticaBold);
       const fontReg = await pdf.embedFont(StandardFonts.Helvetica);
-      page.drawText("Weekly Weather Observation Chart — DRAFT", {
-        x: 40, y: 560, size: 18, font, color: rgb(0.1, 0.15, 0.25),
+      page.drawRectangle({
+        x: 0, y: 0, width: 792, height: 612,
+        color: rgb(0.93, 0.96, 1),
       });
+      page.drawText("Class Weather Chart — Weekly Observation (DRAFT)", {
+        x: 36, y: 568, size: 18, font, color: rgb(0.1, 0.18, 0.32),
+      });
+      page.drawText("Look outside (or through the window). Place today’s Weather Symbol Card in the day box.", {
+        x: 36, y: 546, size: 11, font: fontReg, color: rgb(0.25, 0.3, 0.38),
+      });
+      // Legend strip of cartoon symbols
+      let lx = 36;
+      for (const kind of legendKinds) {
+        const img = await pdf.embedPng(legendPngs[kind]);
+        page.drawImage(img, { x: lx, y: 488, width: 40, height: 40 });
+        page.drawText(kind, { x: lx + 44, y: 500, size: 10, font: fontReg, color: rgb(0.2, 0.25, 0.35) });
+        lx += 148;
+      }
       const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
       days.forEach((day, i) => {
-        const x = 40 + i * 145;
-        page.drawRectangle({ x, y: 200, width: 130, height: 300, borderColor: rgb(0.3, 0.35, 0.45), borderWidth: 2 });
-        page.drawText(day, { x: x + 18, y: 470, size: 12, font, color: rgb(0.15, 0.15, 0.2) });
-        page.drawText("Weather:", { x: x + 12, y: 430, size: 10, font: fontReg, color: rgb(0.3, 0.3, 0.35) });
-        page.drawText("Warm / Cool:", { x: x + 12, y: 300, size: 10, font: fontReg, color: rgb(0.3, 0.3, 0.35) });
+        const x = 36 + i * 148;
+        page.drawRectangle({
+          x, y: 120, width: 140, height: 350,
+          borderColor: rgb(0.25, 0.4, 0.55), borderWidth: 2.5,
+          color: rgb(1, 1, 1),
+        });
+        page.drawRectangle({
+          x, y: 430, width: 140, height: 40,
+          color: rgb(0.78, 0.88, 0.98),
+        });
+        page.drawText(day, { x: x + 28, y: 444, size: 13, font, color: rgb(0.12, 0.2, 0.32) });
+        page.drawText("Today’s weather", { x: x + 16, y: 400, size: 10, font: fontReg, color: rgb(0.3, 0.35, 0.4) });
+        page.drawRectangle({
+          x: x + 18, y: 250, width: 104, height: 130,
+          borderColor: rgb(0.7, 0.78, 0.88), borderWidth: 1.5,
+          color: rgb(0.98, 0.99, 1),
+        });
+        page.drawText("card here", {
+          x: x + 40, y: 305, size: 10, font: fontReg, color: rgb(0.55, 0.6, 0.68),
+        });
+        page.drawText("How does the air feel?", {
+          x: x + 12, y: 220, size: 9, font: fontReg, color: rgb(0.3, 0.35, 0.4),
+        });
+        page.drawText("warm   cool   cold", {
+          x: x + 16, y: 190, size: 10, font: fontReg, color: rgb(0.2, 0.25, 0.35),
+        });
+        page.drawText("What do you notice?", {
+          x: x + 12, y: 155, size: 9, font: fontReg, color: rgb(0.3, 0.35, 0.4),
+        });
+        page.drawLine({
+          start: { x: x + 12, y: 140 }, end: { x: x + 128, y: 140 },
+          thickness: 1, color: rgb(0.75, 0.8, 0.88),
+        });
       });
-      page.drawText("Children observe + place symbol cards. Little Learner Hub draft — not published.", {
-        x: 40, y: 48, size: 11, font: fontReg, color: rgb(0.4, 0.4, 0.45),
+      page.drawText("Reuse with Weather Symbol Cards · Little Learner Hub draft — not published.", {
+        x: 36, y: 48, size: 11, font: fontReg, color: rgb(0.35, 0.4, 0.48),
       });
     },
   ], chart);
   const clothing = path.join(dir, "clothing-for-weather-cards.pdf");
   const clothes = [
-    ["Sunny", "#fde68a"],
-    ["Rainy", "#bfdbfe"],
-    ["Cold", "#ddd6fe"],
-    ["Windy", "#a5f3fc"],
+    ["Sunny", "#fff7d6", "sun-hat + short sleeves", `<circle cx="256" cy="150" r="50" fill="#f5b700"/><rect x="196" y="230" width="120" height="140" rx="24" fill="#60a5fa"/><ellipse cx="256" cy="120" rx="70" ry="18" fill="#fbbf24"/>`],
+    ["Rainy", "#e0f2fe", "raincoat + boots", `<path d="M160 210 Q256 120 352 210 L352 320 Q256 360 160 320 Z" fill="#38bdf8"/><rect x="200" y="320" width="40" height="50" rx="8" fill="#1d4ed8"/><rect x="272" y="320" width="40" height="50" rx="8" fill="#1d4ed8"/>`],
+    ["Cold", "#ede9fe", "coat + mittens", `<rect x="180" y="180" width="152" height="180" rx="28" fill="#7c3aed"/><circle cx="256" cy="140" r="46" fill="#c4b5fd"/><rect x="150" y="250" width="40" height="50" rx="12" fill="#a78bfa"/><rect x="322" y="250" width="40" height="50" rx="12" fill="#a78bfa"/>`],
+    ["Windy", "#cffafe", "light jacket", `<path d="M40 120 Q160 80 300 130" fill="none" stroke="#0891b2" stroke-width="10"/><rect x="190" y="200" width="130" height="160" rx="26" fill="#22d3ee"/><circle cx="255" cy="160" r="40" fill="#a5f3fc"/>`],
   ];
   await buildPdfFromPages(
-    clothes.map(([label, fill]) => async (pdf) => {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="100%" height="100%" fill="${fill}"/><text x="50%" y="48%" text-anchor="middle" font-family="Arial" font-size="48" fill="#111">${label}</text><text x="50%" y="62%" text-anchor="middle" font-family="Arial" font-size="28" fill="#333">Clothing Card</text></svg>`;
+    clothes.map(([label, fill, hint, art]) => async (pdf) => {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="100%" height="100%" fill="${fill}"/><rect x="24" y="24" width="464" height="464" rx="28" fill="none" stroke="#334155" stroke-width="6"/>${art}<text x="50%" y="88%" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" fill="#0f172a">${label}</text><text x="50%" y="95%" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#334155">${hint}</text></svg>`;
       const png = await svgToPng(svg, 512, 512);
-      await addImagePage(pdf, png, `Clothing for Weather — ${label}`, "Sort with dress-up gear during centers");
+      await addImagePage(pdf, png, `Clothing for Weather — ${label}`, "Match dress-up gear to the weather card");
     }),
     clothing,
   );
