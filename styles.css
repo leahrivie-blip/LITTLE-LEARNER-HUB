@@ -27780,6 +27780,65 @@ button.primary-button.is-loading[data-upgrade-lesson-cta] {
 .tk-enrich-printable-idea-meta {
   font-size: 0.88rem;
 }
+.tk-enrich-kit-media-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.55rem 0 0.75rem;
+}
+.tk-enrich-kit-media-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+.tk-enrich-kit-media-card-body {
+  min-width: 0;
+  flex: 1;
+}
+.tk-enrich-kit-media-card-body strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+.tk-enrich-kit-media-meta {
+  margin-top: 0.2rem;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+.tk-enrich-kit-media-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.tk-enrich-kit-media-form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  border-radius: 0.55rem;
+  background: rgba(247, 243, 236, 0.55);
+}
+.tk-enrich-kit-media-form h5 {
+  margin: 0;
+}
+.tk-enrich-kit-media-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.2rem;
+}
+.tk-enrich-kit-media-vocab {
+  margin-top: 0.85rem;
+}
+.tk-enrich-kit-media-vocab h5 {
+  margin: 0 0 0.35rem;
+}
 .tk-enrich-current-text {
   white-space: pre-wrap;
   background: rgba(247, 243, 236, 0.9);
