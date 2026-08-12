@@ -384,6 +384,15 @@ const STORE_WRITE_DEBOUNCE_MS = Math.max(
   0,
   Number(process.env.STORE_WRITE_DEBOUNCE_MS ?? 2500),
 );
+/**
+ * Optional lastSeenAt touches from high-volume page_view analytics may update
+ * in-memory storeCache freely, but must not trigger a full llh_store UPSERT more
+ * often than this interval (2026-08-12: repeated ~29MB writes under browsing).
+ */
+const LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS = Math.max(
+  0,
+  Number(process.env.LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS ?? 60 * 1000),
+);
 const ANALYTICS_TABLE_RETENTION_DAYS = Math.max(
   30,
   Math.min(365, Number(process.env.ANALYTICS_TABLE_RETENTION_DAYS || 90)),
@@ -405,6 +414,19 @@ const storeWriteMetrics = storeWriteMetricsLib.createStoreWriteMetrics();
 let debouncedStoreWriteTimer = null;
 let debouncedStoreWritePending = false;
 let shutdownFlushInProgress = false;
+/** True while a full llh_store upsert is actively talking to Postgres. */
+let postgresWriteInFlight = false;
+/**
+ * Debounced/optional mutations that arrived while a full-store write was in flight.
+ * Drained once after the active write finishes so we never queue multiple stale 29MB snapshots.
+ */
+let postgresStoreDirty = false;
+/** Prevents dirty-drain from scheduling more than one follow-up write per burst. */
+let postgresDirtyDrainScheduled = false;
+/** SHA-256 of the last successfully persisted store JSON (not the payload itself). */
+let lastPersistedStoreFingerprint = "";
+/** Last time a lastSeenAt page_view touch scheduled a durable store persist. */
+let lastSeenStorePersistScheduledAt = 0;
 // Phase 2 of the admin-token-in-URL security follow-up: sanitized counters only —
 // never the token value itself — so the still-supported legacy query/body auth paths
 // can be monitored during the client migration and safely removed (Phase 3) once
@@ -4297,6 +4319,9 @@ function isTransientPostgresConnectionError(error) {
     || msg.includes("connection ended unexpectedly")
     || msg.includes("client was closed")
     || msg.includes("cannot use a pool after calling end")
+    || msg.includes("not yet accepting connections")
+    || msg.includes("the database system is starting up")
+    || msg.includes("the database system is in recovery mode")
     || code === "ECONNRESET"
     || code === "ECONNREFUSED"
     || code === "ETIMEDOUT"
@@ -4333,6 +4358,61 @@ function createConfiguredPostgresPool() {
     });
   }
   return pool;
+}
+
+/**
+ * Run work on a checked-out Pool client with a temporary 'error' listener.
+ * pg-pool removes its idle error handler while a client is checked out; without
+ * this, a mid-query SIGKILL/connection drop can emit an unhandled Client 'error'
+ * and crash the whole Node process (2026-08-12 production incident).
+ *
+ * Query failures still reject to the caller. Connection-level errors release the
+ * client with an error so it is destroyed, not returned to the pool.
+ */
+async function withPostgresClient(work, { label = "Postgres client" } = {}) {
+  if (!postgresPool) ensurePostgresPool();
+  if (!postgresPool) throw new Error("Postgres pool is not available.");
+  const client = await postgresPool.connect();
+  let connectionError = null;
+  const onClientError = (error) => {
+    connectionError = error || new Error(`${label}: connection error`);
+    console.error(
+      `[store] Postgres checked-out client error (${label}):`,
+      connectionError.message || connectionError,
+    );
+  };
+  if (typeof client.on === "function") {
+    client.on("error", onClientError);
+  }
+  try {
+    return await work(client);
+  } catch (error) {
+    throw connectionError || error;
+  } finally {
+    if (typeof client.removeListener === "function") {
+      client.removeListener("error", onClientError);
+    } else if (typeof client.off === "function") {
+      client.off("error", onClientError);
+    }
+    try {
+      // Passing an error destroys the client instead of returning a poisoned connection.
+      client.release(connectionError || undefined);
+    } catch (releaseError) {
+      console.warn(`[store] Postgres client release failed (${label}):`, releaseError.message || releaseError);
+    }
+  }
+}
+
+function fingerprintStorePayload(payload) {
+  return crypto.createHash("sha256").update(payload, "utf8").digest("hex");
+}
+
+function rememberPersistedStoreFingerprint(store = storeCache) {
+  try {
+    lastPersistedStoreFingerprint = fingerprintStorePayload(JSON.stringify(store || {}));
+  } catch (error) {
+    console.warn("[store] could not fingerprint persisted store:", error.message || error);
+  }
 }
 
 /**
@@ -4437,6 +4517,7 @@ async function initializePostgresStore() {
   databaseReady = true;
   lastPostgresError = "";
   lastPersistedStoreCounts = storeInventoryCounts(storeCache);
+  rememberPersistedStoreFingerprint(storeCache);
 }
 
 function loadLocalJsonStoreFallback() {
@@ -4470,6 +4551,7 @@ async function reloadStoreFromPostgres() {
   storeCache = result.rows[0].data || defaultStore();
   databaseReady = true;
   lastPostgresError = "";
+  rememberPersistedStoreFingerprint(storeCache);
   return true;
 }
 
@@ -5133,8 +5215,26 @@ function writeLocalJsonStore(store) {
   fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
 }
 
+function clearDebouncedStoreWriteTimer() {
+  if (debouncedStoreWriteTimer) {
+    clearTimeout(debouncedStoreWriteTimer);
+    debouncedStoreWriteTimer = null;
+  }
+  debouncedStoreWritePending = false;
+}
+
 function scheduleDebouncedPostgresStoreWrite() {
   if (!usePostgresStore() || !postgresPool || !databaseReady) return;
+  // While a ~29MB upsert is in flight, only mark dirty and cancel any armed
+  // debounce timer. Leaving the timer alive caused post-write re-flush storms
+  // (timer fired after inFlight cleared → another full upsert → repeat).
+  if (postgresWriteInFlight) {
+    postgresStoreDirty = true;
+    storeWriteMetrics.debouncedCoalesced += 1;
+    clearDebouncedStoreWriteTimer();
+    logStorePersistence("write_coalesced_inflight", { action: "debounced_schedule" });
+    return;
+  }
   if (debouncedStoreWriteTimer) {
     storeWriteMetrics.debouncedCoalesced += 1;
   } else {
@@ -5146,6 +5246,12 @@ function scheduleDebouncedPostgresStoreWrite() {
     debouncedStoreWriteTimer = null;
     if (!debouncedStoreWritePending) return;
     debouncedStoreWritePending = false;
+    if (postgresWriteInFlight) {
+      postgresStoreDirty = true;
+      storeWriteMetrics.debouncedCoalesced += 1;
+      logStorePersistence("write_coalesced_inflight", { action: "debounced_flush" });
+      return;
+    }
     storeWriteMetrics.debouncedFlushed += 1;
     logStorePersistence("debounced_flushed", {});
     enqueuePostgresStoreWrite().writePromise.catch((error) => {
@@ -5228,21 +5334,20 @@ async function executePostgresStoreUpsert(payload, nextCounts) {
   for (let attempt = 0; attempt <= POSTGRES_STORE_WRITE_RETRY_COUNT; attempt += 1) {
     const started = Date.now();
     try {
-      const client = await postgresPool.connect();
-      try {
-        await client.query("BEGIN");
-        await client.query(
-          "SELECT pg_advisory_xact_lock($1, hashtext($2))",
-          [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
-        );
-        await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
-        await client.query("COMMIT");
-      } catch (error) {
-        try { await client.query("ROLLBACK"); } catch { /* ignore */ }
-        throw error;
-      } finally {
-        client.release();
-      }
+      await withPostgresClient(async (client) => {
+        try {
+          await client.query("BEGIN");
+          await client.query(
+            "SELECT pg_advisory_xact_lock($1, hashtext($2))",
+            [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
+          );
+          await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
+          await client.query("COMMIT");
+        } catch (error) {
+          try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+          throw error;
+        }
+      }, { label: "Postgres store upsert" });
       const durationMs = Date.now() - started;
       storeWriteMetricsLib.recordWriteSuccess(storeWriteMetrics, durationMs);
       if (attempt > 0) {
@@ -5312,19 +5417,69 @@ function enqueuePostgresStoreWrite() {
       throw error;
     }
     const payload = JSON.stringify(storeCache);
-    storeWriteMetricsLib.recordWriteStart(storeWriteMetrics, Buffer.byteLength(payload, "utf8"));
+    const payloadBytes = Buffer.byteLength(payload, "utf8");
+    const fingerprint = fingerprintStorePayload(payload);
+    const scheduleDirtyDrain = () => {
+      if (!postgresStoreDirty || !databaseReady || !usePostgresStore() || postgresDirtyDrainScheduled) {
+        return;
+      }
+      postgresStoreDirty = false;
+      postgresDirtyDrainScheduled = true;
+      storeWriteMetrics.dirtyDrains += 1;
+      logStorePersistence("dirty_store_drain", { afterGeneration: writeGeneration });
+      setImmediate(() => {
+        postgresDirtyDrainScheduled = false;
+        if (!databaseReady || !usePostgresStore() || !postgresPool) return;
+        enqueuePostgresStoreWrite().writePromise.catch((error) => {
+          if (error?.code === "store_count_drop_blocked") return;
+          logStorePersistence("failed_write", {
+            action: "dirty_store_drain",
+            error: error.message || String(error),
+          });
+        });
+      });
+    };
+    if (fingerprint && fingerprint === lastPersistedStoreFingerprint) {
+      storeWriteMetrics.identicalWritesSkipped += 1;
+      logStorePersistence("full_store_write_skipped_identical", {
+        generation: writeGeneration,
+        payloadBytes,
+      });
+      scheduleDirtyDrain();
+      return;
+    }
+    storeWriteMetricsLib.recordWriteStart(storeWriteMetrics, payloadBytes);
+    storeWriteMetrics.activeFullStoreWrites += 1;
+    if (storeWriteMetrics.activeFullStoreWrites > storeWriteMetrics.maxSimultaneousFullStoreWrites) {
+      storeWriteMetrics.maxSimultaneousFullStoreWrites = storeWriteMetrics.activeFullStoreWrites;
+    }
+    postgresWriteInFlight = true;
+    // This upsert captures current storeCache; drop any armed debounce to avoid a
+    // duplicate flush when inFlight clears.
+    clearDebouncedStoreWriteTimer();
     logStorePersistence("full_store_write_start", {
       generation: writeGeneration,
-      payloadBytes: Buffer.byteLength(payload, "utf8"),
+      payloadBytes,
     });
-    await executePostgresStoreUpsert(payload, nextCounts);
-    logStorePersistence("full_store_write_success", {
-      generation: writeGeneration,
-      payloadBytes: Buffer.byteLength(payload, "utf8"),
-      lastDurationMs: storeWriteMetrics.lastDurationMs,
-    });
+    try {
+      await executePostgresStoreUpsert(payload, nextCounts);
+      lastPersistedStoreFingerprint = fingerprint;
+      logStorePersistence("full_store_write_success", {
+        generation: writeGeneration,
+        payloadBytes,
+        lastDurationMs: storeWriteMetrics.lastDurationMs,
+      });
+    } finally {
+      storeWriteMetrics.activeFullStoreWrites = Math.max(0, storeWriteMetrics.activeFullStoreWrites - 1);
+      postgresWriteInFlight = false;
+    }
+    // Mutations that arrived during the upsert (e.g. lastSeenAt debounce) → exactly
+    // one follow-up write. Latch prevents write→dirty→write loops.
+    scheduleDirtyDrain();
   })();
   postgresWriteChain = writePromise.catch((error) => {
+    postgresWriteInFlight = false;
+    storeWriteMetrics.activeFullStoreWrites = Math.max(0, storeWriteMetrics.activeFullStoreWrites - 1);
     if (error?.code !== "store_count_drop_blocked") {
       databaseReady = false;
       lastPostgresError = error.message || "Postgres store write failed.";
@@ -6032,53 +6187,52 @@ async function mutateFoundingInventoryInPostgres(mutator) {
   }
   // Drain in-process writes first so this transaction sees durable state.
   await postgresWriteChain.catch(() => {});
-  const client = await postgresPool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(
-      "SELECT pg_advisory_xact_lock($1, hashtext($2))",
-      [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
-    );
-    const result = await client.query(
-      "SELECT data FROM llh_store WHERE id = $1 FOR UPDATE",
-      [storeRecordId],
-    );
-    if (!result.rows[0]?.data) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "store_missing" };
-    }
-    const store = result.rows[0].data;
-    const outcome = mutator(store);
-    if (outcome?.persist === false) {
-      await client.query("ROLLBACK");
+  return withPostgresClient(async (client) => {
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "SELECT pg_advisory_xact_lock($1, hashtext($2))",
+        [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
+      );
+      const result = await client.query(
+        "SELECT data FROM llh_store WHERE id = $1 FOR UPDATE",
+        [storeRecordId],
+      );
+      if (!result.rows[0]?.data) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "store_missing" };
+      }
+      const store = result.rows[0].data;
+      const outcome = mutator(store);
+      if (outcome?.persist === false) {
+        await client.query("ROLLBACK");
+        return outcome.result;
+      }
+      await client.query(
+        `UPDATE llh_store
+         SET data = jsonb_set(
+               jsonb_set(COALESCE(data, '{}'::jsonb), '{foundingMembers}', $2::jsonb, true),
+               '{foundingReservations}', $3::jsonb, true
+             ),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [
+          storeRecordId,
+          JSON.stringify(Array.isArray(store.foundingMembers) ? store.foundingMembers : []),
+          JSON.stringify(Array.isArray(store.foundingReservations) ? store.foundingReservations : []),
+        ],
+      );
+      if (storeCache && typeof storeCache === "object") {
+        storeCache.foundingMembers = Array.isArray(store.foundingMembers) ? store.foundingMembers : [];
+        storeCache.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
+      }
+      await client.query("COMMIT");
       return outcome.result;
+    } catch (error) {
+      try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+      throw error;
     }
-    await client.query(
-      `UPDATE llh_store
-       SET data = jsonb_set(
-             jsonb_set(COALESCE(data, '{}'::jsonb), '{foundingMembers}', $2::jsonb, true),
-             '{foundingReservations}', $3::jsonb, true
-           ),
-           updated_at = NOW()
-       WHERE id = $1`,
-      [
-        storeRecordId,
-        JSON.stringify(Array.isArray(store.foundingMembers) ? store.foundingMembers : []),
-        JSON.stringify(Array.isArray(store.foundingReservations) ? store.foundingReservations : []),
-      ],
-    );
-    if (storeCache && typeof storeCache === "object") {
-      storeCache.foundingMembers = Array.isArray(store.foundingMembers) ? store.foundingMembers : [];
-      storeCache.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
-    }
-    await client.query("COMMIT");
-    return outcome.result;
-  } catch (error) {
-    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
-    throw error;
-  } finally {
-    client.release();
-  }
+  }, { label: "Founding inventory mutation" });
 }
 
 /**
@@ -17828,10 +17982,28 @@ async function handleAnalyticsEvent(request, response) {
   }
 
   // High-volume optional tracking: table row only; lastSeenAt may debounce a store touch.
+  // In-memory lastSeenAt/featureUsage update EVERY time so Admin "online now" (15m window)
+  // stays precise. Durable full-store persist is rate-limited and must NOT mark the store
+  // dirty during an active Admin/curriculum UPSERT (that would force a second ~29MB write).
   if (event.user && event.user !== "guest") {
     if (!storeCache) storeCache = defaultStore();
     updateAnalyticsUser(storeCache, event);
-    if (databaseReady) scheduleDebouncedPostgresStoreWrite();
+    if (databaseReady) {
+      const now = Date.now();
+      if (postgresWriteInFlight) {
+        // Memory already updated above; skip durable schedule so dirty-drain cannot
+        // append a telemetry-only ~29MB UPSERT after a legitimate Admin save.
+        storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
+      } else if (
+        LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS === 0
+        || now - lastSeenStorePersistScheduledAt >= LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS
+      ) {
+        lastSeenStorePersistScheduledAt = now;
+        scheduleDebouncedPostgresStoreWrite();
+      } else {
+        storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
+      }
+    }
   }
 
   jsonResponse(response, 200, {

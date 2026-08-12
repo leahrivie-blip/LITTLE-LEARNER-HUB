@@ -147,7 +147,7 @@ async function main() {
     console.log("2) Login analytics — table row + durable user patch, no blob analytics array");
     const login = await requestJson("POST", "/api/analytics/event", {
       name: "account_login_complete",
-      user: "debounce-user@example.com",
+      user: "debounce-user@llh-test.org",
       sessionId: "login-session",
     });
     assert.equal(login.status, 200, login.text);
@@ -165,7 +165,7 @@ async function main() {
       const res = await requestJson("POST", "/api/analytics/event", {
         name: "page_view",
         path: `/debounce-lastseen-${i}`,
-        user: "debounce-user@example.com",
+        user: "debounce-user@llh-test.org",
         sessionId: `debounce-lastseen-session-${i}`,
       });
       assert.equal(res.status, 200, res.text);
