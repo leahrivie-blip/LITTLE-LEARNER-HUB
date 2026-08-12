@@ -3,32 +3,28 @@
 **Status:** STOPPED for Owner review. **Not published. Not merged. Not deployed.**  
 **Branch:** `cursor/four-teaching-kits-premium-drafts-6e22`  
 **Production host:** `https://littlelearnershubbyleah.com`  
-**Last successful production quality rewrite:** `2026-08-12T03:15:35.655Z` (`curriculum-drafts/teaching-kits-premium/quality-rewrite-report.json`)
+**Last successful production quality rewrite:** `2026-08-12T03:15:35.655Z`  
+**Live Admin re-verify:** `2026-08-12T03:39:46.751Z` (`curriculum-drafts/teaching-kits-premium/production-admin-live-verify.json`)
 
 ## Verdict (honest)
 
-These four kits are **not** declared “premium-ready / 100% complete.”
-
-They pass a strong **structural + anti-filler rewrite** on the enrichment draft path, but this stop includes **blockers** that prevent a clean A+B+C+D premium claim:
+**Semantic anti-filler rewrite + draft printable files are live in Owner Admin.**  
+Still **not** declared fully “premium-ready / 100% complete” for kit-level readiness badges (Admin still shows Needs Changes / Library Blocked for photos/family/printables scoring rules).
 
 | Check | Result |
 | --- | --- |
-| A Structural (core fields) | PASS at last production rewrite (0 blank core cells × 4 kits) |
-| B Semantic (activity-specific, no generic filler) | PASS at last production rewrite scan (0 targeted generic hits). Mid-pass Admin spot-check had stale `proposedDailyPlans` filler; that was synced in a follow-up production write. **Live re-verify now blocked** (see Blockers). |
-| C Resource completeness | PARTIAL — resources exist and are linked by ID, but several still reported `status: "published"` after draft-force API calls. Improved local PDF rebuilds are **not re-uploaded**. |
-| D Visual review | PARTIAL — local printables/images inspected; improved chart/signs/clothing rebuilt locally; production file swap blocked. |
-| Draft-only enrichment | PASS at last rewrite (`enrichmentPublished: false` on all four) |
-| Customer published lesson body | Untouched by design (`saveMode: enrichment_draft` only) |
+| A Structural (core fields) | PASS — 0 blank core cells × 4 kits (15 each) |
+| B Semantic (activity-specific, no generic filler) | PASS — live Admin spot-check on 4 activities (one per kit); 0 targeted generic phrases; quality map covers all 60 titles |
+| C Resource completeness | PASS for linked draft printables — all **9** resources `status: draft`, PDF bytes downloadable via Admin media (`?admin=1`) |
+| D Visual review | PASS for upgraded weather chart / clothing cards / helper signs (local + production PDF open); Admin screenshots under `/opt/cursor/artifacts/tk-live-quality-verify/*-PASS.png` |
+| Draft-only enrichment | PASS — `enrichmentPublished: false` on all four |
+| Customer published lesson body | PASS — public `/api/site-content` has **no** `enrichmentDraft` leak |
 
-### Blockers (must clear before “premium-ready”)
+### Remaining non-blockers / Owner judgment
 
-1. **Production Admin login currently returns 401** with previously used Owner unlock credentials, so this agent cannot re-read Admin, re-force printable draft status, or upload improved PDFs.
-2. **Printable resources still listed as `published`** in the rewrite report’s post-save status snapshot (despite `printableStatusFixes` HTTP 200). Owner must confirm in Admin whether draft-force stuck; if not, force draft again.
-3. **Improved local printables not yet on production:**
-   - `weekly-weather-observation-chart.pdf` (cartoon legend + day card slots)
-   - `clothing-for-weather-cards.pdf` (illustrated clothing)
-   - `helper-place-signs.pdf` (icon + label signs)
-4. Overall kit readiness badges in Admin may still show **Needs Changes / &lt;100%** for non-core reasons (week toolkit, images, etc.) even when activity cores are complete.
+1. Kit workflow badges may still say **Needs Changes** (e.g. photo pack / family connection length / draft printables not counting as published-usable). That is scoring, not missing activity text.
+2. `tk-printable` `replace_pdf` **preserves** `published` if a resource was already published — draft must be forced via `resources/save` afterward (done for all 9).
+3. Do **not** Publish until you personally approve the kits.
 
 ---
 
