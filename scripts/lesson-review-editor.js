@@ -30,6 +30,8 @@
 
   /** Core Activity fields — must be meaningful before an activity counts Complete. */
   const CORE_ACTIVITY_FIELDS = Object.freeze([
+    { key: "ageModifications", label: "Recommended age", minWords: 1, example: "Toddler (18–36 months); offer more adult support for younger friends." },
+    { key: "durationMinutes", label: "Estimated duration", minWords: 1, example: "10–15 minutes" },
     { key: "objective", label: "Activity objective", minWords: 4, example: "Toddlers practice gentle touch while exploring whole apples with sight and smell." },
     { key: "description", label: "What children will do", minWords: 12, example: "Children sit at a low table with whole apples. They look, touch, and smell the fruit while the teacher narrates stem, skin, cool, and bumpy — without tasting today." },
     { key: "materials", label: "Materials", minWords: 3, example: "Three whole apples with different skins\nWashable placemats\nDamp cloth" },
@@ -267,6 +269,15 @@
     if (key === "steps") return item?.steps || item?.directions || "";
     if (key === "cleanupTips") return item?.cleanupTips || item?.cleanup || item?.resetNotes || "";
     if (key === "preparation") return item?.preparation || item?.prep || "";
+    if (key === "ageModifications") {
+      return item?.ageModifications || item?.recommendedAge || item?.ageBand || item?.ageGroup || "";
+    }
+    if (key === "durationMinutes") {
+      if (item?.durationMinutes === null || item?.durationMinutes === undefined || item?.durationMinutes === "") {
+        return text(item?.duration || item?.estimatedDuration || "");
+      }
+      return String(item.durationMinutes);
+    }
     if (key === "observationOpportunities") {
       return Array.isArray(item?.observationOpportunities)
         ? item.observationOpportunities.join("\n")
@@ -274,6 +285,18 @@
     }
     if (key === "teacherLanguage") return item?.teacherLanguage || item?.teacherQuestions || "";
     return item?.[key] || "";
+  }
+
+  function coreFieldMeaningful(item, field) {
+    const title = text(item?.title);
+    const value = coreFieldValue(item, field.key);
+    if (field.key === "durationMinutes") {
+      const raw = text(value);
+      if (!raw) return false;
+      if (/^(tbd|todo|n\/?a|none|placeholder|add later|coming soon|to be (added|determined))$/i.test(raw)) return false;
+      return true;
+    }
+    return meaningfulText(value, field.minWords, { title });
   }
 
   /**
@@ -286,9 +309,7 @@
     const missing = [];
     if (!meaningfulText(title, 1)) missing.push("Activity name");
     CORE_ACTIVITY_FIELDS.forEach((field) => {
-      if (!meaningfulText(coreFieldValue(item, field.key), field.minWords, { title })) {
-        missing.push(field.label);
-      }
+      if (!coreFieldMeaningful(item, field)) missing.push(field.label);
     });
     const complete = missing.length === 0;
     const description = coreFieldValue(item, "description");
@@ -736,9 +757,11 @@
           ${input("Weekday", `${base}.dayOfWeek`, item.dayOfWeek || day, "monday")}
           ${input("Category / developmental domain", `${base}.activityCategory`, item.activityCategory || "", "STEM/Discovery")}
           ${CORE_ACTIVITY_FIELDS.map((field) => {
-            const pathKey = field.key === "cleanupTips" ? "cleanupTips" : field.key;
+            const pathKey = field.key;
             const value = coreFieldValue(item, field.key);
-            const rows = field.key === "description" || field.key === "steps" ? 6 : 3;
+            const rows = field.key === "description" || field.key === "steps"
+              ? 6
+              : (field.key === "ageModifications" || field.key === "durationMinutes" ? 2 : 3);
             return `
               <label class="llh-lre-field llh-lre-core-field" data-lre-core-field="${esc(field.key)}">
                 <span class="llh-lre-label">${esc(field.label)}</span>
@@ -1235,6 +1258,7 @@
         if (!overlay) return;
         [
           "title", "dayOfWeek", "activityCategory",
+          "ageModifications", "recommendedAge", "durationMinutes", "duration", "estimatedDuration",
           "objective", "description", "materials", "preparation", "prep", "setup",
           "steps", "directions", "teacherLanguage", "observationOpportunities",
           "safetyNotes", "cleanupTips", "cleanup", "resetNotes",
@@ -1246,6 +1270,15 @@
         ].forEach((field) => {
           if (overlay[field] != null && overlay[field] !== "") item[field] = clone(overlay[field]);
         });
+        // Normalize equivalent age/duration aliases into the Open Review Core keys.
+        if (!text(item.ageModifications)) {
+          const ageAlias = text(overlay.ageModifications || overlay.recommendedAge || item.recommendedAge || item.ageBand);
+          if (ageAlias) item.ageModifications = ageAlias;
+        }
+        if (item.durationMinutes == null || item.durationMinutes === "") {
+          const durAlias = overlay.durationMinutes ?? overlay.duration ?? overlay.estimatedDuration ?? item.duration ?? item.estimatedDuration;
+          if (durAlias != null && durAlias !== "") item.durationMinutes = durAlias;
+        }
         if (overlay.imageRequirement) item.imageRequirement = normalizeImageRequirement(overlay.imageRequirement);
         if (overlay.noImageNeeded === true || normalizeImageRequirement(overlay.imageRequirement) === "no_image_needed") {
           item.noImageNeeded = true;
@@ -1277,11 +1310,18 @@
         ? existing.activities[key]
         : {};
       const imageReq = normalizeImageRequirement(item.imageRequirement || imageRequirementForActivity(item));
+      const ageModifications = text(coreFieldValue(item, "ageModifications") || prev.ageModifications || "");
+      const durationRaw = coreFieldValue(item, "durationMinutes");
+      const durationMinutes = durationRaw !== ""
+        ? durationRaw
+        : (prev.durationMinutes != null && prev.durationMinutes !== "" ? prev.durationMinutes : "");
       existing.activities[key] = {
         ...prev,
         title: item.title || prev.title || "",
         dayOfWeek: item.dayOfWeek || prev.dayOfWeek || "",
         activityCategory: item.activityCategory || prev.activityCategory || "",
+        ageModifications,
+        durationMinutes,
         objective: item.objective || "",
         description: item.description || "",
         materials: item.materials || "",
