@@ -7,6 +7,7 @@
   "use strict";
 
   const api = () => root.LLHTeachingKitEnrichment;
+  const pasteApi = () => root.LLHTeachingKitPasteImport;
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const DAY_LABEL = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
   const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -71,6 +72,8 @@
     },
     qualityReport: null, // specialist readiness report (teachingKitQualityReview)
     qualityBusy: false,
+    /** Owner-only Paste Week / Paste Activity importer (never publishes). */
+    pasteImport: null,
     aiTray: {
       open: false,
       phase: "idle", // idle | loading | ready | error | timeout
@@ -1074,6 +1077,160 @@
     };
   }
 
+  function resetPasteImport({ keepHighlight = false } = {}) {
+    const paste = pasteApi();
+    const highlightFields = keepHighlight && state.pasteImport
+      ? state.pasteImport.highlightFields || []
+      : [];
+    const highlightUntil = keepHighlight && state.pasteImport
+      ? state.pasteImport.highlightUntil || 0
+      : 0;
+    state.pasteImport = paste && typeof paste.emptyImporterState === "function"
+      ? { ...paste.emptyImporterState(), highlightFields, highlightUntil }
+      : {
+        open: false,
+        scope: "",
+        activityKey: "",
+        planId: "",
+        rawText: "",
+        phase: "edit",
+        preview: null,
+        highlightFields,
+        highlightUntil,
+      };
+  }
+
+  function clearPasteImportIfStale() {
+    const paste = pasteApi();
+    if (!paste || !state.pasteImport) return;
+    const plan = getPlan();
+    const act = plan ? getActivities(plan)[state.activityIndex] : null;
+    const activityKey = act ? draftKey(act) : "";
+    if (paste.shouldClearImporterState(state.pasteImport, {
+      planId: state.planId,
+      mode: state.mode,
+      activityKey,
+    })) {
+      resetPasteImport({ keepHighlight: true });
+    }
+  }
+
+  function openPasteImport(scope) {
+    const paste = pasteApi();
+    if (!paste) {
+      state.statusText = "Paste importer failed to load.";
+      render();
+      return;
+    }
+    const plan = getPlan();
+    if (!plan) return;
+    if (scope === "week") {
+      resetPasteImport();
+      state.pasteImport.open = true;
+      state.pasteImport.scope = "week";
+      state.pasteImport.planId = state.planId;
+      state.pasteImport.activityKey = "";
+      state.pasteImport.phase = "edit";
+      state.pasteImport.rawText = "";
+      state.pasteImport.preview = null;
+      render();
+      return;
+    }
+    const act = getActivities(plan)[state.activityIndex];
+    if (!act) return;
+    const key = draftKey(act);
+    if (!key) {
+      state.statusText = "This activity is missing a stable ID — paste import blocked.";
+      render();
+      return;
+    }
+    resetPasteImport();
+    state.pasteImport.open = true;
+    state.pasteImport.scope = "activity";
+    state.pasteImport.planId = state.planId;
+    state.pasteImport.activityKey = key;
+    state.pasteImport.phase = "edit";
+    state.pasteImport.rawText = "";
+    state.pasteImport.preview = null;
+    render();
+  }
+
+  function buildPastePreviewFromState() {
+    const paste = pasteApi();
+    if (!paste || !state.pasteImport?.open) return null;
+    const plan = getPlan();
+    if (!plan) return null;
+    if (state.pasteImport.scope === "week") {
+      return paste.buildWeekPreview(state.pasteImport.rawText, state.draft.week || {}, plan);
+    }
+    const key = String(state.pasteImport.activityKey || "").trim();
+    if (!key) return null;
+    const matched = getActivities(plan).find((item) => draftKey(item) === key);
+    if (!matched) return null;
+    const draftAct = state.draft.activities[key] || {};
+    return paste.buildActivityPreview(state.pasteImport.rawText, matched, draftAct, key);
+  }
+
+  function applyPasteImportSelected() {
+    const paste = pasteApi();
+    if (!paste || !state.pasteImport?.preview) return;
+    const preview = state.pasteImport.preview;
+    // Re-assert isolation against current editor selection.
+    if (preview.scope === "activity") {
+      const plan = getPlan();
+      const current = plan ? getActivities(plan)[state.activityIndex] : null;
+      const currentKey = current ? draftKey(current) : "";
+      if (!preview.activityKey || preview.activityKey !== currentKey || preview.activityKey !== state.pasteImport.activityKey) {
+        state.statusText = "Paste import cancelled — activity selection changed.";
+        resetPasteImport();
+        render();
+        return;
+      }
+    }
+    if (preview.scope === "week" && state.mode !== "week") {
+      state.statusText = "Paste import cancelled — left Week editor.";
+      resetPasteImport();
+      render();
+      return;
+    }
+    const selectedFieldIds = (preview.fieldChanges || [])
+      .filter((change) => change.selected && change.kind !== "unsupported" && change.applicable !== false)
+      .map((change) => change.fieldId);
+    if (!selectedFieldIds.length) {
+      state.statusText = "Select at least one change to apply.";
+      render();
+      return;
+    }
+    const result = paste.applyPreviewToDraft(state.draft, preview, { selectedFieldIds });
+    if (result.error === "missing_activity_key") {
+      state.statusText = "Paste import blocked — missing activity ID.";
+      render();
+      return;
+    }
+    state.draft = result.draft;
+    if (!state.draft.activities) state.draft.activities = {};
+    if (!state.draft.week) state.draft.week = {};
+    const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
+    markDirty({ autosave: !explicitOnly });
+    state.pasteImport.highlightFields = result.appliedFields.slice();
+    state.pasteImport.highlightUntil = Date.now() + 10000;
+    state.pasteImport.open = false;
+    state.pasteImport.phase = "edit";
+    state.pasteImport.preview = null;
+    state.pasteImport.rawText = "";
+    state.statusText = result.appliedFields.length
+      ? `Applied ${result.appliedFields.length} paste update(s) to draft (not published).`
+      : "No paste changes applied.";
+    render();
+  }
+
+  function importHighlightClass(fieldId) {
+    const pi = state.pasteImport;
+    if (!pi || !Array.isArray(pi.highlightFields) || !pi.highlightUntil) return "";
+    if (Date.now() > pi.highlightUntil) return "";
+    return pi.highlightFields.includes(fieldId) ? " is-import-highlight" : "";
+  }
+
   function currentAiActivityKey(plan) {
     const act = getActivities(plan)[state.activityIndex];
     return act ? draftKey(act) : "";
@@ -1793,6 +1950,7 @@
       state.publishOpen = false;
       state.pendingCleanupAssetIds = [];
       resetAiTray();
+      resetPasteImport();
       state.kitMediaEdit = null;
       const sourceDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
         ? plan.enrichmentDraft
@@ -2548,9 +2706,10 @@
 
   function coreField(label, key, value, { rows = 3, type = "textarea", options = null } = {}) {
     const help = coreFieldHelp(key, value);
+    const highlight = importHighlightClass(key);
     if (type === "select" && Array.isArray(options)) {
       return `
-        <label class="tk-enrich-core-field">
+        <label class="tk-enrich-core-field${highlight}" data-import-field="${esc(key)}">
           <span>${esc(label)}</span>
           ${help}
           <select data-core-field="${esc(key)}">
@@ -2565,14 +2724,14 @@
     }
     if (type === "input") {
       return `
-        <label class="tk-enrich-core-field">
+        <label class="tk-enrich-core-field${highlight}" data-import-field="${esc(key)}">
           <span>${esc(label)}</span>
           ${help}
           <input type="text" data-core-field="${esc(key)}" value="${esc(value || "")}" />
         </label>`;
     }
     return `
-      <label class="tk-enrich-core-field">
+      <label class="tk-enrich-core-field${highlight}" data-import-field="${esc(key)}">
         <span>${esc(label)}</span>
         ${help}
         <textarea data-core-field="${esc(key)}" rows="${rows}">${esc(value || "")}</textarea>
@@ -2635,6 +2794,7 @@
             </div>
             <button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>
             <button type="button" class="ghost-button" data-ai-suggest="lesson">Prepare full lesson draft</button>
+            <button type="button" class="ghost-button" data-paste-activity-update title="Paste structured activity field updates into this activity draft only">Paste Activity Update</button>
           </div>
 
           ${accordionSection("core", "Core Activity", `
@@ -2670,16 +2830,24 @@
           `)}
 
           ${accordionSection("enrichment", "Enrichment", `
-            <section class="tk-enrich-card-block">
+            <section class="tk-enrich-card-block${importHighlightClass("settingTag_small_group") || importHighlightClass("settingTag_large_group")}" data-import-field="settingTags">
               <h4>Group &amp; setting</h4>
-              <p class="muted-copy">Small-group / large-group ideas and indoor / outdoor options.</p>
+              <p class="muted-copy">Setting chips tag where an activity fits. Indoor / Outdoor text below uses the same binder fields as classic authoring and Publish.</p>
               <div class="tk-enrich-chips" data-setting-tags>
                 ${[["small_group", "Small group"], ["large_group", "Large group"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]].map(([id, label]) => `
                   <button type="button" class="tk-enrich-chip ${tags.has(id) ? "is-on" : ""}" data-setting-tag="${id}">${label}</button>
                 `).join("")}
               </div>
             </section>
-            <section class="tk-enrich-card-block">
+            <label class="tk-enrich-core-field${importHighlightClass("indoorAlternatives")}" data-import-field="indoorAlternatives">
+              <span>Indoor</span>
+              <textarea data-enrich-text-field="indoorAlternatives" rows="3" placeholder="How to run this indoors…">${esc(view.indoorAlternatives || "")}</textarea>
+            </label>
+            <label class="tk-enrich-core-field${importHighlightClass("outdoorAlternatives")}" data-import-field="outdoorAlternatives">
+              <span>Outdoor</span>
+              <textarea data-enrich-text-field="outdoorAlternatives" rows="3" placeholder="How to expand this outdoors…">${esc(view.outdoorAlternatives || "")}</textarea>
+            </label>
+            <section class="tk-enrich-card-block${importHighlightClass("teacherTips")}" data-import-field="teacherTips">
               <div class="tk-enrich-card-head"><h4>Teacher tips</h4></div>
               <div class="tk-enrich-tip-list">
                 ${view.teacherTips.map((tip, i) => `
@@ -2694,7 +2862,7 @@
                 <button class="ghost-button" type="submit">Add</button>
               </form>
             </section>
-            <section class="tk-enrich-card-block">
+            <section class="tk-enrich-card-block${importHighlightClass("substitutions")}" data-import-field="substitutions">
               <h4>Supply substitutions</h4>
               <div class="tk-enrich-sub-list">
                 ${view.substitutions.map((sub, i) => `
@@ -2710,19 +2878,19 @@
                 <button class="ghost-button" type="submit">Add</button>
               </form>
             </section>
-            <label class="tk-enrich-core-field">
+            <label class="tk-enrich-core-field${importHighlightClass("adaptations")}" data-import-field="adaptations">
               <span>Support adaptations</span>
               <textarea data-enrich-text-field="adaptations" rows="3">${esc(view.adaptations || "")}</textarea>
             </label>
-            <label class="tk-enrich-core-field">
+            <label class="tk-enrich-core-field${importHighlightClass("extensions")}" data-import-field="extensions">
               <span>Added challenge</span>
               <textarea data-enrich-text-field="extensions" rows="3">${esc(view.extensions || "")}</textarea>
             </label>
-            <label class="tk-enrich-core-field">
+            <label class="tk-enrich-core-field${importHighlightClass("mixedAgeAdaptations")}" data-import-field="mixedAgeAdaptations">
               <span>Mixed-age adaptations</span>
               <textarea data-enrich-text-field="mixedAgeAdaptations" rows="3">${esc(view.mixedAgeAdaptations || "")}</textarea>
             </label>
-            <section class="tk-enrich-card-block">
+            <section class="tk-enrich-card-block${importHighlightClass("observationPrompts")}" data-import-field="observationPrompts">
               <h4>Observation prompts</h4>
               <div class="tk-enrich-tip-list">
                 ${view.observationPrompts.map((prompt, i) => `
@@ -2737,7 +2905,7 @@
                 <button class="ghost-button" type="submit">Add</button>
               </form>
             </section>
-            <section class="tk-enrich-card-block">
+            <section class="tk-enrich-card-block${importHighlightClass("vocabulary")}" data-import-field="vocabulary">
               <h4>Vocabulary for this activity</h4>
               <div class="tk-enrich-vocab-list">
                 ${view.vocabulary.map((word, i) => `
@@ -2879,23 +3047,24 @@
           <p class="muted-copy">AI Lesson Teacher drafts missing week + activity pieces (overview, objectives, books, songs, toolkit, family, printables, tips). Nothing inserts until you approve. Manual books/songs/printables below always work without AI.</p>
           <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
           <button type="button" class="ghost-button" data-ai-suggest="week">Upgrade week only</button>
+          <button type="button" class="ghost-button" data-paste-week-update title="Paste structured week field updates into this lesson draft only">Paste Week Update</button>
         </div>
-        <section class="tk-enrich-card-block">
+        <section class="tk-enrich-card-block${importHighlightClass("weeklyOverview")}" data-import-field="weeklyOverview">
           <h4>Weekly overview</h4>
           ${plan.weeklyOverview ? `<div class="tk-enrich-current-text">${esc(plan.weeklyOverview)}</div>` : ""}
           <textarea data-week-overview rows="3" placeholder="Draft weekly overview…">${esc(week.weeklyOverview || "")}</textarea>
         </section>
-        <section class="tk-enrich-card-block">
+        <section class="tk-enrich-card-block${importHighlightClass("objectives")}" data-import-field="objectives">
           <h4>Learning objectives</h4>
           ${plan.objectives ? `<div class="tk-enrich-current-text">${esc(plan.objectives)}</div>` : ""}
           <textarea data-week-objectives rows="3" placeholder="Draft objectives…">${esc(week.objectives || "")}</textarea>
         </section>
-        <section class="tk-enrich-card-block">
+        <section class="tk-enrich-card-block${importHighlightClass("weeklyMaterials")}" data-import-field="weeklyMaterials">
           <h4>Materials list</h4>
           ${plan.weeklyMaterials ? `<div class="tk-enrich-current-text">${esc(plan.weeklyMaterials)}</div>` : ""}
           <textarea data-week-materials rows="3" placeholder="Draft materials list…">${esc(week.weeklyMaterials || "")}</textarea>
         </section>
-        <section class="tk-enrich-card-block">
+        <section class="tk-enrich-card-block${importHighlightClass("teacherPreparation") || importHighlightClass("prepChecklist") || importHighlightClass("observationFocus")}" data-import-field="teacherToolkit">
           <h4>Teacher preparation / Toolkit</h4>
           <textarea data-week-teacher-prep rows="2" placeholder="Teacher preparation…">${esc(week.teacherPreparation || toolkit.teacherPreparation || "")}</textarea>
           <label class="muted-copy">Prep checklist (one per line)</label>
@@ -2903,7 +3072,7 @@
           <label class="muted-copy">Observation focus (one per line)</label>
           <textarea data-week-toolkit-focus rows="3" placeholder="Listen for vocabulary…">${esc((toolkit.observationFocus || []).join("\n"))}</textarea>
         </section>
-        <section class="tk-enrich-card-block">
+        <section class="tk-enrich-card-block${importHighlightClass("familyConnection")}" data-import-field="familyConnection">
           <h4>Family connection</h4>
           <p class="muted-copy">Current text is kept unless you replace it here.</p>
           ${plan.familyConnection ? `<div class="tk-enrich-current-text">${esc(plan.familyConnection)}</div>` : ""}
@@ -2919,7 +3088,7 @@
           </div>
         </section>
         ${renderKitMediaManualEditor(plan)}
-        <section class="tk-enrich-card-block">
+        <section class="tk-enrich-card-block${importHighlightClass("milestones")}" data-import-field="milestones">
           <h4>Milestones</h4>
           <div class="tk-enrich-chips">
             ${bank.map((m) => `
@@ -3226,6 +3395,194 @@
           `).join("") || `<li class="muted-copy">No open issues.</li>`}
         </ul>
       </section>
+    `;
+  }
+
+  function renderPasteChangeCard(change) {
+    const selected = change.selected ? "checked" : "";
+    if (change.kind === "unsupported" || change.applicable === false) {
+      return `
+        <article class="tk-paste-change is-unsupported" data-paste-field="${esc(change.fieldId)}">
+          <header>
+            <strong>${esc(change.label)}</strong>
+            <span class="tag is-warn">UNSUPPORTED — NOT APPLIED</span>
+          </header>
+          <p class="muted-copy">${esc(change.reason || "This section cannot be saved into the current editor schema.")}</p>
+          ${change.body ? `<pre>${esc(change.body)}</pre>` : ""}
+        </article>
+      `;
+    }
+    if (change.kind === "scalar" || change.kind === "scalarWithSettingTag") {
+      const actionLabel = change.action === "fill"
+        ? "Fill blank field"
+        : change.action === "replace"
+          ? "Replace existing value (owner must check)"
+          : change.action === "unchanged"
+            ? "Unchanged"
+            : "No change";
+      const canSelect = change.action === "fill" || change.action === "replace";
+      return `
+        <article class="tk-paste-change" data-paste-field="${esc(change.fieldId)}">
+          <header>
+            <strong>${esc(change.label)}</strong>
+            <span class="muted-copy">${esc(actionLabel)}</span>
+          </header>
+          <div class="tk-paste-compare">
+            <div><span class="muted-copy">Current</span><pre>${esc(change.current || "[blank]")}</pre></div>
+            <div><span class="muted-copy">New</span><pre>${esc(change.next || "[blank]")}</pre></div>
+          </div>
+          ${canSelect ? `
+            <label class="tk-paste-select-row">
+              <input type="checkbox" data-paste-select="${esc(change.fieldId)}" ${selected} />
+              ${change.action === "replace" ? "Replace existing value" : "Fill blank field"}
+            </label>
+          ` : ""}
+          ${change.tag ? `<p class="muted-copy">Also enables setting tag: ${esc(change.tag)}</p>` : ""}
+        </article>
+      `;
+    }
+    if (change.kind === "settingTag") {
+      return `
+        <article class="tk-paste-change" data-paste-field="${esc(change.fieldId)}">
+          <header>
+            <strong>${esc(change.label)}</strong>
+            <span class="muted-copy">${change.action === "add" ? "Add setting tag" : "Already on"}</span>
+          </header>
+          ${change.action === "add" ? `
+            <label class="tk-paste-select-row">
+              <input type="checkbox" data-paste-select="${esc(change.fieldId)}" ${selected} />
+              Enable “${esc(change.label)}”
+            </label>
+          ` : `<p class="muted-copy">Already enabled — no change.</p>`}
+          ${change.proseNote ? `<p class="muted-copy">${esc(change.proseNote)}</p>` : ""}
+        </article>
+      `;
+    }
+    const list = change.list || { keep: [], add: [], duplicates: [], unknown: [] };
+    const keep = list.keep || [];
+    const add = list.add || [];
+    const duplicates = list.duplicates || [];
+    const unknown = list.unknown || [];
+    const formatItem = (item) => {
+      if (item && typeof item === "object") {
+        return `If missing: ${item.need || ""} → Use: ${item.use || ""}`;
+      }
+      return String(item || "");
+    };
+    return `
+      <article class="tk-paste-change" data-paste-field="${esc(change.fieldId)}">
+        <header>
+          <strong>${esc(change.label)}</strong>
+          <span class="muted-copy">Merge list (never deletes existing)</span>
+        </header>
+        <div class="tk-paste-list-cols">
+          <div>
+            <span class="muted-copy">Keep</span>
+            <ul>${keep.map((item) => `<li>${esc(formatItem(item))}</li>`).join("") || `<li class="muted-copy">[blank]</li>`}</ul>
+          </div>
+          <div>
+            <span class="muted-copy">Add</span>
+            <ul>${add.map((item) => `<li>${esc(formatItem(item))}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+          </div>
+        </div>
+        ${duplicates.length ? `
+          <p class="muted-copy">Duplicate — ignore:</p>
+          <ul>${duplicates.map((item) => `<li>${esc(formatItem(item))}</li>`).join("")}</ul>
+        ` : ""}
+        ${unknown.length ? `
+          <p class="muted-copy">Unknown / unsupported:</p>
+          <ul>${unknown.map((item) => `<li>${esc(formatItem(item))}</li>`).join("")}</ul>
+        ` : ""}
+        ${add.length ? `
+          <label class="tk-paste-select-row">
+            <input type="checkbox" data-paste-select="${esc(change.fieldId)}" ${selected} />
+            Add ${add.length} unique item(s)
+          </label>
+        ` : `<p class="muted-copy">Nothing new to add.</p>`}
+      </article>
+    `;
+  }
+
+  function renderPasteImportModal() {
+    const pi = state.pasteImport;
+    if (!pi || !pi.open) return "";
+    const isWeek = pi.scope === "week";
+    const title = isWeek ? "Paste Week Update" : "Paste Activity Update";
+    const plan = getPlan();
+    const act = !isWeek && plan
+      ? getActivities(plan).find((item) => draftKey(item) === pi.activityKey)
+      : null;
+    const targetLabel = isWeek
+      ? (plan?.title || "Current lesson week")
+      : (act?.title || "Selected activity");
+    const isolationNote = isWeek
+      ? "Applies only to this lesson’s week draft. Activities are never modified."
+      : `Applies only to activity ID <code>${esc(pi.activityKey || "")}</code>. Week fields are never modified.`;
+    let body = "";
+    if (pi.phase !== "preview" || !pi.preview) {
+      body = `
+        <p class="muted-copy">${isolationNote} Pasting never publishes and never overwrites without preview.</p>
+        <label class="tk-paste-textarea-label">
+          <span>Paste structured field updates</span>
+          <textarea data-paste-import-text rows="16" placeholder="Recommended age:&#10;Infant 0–6 months&#10;&#10;Vocabulary:&#10;rattle&#10;roll">${esc(pi.rawText || "")}</textarea>
+        </label>
+        <div class="tk-enrich-modal-actions">
+          <button type="button" class="ghost-button" data-paste-import-cancel>Cancel</button>
+          <button type="button" class="primary-button" data-paste-import-parse>Preview changes</button>
+        </div>
+      `;
+    } else {
+      const preview = pi.preview;
+      const changes = preview.fieldChanges || [];
+      const unrecognized = preview.unrecognized || [];
+      const manual = preview.manualResources || [];
+      body = `
+        <p class="muted-copy">${isolationNote} Review below. Existing content is kept unless you explicitly select a scalar replace.</p>
+        <div class="tk-paste-preview-list">
+          ${changes.map((change) => renderPasteChangeCard(change)).join("") || `<p class="muted-copy">No recognized field updates in the paste.</p>`}
+        </div>
+        ${manual.length ? `
+          <section class="tk-paste-unrecognized">
+            <h4>Requires manual resource action</h4>
+            <p class="muted-copy">Linked resources / books / songs / printables are not created from pasted text.</p>
+            <ul>
+              ${manual.map((item) => `
+                <li><strong>${esc(item.heading)}</strong>${item.body ? `<pre>${esc(item.body)}</pre>` : ""}</li>
+              `).join("")}
+            </ul>
+          </section>
+        ` : ""}
+        ${unrecognized.length ? `
+          <section class="tk-paste-unrecognized">
+            <h4>Not recognized</h4>
+            <p class="muted-copy">These sections will not be saved anywhere.</p>
+            <ul>
+              ${unrecognized.map((item) => `
+                <li>
+                  <strong>${esc(item.heading || "Unknown")}</strong>
+                  ${item.note ? `<span class="muted-copy"> — ${esc(item.note)}</span>` : ""}
+                  ${item.body ? `<pre>${esc(item.body)}</pre>` : ""}
+                </li>
+              `).join("")}
+            </ul>
+          </section>
+        ` : ""}
+        <div class="tk-enrich-modal-actions">
+          <button type="button" class="ghost-button" data-paste-import-back>Back to paste</button>
+          <button type="button" class="ghost-button" data-paste-import-cancel>Cancel</button>
+          <button type="button" class="primary-button" data-paste-import-apply>Apply Selected Changes</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="tk-enrich-modal tk-paste-import-modal" data-paste-import-modal role="dialog" aria-modal="true" aria-labelledby="tk-paste-import-title">
+        <button type="button" class="tk-enrich-modal-backdrop" data-paste-import-cancel aria-label="Cancel paste import"></button>
+        <div class="tk-enrich-modal-card tk-paste-import-card" tabindex="-1">
+          <h3 id="tk-paste-import-title">${esc(title)}</h3>
+          <p class="muted-copy">Target: <strong>${esc(targetLabel)}</strong></p>
+          ${body}
+        </div>
+      </div>
     `;
   }
 
@@ -3864,7 +4221,7 @@
 
   function focusActiveDialog() {
     const dialog = document.querySelector(
-      "[data-ai-tray] .tk-enrich-modal-card, [data-publish-modal] .tk-enrich-modal-card, [data-recovery-modal] .tk-enrich-modal-card, [data-lightbox]",
+      "[data-paste-import-modal] .tk-enrich-modal-card, [data-ai-tray] .tk-enrich-modal-card, [data-publish-modal] .tk-enrich-modal-card, [data-recovery-modal] .tk-enrich-modal-card, [data-lightbox]",
     );
     if (!dialog) return;
     const focusable = dialog.querySelector("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
@@ -3885,6 +4242,7 @@
   function render() {
     const el = host();
     if (!el || !state.open) return;
+    clearPasteImportIfStale();
     const plan = getPlan();
     if (!plan) {
       el.innerHTML = `<div class="empty-state">Lesson not found.</div>`;
@@ -3914,6 +4272,7 @@
         ${renderPublishModal(plan, activities)}
         ${renderRecoveryModal(plan, activities)}
         ${renderAiTray()}
+        ${renderPasteImportModal()}
         ${renderLightbox()}
       </div>
     `;
@@ -3926,7 +4285,7 @@
         root.hydrateAdminTkPrintableForm();
       }
     });
-    if (state.aiTray.open || state.publishOpen || state.recoveryOpen || state.lightboxUrl) {
+    if (state.aiTray.open || state.publishOpen || state.recoveryOpen || state.lightboxUrl || state.pasteImport?.open) {
       requestAnimationFrame(() => focusActiveDialog());
     }
   }
@@ -4415,6 +4774,45 @@
           state.statusText = `Rollback failed: ${error.message || error}`;
           render();
         }
+        return;
+      }
+      if (event.target.closest("[data-paste-week-update]")) {
+        openPasteImport("week");
+        return;
+      }
+      if (event.target.closest("[data-paste-activity-update]")) {
+        openPasteImport("activity");
+        return;
+      }
+      if (event.target.closest("[data-paste-import-cancel]")) {
+        resetPasteImport({ keepHighlight: true });
+        state.statusText = "Paste import cancelled — no changes applied.";
+        render();
+        return;
+      }
+      if (event.target.closest("[data-paste-import-back]")) {
+        if (state.pasteImport) {
+          state.pasteImport.phase = "edit";
+          state.pasteImport.preview = null;
+        }
+        render();
+        return;
+      }
+      if (event.target.closest("[data-paste-import-parse]")) {
+        if (!state.pasteImport?.open) return;
+        const preview = buildPastePreviewFromState();
+        if (!preview) {
+          state.statusText = "Could not build paste preview for the current selection.";
+          render();
+          return;
+        }
+        state.pasteImport.preview = preview;
+        state.pasteImport.phase = "preview";
+        render();
+        return;
+      }
+      if (event.target.closest("[data-paste-import-apply]")) {
+        applyPasteImportSelected();
         return;
       }
       if (event.target.closest("[data-publish-cancel]")) {
@@ -5044,8 +5442,26 @@
       }
     });
 
+    document.addEventListener("change", (event) => {
+      if (!state.open) return;
+      if (event.target.matches("[data-paste-select]")) {
+        const fieldId = event.target.getAttribute("data-paste-select") || "";
+        const preview = state.pasteImport?.preview;
+        if (!preview || !fieldId) return;
+        const change = (preview.fieldChanges || []).find((item) => item.fieldId === fieldId);
+        if (!change) return;
+        change.selected = Boolean(event.target.checked);
+        return;
+      }
+    });
+
     document.addEventListener("input", (event) => {
       if (!state.open) return;
+      if (event.target.matches("[data-paste-import-text]")) {
+        if (!state.pasteImport) return;
+        state.pasteImport.rawText = String(event.target.value || "");
+        return;
+      }
       if (event.target.matches("[data-assistant-improve-text]")) {
         state.assistant.improveText = String(event.target.value || "");
         return;
@@ -5330,6 +5746,13 @@
         return;
       }
       if (event.key === "Escape") {
+        if (state.pasteImport?.open) {
+          event.preventDefault();
+          resetPasteImport({ keepHighlight: true });
+          state.statusText = "Paste import cancelled — no changes applied.";
+          render();
+          return;
+        }
         if (state.aiTray.open) {
           event.preventDefault();
           cancelAiSuggestions();
