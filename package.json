@@ -416,7 +416,8 @@
     "test:draft-review-owner-workflow": "NODE_ENV=test node scripts/test-draft-review-owner-workflow.js",
     "validate:curriculum-gold": "NODE_ENV=test node scripts/llh-curriculum-gold-standard.js",
     "test:lesson-review-editor": "NODE_ENV=test node scripts/test-lesson-review-editor.js",
-    "test:teaching-kit-paste-import": "NODE_ENV=test node scripts/test-teaching-kit-paste-import.js"
+    "test:teaching-kit-paste-import": "NODE_ENV=test node scripts/test-teaching-kit-paste-import.js",
+    "test:tk-paste-smoke-dom-lists": "NODE_ENV=test node scripts/test-tk-paste-smoke-dom-lists.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
