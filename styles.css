@@ -28845,6 +28845,11 @@ button.primary-button.is-loading[data-upgrade-lesson-cta] {
   border: 1px dashed rgba(36, 49, 42, 0.22);
   border-radius: 0.55rem;
 }
+.tk-paste-change.is-unsupported {
+  border-style: dashed;
+  border-color: rgba(139, 46, 46, 0.35);
+  background: rgba(139, 46, 46, 0.04);
+}
 .tk-enrich-core-field.is-import-highlight,
 .tk-enrich-card-block.is-import-highlight {
   outline: 2px solid rgba(47, 107, 90, 0.55);

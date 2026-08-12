@@ -177,13 +177,23 @@
       label: "Small group",
       kind: "settingTag",
       tag: "small_group",
+      /**
+       * Activity-level prose for Small/Large group does not exist in the current
+       * curriculum item / enrichment draft schema (only day-level smallGroup /
+       * largeGroup and week toolkit smallGroupOptions / largeGroupOptions).
+       * Prose under this heading is NEVER persisted until owner approves a field.
+       */
       proseUnsupported: true,
+      proseUnsupportedReason:
+        "UNSUPPORTED — NOT APPLIED. No activity-level Small group text field exists in the Teaching Kit schema today (only a setting chip). Day-level smallGroup and week toolkit smallGroupOptions are different scopes and must not receive activity paste content.",
     },
     settingTag_large_group: {
       label: "Large group",
       kind: "settingTag",
       tag: "large_group",
       proseUnsupported: true,
+      proseUnsupportedReason:
+        "UNSUPPORTED — NOT APPLIED. No activity-level Large group text field exists in the Teaching Kit schema today (only a setting chip). Day-level largeGroup and week toolkit largeGroupOptions are different scopes and must not receive activity paste content.",
     },
     indoorAlternatives: {
       label: "Indoor",
@@ -229,6 +239,18 @@
       .split(/\r?\n/)
       .map(stripListMarker)
       .filter(Boolean);
+  }
+
+  /** Steps: keep owner numbering/punctuation; only trim blank lines. */
+  function splitOrderedStepLines(body) {
+    return text(body)
+      .split(/\r?\n/)
+      .map((line) => text(line))
+      .filter(Boolean);
+  }
+
+  function stepDedupeKey(line) {
+    return stripListMarker(line).toLowerCase();
   }
 
   /**
@@ -384,9 +406,14 @@
     return sections;
   }
 
-  function linesFromScalarOrList(value) {
-    if (Array.isArray(value)) return asArray(value).map(text).filter(Boolean);
-    return text(value).split(/\r?\n/).map(stripListMarker).filter(Boolean);
+  function linesFromScalarOrList(value, { preserveMarkers = false } = {}) {
+    if (Array.isArray(value)) {
+      return asArray(value).map((item) => text(item)).filter(Boolean);
+    }
+    return text(value)
+      .split(/\r?\n/)
+      .map((line) => (preserveMarkers ? text(line) : stripListMarker(line)))
+      .filter(Boolean);
   }
 
   function getByPath(obj, path) {
@@ -412,13 +439,16 @@
     return week.teacherToolkit;
   }
 
-  function buildListDiff(currentItems, pastedItems, { max = 40 } = {}) {
-    const current = dedupePreserveOrder(currentItems);
-    const currentKeys = new Set(current.map((item) => text(item).toLowerCase()));
+  function buildListDiff(currentItems, pastedItems, { max = 40, keyFn = null } = {}) {
+    const keyOf = typeof keyFn === "function"
+      ? keyFn
+      : (item) => text(item).toLowerCase();
+    const current = dedupePreserveOrder(currentItems, keyOf);
+    const currentKeys = new Set(current.map((item) => keyOf(item)));
     const add = [];
     const duplicates = [];
-    dedupePreserveOrder(pastedItems).forEach((item) => {
-      const key = text(item).toLowerCase();
+    dedupePreserveOrder(pastedItems, keyOf).forEach((item) => {
+      const key = keyOf(item);
       if (!key) return;
       if (currentKeys.has(key)) {
         duplicates.push(item);
@@ -771,9 +801,23 @@
         const currentTag = resolveActivityCurrent(section.fieldId, activity, draftActivity);
         const prose = text(section.body);
         const alreadyOn = Boolean(currentTag);
+        if (prose && meta.proseUnsupported) {
+          // Critical: never present prose as ADD/REPLACE when it cannot persist/redisplay.
+          fieldChanges.push({
+            fieldId: `${section.fieldId}_prose`,
+            label: `${meta.label} (text)`,
+            kind: "unsupported",
+            selected: false,
+            applicable: false,
+            body: prose,
+            reason: meta.proseUnsupportedReason
+              || "UNSUPPORTED — NOT APPLIED. No persisted text field exists for this heading.",
+          });
+        }
+        // Setting chip may still be offered as supplemental metadata (not a prose substitute).
         fieldChanges.push({
           fieldId: section.fieldId,
-          label: meta.label,
+          label: `${meta.label} (setting tag)`,
           kind: "settingTag",
           tag: meta.tag,
           current: alreadyOn ? meta.label : "",
@@ -781,17 +825,9 @@
           action: alreadyOn ? "unchanged" : "add",
           selected: !alreadyOn,
           proseNote: prose
-            ? "Prose under this heading is not stored (chips only). Enable the setting tag; paste prose into an existing text field if needed."
+            ? "Supplemental chip only — pasted paragraph text is listed separately as unsupported."
             : "",
-          unrecognizedProse: prose || "",
         });
-        if (prose) {
-          unrecognized.push({
-            heading: `${section.headingRaw} (prose)`,
-            body: prose,
-            note: "Setting-tag chips do not store paragraph text.",
-          });
-        }
         seenFields.add(section.fieldId);
         return;
       }
@@ -803,14 +839,19 @@
           || meta.kind === "orderedLineList") {
           const extra = meta.kind === "vocab"
             ? parseVocabularyItems(section.body)
-            : splitContentLines(section.body);
+            : meta.kind === "orderedLineList"
+              ? splitOrderedStepLines(section.body)
+              : splitContentLines(section.body);
           const priorDuplicates = asArray(existing.list?.duplicates);
           // Re-diff against original keep, including previously queued adds + new lines.
           // Also re-include prior duplicate lines so they remain visible as ignored.
           existing.list = buildListDiff(
             existing.list?.keep || [],
             [...(existing.list?.add || []), ...priorDuplicates, ...extra],
-            { max: meta.max },
+            {
+              max: meta.max,
+              keyFn: meta.kind === "orderedLineList" ? stepDedupeKey : null,
+            },
           );
           if (meta.kind === "lineList" || meta.kind === "orderedLineList") {
             existing.nextText = existing.list.next.join("\n");
@@ -863,11 +904,11 @@
         const current = resolveActivityCurrent(section.fieldId, activity, draftActivity);
         const scalar = buildScalarDiff(current, pastedValue);
         const change = {
+          ...scalar,
           fieldId: section.fieldId,
           label: meta.label,
           kind: meta.kind === "scalarWithSettingTag" ? "scalarWithSettingTag" : "scalar",
           tag: meta.tag || "",
-          ...scalar,
         };
         if (meta.kind === "duration") {
           change.parsedDuration = parseDurationValue(section.body);
@@ -881,11 +922,18 @@
       }
 
       if (meta.kind === "lineList" || meta.kind === "orderedLineList") {
+        const preserveMarkers = meta.kind === "orderedLineList";
         const currentLines = linesFromScalarOrList(
           resolveActivityCurrent(section.fieldId, activity, draftActivity),
+          { preserveMarkers },
         );
-        const pastedLines = splitContentLines(section.body);
-        const list = buildListDiff(currentLines, pastedLines, { max: meta.max });
+        const pastedLines = preserveMarkers
+          ? splitOrderedStepLines(section.body)
+          : splitContentLines(section.body);
+        const list = buildListDiff(currentLines, pastedLines, {
+          max: meta.max,
+          keyFn: preserveMarkers ? stepDedupeKey : null,
+        });
         fieldChanges.push({
           fieldId: section.fieldId,
           label: meta.label,
@@ -988,7 +1036,7 @@
       Array.isArray(selectedFieldIds)
         ? selectedFieldIds.map(text).filter(Boolean)
         : (preview.fieldChanges || [])
-          .filter((c) => c.selected)
+          .filter((c) => c.selected && c.kind !== "unsupported" && c.applicable !== false)
           .map((c) => c.fieldId),
     );
 
@@ -1063,6 +1111,7 @@
 
       (preview.fieldChanges || []).forEach((change) => {
         if (!selected.has(change.fieldId)) return;
+        if (change.kind === "unsupported" || change.applicable === false) return;
         const meta = ACTIVITY_FIELD_META[change.fieldId];
         if (!meta) return;
 
@@ -1181,6 +1230,7 @@
     normalizeHeading,
     splitLabeledSections,
     splitContentLines,
+    splitOrderedStepLines,
     parseVocabularyItems,
     parseSubstitutionBlocks,
     parseWeekday,

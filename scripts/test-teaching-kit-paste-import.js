@@ -314,8 +314,13 @@ function main() {
   const objChange = findChange(objectiveWouldBe, "objective");
   ok(objChange.action === "replace" && objChange.selected === false, "24. existing scalar not silently overwritten");
 
-  ok((activityPreview.unrecognized || []).some((u) => /Totally unknown|Small group \(prose\)/i.test(u.heading)),
-    "26. unknown headings / unsupported prose not guessed into another field");
+  ok((activityPreview.unrecognized || []).some((u) => /Totally unknown/i.test(u.heading)),
+    "26. unknown headings not guessed into another field");
+  const smallGroupProse = findChange(activityPreview, "settingTag_small_group_prose");
+  ok(smallGroupProse && smallGroupProse.kind === "unsupported" && smallGroupProse.selected === false,
+    "26b. Small group prose is UNSUPPORTED — NOT APPLIED (no activity prose field)");
+  ok(!/teacherTips|adaptations|extensions|description/i.test(JSON.stringify(smallGroupProse)),
+    "26c. Small group prose not redirected into another text field");
 
   // Apply activity — only selected fields + stable ID
   age.selected = true;
@@ -329,6 +334,7 @@ function main() {
   findChange(activityPreview, "extensions").selected = true;
   findChange(activityPreview, "indoorAlternatives").selected = true;
   findChange(activityPreview, "settingTag_small_group").selected = true;
+  if (smallGroupProse) smallGroupProse.selected = true; // must still be ignored by apply
   objChange.selected = false;
 
   const draft = {
@@ -352,6 +358,14 @@ function main() {
   ok(applied.draft.activities["act-other-9"].vocabulary[0] === "should-not-change", "28b. other activity untouched");
   ok(applied.draft.week.weeklyOverview === "Week must stay", "29. activity import cannot modify week-level fields");
   ok(applied.draft.week.milestones[0] === "Creativity", "29b. week milestones untouched");
+  ok(target.settingTags.includes("small_group"), "8. setting tags still work");
+  ok(target.settingTags.includes("indoor"), "8b. existing indoor setting tag preserved");
+  ok(!Object.prototype.hasOwnProperty.call(target, "smallGroup"),
+    "Small group prose not invented as activity.smallGroup");
+  ok(!Object.prototype.hasOwnProperty.call(target, "largeGroup"),
+    "Large group prose not invented as activity.largeGroup");
+  ok(String(target.indoorAlternatives || "").includes("clean, firm floor"),
+    "5. Indoor imported text stored on indoorAlternatives");
 
   // Cancel activity = zero changes
   const before = JSON.parse(JSON.stringify(draft));
@@ -450,6 +464,176 @@ function main() {
     fieldChanges: [{ fieldId: "title", kind: "scalar", action: "fill", next: "X", selected: true }],
   });
   ok(bad.error === "missing_activity_key", "activity apply requires stable ID");
+
+  // --- Schema/UI repair regressions ---
+  const groupPaste = paste.buildActivityPreview(
+    [
+      "Small group:",
+      "Place 2–3 babies on separate mats with individual mirrors.",
+      "",
+      "Large group:",
+      "Invite caregivers to sit in a circle and model tracking.",
+      "",
+      "Indoor:",
+      "Use a clean, firm floor area away from heavy classroom traffic.",
+      "",
+      "Outdoor:",
+      "Shade a mat under a tree and repeat the arc slowly.",
+    ].join("\n"),
+    { id: "act-vis-1", itemId: "vis-1", settingTags: [] },
+    {},
+    "act-vis-1",
+  );
+  const sgProse = findChange(groupPaste, "settingTag_small_group_prose");
+  const lgProse = findChange(groupPaste, "settingTag_large_group_prose");
+  ok(sgProse?.kind === "unsupported", "1. Small Group prose has no canonical activity field → unsupported");
+  ok(lgProse?.kind === "unsupported", "2. Large Group prose has no canonical activity field → unsupported");
+  ok(sgProse?.selected === false && lgProse?.selected === false, "13a. unsupported prose not selected for apply");
+  ok(/UNSUPPORTED/i.test(sgProse?.reason || ""), "13b. preview explains UNSUPPORTED — NOT APPLIED");
+
+  const indoorChange = findChange(groupPaste, "indoorAlternatives");
+  const outdoorChange = findChange(groupPaste, "outdoorAlternatives");
+  ok(indoorChange?.kind === "scalarWithSettingTag" && indoorChange.selected === true, "Indoor fill proposed");
+  ok(outdoorChange?.kind === "scalarWithSettingTag" && outdoorChange.selected === true, "Outdoor fill proposed");
+  indoorChange.selected = true;
+  outdoorChange.selected = true;
+  findChange(groupPaste, "settingTag_small_group").selected = true;
+  findChange(groupPaste, "settingTag_large_group").selected = true;
+  sgProse.selected = true;
+  lgProse.selected = true;
+
+  const groupApplied = paste.applyPreviewToDraft(
+    { activities: { "act-vis-1": {} }, week: { weeklyOverview: "keep-week" } },
+    groupPaste,
+  );
+  const visAct = groupApplied.draft.activities["act-vis-1"];
+  ok(!visAct.smallGroup && !visAct.largeGroup, "3/4. Small/Large prose not persisted onto activity");
+  ok(String(visAct.indoorAlternatives).includes("firm floor"), "Indoor text persisted");
+  ok(String(visAct.outdoorAlternatives).includes("Shade a mat"), "Outdoor text persisted");
+  ok(visAct.settingTags.includes("small_group") && visAct.settingTags.includes("large_group"), "setting tags still applied");
+  ok(visAct.settingTags.includes("indoor") && visAct.settingTags.includes("outdoor"), "indoor/outdoor tags from text fields");
+  ok(groupApplied.draft.week.weeklyOverview === "keep-week", "17. week isolation still holds");
+
+  // Redisplay uses the same enrichment view source of truth as the Activity editor textareas.
+  const redisplay = enrichment.activityEnrichmentView(
+    { id: "act-vis-1", itemId: "vis-1" },
+    visAct,
+  );
+  ok(redisplay.indoorAlternatives.includes("firm floor"), "5. Indoor redisplay via activityEnrichmentView");
+  ok(redisplay.outdoorAlternatives.includes("Shade a mat"), "6. Outdoor redisplay via activityEnrichmentView");
+  ok(
+    redisplay.indoorAlternatives === visAct.indoorAlternatives
+      && redisplay.outdoorAlternatives === visAct.outdoorAlternatives,
+    "7. Indoor/Outdoor importer + manual enrichment text fields share one source of truth",
+  );
+
+  // Canonical string serialization for week objectives/materials and activity questions/steps
+  const weekLines = paste.buildWeekPreview(
+    [
+      "Learning objectives:",
+      "Obj one",
+      "Obj two",
+      "",
+      "Materials list:",
+      "Mats",
+      "Mirrors",
+    ].join("\n"),
+    {},
+    {},
+  );
+  findChange(weekLines, "objectives").selected = true;
+  findChange(weekLines, "weeklyMaterials").selected = true;
+  const weekSer = paste.applyPreviewToDraft({ activities: {}, week: {} }, weekLines);
+  ok(typeof weekSer.draft.week.objectives === "string", "9. objectives canonical type is string");
+  ok(weekSer.draft.week.objectives === "Obj one\nObj two", "9b. objectives serialize as newline string");
+  ok(typeof weekSer.draft.week.weeklyMaterials === "string", "10. materials canonical type is string");
+  ok(weekSer.draft.week.weeklyMaterials === "Mats\nMirrors", "10b. materials serialize as newline string");
+
+  const qStep = paste.buildActivityPreview(
+    [
+      "Suggested questions to ask:",
+      "Can you hear it?",
+      "Where did it go?",
+      "",
+      "Step-by-step directions:",
+      "1. Place baby on tummy",
+      "2. Show the rattle",
+      "3. Roll slowly",
+    ].join("\n"),
+    { id: "act-ser-1", itemId: "ser-1" },
+    {},
+    "act-ser-1",
+  );
+  findChange(qStep, "teacherLanguage").selected = true;
+  findChange(qStep, "steps").selected = true;
+  const qStepApplied = paste.applyPreviewToDraft({ activities: { "act-ser-1": {} }, week: {} }, qStep);
+  const serAct = qStepApplied.draft.activities["act-ser-1"];
+  ok(typeof serAct.teacherLanguage === "string", "11. questions canonical type is string");
+  ok(serAct.teacherLanguage === "Can you hear it?\nWhere did it go?", "11b. questions newline-serialized");
+  ok(typeof serAct.steps === "string", "12. steps canonical type is string");
+  ok(serAct.steps === "1. Place baby on tummy\n2. Show the rattle\n3. Roll slowly",
+    "12b. steps preserve numbering/order as newline string");
+
+  // Observation focus keeps full statements (no vocabulary-word splitting)
+  const obsFocus = paste.buildWeekPreview(
+    [
+      "Observation focus:",
+      "Briefly lifts head",
+      "Turns toward sound",
+      "Tracks a moving object",
+      "Reaches toward materials",
+      "Shows increasing tummy-time tolerance",
+      "Look, lift, reach, turn, tummy, rest, soft, mirror, up, and more.",
+    ].join("\n"),
+    {},
+    {},
+  );
+  const focusChange = findChange(obsFocus, "observationFocus");
+  ok(focusChange.list.add.includes("Briefly lifts head"), "observation statement kept whole");
+  ok(focusChange.list.add.includes("Shows increasing tummy-time tolerance"), "long observation statement kept");
+  ok(
+    focusChange.list.add.includes("Look, lift, reach, turn, tummy, rest, soft, mirror, up, and more."),
+    "comma-rich observation line stays one focus item (not vocab-split)",
+  );
+  ok(!findChange(obsFocus, "vocabulary"), "observation focus never maps to vocabulary");
+
+  // Existing core patch / draft path still works after import (autosave/save channel)
+  enrichment.applyOwnerActivityCorePatch(visAct, { setup: "Manual setup after import" });
+  ok(visAct.setup === "Manual setup after import", "14. existing draft core patch still works");
+  ok(typeof enrichment.mergeDraftIntoPlan === "function", "15. publish merge helper untouched/available");
+  // Draft key must match the activity stable id used by mergeDraftIntoPlan (id || itemId).
+  const publishDraft = {
+    activities: {
+      "vis-1": {
+        indoorAlternatives: visAct.indoorAlternatives,
+        outdoorAlternatives: visAct.outdoorAlternatives,
+        settingTags: visAct.settingTags,
+      },
+    },
+    week: groupApplied.draft.week,
+  };
+  const mergedSmoke = enrichment.mergeDraftIntoPlan(
+    {
+      id: "plan-vis",
+      status: "published",
+      dailyPlans: {
+        monday: { items: [{ itemId: "vis-1", title: "Track", dayOfWeek: "monday" }] },
+      },
+    },
+    [],
+    publishDraft,
+  );
+  const mergedItem = mergedSmoke.plan.dailyPlans.monday.items[0];
+  ok(String(mergedItem.indoorAlternatives || "").includes("firm floor"), "16. publish path carries indoorAlternatives");
+  ok(String(mergedItem.outdoorAlternatives || "").includes("Shade a mat"), "16b. publish path carries outdoorAlternatives");
+
+  // Editor surface includes Indoor/Outdoor text controls bound to the same fields.
+  const fs = require("node:fs");
+  const editorSrc = fs.readFileSync(require("node:path").join(__dirname, "teaching-kit-enrichment-editor.js"), "utf8");
+  ok(editorSrc.includes('data-enrich-text-field="indoorAlternatives"'), "3/5 editor Indoor textarea bound");
+  ok(editorSrc.includes('data-enrich-text-field="outdoorAlternatives"'), "4/6 editor Outdoor textarea bound");
+  ok(editorSrc.includes("<span>Indoor</span>"), "Indoor label visible in Activity editor");
+  ok(editorSrc.includes("<span>Outdoor</span>"), "Outdoor label visible in Activity editor");
 
   console.log(`OK — teaching-kit-paste-import (${passed} assertions)`);
 }

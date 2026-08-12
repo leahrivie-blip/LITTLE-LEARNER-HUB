@@ -1194,7 +1194,7 @@
       return;
     }
     const selectedFieldIds = (preview.fieldChanges || [])
-      .filter((change) => change.selected)
+      .filter((change) => change.selected && change.kind !== "unsupported" && change.applicable !== false)
       .map((change) => change.fieldId);
     if (!selectedFieldIds.length) {
       state.statusText = "Select at least one change to apply.";
@@ -2830,15 +2830,23 @@
           `)}
 
           ${accordionSection("enrichment", "Enrichment", `
-            <section class="tk-enrich-card-block${importHighlightClass("settingTag_small_group") || importHighlightClass("settingTag_large_group") || importHighlightClass("indoorAlternatives") || importHighlightClass("outdoorAlternatives")}" data-import-field="settingTags">
+            <section class="tk-enrich-card-block${importHighlightClass("settingTag_small_group") || importHighlightClass("settingTag_large_group")}" data-import-field="settingTags">
               <h4>Group &amp; setting</h4>
-              <p class="muted-copy">Small-group / large-group ideas and indoor / outdoor options.</p>
+              <p class="muted-copy">Setting chips tag where an activity fits. Indoor / Outdoor text below uses the same binder fields as classic authoring and Publish.</p>
               <div class="tk-enrich-chips" data-setting-tags>
                 ${[["small_group", "Small group"], ["large_group", "Large group"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]].map(([id, label]) => `
                   <button type="button" class="tk-enrich-chip ${tags.has(id) ? "is-on" : ""}" data-setting-tag="${id}">${label}</button>
                 `).join("")}
               </div>
             </section>
+            <label class="tk-enrich-core-field${importHighlightClass("indoorAlternatives")}" data-import-field="indoorAlternatives">
+              <span>Indoor</span>
+              <textarea data-enrich-text-field="indoorAlternatives" rows="3" placeholder="How to run this indoors…">${esc(view.indoorAlternatives || "")}</textarea>
+            </label>
+            <label class="tk-enrich-core-field${importHighlightClass("outdoorAlternatives")}" data-import-field="outdoorAlternatives">
+              <span>Outdoor</span>
+              <textarea data-enrich-text-field="outdoorAlternatives" rows="3" placeholder="How to expand this outdoors…">${esc(view.outdoorAlternatives || "")}</textarea>
+            </label>
             <section class="tk-enrich-card-block${importHighlightClass("teacherTips")}" data-import-field="teacherTips">
               <div class="tk-enrich-card-head"><h4>Teacher tips</h4></div>
               <div class="tk-enrich-tip-list">
@@ -3392,6 +3400,18 @@
 
   function renderPasteChangeCard(change) {
     const selected = change.selected ? "checked" : "";
+    if (change.kind === "unsupported" || change.applicable === false) {
+      return `
+        <article class="tk-paste-change is-unsupported" data-paste-field="${esc(change.fieldId)}">
+          <header>
+            <strong>${esc(change.label)}</strong>
+            <span class="tag is-warn">UNSUPPORTED — NOT APPLIED</span>
+          </header>
+          <p class="muted-copy">${esc(change.reason || "This section cannot be saved into the current editor schema.")}</p>
+          ${change.body ? `<pre>${esc(change.body)}</pre>` : ""}
+        </article>
+      `;
+    }
     if (change.kind === "scalar" || change.kind === "scalarWithSettingTag") {
       const actionLabel = change.action === "fill"
         ? "Fill blank field"
