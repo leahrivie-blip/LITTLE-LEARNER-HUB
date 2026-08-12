@@ -3013,7 +3013,8 @@ const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
 
 const HOMEPAGE_FOUNDING_PRICE_NOTE = "Pro is $19.99/month.";
 const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
-const LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY = "llhMemberUpdateBannerDismissedAt";
+// Versioned so members who dismissed the prior Teaching Kit rollout notice see this update once.
+const LLH_MEMBER_UPDATE_BANNER_DISMISS_KEY = "llhMemberUpdateBannerDismissedAt.teachingKits20260812";
 const MEMBER_UPDATE_BANNER_DISMISS_MS = 30 * 24 * 60 * 60 * 1000;
 
 const HOME_LESSON_PREVIEW_HINTS = [

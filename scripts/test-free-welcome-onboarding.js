@@ -101,12 +101,14 @@ async function main() {
 
   await test("module exports createOnboardingWelcome", () => {
     assert.match(moduleJs, /createOnboardingWelcome/);
-    assert.match(moduleJs, /Welcome to Little Learner Hub! 💜/);
+    assert.match(moduleJs, /Welcome to Little Learner Hub 💛 Here’s where to start/);
+    assert.match(moduleJs, /You’re officially a Little Learner Hub member 💛/);
     assert.match(moduleJs, /Welcome to Your Pro Trial!/);
-    assert.match(moduleJs, /Thank You for Becoming a Pro Member!/);
     assert.match(moduleJs, /How’s Your Trial Going\?|How.s Your Trial Going\?/);
     assert.match(moduleJs, /BACKFILL_CONFIRM_PHRASE/);
     assert.match(moduleJs, /AUTO_DELIVER_ELIGIBLE_AFTER/);
+    assert.match(moduleJs, /Explore Lesson Plans/);
+    assert.match(moduleJs, /\{\{PrimaryCta\}\}/);
   });
 
   await test("server wires signup + admin APIs", () => {
@@ -151,10 +153,10 @@ async function main() {
     await test("GET admin onboarding welcome config", async () => {
       const res = await request("GET", `/api/admin/onboarding-welcome?adminToken=${adminToken}`);
       assert.equal(res.status, 200);
-      assert.equal(res.json.sequence?.inApp?.title, "Welcome to Little Learner Hub! 💜");
-      assert.match(res.json.sequence?.inApp?.body || "", /As a Free Member/);
+      assert.equal(res.json.sequence?.inApp?.title, "Welcome to Little Learner Hub 💛 Here’s where to start");
+      assert.match(res.json.sequence?.inApp?.body || "", /Start with the lesson plans/);
       assert.equal(res.json.sequences?.["trial-welcome"]?.inApp?.title, "Welcome to Your Pro Trial! 🎉");
-      assert.equal(res.json.sequences?.["pro-welcome"]?.inApp?.title, "Thank You for Becoming a Pro Member! 💜");
+      assert.equal(res.json.sequences?.["pro-welcome"]?.inApp?.title, "You’re officially a Little Learner Hub member 💛");
       assert.ok(Array.isArray(res.json.variables));
     });
 
@@ -215,7 +217,8 @@ async function main() {
         (m) => m.toEmail === freeEmail && m.channel === "onboarding_welcome",
       );
       assert.ok(welcomeMessage, "in-app welcome message missing");
-      assert.match(welcomeMessage.body, /As a Free Member|Thank you so much for joining/);
+      assert.match(welcomeMessage.body, /Start with the lesson plans|Welcome to Little Learner Hub! 💛/);
+      assert.equal(welcomeMessage.onboardingSequenceId || "free-welcome", "free-welcome");
 
       const duplicate = await request("POST", "/api/account/profile", {
         body: { email: freeEmail, firstName: "Sam", signup: true },
