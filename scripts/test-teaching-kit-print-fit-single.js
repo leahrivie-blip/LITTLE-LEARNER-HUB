@@ -90,7 +90,16 @@ function makePreviewHostMock({ hostW = 400, hostH = 500, pageW = 816, pageH = 10
   const host = {
     clientWidth: hostW,
     clientHeight: hostH,
+    parentElement: null,
     style: { setProperty() {} },
+    getBoundingClientRect: () => ({
+      width: hostW,
+      height: hostH,
+      top: 0,
+      left: 0,
+      right: hostW,
+      bottom: hostH,
+    }),
     querySelector: (sel) => {
       if (String(sel).includes("tk-print-preview-frame") || String(sel).includes("data-tk-print-preview-document")) {
         return frame;
@@ -104,6 +113,60 @@ function makePreviewHostMock({ hostW = 400, hostH = 500, pageW = 816, pageH = 10
     _attrs: attrs,
   };
   return host;
+}
+
+function testFitPageVisibleClip() {
+  console.log("\n=== Fit Page visible clip (mobile scrollport) ===");
+  // Host layout box is wider than the clipped scrollport/viewport (mobile Teaching Kit).
+  const host = makePreviewHostMock({ hostW: 658, hostH: 520, pageW: 816, pageH: 1056, pages: 1 });
+  host.getBoundingClientRect = () => ({
+    width: 658,
+    height: 520,
+    top: 100,
+    left: 37,
+    right: 695,
+    bottom: 620,
+  });
+  const clipper = {
+    parentElement: null,
+    getBoundingClientRect: () => ({
+      width: 350,
+      height: 700,
+      top: 20,
+      left: 20,
+      right: 370,
+      bottom: 720,
+    }),
+  };
+  let styleCalls = 0;
+  const origGetComputedStyle = global.getComputedStyle;
+  global.getComputedStyle = (el) => {
+    styleCalls += 1;
+    if (el === clipper) return { overflowX: "hidden", overflowY: "auto" };
+    return { overflowX: "visible", overflowY: "visible" };
+  };
+  const origInnerW = global.innerWidth;
+  const origInnerH = global.innerHeight;
+  global.innerWidth = 390;
+  global.innerHeight = 844;
+  host.parentElement = clipper;
+  try {
+    const fit = Print.applyPrintPreviewFitPage(host);
+    ok(fit.ok === true, "visible-clip fit ok");
+    // Visible width ~= min(658, 370-37, 390-37) ≈ 333; scale should use that, not 658.
+    ok(fit.visibleWidth <= 350, `visibleWidth constrained (${fit.visibleWidth})`);
+    ok(fit.scale < 0.5, `mobile visible scale smaller than host-width scale (${fit.scale})`);
+    const hostOnlyScale = Math.min((658 - 12) / 816, (520 - 12) / 1056, 1);
+    ok(fit.scale < hostOnlyScale - 0.05, "scale tighter than unclipped host clientWidth");
+    ok(styleCalls >= 1, "inspected ancestor overflow");
+  } finally {
+    if (origGetComputedStyle) global.getComputedStyle = origGetComputedStyle;
+    else delete global.getComputedStyle;
+    if (origInnerW == null) delete global.innerWidth;
+    else global.innerWidth = origInnerW;
+    if (origInnerH == null) delete global.innerHeight;
+    else global.innerHeight = origInnerH;
+  }
 }
 
 function testFitPageHelper() {
@@ -300,6 +363,7 @@ function testPdfSliceContract() {
 async function main() {
   console.log("Teaching Kit Fit Page + single-selection regression\n");
   testFitPageHelper();
+  testFitPageVisibleClip();
   testPdfSliceContract();
 
   const fixture = loadFixture("bugs-and-butterflies.json");

@@ -2670,8 +2670,55 @@
   }
 
   /**
+   * Visible width for Fit Page: intersect the host with overflow-x clipping ancestors.
+   * On narrow Teaching Kit layouts the preview host can be wider than a clipped
+   * scrollport (overflow-x:hidden parents). Fitting to clientWidth alone then
+   * scales too large and clips the cover on mobile.
+   *
+   * Height always uses clientHeight — vertical clipping/scroll is expected, and
+   * intersecting overflow-y ancestors while the host is partially scrolled would
+   * collapse avail height and over-shrink the page.
+   */
+  function visiblePreviewHostBox(previewHost) {
+    const fallbackW = Math.max(1, Number(previewHost.clientWidth) || 1);
+    const fallbackH = Math.max(1, Number(previewHost.clientHeight) || 1);
+    if (typeof previewHost.getBoundingClientRect !== "function") {
+      return { width: fallbackW, height: fallbackH, left: 0, top: 0, hostLeft: 0 };
+    }
+    const hostRect = previewHost.getBoundingClientRect();
+    let left = Number(hostRect.left) || 0;
+    let right = Number(hostRect.right) || left + fallbackW;
+    const rootEl = (typeof document !== "undefined" && document.documentElement) ? document.documentElement : null;
+    let el = previewHost.parentElement;
+    while (el && el !== rootEl) {
+      let cs = null;
+      try { cs = typeof getComputedStyle === "function" ? getComputedStyle(el) : null; } catch (_err) { cs = null; }
+      if (cs && typeof el.getBoundingClientRect === "function") {
+        const ox = String(cs.overflowX || "");
+        const clipsX = ox === "hidden" || ox === "auto" || ox === "scroll";
+        if (clipsX) {
+          const r = el.getBoundingClientRect();
+          left = Math.max(left, Number(r.left) || left);
+          right = Math.min(right, Number(r.right) || right);
+        }
+      }
+      el = el.parentElement;
+    }
+    const clippedW = right - left;
+    // Ignore tiny/degenerate horizontal intersections (layout not ready).
+    const width = clippedW >= 32 ? Math.max(1, Math.min(fallbackW, clippedW)) : fallbackW;
+    return {
+      width,
+      height: fallbackH,
+      left: clippedW >= 32 ? left : (Number(hostRect.left) || 0),
+      top: Number(hostRect.top) || 0,
+      hostLeft: Number(hostRect.left) || 0,
+    };
+  }
+
+  /**
    * Fit Page for the in-app Print Center preview host.
-   * Scales the first page to fully fit the available host box (contain), centered,
+   * Scales the first page to fully fit the visible host box (contain), centered,
    * without changing the underlying print/PDF document dimensions.
    * Does not re-apply after the user sets data-tk-preview-zoom="manual".
    */
@@ -2697,8 +2744,9 @@
     // Force layout with natural page size before measuring.
     void pageEl.offsetWidth;
     const pad = 12;
-    const availW = Math.max(1, Number(previewHost.clientWidth) - pad);
-    const availH = Math.max(1, Number(previewHost.clientHeight) - pad);
+    const visible = visiblePreviewHostBox(previewHost);
+    const availW = Math.max(1, Number(visible.width) - pad);
+    const availH = Math.max(1, Number(visible.height) - pad);
     const pageW = Math.max(1, Number(pageEl.offsetWidth) || Number(pageEl.getBoundingClientRect().width) || 1);
     const pageH = Math.max(1, Number(pageEl.offsetHeight) || Number(pageEl.getBoundingClientRect().height) || 1);
     const pageCount = Math.max(1, frame.querySelectorAll(".tk-print-page").length);
@@ -2711,7 +2759,9 @@
     frame.style.width = `${pageW}px`;
     const scaledW = pageW * safeScale;
     const scaledH = pageH * pageCount * safeScale;
-    const offsetX = Math.max(0, (availW - scaledW) / 2);
+    // Center within the *visible* portion of the host (not the overflowed layout width).
+    const visibleOffsetInHost = Math.max(0, Number(visible.left) - Number(visible.hostLeft) || 0);
+    const offsetX = visibleOffsetInHost + Math.max(0, (availW - scaledW) / 2);
     frame.style.marginLeft = `${Math.round(offsetX)}px`;
     frame.style.marginRight = `${Math.round(-(pageW * (1 - safeScale)))}px`;
     frame.style.marginBottom = `${Math.round(-(pageH * pageCount * (1 - safeScale)))}px`;
@@ -2730,6 +2780,8 @@
       pageCount,
       scaledWidth: scaledW,
       scaledHeight: scaledH,
+      visibleWidth: visible.width,
+      visibleHeight: visible.height,
     };
   }
 

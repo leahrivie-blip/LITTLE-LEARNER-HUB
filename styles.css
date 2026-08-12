@@ -25567,6 +25567,8 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   /* Room for Fit Page: one full Letter page scaled into the available panel. */
   height: min(70vh, 720px);
   max-height: min(70vh, 720px);
+  max-width: 100%;
+  width: 100%;
   overflow: auto;
   border: 1px solid var(--tk-line, #e8e0f4);
   border-radius: 12px;
