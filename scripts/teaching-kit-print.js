@@ -2690,7 +2690,10 @@
     frame.style.transform = "none";
     frame.style.width = "";
     frame.style.height = "";
-    frame.style.margin = "";
+    frame.style.margin = "0";
+    frame.style.marginLeft = "0";
+    frame.style.marginRight = "0";
+    frame.style.marginBottom = "0";
     // Force layout with natural page size before measuring.
     void pageEl.offsetWidth;
     const pad = 12;
@@ -2698,21 +2701,24 @@
     const availH = Math.max(1, Number(previewHost.clientHeight) - pad);
     const pageW = Math.max(1, Number(pageEl.offsetWidth) || Number(pageEl.getBoundingClientRect().width) || 1);
     const pageH = Math.max(1, Number(pageEl.offsetHeight) || Number(pageEl.getBoundingClientRect().height) || 1);
+    const pageCount = Math.max(1, frame.querySelectorAll(".tk-print-page").length);
     const scale = Math.min(availW / pageW, availH / pageH, 1);
     const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
-    frame.style.transformOrigin = "top center";
+    // top-left origin + negative margins collapse the post-transform layout box so
+    // the host does not keep an 8.5in scrollWidth (which caused horizontal scroll).
+    frame.style.transformOrigin = "top left";
     frame.style.transform = `scale(${safeScale})`;
+    frame.style.width = `${pageW}px`;
+    const scaledW = pageW * safeScale;
+    const scaledH = pageH * pageCount * safeScale;
+    const offsetX = Math.max(0, (availW - scaledW) / 2);
+    frame.style.marginLeft = `${Math.round(offsetX)}px`;
+    frame.style.marginRight = `${Math.round(-(pageW * (1 - safeScale)))}px`;
+    frame.style.marginBottom = `${Math.round(-(pageH * pageCount * (1 - safeScale)))}px`;
     frame.dataset.tkPreviewScale = String(safeScale);
     previewHost.setAttribute("data-tk-preview-zoom", "fit-page");
-    // Preserve scroll height for additional pages after CSS transform.
-    const pageCount = Math.max(1, frame.querySelectorAll(".tk-print-page").length);
-    const scaledBlockH = Math.ceil(pageH * pageCount * safeScale) + pad;
     previewHost.style.setProperty("--tk-preview-fit-scale", String(safeScale));
-    frame.style.marginLeft = "auto";
-    frame.style.marginRight = "auto";
-    if (scaledBlockH > 0) {
-      frame.style.marginBottom = `${Math.max(0, Math.ceil(pageH * pageCount * (1 - safeScale)))}px`;
-    }
+    previewHost.style.setProperty("--tk-preview-scaled-height", `${Math.ceil(scaledH)}px`);
     return {
       ok: true,
       reason: "fit-page",
@@ -2722,6 +2728,8 @@
       availWidth: availW,
       availHeight: availH,
       pageCount,
+      scaledWidth: scaledW,
+      scaledHeight: scaledH,
     };
   }
 

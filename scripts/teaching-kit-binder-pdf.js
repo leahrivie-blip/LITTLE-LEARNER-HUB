@@ -307,7 +307,10 @@
           Number(pageEl.offsetHeight) || 0,
           1,
         );
-        if (naturalH < targetH) {
+        // Only paginate when content is meaningfully taller than one sheet
+        // (e.g. dense One Activity). Slight overflow stays on one page.
+        const needsSlice = naturalH > targetH * 1.25;
+        if (!needsSlice && naturalH < targetH) {
           pageEl.style.minHeight = `${targetH}px`;
         }
         const width = Math.max(
@@ -344,7 +347,43 @@
         pageEl.style.minHeight = prevMinHeight;
         pageEl.style.width = prevWidth;
         pageEl.style.boxSizing = prevBox;
-        const added = await embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib);
+        let added = 0;
+        if (needsSlice) {
+          added = await embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib);
+        } else {
+          // One printable page. Padded short pages are near Letter aspect → full bleed.
+          // Slightly tall pages get a small contain-fit (not a tiny centered strip).
+          const pngBytes = await canvasToPngBytes(canvas);
+          if (pngBytes) {
+            const image = await pdfDoc.embedPng(pngBytes);
+            const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
+            const imgRatio = image.width / Math.max(image.height, 1);
+            const pageRatio = paper.width / paper.height;
+            if (Math.abs(imgRatio - pageRatio) < 0.03) {
+              pdfPage.drawImage(image, {
+                x: 0,
+                y: 0,
+                width: paper.width,
+                height: paper.height,
+              });
+            } else if (imgRatio > pageRatio) {
+              const drawW = paper.width;
+              const drawH = drawW / imgRatio;
+              pdfPage.drawImage(image, {
+                x: 0,
+                y: paper.height - drawH,
+                width: drawW,
+                height: drawH,
+              });
+            } else {
+              const drawH = paper.height;
+              const drawW = drawH * imgRatio;
+              const x = (paper.width - drawW) / 2;
+              pdfPage.drawImage(image, { x, y: 0, width: drawW, height: drawH });
+            }
+            added = 1;
+          }
+        }
         if (!added) pageErrors += 1;
       }
       if (!pdfDoc.getPageCount()) {

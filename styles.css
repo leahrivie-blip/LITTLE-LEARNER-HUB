@@ -25577,6 +25577,10 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 .teaching-kit-workspace .tk-print-preview-host[data-tk-preview-zoom="fit-page"] {
   overflow-x: hidden;
 }
+.teaching-kit-workspace .tk-print-preview-host[data-tk-preview-zoom="fit-page"] .tk-print-preview-frame {
+  /* Width/margins are set by applyPrintPreviewFitPage to collapse scaled layout. */
+  display: block;
+}
 .teaching-kit-workspace .tk-print-attachment-preview {
   margin: 10px 12px;
   padding: 10px 12px;
@@ -25593,7 +25597,7 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   margin: 4px 0;
 }
 .teaching-kit-workspace .tk-print-preview-frame {
-  transform-origin: top center;
+  transform-origin: top left;
   padding: 0;
   background: #fff;
   box-shadow: 0 1px 0 rgba(45, 27, 78, 0.08);

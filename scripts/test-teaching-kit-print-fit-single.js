@@ -62,7 +62,15 @@ function record(option, pass, detail) {
 }
 
 function makePreviewHostMock({ hostW = 400, hostH = 500, pageW = 816, pageH = 1056, pages = 2 } = {}) {
-  const style = { transform: "none", width: "", height: "", margin: "", marginLeft: "", marginRight: "", marginBottom: "" };
+  const style = {
+    transform: "none",
+    width: "",
+    height: "",
+    margin: "0",
+    marginLeft: "0",
+    marginRight: "0",
+    marginBottom: "0",
+  };
   const dataset = {};
   const attrs = {};
   const pageNodes = Array.from({ length: pages }, () => {
@@ -274,7 +282,9 @@ function testPresetMatrix(kit, plan, model) {
   });
   ok(coverOnly.ok === true, "cover-only builds");
   ok((coverOnly.html.match(/data-tk-print-tab=/g) || []).length >= 1, "cover-only has pages");
-  ok(!/tk-print-activity-card/i.test(coverOnly.html), "cover-only has no activity cards");
+  // Ignore design CSS class names; assert no activity card elements in the document body.
+  ok(!/<article[^>]*tk-print-activity-card/i.test(coverOnly.html), "cover-only has no activity card elements");
+  ok(!/data-tk-print-tab="Activities"/i.test(coverOnly.html), "cover-only has no Activities tab pages");
   record("cover_only_section", true, `pages=${(coverOnly.html.match(/data-tk-print-tab=/g) || []).length}`);
 }
 
