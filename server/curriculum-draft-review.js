@@ -6,6 +6,7 @@
 const fs = require("fs");
 const path = require("path");
 const model = require("../scripts/curriculum-draft-review.js");
+const { prependEnrichmentPublishHistory } = require("./enrichment-publish-history.js");
 
 const SEED_ROOT = path.join(__dirname, "..", "docs", "curriculum-draft-review", "seed");
 
@@ -523,24 +524,21 @@ function createDraftReviewApi(deps) {
     const draftPlan = normalizedCurriculumLessonPlan({
       ...plan,
       enrichmentDraft: { ...enrichmentDraft, updatedAt: now, lastEditedBy: sessionEmail },
-      enrichmentPublishHistory: [
-        {
-          versionId: revisionId,
-          // Keep ≤20 chars — enrichment rollback truncates kind via normalizedShortText(..., 20).
-          kind: "draft_review",
-          publishedAt: now,
-          publishedBy: sessionEmail,
-          fingerprint: `draft-review-before:${beforePub}`,
-          lessonPlanId,
-          snapshot: {
-            enrichmentDraft: previousDraft || {},
-            publishedBodyFingerprint: beforePub,
-            activityLinkFingerprint: beforeActs,
-            resourceIds: snapshots.resourceIdsBefore,
-          },
+      enrichmentPublishHistory: prependEnrichmentPublishHistory(history, {
+        versionId: revisionId,
+        // Keep ≤20 chars — enrichment rollback truncates kind via normalizedShortText(..., 20).
+        kind: "draft_review",
+        publishedAt: now,
+        publishedBy: sessionEmail,
+        fingerprint: `draft-review-before:${beforePub}`,
+        lessonPlanId,
+        snapshot: {
+          enrichmentDraft: previousDraft || {},
+          publishedBodyFingerprint: beforePub,
+          activityLinkFingerprint: beforeActs,
+          resourceIds: snapshots.resourceIdsBefore,
         },
-        ...history,
-      ].slice(0, 40),
+      }),
       updatedAt: plan.updatedAt,
     });
 
