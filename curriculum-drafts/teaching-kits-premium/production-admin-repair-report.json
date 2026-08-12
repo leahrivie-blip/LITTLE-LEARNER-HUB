@@ -1,0 +1,2449 @@
+{
+  "ok": true,
+  "environment": "https://littlelearnershubbyleah.com",
+  "endpointRead": "GET /api/admin/site-content",
+  "endpointWrite": "POST /api/admin/curriculum/lesson-plans (saveMode=enrichment_draft)",
+  "publishedEnrichment": false,
+  "customerLessonStatusUnchanged": true,
+  "results": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "lastEditedBy": "leahivie@icloud.com",
+      "printableIds": [
+        "cur-res-750dac2dba18a433",
+        "cur-res-765d77ac99101135"
+      ],
+      "photoResults": [
+        {
+          "title": "Colorful Tummy Time",
+          "activityKey": "cur-act-126f377e2b2a3952",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-03dee962465e45f727fec1224a6b09e7?variant=full"
+        },
+        {
+          "title": "Tummy Time Color Mirror",
+          "activityKey": "cur-act-15af04946e178861",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-0587e4bd3b47c7581b5518f0cd443f1c?variant=full"
+        },
+        {
+          "title": "Color Cloth Basket Gaze",
+          "activityKey": "cur-act-088aa481680d10f7",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-9bdf6f557257c0e5c9e86f92079b6c50?variant=full"
+        }
+      ],
+      "before": {
+        "activityCount": 14,
+        "blankCoreCells": 70,
+        "activitiesWithBlanks": 14,
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "after": {
+        "activityCount": 15,
+        "blankCoreCells": 0,
+        "activitiesWithBlanks": 0,
+        "dayCounts": {
+          "monday": 3,
+          "tuesday": 3,
+          "wednesday": 3,
+          "thursday": 3,
+          "friday": 3
+        },
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "activityIds": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-0d3debcd4e9d6743",
+          "itemId": "item-dcdcf73264a85bf9",
+          "title": "Rainbow Scarf Visual Tracking",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-126f377e2b2a3952",
+          "itemId": "item-a47368a478efbc1d",
+          "title": "Colorful Tummy Time",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "item-infant-colors-face-to-face-color-talk-draft",
+          "itemId": "item-infant-colors-face-to-face-color-talk-draft",
+          "title": "Face-to-Face Color Talk",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-19b12f9172850db3",
+          "itemId": "item-c42b76ac553b657e",
+          "title": "Red Scarf Slow Track",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-a698243362061378",
+          "itemId": "item-7fe77da4b37f7f4e",
+          "title": "Color Lap Bounce Lullaby",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-91bab8f9e17c6938",
+          "itemId": "item-370988cf01b1ec99",
+          "title": "Color Board Book Faces",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-734c3d4ba8b88d04",
+          "itemId": "item-0881743cf3325a83",
+          "title": "Yellow Rattle Reach",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-15af04946e178861",
+          "itemId": "item-5b82beb19c389989",
+          "title": "Tummy Time Color Mirror",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-088aa481680d10f7",
+          "itemId": "item-815bd1a7df99d3fb",
+          "title": "Color Cloth Basket Gaze",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-7c753942bb4b0ff2",
+          "itemId": "item-c3362a438a0bb7b7",
+          "title": "Soft Color Texture Mitts",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-56355a3b947c4257",
+          "itemId": "item-b75ac2f71a8e5542",
+          "title": "Color Hello with Caregiver",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-601f18600d3aeecc",
+          "itemId": "item-c0fc2a067933e542",
+          "title": "Green Scarf Sway",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-6e5a3a8bf7a3009d",
+          "itemId": "item-540f458c348be297",
+          "title": "Rainbow Color Song Cuddle",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-3890e95a40950a2f",
+          "itemId": "item-2c2fe463840d11e3",
+          "title": "Favorite Color Page Replay",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-b338245b8ccf6d34",
+          "itemId": "item-a002249344509106",
+          "title": "Shaded Color Stroll",
+          "corePercent": 100,
+          "missing": []
+        }
+      ]
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "lastEditedBy": "leahivie@icloud.com",
+      "printableIds": [
+        "cur-res-a2f90f232a27e8ea",
+        "cur-res-e3c453192e3dfaf7"
+      ],
+      "photoResults": [
+        {
+          "title": "Tummy Time Pattern Adventure",
+          "activityKey": "cur-act-0d46173d7a9a2cb1",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-d420d0de48ff7a012ad0f34e2c7f3e65?variant=full"
+        },
+        {
+          "title": "Mirror & Pattern Discovery",
+          "activityKey": "cur-act-fadacd08fd94128f",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-4e794920e6e38477d4811eea51fa2ebb?variant=full"
+        },
+        {
+          "title": "Slow Pattern Arc Track",
+          "activityKey": "cur-act-cc545af77c7782c1",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-90282406baae91cfd5cacff56674725c?variant=full"
+        },
+        {
+          "title": "Tummy Contrast Gallery",
+          "activityKey": "cur-act-3e2c7cd13e86b223",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-b53315ae5dc4b3eca6df11e2537d0a62?variant=full"
+        }
+      ],
+      "before": {
+        "activityCount": 15,
+        "blankCoreCells": 75,
+        "activitiesWithBlanks": 15,
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "after": {
+        "activityCount": 15,
+        "blankCoreCells": 0,
+        "activitiesWithBlanks": 0,
+        "dayCounts": {
+          "monday": 3,
+          "tuesday": 3,
+          "wednesday": 3,
+          "thursday": 3,
+          "friday": 3
+        },
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "activityIds": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-93a5d1514a80615f",
+          "itemId": "item-743d45b943e6675b",
+          "title": "High-Contrast Card Exploration",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-0d46173d7a9a2cb1",
+          "itemId": "item-28ff90e902cf109e",
+          "title": "Tummy Time Pattern Adventure",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-fadacd08fd94128f",
+          "itemId": "item-da9ddb33ef975006",
+          "title": "Mirror & Pattern Discovery",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-6f371892e4459304",
+          "itemId": "item-75f70b692adf7110",
+          "title": "Bold Card Gaze Garden",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-449025ad489039e3",
+          "itemId": "item-9f38f450ac653346",
+          "title": "Black White Board Book",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-7e55d822482aa951",
+          "itemId": "item-7b97cb09458bc83a",
+          "title": "Contrast Card Peek Song",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-cc545af77c7782c1",
+          "itemId": "item-cfa76c7e6f2de81f",
+          "title": "Slow Pattern Arc Track",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-3e2c7cd13e86b223",
+          "itemId": "item-108205e1a0dc7964",
+          "title": "Tummy Contrast Gallery",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-e00d2da04a5b6668",
+          "itemId": "item-0443545fa3571c54",
+          "title": "Black White Cloth Drape",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-ad36941afa3d4b95",
+          "itemId": "item-0d1a4c9f5fe0e143",
+          "title": "Zebra Stripe Soft Book",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-6464943bd794c22c",
+          "itemId": "item-48e351ab7f2149fd",
+          "title": "Grasp the Contrast Ring",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-0deec17f5e0686cb",
+          "itemId": "item-7467bae51e478d99",
+          "title": "Hello Black Hello White",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-35dd6ccfdf923903",
+          "itemId": "item-55926e66b23b26ac",
+          "title": "Contrast Celebration Dance Hold",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-40b36ec8c99229e8",
+          "itemId": "item-108657abbdb8b9ae",
+          "title": "Favorite Pattern Page Party",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-91bfbd7df9197acd",
+          "itemId": "item-f42a0fc11a1c78a3",
+          "title": "Shade and Shadow Contrast Stroll",
+          "corePercent": 100,
+          "missing": []
+        }
+      ]
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "lastEditedBy": "leahivie@icloud.com",
+      "printableIds": [
+        "cur-res-2e0abf716dedf25f",
+        "cur-res-04c3b64a153ea905"
+      ],
+      "photoResults": [
+        {
+          "title": "Community Helper Discovery Basket",
+          "activityKey": "cur-act-dae3ceb517ee1057",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-e10c015cf31268a55c3a31361cfe4bf7?variant=full"
+        },
+        {
+          "title": "Community Map Talk",
+          "activityKey": "cur-act-deff9908a05268dc",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-4e5b6c23dda1ac176d646f704f7e8e1b?variant=full"
+        },
+        {
+          "title": "Firefighter Rescue Relay",
+          "activityKey": "cur-act-531ba258ff68c6e6",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-f90ce3cff5ef8698434cd6cf999f7e37?variant=full"
+        },
+        {
+          "title": "Mail Carrier Center",
+          "activityKey": "cur-act-ad894ba69cba768a",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-309b1ae419d72169082557f9c9ade9e2?variant=full"
+        },
+        {
+          "title": "Build a Community Block City",
+          "activityKey": "cur-act-8e566b5a73981a88",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-9bf6c3bbebcde3d7a4a71ef64cf4355d?variant=full"
+        },
+        {
+          "title": "Healthy Helpers Chart",
+          "activityKey": "cur-act-f6f61c2531250ce6",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-f2533573e234cded1a40218b629e0aec?variant=full"
+        },
+        {
+          "title": "Community Helper Obstacle Course",
+          "activityKey": "cur-act-55d638e4e4b243f7",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-2bc4d18787a788976a2ec53362e7bcef?variant=full"
+        }
+      ],
+      "before": {
+        "activityCount": 15,
+        "blankCoreCells": 75,
+        "activitiesWithBlanks": 15,
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "after": {
+        "activityCount": 15,
+        "blankCoreCells": 0,
+        "activitiesWithBlanks": 0,
+        "dayCounts": {
+          "monday": 3,
+          "tuesday": 3,
+          "wednesday": 3,
+          "thursday": 3,
+          "friday": 3
+        },
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "activityIds": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-dae3ceb517ee1057",
+          "itemId": "item-preschool-community-helpers-monday-1",
+          "title": "Community Helper Discovery Basket",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-e2bb6462f47a1fdf",
+          "itemId": "item-preschool-community-helpers-monday-2",
+          "title": "Helper Hat Parade",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-deff9908a05268dc",
+          "itemId": "item-preschool-community-helpers-monday-3",
+          "title": "Community Map Talk",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-988e83297cb9492c",
+          "itemId": "item-preschool-community-helpers-tuesday-1",
+          "title": "Doctor's Office Dramatic Play",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-531ba258ff68c6e6",
+          "itemId": "item-preschool-community-helpers-tuesday-2",
+          "title": "Firefighter Rescue Relay",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-30b83d919dab458c",
+          "itemId": "item-preschool-community-helpers-tuesday-3",
+          "title": "Community Helper Matching",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-ad894ba69cba768a",
+          "itemId": "item-preschool-community-helpers-wednesday-1",
+          "title": "Mail Carrier Center",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-156f98f32b0143a7",
+          "itemId": "item-preschool-community-helpers-wednesday-2",
+          "title": "Chef's Kitchen",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-8e566b5a73981a88",
+          "itemId": "item-preschool-community-helpers-wednesday-3",
+          "title": "Build a Community Block City",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-0bedfb89f143fddc",
+          "itemId": "item-preschool-community-helpers-thursday-1",
+          "title": "Tool Exploration Table",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-f6f61c2531250ce6",
+          "itemId": "item-preschool-community-helpers-thursday-2",
+          "title": "Healthy Helpers Chart",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-e1064bff5bcb65d5",
+          "itemId": "item-preschool-community-helpers-thursday-3",
+          "title": "Thank-You Card Workshop",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-35000b90cdd22ab9",
+          "itemId": "item-preschool-community-helpers-friday-1",
+          "title": "Helper Interview Circle",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-55d638e4e4b243f7",
+          "itemId": "item-preschool-community-helpers-friday-2",
+          "title": "Community Helper Obstacle Course",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-5bfbf236fdc604b7",
+          "itemId": "item-preschool-community-helpers-friday-3",
+          "title": "Community Helpers Celebration",
+          "corePercent": 100,
+          "missing": []
+        }
+      ]
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "lastEditedBy": "leahivie@icloud.com",
+      "printableIds": [
+        "cur-res-bb036ea0b6f94e28",
+        "cur-res-350953835613bf1d",
+        "cur-res-9e4c6acbbb4ae6e5"
+      ],
+      "photoResults": [
+        {
+          "title": "Cloud Cotton Art",
+          "activityKey": "cur-act-5612d85bc9f65bfc",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-0096584b1426fa0e7da22db427f1ded3?variant=full"
+        },
+        {
+          "title": "Rain Drop Sensory Play",
+          "activityKey": "cur-act-195f18300ada3c7f",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-2c2d1845d74429a8c77eae91d80d42da?variant=full"
+        },
+        {
+          "title": "Weather Dress-Up Center",
+          "activityKey": "cur-act-51ca399e7c5fe55f",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-2cf4861fc847aa7adcf1e08a23276204?variant=full"
+        },
+        {
+          "title": "Windy Day Pinwheels",
+          "activityKey": "cur-act-ba0da59aff081f17",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-f79b06865cdbd7d477796a8160026e5f?variant=full"
+        },
+        {
+          "title": "Weather Chart Helpers",
+          "activityKey": "cur-act-daf4d66a95422c20",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-f58ec2909cc7689844d4ce9d28fe304c?variant=full"
+        },
+        {
+          "title": "Thunder Drum Experiment",
+          "activityKey": "cur-act-ae4ace1c788cf2ac",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-47c4d257f21d2de5a8c69fde4da1f9b4?variant=full"
+        },
+        {
+          "title": "Rainbow After Rain Art",
+          "activityKey": "cur-act-8fb6c2b6e300e28c",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-5c07ef3542619be0d5c192836b6e8c5d?variant=full"
+        },
+        {
+          "title": "Weather Dress Relay",
+          "activityKey": "cur-act-2af23c50b7b6eb8e",
+          "status": 200,
+          "error": null,
+          "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-908ad477c5eeb016ed91b7bf1fde42a8?variant=full"
+        }
+      ],
+      "before": {
+        "activityCount": 15,
+        "blankCoreCells": 75,
+        "activitiesWithBlanks": 15,
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "after": {
+        "activityCount": 15,
+        "blankCoreCells": 0,
+        "activitiesWithBlanks": 0,
+        "dayCounts": {
+          "monday": 3,
+          "tuesday": 3,
+          "wednesday": 3,
+          "thursday": 3,
+          "friday": 3
+        },
+        "sidebarCompleteDespiteCoreGaps": 0
+      },
+      "activityIds": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-2709c6a020ae29a4",
+          "itemId": "item-preschool-weather-watchers-monday-1",
+          "title": "Weather Watchers Circle",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-75e14c8e79726b23",
+          "itemId": "item-preschool-weather-watchers-monday-2",
+          "title": "Sunshine Movement Game",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-5612d85bc9f65bfc",
+          "itemId": "item-preschool-weather-watchers-monday-3",
+          "title": "Cloud Cotton Art",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-195f18300ada3c7f",
+          "itemId": "item-preschool-weather-watchers-tuesday-1",
+          "title": "Rain Drop Sensory Play",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-51ca399e7c5fe55f",
+          "itemId": "item-preschool-weather-watchers-tuesday-2",
+          "title": "Weather Dress-Up Center",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-ba0da59aff081f17",
+          "itemId": "item-preschool-weather-watchers-tuesday-3",
+          "title": "Windy Day Pinwheels",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-daf4d66a95422c20",
+          "itemId": "item-preschool-weather-watchers-wednesday-1",
+          "title": "Weather Chart Helpers",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-ae4ace1c788cf2ac",
+          "itemId": "item-preschool-weather-watchers-wednesday-2",
+          "title": "Thunder Drum Experiment",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-53c0b326abf40ba6",
+          "itemId": "item-preschool-weather-watchers-wednesday-3",
+          "title": "Weather Book Nook",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-82fc3572772bc4c3",
+          "itemId": "item-preschool-weather-watchers-thursday-1",
+          "title": "Season Sorting Trays",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-8fb6c2b6e300e28c",
+          "itemId": "item-preschool-weather-watchers-thursday-2",
+          "title": "Rainbow After Rain Art",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-43000470e0410a26",
+          "itemId": "item-preschool-weather-watchers-thursday-3",
+          "title": "Weather Yoga and Rest",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-8251dddbda3dc851",
+          "itemId": "item-preschool-weather-watchers-friday-1",
+          "title": "Meteorologist Report Circle",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-2af23c50b7b6eb8e",
+          "itemId": "item-preschool-weather-watchers-friday-2",
+          "title": "Weather Dress Relay",
+          "corePercent": 100,
+          "missing": []
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-2cdfa018493f05d8",
+          "itemId": "item-preschool-weather-watchers-friday-3",
+          "title": "Weather Watchers Celebration",
+          "corePercent": 100,
+          "missing": []
+        }
+      ]
+    }
+  ],
+  "before": {
+    "cur-lp-infant-colors-all-around-us": {
+      "activityCount": 14,
+      "dayCounts": {
+        "monday": 2,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 70,
+      "activitiesWithBlanks": 14,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-126f377e2b2a3952",
+          "itemId": "item-a47368a478efbc1d",
+          "title": "Colorful Tummy Time",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-0d3debcd4e9d6743",
+          "itemId": "item-dcdcf73264a85bf9",
+          "title": "Rainbow Scarf Visual Tracking",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-91bab8f9e17c6938",
+          "itemId": "item-370988cf01b1ec99",
+          "title": "Color Board Book Faces",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-a698243362061378",
+          "itemId": "item-7fe77da4b37f7f4e",
+          "title": "Color Lap Bounce Lullaby",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-19b12f9172850db3",
+          "itemId": "item-c42b76ac553b657e",
+          "title": "Red Scarf Slow Track",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-088aa481680d10f7",
+          "itemId": "item-815bd1a7df99d3fb",
+          "title": "Color Cloth Basket Gaze",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-15af04946e178861",
+          "itemId": "item-5b82beb19c389989",
+          "title": "Tummy Time Color Mirror",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-734c3d4ba8b88d04",
+          "itemId": "item-0881743cf3325a83",
+          "title": "Yellow Rattle Reach",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-56355a3b947c4257",
+          "itemId": "item-b75ac2f71a8e5542",
+          "title": "Color Hello with Caregiver",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-601f18600d3aeecc",
+          "itemId": "item-c0fc2a067933e542",
+          "title": "Green Scarf Sway",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-7c753942bb4b0ff2",
+          "itemId": "item-c3362a438a0bb7b7",
+          "title": "Soft Color Texture Mitts",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-3890e95a40950a2f",
+          "itemId": "item-2c2fe463840d11e3",
+          "title": "Favorite Color Page Replay",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-6e5a3a8bf7a3009d",
+          "itemId": "item-540f458c348be297",
+          "title": "Rainbow Color Song Cuddle",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-b338245b8ccf6d34",
+          "itemId": "item-a002249344509106",
+          "title": "Shaded Color Stroll",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        }
+      ]
+    },
+    "cur-lp-infant-black-white-discovery": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 75,
+      "activitiesWithBlanks": 15,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-93a5d1514a80615f",
+          "itemId": "item-743d45b943e6675b",
+          "title": "High-Contrast Card Exploration",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-fadacd08fd94128f",
+          "itemId": "item-da9ddb33ef975006",
+          "title": "Mirror & Pattern Discovery",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-0d46173d7a9a2cb1",
+          "itemId": "item-28ff90e902cf109e",
+          "title": "Tummy Time Pattern Adventure",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-449025ad489039e3",
+          "itemId": "item-9f38f450ac653346",
+          "title": "Black White Board Book",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-6f371892e4459304",
+          "itemId": "item-75f70b692adf7110",
+          "title": "Bold Card Gaze Garden",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-7e55d822482aa951",
+          "itemId": "item-7b97cb09458bc83a",
+          "title": "Contrast Card Peek Song",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-e00d2da04a5b6668",
+          "itemId": "item-0443545fa3571c54",
+          "title": "Black White Cloth Drape",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-cc545af77c7782c1",
+          "itemId": "item-cfa76c7e6f2de81f",
+          "title": "Slow Pattern Arc Track",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-3e2c7cd13e86b223",
+          "itemId": "item-108205e1a0dc7964",
+          "title": "Tummy Contrast Gallery",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-6464943bd794c22c",
+          "itemId": "item-48e351ab7f2149fd",
+          "title": "Grasp the Contrast Ring",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-0deec17f5e0686cb",
+          "itemId": "item-7467bae51e478d99",
+          "title": "Hello Black Hello White",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-ad36941afa3d4b95",
+          "itemId": "item-0d1a4c9f5fe0e143",
+          "title": "Zebra Stripe Soft Book",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-35dd6ccfdf923903",
+          "itemId": "item-55926e66b23b26ac",
+          "title": "Contrast Celebration Dance Hold",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-40b36ec8c99229e8",
+          "itemId": "item-108657abbdb8b9ae",
+          "title": "Favorite Pattern Page Party",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-91bfbd7df9197acd",
+          "itemId": "item-f42a0fc11a1c78a3",
+          "title": "Shade and Shadow Contrast Stroll",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        }
+      ]
+    },
+    "cur-lp-preschool-community-helpers": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 75,
+      "activitiesWithBlanks": 15,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-dae3ceb517ee1057",
+          "itemId": "item-preschool-community-helpers-monday-1",
+          "title": "Community Helper Discovery Basket",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-deff9908a05268dc",
+          "itemId": "item-preschool-community-helpers-monday-3",
+          "title": "Community Map Talk",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-e2bb6462f47a1fdf",
+          "itemId": "item-preschool-community-helpers-monday-2",
+          "title": "Helper Hat Parade",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-30b83d919dab458c",
+          "itemId": "item-preschool-community-helpers-tuesday-3",
+          "title": "Community Helper Matching",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-988e83297cb9492c",
+          "itemId": "item-preschool-community-helpers-tuesday-1",
+          "title": "Doctor's Office Dramatic Play",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-531ba258ff68c6e6",
+          "itemId": "item-preschool-community-helpers-tuesday-2",
+          "title": "Firefighter Rescue Relay",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-8e566b5a73981a88",
+          "itemId": "item-preschool-community-helpers-wednesday-3",
+          "title": "Build a Community Block City",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-156f98f32b0143a7",
+          "itemId": "item-preschool-community-helpers-wednesday-2",
+          "title": "Chef's Kitchen",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-ad894ba69cba768a",
+          "itemId": "item-preschool-community-helpers-wednesday-1",
+          "title": "Mail Carrier Center",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-f6f61c2531250ce6",
+          "itemId": "item-preschool-community-helpers-thursday-2",
+          "title": "Healthy Helpers Chart",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-e1064bff5bcb65d5",
+          "itemId": "item-preschool-community-helpers-thursday-3",
+          "title": "Thank-You Card Workshop",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-0bedfb89f143fddc",
+          "itemId": "item-preschool-community-helpers-thursday-1",
+          "title": "Tool Exploration Table",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-55d638e4e4b243f7",
+          "itemId": "item-preschool-community-helpers-friday-2",
+          "title": "Community Helper Obstacle Course",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-5bfbf236fdc604b7",
+          "itemId": "item-preschool-community-helpers-friday-3",
+          "title": "Community Helpers Celebration",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-35000b90cdd22ab9",
+          "itemId": "item-preschool-community-helpers-friday-1",
+          "title": "Helper Interview Circle",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        }
+      ]
+    },
+    "cur-lp-preschool-weather-watchers": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 75,
+      "activitiesWithBlanks": 15,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-5612d85bc9f65bfc",
+          "itemId": "item-preschool-weather-watchers-monday-3",
+          "title": "Cloud Cotton Art",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-75e14c8e79726b23",
+          "itemId": "item-preschool-weather-watchers-monday-2",
+          "title": "Sunshine Movement Game",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-2709c6a020ae29a4",
+          "itemId": "item-preschool-weather-watchers-monday-1",
+          "title": "Weather Watchers Circle",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-195f18300ada3c7f",
+          "itemId": "item-preschool-weather-watchers-tuesday-1",
+          "title": "Rain Drop Sensory Play",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-51ca399e7c5fe55f",
+          "itemId": "item-preschool-weather-watchers-tuesday-2",
+          "title": "Weather Dress-Up Center",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-ba0da59aff081f17",
+          "itemId": "item-preschool-weather-watchers-tuesday-3",
+          "title": "Windy Day Pinwheels",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-ae4ace1c788cf2ac",
+          "itemId": "item-preschool-weather-watchers-wednesday-2",
+          "title": "Thunder Drum Experiment",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-53c0b326abf40ba6",
+          "itemId": "item-preschool-weather-watchers-wednesday-3",
+          "title": "Weather Book Nook",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-daf4d66a95422c20",
+          "itemId": "item-preschool-weather-watchers-wednesday-1",
+          "title": "Weather Chart Helpers",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-8fb6c2b6e300e28c",
+          "itemId": "item-preschool-weather-watchers-thursday-2",
+          "title": "Rainbow After Rain Art",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-82fc3572772bc4c3",
+          "itemId": "item-preschool-weather-watchers-thursday-1",
+          "title": "Season Sorting Trays",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-43000470e0410a26",
+          "itemId": "item-preschool-weather-watchers-thursday-3",
+          "title": "Weather Yoga and Rest",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-8251dddbda3dc851",
+          "itemId": "item-preschool-weather-watchers-friday-1",
+          "title": "Meteorologist Report Circle",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-2af23c50b7b6eb8e",
+          "itemId": "item-preschool-weather-watchers-friday-2",
+          "title": "Weather Dress Relay",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-2cdfa018493f05d8",
+          "itemId": "item-preschool-weather-watchers-friday-3",
+          "title": "Weather Watchers Celebration",
+          "corePercent": 67,
+          "missing": [
+            "Recommended age",
+            "Estimated duration",
+            "Teacher preparation",
+            "Suggested questions to ask",
+            "Cleanup"
+          ],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 5
+        }
+      ]
+    }
+  },
+  "after": {
+    "cur-lp-infant-colors-all-around-us": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 0,
+      "activitiesWithBlanks": 0,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-0d3debcd4e9d6743",
+          "itemId": "item-dcdcf73264a85bf9",
+          "title": "Rainbow Scarf Visual Tracking",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-126f377e2b2a3952",
+          "itemId": "item-a47368a478efbc1d",
+          "title": "Colorful Tummy Time",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "item-infant-colors-face-to-face-color-talk-draft",
+          "itemId": "item-infant-colors-face-to-face-color-talk-draft",
+          "title": "Face-to-Face Color Talk",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-19b12f9172850db3",
+          "itemId": "item-c42b76ac553b657e",
+          "title": "Red Scarf Slow Track",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-a698243362061378",
+          "itemId": "item-7fe77da4b37f7f4e",
+          "title": "Color Lap Bounce Lullaby",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-91bab8f9e17c6938",
+          "itemId": "item-370988cf01b1ec99",
+          "title": "Color Board Book Faces",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-734c3d4ba8b88d04",
+          "itemId": "item-0881743cf3325a83",
+          "title": "Yellow Rattle Reach",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-15af04946e178861",
+          "itemId": "item-5b82beb19c389989",
+          "title": "Tummy Time Color Mirror",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-088aa481680d10f7",
+          "itemId": "item-815bd1a7df99d3fb",
+          "title": "Color Cloth Basket Gaze",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-7c753942bb4b0ff2",
+          "itemId": "item-c3362a438a0bb7b7",
+          "title": "Soft Color Texture Mitts",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-56355a3b947c4257",
+          "itemId": "item-b75ac2f71a8e5542",
+          "title": "Color Hello with Caregiver",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-601f18600d3aeecc",
+          "itemId": "item-c0fc2a067933e542",
+          "title": "Green Scarf Sway",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-6e5a3a8bf7a3009d",
+          "itemId": "item-540f458c348be297",
+          "title": "Rainbow Color Song Cuddle",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-3890e95a40950a2f",
+          "itemId": "item-2c2fe463840d11e3",
+          "title": "Favorite Color Page Replay",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-b338245b8ccf6d34",
+          "itemId": "item-a002249344509106",
+          "title": "Shaded Color Stroll",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        }
+      ]
+    },
+    "cur-lp-infant-black-white-discovery": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 0,
+      "activitiesWithBlanks": 0,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-93a5d1514a80615f",
+          "itemId": "item-743d45b943e6675b",
+          "title": "High-Contrast Card Exploration",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-0d46173d7a9a2cb1",
+          "itemId": "item-28ff90e902cf109e",
+          "title": "Tummy Time Pattern Adventure",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-fadacd08fd94128f",
+          "itemId": "item-da9ddb33ef975006",
+          "title": "Mirror & Pattern Discovery",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-6f371892e4459304",
+          "itemId": "item-75f70b692adf7110",
+          "title": "Bold Card Gaze Garden",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-449025ad489039e3",
+          "itemId": "item-9f38f450ac653346",
+          "title": "Black White Board Book",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-7e55d822482aa951",
+          "itemId": "item-7b97cb09458bc83a",
+          "title": "Contrast Card Peek Song",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-cc545af77c7782c1",
+          "itemId": "item-cfa76c7e6f2de81f",
+          "title": "Slow Pattern Arc Track",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-3e2c7cd13e86b223",
+          "itemId": "item-108205e1a0dc7964",
+          "title": "Tummy Contrast Gallery",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-e00d2da04a5b6668",
+          "itemId": "item-0443545fa3571c54",
+          "title": "Black White Cloth Drape",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-ad36941afa3d4b95",
+          "itemId": "item-0d1a4c9f5fe0e143",
+          "title": "Zebra Stripe Soft Book",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-6464943bd794c22c",
+          "itemId": "item-48e351ab7f2149fd",
+          "title": "Grasp the Contrast Ring",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-0deec17f5e0686cb",
+          "itemId": "item-7467bae51e478d99",
+          "title": "Hello Black Hello White",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-35dd6ccfdf923903",
+          "itemId": "item-55926e66b23b26ac",
+          "title": "Contrast Celebration Dance Hold",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-40b36ec8c99229e8",
+          "itemId": "item-108657abbdb8b9ae",
+          "title": "Favorite Pattern Page Party",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-91bfbd7df9197acd",
+          "itemId": "item-f42a0fc11a1c78a3",
+          "title": "Shade and Shadow Contrast Stroll",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        }
+      ]
+    },
+    "cur-lp-preschool-community-helpers": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 0,
+      "activitiesWithBlanks": 0,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-dae3ceb517ee1057",
+          "itemId": "item-preschool-community-helpers-monday-1",
+          "title": "Community Helper Discovery Basket",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-e2bb6462f47a1fdf",
+          "itemId": "item-preschool-community-helpers-monday-2",
+          "title": "Helper Hat Parade",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-deff9908a05268dc",
+          "itemId": "item-preschool-community-helpers-monday-3",
+          "title": "Community Map Talk",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-988e83297cb9492c",
+          "itemId": "item-preschool-community-helpers-tuesday-1",
+          "title": "Doctor's Office Dramatic Play",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-531ba258ff68c6e6",
+          "itemId": "item-preschool-community-helpers-tuesday-2",
+          "title": "Firefighter Rescue Relay",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-30b83d919dab458c",
+          "itemId": "item-preschool-community-helpers-tuesday-3",
+          "title": "Community Helper Matching",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-ad894ba69cba768a",
+          "itemId": "item-preschool-community-helpers-wednesday-1",
+          "title": "Mail Carrier Center",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-156f98f32b0143a7",
+          "itemId": "item-preschool-community-helpers-wednesday-2",
+          "title": "Chef's Kitchen",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-8e566b5a73981a88",
+          "itemId": "item-preschool-community-helpers-wednesday-3",
+          "title": "Build a Community Block City",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-0bedfb89f143fddc",
+          "itemId": "item-preschool-community-helpers-thursday-1",
+          "title": "Tool Exploration Table",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-f6f61c2531250ce6",
+          "itemId": "item-preschool-community-helpers-thursday-2",
+          "title": "Healthy Helpers Chart",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-e1064bff5bcb65d5",
+          "itemId": "item-preschool-community-helpers-thursday-3",
+          "title": "Thank-You Card Workshop",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-35000b90cdd22ab9",
+          "itemId": "item-preschool-community-helpers-friday-1",
+          "title": "Helper Interview Circle",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-55d638e4e4b243f7",
+          "itemId": "item-preschool-community-helpers-friday-2",
+          "title": "Community Helper Obstacle Course",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-5bfbf236fdc604b7",
+          "itemId": "item-preschool-community-helpers-friday-3",
+          "title": "Community Helpers Celebration",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        }
+      ]
+    },
+    "cur-lp-preschool-weather-watchers": {
+      "activityCount": 15,
+      "dayCounts": {
+        "monday": 3,
+        "tuesday": 3,
+        "wednesday": 3,
+        "thursday": 3,
+        "friday": 3
+      },
+      "blankCoreCells": 0,
+      "activitiesWithBlanks": 0,
+      "sidebarCompleteDespiteCoreGaps": 0,
+      "rows": [
+        {
+          "day": "monday",
+          "activityId": "cur-act-2709c6a020ae29a4",
+          "itemId": "item-preschool-weather-watchers-monday-1",
+          "title": "Weather Watchers Circle",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-75e14c8e79726b23",
+          "itemId": "item-preschool-weather-watchers-monday-2",
+          "title": "Sunshine Movement Game",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "monday",
+          "activityId": "cur-act-5612d85bc9f65bfc",
+          "itemId": "item-preschool-weather-watchers-monday-3",
+          "title": "Cloud Cotton Art",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-195f18300ada3c7f",
+          "itemId": "item-preschool-weather-watchers-tuesday-1",
+          "title": "Rain Drop Sensory Play",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-51ca399e7c5fe55f",
+          "itemId": "item-preschool-weather-watchers-tuesday-2",
+          "title": "Weather Dress-Up Center",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "tuesday",
+          "activityId": "cur-act-ba0da59aff081f17",
+          "itemId": "item-preschool-weather-watchers-tuesday-3",
+          "title": "Windy Day Pinwheels",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-daf4d66a95422c20",
+          "itemId": "item-preschool-weather-watchers-wednesday-1",
+          "title": "Weather Chart Helpers",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-ae4ace1c788cf2ac",
+          "itemId": "item-preschool-weather-watchers-wednesday-2",
+          "title": "Thunder Drum Experiment",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "wednesday",
+          "activityId": "cur-act-53c0b326abf40ba6",
+          "itemId": "item-preschool-weather-watchers-wednesday-3",
+          "title": "Weather Book Nook",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-82fc3572772bc4c3",
+          "itemId": "item-preschool-weather-watchers-thursday-1",
+          "title": "Season Sorting Trays",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-8fb6c2b6e300e28c",
+          "itemId": "item-preschool-weather-watchers-thursday-2",
+          "title": "Rainbow After Rain Art",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "thursday",
+          "activityId": "cur-act-43000470e0410a26",
+          "itemId": "item-preschool-weather-watchers-thursday-3",
+          "title": "Weather Yoga and Rest",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-8251dddbda3dc851",
+          "itemId": "item-preschool-weather-watchers-friday-1",
+          "title": "Meteorologist Report Circle",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-2af23c50b7b6eb8e",
+          "itemId": "item-preschool-weather-watchers-friday-2",
+          "title": "Weather Dress Relay",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "in_progress",
+          "blankCoreCount": 0
+        },
+        {
+          "day": "friday",
+          "activityId": "cur-act-2cdfa018493f05d8",
+          "itemId": "item-preschool-weather-watchers-friday-3",
+          "title": "Weather Watchers Celebration",
+          "corePercent": 100,
+          "missing": [],
+          "sidebarStatus": "complete",
+          "blankCoreCount": 0
+        }
+      ]
+    }
+  }
+}

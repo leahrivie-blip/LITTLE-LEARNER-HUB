@@ -1,0 +1,1298 @@
+{
+  "ok": true,
+  "environment": "https://littlelearnershubbyleah.com",
+  "kits": [
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "activities": [
+        {
+          "idx": 0,
+          "title": "Rainbow Scarf Visual Tracking",
+          "countText": "Activity 1 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+            "durationMinutes": "3",
+            "objective": "Develop visual tracking skills using colorful moving objects",
+            "description": "Infants observe brightly colored scarves moving through thei",
+            "materials": "Rainbow scarves\nSoft floor mat",
+            "preparation": "Choose one clean, lightweight scarf.\nInspect for loose threa",
+            "setup": "Place infants comfortably on a floor mat in a quiet area.",
+            "steps": "1. Position infant comfortably.\n2. Hold scarf within visual ",
+            "teacherLanguage": "Look at the bright scarf.\nCan you see it moving?\nHere it com",
+            "observationOpportunities": "- Follows scarf with eyes\n- Maintains attention\n- Shows exci",
+            "safetyNotes": "Supervise closely and keep materials developmentally safe fo",
+            "cleanupTips": "Shake out scarf; sanitize if mouthed; store flat."
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 1,
+          "title": "Colorful Tummy Time",
+          "countText": "Activity 2 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Encourage head lifting and reaching.",
+            "description": "Infants participate in tummy time while colorful toys are pl",
+            "materials": "Bright colored toys\nTummy time mat",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Place toys around the tummy time area.",
+            "steps": "1. Place infant on tummy.\n2. Position toys within sight.\n3. ",
+            "teacherLanguage": "Look — here’s something for Colorful Tummy Time.\nCan you see",
+            "observationOpportunities": "- Head lifting\n- Reaching attempts\n- Interest in toys",
+            "safetyNotes": "Supervise closely and keep materials developmentally safe fo",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 2,
+          "title": "Face-to-Face Color Talk",
+          "countText": "Activity 3 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": "3",
+            "objective": "Pair caregiver face and a single bright cloth for social loo",
+            "description": "Caregiver holds infant or sits face-to-face, shows one cloth",
+            "materials": "One bright cloth\nFloor mat or caregiver hold",
+            "preparation": "Choose one cloth color.\nWash hands; settle for a short awake",
+            "setup": "Sit face-to-face with infant supported; keep cloth to the si",
+            "steps": "1. Smile and greet the infant.\n2. Show one cloth briefly nea",
+            "teacherLanguage": "Hello! I see you.\nLook — a bright cloth.\nBack to my face — h",
+            "observationOpportunities": "Looks between face and cloth\nSocial smiling/cooing\nDisengage",
+            "safetyNotes": "Support head/body; never leave infant unattended; keep cloth",
+            "cleanupTips": "Sanitize cloth if mouthed."
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 3,
+          "title": "Red Scarf Slow Track",
+          "countText": "Activity 4 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+            "durationMinutes": "3",
+            "objective": "Track a bright red scarf with eyes.",
+            "description": "Caregiver slowly moves a red scarf side to side while the in",
+            "materials": "Red chiffon scarf\nFloor mat\nSupport pillow",
+            "preparation": "Choose one clean, lightweight scarf.\nInspect for loose threa",
+            "setup": "Place infant safely on mat within arm's reach.",
+            "steps": "1. Settle infant comfortably on back or side.\n2. Hold the re",
+            "teacherLanguage": "Look at the bright scarf.\nCan you see it moving?\nHere it com",
+            "observationOpportunities": "- Tracks scarf briefly\n- Focuses on red\n- Shows calm interes",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Shake out scarf; sanitize if mouthed; store flat."
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 4,
+          "title": "Color Lap Bounce Lullaby",
+          "countText": "Activity 5 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Connect color words with gentle rhythm.",
+            "description": "Hold infant and softly bounce to a color lullaby while showi",
+            "materials": "Soft colored cloth\nCalm music or voice\nComfortable chair",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Sit securely with infant supported.",
+            "steps": "1. Settle infant in arms.\n2. Show the colored cloth.\n3. Sing",
+            "teacherLanguage": "Look — here’s something for Color Lap Bounce Lullaby.\nCan yo",
+            "observationOpportunities": "- Settles in arms\n- Looks at cloth\n- Responds to voice",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 5,
+          "title": "Color Board Book Faces",
+          "countText": "Activity 6 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Share a high-contrast color board book face-to-face.",
+            "description": "Read one or two color pages while holding the book where the",
+            "materials": "Color board book\nFloor mat or lap",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Choose a quiet moment after a diaper change or before nap.",
+            "steps": "1. Hold infant tummy-to-tummy or on lap.\n2. Show one bright ",
+            "teacherLanguage": "Look — here’s something for Color Board Book Faces.\nCan you ",
+            "observationOpportunities": "- Looks at page\n- Looks at caregiver face\n- Stays engaged br",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 6,
+          "title": "Yellow Rattle Reach",
+          "countText": "Activity 7 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Encourage reaching toward a yellow rattle.",
+            "description": "Offer a yellow infant rattle just within reach during superv",
+            "materials": "Yellow soft rattle\nFloor mat",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Place infant on back with rattle in view.",
+            "steps": "1. Show the rattle and shake gently.\n2. Hold near one hand.\n",
+            "teacherLanguage": "Look — here’s something for Yellow Rattle Reach.\nCan you see",
+            "observationOpportunities": "- Looks at rattle\n- Bats or reaches\n- Grasps briefly",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 7,
+          "title": "Tummy Time Color Mirror",
+          "countText": "Activity 8 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Lift head during tummy time toward colorful reflection.",
+            "description": "Place a baby-safe mirror with a colorful frame during short ",
+            "materials": "Baby-safe mirror\nColorful frame scarf\nFloor mat",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Get down on infant's level for tummy time.",
+            "steps": "1. Place infant on tummy with support as needed.\n2. Set mirr",
+            "teacherLanguage": "Look — here’s something for Tummy Time Color Mirror.\nCan you",
+            "observationOpportunities": "- Lifts head briefly\n- Looks at mirror\n- Tolerates tummy tim",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 8,
+          "title": "Color Cloth Basket Gaze",
+          "countText": "Activity 9 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Quietly explore colored cloths with caregiver.",
+            "description": "Offer two large colored cloths for looking and light touch w",
+            "materials": "Two large colored cloths\nShallow basket\nMat",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Sit beside infant with cloths in a basket.",
+            "steps": "1. Show one cloth at a time.\n2. Brush lightly on hand if wel",
+            "teacherLanguage": "Look — here’s something for Color Cloth Basket Gaze.\nCan you",
+            "observationOpportunities": "- Looks between cloths\n- Touches cloth\n- Shows preference",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 9,
+          "title": "Soft Color Texture Mitts",
+          "countText": "Activity 10 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Feel soft colored textures on hands.",
+            "description": "Gently touch infant hands with different colored soft fabric",
+            "materials": "Soft fabric squares in 2–3 colors\nMat",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Ensure fabrics are clean and large.",
+            "steps": "1. Show a fabric square.\n2. Name its color.\n3. Stroke lightl",
+            "teacherLanguage": "Look — here’s something for Soft Color Texture Mitts.\nCan yo",
+            "observationOpportunities": "- Notices touch\n- Looks at fabric\n- Remains calm",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 10,
+          "title": "Color Hello with Caregiver",
+          "countText": "Activity 11 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Greet infant with color props and names.",
+            "description": "A short one-to-one hello ritual using a color scarf and the ",
+            "materials": "Color scarf\nName song",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Sit face-to-face in a quiet corner.",
+            "steps": "1. Wave the scarf as a hello.\n2. Sing the infant's name.\n3. ",
+            "teacherLanguage": "Look — here’s something for Color Hello with Caregiver.\nCan ",
+            "observationOpportunities": "- Watches scarf\n- Responds to name\n- Smiles or calms",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 11,
+          "title": "Green Scarf Sway",
+          "countText": "Activity 12 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+            "durationMinutes": "3",
+            "objective": "Sway gently while tracking a green scarf.",
+            "description": "Caregiver sways side to side holding infant and a green scar",
+            "materials": "Green scarf\nCalm music",
+            "preparation": "Choose one clean, lightweight scarf.\nInspect for loose threa",
+            "setup": "Stand or sit with secure hold.",
+            "steps": "1. Hold infant securely.\n2. Bring green scarf into view.\n3. ",
+            "teacherLanguage": "Look at the bright scarf.\nCan you see it moving?\nHere it com",
+            "observationOpportunities": "- Settles into sway\n- Looks at scarf\n- Relaxes",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Shake out scarf; sanitize if mouthed; store flat."
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 12,
+          "title": "Rainbow Color Song Cuddle",
+          "countText": "Activity 13 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Celebrate colors with a short song and cuddles.",
+            "description": "Sing a simple rainbow or color song while showing scarves on",
+            "materials": "2–3 color scarves\nSong",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Sit comfortably with scarves nearby.",
+            "steps": "1. Cuddle infant close.\n2. Show first scarf and sing.\n3. Swi",
+            "teacherLanguage": "Look — here’s something for Rainbow Color Song Cuddle.\nCan y",
+            "observationOpportunities": "- Looks at scarves\n- Responds to song\n- Enjoys cuddle",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 13,
+          "title": "Favorite Color Page Replay",
+          "countText": "Activity 14 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Revisit favorite color book pages from the week.",
+            "description": "Return to the color board book pages the infant seemed to en",
+            "materials": "Color board book",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Choose a calm alert time.",
+            "steps": "1. Open to a favorite bright page.\n2. Name the color.\n3. Poi",
+            "teacherLanguage": "Look — here’s something for Favorite Color Page Replay.\nCan ",
+            "observationOpportunities": "- Shows recognition interest\n- Looks at page\n- Stays calm",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 14,
+          "title": "Shaded Color Stroll",
+          "countText": "Activity 15 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Notice outdoor colors during a short stroller or carrier str",
+            "description": "Walk outdoors in shade and pause to show green leaves or col",
+            "materials": "Stroller or carrier\nColor scarf optional",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Check weather and shade before going out.",
+            "steps": "1. Secure infant for stroll.\n2. Walk slowly in shade.\n3. Pau",
+            "teacherLanguage": "Look — here’s something for Shaded Color Stroll.\nCan you see",
+            "observationOpportunities": "- Looks toward color\n- Stays calm outdoors\n- Responds to voi",
+            "safetyNotes": "Stay in shade; never leave stroller unattended; check weathe",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        }
+      ],
+      "blanks": 0,
+      "ok": true
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "activities": [
+        {
+          "idx": 0,
+          "title": "High-Contrast Card Exploration",
+          "countText": "Activity 1 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Develop visual focus and tracking skills.",
+            "description": "Infants observe bold black and white pattern cards while pra",
+            "materials": "Black and white pattern cards\nSoft floor mat\nPrintable (draf",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Place infants comfortably on a mat with cards nearby.",
+            "steps": "1. Position infant comfortably.\n2. Hold a card 8–12 inches a",
+            "teacherLanguage": "Look — here’s something for High-Contrast Card Exploration.\n",
+            "observationOpportunities": "- Watches card closely\n- Tracks movement\n- Maintains visual ",
+            "safetyNotes": "Supervise closely and keep materials developmentally safe fo",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 1,
+          "title": "Tummy Time Pattern Adventure",
+          "countText": "Activity 2 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Encourage head lifting and visual engagement.",
+            "description": "Infants explore black and white patterns during tummy time.",
+            "materials": "Pattern cards\nTummy time mat\nPrintable (draft): see Teaching",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Arrange pattern cards around the tummy time area.",
+            "steps": "1. Place infant on tummy.\n2. Position cards within view.\n3. ",
+            "teacherLanguage": "Look — here’s something for Tummy Time Pattern Adventure.\nCa",
+            "observationOpportunities": "- Lifts head\n- Looks toward patterns\n- Reaches toward cards",
+            "safetyNotes": "Supervise closely and keep materials developmentally safe fo",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 2,
+          "title": "Mirror & Pattern Discovery",
+          "countText": "Activity 3 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Encourage self-awareness and visual exploration.",
+            "description": "Infants view their reflections while exploring nearby black ",
+            "materials": "Baby-safe mirror\nPattern cards\nPrintable (draft): see Teachi",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Place mirror securely near infant.",
+            "steps": "1. Position mirror safely.\n2. Place pattern cards nearby.\n3.",
+            "teacherLanguage": "Look — here’s something for Mirror & Pattern Discovery.\nCan ",
+            "observationOpportunities": "- Looks at reflection\n- Notices patterns\n- Smiles or vocaliz",
+            "safetyNotes": "Supervise closely and keep materials developmentally safe fo",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 3,
+          "title": "Bold Card Gaze Garden",
+          "countText": "Activity 4 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Focus on black-and-white contrast cards.",
+            "description": "Display one high-contrast card at a time about 8–12 inches f",
+            "materials": "Black-and-white contrast cards\nCard stand or hand hold\nMat\nP",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Use simple bold patterns only.",
+            "steps": "1. Place infant comfortably.\n2. Show first card.\n3. Hold ste",
+            "teacherLanguage": "Look — here’s something for Bold Card Gaze Garden.\nCan you s",
+            "observationOpportunities": "- Fixates on card\n- Tracks slight movement\n- Stays alert cal",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 4,
+          "title": "Black White Board Book",
+          "countText": "Activity 5 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Share a high-contrast board book page by page.",
+            "description": "Read or describe one high-contrast page with slow pointing.",
+            "materials": "High-contrast board book\nPrintable (draft): see Teaching Kit",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Sit infant on lap facing out or face-to-face.",
+            "steps": "1. Open to a bold page.\n2. Point to a shape.\n3. Name black a",
+            "teacherLanguage": "Look — here’s something for Black White Board Book.\nCan you ",
+            "observationOpportunities": "- Looks at page\n- Follows point\n- Listens",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 5,
+          "title": "Contrast Card Peek Song",
+          "countText": "Activity 6 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Combine contrast cards with a peek song.",
+            "description": "Hide a contrast card briefly and reveal it during a peek-a-b",
+            "materials": "Contrast card\nPeek song\nPrintable (draft): see Teaching Kit ",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Keep reveals soft and predictable.",
+            "steps": "1. Show the card.\n2. Hide it behind your hand.\n3. Sing peek.",
+            "teacherLanguage": "Look — here’s something for Contrast Card Peek Song.\nCan you",
+            "observationOpportunities": "- Watches hide/reveal\n- Shows interest\n- Brightens at reveal",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 6,
+          "title": "Slow Pattern Arc Track",
+          "countText": "Activity 7 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+            "durationMinutes": "3",
+            "objective": "Track a moving high-contrast pattern.",
+            "description": "Move a patterned card in a slow arc for eye tracking practic",
+            "materials": "Patterned contrast card\nMat\nPrintable (draft): see Teaching ",
+            "preparation": "Choose one clean, lightweight scarf.\nInspect for loose threa",
+            "setup": "Move slower than you think is needed.",
+            "steps": "1. Gain infant attention on card.\n2. Move slowly left.\n3. Pa",
+            "teacherLanguage": "Look at the bright scarf.\nCan you see it moving?\nHere it com",
+            "observationOpportunities": "- Follows arc\n- Refocuses at pause\n- Remains interested",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Shake out scarf; sanitize if mouthed; store flat."
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 7,
+          "title": "Tummy Contrast Gallery",
+          "countText": "Activity 8 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Do tummy time facing a contrast card gallery.",
+            "description": "Line up two contrast cards in front of tummy time to motivat",
+            "materials": "Two contrast cards\nMat\nPrintable (draft): see Teaching Kit l",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Secure cards so they cannot fall on infant.",
+            "steps": "1. Set cards in view.\n2. Place infant on tummy.\n3. Tap near ",
+            "teacherLanguage": "Look — here’s something for Tummy Contrast Gallery.\nCan you ",
+            "observationOpportunities": "- Lifts head toward cards\n- Looks between cards\n- Tolerates ",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 8,
+          "title": "Black White Cloth Drape",
+          "countText": "Activity 9 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Explore black and white cloths with eyes and hands.",
+            "description": "Offer large black and white cloths for looking and light tou",
+            "materials": "Black cloth\nWhite cloth\nBasket",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Keep cloths large and clean.",
+            "steps": "1. Hold up black cloth.\n2. Hold up white cloth.\n3. Brush one",
+            "teacherLanguage": "Look — here’s something for Black White Cloth Drape.\nCan you",
+            "observationOpportunities": "- Looks at cloths\n- Touches cloth\n- Shows preference",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 9,
+          "title": "Zebra Stripe Soft Book",
+          "countText": "Activity 10 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Touch stripes in a soft contrast book.",
+            "description": "Guide hands over striped soft-book pages while naming stripe",
+            "materials": "Soft high-contrast book\nPrintable (draft): see Teaching Kit ",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Ensure book is washable and intact.",
+            "steps": "1. Open soft book.\n2. Guide hand over stripes.\n3. Name strip",
+            "teacherLanguage": "Look — here’s something for Zebra Stripe Soft Book.\nCan you ",
+            "observationOpportunities": "- Touches stripes\n- Listens\n- Explores pages",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 10,
+          "title": "Grasp the Contrast Ring",
+          "countText": "Activity 11 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Grasp a black-and-white patterned ring toy.",
+            "description": "Offer a contrast-patterned grasping ring during back time.",
+            "materials": "Patterned grasping ring\nMat\nPrintable (draft): see Teaching ",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Place ring within easy reach.",
+            "steps": "1. Show the ring.\n2. Touch to palm.\n3. Encourage grasp.\n4. G",
+            "teacherLanguage": "Look — here’s something for Grasp the Contrast Ring.\nCan you",
+            "observationOpportunities": "- Grasps ring\n- Looks at pattern\n- Holds briefly",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 11,
+          "title": "Hello Black Hello White",
+          "countText": "Activity 12 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "A greeting ritual using black and white props.",
+            "description": "Greet infant with alternating black and white scarves and na",
+            "materials": "Black scarf\nWhite scarf\nHello song",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Sit face-to-face.",
+            "steps": "1. Wave white scarf hello.\n2. Wave black scarf hello.\n3. Sin",
+            "teacherLanguage": "Look — here’s something for Hello Black Hello White.\nCan you",
+            "observationOpportunities": "- Tracks scarves\n- Responds to name\n- Engages socially",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 12,
+          "title": "Contrast Celebration Dance Hold",
+          "countText": "Activity 13 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Celebrate with gentle dance and contrast scarf.",
+            "description": "Hold infant and sway to music while a contrast scarf moves i",
+            "materials": "Calm music\nContrast scarf\nPrintable (draft): see Teaching Ki",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Support head fully while swaying.",
+            "steps": "1. Hold infant securely.\n2. Start soft music.\n3. Sway and sh",
+            "teacherLanguage": "Look — here’s something for Contrast Celebration Dance Hold.",
+            "observationOpportunities": "- Enjoys sway\n- Looks at scarf\n- Calms after",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 13,
+          "title": "Favorite Pattern Page Party",
+          "countText": "Activity 14 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Revisit favorite contrast pages from the week.",
+            "description": "Return to the contrast pages infant preferred and celebrate ",
+            "materials": "High-contrast book or cards\nPrintable (draft): see Teaching ",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Choose a happy alert time.",
+            "steps": "1. Show favorite page/card.\n2. Smile and narrate.\n3. Add a s",
+            "teacherLanguage": "Look — here’s something for Favorite Pattern Page Party.\nCan",
+            "observationOpportunities": "- Shows recognition\n- Stays focused briefly\n- Smiles",
+            "safetyNotes": "Remain within arm's reach. Use only infant-safe materials, a",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 14,
+          "title": "Shade and Shadow Contrast Stroll",
+          "countText": "Activity 15 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Infant 0–6 months (younger: look/listen only; older: may rea",
+            "durationMinutes": "4",
+            "objective": "Notice outdoor light/dark contrasts from a stroller.",
+            "description": "Stroll in shade and pause where light and shadow create natu",
+            "materials": "Stroller or carrier\nPrintable (draft): see Teaching Kit link",
+            "preparation": "Gather mouth-safe materials and inspect for loose parts.\nCho",
+            "setup": "Pick a mild-weather shaded route.",
+            "steps": "1. Secure infant.\n2. Walk into shade.\n3. Pause at a shadow p",
+            "teacherLanguage": "Look — here’s something for Shade and Shadow Contrast Stroll",
+            "observationOpportunities": "- Looks toward shadows\n- Stays calm\n- Listens",
+            "safetyNotes": "Shade preferred; never leave unattended; check weather.",
+            "cleanupTips": "Sanitize mouthed materials.\nReturn cards/scarves to a labele"
+          },
+          "farmHelpVisible": false
+        }
+      ],
+      "blanks": 0,
+      "ok": true
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "activities": [
+        {
+          "idx": 0,
+          "title": "Community Helper Discovery Basket",
+          "countText": "Activity 1 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore helper tools and uniforms in a discovery basket.",
+            "description": "Preschoolers examine helper hats, tools, and photos from a s",
+            "materials": "Helper basket with hats, tools, photos\nPrintable (draft): se",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Fill basket with safe helper props.",
+            "steps": "1. Sit in circle and explore basket items one at a time.\n2. ",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Names helpers\nMatches tools to roles\nHandles props safely",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 1,
+          "title": "Helper Hat Parade",
+          "countText": "Activity 2 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Parade wearing helper hats to helper songs.",
+            "description": "Preschoolers march wearing chosen helper hats while singing ",
+            "materials": "Helper hats, music player\nPrintable (draft): see Teaching Ki",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Line up parade path with hats ready.",
+            "steps": "1. Choose a helper hat.\n2. March to People in Your Neighborh",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Wears hat during parade\nNames helper role\nFollows parade pat",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 2,
+          "title": "Community Map Talk",
+          "countText": "Activity 3 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Discuss places helpers work on a community map.",
+            "description": "Preschoolers place helper stickers on a map of places like h",
+            "materials": "Large map poster, helper stickers\nPrintable (draft): see Tea",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Post map at child height.",
+            "steps": "1. Look at map together.\n2. Place firefighter at fire statio",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Places stickers appropriately\nNames community places\nTells s",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 3,
+          "title": "Doctor's Office Dramatic Play",
+          "countText": "Activity 4 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Pretend to care for patients in a doctor office.",
+            "description": "Preschoolers use doctor kits to check stuffed patients and b",
+            "materials": "Doctor kit, stethoscope, bandages, clipboards, dolls",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Set up doctor office with waiting area.",
+            "steps": "1. Patients wait with books.\n2. Doctors check heartbeat and ",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Uses doctor tools safely\nShows care language\nSwitches roles",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 4,
+          "title": "Firefighter Rescue Relay",
+          "countText": "Activity 5 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore rescue/helper colors through open-ended collage — no",
+            "description": "Children choose red/yellow/black/blue papers and collage fre",
+            "materials": "Construction paper scraps (red/yellow/black/blue)\nGlue stick",
+            "preparation": "Set a process-art tray with mixed color scraps.\nRemove any s",
+            "setup": "Open art table with color trays and blank paper; helper card",
+            "steps": "1. Invite children to choose colors freely.\n2. Collage witho",
+            "teacherLanguage": "What colors did you choose?\nWho helps keep people safe in ou",
+            "observationOpportunities": "Makes independent visual choices\nUses helper vocabulary\nAcce",
+            "safetyNotes": "Supervise glue; keep scissors adult-only unless children are",
+            "cleanupTips": "Dry collages flat; return scraps to trays."
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 5,
+          "title": "Community Helper Matching",
+          "countText": "Activity 6 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "12",
+            "objective": "Talk about helpers and tools using picture cards during open",
+            "description": "Children explore helper and tool cards in a basket, inventin",
+            "materials": "Helper picture cards (draft printable)\nOptional real props\nB",
+            "preparation": "Print/cut draft helper cards.\nPlace in a basket with 2–3 pro",
+            "setup": "Low table or rug with card basket; no answer key sheet.",
+            "steps": "1. Invite children to choose cards.\n2. Talk about who uses w",
+            "teacherLanguage": "Who might use this tool?\nWhat job helps our neighborhood?\nCa",
+            "observationOpportunities": "Helper vocabulary\nFlexible thinking\nPeer conversation",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 6,
+          "title": "Mail Carrier Center",
+          "countText": "Activity 7 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Sort and deliver mail in the classroom.",
+            "description": "Preschoolers write or draw mail and deliver to labeled mailb",
+            "materials": "Envelopes, mailbags, mailbox labels, crayons",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Label cubbies or boxes as mailboxes.",
+            "steps": "1. Create mail for a friend.\n2. Place in mailbag.\n3. Deliver",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Delivers to correct mailbox\nCreates mark or drawing on mail\n",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 7,
+          "title": "Chef's Kitchen",
+          "countText": "Activity 8 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Practice grocery/food-helper roles with language and coopera",
+            "description": "Children run a pretend market/kitchen, taking orders, sortin",
+            "materials": "Play food\nBaskets\nMenus/signs (draft printable optional)\nApr",
+            "preparation": "Stage dramatic-play kitchen/market.\nAdd simple open signs.",
+            "setup": "Dramatic-play area with labeled zones.",
+            "steps": "1. Choose roles.\n2. Take orders or stock shelves.\n3. Use hel",
+            "teacherLanguage": "What does the grocery helper do?\nHow can we help a customer?",
+            "observationOpportunities": "Follows pretend cooking sequence\nUses polite language\nCleans",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 8,
+          "title": "Build a Community Block City",
+          "countText": "Activity 9 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Build community buildings with blocks and count structures.",
+            "description": "Preschoolers construct hospitals, schools, and fire stations",
+            "materials": "Unit blocks, helper figures, road tape\nPrintable (draft): se",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Define building area with road tape.",
+            "steps": "1. Choose a building to construct.\n2. Plan blocks needed.\n3.",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Builds representational structure\nNames building type\nCounts",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 9,
+          "title": "Tool Exploration Table",
+          "countText": "Activity 10 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore safe tool textures and functions.",
+            "description": "Preschoolers examine plastic tools and describe how helpers ",
+            "materials": "Plastic tools, helper cards, magnifiers\nPrintable (draft): s",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Display tools with matching helper cards.",
+            "steps": "1. Pick up tool carefully.\n2. Describe how it feels and move",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Describes tool safely\nMatches tool to helper\nUses descriptiv",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 10,
+          "title": "Healthy Helpers Chart",
+          "countText": "Activity 11 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Graph favorite community helpers.",
+            "description": "Preschoolers vote for favorite helper and place marks on a c",
+            "materials": "Chart paper, helper pictures, stickers\nPrintable (draft): se",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Post chart with helper columns.",
+            "steps": "1. Choose favorite helper.\n2. Place sticker in column.\n3. Co",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Votes independently\nCounts with group\nStates preference",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 11,
+          "title": "Thank-You Card Workshop",
+          "countText": "Activity 12 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Make thank-you cards for real community helpers.",
+            "description": "Preschoolers create cards to deliver to local helpers such a",
+            "materials": "Cardstock, crayons, stickers, envelopes\nPrintable (draft): s",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Set art table with example messages.",
+            "steps": "1. Choose a helper to thank.\n2. Draw picture on card.\n3. Dic",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Creates intentional drawing\nDictates thank-you\nShows pride i",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 12,
+          "title": "Helper Interview Circle",
+          "countText": "Activity 13 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Share what they learned about one helper job.",
+            "description": "Preschoolers tell one fact about a favorite helper during ci",
+            "materials": "Helper props, talking stick\nPrintable (draft): see Teaching ",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Gather in circle with props visible.",
+            "steps": "1. Choose favorite helper.\n2. Share one job they do.\n3. Pass",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Shares a fact\nListens to peers\nUses helper vocabulary",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 13,
+          "title": "Community Helper Obstacle Course",
+          "countText": "Activity 14 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Move through stations pretending to be different helpers.",
+            "description": "Preschoolers complete stations: mail delivery walk, firefigh",
+            "materials": "Cones, mailbag, vest, spoon and bowl\nPrintable (draft): see ",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Set up multi-station course.",
+            "steps": "1. Start at mail delivery station.\n2. Move to firefighter cr",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Completes stations\nEmbodies helper actions\nFollows course sa",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 14,
+          "title": "Community Helpers Celebration",
+          "countText": "Activity 15 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Celebrate helper week and review gratitude.",
+            "description": "Preschoolers share thank-you cards and sing closing helper s",
+            "materials": "Thank-you cards, helper hats, music\nPrintable (draft): see T",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Gather with completed cards.",
+            "steps": "1. Review helpers learned about.\n2. Share thank-you card pla",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Recalls helper jobs\nExpresses thanks\nParticipates in closing",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        }
+      ],
+      "blanks": 0,
+      "ok": true
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "activities": [
+        {
+          "idx": 0,
+          "title": "Sunshine Movement Game",
+          "countText": "Activity 2 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Move like sunshine with stretching and reaching.",
+            "description": "Preschoolers perform sunny day stretches and shadow movement",
+            "materials": "Open space, sunny day song",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Play sunny music in open area.",
+            "steps": "1. Stretch arms like sun rays.\n2. Move slowly then quickly.\n",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Participates in stretches\nFollows movement cues\nHydrates aft",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 1,
+          "title": "Cloud Cotton Art",
+          "countText": "Activity 3 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore weather ideas through process art with many possible",
+            "description": "Children use loose parts and paint/collage materials to expl",
+            "materials": "Blue/gray paper\nCotton or tissue\nGlue\nCrayons",
+            "preparation": "Stage open-ended art trays.\nRemove sample “perfect rainbow/c",
+            "setup": "Art table with materials in reach; drying rack ready.",
+            "steps": "1. Invite children to explore materials.\n2. Talk about weath",
+            "teacherLanguage": "What weather are you thinking about?\nWhat happened when the ",
+            "observationOpportunities": "Process over product\nWeather vocabulary\nFine-motor explorati",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 2,
+          "title": "Rain Drop Sensory Play",
+          "countText": "Activity 4 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore water droplets and rain sounds.",
+            "description": "Preschoolers use pipettes and water to make rain in bins and",
+            "materials": "Water bins, pipettes, rain sticks, towels",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Cover tables with towels and fill bins.",
+            "steps": "1. Fill pipettes and squeeze rain into bin.\n2. Listen to rai",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Uses pipettes\nCompares sounds\nEngages in sensory play",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 3,
+          "title": "Weather Dress-Up Center",
+          "countText": "Activity 5 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Dress for different weather scenarios.",
+            "description": "Preschoolers choose clothing props for rainy, sunny, and col",
+            "materials": "Rain coats, boots, hats, mittens, sun shades\nPrintable (draf",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Organize dress-up by weather type.",
+            "steps": "1. Announce rainy day scenario.\n2. Children choose rain gear",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Selects appropriate clothing\nExplains choices\nDresses indepe",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 4,
+          "title": "Windy Day Pinwheels",
+          "countText": "Activity 6 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Make pinwheels and test them with fans.",
+            "description": "Preschoolers assemble simple pinwheels and observe spinning ",
+            "materials": "Pinwheel kits or paper squares, pins, pencils, fan",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Prepare pinwheel materials at tables.",
+            "steps": "1. Fold and assemble pinwheel.\n2. Test spin near fan.\n3. Com",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Assembles pinwheel\nObserves spinning\nConnects wind to moveme",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 5,
+          "title": "Weather Chart Helpers",
+          "countText": "Activity 7 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Take turns updating weekly weather chart.",
+            "description": "Preschoolers record weather each day and count sunny versus ",
+            "materials": "Weekly weather chart, stickers\nPrintable (draft): see Teachi",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Assign helper roles for chart.",
+            "steps": "1. Weather helper checks outside.\n2. Adds sticker to chart.\n",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Records weather accurately\nCounts days\nTakes helper role ser",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 6,
+          "title": "Thunder Drum Experiment",
+          "countText": "Activity 8 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore loud and soft sounds like thunder.",
+            "description": "Preschoolers tap drums softly and loudly to represent distan",
+            "materials": "Hand drums, thunder story book excerpt",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Sit in circle with drums.",
+            "steps": "1. Listen to storm description.\n2. Tap drum softly for far t",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Varies drum volume\nFollows story cues\nRepeats safety phrase",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 7,
+          "title": "Weather Book Nook",
+          "countText": "Activity 9 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Read weather books and match to chart symbols.",
+            "description": "Preschoolers browse weather books and find pages matching ch",
+            "materials": "Weather books, symbol cards\nPrintable (draft): see Teaching ",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Set books in nook with symbol cards.",
+            "steps": "1. Choose weather book.\n2. Find sunny or rainy page.\n3. Hold",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Matches book to symbol\nHandles books carefully\nDescribes pic",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 8,
+          "title": "Season Sorting Trays",
+          "countText": "Activity 10 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Sort pictures by season and typical weather.",
+            "description": "Preschoolers sort photo cards into winter, spring, summer, f",
+            "materials": "Season sorting trays, photo cards\nPrintable (draft): see Tea",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Label trays with season and weather hints.",
+            "steps": "1. Pick photo card.\n2. Talk about season shown.\n3. Place in ",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Sorts with guidance\nNames seasons\nConnects weather to season",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 9,
+          "title": "Rainbow After Rain Art",
+          "countText": "Activity 11 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Explore weather ideas through process art with many possible",
+            "description": "Children use loose parts and paint/collage materials to expl",
+            "materials": "Watercolor or tempera\nPaper\nBrushes\nOptional collage scraps",
+            "preparation": "Stage open-ended art trays.\nRemove sample “perfect rainbow/c",
+            "setup": "Art table with materials in reach; drying rack ready.",
+            "steps": "1. Invite children to explore materials.\n2. Talk about weath",
+            "teacherLanguage": "What weather are you thinking about?\nWhat happened when the ",
+            "observationOpportunities": "Process over product\nWeather vocabulary\nFine-motor explorati",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 10,
+          "title": "Weather Yoga and Rest",
+          "countText": "Activity 12 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Practice calm weather-themed stretches.",
+            "description": "Preschoolers move through gentle sun, cloud, and rain poses ",
+            "materials": "Yoga mats, calm music\nPrintable (draft): see Teaching Kit li",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Lay mats for small group.",
+            "steps": "1. Reach for sun pose.\n2. Float like cloud pose.\n3. Gentle r",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Follows gentle poses\nRests quietly\nUses slow breathing",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 11,
+          "title": "Meteorologist Report Circle",
+          "countText": "Activity 13 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Give a short weather report to the class.",
+            "description": "Preschoolers stand with pointer and describe weather chart t",
+            "materials": "Pointer, weather chart, microphone prop\nPrintable (draft): s",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Invite volunteers to be meteorologist.",
+            "steps": "1. Point to chart symbols.\n2. Say today's weather words.\n3. ",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Speaks audibly\nUses weather words\nPoints to chart",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 12,
+          "title": "Weather Dress Relay",
+          "countText": "Activity 14 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Race to dress in correct gear for called weather.",
+            "description": "Preschoolers put on one weather item when teacher calls sunn",
+            "materials": "Separate piles of weather gear\nPrintable (draft): see Teachi",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Organize gear in three piles.",
+            "steps": "1. Call a weather type.\n2. Child grabs one matching item.\n3.",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Chooses correct gear\nParticipates in relay\nExplains choice",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 13,
+          "title": "Weather Watchers Celebration",
+          "countText": "Activity 15 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Review weather week and thank weather helpers.",
+            "description": "Preschoolers review chart data and sing weather songs.",
+            "materials": "Completed chart, song chart\nPrintable (draft): see Teaching ",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Gather with full week chart visible.",
+            "steps": "1. Count weather types for week.\n2. Thank chart helpers.\n3. ",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Recalls week data\nParticipates in songs\nShares favorite mome",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        },
+        {
+          "idx": 14,
+          "title": "Weather Watchers Celebration",
+          "countText": "Activity 15 of 15",
+          "blank": [],
+          "values": {
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": "15",
+            "objective": "Review weather week and thank weather helpers.",
+            "description": "Preschoolers review chart data and sing weather songs.",
+            "materials": "Completed chart, song chart\nPrintable (draft): see Teaching ",
+            "preparation": "Gather center materials and label any specialty props.\nStage",
+            "setup": "Gather with full week chart visible.",
+            "steps": "1. Count weather types for week.\n2. Thank chart helpers.\n3. ",
+            "teacherLanguage": "What do you notice?\nWhat might we try next?\nHow does this he",
+            "observationOpportunities": "Recalls week data\nParticipates in songs\nShares favorite mome",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumabl",
+            "cleanupTips": "Return props to labeled bins.\nWipe tables.\nPhotograph work b"
+          },
+          "farmHelpVisible": false
+        }
+      ],
+      "blanks": 0,
+      "ok": true
+    }
+  ]
+}
