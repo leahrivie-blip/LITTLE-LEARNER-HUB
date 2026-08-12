@@ -49384,16 +49384,13 @@ async function renderAdminEmailEngagement() {
           <button class="primary-button" type="button" id="adminEmailRunPreflightAudit">Run preflight audit</button>
           <button class="ghost-button" type="button" id="adminEmailPrepareOneTime">Prepare emails (no send)</button>
           <button class="ghost-button" type="button" id="adminEmailSendOneTime" ${sendReady && providerReady && !oneTime.sentAt && !oneTime.claimedAt ? "" : "disabled"}>Send one-time email to all users</button>
+          ${oneTime.recoveryAvailable ? `<button class="ghost-button" type="button" id="adminEmailRecoverOneTime" ${providerReady ? "" : "disabled"}>Retry remaining recipients</button>` : ""}
         </div>
         <p class="form-note">
           ${oneTime.sentAt
             ? `Already sent ${escapeHtml(oneTime.sentAt)} to ${Number(oneTime.recipientCount) || 0} recipients (${Number(oneTime.sentCount) || 0} delivered).`
-            : oneTime.deliveryOutcome === "partial_delivery"
-              ? `Partial delivery — ${Number(oneTime.sentCount) || 0}/${Number(oneTime.recipientCount) || 0} delivered (${Number(oneTime.failedCount) || 0} failed). Claim held; not marked fully sent. Manual review required.`
-              : oneTime.deliveryOutcome === "provider_unconfigured"
-                ? `Provider was unconfigured — 0 delivered. Not marked sent. Claim held pending owner recovery.`
-                : oneTime.deliveryOutcome === "delivery_failed"
-                  ? `Delivery failed — 0 delivered (${Number(oneTime.failedCount) || 0} failed). Not marked sent. Claim held pending owner recovery.`
+            : oneTime.deliveryOutcome === "partial_delivery" || oneTime.deliveryOutcome === "provider_unconfigured" || oneTime.deliveryOutcome === "delivery_failed"
+              ? `Delivery incomplete — Sent: ${Number(oneTime.sentCount) || 0} / ${Number(oneTime.recipientCount) || Math.max(Number(oneTime.sentCount) || 0, Number(oneTime.remainingCount) || 0)} · Remaining: ${Number(oneTime.remainingCount) || 0} · Reason: ${escapeHtml(oneTime.deliveryOutcome || "")}. Owner recovery retries only unsent eligible recipients.`
                   : (sendReady && providerReady
                     ? `Ready when you are: audit passed, provider ready, ${Number(cachedPrepare?.recipients?.count || cachedAudit?.counts?.emailRecipients) || 0} recipients. Nothing has been sent yet.`
                     : "Nothing will be sent until you explicitly confirm after audit + prepare.")}
@@ -65659,6 +65656,34 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "One-time send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailRecoverOneTime")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailOneTimeMessage");
+    const confirmed = window.confirm(
+      "Retry remaining Teaching Kits recipients only?\n\nAlready-delivered recipients will NOT be emailed again.",
+    );
+    if (!confirmed) return;
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/recover-one-time", {
+        confirm: true,
+      });
+      if (msg) {
+        const reason = data.result?.reason || data.result?.deliveryOutcome || "";
+        const sent = Number(data.result?.sent) || 0;
+        const rem = Number(data.result?.remaining) || 0;
+        const targeted = Number(data.result?.targeted) || 0;
+        if (reason === "sent") {
+          msg.textContent = `Recovery complete: campaign fully sent (${sent} delivered).`;
+        } else {
+          msg.textContent = `Recovery finished: targeted ${targeted}, ledger sent ${sent}, remaining ${rem} (${reason}).`;
+        }
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Recovery failed.";
     }
     return;
   }

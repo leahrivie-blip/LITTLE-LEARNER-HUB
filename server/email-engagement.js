@@ -18,7 +18,14 @@ const FREE_REENGAGEMENT_SUBJECT = "🎉 Little Learner Hub Has Been Updated!";
 /** Durable campaign id for the Teaching Kits one-time all-users product update. */
 const ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID = "one_time_welcome_update";
 const ONE_TIME_CAMPAIGN_LOCK_EMAIL = "__campaign_lock__";
+/** Exclusive owner-recovery lock (released after each recovery attempt). */
+const ONE_TIME_RECOVERY_LOCK_EMAIL = "__recovery_lock__";
 const ONE_TIME_CLAIM_TTL_MS = 30 * 60 * 1000;
+const ONE_TIME_RECOVERABLE_OUTCOMES = new Set([
+  "partial_delivery",
+  "provider_unconfigured",
+  "delivery_failed",
+]);
 
 const ONBOARDING_STEPS = [
   {
@@ -51,6 +58,7 @@ function defaultOneTimeWelcomeUpdate() {
     failedCount: 0,
     softSkippedCount: 0,
     recipientCount: 0,
+    remainingCount: 0,
     // sent | partial_delivery | provider_unconfigured | delivery_failed
     deliveryOutcome: "",
     lastAuditAt: "",
@@ -64,6 +72,9 @@ function defaultOneTimeWelcomeUpdate() {
     sendStartedAt: "",
     sendFailedAt: "",
     lastError: "",
+    // Per-recipient ledger: { [normalizedEmail]: { email, userKey, status, at, error } }
+    // status: sent | failed | soft_skipped
+    recipientReceipts: {},
   };
 }
 
@@ -93,9 +104,15 @@ function ensureEmailEngagement(store) {
   }
   const eng = store.emailEngagement;
   eng.settings = { ...defaultEmailEngagementStore().settings, ...(eng.settings || {}) };
+  const priorOneTime = eng.settings.oneTimeWelcomeUpdate || {};
   eng.settings.oneTimeWelcomeUpdate = {
     ...defaultOneTimeWelcomeUpdate(),
-    ...(eng.settings.oneTimeWelcomeUpdate || {}),
+    ...priorOneTime,
+    recipientReceipts: {
+      ...((priorOneTime.recipientReceipts && typeof priorOneTime.recipientReceipts === "object")
+        ? priorOneTime.recipientReceipts
+        : {}),
+    },
   };
   eng.events = Array.isArray(eng.events) ? eng.events : [];
   eng.campaigns = eng.campaigns && typeof eng.campaigns === "object" ? eng.campaigns : {};
@@ -712,6 +729,8 @@ function createEmailEngagement(deps) {
     writeStoreAsync,
     claimEmailCampaignDelivery = async () => ({ claimed: false }),
     completeEmailCampaignDelivery = async () => {},
+    reclaimFailedEmailCampaignDelivery = async () => ({ claimed: false }),
+    releaseEmailCampaignDelivery = async () => {},
     listEmailCampaignDeliveries = async () => [],
     patchEmailCampaignState = async () => ({}),
     isCurriculumLessonPublic,
@@ -1682,10 +1701,122 @@ function createEmailEngagement(deps) {
     };
   }
 
+  function oneTimeWelcomeContentHash() {
+    const content = buildWelcomeUpdateContent({}, { siteUrl: SITE_URL, htmlEscape });
+    return crypto.createHash("sha256")
+      .update(`${content.subject}\n${content.text}\n${content.html}`)
+      .digest("hex");
+  }
+
+  function oneTimeReceipts(state) {
+    const receipts = state?.recipientReceipts;
+    return receipts && typeof receipts === "object" ? receipts : {};
+  }
+
+  function resolveOneTimeUserKey(store, email) {
+    const clean = normalizeOneTimeEmail(email);
+    if (store?.users?.[clean]) return clean;
+    const entry = Object.entries(store?.users || {}).find(
+      ([, user]) => normalizeOneTimeEmail(user?.email) === clean,
+    );
+    return entry ? entry[0] : clean;
+  }
+
+  function oneTimeAlreadySent(state, email, userKey = "") {
+    const receipts = oneTimeReceipts(state);
+    const clean = normalizeOneTimeEmail(email);
+    if (receipts[clean]?.status === "sent") return true;
+    const key = String(userKey || "").trim();
+    if (!key) return false;
+    return Object.values(receipts).some(
+      (receipt) => receipt && receipt.status === "sent" && String(receipt.userKey || "") === key,
+    );
+  }
+
+  function summarizeOneTimeLedger(state) {
+    const receipts = Object.values(oneTimeReceipts(state));
+    let sentCount = 0;
+    let failedCount = 0;
+    let softSkippedCount = 0;
+    for (const receipt of receipts) {
+      if (receipt?.status === "sent") sentCount += 1;
+      else if (receipt?.status === "soft_skipped") softSkippedCount += 1;
+      else if (receipt?.status === "failed") failedCount += 1;
+    }
+    return { sentCount, failedCount, softSkippedCount, receiptCount: receipts.length };
+  }
+
+  function listOneTimeRemainingRecipients(store, state, adminEmail) {
+    const eligible = eligibleOneTimeRecipients(store, { adminEmail });
+    return eligible.filter((email) => {
+      const userKey = resolveOneTimeUserKey(store, email);
+      return !oneTimeAlreadySent(state, email, userKey);
+    });
+  }
+
+  function upsertOneTimeReceipt(state, { email, userKey, status, error = "" }) {
+    const clean = normalizeOneTimeEmail(email);
+    if (!clean) return state;
+    const receipts = { ...oneTimeReceipts(state) };
+    receipts[clean] = {
+      email: clean,
+      userKey: String(userKey || clean),
+      status,
+      at: new Date().toISOString(),
+      error: String(error || "").slice(0, 300),
+    };
+    return { ...state, recipientReceipts: receipts };
+  }
+
+  function computeOneTimeDeliveryOutcome({ sentCount, failedCount, softSkippedCount, remainingCount }) {
+    if (remainingCount === 0 && sentCount > 0) {
+      return {
+        deliveryOutcome: "sent",
+        reason: "sent",
+        lockStatus: "sent",
+        allSuccess: true,
+        summary: `Delivered to all remaining eligible recipients (${sentCount} sent).`,
+      };
+    }
+    if (sentCount > 0 && remainingCount > 0) {
+      return {
+        deliveryOutcome: "partial_delivery",
+        reason: "partial_delivery",
+        lockStatus: "failed",
+        allSuccess: false,
+        summary: `Partial delivery: ${sentCount} sent, ${remainingCount} remaining (${failedCount} failed, ${softSkippedCount} soft-skipped).`,
+      };
+    }
+    if (sentCount === 0 && softSkippedCount > 0 && failedCount === 0) {
+      return {
+        deliveryOutcome: "provider_unconfigured",
+        reason: "provider_unconfigured",
+        lockStatus: "failed",
+        allSuccess: false,
+        summary: `Provider unconfigured: 0 delivered (${softSkippedCount} soft-skipped), ${remainingCount} remaining.`,
+      };
+    }
+    return {
+      deliveryOutcome: "delivery_failed",
+      reason: "delivery_failed",
+      lockStatus: "failed",
+      allSuccess: false,
+      summary: `Delivery failed: 0 delivered (${failedCount} failed, ${softSkippedCount} soft-skipped), ${remainingCount} remaining.`,
+    };
+  }
+
+  function oneTimeRecoveryAvailable(state) {
+    if (state?.sentAt || state?.deliveryOutcome === "sent") return false;
+    return ONE_TIME_RECOVERABLE_OUTCOMES.has(String(state?.deliveryOutcome || ""));
+  }
+
   function previewOneTimeWelcomeUpdate(options = {}) {
     const store = options.store || readStore();
     const eng = ensureEmailEngagement(store);
     const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
+    const adminEmail = normalizeOneTimeEmail(options.adminEmail || getAdminEmail() || "");
+    const ledger = summarizeOneTimeLedger(state);
+    const remainingCount = listOneTimeRemainingRecipients(store, state, adminEmail).length;
     return {
       ok: true,
       readOnly: true,
@@ -1696,10 +1827,12 @@ function createEmailEngagement(deps) {
         sendStartedAt: state.sendStartedAt || "",
         sendFailedAt: state.sendFailedAt || "",
         deliveryOutcome: state.deliveryOutcome || "",
-        sentCount: Number(state.sentCount) || 0,
-        failedCount: Number(state.failedCount) || 0,
-        softSkippedCount: Number(state.softSkippedCount) || 0,
+        sentCount: ledger.sentCount,
+        failedCount: ledger.failedCount,
+        softSkippedCount: ledger.softSkippedCount,
         recipientCount: Number(state.recipientCount) || 0,
+        remainingCount,
+        recoveryAvailable: oneTimeRecoveryAvailable(state),
         preparedAt: state.preparedAt || "",
         lastAuditAt: state.lastAuditAt || "",
         lastAuditPassed: Boolean(state.lastAuditPassed),
@@ -1708,11 +1841,191 @@ function createEmailEngagement(deps) {
     };
   }
 
-  function oneTimeWelcomeContentHash() {
-    const content = buildWelcomeUpdateContent({}, { siteUrl: SITE_URL, htmlEscape });
-    return crypto.createHash("sha256")
-      .update(`${content.subject}\n${content.text}\n${content.html}`)
-      .digest("hex");
+  /**
+   * Deliver to a list of normalized emails, updating the per-recipient ledger.
+   * Skips anyone already marked sent (by email or stable userKey).
+   */
+  async function deliverOneTimeToRecipientList({
+    store,
+    eng,
+    recipients,
+    adminEmail,
+    contentHash,
+  }) {
+    const replyTo = resolveSupportReplyTo();
+    let attemptSent = 0;
+    let attemptFailed = 0;
+    let attemptSoftSkip = 0;
+    const details = [];
+
+    for (const to of recipients) {
+      const userKey = resolveOneTimeUserKey(store, to);
+      if (oneTimeAlreadySent(eng.settings.oneTimeWelcomeUpdate, to, userKey)) {
+        details.push({ email: to, reason: "already_sent_ledger" });
+        continue;
+      }
+
+      let claim = await claimEmailCampaignDelivery({
+        campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+        email: to,
+        contentHash,
+      });
+      if (!claim.claimed) {
+        const existingStatus = String(claim.delivery?.status || "");
+        if (existingStatus === "sent") {
+          eng.settings.oneTimeWelcomeUpdate = upsertOneTimeReceipt(eng.settings.oneTimeWelcomeUpdate, {
+            email: to,
+            userKey,
+            status: "sent",
+          });
+          details.push({ email: to, reason: "already_sent_claim" });
+          continue;
+        }
+        if (existingStatus === "pending") {
+          details.push({ email: to, reason: "in_progress" });
+          continue;
+        }
+        claim = await reclaimFailedEmailCampaignDelivery({
+          campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+          email: to,
+          contentHash,
+        });
+        if (!claim.claimed) {
+          details.push({ email: to, reason: "claim_blocked" });
+          continue;
+        }
+      }
+
+      // Re-check live eligibility after claim (unsubscribe/bounce/staff may have changed).
+      const latestStore = typeof readStoreFresh === "function" ? await readStoreFresh() : readStore();
+      const stillEligible = eligibleOneTimeRecipients(latestStore, { adminEmail }).includes(to);
+      if (!stillEligible) {
+        await completeEmailCampaignDelivery({
+          campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+          email: to,
+          status: "skipped",
+          error: "Recipient became ineligible before send",
+        });
+        details.push({ email: to, reason: "became_ineligible" });
+        continue;
+      }
+
+      const user = findUserByNormalizedEmail(latestStore, to) || { email: to };
+      const content = buildWelcomeUpdateContent(user, { siteUrl: SITE_URL, htmlEscape });
+      const listUnsubscribeUrl = typeof unsubscribeUrlForEmail === "function"
+        ? unsubscribeUrlForEmail(to)
+        : "";
+      const { emailResult } = await sendAndLog({
+        store: latestStore,
+        to,
+        templateKey: "one_time_welcome_update",
+        campaign: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+        subject: content.subject,
+        text: content.text,
+        html: content.html,
+        replyTo,
+        listUnsubscribeUrl,
+        meta: { oneTime: true, recurring: false },
+      });
+
+      if (emailResult.sent) {
+        attemptSent += 1;
+        await completeEmailCampaignDelivery({
+          campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+          email: to,
+          status: "sent",
+          provider: emailResult.provider || "",
+          messageId: emailResult.messageId || "",
+        });
+        eng.settings.oneTimeWelcomeUpdate = upsertOneTimeReceipt(eng.settings.oneTimeWelcomeUpdate, {
+          email: to,
+          userKey,
+          status: "sent",
+        });
+        details.push({ email: to, reason: "sent" });
+      } else if (!emailResult.configured) {
+        attemptSoftSkip += 1;
+        await completeEmailCampaignDelivery({
+          campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+          email: to,
+          status: "soft_skipped",
+          error: "provider_unconfigured",
+        });
+        eng.settings.oneTimeWelcomeUpdate = upsertOneTimeReceipt(eng.settings.oneTimeWelcomeUpdate, {
+          email: to,
+          userKey,
+          status: "soft_skipped",
+          error: "provider_unconfigured",
+        });
+        details.push({ email: to, reason: "unconfigured" });
+      } else {
+        attemptFailed += 1;
+        const err = emailResult.error || "provider_rejected";
+        await completeEmailCampaignDelivery({
+          campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+          email: to,
+          status: "failed",
+          error: err,
+        });
+        eng.settings.oneTimeWelcomeUpdate = upsertOneTimeReceipt(eng.settings.oneTimeWelcomeUpdate, {
+          email: to,
+          userKey,
+          status: "failed",
+          error: err,
+        });
+        details.push({ email: to, reason: "failed", error: err });
+      }
+
+      // Persist ledger after each recipient so thrown errors keep successes.
+      await persistEngagementStore(store);
+    }
+
+    return {
+      attemptSent,
+      attemptFailed,
+      attemptSoftSkip,
+      details,
+      replyTo,
+    };
+  }
+
+  async function finalizeOneTimeCampaignState({ store, eng, claimedAt, adminEmail }) {
+    const now = new Date().toISOString();
+    const ledger = summarizeOneTimeLedger(eng.settings.oneTimeWelcomeUpdate);
+    const remaining = listOneTimeRemainingRecipients(store, eng.settings.oneTimeWelcomeUpdate, adminEmail);
+    const outcome = computeOneTimeDeliveryOutcome({
+      sentCount: ledger.sentCount,
+      failedCount: ledger.failedCount,
+      softSkippedCount: ledger.softSkippedCount,
+      remainingCount: remaining.length,
+    });
+
+    eng.settings.oneTimeWelcomeUpdate = {
+      ...eng.settings.oneTimeWelcomeUpdate,
+      sentAt: outcome.allSuccess ? (eng.settings.oneTimeWelcomeUpdate.sentAt || now) : "",
+      sentCount: ledger.sentCount,
+      failedCount: ledger.failedCount,
+      softSkippedCount: ledger.softSkippedCount,
+      recipientCount: Math.max(
+        Number(eng.settings.oneTimeWelcomeUpdate.recipientCount) || 0,
+        ledger.sentCount + remaining.length,
+      ),
+      remainingCount: remaining.length,
+      deliveryOutcome: outcome.deliveryOutcome,
+      lastAuditToken: "",
+      lastAuditPassed: false,
+      sendFailedAt: outcome.allSuccess ? "" : now,
+      lastError: outcome.allSuccess ? "" : outcome.summary.slice(0, 500),
+      claimedAt: eng.settings.oneTimeWelcomeUpdate.claimedAt || claimedAt || "",
+    };
+    await persistEngagementStore(store);
+    await completeEmailCampaignDelivery({
+      campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+      email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
+      status: outcome.lockStatus,
+      error: outcome.allSuccess ? "" : outcome.summary.slice(0, 500),
+    });
+    return { now, ledger, remaining, outcome };
   }
 
   /**
@@ -2134,139 +2447,86 @@ function createEmailEngagement(deps) {
     eng.settings.oneTimeWelcomeUpdate = {
       ...defaultOneTimeWelcomeUpdate(),
       ...state,
+      recipientReceipts: oneTimeReceipts(state),
       claimedAt,
       sendStartedAt: claimedAt,
       sendFailedAt: "",
       lastError: "",
+      recipientCount: recipients.length,
     };
     await persistEngagementStore(store);
 
-    const replyTo = resolveSupportReplyTo();
-    let sentCount = 0;
-    let failCount = 0;
-    let softSkip = 0;
-    const details = [];
+    let attemptSent = 0;
+    let attemptFailed = 0;
+    let attemptSoftSkip = 0;
+    let details = [];
+    let replyTo = "";
 
     global.__llhOneTimeWelcomeUpdateRunning = true;
     try {
-      for (const to of recipients) {
-        const user = findUserByNormalizedEmail(store, to) || { email: to };
-        const content = buildWelcomeUpdateContent(user, { siteUrl: SITE_URL, htmlEscape });
-        const listUnsubscribeUrl = typeof unsubscribeUrlForEmail === "function"
-          ? unsubscribeUrlForEmail(to)
-          : "";
-        const { emailResult } = await sendAndLog({
-          store,
-          to,
-          templateKey: "one_time_welcome_update",
-          campaign: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
-          subject: content.subject,
-          text: content.text,
-          html: content.html,
-          replyTo,
-          listUnsubscribeUrl,
-          meta: { oneTime: true, recurring: false },
-        });
-        if (emailResult.sent) {
-          sentCount += 1;
-          details.push({ email: to, reason: "sent" });
-        } else if (!emailResult.configured) {
-          softSkip += 1;
-          details.push({ email: to, reason: "unconfigured" });
-        } else {
-          failCount += 1;
-          details.push({ email: to, reason: "failed", error: emailResult.error || "" });
-        }
-      }
+      const delivered = await deliverOneTimeToRecipientList({
+        store,
+        eng,
+        recipients,
+        adminEmail,
+        contentHash,
+      });
+      attemptSent = delivered.attemptSent;
+      attemptFailed = delivered.attemptFailed;
+      attemptSoftSkip = delivered.attemptSoftSkip;
+      details = delivered.details;
+      replyTo = delivered.replyTo;
 
-      const now = new Date().toISOString();
-      const recipientCount = recipients.length;
-      // Zero actual deliveries must never be recorded as a successful send.
-      const allSuccess = sentCount === recipientCount && failCount === 0 && softSkip === 0;
-      const partialDelivery = sentCount > 0 && sentCount < recipientCount;
-      const providerUnconfigured = sentCount === 0 && softSkip > 0 && failCount === 0;
-      const deliveryFailed = sentCount === 0 && failCount > 0;
-
-      let deliveryOutcome = "delivery_failed";
-      let reason = "delivery_failed";
-      let lockStatus = "failed";
-      let summary = "";
-      if (allSuccess) {
-        deliveryOutcome = "sent";
-        reason = "sent";
-        lockStatus = "sent";
-        summary = `Delivered to all ${recipientCount} recipients.`;
-      } else if (partialDelivery) {
-        deliveryOutcome = "partial_delivery";
-        reason = "partial_delivery";
-        lockStatus = "failed"; // existing compatible status; counts live in campaign state
-        summary = `Partial delivery: ${sentCount}/${recipientCount} sent, ${failCount} failed, ${softSkip} soft-skipped. Claim retained; no automatic retry.`;
-      } else if (providerUnconfigured) {
-        deliveryOutcome = "provider_unconfigured";
-        reason = "provider_unconfigured";
-        lockStatus = "failed";
-        summary = `Provider unconfigured: 0/${recipientCount} delivered (${softSkip} soft-skipped). Not marked sent.`;
-      } else if (deliveryFailed) {
-        deliveryOutcome = "delivery_failed";
-        reason = "delivery_failed";
-        lockStatus = "failed";
-        summary = `Delivery failed: 0/${recipientCount} delivered (${failCount} failed). Not marked sent.`;
-      } else {
-        summary = `No successful deliveries (sent=${sentCount}, failed=${failCount}, softSkipped=${softSkip}). Not marked sent.`;
-      }
-
-      eng.settings.oneTimeWelcomeUpdate = {
-        ...eng.settings.oneTimeWelcomeUpdate,
-        // sentAt only on full success — never when sentCount === 0, never on partial.
-        sentAt: allSuccess ? now : "",
-        sentCount,
-        failedCount: failCount,
-        softSkippedCount: softSkip,
-        recipientCount,
-        deliveryOutcome,
-        lastAuditToken: "",
-        lastAuditPassed: false,
-        sendFailedAt: allSuccess ? "" : now,
-        lastError: allSuccess ? "" : summary.slice(0, 500),
-      };
-      await persistEngagementStore(store);
-      await completeEmailCampaignDelivery({
-        campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
-        email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
-        status: lockStatus,
-        error: allSuccess ? "" : summary.slice(0, 500),
+      const { ledger, remaining, outcome } = await finalizeOneTimeCampaignState({
+        store,
+        eng,
+        claimedAt,
+        adminEmail,
       });
 
       return {
-        sent: sentCount,
-        failed: failCount,
-        softSkipped: softSkip,
-        recipients: recipientCount,
-        skipped: !allSuccess,
-        reason,
-        deliveryOutcome,
-        sentAt: allSuccess ? now : "",
+        sent: ledger.sentCount,
+        failed: ledger.failedCount,
+        softSkipped: ledger.softSkippedCount,
+        attemptSent,
+        attemptFailed,
+        attemptSoftSkip,
+        recipients: recipients.length,
+        remaining: remaining.length,
+        skipped: !outcome.allSuccess,
+        reason: outcome.reason,
+        deliveryOutcome: outcome.deliveryOutcome,
+        sentAt: eng.settings.oneTimeWelcomeUpdate.sentAt || "",
         claimedAt,
-        sendFailedAt: allSuccess ? "" : now,
+        sendFailedAt: eng.settings.oneTimeWelcomeUpdate.sendFailedAt || "",
+        recoveryAvailable: oneTimeRecoveryAvailable(eng.settings.oneTimeWelcomeUpdate),
         recurring: false,
         replyTo: replyTo || "",
-        detail: summary,
+        detail: outcome.summary,
         details: details.slice(0, 50),
       };
     } catch (err) {
       const failAt = new Date().toISOString();
       const message = err?.message || String(err);
+      const ledger = summarizeOneTimeLedger(eng.settings.oneTimeWelcomeUpdate);
+      const remaining = listOneTimeRemainingRecipients(store, eng.settings.oneTimeWelcomeUpdate, adminEmail);
+      const outcome = computeOneTimeDeliveryOutcome({
+        sentCount: ledger.sentCount,
+        failedCount: ledger.failedCount,
+        softSkippedCount: ledger.softSkippedCount,
+        remainingCount: remaining.length,
+      });
       eng.settings.oneTimeWelcomeUpdate = {
         ...eng.settings.oneTimeWelcomeUpdate,
         sentAt: "",
-        sentCount,
-        failedCount: failCount,
-        softSkippedCount: softSkip,
+        sentCount: ledger.sentCount,
+        failedCount: ledger.failedCount,
+        softSkippedCount: ledger.softSkippedCount,
         recipientCount: recipients.length,
-        deliveryOutcome: sentCount > 0 ? "partial_delivery" : "delivery_failed",
+        remainingCount: remaining.length,
+        deliveryOutcome: outcome.deliveryOutcome,
         sendFailedAt: failAt,
         lastError: message.slice(0, 500),
-        // Keep claimedAt — do not allow a second full send after a partial/failed run.
       };
       await persistEngagementStore(store);
       await completeEmailCampaignDelivery({
@@ -2276,22 +2536,235 @@ function createEmailEngagement(deps) {
         error: message.slice(0, 500),
       });
       return {
-        sent: sentCount,
-        failed: failCount,
-        softSkipped: softSkip,
+        sent: ledger.sentCount,
+        failed: ledger.failedCount,
+        softSkipped: ledger.softSkippedCount,
+        attemptSent,
+        attemptFailed,
+        attemptSoftSkip,
         recipients: recipients.length,
+        remaining: remaining.length,
         skipped: true,
-        reason: sentCount > 0 ? "partial_delivery" : "delivery_failed",
-        deliveryOutcome: sentCount > 0 ? "partial_delivery" : "delivery_failed",
+        reason: outcome.reason,
+        deliveryOutcome: outcome.deliveryOutcome,
         sentAt: "",
         claimedAt,
         sendFailedAt: failAt,
-        detail: "Campaign claim retained. Partial delivery is not auto-retried.",
+        recoveryAvailable: true,
+        detail: "Campaign claim retained. Successful ledger entries kept; use owner recovery for remaining.",
         error: message.slice(0, 500),
         details: details.slice(0, 50),
       };
     } finally {
       global.__llhOneTimeWelcomeUpdateRunning = false;
+    }
+  }
+
+  /**
+   * Owner-only recovery: retry only eligible recipients not already marked sent.
+   * Never duplicates successful deliveries. forceResend remains unavailable.
+   */
+  async function recoverOneTimeWelcomeUpdate(options = {}) {
+    const store = readStore();
+    const eng = ensureEmailEngagement(store);
+    const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
+
+    if (options.forceResend) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "force_resend_unavailable",
+        detail: "forceResend is disabled for the Teaching Kits one-time broadcast.",
+      };
+    }
+
+    if (state.sentAt || state.deliveryOutcome === "sent") {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "already_sent",
+        sentAt: state.sentAt || "",
+        detail: "Campaign already completed successfully. Recovery is not available.",
+      };
+    }
+
+    if (!oneTimeRecoveryAvailable(state)) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "recovery_not_available",
+        deliveryOutcome: state.deliveryOutcome || "",
+        detail: "Recovery is only available for partial_delivery, provider_unconfigured, or delivery_failed.",
+      };
+    }
+
+    if (options.confirm !== true) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "confirmation_required",
+        detail: "Pass confirm: true to retry remaining recipients.",
+      };
+    }
+
+    if (global.__llhOneTimeWelcomeUpdateRunning) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "campaign_already_in_progress",
+      };
+    }
+
+    const adminEmail = normalizeOneTimeEmail(options.adminEmail || getAdminEmail() || "");
+    const contentHash = oneTimeWelcomeContentHash();
+    const recoveryClaim = await claimEmailCampaignDelivery({
+      campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+      email: ONE_TIME_RECOVERY_LOCK_EMAIL,
+      contentHash,
+    });
+    if (!recoveryClaim.claimed) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "recovery_already_in_progress",
+        detail: "Another recovery attempt is already in progress.",
+      };
+    }
+
+    await completeEmailCampaignDelivery({
+      campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+      email: ONE_TIME_RECOVERY_LOCK_EMAIL,
+      status: "sending",
+    });
+
+    const remainingBefore = listOneTimeRemainingRecipients(store, state, adminEmail);
+    if (!remainingBefore.length) {
+      const { ledger, remaining, outcome } = await finalizeOneTimeCampaignState({
+        store,
+        eng,
+        claimedAt: state.claimedAt || "",
+        adminEmail,
+      });
+      await releaseEmailCampaignDelivery({
+        campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+        email: ONE_TIME_RECOVERY_LOCK_EMAIL,
+      });
+      return {
+        sent: ledger.sentCount,
+        failed: ledger.failedCount,
+        softSkipped: ledger.softSkippedCount,
+        remaining: remaining.length,
+        skipped: !outcome.allSuccess,
+        reason: outcome.reason,
+        deliveryOutcome: outcome.deliveryOutcome,
+        sentAt: eng.settings.oneTimeWelcomeUpdate.sentAt || "",
+        recoveryAvailable: oneTimeRecoveryAvailable(eng.settings.oneTimeWelcomeUpdate),
+        detail: "No remaining eligible unsent recipients.",
+        targeted: 0,
+      };
+    }
+
+    let attemptSent = 0;
+    let attemptFailed = 0;
+    let attemptSoftSkip = 0;
+    let details = [];
+    let replyTo = "";
+
+    global.__llhOneTimeWelcomeUpdateRunning = true;
+    try {
+      const delivered = await deliverOneTimeToRecipientList({
+        store,
+        eng,
+        recipients: remainingBefore,
+        adminEmail,
+        contentHash,
+      });
+      attemptSent = delivered.attemptSent;
+      attemptFailed = delivered.attemptFailed;
+      attemptSoftSkip = delivered.attemptSoftSkip;
+      details = delivered.details;
+      replyTo = delivered.replyTo;
+
+      const { ledger, remaining, outcome } = await finalizeOneTimeCampaignState({
+        store,
+        eng,
+        claimedAt: state.claimedAt || "",
+        adminEmail,
+      });
+
+      return {
+        sent: ledger.sentCount,
+        failed: ledger.failedCount,
+        softSkipped: ledger.softSkippedCount,
+        attemptSent,
+        attemptFailed,
+        attemptSoftSkip,
+        targeted: remainingBefore.length,
+        remaining: remaining.length,
+        skipped: !outcome.allSuccess,
+        reason: outcome.reason,
+        deliveryOutcome: outcome.deliveryOutcome,
+        sentAt: eng.settings.oneTimeWelcomeUpdate.sentAt || "",
+        sendFailedAt: eng.settings.oneTimeWelcomeUpdate.sendFailedAt || "",
+        recoveryAvailable: oneTimeRecoveryAvailable(eng.settings.oneTimeWelcomeUpdate),
+        recurring: false,
+        replyTo: replyTo || "",
+        detail: outcome.summary,
+        details: details.slice(0, 50),
+      };
+    } catch (err) {
+      const failAt = new Date().toISOString();
+      const message = err?.message || String(err);
+      const ledger = summarizeOneTimeLedger(eng.settings.oneTimeWelcomeUpdate);
+      const remaining = listOneTimeRemainingRecipients(store, eng.settings.oneTimeWelcomeUpdate, adminEmail);
+      const outcome = computeOneTimeDeliveryOutcome({
+        sentCount: ledger.sentCount,
+        failedCount: ledger.failedCount,
+        softSkippedCount: ledger.softSkippedCount,
+        remainingCount: remaining.length,
+      });
+      eng.settings.oneTimeWelcomeUpdate = {
+        ...eng.settings.oneTimeWelcomeUpdate,
+        sentAt: "",
+        sentCount: ledger.sentCount,
+        failedCount: ledger.failedCount,
+        softSkippedCount: ledger.softSkippedCount,
+        remainingCount: remaining.length,
+        deliveryOutcome: outcome.deliveryOutcome,
+        sendFailedAt: failAt,
+        lastError: message.slice(0, 500),
+      };
+      await persistEngagementStore(store);
+      return {
+        sent: ledger.sentCount,
+        failed: ledger.failedCount,
+        softSkipped: ledger.softSkippedCount,
+        attemptSent,
+        attemptFailed,
+        attemptSoftSkip,
+        targeted: remainingBefore.length,
+        remaining: remaining.length,
+        skipped: true,
+        reason: outcome.reason,
+        deliveryOutcome: outcome.deliveryOutcome,
+        sentAt: "",
+        recoveryAvailable: true,
+        detail: "Recovery interrupted. Successful ledger entries retained.",
+        error: message.slice(0, 500),
+        details: details.slice(0, 50),
+      };
+    } finally {
+      global.__llhOneTimeWelcomeUpdateRunning = false;
+      await releaseEmailCampaignDelivery({
+        campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+        email: ONE_TIME_RECOVERY_LOCK_EMAIL,
+      });
     }
   }
 
@@ -2398,6 +2871,10 @@ function createEmailEngagement(deps) {
     runPreflightAudit,
     prepareOneTimeWelcomeUpdate,
     sendOneTimeWelcomeUpdate,
+    recoverOneTimeWelcomeUpdate,
+    listOneTimeRemainingRecipients,
+    oneTimeRecoveryAvailable,
+    summarizeOneTimeLedger,
     countAdminInboxFromStore,
     buildFreeReengagementContent,
     freeReengagementAudience,
@@ -2422,4 +2899,5 @@ module.exports = {
   FREE_REENGAGEMENT_SUBJECT,
   ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
   ONE_TIME_CAMPAIGN_LOCK_EMAIL,
+  ONE_TIME_RECOVERY_LOCK_EMAIL,
 };

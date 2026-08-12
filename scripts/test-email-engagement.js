@@ -171,6 +171,27 @@ async function main() {
       const delivery = campaignDeliveries.get(key);
       if (delivery) Object.assign(delivery, { status, error, completed_at: new Date().toISOString() });
     },
+    reclaimFailedEmailCampaignDelivery: async ({ campaignId, email, contentHash }) => {
+      const key = `${campaignId}:${String(email || "").trim().toLowerCase()}`;
+      const existing = campaignDeliveries.get(key);
+      if (!existing) return { claimed: false, delivery: null };
+      if (["sent", "pending"].includes(existing.status)) return { claimed: false, delivery: existing };
+      if (!["failed", "skipped", "soft_skipped"].includes(existing.status)) {
+        return { claimed: false, delivery: existing };
+      }
+      Object.assign(existing, {
+        content_hash: contentHash,
+        status: "pending",
+        error: "",
+        claimed_at: new Date().toISOString(),
+        completed_at: null,
+      });
+      return { claimed: true, reclaimed: true, delivery: existing };
+    },
+    releaseEmailCampaignDelivery: async ({ campaignId, email }) => {
+      const key = `${campaignId}:${String(email || "").trim().toLowerCase()}`;
+      campaignDeliveries.delete(key);
+    },
     unsubscribeUrlForEmail: (email) => `https://littlelearnershubbyleah.com/unsubscribe?email=${encodeURIComponent(email)}`,
     supportEmailTo: () => "leahrivie@gmail.com",
     isCurriculumLessonPublic: (status) => status === "published" || status === "featured",

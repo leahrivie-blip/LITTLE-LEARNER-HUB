@@ -5821,6 +5821,79 @@ async function completeEmailCampaignDelivery({ campaignId, email, status, provid
   }
 }
 
+/**
+ * Atomically re-open a failed/skipped campaign delivery for owner recovery retry.
+ * Never reclaims status=sent (prevents duplicate successful delivery).
+ */
+async function reclaimFailedEmailCampaignDelivery({ campaignId, email, contentHash }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    const reclaimed = await postgresPool.query(
+      `UPDATE llh_email_campaign_deliveries
+       SET status = 'pending',
+           content_hash = $3,
+           claimed_at = NOW(),
+           completed_at = NULL,
+           provider = '',
+           message_id = '',
+           error = ''
+       WHERE campaign_id = $1 AND email = $2
+         AND status IN ('failed', 'skipped', 'soft_skipped')
+       RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
+      [campaignId, cleanEmail, contentHash],
+    );
+    if (reclaimed.rows[0]) return { claimed: true, reclaimed: true, delivery: reclaimed.rows[0] };
+    const existing = await postgresPool.query(
+      `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
+       FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail],
+    );
+    return { claimed: false, delivery: existing.rows[0] || null };
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  const existing = store.emailCampaignDeliveries[key];
+  if (!existing) return { claimed: false, delivery: null };
+  const status = String(existing.status || "");
+  if (status === "sent" || status === "pending") {
+    return { claimed: false, delivery: existing };
+  }
+  if (!["failed", "skipped", "soft_skipped"].includes(status)) {
+    return { claimed: false, delivery: existing };
+  }
+  Object.assign(existing, {
+    content_hash: contentHash,
+    status: "pending",
+    provider: "",
+    message_id: "",
+    error: "",
+    claimed_at: new Date().toISOString(),
+    completed_at: null,
+  });
+  await writeStoreAsync(store);
+  return { claimed: true, reclaimed: true, delivery: existing };
+}
+
+/** Delete a campaign delivery row (used only to release the recovery lock). */
+async function releaseEmailCampaignDelivery({ campaignId, email }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    await postgresPool.query(
+      `DELETE FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail],
+    );
+    return;
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  if (store.emailCampaignDeliveries[key]) {
+    delete store.emailCampaignDeliveries[key];
+    await writeStoreAsync(store);
+  }
+}
+
 async function listEmailCampaignDeliveries(campaignId) {
   if (usePostgresStore()) {
     const result = await postgresPool.query(
@@ -19342,6 +19415,8 @@ const emailEngagement = createEmailEngagement({
   writeStoreAsync,
   claimEmailCampaignDelivery,
   completeEmailCampaignDelivery,
+  reclaimFailedEmailCampaignDelivery,
+  releaseEmailCampaignDelivery,
   listEmailCampaignDeliveries,
   patchEmailCampaignState,
   isCurriculumLessonPublic,
@@ -28205,6 +28280,13 @@ function handleAdminEmailEngagementGet(request, response, url) {
         && !oneTime.sentAt
         && !oneTime.claimedAt,
       ),
+      recoveryAvailable: Boolean(
+        !oneTime.sentAt
+        && ["partial_delivery", "provider_unconfigured", "delivery_failed"].includes(
+          String(oneTime.deliveryOutcome || ""),
+        ),
+      ),
+      remainingCount: Number(oneTime.remainingCount) || 0,
     },
     onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
       key: s.key,
@@ -28400,6 +28482,69 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
     jsonResponse(response, storePersistenceFailureStatus(error), {
       ok: false,
       error: "Could not save one-time welcome send state.",
+      code: error?.code || "store_write_failed",
+    });
+  }
+}
+
+/**
+ * Owner-only recovery for Teaching Kits one-time campaign.
+ * Retries only eligible recipients not already marked sent in the ledger.
+ */
+async function handleAdminEmailEngagementRecoverOneTime(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const result = await emailEngagement.recoverOneTimeWelcomeUpdate({
+      confirm: body.confirm === true,
+      adminEmail: ADMIN_EMAIL,
+      forceResend: false,
+    });
+    if (result.skipped && result.reason === "already_sent") {
+      jsonResponse(response, 409, { error: "Campaign already fully sent. Recovery is not available.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "recovery_not_available") {
+      jsonResponse(response, 400, { error: "Recovery is not available for this campaign state.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "confirmation_required") {
+      jsonResponse(response, 400, { error: "Confirmation required (confirm: true).", result });
+      return;
+    }
+    if (result.skipped && (result.reason === "recovery_already_in_progress" || result.reason === "campaign_already_in_progress")) {
+      jsonResponse(response, 409, { error: "Recovery already in progress.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "force_resend_unavailable") {
+      jsonResponse(response, 400, { error: "forceResend is unavailable for this campaign.", result });
+      return;
+    }
+    if (result.reason === "partial_delivery") {
+      jsonResponse(response, 200, {
+        ok: true,
+        partial: true,
+        error: "Recovery partial — some recipients remain. Claim/ledger retained.",
+        result,
+      });
+      return;
+    }
+    if (result.reason === "provider_unconfigured" || result.reason === "delivery_failed") {
+      jsonResponse(response, 200, {
+        ok: false,
+        error: result.detail || "Recovery did not complete delivery.",
+        result,
+      });
+      return;
+    }
+    jsonResponse(response, 200, { ok: true, result });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save one-time recovery state.",
       code: error?.code || "store_write_failed",
     });
   }
@@ -29258,6 +29403,9 @@ const server = http.createServer(async (request, response) => {
       return await handleAdminEmailEngagementPreviewOneTime(request, response, url);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/recover-one-time") {
+      return await handleAdminEmailEngagementRecoverOneTime(request, response);
+    }
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/founding-member-email/dry-run") {
       return await handleAdminFoundingMemberEmailDryRun(request, response, url);
     }
