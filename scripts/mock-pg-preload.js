@@ -13,9 +13,28 @@ const originalRequire = Module.prototype.require;
 
 const controlPath = String(process.env.MOCK_PG_CONTROL_PATH || "").trim();
 const statusPath = String(process.env.MOCK_PG_STATUS_PATH || "").trim();
+const storeDumpPath = String(process.env.MOCK_PG_STORE_DUMP_PATH || "").trim();
+const seedPayloadBytes = Math.max(0, Number(process.env.MOCK_PG_SEED_PAYLOAD_BYTES || 0));
+
+function buildSeedStore() {
+  const padLen = Math.max(0, seedPayloadBytes);
+  return {
+    users: {},
+    foundingMembers: [],
+    messages: [],
+    notifications: [],
+    supportTickets: [],
+    siteContent: {
+      updatedAt: "2026-08-12T16:00:00.000Z",
+      curriculum: { lessonPlans: [], activities: [], series: [] },
+      // Approximate production llh_store bulk (siteContent-dominated) without real PII.
+      _prodSizePad: padLen ? "x".repeat(padLen) : "",
+    },
+  };
+}
 
 const state = {
-  store: null,
+  store: seedPayloadBytes > 0 ? buildSeedStore() : null,
   analyticsEvents: [],
   writes: [],
   analyticsInserts: 0,
@@ -31,6 +50,9 @@ const state = {
   clientsReleasedWithError: 0,
   maxSimultaneousCheckedOut: 0,
   activeCheckedOut: 0,
+  overlappingUpserts: 0,
+  activeConflictUpserts: 0,
+  maxActiveConflictUpserts: 0,
 };
 
 global.__LLH_MOCK_PG__ = state;
@@ -53,9 +75,19 @@ function writeControl(ctrl) {
   }
 }
 
+function dumpStoreIfConfigured() {
+  if (!storeDumpPath || !state.store) return;
+  try {
+    fs.writeFileSync(storeDumpPath, JSON.stringify(state.store));
+  } catch {
+    /* ignore */
+  }
+}
+
 function writeStatus() {
   if (!statusPath) return;
   try {
+    const lessonPlans = state.store?.siteContent?.curriculum?.lessonPlans || [];
     fs.writeFileSync(
       statusPath,
       JSON.stringify(
@@ -63,9 +95,11 @@ function writeStatus() {
           ...state,
           // Avoid dumping the full store blob into status files.
           store: undefined,
-          storeLessonCount: state.store?.siteContent?.curriculum?.lessonPlans?.length || 0,
+          storeLessonCount: lessonPlans.length,
+          storeLessonIds: lessonPlans.map((p) => p.id).filter(Boolean).slice(-20),
           storeUpdatedAt: state.store?.siteContent?.updatedAt || "",
           storeUserCount: Object.keys(state.store?.users || {}).length,
+          storePayloadChars: state.store ? JSON.stringify(state.store).length : 0,
           lastWritePayloadBytes: state.writes.length
             ? state.writes[state.writes.length - 1].payloadBytes || 0
             : 0,
@@ -74,6 +108,7 @@ function writeStatus() {
         2,
       ),
     );
+    dumpStoreIfConfigured();
   } catch {
     /* ignore */
   }
@@ -131,9 +166,6 @@ function createMockClient(pool) {
       });
       await new Promise((resolve) => setImmediate(resolve));
       throw err;
-    }
-    if (ctrl.delayConflictUpsertMs && String(sql || "").includes("ON CONFLICT")) {
-      await new Promise((resolve) => setTimeout(resolve, Number(ctrl.delayConflictUpsertMs) || 0));
     }
     return pool._runQuery(sql, params);
   };
@@ -241,10 +273,19 @@ Module.prototype.require = function mockPgRequire(id) {
           }
           if (text.includes("INSERT INTO llh_store") || text.includes("UPDATE llh_store")) {
             const isConflictUpsert = text.includes("ON CONFLICT") || text.includes("jsonb_set");
-            if (text.includes("INSERT INTO llh_store") && text.includes("ON CONFLICT")) {
+            const isConflict = text.includes("INSERT INTO llh_store") && text.includes("ON CONFLICT");
+            if (isConflict) {
               state.conflictUpsertAttempts += 1;
+              state.activeConflictUpserts += 1;
+              if (state.activeConflictUpserts > 1) state.overlappingUpserts += 1;
+              if (state.activeConflictUpserts > state.maxActiveConflictUpserts) {
+                state.maxActiveConflictUpserts = state.activeConflictUpserts;
+              }
+              // Publish in-flight state before any artificial delay so tests can observe overlap.
+              writeStatus();
               if (shouldFailConflictUpsert()) {
                 state.conflictUpsertFailures += 1;
+                state.activeConflictUpserts = Math.max(0, state.activeConflictUpserts - 1);
                 writeStatus();
                 const err = new Error("Connection terminated unexpectedly");
                 err.code = "ECONNRESET";
@@ -253,7 +294,13 @@ Module.prototype.require = function mockPgRequire(id) {
             } else if (text.includes("INSERT INTO llh_store")) {
               state.bootstrapInserts += 1;
             }
-            await new Promise((resolve) => setTimeout(resolve, state.queryDelayMs));
+            const ctrl = readControl();
+            const delayMs = Number(ctrl.delayConflictUpsertMs || state.queryDelayMs) || 0;
+            if (isConflict && delayMs > 0) {
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, state.queryDelayMs));
+            }
             let data = state.store;
             let payloadBytes = 0;
             if (text.includes("INSERT INTO llh_store")) {
@@ -268,11 +315,19 @@ Module.prototype.require = function mockPgRequire(id) {
               conflictUpsert: Boolean(text.includes("ON CONFLICT")),
               hasCurriculum: Boolean(data?.siteContent?.curriculum?.lessonPlans?.length),
               lessonCount: data?.siteContent?.curriculum?.lessonPlans?.length || 0,
+              lessonIds: (data?.siteContent?.curriculum?.lessonPlans || []).map((p) => p.id).filter(Boolean).slice(-12),
+              teachingKitTitles: (data?.siteContent?.curriculum?.lessonPlans || [])
+                .map((p) => p.teachingKit?.title || p.teachingKit?.kitTitle || "")
+                .filter(Boolean)
+                .slice(-8),
               updatedAt: data?.siteContent?.updatedAt || "",
               analyticsCount: (data?.analyticsEvents || []).length,
               payloadBytes,
             });
-            if (text.includes("ON CONFLICT")) state.conflictUpsertSuccesses += 1;
+            if (isConflict) {
+              state.conflictUpsertSuccesses += 1;
+              state.activeConflictUpserts = Math.max(0, state.activeConflictUpserts - 1);
+            }
             writeStatus();
             return { rows: [] };
           }

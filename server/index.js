@@ -361,9 +361,6 @@ const MAX_BACKFILL_REPORT_ITEMS = 500;
 let lastPersistedStoreCounts = null;
 let lastStoreSafetyAlertAt = 0;
 let lastPostgresDisconnectAlertAt = 0;
-/** Set only when a postgres_disconnect safety alert was actually emitted; cleared on recovery alert. */
-let postgresDisconnectAlertIncident = null;
-let lastPostgresRecoveredAlertAt = 0;
 const STORE_SAFETY_ALERT_COOLDOWN_MS = Math.max(
   0,
   Number(process.env.STORE_SAFETY_ALERT_COOLDOWN_MS || 15 * 60 * 1000),
@@ -4577,7 +4574,6 @@ function startPostgresReconnectLoop() {
       if (!loaded) return;
       lastPersistedStoreCounts = storeInventoryCounts(storeCache);
       console.log("[store] Postgres reconnect restored authentic store");
-      maybeAlertPostgresRecovered();
       try {
         const store = readStore();
         const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
@@ -5111,69 +5107,12 @@ function maybeAlertPostgresDisconnect(reason = "postgres_unavailable") {
   if (now - lastPostgresDisconnectAlertAt < STORE_SAFETY_ALERT_COOLDOWN_MS) return;
   lastPostgresDisconnectAlertAt = now;
   const category = classifyPostgresDisconnectReason(reason);
-  if (!postgresDisconnectAlertIncident) {
-    postgresDisconnectAlertIncident = {
-      startedAt: new Date(now).toISOString(),
-      startedMs: now,
-      reason,
-      category,
-    };
-  }
   logStorePersistence(category, { reason, lastError: lastPostgresError || "" });
   maybeAlertStoreSafety(`postgres_disconnect:${category}`, {
     reason,
     category,
     lastError: lastPostgresError || "",
   }).catch(() => {});
-}
-
-/**
- * Companion to postgres_disconnect — fires once after an alerted outage when the
- * authentic Postgres store is reloaded. Does not weaken disconnect alerts; uses its
- * own cooldown so reconnect-loop ticks cannot spam recovery emails.
- */
-function maybeAlertPostgresRecovered() {
-  const incident = postgresDisconnectAlertIncident;
-  if (!incident || !databaseReady) return;
-  const now = Date.now();
-  if (now - lastPostgresRecoveredAlertAt < STORE_SAFETY_ALERT_COOLDOWN_MS) {
-    // Still clear the incident so later ticks cannot retry-spam after cooldown.
-    postgresDisconnectAlertIncident = null;
-    return;
-  }
-  postgresDisconnectAlertIncident = null;
-  lastPostgresRecoveredAlertAt = now;
-  const recoveredAt = new Date(now).toISOString();
-  const durationMs = Math.max(0, now - (Number(incident.startedMs) || now));
-  const detail = {
-    incidentStartedAt: incident.startedAt,
-    recoveredAt,
-    approximateOutageDurationMs: durationMs,
-    approximateOutageDurationSec: Math.round(durationMs / 1000),
-    priorReason: incident.reason || "",
-    priorCategory: incident.category || "",
-  };
-  logStorePersistence("database_available", detail);
-  // Bypass shared store-safety cooldown so recovery is not suppressed by the
-  // disconnect email that just used lastStoreSafetyAlertAt.
-  const subject = "[LLH SAFETY] postgres_recovered:database_available";
-  const text = [
-    "Little Learner Hub store safety alert: postgres_recovered:database_available",
-    `Time: ${recoveredAt}`,
-    `Detail: ${JSON.stringify(detail)}`,
-    "Database ready: true",
-    `Last Postgres error: ${lastPostgresError || "(none)"}`,
-  ].join("\n");
-  console.error("[store-safety]", "postgres_recovered:database_available", detail);
-  if (!supportEmailConfigStatus().ready) return;
-  sendEmail({
-    to: SUPPORT_EMAIL_TO,
-    subject,
-    text,
-    html: `<pre>${text.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</pre>`,
-  }).catch((error) => {
-    console.warn("[store-safety] recovery alert email failed:", error.message);
-  });
 }
 
 function assertSafePostgresStoreReplacement(nextStore) {
@@ -18043,14 +17982,19 @@ async function handleAnalyticsEvent(request, response) {
   }
 
   // High-volume optional tracking: table row only; lastSeenAt may debounce a store touch.
-  // In-memory lastSeenAt/featureUsage update every time; durable full-store persist is
-  // rate-limited so browsing cannot rewrite the ~29MB document on every page view.
+  // In-memory lastSeenAt/featureUsage update EVERY time so Admin "online now" (15m window)
+  // stays precise. Durable full-store persist is rate-limited and must NOT mark the store
+  // dirty during an active Admin/curriculum UPSERT (that would force a second ~29MB write).
   if (event.user && event.user !== "guest") {
     if (!storeCache) storeCache = defaultStore();
     updateAnalyticsUser(storeCache, event);
     if (databaseReady) {
       const now = Date.now();
-      if (
+      if (postgresWriteInFlight) {
+        // Memory already updated above; skip durable schedule so dirty-drain cannot
+        // append a telemetry-only ~29MB UPSERT after a legitimate Admin save.
+        storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
+      } else if (
         LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS === 0
         || now - lastSeenStorePersistScheduledAt >= LAST_SEEN_STORE_PERSIST_MIN_INTERVAL_MS
       ) {

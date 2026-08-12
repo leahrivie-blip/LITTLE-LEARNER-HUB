@@ -230,10 +230,10 @@ async function saveTinyLesson(token, idSuffix) {
 async function main() {
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
   assert.match(serverJs, /async function withPostgresClient/);
-  assert.match(serverJs, /maybeAlertPostgresRecovered/);
   assert.match(serverJs, /full_store_write_skipped_identical/);
   assert.match(serverJs, /write_coalesced_inflight/);
   assert.match(serverJs, /postgresWriteInFlight/);
+  assert.doesNotMatch(serverJs, /maybeAlertPostgresRecovered/);
   assert.doesNotMatch(serverJs, /process\.on\(\s*["']uncaughtException["']/);
   console.log("PASS  source contains reliability helpers (no uncaughtException swallow)");
 
@@ -286,11 +286,10 @@ async function main() {
     // Let disconnect-alert cooldown elapse so TEST B can emit a fresh incident.
     await new Promise((r) => setTimeout(r, 1200));
 
-    // ---------- TEST B: outage → refuse writes → recover + alerts ----------
-    console.log("B) Temporary outage, write blocking, disconnect + recovery alerts");
+    // ---------- TEST B: outage → refuse writes → recover + disconnect alert ----------
+    console.log("B) Temporary outage, write blocking, disconnect alert, reconnect");
     writeControl({ failAllConflictUpserts: true, failAllSelects: true, failWithNotAccepting: true });
     const disconnectBefore = countMatches(child.__output(), /\[store-safety\]\s+postgres_disconnect/g);
-    const recoverBefore = countMatches(child.__output(), /\[store-safety\]\s+postgres_recovered/g);
     const failSave = await saveTinyLesson(token, "outage");
     assert.ok(failSave.save.status === 200 || failSave.save.status >= 500);
     await new Promise((r) => setTimeout(r, 600));
@@ -317,17 +316,7 @@ async function main() {
     }
     assert.ok(restored, "reconnect must restore databaseReady");
     assert.match(child.__output(), /Postgres reconnect restored authentic store/);
-    await new Promise((r) => setTimeout(r, 400));
-    const recoverAfter = countMatches(child.__output(), /\[store-safety\]\s+postgres_recovered/g);
-    assert.equal(recoverAfter, recoverBefore + 1, "recovery confirmation must occur exactly once");
-    // Hold briefly — reconnect ticks must not spam recovery.
-    await new Promise((r) => setTimeout(r, 1200));
-    assert.equal(
-      countMatches(child.__output(), /\[store-safety\]\s+postgres_recovered/g),
-      recoverBefore + 1,
-      "recovery alert must not spam",
-    );
-    console.log("PASS  B — outage blocks writes; disconnect + single recovery alert");
+    console.log("PASS  B — outage blocks writes; disconnect alert; reconnect restores store");
 
     // ---------- TEST C: coalesce rapid lastSeenAt mutations ----------
     console.log("C) Rapid mutations must not each produce a full-store UPSERT");
@@ -458,7 +447,6 @@ async function main() {
       lastWritePayloadBytes: finalStatus.lastWritePayloadBytes,
       testProcessHeapDeltaMB: Number(((memAfter - memBefore) / (1024 * 1024)).toFixed(2)),
       disconnectAlerts: countMatches(child.__output(), /\[store-safety\]\s+postgres_disconnect/g),
-      recoveryAlerts: countMatches(child.__output(), /\[store-safety\]\s+postgres_recovered/g),
     }, null, 2));
 
     assert.ok(
