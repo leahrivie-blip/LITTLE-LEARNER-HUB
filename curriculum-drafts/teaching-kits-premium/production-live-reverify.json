@@ -1,0 +1,1006 @@
+{
+  "at": "2026-08-12T03:27:19.810Z",
+  "kits": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "blankCore": 0,
+      "generic": [],
+      "printables": [
+        {
+          "id": "cur-res-750dac2dba18a433",
+          "title": "Bright Color Gaze Cards (draft)",
+          "status": "draft",
+          "fileUrl": null,
+          "previewUrl": null
+        },
+        {
+          "id": "cur-res-765d77ac99101135",
+          "title": "Caregiver Color Talk Mini Guide (draft)",
+          "status": "draft",
+          "fileUrl": null,
+          "previewUrl": null
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "Rainbow Scarf Visual Tracking",
+          "id": "cur-act-0d3debcd4e9d6743",
+          "blank": [],
+          "prep": "Choose one clean, lightweight scarf.\nCheck for loose threads or holes.\nClear a calm mat space away f",
+          "safety": "Stay within arm’s reach.\nNever let fabric cover the infant’s nose or mouth.\nStop if the infant turns",
+          "language": "Look at the bright scarf.\nCan you see it moving?\nHere it comes across.\nYou watched it!",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "monday",
+          "title": "Colorful Tummy Time",
+          "id": "cur-act-126f377e2b2a3952",
+          "blank": [],
+          "prep": "Set a firm tummy-time mat.\nPlace 1–2 large bright toys at eye level in front of the infant.\nHave a r",
+          "safety": "Supervised tummy time only while awake.\nAlways place infants on their backs for sleep.\nStay within a",
+          "language": "You’re on your tummy.\nLook at the bright toy.\nYou lifted your head!\nI’m right here with you.",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "monday",
+          "title": "Face-to-Face Color Talk",
+          "id": "item-infant-colors-face-to-face-color-talk-draft",
+          "blank": [],
+          "prep": "Choose one bright cloth.\nWash hands.\nPlan for a short awake, calm window.",
+          "safety": "Support the infant’s head and body.\nKeep cloth away from the face/airway.\nNever leave the infant una",
+          "language": "Hello — I see you.\nLook, a bright cloth.\nBack to my face — hi!",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "tuesday",
+          "title": "Red Scarf Slow Track",
+          "id": "cur-act-19b12f9172850db3",
+          "blank": [],
+          "prep": "Select a red scarf or cloth.\nInspect for loose threads.\nDim busy background clutter.",
+          "safety": "Stay within arm’s reach.\nKeep fabric off the infant’s face.\nStop at disengagement cues.",
+          "language": "Red scarf… watching.\nSide to side, slow.\nYou followed it!",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "tuesday",
+          "title": "Color Lap Bounce Lullaby",
+          "id": "cur-act-a698243362061378",
+          "blank": [],
+          "prep": "Choose a soft colored cloth.\nSit securely with good back support.\nHave a familiar calm tune ready (p",
+          "safety": "Support head and trunk.\nGentle bounces only — never shake.\nStop if the infant seems overstimulated.",
+          "language": "Bounce, bounce — soft and slow.\nI see your eyes.\nWe’re singing together.",
+          "subs": 0,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "tuesday",
+          "title": "Color Board Book Faces",
+          "id": "cur-act-91bab8f9e17c6938",
+          "blank": [],
+          "prep": "Choose a simple color board book.\nBookmark 1–2 high-interest pages.\nSit where you can support the in",
+          "safety": "Use sturdy board books only.\nStay with the infant; do not prop unsupervised.",
+          "language": "Look at this page.\nBright color here.\nYou looked — yes!",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "wednesday",
+          "title": "Yellow Rattle Reach",
+          "id": "cur-act-734c3d4ba8b88d04",
+          "blank": [],
+          "prep": "Select a large yellow soft rattle (no small parts).\nInspect seams and joints.\nClear mat space.",
+          "safety": "Mouth-safe, large rattle only.\nConstant supervision.\nRemove if parts loosen.",
+          "language": "Yellow rattle — shake, shake.\nCan you reach?\nYou moved your hand toward it!",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "wednesday",
+          "title": "Tummy Time Color Mirror",
+          "id": "cur-act-15af04946e178861",
+          "blank": [],
+          "prep": "Set a baby-safe mirror on the mat.\nAdd one bright cloth or card near the mirror edge.\nCheck mirror e",
+          "safety": "Supervised tummy time only.\nUse shatterproof baby mirror.\nStay within arm’s reach.",
+          "language": "Look — that’s you!\nAnd a bright color beside the mirror.\nYou lifted to see!",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Color Cloth Basket Gaze",
+          "id": "cur-act-088aa481680d10f7",
+          "blank": [],
+          "prep": "Place two large colored cloths in a shallow basket.\nRemove any small items.\nSet basket on the mat wi",
+          "safety": "Cloths must be too large to choke.\nSupervise continuously.\nKeep fabric off the face.",
+          "language": "Two soft colors in the basket.\nLooking… looking.\nYou noticed the bright one!",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "thursday",
+          "title": "Soft Color Texture Mitts",
+          "id": "cur-act-7c753942bb4b0ff2",
+          "blank": [],
+          "prep": "Gather 2–3 large soft fabric squares in different colors/textures.\nInspect for loose threads.\nWash/s",
+          "safety": "Large fabrics only.\nStay within reach.\nStop if the infant overstimulates.",
+          "language": "Soft… smooth… bumpy.\nFeel this color on your hand.\nYou noticed that texture!",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Color Hello with Caregiver",
+          "id": "cur-act-56355a3b947c4257",
+          "blank": [],
+          "prep": "Choose one color scarf or cloth.\nPlan a brief greeting during a calm transition (arrival or after di",
+          "safety": "Support the infant securely during greeting.\nKeep cloth away from the face.",
+          "language": "Hello! Hello, little one.\nHere’s our color hello.\nI’m so glad to see you.",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Green Scarf Sway",
+          "id": "cur-act-601f18600d3aeecc",
+          "blank": [],
+          "prep": "Select a green scarf.\nCue soft music or hum a calm tune.\nClear space for gentle sway while holding t",
+          "safety": "Support head/neck.\nGentle sway only.\nKeep scarf from wrapping near the face.",
+          "language": "Green scarf sways… side to side.\nWe’re moving slow.\nYou feel the calm sway.",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Rainbow Color Song Cuddle",
+          "id": "cur-act-6e5a3a8bf7a3009d",
+          "blank": [],
+          "prep": "Gather 2–3 color cloths.\nChoose a short original or public-domain lullaby.\nSit where you can cuddle ",
+          "safety": "Secure hold; never shake.\nKeep cloths from covering airways.",
+          "language": "Cuddle time song.\nRed… blue… yellow — soft and slow.\nYou are safe with me.",
+          "subs": 0,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Favorite Color Page Replay",
+          "id": "cur-act-3890e95a40950a2f",
+          "blank": [],
+          "prep": "Open the board book to a previously favored page.\nSit for a short replay, not a full reread.",
+          "safety": "Board book only; supervised lap or mat reading.",
+          "language": "Here’s your favorite page again.\nSame bright color.\nLooking together feels good.",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Shaded Color Stroll",
+          "id": "cur-act-b338245b8ccf6d34",
+          "blank": [],
+          "prep": "Check outdoor conditions (shade, temperature).\nClip or hold one color scarf on the stroller/carrier.",
+          "safety": "Use shade; follow center outdoor weather rules.\nSecure infant in stroller/carrier.\nStay attentive to",
+          "language": "We’re strolling in the shade.\nSee the color moving gently?\nFresh air with me.",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        }
+      ]
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "blankCore": 0,
+      "generic": [],
+      "printables": [
+        {
+          "id": "cur-res-a2f90f232a27e8ea",
+          "title": "High-Contrast Pattern & Face Cards (draft)",
+          "status": "draft",
+          "fileUrl": null,
+          "previewUrl": null
+        },
+        {
+          "id": "cur-res-e3c453192e3dfaf7",
+          "title": "Tummy-Time Visual Strip (draft)",
+          "status": "draft",
+          "fileUrl": null,
+          "previewUrl": null
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "High-Contrast Card Exploration",
+          "id": "cur-act-93a5d1514a80615f",
+          "blank": [],
+          "prep": "Print/laminate High-Contrast Pattern & Face Cards if needed.\nChoose one simple pattern card.\nClear a",
+          "safety": "Cards with sealed edges only.\nNo small detachable pieces.\nStay within arm’s reach.",
+          "language": "Look — black and white.\nBold lines for your eyes.\nYou found it!",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "monday",
+          "title": "Tummy Time Pattern Adventure",
+          "id": "cur-act-0d46173d7a9a2cb1",
+          "blank": [],
+          "prep": "Place the Tummy-Time Visual Strip along the mat edge.\nHave one backup pattern card ready.\nRoll a tow",
+          "safety": "Awake, supervised tummy time only.\nBack to sleep afterward.\nStay within reach.",
+          "language": "Tummy time with bold patterns.\nLooking down the strip.\nYou lifted to see!",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "monday",
+          "title": "Mirror & Pattern Discovery",
+          "id": "cur-act-fadacd08fd94128f",
+          "blank": [],
+          "prep": "Set baby-safe mirror on the mat.\nPlace one pattern card beside the mirror.\nCheck mirror safety/edges",
+          "safety": "Shatterproof mirror only.\nSupervised floor time.\nNo cords or hanging straps near the infant.",
+          "language": "Hello in the mirror!\nPattern beside your face.\nLooking from face to pattern.",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "tuesday",
+          "title": "Bold Card Gaze Garden",
+          "id": "cur-act-6f371892e4459304",
+          "blank": [],
+          "prep": "Select 2 pattern cards with different designs.\nStage them a short distance apart on the mat (not a p",
+          "safety": "Sealed cards; constant supervision; stop at overstimulation.",
+          "language": "One pattern here… another there.\nYour eyes found a favorite.\nWatching with me.",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "tuesday",
+          "title": "Black White Board Book",
+          "id": "cur-act-449025ad489039e3",
+          "blank": [],
+          "prep": "Choose a high-contrast board book.\nBookmark one spread.\nSit for a short shared look.",
+          "safety": "Board book only; supervised; no propped unsupervised books.",
+          "language": "Black… white… bold page.\nLooking at the book with me.\nYou noticed that shape!",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "tuesday",
+          "title": "Contrast Card Peek Song",
+          "id": "cur-act-7e55d822482aa951",
+          "blank": [],
+          "prep": "Hold one face or pattern card.\nReady a short peekaboo-style original chant (no copyrighted lyrics).",
+          "safety": "Gentle peek only — never cover the infant’s face with the card.\nStay close.",
+          "language": "Peek — I see the pattern!\nHide… and peek again.\nYou smiled at the reveal!",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "wednesday",
+          "title": "Slow Pattern Arc Track",
+          "id": "cur-act-cc545af77c7782c1",
+          "blank": [],
+          "prep": "Choose one bold pattern card.\nClear space for a slow left-to-right arc.\nSit where you can watch eye/",
+          "safety": "Within arm’s reach; sealed card; stop if distressed.",
+          "language": "Following… across.\nPause when you look.\nYou tracked the pattern!",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "optional",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Tummy Contrast Gallery",
+          "id": "cur-act-3e2c7cd13e86b223",
+          "blank": [],
+          "prep": "Prop 2 contrast visuals along the tummy-time edge (strip + one card OR two cards).\nAvoid clutter beh",
+          "safety": "Supervised tummy time; back to sleep; no unsupervised props near face.",
+          "language": "Two bold pictures for tummy looking.\nWhich one catches your eyes?\nYou lifted to see!",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Black White Cloth Drape",
+          "id": "cur-act-e00d2da04a5b6668",
+          "blank": [],
+          "prep": "Choose a large black or white cloth (or half-and-half).\nInspect for loose threads.\nDrape over a low,",
+          "safety": "Never drape cloth over an infant’s head or sleep space.\nLarge cloth only; constant supervision.",
+          "language": "Soft black-and-white cloth.\nLooking at the contrast.\nYou noticed the edge!",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Zebra Stripe Soft Book",
+          "id": "cur-act-ad36941afa3d4b95",
+          "blank": [],
+          "prep": "Select a soft high-contrast book.\nCheck seams and tags.\nSit for a short shared look.",
+          "safety": "Remove if stuffing/loose parts appear.\nSupervise mouthing.",
+          "language": "Stripes… soft pages.\nTouch and look.\nYou patted the page!",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Grasp the Contrast Ring",
+          "id": "cur-act-6464943bd794c22c",
+          "blank": [],
+          "prep": "Offer a large black/white teething ring or soft ring toy.\nInspect for cracks.\nSit the infant support",
+          "safety": "Large, intact ring only.\nNo detachable beads.\nConstant supervision.",
+          "language": "Ring ready for your hand.\nYou reached!\nHolding on — strong fingers.",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Hello Black Hello White",
+          "id": "cur-act-0deec17f5e0686cb",
+          "blank": [],
+          "prep": "Have one black card and one white/face card ready.\nPlan a short hello chant (original).",
+          "safety": "Sealed cards; within reach; stop if overstimulated.",
+          "language": "Hello black… hello white.\nHello face — hello you!\nLooking back and forth.",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Contrast Celebration Dance Hold",
+          "id": "cur-act-35dd6ccfdf923903",
+          "blank": [],
+          "prep": "Choose one favorite card from the week.\nClear space to sway while holding the infant.",
+          "safety": "Support head; gentle sway; keep card from hitting the infant’s face.",
+          "language": "Celebration sway with our favorite pattern.\nWe looked so well this week.\nSoft dance with me.",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Favorite Pattern Page Party",
+          "id": "cur-act-40b36ec8c99229e8",
+          "blank": [],
+          "prep": "Reopen the favorite high-contrast page or card from earlier in the week.",
+          "safety": "Supervised book/card time only.",
+          "language": "Favorite pattern party!\nSame bold look again.\nYou remember this one.",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Shade and Shadow Contrast Stroll",
+          "id": "cur-act-91bfbd7df9197acd",
+          "blank": [],
+          "prep": "Check for safe shaded outdoor conditions.\nBring one contrast card for brief outdoor looking.\nConfirm",
+          "safety": "Follow outdoor weather/shade rules.\nSecure carrier/stroller.\nSupervise continuously.",
+          "language": "Shade and light outdoors.\nDark… bright… contrast everywhere.\nLooking with me on our stroll.",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        }
+      ]
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "blankCore": 0,
+      "generic": [],
+      "printables": [
+        {
+          "id": "cur-res-2e0abf716dedf25f",
+          "title": "Community Helper Picture Cards (draft)",
+          "status": "published",
+          "fileUrl": null,
+          "previewUrl": null
+        },
+        {
+          "id": "cur-res-04c3b64a153ea905",
+          "title": "Helper Place Signs (draft)",
+          "status": "published",
+          "fileUrl": null,
+          "previewUrl": null
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "Community Helper Discovery Basket",
+          "id": "cur-act-dae3ceb517ee1057",
+          "blank": [],
+          "prep": "Fill a basket with 4–6 safe helper props and Community Helper Picture Cards.\nRemove anything with sm",
+          "safety": "Check props for loose parts before play.\nSupervise try-on items near faces.\nKeep walkways clear arou",
+          "language": "What helper tool did you find?\nWho might use this hat?\nWhat job helps people in our neighborhood?",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "monday",
+          "title": "Helper Hat Parade",
+          "id": "cur-act-e2bb6462f47a1fdf",
+          "blank": [],
+          "prep": "Set out helper hats/vests in a line.\nMark a short parade path with cones or tape.\nChoose a short ori",
+          "safety": "Space children so hats don’t bump faces.\nWalking feet only — no running with props on stairs.",
+          "language": "Which helper are you today?\nHow does that helper move?\nWho can we thank in our neighborhood song?",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "monday",
+          "title": "Community Map Talk",
+          "id": "cur-act-deff9908a05268dc",
+          "blank": [],
+          "prep": "Post the community map or Helper Place Signs at child height.\nSet sticky dots or reusable markers ne",
+          "safety": "Secure the map so it cannot fall.\nSupervise small markers if used.",
+          "language": "Where does the mail carrier go?\nWhat building helps sick people?\nWhich place have you visited with y",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "tuesday",
+          "title": "Doctor's Office Dramatic Play",
+          "id": "cur-act-988e83297cb9492c",
+          "blank": [],
+          "prep": "Stage a clinic corner with play doctor kit, clipboard, and Helper Place “Clinic” sign.\nAdd two chair",
+          "safety": "No real medicines.\nSupervise cords/tubing on play kits.\nSanitize mouth-related play tools between gr",
+          "language": "How can the doctor help today?\nWhat does a nurse check?\nHow do we wait kindly in the waiting room?",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "required",
+          "setupImage": false
+        },
+        {
+          "day": "tuesday",
+          "title": "Firefighter Rescue Relay",
+          "id": "cur-act-531ba258ff68c6e6",
+          "blank": [],
+          "prep": "Set a process-art collage tray with red/yellow/black/blue paper scraps (no model craft).\nPost a simp",
+          "safety": "Supervise glue.\nScissors adult-only unless children are ready and closely supervised.\nNo running rel",
+          "language": "What colors remind you of rescue helpers?\nHow is your collage different from your friend’s?\nWho help",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "tuesday",
+          "title": "Community Helper Matching",
+          "id": "cur-act-30b83d919dab458c",
+          "blank": [],
+          "prep": "Set Community Helper Picture Cards and 3–4 related props in a basket.\nDo not print a worksheet answe",
+          "safety": "Supervise small props; no scoring or timed “tests.”",
+          "language": "Who might use this tool?\nWhat job helps our neighborhood?\nCan you show me with your body how that he",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "wednesday",
+          "title": "Mail Carrier Center",
+          "id": "cur-act-ad894ba69cba768a",
+          "blank": [],
+          "prep": "Set a mail center with bags, envelopes, stickers, and a “Post Office” place sign.\nPrepare a simple c",
+          "safety": "Supervise stickers (choking if mouthed by younger visitors).\nNo real stamps with sharp edges.",
+          "language": "Who is your letter for?\nWhat should the mail carrier deliver next?\nHow do we take turns at the mailb",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Chef's Kitchen",
+          "id": "cur-act-156f98f32b0143a7",
+          "blank": [],
+          "prep": "Stock dramatic-play kitchen/market with play food, baskets, aprons, and a Market/Kitchen place sign.",
+          "safety": "Play food only — no real allergens in this center unless your program plans a separate tasting.\nWipe",
+          "language": "What are you cooking or selling today?\nHow can the grocery helper help a customer?\nWhat should we th",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "required",
+          "setupImage": false
+        },
+        {
+          "day": "wednesday",
+          "title": "Build a Community Block City",
+          "id": "cur-act-8e566b5a73981a88",
+          "blank": [],
+          "prep": "Clear a block area.\nAdd Helper Place Signs as building labels (library, clinic, market).\nSet helper ",
+          "safety": "Build only as high as children can safely manage.\nKeep aisles clear of loose blocks.",
+          "language": "What building does our city need next?\nWho works in that place?\nHow will people travel between build",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "thursday",
+          "title": "Tool Exploration Table",
+          "id": "cur-act-0bedfb89f143fddc",
+          "blank": [],
+          "prep": "Set a table with safe play tools (plastic wrenches, measuring tape, clipboards) and helper cards for",
+          "safety": "No sharp real tools.\nSupervise tape measures and clipboards.\nSitting or standing at the table — no s",
+          "language": "What job might use this tool?\nHow does it help someone?\nWhat can we build or fix in pretend play?",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "required",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Healthy Helpers Chart",
+          "id": "cur-act-f6f61c2531250ce6",
+          "blank": [],
+          "prep": "Post a simple chart: sleep, wash hands, move, eat (picture icons).\nHave sticky dots ready.\nKeep the ",
+          "safety": "No weighing children or comparing bodies.\nFood talk stays general unless families opt into a tasting",
+          "language": "Which healthy helper habit did you use today?\nHow does washing hands help our class?\nWhat helps your",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": true
+        },
+        {
+          "day": "thursday",
+          "title": "Thank-You Card Workshop",
+          "id": "cur-act-e1064bff5bcb65d5",
+          "blank": [],
+          "prep": "Set paper, crayons, stickers, and helper cards as inspiration.\nOffer to scribe dictated thank-you me",
+          "safety": "Supervise stickers for younger mouths.\nAllergy-aware if using food-scented stickers (avoid those).",
+          "language": "Who do you want to thank?\nWhat helpful thing did they do?\nWhat colors feel like thank-you to you?",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Helper Interview Circle",
+          "id": "cur-act-35000b90cdd22ab9",
+          "blank": [],
+          "prep": "Prepare 3–4 open interview questions on a chart.\nInvite a real visitor OR use helper cards as “prete",
+          "safety": "If a visitor comes, follow visitor check-in rules.\nKeep questions kind and non-personal.",
+          "language": "What do you want to ask this helper?\nWhat tools do they need?\nHow do they help our community?",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Community Helper Obstacle Course",
+          "id": "cur-act-55d638e4e4b243f7",
+          "blank": [],
+          "prep": "Build a simple course: crawl “tunnel,” balance line, delivery basket drop.\nLabel stations with helpe",
+          "safety": "Walking/crawling pace — no racing into others.\nSpot balance sections.\nClear the course of trip hazar",
+          "language": "Which helper station are you practicing?\nHow can you move safely to deliver the mail?\nWho can cheer ",
+          "subs": 1,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "optional",
+          "setupImage": true
+        },
+        {
+          "day": "friday",
+          "title": "Community Helpers Celebration",
+          "id": "cur-act-5bfbf236fdc604b7",
+          "blank": [],
+          "prep": "Display children’s helper art/cards.\nPrepare a short thank-you chant (original).\nOptional: tally fav",
+          "safety": "Calm celebration seating; keep pathways clear around displays.",
+          "language": "Which helper job did you like exploring?\nHow do helpers make our community better?\nWho will we thank",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        }
+      ]
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "blankCore": 0,
+      "generic": [],
+      "printables": [
+        {
+          "id": "cur-res-bb036ea0b6f94e28",
+          "title": "Weather Symbol Cards (draft)",
+          "status": "published",
+          "fileUrl": null,
+          "previewUrl": null
+        },
+        {
+          "id": "cur-res-350953835613bf1d",
+          "title": "Weekly Weather Observation Chart (draft)",
+          "status": "published",
+          "fileUrl": null,
+          "previewUrl": null
+        },
+        {
+          "id": "cur-res-9e4c6acbbb4ae6e5",
+          "title": "Clothing for Weather Cards (draft)",
+          "status": "published",
+          "fileUrl": null,
+          "previewUrl": null
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "Weather Watchers Circle",
+          "id": "cur-act-2709c6a020ae29a4",
+          "blank": [],
+          "prep": "Post the Weekly Weather Observation Chart near the window at child height.\nPlace Weather Symbol Card",
+          "safety": "If observing from indoors, ordinary classroom supervision is enough.\nIf you step outside, follow you",
+          "language": "What do you notice about the sky?\nHow does the air feel today?\nDo you see anything moving in the win",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "monday",
+          "title": "Sunshine Movement Game",
+          "id": "cur-act-75e14c8e79726b23",
+          "blank": [],
+          "prep": "Clear an open movement space.\nCue a short sunny movement song (original or public-domain).\nReview “s",
+          "safety": "Give each child space to stretch.\nNo climbing furniture during sun movements.",
+          "language": "How can your arms look like sun rays?\nWhat happens when the sunshine feels warm?\nCan you melt slowly",
+          "subs": 0,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "monday",
+          "title": "Cloud Cotton Art",
+          "id": "cur-act-5612d85bc9f65bfc",
+          "blank": [],
+          "prep": "Set blue/gray paper, cotton or tissue, glue, and crayons.\nRemove any sample “perfect cloud” model.\nC",
+          "safety": "Supervise glue.\nRemind children glue stays on paper, not mouths.",
+          "language": "What kind of cloud are you making — fluffy, thin, stormy?\nWhat might be under your cloud today?\nHow ",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "tuesday",
+          "title": "Rain Drop Sensory Play",
+          "id": "cur-act-195f18300ada3c7f",
+          "blank": [],
+          "prep": "Fill a shallow sensory tray with a small amount of water and safe droppers/cups.\nAdd blue pebbles or",
+          "safety": "Shallow water only; constant supervision.\nNo glass.\nMop spills to prevent slips.\nFollow allergy poli",
+          "language": "What do you hear when the drops fall?\nHow can we make tiny rain versus big rain?\nWhat happens when t",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "tuesday",
+          "title": "Weather Dress-Up Center",
+          "id": "cur-act-51ca399e7c5fe55f",
+          "blank": [],
+          "prep": "Sort clothing props into sunny/rainy/cold bins.\nAdd Clothing for Weather Cards and Weather Symbol Ca",
+          "safety": "Supervise scarves/ties near necks — loose dress-up only.\nNo drawstrings that can snag.",
+          "language": "If it is rainy, what might you wear?\nWhy did you choose that coat?\nWhat would you change if the wind",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "tuesday",
+          "title": "Windy Day Pinwheels",
+          "id": "cur-act-ba0da59aff081f17",
+          "blank": [],
+          "prep": "Set pinwheels, scarves, and paper scraps at a fan-safe station.\nTeacher controls any electric fan (l",
+          "safety": "Teacher-controlled fan only — children do not adjust settings.\nKeep fingers away from fan guards.\nNo",
+          "language": "What moved in the wind?\nWhat stayed still?\nHow could we make a bigger wind or a softer wind?",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Weather Chart Helpers",
+          "id": "cur-act-daf4d66a95422c20",
+          "blank": [],
+          "prep": "Assign 1–2 chart helpers.\nHave today’s Weather Symbol Cards ready.\nKeep the Weekly Weather Observati",
+          "safety": "Ordinary indoor supervision; step stools only if stable and spotted.",
+          "language": "Chart helper, what symbol did our class choose?\nHow will we mark Tuesday if the sky changes?\nWho can",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Thunder Drum Experiment",
+          "id": "cur-act-ae4ace1c788cf2ac",
+          "blank": [],
+          "prep": "Set drums/pans and soft mallets in a circle.\nPreview volume rules and a calm-down scarf signal.\nWarn",
+          "safety": "Ear-aware play — no banging near faces.\nStop if a child is distressed.\nStorm talk stays calm (go ind",
+          "language": "Which sound is far-away thunder? Near thunder?\nHow does your body feel when it is loud?\nWhat helps y",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "optional",
+          "setupImage": true
+        },
+        {
+          "day": "wednesday",
+          "title": "Weather Book Nook",
+          "id": "cur-act-53c0b326abf40ba6",
+          "blank": [],
+          "prep": "Set 2–3 weather books in a cozy nook.\nAdd Weather Symbol Cards as discussion prompts.\nPrep one predi",
+          "safety": "Standard indoor reading supervision.",
+          "language": "What weather is in this story?\nWhat might happen next?\nHave you ever felt weather like that?",
+          "subs": 0,
+          "printableDecision": "HELPFUL",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Season Sorting Trays",
+          "id": "cur-act-82fc3572772bc4c3",
+          "blank": [],
+          "prep": "Set Clothing for Weather Cards and/or clothing props into sorting trays labeled hot/cold/rain/wind.\n",
+          "safety": "Supervise small card pieces; sitting sort reduces tripping on clothes.",
+          "language": "Why does this belong in the rainy group?\nCould any item fit more than one kind of weather?\nWhat woul",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "optional",
+          "setupImage": false
+        },
+        {
+          "day": "thursday",
+          "title": "Rainbow After Rain Art",
+          "id": "cur-act-8fb6c2b6e300e28c",
+          "blank": [],
+          "prep": "Set watercolors or diluted tempera, paper, brushes, and paper towels.\nNo rainbow template to trace.\n",
+          "safety": "Taste-safe/child-safe paints only.\nSupervise brushes near eyes.\nWipe spills to prevent slips.",
+          "language": "What colors appear when light and water meet in your painting?\nWhat happens if wet colors touch?\nHow",
+          "subs": 1,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "required",
+          "setupImage": true
+        },
+        {
+          "day": "thursday",
+          "title": "Weather Yoga and Rest",
+          "id": "cur-act-43000470e0410a26",
+          "blank": [],
+          "prep": "Clear mat space.\nPlan 3–4 weather poses (mountain, rain arms, wind sway, cloud rest).\nDim lights for",
+          "safety": "No forcing stretches.\nEnough space between mats.\nChildren may opt for seated breathing.",
+          "language": "Can your body be a quiet cloud?\nWhat does soft rain breathing sound like?\nHow does your body feel af",
+          "subs": 0,
+          "printableDecision": "NOT_NEEDED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Meteorologist Report Circle",
+          "id": "cur-act-8251dddbda3dc851",
+          "blank": [],
+          "prep": "Bring the completed Weekly Weather Observation Chart.\nOptional: toy microphone.\nReview the week’s sy",
+          "safety": "Calm seated reports; no climbing for “TV weather” stands.",
+          "language": "What weather did we see most this week?\nWhat surprised you?\nWhat is your forecast for the weekend?",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        },
+        {
+          "day": "friday",
+          "title": "Weather Dress Relay",
+          "id": "cur-act-2af23c50b7b6eb8e",
+          "blank": [],
+          "prep": "Set two clothing bins and a short relay path.\nPlace Weather Symbol Cards as the “today’s weather” cu",
+          "safety": "Walking only — no racing collisions.\nSupervise scarves/hats near faces.\nSpot any balance steps.",
+          "language": "What does the weather card tell us to put on?\nHow can your team help without rushing?\nWhat would you",
+          "subs": 1,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "optional",
+          "setupImage": true
+        },
+        {
+          "day": "friday",
+          "title": "Weather Watchers Celebration",
+          "id": "cur-act-2cdfa018493f05d8",
+          "blank": [],
+          "prep": "Tally weather types from the weekly chart.\nDisplay process art from the week.\nPrepare Weather Watche",
+          "safety": "Calm celebration circle; clear floor near displays.",
+          "language": "What weather did we see most?\nWhich investigation was your favorite?\nWhat will you notice on the way",
+          "subs": 0,
+          "printableDecision": "REQUIRED",
+          "imageRequirement": "not_needed",
+          "setupImage": false
+        }
+      ]
+    }
+  ],
+  "printableFixes": [
+    {
+      "rid": "cur-res-750dac2dba18a433",
+      "title": "Bright Color Gaze Cards (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-765d77ac99101135",
+      "title": "Caregiver Color Talk Mini Guide (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-a2f90f232a27e8ea",
+      "title": "High-Contrast Pattern & Face Cards (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-e3c453192e3dfaf7",
+      "title": "Tummy-Time Visual Strip (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-2e0abf716dedf25f",
+      "title": "Community Helper Picture Cards (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-04c3b64a153ea905",
+      "title": "Helper Place Signs (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-bb036ea0b6f94e28",
+      "title": "Weather Symbol Cards (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-350953835613bf1d",
+      "title": "Weekly Weather Observation Chart (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    },
+    {
+      "rid": "cur-res-9e4c6acbbb4ae6e5",
+      "title": "Clothing for Weather Cards (draft)",
+      "from": "draft",
+      "http": null,
+      "alreadyDraft": true
+    }
+  ],
+  "pdfReplacements": [
+    {
+      "rid": "cur-res-350953835613bf1d",
+      "file": "printables/weather-watchers/weekly-weather-observation-chart.pdf",
+      "http": 200,
+      "err": null,
+      "statusAfter": "published"
+    },
+    {
+      "rid": "cur-res-9e4c6acbbb4ae6e5",
+      "file": "printables/weather-watchers/clothing-for-weather-cards.pdf",
+      "http": 200,
+      "err": null,
+      "statusAfter": "published"
+    },
+    {
+      "rid": "cur-res-04c3b64a153ea905",
+      "file": "printables/community-helpers/helper-place-signs.pdf",
+      "http": 200,
+      "err": null,
+      "statusAfter": "published"
+    }
+  ],
+  "genericHits": [],
+  "blockers": [],
+  "weatherWatchersCircle": {
+    "title": "Weather Watchers Circle",
+    "preparation": "Post the Weekly Weather Observation Chart near the window at child height.\nPlace Weather Symbol Cards in a basket.\nOpen blinds for sky viewing (or plan a brief safe outdoor look).",
+    "teacherLanguage": "What do you notice about the sky?\nHow does the air feel today?\nDo you see anything moving in the wind?\nWhat makes you think it is cloudy?\nWhich weather picture matches what we see?\nWhat do you predict we might see tomorrow?",
+    "safetyNotes": "If observing from indoors, ordinary classroom supervision is enough.\nIf you step outside, follow your center’s outdoor weather procedures and stay with the group.",
+    "cleanupTips": "Return symbol cards to the basket.\nLeave today’s symbol on the chart.",
+    "substitutions": [],
+    "teacherTips": [
+      "Accept disagreement — children can justify different sky readings."
+    ],
+    "imageRequirement": "not_needed",
+    "printableTitles": [
+      "Weekly Weather Observation Chart (draft)",
+      "Weather Symbol Cards (draft)"
+    ]
+  }
+}
