@@ -86,7 +86,10 @@ async function main() {
   assert.match(serverJs, /onboardingWelcome\.maybeDeliverOnSignup/);
   assert.match(serverJs, /preflight-audit/);
   assert.match(serverJs, /prepare-one-time/);
+  assert.match(serverJs, /preview-one-time/);
   assert.match(serverJs, /send-one-time/);
+  assert.match(moduleJs, /previewOneTimeWelcomeUpdate/);
+  assert.match(moduleJs, /campaign_already_claimed/);
   assert.match(serverJs, /publishedAt/);
   assert.match(serverJs, /emailEngagement\.startScheduler/);
   assert.match(serverJs, /EMAIL_AUTOMATIONS_ENABLED/);
@@ -135,9 +138,10 @@ async function main() {
   fakeStore.emailEngagement.settings.onboardingEnabled = true;
   fakeStore.emailEngagement.settings.weeklyWhatsNewEnabled = true;
 
+  const campaignDeliveries = new Map();
   const eng = createEmailEngagement({
-    sendEmail: async () => {
-      fakeEvents.push("send");
+    sendEmail: async (opts) => {
+      fakeEvents.push(opts || "send");
       return { sent: true, configured: true, provider: "test" };
     },
     SITE_URL: "https://littlelearnershubbyleah.com",
@@ -149,6 +153,26 @@ async function main() {
     readStore: () => fakeStore,
     writeStore: (s) => { fakeStore = s; },
     writeStoreAsync: async (s) => { fakeStore = s; },
+    claimEmailCampaignDelivery: async ({ campaignId, email, contentHash }) => {
+      const key = `${campaignId}:${String(email || "").trim().toLowerCase()}`;
+      if (campaignDeliveries.has(key)) return { claimed: false, delivery: campaignDeliveries.get(key) };
+      const delivery = {
+        campaign_id: campaignId,
+        email: String(email || "").trim().toLowerCase(),
+        content_hash: contentHash,
+        status: "pending",
+        claimed_at: new Date().toISOString(),
+      };
+      campaignDeliveries.set(key, delivery);
+      return { claimed: true, delivery };
+    },
+    completeEmailCampaignDelivery: async ({ campaignId, email, status, error = "" }) => {
+      const key = `${campaignId}:${String(email || "").trim().toLowerCase()}`;
+      const delivery = campaignDeliveries.get(key);
+      if (delivery) Object.assign(delivery, { status, error, completed_at: new Date().toISOString() });
+    },
+    unsubscribeUrlForEmail: (email) => `https://littlelearnershubbyleah.com/unsubscribe?email=${encodeURIComponent(email)}`,
+    supportEmailTo: () => "leahrivie@gmail.com",
     isCurriculumLessonPublic: (status) => status === "published" || status === "featured",
     areAutomationsEnabled: () => true,
   });
@@ -275,23 +299,26 @@ async function main() {
 
   await test("preflight audit unlocks one-time send and blocks repeats", async () => {
     fakeEvents.length = 0;
+    campaignDeliveries.clear();
+    global.__llhOneTimeWelcomeUpdateRunning = false;
+    // Use non-probe domains (example.com is treated as test/probe by looksLikeTestEmail).
     fakeStore.users = {
-      "one@example.com": {
-        email: "one@example.com",
+      "one@llhprovider.com": {
+        email: "one@llhprovider.com",
         firstName: "One",
         accountStatus: "Active",
         signupAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       },
-      "two@example.com": {
-        email: "two@example.com",
+      "two@llhprovider.com": {
+        email: "two@llhprovider.com",
         firstName: "Two",
         accountStatus: "Active",
         signupAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       },
-      "gone@example.com": {
-        email: "gone@example.com",
+      "gone@llhprovider.com": {
+        email: "gone@llhprovider.com",
         firstName: "Gone",
         accountStatus: "Disabled",
         signupAt: new Date().toISOString(),
@@ -313,7 +340,7 @@ async function main() {
 
     const audit = await eng.runPreflightAudit({
       store: fakeStore,
-      adminEmail: "owner@example.com",
+      adminEmail: "owner@llhprovider.com",
       nodeEnv: "test",
       allowLocalForTests: true,
     });
@@ -327,7 +354,7 @@ async function main() {
 
     const prepared = await eng.prepareOneTimeWelcomeUpdate({
       store: fakeStore,
-      adminEmail: "owner@example.com",
+      adminEmail: "owner@llhprovider.com",
     });
     assert.equal(prepared.prepared, true);
     assert.equal(prepared.sent, false);
@@ -347,16 +374,20 @@ async function main() {
     const sent = await eng.sendOneTimeWelcomeUpdate({
       auditToken: audit.auditToken,
       confirm: true,
+      adminEmail: "owner@llhprovider.com",
     });
     assert.equal(sent.skipped, false);
     assert.equal(sent.sent, 2);
     assert.equal(sent.recipients, 2);
     assert.equal(sent.recurring, false);
     assert.equal(fakeEvents.length, 2);
+    assert.equal(fakeEvents[0].replyTo, "leahrivie@gmail.com");
+    assert.match(String(fakeEvents[0].listUnsubscribeUrl || ""), /unsubscribe/);
 
     const again = await eng.sendOneTimeWelcomeUpdate({
       auditToken: audit.auditToken,
       confirm: true,
+      adminEmail: "owner@llhprovider.com",
     });
     assert.equal(again.reason, "already_sent");
     assert.equal(fakeEvents.length, 2);
@@ -669,7 +700,7 @@ async function main() {
     });
 
     await test("admin preflight audit and one-time send endpoints", async () => {
-      for (const email of ["bulk-a@example.com", "bulk-b@example.com"]) {
+      for (const email of ["bulk-a@llhprovider.com", "bulk-b@llhprovider.com"]) {
         const profile = await request("POST", "/api/account/profile", {
           body: {
             email,
@@ -687,6 +718,15 @@ async function main() {
         body: { adminToken, confirm: true, auditToken: "missing" },
       });
       assert.equal(denied.status, 400, JSON.stringify(denied.json));
+
+      const previewRes = await request("POST", "/api/admin/email-engagement/preview-one-time", {
+        body: { adminToken },
+      });
+      assert.equal(previewRes.status, 200, JSON.stringify(previewRes.json));
+      assert.equal(previewRes.json.readOnly, true);
+      assert.ok(previewRes.json.preview.eligibleUniqueRecipients >= 2);
+      assert.equal(Boolean(previewRes.json.preview.excluded), true);
+      assert.equal(JSON.stringify(previewRes.json).includes("@llhprovider.com"), false, "preview must not leak recipient emails");
 
       const auditRes = await request("POST", "/api/admin/email-engagement/preflight-audit", {
         body: { adminToken },

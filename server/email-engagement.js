@@ -11,9 +11,14 @@
 
 const crypto = require("crypto");
 const membershipAccess = require("../scripts/membership-access.js");
+const { isKnownBouncedEmail } = require("./free-user-welcome-email.js");
 
 const FREE_REENGAGEMENT_CAMPAIGN_ID = "free-reengagement-2026-07";
 const FREE_REENGAGEMENT_SUBJECT = "🎉 Little Learner Hub Has Been Updated!";
+/** Durable campaign id for the Teaching Kits one-time all-users product update. */
+const ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID = "one_time_welcome_update";
+const ONE_TIME_CAMPAIGN_LOCK_EMAIL = "__campaign_lock__";
+const ONE_TIME_CLAIM_TTL_MS = 30 * 60 * 1000;
 
 const ONBOARDING_STEPS = [
   {
@@ -51,6 +56,11 @@ function defaultOneTimeWelcomeUpdate() {
     preparedAt: "",
     preparedRecipientCount: 0,
     preparedSubject: "",
+    // Claim/lock fields — set before send; sentAt only after completion.
+    claimedAt: "",
+    sendStartedAt: "",
+    sendFailedAt: "",
+    lastError: "",
   };
 }
 
@@ -705,11 +715,24 @@ function createEmailEngagement(deps) {
     getDatabaseStatus = () => ({}),
     getAdminEmail = () => "",
     getSupportEmailStatus = () => ({ ready: false, provider: "not configured", fromConfigured: false }),
+    /** Reply-To for Teaching Kits one-time broadcast only (SUPPORT_EMAIL_TO). */
+    supportEmailTo = () => "",
     areAutomationsEnabled = () => false,
     foundingSpotsRemaining = null,
     // Optional: when provided, used to cross-check audience "all" recipients.
     resolveAudienceRecipients = null,
   } = deps;
+
+  function resolveSupportReplyTo() {
+    try {
+      if (typeof supportEmailTo === "function") {
+        return String(supportEmailTo() || "").trim();
+      }
+      return String(supportEmailTo || "").trim();
+    } catch {
+      return "";
+    }
+  }
 
   async function persistEngagementStore(store, options = {}) {
     if (options.deferPersist) return;
@@ -957,10 +980,24 @@ function createEmailEngagement(deps) {
     return newlyPublishedCurriculum(store, sinceMs).lessons;
   }
 
-  async function sendAndLog({ store, to, templateKey, campaign, subject, text, html, meta = {} }) {
+  async function sendAndLog({
+    store,
+    to,
+    templateKey,
+    campaign,
+    subject,
+    text,
+    html,
+    meta = {},
+    replyTo = "",
+    listUnsubscribeUrl = "",
+  }) {
     let emailResult = { sent: false, configured: false, provider: "not configured" };
     try {
-      emailResult = await sendEmail({ to, subject, text, html });
+      const payload = { to, subject, text, html };
+      if (replyTo) payload.replyTo = replyTo;
+      if (listUnsubscribeUrl) payload.listUnsubscribeUrl = listUnsubscribeUrl;
+      emailResult = await sendEmail(payload);
     } catch (err) {
       emailResult = {
         sent: false,
@@ -1519,24 +1556,130 @@ function createEmailEngagement(deps) {
     };
   }
 
+  function normalizeOneTimeEmail(email) {
+    return String(email || "").trim().toLowerCase();
+  }
+
+  function findUserByNormalizedEmail(store, email) {
+    const clean = normalizeOneTimeEmail(email);
+    if (!clean) return null;
+    if (store?.users?.[clean]) return store.users[clean];
+    return Object.values(store?.users || {}).find(
+      (user) => normalizeOneTimeEmail(user?.email) === clean,
+    ) || null;
+  }
+
   /**
-   * Eligible recipients for the one-time all-users welcome/update email.
-   * Uses the full user directory (no UI search/health filters). Excludes admin
-   * and marketing-unsubscribed accounts.
+   * Teaching Kits one-time exclusion bucket (campaign-specific).
+   * Returns null when eligible; otherwise a stable exclusion reason key.
+   */
+  function oneTimeExclusionBucket(user, { adminEmail, store } = {}) {
+    if (!user) return "inactive";
+    if (
+      !isActiveAccount(user)
+      || user.disabled === true
+      || user.deleted === true
+      || user.archived === true
+    ) {
+      return "inactive";
+    }
+    const email = normalizeOneTimeEmail(user.email);
+    if (!email || !email.includes("@") || looksMalformedEmail(email)) return "invalid";
+    if (adminEmail && email === adminEmail) return "admin";
+    const prefs = emailPrefs(user);
+    if (prefs.unsubscribedAt) return "unsubscribed";
+    if (user?.emailPrefs?.marketing === false) return "marketing_false";
+    if (looksLikeTestEmail(email)) return "test_probe";
+    if (typeof isKnownBouncedEmail === "function" && isKnownBouncedEmail(store || readStore(), email)) {
+      return "bounced_suppressed";
+    }
+    return null;
+  }
+
+  /**
+   * Eligible recipients for the Teaching Kits one-time product-update email.
+   * Active free + paid customers only. Dedupes by normalized email.
+   * Returns normalized email strings (first eligible account wins).
    */
   function eligibleOneTimeRecipients(store, options = {}) {
-    const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
-    return Object.values(store.users || {})
-      .filter((user) => {
-        const email = String(user.email || "").trim().toLowerCase();
-        if (!email || !email.includes("@")) return false;
-        if (adminEmail && email === adminEmail) return false;
-        if (!isActiveAccount(user)) return false;
-        const prefs = emailPrefs(user);
-        if (prefs.unsubscribedAt) return false;
-        return true;
-      })
-      .map((user) => String(user.email).trim().toLowerCase());
+    const adminEmail = normalizeOneTimeEmail(options.adminEmail || getAdminEmail() || "");
+    const seen = new Set();
+    const out = [];
+    for (const user of Object.values(store.users || {})) {
+      if (oneTimeExclusionBucket(user, { adminEmail, store })) continue;
+      const email = normalizeOneTimeEmail(user.email);
+      if (seen.has(email)) continue;
+      seen.add(email);
+      out.push(email);
+    }
+    return out;
+  }
+
+  /**
+   * Read-only eligibility report — no store mutation, no recipient emails in output.
+   */
+  function buildOneTimeRecipientPreview(store = readStore(), options = {}) {
+    const adminEmail = normalizeOneTimeEmail(options.adminEmail || getAdminEmail() || "");
+    const seen = new Set();
+    const excluded = {
+      inactive: 0,
+      admin: 0,
+      unsubscribed: 0,
+      marketing_false: 0,
+      test_probe: 0,
+      bounced_suppressed: 0,
+      invalid: 0,
+      duplicate: 0,
+    };
+    let eligibleUniqueRecipients = 0;
+    for (const user of Object.values(store.users || {})) {
+      const bucket = oneTimeExclusionBucket(user, { adminEmail, store });
+      if (bucket) {
+        excluded[bucket] = (excluded[bucket] || 0) + 1;
+        continue;
+      }
+      const email = normalizeOneTimeEmail(user.email);
+      if (seen.has(email)) {
+        excluded.duplicate += 1;
+        continue;
+      }
+      seen.add(email);
+      eligibleUniqueRecipients += 1;
+    }
+    return {
+      campaignKey: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+      eligibleUniqueRecipients,
+      excluded,
+      excludedTotal: Object.values(excluded).reduce((n, v) => n + Number(v || 0), 0),
+    };
+  }
+
+  function previewOneTimeWelcomeUpdate(options = {}) {
+    const store = options.store || readStore();
+    const eng = ensureEmailEngagement(store);
+    const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
+    return {
+      ok: true,
+      readOnly: true,
+      automationsEnabled: automationsAllowed(),
+      state: {
+        sentAt: state.sentAt || "",
+        claimedAt: state.claimedAt || "",
+        sendStartedAt: state.sendStartedAt || "",
+        sendFailedAt: state.sendFailedAt || "",
+        preparedAt: state.preparedAt || "",
+        lastAuditAt: state.lastAuditAt || "",
+        lastAuditPassed: Boolean(state.lastAuditPassed),
+      },
+      preview: buildOneTimeRecipientPreview(store, options),
+    };
+  }
+
+  function oneTimeWelcomeContentHash() {
+    const content = buildWelcomeUpdateContent({}, { siteUrl: SITE_URL, htmlEscape });
+    return crypto.createHash("sha256")
+      .update(`${content.subject}\n${content.text}\n${content.html}`)
+      .digest("hex");
   }
 
   /**
@@ -1600,24 +1743,14 @@ function createEmailEngagement(deps) {
       }) || [];
       audienceAllCount = audienceAll.length;
     }
-    // Recipients are active, non-admin, non-unsubscribed users from the full directory.
-    // Smaller than audience "all" when disabled/unsubscribed users exist — intentional.
+    // Teaching Kits recipients: active free+paid, excluding admin/unsub/marketing:false/test/bounce; deduped.
     const unsubscribedCount = users.filter((user) => emailPrefs(user).unsubscribedAt).length;
-    const missingRecipients = [];
-    const unexpectedRecipients = [];
-    userEntries.forEach(([key, user]) => {
-      const email = String(user.email || key || "").trim().toLowerCase();
-      if (!email) return;
-      const shouldInclude = email.includes("@")
-        && !(adminEmail && email === adminEmail)
-        && isActiveAccount(user)
-        && !emailPrefs(user).unsubscribedAt;
-      const included = recipientSet.has(email);
-      if (shouldInclude && !included) missingRecipients.push(email);
-      if (!shouldInclude && included) unexpectedRecipients.push(email);
-    });
+    const expectedEmails = new Set(eligibleOneTimeRecipients(store, { adminEmail }));
+    const missingRecipients = [...expectedEmails].filter((email) => !recipientSet.has(email));
+    const unexpectedRecipients = [...recipientSet].filter((email) => !expectedEmails.has(email));
     const recipientListMatchesDb = missingRecipients.length === 0
       && unexpectedRecipients.length === 0
+      && recipients.length === expectedEmails.size
       && recipients.every((email) => dbUserEmails.has(email));
 
     const dbCheck = isStagingOrTestDatabase({
@@ -1689,7 +1822,7 @@ function createEmailEngagement(deps) {
         pass: recipientListMatchesDb,
         value: recipients.length,
         detail: recipientListMatchesDb
-          ? `${recipients.length} recipients from the full user directory (admin/disabled/unsubscribed excluded)`
+          ? `${recipients.length} unique eligible recipients (inactive/admin/unsub/marketing:false/test/bounce excluded)`
           : `Recipient list mismatch (missing=${missingRecipients.length}, unexpected=${unexpectedRecipients.length}, audience-all=${audienceAllCount}, recipients=${recipients.length}, unsubscribed=${unsubscribedCount})`,
       },
       {
@@ -1775,7 +1908,8 @@ function createEmailEngagement(deps) {
       sendUnlocked: Boolean(
         auditPassed
         && auditToken
-        && !eng.settings.oneTimeWelcomeUpdate.sentAt,
+        && !eng.settings.oneTimeWelcomeUpdate.sentAt
+        && !eng.settings.oneTimeWelcomeUpdate.claimedAt,
       ),
     };
   }
@@ -1783,6 +1917,7 @@ function createEmailEngagement(deps) {
   /**
    * Build the one-time welcome/update email + recipient list without sending.
    * Safe to run anytime after (or with) the preflight audit.
+   * Note: persists preparedAt — use previewOneTimeWelcomeUpdate for a read-only count.
    */
   async function prepareOneTimeWelcomeUpdate(options = {}) {
     const store = options.store || readStore();
@@ -1845,25 +1980,30 @@ function createEmailEngagement(deps) {
   }
 
   /**
-   * One-time welcome/update email to every eligible user.
-   * Requires a passing preflight audit token. Never scheduled / never recurring.
+   * One-time Teaching Kits welcome/update email to every eligible user.
+   * Independently gated (audit token + confirm + durable claim). Never scheduled.
+   * Does NOT require EMAIL_AUTOMATIONS_ENABLED — drip/weekly remain on that kill switch.
+   *
+   * Partial-delivery recovery is intentionally NOT automatic: a durable claim is taken
+   * before the send loop; incomplete runs keep the claim and will not start a second send.
    */
   async function sendOneTimeWelcomeUpdate(options = {}) {
     const store = readStore();
     const eng = ensureEmailEngagement(store);
     const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
 
-    if (!automationsAllowed()) {
+    // Production path never honors forceResend (double-send protection).
+    if (options.forceResend) {
       return {
         sent: 0,
         failed: 0,
         skipped: true,
-        reason: "automations_disabled",
-        detail: "Set EMAIL_AUTOMATIONS_ENABLED=true only after content approval.",
+        reason: "force_resend_unavailable",
+        detail: "forceResend is disabled for the Teaching Kits one-time broadcast.",
       };
     }
 
-    if (state.sentAt && !options.forceResend) {
+    if (state.sentAt) {
       return {
         sent: 0,
         failed: 0,
@@ -1871,6 +2011,27 @@ function createEmailEngagement(deps) {
         reason: "already_sent",
         sentAt: state.sentAt,
         recipientCount: state.recipientCount || 0,
+      };
+    }
+
+    if (state.claimedAt || state.sendStartedAt) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "campaign_already_claimed",
+        claimedAt: state.claimedAt || state.sendStartedAt || "",
+        sendFailedAt: state.sendFailedAt || "",
+        detail: "Campaign claim already held. Partial delivery is not auto-retried.",
+      };
+    }
+
+    if (global.__llhOneTimeWelcomeUpdateRunning) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "campaign_already_in_progress",
       };
     }
 
@@ -1907,66 +2068,149 @@ function createEmailEngagement(deps) {
       };
     }
 
-    const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
+    const adminEmail = normalizeOneTimeEmail(options.adminEmail || getAdminEmail() || "");
     const recipients = eligibleOneTimeRecipients(store, { adminEmail });
     if (!recipients.length) {
       return { sent: 0, failed: 0, skipped: true, reason: "no_recipients", recipients: 0 };
     }
 
+    const contentHash = oneTimeWelcomeContentHash();
+    const runClaim = await claimEmailCampaignDelivery({
+      campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+      email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
+      contentHash,
+    });
+    if (!runClaim.claimed) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "campaign_already_claimed",
+        detail: "Another request or process already claimed this campaign.",
+      };
+    }
+
+    // Move lock out of pending immediately so Postgres reclaim cannot reopen it mid-send.
+    await completeEmailCampaignDelivery({
+      campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+      email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
+      status: "sending",
+    });
+
+    const claimedAt = new Date().toISOString();
+    eng.settings.oneTimeWelcomeUpdate = {
+      ...defaultOneTimeWelcomeUpdate(),
+      ...state,
+      claimedAt,
+      sendStartedAt: claimedAt,
+      sendFailedAt: "",
+      lastError: "",
+    };
+    await persistEngagementStore(store);
+
+    const replyTo = resolveSupportReplyTo();
     let sentCount = 0;
     let failCount = 0;
     let softSkip = 0;
     const details = [];
 
-    for (const to of recipients) {
-      const user = store.users[to] || { email: to };
-      const content = buildWelcomeUpdateContent(user, { siteUrl: SITE_URL, htmlEscape });
-      const { emailResult } = await sendAndLog({
-        store,
-        to,
-        templateKey: "one_time_welcome_update",
-        campaign: "one_time_welcome_update",
-        subject: content.subject,
-        text: content.text,
-        html: content.html,
-        meta: { oneTime: true, recurring: false },
-      });
-      if (emailResult.sent) {
-        sentCount += 1;
-        details.push({ email: to, reason: "sent" });
-      } else if (!emailResult.configured) {
-        softSkip += 1;
-        details.push({ email: to, reason: "unconfigured" });
-      } else {
-        failCount += 1;
-        details.push({ email: to, reason: "failed", error: emailResult.error || "" });
+    global.__llhOneTimeWelcomeUpdateRunning = true;
+    try {
+      for (const to of recipients) {
+        const user = findUserByNormalizedEmail(store, to) || { email: to };
+        const content = buildWelcomeUpdateContent(user, { siteUrl: SITE_URL, htmlEscape });
+        const listUnsubscribeUrl = typeof unsubscribeUrlForEmail === "function"
+          ? unsubscribeUrlForEmail(to)
+          : "";
+        const { emailResult } = await sendAndLog({
+          store,
+          to,
+          templateKey: "one_time_welcome_update",
+          campaign: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+          subject: content.subject,
+          text: content.text,
+          html: content.html,
+          replyTo,
+          listUnsubscribeUrl,
+          meta: { oneTime: true, recurring: false },
+        });
+        if (emailResult.sent) {
+          sentCount += 1;
+          details.push({ email: to, reason: "sent" });
+        } else if (!emailResult.configured) {
+          softSkip += 1;
+          details.push({ email: to, reason: "unconfigured" });
+        } else {
+          failCount += 1;
+          details.push({ email: to, reason: "failed", error: emailResult.error || "" });
+        }
       }
+
+      const now = new Date().toISOString();
+      // Stamp completed only after the loop. Claim already prevents concurrent retries.
+      eng.settings.oneTimeWelcomeUpdate = {
+        ...eng.settings.oneTimeWelcomeUpdate,
+        sentAt: now,
+        sentCount,
+        failedCount: failCount,
+        recipientCount: recipients.length,
+        lastAuditToken: "",
+        lastAuditPassed: false,
+        sendFailedAt: "",
+        lastError: "",
+      };
+      await persistEngagementStore(store);
+      await completeEmailCampaignDelivery({
+        campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+        email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
+        status: "sent",
+      });
+
+      return {
+        sent: sentCount,
+        failed: failCount,
+        softSkipped: softSkip,
+        recipients: recipients.length,
+        skipped: false,
+        reason: sentCount ? "sent" : (softSkip ? "unconfigured" : "no_successful_sends"),
+        sentAt: now,
+        claimedAt,
+        recurring: false,
+        replyTo: replyTo || "",
+        details: details.slice(0, 50),
+      };
+    } catch (err) {
+      const failAt = new Date().toISOString();
+      const message = err?.message || String(err);
+      eng.settings.oneTimeWelcomeUpdate = {
+        ...eng.settings.oneTimeWelcomeUpdate,
+        sendFailedAt: failAt,
+        lastError: message.slice(0, 500),
+        // Keep claimedAt — do not allow a second full send after a partial/failed run.
+      };
+      await persistEngagementStore(store);
+      await completeEmailCampaignDelivery({
+        campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+        email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
+        status: "failed",
+        error: message.slice(0, 500),
+      });
+      return {
+        sent: sentCount,
+        failed: failCount,
+        softSkipped: softSkip,
+        recipients: recipients.length,
+        skipped: true,
+        reason: "send_failed",
+        claimedAt,
+        sendFailedAt: failAt,
+        detail: "Campaign claim retained. Partial delivery is not auto-retried.",
+        error: message.slice(0, 500),
+        details: details.slice(0, 50),
+      };
+    } finally {
+      global.__llhOneTimeWelcomeUpdateRunning = false;
     }
-
-    const now = new Date().toISOString();
-    // Stamp once-only even in soft-fail/unconfigured mode so this cannot become recurring.
-    eng.settings.oneTimeWelcomeUpdate = {
-      ...state,
-      sentAt: now,
-      sentCount,
-      failedCount: failCount,
-      recipientCount: recipients.length,
-      lastAuditToken: "",
-      lastAuditPassed: false,
-    };
-    await persistEngagementStore(store);
-
-    return {
-      sent: sentCount,
-      failed: failCount,
-      softSkipped: softSkip,
-      recipients: recipients.length,
-      skipped: false,
-      reason: sentCount ? "sent" : (softSkip ? "unconfigured" : "no_successful_sends"),
-      sentAt: now,
-      recurring: false,
-      details: details.slice(0, 50),
-    };
   }
 
   async function updateSettings(partial = {}) {
@@ -2067,6 +2311,8 @@ function createEmailEngagement(deps) {
     buildWelcomeUpdateContent,
     buildAudienceReport,
     eligibleOneTimeRecipients,
+    buildOneTimeRecipientPreview,
+    previewOneTimeWelcomeUpdate,
     runPreflightAudit,
     prepareOneTimeWelcomeUpdate,
     sendOneTimeWelcomeUpdate,
@@ -2092,4 +2338,6 @@ module.exports = {
   buildWelcomeUpdateContent,
   FREE_REENGAGEMENT_CAMPAIGN_ID,
   FREE_REENGAGEMENT_SUBJECT,
+  ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+  ONE_TIME_CAMPAIGN_LOCK_EMAIL,
 };

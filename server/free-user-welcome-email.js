@@ -1035,6 +1035,7 @@ module.exports = {
   buildConfirmationScreen,
   buildPostSendReport,
   validateFreeUserRecipient,
+  isKnownBouncedEmail,
   looksLikeTestEmail,
   looksMalformedEmail,
   defaultCampaignState,

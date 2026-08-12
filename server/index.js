@@ -19351,6 +19351,7 @@ const emailEngagement = createEmailEngagement({
   }),
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
+  supportEmailTo: () => SUPPORT_EMAIL_TO,
   areAutomationsEnabled: () => emailAutomationsEnabled(),
   foundingSpotsRemaining,
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
@@ -28186,8 +28187,8 @@ function handleAdminEmailEngagementGet(request, response, url) {
       enabled: emailAutomationsEnabled(),
       envVar: "EMAIL_AUTOMATIONS_ENABLED",
       note: emailAutomationsEnabled()
-        ? "Automations are enabled. Scheduled/onboarding/bulk engagement mail may send."
-        : "Automations are DISABLED. No scheduled, signup-welcome, weekly, or bulk engagement email will send until EMAIL_AUTOMATIONS_ENABLED=true.",
+        ? "Automations are enabled. Scheduled/onboarding/weekly engagement mail may send."
+        : "Automations are DISABLED. Scheduled onboarding drip and weekly What’s New stay blocked. The Teaching Kits one-time send uses separate audit/confirm/claim gates.",
     },
     audience,
     summary,
@@ -28196,11 +28197,13 @@ function handleAdminEmailEngagementGet(request, response, url) {
     oneTimeWelcomeUpdate: {
       ...oneTime,
       recurring: false,
+      // Teaching Kits one-time send is independently gated (audit + confirm + claim).
+      // EMAIL_AUTOMATIONS_ENABLED continues to block drip/weekly only.
       sendUnlocked: Boolean(
-        emailAutomationsEnabled()
-        && oneTime.lastAuditPassed
+        oneTime.lastAuditPassed
         && oneTime.lastAuditToken
-        && !oneTime.sentAt,
+        && !oneTime.sentAt
+        && !oneTime.claimedAt,
       ),
     },
     onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
@@ -28298,6 +28301,7 @@ async function handleAdminEmailEngagementPrepareOneTime(request, response) {
     return;
   }
   // Dry-run only — builds subject/body/recipients and never calls sendEmail().
+  // Note: prepare persists preparedAt. Use preview-one-time for a read-only count.
   try {
     const prepared = await emailEngagement.prepareOneTimeWelcomeUpdate({
       adminEmail: ADMIN_EMAIL,
@@ -28312,19 +28316,36 @@ async function handleAdminEmailEngagementPrepareOneTime(request, response) {
   }
 }
 
+/**
+ * Read-only Teaching Kits recipient preview/count.
+ * Does not mutate audit tokens, claim, sentAt, or prepare state.
+ */
+async function handleAdminEmailEngagementPreviewOneTime(request, response, url) {
+  let token = "";
+  if (request.method === "POST") {
+    const body = await readJson(request);
+    token = extractAdminTokenFromBody(request, body) || "";
+  } else {
+    token = extractAdminToken(request, url) || "";
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = emailEngagement.previewOneTimeWelcomeUpdate({
+    adminEmail: ADMIN_EMAIL,
+  });
+  jsonResponse(response, 200, result);
+}
+
 async function handleAdminEmailEngagementSendOneTime(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
-  if (!emailAutomationsEnabled()) {
-    jsonResponse(response, 400, {
-      error: "Bulk / one-time welcome sends are blocked while EMAIL_AUTOMATIONS_ENABLED=false. Approve content, then enable the env flag before sending.",
-      result: { sent: 0, failed: 0, skipped: true, reason: "automations_disabled" },
-    });
-    return;
-  }
+  // Teaching Kits one-time path is independently gated (audit + confirm + durable claim).
+  // EMAIL_AUTOMATIONS_ENABLED is intentionally NOT required here; drip/weekly stay blocked.
   try {
     const result = await emailEngagement.sendOneTimeWelcomeUpdate({
       auditToken: body.auditToken || "",
@@ -28347,6 +28368,14 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
     }
     if (result.skipped && result.reason === "already_sent") {
       jsonResponse(response, 409, { error: "This one-time welcome/update email was already sent.", result });
+      return;
+    }
+    if (result.skipped && (result.reason === "campaign_already_claimed" || result.reason === "campaign_already_in_progress")) {
+      jsonResponse(response, 409, { error: "This one-time campaign is already claimed or in progress.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "force_resend_unavailable") {
+      jsonResponse(response, 400, { error: "forceResend is unavailable for this campaign.", result });
       return;
     }
     jsonResponse(response, 200, { ok: true, result });
@@ -29208,6 +29237,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/free-reengagement-send") return await handleAdminFreeReengagementSend(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/preflight-audit") return await handleAdminEmailEngagementPreflightAudit(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/prepare-one-time") return await handleAdminEmailEngagementPrepareOneTime(request, response);
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/email-engagement/preview-one-time") {
+      return await handleAdminEmailEngagementPreviewOneTime(request, response, url);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/founding-member-email/dry-run") {
       return await handleAdminFoundingMemberEmailDryRun(request, response, url);
