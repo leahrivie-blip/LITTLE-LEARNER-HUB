@@ -324,6 +324,7 @@
     "test:linked-program-release-candidate": "NODE_ENV=test node scripts/test-linked-program-release-candidate.js",
     "test:release-candidate-regression": "NODE_ENV=test node scripts/run-release-candidate-regression.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
+    "test:teaching-kits-one-time-safety": "NODE_ENV=test node scripts/test-teaching-kits-one-time-safety.js",
     "test:email-system-audit": "NODE_ENV=test node scripts/test-email-system-audit.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",
     "test:founding-closeout-pricing": "NODE_ENV=test node scripts/test-founding-closeout-pricing.js",

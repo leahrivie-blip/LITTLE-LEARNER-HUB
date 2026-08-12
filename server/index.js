@@ -5821,6 +5821,79 @@ async function completeEmailCampaignDelivery({ campaignId, email, status, provid
   }
 }
 
+/**
+ * Atomically re-open a failed/skipped campaign delivery for owner recovery retry.
+ * Never reclaims status=sent (prevents duplicate successful delivery).
+ */
+async function reclaimFailedEmailCampaignDelivery({ campaignId, email, contentHash }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    const reclaimed = await postgresPool.query(
+      `UPDATE llh_email_campaign_deliveries
+       SET status = 'pending',
+           content_hash = $3,
+           claimed_at = NOW(),
+           completed_at = NULL,
+           provider = '',
+           message_id = '',
+           error = ''
+       WHERE campaign_id = $1 AND email = $2
+         AND status IN ('failed', 'skipped', 'soft_skipped')
+       RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
+      [campaignId, cleanEmail, contentHash],
+    );
+    if (reclaimed.rows[0]) return { claimed: true, reclaimed: true, delivery: reclaimed.rows[0] };
+    const existing = await postgresPool.query(
+      `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
+       FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail],
+    );
+    return { claimed: false, delivery: existing.rows[0] || null };
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  const existing = store.emailCampaignDeliveries[key];
+  if (!existing) return { claimed: false, delivery: null };
+  const status = String(existing.status || "");
+  if (status === "sent" || status === "pending") {
+    return { claimed: false, delivery: existing };
+  }
+  if (!["failed", "skipped", "soft_skipped"].includes(status)) {
+    return { claimed: false, delivery: existing };
+  }
+  Object.assign(existing, {
+    content_hash: contentHash,
+    status: "pending",
+    provider: "",
+    message_id: "",
+    error: "",
+    claimed_at: new Date().toISOString(),
+    completed_at: null,
+  });
+  await writeStoreAsync(store);
+  return { claimed: true, reclaimed: true, delivery: existing };
+}
+
+/** Delete a campaign delivery row (used only to release the recovery lock). */
+async function releaseEmailCampaignDelivery({ campaignId, email }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    await postgresPool.query(
+      `DELETE FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail],
+    );
+    return;
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  if (store.emailCampaignDeliveries[key]) {
+    delete store.emailCampaignDeliveries[key];
+    await writeStoreAsync(store);
+  }
+}
+
 async function listEmailCampaignDeliveries(campaignId) {
   if (usePostgresStore()) {
     const result = await postgresPool.query(
@@ -19342,6 +19415,8 @@ const emailEngagement = createEmailEngagement({
   writeStoreAsync,
   claimEmailCampaignDelivery,
   completeEmailCampaignDelivery,
+  reclaimFailedEmailCampaignDelivery,
+  releaseEmailCampaignDelivery,
   listEmailCampaignDeliveries,
   patchEmailCampaignState,
   isCurriculumLessonPublic,
@@ -19351,6 +19426,7 @@ const emailEngagement = createEmailEngagement({
   }),
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
+  supportEmailTo: () => SUPPORT_EMAIL_TO,
   areAutomationsEnabled: () => emailAutomationsEnabled(),
   foundingSpotsRemaining,
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
@@ -28186,8 +28262,8 @@ function handleAdminEmailEngagementGet(request, response, url) {
       enabled: emailAutomationsEnabled(),
       envVar: "EMAIL_AUTOMATIONS_ENABLED",
       note: emailAutomationsEnabled()
-        ? "Automations are enabled. Scheduled/onboarding/bulk engagement mail may send."
-        : "Automations are DISABLED. No scheduled, signup-welcome, weekly, or bulk engagement email will send until EMAIL_AUTOMATIONS_ENABLED=true.",
+        ? "Automations are enabled. Scheduled/onboarding/weekly engagement mail may send."
+        : "Automations are DISABLED. Scheduled onboarding drip and weekly What’s New stay blocked. The Teaching Kits one-time send uses separate audit/confirm/claim gates.",
     },
     audience,
     summary,
@@ -28196,12 +28272,21 @@ function handleAdminEmailEngagementGet(request, response, url) {
     oneTimeWelcomeUpdate: {
       ...oneTime,
       recurring: false,
+      // Teaching Kits one-time send is independently gated (audit + confirm + claim).
+      // EMAIL_AUTOMATIONS_ENABLED continues to block drip/weekly only.
       sendUnlocked: Boolean(
-        emailAutomationsEnabled()
-        && oneTime.lastAuditPassed
+        oneTime.lastAuditPassed
         && oneTime.lastAuditToken
-        && !oneTime.sentAt,
+        && !oneTime.sentAt
+        && !oneTime.claimedAt,
       ),
+      recoveryAvailable: Boolean(
+        !oneTime.sentAt
+        && ["partial_delivery", "provider_unconfigured", "delivery_failed"].includes(
+          String(oneTime.deliveryOutcome || ""),
+        ),
+      ),
+      remainingCount: Number(oneTime.remainingCount) || 0,
     },
     onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
       key: s.key,
@@ -28298,6 +28383,7 @@ async function handleAdminEmailEngagementPrepareOneTime(request, response) {
     return;
   }
   // Dry-run only — builds subject/body/recipients and never calls sendEmail().
+  // Note: prepare persists preparedAt. Use preview-one-time for a read-only count.
   try {
     const prepared = await emailEngagement.prepareOneTimeWelcomeUpdate({
       adminEmail: ADMIN_EMAIL,
@@ -28312,19 +28398,36 @@ async function handleAdminEmailEngagementPrepareOneTime(request, response) {
   }
 }
 
+/**
+ * Read-only Teaching Kits recipient preview/count.
+ * Does not mutate audit tokens, claim, sentAt, or prepare state.
+ */
+async function handleAdminEmailEngagementPreviewOneTime(request, response, url) {
+  let token = "";
+  if (request.method === "POST") {
+    const body = await readJson(request);
+    token = extractAdminTokenFromBody(request, body) || "";
+  } else {
+    token = extractAdminToken(request, url) || "";
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = emailEngagement.previewOneTimeWelcomeUpdate({
+    adminEmail: ADMIN_EMAIL,
+  });
+  jsonResponse(response, 200, result);
+}
+
 async function handleAdminEmailEngagementSendOneTime(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
-  if (!emailAutomationsEnabled()) {
-    jsonResponse(response, 400, {
-      error: "Bulk / one-time welcome sends are blocked while EMAIL_AUTOMATIONS_ENABLED=false. Approve content, then enable the env flag before sending.",
-      result: { sent: 0, failed: 0, skipped: true, reason: "automations_disabled" },
-    });
-    return;
-  }
+  // Teaching Kits one-time path is independently gated (audit + confirm + durable claim).
+  // EMAIL_AUTOMATIONS_ENABLED is intentionally NOT required here; drip/weekly stay blocked.
   try {
     const result = await emailEngagement.sendOneTimeWelcomeUpdate({
       auditToken: body.auditToken || "",
@@ -28349,11 +28452,99 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
       jsonResponse(response, 409, { error: "This one-time welcome/update email was already sent.", result });
       return;
     }
+    if (result.skipped && (result.reason === "campaign_already_claimed" || result.reason === "campaign_already_in_progress")) {
+      jsonResponse(response, 409, { error: "This one-time campaign is already claimed or in progress.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "force_resend_unavailable") {
+      jsonResponse(response, 400, { error: "forceResend is unavailable for this campaign.", result });
+      return;
+    }
+    if (result.reason === "partial_delivery") {
+      jsonResponse(response, 200, {
+        ok: true,
+        partial: true,
+        error: "Partial delivery — campaign claim retained; not marked fully sent. Manual review required.",
+        result,
+      });
+      return;
+    }
+    if (result.reason === "provider_unconfigured" || result.reason === "delivery_failed") {
+      jsonResponse(response, 200, {
+        ok: false,
+        error: result.detail || "One-time send did not deliver. Campaign was not marked sent.",
+        result,
+      });
+      return;
+    }
     jsonResponse(response, 200, { ok: true, result });
   } catch (error) {
     jsonResponse(response, storePersistenceFailureStatus(error), {
       ok: false,
       error: "Could not save one-time welcome send state.",
+      code: error?.code || "store_write_failed",
+    });
+  }
+}
+
+/**
+ * Owner-only recovery for Teaching Kits one-time campaign.
+ * Retries only eligible recipients not already marked sent in the ledger.
+ */
+async function handleAdminEmailEngagementRecoverOneTime(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const result = await emailEngagement.recoverOneTimeWelcomeUpdate({
+      confirm: body.confirm === true,
+      adminEmail: ADMIN_EMAIL,
+      forceResend: false,
+    });
+    if (result.skipped && result.reason === "already_sent") {
+      jsonResponse(response, 409, { error: "Campaign already fully sent. Recovery is not available.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "recovery_not_available") {
+      jsonResponse(response, 400, { error: "Recovery is not available for this campaign state.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "confirmation_required") {
+      jsonResponse(response, 400, { error: "Confirmation required (confirm: true).", result });
+      return;
+    }
+    if (result.skipped && (result.reason === "recovery_already_in_progress" || result.reason === "campaign_already_in_progress")) {
+      jsonResponse(response, 409, { error: "Recovery already in progress.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "force_resend_unavailable") {
+      jsonResponse(response, 400, { error: "forceResend is unavailable for this campaign.", result });
+      return;
+    }
+    if (result.reason === "partial_delivery") {
+      jsonResponse(response, 200, {
+        ok: true,
+        partial: true,
+        error: "Recovery partial — some recipients remain. Claim/ledger retained.",
+        result,
+      });
+      return;
+    }
+    if (result.reason === "provider_unconfigured" || result.reason === "delivery_failed") {
+      jsonResponse(response, 200, {
+        ok: false,
+        error: result.detail || "Recovery did not complete delivery.",
+        result,
+      });
+      return;
+    }
+    jsonResponse(response, 200, { ok: true, result });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save one-time recovery state.",
       code: error?.code || "store_write_failed",
     });
   }
@@ -29208,7 +29399,13 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/free-reengagement-send") return await handleAdminFreeReengagementSend(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/preflight-audit") return await handleAdminEmailEngagementPreflightAudit(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/prepare-one-time") return await handleAdminEmailEngagementPrepareOneTime(request, response);
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/email-engagement/preview-one-time") {
+      return await handleAdminEmailEngagementPreviewOneTime(request, response, url);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/recover-one-time") {
+      return await handleAdminEmailEngagementRecoverOneTime(request, response);
+    }
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/founding-member-email/dry-run") {
       return await handleAdminFoundingMemberEmailDryRun(request, response, url);
     }
