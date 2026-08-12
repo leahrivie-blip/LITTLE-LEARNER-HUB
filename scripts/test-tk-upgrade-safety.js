@@ -83,7 +83,12 @@ async function main() {
   const freezeDoc = fs.readFileSync(path.join(ROOT, "docs/teaching-kit/ARCHITECTURE_FREEZE.md"), "utf8");
 
   ok(freezeDoc.includes("Do not redesign"), "architecture freeze doc present");
-  ok(serverJs.includes("ENRICHMENT_HISTORY_LIMIT = 250"), "history limit raised for upgrade campaigns");
+  ok(
+    serverJs.includes("ENRICHMENT_HISTORY_RETENTION_LIMIT")
+      || serverJs.includes("enrichment-publish-history"),
+    "history retention helper wired (Phase A cap)",
+  );
+  ok(!serverJs.includes("ENRICHMENT_HISTORY_LIMIT = 250"), "unbounded 250 history cap removed");
   ok(serverJs.includes("appendEnrichmentEditorAudit"), "enrichment editor audit helper present");
   ok(serverJs.includes('kind: "draft"'), "draft history kind written on save");
   ok(editorJs.includes("Another admin updated curriculum"), "editor concurrent-edit warning present");

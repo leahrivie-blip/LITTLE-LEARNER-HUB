@@ -35,6 +35,12 @@ const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const enrichmentMedia = require("./enrichment-media.js");
+const enrichmentPublishHistory = require("./enrichment-publish-history.js");
+const {
+  ENRICHMENT_HISTORY_RETENTION_LIMIT,
+  ENRICHMENT_HISTORY_ABSOLUTE_CEILING,
+  prependEnrichmentPublishHistory,
+} = enrichmentPublishHistory;
 const enrichmentAi = require("./enrichment-ai.js");
 const lessonCoverMedia = require("./lesson-cover-media.js");
 const seo = require("./seo.js");
@@ -2194,9 +2200,12 @@ function normalizedCurriculumLessonPlan(value) {
     }
   }
   if (Array.isArray(entry.enrichmentPublishHistory)) {
+    // Normalize entry shape only. Retention trim runs at history-write boundaries
+    // (publish / draft-save / rollback / draft-review) via trimEnrichmentPublishHistory —
+    // not on every lesson normalize, so unrelated saves do not silently prune production.
     normalized.enrichmentPublishHistory = entry.enrichmentPublishHistory
       .filter((item) => item && typeof item === "object")
-      .slice(0, ENRICHMENT_HISTORY_LIMIT)
+      .slice(0, ENRICHMENT_HISTORY_ABSOLUTE_CEILING)
       .map((item) => ({
         versionId: normalizedShortText(item.versionId, 80),
         kind: normalizedShortText(item.kind, 20) || "publish",
@@ -6497,7 +6506,8 @@ async function flushDurableStoreOrWebhookError(response, failMessage = "Webhook 
 
 // Persisted (not just console-logged) audit trail for confirmed curriculum
 // replace/restore actions — high-impact and rare enough to warrant their own record.
-const ENRICHMENT_HISTORY_LIMIT = 250; // effectively unlimited for curriculum upgrade campaigns
+// History retention: ENRICHMENT_HISTORY_RETENTION_LIMIT (5) via enrichment-publish-history.js.
+// Absolute ceiling kept for normalize defensive slicing only.
 
 function enrichmentHistoryFingerprint(payload) {
   try {
@@ -21694,19 +21704,16 @@ async function handleEnrichmentRollback(request, response) {
           lastEditedBy: adminEmail,
         }
         : null,
-      enrichmentPublishHistory: [
-        {
-          versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
-          kind: "rollback",
-          publishedAt: now,
-          publishedBy: adminEmail,
-          fingerprint: `rollback-draft:${entry.versionId}`,
-          lessonPlanId: planId,
-          snapshot: { enrichmentDraft: cloneJson(existingPlan.enrichmentDraft || {}) },
-          rollbackOf: entry.versionId,
-        },
-        ...history,
-      ].slice(0, ENRICHMENT_HISTORY_LIMIT),
+      enrichmentPublishHistory: prependEnrichmentPublishHistory(history, {
+        versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+        kind: "rollback",
+        publishedAt: now,
+        publishedBy: adminEmail,
+        fingerprint: `rollback-draft:${entry.versionId}`,
+        lessonPlanId: planId,
+        snapshot: { enrichmentDraft: cloneJson(existingPlan.enrichmentDraft || {}) },
+        rollbackOf: entry.versionId,
+      }),
       updatedAt: existingPlan.updatedAt,
     });
     const nextCurriculum = normalizedCurriculumStore({
@@ -21765,19 +21772,16 @@ async function handleEnrichmentRollback(request, response) {
   const restoredPlan = normalizedCurriculumLessonPlan({
     ...existingPlan,
     enrichmentDraft: draftFromPublish,
-    enrichmentPublishHistory: [
-      {
-        versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
-        kind: "rollback",
-        publishedAt: now,
-        publishedBy: adminEmail,
-        fingerprint: `rollback-to-draft:${entry.versionId}`,
-        lessonPlanId: planId,
-        snapshot: priorDraftSnap,
-        rollbackOf: entry.versionId,
-      },
-      ...history,
-    ].slice(0, ENRICHMENT_HISTORY_LIMIT),
+    enrichmentPublishHistory: prependEnrichmentPublishHistory(history, {
+      versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+      kind: "rollback",
+      publishedAt: now,
+      publishedBy: adminEmail,
+      fingerprint: `rollback-to-draft:${entry.versionId}`,
+      lessonPlanId: planId,
+      snapshot: priorDraftSnap,
+      rollbackOf: entry.versionId,
+    }),
     updatedAt: existingPlan.updatedAt,
   });
   const nextCurriculum = normalizedCurriculumStore({
@@ -22137,7 +22141,8 @@ async function handlePublishEnrichment(request, response, ctx) {
     body.publishedBy || incomingDraft.lastEditedBy || "",
     180,
   ) || "admin";
-  const history = [
+  const history = prependEnrichmentPublishHistory(
+    Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory : [],
     {
       versionId,
       kind: "publish",
@@ -22147,8 +22152,7 @@ async function handlePublishEnrichment(request, response, ctx) {
       lessonPlanId: id,
       snapshot: priorSnapshot,
     },
-    ...(Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory : []),
-  ].slice(0, ENRICHMENT_HISTORY_LIMIT);
+  );
 
   const existingActivities = Array.isArray(existingCurriculum.activities)
     ? existingCurriculum.activities
@@ -22413,18 +22417,15 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         enrichmentDraftHasContent(previousDraft)
         && enrichmentHistoryFingerprint(previousDraft) !== enrichmentHistoryFingerprint(draftForSave)
       ) {
-        nextHistory = [
-          {
-            versionId: `edraft-${crypto.randomBytes(10).toString("hex")}`,
-            kind: "draft",
-            publishedAt: now,
-            publishedBy: adminEmail,
-            fingerprint: `draft:${enrichmentHistoryFingerprint(previousDraft)}`,
-            lessonPlanId: id,
-            snapshot: { enrichmentDraft: cloneJson(previousDraft) },
-          },
-          ...previousHistory,
-        ].slice(0, ENRICHMENT_HISTORY_LIMIT);
+        nextHistory = prependEnrichmentPublishHistory(previousHistory, {
+          versionId: `edraft-${crypto.randomBytes(10).toString("hex")}`,
+          kind: "draft",
+          publishedAt: now,
+          publishedBy: adminEmail,
+          fingerprint: `draft:${enrichmentHistoryFingerprint(previousDraft)}`,
+          lessonPlanId: id,
+          snapshot: { enrichmentDraft: cloneJson(previousDraft) },
+        });
       }
       // Surgical draft plan: keep published body / dailyPlans from the existing record.
       // Only enrichmentDraft (+ undo/history) change — never whole-library normalize.
