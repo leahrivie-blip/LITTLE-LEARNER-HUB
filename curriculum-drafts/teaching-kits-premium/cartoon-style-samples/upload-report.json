@@ -1,0 +1,76 @@
+{
+  "at": "2026-08-12T18:43:35.297Z",
+  "generationMethod": "Illustrated cartoon generation guided by LLH lesson-cover JPG style references (not programmatic SVG). Uploaded via enrichment-photos Admin API to enrichment_draft only.",
+  "published": false,
+  "samples": [
+    {
+      "activity": "Colorful Tummy Time",
+      "ageGroup": "Infant 0–6 Months",
+      "imageDecision": "REQUIRED",
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "activityKey": "cur-act-126f377e2b2a3952",
+      "previousImageId": "tk-enrich-5723ff63123557aac6944c4b7427dabf",
+      "newDraftImageId": "tk-enrich-4d2882e9702e0608074d86cf43b7248c",
+      "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-4d2882e9702e0608074d86cf43b7248c?variant=full",
+      "generationMethod": "Illustrated cartoon generation guided by LLH lesson-cover JPG style references (not programmatic SVG). Uploaded via enrichment-photos Admin API to enrichment_draft only.",
+      "visualStyleReferences": [
+        "images/lesson-covers/all-about-me.jpg",
+        "images/lesson-covers/colors-everywhere.jpg",
+        "images/lesson-covers/healthy-habits.jpg"
+      ],
+      "uniqueSha256": "a33cd7368e26004c2e1f95ea63ef45bfa584e0da17abfbfe2e113f3e6b4f5fe7",
+      "unique": true,
+      "matchesActivity": true,
+      "enrichmentPublished": false,
+      "published": false,
+      "confirmedEnrichmentPublished": false,
+      "confirmedAttachedUrl": "/api/admin/media/enrichment-photos/tk-enrich-4d2882e9702e0608074d86cf43b7248c?variant=full"
+    },
+    {
+      "activity": "Doctor's Office Dramatic Play",
+      "ageGroup": "Preschool",
+      "imageDecision": "REQUIRED",
+      "planId": "cur-lp-preschool-community-helpers",
+      "activityKey": "cur-act-988e83297cb9492c",
+      "previousImageId": "tk-enrich-2aac1beacc69cb994f0ce2b4f0226060",
+      "newDraftImageId": "tk-enrich-da1f4f95f3c2ae2376d1682b12696309",
+      "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-da1f4f95f3c2ae2376d1682b12696309?variant=full",
+      "generationMethod": "Illustrated cartoon generation guided by LLH lesson-cover JPG style references (not programmatic SVG). Uploaded via enrichment-photos Admin API to enrichment_draft only.",
+      "visualStyleReferences": [
+        "images/lesson-covers/classroom-helpers.jpg",
+        "images/lesson-covers/making-new-friends.jpg",
+        "images/lesson-covers/community-helpers.jpg"
+      ],
+      "uniqueSha256": "05874370f6b1c5a65f5b42cd067796790e39115f3f5becbcd7949dc100189f7d",
+      "unique": true,
+      "matchesActivity": true,
+      "enrichmentPublished": false,
+      "published": false,
+      "confirmedEnrichmentPublished": false,
+      "confirmedAttachedUrl": "/api/admin/media/enrichment-photos/tk-enrich-da1f4f95f3c2ae2376d1682b12696309?variant=full"
+    },
+    {
+      "activity": "Rain Drop Sensory Play",
+      "ageGroup": "Preschool",
+      "imageDecision": "REQUIRED",
+      "planId": "cur-lp-preschool-weather-watchers",
+      "activityKey": "cur-act-195f18300ada3c7f",
+      "previousImageId": "tk-enrich-d410fc95745311b13fc24c02c9b64107",
+      "newDraftImageId": "tk-enrich-fea55d9dfcceb74f16314c2ef99c1900",
+      "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-fea55d9dfcceb74f16314c2ef99c1900?variant=full",
+      "generationMethod": "Illustrated cartoon generation guided by LLH lesson-cover JPG style references (not programmatic SVG). Uploaded via enrichment-photos Admin API to enrichment_draft only.",
+      "visualStyleReferences": [
+        "images/lesson-covers/classroom-helpers.jpg",
+        "images/lesson-covers/making-new-friends.jpg",
+        "images/lesson-covers/weather-watchers.jpg"
+      ],
+      "uniqueSha256": "b88a161d3cd9f5b5a7946dcca172a9fc38e816e116a969367bd012a71276fe02",
+      "unique": true,
+      "matchesActivity": true,
+      "enrichmentPublished": false,
+      "published": false,
+      "confirmedEnrichmentPublished": false,
+      "confirmedAttachedUrl": "/api/admin/media/enrichment-photos/tk-enrich-fea55d9dfcceb74f16314c2ef99c1900?variant=full"
+    }
+  ]
+}
