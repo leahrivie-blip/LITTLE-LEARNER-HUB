@@ -173,8 +173,172 @@ function buildProposedDailyPlans(planMeta, activitiesByDay) {
   return dailyPlans;
 }
 
+/**
+ * Ensure books meet Admin bookRecordComplete (title, author, why + reading prompts).
+ * Does not reproduce copyrighted book text — prompts are caregiver/teacher language only.
+ */
+function completeBooksForAdmin(books, { infant = false } = {}) {
+  return (Array.isArray(books) ? books : []).map((book) => {
+    const b = book && typeof book === "object" ? { ...book } : { title: String(book || "") };
+    if (!text(b.whyThisBook || b.whyItFits)) {
+      b.whyThisBook = infant
+        ? (text(b.notes) || "Short, visually clear pages for brief face-to-face looking — not a long storytime.")
+        : (text(b.notes) || "Supports theme vocabulary, prediction, and discussion during the week.");
+    }
+    if (!asArrayLocal(b.beforeReadingQuestions).length) {
+      b.beforeReadingQuestions = infant
+        ? ["Look — here’s the cover. What colors/patterns do you notice with me?"]
+        : ["What do you think this book might be about?", "Have you seen something like this before?"];
+    }
+    if (!asArrayLocal(b.duringReadingPrompts).length) {
+      b.duringReadingPrompts = infant
+        ? ["Look here with me.", "I see a bright page — watch with your eyes.", "You looked!"]
+        : ["What do you notice on this page?", "What might happen next?", "How does this helper/weather feel?"];
+    }
+    if (!asArrayLocal(b.afterReadingQuestions || b.questions || b.readAloudQuestions).length) {
+      b.afterReadingQuestions = infant
+        ? ["Should we look at your favorite page again?", "Would you like one more soft look before we rest?"]
+        : ["What was your favorite part?", "How does this connect to our centers today?"];
+    }
+    return b;
+  });
+}
+
+function asArrayLocal(value) {
+  if (Array.isArray(value)) return value.map(text).filter(Boolean);
+  const t = text(value);
+  return t ? [t] : [];
+}
+
+/**
+ * Ensure songs meet Admin songRecordComplete (title, rightsStatus, motions/directions/whenToUse).
+ */
+function completeSongsForAdmin(songs) {
+  return (Array.isArray(songs) ? songs : []).map((song) => {
+    const s = song && typeof song === "object" ? { ...song } : { title: String(song || "") };
+    if (!text(s.rightsStatus || s.copyrightStatus)) {
+      s.rightsStatus = /twinkle|itsy|wheels on the bus/i.test(s.title || "")
+        ? "public_domain"
+        : "original";
+    }
+    if (!text(s.motions) && !text(s.teacherDirections) && !text(s.whenToUse)) {
+      s.whenToUse = text(s.notes) || "Use during circle, transitions, or calm holds related to the theme.";
+      s.motions = "Gentle, theme-related gestures; keep infant/preschool movements age-safe.";
+    }
+    return s;
+  });
+}
+
+/**
+ * Ensure teacher toolkit meets Admin toolkitRecordComplete thresholds.
+ */
+function completeToolkitForAdmin(toolkit, planMeta = {}) {
+  const t = toolkit && typeof toolkit === "object" ? { ...toolkit } : {};
+  const infant = /infant|0\s*[–-]\s*6/i.test(String(planMeta.age || ""));
+  if (!text(t.teacherPreparation)) {
+    t.teacherPreparation = joinLines(planMeta.teacherPreparation)
+      || "Gather specialty materials, print draft resources, and stage a calm ready space.";
+  }
+  if (!text(t.familyConnection)) {
+    t.familyConnection = text(planMeta.familyConnection)
+      || "Share one simple home connection related to this week’s theme.";
+  }
+  if (!text(t.mixedAgeAdaptations)) {
+    t.mixedAgeAdaptations = infant
+      ? "Younger infants: closer, slower, shorter bursts. Older infants: offer large graspable items when ready."
+      : "Offer picture supports, peer helpers, and quieter stations alongside active centers.";
+  }
+  if (!text(t.extraSupportAdaptations || t.extraSupport)) {
+    t.extraSupportAdaptations = infant
+      ? "Reduce visuals to one focal item; pause when baby looks away; keep sessions very brief."
+      : "Provide visual schedules, shorter turns, and adult scaffolding for multi-step centers.";
+  }
+  if (!text(t.challengeExtensions || t.extensions)) {
+    t.challengeExtensions = infant
+      ? "When baby is alert and reaching, widen the tracking arc slightly or offer a second texture."
+      : "Invite children to document discoveries, lead a short report, or design a center variation.";
+  }
+  if (!text(t.safetyInclusionNotes || t.safetyNotes)) {
+    t.safetyInclusionNotes = text(planMeta.safetyNotes)
+      || (infant
+        ? "Constant supervision; mouth-safe large materials; stop at distress/disengagement cues."
+        : "Supervise active play and tools; inclusive role/language representation; allergy-aware materials.");
+  }
+  if (!text(t.endOfWeekReflection)) {
+    t.endOfWeekReflection = infant
+      ? "Which colors/patterns held attention? When did babies disengage? What caregiver language felt natural?"
+      : "Which centers sparked the richest talk? What should rotate next week? Whose voices were quieter?";
+  }
+  if (!asArrayLocal(t.teacherTips || t.tips).length) {
+    t.teacherTips = infant
+      ? [
+        "Your face and voice matter more than perfect materials.",
+        "Follow the baby’s alert windows — stop early rather than push.",
+        "Narrate without expecting verbal answers.",
+      ]
+      : [
+        "Keep process art open-ended — no model products to copy.",
+        "Rotate dramatic-play roles so the week stays balanced.",
+        "Capture one observation per child during natural play.",
+      ];
+  }
+  if (!asArrayLocal(t.setupCleanupShortcuts).length) {
+    t.setupCleanupShortcuts = infant
+      ? [
+        "Stage one sensory set at a time",
+        "Sanitize mouthed items immediately after use",
+        "Return cards/books to a labeled tray",
+      ]
+      : [
+        "Prep center bins the night before",
+        "Wipe trays between groups",
+        "Photograph charts/art before teardown",
+      ];
+  }
+  if (!asArrayLocal(t.observationPrompts).length && !asArrayLocal(t.observationFocus).length) {
+    t.observationFocus = lines(planMeta.observationOpportunities).slice(0, 6);
+  }
+  if (!asArrayLocal(t.documentationPrompts).length) {
+    t.documentationPrompts = infant
+      ? [
+        "Note gaze/tracking moments in plain language for families",
+        "Photo of setup (not staged ‘perfect’ baby performance)",
+      ]
+      : [
+        "Capture child language quotes during centers",
+        "Keep a quick chart of who led vs followed in group play",
+      ];
+  }
+  if (!asArrayLocal(t.materialSubstitutions || t.substitutions).length) {
+    t.materialSubstitutions = infant
+      ? [
+        { need: "Scarves", use: "Large soft cloth squares" },
+        { need: "Printed cards", use: "Bold board-book pages held still" },
+      ]
+      : [
+        { need: "Specialty props", use: "Classroom dress-up + labeled picture cards" },
+        { need: "Outdoor investigation", use: "Window observation + indoor sensory tray" },
+      ];
+  }
+  if (!asArrayLocal(t.prepChecklist).length) {
+    t.prepChecklist = lines(planMeta.teacherPreparation);
+  }
+  return t;
+}
+
+function completeWeekMetaForAdmin(planMeta) {
+  const infant = /infant|0\s*[–-]\s*6/i.test(String(planMeta.age || ""));
+  return {
+    ...planMeta,
+    books: completeBooksForAdmin(planMeta.books, { infant }),
+    songs: completeSongsForAdmin(planMeta.songs),
+    teacherToolkit: completeToolkitForAdmin(planMeta.teacherToolkit, planMeta),
+  };
+}
+
 function buildEnrichmentDraft(planMeta, activitiesByDay, extras = {}) {
-  const proposedDailyPlans = buildProposedDailyPlans(planMeta, activitiesByDay);
+  const meta = completeWeekMetaForAdmin(planMeta);
+  const proposedDailyPlans = buildProposedDailyPlans(meta, activitiesByDay);
   const activities = {};
   const activityDecisions = [];
   const removedActivityTitles = lines(extras.removedActivityTitles);
@@ -182,7 +346,7 @@ function buildEnrichmentDraft(planMeta, activitiesByDay, extras = {}) {
 
   WEEKDAYS.forEach((day) => {
     (proposedDailyPlans[day].items || []).forEach((item, index) => {
-      const key = item.sourceKey || `${planMeta.id}:${item.itemId}`;
+      const key = item.sourceKey || `${meta.id}:${item.itemId}`;
       flat.push({ ...item, dayOfWeek: day, _index: index, key });
       activities[key] = {
         title: item.title,
@@ -240,13 +404,13 @@ function buildEnrichmentDraft(planMeta, activitiesByDay, extras = {}) {
     neverAutoPublish: true,
     activities,
     week: {
-      weeklyOverview: text(planMeta.weeklyOverview),
-      objectives: joinLines(planMeta.objectives),
-      weeklyMaterials: joinLines(planMeta.weeklyMaterials),
-      familyConnection: text(planMeta.familyConnection),
-      adaptations: text(planMeta.adaptations),
-      vocabularyWords: joinLines(planMeta.vocabularyWords),
-      teacherPreparation: joinLines(planMeta.teacherPreparation),
+      weeklyOverview: text(meta.weeklyOverview),
+      objectives: joinLines(meta.objectives),
+      weeklyMaterials: joinLines(meta.weeklyMaterials),
+      familyConnection: text(meta.familyConnection),
+      adaptations: text(meta.adaptations),
+      vocabularyWords: joinLines(meta.vocabularyWords),
+      teacherPreparation: joinLines(meta.teacherPreparation),
       fieldOwnership: {
         objectives: true,
         weeklyOverview: true,
@@ -257,20 +421,20 @@ function buildEnrichmentDraft(planMeta, activitiesByDay, extras = {}) {
       activityDecisions,
       removedActivityTitles,
       removedItemIds: lines(extras.removedItemIds),
-      books: Array.isArray(planMeta.books) ? planMeta.books : [],
-      songs: Array.isArray(planMeta.songs) ? planMeta.songs : [],
-      teacherToolkit: planMeta.teacherToolkit || {},
-      printableIdeas: Array.isArray(planMeta.printableIdeas) ? planMeta.printableIdeas : [],
+      books: Array.isArray(meta.books) ? meta.books : [],
+      songs: Array.isArray(meta.songs) ? meta.songs : [],
+      teacherToolkit: meta.teacherToolkit || {},
+      printableIdeas: Array.isArray(meta.printableIdeas) ? meta.printableIdeas : [],
       printableIds: Array.isArray(extras.printableIds) ? extras.printableIds : [],
-      vocabCards: Array.isArray(planMeta.vocabCards) ? planMeta.vocabCards : lines(planMeta.vocabularyWords).slice(0, 12),
-      milestones: Array.isArray(planMeta.milestones) ? planMeta.milestones : [],
-      auditNotes: planMeta.auditNotes || {},
-      researchSources: Array.isArray(planMeta.researchSources) ? planMeta.researchSources : [],
+      vocabCards: Array.isArray(meta.vocabCards) ? meta.vocabCards : lines(meta.vocabularyWords).slice(0, 12),
+      milestones: Array.isArray(meta.milestones) ? meta.milestones : [],
+      auditNotes: meta.auditNotes || {},
+      researchSources: Array.isArray(meta.researchSources) ? meta.researchSources : [],
     },
     meta: {
       purpose: "Premium Teaching Kit draft for owner Admin review — DO NOT PUBLISH automatically",
-      sourceLessonId: planMeta.id,
-      sourceTitle: planMeta.title,
+      sourceLessonId: meta.id,
+      sourceTitle: meta.title,
       activityCount: flat.length,
       imagePolicy: "Assign images only when instructional value is clear",
     },
@@ -368,4 +532,8 @@ module.exports = {
   buildProposedDailyPlans,
   buildEnrichmentDraft,
   buildImportText,
+  completeBooksForAdmin,
+  completeSongsForAdmin,
+  completeToolkitForAdmin,
+  completeWeekMetaForAdmin,
 };

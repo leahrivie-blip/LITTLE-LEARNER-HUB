@@ -1,0 +1,424 @@
+{
+  "repairedAt": "2026-08-12T02:45:11.686Z",
+  "storePath": "/workspace/server/data/launch-store.json",
+  "backupPath": "/workspace/server/data/launch-store.json.bak-tk-repair-1786502711686",
+  "results": [
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "ok": true,
+      "repairedCount": 15,
+      "preservedIds": [
+        {
+          "activityId": "cur-act-9f2dd05998d64f68",
+          "itemId": "item-a2c942d5641a320c",
+          "title": "Bright Scarf Slow Track",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-7bb994a0b2702459",
+          "itemId": "item-c5b661e130b04954",
+          "title": "Colorful Tummy Time Look",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-b24cb49cd60df2a9",
+          "itemId": "item-3bb27d0f3bb0b161",
+          "title": "Face-to-Face Color Talk",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-6371165b47a34204",
+          "itemId": "item-07fad06f38f8a5ca",
+          "title": "One-Color Slow Track",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-0baa246f7501f660",
+          "itemId": "item-caa5f3de266a4d27",
+          "title": "Color Lap Bounce Song",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-10e6162ae6ab4fd2",
+          "itemId": "item-406625794379c90a",
+          "title": "Color Board Book Together",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-e4e0a2b75c9cef0b",
+          "itemId": "item-0544397aec607c24",
+          "title": "Soft Color Reach",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-2790066a646b6d1d",
+          "itemId": "item-b913dbb1ca1958eb",
+          "title": "Tummy Color Mirror Look",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-bcf9bf3a89dd426f",
+          "itemId": "item-8fad4ae9edbaea84",
+          "title": "Color Cloth Touch Basket",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-d0219571cecb2fd1",
+          "itemId": "item-ead3a64b235f8815",
+          "title": "Soft Color Texture Mitts",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-3251e5332294c997",
+          "itemId": "item-46feb860597a7a5e",
+          "title": "Color Hello with Caregiver",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-9c0a1fcff4e0beba",
+          "itemId": "item-566dcdaec078532e",
+          "title": "Soft Color Sway Hold",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-a0510aa2007fe7e4",
+          "itemId": "item-57506eca8e7ec7d2",
+          "title": "Color Song Cuddle",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-ac711183bee57bc7",
+          "itemId": "item-c3583ad132a1ff42",
+          "title": "Favorite Color Page Replay",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-0edb1a43c87b3c80",
+          "itemId": "item-0ea313484f60b339",
+          "title": "Shaded Color Stroll",
+          "day": "friday"
+        }
+      ],
+      "printableIds": [
+        "cur-res-draft-color-gaze-cards",
+        "cur-res-draft-color-talk-guide"
+      ],
+      "lessonStatus": "draft"
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "ok": true,
+      "repairedCount": 15,
+      "preservedIds": [
+        {
+          "activityId": "cur-act-80e12e1e8ae7eb21",
+          "itemId": "item-10cbbae82493076d",
+          "title": "High-Contrast Card Focus",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-d9160b08b0bdd2e9",
+          "itemId": "item-cb54ec4983fb2b35",
+          "title": "Tummy Time Pattern Line",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-25d86039b121ef11",
+          "itemId": "item-0a4e3b6c26b6f53a",
+          "title": "Mirror and Pattern Meet",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-e4d1bb92b67ce15c",
+          "itemId": "item-fce37deed4f14d9c",
+          "title": "Bold Card Gaze Garden",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-6494ae8d5116954c",
+          "itemId": "item-eebc2c093edc6de9",
+          "title": "Black White Board Book",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-05893261dcf16254",
+          "itemId": "item-84449e31a5e13003",
+          "title": "Contrast Card Peek Song",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-989035a0dd66d501",
+          "itemId": "item-25b965e3dbb54875",
+          "title": "Slow Pattern Arc Track",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-e74ef12038358479",
+          "itemId": "item-755f7b97314fd413",
+          "title": "Tummy Contrast Gallery",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-e6577a173b371670",
+          "itemId": "item-758f422c796a7634",
+          "title": "Black White Cloth Look",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-ebdaf8fe17576fe5",
+          "itemId": "item-cc26dc414f511c56",
+          "title": "Zebra Stripe Soft Book",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-36ad7d7f87efa6cb",
+          "itemId": "item-2947cca3f4205bd4",
+          "title": "Grasp the Contrast Ring",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-e3512d5764646d4c",
+          "itemId": "item-e2c75dc7da3a7026",
+          "title": "Hello Black Hello White",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-c1b98adab7dece82",
+          "itemId": "item-28cfed64704258aa",
+          "title": "Contrast Celebration Hold",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-224356aae6c007ea",
+          "itemId": "item-beb9e81c7c576cca",
+          "title": "Favorite Pattern Page Party",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-3a2d119a5ba471fa",
+          "itemId": "item-9dd83a1b3277ff63",
+          "title": "Shade and Shadow Contrast Stroll",
+          "day": "friday"
+        }
+      ],
+      "printableIds": [
+        "cur-res-draft-bw-contrast-cards",
+        "cur-res-draft-bw-tummy-strip"
+      ],
+      "lessonStatus": "draft"
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "ok": true,
+      "repairedCount": 15,
+      "preservedIds": [
+        {
+          "activityId": "cur-act-dae3ceb517ee1057",
+          "itemId": "item-preschool-community-helpers-monday-1",
+          "title": "Community Helper Discovery Basket",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-e2bb6462f47a1fdf",
+          "itemId": "item-preschool-community-helpers-monday-2",
+          "title": "Helper Hat Parade",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-deff9908a05268dc",
+          "itemId": "item-preschool-community-helpers-monday-3",
+          "title": "Community Places Map Talk",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-988e83297cb9492c",
+          "itemId": "item-preschool-community-helpers-tuesday-1",
+          "title": "Healthcare Helpers Clinic",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-531ba258ff68c6e6",
+          "itemId": "item-preschool-community-helpers-tuesday-2",
+          "title": "Rescue Colors Process Collage",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-30b83d919dab458c",
+          "itemId": "item-preschool-community-helpers-tuesday-3",
+          "title": "Helper Tools Exploration Table",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-ad894ba69cba768a",
+          "itemId": "item-preschool-community-helpers-wednesday-1",
+          "title": "Mail Carrier Post Office",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-156f98f32b0143a7",
+          "itemId": "item-preschool-community-helpers-wednesday-2",
+          "title": "Grocery Helper Market",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-8e566b5a73981a88",
+          "itemId": "item-preschool-community-helpers-wednesday-3",
+          "title": "Build a Community Block City",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-0bedfb89f143fddc",
+          "itemId": "item-preschool-community-helpers-thursday-1",
+          "title": "Library Helper Story Center",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-f6f61c2531250ce6",
+          "itemId": "item-preschool-community-helpers-thursday-2",
+          "title": "Sanitation Recycle Sort",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-e1064bff5bcb65d5",
+          "itemId": "item-preschool-community-helpers-thursday-3",
+          "title": "Thank-You Helper Studio",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-35000b90cdd22ab9",
+          "itemId": "item-preschool-community-helpers-friday-1",
+          "title": "Helper Interview Circle",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-55d638e4e4b243f7",
+          "itemId": "item-preschool-community-helpers-friday-2",
+          "title": "Community Helper Obstacle Course",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-5bfbf236fdc604b7",
+          "itemId": "item-preschool-community-helpers-friday-3",
+          "title": "Community Helpers Celebration",
+          "day": "friday"
+        }
+      ],
+      "printableIds": [
+        "cur-res-draft-helper-cards",
+        "cur-res-draft-helper-signs"
+      ],
+      "lessonStatus": "draft"
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "ok": true,
+      "repairedCount": 15,
+      "preservedIds": [
+        {
+          "activityId": "cur-act-2709c6a020ae29a4",
+          "itemId": "item-preschool-weather-watchers-monday-1",
+          "title": "Weather Watchers Circle",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-75e14c8e79726b23",
+          "itemId": "item-preschool-weather-watchers-monday-2",
+          "title": "Sunshine Movement Game",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-5612d85bc9f65bfc",
+          "itemId": "item-preschool-weather-watchers-monday-3",
+          "title": "Cloudy Day Process Art",
+          "day": "monday"
+        },
+        {
+          "activityId": "cur-act-195f18300ada3c7f",
+          "itemId": "item-preschool-weather-watchers-tuesday-1",
+          "title": "Rain Drop Sensory Investigate",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-51ca399e7c5fe55f",
+          "itemId": "item-preschool-weather-watchers-tuesday-2",
+          "title": "Weather Dress-Up Center",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-ba0da59aff081f17",
+          "itemId": "item-preschool-weather-watchers-tuesday-3",
+          "title": "Windy Day Pinwheel Lab",
+          "day": "tuesday"
+        },
+        {
+          "activityId": "cur-act-daf4d66a95422c20",
+          "itemId": "item-preschool-weather-watchers-wednesday-1",
+          "title": "Weather Chart Helpers",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-ae4ace1c788cf2ac",
+          "itemId": "item-preschool-weather-watchers-wednesday-2",
+          "title": "Thunder Drum Experiment",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-53c0b326abf40ba6",
+          "itemId": "item-preschool-weather-watchers-wednesday-3",
+          "title": "Weather Book Nook",
+          "day": "wednesday"
+        },
+        {
+          "activityId": "cur-act-82fc3572772bc4c3",
+          "itemId": "item-preschool-weather-watchers-thursday-1",
+          "title": "Clothing and Season Sort",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-8fb6c2b6e300e28c",
+          "itemId": "item-preschool-weather-watchers-thursday-2",
+          "title": "Weather Colors Process Painting",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-43000470e0410a26",
+          "itemId": "item-preschool-weather-watchers-thursday-3",
+          "title": "Weather Yoga and Rest",
+          "day": "thursday"
+        },
+        {
+          "activityId": "cur-act-8251dddbda3dc851",
+          "itemId": "item-preschool-weather-watchers-friday-1",
+          "title": "Meteorologist Report Circle",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-2af23c50b7b6eb8e",
+          "itemId": "item-preschool-weather-watchers-friday-2",
+          "title": "Weather Dress Relay",
+          "day": "friday"
+        },
+        {
+          "activityId": "cur-act-2cdfa018493f05d8",
+          "itemId": "item-preschool-weather-watchers-friday-3",
+          "title": "Weather Watchers Celebration",
+          "day": "friday"
+        }
+      ],
+      "printableIds": [
+        "cur-res-draft-weather-symbols",
+        "cur-res-draft-weather-chart",
+        "cur-res-draft-weather-clothing"
+      ],
+      "lessonStatus": "draft"
+    }
+  ],
+  "matrixPath": "/workspace/curriculum-drafts/teaching-kits-premium/completion-matrix.json",
+  "allCoreComplete": true,
+  "allDraft": true,
+  "publishEnrichmentCalled": false
+}
