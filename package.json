@@ -42,6 +42,7 @@
     "test:printable-idea-object-display": "NODE_ENV=test node scripts/test-printable-idea-object-display.js",
     "test:upgrade-lesson-open": "NODE_ENV=test node scripts/test-upgrade-lesson-open.js",
     "test:tk-editor-open-focus-printables": "NODE_ENV=test node scripts/test-tk-editor-open-focus-printables.js",
+    "test:tk-manual-kit-media-editor": "NODE_ENV=test node scripts/test-tk-manual-kit-media-editor.js",
     "test:tk-enrichment-publish-sibling-preserve": "NODE_ENV=test node scripts/test-tk-enrichment-publish-sibling-preserve.js",
     "test:classic-lre-save-sibling-preserve": "NODE_ENV=test node scripts/test-classic-lre-save-sibling-preserve.js",
     "test:owner-tk-core-activity-editor": "NODE_ENV=test node scripts/test-owner-tk-core-activity-editor.js",

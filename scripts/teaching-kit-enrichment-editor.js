@@ -84,6 +84,8 @@
       generationTiming: null,
       source: "", // "" | "ai-teacher-assistant" | lesson-teacher flows
     },
+    /** Manual week books/songs/printable-ideas editor: { kind, index } or null. index -1 = add. */
+    kitMediaEdit: null,
   };
 
   function isOwnerSessionEmail() {
@@ -497,6 +499,416 @@
       return `<li><strong>Vocab card:</strong> ${title}${definition ? ` — ${definition}` : ""}</li>`;
     }
     return "";
+  }
+
+  function ensureWeekDraft() {
+    if (!state.draft || typeof state.draft !== "object") {
+      state.draft = { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
+    }
+    if (!state.draft.week || typeof state.draft.week !== "object") state.draft.week = {};
+    return state.draft.week;
+  }
+
+  function linesFromValue(value) {
+    if (Array.isArray(value)) {
+      return value.map((line) => String(line == null ? "" : line).trim()).filter(Boolean);
+    }
+    return String(value == null ? "" : value)
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function songRightsAllowLyrics(rightsStatus) {
+    const rights = String(rightsStatus || "").trim().toLowerCase().replace(/\s+/g, "_");
+    return rights === "original"
+      || rights === "public_domain"
+      || rights === "public-domain"
+      || rights === "traditional";
+  }
+
+  function bookDraftQuestionsText(book) {
+    if (!book || typeof book !== "object") return "";
+    const fromArrays = [
+      ...linesFromValue(book.beforeReadingQuestions),
+      ...linesFromValue(book.duringReadingPrompts),
+      ...linesFromValue(book.afterReadingQuestions || book.readAloudQuestions),
+    ];
+    if (fromArrays.length) return fromArrays.join("\n");
+    return String(book.questions || book.discussionQuestions || "").trim();
+  }
+
+  function normalizeManualBookEntry(raw) {
+    const entry = raw && typeof raw === "object" ? raw : {};
+    const title = String(entry.title || "").trim();
+    if (!title) return null;
+    const author = String(entry.author || "").trim();
+    const whyThisBook = String(entry.whyThisBook || entry.whyItFits || "").trim();
+    const prompts = linesFromValue(entry.questionsText != null ? entry.questionsText : (
+      entry.afterReadingQuestions || entry.questions || entry.discussionQuestions || ""
+    )).slice(0, 12);
+    const beforeReadingQuestions = linesFromValue(entry.beforeReadingQuestions).slice(0, 12);
+    const duringReadingPrompts = linesFromValue(entry.duringReadingPrompts).slice(0, 12);
+    const suggestedWeekday = String(entry.suggestedWeekday || entry.day || "").trim().toLowerCase();
+    const questions = prompts.join("\n");
+    const out = {
+      title,
+      author,
+      whyThisBook,
+      whyItFits: whyThisBook,
+      questions,
+      afterReadingQuestions: prompts,
+    };
+    if (beforeReadingQuestions.length) out.beforeReadingQuestions = beforeReadingQuestions;
+    if (duringReadingPrompts.length) out.duringReadingPrompts = duringReadingPrompts;
+    if (WEEKDAYS.includes(suggestedWeekday)) out.suggestedWeekday = suggestedWeekday;
+    return out;
+  }
+
+  function normalizeManualSongEntry(raw) {
+    const entry = raw && typeof raw === "object" ? raw : {};
+    const title = String(entry.title || "").trim();
+    if (!title) return null;
+    const rightsStatus = String(entry.rightsStatus || entry.copyrightStatus || "").trim();
+    const motions = String(entry.motions || "").trim();
+    const whenToUse = String(entry.whenToUse || entry.suggestedUse || "").trim();
+    const teacherDirections = String(entry.teacherDirections || entry.directions || "").trim();
+    const linkedWeekday = String(entry.linkedWeekday || entry.day || "").trim().toLowerCase();
+    const allowLyrics = songRightsAllowLyrics(rightsStatus);
+    const lyrics = allowLyrics ? String(entry.lyrics || "").trim() : "";
+    const out = {
+      title,
+      rightsStatus,
+      motions,
+      whenToUse,
+      teacherDirections,
+      lyrics,
+    };
+    if (WEEKDAYS.includes(linkedWeekday)) out.linkedWeekday = linkedWeekday;
+    return out;
+  }
+
+  function normalizeManualPrintableIdeaEntry(raw) {
+    const enrich = api();
+    const entry = raw && typeof raw === "object" ? raw : { title: raw };
+    if (enrich && typeof enrich.normalizePrintableIdea === "function") {
+      return enrich.normalizePrintableIdea({
+        title: String(entry.title || entry.name || "").trim(),
+        purpose: String(entry.purpose || "").trim(),
+        description: String(entry.description || entry.summary || "").trim(),
+        type: String(entry.type || entry.kind || "").trim(),
+        instructions: String(entry.instructions || entry.howTo || "").trim(),
+        notes: String(entry.notes || "").trim(),
+      });
+    }
+    const title = String(entry.title || entry.name || "").trim();
+    if (!title) return null;
+    const out = { title };
+    const purpose = String(entry.purpose || "").trim();
+    const description = String(entry.description || entry.summary || "").trim();
+    const type = String(entry.type || entry.kind || "").trim();
+    const instructions = String(entry.instructions || entry.howTo || "").trim();
+    const notes = String(entry.notes || "").trim();
+    if (purpose) out.purpose = purpose;
+    if (description) out.description = description;
+    if (type) out.type = type;
+    if (instructions) out.instructions = instructions;
+    if (notes) out.notes = notes;
+    return out;
+  }
+
+  function weekdayOptionsHtml(selected) {
+    const current = String(selected || "").trim().toLowerCase();
+    return [
+      `<option value="">Any / not set</option>`,
+      ...WEEKDAYS.map((day) => (
+        `<option value="${day}" ${current === day ? "selected" : ""}>${esc(DAY_LABEL[day] || day)}</option>`
+      )),
+    ].join("");
+  }
+
+  function renderPublishedKitList(kind, items) {
+    if (!Array.isArray(items) || !items.length) return "";
+    if (kind === "book") {
+      return `
+        <div class="tk-enrich-current-text">
+          <strong>Published books (unchanged until Publish merges by title)</strong>
+          <ul class="tk-enrich-checklist">
+            ${items.map((book) => {
+              const title = typeof book === "object" ? (book.title || "") : String(book || "");
+              const author = typeof book === "object" ? (book.author || "") : "";
+              return `<li>${esc(title)}${author ? ` — ${esc(author)}` : ""}</li>`;
+            }).join("")}
+          </ul>
+        </div>
+      `;
+    }
+    if (kind === "song") {
+      return `
+        <div class="tk-enrich-current-text">
+          <strong>Published songs (unchanged until Publish merges by title)</strong>
+          <ul class="tk-enrich-checklist">
+            ${items.map((song) => {
+              const title = typeof song === "object" ? (song.title || "") : String(song || "");
+              return `<li>${esc(title)}</li>`;
+            }).join("")}
+          </ul>
+        </div>
+      `;
+    }
+    return "";
+  }
+
+  function renderBookEditorForm(book, index) {
+    const item = book && typeof book === "object" ? book : {};
+    const isAdd = index < 0;
+    return `
+      <form class="tk-enrich-kit-media-form" data-kit-media-form="book" data-kit-media-index="${index}">
+        <h5>${isAdd ? "Add book" : "Edit book"}</h5>
+        <label class="tk-enrich-core-field"><span>Book title</span>
+          <input name="title" type="text" maxlength="180" required value="${esc(item.title || "")}" placeholder="Book title" />
+        </label>
+        <label class="tk-enrich-core-field"><span>Author</span>
+          <input name="author" type="text" maxlength="120" value="${esc(item.author || "")}" placeholder="Author" />
+        </label>
+        <label class="tk-enrich-core-field"><span>Why it fits / short description</span>
+          <textarea name="whyThisBook" rows="2" maxlength="2000" placeholder="Why this book fits the lesson…">${esc(item.whyThisBook || item.whyItFits || "")}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Discussion / caregiver prompts (one per line)</span>
+          <textarea name="questionsText" rows="4" maxlength="2000" placeholder="What do you notice?&#10;How does the baby respond?">${esc(bookDraftQuestionsText(item))}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Day association (optional)</span>
+          <select name="suggestedWeekday">${weekdayOptionsHtml(item.suggestedWeekday || item.day)}</select>
+        </label>
+        <div class="tk-enrich-kit-media-form-actions">
+          <button type="submit" class="primary-button">${isAdd ? "Add book" : "Save book"}</button>
+          <button type="button" class="ghost-button" data-kit-media-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+
+  function renderSongEditorForm(song, index) {
+    const item = song && typeof song === "object" ? song : {};
+    const isAdd = index < 0;
+    const rights = String(item.rightsStatus || item.copyrightStatus || "").trim().toLowerCase();
+    const rightsOptions = [
+      ["", "Select rights status"],
+      ["traditional", "Traditional"],
+      ["public_domain", "Public domain"],
+      ["original", "Original (Little Learner Hub)"],
+      ["copyrighted_title_only", "Copyrighted — title only (no lyrics)"],
+      ["licensed", "Licensed"],
+    ];
+    return `
+      <form class="tk-enrich-kit-media-form" data-kit-media-form="song" data-kit-media-index="${index}">
+        <h5>${isAdd ? "Add song" : "Edit song"}</h5>
+        <label class="tk-enrich-core-field"><span>Song title</span>
+          <input name="title" type="text" maxlength="180" required value="${esc(item.title || "")}" placeholder="Song title" />
+        </label>
+        <label class="tk-enrich-core-field"><span>Rights / licensing</span>
+          <select name="rightsStatus">
+            ${rightsOptions.map(([value, label]) => (
+              `<option value="${esc(value)}" ${rights === value ? "selected" : ""}>${esc(label)}</option>`
+            )).join("")}
+          </select>
+        </label>
+        <label class="tk-enrich-core-field"><span>Lyrics / song text</span>
+          <textarea name="lyrics" rows="3" maxlength="4000" placeholder="Only saved when rights allow (original / public domain / traditional)…">${esc(songRightsAllowLyrics(rights) ? (item.lyrics || "") : "")}</textarea>
+        </label>
+        <p class="muted-copy">Copyrighted songs keep title + teaching notes only — lyrics are not stored unless rights allow.</p>
+        <label class="tk-enrich-core-field"><span>Movement / action prompts</span>
+          <textarea name="motions" rows="2" maxlength="2000" placeholder="Clap, sway, pat knees…">${esc(item.motions || "")}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Suggested use</span>
+          <textarea name="whenToUse" rows="2" maxlength="500" placeholder="Circle time, transition, tummy time…">${esc(item.whenToUse || item.suggestedUse || "")}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Teacher directions</span>
+          <textarea name="teacherDirections" rows="2" maxlength="2000" placeholder="How to lead the song…">${esc(item.teacherDirections || item.directions || "")}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Day association (optional)</span>
+          <select name="linkedWeekday">${weekdayOptionsHtml(item.linkedWeekday || item.day)}</select>
+        </label>
+        <div class="tk-enrich-kit-media-form-actions">
+          <button type="submit" class="primary-button">${isAdd ? "Add song" : "Save song"}</button>
+          <button type="button" class="ghost-button" data-kit-media-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+
+  function renderPrintableIdeaEditorForm(idea, index) {
+    const item = normalizePrintableIdeaForDisplay(idea) || {};
+    const isAdd = index < 0;
+    return `
+      <form class="tk-enrich-kit-media-form" data-kit-media-form="printableIdea" data-kit-media-index="${index}">
+        <h5>${isAdd ? "Add printable idea" : "Edit printable idea"}</h5>
+        <p class="muted-copy">Ideas only — upload actual files in Linked Resources.</p>
+        <label class="tk-enrich-core-field"><span>Idea title</span>
+          <input name="title" type="text" maxlength="180" required value="${esc(item.title || item.name || "")}" placeholder="Printable idea title" />
+        </label>
+        <label class="tk-enrich-core-field"><span>Type</span>
+          <input name="type" type="text" maxlength="80" value="${esc(item.type || item.kind || "")}" placeholder="Visual strip, checklist…" />
+        </label>
+        <label class="tk-enrich-core-field"><span>Purpose / description</span>
+          <textarea name="purpose" rows="2" maxlength="1000" placeholder="What this printable helps with…">${esc(item.purpose || item.description || item.summary || "")}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Instructions</span>
+          <textarea name="instructions" rows="2" maxlength="2000" placeholder="How caregivers or teachers use it…">${esc(item.instructions || item.howTo || "")}</textarea>
+        </label>
+        <label class="tk-enrich-core-field"><span>Notes</span>
+          <textarea name="notes" rows="2" maxlength="1000" placeholder="Optional notes…">${esc(item.notes || "")}</textarea>
+        </label>
+        <div class="tk-enrich-kit-media-form-actions">
+          <button type="submit" class="primary-button">${isAdd ? "Add printable idea" : "Save printable idea"}</button>
+          <button type="button" class="ghost-button" data-kit-media-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+
+  function renderDraftBookCard(book, index) {
+    const item = book && typeof book === "object" ? book : { title: book };
+    const title = String(item.title || "").trim() || "Untitled book";
+    const author = String(item.author || "").trim();
+    const why = String(item.whyThisBook || item.whyItFits || "").trim();
+    const prompts = bookDraftQuestionsText(item);
+    const day = String(item.suggestedWeekday || item.day || "").trim();
+    return `
+      <article class="tk-enrich-kit-media-card" data-kit-media-card="book" data-kit-media-index="${index}">
+        <div class="tk-enrich-kit-media-card-body">
+          <strong>${esc(title)}</strong>
+          ${author ? `<div class="muted-copy">${esc(author)}</div>` : ""}
+          ${why ? `<div class="tk-enrich-kit-media-meta">${esc(why)}</div>` : ""}
+          ${prompts ? `<div class="tk-enrich-kit-media-meta"><span class="muted-copy">Prompts:</span> ${esc(prompts.replace(/\n+/g, " · "))}</div>` : ""}
+          ${day ? `<div class="muted-copy">Day: ${esc(DAY_LABEL[day] || day)}</div>` : ""}
+        </div>
+        <div class="tk-enrich-kit-media-card-actions">
+          <button type="button" class="ghost-button" data-kit-media-edit="book" data-kit-media-index="${index}">Edit</button>
+          <button type="button" class="ghost-button" data-kit-media-remove="book" data-kit-media-index="${index}">Remove</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderDraftSongCard(song, index) {
+    const item = song && typeof song === "object" ? song : { title: song };
+    const title = String(item.title || "").trim() || "Untitled song";
+    const motions = String(item.motions || "").trim();
+    const whenToUse = String(item.whenToUse || item.suggestedUse || "").trim();
+    const rights = String(item.rightsStatus || item.copyrightStatus || "").trim();
+    const day = String(item.linkedWeekday || item.day || "").trim();
+    return `
+      <article class="tk-enrich-kit-media-card" data-kit-media-card="song" data-kit-media-index="${index}">
+        <div class="tk-enrich-kit-media-card-body">
+          <strong>${esc(title)}</strong>
+          ${rights ? `<div class="muted-copy">Rights: ${esc(rights)}</div>` : ""}
+          ${motions ? `<div class="tk-enrich-kit-media-meta"><span class="muted-copy">Motions:</span> ${esc(motions)}</div>` : ""}
+          ${whenToUse ? `<div class="tk-enrich-kit-media-meta"><span class="muted-copy">Use:</span> ${esc(whenToUse)}</div>` : ""}
+          ${day ? `<div class="muted-copy">Day: ${esc(DAY_LABEL[day] || day)}</div>` : ""}
+        </div>
+        <div class="tk-enrich-kit-media-card-actions">
+          <button type="button" class="ghost-button" data-kit-media-edit="song" data-kit-media-index="${index}">Edit</button>
+          <button type="button" class="ghost-button" data-kit-media-remove="song" data-kit-media-index="${index}">Remove</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderDraftPrintableIdeaCard(idea, index) {
+    const item = normalizePrintableIdeaForDisplay(idea);
+    const title = item && typeof item === "object"
+      ? String(item.title || item.name || "").trim()
+      : String(idea || "").trim();
+    const purpose = item && typeof item === "object"
+      ? String(item.purpose || item.description || item.summary || "").trim()
+      : "";
+    const type = item && typeof item === "object"
+      ? String(item.type || item.kind || "").trim()
+      : "";
+    return `
+      <article class="tk-enrich-kit-media-card" data-kit-media-card="printableIdea" data-kit-media-index="${index}">
+        <div class="tk-enrich-kit-media-card-body">
+          <strong>${esc(title || "Printable idea")}</strong>
+          ${type ? `<div class="muted-copy">${esc(type)}</div>` : ""}
+          ${purpose ? `<div class="tk-enrich-kit-media-meta">${esc(purpose)}</div>` : ""}
+        </div>
+        <div class="tk-enrich-kit-media-card-actions">
+          <button type="button" class="ghost-button" data-kit-media-edit="printableIdea" data-kit-media-index="${index}">Edit</button>
+          <button type="button" class="ghost-button" data-kit-media-remove="printableIdea" data-kit-media-index="${index}">Remove</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderKitMediaManualEditor(plan) {
+    const week = state.draft.week || {};
+    const draftBooks = Array.isArray(week.books) ? week.books : [];
+    const draftSongs = Array.isArray(week.songs) ? week.songs : [];
+    const printableIdeas = Array.isArray(week.printableIdeas) ? week.printableIdeas : [];
+    const vocabCards = Array.isArray(week.vocabCards) ? week.vocabCards : [];
+    const edit = state.kitMediaEdit && typeof state.kitMediaEdit === "object" ? state.kitMediaEdit : null;
+    const editKind = edit?.kind || "";
+    const editIndex = Number.isFinite(Number(edit?.index)) ? Number(edit.index) : -1;
+
+    const bookForm = editKind === "book"
+      ? renderBookEditorForm(editIndex >= 0 ? draftBooks[editIndex] : {}, editIndex)
+      : "";
+    const songForm = editKind === "song"
+      ? renderSongEditorForm(editIndex >= 0 ? draftSongs[editIndex] : {}, editIndex)
+      : "";
+    const ideaForm = editKind === "printableIdea"
+      ? renderPrintableIdeaEditorForm(editIndex >= 0 ? printableIdeas[editIndex] : {}, editIndex)
+      : "";
+
+    return `
+      <section class="tk-enrich-card-block" data-week-section="books" data-enrich-week-books id="tk-week-books">
+        <div class="tk-enrich-card-head">
+          <h4>Books</h4>
+          <button type="button" class="ghost-button" data-kit-media-add="book">+ Add Book</button>
+        </div>
+        <p class="muted-copy">Manual draft books for this lesson. Publishing merges by title — never deletes existing published lists. AI is optional.</p>
+        ${renderPublishedKitList("book", plan?.books)}
+        <div class="tk-enrich-kit-media-list">
+          ${draftBooks.map((book, i) => renderDraftBookCard(book, i)).join("")
+            || `<p class="muted-copy">No books added yet.</p>`}
+        </div>
+        ${bookForm}
+      </section>
+      <section class="tk-enrich-card-block" data-week-section="songs" data-enrich-week-songs id="tk-week-songs">
+        <div class="tk-enrich-card-head">
+          <h4>Songs</h4>
+          <button type="button" class="ghost-button" data-kit-media-add="song">+ Add Song</button>
+        </div>
+        <p class="muted-copy">Manual draft songs. Respect rights/licensing — lyrics only when allowed. Publishing merges by title.</p>
+        ${renderPublishedKitList("song", plan?.songs)}
+        <div class="tk-enrich-kit-media-list">
+          ${draftSongs.map((song, i) => renderDraftSongCard(song, i)).join("")
+            || `<p class="muted-copy">No songs added yet.</p>`}
+        </div>
+        ${songForm}
+      </section>
+      <section class="tk-enrich-card-block" data-week-section="printables" data-enrich-week-printables id="tk-week-printables">
+        <div class="tk-enrich-card-head">
+          <h4>Printable Ideas</h4>
+          <button type="button" class="ghost-button" data-kit-media-add="printableIdea">+ Add Printable Idea</button>
+        </div>
+        <p class="muted-copy">Proposed printable ideas only. Actual files stay in Linked Resources — this does not upload files.</p>
+        <div class="tk-enrich-kit-media-list">
+          ${printableIdeas.map((idea, i) => renderDraftPrintableIdeaCard(idea, i)).join("")
+            || `<p class="muted-copy">No printable ideas added yet.</p>`}
+        </div>
+        ${ideaForm}
+        ${vocabCards.length ? `
+          <div class="tk-enrich-kit-media-vocab">
+            <h5>Draft vocab cards</h5>
+            <ul class="tk-enrich-checklist">
+              ${vocabCards.map((card) => renderVocabCardListItem(card)).join("")}
+            </ul>
+          </div>
+        ` : ""}
+      </section>
+    `;
   }
 
   function host() {
@@ -1381,6 +1793,7 @@
       state.publishOpen = false;
       state.pendingCleanupAssetIds = [];
       resetAiTray();
+      state.kitMediaEdit = null;
       const sourceDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
         ? plan.enrichmentDraft
         : null;
@@ -1447,6 +1860,7 @@
     }
     state.previewUnbind = null;
     resetAiTray();
+    state.kitMediaEdit = null;
     state.publishOpen = false;
     state.recoveryOpen = false;
     state.compareOpen = false;
@@ -2459,14 +2873,10 @@
     const milestones = Array.isArray(week.milestones) ? week.milestones : [];
     const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object" ? week.teacherToolkit : {};
     const bank = ["Sorting", "Fine motor", "Language", "Social-emotional", "Gross motor", "Creativity", "Self-help"];
-    const draftBooks = Array.isArray(week.books) ? week.books : [];
-    const draftSongs = Array.isArray(week.songs) ? week.songs : [];
-    const printableIdeas = Array.isArray(week.printableIdeas) ? week.printableIdeas : [];
-    const vocabCards = Array.isArray(week.vocabCards) ? week.vocabCards : [];
     return `
       <div class="tk-enrich-week-layout">
         <div class="tk-enrich-week-ai-bar">
-          <p class="muted-copy">AI Lesson Teacher drafts missing week + activity pieces (overview, objectives, books, songs, toolkit, family, printables, tips). Nothing inserts until you approve.</p>
+          <p class="muted-copy">AI Lesson Teacher drafts missing week + activity pieces (overview, objectives, books, songs, toolkit, family, printables, tips). Nothing inserts until you approve. Manual books/songs/printables below always work without AI.</p>
           <button type="button" class="primary-button" data-ai-suggest="lesson">Prepare AI Draft</button>
           <button type="button" class="ghost-button" data-ai-suggest="week">Upgrade week only</button>
         </div>
@@ -2508,16 +2918,7 @@
               : `<p class="muted-copy">Linked Resources UI unavailable in this session.</p>`}
           </div>
         </section>
-        <section class="tk-enrich-card-block">
-          <h4>Draft books / songs / printables</h4>
-          <p class="muted-copy">AI inserts appear here for review. Publishing merges by title — never deletes existing lists.</p>
-          <ul class="tk-enrich-checklist">
-            ${draftBooks.map((book) => `<li><strong>Book:</strong> ${esc(book.title || "")}${book.author ? ` — ${esc(book.author)}` : ""}${book.questions ? ` · ${esc(book.questions)}` : ""}</li>`).join("") || "<li class=\"muted-copy\">No draft books yet</li>"}
-            ${draftSongs.map((song) => `<li><strong>Song:</strong> ${esc(song.title || "")}</li>`).join("")}
-            ${printableIdeas.map((idea) => renderPrintableIdeaListItem(idea)).join("")}
-            ${vocabCards.map((card) => renderVocabCardListItem(card)).join("")}
-          </ul>
-        </section>
+        ${renderKitMediaManualEditor(plan)}
         <section class="tk-enrich-card-block">
           <h4>Milestones</h4>
           <div class="tk-enrich-chips">
@@ -4151,6 +4552,64 @@
         render();
         return;
       }
+      const kitMediaAdd = event.target.closest("[data-kit-media-add]");
+      if (kitMediaAdd) {
+        const kind = kitMediaAdd.getAttribute("data-kit-media-add") || "";
+        if (!["book", "song", "printableIdea"].includes(kind)) return;
+        state.mode = "week";
+        state.kitMediaEdit = { kind, index: -1 };
+        render();
+        requestAnimationFrame(() => {
+          document.querySelector(`[data-kit-media-form="${kind}"] [name="title"]`)?.focus?.();
+        });
+        return;
+      }
+      const kitMediaEdit = event.target.closest("[data-kit-media-edit]");
+      if (kitMediaEdit) {
+        const kind = kitMediaEdit.getAttribute("data-kit-media-edit") || "";
+        const index = Number(kitMediaEdit.getAttribute("data-kit-media-index"));
+        if (!["book", "song", "printableIdea"].includes(kind) || !Number.isFinite(index) || index < 0) return;
+        state.mode = "week";
+        state.kitMediaEdit = { kind, index };
+        render();
+        requestAnimationFrame(() => {
+          document.querySelector(`[data-kit-media-form="${kind}"] [name="title"]`)?.focus?.();
+        });
+        return;
+      }
+      if (event.target.closest("[data-kit-media-cancel]")) {
+        state.kitMediaEdit = null;
+        render();
+        return;
+      }
+      const kitMediaRemove = event.target.closest("[data-kit-media-remove]");
+      if (kitMediaRemove) {
+        const kind = kitMediaRemove.getAttribute("data-kit-media-remove") || "";
+        const index = Number(kitMediaRemove.getAttribute("data-kit-media-index"));
+        if (!["book", "song", "printableIdea"].includes(kind) || !Number.isFinite(index) || index < 0) return;
+        const week = ensureWeekDraft();
+        const key = kind === "book" ? "books" : kind === "song" ? "songs" : "printableIdeas";
+        const list = Array.isArray(week[key]) ? [...week[key]] : [];
+        if (index >= list.length) return;
+        const label = kind === "book" ? "book" : kind === "song" ? "song" : "printable idea";
+        const title = typeof list[index] === "object"
+          ? String(list[index]?.title || list[index]?.name || label)
+          : String(list[index] || label);
+        const confirmed = window.confirm(`Remove “${title}” from the draft? Published lists stay unchanged until you Publish.`);
+        if (!confirmed) return;
+        list.splice(index, 1);
+        week[key] = list;
+        if (state.kitMediaEdit?.kind === kind) {
+          if (state.kitMediaEdit.index === index) state.kitMediaEdit = null;
+          else if (state.kitMediaEdit.index > index) {
+            state.kitMediaEdit = { kind, index: state.kitMediaEdit.index - 1 };
+          }
+        }
+        const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
+        markDirty({ autosave: !explicitOnly });
+        render();
+        return;
+      }
       const tipRemove = event.target.closest("[data-tip-remove]");
       if (tipRemove) {
         const plan = getPlan();
@@ -4724,6 +5183,79 @@
 
     document.addEventListener("submit", (event) => {
       if (!state.open) return;
+      const kitMediaForm = event.target.closest("[data-kit-media-form]");
+      if (kitMediaForm) {
+        event.preventDefault();
+        const kind = kitMediaForm.getAttribute("data-kit-media-form") || "";
+        const index = Number(kitMediaForm.getAttribute("data-kit-media-index"));
+        if (!["book", "song", "printableIdea"].includes(kind)) return;
+        const formData = new FormData(kitMediaForm);
+        const week = ensureWeekDraft();
+        const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
+        if (kind === "book") {
+          const next = normalizeManualBookEntry({
+            title: formData.get("title"),
+            author: formData.get("author"),
+            whyThisBook: formData.get("whyThisBook"),
+            questionsText: formData.get("questionsText"),
+            suggestedWeekday: formData.get("suggestedWeekday"),
+          });
+          if (!next) {
+            state.statusText = "Book title is required.";
+            renderChromeOnly();
+            return;
+          }
+          const list = Array.isArray(week.books) ? [...week.books] : [];
+          if (Number.isFinite(index) && index >= 0 && index < list.length) list[index] = next;
+          else list.push(next);
+          week.books = list.slice(0, 24);
+        } else if (kind === "song") {
+          const next = normalizeManualSongEntry({
+            title: formData.get("title"),
+            rightsStatus: formData.get("rightsStatus"),
+            lyrics: formData.get("lyrics"),
+            motions: formData.get("motions"),
+            whenToUse: formData.get("whenToUse"),
+            teacherDirections: formData.get("teacherDirections"),
+            linkedWeekday: formData.get("linkedWeekday"),
+          });
+          if (!next) {
+            state.statusText = "Song title is required.";
+            renderChromeOnly();
+            return;
+          }
+          const list = Array.isArray(week.songs) ? [...week.songs] : [];
+          if (Number.isFinite(index) && index >= 0 && index < list.length) list[index] = next;
+          else list.push(next);
+          week.songs = list.slice(0, 24);
+        } else {
+          const next = normalizeManualPrintableIdeaEntry({
+            title: formData.get("title"),
+            type: formData.get("type"),
+            purpose: formData.get("purpose"),
+            instructions: formData.get("instructions"),
+            notes: formData.get("notes"),
+          });
+          if (!next) {
+            state.statusText = "Printable idea title is required.";
+            renderChromeOnly();
+            return;
+          }
+          const list = Array.isArray(week.printableIdeas) ? [...week.printableIdeas] : [];
+          if (Number.isFinite(index) && index >= 0 && index < list.length) list[index] = next;
+          else list.push(next);
+          week.printableIdeas = list.slice(0, 24);
+        }
+        state.kitMediaEdit = null;
+        markDirty({ autosave: !explicitOnly });
+        state.statusText = kind === "book"
+          ? "Book saved to draft (not published)."
+          : kind === "song"
+            ? "Song saved to draft (not published)."
+            : "Printable idea saved to draft (not published).";
+        render();
+        return;
+      }
       if (event.target.matches("[data-tip-add]")) {
         event.preventDefault();
         const value = String(event.target.querySelector("input")?.value || "").trim();
