@@ -49,14 +49,17 @@ function defaultOneTimeWelcomeUpdate() {
     sentAt: "",
     sentCount: 0,
     failedCount: 0,
+    softSkippedCount: 0,
     recipientCount: 0,
+    // sent | partial_delivery | provider_unconfigured | delivery_failed
+    deliveryOutcome: "",
     lastAuditAt: "",
     lastAuditPassed: false,
     lastAuditToken: "",
     preparedAt: "",
     preparedRecipientCount: 0,
     preparedSubject: "",
-    // Claim/lock fields — set before send; sentAt only after completion.
+    // Claim/lock fields — set before send; sentAt only after full success.
     claimedAt: "",
     sendStartedAt: "",
     sendFailedAt: "",
@@ -1570,8 +1573,31 @@ function createEmailEngagement(deps) {
   }
 
   /**
+   * Staff / internal-access accounts — same flags used by freeReengagementAudience.
+   * (Does not treat manualAccessGranted as staff; those can be real customers.)
+   */
+  function isStaffOrInternalOneTimeAccount(user, adminEmail) {
+    const email = normalizeOneTimeEmail(user?.email);
+    if (adminEmail && email === adminEmail) return true;
+    if (String(user?.role || "").toLowerCase() === "admin") return true;
+    if (user?.admin === true) return true;
+    if (user?.adminOverride === true) return true;
+    if (user?.internalAccessOverride === true) return true;
+    return false;
+  }
+
+  function hasCustomerAccountActivity(user) {
+    return Boolean(user?.signupAt || user?.createdAt || user?.lastLoginAt || user?.lastSeenAt);
+  }
+
+  /**
    * Teaching Kits one-time exclusion bucket (campaign-specific).
    * Returns null when eligible; otherwise a stable exclusion reason key.
+   *
+   * Canonical recipient = active store user with customer activity who is not
+   * staff/internal, not suppressed, and not a test/bounce address. Membership
+   * keys free|pro|founding|early_user|trial|past_due are all customer-facing
+   * (membershipCurrentAccessKey always resolves to one of these for real users).
    */
   function oneTimeExclusionBucket(user, { adminEmail, store } = {}) {
     if (!user) return "inactive";
@@ -1585,7 +1611,8 @@ function createEmailEngagement(deps) {
     }
     const email = normalizeOneTimeEmail(user.email);
     if (!email || !email.includes("@") || looksMalformedEmail(email)) return "invalid";
-    if (adminEmail && email === adminEmail) return "admin";
+    if (isStaffOrInternalOneTimeAccount(user, adminEmail)) return "admin";
+    if (!hasCustomerAccountActivity(user)) return "no_customer_activity";
     const prefs = emailPrefs(user);
     if (prefs.unsubscribedAt) return "unsubscribed";
     if (user?.emailPrefs?.marketing === false) return "marketing_false";
@@ -1598,8 +1625,8 @@ function createEmailEngagement(deps) {
 
   /**
    * Eligible recipients for the Teaching Kits one-time product-update email.
-   * Active free + paid customers only. Dedupes by normalized email.
-   * Returns normalized email strings (first eligible account wins).
+   * Active Free/Paid/Founding/Trial customer accounts (see oneTimeExclusionBucket).
+   * Dedupes by normalized email. Returns normalized email strings (first wins).
    */
   function eligibleOneTimeRecipients(store, options = {}) {
     const adminEmail = normalizeOneTimeEmail(options.adminEmail || getAdminEmail() || "");
@@ -1624,6 +1651,7 @@ function createEmailEngagement(deps) {
     const excluded = {
       inactive: 0,
       admin: 0,
+      no_customer_activity: 0,
       unsubscribed: 0,
       marketing_false: 0,
       test_probe: 0,
@@ -1667,6 +1695,11 @@ function createEmailEngagement(deps) {
         claimedAt: state.claimedAt || "",
         sendStartedAt: state.sendStartedAt || "",
         sendFailedAt: state.sendFailedAt || "",
+        deliveryOutcome: state.deliveryOutcome || "",
+        sentCount: Number(state.sentCount) || 0,
+        failedCount: Number(state.failedCount) || 0,
+        softSkippedCount: Number(state.softSkippedCount) || 0,
+        recipientCount: Number(state.recipientCount) || 0,
         preparedAt: state.preparedAt || "",
         lastAuditAt: state.lastAuditAt || "",
         lastAuditPassed: Boolean(state.lastAuditPassed),
@@ -2147,36 +2180,77 @@ function createEmailEngagement(deps) {
       }
 
       const now = new Date().toISOString();
-      // Stamp completed only after the loop. Claim already prevents concurrent retries.
+      const recipientCount = recipients.length;
+      // Zero actual deliveries must never be recorded as a successful send.
+      const allSuccess = sentCount === recipientCount && failCount === 0 && softSkip === 0;
+      const partialDelivery = sentCount > 0 && sentCount < recipientCount;
+      const providerUnconfigured = sentCount === 0 && softSkip > 0 && failCount === 0;
+      const deliveryFailed = sentCount === 0 && failCount > 0;
+
+      let deliveryOutcome = "delivery_failed";
+      let reason = "delivery_failed";
+      let lockStatus = "failed";
+      let summary = "";
+      if (allSuccess) {
+        deliveryOutcome = "sent";
+        reason = "sent";
+        lockStatus = "sent";
+        summary = `Delivered to all ${recipientCount} recipients.`;
+      } else if (partialDelivery) {
+        deliveryOutcome = "partial_delivery";
+        reason = "partial_delivery";
+        lockStatus = "failed"; // existing compatible status; counts live in campaign state
+        summary = `Partial delivery: ${sentCount}/${recipientCount} sent, ${failCount} failed, ${softSkip} soft-skipped. Claim retained; no automatic retry.`;
+      } else if (providerUnconfigured) {
+        deliveryOutcome = "provider_unconfigured";
+        reason = "provider_unconfigured";
+        lockStatus = "failed";
+        summary = `Provider unconfigured: 0/${recipientCount} delivered (${softSkip} soft-skipped). Not marked sent.`;
+      } else if (deliveryFailed) {
+        deliveryOutcome = "delivery_failed";
+        reason = "delivery_failed";
+        lockStatus = "failed";
+        summary = `Delivery failed: 0/${recipientCount} delivered (${failCount} failed). Not marked sent.`;
+      } else {
+        summary = `No successful deliveries (sent=${sentCount}, failed=${failCount}, softSkipped=${softSkip}). Not marked sent.`;
+      }
+
       eng.settings.oneTimeWelcomeUpdate = {
         ...eng.settings.oneTimeWelcomeUpdate,
-        sentAt: now,
+        // sentAt only on full success — never when sentCount === 0, never on partial.
+        sentAt: allSuccess ? now : "",
         sentCount,
         failedCount: failCount,
-        recipientCount: recipients.length,
+        softSkippedCount: softSkip,
+        recipientCount,
+        deliveryOutcome,
         lastAuditToken: "",
         lastAuditPassed: false,
-        sendFailedAt: "",
-        lastError: "",
+        sendFailedAt: allSuccess ? "" : now,
+        lastError: allSuccess ? "" : summary.slice(0, 500),
       };
       await persistEngagementStore(store);
       await completeEmailCampaignDelivery({
         campaignId: ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
         email: ONE_TIME_CAMPAIGN_LOCK_EMAIL,
-        status: "sent",
+        status: lockStatus,
+        error: allSuccess ? "" : summary.slice(0, 500),
       });
 
       return {
         sent: sentCount,
         failed: failCount,
         softSkipped: softSkip,
-        recipients: recipients.length,
-        skipped: false,
-        reason: sentCount ? "sent" : (softSkip ? "unconfigured" : "no_successful_sends"),
-        sentAt: now,
+        recipients: recipientCount,
+        skipped: !allSuccess,
+        reason,
+        deliveryOutcome,
+        sentAt: allSuccess ? now : "",
         claimedAt,
+        sendFailedAt: allSuccess ? "" : now,
         recurring: false,
         replyTo: replyTo || "",
+        detail: summary,
         details: details.slice(0, 50),
       };
     } catch (err) {
@@ -2184,6 +2258,12 @@ function createEmailEngagement(deps) {
       const message = err?.message || String(err);
       eng.settings.oneTimeWelcomeUpdate = {
         ...eng.settings.oneTimeWelcomeUpdate,
+        sentAt: "",
+        sentCount,
+        failedCount: failCount,
+        softSkippedCount: softSkip,
+        recipientCount: recipients.length,
+        deliveryOutcome: sentCount > 0 ? "partial_delivery" : "delivery_failed",
         sendFailedAt: failAt,
         lastError: message.slice(0, 500),
         // Keep claimedAt — do not allow a second full send after a partial/failed run.
@@ -2201,7 +2281,9 @@ function createEmailEngagement(deps) {
         softSkipped: softSkip,
         recipients: recipients.length,
         skipped: true,
-        reason: "send_failed",
+        reason: sentCount > 0 ? "partial_delivery" : "delivery_failed",
+        deliveryOutcome: sentCount > 0 ? "partial_delivery" : "delivery_failed",
+        sentAt: "",
         claimedAt,
         sendFailedAt: failAt,
         detail: "Campaign claim retained. Partial delivery is not auto-retried.",

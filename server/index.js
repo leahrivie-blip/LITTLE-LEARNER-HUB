@@ -28378,6 +28378,23 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
       jsonResponse(response, 400, { error: "forceResend is unavailable for this campaign.", result });
       return;
     }
+    if (result.reason === "partial_delivery") {
+      jsonResponse(response, 200, {
+        ok: true,
+        partial: true,
+        error: "Partial delivery — campaign claim retained; not marked fully sent. Manual review required.",
+        result,
+      });
+      return;
+    }
+    if (result.reason === "provider_unconfigured" || result.reason === "delivery_failed") {
+      jsonResponse(response, 200, {
+        ok: false,
+        error: result.detail || "One-time send did not deliver. Campaign was not marked sent.",
+        result,
+      });
+      return;
+    }
     jsonResponse(response, 200, { ok: true, result });
   } catch (error) {
     jsonResponse(response, storePersistenceFailureStatus(error), {

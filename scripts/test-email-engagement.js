@@ -752,9 +752,13 @@ async function main() {
           auditToken: auditRes.json.audit.auditToken,
         },
       });
+      // Provider keys are cleared in this suite — zero deliveries must not stamp sentAt.
       assert.equal(sendRes.status, 200, JSON.stringify(sendRes.json));
       assert.ok(sendRes.json.result.recipients >= 2);
       assert.equal(sendRes.json.result.recurring, false);
+      assert.equal(sendRes.json.result.reason, "provider_unconfigured");
+      assert.equal(sendRes.json.result.sentAt || "", "");
+      assert.equal(sendRes.json.ok, false);
 
       const repeat = await request("POST", "/api/admin/email-engagement/send-one-time", {
         body: {

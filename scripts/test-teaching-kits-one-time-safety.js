@@ -10,6 +10,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
+const {
+  createEmailEngagement,
+  defaultEmailEngagementStore,
+  ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
+} = require("../server/email-engagement.js");
 
 function test(name, fn) {
   return Promise.resolve()
@@ -74,6 +79,25 @@ function baseUsers() {
       signupAt: now,
       createdAt: now,
     },
+    "staff@llhprovider.com": {
+      email: "staff@llhprovider.com",
+      accountStatus: "Active",
+      role: "admin",
+      signupAt: now,
+      createdAt: now,
+    },
+    "internal@llhprovider.com": {
+      email: "internal@llhprovider.com",
+      accountStatus: "Active",
+      internalAccessOverride: true,
+      signupAt: now,
+      createdAt: now,
+    },
+    "orphan@llhprovider.com": {
+      email: "orphan@llhprovider.com",
+      accountStatus: "Active",
+      // no signup/created/login activity
+    },
     "disabled@llhprovider.com": {
       email: "disabled@llhprovider.com",
       accountStatus: "Disabled",
@@ -134,6 +158,55 @@ function baseUsers() {
   };
 }
 
+function makeNUsers(n) {
+  const now = new Date().toISOString();
+  const users = {};
+  for (let i = 0; i < n; i += 1) {
+    const email = `user${i}@llhprovider.com`;
+    users[email] = {
+      email,
+      accountStatus: "Active",
+      plan: i % 2 === 0 ? "Free" : "Pro",
+      stripeSubscriptionStatus: i % 2 === 0 ? "" : "active",
+      signupAt: now,
+      createdAt: now,
+    };
+  }
+  return users;
+}
+
+function makeEng({ store, sendEmail, claims, automations = false }) {
+  return createEmailEngagement({
+    sendEmail,
+    SITE_URL: "https://littlelearnershubbyleah.com",
+    htmlEscape: (v) => String(v ?? ""),
+    readStore: () => store,
+    writeStore: (s) => Object.assign(store, s),
+    writeStoreAsync: async (s) => Object.assign(store, s),
+    supportEmailTo: () => "leahrivie@gmail.com",
+    unsubscribeUrlForEmail: (email) => `https://littlelearnershubbyleah.com/unsubscribe?e=${encodeURIComponent(email)}`,
+    getAdminEmail: () => "owner@llhprovider.com",
+    getSupportEmailStatus: () => ({ ready: true, provider: "test", fromConfigured: true }),
+    areAutomationsEnabled: () => automations,
+    ...claims,
+  });
+}
+
+async function auditAndSend(eng, store, adminEmail = "owner@llhprovider.com") {
+  const audit = await eng.runPreflightAudit({
+    store,
+    adminEmail,
+    nodeEnv: "test",
+    allowLocalForTests: true,
+  });
+  assert.equal(audit.auditPassed, true, JSON.stringify(audit.checks, null, 2));
+  return eng.sendOneTimeWelcomeUpdate({
+    auditToken: audit.auditToken,
+    confirm: true,
+    adminEmail,
+  });
+}
+
 async function main() {
   const moduleJs = fs.readFileSync(path.join(ROOT, "server", "email-engagement.js"), "utf8");
   const serverJs = fs.readFileSync(path.join(ROOT, "server", "index.js"), "utf8");
@@ -143,6 +216,9 @@ async function main() {
   assert.match(moduleJs, /campaign_already_claimed/);
   assert.match(moduleJs, /ONE_TIME_CAMPAIGN_LOCK_EMAIL/);
   assert.match(moduleJs, /Does NOT require EMAIL_AUTOMATIONS_ENABLED/);
+  assert.match(moduleJs, /provider_unconfigured/);
+  assert.match(moduleJs, /partial_delivery/);
+  assert.match(moduleJs, /sentAt only on full success/);
   assert.match(serverJs, /preview-one-time/);
   assert.match(serverJs, /supportEmailTo:\s*\(\)\s*=>\s*SUPPORT_EMAIL_TO/);
   assert.match(serverJs, /EMAIL_AUTOMATIONS_ENABLED is intentionally NOT required here/);
@@ -152,30 +228,16 @@ async function main() {
   assert.match(welcomeJs, /proWelcomeSentAt/);
   console.log("PASS  teaching kits safety markers present");
 
-  const {
-    createEmailEngagement,
-    defaultEmailEngagementStore,
-    ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID,
-  } = require("../server/email-engagement.js");
-
-  await test("eligibility excludes inactive/admin/unsub/marketing/test/bounce and dedupes", async () => {
+  await test("eligibility excludes inactive/admin/staff/orphan/unsub/marketing/test/bounce and dedupes", async () => {
     const store = {
       users: baseUsers(),
       emailEngagement: defaultEmailEngagementStore(),
     };
     const claims = makeClaimHelpers();
-    const eng = createEmailEngagement({
+    const eng = makeEng({
+      store,
       sendEmail: async () => ({ sent: true, configured: true, provider: "test" }),
-      SITE_URL: "https://littlelearnershubbyleah.com",
-      htmlEscape: (v) => String(v ?? ""),
-      readStore: () => store,
-      writeStore: (s) => Object.assign(store, s),
-      writeStoreAsync: async (s) => Object.assign(store, s),
-      supportEmailTo: () => "leahrivie@gmail.com",
-      unsubscribeUrlForEmail: (email) => `https://littlelearnershubbyleah.com/unsubscribe?e=${encodeURIComponent(email)}`,
-      getAdminEmail: () => "owner@llhprovider.com",
-      areAutomationsEnabled: () => false,
-      ...claims,
+      claims,
     });
     const recipients = eng.eligibleOneTimeRecipients(store, { adminEmail: "owner@llhprovider.com" });
     assert.deepEqual(recipients.sort(), ["free@llhprovider.com", "paid@llhprovider.com"].sort());
@@ -184,7 +246,8 @@ async function main() {
     assert.equal(preview.automationsEnabled, false);
     assert.equal(preview.preview.eligibleUniqueRecipients, 2);
     assert.ok(preview.preview.excluded.inactive >= 3);
-    assert.equal(preview.preview.excluded.admin, 1);
+    assert.ok(preview.preview.excluded.admin >= 3, "admin email + role=admin + internalAccessOverride");
+    assert.ok(preview.preview.excluded.no_customer_activity >= 1);
     assert.equal(preview.preview.excluded.unsubscribed, 1);
     assert.equal(preview.preview.excluded.marketing_false, 1);
     assert.ok(preview.preview.excluded.test_probe >= 1);
@@ -257,6 +320,8 @@ async function main() {
       adminEmail: "owner@llhprovider.com",
     });
     assert.equal(sent.skipped, false, JSON.stringify(sent));
+    assert.equal(sent.reason, "sent");
+    assert.equal(sent.deliveryOutcome, "sent");
     assert.equal(sent.sent, 2);
     assert.equal(sends.length, 2);
     for (const payload of sends) {
@@ -264,7 +329,136 @@ async function main() {
       assert.match(String(payload.listUnsubscribeUrl || ""), /unsubscribe/);
     }
     assert.ok(store.emailEngagement.settings.oneTimeWelcomeUpdate.sentAt);
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.deliveryOutcome, "sent");
     assert.ok(store.emailEngagement.settings.oneTimeWelcomeUpdate.claimedAt);
+  });
+
+  await test("10/10 sent stamps sentAt and lock status sent", async () => {
+    const store = {
+      users: makeNUsers(10),
+      messages: [],
+      supportTickets: [],
+      featureRequests: [],
+      bugReports: [],
+      feedbackItems: [],
+      notifications: [],
+      emailEngagement: defaultEmailEngagementStore(),
+    };
+    const claims = makeClaimHelpers();
+    const eng = makeEng({
+      store,
+      sendEmail: async () => ({ sent: true, configured: true, provider: "test" }),
+      claims,
+    });
+    const result = await auditAndSend(eng, store);
+    assert.equal(result.reason, "sent");
+    assert.equal(result.sent, 10);
+    assert.ok(result.sentAt);
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.sentAt, result.sentAt);
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.deliveryOutcome, "sent");
+    const lock = claims.deliveries.get(`${ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID}:__campaign_lock__`);
+    assert.equal(lock.status, "sent");
+  });
+
+  await test("5/10 partial delivery retains claim and does not stamp sentAt", async () => {
+    let i = 0;
+    const store = {
+      users: makeNUsers(10),
+      messages: [],
+      supportTickets: [],
+      featureRequests: [],
+      bugReports: [],
+      feedbackItems: [],
+      notifications: [],
+      emailEngagement: defaultEmailEngagementStore(),
+    };
+    const claims = makeClaimHelpers();
+    const eng = makeEng({
+      store,
+      sendEmail: async () => {
+        i += 1;
+        if (i <= 5) return { sent: true, configured: true, provider: "test" };
+        return { sent: false, configured: true, provider: "test", error: "provider_reject" };
+      },
+      claims,
+    });
+    const result = await auditAndSend(eng, store);
+    assert.equal(result.reason, "partial_delivery");
+    assert.equal(result.deliveryOutcome, "partial_delivery");
+    assert.equal(result.sent, 5);
+    assert.equal(result.failed, 5);
+    assert.equal(result.sentAt || "", "");
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.sentAt || "", "");
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.sentCount, 5);
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.failedCount, 5);
+    assert.ok(store.emailEngagement.settings.oneTimeWelcomeUpdate.claimedAt);
+    assert.ok(store.emailEngagement.settings.oneTimeWelcomeUpdate.sendFailedAt);
+    const lock = claims.deliveries.get(`${ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID}:__campaign_lock__`);
+    assert.equal(lock.status, "failed");
+
+    const again = await eng.sendOneTimeWelcomeUpdate({
+      auditToken: "anything",
+      confirm: true,
+      adminEmail: "owner@llhprovider.com",
+    });
+    assert.equal(again.reason, "campaign_already_claimed");
+  });
+
+  await test("0/10 provider unconfigured does not stamp sentAt", async () => {
+    const store = {
+      users: makeNUsers(10),
+      messages: [],
+      supportTickets: [],
+      featureRequests: [],
+      bugReports: [],
+      feedbackItems: [],
+      notifications: [],
+      emailEngagement: defaultEmailEngagementStore(),
+    };
+    const claims = makeClaimHelpers();
+    const eng = makeEng({
+      store,
+      sendEmail: async () => ({ sent: false, configured: false, provider: "not configured" }),
+      claims,
+    });
+    const result = await auditAndSend(eng, store);
+    assert.equal(result.reason, "provider_unconfigured");
+    assert.equal(result.deliveryOutcome, "provider_unconfigured");
+    assert.equal(result.sent, 0);
+    assert.equal(result.softSkipped, 10);
+    assert.equal(result.sentAt || "", "");
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.sentAt || "", "");
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.deliveryOutcome, "provider_unconfigured");
+    const lock = claims.deliveries.get(`${ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID}:__campaign_lock__`);
+    assert.equal(lock.status, "failed");
+  });
+
+  await test("0/10 all provider failures does not stamp sentAt", async () => {
+    const store = {
+      users: makeNUsers(10),
+      messages: [],
+      supportTickets: [],
+      featureRequests: [],
+      bugReports: [],
+      feedbackItems: [],
+      notifications: [],
+      emailEngagement: defaultEmailEngagementStore(),
+    };
+    const claims = makeClaimHelpers();
+    const eng = makeEng({
+      store,
+      sendEmail: async () => ({ sent: false, configured: true, provider: "test", error: "boom" }),
+      claims,
+    });
+    const result = await auditAndSend(eng, store);
+    assert.equal(result.reason, "delivery_failed");
+    assert.equal(result.deliveryOutcome, "delivery_failed");
+    assert.equal(result.sent, 0);
+    assert.equal(result.failed, 10);
+    assert.equal(result.sentAt || "", "");
+    assert.equal(store.emailEngagement.settings.oneTimeWelcomeUpdate.sentAt || "", "");
+    const lock = claims.deliveries.get(`${ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID}:__campaign_lock__`);
+    assert.equal(lock.status, "failed");
   });
 
   await test("concurrent confirmed sends allow only one campaign claim", async () => {
@@ -332,6 +526,7 @@ async function main() {
     releaseSend();
     const first = await p1;
     assert.equal(first.skipped, false);
+    assert.equal(first.reason, "sent");
     assert.equal(first.sent, 1);
     assert.equal(sends.length, 1);
     const lock = claims.deliveries.get(`${ONE_TIME_WELCOME_UPDATE_CAMPAIGN_ID}:__campaign_lock__`);
