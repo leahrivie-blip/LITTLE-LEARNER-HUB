@@ -3,10 +3,11 @@
  * Usage: node -r ./scripts/mock-pg-preload.js server/index.js
  *
  * Optional env:
- *   MOCK_PG_CONTROL_PATH — JSON file { failNextConflictUpserts, failAllConflictUpserts, emitIdleError }
+ *   MOCK_PG_CONTROL_PATH — JSON file control flags (see readControl)
  *   MOCK_PG_STATUS_PATH  — written after each query with attempt/success counters
  */
 const fs = require("fs");
+const { EventEmitter } = require("events");
 const Module = require("module");
 const originalRequire = Module.prototype.require;
 
@@ -26,6 +27,10 @@ const state = {
   bootstrapInserts: 0,
   idleErrorsEmitted: 0,
   poolErrorHandlers: 0,
+  checkedOutClientErrorsEmitted: 0,
+  clientsReleasedWithError: 0,
+  maxSimultaneousCheckedOut: 0,
+  activeCheckedOut: 0,
 };
 
 global.__LLH_MOCK_PG__ = state;
@@ -57,9 +62,13 @@ function writeStatus() {
         {
           ...state,
           // Avoid dumping the full store blob into status files.
+          store: undefined,
           storeLessonCount: state.store?.siteContent?.curriculum?.lessonPlans?.length || 0,
           storeUpdatedAt: state.store?.siteContent?.updatedAt || "",
           storeUserCount: Object.keys(state.store?.users || {}).length,
+          lastWritePayloadBytes: state.writes.length
+            ? state.writes[state.writes.length - 1].payloadBytes || 0
+            : 0,
         },
         null,
         2,
@@ -100,6 +109,46 @@ function maybeEmitIdleError(pool) {
   writeStatus();
 }
 
+function createMockClient(pool) {
+  const client = new EventEmitter();
+  client._queryable = true;
+  client._ending = false;
+  client._released = false;
+
+  client.query = async (sql, params = []) => {
+    const ctrl = readControl();
+    // Simulate SIGKILL of an in-flight checked-out backend: emit Client 'error'
+    // AND reject the query — mirrors production pg behavior that crashed Node.
+    if (ctrl.killNextCheckedOutQuery) {
+      ctrl.killNextCheckedOutQuery = false;
+      writeControl(ctrl);
+      state.checkedOutClientErrorsEmitted += 1;
+      const err = new Error("Connection terminated unexpectedly");
+      err.code = "ECONNRESET";
+      writeStatus();
+      queueMicrotask(() => {
+        client.emit("error", err);
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+      throw err;
+    }
+    if (ctrl.delayConflictUpsertMs && String(sql || "").includes("ON CONFLICT")) {
+      await new Promise((resolve) => setTimeout(resolve, Number(ctrl.delayConflictUpsertMs) || 0));
+    }
+    return pool._runQuery(sql, params);
+  };
+
+  client.release = (err) => {
+    if (client._released) return;
+    client._released = true;
+    state.activeCheckedOut = Math.max(0, state.activeCheckedOut - 1);
+    if (err) state.clientsReleasedWithError += 1;
+    writeStatus();
+  };
+
+  return client;
+}
+
 Module.prototype.require = function mockPgRequire(id) {
   if (id === "pg") {
     return {
@@ -119,17 +168,17 @@ Module.prototype.require = function mockPgRequire(id) {
           return this;
         }
 
-        connect() {
-          const pool = this;
-          return {
-            async query(sql, params = []) {
-              return pool.query(sql, params);
-            },
-            release() {},
-          };
+        async connect() {
+          const client = createMockClient(this);
+          state.activeCheckedOut += 1;
+          if (state.activeCheckedOut > state.maxSimultaneousCheckedOut) {
+            state.maxSimultaneousCheckedOut = state.activeCheckedOut;
+          }
+          writeStatus();
+          return client;
         }
 
-        async query(sql, params = []) {
+        async _runQuery(sql, params = []) {
           if (this.ended) {
             const err = new Error("Cannot use a pool after calling end on the pool");
             err.code = "ECONNRESET";
@@ -173,8 +222,12 @@ Module.prototype.require = function mockPgRequire(id) {
             const ctrl = readControl();
             if (ctrl.failAllSelects || ctrl.failAllQueries) {
               writeStatus();
-              const err = new Error("Connection terminated unexpectedly");
-              err.code = "ECONNRESET";
+              const err = new Error(
+                ctrl.failWithNotAccepting
+                  ? "the database system is not yet accepting connections"
+                  : "Connection terminated unexpectedly",
+              );
+              err.code = ctrl.failWithNotAccepting ? "57P03" : "ECONNRESET";
               throw err;
             }
             if (text.includes("SELECT 1")) {
@@ -186,9 +239,9 @@ Module.prototype.require = function mockPgRequire(id) {
             if (state.store) return { rows: [{ data: state.store }] };
             return { rows: [] };
           }
-          if (text.includes("INSERT INTO llh_store")) {
-            const isConflictUpsert = text.includes("ON CONFLICT");
-            if (isConflictUpsert) {
+          if (text.includes("INSERT INTO llh_store") || text.includes("UPDATE llh_store")) {
+            const isConflictUpsert = text.includes("ON CONFLICT") || text.includes("jsonb_set");
+            if (text.includes("INSERT INTO llh_store") && text.includes("ON CONFLICT")) {
               state.conflictUpsertAttempts += 1;
               if (shouldFailConflictUpsert()) {
                 state.conflictUpsertFailures += 1;
@@ -197,26 +250,65 @@ Module.prototype.require = function mockPgRequire(id) {
                 err.code = "ECONNRESET";
                 throw err;
               }
-            } else {
+            } else if (text.includes("INSERT INTO llh_store")) {
               state.bootstrapInserts += 1;
             }
             await new Promise((resolve) => setTimeout(resolve, state.queryDelayMs));
-            const data = typeof params[1] === "string" ? JSON.parse(params[1]) : params[1];
-            state.store = data;
+            let data = state.store;
+            let payloadBytes = 0;
+            if (text.includes("INSERT INTO llh_store")) {
+              data = typeof params[1] === "string" ? JSON.parse(params[1]) : params[1];
+              payloadBytes = typeof params[1] === "string"
+                ? Buffer.byteLength(params[1], "utf8")
+                : Buffer.byteLength(JSON.stringify(params[1] || {}), "utf8");
+              state.store = data;
+            }
             state.writes.push({
               at: Date.now(),
-              conflictUpsert: isConflictUpsert,
+              conflictUpsert: Boolean(text.includes("ON CONFLICT")),
               hasCurriculum: Boolean(data?.siteContent?.curriculum?.lessonPlans?.length),
               lessonCount: data?.siteContent?.curriculum?.lessonPlans?.length || 0,
               updatedAt: data?.siteContent?.updatedAt || "",
               analyticsCount: (data?.analyticsEvents || []).length,
+              payloadBytes,
             });
-            if (isConflictUpsert) state.conflictUpsertSuccesses += 1;
+            if (text.includes("ON CONFLICT")) state.conflictUpsertSuccesses += 1;
             writeStatus();
             return { rows: [] };
           }
           writeStatus();
           return { rows: [] };
+        }
+
+        async query(sql, params = []) {
+          // Mirror pg-pool: attach a temporary error listener on the checked-out client.
+          const client = await this.connect();
+          return new Promise((resolve, reject) => {
+            let settled = false;
+            const onError = (err) => {
+              if (settled) return;
+              settled = true;
+              client.release(err);
+              reject(err);
+            };
+            client.once("error", onError);
+            client.query(sql, params).then(
+              (res) => {
+                if (settled) return;
+                settled = true;
+                client.removeListener("error", onError);
+                client.release();
+                resolve(res);
+              },
+              (err) => {
+                if (settled) return;
+                settled = true;
+                client.removeListener("error", onError);
+                client.release(err);
+                reject(err);
+              },
+            );
+          });
         }
 
         async end() {
