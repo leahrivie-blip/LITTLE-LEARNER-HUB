@@ -399,6 +399,13 @@ async function verifyLessonFlow(page, meta, before, label) {
     `${label}: linked resource unchanged after draft save`,
   );
 
+  await page.evaluate(async () => {
+    const api = window.LLHTeachingKitEnrichmentEditor;
+    if (api && typeof api.close === "function") await api.close({ force: true });
+    document.body.classList.remove("tk-enrich-open", "tk-editor-focused");
+  }).catch(() => {});
+  await page.waitForTimeout(150);
+
   return { bookTitle, songTitle, ideaTitle };
 }
 
