@@ -1,0 +1,72 @@
+{
+  "appliedAt": "2026-08-12T02:30:45.106Z",
+  "storePath": "/workspace/server/data/launch-store.json",
+  "backupPath": "/workspace/server/data/launch-store.json.bak-premium-tk-drafts-1786501845106",
+  "draftOnly": true,
+  "published": false,
+  "results": [
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "ok": true,
+      "enrichmentDraft": true,
+      "printableIds": [
+        "cur-res-draft-color-gaze-cards",
+        "cur-res-draft-color-talk-guide"
+      ],
+      "previousLessonStatus": "published",
+      "lessonStatus": "draft",
+      "enrichmentPublishedPresent": false,
+      "publishedEnrichmentTouched": false
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "ok": true,
+      "enrichmentDraft": true,
+      "printableIds": [
+        "cur-res-draft-bw-contrast-cards",
+        "cur-res-draft-bw-tummy-strip"
+      ],
+      "previousLessonStatus": "published",
+      "lessonStatus": "draft",
+      "enrichmentPublishedPresent": false,
+      "publishedEnrichmentTouched": false
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "ok": true,
+      "enrichmentDraft": true,
+      "printableIds": [
+        "cur-res-draft-helper-cards",
+        "cur-res-draft-helper-signs"
+      ],
+      "previousLessonStatus": "published",
+      "lessonStatus": "draft",
+      "enrichmentPublishedPresent": false,
+      "publishedEnrichmentTouched": false
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "ok": true,
+      "enrichmentDraft": true,
+      "printableIds": [
+        "cur-res-draft-weather-symbols",
+        "cur-res-draft-weather-chart",
+        "cur-res-draft-weather-clothing"
+      ],
+      "previousLessonStatus": "published",
+      "lessonStatus": "draft",
+      "enrichmentPublishedPresent": false,
+      "publishedEnrichmentTouched": false
+    }
+  ],
+  "verificationIssues": [],
+  "guarantees": {
+    "publishEnrichmentCalled": false,
+    "newPrintablesStatus": "draft",
+    "enrichmentChannel": "enrichmentDraft"
+  }
+}

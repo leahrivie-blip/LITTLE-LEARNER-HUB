@@ -1,0 +1,1508 @@
+{
+  "updatedAt": "2026-08-12T02:29:23.904Z",
+  "lastEditedBy": "premium-draft-upgrade@littlelearnershub.local",
+  "previewReady": true,
+  "draftOnly": true,
+  "neverAutoPublish": true,
+  "activities": {
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-monday-1": {
+      "title": "Bright Scarf Slow Track",
+      "dayOfWeek": "monday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+      "durationMinutes": 4,
+      "objective": "Support slow visual tracking with a bright moving scarf.",
+      "description": "Baby watches a large bright scarf move slowly across their view while you name the color in a calm voice.",
+      "materials": "1–2 large bright scarves\nFloor mat",
+      "preparation": "Choose one high-contrast bright color\nClear visual clutter behind you",
+      "setup": "Place baby comfortably on back or supported side on a mat.",
+      "steps": "1. Settle baby and gain eye contact first\n2. Hold scarf about 8–12 inches away\n3. Move slowly left, pause, then right\n4. Name the color once or twice\n5. Stop when baby looks away",
+      "teacherLanguage": "Look… see the bright red? Watching… watching.",
+      "observationOpportunities": "Tracks scarf briefly; stays calm while looking.",
+      "safetyNotes": "Keep scarf away from face/neck; never leave draped on baby.",
+      "cleanupTips": "Bag scarves after mouthing contact.",
+      "teacherTips": [
+        "Slower than you think — pause when eyes lock on."
+      ],
+      "substitutions": [
+        {
+          "need": "scarf",
+          "use": "large solid-color cloth napkin"
+        }
+      ],
+      "observationPrompts": [
+        "Tracks scarf briefly; stays calm while looking."
+      ],
+      "vocabulary": [
+        "look",
+        "see",
+        "bright",
+        "red"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Caregiver kneeling on mat holding one bright scarf 8–12 inches from infant on back.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/bright-scarf-slow-track-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-monday-2": {
+      "title": "Colorful Tummy Time Look",
+      "dayOfWeek": "monday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Infant 0–6 months (use chest-to-chest for very young infants)",
+      "durationMinutes": 3,
+      "objective": "Encourage head lifting during awake tummy time with a colorful visual anchor.",
+      "description": "During supervised tummy time, a bright toy or cloth sits in view to invite looking and brief head lifts.",
+      "materials": "Tummy-time mat\n1 large bright toy or cloth\nOptional support roll",
+      "preparation": "Place colorful item at eye level in front of baby\nSet timer mindset for short bursts",
+      "setup": "Awake baby on tummy on firm mat; colorful item in front.",
+      "steps": "1. Place baby on tummy when alert\n2. Set bright item in easy view\n3. Get face-to-face beside baby and talk\n4. Celebrate any head lift or looking\n5. Return to back for rest as needed",
+      "teacherLanguage": "You are looking! Bright yellow is right here.",
+      "observationOpportunities": "Lifts head briefly; looks toward colorful item.",
+      "safetyNotes": "Tummy time only when awake and supervised. Back to sleep.",
+      "cleanupTips": "Wipe mat and toy.",
+      "teacherTips": [
+        "Chest-to-chest counts as tummy time for newborns."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Lifts head briefly; looks toward colorful item."
+      ],
+      "vocabulary": [
+        "look",
+        "up",
+        "yellow"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Infant on tummy on mat with one large bright toy at eye level; caregiver face nearby.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/colorful-tummy-time-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-monday-3": {
+      "title": "Face-to-Face Color Talk",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Connect caregiver face (best early visual target) with a simple color prop.",
+      "description": "You hold baby close, smile, and slowly show one bright cloth while talking. Faces stay the main focus.",
+      "materials": "One bright cloth\nComfortable seating",
+      "preparation": "Sit where light falls on your face, not in baby’s eyes",
+      "setup": "Hold baby 8–12 inches from your face with cloth nearby.",
+      "steps": "1. Gain eye contact and smile\n2. Show cloth beside your face briefly\n3. Name the color in a soft voice\n4. Hide cloth and return to face play\n5. End with a cuddle",
+      "teacherLanguage": "Hi! I see you. Here is soft blue.",
+      "observationOpportunities": "Looks at face; glances toward cloth.",
+      "safetyNotes": "Support head/neck; stop if baby turns away.",
+      "cleanupTips": "Set cloth aside for wash if mouthed.",
+      "teacherTips": [
+        "Face first, prop second — never replace interaction with objects."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks at face; glances toward cloth."
+      ],
+      "vocabulary": [
+        "hi",
+        "see",
+        "blue"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-tuesday-1": {
+      "title": "One-Color Slow Track",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Practice tracking with a single bold color to reduce visual overload.",
+      "description": "Baby watches one solid-color scarf move slowly while you pause for focus.",
+      "materials": "One solid bright scarf\nMat\nSupport pillow if needed",
+      "preparation": "Remove other bright toys from view",
+      "setup": "Baby on back or side; one scarf only.",
+      "steps": "1. Show still scarf first\n2. Move slowly side to side\n3. Pause when baby fixates\n4. Name color once\n5. Rest",
+      "teacherLanguage": "Red… watching red.",
+      "observationOpportunities": "Fixates; tracks briefly.",
+      "safetyNotes": "Arm’s reach; no scarf near neck.",
+      "cleanupTips": "Bag scarf as needed.",
+      "teacherTips": [
+        "One color beats a rainbow pile for young infants."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Fixates; tracks briefly."
+      ],
+      "vocabulary": [
+        "red",
+        "watch"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-tuesday-2": {
+      "title": "Color Lap Bounce Song",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Pair gentle rhythm and voice with a simple color prop.",
+      "description": "Baby is held securely while you hum/sing and show a soft colored cloth with tiny bounces.",
+      "materials": "Soft colored cloth\nChair\nYour voice",
+      "preparation": "Choose a calm short song phrase",
+      "setup": "Sit with baby well supported in arms.",
+      "steps": "1. Settle baby in arms\n2. Show cloth\n3. Sing a short color phrase\n4. Add tiny responsive bounces\n5. Stillness and smile to close",
+      "teacherLanguage": "Bounce, bounce — soft yellow with you.",
+      "observationOpportunities": "Settles to voice; glances at cloth.",
+      "safetyNotes": "Support head; keep bounce tiny.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Match bounce to baby’s state — calm babies need almost no bounce."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Settles to voice; glances at cloth."
+      ],
+      "vocabulary": [
+        "soft",
+        "yellow",
+        "sing"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-tuesday-3": {
+      "title": "Color Board Book Together",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Share a brief board-book look with face-to-face connection.",
+      "description": "You hold a color board book where baby can see pages and your face, staying on 1–2 pages.",
+      "materials": "Color board book\nLap or mat",
+      "preparation": "Pre-pick one bright page",
+      "setup": "Lap hold or tummy-to-tummy with book angled toward baby.",
+      "steps": "1. Show cover briefly\n2. Open to one bright page\n3. Point near the color shape\n4. Name color slowly\n5. Close with smile",
+      "teacherLanguage": "This page is bright green. Looking together.",
+      "observationOpportunities": "Looks at page; looks back at caregiver.",
+      "safetyNotes": "Board books only; no paper tears near mouth unsupervised.",
+      "cleanupTips": "Wipe book if mouthed.",
+      "teacherTips": [
+        "Stopping early is success."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks at page; looks back at caregiver."
+      ],
+      "vocabulary": [
+        "book",
+        "green",
+        "page"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-wednesday-1": {
+      "title": "Soft Color Reach",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Fine Motor",
+      "ageModifications": "Best for ~3–6 months; younger infants may only look",
+      "durationMinutes": 4,
+      "objective": "Invite reaching toward a large soft colorful toy when ready.",
+      "description": "A large yellow (or bright) rattle sits just within reach during supervised floor time. Younger babies may only look.",
+      "materials": "Large soft colorful rattle\nMat",
+      "preparation": "Check toy is mouth-safe and too large to choke",
+      "setup": "Baby on back; toy held or propped within swipe range.",
+      "steps": "1. Gain attention on toy\n2. Hold steady within reach\n3. Allow bat/reach attempts\n4. Celebrate any contact\n5. Offer grasp help only if baby is ready",
+      "teacherLanguage": "Can you reach the bright rattle?",
+      "observationOpportunities": "Bats or reaches; brings hands toward midline.",
+      "safetyNotes": "No small parts; sanitize after mouthing.",
+      "cleanupTips": "Sanitize rattle.",
+      "teacherTips": [
+        "If no reach yet, keep as a looking toy — still valuable."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Bats or reaches; brings hands toward midline."
+      ],
+      "vocabulary": [
+        "reach",
+        "hold",
+        "yellow"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Infant on back reaching toward large yellow rattle held by caregiver.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/soft-color-reach-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-wednesday-2": {
+      "title": "Tummy Color Mirror Look",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Combine tummy time with mirror looking and a color accent.",
+      "description": "Baby does short tummy time facing a baby-safe mirror with one colorful cloth beside it.",
+      "materials": "Baby-safe mirror\nBright cloth\nMat",
+      "preparation": "Angle mirror for baby’s face view",
+      "setup": "Mirror at edge of mat; cloth to the side — not covering mirror.",
+      "steps": "1. Place baby on tummy\n2. Point to baby’s face in mirror\n3. Show cloth briefly beside mirror\n4. Talk about looking\n5. Rest on back",
+      "teacherLanguage": "I see you! And soft blue beside you.",
+      "observationOpportunities": "Looks at mirror; lifts head.",
+      "safetyNotes": "Unbreakable mirror only; supervised.",
+      "cleanupTips": "Wipe mirror.",
+      "teacherTips": [
+        "Your face beside the mirror beats any toy."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks at mirror; lifts head."
+      ],
+      "vocabulary": [
+        "see",
+        "you",
+        "blue"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Tummy-time mat with baby-safe mirror and one bright cloth at side.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/tummy-color-mirror-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-wednesday-3": {
+      "title": "Color Cloth Touch Basket",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months (older may grasp cloths)",
+      "durationMinutes": 4,
+      "objective": "Explore soft colorful cloths with eyes and hands under supervision.",
+      "description": "A shallow basket holds 2–3 large soft colored cloths. Baby looks and may touch while you narrate.",
+      "materials": "Shallow basket\n2–3 large soft cloths",
+      "preparation": "Use only oversized cloths\nLimit to 2–3 colors",
+      "setup": "Basket near baby on mat; you seated close.",
+      "steps": "1. Show one cloth from basket\n2. Drape lightly on your hand for baby to see/touch\n3. Name color and texture\n4. Offer second cloth if interested\n5. Put cloths away before baby tires",
+      "teacherLanguage": "Soft red cloth. Touch gently.",
+      "observationOpportunities": "Looks; touches; shows preference.",
+      "safetyNotes": "Never cover baby’s face; prevent bundling/entanglement.",
+      "cleanupTips": "Wash cloths after group use.",
+      "teacherTips": [
+        "Less is more — two cloths often beat five."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks; touches; shows preference."
+      ],
+      "vocabulary": [
+        "soft",
+        "touch",
+        "red"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Shallow basket with 2–3 bright cloths beside infant on mat.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/color-cloth-basket-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-thursday-1": {
+      "title": "Soft Color Texture Mitts",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Offer safe textured color mitts for looking and gentle touch.",
+      "description": "You wear or hold a soft textured mitt in a bright color and invite baby to look and pat.",
+      "materials": "Washable textured mitt or cloth square with sewn texture\nMat",
+      "preparation": "Inspect seams; no loose bits",
+      "setup": "Sit facing baby with mitt on your hand.",
+      "steps": "1. Show mitt still\n2. Move slowly into view\n3. Allow touch on mitt (not face covering)\n4. Name color and feel (soft/bumpy)\n5. Remove if overstimulating",
+      "teacherLanguage": "Bumpy blue. Soft touch.",
+      "observationOpportunities": "Touches mitt; watches movement.",
+      "safetyNotes": "Secure all parts; sanitize; no detachable decorations.",
+      "cleanupTips": "Wash mitts daily if shared.",
+      "teacherTips": [
+        "Your paced presentation matters more than the mitt design."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Touches mitt; watches movement."
+      ],
+      "vocabulary": [
+        "soft",
+        "bumpy",
+        "blue"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "optional",
+      "imageBriefSetup": "Caregiver hand with bright textured mitt near infant’s hands.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/texture-mitts-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-thursday-2": {
+      "title": "Color Hello with Caregiver",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Use a short greeting song with a color prop to support social connection.",
+      "description": "Each baby gets a personal hello while you show a color cloth and sing a brief greeting.",
+      "materials": "Color cloth\nYour voice",
+      "preparation": "Learn Color Hello Song lines",
+      "setup": "Hold or sit with one baby at a time.",
+      "steps": "1. Make eye contact\n2. Show cloth\n3. Sing hello with color word\n4. Pause for baby response\n5. Kiss or cuddle close",
+      "teacherLanguage": "Hello blue — hello you!",
+      "observationOpportunities": "Smiles/coos; tracks cloth during hello.",
+      "safetyNotes": "Support head during holds.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "One baby at a time beats a group performance."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Smiles/coos; tracks cloth during hello."
+      ],
+      "vocabulary": [
+        "hello",
+        "you",
+        "blue"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-thursday-3": {
+      "title": "Soft Color Sway Hold",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Provide gentle vestibular movement while baby looks at a color scarf.",
+      "description": "Holding baby securely, you sway side to side while a green scarf stays in view.",
+      "materials": "Bright scarf\nClear floor space",
+      "preparation": "Ensure footing is clear",
+      "setup": "Stand or sit with baby held upright/supported.",
+      "steps": "1. Hold baby securely\n2. Show scarf in view\n3. Sway slowly left/right\n4. Name color softly\n5. Stillness to finish",
+      "teacherLanguage": "Sway… green… sway.",
+      "observationOpportunities": "Calms or alerts to movement; looks at scarf.",
+      "safetyNotes": "Two-hand secure hold; no spinning or dipping.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Match sway to breathing; stop if baby startles."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Calms or alerts to movement; looks at scarf."
+      ],
+      "vocabulary": [
+        "sway",
+        "green"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-friday-1": {
+      "title": "Color Song Cuddle",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 4,
+      "objective": "Close the week with a calm color song and cuddle.",
+      "description": "Babies are held or sit supported while you sing the original Look at the Bright Color song with one cloth.",
+      "materials": "Soft cloth\nQuiet corner",
+      "preparation": "Dim busy noise if possible",
+      "setup": "Cuddle position with cloth ready.",
+      "steps": "1. Settle in cuddle\n2. Show cloth\n3. Sing short original song\n4. Pause for coos\n5. Quiet hold",
+      "teacherLanguage": "Look, look, see the bright color.",
+      "observationOpportunities": "Settles; vocalizes; watches cloth.",
+      "safetyNotes": "Safe hold; no crowding.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Repetition across the week builds familiarity."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Settles; vocalizes; watches cloth."
+      ],
+      "vocabulary": [
+        "look",
+        "bright",
+        "color"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-friday-2": {
+      "title": "Favorite Color Page Replay",
+      "dayOfWeek": "friday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Replay a page babies noticed earlier in the week.",
+      "description": "Return to one favorite bright board-book page and enjoy a short second look.",
+      "materials": "Familiar color board book",
+      "preparation": "Mark the page babies liked",
+      "setup": "Lap reading position.",
+      "steps": "1. Open to favorite page\n2. Point and name color\n3. Wait for looking\n4. Turn away and back once (simple peek)\n5. Close warmly",
+      "teacherLanguage": "This was our favorite bright page!",
+      "observationOpportunities": "Shows recognition interest; stays engaged briefly.",
+      "safetyNotes": "Board book only.",
+      "cleanupTips": "Wipe if mouthed.",
+      "teacherTips": [
+        "Preference is data — reuse what worked."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Shows recognition interest; stays engaged briefly."
+      ],
+      "vocabulary": [
+        "favorite",
+        "page",
+        "again"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-friday-3": {
+      "title": "Shaded Color Stroll",
+      "dayOfWeek": "friday",
+      "activityCategory": "Outdoor Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 8,
+      "objective": "Notice real-world colors outdoors with caregiver pointing and talk.",
+      "description": "In shade, you stroll or sit outdoors and point to large colorful things (flowers, balls, clothing) while narrating.",
+      "materials": "Stroller or outdoor blanket\nSun protection as needed",
+      "preparation": "Check UV/shade and temperature",
+      "setup": "Shaded route or blanket spot.",
+      "steps": "1. Settle baby facing out or toward you\n2. Point to one colorful object\n3. Name color and object\n4. Pause for looking\n5. Return indoors before overstimulation/heat",
+      "teacherLanguage": "See the yellow flower? Bright outside.",
+      "observationOpportunities": "Looks toward pointed object; stays content outdoors.",
+      "safetyNotes": "Shade, hydration for adults, never leave stroller unattended; follow safe sleep if nap begins.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "One or two pointed objects beat a tour."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks toward pointed object; stays content outdoors."
+      ],
+      "vocabulary": [
+        "outside",
+        "see",
+        "yellow"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    }
+  },
+  "week": {
+    "weeklyOverview": "This week focuses on looking, tracking, reaching, and warm caregiver talk with bright colors — not naming drills or crafts. Younger infants mostly look and listen; older infants may reach and grasp when ready.",
+    "objectives": "Support visual attention and slow tracking with bright, simple materials\nOffer supervised tummy-time looking with colorful anchors\nEncourage reaching/grasping only when developmentally ready\nBuild connection through face-to-face talk and short songs\nShare brief, visually clear board-book moments",
+    "weeklyMaterials": "Large bright scarves (chiffon or soft fabric)\nSoft colored cloth squares (too large to choke)\nBaby-safe mirror\nLarge soft colored rattles/balls\nTummy-time mat\nSimple color board books\nSupport pillow/roll for positioning",
+    "familyConnection": "Invite families to name one bright color during a diaper change or walk — keep it playful, not a quiz.",
+    "adaptations": "Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.",
+    "vocabularyWords": "look\nsee\nbright\nred\nblue\nyellow\ngreen\nsoft\nreach\nwatch",
+    "teacherPreparation": "Sanitize cloths/rattles and set a calm floor space\nChoose 2–3 bright colors for the day (avoid clutter)\nPlan short bursts (1–5 minutes) between care routines",
+    "fieldOwnership": {
+      "objectives": true,
+      "weeklyOverview": true,
+      "weeklyMaterials": true,
+      "familyConnection": true
+    },
+    "proposedDailyPlans": {
+      "monday": {
+        "theme": "Looking at Bright Colors",
+        "focus": "",
+        "objectives": "Practice slow visual tracking with scarves\nOffer colorful tummy-time looking\nConnect face-to-face with color talk",
+        "learningDomains": [
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Large bright scarves (chiffon or soft fabric)\nSoft colored cloth squares (too large to choke)\nBaby-safe mirror\nLarge soft colored rattles/balls\nTummy-time mat\nSimple color board books\nSupport pillow/roll for positioning",
+        "vocabulary": "look\nsee\nbright\nred\nblue\nyellow\ngreen\nsoft\nreach\nwatch",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Soft welcome song",
+          "Show one bright cloth and smile",
+          "Keep circle under 3 minutes"
+        ],
+        "outdoorPlay": "Shaded stroller or outdoor blanket look at safe colorful outdoor objects with narration.",
+        "observations": [
+          "Tracks scarf",
+          "Lifts head in tummy time",
+          "Looks at caregiver face"
+        ],
+        "adaptations": "Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.",
+        "safetyNotes": "Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.",
+        "items": [
+          {
+            "itemId": "item-infant-colors-all-around-us-monday-1",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Bright Scarf Slow Track",
+            "objective": "Support slow visual tracking with a bright moving scarf.",
+            "description": "Baby watches a large bright scarf move slowly across their view while you name the color in a calm voice.",
+            "materials": "1–2 large bright scarves\nFloor mat",
+            "preparation": "Choose one high-contrast bright color\nClear visual clutter behind you",
+            "setup": "Place baby comfortably on back or supported side on a mat.",
+            "steps": "1. Settle baby and gain eye contact first\n2. Hold scarf about 8–12 inches away\n3. Move slowly left, pause, then right\n4. Name the color once or twice\n5. Stop when baby looks away",
+            "teacherLanguage": "Look… see the bright red? Watching… watching.",
+            "observationOpportunities": "Tracks scarf briefly; stays calm while looking.",
+            "safetyNotes": "Keep scarf away from face/neck; never leave draped on baby.",
+            "cleanupTips": "Bag scarves after mouthing contact.",
+            "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+            "durationMinutes": 4,
+            "vocabulary": "look\nsee\nbright\nred",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Slower than you think — pause when eyes lock on."
+            ],
+            "substitutions": [
+              {
+                "need": "scarf",
+                "use": "large solid-color cloth napkin"
+              }
+            ],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Caregiver kneeling on mat holding one bright scarf 8–12 inches from infant on back.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/bright-scarf-slow-track-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Visual tracking",
+              "Attention",
+              "Language exposure"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-monday-1",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-monday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Colorful Tummy Time Look",
+            "objective": "Encourage head lifting during awake tummy time with a colorful visual anchor.",
+            "description": "During supervised tummy time, a bright toy or cloth sits in view to invite looking and brief head lifts.",
+            "materials": "Tummy-time mat\n1 large bright toy or cloth\nOptional support roll",
+            "preparation": "Place colorful item at eye level in front of baby\nSet timer mindset for short bursts",
+            "setup": "Awake baby on tummy on firm mat; colorful item in front.",
+            "steps": "1. Place baby on tummy when alert\n2. Set bright item in easy view\n3. Get face-to-face beside baby and talk\n4. Celebrate any head lift or looking\n5. Return to back for rest as needed",
+            "teacherLanguage": "You are looking! Bright yellow is right here.",
+            "observationOpportunities": "Lifts head briefly; looks toward colorful item.",
+            "safetyNotes": "Tummy time only when awake and supervised. Back to sleep.",
+            "cleanupTips": "Wipe mat and toy.",
+            "ageModifications": "Infant 0–6 months (use chest-to-chest for very young infants)",
+            "durationMinutes": 3,
+            "vocabulary": "look\nup\nyellow",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Chest-to-chest counts as tummy time for newborns."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Infant on tummy on mat with one large bright toy at eye level; caregiver face nearby.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/colorful-tummy-time-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Neck strength",
+              "Visual engagement"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-monday-2",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-monday-3",
+            "importKey": "",
+            "activityCategory": "Open-Ended Exploration",
+            "title": "Face-to-Face Color Talk",
+            "objective": "Connect caregiver face (best early visual target) with a simple color prop.",
+            "description": "You hold baby close, smile, and slowly show one bright cloth while talking. Faces stay the main focus.",
+            "materials": "One bright cloth\nComfortable seating",
+            "preparation": "Sit where light falls on your face, not in baby’s eyes",
+            "setup": "Hold baby 8–12 inches from your face with cloth nearby.",
+            "steps": "1. Gain eye contact and smile\n2. Show cloth beside your face briefly\n3. Name the color in a soft voice\n4. Hide cloth and return to face play\n5. End with a cuddle",
+            "teacherLanguage": "Hi! I see you. Here is soft blue.",
+            "observationOpportunities": "Looks at face; glances toward cloth.",
+            "safetyNotes": "Support head/neck; stop if baby turns away.",
+            "cleanupTips": "Set cloth aside for wash if mouthed.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "hi\nsee\nblue",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Face first, prop second — never replace interaction with objects."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Social engagement",
+              "Visual attention",
+              "Language"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-monday-3",
+            "dayOfWeek": "monday"
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "One Color at a Time",
+        "focus": "",
+        "objectives": "Focus on a single bold color\nPair color with gentle rhythm\nShare a short board-book look",
+        "learningDomains": [
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Large bright scarves (chiffon or soft fabric)\nSoft colored cloth squares (too large to choke)\nBaby-safe mirror\nLarge soft colored rattles/balls\nTummy-time mat\nSimple color board books\nSupport pillow/roll for positioning",
+        "vocabulary": "look\nsee\nbright\nred\nblue\nyellow\ngreen\nsoft\nreach\nwatch",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Color Hello Song",
+          "Show red or blue cloth only"
+        ],
+        "outdoorPlay": "Shade break with one bright cloth for looking.",
+        "observations": [
+          "Fixates on one color",
+          "Settles to song",
+          "Looks at book page"
+        ],
+        "adaptations": "Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.",
+        "safetyNotes": "Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.",
+        "items": [
+          {
+            "itemId": "item-infant-colors-all-around-us-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "One-Color Slow Track",
+            "objective": "Practice tracking with a single bold color to reduce visual overload.",
+            "description": "Baby watches one solid-color scarf move slowly while you pause for focus.",
+            "materials": "One solid bright scarf\nMat\nSupport pillow if needed",
+            "preparation": "Remove other bright toys from view",
+            "setup": "Baby on back or side; one scarf only.",
+            "steps": "1. Show still scarf first\n2. Move slowly side to side\n3. Pause when baby fixates\n4. Name color once\n5. Rest",
+            "teacherLanguage": "Red… watching red.",
+            "observationOpportunities": "Fixates; tracks briefly.",
+            "safetyNotes": "Arm’s reach; no scarf near neck.",
+            "cleanupTips": "Bag scarf as needed.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "red\nwatch",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "One color beats a rainbow pile for young infants."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tracking",
+              "Focus"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-tuesday-1",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Color Lap Bounce Song",
+            "objective": "Pair gentle rhythm and voice with a simple color prop.",
+            "description": "Baby is held securely while you hum/sing and show a soft colored cloth with tiny bounces.",
+            "materials": "Soft colored cloth\nChair\nYour voice",
+            "preparation": "Choose a calm short song phrase",
+            "setup": "Sit with baby well supported in arms.",
+            "steps": "1. Settle baby in arms\n2. Show cloth\n3. Sing a short color phrase\n4. Add tiny responsive bounces\n5. Stillness and smile to close",
+            "teacherLanguage": "Bounce, bounce — soft yellow with you.",
+            "observationOpportunities": "Settles to voice; glances at cloth.",
+            "safetyNotes": "Support head; keep bounce tiny.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "soft\nyellow\nsing",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Match bounce to baby’s state — calm babies need almost no bounce."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Bonding",
+              "Auditory awareness"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-tuesday-2",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-tuesday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Color Board Book Together",
+            "objective": "Share a brief board-book look with face-to-face connection.",
+            "description": "You hold a color board book where baby can see pages and your face, staying on 1–2 pages.",
+            "materials": "Color board book\nLap or mat",
+            "preparation": "Pre-pick one bright page",
+            "setup": "Lap hold or tummy-to-tummy with book angled toward baby.",
+            "steps": "1. Show cover briefly\n2. Open to one bright page\n3. Point near the color shape\n4. Name color slowly\n5. Close with smile",
+            "teacherLanguage": "This page is bright green. Looking together.",
+            "observationOpportunities": "Looks at page; looks back at caregiver.",
+            "safetyNotes": "Board books only; no paper tears near mouth unsupervised.",
+            "cleanupTips": "Wipe book if mouthed.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "book\ngreen\npage",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Stopping early is success."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Early literacy",
+              "Joint attention"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-tuesday-3",
+            "dayOfWeek": "tuesday"
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Reaching When Ready",
+        "focus": "",
+        "objectives": "Offer reach opportunities for older infants\nMirror looking with color\nTouch soft color cloths",
+        "learningDomains": [
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Large bright scarves (chiffon or soft fabric)\nSoft colored cloth squares (too large to choke)\nBaby-safe mirror\nLarge soft colored rattles/balls\nTummy-time mat\nSimple color board books\nSupport pillow/roll for positioning",
+        "vocabulary": "look\nsee\nbright\nred\nblue\nyellow\ngreen\nsoft\nreach\nwatch",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Name today’s color softly",
+          "Gentle stretch hold"
+        ],
+        "outdoorPlay": "Supervised blanket time with one large colorful toy nearby.",
+        "observations": [
+          "Reaches or bats toy",
+          "Looks in mirror",
+          "Touches cloth"
+        ],
+        "adaptations": "Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.",
+        "safetyNotes": "Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.",
+        "items": [
+          {
+            "itemId": "item-infant-colors-all-around-us-wednesday-1",
+            "importKey": "",
+            "activityCategory": "Fine Motor",
+            "title": "Soft Color Reach",
+            "objective": "Invite reaching toward a large soft colorful toy when ready.",
+            "description": "A large yellow (or bright) rattle sits just within reach during supervised floor time. Younger babies may only look.",
+            "materials": "Large soft colorful rattle\nMat",
+            "preparation": "Check toy is mouth-safe and too large to choke",
+            "setup": "Baby on back; toy held or propped within swipe range.",
+            "steps": "1. Gain attention on toy\n2. Hold steady within reach\n3. Allow bat/reach attempts\n4. Celebrate any contact\n5. Offer grasp help only if baby is ready",
+            "teacherLanguage": "Can you reach the bright rattle?",
+            "observationOpportunities": "Bats or reaches; brings hands toward midline.",
+            "safetyNotes": "No small parts; sanitize after mouthing.",
+            "cleanupTips": "Sanitize rattle.",
+            "ageModifications": "Best for ~3–6 months; younger infants may only look",
+            "durationMinutes": 4,
+            "vocabulary": "reach\nhold\nyellow",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "If no reach yet, keep as a looking toy — still valuable."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Infant on back reaching toward large yellow rattle held by caregiver.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/soft-color-reach-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Reaching",
+              "Eye-hand beginnings"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-wednesday-1",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-wednesday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Tummy Color Mirror Look",
+            "objective": "Combine tummy time with mirror looking and a color accent.",
+            "description": "Baby does short tummy time facing a baby-safe mirror with one colorful cloth beside it.",
+            "materials": "Baby-safe mirror\nBright cloth\nMat",
+            "preparation": "Angle mirror for baby’s face view",
+            "setup": "Mirror at edge of mat; cloth to the side — not covering mirror.",
+            "steps": "1. Place baby on tummy\n2. Point to baby’s face in mirror\n3. Show cloth briefly beside mirror\n4. Talk about looking\n5. Rest on back",
+            "teacherLanguage": "I see you! And soft blue beside you.",
+            "observationOpportunities": "Looks at mirror; lifts head.",
+            "safetyNotes": "Unbreakable mirror only; supervised.",
+            "cleanupTips": "Wipe mirror.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "see\nyou\nblue",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Your face beside the mirror beats any toy."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Tummy-time mat with baby-safe mirror and one bright cloth at side.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/tummy-color-mirror-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tummy strength",
+              "Face interest"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-wednesday-2",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-wednesday-3",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Color Cloth Touch Basket",
+            "objective": "Explore soft colorful cloths with eyes and hands under supervision.",
+            "description": "A shallow basket holds 2–3 large soft colored cloths. Baby looks and may touch while you narrate.",
+            "materials": "Shallow basket\n2–3 large soft cloths",
+            "preparation": "Use only oversized cloths\nLimit to 2–3 colors",
+            "setup": "Basket near baby on mat; you seated close.",
+            "steps": "1. Show one cloth from basket\n2. Drape lightly on your hand for baby to see/touch\n3. Name color and texture\n4. Offer second cloth if interested\n5. Put cloths away before baby tires",
+            "teacherLanguage": "Soft red cloth. Touch gently.",
+            "observationOpportunities": "Looks; touches; shows preference.",
+            "safetyNotes": "Never cover baby’s face; prevent bundling/entanglement.",
+            "cleanupTips": "Wash cloths after group use.",
+            "ageModifications": "Infant 0–6 months (older may grasp cloths)",
+            "durationMinutes": 4,
+            "vocabulary": "soft\ntouch\nred",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Less is more — two cloths often beat five."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Shallow basket with 2–3 bright cloths beside infant on mat.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/color-cloth-basket-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tactile exploration",
+              "Visual attention"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-wednesday-3",
+            "dayOfWeek": "wednesday"
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Touch and Connection",
+        "focus": "",
+        "objectives": "Explore soft color textures\nPractice greeting with color prop\nSway with color cloth",
+        "learningDomains": [
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Large bright scarves (chiffon or soft fabric)\nSoft colored cloth squares (too large to choke)\nBaby-safe mirror\nLarge soft colored rattles/balls\nTummy-time mat\nSimple color board books\nSupport pillow/roll for positioning",
+        "vocabulary": "look\nsee\nbright\nred\nblue\nyellow\ngreen\nsoft\nreach\nwatch",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Color Hello with each baby",
+          "Show texture mitt"
+        ],
+        "outdoorPlay": "Quiet outdoor sway with scarf if weather allows.",
+        "observations": [
+          "Explores texture",
+          "Responds to hello",
+          "Calms with sway"
+        ],
+        "adaptations": "Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.",
+        "safetyNotes": "Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.",
+        "items": [
+          {
+            "itemId": "item-infant-colors-all-around-us-thursday-1",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Soft Color Texture Mitts",
+            "objective": "Offer safe textured color mitts for looking and gentle touch.",
+            "description": "You wear or hold a soft textured mitt in a bright color and invite baby to look and pat.",
+            "materials": "Washable textured mitt or cloth square with sewn texture\nMat",
+            "preparation": "Inspect seams; no loose bits",
+            "setup": "Sit facing baby with mitt on your hand.",
+            "steps": "1. Show mitt still\n2. Move slowly into view\n3. Allow touch on mitt (not face covering)\n4. Name color and feel (soft/bumpy)\n5. Remove if overstimulating",
+            "teacherLanguage": "Bumpy blue. Soft touch.",
+            "observationOpportunities": "Touches mitt; watches movement.",
+            "safetyNotes": "Secure all parts; sanitize; no detachable decorations.",
+            "cleanupTips": "Wash mitts daily if shared.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "soft\nbumpy\nblue",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Your paced presentation matters more than the mitt design."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "optional",
+            "imageBriefSetup": "Caregiver hand with bright textured mitt near infant’s hands.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/colors-all-around-us/texture-mitts-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tactile discrimination",
+              "Calm attention"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-thursday-1",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-thursday-2",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Color Hello with Caregiver",
+            "objective": "Use a short greeting song with a color prop to support social connection.",
+            "description": "Each baby gets a personal hello while you show a color cloth and sing a brief greeting.",
+            "materials": "Color cloth\nYour voice",
+            "preparation": "Learn Color Hello Song lines",
+            "setup": "Hold or sit with one baby at a time.",
+            "steps": "1. Make eye contact\n2. Show cloth\n3. Sing hello with color word\n4. Pause for baby response\n5. Kiss or cuddle close",
+            "teacherLanguage": "Hello blue — hello you!",
+            "observationOpportunities": "Smiles/coos; tracks cloth during hello.",
+            "safetyNotes": "Support head during holds.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "hello\nyou\nblue",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "One baby at a time beats a group performance."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Social-emotional",
+              "Rhythm"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-thursday-2",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-thursday-3",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Soft Color Sway Hold",
+            "objective": "Provide gentle vestibular movement while baby looks at a color scarf.",
+            "description": "Holding baby securely, you sway side to side while a green scarf stays in view.",
+            "materials": "Bright scarf\nClear floor space",
+            "preparation": "Ensure footing is clear",
+            "setup": "Stand or sit with baby held upright/supported.",
+            "steps": "1. Hold baby securely\n2. Show scarf in view\n3. Sway slowly left/right\n4. Name color softly\n5. Stillness to finish",
+            "teacherLanguage": "Sway… green… sway.",
+            "observationOpportunities": "Calms or alerts to movement; looks at scarf.",
+            "safetyNotes": "Two-hand secure hold; no spinning or dipping.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "sway\ngreen",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Match sway to breathing; stop if baby startles."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Balance beginnings",
+              "Regulation"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-thursday-3",
+            "dayOfWeek": "thursday"
+          }
+        ]
+      },
+      "friday": {
+        "theme": "Favorite Colors Together",
+        "focus": "",
+        "objectives": "Review through song\nReplay a favorite page\nNotice outdoor colors safely",
+        "learningDomains": [
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Large bright scarves (chiffon or soft fabric)\nSoft colored cloth squares (too large to choke)\nBaby-safe mirror\nLarge soft colored rattles/balls\nTummy-time mat\nSimple color board books\nSupport pillow/roll for positioning",
+        "vocabulary": "look\nsee\nbright\nred\nblue\nyellow\ngreen\nsoft\nreach\nwatch",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Rainbow Color Song Cuddle",
+          "Celebrate looking and smiling"
+        ],
+        "outdoorPlay": "Shaded color stroll — point to flowers, signs, or clothing colors.",
+        "observations": [
+          "Engages in song",
+          "Shows page preference",
+          "Looks where caregiver points"
+        ],
+        "adaptations": "Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.",
+        "safetyNotes": "Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.",
+        "items": [
+          {
+            "itemId": "item-infant-colors-all-around-us-friday-1",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Color Song Cuddle",
+            "objective": "Close the week with a calm color song and cuddle.",
+            "description": "Babies are held or sit supported while you sing the original Look at the Bright Color song with one cloth.",
+            "materials": "Soft cloth\nQuiet corner",
+            "preparation": "Dim busy noise if possible",
+            "setup": "Cuddle position with cloth ready.",
+            "steps": "1. Settle in cuddle\n2. Show cloth\n3. Sing short original song\n4. Pause for coos\n5. Quiet hold",
+            "teacherLanguage": "Look, look, see the bright color.",
+            "observationOpportunities": "Settles; vocalizes; watches cloth.",
+            "safetyNotes": "Safe hold; no crowding.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 4,
+            "vocabulary": "look\nbright\ncolor",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Repetition across the week builds familiarity."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Connection",
+              "Auditory comfort"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-friday-1",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-friday-2",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Favorite Color Page Replay",
+            "objective": "Replay a page babies noticed earlier in the week.",
+            "description": "Return to one favorite bright board-book page and enjoy a short second look.",
+            "materials": "Familiar color board book",
+            "preparation": "Mark the page babies liked",
+            "setup": "Lap reading position.",
+            "steps": "1. Open to favorite page\n2. Point and name color\n3. Wait for looking\n4. Turn away and back once (simple peek)\n5. Close warmly",
+            "teacherLanguage": "This was our favorite bright page!",
+            "observationOpportunities": "Shows recognition interest; stays engaged briefly.",
+            "safetyNotes": "Board book only.",
+            "cleanupTips": "Wipe if mouthed.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "favorite\npage\nagain",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Preference is data — reuse what worked."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Memory beginnings",
+              "Literacy"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-friday-2",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-infant-colors-all-around-us-friday-3",
+            "importKey": "",
+            "activityCategory": "Outdoor Play",
+            "title": "Shaded Color Stroll",
+            "objective": "Notice real-world colors outdoors with caregiver pointing and talk.",
+            "description": "In shade, you stroll or sit outdoors and point to large colorful things (flowers, balls, clothing) while narrating.",
+            "materials": "Stroller or outdoor blanket\nSun protection as needed",
+            "preparation": "Check UV/shade and temperature",
+            "setup": "Shaded route or blanket spot.",
+            "steps": "1. Settle baby facing out or toward you\n2. Point to one colorful object\n3. Name color and object\n4. Pause for looking\n5. Return indoors before overstimulation/heat",
+            "teacherLanguage": "See the yellow flower? Bright outside.",
+            "observationOpportunities": "Looks toward pointed object; stays content outdoors.",
+            "safetyNotes": "Shade, hydration for adults, never leave stroller unattended; follow safe sleep if nap begins.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 8,
+            "vocabulary": "outside\nsee\nyellow",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "One or two pointed objects beat a tour."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Environmental awareness",
+              "Language"
+            ],
+            "sourceKey": "cur-lp-infant-colors-all-around-us:item-infant-colors-all-around-us-friday-3",
+            "dayOfWeek": "friday"
+          }
+        ]
+      }
+    },
+    "activityDecisions": [
+      {
+        "title": "Bright Scarf Slow Track",
+        "itemId": "item-infant-colors-all-around-us-monday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Colorful Tummy Time Look",
+        "itemId": "item-infant-colors-all-around-us-monday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Face-to-Face Color Talk",
+        "itemId": "item-infant-colors-all-around-us-monday-3",
+        "decision": "add",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "One-Color Slow Track",
+        "itemId": "item-infant-colors-all-around-us-tuesday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Color Lap Bounce Song",
+        "itemId": "item-infant-colors-all-around-us-tuesday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Color Board Book Together",
+        "itemId": "item-infant-colors-all-around-us-tuesday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Soft Color Reach",
+        "itemId": "item-infant-colors-all-around-us-wednesday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Tummy Color Mirror Look",
+        "itemId": "item-infant-colors-all-around-us-wednesday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Color Cloth Touch Basket",
+        "itemId": "item-infant-colors-all-around-us-wednesday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Soft Color Texture Mitts",
+        "itemId": "item-infant-colors-all-around-us-thursday-1",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Color Hello with Caregiver",
+        "itemId": "item-infant-colors-all-around-us-thursday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Soft Color Sway Hold",
+        "itemId": "item-infant-colors-all-around-us-thursday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Color Song Cuddle",
+        "itemId": "item-infant-colors-all-around-us-friday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Favorite Color Page Replay",
+        "itemId": "item-infant-colors-all-around-us-friday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Shaded Color Stroll",
+        "itemId": "item-infant-colors-all-around-us-friday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      }
+    ],
+    "removedActivityTitles": [],
+    "removedItemIds": [],
+    "books": [
+      {
+        "title": "Baby Colors",
+        "author": "Roger Priddy",
+        "notes": "Short pages; hold close; no copyrighted text reproduced."
+      },
+      {
+        "title": "Brown Bear, Brown Bear, What Do You See?",
+        "author": "Bill Martin Jr.",
+        "notes": "Use 1–2 pages only for infants."
+      },
+      {
+        "title": "Color Zoo",
+        "author": "Lois Ehlert",
+        "notes": "Bold shapes; keep sessions brief."
+      }
+    ],
+    "songs": [
+      {
+        "title": "Look at the Bright Color (LLH original)",
+        "lyrics": "Look, look, see the bright color.\nLook, look, watching with me.\nSoft and slow, we smile and say the color name.",
+        "motions": "Show cloth; gentle sway; smile at infant.",
+        "rightsStatus": "original"
+      },
+      {
+        "title": "Twinkle Twinkle Little Star",
+        "notes": "Public-domain melody; use as calm cuddle song with a yellow cloth.",
+        "rightsStatus": "public_domain"
+      },
+      {
+        "title": "Color Hello Song (LLH original)",
+        "lyrics": "Hello red, hello blue,\nI see bright colors with you.\nHello yellow, hello green,\nSmiling faces in between.",
+        "motions": "Show one cloth per color line.",
+        "rightsStatus": "original"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Wash/sanitize scarves, cloths, rattles, mirror",
+        "Clear floor mat with soft lighting (not harsh glare)",
+        "Stage one color focal item per activity",
+        "Have board book ready with one bookmark page"
+      ],
+      "observationFocus": [
+        "Does baby fixate or track?",
+        "Any reaching when offered within range?",
+        "Cues for overstimulation (looking away, arching, fussing)?"
+      ],
+      "teacherPreparation": "Keep materials large and mouth-safe. Narrate colors without expecting baby to name them.",
+      "notes": "No infant crafts this week. Experience and connection are the goals."
+    },
+    "printableIdeas": [
+      {
+        "title": "Bright Color Gaze Cards (draft)",
+        "purpose": "Simple solid-color cards for slow tracking and tummy-time looking",
+        "type": "visual_cards"
+      },
+      {
+        "title": "Caregiver Color Talk Mini Guide (draft)",
+        "purpose": "One-page tips for face-to-face color narration",
+        "type": "teacher_tool"
+      }
+    ],
+    "printableIds": [
+      "cur-res-draft-color-gaze-cards",
+      "cur-res-draft-color-talk-guide"
+    ],
+    "vocabCards": [
+      "look",
+      "see",
+      "bright",
+      "red",
+      "blue",
+      "yellow",
+      "green",
+      "soft"
+    ],
+    "milestones": [
+      "Language",
+      "Social Emotional",
+      "Gross Motor",
+      "Fine Motor",
+      "Cognition",
+      "Creativity"
+    ],
+    "auditNotes": {
+      "philosophy": "Visual attention + caregiver language; not color identification drills or adult-made crafts."
+    },
+    "researchSources": [
+      "CDC Learn the Signs. Act Early — milestones by 2, 4, and 6 months (vision tracking, tummy time, reaching)",
+      "NAEYC Developmentally Appropriate Practice — play, responsive caregiving, infants as capable learners",
+      "Head Start ECLKC — infant arts as sensory exploration/process, not product crafts",
+      "AAP / HealthyChildren — face preference, tracking, tummy-to-play guidance"
+    ]
+  },
+  "meta": {
+    "purpose": "Premium Teaching Kit draft for owner Admin review — DO NOT PUBLISH automatically",
+    "sourceLessonId": "cur-lp-infant-colors-all-around-us",
+    "sourceTitle": "Colors All Around Us",
+    "activityCount": 15,
+    "imagePolicy": "Assign images only when instructional value is clear"
+  }
+}

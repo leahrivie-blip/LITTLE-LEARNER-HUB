@@ -1,0 +1,1544 @@
+{
+  "updatedAt": "2026-08-12T02:29:23.908Z",
+  "lastEditedBy": "premium-draft-upgrade@littlelearnershub.local",
+  "previewReady": true,
+  "draftOnly": true,
+  "neverAutoPublish": true,
+  "activities": {
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-monday-1": {
+      "title": "Weather Watchers Circle",
+      "dayOfWeek": "monday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Observe outdoors/window weather and record it on the class chart.",
+      "description": "Children look outside, describe sky/air, and place a weather symbol on today’s chart square.",
+      "materials": "Weather chart\nSymbol cards (printable)\nWindow/door access",
+      "preparation": "Post chart at child height\nPrep today’s blank square",
+      "setup": "Gather near window with chart.",
+      "steps": "1. Look outside together\n2. Share what you notice (sky, wet, wind)\n3. Choose a weather symbol\n4. Mark warm/cool with a simple choice\n5. Predict tomorrow in one word",
+      "teacherLanguage": "What do you observe about today’s weather?",
+      "observationOpportunities": "Describes weather; places symbol; uses weather words.",
+      "safetyNotes": "No outdoor lightning observation.",
+      "cleanupTips": "Return unused symbols to pouch.",
+      "teacherTips": [
+        "Do this daily — repetition builds the science habit."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Describes weather; places symbol; uses weather words."
+      ],
+      "vocabulary": [
+        "observe",
+        "sunny",
+        "cloudy",
+        "rainy",
+        "windy"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Child-height weather chart by window with symbol cards.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/weather-chart-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-monday-2": {
+      "title": "Sunshine Movement Game",
+      "dayOfWeek": "monday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 10,
+      "objective": "Move like sunshine with big stretches and shadow play when possible.",
+      "description": "Children stretch like sun rays, move fast/slow, and notice shadows if sunny.",
+      "materials": "Open space\nOptional sunny music",
+      "preparation": "Clear space\nIf sunny, note shadow wall/floor",
+      "setup": "Open movement area.",
+      "steps": "1. Stretch arms like sun rays\n2. Move slowly then quickly\n3. Make shadows if sunny\n4. Drink water after moving\n5. Rest in shade pretend spot",
+      "teacherLanguage": "Can your arms shine like warm sun rays?",
+      "observationOpportunities": "Participates; follows cues; self-regulates rest.",
+      "safetyNotes": "Hydration; no face-to-sun staring.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "On cloudy days, use flashlight shadow play indoors."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Participates; follows cues; self-regulates rest."
+      ],
+      "vocabulary": [
+        "sunny",
+        "shadow",
+        "warm",
+        "stretch"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-monday-3": {
+      "title": "Cloudy Day Process Art",
+      "dayOfWeek": "monday",
+      "activityCategory": "Art",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Explore cloudy-day materials in an open-ended art invitation.",
+      "description": "Children use cotton, chalk, paint, or torn paper on blue/gray paper however they choose — no sample cloud to copy.",
+      "materials": "Blue/gray paper\nCotton/fiber fill\nChalk\nWhite paint\nSponges\nGlue sticks\nSmocks",
+      "preparation": "Set materials buffet\nPrompt: ‘How does a cloudy sky feel/look?’",
+      "setup": "Art table invitation without model product.",
+      "steps": "1. Feel/choose materials\n2. Explore on paper your own way\n3. Add more layers if you want\n4. Describe your weather art\n5. Dry and display all styles together",
+      "teacherLanguage": "What happens when you try two materials together?",
+      "observationOpportunities": "Makes choices; stays with process; uses weather words.",
+      "safetyNotes": "Supervise glue; avoid inhaling loose fibers.",
+      "cleanupTips": "Bag scrap fibers; cover paint.",
+      "teacherTips": [
+        "If every piece looks different, you did it right."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Makes choices; stays with process; uses weather words."
+      ],
+      "vocabulary": [
+        "cloudy",
+        "soft",
+        "sky",
+        "explore"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Cloudy-day art invitation tray with mixed materials — no finished sample cloud.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/cloud-process-art-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-tuesday-1": {
+      "title": "Rain Drop Sensory Investigate",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Investigate water ‘rain’ with tools and describe how it moves.",
+      "description": "Children drip, pour, and splash in a shallow rain bin using cups, eyedroppers, and waterproof figures.",
+      "materials": "Shallow water bin\nCups\nEyedroppers/basters\nTowels\nSmocks\nOptional rain stick",
+      "preparation": "Fill shallow water\nTowel floor\nLimit participants",
+      "setup": "Sensory table rain station.",
+      "steps": "1. Listen to rain stick or rain sounds talk\n2. Drip water like rain\n3. Pour from high/low — what changes?\n4. Use words wet/splash/drip\n5. Dry hands and reset tools",
+      "teacherLanguage": "What do you notice when the rain falls from higher up?",
+      "observationOpportunities": "Pours with control; uses descriptive words; collaborates.",
+      "safetyNotes": "Shallow water only; mop spills; no drinking bin water.",
+      "cleanupTips": "Empty/sanitize bin end of day.",
+      "teacherTips": [
+        "Add ice on hot days for temperature talk."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Pours with control; uses descriptive words; collaborates."
+      ],
+      "vocabulary": [
+        "rain",
+        "drip",
+        "pour",
+        "wet"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Shallow rain sensory bin with cups and droppers.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/rain-sensory-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-tuesday-2": {
+      "title": "Weather Dress-Up Center",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Choose clothing/gear that matches called weather scenarios.",
+      "description": "Children dress for sunny, rainy, windy, or cold play scenarios using real/play gear.",
+      "materials": "Raincoats\nBoots\nHats\nSunglasses\nScarves\nWeather cards",
+      "preparation": "Sort gear into bins by type\nPost weather cards",
+      "setup": "Dress-up center with mirror.",
+      "steps": "1. Draw/choose a weather card\n2. Pick gear that fits\n3. Explain your choice\n4. Act out a weather day\n5. Hang gear back",
+      "teacherLanguage": "What do you wear when it is windy and cool?",
+      "observationOpportunities": "Matches gear to weather; explains; role plays.",
+      "safetyNotes": "No drawstring hazards; trip-aware with oversized boots.",
+      "cleanupTips": "Hang coats; pair boots.",
+      "teacherTips": [
+        "Include inclusive clothing options."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Matches gear to weather; explains; role plays."
+      ],
+      "vocabulary": [
+        "raincoat",
+        "boots",
+        "warm",
+        "cold",
+        "windy"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Weather dress-up center with labeled gear bins and weather cards.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/weather-dressup-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-tuesday-3": {
+      "title": "Windy Day Pinwheel Lab",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Test what moves in wind using pinwheels, scarves, and teacher-controlled air.",
+      "description": "Children compare how different objects move when they blow, wave, or use a safe teacher-held fan.",
+      "materials": "Pinwheels\nScarves\nPaper\nFeathers (large)\nTeacher-controlled fan optional",
+      "preparation": "Outdoor breeze preferred\nIf fan used, teacher holds only",
+      "setup": "Wind lab table or outdoor spot.",
+      "steps": "1. Predict which item will move most\n2. Test by blowing/waving\n3. Try scarf vs paper\n4. Optional teacher fan test\n5. Share what you noticed",
+      "teacherLanguage": "What moved? What stayed still?",
+      "observationOpportunities": "Predicts; tests; compares; uses wind words.",
+      "safetyNotes": "Teacher holds fan; keep fingers away; no pointing fan at faces close-up.",
+      "cleanupTips": "Collect pinwheels upright.",
+      "teacherTips": [
+        "Document with photos of moving scarves for family board."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Predicts; tests; compares; uses wind words."
+      ],
+      "vocabulary": [
+        "wind",
+        "blow",
+        "move",
+        "spin"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Wind investigation with pinwheels and scarves on a tray.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/wind-lab-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-wednesday-1": {
+      "title": "Weather Chart Helpers",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Help update the week chart and count weather types so far.",
+      "description": "Chart helpers mark today and count how many sunny/rainy/etc. days are recorded.",
+      "materials": "Week chart\nSymbols\nPointer",
+      "preparation": "Keep prior days visible",
+      "setup": "Small group at chart.",
+      "steps": "1. Review days already marked\n2. Add today’s symbol\n3. Count each weather type\n4. Which has more?\n5. Choose tomorrow’s helpers",
+      "teacherLanguage": "How many rainy days do we have so far?",
+      "observationOpportunities": "Counts with 1:1; compares quantities; takes helper role.",
+      "safetyNotes": "Calm bodies at chart.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Graph talk beats perfect counting."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Counts with 1:1; compares quantities; takes helper role."
+      ],
+      "vocabulary": [
+        "count",
+        "more",
+        "less",
+        "chart"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-wednesday-2": {
+      "title": "Thunder Drum Experiment",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Explore loud/soft storm sounds safely and talk about storm feelings/safety.",
+      "description": "Children compare drum/pan sounds as ‘thunder’ play, then practice calm-down and indoor-safety talk.",
+      "materials": "Drums\nMetal pans\nMallets\nSoft scarves for calm-down",
+      "preparation": "Warn sensitive children\nOffer quiet corner",
+      "setup": "Sound circle with volume rules.",
+      "steps": "1. Practice soft taps\n2. Try louder taps (still safe)\n3. Compare which sounds like far/near thunder\n4. Talk storm safety (go indoors)\n5. Calm with slow breathing and scarves",
+      "teacherLanguage": "Thunder is loud — what helps your body feel safe?",
+      "observationOpportunities": "Controls volume; discusses feelings; recalls safety.",
+      "safetyNotes": "Ear-aware; no banging near faces; stop if distressed.",
+      "cleanupTips": "Stack instruments.",
+      "teacherTips": [
+        "Pair science with SEL for storms."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Controls volume; discusses feelings; recalls safety."
+      ],
+      "vocabulary": [
+        "thunder",
+        "loud",
+        "soft",
+        "safe"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "optional",
+      "imageBriefSetup": "Sound exploration circle with drums/pans and calm-down scarves.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/thunder-drum-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-wednesday-3": {
+      "title": "Weather Book Nook",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Explore weather books and retell a weather event with pictures.",
+      "description": "Children browse weather books and use props/cards to retell rain, wind, or snow moments.",
+      "materials": "Weather books\nStory props\nRetell cards",
+      "preparation": "Display 3–4 books face-out\nProp basket",
+      "setup": "Cozy book nook.",
+      "steps": "1. Choose a weather book\n2. Look for weather clues in pictures\n3. Retell with a prop\n4. Share one new weather word\n5. Reshelve book",
+      "teacherLanguage": "What weather did you find in the pictures?",
+      "observationOpportunities": "Attends to book; retells; uses vocab.",
+      "safetyNotes": "Sitting feet; gentle books.",
+      "cleanupTips": "Face-out display reset.",
+      "teacherTips": [
+        "Pair a hesitant reader with picture walk only."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Attends to book; retells; uses vocab."
+      ],
+      "vocabulary": [
+        "story",
+        "rain",
+        "cloud",
+        "wind"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-thursday-1": {
+      "title": "Clothing and Season Sort",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Sort clothing/season cards by weather needs and talk about local seasons.",
+      "description": "Children sort picture cards of clothing and seasonal scenes into weather trays.",
+      "materials": "Clothing/weather cards (printable)\n4 trays\nLabels",
+      "preparation": "Label trays sunny/rainy/cold/windy or seasons as fits climate",
+      "setup": "Sorting table.",
+      "steps": "1. Name tray labels\n2. Pick a card\n3. Sort and explain\n4. Resort one card if you change your mind\n5. Count a tray",
+      "teacherLanguage": "Why does this clothing fit that weather?",
+      "observationOpportunities": "Sorts with reason; flexible thinking; counts.",
+      "safetyNotes": "Cards laminated; no small choking pieces.",
+      "cleanupTips": "Band cards by category.",
+      "teacherTips": [
+        "Adapt seasons to your local climate."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Sorts with reason; flexible thinking; counts."
+      ],
+      "vocabulary": [
+        "season",
+        "coat",
+        "hot",
+        "cold"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Sorting trays with clothing and weather picture cards.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/clothing-sort-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-thursday-2": {
+      "title": "Weather Colors Process Painting",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Paint weather ideas with color choices and tools children select.",
+      "description": "Children paint sunny, rainy, windy, or stormy feelings/colors with brushes, sponges, or fingers — results vary.",
+      "materials": "Tempera paints\nPaper\nBrushes/sponges\nSmocks\nOptional spray bottles with water",
+      "preparation": "Limited palette + open tools\nNo rainbow sample chart to copy",
+      "setup": "Painting easels/table with weather word cards as optional inspiration.",
+      "steps": "1. Choose weather idea\n2. Pick colors/tools\n3. Paint your way\n4. Optional water spray for rainy effects\n5. Title your work with a weather word",
+      "teacherLanguage": "What colors feel like today’s weather?",
+      "observationOpportunities": "Chooses tools; stays with process; connects to weather.",
+      "safetyNotes": "Smocks; wipe floors; nontoxic paint.",
+      "cleanupTips": "Wash brushes; hang art.",
+      "teacherTips": [
+        "Skip ‘rainbow order’ instructions entirely."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Chooses tools; stays with process; connects to weather."
+      ],
+      "vocabulary": [
+        "paint",
+        "stormy",
+        "bright",
+        "wash"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Painting setup with mixed tools and weather word cards — no model rainbow.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/weather-paint-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-thursday-3": {
+      "title": "Weather Yoga and Rest",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 10,
+      "objective": "Practice calm weather-themed stretches and rest.",
+      "description": "Children move through gentle sun, cloud, and rain poses, then rest.",
+      "materials": "Yoga mats/towels\nCalm music optional",
+      "preparation": "Space mats\nSoft voice plan",
+      "setup": "Mats in circle/rows.",
+      "steps": "1. Reach for sun pose\n2. Float like cloud pose\n3. Gentle rain finger taps\n4. Lie still like a calm day\n5. Breathe slowly together",
+      "teacherLanguage": "Let your body feel calm like quiet weather.",
+      "observationOpportunities": "Follows gentle poses; rests; slow breathing.",
+      "safetyNotes": "No forced stretches; respect body limits.",
+      "cleanupTips": "Stack mats.",
+      "teacherTips": [
+        "Useful after thunder sound play."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Follows gentle poses; rests; slow breathing."
+      ],
+      "vocabulary": [
+        "calm",
+        "breathe",
+        "rest"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-friday-1": {
+      "title": "Meteorologist Report Circle",
+      "dayOfWeek": "friday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Give a short weather report using the class chart.",
+      "description": "Children take turns as meteorologists with a pointer/mic prop describing chart weather.",
+      "materials": "Pointer\nChart\nMicrophone prop\nSymbol cards",
+      "preparation": "Model a 2-sentence report",
+      "setup": "Circle with chart visible.",
+      "steps": "1. Point to today’s symbol\n2. Say weather words\n3. Share one clothing tip\n4. Optional weekend guess\n5. Pass mic to next reporter",
+      "teacherLanguage": "You’re on the weather report — what should friends wear?",
+      "observationOpportunities": "Speaks to group; uses chart; clothing connection.",
+      "safetyNotes": "Sitting audience; gentle mic passes.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Allow buddy reporting for shy children."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Speaks to group; uses chart; clothing connection."
+      ],
+      "vocabulary": [
+        "forecast",
+        "report",
+        "today",
+        "wear"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-friday-2": {
+      "title": "Weather Dress Relay",
+      "dayOfWeek": "friday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Choose correct gear for called weather and move safely in a relay.",
+      "description": "When a weather type is called, children grab one matching gear item and tag a friend — careful over fast.",
+      "materials": "Gear piles by weather\nCones",
+      "preparation": "Three clear gear piles\nDemonstrate safe tagging",
+      "setup": "Relay lines outdoors/indoors.",
+      "steps": "1. Call a weather type\n2. Child chooses one matching item\n3. Move to cone and tag next friend\n4. Switch weather calls\n5. Review choices together",
+      "teacherLanguage": "Careful helpers pick the right gear!",
+      "observationOpportunities": "Chooses correctly; participates; explains choice.",
+      "safetyNotes": "No knock-down racing; spot for boots trips.",
+      "cleanupTips": "Re-sort gear piles.",
+      "teacherTips": [
+        "Praise accuracy over speed."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Chooses correctly; participates; explains choice."
+      ],
+      "vocabulary": [
+        "match",
+        "rainy",
+        "sunny",
+        "cold"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "optional",
+      "imageBriefSetup": "Relay with three weather gear piles and cones.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/dress-relay-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-friday-3": {
+      "title": "Weather Watchers Celebration",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Review the week’s weather data and celebrate investigations.",
+      "description": "Class counts chart data, thanks chart helpers, sings, and shares favorite activities.",
+      "materials": "Completed chart\nSong list\nOptional photos of investigations",
+      "preparation": "Tally weather types\nDisplay art",
+      "setup": "Celebration circle.",
+      "steps": "1. Count weather types for the week\n2. Thank chart helpers\n3. Sing Weather Watchers Song\n4. Share favorite investigation\n5. Send family weather-watch reminder",
+      "teacherLanguage": "What weather did we see most this week?",
+      "observationOpportunities": "Recalls data; participates; shares favorite.",
+      "safetyNotes": "Calm celebration.",
+      "cleanupTips": "Photograph chart for portfolio.",
+      "teacherTips": [
+        "Connect celebration to real observing habit at home."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Recalls data; participates; shares favorite."
+      ],
+      "vocabulary": [
+        "week",
+        "most",
+        "observe",
+        "thank you"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    }
+  },
+  "week": {
+    "weeklyOverview": "Preschoolers become weather watchers who observe, record, and investigate sunny, cloudy, rainy, windy, and stormy weather. Clothing choices, safety, and process art support real outdoor noticing — not elementary meteorology worksheets.",
+    "objectives": "Observe and describe daily weather using child-friendly vocabulary\nRecord weather on a simple class chart\nInvestigate wind, water, and sound through play experiments\nConnect weather to clothing and safety choices\nExpress weather ideas through process art and movement",
+    "weeklyMaterials": "Weather chart + symbol cards (printable draft)\nClipboards\nPinwheels / scarves / small fan (teacher-controlled)\nWater/rain sensory bin tools\nDress-up weather gear\nPaint, paper, cotton/cloud materials for process art\nDrums/metal pans for thunder sound play\nSeason/clothing cards (printable draft)\nBooks about weather",
+    "familyConnection": "Families can share one weather observation at drop-off for the class chart (photo optional).",
+    "adaptations": "Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.",
+    "vocabularyWords": "sunny\nrainy\ncloudy\nwindy\nstorm\nwarm\ncold\nobserve\nforecast\ncloud\nwind\ntemperature\nsafe",
+    "teacherPreparation": "Post weather chart at child height near window/door\nPrint weather/clothing cards (draft)\nStage wind and rain investigation trays",
+    "fieldOwnership": {
+      "objectives": true,
+      "weeklyOverview": true,
+      "weeklyMaterials": true,
+      "familyConnection": true
+    },
+    "proposedDailyPlans": {
+      "monday": {
+        "theme": "We Are Weather Watchers",
+        "focus": "",
+        "objectives": "Observe and chart weather\nSunshine movement\nCloud process art",
+        "learningDomains": [
+          "Science",
+          "Language & Literacy",
+          "Creative Arts",
+          "Physical Development",
+          "Math",
+          "Social Emotional"
+        ],
+        "materials": "Weather chart + symbol cards (printable draft)\nClipboards\nPinwheels / scarves / small fan (teacher-controlled)\nWater/rain sensory bin tools\nDress-up weather gear\nPaint, paper, cotton/cloud materials for process art\nDrums/metal pans for thunder sound play\nSeason/clothing cards (printable draft)\nBooks about weather",
+        "vocabulary": "sunny\nrainy\ncloudy\nwindy\nstorm\nwarm\ncold\nobserve\nforecast\ncloud\nwind\ntemperature\nsafe",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Weather Watchers Song",
+          "Look outside together",
+          "Read excerpt from weather book"
+        ],
+        "outdoorPlay": "Outdoor weather walk with clipboards (shade/safe conditions).",
+        "observations": [
+          "Describes weather",
+          "Marks chart",
+          "Explores cloud materials"
+        ],
+        "adaptations": "Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.",
+        "safetyNotes": "Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.",
+        "items": [
+          {
+            "itemId": "item-preschool-weather-watchers-monday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Weather Watchers Circle",
+            "objective": "Observe outdoors/window weather and record it on the class chart.",
+            "description": "Children look outside, describe sky/air, and place a weather symbol on today’s chart square.",
+            "materials": "Weather chart\nSymbol cards (printable)\nWindow/door access",
+            "preparation": "Post chart at child height\nPrep today’s blank square",
+            "setup": "Gather near window with chart.",
+            "steps": "1. Look outside together\n2. Share what you notice (sky, wet, wind)\n3. Choose a weather symbol\n4. Mark warm/cool with a simple choice\n5. Predict tomorrow in one word",
+            "teacherLanguage": "What do you observe about today’s weather?",
+            "observationOpportunities": "Describes weather; places symbol; uses weather words.",
+            "safetyNotes": "No outdoor lightning observation.",
+            "cleanupTips": "Return unused symbols to pouch.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "observe\nsunny\ncloudy\nrainy\nwindy",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Do this daily — repetition builds the science habit."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Child-height weather chart by window with symbol cards.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/weather-chart-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Observation",
+              "Charting",
+              "Vocabulary"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-monday-1",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-monday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Sunshine Movement Game",
+            "objective": "Move like sunshine with big stretches and shadow play when possible.",
+            "description": "Children stretch like sun rays, move fast/slow, and notice shadows if sunny.",
+            "materials": "Open space\nOptional sunny music",
+            "preparation": "Clear space\nIf sunny, note shadow wall/floor",
+            "setup": "Open movement area.",
+            "steps": "1. Stretch arms like sun rays\n2. Move slowly then quickly\n3. Make shadows if sunny\n4. Drink water after moving\n5. Rest in shade pretend spot",
+            "teacherLanguage": "Can your arms shine like warm sun rays?",
+            "observationOpportunities": "Participates; follows cues; self-regulates rest.",
+            "safetyNotes": "Hydration; no face-to-sun staring.",
+            "cleanupTips": "None.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 10,
+            "vocabulary": "sunny\nshadow\nwarm\nstretch",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "On cloudy days, use flashlight shadow play indoors."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Gross motor",
+              "Body awareness"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-monday-2",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-monday-3",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Cloudy Day Process Art",
+            "objective": "Explore cloudy-day materials in an open-ended art invitation.",
+            "description": "Children use cotton, chalk, paint, or torn paper on blue/gray paper however they choose — no sample cloud to copy.",
+            "materials": "Blue/gray paper\nCotton/fiber fill\nChalk\nWhite paint\nSponges\nGlue sticks\nSmocks",
+            "preparation": "Set materials buffet\nPrompt: ‘How does a cloudy sky feel/look?’",
+            "setup": "Art table invitation without model product.",
+            "steps": "1. Feel/choose materials\n2. Explore on paper your own way\n3. Add more layers if you want\n4. Describe your weather art\n5. Dry and display all styles together",
+            "teacherLanguage": "What happens when you try two materials together?",
+            "observationOpportunities": "Makes choices; stays with process; uses weather words.",
+            "safetyNotes": "Supervise glue; avoid inhaling loose fibers.",
+            "cleanupTips": "Bag scrap fibers; cover paint.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "cloudy\nsoft\nsky\nexplore",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "If every piece looks different, you did it right."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Cloudy-day art invitation tray with mixed materials — no finished sample cloud.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/cloud-process-art-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Process art",
+              "Fine motor",
+              "Science talk"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-monday-3",
+            "dayOfWeek": "monday"
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "Rain and Wind",
+        "focus": "",
+        "objectives": "Rain sensory investigate\nWeather dress-up\nWind pinwheel tests",
+        "learningDomains": [
+          "Science",
+          "Language & Literacy",
+          "Creative Arts",
+          "Physical Development",
+          "Math",
+          "Social Emotional"
+        ],
+        "materials": "Weather chart + symbol cards (printable draft)\nClipboards\nPinwheels / scarves / small fan (teacher-controlled)\nWater/rain sensory bin tools\nDress-up weather gear\nPaint, paper, cotton/cloud materials for process art\nDrums/metal pans for thunder sound play\nSeason/clothing cards (printable draft)\nBooks about weather",
+        "vocabulary": "sunny\nrainy\ncloudy\nwindy\nstorm\nwarm\ncold\nobserve\nforecast\ncloud\nwind\ntemperature\nsafe",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Itsy Bitsy Spider",
+          "Rain safety talk"
+        ],
+        "outdoorPlay": "Wind scarf play outdoors if breezy/safe.",
+        "observations": [
+          "Explores water",
+          "Chooses gear",
+          "Notices wind movement"
+        ],
+        "adaptations": "Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.",
+        "safetyNotes": "Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.",
+        "items": [
+          {
+            "itemId": "item-preschool-weather-watchers-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Rain Drop Sensory Investigate",
+            "objective": "Investigate water ‘rain’ with tools and describe how it moves.",
+            "description": "Children drip, pour, and splash in a shallow rain bin using cups, eyedroppers, and waterproof figures.",
+            "materials": "Shallow water bin\nCups\nEyedroppers/basters\nTowels\nSmocks\nOptional rain stick",
+            "preparation": "Fill shallow water\nTowel floor\nLimit participants",
+            "setup": "Sensory table rain station.",
+            "steps": "1. Listen to rain stick or rain sounds talk\n2. Drip water like rain\n3. Pour from high/low — what changes?\n4. Use words wet/splash/drip\n5. Dry hands and reset tools",
+            "teacherLanguage": "What do you notice when the rain falls from higher up?",
+            "observationOpportunities": "Pours with control; uses descriptive words; collaborates.",
+            "safetyNotes": "Shallow water only; mop spills; no drinking bin water.",
+            "cleanupTips": "Empty/sanitize bin end of day.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "rain\ndrip\npour\nwet",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Add ice on hot days for temperature talk."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Shallow rain sensory bin with cups and droppers.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/rain-sensory-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Science inquiry",
+              "Sensory",
+              "Language"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-tuesday-1",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Weather Dress-Up Center",
+            "objective": "Choose clothing/gear that matches called weather scenarios.",
+            "description": "Children dress for sunny, rainy, windy, or cold play scenarios using real/play gear.",
+            "materials": "Raincoats\nBoots\nHats\nSunglasses\nScarves\nWeather cards",
+            "preparation": "Sort gear into bins by type\nPost weather cards",
+            "setup": "Dress-up center with mirror.",
+            "steps": "1. Draw/choose a weather card\n2. Pick gear that fits\n3. Explain your choice\n4. Act out a weather day\n5. Hang gear back",
+            "teacherLanguage": "What do you wear when it is windy and cool?",
+            "observationOpportunities": "Matches gear to weather; explains; role plays.",
+            "safetyNotes": "No drawstring hazards; trip-aware with oversized boots.",
+            "cleanupTips": "Hang coats; pair boots.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "raincoat\nboots\nwarm\ncold\nwindy",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Include inclusive clothing options."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Weather dress-up center with labeled gear bins and weather cards.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/weather-dressup-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Dramatic play",
+              "Decision making"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-tuesday-2",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-tuesday-3",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Windy Day Pinwheel Lab",
+            "objective": "Test what moves in wind using pinwheels, scarves, and teacher-controlled air.",
+            "description": "Children compare how different objects move when they blow, wave, or use a safe teacher-held fan.",
+            "materials": "Pinwheels\nScarves\nPaper\nFeathers (large)\nTeacher-controlled fan optional",
+            "preparation": "Outdoor breeze preferred\nIf fan used, teacher holds only",
+            "setup": "Wind lab table or outdoor spot.",
+            "steps": "1. Predict which item will move most\n2. Test by blowing/waving\n3. Try scarf vs paper\n4. Optional teacher fan test\n5. Share what you noticed",
+            "teacherLanguage": "What moved? What stayed still?",
+            "observationOpportunities": "Predicts; tests; compares; uses wind words.",
+            "safetyNotes": "Teacher holds fan; keep fingers away; no pointing fan at faces close-up.",
+            "cleanupTips": "Collect pinwheels upright.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "wind\nblow\nmove\nspin",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Document with photos of moving scarves for family board."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Wind investigation with pinwheels and scarves on a tray.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/wind-lab-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Inquiry",
+              "Comparison"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-tuesday-3",
+            "dayOfWeek": "tuesday"
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Storm Sounds and Stories",
+        "focus": "",
+        "objectives": "Chart helpers\nThunder sound experiment\nWeather book nook",
+        "learningDomains": [
+          "Science",
+          "Language & Literacy",
+          "Creative Arts",
+          "Physical Development",
+          "Math",
+          "Social Emotional"
+        ],
+        "materials": "Weather chart + symbol cards (printable draft)\nClipboards\nPinwheels / scarves / small fan (teacher-controlled)\nWater/rain sensory bin tools\nDress-up weather gear\nPaint, paper, cotton/cloud materials for process art\nDrums/metal pans for thunder sound play\nSeason/clothing cards (printable draft)\nBooks about weather",
+        "vocabulary": "sunny\nrainy\ncloudy\nwindy\nstorm\nwarm\ncold\nobserve\nforecast\ncloud\nwind\ntemperature\nsafe",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Storm safety: indoors during lightning",
+          "Feelings about loud weather"
+        ],
+        "outdoorPlay": "If storming, indoor gross-motor weather yoga alternative.",
+        "observations": [
+          "Helps with chart",
+          "Compares loud/soft sounds",
+          "Engages with books"
+        ],
+        "adaptations": "Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.",
+        "safetyNotes": "Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.",
+        "items": [
+          {
+            "itemId": "item-preschool-weather-watchers-wednesday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Weather Chart Helpers",
+            "objective": "Help update the week chart and count weather types so far.",
+            "description": "Chart helpers mark today and count how many sunny/rainy/etc. days are recorded.",
+            "materials": "Week chart\nSymbols\nPointer",
+            "preparation": "Keep prior days visible",
+            "setup": "Small group at chart.",
+            "steps": "1. Review days already marked\n2. Add today’s symbol\n3. Count each weather type\n4. Which has more?\n5. Choose tomorrow’s helpers",
+            "teacherLanguage": "How many rainy days do we have so far?",
+            "observationOpportunities": "Counts with 1:1; compares quantities; takes helper role.",
+            "safetyNotes": "Calm bodies at chart.",
+            "cleanupTips": "None.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "count\nmore\nless\nchart",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Graph talk beats perfect counting."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Math",
+              "Responsibility"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-wednesday-1",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-wednesday-2",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Thunder Drum Experiment",
+            "objective": "Explore loud/soft storm sounds safely and talk about storm feelings/safety.",
+            "description": "Children compare drum/pan sounds as ‘thunder’ play, then practice calm-down and indoor-safety talk.",
+            "materials": "Drums\nMetal pans\nMallets\nSoft scarves for calm-down",
+            "preparation": "Warn sensitive children\nOffer quiet corner",
+            "setup": "Sound circle with volume rules.",
+            "steps": "1. Practice soft taps\n2. Try louder taps (still safe)\n3. Compare which sounds like far/near thunder\n4. Talk storm safety (go indoors)\n5. Calm with slow breathing and scarves",
+            "teacherLanguage": "Thunder is loud — what helps your body feel safe?",
+            "observationOpportunities": "Controls volume; discusses feelings; recalls safety.",
+            "safetyNotes": "Ear-aware; no banging near faces; stop if distressed.",
+            "cleanupTips": "Stack instruments.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "thunder\nloud\nsoft\nsafe",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Pair science with SEL for storms."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "optional",
+            "imageBriefSetup": "Sound exploration circle with drums/pans and calm-down scarves.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/thunder-drum-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Science of sound",
+              "SEL",
+              "Safety"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-wednesday-2",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-wednesday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Weather Book Nook",
+            "objective": "Explore weather books and retell a weather event with pictures.",
+            "description": "Children browse weather books and use props/cards to retell rain, wind, or snow moments.",
+            "materials": "Weather books\nStory props\nRetell cards",
+            "preparation": "Display 3–4 books face-out\nProp basket",
+            "setup": "Cozy book nook.",
+            "steps": "1. Choose a weather book\n2. Look for weather clues in pictures\n3. Retell with a prop\n4. Share one new weather word\n5. Reshelve book",
+            "teacherLanguage": "What weather did you find in the pictures?",
+            "observationOpportunities": "Attends to book; retells; uses vocab.",
+            "safetyNotes": "Sitting feet; gentle books.",
+            "cleanupTips": "Face-out display reset.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "story\nrain\ncloud\nwind",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Pair a hesitant reader with picture walk only."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Literacy",
+              "Retell"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-wednesday-3",
+            "dayOfWeek": "wednesday"
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Seasons, Colors, and Calm",
+        "focus": "",
+        "objectives": "Season/clothing sort\nWeather process painting\nWeather yoga",
+        "learningDomains": [
+          "Science",
+          "Language & Literacy",
+          "Creative Arts",
+          "Physical Development",
+          "Math",
+          "Social Emotional"
+        ],
+        "materials": "Weather chart + symbol cards (printable draft)\nClipboards\nPinwheels / scarves / small fan (teacher-controlled)\nWater/rain sensory bin tools\nDress-up weather gear\nPaint, paper, cotton/cloud materials for process art\nDrums/metal pans for thunder sound play\nSeason/clothing cards (printable draft)\nBooks about weather",
+        "vocabulary": "sunny\nrainy\ncloudy\nwindy\nstorm\nwarm\ncold\nobserve\nforecast\ncloud\nwind\ntemperature\nsafe",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Season talk with photos",
+          "Wind on My Face song"
+        ],
+        "outdoorPlay": "Shadow/sun play if sunny; puddle look if rainy and safe.",
+        "observations": [
+          "Sorts clothing",
+          "Paints with choice",
+          "Calms body"
+        ],
+        "adaptations": "Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.",
+        "safetyNotes": "Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.",
+        "items": [
+          {
+            "itemId": "item-preschool-weather-watchers-thursday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Clothing and Season Sort",
+            "objective": "Sort clothing/season cards by weather needs and talk about local seasons.",
+            "description": "Children sort picture cards of clothing and seasonal scenes into weather trays.",
+            "materials": "Clothing/weather cards (printable)\n4 trays\nLabels",
+            "preparation": "Label trays sunny/rainy/cold/windy or seasons as fits climate",
+            "setup": "Sorting table.",
+            "steps": "1. Name tray labels\n2. Pick a card\n3. Sort and explain\n4. Resort one card if you change your mind\n5. Count a tray",
+            "teacherLanguage": "Why does this clothing fit that weather?",
+            "observationOpportunities": "Sorts with reason; flexible thinking; counts.",
+            "safetyNotes": "Cards laminated; no small choking pieces.",
+            "cleanupTips": "Band cards by category.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "season\ncoat\nhot\ncold",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Adapt seasons to your local climate."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Sorting trays with clothing and weather picture cards.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/clothing-sort-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Classification",
+              "Vocabulary"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-thursday-1",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-thursday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Weather Colors Process Painting",
+            "objective": "Paint weather ideas with color choices and tools children select.",
+            "description": "Children paint sunny, rainy, windy, or stormy feelings/colors with brushes, sponges, or fingers — results vary.",
+            "materials": "Tempera paints\nPaper\nBrushes/sponges\nSmocks\nOptional spray bottles with water",
+            "preparation": "Limited palette + open tools\nNo rainbow sample chart to copy",
+            "setup": "Painting easels/table with weather word cards as optional inspiration.",
+            "steps": "1. Choose weather idea\n2. Pick colors/tools\n3. Paint your way\n4. Optional water spray for rainy effects\n5. Title your work with a weather word",
+            "teacherLanguage": "What colors feel like today’s weather?",
+            "observationOpportunities": "Chooses tools; stays with process; connects to weather.",
+            "safetyNotes": "Smocks; wipe floors; nontoxic paint.",
+            "cleanupTips": "Wash brushes; hang art.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "paint\nstormy\nbright\nwash",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Skip ‘rainbow order’ instructions entirely."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Painting setup with mixed tools and weather word cards — no model rainbow.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/weather-paint-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Process art",
+              "Expression"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-thursday-2",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-thursday-3",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Weather Yoga and Rest",
+            "objective": "Practice calm weather-themed stretches and rest.",
+            "description": "Children move through gentle sun, cloud, and rain poses, then rest.",
+            "materials": "Yoga mats/towels\nCalm music optional",
+            "preparation": "Space mats\nSoft voice plan",
+            "setup": "Mats in circle/rows.",
+            "steps": "1. Reach for sun pose\n2. Float like cloud pose\n3. Gentle rain finger taps\n4. Lie still like a calm day\n5. Breathe slowly together",
+            "teacherLanguage": "Let your body feel calm like quiet weather.",
+            "observationOpportunities": "Follows gentle poses; rests; slow breathing.",
+            "safetyNotes": "No forced stretches; respect body limits.",
+            "cleanupTips": "Stack mats.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 10,
+            "vocabulary": "calm\nbreathe\nrest",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Useful after thunder sound play."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Regulation",
+              "Gross motor"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-thursday-3",
+            "dayOfWeek": "thursday"
+          }
+        ]
+      },
+      "friday": {
+        "theme": "Meteorologists Celebrate",
+        "focus": "",
+        "objectives": "Weather report\nDress relay\nWeek celebration",
+        "learningDomains": [
+          "Science",
+          "Language & Literacy",
+          "Creative Arts",
+          "Physical Development",
+          "Math",
+          "Social Emotional"
+        ],
+        "materials": "Weather chart + symbol cards (printable draft)\nClipboards\nPinwheels / scarves / small fan (teacher-controlled)\nWater/rain sensory bin tools\nDress-up weather gear\nPaint, paper, cotton/cloud materials for process art\nDrums/metal pans for thunder sound play\nSeason/clothing cards (printable draft)\nBooks about weather",
+        "vocabulary": "sunny\nrainy\ncloudy\nwindy\nstorm\nwarm\ncold\nobserve\nforecast\ncloud\nwind\ntemperature\nsafe",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Count week chart data",
+          "Share favorite investigation"
+        ],
+        "outdoorPlay": "Weather dress relay outdoors.",
+        "observations": [
+          "Reports weather",
+          "Matches gear",
+          "Recalls week"
+        ],
+        "adaptations": "Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.",
+        "safetyNotes": "Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.",
+        "items": [
+          {
+            "itemId": "item-preschool-weather-watchers-friday-1",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Meteorologist Report Circle",
+            "objective": "Give a short weather report using the class chart.",
+            "description": "Children take turns as meteorologists with a pointer/mic prop describing chart weather.",
+            "materials": "Pointer\nChart\nMicrophone prop\nSymbol cards",
+            "preparation": "Model a 2-sentence report",
+            "setup": "Circle with chart visible.",
+            "steps": "1. Point to today’s symbol\n2. Say weather words\n3. Share one clothing tip\n4. Optional weekend guess\n5. Pass mic to next reporter",
+            "teacherLanguage": "You’re on the weather report — what should friends wear?",
+            "observationOpportunities": "Speaks to group; uses chart; clothing connection.",
+            "safetyNotes": "Sitting audience; gentle mic passes.",
+            "cleanupTips": "None.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "forecast\nreport\ntoday\nwear",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Allow buddy reporting for shy children."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Public language",
+              "Chart reading"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-friday-1",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-friday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Weather Dress Relay",
+            "objective": "Choose correct gear for called weather and move safely in a relay.",
+            "description": "When a weather type is called, children grab one matching gear item and tag a friend — careful over fast.",
+            "materials": "Gear piles by weather\nCones",
+            "preparation": "Three clear gear piles\nDemonstrate safe tagging",
+            "setup": "Relay lines outdoors/indoors.",
+            "steps": "1. Call a weather type\n2. Child chooses one matching item\n3. Move to cone and tag next friend\n4. Switch weather calls\n5. Review choices together",
+            "teacherLanguage": "Careful helpers pick the right gear!",
+            "observationOpportunities": "Chooses correctly; participates; explains choice.",
+            "safetyNotes": "No knock-down racing; spot for boots trips.",
+            "cleanupTips": "Re-sort gear piles.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "match\nrainy\nsunny\ncold",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Praise accuracy over speed."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "optional",
+            "imageBriefSetup": "Relay with three weather gear piles and cones.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/weather-watchers/dress-relay-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Gross motor",
+              "Classification"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-friday-2",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-preschool-weather-watchers-friday-3",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Weather Watchers Celebration",
+            "objective": "Review the week’s weather data and celebrate investigations.",
+            "description": "Class counts chart data, thanks chart helpers, sings, and shares favorite activities.",
+            "materials": "Completed chart\nSong list\nOptional photos of investigations",
+            "preparation": "Tally weather types\nDisplay art",
+            "setup": "Celebration circle.",
+            "steps": "1. Count weather types for the week\n2. Thank chart helpers\n3. Sing Weather Watchers Song\n4. Share favorite investigation\n5. Send family weather-watch reminder",
+            "teacherLanguage": "What weather did we see most this week?",
+            "observationOpportunities": "Recalls data; participates; shares favorite.",
+            "safetyNotes": "Calm celebration.",
+            "cleanupTips": "Photograph chart for portfolio.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "week\nmost\nobserve\nthank you",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Connect celebration to real observing habit at home."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Data talk",
+              "Community",
+              "Recall"
+            ],
+            "sourceKey": "cur-lp-preschool-weather-watchers:item-preschool-weather-watchers-friday-3",
+            "dayOfWeek": "friday"
+          }
+        ]
+      }
+    },
+    "activityDecisions": [
+      {
+        "title": "Weather Watchers Circle",
+        "itemId": "item-preschool-weather-watchers-monday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Sunshine Movement Game",
+        "itemId": "item-preschool-weather-watchers-monday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Cloudy Day Process Art",
+        "itemId": "item-preschool-weather-watchers-monday-3",
+        "decision": "replace",
+        "note": "Original leaned product-focused (make a cloud picture). Replaced with process invitation using multiple tools/materials and child-chosen results.",
+        "replaces": "Cloud Cotton Art"
+      },
+      {
+        "title": "Rain Drop Sensory Investigate",
+        "itemId": "item-preschool-weather-watchers-tuesday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Weather Dress-Up Center",
+        "itemId": "item-preschool-weather-watchers-tuesday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Windy Day Pinwheel Lab",
+        "itemId": "item-preschool-weather-watchers-tuesday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Weather Chart Helpers",
+        "itemId": "item-preschool-weather-watchers-wednesday-1",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Thunder Drum Experiment",
+        "itemId": "item-preschool-weather-watchers-wednesday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Weather Book Nook",
+        "itemId": "item-preschool-weather-watchers-wednesday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Clothing and Season Sort",
+        "itemId": "item-preschool-weather-watchers-thursday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Weather Colors Process Painting",
+        "itemId": "item-preschool-weather-watchers-thursday-2",
+        "decision": "replace",
+        "note": "Original directed children to paint a rainbow product in set order. Replaced with process painting about weather colors children choose.",
+        "replaces": "Rainbow After Rain Art"
+      },
+      {
+        "title": "Weather Yoga and Rest",
+        "itemId": "item-preschool-weather-watchers-thursday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Meteorologist Report Circle",
+        "itemId": "item-preschool-weather-watchers-friday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Weather Dress Relay",
+        "itemId": "item-preschool-weather-watchers-friday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Weather Watchers Celebration",
+        "itemId": "item-preschool-weather-watchers-friday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Cloud Cotton Art",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      },
+      {
+        "title": "Rainbow After Rain Art",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      }
+    ],
+    "removedActivityTitles": [
+      "Cloud Cotton Art",
+      "Rainbow After Rain Art"
+    ],
+    "removedItemIds": [],
+    "books": [
+      {
+        "title": "The Snowy Day",
+        "author": "Ezra Jack Keats",
+        "notes": "Weather experience story; discussion about clothing/play."
+      },
+      {
+        "title": "Tap Tap Boom Boom",
+        "author": "Elizabeth Bluemle",
+        "notes": "City rain; sound and shelter talk."
+      },
+      {
+        "title": "Rain",
+        "author": "Manya Stojic",
+        "notes": "Senses and rain; keep discussion preschool-level."
+      }
+    ],
+    "songs": [
+      {
+        "title": "Weather Watchers Song (LLH original)",
+        "lyrics": "Look outside, what do you see?\nSunny, cloudy, windy, rainy as can be.\nWe observe and then we say,\nWhat’s the weather for today?",
+        "motions": "Point outside; act each weather word.",
+        "rightsStatus": "original"
+      },
+      {
+        "title": "Itsy Bitsy Spider",
+        "notes": "Traditional/public-domain style; rain spout connection.",
+        "rightsStatus": "traditional_public_domain"
+      },
+      {
+        "title": "Wind on My Face (LLH original)",
+        "lyrics": "Wind on my face, wind in my hair,\nScarves and pinwheels spinning in the air.\nBlow, blow, gently today,\nWatch how the wind moves things away.",
+        "motions": "Scarf/pinwheel movements.",
+        "rightsStatus": "original"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Weather chart + blank week grid ready",
+        "Gear sorted by sunny/rainy/cold",
+        "Wind station (pinwheels/scarves) set",
+        "Process-art trays without model products"
+      ],
+      "observationFocus": [
+        "Descriptive weather language",
+        "Chart participation",
+        "Clothing-weather connections"
+      ],
+      "teacherPreparation": "Keep science playful: observe, try, talk — no weather quizzes.",
+      "notes": "Replace product rainbow crafts with process weather art."
+    },
+    "printableIdeas": [
+      {
+        "title": "Weather Symbol Cards",
+        "purpose": "Sunny/cloudy/rainy/windy/stormy symbols for chart and sorting",
+        "type": "cards"
+      },
+      {
+        "title": "Weekly Weather Observation Chart",
+        "purpose": "Simple Mon–Fri class chart",
+        "type": "chart"
+      },
+      {
+        "title": "Clothing for Weather Cards",
+        "purpose": "Match clothing to weather in play",
+        "type": "cards"
+      },
+      {
+        "title": "Wind Investigation Prompt Mini-Poster",
+        "purpose": "What moves in the wind? invitation",
+        "type": "display"
+      }
+    ],
+    "printableIds": [
+      "cur-res-draft-weather-symbols",
+      "cur-res-draft-weather-chart",
+      "cur-res-draft-weather-clothing"
+    ],
+    "vocabCards": [
+      "sunny",
+      "rainy",
+      "cloudy",
+      "windy",
+      "storm",
+      "observe",
+      "warm",
+      "cold"
+    ],
+    "milestones": [
+      "Cognition",
+      "Language",
+      "Gross Motor",
+      "Fine Motor",
+      "Creativity",
+      "Social Emotional"
+    ],
+    "auditNotes": {},
+    "researchSources": [
+      "NAEYC DAP — science as observation, inquiry, and play for preschoolers",
+      "Head Start ECLKC — science/nature exploration; process over product art",
+      "CDC preschool milestones — descriptive language, fine/gross motor, cooperation"
+    ]
+  },
+  "meta": {
+    "purpose": "Premium Teaching Kit draft for owner Admin review — DO NOT PUBLISH automatically",
+    "sourceLessonId": "cur-lp-preschool-weather-watchers",
+    "sourceTitle": "Weather Watchers",
+    "activityCount": 15,
+    "imagePolicy": "Assign images only when instructional value is clear"
+  }
+}

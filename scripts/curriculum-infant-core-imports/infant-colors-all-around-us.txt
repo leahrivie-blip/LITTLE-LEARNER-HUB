@@ -11,615 +11,784 @@ PLAN:
 Free
 
 STATUS:
-published
+draft
 
 LEARNING_DOMAINS:
 Physical Development
 Language & Literacy
 Social Emotional
 Creative Arts
+Science
 
 WEEKLY_OVERVIEW:
-Infants will explore bright colors through sensory play, movement, music, and caregiver interactions. Throughout the week, babies will observe, reach for, and engage with colorful materials while building visual tracking, early communication, and sensory awareness skills.
+This week focuses on looking, tracking, reaching, and warm caregiver talk with bright colors — not naming drills or crafts. Younger infants mostly look and listen; older infants may reach and grasp when ready.
 
 LEARNING_OBJECTIVES:
-- Develop visual tracking skills
-- Encourage reaching and grasping
-- Support sensory exploration
-- Build early language through color words
-- Promote positive caregiver interactions
+Support visual attention and slow tracking with bright, simple materials
+Offer supervised tummy-time looking with colorful anchors
+Encourage reaching/grasping only when developmentally ready
+Build connection through face-to-face talk and short songs
+Share brief, visually clear board-book moments
 
 WEEKLY_MATERIALS:
-Color scarves
-Colored fabric squares
-Baby-safe mirrors
-Soft colored balls
-Colorful rattles
-Floor mats
-Board books
+Large bright scarves (chiffon or soft fabric)
+Soft colored cloth squares (too large to choke)
+Baby-safe mirror
+Large soft colored rattles/balls
+Tummy-time mat
+Simple color board books
+Support pillow/roll for positioning
 
 VOCABULARY:
-Red
-Blue
-Yellow
-Green
-Color
-Bright
-Rainbow
+look
+see
+bright
+red
+blue
+yellow
+green
+soft
+reach
+watch
 
 BOOKS:
-Brown Bear, Brown Bear, What Do You See? | Bill Martin Jr.
 Baby Colors | Roger Priddy
+Brown Bear, Brown Bear, What Do You See? | Bill Martin Jr.
 Color Zoo | Lois Ehlert
 
 SONGS:
-I Can Sing a Rainbow
-The Color Song
+Look at the Bright Color (LLH original)
 Twinkle Twinkle Little Star
+Color Hello Song (LLH original)
 
 FAMILY_CONNECTION:
-Encourage families to point out colors during everyday routines. Talk about colorful clothing, toys, foods, and household objects to build language connections.
+Invite families to name one bright color during a diaper change or walk — keep it playful, not a quiz.
 
 OBSERVATION_OPPORTUNITIES:
-Observe visual tracking, reaching attempts, engagement during songs, reactions to colorful materials, and early communication behaviors.
+Tracks a slow-moving color briefly
+Looks between caregiver face and colorful object
+Lifts head or reaches during tummy time when ready
+Settles to voice during color songs
 
 ADAPTATIONS:
-Provide larger graspable materials when needed. Adjust activity positioning to support each infant's developmental level and comfort.
+Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.
 
-MONDAY:
+Monday
 
 DAILY_THEME:
-Colors: monday
+Looking at Bright Colors
 
 DAILY_OBJECTIVES:
-Explore Colors: monday through play-based, age-appropriate activities.
-
-DAILY_LEARNING_DOMAINS:
-Physical Development, Language & Literacy, Social Emotional, Creative Arts
-
-DAILY_MATERIALS:
-Color scarves
-Colored fabric squares
-Baby-safe mirrors
-Soft colored balls
-Colorful rattles
-Floor mats
-Board books
+Practice slow visual tracking with scarves
+Offer colorful tummy-time looking
+Connect face-to-face with color talk
 
 DAILY_VOCABULARY:
-Red
-Blue
-Yellow
-Green
-Color
-Bright
-Rainbow
-
-CIRCLE_TIME:
-Welcome song connected to Colors.
-Talk about today's focus: Colors: monday.
-Invite children to share one idea or movement.
-
-OUTDOOR_PLAY:
-Outdoor play connected to Colors: movement, observation, and fresh-air exploration with close supervision.
-
-DAILY_OBSERVATIONS:
-Engagement and interest in theme play
-Use of theme vocabulary
-Motor skills and social interaction
-
-DAILY_ADAPTATIONS:
-Provide larger graspable materials when needed. Adjust activity positioning to support each infant's developmental level and comfort.
-
-SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
-
-ACTIVITY_NAME:
-Rainbow Scarf Visual Tracking
-
-CATEGORY:
-Sensory Play
-
-OBJECTIVE:
-Develop visual tracking skills using colorful moving objects.
-
-DESCRIPTION:
-Infants observe brightly colored scarves moving through their visual field while teachers describe the colors being seen.
-
-MATERIALS:
-Rainbow scarves
-Soft floor mat
-
-SETUP:
-Place infants comfortably on a floor mat in a quiet area.
-
-TEACHER_ROLE:
-Move scarves slowly and name colors while encouraging visual attention.
-
-DIRECTIONS:
-1. Position infant comfortably.
-2. Hold scarf within visual range.
-3. Slowly move scarf left and right.
-4. Pause frequently.
-5. Repeat with different colors.
-
-LEARNING_GOALS:
-- Visual tracking
-- Attention skills
-- Language exposure
-
-OBSERVATION_OPPORTUNITIES:
-- Follows scarf with eyes
-- Maintains attention
-- Shows excitement through smiles or sounds
-
-ADAPTATIONS:
-Offer larger materials, shorter turns, and hand-over-hand support when needed.
-
-SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
-
-ACTIVITY_NAME:
-Colorful Tummy Time
-
-CATEGORY:
-Gross Motor
-
-OBJECTIVE:
-Encourage head lifting and reaching.
-
-DESCRIPTION:
-Infants participate in tummy time while colorful toys are placed nearby to encourage movement.
-
-MATERIALS:
-Bright colored toys
-Tummy time mat
-
-SETUP:
-Place toys around the tummy time area.
-
-TEACHER_ROLE:
-Encourage infants and reposition toys to maintain interest.
-
-DIRECTIONS:
-1. Place infant on tummy.
-2. Position toys within sight.
-3. Encourage looking and reaching.
-4. Celebrate movement attempts.
-
-LEARNING_GOALS:
-- Neck strength
-- Reaching skills
-- Visual engagement
-
-OBSERVATION_OPPORTUNITIES:
-- Head lifting
-- Reaching attempts
-- Interest in toys
-
-ADAPTATIONS:
-Offer larger materials, shorter turns, and hand-over-hand support when needed.
-
-SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
-
-TUESDAY:
-
-DAILY_THEME:
-Seeing Bright Colors
-
-DAILY_OBJECTIVES:
-Explore Seeing Bright Colors through play-based activities.
-
-DAILY_LEARNING_DOMAINS:
-Physical Development, Language & Literacy, Social Emotional, Creative Arts
+look
+see
+bright
+red
+blue
+yellow
+green
+soft
+reach
+watch
 
 DAILY_MATERIALS:
-Color scarves
-Colored fabric squares
-Baby-safe mirrors
-Soft colored balls
-Colorful rattles
-Floor mats
-Board books
-
-DAILY_VOCABULARY:
-Red
-Blue
-Yellow
-Green
-Color
-Bright
-Rainbow
-
-CIRCLE_TIME:
-Welcome song connected to Colors.
-Talk about today's focus: Seeing Bright Colors.
-Invite children to share one idea or movement.
-
-OUTDOOR_PLAY:
-Outdoor play connected to Colors: movement, observation, and fresh-air exploration with close supervision.
-
-DAILY_OBSERVATIONS:
-Engagement and interest in theme play
-Use of theme vocabulary
-Motor skills and social interaction
-
-DAILY_ADAPTATIONS:
-Provide larger graspable materials when needed. Adjust activity positioning to support each infant's developmental level and comfort.
-
-SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
-
-ACTIVITY_NAME:
-Red Scarf Slow Track
-
-CATEGORY:
-Sensory Play
-
-OBJECTIVE:
-Track a bright red scarf with eyes.
-
-DESCRIPTION:
-Caregiver slowly moves a red scarf side to side while the infant watches from a comfortable position.
-
-MATERIALS:
-Red chiffon scarf
-Floor mat
-Support pillow
-
-SETUP:
-Place infant safely on mat within arm's reach.
-
-TEACHER_ROLE:
-Watch for cues to pause or rest.
-
-DIRECTIONS:
-1. Settle infant comfortably on back or side.
-2. Hold the red scarf about 12 inches away.
-3. Move slowly left to right.
-4. Pause when eyes lock on.
-5. Smile and name red softly.
-
-LEARNING_GOALS:
-- Visual tracking
-- Attention
-- Caregiver bonding
-
-OBSERVATION_OPPORTUNITIES:
-- Tracks scarf briefly
-- Focuses on red
-- Shows calm interest
-
-ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
-
-SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
-
-ACTIVITY_NAME:
-Color Lap Bounce Lullaby
-
-CATEGORY:
-Music & Movement
-
-OBJECTIVE:
-Connect color words with gentle rhythm.
-
-DESCRIPTION:
-Hold infant and softly bounce to a color lullaby while showing a blue or yellow cloth.
-
-MATERIALS:
-Soft colored cloth
-Calm music or voice
-Comfortable chair
-
-SETUP:
-Sit securely with infant supported.
-
-TEACHER_ROLE:
-Keep bounce tiny and responsive.
-
-DIRECTIONS:
-1. Settle infant in arms.
-2. Show the colored cloth.
-3. Sing a short color phrase.
-4. Add tiny gentle bounces.
-5. Rest forehead-to-forehead briefly.
-
-LEARNING_GOALS:
-- Auditory awareness
-- Bonding
-- Color exposure
-
-OBSERVATION_OPPORTUNITIES:
-- Settles in arms
-- Looks at cloth
-- Responds to voice
-
-ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
-
-SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
-
-ACTIVITY_NAME:
-Color Board Book Faces
-
-CATEGORY:
-Literacy
-
-OBJECTIVE:
-Share a high-contrast color board book face-to-face.
-
-DESCRIPTION:
-Read one or two color pages while holding the book where the infant can see both book and face.
-
-MATERIALS:
-Color board book
-Floor mat or lap
-
-SETUP:
-Choose a quiet moment after a diaper change or before nap.
-
-TEACHER_ROLE:
-Keep sessions to 1–3 minutes.
-
-DIRECTIONS:
-1. Hold infant tummy-to-tummy or on lap.
-2. Show one bright page.
-3. Name the color slowly.
-4. Point gently near the page.
-5. Close with a smile and soft clap.
-
-LEARNING_GOALS:
-- Early literacy
-- Visual attention
-- Language
-
-OBSERVATION_OPPORTUNITIES:
-- Looks at page
-- Looks at caregiver face
-- Stays engaged briefly
-
-ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
-
-SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
-
-WEDNESDAY:
-
-DAILY_THEME:
-Reaching for Color
-
-DAILY_OBJECTIVES:
-Explore Reaching for Color through play-based activities.
-
-DAILY_LEARNING_DOMAINS:
-Physical Development, Language & Literacy, Social Emotional, Creative Arts
-
-DAILY_MATERIALS:
-Color scarves
-Colored fabric squares
-Baby-safe mirrors
-Soft colored balls
-Colorful rattles
-Floor mats
-Board books
-
-DAILY_VOCABULARY:
-Red
-Blue
-Yellow
-Green
-Color
-Bright
-Rainbow
-
-CIRCLE_TIME:
-Welcome song connected to Colors.
-Talk about today's focus: Reaching for Color.
-Invite children to share one idea or movement.
-
-OUTDOOR_PLAY:
-Outdoor play connected to Colors: movement, observation, and fresh-air exploration with close supervision.
-
-DAILY_OBSERVATIONS:
-Engagement and interest in theme play
-Use of theme vocabulary
-Motor skills and social interaction
-
-DAILY_ADAPTATIONS:
-Provide larger graspable materials when needed. Adjust activity positioning to support each infant's developmental level and comfort.
-
-SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
-
-ACTIVITY_NAME:
-Yellow Rattle Reach
-
-CATEGORY:
-Fine Motor
-
-OBJECTIVE:
-Encourage reaching toward a yellow rattle.
-
-DESCRIPTION:
-Offer a yellow infant rattle just within reach during supervised floor time.
-
-MATERIALS:
-Yellow soft rattle
-Floor mat
-
-SETUP:
-Place infant on back with rattle in view.
-
-TEACHER_ROLE:
-Never force grasp; follow infant cues.
-
-DIRECTIONS:
-1. Show the rattle and shake gently.
-2. Hold near one hand.
-3. Encourage batting or grasping.
-4. Celebrate any contact.
-5. Offer the other side briefly.
-
-LEARNING_GOALS:
-- Reaching
-- Hand-eye awareness
-- Cause and effect
-
-OBSERVATION_OPPORTUNITIES:
-- Looks at rattle
-- Bats or reaches
-- Grasps briefly
-
-ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
-
-SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
-
-ACTIVITY_NAME:
-Tummy Time Color Mirror
-
-CATEGORY:
-Gross Motor
-
-OBJECTIVE:
-Lift head during tummy time toward colorful reflection.
-
-DESCRIPTION:
-Place a baby-safe mirror with a colorful frame during short tummy time.
-
-MATERIALS:
+Large bright scarves (chiffon or soft fabric)
+Soft colored cloth squares (too large to choke)
 Baby-safe mirror
-Colorful frame scarf
+Large soft colored rattles/balls
+Tummy-time mat
+Simple color board books
+Support pillow/roll for positioning
+
+DAILY_LEARNING_DOMAINS:
+Physical Development
+Language & Literacy
+Social Emotional
+Creative Arts
+Science
+
+CIRCLE_TIME:
+Soft welcome song
+Show one bright cloth and smile
+Keep circle under 3 minutes
+
+OUTDOOR_PLAY:
+Shaded stroller or outdoor blanket look at safe colorful outdoor objects with narration.
+
+DAILY_OBSERVATIONS:
+Tracks scarf
+Lifts head in tummy time
+Looks at caregiver face
+
+DAILY_ADAPTATIONS:
+Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.
+
+SAFETY_NOTES:
+Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.
+
+ACTIVITY_NAME:
+Bright Scarf Slow Track
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Support slow visual tracking with a bright moving scarf.
+
+DESCRIPTION:
+Baby watches a large bright scarf move slowly across their view while you name the color in a calm voice.
+
+MATERIALS:
+1–2 large bright scarves
 Floor mat
 
 SETUP:
-Get down on infant's level for tummy time.
+Place baby comfortably on back or supported side on a mat.
 
 TEACHER_ROLE:
-Limit tummy time to comfort; stay within arm's reach.
+Slower than you think — pause when eyes lock on.
+
+TEACHER_LANGUAGE:
+Look… see the bright red? Watching… watching.
 
 DIRECTIONS:
-1. Place infant on tummy with support as needed.
-2. Set mirror at eye level.
-3. Drape a colorful scarf near the frame.
-4. Talk about the bright colors.
-5. Roll to back for rest.
+1. Settle baby and gain eye contact first
+2. Hold scarf about 8–12 inches away
+3. Move slowly left, pause, then right
+4. Name the color once or twice
+5. Stop when baby looks away
 
 LEARNING_GOALS:
-- Head control
-- Visual interest
-- Strength
+Visual tracking
+Attention
+Language exposure
 
 OBSERVATION_OPPORTUNITIES:
-- Lifts head briefly
-- Looks at mirror
-- Tolerates tummy time
+Tracks scarf briefly; stays calm while looking.
+
+VOCABULARY:
+look
+see
+bright
+red
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
+Keep scarf away from face/neck; never leave draped on baby.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months (younger: look only; older: may bat scarf)
 
 ACTIVITY_NAME:
-Color Cloth Basket Gaze
+Colorful Tummy Time Look
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Encourage head lifting during awake tummy time with a colorful visual anchor.
+
+DESCRIPTION:
+During supervised tummy time, a bright toy or cloth sits in view to invite looking and brief head lifts.
+
+MATERIALS:
+Tummy-time mat
+1 large bright toy or cloth
+Optional support roll
+
+SETUP:
+Awake baby on tummy on firm mat; colorful item in front.
+
+TEACHER_ROLE:
+Chest-to-chest counts as tummy time for newborns.
+
+TEACHER_LANGUAGE:
+You are looking! Bright yellow is right here.
+
+DIRECTIONS:
+1. Place baby on tummy when alert
+2. Set bright item in easy view
+3. Get face-to-face beside baby and talk
+4. Celebrate any head lift or looking
+5. Return to back for rest as needed
+
+LEARNING_GOALS:
+Neck strength
+Visual engagement
+
+OBSERVATION_OPPORTUNITIES:
+Lifts head briefly; looks toward colorful item.
+
+VOCABULARY:
+look
+up
+yellow
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Tummy time only when awake and supervised. Back to sleep.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months (use chest-to-chest for very young infants)
+
+ACTIVITY_NAME:
+Face-to-Face Color Talk
 
 CATEGORY:
 Open-Ended Exploration
 
 OBJECTIVE:
-Quietly explore colored cloths with caregiver.
+Connect caregiver face (best early visual target) with a simple color prop.
 
 DESCRIPTION:
-Offer two large colored cloths for looking and light touch while supervised on the floor.
+You hold baby close, smile, and slowly show one bright cloth while talking. Faces stay the main focus.
 
 MATERIALS:
-Two large colored cloths
-Shallow basket
+One bright cloth
+Comfortable seating
+
+SETUP:
+Hold baby 8–12 inches from your face with cloth nearby.
+
+TEACHER_ROLE:
+Face first, prop second — never replace interaction with objects.
+
+TEACHER_LANGUAGE:
+Hi! I see you. Here is soft blue.
+
+DIRECTIONS:
+1. Gain eye contact and smile
+2. Show cloth beside your face briefly
+3. Name the color in a soft voice
+4. Hide cloth and return to face play
+5. End with a cuddle
+
+LEARNING_GOALS:
+Social engagement
+Visual attention
+Language
+
+OBSERVATION_OPPORTUNITIES:
+Looks at face; glances toward cloth.
+
+VOCABULARY:
+hi
+see
+blue
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Support head/neck; stop if baby turns away.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+Tuesday
+
+DAILY_THEME:
+One Color at a Time
+
+DAILY_OBJECTIVES:
+Focus on a single bold color
+Pair color with gentle rhythm
+Share a short board-book look
+
+DAILY_VOCABULARY:
+look
+see
+bright
+red
+blue
+yellow
+green
+soft
+reach
+watch
+
+DAILY_MATERIALS:
+Large bright scarves (chiffon or soft fabric)
+Soft colored cloth squares (too large to choke)
+Baby-safe mirror
+Large soft colored rattles/balls
+Tummy-time mat
+Simple color board books
+Support pillow/roll for positioning
+
+DAILY_LEARNING_DOMAINS:
+Physical Development
+Language & Literacy
+Social Emotional
+Creative Arts
+Science
+
+CIRCLE_TIME:
+Color Hello Song
+Show red or blue cloth only
+
+OUTDOOR_PLAY:
+Shade break with one bright cloth for looking.
+
+DAILY_OBSERVATIONS:
+Fixates on one color
+Settles to song
+Looks at book page
+
+DAILY_ADAPTATIONS:
+Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.
+
+SAFETY_NOTES:
+Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.
+
+ACTIVITY_NAME:
+One-Color Slow Track
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Practice tracking with a single bold color to reduce visual overload.
+
+DESCRIPTION:
+Baby watches one solid-color scarf move slowly while you pause for focus.
+
+MATERIALS:
+One solid bright scarf
+Mat
+Support pillow if needed
+
+SETUP:
+Baby on back or side; one scarf only.
+
+TEACHER_ROLE:
+One color beats a rainbow pile for young infants.
+
+TEACHER_LANGUAGE:
+Red… watching red.
+
+DIRECTIONS:
+1. Show still scarf first
+2. Move slowly side to side
+3. Pause when baby fixates
+4. Name color once
+5. Rest
+
+LEARNING_GOALS:
+Tracking
+Focus
+
+OBSERVATION_OPPORTUNITIES:
+Fixates; tracks briefly.
+
+VOCABULARY:
+red
+watch
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Arm’s reach; no scarf near neck.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+ACTIVITY_NAME:
+Color Lap Bounce Song
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Pair gentle rhythm and voice with a simple color prop.
+
+DESCRIPTION:
+Baby is held securely while you hum/sing and show a soft colored cloth with tiny bounces.
+
+MATERIALS:
+Soft colored cloth
+Chair
+Your voice
+
+SETUP:
+Sit with baby well supported in arms.
+
+TEACHER_ROLE:
+Match bounce to baby’s state — calm babies need almost no bounce.
+
+TEACHER_LANGUAGE:
+Bounce, bounce — soft yellow with you.
+
+DIRECTIONS:
+1. Settle baby in arms
+2. Show cloth
+3. Sing a short color phrase
+4. Add tiny responsive bounces
+5. Stillness and smile to close
+
+LEARNING_GOALS:
+Bonding
+Auditory awareness
+
+OBSERVATION_OPPORTUNITIES:
+Settles to voice; glances at cloth.
+
+VOCABULARY:
+soft
+yellow
+sing
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Support head; keep bounce tiny.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+ACTIVITY_NAME:
+Color Board Book Together
+
+CATEGORY:
+Literacy
+
+OBJECTIVE:
+Share a brief board-book look with face-to-face connection.
+
+DESCRIPTION:
+You hold a color board book where baby can see pages and your face, staying on 1–2 pages.
+
+MATERIALS:
+Color board book
+Lap or mat
+
+SETUP:
+Lap hold or tummy-to-tummy with book angled toward baby.
+
+TEACHER_ROLE:
+Stopping early is success.
+
+TEACHER_LANGUAGE:
+This page is bright green. Looking together.
+
+DIRECTIONS:
+1. Show cover briefly
+2. Open to one bright page
+3. Point near the color shape
+4. Name color slowly
+5. Close with smile
+
+LEARNING_GOALS:
+Early literacy
+Joint attention
+
+OBSERVATION_OPPORTUNITIES:
+Looks at page; looks back at caregiver.
+
+VOCABULARY:
+book
+green
+page
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Board books only; no paper tears near mouth unsupervised.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+Wednesday
+
+DAILY_THEME:
+Reaching When Ready
+
+DAILY_OBJECTIVES:
+Offer reach opportunities for older infants
+Mirror looking with color
+Touch soft color cloths
+
+DAILY_VOCABULARY:
+look
+see
+bright
+red
+blue
+yellow
+green
+soft
+reach
+watch
+
+DAILY_MATERIALS:
+Large bright scarves (chiffon or soft fabric)
+Soft colored cloth squares (too large to choke)
+Baby-safe mirror
+Large soft colored rattles/balls
+Tummy-time mat
+Simple color board books
+Support pillow/roll for positioning
+
+DAILY_LEARNING_DOMAINS:
+Physical Development
+Language & Literacy
+Social Emotional
+Creative Arts
+Science
+
+CIRCLE_TIME:
+Name today’s color softly
+Gentle stretch hold
+
+OUTDOOR_PLAY:
+Supervised blanket time with one large colorful toy nearby.
+
+DAILY_OBSERVATIONS:
+Reaches or bats toy
+Looks in mirror
+Touches cloth
+
+DAILY_ADAPTATIONS:
+Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.
+
+SAFETY_NOTES:
+Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.
+
+ACTIVITY_NAME:
+Soft Color Reach
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Invite reaching toward a large soft colorful toy when ready.
+
+DESCRIPTION:
+A large yellow (or bright) rattle sits just within reach during supervised floor time. Younger babies may only look.
+
+MATERIALS:
+Large soft colorful rattle
 Mat
 
 SETUP:
-Sit beside infant with cloths in a basket.
+Baby on back; toy held or propped within swipe range.
 
 TEACHER_ROLE:
-Keep cloths away from face covering.
+If no reach yet, keep as a looking toy — still valuable.
+
+TEACHER_LANGUAGE:
+Can you reach the bright rattle?
 
 DIRECTIONS:
-1. Show one cloth at a time.
-2. Brush lightly on hand if welcomed.
-3. Hold up for tracking.
-4. Switch colors.
-5. Put cloths away with a goodbye song.
+1. Gain attention on toy
+2. Hold steady within reach
+3. Allow bat/reach attempts
+4. Celebrate any contact
+5. Offer grasp help only if baby is ready
 
 LEARNING_GOALS:
-- Sensory awareness
-- Choice of gaze
-- Bonding
+Reaching
+Eye-hand beginnings
 
 OBSERVATION_OPPORTUNITIES:
-- Looks between cloths
-- Touches cloth
-- Shows preference
+Bats or reaches; brings hands toward midline.
+
+VOCABULARY:
+reach
+hold
+yellow
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
+No small parts; sanitize after mouthing.
 
-THURSDAY:
+AGE_MODIFICATIONS:
+Best for ~3–6 months; younger infants may only look
+
+ACTIVITY_NAME:
+Tummy Color Mirror Look
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Combine tummy time with mirror looking and a color accent.
+
+DESCRIPTION:
+Baby does short tummy time facing a baby-safe mirror with one colorful cloth beside it.
+
+MATERIALS:
+Baby-safe mirror
+Bright cloth
+Mat
+
+SETUP:
+Mirror at edge of mat; cloth to the side — not covering mirror.
+
+TEACHER_ROLE:
+Your face beside the mirror beats any toy.
+
+TEACHER_LANGUAGE:
+I see you! And soft blue beside you.
+
+DIRECTIONS:
+1. Place baby on tummy
+2. Point to baby’s face in mirror
+3. Show cloth briefly beside mirror
+4. Talk about looking
+5. Rest on back
+
+LEARNING_GOALS:
+Tummy strength
+Face interest
+
+OBSERVATION_OPPORTUNITIES:
+Looks at mirror; lifts head.
+
+VOCABULARY:
+see
+you
+blue
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Unbreakable mirror only; supervised.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+ACTIVITY_NAME:
+Color Cloth Touch Basket
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore soft colorful cloths with eyes and hands under supervision.
+
+DESCRIPTION:
+A shallow basket holds 2–3 large soft colored cloths. Baby looks and may touch while you narrate.
+
+MATERIALS:
+Shallow basket
+2–3 large soft cloths
+
+SETUP:
+Basket near baby on mat; you seated close.
+
+TEACHER_ROLE:
+Less is more — two cloths often beat five.
+
+TEACHER_LANGUAGE:
+Soft red cloth. Touch gently.
+
+DIRECTIONS:
+1. Show one cloth from basket
+2. Drape lightly on your hand for baby to see/touch
+3. Name color and texture
+4. Offer second cloth if interested
+5. Put cloths away before baby tires
+
+LEARNING_GOALS:
+Tactile exploration
+Visual attention
+
+OBSERVATION_OPPORTUNITIES:
+Looks; touches; shows preference.
+
+VOCABULARY:
+soft
+touch
+red
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Never cover baby’s face; prevent bundling/entanglement.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months (older may grasp cloths)
+
+Thursday
 
 DAILY_THEME:
-Soft Color Touch
+Touch and Connection
 
 DAILY_OBJECTIVES:
-Explore Soft Color Touch through play-based activities.
-
-DAILY_LEARNING_DOMAINS:
-Physical Development, Language & Literacy, Social Emotional, Creative Arts
-
-DAILY_MATERIALS:
-Color scarves
-Colored fabric squares
-Baby-safe mirrors
-Soft colored balls
-Colorful rattles
-Floor mats
-Board books
+Explore soft color textures
+Practice greeting with color prop
+Sway with color cloth
 
 DAILY_VOCABULARY:
-Red
-Blue
-Yellow
-Green
-Color
-Bright
-Rainbow
+look
+see
+bright
+red
+blue
+yellow
+green
+soft
+reach
+watch
+
+DAILY_MATERIALS:
+Large bright scarves (chiffon or soft fabric)
+Soft colored cloth squares (too large to choke)
+Baby-safe mirror
+Large soft colored rattles/balls
+Tummy-time mat
+Simple color board books
+Support pillow/roll for positioning
+
+DAILY_LEARNING_DOMAINS:
+Physical Development
+Language & Literacy
+Social Emotional
+Creative Arts
+Science
 
 CIRCLE_TIME:
-Welcome song connected to Colors.
-Talk about today's focus: Soft Color Touch.
-Invite children to share one idea or movement.
+Color Hello with each baby
+Show texture mitt
 
 OUTDOOR_PLAY:
-Outdoor play connected to Colors: movement, observation, and fresh-air exploration with close supervision.
+Quiet outdoor sway with scarf if weather allows.
 
 DAILY_OBSERVATIONS:
-Engagement and interest in theme play
-Use of theme vocabulary
-Motor skills and social interaction
+Explores texture
+Responds to hello
+Calms with sway
 
 DAILY_ADAPTATIONS:
-Provide larger graspable materials when needed. Adjust activity positioning to support each infant's developmental level and comfort.
+Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.
 
 SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
+Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.
 
 ACTIVITY_NAME:
 Soft Color Texture Mitts
@@ -628,226 +797,269 @@ CATEGORY:
 Sensory Play
 
 OBJECTIVE:
-Feel soft colored textures on hands.
+Offer safe textured color mitts for looking and gentle touch.
 
 DESCRIPTION:
-Gently touch infant hands with different colored soft fabric mitts or squares.
+You wear or hold a soft textured mitt in a bright color and invite baby to look and pat.
 
 MATERIALS:
-Soft fabric squares in 2–3 colors
+Washable textured mitt or cloth square with sewn texture
 Mat
 
 SETUP:
-Ensure fabrics are clean and large.
+Sit facing baby with mitt on your hand.
 
 TEACHER_ROLE:
-Stop if infant turns away.
+Your paced presentation matters more than the mitt design.
+
+TEACHER_LANGUAGE:
+Bumpy blue. Soft touch.
 
 DIRECTIONS:
-1. Show a fabric square.
-2. Name its color.
-3. Stroke lightly on palm or arm.
-4. Pause for infant reaction.
-5. Offer a second color.
+1. Show mitt still
+2. Move slowly into view
+3. Allow touch on mitt (not face covering)
+4. Name color and feel (soft/bumpy)
+5. Remove if overstimulating
 
 LEARNING_GOALS:
-- Tactile awareness
-- Color language
-- Trust
+Tactile discrimination
+Calm attention
 
 OBSERVATION_OPPORTUNITIES:
-- Notices touch
-- Looks at fabric
-- Remains calm
+Touches mitt; watches movement.
+
+VOCABULARY:
+soft
+bumpy
+blue
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
+Secure all parts; sanitize; no detachable decorations.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
 
 ACTIVITY_NAME:
 Color Hello with Caregiver
 
 CATEGORY:
-Circle Time
-
-OBJECTIVE:
-Greet infant with color props and names.
-
-DESCRIPTION:
-A short one-to-one hello ritual using a color scarf and the infant's name.
-
-MATERIALS:
-Color scarf
-Name song
-
-SETUP:
-Sit face-to-face in a quiet corner.
-
-TEACHER_ROLE:
-Keep ritual predictable and short.
-
-DIRECTIONS:
-1. Wave the scarf as a hello.
-2. Sing the infant's name.
-3. Peek from behind the scarf briefly.
-4. Smile and pause.
-5. End with a cuddle.
-
-LEARNING_GOALS:
-- Social bonding
-- Name recognition
-- Anticipation
-
-OBSERVATION_OPPORTUNITIES:
-- Watches scarf
-- Responds to name
-- Smiles or calms
-
-ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
-
-SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
-
-ACTIVITY_NAME:
-Green Scarf Sway
-
-CATEGORY:
 Music & Movement
 
 OBJECTIVE:
-Sway gently while tracking a green scarf.
+Use a short greeting song with a color prop to support social connection.
 
 DESCRIPTION:
-Caregiver sways side to side holding infant and a green scarf in view.
+Each baby gets a personal hello while you show a color cloth and sing a brief greeting.
 
 MATERIALS:
-Green scarf
-Calm music
+Color cloth
+Your voice
 
 SETUP:
-Stand or sit with secure hold.
+Hold or sit with one baby at a time.
 
 TEACHER_ROLE:
-Support head and neck at all times.
+One baby at a time beats a group performance.
+
+TEACHER_LANGUAGE:
+Hello blue — hello you!
 
 DIRECTIONS:
-1. Hold infant securely.
-2. Bring green scarf into view.
-3. Sway slowly with music.
-4. Name green.
-5. Rest when cues show enough.
+1. Make eye contact
+2. Show cloth
+3. Sing hello with color word
+4. Pause for baby response
+5. Kiss or cuddle close
 
 LEARNING_GOALS:
-- Vestibular calm
-- Tracking
-- Bonding
+Social-emotional
+Rhythm
 
 OBSERVATION_OPPORTUNITIES:
-- Settles into sway
-- Looks at scarf
-- Relaxes
+Smiles/coos; tracks cloth during hello.
+
+VOCABULARY:
+hello
+you
+blue
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
+Support head during holds.
 
-FRIDAY:
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+ACTIVITY_NAME:
+Soft Color Sway Hold
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Provide gentle vestibular movement while baby looks at a color scarf.
+
+DESCRIPTION:
+Holding baby securely, you sway side to side while a green scarf stays in view.
+
+MATERIALS:
+Bright scarf
+Clear floor space
+
+SETUP:
+Stand or sit with baby held upright/supported.
+
+TEACHER_ROLE:
+Match sway to breathing; stop if baby startles.
+
+TEACHER_LANGUAGE:
+Sway… green… sway.
+
+DIRECTIONS:
+1. Hold baby securely
+2. Show scarf in view
+3. Sway slowly left/right
+4. Name color softly
+5. Stillness to finish
+
+LEARNING_GOALS:
+Balance beginnings
+Regulation
+
+OBSERVATION_OPPORTUNITIES:
+Calms or alerts to movement; looks at scarf.
+
+VOCABULARY:
+sway
+green
+
+EXTENSIONS:
+
+ADAPTATIONS:
+
+SAFETY_NOTES:
+Two-hand secure hold; no spinning or dipping.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
+
+Friday
 
 DAILY_THEME:
-Color Bonding Songs
+Favorite Colors Together
 
 DAILY_OBJECTIVES:
-Explore Color Bonding Songs through play-based activities.
-
-DAILY_LEARNING_DOMAINS:
-Physical Development, Language & Literacy, Social Emotional, Creative Arts
-
-DAILY_MATERIALS:
-Color scarves
-Colored fabric squares
-Baby-safe mirrors
-Soft colored balls
-Colorful rattles
-Floor mats
-Board books
+Review through song
+Replay a favorite page
+Notice outdoor colors safely
 
 DAILY_VOCABULARY:
-Red
-Blue
-Yellow
-Green
-Color
-Bright
-Rainbow
+look
+see
+bright
+red
+blue
+yellow
+green
+soft
+reach
+watch
+
+DAILY_MATERIALS:
+Large bright scarves (chiffon or soft fabric)
+Soft colored cloth squares (too large to choke)
+Baby-safe mirror
+Large soft colored rattles/balls
+Tummy-time mat
+Simple color board books
+Support pillow/roll for positioning
+
+DAILY_LEARNING_DOMAINS:
+Physical Development
+Language & Literacy
+Social Emotional
+Creative Arts
+Science
 
 CIRCLE_TIME:
-Welcome song connected to Colors.
-Talk about today's focus: Color Bonding Songs.
-Invite children to share one idea or movement.
+Rainbow Color Song Cuddle
+Celebrate looking and smiling
 
 OUTDOOR_PLAY:
-Outdoor play connected to Colors: movement, observation, and fresh-air exploration with close supervision.
+Shaded color stroll — point to flowers, signs, or clothing colors.
 
 DAILY_OBSERVATIONS:
-Engagement and interest in theme play
-Use of theme vocabulary
-Motor skills and social interaction
+Engages in song
+Shows page preference
+Looks where caregiver points
 
 DAILY_ADAPTATIONS:
-Provide larger graspable materials when needed. Adjust activity positioning to support each infant's developmental level and comfort.
+Younger infants: closer, slower, shorter. Older infants: offer graspable large toys. Reduce stimulation if baby looks away.
 
 SAFETY_NOTES:
-Supervise closely and keep materials developmentally safe for the age group.
+Stay within arm’s reach. No small parts, cords, or bags. Back to sleep; tummy time only when awake and supervised.
 
 ACTIVITY_NAME:
-Rainbow Color Song Cuddle
+Color Song Cuddle
 
 CATEGORY:
 Music & Movement
 
 OBJECTIVE:
-Celebrate colors with a short song and cuddles.
+Close the week with a calm color song and cuddle.
 
 DESCRIPTION:
-Sing a simple rainbow or color song while showing scarves one at a time.
+Babies are held or sit supported while you sing the original Look at the Bright Color song with one cloth.
 
 MATERIALS:
-2–3 color scarves
-Song
+Soft cloth
+Quiet corner
 
 SETUP:
-Sit comfortably with scarves nearby.
+Cuddle position with cloth ready.
 
 TEACHER_ROLE:
-Follow infant energy; stop early if needed.
+Repetition across the week builds familiarity.
+
+TEACHER_LANGUAGE:
+Look, look, see the bright color.
 
 DIRECTIONS:
-1. Cuddle infant close.
-2. Show first scarf and sing.
-3. Switch scarf colors.
-4. Pause for eye contact.
-5. Finish with hugs.
+1. Settle in cuddle
+2. Show cloth
+3. Sing short original song
+4. Pause for coos
+5. Quiet hold
 
 LEARNING_GOALS:
-- Language
-- Bonding
-- Visual interest
+Connection
+Auditory comfort
 
 OBSERVATION_OPPORTUNITIES:
-- Looks at scarves
-- Responds to song
-- Enjoys cuddle
+Settles; vocalizes; watches cloth.
+
+VOCABULARY:
+look
+bright
+color
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
+Safe hold; no crowding.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
 
 ACTIVITY_NAME:
 Favorite Color Page Replay
@@ -856,42 +1068,51 @@ CATEGORY:
 Literacy
 
 OBJECTIVE:
-Revisit favorite color book pages from the week.
+Replay a page babies noticed earlier in the week.
 
 DESCRIPTION:
-Return to the color board book pages the infant seemed to enjoy most.
+Return to one favorite bright board-book page and enjoy a short second look.
 
 MATERIALS:
-Color board book
+Familiar color board book
 
 SETUP:
-Choose a calm alert time.
+Lap reading position.
 
 TEACHER_ROLE:
-Keep to 1–2 pages.
+Preference is data — reuse what worked.
+
+TEACHER_LANGUAGE:
+This was our favorite bright page!
 
 DIRECTIONS:
-1. Open to a favorite bright page.
-2. Name the color.
-3. Point and smile.
-4. Turn to one more page.
-5. Close book with a kiss on the cover.
+1. Open to favorite page
+2. Point and name color
+3. Wait for looking
+4. Turn away and back once (simple peek)
+5. Close warmly
 
 LEARNING_GOALS:
-- Memory
-- Literacy
-- Comfort
+Memory beginnings
+Literacy
 
 OBSERVATION_OPPORTUNITIES:
-- Shows recognition interest
-- Looks at page
-- Stays calm
+Shows recognition interest; stays engaged briefly.
+
+VOCABULARY:
+favorite
+page
+again
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Remain within arm's reach. Use only infant-safe materials, avoid small parts, and never leave infants unattended on elevated surfaces.
+Board book only.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months
 
 ACTIVITY_NAME:
 Shaded Color Stroll
@@ -900,40 +1121,49 @@ CATEGORY:
 Outdoor Play
 
 OBJECTIVE:
-Notice outdoor colors during a short stroller or carrier stroll.
+Notice real-world colors outdoors with caregiver pointing and talk.
 
 DESCRIPTION:
-Walk outdoors in shade and pause to show green leaves or colorful flowers from a safe distance.
+In shade, you stroll or sit outdoors and point to large colorful things (flowers, balls, clothing) while narrating.
 
 MATERIALS:
-Stroller or carrier
-Color scarf optional
+Stroller or outdoor blanket
+Sun protection as needed
 
 SETUP:
-Check weather and shade before going out.
+Shaded route or blanket spot.
 
 TEACHER_ROLE:
-Protect from sun and overstimulation.
+One or two pointed objects beat a tour.
+
+TEACHER_LANGUAGE:
+See the yellow flower? Bright outside.
 
 DIRECTIONS:
-1. Secure infant for stroll.
-2. Walk slowly in shade.
-3. Pause to show a colorful sight.
-4. Name the color softly.
-5. Return inside for rest.
+1. Settle baby facing out or toward you
+2. Point to one colorful object
+3. Name color and object
+4. Pause for looking
+5. Return indoors before overstimulation/heat
 
 LEARNING_GOALS:
-- Outdoor awareness
-- Visual tracking
-- Language
+Environmental awareness
+Language
 
 OBSERVATION_OPPORTUNITIES:
-- Looks toward color
-- Stays calm outdoors
-- Responds to voice
+Looks toward pointed object; stays content outdoors.
+
+VOCABULARY:
+outside
+see
+yellow
+
+EXTENSIONS:
 
 ADAPTATIONS:
-Adjust positioning for each infant's comfort. Offer larger graspable materials and shorter bursts of engagement.
 
 SAFETY_NOTES:
-Stay in shade; never leave stroller unattended; check weather and insects.
+Shade, hydration for adults, never leave stroller unattended; follow safe sleep if nap begins.
+
+AGE_MODIFICATIONS:
+Infant 0–6 months

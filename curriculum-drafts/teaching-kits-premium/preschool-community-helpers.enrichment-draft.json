@@ -1,0 +1,1562 @@
+{
+  "updatedAt": "2026-08-12T02:29:23.907Z",
+  "lastEditedBy": "premium-draft-upgrade@littlelearnershub.local",
+  "previewReady": true,
+  "draftOnly": true,
+  "neverAutoPublish": true,
+  "activities": {
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-monday-1": {
+      "title": "Community Helper Discovery Basket",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Explore helper props and photos to build job vocabulary.",
+      "description": "Children examine hats, tools, and helper cards from a basket and talk about who uses them.",
+      "materials": "Basket\nAssorted helper props\nHelper picture cards (printable)",
+      "preparation": "Fill basket with safe props from many jobs\nInclude diverse helper images",
+      "setup": "Circle or small-group basket at child height.",
+      "steps": "1. Pull one item and wonder aloud who might use it\n2. Invite children to try hats/props\n3. Match a prop to a helper card if they choose\n4. Share which helper they want to play today\n5. Return props to basket",
+      "teacherLanguage": "Who might use this tool? What job helps our community?",
+      "observationOpportunities": "Names helpers; matches tool to role; handles props safely.",
+      "safetyNotes": "No sharp tools; supervise small props.",
+      "cleanupTips": "Reset basket by role labels.",
+      "teacherTips": [
+        "Include library, mail, sanitation, grocery — not only emergency jobs."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Names helpers; matches tool to role; handles props safely."
+      ],
+      "vocabulary": [
+        "helper",
+        "tool",
+        "job",
+        "community"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "optional",
+      "imageBriefSetup": "Low basket with mixed helper hats/tools and picture cards.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/discovery-basket-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-monday-2": {
+      "title": "Helper Hat Parade",
+      "dayOfWeek": "monday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 10,
+      "objective": "March while choosing helper roles and singing a neighborhood helper song.",
+      "description": "Children pick a helper hat/prop and parade to Helpers in Our Neighborhood / Wheels on the Bus.",
+      "materials": "Helper hats/props\nOpen path\nSong",
+      "preparation": "Clear parade path\nCue song",
+      "setup": "Hats in a line; path marked with tape/cones.",
+      "steps": "1. Choose a helper prop\n2. March on the path\n3. Freeze and name your helper job\n4. Switch props if desired\n5. Thank-you bow together",
+      "teacherLanguage": "Who are you helping today?",
+      "observationOpportunities": "Names role; follows path; joins song.",
+      "safetyNotes": "Walking feet; space between marchers.",
+      "cleanupTips": "Return hats to hooks.",
+      "teacherTips": [
+        "Celebrate every job equally."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Names role; follows path; joins song."
+      ],
+      "vocabulary": [
+        "march",
+        "helper",
+        "thank you"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-monday-3": {
+      "title": "Community Places Map Talk",
+      "dayOfWeek": "monday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Connect helpers to community places using a simple map/signs.",
+      "description": "Children place helper cards on a map or near place signs (clinic, library, market, post office, build zone).",
+      "materials": "Map poster or floor map\nPlace signs (printable)\nHelper cards",
+      "preparation": "Post signs at child height\nPrepare sticky dots/clips",
+      "setup": "Map on floor/wall with signs nearby.",
+      "steps": "1. Name places on the map\n2. Choose a helper card\n3. Decide where that helper works\n4. Place card/sign together\n5. Tell one way the helper helps",
+      "teacherLanguage": "Where does this helper work? How do they help?",
+      "observationOpportunities": "Links helper to place; uses place words.",
+      "safetyNotes": "Floor map — prevent running collisions.",
+      "cleanupTips": "Collect cards in labeled envelope.",
+      "teacherTips": [
+        "Accept multiple right answers (nurses in clinics/hospitals/schools)."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Links helper to place; uses place words."
+      ],
+      "vocabulary": [
+        "map",
+        "library",
+        "market",
+        "clinic",
+        "post office"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Classroom floor/wall map with helper place signs and cards.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/community-map-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-tuesday-1": {
+      "title": "Healthcare Helpers Clinic",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Role-play caring healthcare helpers with gentle routines.",
+      "description": "Children take turns as patients, nurses, doctors, or caregivers using a play clinic.",
+      "materials": "Play doctor kit\nBandages\nClipboards\nClinic sign\nStuffed animals optional",
+      "preparation": "Stage clinic with waiting chairs\nReview gentle touch rules",
+      "setup": "Dramatic play clinic area.",
+      "steps": "1. Choose a clinic role\n2. Check in a patient/stuffed animal\n3. Use tools gently\n4. Explain how you are helping\n5. Switch roles",
+      "teacherLanguage": "How can you help your patient feel safe?",
+      "observationOpportunities": "Uses care language; takes turns; gentle touch.",
+      "safetyNotes": "No real medicines; keep tools clean/play-only.",
+      "cleanupTips": "Reset kit in tray.",
+      "teacherTips": [
+        "Include veterinarians as animal healthcare helpers."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Uses care language; takes turns; gentle touch."
+      ],
+      "vocabulary": [
+        "care",
+        "nurse",
+        "doctor",
+        "gentle",
+        "clinic"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Preschool clinic dramatic-play center with kit and waiting chairs.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/healthcare-clinic-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-tuesday-2": {
+      "title": "Rescue Colors Process Collage",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Art",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Create open-ended collage inspired by rescue/safety helpers using color choices children control.",
+      "description": "Children use red/yellow/black/blue papers, tape, and drawing tools to make their own rescue-inspired art. No model to copy.",
+      "materials": "Construction paper bits\nGlue sticks/tape\nCrayons/markers\nSmocks\nOptional helper photos for inspiration only",
+      "preparation": "Set invitation tray — no finished sample craft\nPost prompt: ‘Helpers who keep us safe’",
+      "setup": "Art table with collage tray and blank paper.",
+      "steps": "1. Look briefly at helper photos (inspiration only)\n2. Choose papers/colors freely\n3. Tear, stick, and draw your own ideas\n4. Tell about your helper art if you want\n5. Place on drying rack — every piece looks different",
+      "teacherLanguage": "What colors help tell your helper story?",
+      "observationOpportunities": "Makes choices; describes idea; process focus over product.",
+      "safetyNotes": "Glue sticks preferred; supervise scissors if offered to older preschoolers only.",
+      "cleanupTips": "Sort leftover paper into scrap box.",
+      "teacherTips": [
+        "Do not show a teacher-made firefighter to copy."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Makes choices; describes idea; process focus over product."
+      ],
+      "vocabulary": [
+        "rescue",
+        "safe",
+        "collage",
+        "choose"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Art table invitation with red/yellow/black collage materials — no perfect final craft shown.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/rescue-collage-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-tuesday-3": {
+      "title": "Helper Tools Exploration Table",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Investigate safe play tools and discuss which helpers might use them.",
+      "description": "Children explore oversized play tools and helper cards at a table, sorting by interest and talking about jobs.",
+      "materials": "Safe play tools\nHelper cards\nTrays\nMagnifiers optional",
+      "preparation": "Set 4–5 tool trays\nAdd diverse helper cards",
+      "setup": "Discovery table with trays.",
+      "steps": "1. Choose a tool to investigate\n2. Describe what it does\n3. Guess which helpers might use it\n4. Optional: place near a helper card\n5. Try another tool",
+      "teacherLanguage": "What job might need this tool?",
+      "observationOpportunities": "Describes function; connects to helper; collaborates.",
+      "safetyNotes": "Play tools only; no real hammers/sharp objects.",
+      "cleanupTips": "Return tools to silhouettes on shelf.",
+      "teacherTips": [
+        "Accept creative answers (tape measure → builder or tailor)."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Describes function; connects to helper; collaborates."
+      ],
+      "vocabulary": [
+        "tool",
+        "measure",
+        "fix",
+        "deliver"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Table with play tools on trays beside helper cards.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/tools-table-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-wednesday-1": {
+      "title": "Mail Carrier Post Office",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Practice writing/drawing messages and delivering mail around the room.",
+      "description": "Children create simple notes/pictures and deliver them to mailbox spots as mail carriers.",
+      "materials": "Envelopes\nPaper\nStickers\nMailbags\nMailbox signs",
+      "preparation": "Create 3–4 mailbox spots\nStock writing tray",
+      "setup": "Post office table + delivery route.",
+      "steps": "1. Draw or dictate a note\n2. Stamp/sticker envelope\n3. Load mailbag\n4. Deliver to a mailbox\n5. Switch roles (writer/carrier)",
+      "teacherLanguage": "Who will receive your mail today?",
+      "observationOpportunities": "Marks on paper; follows delivery route; uses role language.",
+      "safetyNotes": "No real stamps with sharp edges; walking feet on route.",
+      "cleanupTips": "Collect undelivered mail into ‘to sort’ bin.",
+      "teacherTips": [
+        "Dictation counts as writing."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Marks on paper; follows delivery route; uses role language."
+      ],
+      "vocabulary": [
+        "mail",
+        "deliver",
+        "letter",
+        "mailbox"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Post office dramatic play with mailbags and mailbox signs.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/mail-center-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-wednesday-2": {
+      "title": "Grocery Helper Market",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Role-play grocery helpers who stock, shop, and help customers.",
+      "description": "Children run a market: stockers, cashiers, baggers, and shoppers using play food.",
+      "materials": "Play food\nBaskets\nRegister/clipboard\nShelves\nMarket sign",
+      "preparation": "Stock shelves messily so children can restock\nPrice tags optional",
+      "setup": "Dramatic play market.",
+      "steps": "1. Choose a market job\n2. Stock or shop with a list (picture list OK)\n3. Practice kind customer talk\n4. Bag groceries\n5. Rotate jobs",
+      "teacherLanguage": "How can a grocery helper make shopping easier?",
+      "observationOpportunities": "Uses job talk; sorts food; cooperates.",
+      "safetyNotes": "No real glass containers; allergy-aware pretend foods.",
+      "cleanupTips": "Restock shelves together.",
+      "teacherTips": [
+        "Highlight that grocery helpers keep communities fed."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Uses job talk; sorts food; cooperates."
+      ],
+      "vocabulary": [
+        "grocery",
+        "stock",
+        "customer",
+        "bag"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Play market with shelves, baskets, and cashier spot.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/grocery-market-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-wednesday-3": {
+      "title": "Build a Community Block City",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Build community places with blocks and label helper locations.",
+      "description": "Children construct roads and buildings, then add place signs for helpers.",
+      "materials": "Blocks\nCars\nPlace signs\nPaper labels",
+      "preparation": "Clear large block area\nOffer signs",
+      "setup": "Block city zone on rug.",
+      "steps": "1. Plan a place to build (library/clinic/road)\n2. Build with a partner\n3. Add a place sign\n4. Drive/walk helpers through city\n5. Tour the class city",
+      "teacherLanguage": "Which helpers work in your building?",
+      "observationOpportunities": "Builds with purpose; collaborates; labels places.",
+      "safetyNotes": "Height limits for block towers; walk around builds.",
+      "cleanupTips": "Photograph city then shelve blocks.",
+      "teacherTips": [
+        "Invite construction helper language (hard hat, blueprint)."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Builds with purpose; collaborates; labels places."
+      ],
+      "vocabulary": [
+        "build",
+        "road",
+        "plan",
+        "construction"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Block city in progress with helper place signs.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/block-city-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-thursday-1": {
+      "title": "Library Helper Story Center",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Practice library helper roles: choosing books, gentle handling, and story sharing.",
+      "description": "Children act as librarians and visitors — checking out books, stamping, and reading with friends.",
+      "materials": "Books\nCheckout cards\nStamp/stickers\nLibrary sign\nPillows",
+      "preparation": "Create simple checkout station\nDisplay theme books",
+      "setup": "Cozy library corner.",
+      "steps": "1. Browse and choose a book\n2. Check out with librarian helper\n3. Read/look at pages with a friend\n4. Return book to shelf marker\n5. Recommend a book to someone",
+      "teacherLanguage": "How do library helpers help us find stories?",
+      "observationOpportunities": "Handles books gently; uses print concepts; recommends.",
+      "safetyNotes": "Sitting feet in cozy area; no running with books.",
+      "cleanupTips": "Reshelve covers-out.",
+      "teacherTips": [
+        "Teachers are community helpers too — make that explicit."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Handles books gently; uses print concepts; recommends."
+      ],
+      "vocabulary": [
+        "library",
+        "borrow",
+        "shelf",
+        "story"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Library corner with checkout desk and book display.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/library-center-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-thursday-2": {
+      "title": "Sanitation Recycle Sort",
+      "dayOfWeek": "thursday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Sort clean recyclables/trash play items the way sanitation helpers keep communities clean.",
+      "description": "Children sort large clean items into recycle/trash/compost play bins and talk about helpers who collect them.",
+      "materials": "3 bins with picture labels\nClean recyclable props\nGloves optional (play)",
+      "preparation": "Use only clean safe props\nLabel bins clearly",
+      "setup": "Sort station indoors or outdoors.",
+      "steps": "1. Name each bin\n2. Pick an item and decide\n3. Sort into bin\n4. Count how many in a bin\n5. Thank sanitation helpers in chant",
+      "teacherLanguage": "Where should this go to help our community stay clean?",
+      "observationOpportunities": "Sorts with reason; counts; uses helper language.",
+      "safetyNotes": "No glass/broken items; wash hands after.",
+      "cleanupTips": "Return props to start basket.",
+      "teacherTips": [
+        "Honor sanitation workers explicitly — often overlooked."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Sorts with reason; counts; uses helper language."
+      ],
+      "vocabulary": [
+        "recycle",
+        "trash",
+        "clean",
+        "sanitation"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Three labeled bins with large clean recyclable props.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/recycle-sort-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-thursday-3": {
+      "title": "Thank-You Helper Studio",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 20,
+      "objective": "Create open-ended thank-you cards/pictures for community helpers.",
+      "description": "Children choose materials to make thank-you messages — dictated words OK. Products will all look different.",
+      "materials": "Cardstock\nCrayons/markers\nStickers\nCollage scraps\nDictation clipboard",
+      "preparation": "Set materials buffet\nNo sample card to copy",
+      "setup": "Art studio table.",
+      "steps": "1. Choose a helper to thank\n2. Create with materials you pick\n3. Dictate a message if you want\n4. Sign with name/symbol\n5. Place in ‘mail to helpers’ basket",
+      "teacherLanguage": "What do you want your helper to know?",
+      "observationOpportunities": "Chooses helper; marks with meaning; expresses thanks.",
+      "safetyNotes": "Allergy-aware stickers/glitter alternatives (avoid loose glitter).",
+      "cleanupTips": "Cap markers; sort scraps.",
+      "teacherTips": [
+        "Process over pretty — display all."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Chooses helper; marks with meaning; expresses thanks."
+      ],
+      "vocabulary": [
+        "thank you",
+        "message",
+        "helper"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Card-making materials buffet without a model card.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/thankyou-studio-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-friday-1": {
+      "title": "Helper Interview Circle",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Ask and answer simple questions about helper jobs.",
+      "description": "Children interview peers in helper roles using picture prompt cards.",
+      "materials": "Microphone prop\nPrompt cards (printable)\nHelper hats optional",
+      "preparation": "Prep 3 easy questions\nVisual prompts",
+      "setup": "Circle with mic prop.",
+      "steps": "1. Model one interview\n2. Child chooses a helper role\n3. Peer asks a prompt question\n4. Answer in a sentence/word\n5. Clap thank-you",
+      "teacherLanguage": "What tools do you use in your job?",
+      "observationOpportunities": "Asks/answers; listens; uses vocab.",
+      "safetyNotes": "Sitting bodies; gentle mic passes.",
+      "cleanupTips": "Collect prompt cards.",
+      "teacherTips": [
+        "Accept one-word answers."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Asks/answers; listens; uses vocab."
+      ],
+      "vocabulary": [
+        "question",
+        "job",
+        "tool",
+        "help"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-friday-2": {
+      "title": "Community Helper Obstacle Course",
+      "dayOfWeek": "friday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 15,
+      "objective": "Move through helper-themed gross-motor challenges.",
+      "description": "Course stations: deliver mail, step through ‘build zone’, balance like a careful helper, recycle toss.",
+      "materials": "Cones\nTunnel/beans\nBeanbags\nMailbox prop\nBins",
+      "preparation": "Set 4 stations outdoors/indoors\nDemonstrate safe moves",
+      "setup": "Obstacle path with picture labels.",
+      "steps": "1. Preview stations\n2. Deliver mail to mailbox\n3. Move through build zone carefully\n4. Recycle beanbag toss\n5. High-five finish",
+      "teacherLanguage": "Helpers move carefully when they work!",
+      "observationOpportunities": "Navigates path; follows station ideas; safe body.",
+      "safetyNotes": "No racing requirement; spot climbing if used.",
+      "cleanupTips": "Stack cones; collect beanbags.",
+      "teacherTips": [
+        "Emphasize careful helping over speed."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Navigates path; follows station ideas; safe body."
+      ],
+      "vocabulary": [
+        "deliver",
+        "balance",
+        "careful",
+        "recycle"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Outdoor helper obstacle course with labeled stations.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/helper-course-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-preschool-community-helpers:item-preschool-community-helpers-friday-3": {
+      "title": "Community Helpers Celebration",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "ageModifications": "Preschool 3–5",
+      "durationMinutes": 12,
+      "objective": "Review favorite helpers and celebrate with thank-you chant.",
+      "description": "Class reviews the week’s helpers, shares favorites, and sings Thank You Helpers Chant.",
+      "materials": "Helper cards\nThank-you basket of cards\nSong chart",
+      "preparation": "Display week photos/art if available",
+      "setup": "Celebration circle.",
+      "steps": "1. Recall helpers from the week\n2. Share a favorite\n3. Show thank-you art basket\n4. Sing chant\n5. Send family connection reminder",
+      "teacherLanguage": "Which helper are you thankful for today?",
+      "observationOpportunities": "Recalls roles; participates in chant; gratitude talk.",
+      "safetyNotes": "Calm celebration bodies.",
+      "cleanupTips": "Pack thank-you cards for delivery/display.",
+      "teacherTips": [
+        "Name overlooked helpers again (sanitation, grocery, library)."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Recalls roles; participates in chant; gratitude talk."
+      ],
+      "vocabulary": [
+        "thankful",
+        "community",
+        "helper"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    }
+  },
+  "week": {
+    "weeklyOverview": "Preschoolers explore many people who help a community — healthcare, fire/rescue, mail, grocery, construction, library, sanitation, and teachers — through dramatic play, process art, movement, and conversation. Anyone can do these jobs.",
+    "objectives": "Name a variety of community helpers and what they do\nUse helper vocabulary in dramatic play\nPractice cooperation and gratitude\nExplore tools/places helpers use through play (not worksheets)\nCreate process-based art inspired by helpers (child-directed results)",
+    "weeklyMaterials": "Helper hats/vests (assorted roles)\nDoctor kit (play)\nMailbags, envelopes, stickers\nPlay food / grocery props\nSafe construction tools (plastic) + blocks\nLibrary props (books, stamp, cards)\nRecycle/sort bins\nCollage materials (red/yellow/black/blue paper, tape, glue sticks)\nHelper picture cards (printable draft)\nCommunity map / place signs (printable draft)",
+    "familyConnection": "Invite families to name one helper they noticed this week (no need to visit). Optional photo of a helper place from the neighborhood.",
+    "adaptations": "Offer picture cards for vocabulary. Dictate thank-you messages. Provide quieter helper stations. Present diverse photos of helpers of many genders/backgrounds.",
+    "vocabularyWords": "helper\ncommunity\njob\ntool\nsafe\nthank you\ndeliver\ncare\nbuild\nserve\nrecycle\nlibrary\nmail\ngrocery",
+    "teacherPreparation": "Stage dramatic-play areas for 2–3 helper roles (rotate midweek)\nPrint helper cards and place signs (draft)\nSet process-art collage tray (no sample final craft to copy)",
+    "fieldOwnership": {
+      "objectives": true,
+      "weeklyOverview": true,
+      "weeklyMaterials": true,
+      "familyConnection": true
+    },
+    "proposedDailyPlans": {
+      "monday": {
+        "theme": "Meet Our Community Helpers",
+        "focus": "",
+        "objectives": "Explore helper props\nMarch as helpers\nTalk about helper places on a map",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Math",
+          "Physical Development",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Helper hats/vests (assorted roles)\nDoctor kit (play)\nMailbags, envelopes, stickers\nPlay food / grocery props\nSafe construction tools (plastic) + blocks\nLibrary props (books, stamp, cards)\nRecycle/sort bins\nCollage materials (red/yellow/black/blue paper, tape, glue sticks)\nHelper picture cards (printable draft)\nCommunity map / place signs (printable draft)",
+        "vocabulary": "helper\ncommunity\njob\ntool\nsafe\nthank you\ndeliver\ncare\nbuild\nserve\nrecycle\nlibrary\nmail\ngrocery",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Helpers in Our Neighborhood song",
+          "Read Whose Hands Are These? excerpt",
+          "Preview centers"
+        ],
+        "outdoorPlay": "Outdoor helper march and ‘delivery’ pathways with cones.",
+        "observations": [
+          "Names helpers",
+          "Joins march",
+          "Points to places"
+        ],
+        "adaptations": "Offer picture cards for vocabulary. Dictate thank-you messages. Provide quieter helper stations. Present diverse photos of helpers of many genders/backgrounds.",
+        "safetyNotes": "Supervise tools and active games; allergy-aware art materials; keep pathways clear.",
+        "items": [
+          {
+            "itemId": "item-preschool-community-helpers-monday-1",
+            "importKey": "",
+            "activityCategory": "Open-Ended Exploration",
+            "title": "Community Helper Discovery Basket",
+            "objective": "Explore helper props and photos to build job vocabulary.",
+            "description": "Children examine hats, tools, and helper cards from a basket and talk about who uses them.",
+            "materials": "Basket\nAssorted helper props\nHelper picture cards (printable)",
+            "preparation": "Fill basket with safe props from many jobs\nInclude diverse helper images",
+            "setup": "Circle or small-group basket at child height.",
+            "steps": "1. Pull one item and wonder aloud who might use it\n2. Invite children to try hats/props\n3. Match a prop to a helper card if they choose\n4. Share which helper they want to play today\n5. Return props to basket",
+            "teacherLanguage": "Who might use this tool? What job helps our community?",
+            "observationOpportunities": "Names helpers; matches tool to role; handles props safely.",
+            "safetyNotes": "No sharp tools; supervise small props.",
+            "cleanupTips": "Reset basket by role labels.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "helper\ntool\njob\ncommunity",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Include library, mail, sanitation, grocery — not only emergency jobs."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "optional",
+            "imageBriefSetup": "Low basket with mixed helper hats/tools and picture cards.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/discovery-basket-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Vocabulary",
+              "Curiosity"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-monday-1",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-monday-2",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Helper Hat Parade",
+            "objective": "March while choosing helper roles and singing a neighborhood helper song.",
+            "description": "Children pick a helper hat/prop and parade to Helpers in Our Neighborhood / Wheels on the Bus.",
+            "materials": "Helper hats/props\nOpen path\nSong",
+            "preparation": "Clear parade path\nCue song",
+            "setup": "Hats in a line; path marked with tape/cones.",
+            "steps": "1. Choose a helper prop\n2. March on the path\n3. Freeze and name your helper job\n4. Switch props if desired\n5. Thank-you bow together",
+            "teacherLanguage": "Who are you helping today?",
+            "observationOpportunities": "Names role; follows path; joins song.",
+            "safetyNotes": "Walking feet; space between marchers.",
+            "cleanupTips": "Return hats to hooks.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 10,
+            "vocabulary": "march\nhelper\nthank you",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Celebrate every job equally."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Gross motor",
+              "Role ID",
+              "Music"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-monday-2",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-monday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Community Places Map Talk",
+            "objective": "Connect helpers to community places using a simple map/signs.",
+            "description": "Children place helper cards on a map or near place signs (clinic, library, market, post office, build zone).",
+            "materials": "Map poster or floor map\nPlace signs (printable)\nHelper cards",
+            "preparation": "Post signs at child height\nPrepare sticky dots/clips",
+            "setup": "Map on floor/wall with signs nearby.",
+            "steps": "1. Name places on the map\n2. Choose a helper card\n3. Decide where that helper works\n4. Place card/sign together\n5. Tell one way the helper helps",
+            "teacherLanguage": "Where does this helper work? How do they help?",
+            "observationOpportunities": "Links helper to place; uses place words.",
+            "safetyNotes": "Floor map — prevent running collisions.",
+            "cleanupTips": "Collect cards in labeled envelope.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "map\nlibrary\nmarket\nclinic\npost office",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Accept multiple right answers (nurses in clinics/hospitals/schools)."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Classroom floor/wall map with helper place signs and cards.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/community-map-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Vocabulary",
+              "Community awareness"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-monday-3",
+            "dayOfWeek": "monday"
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "Care and Rescue Helpers",
+        "focus": "",
+        "objectives": "Healthcare dramatic play\nFire/rescue process collage\nOpen tool exploration",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Math",
+          "Physical Development",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Helper hats/vests (assorted roles)\nDoctor kit (play)\nMailbags, envelopes, stickers\nPlay food / grocery props\nSafe construction tools (plastic) + blocks\nLibrary props (books, stamp, cards)\nRecycle/sort bins\nCollage materials (red/yellow/black/blue paper, tape, glue sticks)\nHelper picture cards (printable draft)\nCommunity map / place signs (printable draft)",
+        "vocabulary": "helper\ncommunity\njob\ntool\nsafe\nthank you\ndeliver\ncare\nbuild\nserve\nrecycle\nlibrary\nmail\ngrocery",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Thank You Helpers Chant",
+          "Discuss caring for people/pets"
+        ],
+        "outdoorPlay": "Rescue relay with soft ‘help’ props (not scary scenarios).",
+        "observations": [
+          "Role play care",
+          "Makes unique collage choices",
+          "Handles tools safely"
+        ],
+        "adaptations": "Offer picture cards for vocabulary. Dictate thank-you messages. Provide quieter helper stations. Present diverse photos of helpers of many genders/backgrounds.",
+        "safetyNotes": "Supervise tools and active games; allergy-aware art materials; keep pathways clear.",
+        "items": [
+          {
+            "itemId": "item-preschool-community-helpers-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Healthcare Helpers Clinic",
+            "objective": "Role-play caring healthcare helpers with gentle routines.",
+            "description": "Children take turns as patients, nurses, doctors, or caregivers using a play clinic.",
+            "materials": "Play doctor kit\nBandages\nClipboards\nClinic sign\nStuffed animals optional",
+            "preparation": "Stage clinic with waiting chairs\nReview gentle touch rules",
+            "setup": "Dramatic play clinic area.",
+            "steps": "1. Choose a clinic role\n2. Check in a patient/stuffed animal\n3. Use tools gently\n4. Explain how you are helping\n5. Switch roles",
+            "teacherLanguage": "How can you help your patient feel safe?",
+            "observationOpportunities": "Uses care language; takes turns; gentle touch.",
+            "safetyNotes": "No real medicines; keep tools clean/play-only.",
+            "cleanupTips": "Reset kit in tray.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "care\nnurse\ndoctor\ngentle\nclinic",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Include veterinarians as animal healthcare helpers."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Preschool clinic dramatic-play center with kit and waiting chairs.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/healthcare-clinic-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "SEL",
+              "Dramatic play",
+              "Vocabulary"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-tuesday-1",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Rescue Colors Process Collage",
+            "objective": "Create open-ended collage inspired by rescue/safety helpers using color choices children control.",
+            "description": "Children use red/yellow/black/blue papers, tape, and drawing tools to make their own rescue-inspired art. No model to copy.",
+            "materials": "Construction paper bits\nGlue sticks/tape\nCrayons/markers\nSmocks\nOptional helper photos for inspiration only",
+            "preparation": "Set invitation tray — no finished sample craft\nPost prompt: ‘Helpers who keep us safe’",
+            "setup": "Art table with collage tray and blank paper.",
+            "steps": "1. Look briefly at helper photos (inspiration only)\n2. Choose papers/colors freely\n3. Tear, stick, and draw your own ideas\n4. Tell about your helper art if you want\n5. Place on drying rack — every piece looks different",
+            "teacherLanguage": "What colors help tell your helper story?",
+            "observationOpportunities": "Makes choices; describes idea; process focus over product.",
+            "safetyNotes": "Glue sticks preferred; supervise scissors if offered to older preschoolers only.",
+            "cleanupTips": "Sort leftover paper into scrap box.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "rescue\nsafe\ncollage\nchoose",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Do not show a teacher-made firefighter to copy."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Art table invitation with red/yellow/black collage materials — no perfect final craft shown.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/rescue-collage-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Process art",
+              "Fine motor",
+              "Expression"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-tuesday-2",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-tuesday-3",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Helper Tools Exploration Table",
+            "objective": "Investigate safe play tools and discuss which helpers might use them.",
+            "description": "Children explore oversized play tools and helper cards at a table, sorting by interest and talking about jobs.",
+            "materials": "Safe play tools\nHelper cards\nTrays\nMagnifiers optional",
+            "preparation": "Set 4–5 tool trays\nAdd diverse helper cards",
+            "setup": "Discovery table with trays.",
+            "steps": "1. Choose a tool to investigate\n2. Describe what it does\n3. Guess which helpers might use it\n4. Optional: place near a helper card\n5. Try another tool",
+            "teacherLanguage": "What job might need this tool?",
+            "observationOpportunities": "Describes function; connects to helper; collaborates.",
+            "safetyNotes": "Play tools only; no real hammers/sharp objects.",
+            "cleanupTips": "Return tools to silhouettes on shelf.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "tool\nmeasure\nfix\ndeliver",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Accept creative answers (tape measure → builder or tailor)."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Table with play tools on trays beside helper cards.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/tools-table-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Inquiry",
+              "Vocabulary"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-tuesday-3",
+            "dayOfWeek": "tuesday"
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Deliver, Shop, and Build",
+        "focus": "",
+        "objectives": "Mail play\nGrocery helpers\nConstruction block city",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Math",
+          "Physical Development",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Helper hats/vests (assorted roles)\nDoctor kit (play)\nMailbags, envelopes, stickers\nPlay food / grocery props\nSafe construction tools (plastic) + blocks\nLibrary props (books, stamp, cards)\nRecycle/sort bins\nCollage materials (red/yellow/black/blue paper, tape, glue sticks)\nHelper picture cards (printable draft)\nCommunity map / place signs (printable draft)",
+        "vocabulary": "helper\ncommunity\njob\ntool\nsafe\nthank you\ndeliver\ncare\nbuild\nserve\nrecycle\nlibrary\nmail\ngrocery",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Mail call song/chant",
+          "Map talk: where does mail go?"
+        ],
+        "outdoorPlay": "Outdoor block/build zone or chalk roadways.",
+        "observations": [
+          "Delivers mail",
+          "Uses grocery talk",
+          "Builds cooperatively"
+        ],
+        "adaptations": "Offer picture cards for vocabulary. Dictate thank-you messages. Provide quieter helper stations. Present diverse photos of helpers of many genders/backgrounds.",
+        "safetyNotes": "Supervise tools and active games; allergy-aware art materials; keep pathways clear.",
+        "items": [
+          {
+            "itemId": "item-preschool-community-helpers-wednesday-1",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Mail Carrier Post Office",
+            "objective": "Practice writing/drawing messages and delivering mail around the room.",
+            "description": "Children create simple notes/pictures and deliver them to mailbox spots as mail carriers.",
+            "materials": "Envelopes\nPaper\nStickers\nMailbags\nMailbox signs",
+            "preparation": "Create 3–4 mailbox spots\nStock writing tray",
+            "setup": "Post office table + delivery route.",
+            "steps": "1. Draw or dictate a note\n2. Stamp/sticker envelope\n3. Load mailbag\n4. Deliver to a mailbox\n5. Switch roles (writer/carrier)",
+            "teacherLanguage": "Who will receive your mail today?",
+            "observationOpportunities": "Marks on paper; follows delivery route; uses role language.",
+            "safetyNotes": "No real stamps with sharp edges; walking feet on route.",
+            "cleanupTips": "Collect undelivered mail into ‘to sort’ bin.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "mail\ndeliver\nletter\nmailbox",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Dictation counts as writing."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Post office dramatic play with mailbags and mailbox signs.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/mail-center-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Literacy",
+              "Dramatic play"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-wednesday-1",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-wednesday-2",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Grocery Helper Market",
+            "objective": "Role-play grocery helpers who stock, shop, and help customers.",
+            "description": "Children run a market: stockers, cashiers, baggers, and shoppers using play food.",
+            "materials": "Play food\nBaskets\nRegister/clipboard\nShelves\nMarket sign",
+            "preparation": "Stock shelves messily so children can restock\nPrice tags optional",
+            "setup": "Dramatic play market.",
+            "steps": "1. Choose a market job\n2. Stock or shop with a list (picture list OK)\n3. Practice kind customer talk\n4. Bag groceries\n5. Rotate jobs",
+            "teacherLanguage": "How can a grocery helper make shopping easier?",
+            "observationOpportunities": "Uses job talk; sorts food; cooperates.",
+            "safetyNotes": "No real glass containers; allergy-aware pretend foods.",
+            "cleanupTips": "Restock shelves together.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "grocery\nstock\ncustomer\nbag",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Highlight that grocery helpers keep communities fed."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Play market with shelves, baskets, and cashier spot.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/grocery-market-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Dramatic play",
+              "Math talk (count/sort)",
+              "SEL"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-wednesday-2",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-wednesday-3",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Build a Community Block City",
+            "objective": "Build community places with blocks and label helper locations.",
+            "description": "Children construct roads and buildings, then add place signs for helpers.",
+            "materials": "Blocks\nCars\nPlace signs\nPaper labels",
+            "preparation": "Clear large block area\nOffer signs",
+            "setup": "Block city zone on rug.",
+            "steps": "1. Plan a place to build (library/clinic/road)\n2. Build with a partner\n3. Add a place sign\n4. Drive/walk helpers through city\n5. Tour the class city",
+            "teacherLanguage": "Which helpers work in your building?",
+            "observationOpportunities": "Builds with purpose; collaborates; labels places.",
+            "safetyNotes": "Height limits for block towers; walk around builds.",
+            "cleanupTips": "Photograph city then shelve blocks.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "build\nroad\nplan\nconstruction",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Invite construction helper language (hard hat, blueprint)."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Block city in progress with helper place signs.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/block-city-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Engineering play",
+              "Spatial",
+              "Community"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-wednesday-3",
+            "dayOfWeek": "wednesday"
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Learn, Clean, and Thank",
+        "focus": "",
+        "objectives": "Library helper center\nSanitation/recycle sort\nThank-you process art",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Math",
+          "Physical Development",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Helper hats/vests (assorted roles)\nDoctor kit (play)\nMailbags, envelopes, stickers\nPlay food / grocery props\nSafe construction tools (plastic) + blocks\nLibrary props (books, stamp, cards)\nRecycle/sort bins\nCollage materials (red/yellow/black/blue paper, tape, glue sticks)\nHelper picture cards (printable draft)\nCommunity map / place signs (printable draft)",
+        "vocabulary": "helper\ncommunity\njob\ntool\nsafe\nthank you\ndeliver\ncare\nbuild\nserve\nrecycle\nlibrary\nmail\ngrocery",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Library whisper vs outdoor voice",
+          "Why recycling helpers matter"
+        ],
+        "outdoorPlay": "Outdoor recycle sort race (large clean items).",
+        "observations": [
+          "Library behaviors",
+          "Sorts recyclables",
+          "Creates unique thank-you art"
+        ],
+        "adaptations": "Offer picture cards for vocabulary. Dictate thank-you messages. Provide quieter helper stations. Present diverse photos of helpers of many genders/backgrounds.",
+        "safetyNotes": "Supervise tools and active games; allergy-aware art materials; keep pathways clear.",
+        "items": [
+          {
+            "itemId": "item-preschool-community-helpers-thursday-1",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Library Helper Story Center",
+            "objective": "Practice library helper roles: choosing books, gentle handling, and story sharing.",
+            "description": "Children act as librarians and visitors — checking out books, stamping, and reading with friends.",
+            "materials": "Books\nCheckout cards\nStamp/stickers\nLibrary sign\nPillows",
+            "preparation": "Create simple checkout station\nDisplay theme books",
+            "setup": "Cozy library corner.",
+            "steps": "1. Browse and choose a book\n2. Check out with librarian helper\n3. Read/look at pages with a friend\n4. Return book to shelf marker\n5. Recommend a book to someone",
+            "teacherLanguage": "How do library helpers help us find stories?",
+            "observationOpportunities": "Handles books gently; uses print concepts; recommends.",
+            "safetyNotes": "Sitting feet in cozy area; no running with books.",
+            "cleanupTips": "Reshelve covers-out.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "library\nborrow\nshelf\nstory",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Teachers are community helpers too — make that explicit."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Library corner with checkout desk and book display.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/library-center-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Literacy",
+              "Responsibility"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-thursday-1",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-thursday-2",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Sanitation Recycle Sort",
+            "objective": "Sort clean recyclables/trash play items the way sanitation helpers keep communities clean.",
+            "description": "Children sort large clean items into recycle/trash/compost play bins and talk about helpers who collect them.",
+            "materials": "3 bins with picture labels\nClean recyclable props\nGloves optional (play)",
+            "preparation": "Use only clean safe props\nLabel bins clearly",
+            "setup": "Sort station indoors or outdoors.",
+            "steps": "1. Name each bin\n2. Pick an item and decide\n3. Sort into bin\n4. Count how many in a bin\n5. Thank sanitation helpers in chant",
+            "teacherLanguage": "Where should this go to help our community stay clean?",
+            "observationOpportunities": "Sorts with reason; counts; uses helper language.",
+            "safetyNotes": "No glass/broken items; wash hands after.",
+            "cleanupTips": "Return props to start basket.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "recycle\ntrash\nclean\nsanitation",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Honor sanitation workers explicitly — often overlooked."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Three labeled bins with large clean recyclable props.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/recycle-sort-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Sorting",
+              "Community science",
+              "Math talk"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-thursday-2",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-thursday-3",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Thank-You Helper Studio",
+            "objective": "Create open-ended thank-you cards/pictures for community helpers.",
+            "description": "Children choose materials to make thank-you messages — dictated words OK. Products will all look different.",
+            "materials": "Cardstock\nCrayons/markers\nStickers\nCollage scraps\nDictation clipboard",
+            "preparation": "Set materials buffet\nNo sample card to copy",
+            "setup": "Art studio table.",
+            "steps": "1. Choose a helper to thank\n2. Create with materials you pick\n3. Dictate a message if you want\n4. Sign with name/symbol\n5. Place in ‘mail to helpers’ basket",
+            "teacherLanguage": "What do you want your helper to know?",
+            "observationOpportunities": "Chooses helper; marks with meaning; expresses thanks.",
+            "safetyNotes": "Allergy-aware stickers/glitter alternatives (avoid loose glitter).",
+            "cleanupTips": "Cap markers; sort scraps.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 20,
+            "vocabulary": "thank you\nmessage\nhelper",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Process over pretty — display all."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Card-making materials buffet without a model card.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/thankyou-studio-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Gratitude",
+              "Fine motor",
+              "Writing beginnings"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-thursday-3",
+            "dayOfWeek": "thursday"
+          }
+        ]
+      },
+      "friday": {
+        "theme": "Celebrate Community Helpers",
+        "focus": "",
+        "objectives": "Interview circle\nHelper movement course\nCelebration review",
+        "learningDomains": [
+          "Social Emotional",
+          "Language & Literacy",
+          "Math",
+          "Physical Development",
+          "Creative Arts",
+          "Science"
+        ],
+        "materials": "Helper hats/vests (assorted roles)\nDoctor kit (play)\nMailbags, envelopes, stickers\nPlay food / grocery props\nSafe construction tools (plastic) + blocks\nLibrary props (books, stamp, cards)\nRecycle/sort bins\nCollage materials (red/yellow/black/blue paper, tape, glue sticks)\nHelper picture cards (printable draft)\nCommunity map / place signs (printable draft)",
+        "vocabulary": "helper\ncommunity\njob\ntool\nsafe\nthank you\ndeliver\ncare\nbuild\nserve\nrecycle\nlibrary\nmail\ngrocery",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Share favorite helper",
+          "Sing thank-you chant"
+        ],
+        "outdoorPlay": "Community helper obstacle course outdoors.",
+        "observations": [
+          "Asks/answers helper questions",
+          "Navigates course",
+          "Shows gratitude"
+        ],
+        "adaptations": "Offer picture cards for vocabulary. Dictate thank-you messages. Provide quieter helper stations. Present diverse photos of helpers of many genders/backgrounds.",
+        "safetyNotes": "Supervise tools and active games; allergy-aware art materials; keep pathways clear.",
+        "items": [
+          {
+            "itemId": "item-preschool-community-helpers-friday-1",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Helper Interview Circle",
+            "objective": "Ask and answer simple questions about helper jobs.",
+            "description": "Children interview peers in helper roles using picture prompt cards.",
+            "materials": "Microphone prop\nPrompt cards (printable)\nHelper hats optional",
+            "preparation": "Prep 3 easy questions\nVisual prompts",
+            "setup": "Circle with mic prop.",
+            "steps": "1. Model one interview\n2. Child chooses a helper role\n3. Peer asks a prompt question\n4. Answer in a sentence/word\n5. Clap thank-you",
+            "teacherLanguage": "What tools do you use in your job?",
+            "observationOpportunities": "Asks/answers; listens; uses vocab.",
+            "safetyNotes": "Sitting bodies; gentle mic passes.",
+            "cleanupTips": "Collect prompt cards.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "question\njob\ntool\nhelp",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Accept one-word answers."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Language",
+              "SEL"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-friday-1",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-friday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Community Helper Obstacle Course",
+            "objective": "Move through helper-themed gross-motor challenges.",
+            "description": "Course stations: deliver mail, step through ‘build zone’, balance like a careful helper, recycle toss.",
+            "materials": "Cones\nTunnel/beans\nBeanbags\nMailbox prop\nBins",
+            "preparation": "Set 4 stations outdoors/indoors\nDemonstrate safe moves",
+            "setup": "Obstacle path with picture labels.",
+            "steps": "1. Preview stations\n2. Deliver mail to mailbox\n3. Move through build zone carefully\n4. Recycle beanbag toss\n5. High-five finish",
+            "teacherLanguage": "Helpers move carefully when they work!",
+            "observationOpportunities": "Navigates path; follows station ideas; safe body.",
+            "safetyNotes": "No racing requirement; spot climbing if used.",
+            "cleanupTips": "Stack cones; collect beanbags.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 15,
+            "vocabulary": "deliver\nbalance\ncareful\nrecycle",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Emphasize careful helping over speed."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Outdoor helper obstacle course with labeled stations.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/community-helpers/helper-course-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Gross motor",
+              "Following sequence"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-friday-2",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-preschool-community-helpers-friday-3",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Community Helpers Celebration",
+            "objective": "Review favorite helpers and celebrate with thank-you chant.",
+            "description": "Class reviews the week’s helpers, shares favorites, and sings Thank You Helpers Chant.",
+            "materials": "Helper cards\nThank-you basket of cards\nSong chart",
+            "preparation": "Display week photos/art if available",
+            "setup": "Celebration circle.",
+            "steps": "1. Recall helpers from the week\n2. Share a favorite\n3. Show thank-you art basket\n4. Sing chant\n5. Send family connection reminder",
+            "teacherLanguage": "Which helper are you thankful for today?",
+            "observationOpportunities": "Recalls roles; participates in chant; gratitude talk.",
+            "safetyNotes": "Calm celebration bodies.",
+            "cleanupTips": "Pack thank-you cards for delivery/display.",
+            "ageModifications": "Preschool 3–5",
+            "durationMinutes": 12,
+            "vocabulary": "thankful\ncommunity\nhelper",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Name overlooked helpers again (sanitation, grocery, library)."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Recall",
+              "Gratitude",
+              "Community"
+            ],
+            "sourceKey": "cur-lp-preschool-community-helpers:item-preschool-community-helpers-friday-3",
+            "dayOfWeek": "friday"
+          }
+        ]
+      }
+    },
+    "activityDecisions": [
+      {
+        "title": "Community Helper Discovery Basket",
+        "itemId": "item-preschool-community-helpers-monday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Helper Hat Parade",
+        "itemId": "item-preschool-community-helpers-monday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Community Places Map Talk",
+        "itemId": "item-preschool-community-helpers-monday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Healthcare Helpers Clinic",
+        "itemId": "item-preschool-community-helpers-tuesday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Rescue Colors Process Collage",
+        "itemId": "item-preschool-community-helpers-tuesday-2",
+        "decision": "replace",
+        "note": "Relay was mostly gross-motor filler with narrow firefighter focus; replaced with process art + broader rescue/safety helpers and a separate outdoor rescue movement later.",
+        "replaces": "Firefighter Rescue Relay"
+      },
+      {
+        "title": "Helper Tools Exploration Table",
+        "itemId": "item-preschool-community-helpers-tuesday-3",
+        "decision": "replace",
+        "note": "Card matching felt worksheet-like; replaced with hands-on tool exploration table tied to many jobs.",
+        "replaces": "Community Helper Matching"
+      },
+      {
+        "title": "Mail Carrier Post Office",
+        "itemId": "item-preschool-community-helpers-wednesday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Grocery Helper Market",
+        "itemId": "item-preschool-community-helpers-wednesday-2",
+        "decision": "replace",
+        "note": "Narrowed to chef only; upgraded to grocery/market helpers (stocking, cashier, bagging) for broader community roles.",
+        "replaces": "Chef's Kitchen"
+      },
+      {
+        "title": "Build a Community Block City",
+        "itemId": "item-preschool-community-helpers-wednesday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Library Helper Story Center",
+        "itemId": "item-preschool-community-helpers-thursday-1",
+        "decision": "replace",
+        "note": "Tools already covered Tuesday; Thursday gains library helpers for theme depth.",
+        "replaces": "Tool Exploration Table"
+      },
+      {
+        "title": "Sanitation Recycle Sort",
+        "itemId": "item-preschool-community-helpers-thursday-2",
+        "decision": "replace",
+        "note": "Chart was thin/teacher-directed; replaced with sanitation/recycling helper sort tied to real community work.",
+        "replaces": "Healthy Helpers Chart"
+      },
+      {
+        "title": "Thank-You Helper Studio",
+        "itemId": "item-preschool-community-helpers-thursday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Helper Interview Circle",
+        "itemId": "item-preschool-community-helpers-friday-1",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Community Helper Obstacle Course",
+        "itemId": "item-preschool-community-helpers-friday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Community Helpers Celebration",
+        "itemId": "item-preschool-community-helpers-friday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Firefighter Rescue Relay",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      },
+      {
+        "title": "Community Helper Matching",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      },
+      {
+        "title": "Chef's Kitchen",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      },
+      {
+        "title": "Tool Exploration Table",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      },
+      {
+        "title": "Healthy Helpers Chart",
+        "decision": "remove",
+        "note": "Removed during premium draft upgrade — age-inappropriate, redundant, or teacher-product craft."
+      }
+    ],
+    "removedActivityTitles": [
+      "Firefighter Rescue Relay",
+      "Community Helper Matching",
+      "Chef's Kitchen",
+      "Tool Exploration Table",
+      "Healthy Helpers Chart"
+    ],
+    "removedItemIds": [],
+    "books": [
+      {
+        "title": "Whose Hands Are These?",
+        "author": "Miranda Paul",
+        "notes": "Guess-the-job poem style; discussion friendly."
+      },
+      {
+        "title": "Clothesline Clues to Jobs People Do",
+        "author": "Kathryn Heling",
+        "notes": "Clue-based helper talk."
+      },
+      {
+        "title": "Career Day",
+        "author": "Anne Rockwell",
+        "notes": "Diverse jobs; avoid stereotypes in discussion."
+      }
+    ],
+    "songs": [
+      {
+        "title": "Helpers in Our Neighborhood (LLH original)",
+        "lyrics": "Helpers in our neighborhood,\nHelping in so many ways.\nMail and markets, trucks and books,\nThank you helpers every day.",
+        "motions": "March in place; wave thank-you.",
+        "rightsStatus": "original"
+      },
+      {
+        "title": "The Wheels on the Bus",
+        "notes": "Public-domain style traditional song; use transportation helper verse.",
+        "rightsStatus": "traditional_public_domain"
+      },
+      {
+        "title": "Thank You Helpers Chant (LLH original)",
+        "lyrics": "Thank you, thank you, helpers true,\nWe see the helpful things you do.\nClap clap clap, stomp stomp stomp,\nHelpers make our community jump!",
+        "motions": "Clap and stomp on cue.",
+        "rightsStatus": "original"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Stock helper props for healthcare, mail, grocery, construction, library",
+        "Post community place signs",
+        "Prep collage tray + open-ended prompt",
+        "Review anti-bias language: anyone can do these jobs"
+      ],
+      "observationFocus": [
+        "Role language in dramatic play",
+        "Tool-to-helper connections",
+        "Peer cooperation"
+      ],
+      "teacherPreparation": "Rotate helper centers so the week goes beyond police/firefighter/doctor only.",
+      "notes": "Avoid identical product crafts of ‘the firefighter’."
+    },
+    "printableIdeas": [
+      {
+        "title": "Community Helper Picture Cards",
+        "purpose": "Diverse helper photos/illustrations for talk and play",
+        "type": "picture_cards"
+      },
+      {
+        "title": "Helper Place Signs",
+        "purpose": "Clinic, Post Office, Library, Market, Build Zone signs",
+        "type": "dramatic_play"
+      },
+      {
+        "title": "Thank-You Helper Prompt Cards",
+        "purpose": "Discussion prompts for gratitude circle",
+        "type": "discussion_cards"
+      },
+      {
+        "title": "Tool-to-Helper Match Cards (open play)",
+        "purpose": "Optional matching during centers — not a worksheet packet",
+        "type": "cards"
+      }
+    ],
+    "printableIds": [
+      "cur-res-draft-helper-cards",
+      "cur-res-draft-helper-signs"
+    ],
+    "vocabCards": [
+      "helper",
+      "community",
+      "mail",
+      "care",
+      "build",
+      "recycle",
+      "library",
+      "thank you"
+    ],
+    "milestones": [
+      "Language",
+      "Social Emotional",
+      "Creativity",
+      "Gross Motor",
+      "Fine Motor",
+      "Cognition"
+    ],
+    "auditNotes": {},
+    "researchSources": [
+      "NAEYC DAP — play-based learning, social studies through meaningful experiences",
+      "Head Start ECLKC — dramatic play, process art, anti-bias career exploration",
+      "CDC preschool milestones — cooperative play, language, fine/gross motor"
+    ]
+  },
+  "meta": {
+    "purpose": "Premium Teaching Kit draft for owner Admin review — DO NOT PUBLISH automatically",
+    "sourceLessonId": "cur-lp-preschool-community-helpers",
+    "sourceTitle": "Community Helpers",
+    "activityCount": 15,
+    "imagePolicy": "Assign images only when instructional value is clear"
+  }
+}

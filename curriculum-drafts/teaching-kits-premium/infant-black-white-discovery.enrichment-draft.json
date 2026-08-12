@@ -1,0 +1,1513 @@
+{
+  "updatedAt": "2026-08-12T02:29:23.905Z",
+  "lastEditedBy": "premium-draft-upgrade@littlelearnershub.local",
+  "previewReady": true,
+  "draftOnly": true,
+  "neverAutoPublish": true,
+  "activities": {
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-monday-1": {
+      "title": "High-Contrast Card Focus",
+      "dayOfWeek": "monday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 4,
+      "objective": "Support visual focus with one bold black-and-white card.",
+      "description": "Baby looks at a single high-contrast card held 8–12 inches away while you describe the pattern.",
+      "materials": "High-contrast pattern card (printable)\nMat",
+      "preparation": "Select one simple pattern (stripes or bullseye)\nSit facing baby",
+      "setup": "Baby comfortable on mat; card ready.",
+      "steps": "1. Hold card steady in view\n2. Allow time to focus\n3. Move slightly side to side\n4. Name pattern simply (stripes/spots)\n5. Rest eyes",
+      "teacherLanguage": "Look — black and white stripes.",
+      "observationOpportunities": "Fixates; tracks small movement.",
+      "safetyNotes": "Sealed laminate edges; no glitter/loose parts.",
+      "cleanupTips": "Wipe cards.",
+      "teacherTips": [
+        "One card at a time; put extras away."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Fixates; tracks small movement."
+      ],
+      "vocabulary": [
+        "look",
+        "black",
+        "white",
+        "stripe"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Caregiver holding one bold B/W stripe card 8–12 inches from infant.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/contrast-card-focus-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-monday-2": {
+      "title": "Tummy Time Pattern Line",
+      "dayOfWeek": "monday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Invite head lifting toward a tummy-time contrast strip.",
+      "description": "During supervised tummy time, a printable contrast strip sits at eye level in front of baby.",
+      "materials": "Tummy-time visual strip (printable)\nMat\nOptional support roll",
+      "preparation": "Place strip along front edge of mat",
+      "setup": "Awake tummy time facing the strip.",
+      "steps": "1. Place baby on tummy\n2. Point to a pattern on the strip\n3. Get face-to-face beside strip\n4. Encourage looking/lifting\n5. Rest on back",
+      "teacherLanguage": "You are looking at the bold patterns!",
+      "observationOpportunities": "Lifts head; looks at strip.",
+      "safetyNotes": "Awake and supervised only; back to sleep.",
+      "cleanupTips": "Wipe strip cover if needed.",
+      "teacherTips": [
+        "Your face beside the strip doubles engagement."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Lifts head; looks at strip."
+      ],
+      "vocabulary": [
+        "up",
+        "look",
+        "pattern"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Tummy-time mat with B/W visual strip at infant eye level.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/tummy-pattern-line-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-monday-3": {
+      "title": "Mirror and Pattern Meet",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Alternate looking at a baby-safe mirror and a contrast card.",
+      "description": "Baby looks in a mirror, then at a nearby high-contrast card, with your narration linking both.",
+      "materials": "Baby-safe mirror\nOne contrast card",
+      "preparation": "Angle mirror for face view",
+      "setup": "Mirror and card side by side on mat edge.",
+      "steps": "1. Show mirror first\n2. Point to baby’s face\n3. Show contrast card\n4. Return to mirror\n5. Smile and close",
+      "teacherLanguage": "I see your face — and a bold pattern too.",
+      "observationOpportunities": "Shifts gaze mirror↔card.",
+      "safetyNotes": "Unbreakable mirror; supervised.",
+      "cleanupTips": "Wipe mirror.",
+      "teacherTips": [
+        "Faces still win — keep card secondary."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Shifts gaze mirror↔card."
+      ],
+      "vocabulary": [
+        "face",
+        "see",
+        "pattern"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Baby-safe mirror beside one B/W card on mat.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/mirror-pattern-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-tuesday-1": {
+      "title": "Bold Card Gaze Garden",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 4,
+      "objective": "Offer a calm sequence of 2–3 contrast cards for gazing.",
+      "description": "You present one card at a time in a quiet ‘garden’ of visuals, watching for focus and break cues.",
+      "materials": "2–3 pattern cards\nMat",
+      "preparation": "Order cards from simplest to busier",
+      "setup": "Sit with cards face down; show one at a time.",
+      "steps": "1. Show card 1 still\n2. Allow gaze\n3. Switch to card 2\n4. Optional card 3 if still alert\n5. Stop at first fatigue cue",
+      "teacherLanguage": "New pattern… watching.",
+      "observationOpportunities": "Maintains calm alert looking; switches attention.",
+      "safetyNotes": "No card stacks within baby’s kick zone as clutter.",
+      "cleanupTips": "Stack and store cards.",
+      "teacherTips": [
+        "Gaze aversion means break, not ‘try harder’."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Maintains calm alert looking; switches attention."
+      ],
+      "vocabulary": [
+        "watch",
+        "new",
+        "pattern"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-tuesday-2": {
+      "title": "Black White Board Book",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Share a high-contrast board book page by page.",
+      "description": "Short read-aloud focusing on one bold page with slow pointing.",
+      "materials": "High-contrast board book",
+      "preparation": "Choose 1–2 pages",
+      "setup": "Lap or face-to-face hold.",
+      "steps": "1. Open to bold page\n2. Point to a shape\n3. Say black/white\n4. Turn one page if interested\n5. Close gently",
+      "teacherLanguage": "Black circle. White page.",
+      "observationOpportunities": "Looks at page; follows point.",
+      "safetyNotes": "Board books; wipe after mouthing.",
+      "cleanupTips": "Wipe book.",
+      "teacherTips": [
+        "Silence between words helps looking."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks at page; follows point."
+      ],
+      "vocabulary": [
+        "book",
+        "black",
+        "white"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-tuesday-3": {
+      "title": "Contrast Card Peek Song",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Play a gentle peek game with a contrast card and song.",
+      "description": "You hide a card briefly behind your hand, reveal it with a smile, and sing a short peek phrase.",
+      "materials": "One contrast card\nVoice",
+      "preparation": "Keep peeks slow — not startling",
+      "setup": "Face-to-face with baby.",
+      "steps": "1. Show card\n2. Hide behind hand\n3. Sing peek phrase\n4. Reveal with smile\n5. Repeat once or twice",
+      "teacherLanguage": "Peek… I see the pattern!",
+      "observationOpportunities": "Brightens on reveal; tracks card.",
+      "safetyNotes": "No sudden loud peeks for sensitive infants.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Your face reveal can replace the card sometimes."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Brightens on reveal; tracks card."
+      ],
+      "vocabulary": [
+        "peek",
+        "see",
+        "hello"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-wednesday-1": {
+      "title": "Slow Pattern Arc Track",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "STEM/Discovery",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Practice eye tracking along a slow arc with a contrast card.",
+      "description": "Move a patterned card in a slow left–center–right arc while baby watches.",
+      "materials": "Tracking card (printable)\nMat",
+      "preparation": "Practice a slower-than-you-think pace",
+      "setup": "Baby on back; card in starting left position.",
+      "steps": "1. Gain attention on card\n2. Move slowly left to center\n3. Pause\n4. Move slowly to right\n5. Rest card still",
+      "teacherLanguage": "Watch… moving slowly.",
+      "observationOpportunities": "Eyes follow arc; refocuses at pause.",
+      "safetyNotes": "Stop if eyes fatigue or baby fussing.",
+      "cleanupTips": "Store card.",
+      "teacherTips": [
+        "If baby loses track, shorten the arc."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Eyes follow arc; refocuses at pause."
+      ],
+      "vocabulary": [
+        "watch",
+        "slow",
+        "move"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Caregiver moving B/W card in slow arc above infant on back.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/arc-track-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-wednesday-2": {
+      "title": "Tummy Contrast Gallery",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Gross Motor",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Offer 2 contrast visuals during tummy time without clutter.",
+      "description": "Two cards stand along the mat edge like a tiny gallery while baby does tummy time.",
+      "materials": "2 cards or tummy strip\nMat",
+      "preparation": "Space cards apart\nSit opposite baby",
+      "setup": "Tummy time facing gallery.",
+      "steps": "1. Place baby on tummy\n2. Tap lightly near one card to invite look\n3. Shift attention to second card\n4. Return to face-to-face\n5. Rest",
+      "teacherLanguage": "Gallery looking — stripe, then spots.",
+      "observationOpportunities": "Shifts gaze; lifts head.",
+      "safetyNotes": "Supervised tummy time only.",
+      "cleanupTips": "Collect cards.",
+      "teacherTips": [
+        "Two visuals max."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Shifts gaze; lifts head."
+      ],
+      "vocabulary": [
+        "look",
+        "stripe",
+        "spot"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Two B/W cards propped at mat edge for tummy time.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/tummy-gallery-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-wednesday-3": {
+      "title": "Black White Cloth Look",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Sensory Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Explore a large black/white cloth with eyes and hands — never as a face cover.",
+      "description": "A large contrast cloth is shown and offered for touch while you hold it; it is never draped over baby’s face.",
+      "materials": "Large black/white fabric square",
+      "preparation": "Inspect for loose threads",
+      "setup": "Hold cloth on your hands in baby’s view.",
+      "steps": "1. Show cloth open\n2. Crinkle gently for sound if fabric allows\n3. Offer edge for touch\n4. Name black and white\n5. Fold away",
+      "teacherLanguage": "Soft black. Soft white.",
+      "observationOpportunities": "Looks; touches; listens to crinkle.",
+      "safetyNotes": "Never cover face/head; prevent entanglement.",
+      "cleanupTips": "Wash fabric.",
+      "teacherTips": [
+        "Rename activity away from ‘drape’ to avoid unsafe setups."
+      ],
+      "substitutions": [
+        {
+          "need": "cloth drape over baby",
+          "use": "hold cloth on adult hands only"
+        }
+      ],
+      "observationPrompts": [
+        "Looks; touches; listens to crinkle."
+      ],
+      "vocabulary": [
+        "soft",
+        "black",
+        "white"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "optional",
+      "imageBriefSetup": "Caregiver holding open B/W cloth on hands near infant — not covering infant.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/bw-cloth-look-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-thursday-1": {
+      "title": "Zebra Stripe Soft Book",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Touch stripes in a soft high-contrast book with narration.",
+      "description": "Guide hands over striped soft-book pages while naming stripe and pattern.",
+      "materials": "Washable high-contrast soft book",
+      "preparation": "Check seams and attachments",
+      "setup": "Lap share with soft book.",
+      "steps": "1. Open soft book\n2. Guide hand over stripes\n3. Name stripe\n4. Crinkle page if present\n5. Cuddle to finish",
+      "teacherLanguage": "Stripe… stripe… soft book.",
+      "observationOpportunities": "Touches pages; listens.",
+      "safetyNotes": "No detachable eyes/buttons; washable only.",
+      "cleanupTips": "Sanitize soft book per protocol.",
+      "teacherTips": [
+        "Hand-over-hand lightly — follow baby’s pressure."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Touches pages; listens."
+      ],
+      "vocabulary": [
+        "stripe",
+        "soft",
+        "book"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-thursday-2": {
+      "title": "Grasp the Contrast Ring",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Fine Motor",
+      "ageModifications": "Often ~3–6 months; younger may only look",
+      "durationMinutes": 4,
+      "objective": "Offer a large high-contrast ring for looking and grasping when ready.",
+      "description": "A large soft black/white ring is presented for visual attention and optional grasp.",
+      "materials": "Large soft contrast ring (mouth-safe)",
+      "preparation": "Sanitize ring\nConfirm size too large to choke",
+      "setup": "Baby on back or supported semi-reclined.",
+      "steps": "1. Show ring still\n2. Move slightly to invite look\n3. Bring within reach\n4. Allow grasp if baby closes fingers\n5. Celebrate any contact",
+      "teacherLanguage": "Reach for the black-and-white ring.",
+      "observationOpportunities": "Reaches; grasps; mouths safely.",
+      "safetyNotes": "Large ring only; supervised mouthing; no cords.",
+      "cleanupTips": "Sanitize after use.",
+      "teacherTips": [
+        "Looking-only is a full success for younger infants."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Reaches; grasps; mouths safely."
+      ],
+      "vocabulary": [
+        "reach",
+        "hold",
+        "ring"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "setup_only",
+      "imageBriefSetup": "Large B/W ring offered within infant reach on mat.",
+      "imageBriefExample": "",
+      "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/contrast-ring-setup.png",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-thursday-3": {
+      "title": "Hello Black Hello White",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Greet each baby with the original hello song and a face or pattern card.",
+      "description": "Personal hello using song while alternating your face and a simple face/pattern card.",
+      "materials": "Face card (printable)\nVoice",
+      "preparation": "Keep song short",
+      "setup": "One-to-one hold or sit.",
+      "steps": "1. Eye contact\n2. Show face card\n3. Sing hello lines\n4. Lower card; show your face\n5. Cuddle close",
+      "teacherLanguage": "Hello face, hello you.",
+      "observationOpportunities": "Social smile/coo; looks at card and face.",
+      "safetyNotes": "Support head.",
+      "cleanupTips": "Wipe cards.",
+      "teacherTips": [
+        "Alternate card and real face — real face is the goal."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Social smile/coo; looks at card and face."
+      ],
+      "vocabulary": [
+        "hello",
+        "face",
+        "you"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-friday-1": {
+      "title": "Contrast Celebration Hold",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Celebrate the week with a gentle sway and favorite contrast card.",
+      "description": "Secure hold with soft sway while showing a favorite pattern card and humming.",
+      "materials": "Favorite contrast card",
+      "preparation": "Clear sway space",
+      "setup": "Secure hold; card in peripheral view.",
+      "steps": "1. Hold securely\n2. Show favorite card\n3. Hum or sing short line\n4. Slow sway\n5. Stillness and smile",
+      "teacherLanguage": "Our favorite pattern — looking together.",
+      "observationOpportunities": "Calms; recognizes familiar card interest.",
+      "safetyNotes": "No spinning; two-hand support.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Celebration can be quiet."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Calms; recognizes familiar card interest."
+      ],
+      "vocabulary": [
+        "favorite",
+        "look",
+        "together"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-friday-2": {
+      "title": "Favorite Pattern Page Party",
+      "dayOfWeek": "friday",
+      "activityCategory": "Literacy",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 3,
+      "objective": "Revisit a favorite high-contrast page as a week closing ritual.",
+      "description": "Short party atmosphere (soft cheer) around one favorite book page or card.",
+      "materials": "Favorite book page or card",
+      "preparation": "Know each baby’s preferred visual if observed",
+      "setup": "Lap or small group with one visual.",
+      "steps": "1. Show favorite page/card\n2. Name what baby liked (stripes/face)\n3. Soft cheer\n4. One more look\n5. Put away for next week",
+      "teacherLanguage": "Party for stripes!",
+      "observationOpportunities": "Shows preference; stays engaged.",
+      "safetyNotes": "Keep cheers soft for sensitive infants.",
+      "cleanupTips": "Store visuals.",
+      "teacherTips": [
+        "Document preferences for families."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Shows preference; stays engaged."
+      ],
+      "vocabulary": [
+        "favorite",
+        "stripe",
+        "again"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    },
+    "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-friday-3": {
+      "title": "Shade and Shadow Contrast Stroll",
+      "dayOfWeek": "friday",
+      "activityCategory": "Outdoor Play",
+      "ageModifications": "Infant 0–6 months",
+      "durationMinutes": 8,
+      "objective": "Notice natural light/dark contrast outdoors with caregiver talk.",
+      "description": "In safe shade, point out shadows and bright/dark areas while strolling or sitting.",
+      "materials": "Stroller or blanket\nOptional contrast card",
+      "preparation": "Check weather and shade",
+      "setup": "Shaded outdoor space.",
+      "steps": "1. Settle baby\n2. Point to shadow/light area\n3. Describe dark and light\n4. Optional show card in outdoor light\n5. Return inside",
+      "teacherLanguage": "Dark shadow. Bright light.",
+      "observationOpportunities": "Looks toward pointed contrast; content outdoors.",
+      "safetyNotes": "Shade; supervision; safe sleep if drowsy.",
+      "cleanupTips": "None.",
+      "teacherTips": [
+        "Natural contrast is powerful — keep it simple."
+      ],
+      "substitutions": [],
+      "observationPrompts": [
+        "Looks toward pointed contrast; content outdoors."
+      ],
+      "vocabulary": [
+        "dark",
+        "light",
+        "shadow"
+      ],
+      "extensions": "",
+      "adaptations": "",
+      "settingTags": [],
+      "imageRequirement": "not_needed",
+      "imageBriefSetup": "",
+      "imageBriefExample": "",
+      "setupImageUrl": "",
+      "exampleImageUrl": ""
+    }
+  },
+  "week": {
+    "weeklyOverview": "High-contrast black-and-white patterns support early visual focus and tracking. The week centers on looking, tummy-time visuals, faces, short books, songs, and caregiver talk — not crafts or worksheets.",
+    "objectives": "Strengthen visual focus with simple high-contrast patterns\nPractice slow tracking of bold cards/objects\nSupport tummy-time looking with contrast visuals\nUse face cards and caregiver faces as primary targets\nOffer safe reaching toward large contrast toys when ready",
+    "weeklyMaterials": "High-contrast pattern cards (printable draft)\nFace cards (printable draft)\nTummy-time visual strip (printable draft)\nHigh-contrast board/soft books\nBaby-safe mirror\nBlack/white fabric squares\nLarge soft contrast ring/toy",
+    "familyConnection": "Share that simple black-and-white cards during alert awake time can support looking — always with your face and voice.",
+    "adaptations": "Younger infants need closer (8–12 in), slower moves, fewer cards. Reduce if overstimulated. Older infants may reach for large contrast toys.",
+    "vocabularyWords": "look\nsee\nblack\nwhite\npattern\nstripe\nspot\nface\nwatch\nfocus",
+    "teacherPreparation": "Print/laminate draft contrast cards and face cards\nStage tummy-time strip on mat edge\nSanitize soft books and ring toys",
+    "fieldOwnership": {
+      "objectives": true,
+      "weeklyOverview": true,
+      "weeklyMaterials": true,
+      "familyConnection": true
+    },
+    "proposedDailyPlans": {
+      "monday": {
+        "theme": "Bold Patterns to See",
+        "focus": "",
+        "objectives": "Focus on contrast cards\nTummy-time pattern look\nMirror + pattern discovery",
+        "learningDomains": [
+          "Science",
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts"
+        ],
+        "materials": "High-contrast pattern cards (printable draft)\nFace cards (printable draft)\nTummy-time visual strip (printable draft)\nHigh-contrast board/soft books\nBaby-safe mirror\nBlack/white fabric squares\nLarge soft contrast ring/toy",
+        "vocabulary": "look\nsee\nblack\nwhite\npattern\nstripe\nspot\nface\nwatch\nfocus",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Look Look Black and White song",
+          "Show one pattern card"
+        ],
+        "outdoorPlay": "Shaded outdoor look at natural light/shadow contrast with narration.",
+        "observations": [
+          "Fixates",
+          "Head lift",
+          "Looks in mirror"
+        ],
+        "adaptations": "Younger infants need closer (8–12 in), slower moves, fewer cards. Reduce if overstimulated. Older infants may reach for large contrast toys.",
+        "safetyNotes": "Cards laminated with sealed edges or cardstock only; no small parts, strings, or plastic bags. Supervised tummy time; back to sleep.",
+        "items": [
+          {
+            "itemId": "item-infant-black-white-discovery-monday-1",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "High-Contrast Card Focus",
+            "objective": "Support visual focus with one bold black-and-white card.",
+            "description": "Baby looks at a single high-contrast card held 8–12 inches away while you describe the pattern.",
+            "materials": "High-contrast pattern card (printable)\nMat",
+            "preparation": "Select one simple pattern (stripes or bullseye)\nSit facing baby",
+            "setup": "Baby comfortable on mat; card ready.",
+            "steps": "1. Hold card steady in view\n2. Allow time to focus\n3. Move slightly side to side\n4. Name pattern simply (stripes/spots)\n5. Rest eyes",
+            "teacherLanguage": "Look — black and white stripes.",
+            "observationOpportunities": "Fixates; tracks small movement.",
+            "safetyNotes": "Sealed laminate edges; no glitter/loose parts.",
+            "cleanupTips": "Wipe cards.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 4,
+            "vocabulary": "look\nblack\nwhite\nstripe",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "One card at a time; put extras away."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Caregiver holding one bold B/W stripe card 8–12 inches from infant.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/contrast-card-focus-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Visual focus",
+              "Attention"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-monday-1",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-monday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Tummy Time Pattern Line",
+            "objective": "Invite head lifting toward a tummy-time contrast strip.",
+            "description": "During supervised tummy time, a printable contrast strip sits at eye level in front of baby.",
+            "materials": "Tummy-time visual strip (printable)\nMat\nOptional support roll",
+            "preparation": "Place strip along front edge of mat",
+            "setup": "Awake tummy time facing the strip.",
+            "steps": "1. Place baby on tummy\n2. Point to a pattern on the strip\n3. Get face-to-face beside strip\n4. Encourage looking/lifting\n5. Rest on back",
+            "teacherLanguage": "You are looking at the bold patterns!",
+            "observationOpportunities": "Lifts head; looks at strip.",
+            "safetyNotes": "Awake and supervised only; back to sleep.",
+            "cleanupTips": "Wipe strip cover if needed.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "up\nlook\npattern",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Your face beside the strip doubles engagement."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Tummy-time mat with B/W visual strip at infant eye level.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/tummy-pattern-line-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tummy strength",
+              "Visual engagement"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-monday-2",
+            "dayOfWeek": "monday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-monday-3",
+            "importKey": "",
+            "activityCategory": "Open-Ended Exploration",
+            "title": "Mirror and Pattern Meet",
+            "objective": "Alternate looking at a baby-safe mirror and a contrast card.",
+            "description": "Baby looks in a mirror, then at a nearby high-contrast card, with your narration linking both.",
+            "materials": "Baby-safe mirror\nOne contrast card",
+            "preparation": "Angle mirror for face view",
+            "setup": "Mirror and card side by side on mat edge.",
+            "steps": "1. Show mirror first\n2. Point to baby’s face\n3. Show contrast card\n4. Return to mirror\n5. Smile and close",
+            "teacherLanguage": "I see your face — and a bold pattern too.",
+            "observationOpportunities": "Shifts gaze mirror↔card.",
+            "safetyNotes": "Unbreakable mirror; supervised.",
+            "cleanupTips": "Wipe mirror.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "face\nsee\npattern",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Faces still win — keep card secondary."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Baby-safe mirror beside one B/W card on mat.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/mirror-pattern-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Joint attention",
+              "Social looking"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-monday-3",
+            "dayOfWeek": "monday"
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "Faces and Pages",
+        "focus": "",
+        "objectives": "Gaze garden with cards\nHigh-contrast book\nPeek song with cards",
+        "learningDomains": [
+          "Science",
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts"
+        ],
+        "materials": "High-contrast pattern cards (printable draft)\nFace cards (printable draft)\nTummy-time visual strip (printable draft)\nHigh-contrast board/soft books\nBaby-safe mirror\nBlack/white fabric squares\nLarge soft contrast ring/toy",
+        "vocabulary": "look\nsee\nblack\nwhite\npattern\nstripe\nspot\nface\nwatch\nfocus",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Hello Black Hello White",
+          "Face card hello"
+        ],
+        "outdoorPlay": "Brief shaded stroll noticing dark/light areas.",
+        "observations": [
+          "Looks at face card",
+          "Attends to book",
+          "Responds to peek"
+        ],
+        "adaptations": "Younger infants need closer (8–12 in), slower moves, fewer cards. Reduce if overstimulated. Older infants may reach for large contrast toys.",
+        "safetyNotes": "Cards laminated with sealed edges or cardstock only; no small parts, strings, or plastic bags. Supervised tummy time; back to sleep.",
+        "items": [
+          {
+            "itemId": "item-infant-black-white-discovery-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Bold Card Gaze Garden",
+            "objective": "Offer a calm sequence of 2–3 contrast cards for gazing.",
+            "description": "You present one card at a time in a quiet ‘garden’ of visuals, watching for focus and break cues.",
+            "materials": "2–3 pattern cards\nMat",
+            "preparation": "Order cards from simplest to busier",
+            "setup": "Sit with cards face down; show one at a time.",
+            "steps": "1. Show card 1 still\n2. Allow gaze\n3. Switch to card 2\n4. Optional card 3 if still alert\n5. Stop at first fatigue cue",
+            "teacherLanguage": "New pattern… watching.",
+            "observationOpportunities": "Maintains calm alert looking; switches attention.",
+            "safetyNotes": "No card stacks within baby’s kick zone as clutter.",
+            "cleanupTips": "Stack and store cards.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 4,
+            "vocabulary": "watch\nnew\npattern",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Gaze aversion means break, not ‘try harder’."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Attention regulation",
+              "Visual focus"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-tuesday-1",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-tuesday-2",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Black White Board Book",
+            "objective": "Share a high-contrast board book page by page.",
+            "description": "Short read-aloud focusing on one bold page with slow pointing.",
+            "materials": "High-contrast board book",
+            "preparation": "Choose 1–2 pages",
+            "setup": "Lap or face-to-face hold.",
+            "steps": "1. Open to bold page\n2. Point to a shape\n3. Say black/white\n4. Turn one page if interested\n5. Close gently",
+            "teacherLanguage": "Black circle. White page.",
+            "observationOpportunities": "Looks at page; follows point.",
+            "safetyNotes": "Board books; wipe after mouthing.",
+            "cleanupTips": "Wipe book.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "book\nblack\nwhite",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Silence between words helps looking."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Literacy",
+              "Visual development"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-tuesday-2",
+            "dayOfWeek": "tuesday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-tuesday-3",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Contrast Card Peek Song",
+            "objective": "Play a gentle peek game with a contrast card and song.",
+            "description": "You hide a card briefly behind your hand, reveal it with a smile, and sing a short peek phrase.",
+            "materials": "One contrast card\nVoice",
+            "preparation": "Keep peeks slow — not startling",
+            "setup": "Face-to-face with baby.",
+            "steps": "1. Show card\n2. Hide behind hand\n3. Sing peek phrase\n4. Reveal with smile\n5. Repeat once or twice",
+            "teacherLanguage": "Peek… I see the pattern!",
+            "observationOpportunities": "Brightens on reveal; tracks card.",
+            "safetyNotes": "No sudden loud peeks for sensitive infants.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "peek\nsee\nhello",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Your face reveal can replace the card sometimes."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Social play",
+              "Anticipation beginnings"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-tuesday-3",
+            "dayOfWeek": "tuesday"
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "Tracking and Touch",
+        "focus": "",
+        "objectives": "Slow arc tracking\nTummy contrast gallery\nCloth drape look/touch",
+        "learningDomains": [
+          "Science",
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts"
+        ],
+        "materials": "High-contrast pattern cards (printable draft)\nFace cards (printable draft)\nTummy-time visual strip (printable draft)\nHigh-contrast board/soft books\nBaby-safe mirror\nBlack/white fabric squares\nLarge soft contrast ring/toy",
+        "vocabulary": "look\nsee\nblack\nwhite\npattern\nstripe\nspot\nface\nwatch\nfocus",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "One card focus",
+          "Slow move demo for co-teachers"
+        ],
+        "outdoorPlay": "Blanket time with one contrast card in shade.",
+        "observations": [
+          "Tracks arc",
+          "Tummy engagement",
+          "Touches cloth"
+        ],
+        "adaptations": "Younger infants need closer (8–12 in), slower moves, fewer cards. Reduce if overstimulated. Older infants may reach for large contrast toys.",
+        "safetyNotes": "Cards laminated with sealed edges or cardstock only; no small parts, strings, or plastic bags. Supervised tummy time; back to sleep.",
+        "items": [
+          {
+            "itemId": "item-infant-black-white-discovery-wednesday-1",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Slow Pattern Arc Track",
+            "objective": "Practice eye tracking along a slow arc with a contrast card.",
+            "description": "Move a patterned card in a slow left–center–right arc while baby watches.",
+            "materials": "Tracking card (printable)\nMat",
+            "preparation": "Practice a slower-than-you-think pace",
+            "setup": "Baby on back; card in starting left position.",
+            "steps": "1. Gain attention on card\n2. Move slowly left to center\n3. Pause\n4. Move slowly to right\n5. Rest card still",
+            "teacherLanguage": "Watch… moving slowly.",
+            "observationOpportunities": "Eyes follow arc; refocuses at pause.",
+            "safetyNotes": "Stop if eyes fatigue or baby fussing.",
+            "cleanupTips": "Store card.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "watch\nslow\nmove",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "If baby loses track, shorten the arc."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Caregiver moving B/W card in slow arc above infant on back.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/arc-track-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Visual tracking",
+              "Focus"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-wednesday-1",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-wednesday-2",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Tummy Contrast Gallery",
+            "objective": "Offer 2 contrast visuals during tummy time without clutter.",
+            "description": "Two cards stand along the mat edge like a tiny gallery while baby does tummy time.",
+            "materials": "2 cards or tummy strip\nMat",
+            "preparation": "Space cards apart\nSit opposite baby",
+            "setup": "Tummy time facing gallery.",
+            "steps": "1. Place baby on tummy\n2. Tap lightly near one card to invite look\n3. Shift attention to second card\n4. Return to face-to-face\n5. Rest",
+            "teacherLanguage": "Gallery looking — stripe, then spots.",
+            "observationOpportunities": "Shifts gaze; lifts head.",
+            "safetyNotes": "Supervised tummy time only.",
+            "cleanupTips": "Collect cards.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "look\nstripe\nspot",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Two visuals max."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Two B/W cards propped at mat edge for tummy time.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/tummy-gallery-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Gross motor",
+              "Visual scanning"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-wednesday-2",
+            "dayOfWeek": "wednesday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-wednesday-3",
+            "importKey": "",
+            "activityCategory": "Sensory Play",
+            "title": "Black White Cloth Look",
+            "objective": "Explore a large black/white cloth with eyes and hands — never as a face cover.",
+            "description": "A large contrast cloth is shown and offered for touch while you hold it; it is never draped over baby’s face.",
+            "materials": "Large black/white fabric square",
+            "preparation": "Inspect for loose threads",
+            "setup": "Hold cloth on your hands in baby’s view.",
+            "steps": "1. Show cloth open\n2. Crinkle gently for sound if fabric allows\n3. Offer edge for touch\n4. Name black and white\n5. Fold away",
+            "teacherLanguage": "Soft black. Soft white.",
+            "observationOpportunities": "Looks; touches; listens to crinkle.",
+            "safetyNotes": "Never cover face/head; prevent entanglement.",
+            "cleanupTips": "Wash fabric.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "soft\nblack\nwhite",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Rename activity away from ‘drape’ to avoid unsafe setups."
+            ],
+            "substitutions": [
+              {
+                "need": "cloth drape over baby",
+                "use": "hold cloth on adult hands only"
+              }
+            ],
+            "settingTags": [],
+            "imageRequirement": "optional",
+            "imageBriefSetup": "Caregiver holding open B/W cloth on hands near infant — not covering infant.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/bw-cloth-look-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tactile + visual",
+              "Safety-minded sensory"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-wednesday-3",
+            "dayOfWeek": "wednesday"
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "Grasp and Greet",
+        "focus": "",
+        "objectives": "Soft contrast book\nGrasp contrast ring\nHello song with patterns",
+        "learningDomains": [
+          "Science",
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts"
+        ],
+        "materials": "High-contrast pattern cards (printable draft)\nFace cards (printable draft)\nTummy-time visual strip (printable draft)\nHigh-contrast board/soft books\nBaby-safe mirror\nBlack/white fabric squares\nLarge soft contrast ring/toy",
+        "vocabulary": "look\nsee\nblack\nwhite\npattern\nstripe\nspot\nface\nwatch\nfocus",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Greeting with face card"
+        ],
+        "outdoorPlay": "Quiet outdoor hold with pattern card.",
+        "observations": [
+          "Touches book",
+          "Grasps ring if ready",
+          "Social smile/coo"
+        ],
+        "adaptations": "Younger infants need closer (8–12 in), slower moves, fewer cards. Reduce if overstimulated. Older infants may reach for large contrast toys.",
+        "safetyNotes": "Cards laminated with sealed edges or cardstock only; no small parts, strings, or plastic bags. Supervised tummy time; back to sleep.",
+        "items": [
+          {
+            "itemId": "item-infant-black-white-discovery-thursday-1",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Zebra Stripe Soft Book",
+            "objective": "Touch stripes in a soft high-contrast book with narration.",
+            "description": "Guide hands over striped soft-book pages while naming stripe and pattern.",
+            "materials": "Washable high-contrast soft book",
+            "preparation": "Check seams and attachments",
+            "setup": "Lap share with soft book.",
+            "steps": "1. Open soft book\n2. Guide hand over stripes\n3. Name stripe\n4. Crinkle page if present\n5. Cuddle to finish",
+            "teacherLanguage": "Stripe… stripe… soft book.",
+            "observationOpportunities": "Touches pages; listens.",
+            "safetyNotes": "No detachable eyes/buttons; washable only.",
+            "cleanupTips": "Sanitize soft book per protocol.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "stripe\nsoft\nbook",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Hand-over-hand lightly — follow baby’s pressure."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Tactile literacy",
+              "Language"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-thursday-1",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-thursday-2",
+            "importKey": "",
+            "activityCategory": "Fine Motor",
+            "title": "Grasp the Contrast Ring",
+            "objective": "Offer a large high-contrast ring for looking and grasping when ready.",
+            "description": "A large soft black/white ring is presented for visual attention and optional grasp.",
+            "materials": "Large soft contrast ring (mouth-safe)",
+            "preparation": "Sanitize ring\nConfirm size too large to choke",
+            "setup": "Baby on back or supported semi-reclined.",
+            "steps": "1. Show ring still\n2. Move slightly to invite look\n3. Bring within reach\n4. Allow grasp if baby closes fingers\n5. Celebrate any contact",
+            "teacherLanguage": "Reach for the black-and-white ring.",
+            "observationOpportunities": "Reaches; grasps; mouths safely.",
+            "safetyNotes": "Large ring only; supervised mouthing; no cords.",
+            "cleanupTips": "Sanitize after use.",
+            "ageModifications": "Often ~3–6 months; younger may only look",
+            "durationMinutes": 4,
+            "vocabulary": "reach\nhold\nring",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Looking-only is a full success for younger infants."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "setup_only",
+            "imageBriefSetup": "Large B/W ring offered within infant reach on mat.",
+            "imageBriefExample": "",
+            "setupImageUrl": "/images/teaching-kit-drafts/black-white-discovery/contrast-ring-setup.png",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Grasp",
+              "Eye-hand"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-thursday-2",
+            "dayOfWeek": "thursday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-thursday-3",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Hello Black Hello White",
+            "objective": "Greet each baby with the original hello song and a face or pattern card.",
+            "description": "Personal hello using song while alternating your face and a simple face/pattern card.",
+            "materials": "Face card (printable)\nVoice",
+            "preparation": "Keep song short",
+            "setup": "One-to-one hold or sit.",
+            "steps": "1. Eye contact\n2. Show face card\n3. Sing hello lines\n4. Lower card; show your face\n5. Cuddle close",
+            "teacherLanguage": "Hello face, hello you.",
+            "observationOpportunities": "Social smile/coo; looks at card and face.",
+            "safetyNotes": "Support head.",
+            "cleanupTips": "Wipe cards.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "hello\nface\nyou",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Alternate card and real face — real face is the goal."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Social-emotional",
+              "Rhythm"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-thursday-3",
+            "dayOfWeek": "thursday"
+          }
+        ]
+      },
+      "friday": {
+        "theme": "Celebrate Looking",
+        "focus": "",
+        "objectives": "Contrast dance hold\nFavorite page party\nShade and shadow stroll",
+        "learningDomains": [
+          "Science",
+          "Physical Development",
+          "Language & Literacy",
+          "Social Emotional",
+          "Creative Arts"
+        ],
+        "materials": "High-contrast pattern cards (printable draft)\nFace cards (printable draft)\nTummy-time visual strip (printable draft)\nHigh-contrast board/soft books\nBaby-safe mirror\nBlack/white fabric squares\nLarge soft contrast ring/toy",
+        "vocabulary": "look\nsee\nblack\nwhite\npattern\nstripe\nspot\nface\nwatch\nfocus",
+        "books": [],
+        "songs": [],
+        "circleTime": [
+          "Review favorite pattern",
+          "Celebration song"
+        ],
+        "outdoorPlay": "Shade/shadow contrast stroll.",
+        "observations": [
+          "Preference for a pattern",
+          "Outdoor looking",
+          "Calm engagement"
+        ],
+        "adaptations": "Younger infants need closer (8–12 in), slower moves, fewer cards. Reduce if overstimulated. Older infants may reach for large contrast toys.",
+        "safetyNotes": "Cards laminated with sealed edges or cardstock only; no small parts, strings, or plastic bags. Supervised tummy time; back to sleep.",
+        "items": [
+          {
+            "itemId": "item-infant-black-white-discovery-friday-1",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Contrast Celebration Hold",
+            "objective": "Celebrate the week with a gentle sway and favorite contrast card.",
+            "description": "Secure hold with soft sway while showing a favorite pattern card and humming.",
+            "materials": "Favorite contrast card",
+            "preparation": "Clear sway space",
+            "setup": "Secure hold; card in peripheral view.",
+            "steps": "1. Hold securely\n2. Show favorite card\n3. Hum or sing short line\n4. Slow sway\n5. Stillness and smile",
+            "teacherLanguage": "Our favorite pattern — looking together.",
+            "observationOpportunities": "Calms; recognizes familiar card interest.",
+            "safetyNotes": "No spinning; two-hand support.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "favorite\nlook\ntogether",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Celebration can be quiet."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Regulation",
+              "Connection"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-friday-1",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-friday-2",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Favorite Pattern Page Party",
+            "objective": "Revisit a favorite high-contrast page as a week closing ritual.",
+            "description": "Short party atmosphere (soft cheer) around one favorite book page or card.",
+            "materials": "Favorite book page or card",
+            "preparation": "Know each baby’s preferred visual if observed",
+            "setup": "Lap or small group with one visual.",
+            "steps": "1. Show favorite page/card\n2. Name what baby liked (stripes/face)\n3. Soft cheer\n4. One more look\n5. Put away for next week",
+            "teacherLanguage": "Party for stripes!",
+            "observationOpportunities": "Shows preference; stays engaged.",
+            "safetyNotes": "Keep cheers soft for sensitive infants.",
+            "cleanupTips": "Store visuals.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 3,
+            "vocabulary": "favorite\nstripe\nagain",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Document preferences for families."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Preference",
+              "Literacy"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-friday-2",
+            "dayOfWeek": "friday"
+          },
+          {
+            "itemId": "item-infant-black-white-discovery-friday-3",
+            "importKey": "",
+            "activityCategory": "Outdoor Play",
+            "title": "Shade and Shadow Contrast Stroll",
+            "objective": "Notice natural light/dark contrast outdoors with caregiver talk.",
+            "description": "In safe shade, point out shadows and bright/dark areas while strolling or sitting.",
+            "materials": "Stroller or blanket\nOptional contrast card",
+            "preparation": "Check weather and shade",
+            "setup": "Shaded outdoor space.",
+            "steps": "1. Settle baby\n2. Point to shadow/light area\n3. Describe dark and light\n4. Optional show card in outdoor light\n5. Return inside",
+            "teacherLanguage": "Dark shadow. Bright light.",
+            "observationOpportunities": "Looks toward pointed contrast; content outdoors.",
+            "safetyNotes": "Shade; supervision; safe sleep if drowsy.",
+            "cleanupTips": "None.",
+            "ageModifications": "Infant 0–6 months",
+            "durationMinutes": 8,
+            "vocabulary": "dark\nlight\nshadow",
+            "extensions": "",
+            "adaptations": "",
+            "teacherTips": [
+              "Natural contrast is powerful — keep it simple."
+            ],
+            "substitutions": [],
+            "settingTags": [],
+            "imageRequirement": "not_needed",
+            "imageBriefSetup": "",
+            "imageBriefExample": "",
+            "setupImageUrl": "",
+            "exampleImageUrl": "",
+            "learningGoals": [
+              "Environmental contrast",
+              "Language"
+            ],
+            "sourceKey": "cur-lp-infant-black-white-discovery:item-infant-black-white-discovery-friday-3",
+            "dayOfWeek": "friday"
+          }
+        ]
+      }
+    },
+    "activityDecisions": [
+      {
+        "title": "High-Contrast Card Focus",
+        "itemId": "item-infant-black-white-discovery-monday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Tummy Time Pattern Line",
+        "itemId": "item-infant-black-white-discovery-monday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Mirror and Pattern Meet",
+        "itemId": "item-infant-black-white-discovery-monday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Bold Card Gaze Garden",
+        "itemId": "item-infant-black-white-discovery-tuesday-1",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Black White Board Book",
+        "itemId": "item-infant-black-white-discovery-tuesday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Contrast Card Peek Song",
+        "itemId": "item-infant-black-white-discovery-tuesday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Slow Pattern Arc Track",
+        "itemId": "item-infant-black-white-discovery-wednesday-1",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Tummy Contrast Gallery",
+        "itemId": "item-infant-black-white-discovery-wednesday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Black White Cloth Look",
+        "itemId": "item-infant-black-white-discovery-wednesday-3",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Zebra Stripe Soft Book",
+        "itemId": "item-infant-black-white-discovery-thursday-1",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Grasp the Contrast Ring",
+        "itemId": "item-infant-black-white-discovery-thursday-2",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Hello Black Hello White",
+        "itemId": "item-infant-black-white-discovery-thursday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Contrast Celebration Hold",
+        "itemId": "item-infant-black-white-discovery-friday-1",
+        "decision": "improve",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Favorite Pattern Page Party",
+        "itemId": "item-infant-black-white-discovery-friday-2",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      },
+      {
+        "title": "Shade and Shadow Contrast Stroll",
+        "itemId": "item-infant-black-white-discovery-friday-3",
+        "decision": "keep",
+        "note": "",
+        "replaces": ""
+      }
+    ],
+    "removedActivityTitles": [],
+    "removedItemIds": [],
+    "books": [
+      {
+        "title": "Look Look!",
+        "author": "Peter Linenthal",
+        "notes": "High contrast; short sessions."
+      },
+      {
+        "title": "Black & White",
+        "author": "Tana Hoban",
+        "notes": "Bold photos/patterns; 1–2 pages."
+      },
+      {
+        "title": "Baby Faces (high-contrast board book)",
+        "author": "Various",
+        "notes": "Prefer real face photos or simple illustrated faces."
+      }
+    ],
+    "songs": [
+      {
+        "title": "Look Look Black and White (LLH original)",
+        "lyrics": "Look look, black and white,\nPatterns help you see the light.\nWatch with me, slow and near,\nI am with you, I am here.",
+        "motions": "Show card; slow side move; smile.",
+        "rightsStatus": "original"
+      },
+      {
+        "title": "Twinkle Twinkle Little Star",
+        "notes": "Public domain; calm hold with contrast card nearby.",
+        "rightsStatus": "public_domain"
+      },
+      {
+        "title": "Hello Black Hello White (LLH original)",
+        "lyrics": "Hello black, hello white,\nI see patterns day and night.\nHello face, hello you,\nLooking, looking, we do too.",
+        "motions": "Alternate card and your face.",
+        "rightsStatus": "original"
+      }
+    ],
+    "teacherToolkit": {
+      "prepChecklist": [
+        "Print high-contrast card set (draft)",
+        "Print face cards + tummy strip (draft)",
+        "Set calm mat with one visual at a time",
+        "Check mirror and soft book condition"
+      ],
+      "observationFocus": [
+        "Gaze duration on contrast vs face",
+        "Tracking left/right",
+        "Overstimulation cues"
+      ],
+      "teacherPreparation": "Present one pattern at a time. Your face remains the richest visual.",
+      "notes": "Printables are draft visuals for attention — not worksheets."
+    },
+    "printableIdeas": [
+      {
+        "title": "High-Contrast Pattern Cards",
+        "purpose": "Bold B/W patterns for gaze and tracking",
+        "type": "visual_cards"
+      },
+      {
+        "title": "Simple Face Cards",
+        "purpose": "High-contrast friendly faces for social looking",
+        "type": "visual_cards"
+      },
+      {
+        "title": "Tummy-Time Visual Strip",
+        "purpose": "Floor strip of patterns for tummy-time looking",
+        "type": "display"
+      },
+      {
+        "title": "Tracking Arc Cards",
+        "purpose": "Two-panel cards for slow arc tracking",
+        "type": "visual_cards"
+      }
+    ],
+    "printableIds": [
+      "cur-res-draft-bw-contrast-cards",
+      "cur-res-draft-bw-tummy-strip"
+    ],
+    "vocabCards": [
+      "look",
+      "see",
+      "black",
+      "white",
+      "pattern",
+      "stripe",
+      "face",
+      "watch"
+    ],
+    "milestones": [
+      "Cognition",
+      "Gross Motor",
+      "Language",
+      "Social Emotional",
+      "Fine Motor"
+    ],
+    "auditNotes": {},
+    "researchSources": [
+      "CDC milestones 2–6 months — tracking, tummy time, reaching",
+      "NAEYC / Infants and Toddlers at Play — high-contrast cards, joint attention, faces",
+      "Head Start ECLKC — infant art as sensory/process exploration",
+      "AAP HealthyChildren — early vision prefers contrast and faces"
+    ]
+  },
+  "meta": {
+    "purpose": "Premium Teaching Kit draft for owner Admin review — DO NOT PUBLISH automatically",
+    "sourceLessonId": "cur-lp-infant-black-white-discovery",
+    "sourceTitle": "Black & White Discovery",
+    "activityCount": 15,
+    "imagePolicy": "Assign images only when instructional value is clear"
+  }
+}

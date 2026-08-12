@@ -1,0 +1,138 @@
+{
+  "generatedAt": "2026-08-12T02:29:23.902Z",
+  "draftOnly": true,
+  "published": false,
+  "kits": [
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "key": "infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "importPath": "scripts/curriculum-infant-core-imports/infant-colors-all-around-us.txt",
+      "enrichmentDraftPath": "curriculum-drafts/teaching-kits-premium/infant-colors-all-around-us.enrichment-draft.json",
+      "printableIds": [
+        "cur-res-draft-color-gaze-cards",
+        "cur-res-draft-color-talk-guide"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-draft-color-gaze-cards",
+          "title": "Bright Color Gaze Cards",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/colors-all-around-us/bright-color-gaze-cards.pdf",
+          "pageCount": 4
+        },
+        {
+          "id": "cur-res-draft-color-talk-guide",
+          "title": "Caregiver Color Talk Mini Guide",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/colors-all-around-us/caregiver-color-talk-mini-guide.pdf",
+          "pageCount": 1
+        }
+      ],
+      "activityCount": 15,
+      "status": {
+        "enrichment": "draft",
+        "printables": "draft",
+        "published": false
+      }
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "key": "infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "importPath": "scripts/curriculum-infant-core-imports/infant-black-white-discovery.txt",
+      "enrichmentDraftPath": "curriculum-drafts/teaching-kits-premium/infant-black-white-discovery.enrichment-draft.json",
+      "printableIds": [
+        "cur-res-draft-bw-contrast-cards",
+        "cur-res-draft-bw-tummy-strip"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-draft-bw-contrast-cards",
+          "title": "High-Contrast Pattern & Face Cards",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/black-white-discovery/high-contrast-pattern-and-face-cards.pdf",
+          "pageCount": 5
+        },
+        {
+          "id": "cur-res-draft-bw-tummy-strip",
+          "title": "Tummy-Time Visual Strip",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/black-white-discovery/tummy-time-visual-strip.pdf",
+          "pageCount": 1
+        }
+      ],
+      "activityCount": 15,
+      "status": {
+        "enrichment": "draft",
+        "printables": "draft",
+        "published": false
+      }
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "key": "preschool-community-helpers",
+      "title": "Community Helpers",
+      "importPath": "scripts/curriculum-preschool-free-imports/06-preschool-community-helpers-free.txt",
+      "enrichmentDraftPath": "curriculum-drafts/teaching-kits-premium/preschool-community-helpers.enrichment-draft.json",
+      "printableIds": [
+        "cur-res-draft-helper-cards",
+        "cur-res-draft-helper-signs"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-draft-helper-cards",
+          "title": "Community Helper Picture Cards",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/community-helpers/community-helper-picture-cards.pdf",
+          "pageCount": 8
+        },
+        {
+          "id": "cur-res-draft-helper-signs",
+          "title": "Helper Place Signs",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/community-helpers/helper-place-signs.pdf",
+          "pageCount": 6
+        }
+      ],
+      "activityCount": 15,
+      "status": {
+        "enrichment": "draft",
+        "printables": "draft",
+        "published": false
+      }
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "key": "preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "importPath": "scripts/curriculum-preschool-free-imports/08-preschool-weather-watchers-free.txt",
+      "enrichmentDraftPath": "curriculum-drafts/teaching-kits-premium/preschool-weather-watchers.enrichment-draft.json",
+      "printableIds": [
+        "cur-res-draft-weather-symbols",
+        "cur-res-draft-weather-chart",
+        "cur-res-draft-weather-clothing"
+      ],
+      "printables": [
+        {
+          "id": "cur-res-draft-weather-symbols",
+          "title": "Weather Symbol Cards",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/weather-watchers/weather-symbol-cards.pdf",
+          "pageCount": 5
+        },
+        {
+          "id": "cur-res-draft-weather-chart",
+          "title": "Weekly Weather Observation Chart",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/weather-watchers/weekly-weather-observation-chart.pdf",
+          "pageCount": 1
+        },
+        {
+          "id": "cur-res-draft-weather-clothing",
+          "title": "Clothing for Weather Cards",
+          "filePath": "/workspace/curriculum-drafts/teaching-kits-premium/printables/weather-watchers/clothing-for-weather-cards.pdf",
+          "pageCount": 4
+        }
+      ],
+      "activityCount": 15,
+      "status": {
+        "enrichment": "draft",
+        "printables": "draft",
+        "published": false
+      }
+    }
+  ]
+}
