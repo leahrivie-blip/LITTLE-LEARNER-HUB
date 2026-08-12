@@ -407,6 +407,39 @@ function runMatrixOnKit(name, fixture) {
       },
     },
     {
+      option: "Stale singular IDs do not widen Selected Resources overview",
+      options: {
+        preset: "selected_resources",
+        activityId: actA?.id || "stale-activity",
+        printableId: printableA?.id || "stale-printable",
+        songId: songA?.id || "stale-song",
+        selectedResources: { overview: true },
+      },
+      assertFn: (ctx) => {
+        ok(ctx.request.activityIds.length === 0, "selected overview drops stale activityId");
+        ok(ctx.request.printableIds.length === 0, "selected overview drops stale printableId");
+        ok(ctx.request.songIds.length === 0, "selected overview drops stale songId");
+        ok((ctx.manifest.activityIds || []).length === 0, "selected overview manifest activityIds empty");
+        ok((ctx.manifest.printableIds || []).length === 0, "selected overview manifest printableIds empty");
+        ok(ctx.printBuilt.ok === true, "selected overview still builds from overview flag");
+      },
+    },
+    {
+      option: "Selected Resources single activity length>=1",
+      options: {
+        preset: "selected_resources",
+        parts: { cover: false },
+        selectedResources: { activityIds: actA ? [actA.id] : [] },
+      },
+      assertFn: (ctx) => {
+        if (!actA) return;
+        ok(ctx.manifest.canPrint === true, "single selected activity canPrint");
+        ok(ctx.manifest.activityIds.join(",") === actA.id, "exactly one selected activity id");
+        ok(ctx.manifest.itemCount >= 1, "itemCount >= 1 for one selected activity");
+        ok(new RegExp(actA.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(ctx.printBuilt.html), "single activity content present");
+      },
+    },
+    {
       option: "One activity + one printable",
       options: {
         preset: "selected_resources",

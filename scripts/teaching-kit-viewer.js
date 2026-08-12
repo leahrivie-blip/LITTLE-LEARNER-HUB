@@ -1764,15 +1764,31 @@
         if (state.printPreset === "week_binder" || state.printPreset === "full_weekly_plan") {
           state.selectedResources = emptySelectedResources();
         }
-        // Clear singular picks that do not apply to the new preset so the next
-        // Print/Download payload cannot reuse a previous activity/song/printable.
-        if (state.printPreset !== "one_activity" && state.printPreset !== "selected_resources") {
+        // Singular picks are only for one_* presets. Selected Resources uses checkbox
+        // arrays only — clear leftover One Activity / One Song / One Printable ids.
+        if (state.printPreset === "one_activity") {
+          if (!state.printActivityId) {
+            state.printActivityId = text((kit.companion?.activities || [])[0]?.id) || "";
+          }
+        } else {
           state.printActivityId = "";
         }
-        if (state.printPreset !== "one_song" && state.printPreset !== "selected_resources") {
+        if (state.printPreset === "one_song") {
+          if (!state.printSongId) {
+            const firstSong = (kit.companion?.songs || [])[0];
+            state.printSongId = firstSong
+              ? (firstSong.id || `song:${String(firstSong.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`)
+              : "";
+          }
+        } else {
           state.printSongId = "";
         }
-        if (state.printPreset !== "one_printable" && state.printPreset !== "selected_resources") {
+        if (state.printPreset === "one_printable") {
+          if (!state.printPrintableId) {
+            const firstPrintable = (kit.companion?.printables || [])[0];
+            state.printPrintableId = firstPrintable ? (firstPrintable.id || firstPrintable.title || "") : "";
+          }
+        } else {
           state.printPrintableId = "";
         }
         state.downloadStatus = "idle";
