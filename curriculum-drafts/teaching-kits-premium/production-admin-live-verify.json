@@ -1,0 +1,135 @@
+{
+  "coverage": [
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "missingQualityMap": [],
+      "count": 15
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "missingQualityMap": [],
+      "count": 15
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "missingQualityMap": [],
+      "count": 15
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "missingQualityMap": [],
+      "count": 15
+    }
+  ],
+  "results": [
+    {
+      "title": "Weather Watchers Circle",
+      "active": "Weather Watchers Circle Mon · Complete",
+      "ok": true,
+      "bad": [],
+      "okPrep": true,
+      "okQ": true,
+      "okS": true,
+      "sections": {
+        "prep": "Teacher preparation Post the Weekly Weather Observation Chart near the window at child height. Place Weather Symbol Cards in a basket. Open blinds for sky viewing (or plan a brief ",
+        "questions": "Suggested questions to ask What do you notice about the sky? How does the air feel today? Do you see anything moving in the wind? What makes you think it is cloudy? Which weather p",
+        "safety": "Safety and supervision If observing from indoors, ordinary classroom supervision is enough. If you step outside, follow your center’s outdoor weather procedures and stay with the g"
+      },
+      "shot": "/opt/cursor/artifacts/tk-live-quality-verify/cur-lp-preschool-weather-watchers-PASS.png"
+    },
+    {
+      "title": "Community Helper Discovery Basket",
+      "active": "Community Helper Discovery Basket Mon · In Progress",
+      "ok": true,
+      "bad": [],
+      "okPrep": true,
+      "okQ": true,
+      "okS": true,
+      "sections": {
+        "prep": "Teacher preparation Fill a basket with 4–6 safe helper props and Community Helper Picture Cards. Remove anything with small detachable parts. Place the basket on a rug for circle o",
+        "questions": "Suggested questions to ask What helper tool did you find? Who might use this hat? What job helps people in our neighborhood?",
+        "safety": "Safety and supervision Check props for loose parts before play. Supervise try-on items near faces. Keep walkways clear around the basket circle."
+      },
+      "shot": "/opt/cursor/artifacts/tk-live-quality-verify/cur-lp-preschool-community-helpers-PASS.png"
+    },
+    {
+      "title": "Rainbow Scarf Visual Tracking",
+      "active": "Rainbow Scarf Visual Tracking Mon · Complete",
+      "ok": true,
+      "bad": [],
+      "okPrep": true,
+      "okQ": true,
+      "okS": true,
+      "sections": {
+        "prep": "Teacher preparation Choose one clean, lightweight scarf. Check for loose threads or holes. Clear a calm mat space away from walkways.",
+        "questions": "Suggested questions to ask Look at the bright scarf. Can you see it moving? Here it comes across. You watched it!",
+        "safety": "Safety and supervision Stay within arm’s reach. Never let fabric cover the infant’s nose or mouth. Stop if the infant turns away or fussiness begins."
+      },
+      "shot": "/opt/cursor/artifacts/tk-live-quality-verify/cur-lp-infant-colors-all-around-us-PASS.png"
+    },
+    {
+      "title": "High-Contrast Card Exploration",
+      "active": "High-Contrast Card Exploration Mon · Complete",
+      "ok": true,
+      "bad": [],
+      "okPrep": true,
+      "okQ": true,
+      "okS": true,
+      "sections": {
+        "prep": "Teacher preparation Print/laminate High-Contrast Pattern & Face Cards if needed. Choose one simple pattern card. Clear a calm mat with soft light (not harsh glare).",
+        "questions": "Suggested questions to ask Look — black and white. Bold lines for your eyes. You found it!",
+        "safety": "Safety and supervision Cards with sealed edges only. No small detachable pieces. Stay within arm’s reach."
+      },
+      "shot": "/opt/cursor/artifacts/tk-live-quality-verify/cur-lp-infant-black-white-discovery-PASS.png"
+    }
+  ],
+  "printableStatuses": [
+    {
+      "id": "cur-res-750dac2dba18a433",
+      "title": "Bright Color Gaze Cards (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-765d77ac99101135",
+      "title": "Caregiver Color Talk Mini Guide (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-a2f90f232a27e8ea",
+      "title": "High-Contrast Pattern & Face Cards (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-e3c453192e3dfaf7",
+      "title": "Tummy-Time Visual Strip (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-2e0abf716dedf25f",
+      "title": "Community Helper Picture Cards (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-04c3b64a153ea905",
+      "title": "Helper Place Signs (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-bb036ea0b6f94e28",
+      "title": "Weather Symbol Cards (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-350953835613bf1d",
+      "title": "Weekly Weather Observation Chart (draft)",
+      "status": "draft"
+    },
+    {
+      "id": "cur-res-9e4c6acbbb4ae6e5",
+      "title": "Clothing for Weather Cards (draft)",
+      "status": "draft"
+    }
+  ],
+  "ok": true,
+  "verifiedAt": "2026-08-12T03:39:46.751Z"
+}

@@ -1,0 +1,375 @@
+{
+  "at": "2026-08-12T18:14:59.329Z",
+  "host": "https://littlelearnershubbyleah.com",
+  "generated": [
+    "colors-all-around-us/colorful-tummy-time-setup.png",
+    "colors-all-around-us/tummy-color-mirror-setup.png",
+    "colors-all-around-us/color-cloth-basket-setup.png",
+    "black-white-discovery/tummy-pattern-line-setup.png",
+    "black-white-discovery/mirror-pattern-setup.png",
+    "black-white-discovery/arc-track-setup.png",
+    "black-white-discovery/tummy-gallery-setup.png",
+    "community-helpers/discovery-basket-setup.png",
+    "community-helpers/community-map-setup.png",
+    "community-helpers/healthcare-clinic-setup.png",
+    "community-helpers/firefighter-relay-setup.png",
+    "community-helpers/mail-center-setup.png",
+    "community-helpers/chef-kitchen-setup.png",
+    "community-helpers/block-city-setup.png",
+    "community-helpers/tools-table-setup.png",
+    "community-helpers/helper-course-setup.png",
+    "weather-watchers/cloud-process-art-setup.png",
+    "weather-watchers/rain-sensory-setup.png",
+    "weather-watchers/weather-dressup-setup.png",
+    "weather-watchers/wind-lab-setup.png",
+    "weather-watchers/weather-paint-setup.png",
+    "weather-watchers/thunder-drum-setup.png",
+    "weather-watchers/dress-relay-setup.png"
+  ],
+  "localUnique": true,
+  "kits": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "enrichmentPublished": false,
+      "withImage": [
+        "Colorful Tummy Time",
+        "Tummy Time Color Mirror",
+        "Color Cloth Basket Gaze"
+      ],
+      "withoutImage": [
+        "Rainbow Scarf Visual Tracking",
+        "Face-to-Face Color Talk",
+        "Red Scarf Slow Track",
+        "Color Lap Bounce Lullaby",
+        "Color Board Book Faces",
+        "Yellow Rattle Reach",
+        "Soft Color Texture Mitts",
+        "Color Hello with Caregiver",
+        "Green Scarf Sway",
+        "Rainbow Color Song Cuddle",
+        "Favorite Color Page Replay",
+        "Shaded Color Stroll"
+      ]
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "enrichmentPublished": false,
+      "withImage": [
+        "Tummy Time Pattern Adventure",
+        "Mirror & Pattern Discovery",
+        "Slow Pattern Arc Track",
+        "Tummy Contrast Gallery"
+      ],
+      "withoutImage": [
+        "High-Contrast Card Exploration",
+        "Bold Card Gaze Garden",
+        "Black White Board Book",
+        "Contrast Card Peek Song",
+        "Black White Cloth Drape",
+        "Zebra Stripe Soft Book",
+        "Grasp the Contrast Ring",
+        "Hello Black Hello White",
+        "Contrast Celebration Dance Hold",
+        "Favorite Pattern Page Party",
+        "Shade and Shadow Contrast Stroll"
+      ]
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "enrichmentPublished": false,
+      "withImage": [
+        "Community Helper Discovery Basket",
+        "Community Map Talk",
+        "Doctor's Office Dramatic Play",
+        "Firefighter Rescue Relay",
+        "Mail Carrier Center",
+        "Chef's Kitchen",
+        "Build a Community Block City",
+        "Tool Exploration Table",
+        "Community Helper Obstacle Course"
+      ],
+      "withoutImage": [
+        "Helper Hat Parade",
+        "Community Helper Matching",
+        "Healthy Helpers Chart",
+        "Thank-You Card Workshop",
+        "Helper Interview Circle",
+        "Community Helpers Celebration"
+      ]
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "enrichmentPublished": false,
+      "withImage": [
+        "Cloud Cotton Art",
+        "Rain Drop Sensory Play",
+        "Weather Dress-Up Center",
+        "Windy Day Pinwheels",
+        "Thunder Drum Experiment",
+        "Rainbow After Rain Art",
+        "Weather Dress Relay"
+      ],
+      "withoutImage": [
+        "Weather Watchers Circle",
+        "Sunshine Movement Game",
+        "Weather Chart Helpers",
+        "Weather Book Nook",
+        "Season Sorting Trays",
+        "Weather Yoga and Rest",
+        "Meteorologist Report Circle",
+        "Weather Watchers Celebration"
+      ]
+    }
+  ],
+  "uploads": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Colorful Tummy Time",
+      "activityKey": "cur-act-126f377e2b2a3952",
+      "file": "colors-all-around-us/colorful-tummy-time-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-5723ff63123557aac6944c4b7427dabf?variant=full",
+      "sha": "219a153daab863e9dc32f5df36a61d60848dbfb52c42b0fb24abd94c5abd933c"
+    },
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Tummy Time Color Mirror",
+      "activityKey": "cur-act-15af04946e178861",
+      "file": "colors-all-around-us/tummy-color-mirror-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-af6450ac471a86bd402601b4dab7bfd7?variant=full",
+      "sha": "c52fea9d8913ea9d17e2808191b140c62b495d923329fa184ea175b1f6212372"
+    },
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Color Cloth Basket Gaze",
+      "activityKey": "cur-act-088aa481680d10f7",
+      "file": "colors-all-around-us/color-cloth-basket-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-149762894d12cf739ac5df5ca555bca2?variant=full",
+      "sha": "66a28a77c4b5d60dff12cbf2ca5ecdee66658f774cc0e92c63ff11e04e1bb20f"
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Tummy Time Pattern Adventure",
+      "activityKey": "cur-act-0d46173d7a9a2cb1",
+      "file": "black-white-discovery/tummy-pattern-line-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-206f9e0b704f2abc497f0a3f2868c0c3?variant=full",
+      "sha": "1c5db22ca41fce1f11bc32f1e2ea403e13a8b73b2252cb4eefa5a9ec2f7798d6"
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Mirror & Pattern Discovery",
+      "activityKey": "cur-act-fadacd08fd94128f",
+      "file": "black-white-discovery/mirror-pattern-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-792bc02b2f8176cfd32c0c0548fcd8d1?variant=full",
+      "sha": "edef74c94769cf1d0008d2a0f0dd3debf6f21e24babb7ac56cebebb14f745028"
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Slow Pattern Arc Track",
+      "activityKey": "cur-act-cc545af77c7782c1",
+      "file": "black-white-discovery/arc-track-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-b3c2d6b5edcc891ed695da4ab4e6be83?variant=full",
+      "sha": "547286573e3f5feb6cf844a5b23e7ea2cdf37d181cbca367b4fcd771a482cd9d"
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Tummy Contrast Gallery",
+      "activityKey": "cur-act-3e2c7cd13e86b223",
+      "file": "black-white-discovery/tummy-gallery-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-17111a24eff1cee43cbf2f2b83f3241f?variant=full",
+      "sha": "a4bf3f4be6d14755a89b9b33a94b4a4a729eb2a39aa1361feea4afb830d3601a"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helper Discovery Basket",
+      "activityKey": "cur-act-dae3ceb517ee1057",
+      "file": "community-helpers/discovery-basket-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-22f53f330358e8357ffdff6203b3f2e7?variant=full",
+      "sha": "e79df69cab326555b987845215bdb6c46c07c21c12484adfc93818a0beadd854"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Map Talk",
+      "activityKey": "cur-act-deff9908a05268dc",
+      "file": "community-helpers/community-map-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-dcd7f8498a69a3590ca519bf1e280b50?variant=full",
+      "sha": "5dbd4a75bf518ea875505a067c54fb0d1eb196f00f92611e21eb6442e231421f"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Doctor's Office Dramatic Play",
+      "activityKey": "cur-act-988e83297cb9492c",
+      "file": "community-helpers/healthcare-clinic-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-2aac1beacc69cb994f0ce2b4f0226060?variant=full",
+      "sha": "d45567e0d24a116350d637eff94784d69b307a887657a5a9355f1fbf35a38e2a"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Firefighter Rescue Relay",
+      "activityKey": "cur-act-531ba258ff68c6e6",
+      "file": "community-helpers/firefighter-relay-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-9bf57ecc16dd8397b5c95d81ac87da48?variant=full",
+      "sha": "02f470470df7ac07ce4c9e1a262d036ea3231c388d4adebfa861ab3eb86b3064"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Mail Carrier Center",
+      "activityKey": "cur-act-ad894ba69cba768a",
+      "file": "community-helpers/mail-center-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-775132300419d7efe813d86349ebf226?variant=full",
+      "sha": "0dd73a2bf058ae1154a0c4a3699cdf71c1463224d081200b8d58a0ea30f342c8"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Chef's Kitchen",
+      "activityKey": "cur-act-156f98f32b0143a7",
+      "file": "community-helpers/chef-kitchen-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-1abb1b3a9521c6802349bfca92070869?variant=full",
+      "sha": "1e7d20cc3473bc4350fbb50141f34675aee4681cf9a06fb0569a546e7760a23e"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Build a Community Block City",
+      "activityKey": "cur-act-8e566b5a73981a88",
+      "file": "community-helpers/block-city-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-96254faa5c2590d7f178915a4362c837?variant=full",
+      "sha": "08e33a56352867e0cb96457f2dff1efb94814111c41abb77f45feb86cf34e467"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Tool Exploration Table",
+      "activityKey": "cur-act-0bedfb89f143fddc",
+      "file": "community-helpers/tools-table-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-e2a4fd765f35151ad528357e3c0e7a26?variant=full",
+      "sha": "24d4d87a7df5dab578c0c07b634b0fedc33441ce0ee7b21b989d18b7f6db57da"
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helper Obstacle Course",
+      "activityKey": "cur-act-55d638e4e4b243f7",
+      "file": "community-helpers/helper-course-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-227abd1d6c84b610d382fc08c9be654a?variant=full",
+      "sha": "6e2d077958fe06498bafdd7c9f9e763d6ae3db54a38a940ebfac867e2536af1f"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Cloud Cotton Art",
+      "activityKey": "cur-act-5612d85bc9f65bfc",
+      "file": "weather-watchers/cloud-process-art-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-d87656cd4afd547b87edcc6e9eef2e3b?variant=full",
+      "sha": "d6abfcd9efdb104f9a4d92b76d84fa1ea969b902d3688f993ca4559f88f889de"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Rain Drop Sensory Play",
+      "activityKey": "cur-act-195f18300ada3c7f",
+      "file": "weather-watchers/rain-sensory-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-d410fc95745311b13fc24c02c9b64107?variant=full",
+      "sha": "9707ba42ae34bdfa9d5ccff74d0bf7d2ca2196263e3690591b74f9c6999297c7"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Dress-Up Center",
+      "activityKey": "cur-act-51ca399e7c5fe55f",
+      "file": "weather-watchers/weather-dressup-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-3b923524d298001f5e67f16c3aa50580?variant=full",
+      "sha": "71479c1158c92e9201a1a01e6dc1c581fb1c413db8f3c1ea306a760e424870a8"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Windy Day Pinwheels",
+      "activityKey": "cur-act-ba0da59aff081f17",
+      "file": "weather-watchers/wind-lab-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-92ca4a0f4864f72f68fe590d993a572b?variant=full",
+      "sha": "72b8ab3d975d9553defd53cef498889fad6ba83aa2ba53ae63b98bfd1c40329c"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Thunder Drum Experiment",
+      "activityKey": "cur-act-ae4ace1c788cf2ac",
+      "file": "weather-watchers/thunder-drum-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-acc255f189d5785e00ba6a80a364ad72?variant=full",
+      "sha": "c90b1c09baddb9d45b603dc58455c076ccc4ae2166d46b4c65f587e700f96479"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Rainbow After Rain Art",
+      "activityKey": "cur-act-8fb6c2b6e300e28c",
+      "file": "weather-watchers/weather-paint-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-81938e8a3f88e5b4444e26e53687bb14?variant=full",
+      "sha": "304b6eb2c262398b3f42c3b2ca4b9d33bfd1e60c1b3e875ae6659fc4de323d4c"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Dress Relay",
+      "activityKey": "cur-act-2af23c50b7b6eb8e",
+      "file": "weather-watchers/dress-relay-setup.png",
+      "http": 200,
+      "error": null,
+      "mediaUrl": "/api/admin/media/enrichment-photos/tk-enrich-e51425ec21a4bcfb3dce29b4a0b671a4?variant=full",
+      "sha": "b07754d9cc0acd950c470e45d8d71545d333fb739bf8249aa35a9eebce1bd0be"
+    }
+  ],
+  "cleared": [
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Healthy Helpers Chart",
+      "activityKey": "cur-act-f6f61c2531250ce6",
+      "had": "/api/admin/media/enrichment-photos/tk-enrich-f2533573e234cded1a40218b629e0aec?variant=full"
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Chart Helpers",
+      "activityKey": "cur-act-daf4d66a95422c20",
+      "had": "/api/admin/media/enrichment-photos/tk-enrich-f58ec2909cc7689844d4ce9d28fe304c?variant=full"
+    }
+  ],
+  "published": false
+}

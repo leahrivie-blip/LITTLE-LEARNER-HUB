@@ -1,0 +1,1257 @@
+{
+  "generatedAt": "2026-08-12T03:23:39.576Z",
+  "source": "quality-rewrite-report.json + quality-content-by-title.js (local audit package)",
+  "productionReverifyBlocked": true,
+  "productionReverifyReason": "Admin login 401 with previously used Owner credentials at time of this stop report",
+  "kits": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "activityCount": 15,
+      "blankCoreCellsAfter": 0,
+      "genericHitsBeforeApprox": 84,
+      "genericHitsAfter": 0,
+      "removedOptionalEnrichmentApprox": 32,
+      "printableIds": [
+        "cur-res-750dac2dba18a433",
+        "cur-res-765d77ac99101135"
+      ],
+      "printableStatusesAtRewrite": [
+        {
+          "id": "cur-res-750dac2dba18a433",
+          "title": "Bright Color Gaze Cards (draft)",
+          "status": "published"
+        },
+        {
+          "id": "cur-res-765d77ac99101135",
+          "title": "Caregiver Color Talk Mini Guide (draft)",
+          "status": "published"
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "Rainbow Scarf Visual Tracking",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Colorful Tummy Time",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Face-to-Face Color Talk",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Caregiver Color Talk Mini Guide (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Red Scarf Slow Track",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Color Lap Bounce Lullaby",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Color Board Book Faces",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Yellow Rattle Reach",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Tummy Time Color Mirror",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Color Cloth Basket Gaze",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Soft Color Texture Mitts",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Color Hello with Caregiver",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Caregiver Color Talk Mini Guide (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Green Scarf Sway",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Rainbow Color Song Cuddle",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Favorite Color Page Replay",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Shaded Color Stroll",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": false,
+            "outdoor": true
+          }
+        }
+      ],
+      "counts": {
+        "printableRequired": 0,
+        "printableHelpful": 7,
+        "printableNotNeeded": 8,
+        "imageRequired": 3,
+        "imageOptional": 2,
+        "imageNotNeeded": 10,
+        "intentionalNoSub": 5,
+        "intentionalNoExt": 15,
+        "intentionalNoMixedAge": 15
+      }
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "activityCount": 15,
+      "blankCoreCellsAfter": 0,
+      "genericHitsBeforeApprox": 103,
+      "genericHitsAfter": 0,
+      "removedOptionalEnrichmentApprox": 38,
+      "printableIds": [
+        "cur-res-a2f90f232a27e8ea",
+        "cur-res-e3c453192e3dfaf7"
+      ],
+      "printableStatusesAtRewrite": [
+        {
+          "id": "cur-res-a2f90f232a27e8ea",
+          "title": "High-Contrast Pattern & Face Cards (draft)",
+          "status": "published"
+        },
+        {
+          "id": "cur-res-e3c453192e3dfaf7",
+          "title": "Tummy-Time Visual Strip (draft)",
+          "status": "published"
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "High-Contrast Card Exploration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Tummy Time Pattern Adventure",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Tummy-Time Visual Strip (draft)",
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Mirror & Pattern Discovery",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Bold Card Gaze Garden",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Black White Board Book",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Contrast Card Peek Song",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Slow Pattern Arc Track",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Tummy Contrast Gallery",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Tummy-Time Visual Strip (draft)",
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Black White Cloth Drape",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Zebra Stripe Soft Book",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Grasp the Contrast Ring",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Hello Black Hello White",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Contrast Celebration Dance Hold",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Favorite Pattern Page Party",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Shade and Shadow Contrast Stroll",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": false,
+            "outdoor": true
+          }
+        }
+      ],
+      "counts": {
+        "printableRequired": 8,
+        "printableHelpful": 5,
+        "printableNotNeeded": 2,
+        "imageRequired": 3,
+        "imageOptional": 4,
+        "imageNotNeeded": 8,
+        "intentionalNoSub": 9,
+        "intentionalNoExt": 14,
+        "intentionalNoMixedAge": 15
+      }
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "activityCount": 15,
+      "blankCoreCellsAfter": 0,
+      "genericHitsBeforeApprox": 220,
+      "genericHitsAfter": 0,
+      "removedOptionalEnrichmentApprox": 29,
+      "printableIds": [
+        "cur-res-2e0abf716dedf25f",
+        "cur-res-04c3b64a153ea905"
+      ],
+      "printableStatusesAtRewrite": [
+        {
+          "id": "cur-res-2e0abf716dedf25f",
+          "title": "Community Helper Picture Cards (draft)",
+          "status": "published"
+        },
+        {
+          "id": "cur-res-04c3b64a153ea905",
+          "title": "Helper Place Signs (draft)",
+          "status": "published"
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "Community Helper Discovery Basket",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Helper Hat Parade",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": false
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Community Map Talk",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Helper Place Signs (draft)",
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Doctor's Office Dramatic Play",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Helper Place Signs (draft)",
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Firefighter Rescue Relay",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Community Helper Matching",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Mail Carrier Center",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Chef's Kitchen",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Build a Community Block City",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Tool Exploration Table",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Healthy Helpers Chart",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Thank-You Card Workshop",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Helper Interview Circle",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Community Helper Obstacle Course",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)",
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": false
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Community Helpers Celebration",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        }
+      ],
+      "counts": {
+        "printableRequired": 6,
+        "printableHelpful": 9,
+        "printableNotNeeded": 0,
+        "imageRequired": 8,
+        "imageOptional": 2,
+        "imageNotNeeded": 5,
+        "intentionalNoSub": 4,
+        "intentionalNoExt": 10,
+        "intentionalNoMixedAge": 15
+      }
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "lessonStatus": "published",
+      "enrichmentPublished": false,
+      "activityCount": 15,
+      "blankCoreCellsAfter": 0,
+      "genericHitsBeforeApprox": 224,
+      "genericHitsAfter": 0,
+      "removedOptionalEnrichmentApprox": 37,
+      "printableIds": [
+        "cur-res-bb036ea0b6f94e28",
+        "cur-res-350953835613bf1d",
+        "cur-res-9e4c6acbbb4ae6e5"
+      ],
+      "printableStatusesAtRewrite": [
+        {
+          "id": "cur-res-bb036ea0b6f94e28",
+          "title": "Weather Symbol Cards (draft)",
+          "status": "published"
+        },
+        {
+          "id": "cur-res-350953835613bf1d",
+          "title": "Weekly Weather Observation Chart (draft)",
+          "status": "published"
+        },
+        {
+          "id": "cur-res-9e4c6acbbb4ae6e5",
+          "title": "Clothing for Weather Cards (draft)",
+          "status": "published"
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "title": "Weather Watchers Circle",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Sunshine Movement Game",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": false
+          }
+        },
+        {
+          "day": "monday",
+          "title": "Cloud Cotton Art",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Rain Drop Sensory Play",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": false
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Weather Dress-Up Center",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Clothing for Weather Cards (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "tuesday",
+          "title": "Windy Day Pinwheels",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": false,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": false
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Weather Chart Helpers",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Thunder Drum Experiment",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "wednesday",
+          "title": "Weather Book Nook",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Season Sorting Trays",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Clothing for Weather Cards (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Rainbow After Rain Art",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "thursday",
+          "title": "Weather Yoga and Rest",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Meteorologist Report Circle",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Weather Dress Relay",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weather Symbol Cards (draft)",
+            "Clothing for Weather Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasSetupImage": true,
+          "optionalEmpty": {
+            "substitutions": false,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        },
+        {
+          "day": "friday",
+          "title": "Weather Watchers Celebration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasSetupImage": false,
+          "optionalEmpty": {
+            "substitutions": true,
+            "extensions": true,
+            "mixedAge": true,
+            "indoor": true,
+            "outdoor": true
+          }
+        }
+      ],
+      "counts": {
+        "printableRequired": 7,
+        "printableHelpful": 1,
+        "printableNotNeeded": 7,
+        "imageRequired": 5,
+        "imageOptional": 3,
+        "imageNotNeeded": 7,
+        "intentionalNoSub": 8,
+        "intentionalNoExt": 14,
+        "intentionalNoMixedAge": 15
+      }
+    }
+  ],
+  "printableStatusFixes": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "resourceId": "cur-res-750dac2dba18a433",
+      "title": "Bright Color Gaze Cards (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "resourceId": "cur-res-765d77ac99101135",
+      "title": "Caregiver Color Talk Mini Guide (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "resourceId": "cur-res-a2f90f232a27e8ea",
+      "title": "High-Contrast Pattern & Face Cards (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "resourceId": "cur-res-e3c453192e3dfaf7",
+      "title": "Tummy-Time Visual Strip (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "resourceId": "cur-res-2e0abf716dedf25f",
+      "title": "Community Helper Picture Cards (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "resourceId": "cur-res-04c3b64a153ea905",
+      "title": "Helper Place Signs (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "resourceId": "cur-res-bb036ea0b6f94e28",
+      "title": "Weather Symbol Cards (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "resourceId": "cur-res-350953835613bf1d",
+      "title": "Weekly Weather Observation Chart (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "resourceId": "cur-res-9e4c6acbbb4ae6e5",
+      "title": "Clothing for Weather Cards (draft)",
+      "from": "published",
+      "http": 200,
+      "error": null
+    }
+  ],
+  "totals": {
+    "genericHitsBeforeApprox": 631,
+    "genericHitsAfter": 0,
+    "removedOptionalEnrichmentApprox": 136
+  },
+  "improvedLocalPrintables": [
+    "weather-watchers/weekly-weather-observation-chart.pdf",
+    "weather-watchers/clothing-for-weather-cards.pdf",
+    "community-helpers/helper-place-signs.pdf"
+  ],
+  "improvedLocalPrintablesUploadStatus": "NOT_UPLOADED — production Admin login blocked"
+}

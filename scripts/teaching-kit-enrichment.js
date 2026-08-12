@@ -858,9 +858,20 @@
       || view.observationPrompts.length > 0
       || view.vocabulary.length > 0;
     const imagesOk = activityImagesSatisfyRequirement(view, view.imageRequirement);
+    // Core Activity fields must be filled before the sidebar can say "Complete".
+    // Tips/photos alone previously marked activities complete while age/duration/prep/etc. were blank.
+    const core = computeActivityCompletion(activity, draftActivity, null);
+    const coreComplete = core.percent >= 100;
+    if (!coreComplete) {
+      if (hasSetup || hasExample || hasTip || hasExtra || core.filled > 0) {
+        return ACTIVITY_STATUS.in_progress;
+      }
+      return ACTIVITY_STATUS.not_started;
+    }
     if (imagesOk && hasTip) return ACTIVITY_STATUS.complete;
     if (hasSetup || hasExample || hasTip || hasExtra) return ACTIVITY_STATUS.in_progress;
-    return ACTIVITY_STATUS.not_started;
+    // Core complete with no enrichment extras yet — still in progress toward full enrichment.
+    return ACTIVITY_STATUS.in_progress;
   }
 
   function activityStatusLabel(status) {

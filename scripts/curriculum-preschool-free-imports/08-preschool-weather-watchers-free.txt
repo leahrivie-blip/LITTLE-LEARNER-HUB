@@ -11,33 +11,36 @@ PLAN:
 Free
 
 STATUS:
-published
+draft
 
 LEARNING_DOMAINS:
-Science, Language & Literacy, Creative Arts, Physical Development, Math, Social Emotional
+Science
+Language & Literacy
+Creative Arts
+Physical Development
+Math
+Social Emotional
 
 WEEKLY_OVERVIEW:
-Preschoolers will observe and explore weather patterns through charts, experiments, movement, art, and dramatic play. Children will describe weather conditions, notice changes, and connect weather to clothing and activities.
+Preschoolers become weather watchers who observe, record, and investigate sunny, cloudy, rainy, windy, and stormy weather. Clothing choices, safety, and process art support real outdoor noticing — not elementary meteorology worksheets.
 
 LEARNING_OBJECTIVES:
-Observe and describe daily weather conditions
-Use weather vocabulary such as sunny, rainy, cloudy, and windy
-Record weather on a class chart
-Explore weather through sensory and science activities
-Connect weather to appropriate clothing and safety
-Develop curiosity about seasonal changes
+Observe and describe daily weather using child-friendly vocabulary
+Record weather on a simple class chart
+Investigate wind, water, and sound through play experiments
+Connect weather to clothing and safety choices
+Express weather ideas through process art and movement
 
 WEEKLY_MATERIALS:
-Weather chart and symbols
-Thermometer (safe demo)
-Rain sticks and water bins
-Cotton balls for clouds
-Blue paper and paint for rain art
-Dress-up rain gear
-Pinwheels and fans
-Weather books
+Weather chart + symbol cards (printable draft)
 Clipboards
-Season picture cards
+Pinwheels / scarves / small fan (teacher-controlled)
+Water/rain sensory bin tools
+Dress-up weather gear
+Paint, paper, cotton/cloud materials for process art
+Drums/metal pans for thunder sound play
+Season/clothing cards (printable draft)
+Books about weather
 
 VOCABULARY:
 sunny
@@ -49,829 +52,1199 @@ warm
 cold
 observe
 forecast
-season
-weather
+cloud
+wind
+temperature
+safe
 
 BOOKS:
 The Snowy Day | Ezra Jack Keats
-Cloudy with a Chance of Meatballs | Judi Barrett
 Tap Tap Boom Boom | Elizabeth Bluemle
+Rain | Manya Stojic
 
 SONGS:
-Mr. Sun
-Rain Rain Go Away
-The Wind Blows
+Weather Watchers Song (LLH original)
+Itsy Bitsy Spider
+Wind on My Face (LLH original)
 
 FAMILY_CONNECTION:
-Families can watch the weather together each morning and report observations at drop-off for the class chart.
+Families can share one weather observation at drop-off for the class chart (photo optional).
 
 OBSERVATION_OPPORTUNITIES:
-Observe weather vocabulary, chart participation, descriptive language, engagement in weather experiments, and connections to clothing choices.
+Uses weather vocabulary
+Records/observes on chart
+Connects clothing to weather
+Participates in investigations
 
 ADAPTATIONS:
-Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.
 
-MONDAY
+Monday
 
 DAILY_THEME:
-Weather Watchers: Weather Watchers Circle and related play (introduce the theme through literacy, sensory, and language play)
+We Are Weather Watchers
 
 DAILY_OBJECTIVES:
-Observe and record today's weather.
-Move like sunshine with stretching and reaching.
-Create cloud pictures with cotton balls.
+Observe and chart weather
+Sunshine movement
+Cloud process art
 
 DAILY_VOCABULARY:
-sunny, rainy, cloudy, windy, storm, warm
+sunny
+rainy
+cloudy
+windy
+storm
+warm
+cold
+observe
+forecast
+cloud
+wind
+temperature
+safe
 
 DAILY_MATERIALS:
-Weather chart, symbol cards, window access
-Open space, sunny day song
-Blue paper, cotton balls, glue, crayons
+Weather chart + symbol cards (printable draft)
+Clipboards
+Pinwheels / scarves / small fan (teacher-controlled)
+Water/rain sensory bin tools
+Dress-up weather gear
+Paint, paper, cotton/cloud materials for process art
+Drums/metal pans for thunder sound play
+Season/clothing cards (printable draft)
+Books about weather
 
 DAILY_LEARNING_DOMAINS:
-Science, Language & Literacy, Creative Arts, Physical Development
+Science
+Language & Literacy
+Creative Arts
+Physical Development
+Math
+Social Emotional
 
 CIRCLE_TIME:
-Morning greeting and brief share connected to weather watchers.
-Sing "Mr. Sun" and preview today's focus: introduce the theme through literacy, sensory, and language play.
-Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+Weather Watchers Song
+Look outside together
+Read excerpt from weather book
 
 OUTDOOR_PLAY:
-Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Weather Watchers Circle / Sunshine Movement Game).
+Outdoor weather walk with clipboards (shade/safe conditions).
 
 DAILY_OBSERVATIONS:
 Describes weather
-Participates in stretches
-Creates weather scene
-Participation and interest in Weather Watchers play
+Marks chart
+Explores cloud materials
 
 DAILY_ADAPTATIONS:
-Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.
 
 SAFETY_NOTES:
-Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.
 
 ACTIVITY_NAME:
 Weather Watchers Circle
+
 CATEGORY:
 STEM/Discovery
+
 OBJECTIVE:
-Observe and record today's weather.
+Observe outdoors/window weather and record it on the class chart.
+
 DESCRIPTION:
-Preschoolers look outside and mark weather symbols on the class chart.
+Children look outside, describe sky/air, and place a weather symbol on today’s chart square.
+
 MATERIALS:
-Weather chart, symbol cards, window access
+Weather chart
+Symbol cards (printable)
+Window/door access
+
 SETUP:
-Post chart near window at child height.
+Gather near window with chart.
+
 TEACHER_ROLE:
-Lead observation and model chart marking.
+Do this daily — repetition builds the science habit.
+
 TEACHER_LANGUAGE:
+What do you observe about today’s weather?
 
 DIRECTIONS:
-1. Look out window together.
-2. Describe what sky and air feel like.
-3. Choose weather symbol for chart.
-4. Mark temperature warm or cool.
-5. Predict tomorrow weather briefly.
+1. Look outside together
+2. Share what you notice (sky, wet, wind)
+3. Choose a weather symbol
+4. Mark warm/cool with a simple choice
+5. Predict tomorrow in one word
+
 LEARNING_GOALS:
-Weather observation
-Chart use
-Descriptive language
+Observation
+Charting
+Vocabulary
+
 OBSERVATION_OPPORTUNITIES:
-Describes weather
-Places symbol on chart
-Uses weather words
+Describes weather; places symbol; uses weather words.
+
 VOCABULARY:
+observe
+sunny
+cloudy
+rainy
+windy
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+No outdoor lightning observation.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Sunshine Movement Game
+
 CATEGORY:
 Gross Motor
+
 OBJECTIVE:
-Move like sunshine with stretching and reaching.
+Move like sunshine with big stretches and shadow play when possible.
+
 DESCRIPTION:
-Preschoolers perform sunny day stretches and shadow movements.
+Children stretch like sun rays, move fast/slow, and notice shadows if sunny.
+
 MATERIALS:
-Open space, sunny day song
+Open space
+Optional sunny music
+
 SETUP:
-Play sunny music in open area.
+Open movement area.
+
 TEACHER_ROLE:
-Model big reaching movements.
+On cloudy days, use flashlight shadow play indoors.
+
 TEACHER_LANGUAGE:
+Can your arms shine like warm sun rays?
 
 DIRECTIONS:
-1. Stretch arms like sun rays.
-2. Move slowly then quickly.
-3. Make shadows on floor if sunny.
-4. Drink water after moving.
-5. Rest in shade pretend area.
+1. Stretch arms like sun rays
+2. Move slowly then quickly
+3. Make shadows if sunny
+4. Drink water after moving
+5. Rest in shade pretend spot
+
 LEARNING_GOALS:
-Gross motor stretching
-Sun association
+Gross motor
 Body awareness
+
 OBSERVATION_OPPORTUNITIES:
-Participates in stretches
-Follows movement cues
-Hydrates after activity
+Participates; follows cues; self-regulates rest.
+
 VOCABULARY:
+sunny
+shadow
+warm
+stretch
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Hydration; no face-to-sun staring.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
-Cloud Cotton Art
+Cloudy Day Process Art
+
 CATEGORY:
 Art
+
 OBJECTIVE:
-Create cloud pictures with cotton balls.
+Explore cloudy-day materials in an open-ended art invitation.
+
 DESCRIPTION:
-Preschoolers glue cotton balls on blue paper and add weather details.
+Children use cotton, chalk, paint, or torn paper on blue/gray paper however they choose — no sample cloud to copy.
+
 MATERIALS:
-Blue paper, cotton balls, glue, crayons
+Blue/gray paper
+Cotton/fiber fill
+Chalk
+White paint
+Sponges
+Glue sticks
+Smocks
+
 SETUP:
-Set art table with cotton and glue.
+Art table invitation without model product.
+
 TEACHER_ROLE:
-Discuss fluffy cloud texture.
+If every piece looks different, you did it right.
+
 TEACHER_LANGUAGE:
+What happens when you try two materials together?
 
 DIRECTIONS:
-1. Glue cotton for clouds.
-2. Draw sun or rain under clouds.
-3. Describe picture weather.
-4. Share art with partner.
-5. Display weather gallery.
+1. Feel/choose materials
+2. Explore on paper your own way
+3. Add more layers if you want
+4. Describe your weather art
+5. Dry and display all styles together
+
 LEARNING_GOALS:
-Weather art
-Texture exploration
-Creative expression
+Process art
+Fine motor
+Science talk
+
 OBSERVATION_OPPORTUNITIES:
-Creates weather scene
-Describes picture
-Uses glue with control
+Makes choices; stays with process; uses weather words.
+
 VOCABULARY:
+cloudy
+soft
+sky
+explore
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
-SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
-AGE_MODIFICATIONS:
 
-TUESDAY
+SAFETY_NOTES:
+Supervise glue; avoid inhaling loose fibers.
+
+AGE_MODIFICATIONS:
+Preschool 3–5
+
+Tuesday
 
 DAILY_THEME:
-Weather Watchers: Rain Drop Sensory Play and related play (extend the theme with math, STEM, or hands-on investigation)
+Rain and Wind
 
 DAILY_OBJECTIVES:
-Explore water droplets and rain sounds.
-Dress for different weather scenarios.
-Make pinwheels and test them with fans.
+Rain sensory investigate
+Weather dress-up
+Wind pinwheel tests
 
 DAILY_VOCABULARY:
-sunny, rainy, cloudy, windy, storm, warm
+sunny
+rainy
+cloudy
+windy
+storm
+warm
+cold
+observe
+forecast
+cloud
+wind
+temperature
+safe
 
 DAILY_MATERIALS:
-Water bins, pipettes, rain sticks, towels
-Rain coats, boots, hats, mittens, sunglasses
-Pinwheel kits or paper squares, pins, pencils, fan
+Weather chart + symbol cards (printable draft)
+Clipboards
+Pinwheels / scarves / small fan (teacher-controlled)
+Water/rain sensory bin tools
+Dress-up weather gear
+Paint, paper, cotton/cloud materials for process art
+Drums/metal pans for thunder sound play
+Season/clothing cards (printable draft)
+Books about weather
 
 DAILY_LEARNING_DOMAINS:
-Science, Language & Literacy, Creative Arts, Physical Development
+Science
+Language & Literacy
+Creative Arts
+Physical Development
+Math
+Social Emotional
 
 CIRCLE_TIME:
-Morning greeting and brief share connected to weather watchers.
-Sing "Mr. Sun" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
-Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+Itsy Bitsy Spider
+Rain safety talk
 
 OUTDOOR_PLAY:
-Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Rain Drop Sensory Play / Weather Dress-Up Center).
+Wind scarf play outdoors if breezy/safe.
 
 DAILY_OBSERVATIONS:
-Uses pipettes
-Selects appropriate clothing
-Assembles pinwheel
-Participation and interest in Weather Watchers play
+Explores water
+Chooses gear
+Notices wind movement
 
 DAILY_ADAPTATIONS:
-Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.
 
 SAFETY_NOTES:
-Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.
 
 ACTIVITY_NAME:
-Rain Drop Sensory Play
+Rain Drop Sensory Investigate
+
 CATEGORY:
-STEM/Discovery
+Sensory Play
+
 OBJECTIVE:
-Explore water droplets and rain sounds.
+Investigate water ‘rain’ with tools and describe how it moves.
+
 DESCRIPTION:
-Preschoolers use pipettes and water to make rain in bins and listen to rain sticks.
+Children drip, pour, and splash in a shallow rain bin using cups, eyedroppers, and waterproof figures.
+
 MATERIALS:
-Water bins, pipettes, rain sticks, towels
+Shallow water bin
+Cups
+Eyedroppers/basters
+Towels
+Smocks
+Optional rain stick
+
 SETUP:
-Cover tables with towels and fill bins.
+Sensory table rain station.
+
 TEACHER_ROLE:
-Supervise water use and narrate rain sounds.
+Add ice on hot days for temperature talk.
+
 TEACHER_LANGUAGE:
+What do you notice when the rain falls from higher up?
 
 DIRECTIONS:
-1. Fill pipettes and squeeze rain into bin.
-2. Listen to rain stick sounds.
-3. Compare loud and soft rain.
-4. Dry hands and discuss real rain.
-5. Return materials to shelf.
+1. Listen to rain stick or rain sounds talk
+2. Drip water like rain
+3. Pour from high/low — what changes?
+4. Use words wet/splash/drip
+5. Dry hands and reset tools
+
 LEARNING_GOALS:
-Water exploration
-Sound comparison
-Rain concept
+Science inquiry
+Sensory
+Language
+
 OBSERVATION_OPPORTUNITIES:
-Uses pipettes
-Compares sounds
-Engages in sensory play
+Pours with control; uses descriptive words; collaborates.
+
 VOCABULARY:
+rain
+drip
+pour
+wet
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Shallow water only; mop spills; no drinking bin water.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Weather Dress-Up Center
+
 CATEGORY:
 Dramatic Play
+
 OBJECTIVE:
-Dress for different weather scenarios.
+Choose clothing/gear that matches called weather scenarios.
+
 DESCRIPTION:
-Preschoolers choose clothing props for rainy, sunny, and cold weather pretend.
+Children dress for sunny, rainy, windy, or cold play scenarios using real/play gear.
+
 MATERIALS:
-Rain coats, boots, hats, mittens, sunglasses
+Raincoats
+Boots
+Hats
+Sunglasses
+Scarves
+Weather cards
+
 SETUP:
-Organize dress-up by weather type.
+Dress-up center with mirror.
+
 TEACHER_ROLE:
-Call weather scenario for dressing.
+Include inclusive clothing options.
+
 TEACHER_LANGUAGE:
+What do you wear when it is windy and cool?
 
 DIRECTIONS:
-1. Announce rainy day scenario.
-2. Children choose rain gear.
-3. Switch to sunny and cold scenarios.
-4. Talk about why clothing matches weather.
-5. Hang up gear when finished.
+1. Draw/choose a weather card
+2. Pick gear that fits
+3. Explain your choice
+4. Act out a weather day
+5. Hang gear back
+
 LEARNING_GOALS:
-Weather-clothing connection
-Self-care awareness
 Dramatic play
+Decision making
+
 OBSERVATION_OPPORTUNITIES:
-Selects appropriate clothing
-Explains choices
-Dresses independently
+Matches gear to weather; explains; role plays.
+
 VOCABULARY:
+raincoat
+boots
+warm
+cold
+windy
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+No drawstring hazards; trip-aware with oversized boots.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
-Windy Day Pinwheels
+Windy Day Pinwheel Lab
+
 CATEGORY:
-Art
+STEM/Discovery
+
 OBJECTIVE:
-Make pinwheels and test them with fans.
+Test what moves in wind using pinwheels, scarves, and teacher-controlled air.
+
 DESCRIPTION:
-Preschoolers assemble simple pinwheels and observe spinning in wind or fan breeze.
+Children compare how different objects move when they blow, wave, or use a safe teacher-held fan.
+
 MATERIALS:
-Pinwheel kits or paper squares, pins, pencils, fan
+Pinwheels
+Scarves
+Paper
+Feathers (large)
+Teacher-controlled fan optional
+
 SETUP:
-Prepare pinwheel materials at tables.
+Wind lab table or outdoor spot.
+
 TEACHER_ROLE:
-Supervise pin assembly and fan use.
+Document with photos of moving scarves for family board.
+
 TEACHER_LANGUAGE:
+What moved? What stayed still?
 
 DIRECTIONS:
-1. Fold and assemble pinwheel.
-2. Test spin near fan.
-3. Compare fast and slow wind.
-4. Decorate pinwheel blades.
-5. Take pinwheels outside if breezy.
+1. Predict which item will move most
+2. Test by blowing/waving
+3. Try scarf vs paper
+4. Optional teacher fan test
+5. Share what you noticed
+
 LEARNING_GOALS:
-Wind observation
-Construction
-Cause and effect
+Inquiry
+Comparison
+
 OBSERVATION_OPPORTUNITIES:
-Assembles pinwheel
-Observes spinning
-Connects wind to movement
+Predicts; tests; compares; uses wind words.
+
 VOCABULARY:
+wind
+blow
+move
+spin
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
-SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
-AGE_MODIFICATIONS:
 
-WEDNESDAY
+SAFETY_NOTES:
+Teacher holds fan; keep fingers away; no pointing fan at faces close-up.
+
+AGE_MODIFICATIONS:
+Preschool 3–5
+
+Wednesday
 
 DAILY_THEME:
-Weather Watchers: Weather Chart Helpers and related play (explore the theme through dramatic play, music, and discovery)
+Storm Sounds and Stories
 
 DAILY_OBJECTIVES:
-Take turns updating weekly weather chart.
-Explore loud and soft sounds like thunder.
-Read weather books and match to chart symbols.
+Chart helpers
+Thunder sound experiment
+Weather book nook
 
 DAILY_VOCABULARY:
-sunny, rainy, cloudy, windy, storm, warm
+sunny
+rainy
+cloudy
+windy
+storm
+warm
+cold
+observe
+forecast
+cloud
+wind
+temperature
+safe
 
 DAILY_MATERIALS:
-Weekly weather chart, stickers
-Hand drums, thunder story book excerpt
-Weather books, symbol cards
+Weather chart + symbol cards (printable draft)
+Clipboards
+Pinwheels / scarves / small fan (teacher-controlled)
+Water/rain sensory bin tools
+Dress-up weather gear
+Paint, paper, cotton/cloud materials for process art
+Drums/metal pans for thunder sound play
+Season/clothing cards (printable draft)
+Books about weather
 
 DAILY_LEARNING_DOMAINS:
-Science, Language & Literacy, Creative Arts, Physical Development
+Science
+Language & Literacy
+Creative Arts
+Physical Development
+Math
+Social Emotional
 
 CIRCLE_TIME:
-Morning greeting and brief share connected to weather watchers.
-Sing "Mr. Sun" and preview today's focus: explore the theme through dramatic play, music, and discovery.
-Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+Storm safety: indoors during lightning
+Feelings about loud weather
 
 OUTDOOR_PLAY:
-Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Weather Chart Helpers / Thunder Drum Experiment).
+If storming, indoor gross-motor weather yoga alternative.
 
 DAILY_OBSERVATIONS:
-Records weather accurately
-Varies drum volume
-Matches book to symbol
-Participation and interest in Weather Watchers play
+Helps with chart
+Compares loud/soft sounds
+Engages with books
 
 DAILY_ADAPTATIONS:
-Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.
 
 SAFETY_NOTES:
-Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.
 
 ACTIVITY_NAME:
 Weather Chart Helpers
+
 CATEGORY:
-Fine Motor
+STEM/Discovery
+
 OBJECTIVE:
-Take turns updating weekly weather chart.
+Help update the week chart and count weather types so far.
+
 DESCRIPTION:
-Preschoolers record weather each day and count sunny versus rainy days.
+Chart helpers mark today and count how many sunny/rainy/etc. days are recorded.
+
 MATERIALS:
-Weekly weather chart, stickers
+Week chart
+Symbols
+Pointer
+
 SETUP:
-Assign helper roles for chart.
+Small group at chart.
+
 TEACHER_ROLE:
-Guide counting and comparison.
+Graph talk beats perfect counting.
+
 TEACHER_LANGUAGE:
+How many rainy days do we have so far?
 
 DIRECTIONS:
-1. Weather helper checks outside.
-2. Adds sticker to chart.
-3. Counts sunny days so far.
-4. Counts rainy days.
-5. Tells class today's record.
+1. Review days already marked
+2. Add today’s symbol
+3. Count each weather type
+4. Which has more?
+5. Choose tomorrow’s helpers
+
 LEARNING_GOALS:
-Data recording
-Counting categories
+Math
 Responsibility
+
 OBSERVATION_OPPORTUNITIES:
-Records weather accurately
-Counts days
-Takes helper role seriously
+Counts with 1:1; compares quantities; takes helper role.
+
 VOCABULARY:
+count
+more
+less
+chart
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Calm bodies at chart.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Thunder Drum Experiment
+
 CATEGORY:
 STEM/Discovery
+
 OBJECTIVE:
-Explore loud and soft sounds like thunder.
+Explore loud/soft storm sounds safely and talk about storm feelings/safety.
+
 DESCRIPTION:
-Preschoolers tap drums softly and loudly to represent distant and near thunder.
+Children compare drum/pan sounds as ‘thunder’ play, then practice calm-down and indoor-safety talk.
+
 MATERIALS:
-Hand drums, thunder story book excerpt
+Drums
+Metal pans
+Mallets
+Soft scarves for calm-down
+
 SETUP:
-Sit in circle with drums.
+Sound circle with volume rules.
+
 TEACHER_ROLE:
-Connect taps to storm story.
+Pair science with SEL for storms.
+
 TEACHER_LANGUAGE:
+Thunder is loud — what helps your body feel safe?
 
 DIRECTIONS:
-1. Listen to storm description.
-2. Tap drum softly for far thunder.
-3. Tap loudly for near thunder.
-4. Cover ears for loud then quiet.
-5. Discuss safe places in storms.
+1. Practice soft taps
+2. Try louder taps (still safe)
+3. Compare which sounds like far/near thunder
+4. Talk storm safety (go indoors)
+5. Calm with slow breathing and scarves
+
 LEARNING_GOALS:
-Sound intensity
-Storm safety intro
-Listening
+Science of sound
+SEL
+Safety
+
 OBSERVATION_OPPORTUNITIES:
-Varies drum volume
-Follows story cues
-Repeats safety phrase
+Controls volume; discusses feelings; recalls safety.
+
 VOCABULARY:
+thunder
+loud
+soft
+safe
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Ear-aware; no banging near faces; stop if distressed.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Weather Book Nook
+
 CATEGORY:
 Literacy
+
 OBJECTIVE:
-Read weather books and match to chart symbols.
+Explore weather books and retell a weather event with pictures.
+
 DESCRIPTION:
-Preschoolers browse weather books and find pages matching chart symbols.
+Children browse weather books and use props/cards to retell rain, wind, or snow moments.
+
 MATERIALS:
-Weather books, symbol cards
+Weather books
+Story props
+Retell cards
+
 SETUP:
-Set books in nook with symbol cards.
+Cozy book nook.
+
 TEACHER_ROLE:
-Ask children to find pages for symbols.
+Pair a hesitant reader with picture walk only.
+
 TEACHER_LANGUAGE:
+What weather did you find in the pictures?
 
 DIRECTIONS:
-1. Choose weather book.
-2. Find sunny or rainy page.
-3. Hold matching symbol card.
-4. Tell friend about picture.
-5. Return books to shelf.
+1. Choose a weather book
+2. Look for weather clues in pictures
+3. Retell with a prop
+4. Share one new weather word
+5. Reshelve book
+
 LEARNING_GOALS:
-Literacy browsing
-Symbol matching
-Oral description
+Literacy
+Retell
+
 OBSERVATION_OPPORTUNITIES:
-Matches book to symbol
-Handles books carefully
-Describes pictures
+Attends to book; retells; uses vocab.
+
 VOCABULARY:
+story
+rain
+cloud
+wind
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
-SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
-AGE_MODIFICATIONS:
 
-THURSDAY
+SAFETY_NOTES:
+Sitting feet; gentle books.
+
+AGE_MODIFICATIONS:
+Preschool 3–5
+
+Thursday
 
 DAILY_THEME:
-Weather Watchers: Season Sorting Trays and related play (practice fine motor and social-emotional skills connected to the theme)
+Seasons, Colors, and Calm
 
 DAILY_OBJECTIVES:
-Sort pictures by season and typical weather.
-Paint rainbows after discussing sun and rain together.
-Practice calm weather-themed stretches.
+Season/clothing sort
+Weather process painting
+Weather yoga
 
 DAILY_VOCABULARY:
-sunny, rainy, cloudy, windy, storm, warm
+sunny
+rainy
+cloudy
+windy
+storm
+warm
+cold
+observe
+forecast
+cloud
+wind
+temperature
+safe
 
 DAILY_MATERIALS:
-Season sorting trays, photo cards
-Paint, brushes, paper, smocks
-Yoga mats, calm music
+Weather chart + symbol cards (printable draft)
+Clipboards
+Pinwheels / scarves / small fan (teacher-controlled)
+Water/rain sensory bin tools
+Dress-up weather gear
+Paint, paper, cotton/cloud materials for process art
+Drums/metal pans for thunder sound play
+Season/clothing cards (printable draft)
+Books about weather
 
 DAILY_LEARNING_DOMAINS:
-Science, Language & Literacy, Creative Arts, Physical Development
+Science
+Language & Literacy
+Creative Arts
+Physical Development
+Math
+Social Emotional
 
 CIRCLE_TIME:
-Morning greeting and brief share connected to weather watchers.
-Sing "Mr. Sun" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
-Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+Season talk with photos
+Wind on My Face song
 
 OUTDOOR_PLAY:
-Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Season Sorting Trays / Rainbow After Rain Art).
+Shadow/sun play if sunny; puddle look if rainy and safe.
 
 DAILY_OBSERVATIONS:
-Sorts with guidance
-Paints arc shape
-Follows gentle poses
-Participation and interest in Weather Watchers play
+Sorts clothing
+Paints with choice
+Calms body
 
 DAILY_ADAPTATIONS:
-Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.
 
 SAFETY_NOTES:
-Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.
 
 ACTIVITY_NAME:
-Season Sorting Trays
+Clothing and Season Sort
+
 CATEGORY:
-Open-Ended Exploration
+STEM/Discovery
+
 OBJECTIVE:
-Sort pictures by season and typical weather.
+Sort clothing/season cards by weather needs and talk about local seasons.
+
 DESCRIPTION:
-Preschoolers sort photo cards into winter, spring, summer, fall trays.
+Children sort picture cards of clothing and seasonal scenes into weather trays.
+
 MATERIALS:
-Season sorting trays, photo cards
+Clothing/weather cards (printable)
+4 trays
+Labels
+
 SETUP:
-Label trays with season and weather hints.
+Sorting table.
+
 TEACHER_ROLE:
-Discuss weather typical in each season.
+Adapt seasons to your local climate.
+
 TEACHER_LANGUAGE:
+Why does this clothing fit that weather?
 
 DIRECTIONS:
-1. Pick photo card.
-2. Talk about season shown.
-3. Place in season tray.
-4. Review trays together.
-5. Name weather for each season.
+1. Name tray labels
+2. Pick a card
+3. Sort and explain
+4. Resort one card if you change your mind
+5. Count a tray
+
 LEARNING_GOALS:
-Season awareness
-Weather-season link
-Sorting
+Classification
+Vocabulary
+
 OBSERVATION_OPPORTUNITIES:
-Sorts with guidance
-Names seasons
-Connects weather to season
+Sorts with reason; flexible thinking; counts.
+
 VOCABULARY:
+season
+coat
+hot
+cold
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Cards laminated; no small choking pieces.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
-Rainbow After Rain Art
+Weather Colors Process Painting
+
 CATEGORY:
 Art
+
 OBJECTIVE:
-Paint rainbows after discussing sun and rain together.
+Paint weather ideas with color choices and tools children select.
+
 DESCRIPTION:
-Preschoolers paint rainbows with arcs of color on paper.
+Children paint sunny, rainy, windy, or stormy feelings/colors with brushes, sponges, or fingers — results vary.
+
 MATERIALS:
-Paint, brushes, paper, smocks
+Tempera paints
+Paper
+Brushes/sponges
+Smocks
+Optional spray bottles with water
+
 SETUP:
-Demonstrate rainbow arc stroke.
+Painting easels/table with weather word cards as optional inspiration.
+
 TEACHER_ROLE:
-Name colors in rainbow order.
+Skip ‘rainbow order’ instructions entirely.
+
 TEACHER_LANGUAGE:
+What colors feel like today’s weather?
 
 DIRECTIONS:
-1. Paint rainbow arc.
-2. Add rain lines if desired.
-3. Add sun in corner.
-4. Tell when rainbows appear.
-5. Dry and display.
+1. Choose weather idea
+2. Pick colors/tools
+3. Paint your way
+4. Optional water spray for rainy effects
+5. Title your work with a weather word
+
 LEARNING_GOALS:
-Color sequence exposure
-Weather phenomenon art
-Brush control
+Process art
+Expression
+
 OBSERVATION_OPPORTUNITIES:
-Paints arc shape
-Names rainbow colors
-Connects to sun and rain
+Chooses tools; stays with process; connects to weather.
+
 VOCABULARY:
+paint
+stormy
+bright
+wash
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Smocks; wipe floors; nontoxic paint.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Weather Yoga and Rest
+
 CATEGORY:
 Gross Motor
+
 OBJECTIVE:
-Practice calm weather-themed stretches.
+Practice calm weather-themed stretches and rest.
+
 DESCRIPTION:
-Preschoolers move through gentle sun, cloud, and rain poses then rest.
+Children move through gentle sun, cloud, and rain poses, then rest.
+
 MATERIALS:
-Yoga mats, calm music
+Yoga mats/towels
+Calm music optional
+
 SETUP:
-Lay mats for small group.
+Mats in circle/rows.
+
 TEACHER_ROLE:
-Lead slow weather poses.
+Useful after thunder sound play.
+
 TEACHER_LANGUAGE:
+Let your body feel calm like quiet weather.
 
 DIRECTIONS:
-1. Reach for sun pose.
-2. Float like cloud pose.
-3. Gentle rain finger taps.
-4. Lie still like calm day.
-5. Breathe slowly together.
+1. Reach for sun pose
+2. Float like cloud pose
+3. Gentle rain finger taps
+4. Lie still like a calm day
+5. Breathe slowly together
+
 LEARNING_GOALS:
-Calm movement
-Body control
-Relaxation
+Regulation
+Gross motor
+
 OBSERVATION_OPPORTUNITIES:
-Follows gentle poses
-Rests quietly
-Uses slow breathing
+Follows gentle poses; rests; slow breathing.
+
 VOCABULARY:
+calm
+breathe
+rest
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
-SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
-AGE_MODIFICATIONS:
 
-FRIDAY
+SAFETY_NOTES:
+No forced stretches; respect body limits.
+
+AGE_MODIFICATIONS:
+Preschool 3–5
+
+Friday
 
 DAILY_THEME:
-Weather Watchers: Meteorologist Report Circle and related play (review, celebrate, and connect the theme for families)
+Meteorologists Celebrate
 
 DAILY_OBJECTIVES:
-Give a short weather report to the class.
-Race to dress in correct gear for called weather.
-Review weather week and thank weather helpers.
+Weather report
+Dress relay
+Week celebration
 
 DAILY_VOCABULARY:
-sunny, rainy, cloudy, windy, storm, warm
+sunny
+rainy
+cloudy
+windy
+storm
+warm
+cold
+observe
+forecast
+cloud
+wind
+temperature
+safe
 
 DAILY_MATERIALS:
-Pointer, weather chart, microphone prop
-Separate piles of weather gear
-Completed chart, song chart
+Weather chart + symbol cards (printable draft)
+Clipboards
+Pinwheels / scarves / small fan (teacher-controlled)
+Water/rain sensory bin tools
+Dress-up weather gear
+Paint, paper, cotton/cloud materials for process art
+Drums/metal pans for thunder sound play
+Season/clothing cards (printable draft)
+Books about weather
 
 DAILY_LEARNING_DOMAINS:
-Science, Language & Literacy, Creative Arts, Physical Development
+Science
+Language & Literacy
+Creative Arts
+Physical Development
+Math
+Social Emotional
 
 CIRCLE_TIME:
-Morning greeting and brief share connected to weather watchers.
-Sing "Mr. Sun" and preview today's focus: review, celebrate, and connect the theme for families.
-Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+Count week chart data
+Share favorite investigation
 
 OUTDOOR_PLAY:
-Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Meteorologist Report Circle / Weather Dress Relay).
+Weather dress relay outdoors.
 
 DAILY_OBSERVATIONS:
-Speaks audibly
-Chooses correct gear
-Recalls week data
-Participation and interest in Weather Watchers play
+Reports weather
+Matches gear
+Recalls week
 
 DAILY_ADAPTATIONS:
-Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+Use real photos for support. Indoor alternatives for extreme weather. Accept one-word weather descriptions. Offer hand-over-hand for chart marking.
 
 SAFETY_NOTES:
-Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+Never observe lightning outdoors. Teacher-controlled fans only. Supervise water play. Allergy-aware art materials.
 
 ACTIVITY_NAME:
 Meteorologist Report Circle
+
 CATEGORY:
 Literacy
+
 OBJECTIVE:
-Give a short weather report to the class.
+Give a short weather report using the class chart.
+
 DESCRIPTION:
-Preschoolers stand with pointer and describe weather chart to peers.
+Children take turns as meteorologists with a pointer/mic prop describing chart weather.
+
 MATERIALS:
-Pointer, weather chart, microphone prop
+Pointer
+Chart
+Microphone prop
+Symbol cards
+
 SETUP:
-Invite volunteers to be meteorologist.
+Circle with chart visible.
+
 TEACHER_ROLE:
-Model short report structure.
+Allow buddy reporting for shy children.
+
 TEACHER_LANGUAGE:
+You’re on the weather report — what should friends wear?
 
 DIRECTIONS:
-1. Point to chart symbols.
-2. Say today's weather words.
-3. Predict weekend weather.
-4. Answer one friend question.
-5. Pass microphone to next reporter.
+1. Point to today’s symbol
+2. Say weather words
+3. Share one clothing tip
+4. Optional weekend guess
+5. Pass mic to next reporter
+
 LEARNING_GOALS:
-Public speaking
-Weather vocabulary
+Public language
 Chart reading
+
 OBSERVATION_OPPORTUNITIES:
-Speaks audibly
-Uses weather words
-Points to chart
+Speaks to group; uses chart; clothing connection.
+
 VOCABULARY:
+forecast
+report
+today
+wear
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Sitting audience; gentle mic passes.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Weather Dress Relay
+
 CATEGORY:
 Gross Motor
+
 OBJECTIVE:
-Race to dress in correct gear for called weather.
+Choose correct gear for called weather and move safely in a relay.
+
 DESCRIPTION:
-Preschoolers put on one weather item when teacher calls sunny, rainy, or cold.
+When a weather type is called, children grab one matching gear item and tag a friend — careful over fast.
+
 MATERIALS:
-Separate piles of weather gear
+Gear piles by weather
+Cones
+
 SETUP:
-Organize gear in three piles.
+Relay lines outdoors/indoors.
+
 TEACHER_ROLE:
-Emphasize safe dressing not speed alone.
+Praise accuracy over speed.
+
 TEACHER_LANGUAGE:
+Careful helpers pick the right gear!
 
 DIRECTIONS:
-1. Call a weather type.
-2. Child grabs one matching item.
-3. Run back and tag next friend.
-4. Switch weather calls.
-5. Review gear choices.
+1. Call a weather type
+2. Child chooses one matching item
+3. Move to cone and tag next friend
+4. Switch weather calls
+5. Review choices together
+
 LEARNING_GOALS:
-Quick decision making
-Weather-clothing link
-Relay cooperation
+Gross motor
+Classification
+
 OBSERVATION_OPPORTUNITIES:
-Chooses correct gear
-Participates in relay
-Explains choice
+Chooses correctly; participates; explains choice.
+
 VOCABULARY:
+match
+rainy
+sunny
+cold
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+No knock-down racing; spot for boots trips.
+
 AGE_MODIFICATIONS:
+Preschool 3–5
 
 ACTIVITY_NAME:
 Weather Watchers Celebration
+
 CATEGORY:
 Circle Time
+
 OBJECTIVE:
-Review weather week and thank weather helpers.
+Review the week’s weather data and celebrate investigations.
+
 DESCRIPTION:
-Preschoolers review chart data and sing weather songs.
+Class counts chart data, thanks chart helpers, sings, and shares favorite activities.
+
 MATERIALS:
-Completed chart, song chart
+Completed chart
+Song list
+Optional photos of investigations
+
 SETUP:
-Gather with full week chart visible.
+Celebration circle.
+
 TEACHER_ROLE:
-Celebrate chart helpers.
+Connect celebration to real observing habit at home.
+
 TEACHER_LANGUAGE:
+What weather did we see most this week?
 
 DIRECTIONS:
-1. Count weather types for week.
-2. Thank chart helpers.
-3. Sing Rain Rain Go Away and Mr. Sun.
-4. Share favorite weather activity.
-5. Send chart summary home.
+1. Count weather types for the week
+2. Thank chart helpers
+3. Sing Weather Watchers Song
+4. Share favorite investigation
+5. Send family weather-watch reminder
+
 LEARNING_GOALS:
-Data review
-Gratitude
-Group celebration
+Data talk
+Community
+Recall
+
 OBSERVATION_OPPORTUNITIES:
-Recalls week data
-Participates in songs
-Shares favorite moment
+Recalls data; participates; shares favorite.
+
 VOCABULARY:
+week
+most
+observe
+thank you
 
 EXTENSIONS:
 
 ADAPTATIONS:
-Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+
 SAFETY_NOTES:
-Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+Calm celebration.
+
 AGE_MODIFICATIONS:
+Preschool 3–5

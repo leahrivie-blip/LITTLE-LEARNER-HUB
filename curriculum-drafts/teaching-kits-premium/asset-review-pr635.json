@@ -1,0 +1,1574 @@
+{
+  "pr": 635,
+  "auditedAt": "2026-08-12T15:14:43.099Z",
+  "host": "https://littlelearnershubbyleah.com",
+  "kits": [
+    {
+      "planId": "cur-lp-infant-colors-all-around-us",
+      "title": "Colors All Around Us",
+      "age": "Infant 0\u20136 Months",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "printables": [
+        {
+          "title": "Bright Color Gaze Cards (draft)",
+          "resourceId": "cur-res-750dac2dba18a433",
+          "mediaAssetId": "curriculum-resource-cur-res-750dac2dba18a433",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "bright-color-gaze-cards.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-750dac2dba18a433",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-750dac2dba18a433?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 56868,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-colors-all-around-us__cur-res-750dac2dba18a433.pdf",
+          "usedByActivities": [
+            {
+              "title": "Colorful Tummy Time",
+              "day": "monday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Red Scarf Slow Track",
+              "day": "tuesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Color Board Book Faces",
+              "day": "tuesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Tummy Time Color Mirror",
+              "day": "wednesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Favorite Color Page Replay",
+              "day": "friday",
+              "decision": "HELPFUL"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 4
+        },
+        {
+          "title": "Caregiver Color Talk Mini Guide (draft)",
+          "resourceId": "cur-res-765d77ac99101135",
+          "mediaAssetId": "curriculum-resource-cur-res-765d77ac99101135",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "caregiver-color-talk-mini-guide.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-765d77ac99101135",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-765d77ac99101135?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 1462,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-colors-all-around-us__cur-res-765d77ac99101135.pdf",
+          "usedByActivities": [
+            {
+              "title": "Face-to-Face Color Talk",
+              "day": "monday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Color Hello with Caregiver",
+              "day": "thursday",
+              "decision": "HELPFUL"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 1
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "id": "cur-act-0d3debcd4e9d6743",
+          "title": "Rainbow Scarf Visual Tracking",
+          "domain": "Sensory Play",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-126f377e2b2a3952",
+          "title": "Colorful Tummy Time",
+          "domain": "Gross Motor",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-03dee962465e45f727fec1224a6b09e7?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-03dee962465e45f727fec1224a6b09e7",
+          "imageHttp": 200,
+          "imageBytes": 21965,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-colors-all-around-us__cur-act-126f377e2b2a3952.png"
+        },
+        {
+          "day": "monday",
+          "id": "item-infant-colors-face-to-face-color-talk-draft",
+          "title": "Face-to-Face Color Talk",
+          "domain": "Social Emotional",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Caregiver Color Talk Mini Guide (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-19b12f9172850db3",
+          "title": "Red Scarf Slow Track",
+          "domain": "Sensory Play",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-a698243362061378",
+          "title": "Color Lap Bounce Lullaby",
+          "domain": "Music & Movement",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-91bab8f9e17c6938",
+          "title": "Color Board Book Faces",
+          "domain": "Literacy",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-734c3d4ba8b88d04",
+          "title": "Yellow Rattle Reach",
+          "domain": "Fine Motor",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-15af04946e178861",
+          "title": "Tummy Time Color Mirror",
+          "domain": "Gross Motor",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-0587e4bd3b47c7581b5518f0cd443f1c?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-0587e4bd3b47c7581b5518f0cd443f1c",
+          "imageHttp": 200,
+          "imageBytes": 21965,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-colors-all-around-us__cur-act-15af04946e178861.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-088aa481680d10f7",
+          "title": "Color Cloth Basket Gaze",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-9bdf6f557257c0e5c9e86f92079b6c50?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-9bdf6f557257c0e5c9e86f92079b6c50",
+          "imageHttp": 200,
+          "imageBytes": 21965,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-colors-all-around-us__cur-act-088aa481680d10f7.png"
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-7c753942bb4b0ff2",
+          "title": "Soft Color Texture Mitts",
+          "domain": "Sensory Play",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-56355a3b947c4257",
+          "title": "Color Hello with Caregiver",
+          "domain": "Circle Time",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Caregiver Color Talk Mini Guide (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-601f18600d3aeecc",
+          "title": "Green Scarf Sway",
+          "domain": "Music & Movement",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-6e5a3a8bf7a3009d",
+          "title": "Rainbow Color Song Cuddle",
+          "domain": "Music & Movement",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-3890e95a40950a2f",
+          "title": "Favorite Color Page Replay",
+          "domain": "Literacy",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Bright Color Gaze Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-b338245b8ccf6d34",
+          "title": "Shaded Color Stroll",
+          "domain": "Outdoor Play",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        }
+      ],
+      "totals": {
+        "withImages": 3,
+        "withoutImages": 12,
+        "usingPrintables": 7,
+        "notNeedingPrintables": 8
+      }
+    },
+    {
+      "planId": "cur-lp-infant-black-white-discovery",
+      "title": "Black & White Discovery",
+      "age": "Infant 0\u20136 Months",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "printables": [
+        {
+          "title": "High-Contrast Pattern & Face Cards (draft)",
+          "resourceId": "cur-res-a2f90f232a27e8ea",
+          "mediaAssetId": "curriculum-resource-cur-res-a2f90f232a27e8ea",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "high-contrast-pattern-and-face-cards.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-a2f90f232a27e8ea",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-a2f90f232a27e8ea?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 134109,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-black-white-discovery__cur-res-a2f90f232a27e8ea.pdf",
+          "usedByActivities": [
+            {
+              "title": "High-Contrast Card Exploration",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Tummy Time Pattern Adventure",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Mirror & Pattern Discovery",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Bold Card Gaze Garden",
+              "day": "tuesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Black White Board Book",
+              "day": "tuesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Contrast Card Peek Song",
+              "day": "tuesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Slow Pattern Arc Track",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Tummy Contrast Gallery",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Zebra Stripe Soft Book",
+              "day": "thursday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Hello Black Hello White",
+              "day": "thursday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Contrast Celebration Dance Hold",
+              "day": "friday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Favorite Pattern Page Party",
+              "day": "friday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Shade and Shadow Contrast Stroll",
+              "day": "friday",
+              "decision": "HELPFUL"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 5
+        },
+        {
+          "title": "Tummy-Time Visual Strip (draft)",
+          "resourceId": "cur-res-e3c453192e3dfaf7",
+          "mediaAssetId": "curriculum-resource-cur-res-e3c453192e3dfaf7",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "tummy-time-visual-strip.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-e3c453192e3dfaf7",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-e3c453192e3dfaf7?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 23683,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-black-white-discovery__cur-res-e3c453192e3dfaf7.pdf",
+          "usedByActivities": [
+            {
+              "title": "Tummy Time Pattern Adventure",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Tummy Contrast Gallery",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 1
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "id": "cur-act-93a5d1514a80615f",
+          "title": "High-Contrast Card Exploration",
+          "domain": "Sensory Play",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-0d46173d7a9a2cb1",
+          "title": "Tummy Time Pattern Adventure",
+          "domain": "Gross Motor",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Tummy-Time Visual Strip (draft)",
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-d420d0de48ff7a012ad0f34e2c7f3e65?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-d420d0de48ff7a012ad0f34e2c7f3e65",
+          "imageHttp": 200,
+          "imageBytes": 23662,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-black-white-discovery__cur-act-0d46173d7a9a2cb1.png"
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-fadacd08fd94128f",
+          "title": "Mirror & Pattern Discovery",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-4e794920e6e38477d4811eea51fa2ebb?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-4e794920e6e38477d4811eea51fa2ebb",
+          "imageHttp": 200,
+          "imageBytes": 23662,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-black-white-discovery__cur-act-fadacd08fd94128f.png"
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-6f371892e4459304",
+          "title": "Bold Card Gaze Garden",
+          "domain": "Sensory Play",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-449025ad489039e3",
+          "title": "Black White Board Book",
+          "domain": "Literacy",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-7e55d822482aa951",
+          "title": "Contrast Card Peek Song",
+          "domain": "Music & Movement",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-cc545af77c7782c1",
+          "title": "Slow Pattern Arc Track",
+          "domain": "STEM/Discovery",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-90282406baae91cfd5cacff56674725c?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-90282406baae91cfd5cacff56674725c",
+          "imageHttp": 200,
+          "imageBytes": 23838,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-black-white-discovery__cur-act-cc545af77c7782c1.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-3e2c7cd13e86b223",
+          "title": "Tummy Contrast Gallery",
+          "domain": "Gross Motor",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Tummy-Time Visual Strip (draft)",
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-b53315ae5dc4b3eca6df11e2537d0a62?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-b53315ae5dc4b3eca6df11e2537d0a62",
+          "imageHttp": 200,
+          "imageBytes": 20976,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-infant-black-white-discovery__cur-act-3e2c7cd13e86b223.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-e00d2da04a5b6668",
+          "title": "Black White Cloth Drape",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-ad36941afa3d4b95",
+          "title": "Zebra Stripe Soft Book",
+          "domain": "Sensory Play",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-6464943bd794c22c",
+          "title": "Grasp the Contrast Ring",
+          "domain": "Fine Motor",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-0deec17f5e0686cb",
+          "title": "Hello Black Hello White",
+          "domain": "Circle Time",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-35dd6ccfdf923903",
+          "title": "Contrast Celebration Dance Hold",
+          "domain": "Music & Movement",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-40b36ec8c99229e8",
+          "title": "Favorite Pattern Page Party",
+          "domain": "Literacy",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-91bfbd7df9197acd",
+          "title": "Shade and Shadow Contrast Stroll",
+          "domain": "Outdoor Play",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "High-Contrast Pattern & Face Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        }
+      ],
+      "totals": {
+        "withImages": 4,
+        "withoutImages": 11,
+        "usingPrintables": 13,
+        "notNeedingPrintables": 2
+      }
+    },
+    {
+      "planId": "cur-lp-preschool-community-helpers",
+      "title": "Community Helpers",
+      "age": "Preschool",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "printables": [
+        {
+          "title": "Community Helper Picture Cards (draft)",
+          "resourceId": "cur-res-2e0abf716dedf25f",
+          "mediaAssetId": "curriculum-resource-cur-res-2e0abf716dedf25f",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "community-helper-picture-cards.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-2e0abf716dedf25f",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-2e0abf716dedf25f?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 105880,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-res-2e0abf716dedf25f.pdf",
+          "usedByActivities": [
+            {
+              "title": "Community Helper Discovery Basket",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Helper Hat Parade",
+              "day": "monday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Community Map Talk",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Doctor's Office Dramatic Play",
+              "day": "tuesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Firefighter Rescue Relay",
+              "day": "tuesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Community Helper Matching",
+              "day": "tuesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Tool Exploration Table",
+              "day": "thursday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Healthy Helpers Chart",
+              "day": "thursday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Thank-You Card Workshop",
+              "day": "thursday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Helper Interview Circle",
+              "day": "friday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Community Helper Obstacle Course",
+              "day": "friday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Community Helpers Celebration",
+              "day": "friday",
+              "decision": "HELPFUL"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 8
+        },
+        {
+          "title": "Helper Place Signs (draft)",
+          "resourceId": "cur-res-04c3b64a153ea905",
+          "mediaAssetId": "curriculum-resource-cur-res-04c3b64a153ea905",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "helper-place-signs.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-04c3b64a153ea905",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-04c3b64a153ea905?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 30091,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-res-04c3b64a153ea905.pdf",
+          "usedByActivities": [
+            {
+              "title": "Community Map Talk",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Doctor's Office Dramatic Play",
+              "day": "tuesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Mail Carrier Center",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Chef's Kitchen",
+              "day": "wednesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Build a Community Block City",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Community Helper Obstacle Course",
+              "day": "friday",
+              "decision": "HELPFUL"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 6
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "id": "cur-act-dae3ceb517ee1057",
+          "title": "Community Helper Discovery Basket",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-e10c015cf31268a55c3a31361cfe4bf7?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-e10c015cf31268a55c3a31361cfe4bf7",
+          "imageHttp": 200,
+          "imageBytes": 20730,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-dae3ceb517ee1057.png"
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-e2bb6462f47a1fdf",
+          "title": "Helper Hat Parade",
+          "domain": "Music & Movement",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-deff9908a05268dc",
+          "title": "Community Map Talk",
+          "domain": "Literacy",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Helper Place Signs (draft)",
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-4e5b6c23dda1ac176d646f704f7e8e1b?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-4e5b6c23dda1ac176d646f704f7e8e1b",
+          "imageHttp": 200,
+          "imageBytes": 20730,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-deff9908a05268dc.png"
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-988e83297cb9492c",
+          "title": "Doctor's Office Dramatic Play",
+          "domain": "Dramatic Play",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Helper Place Signs (draft)",
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-531ba258ff68c6e6",
+          "title": "Firefighter Rescue Relay",
+          "domain": "Art",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-f90ce3cff5ef8698434cd6cf999f7e37?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-f90ce3cff5ef8698434cd6cf999f7e37",
+          "imageHttp": 200,
+          "imageBytes": 18285,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-531ba258ff68c6e6.png"
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-30b83d919dab458c",
+          "title": "Community Helper Matching",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-ad894ba69cba768a",
+          "title": "Mail Carrier Center",
+          "domain": "Dramatic Play",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-309b1ae419d72169082557f9c9ade9e2?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-309b1ae419d72169082557f9c9ade9e2",
+          "imageHttp": 200,
+          "imageBytes": 16456,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-ad894ba69cba768a.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-156f98f32b0143a7",
+          "title": "Chef's Kitchen",
+          "domain": "Dramatic Play",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-8e566b5a73981a88",
+          "title": "Build a Community Block City",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-9bf6c3bbebcde3d7a4a71ef64cf4355d?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-9bf6c3bbebcde3d7a4a71ef64cf4355d",
+          "imageHttp": 200,
+          "imageBytes": 13053,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-8e566b5a73981a88.png"
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-0bedfb89f143fddc",
+          "title": "Tool Exploration Table",
+          "domain": "STEM/Discovery",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-f6f61c2531250ce6",
+          "title": "Healthy Helpers Chart",
+          "domain": "Fine Motor",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-f2533573e234cded1a40218b629e0aec?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-f2533573e234cded1a40218b629e0aec",
+          "imageHttp": 200,
+          "imageBytes": 17792,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-f6f61c2531250ce6.png"
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-e1064bff5bcb65d5",
+          "title": "Thank-You Card Workshop",
+          "domain": "Art",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-35000b90cdd22ab9",
+          "title": "Helper Interview Circle",
+          "domain": "Literacy",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-55d638e4e4b243f7",
+          "title": "Community Helper Obstacle Course",
+          "domain": "Gross Motor",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)",
+            "Helper Place Signs (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-2bc4d18787a788976a2ec53362e7bcef?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-2bc4d18787a788976a2ec53362e7bcef",
+          "imageHttp": 200,
+          "imageBytes": 20730,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-community-helpers__cur-act-55d638e4e4b243f7.png"
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-5bfbf236fdc604b7",
+          "title": "Community Helpers Celebration",
+          "domain": "Circle Time",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Community Helper Picture Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        }
+      ],
+      "totals": {
+        "withImages": 7,
+        "withoutImages": 8,
+        "usingPrintables": 15,
+        "notNeedingPrintables": 0
+      }
+    },
+    {
+      "planId": "cur-lp-preschool-weather-watchers",
+      "title": "Weather Watchers",
+      "age": "Preschool",
+      "enrichmentPublished": false,
+      "lessonStatus": "published",
+      "activityCount": 15,
+      "printables": [
+        {
+          "title": "Weather Symbol Cards (draft)",
+          "resourceId": "cur-res-bb036ea0b6f94e28",
+          "mediaAssetId": "curriculum-resource-cur-res-bb036ea0b6f94e28",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "weather-symbol-cards.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-bb036ea0b6f94e28",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-bb036ea0b6f94e28?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 34049,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-res-bb036ea0b6f94e28.pdf",
+          "usedByActivities": [
+            {
+              "title": "Weather Watchers Circle",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Dress-Up Center",
+              "day": "tuesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Chart Helpers",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Book Nook",
+              "day": "wednesday",
+              "decision": "HELPFUL"
+            },
+            {
+              "title": "Season Sorting Trays",
+              "day": "thursday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Meteorologist Report Circle",
+              "day": "friday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Dress Relay",
+              "day": "friday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Watchers Celebration",
+              "day": "friday",
+              "decision": "REQUIRED"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 5
+        },
+        {
+          "title": "Weekly Weather Observation Chart (draft)",
+          "resourceId": "cur-res-350953835613bf1d",
+          "mediaAssetId": "curriculum-resource-cur-res-350953835613bf1d",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "weekly-weather-observation-chart.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-350953835613bf1d",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-350953835613bf1d?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 9632,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-res-350953835613bf1d.pdf",
+          "usedByActivities": [
+            {
+              "title": "Weather Watchers Circle",
+              "day": "monday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Chart Helpers",
+              "day": "wednesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Meteorologist Report Circle",
+              "day": "friday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Watchers Celebration",
+              "day": "friday",
+              "decision": "REQUIRED"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 1
+        },
+        {
+          "title": "Clothing for Weather Cards (draft)",
+          "resourceId": "cur-res-9e4c6acbbb4ae6e5",
+          "mediaAssetId": "curriculum-resource-cur-res-9e4c6acbbb4ae6e5",
+          "status": "draft",
+          "pageCountField": 0,
+          "fileName": "clothing-for-weather-cards.pdf",
+          "mediaUrl": "/api/media/curriculum-resources/curriculum-resource-cur-res-9e4c6acbbb4ae6e5",
+          "adminPreviewPath": "/api/media/curriculum-resources/curriculum-resource-cur-res-9e4c6acbbb4ae6e5?admin=1",
+          "previewHttp": 200,
+          "previewBytes": 53130,
+          "previewOk": true,
+          "localPdf": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-res-9e4c6acbbb4ae6e5.pdf",
+          "usedByActivities": [
+            {
+              "title": "Weather Dress-Up Center",
+              "day": "tuesday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Season Sorting Trays",
+              "day": "thursday",
+              "decision": "REQUIRED"
+            },
+            {
+              "title": "Weather Dress Relay",
+              "day": "friday",
+              "decision": "REQUIRED"
+            }
+          ],
+          "kitLevel": false,
+          "pageCount": 4
+        }
+      ],
+      "activities": [
+        {
+          "day": "monday",
+          "id": "cur-act-2709c6a020ae29a4",
+          "title": "Weather Watchers Circle",
+          "domain": "STEM/Discovery",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-75e14c8e79726b23",
+          "title": "Sunshine Movement Game",
+          "domain": "Gross Motor",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "monday",
+          "id": "cur-act-5612d85bc9f65bfc",
+          "title": "Cloud Cotton Art",
+          "domain": "Art",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-0096584b1426fa0e7da22db427f1ded3?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-0096584b1426fa0e7da22db427f1ded3",
+          "imageHttp": 200,
+          "imageBytes": 17913,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-5612d85bc9f65bfc.png"
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-195f18300ada3c7f",
+          "title": "Rain Drop Sensory Play",
+          "domain": "STEM/Discovery",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-2c2d1845d74429a8c77eae91d80d42da?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-2c2d1845d74429a8c77eae91d80d42da",
+          "imageHttp": 200,
+          "imageBytes": 17736,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-195f18300ada3c7f.png"
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-51ca399e7c5fe55f",
+          "title": "Weather Dress-Up Center",
+          "domain": "Dramatic Play",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Clothing for Weather Cards (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-2cf4861fc847aa7adcf1e08a23276204?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-2cf4861fc847aa7adcf1e08a23276204",
+          "imageHttp": 200,
+          "imageBytes": 16774,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-51ca399e7c5fe55f.png"
+        },
+        {
+          "day": "tuesday",
+          "id": "cur-act-ba0da59aff081f17",
+          "title": "Windy Day Pinwheels",
+          "domain": "Art",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-f79b06865cdbd7d477796a8160026e5f?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-f79b06865cdbd7d477796a8160026e5f",
+          "imageHttp": 200,
+          "imageBytes": 19668,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-ba0da59aff081f17.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-daf4d66a95422c20",
+          "title": "Weather Chart Helpers",
+          "domain": "Fine Motor",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-f58ec2909cc7689844d4ce9d28fe304c?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-f58ec2909cc7689844d4ce9d28fe304c",
+          "imageHttp": 200,
+          "imageBytes": 22599,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-daf4d66a95422c20.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-ae4ace1c788cf2ac",
+          "title": "Thunder Drum Experiment",
+          "domain": "STEM/Discovery",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "optional",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-47c4d257f21d2de5a8c69fde4da1f9b4?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-47c4d257f21d2de5a8c69fde4da1f9b4",
+          "imageHttp": 200,
+          "imageBytes": 19034,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-ae4ace1c788cf2ac.png"
+        },
+        {
+          "day": "wednesday",
+          "id": "cur-act-53c0b326abf40ba6",
+          "title": "Weather Book Nook",
+          "domain": "Literacy",
+          "printableDecision": "HELPFUL",
+          "printableTitles": [
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-82fc3572772bc4c3",
+          "title": "Season Sorting Trays",
+          "domain": "Open-Ended Exploration",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Clothing for Weather Cards (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-8fb6c2b6e300e28c",
+          "title": "Rainbow After Rain Art",
+          "domain": "Art",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "required",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-5c07ef3542619be0d5c192836b6e8c5d?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-5c07ef3542619be0d5c192836b6e8c5d",
+          "imageHttp": 200,
+          "imageBytes": 17736,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-8fb6c2b6e300e28c.png"
+        },
+        {
+          "day": "thursday",
+          "id": "cur-act-43000470e0410a26",
+          "title": "Weather Yoga and Rest",
+          "domain": "Gross Motor",
+          "printableDecision": "NOT_NEEDED",
+          "printableTitles": [],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-8251dddbda3dc851",
+          "title": "Meteorologist Report Circle",
+          "domain": "Literacy",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-2af23c50b7b6eb8e",
+          "title": "Weather Dress Relay",
+          "domain": "Gross Motor",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weather Symbol Cards (draft)",
+            "Clothing for Weather Cards (draft)"
+          ],
+          "imageRequirement": "optional",
+          "hasImage": true,
+          "setupImageUrl": "/api/admin/media/enrichment-photos/tk-enrich-908ad477c5eeb016ed91b7bf1fde42a8?variant=full",
+          "exampleImageUrl": null,
+          "imageId": "tk-enrich-908ad477c5eeb016ed91b7bf1fde42a8",
+          "imageHttp": 200,
+          "imageBytes": 16774,
+          "localImage": "/opt/cursor/artifacts/asset-review-635/cur-lp-preschool-weather-watchers__cur-act-2af23c50b7b6eb8e.png"
+        },
+        {
+          "day": "friday",
+          "id": "cur-act-2cdfa018493f05d8",
+          "title": "Weather Watchers Celebration",
+          "domain": "Circle Time",
+          "printableDecision": "REQUIRED",
+          "printableTitles": [
+            "Weekly Weather Observation Chart (draft)",
+            "Weather Symbol Cards (draft)"
+          ],
+          "imageRequirement": "not_needed",
+          "hasImage": false,
+          "setupImageUrl": null,
+          "exampleImageUrl": null,
+          "imageId": null,
+          "imageHttp": null,
+          "imageBytes": 0,
+          "localImage": null
+        }
+      ],
+      "totals": {
+        "withImages": 8,
+        "withoutImages": 7,
+        "usingPrintables": 8,
+        "notNeedingPrintables": 7
+      }
+    }
+  ]
+}

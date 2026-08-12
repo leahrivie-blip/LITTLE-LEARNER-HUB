@@ -1,0 +1,480 @@
+{
+  "ok": true,
+  "port": 4315,
+  "checks": [
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "apiStatus": "draft",
+      "monday1Title": "Bright Scarf Slow Track",
+      "monday1Prep": "Choose one high-contrast bright color\nClear visual clutter behind you",
+      "monday1Duration": 4,
+      "printableIds": [
+        "cur-res-draft-color-gaze-cards",
+        "cur-res-draft-color-talk-guide"
+      ],
+      "publicLeak": false
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "apiStatus": "draft",
+      "monday1Title": "High-Contrast Card Focus",
+      "monday1Prep": "Select one simple pattern (stripes or bullseye)\nSit facing baby",
+      "monday1Duration": 4,
+      "printableIds": [
+        "cur-res-draft-bw-contrast-cards",
+        "cur-res-draft-bw-tummy-strip"
+      ],
+      "publicLeak": false
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "apiStatus": "draft",
+      "monday1Title": "Community Helper Discovery Basket",
+      "monday1Prep": "Fill basket with safe props from many jobs\nInclude diverse helper images",
+      "monday1Duration": 15,
+      "printableIds": [
+        "cur-res-draft-helper-cards",
+        "cur-res-draft-helper-signs"
+      ],
+      "publicLeak": false
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "apiStatus": "draft",
+      "monday1Title": "Weather Watchers Circle",
+      "monday1Prep": "Post chart at child height\nPrep today’s blank square",
+      "monday1Duration": 12,
+      "printableIds": [
+        "cur-res-draft-weather-symbols",
+        "cur-res-draft-weather-chart",
+        "cur-res-draft-weather-clothing"
+      ],
+      "publicLeak": false
+    },
+    {
+      "browserOpen": {
+        "ok": true,
+        "result": true,
+        "title": "Colors All Around Us",
+        "status": "draft",
+        "hasDraft": true,
+        "isOpen": true
+      }
+    },
+    {
+      "id": "cur-lp-infant-colors-all-around-us",
+      "spotChecks": [
+        {
+          "idx": 0,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Bright Scarf Slow Track",
+              "objective": "Support slow visual tracking with a bright moving scarf.",
+              "description": "Baby watches a large bright scarf move slowly across their view while you name the color in a calm voice.",
+              "materials": "1–2 large bright scarves\nFloor mat",
+              "preparation": "Choose one high-contrast bright color\nClear visual clutter behind you",
+              "setup": "Place baby comfortably on back or supported side on a mat.",
+              "steps": "1. Settle baby and gain eye contact first\n2. Hold scarf about 8–12 inches away\n3. Move slowly left, pause, then right\n4. Name the color once or twice\n5. Stop when baby looks away",
+              "teacherLanguage": "Look… see the bright red? Watching… watching.",
+              "observationOpportunities": "Tracks scarf briefly; stays calm while looking.",
+              "safetyNotes": "Keep scarf away from face/neck; never leave draped on baby.",
+              "cleanupTips": "Bag scarves after mouthing contact.",
+              "durationMinutes": "4",
+              "ageModifications": "Infant 0–6 months (younger: look only; older: may bat scarf)",
+              "activityCategory": "Sensory Play"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 1 of 15",
+            "imageRequirement": "setup_only",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-colors-all-around-us-idx-0.png"
+        },
+        {
+          "idx": 7,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Tummy Color Mirror Look",
+              "objective": "Combine tummy time with mirror looking and a color accent.",
+              "description": "Baby does short tummy time facing a baby-safe mirror with one colorful cloth beside it.",
+              "materials": "Baby-safe mirror\nBright cloth\nMat",
+              "preparation": "Angle mirror for baby’s face view",
+              "setup": "Mirror at edge of mat; cloth to the side — not covering mirror.",
+              "steps": "1. Place baby on tummy\n2. Point to baby’s face in mirror\n3. Show cloth briefly beside mirror\n4. Talk about looking\n5. Rest on back",
+              "teacherLanguage": "I see you! And soft blue beside you.",
+              "observationOpportunities": "Looks at mirror; lifts head.",
+              "safetyNotes": "Unbreakable mirror only; supervised.",
+              "cleanupTips": "Wipe mirror.",
+              "durationMinutes": "3",
+              "ageModifications": "Infant 0–6 months",
+              "activityCategory": "Gross Motor"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 8 of 15",
+            "imageRequirement": "setup_only",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-colors-all-around-us-idx-7.png"
+        },
+        {
+          "idx": 14,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Shaded Color Stroll",
+              "objective": "Notice real-world colors outdoors with caregiver pointing and talk.",
+              "description": "In shade, you stroll or sit outdoors and point to large colorful things (flowers, balls, clothing) while narrating.",
+              "materials": "Stroller or outdoor blanket\nSun protection as needed",
+              "preparation": "Check UV/shade and temperature",
+              "setup": "Shaded route or blanket spot.",
+              "steps": "1. Settle baby facing out or toward you\n2. Point to one colorful object\n3. Name color and object\n4. Pause for looking\n5. Return indoors before overstimulation/heat",
+              "teacherLanguage": "See the yellow flower? Bright outside.",
+              "observationOpportunities": "Looks toward pointed object; stays content outdoors.",
+              "safetyNotes": "Shade, hydration for adults, never leave stroller unattended; follow safe sleep if nap begins.",
+              "cleanupTips": "None.",
+              "durationMinutes": "8",
+              "ageModifications": "Infant 0–6 months",
+              "activityCategory": "Outdoor Play"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 15 of 15",
+            "imageRequirement": "not_needed",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-colors-all-around-us-idx-14.png"
+        }
+      ]
+    },
+    {
+      "browserOpen": {
+        "ok": true,
+        "result": true,
+        "title": "Black & White Discovery",
+        "status": "draft",
+        "hasDraft": true,
+        "isOpen": true
+      }
+    },
+    {
+      "id": "cur-lp-infant-black-white-discovery",
+      "spotChecks": [
+        {
+          "idx": 0,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "High-Contrast Card Focus",
+              "objective": "Support visual focus with one bold black-and-white card.",
+              "description": "Baby looks at a single high-contrast card held 8–12 inches away while you describe the pattern.",
+              "materials": "High-contrast pattern card (printable)\nMat",
+              "preparation": "Select one simple pattern (stripes or bullseye)\nSit facing baby",
+              "setup": "Baby comfortable on mat; card ready.",
+              "steps": "1. Hold card steady in view\n2. Allow time to focus\n3. Move slightly side to side\n4. Name pattern simply (stripes/spots)\n5. Rest eyes",
+              "teacherLanguage": "Look — black and white stripes.",
+              "observationOpportunities": "Fixates; tracks small movement.",
+              "safetyNotes": "Sealed laminate edges; no glitter/loose parts.",
+              "cleanupTips": "Wipe cards.",
+              "durationMinutes": "4",
+              "ageModifications": "Infant 0–6 months",
+              "activityCategory": "Sensory Play"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 1 of 15",
+            "imageRequirement": "setup_only",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-black-white-discovery-idx-0.png"
+        },
+        {
+          "idx": 7,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Tummy Contrast Gallery",
+              "objective": "Offer 2 contrast visuals during tummy time without clutter.",
+              "description": "Two cards stand along the mat edge like a tiny gallery while baby does tummy time.",
+              "materials": "2 cards or tummy strip\nMat\nPrintable (draft): High-Contrast Pattern & Face Cards\nPrintable (draft): Tummy-Time Visual Strip",
+              "preparation": "Space cards apart\nSit opposite baby",
+              "setup": "Tummy time facing gallery.",
+              "steps": "1. Place baby on tummy\n2. Tap lightly near one card to invite look\n3. Shift attention to second card\n4. Return to face-to-face\n5. Rest",
+              "teacherLanguage": "Gallery looking — stripe, then spots.",
+              "observationOpportunities": "Shifts gaze; lifts head.",
+              "safetyNotes": "Supervised tummy time only.",
+              "cleanupTips": "Collect cards.",
+              "durationMinutes": "3",
+              "ageModifications": "Infant 0–6 months",
+              "activityCategory": "Gross Motor"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 8 of 15",
+            "imageRequirement": "setup_only",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-black-white-discovery-idx-7.png"
+        },
+        {
+          "idx": 14,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Shade and Shadow Contrast Stroll",
+              "objective": "Notice natural light/dark contrast outdoors with caregiver talk.",
+              "description": "In safe shade, point out shadows and bright/dark areas while strolling or sitting.",
+              "materials": "Stroller or blanket\nOptional contrast card\nPrintable (draft): High-Contrast Pattern & Face Cards",
+              "preparation": "Check weather and shade",
+              "setup": "Shaded outdoor space.",
+              "steps": "1. Settle baby\n2. Point to shadow/light area\n3. Describe dark and light\n4. Optional show card in outdoor light\n5. Return inside",
+              "teacherLanguage": "Dark shadow. Bright light.",
+              "observationOpportunities": "Looks toward pointed contrast; content outdoors.",
+              "safetyNotes": "Shade; supervision; safe sleep if drowsy.",
+              "cleanupTips": "None.",
+              "durationMinutes": "8",
+              "ageModifications": "Infant 0–6 months",
+              "activityCategory": "Outdoor Play"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 15 of 15",
+            "imageRequirement": "not_needed",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-black-white-discovery-idx-14.png"
+        }
+      ]
+    },
+    {
+      "browserOpen": {
+        "ok": true,
+        "result": true,
+        "title": "Community Helpers",
+        "status": "draft",
+        "hasDraft": true,
+        "isOpen": true
+      }
+    },
+    {
+      "id": "cur-lp-preschool-community-helpers",
+      "spotChecks": [
+        {
+          "idx": 0,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Community Helper Discovery Basket",
+              "objective": "Explore helper props and photos to build job vocabulary.",
+              "description": "Children examine hats, tools, and helper cards from a basket and talk about who uses them.",
+              "materials": "Basket\nAssorted helper props\nHelper picture cards (printable)\nPrintable (draft): Community Helper Picture Cards",
+              "preparation": "Fill basket with safe props from many jobs\nInclude diverse helper images",
+              "setup": "Circle or small-group basket at child height.",
+              "steps": "1. Pull one item and wonder aloud who might use it\n2. Invite children to try hats/props\n3. Match a prop to a helper card if they choose\n4. Share which helper they want to play today\n5. Return props to basket",
+              "teacherLanguage": "Who might use this tool? What job helps our community?",
+              "observationOpportunities": "Names helpers; matches tool to role; handles props safely.",
+              "safetyNotes": "No sharp tools; supervise small props.",
+              "cleanupTips": "Reset basket by role labels.",
+              "durationMinutes": "15",
+              "ageModifications": "Preschool 3–5",
+              "activityCategory": "Open-Ended Exploration"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 1 of 15",
+            "imageRequirement": "optional",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-community-helpers-idx-0.png"
+        },
+        {
+          "idx": 7,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Grocery Helper Market",
+              "objective": "Role-play grocery helpers who stock, shop, and help customers.",
+              "description": "Children run a market: stockers, cashiers, baggers, and shoppers using play food.",
+              "materials": "Play food\nBaskets\nRegister/clipboard\nShelves\nMarket sign\nPrintable (draft): Helper Place Signs",
+              "preparation": "Stock shelves messily so children can restock\nPrice tags optional",
+              "setup": "Dramatic play market.",
+              "steps": "1. Choose a market job\n2. Stock or shop with a list (picture list OK)\n3. Practice kind customer talk\n4. Bag groceries\n5. Rotate jobs",
+              "teacherLanguage": "How can a grocery helper make shopping easier?",
+              "observationOpportunities": "Uses job talk; sorts food; cooperates.",
+              "safetyNotes": "No real glass containers; allergy-aware pretend foods.",
+              "cleanupTips": "Restock shelves together.",
+              "durationMinutes": "20",
+              "ageModifications": "Preschool 3–5",
+              "activityCategory": "Dramatic Play"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 8 of 15",
+            "imageRequirement": "setup_only",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-community-helpers-idx-7.png"
+        },
+        {
+          "idx": 14,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Community Helpers Celebration",
+              "objective": "Review favorite helpers and celebrate with thank-you chant.",
+              "description": "Class reviews the week’s helpers, shares favorites, and sings Thank You Helpers Chant.",
+              "materials": "Helper cards\nThank-you basket of cards\nSong chart\nPrintable (draft): Community Helper Picture Cards",
+              "preparation": "Display week photos/art if available",
+              "setup": "Celebration circle.",
+              "steps": "1. Recall helpers from the week\n2. Share a favorite\n3. Show thank-you art basket\n4. Sing chant\n5. Send family connection reminder",
+              "teacherLanguage": "Which helper are you thankful for today?",
+              "observationOpportunities": "Recalls roles; participates in chant; gratitude talk.",
+              "safetyNotes": "Calm celebration bodies.",
+              "cleanupTips": "Pack thank-you cards for delivery/display.",
+              "durationMinutes": "12",
+              "ageModifications": "Preschool 3–5",
+              "activityCategory": "Circle Time"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 15 of 15",
+            "imageRequirement": "not_needed",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-community-helpers-idx-14.png"
+        }
+      ]
+    },
+    {
+      "browserOpen": {
+        "ok": true,
+        "result": true,
+        "title": "Weather Watchers",
+        "status": "draft",
+        "hasDraft": true,
+        "isOpen": true
+      }
+    },
+    {
+      "id": "cur-lp-preschool-weather-watchers",
+      "spotChecks": [
+        {
+          "idx": 0,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Weather Watchers Circle",
+              "objective": "Observe outdoors/window weather and record it on the class chart.",
+              "description": "Children look outside, describe sky/air, and place a weather symbol on today’s chart square.",
+              "materials": "Weather chart\nSymbol cards (printable)\nWindow/door access\nPrintable (draft): Weather Symbol Cards\nPrintable (draft): Weekly Weather Observation Chart",
+              "preparation": "Post chart at child height\nPrep today’s blank square",
+              "setup": "Gather near window with chart.",
+              "steps": "1. Look outside together\n2. Share what you notice (sky, wet, wind)\n3. Choose a weather symbol\n4. Mark warm/cool with a simple choice\n5. Predict tomorrow in one word",
+              "teacherLanguage": "What do you observe about today’s weather?",
+              "observationOpportunities": "Describes weather; places symbol; uses weather words.",
+              "safetyNotes": "No outdoor lightning observation.",
+              "cleanupTips": "Return unused symbols to pouch.",
+              "durationMinutes": "12",
+              "ageModifications": "Preschool 3–5",
+              "activityCategory": "STEM/Discovery"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 1 of 15",
+            "imageRequirement": "setup_only",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-weather-watchers-idx-0.png"
+        },
+        {
+          "idx": 7,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Thunder Drum Experiment",
+              "objective": "Explore loud/soft storm sounds safely and talk about storm feelings/safety.",
+              "description": "Children compare drum/pan sounds as ‘thunder’ play, then practice calm-down and indoor-safety talk.",
+              "materials": "Drums\nMetal pans\nMallets\nSoft scarves for calm-down",
+              "preparation": "Warn sensitive children\nOffer quiet corner",
+              "setup": "Sound circle with volume rules.",
+              "steps": "1. Practice soft taps\n2. Try louder taps (still safe)\n3. Compare which sounds like far/near thunder\n4. Talk storm safety (go indoors)\n5. Calm with slow breathing and scarves",
+              "teacherLanguage": "Thunder is loud — what helps your body feel safe?",
+              "observationOpportunities": "Controls volume; discusses feelings; recalls safety.",
+              "safetyNotes": "Ear-aware; no banging near faces; stop if distressed.",
+              "cleanupTips": "Stack instruments.",
+              "durationMinutes": "12",
+              "ageModifications": "Preschool 3–5",
+              "activityCategory": "STEM/Discovery"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 8 of 15",
+            "imageRequirement": "optional",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-weather-watchers-idx-7.png"
+        },
+        {
+          "idx": 14,
+          "jumpMode": "button",
+          "fieldAudit": {
+            "ok": true,
+            "values": {
+              "title": "Weather Watchers Celebration",
+              "objective": "Review the week’s weather data and celebrate investigations.",
+              "description": "Class counts chart data, thanks chart helpers, sings, and shares favorite activities.",
+              "materials": "Completed chart\nSong list\nOptional photos of investigations\nPrintable (draft): Weather Symbol Cards\nPrintable (draft): Weekly Weather Observation Chart",
+              "preparation": "Tally weather types\nDisplay art",
+              "setup": "Celebration circle.",
+              "steps": "1. Count weather types for the week\n2. Thank chart helpers\n3. Sing Weather Watchers Song\n4. Share favorite investigation\n5. Send family weather-watch reminder",
+              "teacherLanguage": "What weather did we see most this week?",
+              "observationOpportunities": "Recalls data; participates; shares favorite.",
+              "safetyNotes": "Calm celebration.",
+              "cleanupTips": "Photograph chart for portfolio.",
+              "durationMinutes": "12",
+              "ageModifications": "Preschool 3–5",
+              "activityCategory": "Circle Time"
+            },
+            "farmHelpVisible": false,
+            "blankCritical": [],
+            "activityCountText": "Activity 15 of 15",
+            "imageRequirement": "not_needed",
+            "editorOpen": true
+          },
+          "shot": "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-weather-watchers-idx-14.png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-colors-all-around-us-idx-0.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-colors-all-around-us-idx-7.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-colors-all-around-us-idx-14.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-black-white-discovery-idx-0.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-black-white-discovery-idx-7.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-infant-black-white-discovery-idx-14.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-community-helpers-idx-0.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-community-helpers-idx-7.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-community-helpers-idx-14.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-weather-watchers-idx-0.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-weather-watchers-idx-7.png",
+    "/opt/cursor/artifacts/tk-premium-draft-verify/cur-lp-preschool-weather-watchers-idx-14.png"
+  ],
+  "publishCalled": false,
+  "draftOnly": true,
+  "failedFieldAudits": []
+}
