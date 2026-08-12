@@ -24,7 +24,10 @@ function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const commsApi = fs.readFileSync(path.join(ROOT, "server/comms-api.js"), "utf8");
 
-  ok(welcome.includes("Welcome to Little Learner Hub — I’m so glad you’re here."), "short Free welcome present");
+  ok(welcome.includes("Welcome to Little Learner Hub 💛 Here’s where to start"), "free welcome subject present");
+  ok(welcome.includes("You’re officially a Little Learner Hub member 💛"), "paid welcome subject present");
+  ok(welcome.includes("Start with the lesson plans. Pick an age group"), "free welcome start tip present");
+  ok(indexHtml.includes("New Teaching Kits Are Here!"), "member update banner Teaching Kits title present");
   ok(!welcome.includes("I personally read every message, and many of the updates you see are inspired"), "long Free welcome removed");
   ok(serverJs.includes("isAutomation: Boolean(isWelcome || message.isAutomation)"), "member publicMessage exposes automation");
   ok(comms.includes("Automated welcome"), "member bubble labels automation");

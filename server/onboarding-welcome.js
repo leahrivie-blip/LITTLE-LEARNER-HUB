@@ -16,7 +16,7 @@ const PRO_SEQUENCE_ID = "pro-welcome";
 const BACKFILL_CONFIRM_PHRASE = "SEND_FREE_WELCOME_BACKFILL";
 /** Only memberships started on/after this UTC time auto-receive Trial/Pro welcomes. */
 const AUTO_DELIVER_ELIGIBLE_AFTER = "2026-08-01T02:30:00.000Z";
-const CONTENT_REVISION = "20260801-welcome-v2";
+const CONTENT_REVISION = "20260812-teaching-kits-welcome-v1";
 
 const TEMPLATE_VARIABLES = Object.freeze([
   { key: "FirstName", description: "User's first name (falls back to there)" },
@@ -26,21 +26,55 @@ const TEMPLATE_VARIABLES = Object.freeze([
   { key: "LessonsUrl", description: "Lesson library URL" },
   { key: "UpgradeUrl", description: "Plans / upgrade URL" },
   { key: "MessagesUrl", description: "In-app messages URL" },
+  { key: "PrimaryCta", description: "Primary CTA button (email HTML only; omitted in plain text / in-app)" },
 ]);
 
 const DEFAULT_FOUNDING_SECTION_TEXT = "";
 
+const FREE_WELCOME_SUBJECT = "Welcome to Little Learner Hub 💛 Here’s where to start";
+
 const FREE_WELCOME_BODY = [
-  "Welcome to Little Learner Hub — I’m so glad you’re here.",
+  "Hi!",
   "",
-  "As a Free Member, you can explore included lesson plans, activities, and resources right away.",
+  "Welcome to Little Learner Hub! 💛 I’m Leah, the creator behind LLH, and I’m so glad you’re here.",
   "",
-  "Have an idea or need something specific for your classroom? Reply here anytime. I read every message.",
+  "I built Little Learner Hub because childcare teachers already have enough on their plates. Planning activities, finding printables, documenting learning, communicating with families, and keeping everything organized shouldn’t mean spending hours searching Pinterest or taking work home.",
   "",
-  "Whenever you’re ready, Pro unlocks the complete curriculum library and premium tools.",
+  "So, where should you start?",
   "",
-  "Thank you for joining. — Leah",
+  "Start with the lesson plans. Pick an age group and find a theme your children will actually enjoy.",
+  "",
+  "We’re also upgrading lesson plans into full Teaching Kits that can include ready-to-use activities, classroom visuals, printables, materials lists, teacher guidance, and more—all organized together.",
+  "",
+  "And Little Learner Hub goes beyond curriculum.",
+  "",
+  "With the full platform, we're building tools to help with the everyday work of running a classroom or childcare program—from planning and child documentation to family communication and other time-consuming teacher tasks.",
+  "",
+  "Your free account gives you a chance to explore Little Learner Hub and see how it fits into your day. If you find yourself wanting access to more of the plans, resources, and tools, you can upgrade whenever you're ready.",
+  "",
+  "One more thing: I actually want your feedback.",
+  "",
+  "Reply to this email and tell me the ONE thing that takes up too much of your time as a childcare teacher or provider.",
+  "",
+  "Lesson planning? Documentation? Finding activities? Parent communication? Something completely different?",
+  "",
+  "Your answers help me decide what Little Learner Hub needs next. 💛",
+  "",
+  "Welcome to LLH!",
+  "",
+  "Leah",
+  "Little Learner Hub",
 ].join("\n");
+
+/** Email body inserts {{PrimaryCta}} after the lesson-plans start tip; in-app omits the marker. */
+const FREE_WELCOME_EMAIL_BODY = FREE_WELCOME_BODY.replace(
+  "Start with the lesson plans. Pick an age group and find a theme your children will actually enjoy.",
+  [
+    "Start with the lesson plans. Pick an age group and find a theme your children will actually enjoy.",
+    "",
+    "{{PrimaryCta}}",
+  ].join("\n"),
+);
 
 const TRIAL_WELCOME_BODY = [
   "Thanks for starting your Pro trial!",
@@ -86,24 +120,41 @@ const TRIAL_CHECKIN_BODY = [
   "Thanks again for being here. I can’t wait to hear your ideas and keep making Little Learner Hub even better! 💜",
 ].join("\n");
 
+const PRO_WELCOME_SUBJECT = "You’re officially a Little Learner Hub member 💛";
+
 const PRO_WELCOME_BODY = [
-  "Thank you so much for becoming a Pro Member!",
+  "Hi!",
   "",
-  "Your support means more than you know. Every subscription helps me continue building Little Learner Hub into the platform childcare providers deserve.",
+  "I wanted to personally say thank you for becoming a Little Learner Hub member. 💛",
   "",
-  "You now have unlimited access to the full curriculum library, premium lesson plans, activities, planning tools, and every new Pro feature as it’s released.",
+  "Seriously, it means more to me than just seeing another subscription come through.",
   "",
-  "But here’s something even more important…",
+  "Little Learner Hub is something I’m actively building and improving for real childcare teachers, providers, and directors. Every person who chooses to support it is helping me continue making the lesson plans, Teaching Kits, printables, visuals, and tools better.",
   "",
-  "I’m not building Little Learner Hub for childcare providers—I’m building it with childcare providers.",
+  "But I also want you to know something from the beginning:",
   "",
-  "If there’s a feature you’d love to have, a lesson plan you’re looking for, or something that would make your day easier, send me a message anytime inside Little Learner Hub.",
+  "You can reach out to me.",
   "",
-  "I personally read every message, and many of the updates and ideas added to Little Learner Hub come directly from members like you.",
+  "If you're confused about something, can't find what you need, have an idea for a lesson plan or printable, run into a problem, or just think, “I really wish Little Learner Hub had this…” — reply to this email and tell me.",
   "",
-  "Thank you for believing in my vision and for being part of this community. I’m so excited to keep growing Little Learner Hub with you and can’t wait to show you what’s coming next.",
+  "I read the replies, and I will respond.",
   "",
-  "Welcome to Pro! 💜",
+  "I don't want Little Learner Hub to feel like one of those platforms where you pay every month and have no idea who is behind it. I want you to feel like you have someone you can actually reach when you need help.",
+  "",
+  "As a member, you'll also continue seeing Little Learner Hub grow. I'm currently working through our lesson-plan library and upgrading plans into full Teaching Kits with more printables, visuals, teacher guidance, and ready-to-use resources, while also adding new lesson plans and improving the rest of the platform.",
+  "",
+  "And because you're one of the people actually using LLH, your feedback matters when I'm deciding what to build next.",
+  "",
+  "So here's the first thing I'd love to know:",
+  "",
+  "What would make Little Learner Hub more useful in your classroom or childcare program?",
+  "",
+  "Just hit reply and tell me. It doesn't need to be formal. Even if it's one sentence, I want to hear it.",
+  "",
+  "Thank you for trusting Little Learner Hub to be part of your classroom. I'm really glad you're here. 💛",
+  "",
+  "Leah",
+  "Creator, Little Learner Hub",
 ].join("\n");
 
 function defaultFreeWelcomeSequence() {
@@ -115,17 +166,17 @@ function defaultFreeWelcomeSequence() {
     enabled: true,
     inApp: {
       enabled: true,
-      title: "Welcome to Little Learner Hub! 💜",
+      title: FREE_WELCOME_SUBJECT,
       body: FREE_WELCOME_BODY,
     },
     email: {
       enabled: true,
-      subject: "Welcome to Little Learner Hub! 💜",
-      body: FREE_WELCOME_BODY,
-      primaryCtaLabel: "Explore Free Resources",
+      subject: FREE_WELCOME_SUBJECT,
+      body: FREE_WELCOME_EMAIL_BODY,
+      primaryCtaLabel: "Explore Lesson Plans",
       primaryCtaUrl: "{{LessonsUrl}}",
-      secondaryCtaLabel: "Upgrade to Pro",
-      secondaryCtaUrl: "{{UpgradeUrl}}",
+      secondaryCtaLabel: "",
+      secondaryCtaUrl: "",
       footerNote: "Questions? Reply to this email or message Leah inside Little Learner Hub anytime.",
     },
     foundingSection: {
@@ -203,24 +254,24 @@ function defaultTrialCheckinSequence() {
 function defaultProWelcomeSequence() {
   return {
     id: PRO_SEQUENCE_ID,
-    label: "Pro Member Welcome",
+    label: "Paid Member Welcome",
     audience: "pro",
     contentRevision: CONTENT_REVISION,
     enabled: true,
     inApp: {
       enabled: true,
-      title: "Thank You for Becoming a Pro Member! 💜",
+      title: PRO_WELCOME_SUBJECT,
       body: PRO_WELCOME_BODY,
     },
     email: {
       enabled: true,
-      subject: "Thank You for Becoming a Pro Member! 💜",
+      subject: PRO_WELCOME_SUBJECT,
       body: PRO_WELCOME_BODY,
-      primaryCtaLabel: "Explore Your Curriculum",
+      primaryCtaLabel: "Explore Lesson Plans",
       primaryCtaUrl: "{{LessonsUrl}}",
-      secondaryCtaLabel: "Send Leah a Message",
-      secondaryCtaUrl: "{{MessagesUrl}}",
-      footerNote: "Questions? Message Leah inside Little Learner Hub anytime.",
+      secondaryCtaLabel: "",
+      secondaryCtaUrl: "",
+      footerNote: "Questions? Reply to this email — Leah reads every reply.",
     },
     foundingSection: { enabled: false, inAppText: "", emailHtml: "", emailText: "" },
     scheduledSteps: [],
@@ -381,15 +432,8 @@ function isEligibleForFreeWelcome(user, nowMs = Date.now()) {
   if (!email || !email.includes("@")) return false;
   if (welcomeFlags(user).freeWelcomeSentAt) return false;
 
-  if (membershipAccess.membershipHasProAccess(user, nowMs)) return false;
-  if (membershipAccess.membershipUserInTrial(user, nowMs)) return false;
-  if (membershipAccess.membershipFoundingActive(user, nowMs)) return false;
-
-  const plan = String(user.plan || "Free").trim();
-  const selectedPlan = String(user.selectedPlanAtSignup || user.signupPlan || "").trim().toLowerCase();
-  if (["Pro", "Founding"].includes(plan)) return false;
-  if (["pro", "founding", "founding member"].includes(selectedPlan)) return false;
-  if (user.foundingMemberActive || user.foundingMember) return false;
+  // Canonical Free access only (membershipCurrentAccessKey) — never UI labels.
+  if (membershipAccess.membershipCurrentAccessKey(user, nowMs) !== "free") return false;
 
   const status = String(user.accountStatus || "Active").trim().toLowerCase();
   if (status === "disabled" || status === "deleted" || status === "archived") return false;
@@ -503,11 +547,19 @@ function buildWelcomeEmailHtml({ subject, bodyText, context, sequence, siteUrl, 
   } else if (founding.text) {
     bodyWithFounding = `${bodyWithFounding}\n\n${founding.text}`;
   }
-  const resolvedBody = applyTemplateVariables(bodyWithFounding, context);
+  const primaryCtaPattern = /\{\{\s*PrimaryCta\s*\}\}/i;
+  const hasInlinePrimaryCta = primaryCtaPattern.test(bodyWithFounding);
+  // Keep {{PrimaryCta}} through applyTemplateVariables, then split for mid-body placement.
+  const resolvedBody = applyTemplateVariables(
+    bodyWithFounding.replace(primaryCtaPattern, "{{PrimaryCta}}"),
+    context,
+  );
   const primaryUrl = applyTemplateVariables(sequence.email?.primaryCtaUrl || "{{LessonsUrl}}", context);
   const secondaryUrl = applyTemplateVariables(sequence.email?.secondaryCtaUrl || "{{UpgradeUrl}}", context);
-  const primaryLabel = escape(sequence.email?.primaryCtaLabel || "Open Little Learner Hub");
-  const secondaryLabel = escape(sequence.email?.secondaryCtaLabel || "Send a Message");
+  const primaryLabelRaw = String(sequence.email?.primaryCtaLabel || "Open Little Learner Hub").trim();
+  const secondaryLabelRaw = String(sequence.email?.secondaryCtaLabel || "").trim();
+  const primaryLabel = escape(primaryLabelRaw || "Open Little Learner Hub");
+  const secondaryLabel = escape(secondaryLabelRaw);
   const footerNote = escape(applyTemplateVariables(sequence.email?.footerNote || "", context));
   const safeSubject = escape(subject || "Welcome to Little Learner Hub");
 
@@ -515,7 +567,35 @@ function buildWelcomeEmailHtml({ subject, bodyText, context, sequence, siteUrl, 
     ? founding.html
     : "";
 
-  const bodyHtml = paragraphsToHtml(resolvedBody, escape) + (foundingHtml ? foundingHtml : "");
+  const primaryButtonHtml = primaryLabelRaw
+    ? `<div style="text-align:center;margin:24px 0 12px;">
+        <a href="${escape(primaryUrl)}" style="display:inline-block;background:#2f6f5e;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;">${primaryLabel}</a>
+      </div>`
+    : "";
+
+  let bodyHtml = "";
+  if (hasInlinePrimaryCta && primaryCtaPattern.test(resolvedBody)) {
+    const [beforeCta, ...afterParts] = resolvedBody.split(primaryCtaPattern);
+    bodyHtml = paragraphsToHtml(beforeCta, escape)
+      + primaryButtonHtml
+      + paragraphsToHtml(afterParts.join(""), escape)
+      + (foundingHtml || "");
+  } else {
+    bodyHtml = paragraphsToHtml(resolvedBody, escape) + (foundingHtml || "");
+  }
+
+  const showBottomPrimary = Boolean(primaryLabelRaw) && !hasInlinePrimaryCta;
+  const showBottomSecondary = Boolean(secondaryLabelRaw);
+  const bottomCtaHtml = (showBottomPrimary || showBottomSecondary)
+    ? `<div style="text-align:center;margin:28px 0 12px;">
+        ${showBottomPrimary
+          ? `<a href="${escape(primaryUrl)}" style="display:inline-block;background:#2f6f5e;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;margin:0 8px 12px;">${primaryLabel}</a>`
+          : ""}
+        ${showBottomSecondary
+          ? `<a href="${escape(secondaryUrl)}" style="display:inline-block;background:#ffffff;color:#2f6f5e;text-decoration:none;padding:13px 20px;border-radius:10px;font-family:Helvetica,Arial,sans-serif;font-size:15px;border:2px solid #2f6f5e;margin:0 8px 12px;">${secondaryLabel}</a>`
+          : ""}
+      </div>`
+    : "";
 
   return `
     <div style="font-family:Georgia,'Times New Roman',serif;max-width:640px;margin:0 auto;padding:24px 20px;color:#1f2937;line-height:1.6;background:#ffffff;">
@@ -525,10 +605,7 @@ function buildWelcomeEmailHtml({ subject, bodyText, context, sequence, siteUrl, 
       </div>
       <h1 style="font-size:26px;margin:0 0 20px;color:#111827;text-align:center;">${safeSubject}</h1>
       ${bodyHtml}
-      <div style="text-align:center;margin:28px 0 12px;">
-        <a href="${escape(primaryUrl)}" style="display:inline-block;background:#2f6f5e;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;margin:0 8px 12px;">${primaryLabel}</a>
-        <a href="${escape(secondaryUrl)}" style="display:inline-block;background:#ffffff;color:#2f6f5e;text-decoration:none;padding:13px 20px;border-radius:10px;font-family:Helvetica,Arial,sans-serif;font-size:15px;border:2px solid #2f6f5e;margin:0 8px 12px;">${secondaryLabel}</a>
-      </div>
+      ${bottomCtaHtml}
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;" />
       <p style="font-size:13px;color:#6b7280;margin:0;text-align:center;">${footerNote || "Questions? Message Leah inside Little Learner Hub anytime."}</p>
       <p style="font-size:12px;color:#9ca3af;margin:12px 0 0;text-align:center;">Little Learner Hub · Built by a childcare provider, for childcare providers</p>
@@ -546,10 +623,14 @@ function buildWelcomePreview(user, store, deps, channel = "email", sequenceId = 
   }
   const subject = applyTemplateVariables(sequence.email?.subject || "", context);
   const bodyTemplate = sequence.email?.body || "";
+  const primaryCtaText = String(sequence.email?.primaryCtaLabel || "Explore Lesson Plans").trim()
+    ? `\n\n${String(sequence.email?.primaryCtaLabel || "Explore Lesson Plans").trim()}: ${context.LessonsUrl}\n\n`
+    : "\n\n";
   const textBody = applyTemplateVariables(
-    bodyTemplate.includes("{{FoundingSection}}")
+    (bodyTemplate.includes("{{FoundingSection}}")
       ? bodyTemplate.replace(/\{\{\s*FoundingSection\s*\}\}/gi, buildFoundingEmailSection(sequence, context.foundingOpen).text)
-      : `${bodyTemplate}${context.foundingOpen && sequence.foundingSection?.enabled !== false ? `\n\n${buildFoundingEmailSection(sequence, context.foundingOpen).text}` : ""}`,
+      : `${bodyTemplate}${context.foundingOpen && sequence.foundingSection?.enabled !== false ? `\n\n${buildFoundingEmailSection(sequence, context.foundingOpen).text}` : ""}`)
+      .replace(/\{\{\s*PrimaryCta\s*\}\}/gi, primaryCtaText),
     context,
   );
   const html = buildWelcomeEmailHtml({

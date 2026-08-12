@@ -378,46 +378,61 @@ function buildOnboardingContent(stepKey, user, { siteUrl, htmlEscape }) {
  * Single welcome/update email for a one-time all-users blast.
  * Not part of the onboarding drip and never scheduled.
  */
-function buildWelcomeUpdateContent(user, { siteUrl, htmlEscape }) {
-  const first = userDisplayName(user);
+function buildWelcomeUpdateContent(_user, { siteUrl, htmlEscape }) {
   const base = siteBase(siteUrl);
   const lessonsUrl = `${base}/#lessons`;
-  const contactUrl = `${base}/#contact`;
-  const greeting = `Hi ${htmlEscape(first)},`;
-  const subject = "A quick Little Learner Hub update for you";
+  const subject = "New Teaching Kits Are Here! 🎉";
   const shell = brandEmailShell({
     htmlEscape,
-    title: "A quick update from Little Learner Hub",
-    introHtml: `<p>${greeting}</p>
-      <p>Thank you for being part of Little Learner Hub. We wanted to send one short update so every account has the same welcome and context.</p>`,
+    title: "New Teaching Kits Are Here! 🎉",
+    introHtml: `<p>Hi everyone!</p>
+      <p>Thank you so much for being a part of Little Learner Hub! 💛 I wanted to send a quick update about what we’ve been working on behind the scenes.</p>`,
     bodyHtml: `
-      <p>Little Learner Hub is built for daycare teachers and home providers who need classroom-ready curriculum without the Sunday-night scramble.</p>
-      <p>Inside you’ll find play-based lesson plans for Infant, Toddler, and Preschool — with Week at a Glance, activities, materials, and print-ready weekly schedules. New lesson plans are added regularly.</p>
-      <p>If something feels confusing, missing, or especially helpful, tell us. Your feedback shapes what we build next.</p>
+      <p>We’ve officially started upgrading our lesson plans into full Teaching Kits! 🎉 Farm Animals is one example that has already been updated, with more resources designed to make planning and teaching easier.</p>
+      <p>We’re working hard to update the rest of our lesson plans with things like:</p>
+      <ul>
+        <li>Printable classroom resources</li>
+        <li>Visuals to support activities and setup</li>
+        <li>More complete, ready-to-use activities</li>
+        <li>Teacher-friendly materials and guidance</li>
+        <li>New lesson plans and themes</li>
+      </ul>
+      <p>This is an ongoing process, so you’ll continue seeing more Teaching Kits and improvements added to Little Learner Hub as we work through the library.</p>
+      <p>And I would LOVE your input! If there’s a lesson plan, theme, printable, classroom resource, or feature you’d really like to see added, please reply to this email and let me know. Your recommendations help me decide what to work on next.</p>
+      <p>Thank you again for being here and growing with Little Learner Hub. I’m excited for you to see everything that’s coming! 💛</p>
+      <p>Leah<br>Little Learner Hub</p>
     `,
-    ctaLabel: "Open Little Learner Hub",
+    ctaLabel: "Open Lesson Plans",
     ctaUrl: lessonsUrl,
-    footerNote: "This is a one-time welcome/update email. It is not a recurring campaign.",
+    footerNote: "This is a one-time product-update email. It is not a recurring campaign.",
   });
   const text = [
-    `Hi ${first},`,
+    "Hi everyone!",
     "",
-    "A quick update from Little Learner Hub",
+    "Thank you so much for being a part of Little Learner Hub! 💛 I wanted to send a quick update about what we’ve been working on behind the scenes.",
     "",
-    "Thank you for being part of Little Learner Hub. We wanted to send one short update so every account has the same welcome and context.",
+    "We’ve officially started upgrading our lesson plans into full Teaching Kits! 🎉 Farm Animals is one example that has already been updated, with more resources designed to make planning and teaching easier.",
     "",
-    "Little Learner Hub is built for daycare teachers and home providers who need classroom-ready curriculum without the Sunday-night scramble.",
-    "Inside you’ll find play-based lesson plans for Infant, Toddler, and Preschool — with Week at a Glance, activities, materials, and print-ready weekly schedules.",
-    "New lesson plans are added regularly.",
+    "We’re working hard to update the rest of our lesson plans with things like:",
     "",
-    "If something feels confusing, missing, or especially helpful, tell us. Your feedback shapes what we build next.",
+    "• Printable classroom resources",
+    "• Visuals to support activities and setup",
+    "• More complete, ready-to-use activities",
+    "• Teacher-friendly materials and guidance",
+    "• New lesson plans and themes",
     "",
-    `Open the library: ${lessonsUrl}`,
-    `Share feedback anytime: ${contactUrl}`,
+    "This is an ongoing process, so you’ll continue seeing more Teaching Kits and improvements added to Little Learner Hub as we work through the library.",
     "",
-    "— The Little Learner Hub Team",
+    "And I would LOVE your input! If there’s a lesson plan, theme, printable, classroom resource, or feature you’d really like to see added, please reply to this email and let me know. Your recommendations help me decide what to work on next.",
     "",
-    "This is a one-time welcome/update email. It is not a recurring campaign.",
+    "Thank you again for being here and growing with Little Learner Hub. I’m excited for you to see everything that’s coming! 💛",
+    "",
+    "Leah",
+    "Little Learner Hub",
+    "",
+    `Open Lesson Plans: ${lessonsUrl}`,
+    "",
+    "This is a one-time product-update email. It is not a recurring campaign.",
   ].join("\n");
   return { subject, text, html: shell.html };
 }

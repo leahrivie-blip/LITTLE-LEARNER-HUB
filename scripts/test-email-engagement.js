@@ -311,7 +311,7 @@ async function main() {
     const blocked = await eng.sendOneTimeWelcomeUpdate({ confirm: true, auditToken: "nope" });
     assert.equal(blocked.reason, "audit_required");
 
-    const audit = eng.runPreflightAudit({
+    const audit = await eng.runPreflightAudit({
       store: fakeStore,
       adminEmail: "owner@example.com",
       nodeEnv: "test",
@@ -325,7 +325,7 @@ async function main() {
     assert.ok(audit.auditToken);
     assert.equal(audit.sendUnlocked, true);
 
-    const prepared = eng.prepareOneTimeWelcomeUpdate({
+    const prepared = await eng.prepareOneTimeWelcomeUpdate({
       store: fakeStore,
       adminEmail: "owner@example.com",
     });
@@ -333,8 +333,9 @@ async function main() {
     assert.equal(prepared.sent, false);
     assert.equal(prepared.willSend, false);
     assert.equal(prepared.recipients.count, 2);
-    assert.match(prepared.subject, /Little Learner Hub/i);
-    assert.match(prepared.textPreview, /one-time welcome\/update email/i);
+    assert.match(prepared.subject, /New Teaching Kits Are Here/i);
+    assert.match(prepared.textPreview, /one-time product-update email/i);
+    assert.match(prepared.textPreview, /Teaching Kits/i);
     assert.equal(fakeEvents.length, 0, "prepare must not send email");
 
     const unconfirmed = await eng.sendOneTimeWelcomeUpdate({
@@ -450,7 +451,7 @@ async function main() {
     assert.equal(testCopy.recipient, "owner@example.com");
     assert.equal(campaignSends[0].subject, "🎉 Little Learner Hub Has Been Updated!");
     assert.match(campaignSends[0].text, /New lesson plans added/);
-    assert.match(campaignSends[0].html, /Founding Member spots are still available/);
+    assert.match(campaignSends[0].html, /Upgrade to Pro for \$19\.99\/month/);
     assert.match(campaignSends[0].html, /123 Main St/);
     assert.match(campaignSends[0].listUnsubscribeUrl, /token=signed/);
 
@@ -549,12 +550,8 @@ async function main() {
       assert.equal(Boolean(store.users[email].onboardingEmails?.welcomeSentAt), false);
     });
 
-    await test("signup stamps welcome once when onboarding enabled and provider missing", async () => {
-      const enable = await request("POST", "/api/admin/email-engagement/settings", {
-        body: { adminToken, onboardingEnabled: true, weeklyWhatsNewEnabled: true },
-      });
-      assert.equal(enable.status, 200, JSON.stringify(enable.json));
-
+    await test("signup stamps free welcome once when provider missing", async () => {
+      // Signup uses onboarding-welcome free-welcome (not the drip onboardingEmails stamp).
       const email = "signup-welcome@example.com";
       const first = await request("POST", "/api/account/profile", {
         body: {
@@ -566,9 +563,15 @@ async function main() {
         },
       });
       assert.equal(first.status, 200, JSON.stringify(first.json));
-      await new Promise((r) => setTimeout(r, 250));
-      const store = readStoreFile();
-      assert.ok(store.users[email].onboardingEmails?.welcomeSentAt, "welcome should stamp even when unconfigured");
+      let store = null;
+      let stamp = "";
+      for (let i = 0; i < 20; i += 1) {
+        store = readStoreFile();
+        stamp = store.users[email]?.onboardingWelcome?.freeWelcomeSentAt || "";
+        if (stamp) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      assert.ok(stamp, "free welcome should stamp even when email provider is unconfigured");
 
       const second = await request("POST", "/api/account/profile", {
         body: { email, firstName: "Sam", signup: true, lastLogin: true },
@@ -577,9 +580,13 @@ async function main() {
       await new Promise((r) => setTimeout(r, 150));
       const store2 = readStoreFile();
       assert.equal(
-        store.users[email].onboardingEmails.welcomeSentAt,
-        store2.users[email].onboardingEmails.welcomeSentAt,
+        stamp,
+        store2.users[email].onboardingWelcome.freeWelcomeSentAt,
       );
+      const freeWelcomes = (store2.messages || []).filter(
+        (m) => m.toEmail === email && m.channel === "onboarding_welcome" && (m.onboardingSequenceId || "free-welcome") === "free-welcome",
+      );
+      assert.equal(freeWelcomes.length, 1, "free welcome must not duplicate");
     });
 
     await test("admin email engagement summary endpoint", async () => {
@@ -696,7 +703,7 @@ async function main() {
       assert.equal(prepareRes.json.sent, false);
       assert.equal(prepareRes.json.prepared.willSend, false);
       assert.ok(prepareRes.json.prepared.recipients.count >= 2);
-      assert.match(prepareRes.json.prepared.subject || "", /Little Learner Hub/i);
+      assert.match(prepareRes.json.prepared.subject || "", /New Teaching Kits Are Here/i);
 
       const sendRes = await request("POST", "/api/admin/email-engagement/send-one-time", {
         body: {
