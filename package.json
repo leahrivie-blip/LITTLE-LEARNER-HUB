@@ -324,6 +324,7 @@
     "test:linked-program-release-candidate": "NODE_ENV=test node scripts/test-linked-program-release-candidate.js",
     "test:release-candidate-regression": "NODE_ENV=test node scripts/run-release-candidate-regression.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
+    "test:teaching-kits-one-time-safety": "NODE_ENV=test node scripts/test-teaching-kits-one-time-safety.js",
     "test:email-system-audit": "NODE_ENV=test node scripts/test-email-system-audit.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",
     "test:founding-closeout-pricing": "NODE_ENV=test node scripts/test-founding-closeout-pricing.js",
@@ -418,7 +419,8 @@
     "test:lesson-review-editor": "NODE_ENV=test node scripts/test-lesson-review-editor.js",
     "test:teaching-kit-paste-import": "NODE_ENV=test node scripts/test-teaching-kit-paste-import.js",
     "test:enrichment-publish-history-retention": "NODE_ENV=test node scripts/test-enrichment-publish-history-retention.js",
-    "prune:enrichment-publish-history": "node scripts/prune-enrichment-publish-history.js"
+    "prune:enrichment-publish-history": "node scripts/prune-enrichment-publish-history.js",
+    "test:tk-paste-smoke-dom-lists": "NODE_ENV=test node scripts/test-tk-paste-smoke-dom-lists.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

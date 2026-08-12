@@ -49383,14 +49383,17 @@ async function renderAdminEmailEngagement() {
         <div class="account-actions-row">
           <button class="primary-button" type="button" id="adminEmailRunPreflightAudit">Run preflight audit</button>
           <button class="ghost-button" type="button" id="adminEmailPrepareOneTime">Prepare emails (no send)</button>
-          <button class="ghost-button" type="button" id="adminEmailSendOneTime" ${sendReady && providerReady && !oneTime.sentAt ? "" : "disabled"}>Send one-time email to all users</button>
+          <button class="ghost-button" type="button" id="adminEmailSendOneTime" ${sendReady && providerReady && !oneTime.sentAt && !oneTime.claimedAt ? "" : "disabled"}>Send one-time email to all users</button>
+          ${oneTime.recoveryAvailable ? `<button class="ghost-button" type="button" id="adminEmailRecoverOneTime" ${providerReady ? "" : "disabled"}>Retry remaining recipients</button>` : ""}
         </div>
         <p class="form-note">
           ${oneTime.sentAt
             ? `Already sent ${escapeHtml(oneTime.sentAt)} to ${Number(oneTime.recipientCount) || 0} recipients (${Number(oneTime.sentCount) || 0} delivered).`
-            : (sendReady && providerReady
-              ? `Ready when you are: audit passed, provider ready, ${Number(cachedPrepare?.recipients?.count || cachedAudit?.counts?.emailRecipients) || 0} recipients. Nothing has been sent yet.`
-              : "Nothing will be sent until you explicitly confirm after audit + prepare.")}
+            : oneTime.deliveryOutcome === "partial_delivery" || oneTime.deliveryOutcome === "provider_unconfigured" || oneTime.deliveryOutcome === "delivery_failed"
+              ? `Delivery incomplete — Sent: ${Number(oneTime.sentCount) || 0} / ${Number(oneTime.recipientCount) || Math.max(Number(oneTime.sentCount) || 0, Number(oneTime.remainingCount) || 0)} · Remaining: ${Number(oneTime.remainingCount) || 0} · Reason: ${escapeHtml(oneTime.deliveryOutcome || "")}. Owner recovery retries only unsent eligible recipients.`
+                  : (sendReady && providerReady
+                    ? `Ready when you are: audit passed, provider ready, ${Number(cachedPrepare?.recipients?.count || cachedAudit?.counts?.emailRecipients) || 0} recipients. Nothing has been sent yet.`
+                    : "Nothing will be sent until you explicitly confirm after audit + prepare.")}
         </p>
         <p class="form-note" id="adminEmailOneTimeMessage"></p>
       </div>
@@ -65634,11 +65637,53 @@ document.addEventListener("click", async (event) => {
       });
       window.__adminEmailPreflightAudit = null;
       if (msg) {
-        msg.textContent = `One-time email finished: sent ${data.result?.sent || 0} of ${data.result?.recipients || 0} (failed ${data.result?.failed || 0}).`;
+        const reason = data.result?.reason || data.result?.deliveryOutcome || "";
+        const sent = Number(data.result?.sent) || 0;
+        const total = Number(data.result?.recipients) || 0;
+        const failed = Number(data.result?.failed) || 0;
+        if (reason === "sent") {
+          msg.textContent = `One-time email sent: ${sent}/${total} delivered.`;
+        } else if (reason === "partial_delivery") {
+          msg.textContent = `Partial delivery: ${sent}/${total} delivered (${failed} failed). Not marked fully sent — claim held for manual review.`;
+        } else if (reason === "provider_unconfigured") {
+          msg.textContent = `Provider unconfigured: 0/${total} delivered. Not marked sent.`;
+        } else if (reason === "delivery_failed") {
+          msg.textContent = `Delivery failed: 0/${total} delivered (${failed} failed). Not marked sent.`;
+        } else {
+          msg.textContent = data.error || data.result?.detail || `One-time email finished: ${sent}/${total} (failed ${failed}).`;
+        }
       }
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "One-time send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailRecoverOneTime")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailOneTimeMessage");
+    const confirmed = window.confirm(
+      "Retry remaining Teaching Kits recipients only?\n\nAlready-delivered recipients will NOT be emailed again.",
+    );
+    if (!confirmed) return;
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/recover-one-time", {
+        confirm: true,
+      });
+      if (msg) {
+        const reason = data.result?.reason || data.result?.deliveryOutcome || "";
+        const sent = Number(data.result?.sent) || 0;
+        const rem = Number(data.result?.remaining) || 0;
+        const targeted = Number(data.result?.targeted) || 0;
+        if (reason === "sent") {
+          msg.textContent = `Recovery complete: campaign fully sent (${sent} delivered).`;
+        } else {
+          msg.textContent = `Recovery finished: targeted ${targeted}, ledger sent ${sent}, remaining ${rem} (${reason}).`;
+        }
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Recovery failed.";
     }
     return;
   }
