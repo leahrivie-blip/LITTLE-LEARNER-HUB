@@ -652,12 +652,12 @@
       dayIds = [text(opts.day) || "monday"];
     }
 
-    // Only accept singular UI picks for modes that use them. Stale activity/song/
-    // printable IDs left in Print Center state must not widen an unrelated preset.
-    const acceptActivityId = documentMode === "one_activity" || documentMode === "selected_resources";
-    const acceptSongId = documentMode === "one_song" || documentMode === "selected_resources";
-    const acceptBookId = documentMode === "selected_resources";
-    const acceptPrintableId = documentMode === "one_printable" || documentMode === "selected_resources";
+    // Singular UI picks apply only to one_* modes. Selected Resources must use its
+    // checkbox arrays exclusively — never inherit a stale One Activity / One Song /
+    // One Printable id from Print Center state.
+    const acceptActivityId = documentMode === "one_activity";
+    const acceptSongId = documentMode === "one_song";
+    const acceptPrintableId = documentMode === "one_printable";
     const activityIds = asIdList([
       ...(Array.isArray(opts.activityIds) && acceptActivityId ? opts.activityIds : []),
       ...(selectedResources && Array.isArray(selectedResources.activityIds) ? selectedResources.activityIds : []),
@@ -669,9 +669,8 @@
       ...(acceptSongId ? [text(opts.songId)] : []),
     ].filter(Boolean));
     const bookIds = asIdList([
-      ...(Array.isArray(opts.bookIds) && acceptBookId ? opts.bookIds : []),
+      ...(Array.isArray(opts.bookIds) && selectedResources ? opts.bookIds : []),
       ...(selectedResources && Array.isArray(selectedResources.bookIds) ? selectedResources.bookIds : []),
-      ...(acceptBookId ? [text(opts.bookId)] : []),
     ].filter(Boolean));
     const printableIds = asIdList([
       ...(Array.isArray(opts.printableIds) && acceptPrintableId ? opts.printableIds : []),
@@ -2670,6 +2669,62 @@
     return `${lines.join("\n")}\n`;
   }
 
+  /**
+   * Fit Page for the in-app Print Center preview host.
+   * Scales the first page to fully fit the available host box (contain), centered,
+   * without changing the underlying print/PDF document dimensions.
+   * Does not re-apply after the user sets data-tk-preview-zoom="manual".
+   */
+  function applyPrintPreviewFitPage(previewHost) {
+    if (!previewHost || typeof previewHost.querySelector !== "function") {
+      return { ok: false, reason: "missing_host", scale: 1 };
+    }
+    const frame = previewHost.querySelector(".tk-print-preview-frame, [data-tk-print-preview-document]");
+    const pageEl = frame && frame.querySelector(".tk-print-page");
+    if (!frame || !pageEl) {
+      return { ok: false, reason: "missing_page", scale: 1 };
+    }
+    if (previewHost.getAttribute("data-tk-preview-zoom") === "manual") {
+      return { ok: true, reason: "manual", scale: Number(frame.dataset.tkPreviewScale || 1) || 1 };
+    }
+    frame.style.transform = "none";
+    frame.style.width = "";
+    frame.style.height = "";
+    frame.style.margin = "";
+    // Force layout with natural page size before measuring.
+    void pageEl.offsetWidth;
+    const pad = 12;
+    const availW = Math.max(1, Number(previewHost.clientWidth) - pad);
+    const availH = Math.max(1, Number(previewHost.clientHeight) - pad);
+    const pageW = Math.max(1, Number(pageEl.offsetWidth) || Number(pageEl.getBoundingClientRect().width) || 1);
+    const pageH = Math.max(1, Number(pageEl.offsetHeight) || Number(pageEl.getBoundingClientRect().height) || 1);
+    const scale = Math.min(availW / pageW, availH / pageH, 1);
+    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    frame.style.transformOrigin = "top center";
+    frame.style.transform = `scale(${safeScale})`;
+    frame.dataset.tkPreviewScale = String(safeScale);
+    previewHost.setAttribute("data-tk-preview-zoom", "fit-page");
+    // Preserve scroll height for additional pages after CSS transform.
+    const pageCount = Math.max(1, frame.querySelectorAll(".tk-print-page").length);
+    const scaledBlockH = Math.ceil(pageH * pageCount * safeScale) + pad;
+    previewHost.style.setProperty("--tk-preview-fit-scale", String(safeScale));
+    frame.style.marginLeft = "auto";
+    frame.style.marginRight = "auto";
+    if (scaledBlockH > 0) {
+      frame.style.marginBottom = `${Math.max(0, Math.ceil(pageH * pageCount * (1 - safeScale)))}px`;
+    }
+    return {
+      ok: true,
+      reason: "fit-page",
+      scale: safeScale,
+      pageWidth: pageW,
+      pageHeight: pageH,
+      availWidth: availW,
+      availHeight: availH,
+      pageCount,
+    };
+  }
+
   return {
     PRESETS,
     PART_LABELS,
@@ -2700,5 +2755,6 @@
     buildEntireBinderKitHtml,
     buildFullWeeklyLessonPlanHtml,
     buildFullWeeklyLessonPlanText,
+    applyPrintPreviewFitPage,
   };
 });

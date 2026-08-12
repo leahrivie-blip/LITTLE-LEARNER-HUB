@@ -25564,11 +25564,18 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
 }
 .teaching-kit-workspace .tk-print-preview-host {
   margin-top: 12px;
-  max-height: 420px;
+  /* Room for Fit Page: one full Letter page scaled into the available panel. */
+  height: min(70vh, 720px);
+  max-height: min(70vh, 720px);
   overflow: auto;
   border: 1px solid var(--tk-line, #e8e0f4);
   border-radius: 12px;
-  background: #fff;
+  background: #f3f0f8;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.teaching-kit-workspace .tk-print-preview-host[data-tk-preview-zoom="fit-page"] {
+  overflow-x: hidden;
 }
 .teaching-kit-workspace .tk-print-attachment-preview {
   margin: 10px 12px;
@@ -25586,15 +25593,28 @@ body.teaching-kit-owner-preview [data-feedback-launcher] {
   margin: 4px 0;
 }
 .teaching-kit-workspace .tk-print-preview-frame {
-  transform-origin: top left;
-  padding: 8px;
+  transform-origin: top center;
+  padding: 0;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(45, 27, 78, 0.08);
 }
 .teaching-kit-workspace .tk-print-preview-frame .tk-print-page {
+  /* Keep natural binder page width for accurate Fit Page scale measurement. */
+  width: 8.5in;
+  max-width: 8.5in;
   min-height: 0 !important;
   break-after: auto !important;
   page-break-after: auto !important;
   border-bottom: 1px dashed #e8e0f4;
-  margin-bottom: 12px;
+  margin: 0 auto 12px;
+  box-sizing: border-box;
+  background: #fff;
+}
+@media (max-width: 720px) {
+  .teaching-kit-workspace .tk-print-preview-host {
+    height: min(62vh, 560px);
+    max-height: min(62vh, 560px);
+  }
 }
 @media print {
   .teaching-kit-workspace .tk-print-preview-host {

@@ -28,8 +28,63 @@
 
   function letterSize(paperSize) {
     const id = text(paperSize).toLowerCase();
-    if (id === "a4") return { width: 595.28, height: 841.89, css: "A4" };
-    return { width: 612, height: 792, css: "Letter" };
+    if (id === "a4") return { width: 595.28, height: 841.89, css: "A4", cssWidthPx: 794, cssHeightPx: 1123 };
+    // US Letter at 96dpi CSS pixels used by the off-screen capture host (816px wide).
+    return { width: 612, height: 792, css: "Letter", cssWidthPx: 816, cssHeightPx: 1056 };
+  }
+
+  /**
+   * Draw a captured binder canvas onto one or more Letter/A4 PDF pages.
+   * Short pages pad to a full printable page (no contain-shrink / no huge whitespace band).
+   * Tall single-item pages are sliced into additional pages instead of shrinking text.
+   */
+  async function embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib) {
+    if (!pdfDoc || !canvas || !paper || !PDFLib) return 0;
+    const pageW = paper.width;
+    const pageH = paper.height;
+    const sliceHeightPx = Math.max(1, Math.round(canvas.width * (pageH / pageW)));
+    let y = 0;
+    let added = 0;
+    while (y < canvas.height) {
+      const sourceH = Math.min(sliceHeightPx, canvas.height - y);
+      const sliceCanvas = (typeof document !== "undefined" && document.createElement)
+        ? document.createElement("canvas")
+        : null;
+      if (!sliceCanvas || typeof sliceCanvas.getContext !== "function") {
+        // Fallback: single contain-fit page when Offscreen/DOM canvas is unavailable.
+        const pngBytes = await canvasToPngBytes(canvas);
+        if (!pngBytes) return added;
+        const image = await pdfDoc.embedPng(pngBytes);
+        const pdfPage = pdfDoc.addPage([pageW, pageH]);
+        const imgRatio = image.width / Math.max(image.height, 1);
+        const pageRatio = pageW / pageH;
+        let drawW = pageW;
+        let drawH = pageH;
+        if (imgRatio > pageRatio) drawH = drawW / imgRatio;
+        else drawW = drawH * imgRatio;
+        const x = (pageW - drawW) / 2;
+        const yy = pageH - drawH;
+        pdfPage.drawImage(image, { x, y: Math.max(0, yy), width: drawW, height: drawH });
+        return added + 1;
+      }
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sliceHeightPx;
+      const ctx = sliceCanvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, sourceH, 0, 0, canvas.width, sourceH);
+      const pngBytes = await canvasToPngBytes(sliceCanvas);
+      if (!pngBytes) break;
+      const image = await pdfDoc.embedPng(pngBytes);
+      const pdfPage = pdfDoc.addPage([pageW, pageH]);
+      // Full-bleed page mapping — preserve printable Letter/A4 dimensions.
+      pdfPage.drawImage(image, { x: 0, y: 0, width: pageW, height: pageH });
+      added += 1;
+      y += sliceHeightPx;
+      // Safety: avoid infinite loops on degenerate canvases.
+      if (added > 80) break;
+    }
+    return added;
   }
 
   function wrapBinderHtml(html, options = {}) {
@@ -238,11 +293,28 @@
       const pdfDoc = await PDFLib.PDFDocument.create();
       let pageErrors = 0;
       for (const pageEl of pages) {
+        const targetW = paper.cssWidthPx || 816;
+        const targetH = paper.cssHeightPx || 1056;
+        const prevMinHeight = pageEl.style.minHeight;
+        const prevWidth = pageEl.style.width;
+        const prevBox = pageEl.style.boxSizing;
+        // Pad short single-item pages to a full Letter/A4 content box before capture
+        // so contain-fit cannot shrink a short strip into a tiny centered band.
+        pageEl.style.boxSizing = "border-box";
+        pageEl.style.width = `${targetW}px`;
+        const naturalH = Math.max(
+          Number(pageEl.scrollHeight) || 0,
+          Number(pageEl.offsetHeight) || 0,
+          1,
+        );
+        if (naturalH < targetH) {
+          pageEl.style.minHeight = `${targetH}px`;
+        }
         const width = Math.max(
           Number(pageEl.scrollWidth) || 0,
           Number(pageEl.offsetWidth) || 0,
           Number(pageEl.clientWidth) || 0,
-          816,
+          targetW,
         );
         const height = Math.max(
           Number(pageEl.scrollHeight) || 0,
@@ -264,31 +336,16 @@
         } catch (err) {
           pageErrors += 1;
           console.warn("[llh-tk-pdf] html2canvas page failed", err?.message || err);
+          pageEl.style.minHeight = prevMinHeight;
+          pageEl.style.width = prevWidth;
+          pageEl.style.boxSizing = prevBox;
           continue;
         }
-        const pngBytes = await canvasToPngBytes(canvas);
-        if (!pngBytes) {
-          pageErrors += 1;
-          continue;
-        }
-        const image = await pdfDoc.embedPng(pngBytes);
-        const pdfPage = pdfDoc.addPage([paper.width, paper.height]);
-        const imgRatio = image.width / Math.max(image.height, 1);
-        const pageRatio = paper.width / paper.height;
-        let drawW = paper.width;
-        let drawH = paper.height;
-        if (imgRatio > pageRatio) {
-          drawH = drawW / imgRatio;
-        } else {
-          drawW = drawH * imgRatio;
-        }
-        if (!Number.isFinite(drawW) || !Number.isFinite(drawH) || drawW <= 0 || drawH <= 0) {
-          pageErrors += 1;
-          continue;
-        }
-        const x = (paper.width - drawW) / 2;
-        const y = (paper.height - drawH) / 2;
-        pdfPage.drawImage(image, { x, y, width: drawW, height: drawH });
+        pageEl.style.minHeight = prevMinHeight;
+        pageEl.style.width = prevWidth;
+        pageEl.style.boxSizing = prevBox;
+        const added = await embedCanvasAsPrintablePages(pdfDoc, canvas, paper, PDFLib);
+        if (!added) pageErrors += 1;
       }
       if (!pdfDoc.getPageCount()) {
         return {
@@ -344,5 +401,6 @@
     renderBinderPdf,
     renderBinderPdfWithPlaywright,
     renderBinderPdfInBrowser,
+    embedCanvasAsPrintablePages,
   };
 });
