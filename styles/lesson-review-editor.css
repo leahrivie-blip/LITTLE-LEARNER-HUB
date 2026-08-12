@@ -8,8 +8,92 @@
   overflow: auto;
 }
 
+/* Keep Draft Review / admin chrome from peeking under the focused editor */
+body.llh-lre-open {
+  overflow: hidden;
+}
+
+body.llh-lre-open #adminDraftReviewQueueApp,
+body.llh-lre-open .site-footer,
+body.llh-lre-open .cookie-consent,
+body.llh-lre-open [data-cookie-banner],
+body.llh-lre-open .cookie-banner,
+body.llh-lre-open .llh-meta-cookie-notice,
+body.llh-lre-open #llhMetaCookieNotice,
+body.llh-lre-screenshot .llh-meta-cookie-notice,
+body.llh-lre-screenshot #llhMetaCookieNotice,
+body.llh-lre-screenshot .cookie-consent,
+body.llh-lre-screenshot [data-cookie-banner],
+body.llh-lre-screenshot .cookie-banner,
+body.llh-lre-screenshot .site-footer {
+  display: none !important;
+}
+
 #adminLessonReviewEditorHost[hidden] {
   display: none !important;
+}
+
+.llh-lre-core-section {
+  border: 1px solid var(--lre-accent, #2f6f5e);
+  background: rgba(47, 111, 94, 0.06);
+  border-radius: 14px;
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.llh-lre-core-section h4 {
+  margin: 0 0 0.35rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  color: var(--lre-accent, #2f6f5e);
+}
+
+.llh-lre-core-flag {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.llh-lre-core-flag.is-complete {
+  color: var(--lre-ok, #246b45);
+}
+
+.llh-lre-core-flag.is-incomplete,
+.llh-lre-core-flag.is-thin {
+  color: var(--lre-warn, #8a5a12);
+}
+
+.llh-lre-core-flag.is-safety {
+  color: var(--lre-danger, #9b2c2c);
+}
+
+.llh-lre-activity-editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.llh-lre-figure {
+  margin: 0.65rem 0 1rem;
+}
+
+.llh-lre-figure img {
+  display: block;
+  max-width: min(100%, 420px);
+  border-radius: 0.55rem;
+  border: 1px solid var(--lre-line, #d7e0d9);
+  background: #fff;
+}
+
+.llh-lre-figure figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--lre-muted, #5c6b63);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
 }
 
 .llh-lre {
@@ -336,15 +420,23 @@
   border-radius: 10px;
 }
 
-/* Screenshot mode: hide admin chrome + unrelated controls */
+/* Screenshot mode: hide admin chrome + unrelated floating controls */
 body.llh-lre-screenshot #adminSectionNav,
+body.llh-lre-screenshot .admin-workspace-sidebar,
 body.llh-lre-screenshot .admin-sidebar-brand,
 body.llh-lre-screenshot .admin-sidebar-footer,
 body.llh-lre-screenshot .tk-director-host,
 body.llh-lre-screenshot .tk-quality-host,
 body.llh-lre-screenshot .admin-content-filters,
 body.llh-lre-screenshot .admin-content-bulk-bar,
-body.llh-lre-screenshot #adminCurriculumLessonPlanList {
+body.llh-lre-screenshot #adminCurriculumLessonPlanList,
+body.llh-lre-screenshot .after-action-prompt,
+body.llh-lre-screenshot .llh-action-toast,
+body.llh-lre-screenshot [data-llh-floating],
+body.llh-lre-screenshot .llh-floating-control,
+body.llh-lre-screenshot .site-header,
+body.llh-lre-screenshot .global-nav,
+body.llh-lre-screenshot #siteHeader {
   display: none !important;
 }
 
@@ -352,6 +444,12 @@ body.llh-lre-screenshot #adminCurriculumLessonPlanList {
 .llh-lre.is-screenshot-mode .llh-lre-nav,
 .llh-lre.is-screenshot-mode .llh-lre-approve-row,
 .llh-lre.is-screenshot-mode .llh-lre-header .form-message {
+  display: none !important;
+}
+
+/* Keep one open activity clean — hide the card grid in screenshot mode */
+.llh-lre.is-screenshot-mode.has-open-activity .llh-lre-activity-cards,
+.llh-lre.is-screenshot-mode.has-open-activity .llh-lre-activity-list > .muted-copy {
   display: none !important;
 }
 
@@ -368,14 +466,39 @@ body.llh-lre-screenshot #adminCurriculumLessonPlanList {
   margin: 0 auto;
 }
 
+/* Preserve lesson title, section title, activity name, labels, contents, warnings */
+.llh-lre.is-screenshot-mode .llh-lre-header h1,
+.llh-lre.is-screenshot-mode [data-lre-section-chrome] h2,
+.llh-lre.is-screenshot-mode [data-lre-activity-title],
+.llh-lre.is-screenshot-mode .llh-lre-label,
+.llh-lre.is-screenshot-mode [data-lre-core-missing],
+.llh-lre.is-screenshot-mode [data-lre-core-blockers],
+.llh-lre.is-screenshot-mode textarea,
+.llh-lre.is-screenshot-mode input,
+.llh-lre.is-screenshot-mode select {
+  visibility: visible !important;
+}
+
 body.llh-lre-open #adminSectionNav {
   pointer-events: none;
   opacity: 0.35;
 }
 
-body.llh-lre-screenshot #adminSectionNav {
+body.llh-lre-screenshot #adminSectionNav,
+body.llh-lre-screenshot .admin-workspace-sidebar {
   display: none !important;
   opacity: 1;
+}
+
+@media (max-width: 900px) {
+  body.llh-lre-screenshot .admin-workspace-shell {
+    display: block;
+  }
+
+  body.llh-lre-screenshot .admin-workspace-main {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 900px) {

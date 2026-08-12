@@ -800,16 +800,43 @@ async function main() {
             }
           });
           await page.waitForTimeout(1500);
-          const editorOpen = await page.evaluate(() => document.body.classList.contains("tk-enrich-open"));
+          const editorOpen = await page.evaluate(() => (
+            document.body.classList.contains("llh-lre-open")
+            || document.body.classList.contains("tk-enrich-open")
+            || Boolean(window.LLHLessonReviewEditor?.isOpen?.())
+            || Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.())
+          ));
           ok(editorOpen === true, `Open Review opens editor (${viewport.name})`);
           const editorProbe = await page.evaluate(() => {
+            const lreOpen = Boolean(window.LLHLessonReviewEditor?.isOpen?.());
+            if (lreOpen) {
+              const state = window.LLHLessonReviewEditor.getState?.() || {};
+              const sections = (window.LLHLessonReviewEditor.SECTION_DEFS || []).map((row) => row.label);
+              const header = document.querySelector(".llh-lre-header")?.textContent || "";
+              const chrome = document.querySelector("[data-lre-section-chrome]")?.textContent || "";
+              const activityCards = document.querySelectorAll(".llh-lre-activity-card").length;
+              // Open Activities to count cards when not already there.
+              return {
+                mode: "lesson-review",
+                sectionId: state.sectionId || "",
+                sections,
+                header,
+                chrome,
+                activityCards,
+                stepLabel: header,
+                workflow: header,
+                flatCount: activityCards,
+                activityOf: [],
+                titles: sections,
+                flagOff: (window.effectiveSiteContent?.()?.featureFlags?.teachingKitEnrichmentEditor !== true),
+              };
+            }
             const draft = window.LLHTeachingKitEnrichmentEditor?.getDraft?.() || {};
             const acts = window.LLHTeachingKitEnrichment?.flattenLessonActivities?.(
               { id: "probe" },
               [],
               draft,
             ) || [];
-            // Prefer live navigator if present
             const navText = document.querySelector(".tk-enrich-chrome, [data-enrich-activity-nav]")?.textContent || "";
             const activityOf = (navText.match(/Activity\s+(\d+)\s+of\s+(\d+)/i) || []).slice(1);
             const stepLabel = document.querySelector("[data-publish-ready-step]")?.textContent?.trim() || "";
@@ -818,6 +845,7 @@ async function main() {
               .map((el) => el.textContent.trim())
               .filter(Boolean);
             return {
+              mode: "enrichment",
               flatCount: acts.length,
               activityOf,
               stepLabel,
@@ -827,7 +855,26 @@ async function main() {
             };
           });
           ok(editorProbe.flagOff === true, `Open Review works with enrichment editor flag off (${viewport.name})`);
-          if (editorProbe.activityOf[1]) {
+          if (editorProbe.mode === "lesson-review") {
+            ok(editorProbe.sections.includes("Activities"), `section editor has Activities (${viewport.name})`);
+            ok(editorProbe.sections.includes("Preview / Publish"), `section editor has Preview / Publish (${viewport.name})`);
+            // Navigate to Activities and confirm cards for the disposable Mon–Fri kit.
+            await page.evaluate(() => {
+              const btn = document.querySelector('[data-lre-section="activities"]');
+              if (btn && btn.offsetParent !== null) {
+                btn.click();
+                return;
+              }
+              const sel = document.querySelector("[data-lre-section-select]");
+              if (sel) {
+                sel.value = "activities";
+                sel.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+            });
+            await page.waitForTimeout(350);
+            const activityCards = await page.locator(".llh-lre-activity-card").count();
+            ok(activityCards === 15, `section editor shows 15 activity cards (${viewport.name}: ${activityCards})`);
+          } else if (editorProbe.activityOf[1]) {
             ok(Number(editorProbe.activityOf[1]) === 15, `editor Activity N of 15 (${viewport.name}: ${editorProbe.activityOf.join("/")})`);
           } else {
             ok(editorProbe.flatCount === 15, `editor flatten count 15 with queue draft (${viewport.name}: ${editorProbe.flatCount})`);
@@ -837,12 +884,19 @@ async function main() {
           const shotEditor = path.join(ARTIFACT_DIR, `open-review-${viewport.name}.png`);
           await page.screenshot({ path: shotEditor, fullPage: true });
           report.screenshots.push(shotEditor);
-          const exit = page.locator("[data-enrich-exit]").first();
-          if (await exit.count()) {
-            await exit.click({ force: true }).catch(() => {});
+          const exitLre = page.locator("[data-lre-back]").first();
+          const exitEnrich = page.locator("[data-enrich-exit]").first();
+          if (await exitLre.count()) {
+            await exitLre.click({ force: true }).catch(() => {});
+            await page.waitForTimeout(900);
+          } else if (await exitEnrich.count()) {
+            await exitEnrich.click({ force: true }).catch(() => {});
             await page.waitForTimeout(900);
           } else {
             await page.evaluate(() => {
+              if (window.LLHLessonReviewEditor?.close) {
+                window.LLHLessonReviewEditor.close({ force: true, skipReturnNavigation: true });
+              }
               if (window.LLHTeachingKitEnrichmentEditor?.close) {
                 window.LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
               }

@@ -12,16 +12,16 @@
   ];
 
   const STATUS_LABELS = {
-    submitted: "Submitted",
-    in_review: "In Review",
-    revision_requested: "Revision Requested",
-    revised: "Revised",
-    ready_for_owner_approval: "Ready for Owner Approval",
+    submitted: "Draft",
+    in_review: "Ready for Owner Review",
+    revision_requested: "Needs Changes",
+    revised: "Ready for Owner Review",
+    ready_for_owner_approval: "Ready for Owner Review",
     approved: "Approved",
     published: "Published",
     discarded: "Discarded",
-    rolled_back: "Rolled Back",
-    failed_validation: "Failed Validation",
+    rolled_back: "Draft",
+    failed_validation: "Blocked",
   };
 
   const PUBLISH_PHRASE = "PUBLISH TEACHING KIT";
@@ -122,6 +122,7 @@
     state.publishPanelOpen = false;
     state.publishConfirm = "";
     state.reviewNotes = data.entry?.reviewNotes || "";
+    render();
   }
 
   function scoreCell(value) {
@@ -474,10 +475,9 @@
         <div class="tk-draft-score-row" style="margin-bottom:0.75rem;">
           ${scoreBadge("Structural", entry.scores?.structuralScore ?? list.structuralScore)}
           ${scoreBadge("Premium", entry.scores?.premiumScore ?? list.premiumScore)}
-          <span class="tag">${esc(entry.scores?.workflow || list.workflow || "—")}</span>
-          <span class="tag ${hardBlocked(list) ? "cover-quality-needs-upgrade" : ""}">Library ${esc(entry.scores?.libraryStatus || list.libraryStatus || "—")}</span>
+          ${statusBadge(list)}
         </div>
-        <p class="muted-copy">${esc(entry.scores?.note || "Scores are diagnostic only. Hard blockers control readiness.")}</p>
+        <p class="muted-copy">${esc(entry.scores?.note || "Scores are diagnostic only. Hard blockers control readiness. One owner status only — never Publish Ready while blocked.")}</p>
         <div><h4>Blockers</h4>${renderBlockerList(list)}</div>
         <div class="form-actions tk-draft-review-actions">
           <button type="button" class="primary-button" data-draft-review-open-editor>Open Review</button>
@@ -662,7 +662,7 @@
         lessonPlan,
         draftResourceIds,
         resourceApprovals: approvals,
-        sectionId: options.mode === "preview" ? "publish" : "quality",
+        sectionId: options.mode === "preview" ? "publish" : (options.sectionId || "basics"),
         ...options,
       });
       if (openedReview) {

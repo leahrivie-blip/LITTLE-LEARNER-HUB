@@ -8,39 +8,50 @@
 
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const SECTION_DEFS = [
-    { id: "basics", label: "Basics & Cover", blurb: "Title, age group, theme, cover image, and draft status for this lesson." },
-    { id: "overview", label: "Overview", blurb: "The weekly story teachers read first — overview, vocabulary, and adaptations." },
-    { id: "objectives", label: "Learning Objectives", blurb: "What children practice this week. Use clear, observable language." },
-    { id: "materials", label: "Materials, Preparation & Safety", blurb: "Weekly materials, prep notes, and safety — not a copy of each daily list." },
-    { id: "monday", label: "Monday", blurb: "Monday focus, schedule pieces, book, song, and that day’s activities." },
-    { id: "tuesday", label: "Tuesday", blurb: "Tuesday focus, schedule pieces, book, song, and that day’s activities." },
-    { id: "wednesday", label: "Wednesday", blurb: "Wednesday focus, schedule pieces, book, song, and that day’s activities." },
-    { id: "thursday", label: "Thursday", blurb: "Thursday focus, schedule pieces, book, song, and that day’s activities." },
-    { id: "friday", label: "Friday", blurb: "Friday focus, schedule pieces, book, song, and that day’s activities." },
-    { id: "reusable", label: "Reusable Activities", blurb: "Cross-day or reusable activity notes that are not tied to a single weekday." },
-    { id: "songs", label: "Songs", blurb: "Verified song details, motions, teaching directions, and weekday placement." },
+    { id: "basics", label: "Basics", blurb: "Title, age, theme, cover, overview, objectives, materials, and family connection." },
+    { id: "week", label: "Week Plan", blurb: "Monday–Friday focus, objectives, and schedule — one week view without opening every activity." },
+    { id: "activities", label: "Activities", blurb: "Activity cards first. Open only one activity at a time to edit directions, materials, and tips." },
     { id: "books", label: "Books", blurb: "Complete book details and discussion prompts teachers can use aloud." },
+    { id: "songs", label: "Songs", blurb: "Verified song details, motions, teaching directions, and weekday placement." },
     { id: "printables", label: "Printables", blurb: "Linked printable packs with page previews and owner approval actions." },
-    { id: "images", label: "Example Images", blurb: "Real classroom example images labeled by activity and purpose." },
+    { id: "images", label: "Images", blurb: "Real classroom images labeled by lesson, activity, and purpose. Draft until published." },
     { id: "toolkit", label: "Teacher Toolkit", blurb: "Prep checklist, tips, and binder-ready teacher supports." },
-    { id: "family", label: "Family Connection", blurb: "Simple home connection ideas families can try without special materials." },
     { id: "quality", label: "Quality Review", blurb: "Honest blockers. Click any item to jump to the exact section or activity." },
-    { id: "publish", label: "Preview & Publish", blurb: "Compare draft vs published, preview layouts, and confirm before publishing." },
+    { id: "publish", label: "Preview / Publish", blurb: "Compare draft vs published, preview layouts, and confirm before publishing." },
   ];
 
+  const IMAGE_REQUIREMENT_OPTIONS = Object.freeze([
+    { id: "no_image_needed", label: "No image needed" },
+    { id: "optional", label: "Optional" },
+    { id: "setup_needed", label: "Setup image needed" },
+    { id: "finished_example_needed", label: "Finished example needed" },
+    { id: "both_setup_and_finished", label: "Both setup and finished example needed" },
+  ]);
+
+  /** Core Activity fields — must be meaningful before an activity counts Complete. */
+  const CORE_ACTIVITY_FIELDS = Object.freeze([
+    { key: "ageModifications", label: "Recommended age", minWords: 1, example: "Toddler (18–36 months); offer more adult support for younger friends." },
+    { key: "durationMinutes", label: "Estimated duration", minWords: 1, example: "10–15 minutes" },
+    { key: "objective", label: "Activity objective", minWords: 4, example: "Toddlers practice gentle touch while exploring whole apples with sight and smell." },
+    { key: "description", label: "What children will do", minWords: 12, example: "Children sit at a low table with whole apples. They look, touch, and smell the fruit while the teacher narrates stem, skin, cool, and bumpy — without tasting today." },
+    { key: "materials", label: "Materials", minWords: 3, example: "Three whole apples with different skins\nWashable placemats\nDamp cloth" },
+    { key: "preparation", label: "Teacher preparation", minWords: 4, example: "Wash apples. Stage one apple per placemat before arrival. Keep tasting apples refrigerated for later in the week." },
+    { key: "setup", label: "Setup", minWords: 4, example: "Place one apple on each placemat with a damp cloth nearby. Keep tasting for Thursday." },
+    { key: "steps", label: "Step-by-step directions", minWords: 10, example: "1. Invite children to look and gently touch.\n2. Narrate stem, skin, cool, bumpy.\n3. Offer a view-finder for close looking.\n4. End before anyone bites; refrigerate leftovers." },
+    { key: "teacherLanguage", label: "Teacher questions", minWords: 4, example: "What do you notice with your eyes?\nHow does the apple feel in your hands?\nWhere is the stem?" },
+    { key: "observationOpportunities", label: "Learning and observation", minWords: 4, example: "Does the child use new sensory words? Do they stay gentle with the fruit?" },
+    { key: "safetyNotes", label: "Safety and supervision", minWords: 4, example: "Whole apples only — no cutting or tasting today. Watch for mouthing. Adult stays at the table." },
+    { key: "cleanupTips", label: "Cleanup", minWords: 3, example: "Wipe placemats. Refrigerate apples. Return cloths to laundry basket." },
+  ]);
+
   const ACTIVITY_SUBSECTIONS = [
-    { id: "core", label: "Core activity" },
-    { id: "materials", label: "Materials and setup" },
-    { id: "directions", label: "Directions" },
-    { id: "guidance", label: "Teacher guidance" },
-    { id: "learning", label: "Learning and observation" },
-    { id: "adaptations", label: "Adaptations" },
-    { id: "cleanup", label: "Setting and cleanup" },
+    { id: "core", label: "Core Activity" },
+    { id: "enrichment", label: "Enrichment" },
     { id: "images", label: "Images" },
   ];
 
-  const NO_IMAGE_CATEGORIES = /circle|song|music|movement|conversation|discussion|book|story|talk|greeting|transition/i;
-  const MAY_NEED_IMAGE = /art|craft|paint|collage|sensory|setup|printable|project|build|construct|science|experiment/i;
+  const NO_IMAGE_CATEGORIES = /circle|song|music|movement|conversation|discussion|book|story|talk|greeting|transition|self.?explanatory|sound game|freeze dance|sorting|counting/i;
+  const MAY_NEED_IMAGE = /art|craft|paint|collage|sensory|setup|printable|picture card|project|build|construct|science|experiment|invitation|unusual|finished product/i;
 
   const state = {
     open: false,
@@ -192,9 +203,24 @@
     return text(value).length >= 3;
   }
 
-  function meaningfulText(value, minWords = 3) {
-    const words = text(value).split(/\s+/).filter(Boolean);
-    return words.length >= minWords;
+  function meaningfulText(value, minWords = 3, options = {}) {
+    const raw = text(value);
+    if (!raw) return false;
+    if (/^(tbd|todo|n\/?a|none|placeholder|lorem|asdf|xxx|test|add later|coming soon|to be (added|determined)|fix me)\b/i.test(raw)) {
+      return false;
+    }
+    if (/add later|coming soon|to be determined|fill in later|placeholder/i.test(raw) && raw.split(/\s+/).length <= 8) {
+      return false;
+    }
+    if (/^example:/i.test(raw)) return false;
+    const words = raw.split(/\s+/).filter(Boolean);
+    if (words.length < minWords) return false;
+    const title = text(options.title || "").toLowerCase().replace(/[^\w\s]/g, "").trim();
+    const normalized = raw.toLowerCase().replace(/[^\w\s]/g, "").trim();
+    if (title && (normalized === title || normalized === `the ${title}` || normalized === `${title} activity`)) {
+      return false;
+    }
+    return true;
   }
 
   function bookComplete(book) {
@@ -210,36 +236,164 @@
       && meaningfulText(song?.motions || song?.actions || song?.teachingDirections || song?.directions, 3);
   }
 
+  function normalizeImageRequirement(value) {
+    const raw = text(value).toLowerCase().replace(/[\s-]+/g, "_");
+    if (!raw) return "";
+    if (["no_image_needed", "not_needed", "none", "no_image"].includes(raw)) return "no_image_needed";
+    if (["optional"].includes(raw)) return "optional";
+    if (["setup_needed", "setup_only", "setup_required", "setup"].includes(raw)) return "setup_needed";
+    if (["finished_example_needed", "example_only", "example_required", "example_recommended", "finished_example", "example"].includes(raw)) {
+      return "finished_example_needed";
+    }
+    if (["both_setup_and_finished", "setup_and_example", "both", "required"].includes(raw)) {
+      return "both_setup_and_finished";
+    }
+    return raw;
+  }
+
   function imageRequirementForActivity(item) {
-    const forced = text(item?.imageRequirement || item?.ownerImageRequirement);
+    const forced = normalizeImageRequirement(item?.imageRequirement || item?.ownerImageRequirement);
     if (forced) return forced;
+    if (item?.noImageNeeded === true) return "no_image_needed";
     const hay = `${item?.title || ""} ${item?.activityCategory || ""} ${item?.description || ""}`;
     if (NO_IMAGE_CATEGORIES.test(hay) && !MAY_NEED_IMAGE.test(hay)) return "no_image_needed";
-    if (MAY_NEED_IMAGE.test(hay)) return "example_recommended";
+    if (MAY_NEED_IMAGE.test(hay)) return "finished_example_needed";
     return "optional";
   }
 
-  function activityWarnings(item) {
-    const warnings = [];
-    if (!meaningfulText(item?.title, 1)) warnings.push("Add an activity name.");
-    if (!meaningfulText(item?.objective || item?.description, 4)) warnings.push("Add a clear objective or description.");
-    if (!meaningfulText(item?.materials, 2)) warnings.push("List the materials for this activity.");
-    if (!meaningfulText(item?.steps || item?.directions, 4)) warnings.push("Add step-by-step directions.");
+  function imageRequirementLabel(req) {
+    return IMAGE_REQUIREMENT_OPTIONS.find((row) => row.id === req)?.label || String(req || "optional").replace(/_/g, " ");
+  }
+
+  function coreFieldValue(item, key) {
+    if (key === "steps") return item?.steps || item?.directions || "";
+    if (key === "cleanupTips") return item?.cleanupTips || item?.cleanup || item?.resetNotes || "";
+    if (key === "preparation") return item?.preparation || item?.prep || "";
+    if (key === "ageModifications") {
+      return item?.ageModifications || item?.recommendedAge || item?.ageBand || item?.ageGroup || "";
+    }
+    if (key === "durationMinutes") {
+      if (item?.durationMinutes === null || item?.durationMinutes === undefined || item?.durationMinutes === "") {
+        return text(item?.duration || item?.estimatedDuration || "");
+      }
+      return String(item.durationMinutes);
+    }
+    if (key === "observationOpportunities") {
+      return Array.isArray(item?.observationOpportunities)
+        ? item.observationOpportunities.join("\n")
+        : (item?.observationOpportunities || item?.observationFocus || "");
+    }
+    if (key === "teacherLanguage") return item?.teacherLanguage || item?.teacherQuestions || "";
+    return item?.[key] || "";
+  }
+
+  function coreFieldMeaningful(item, field) {
+    const title = text(item?.title);
+    const value = coreFieldValue(item, field.key);
+    if (field.key === "durationMinutes") {
+      const raw = text(value);
+      if (!raw) return false;
+      if (/^(tbd|todo|n\/?a|none|placeholder|add later|coming soon|to be (added|determined))$/i.test(raw)) return false;
+      return true;
+    }
+    return meaningfulText(value, field.minWords, { title });
+  }
+
+  /**
+   * Modular Core Activity validator used by cards, Quality Review, and future lessons.
+   * Incomplete Core fields are review warnings by default. Only safety-critical /
+   * unrunnable / gold-standard-required gaps become blockers.
+   */
+  function assessCoreActivity(item, plan = state.draft) {
+    const title = text(item?.title);
+    const missing = [];
+    if (!meaningfulText(title, 1)) missing.push("Activity name");
+    CORE_ACTIVITY_FIELDS.forEach((field) => {
+      if (!coreFieldMeaningful(item, field)) missing.push(field.label);
+    });
+    const complete = missing.length === 0;
+    const description = coreFieldValue(item, "description");
+    const steps = coreFieldValue(item, "steps");
+    const safetyNotes = coreFieldValue(item, "safetyNotes");
+    const materials = coreFieldValue(item, "materials");
+    const age = text(plan?.age || item?.age || item?.ageBand || item?.recommendedAge || "");
+    const riskHay = `${age} ${title} ${item?.activityCategory || ""} ${materials} ${description} ${steps}`;
+    const elevatedRisk = /infant|toddler|chok|small part|bead|pom.?pom|button|taste|food|eat|cut|scissor|knife|hot|allergen|mouth|coin|marble|glitter|paint|glue/i.test(riskHay);
+    const safetyOk = meaningfulText(safetyNotes, 4, { title });
+    const safetyCritical = !safetyOk && elevatedRisk;
+    const unrunnable = !meaningfulText(steps, 8, { title }) && !meaningfulText(description, 10, { title });
+    const goldRequired = item?.coreRequired === true
+      || item?.goldStandardRequired === true
+      || item?.ownerCoreRequired === true
+      || item?.requireCoreComplete === true;
+    const tooThin = !complete && (
+      missing.length >= 6
+      || (Boolean(text(description)) && !meaningfulText(description, 12, { title }))
+      || (Boolean(text(steps)) && !meaningfulText(steps, 8, { title }))
+    );
+
+    const warnings = missing.map((label) => `Core Activity: add meaningful ${label.toLowerCase()}.`);
+    const blockers = [];
+    if (safetyCritical) {
+      blockers.push("Safety and supervision is missing or too thin for this age/activity risk.");
+    }
+    if (unrunnable) {
+      blockers.push("Provider cannot run this activity — add meaningful “What children will do” and step-by-step directions.");
+    }
+    if (goldRequired && !complete) {
+      blockers.push("Core Activity marked required by gold-standard validation.");
+    }
+
+    let statusLabel = "Complete";
+    if (!complete) {
+      if (safetyCritical) statusLabel = "Missing Safety Detail";
+      else if (tooThin || unrunnable) statusLabel = "Too Thin";
+      else statusLabel = "Needs Work";
+    }
+
+    return {
+      complete,
+      missing,
+      statusLabel,
+      warnings,
+      blockers,
+      tooThin,
+      safetyCritical,
+      unrunnable,
+      goldRequired,
+    };
+  }
+
+  function coreActivityMissing(item, plan) {
+    return assessCoreActivity(item, plan).missing;
+  }
+
+  function coreActivityComplete(item, plan) {
+    return assessCoreActivity(item, plan).complete;
+  }
+
+  function activityWarnings(item, plan) {
+    const assessed = assessCoreActivity(item, plan);
+    const warnings = assessed.warnings.slice();
     const req = imageRequirementForActivity(item);
-    const hasImage = Boolean(text(item?.exampleImageUrl || item?.setupImageUrl || item?.imageUrl));
-    const noImageNeeded = req === "no_image_needed" || item?.noImageNeeded === true;
-    if ((req === "example_recommended" || req === "required") && !hasImage && !noImageNeeded) {
-      warnings.push("This activity likely needs an example image (or mark No image needed).");
+    const hasSetup = Boolean(text(item?.setupImageUrl));
+    const hasExample = Boolean(text(item?.exampleImageUrl || item?.imageUrl));
+    if (req === "setup_needed" && !hasSetup) warnings.push("Add a setup image (or change image requirement).");
+    if (req === "finished_example_needed" && !hasExample) warnings.push("Add a finished example image (or change image requirement).");
+    if (req === "both_setup_and_finished" && (!hasSetup || !hasExample)) {
+      warnings.push("Add both setup and finished example images (or change image requirement).");
     }
     return warnings;
   }
 
-  function activityStatus(item) {
-    const warnings = activityWarnings(item);
+  function activityStatus(item, plan) {
+    const warnings = activityWarnings(item, plan);
+    const core = assessCoreActivity(item, plan);
     const approvals = state.ownerApprovals[`activity:${item._key}`];
-    if (approvals === "approved" && !warnings.length) return "Approved";
-    if (!meaningfulText(item?.title, 1) && !meaningfulText(item?.steps || item?.directions, 1)) return "Not Started";
-    if (warnings.length) return "Needs Work";
+    if (approvals === "approved" && !warnings.length && core.complete) return "Approved";
+    if (!meaningfulText(item?.title, 1) && !meaningfulText(coreFieldValue(item, "steps"), 1)) return "Not Started";
+    // Never mark Complete while Core Activity fields are thin/filler.
+    if (!core.complete || warnings.length) return "Needs Work";
     return "Complete";
   }
 
@@ -260,38 +414,30 @@
       bump(meaningfulText(plan.age, 1), "Age group");
       bump(meaningfulText(plan.theme, 1), "Theme");
       bump(Boolean(text(plan.coverImageUrl)), "Cover image", true);
-    } else if (sectionId === "overview") {
-      bump(meaningfulText(plan.weeklyOverview, 8), "Weekly overview (a short paragraph teachers can scan)");
-      bump(meaningfulText(plan.vocabularyWords, 3), "Weekly vocabulary");
-      bump(meaningfulText(plan.adaptations, 4), "Adaptations", true);
-    } else if (sectionId === "objectives") {
+      bump(meaningfulText(plan.weeklyOverview, 8), "Weekly overview");
       bump(meaningfulText(plan.objectives, 6), "Weekly learning objectives");
-      bump((plan.learningDomains || []).length > 0, "At least one learning domain");
-    } else if (sectionId === "materials") {
       bump(meaningfulText(plan.weeklyMaterials, 6), "Weekly materials list");
-      bump(meaningfulText(plan.observationOpportunities, 4), "Observation opportunities", true);
-    } else if (WEEKDAYS.includes(sectionId)) {
-      const day = plan.dailyPlans?.[sectionId] || emptyDay();
-      bump(meaningfulText(day.theme || day.focus, 1), "Daily focus");
-      bump(meaningfulText(day.objectives, 4), "Daily objectives");
-      bump(meaningfulText(day.materials, 3), "Daily materials (day-specific only — not the full weekly list)");
-      bump(meaningfulText(day.preparation || day.setup, 3) || (day.circleTime || []).length > 0, "Preparation or circle-time plan");
-      bump(meaningfulText(day.schedule, 3) || (day.transitions || []).length > 0 || meaningfulText(day.outdoorPlay, 3), "Schedule / flow for the day");
-      bump((day.books || []).some(bookComplete) || (plan.books || []).some(bookComplete), "Book with discussion prompts");
-      bump((day.songs || []).some(songComplete) || (plan.songs || []).some(songComplete), "Song with motions or teaching directions");
-      const items = Array.isArray(day.items) ? day.items : [];
-      bump(items.some((item) => meaningfulText(item?.title, 1)), "At least one named activity");
-      bump(meaningfulText(day.observationFocus, 3) || (day.observations || []).some((row) => meaningfulText(row, 3)), "Observation focus");
-      bump(meaningfulText(day.teacherQuestions, 3) || items.some((item) => meaningfulText(item?.teacherLanguage, 3)), "Teacher questions / language");
-      bump(meaningfulText(day.familyConnection, 3), "Family connection for the day", true);
-      items.forEach((item, index) => {
-        activityWarnings({ ...item, _key: activityKey(sectionId, item, index) }).forEach((warning) => warnings.push(`${item.title || "Activity"}: ${warning}`));
+      bump(meaningfulText(plan.familyConnection, 5), "Family connection", true);
+    } else if (sectionId === "week") {
+      WEEKDAYS.forEach((dayId) => {
+        const day = plan.dailyPlans?.[dayId] || emptyDay();
+        bump(meaningfulText(day.theme || day.focus, 1), `${dayId}: daily focus`);
+        bump(meaningfulText(day.objectives, 4), `${dayId}: daily objectives`, true);
+        bump(meaningfulText(day.schedule, 3) || (day.transitions || []).length > 0, `${dayId}: schedule / flow`, true);
       });
-    } else if (sectionId === "reusable") {
-      const reusable = flattenActivities(plan).filter((item) => /reusable|anytime|center/i.test(`${item.title} ${item.activityCategory}`));
-      bump(true, "Reusable activities are optional");
-      if (!reusable.length) warnings.push("No reusable/anytime activities tagged yet (optional).");
-      complete = required;
+    } else if (sectionId === "activities") {
+      const items = flattenActivities(plan);
+      bump(items.some((item) => meaningfulText(item?.title, 1)), "At least one named activity");
+      const assessed = items.map((item) => ({ item, core: assessCoreActivity(item, plan) }));
+      const incompleteCore = assessed.filter((row) => !row.core.complete);
+      // Incomplete Core = owner review warnings by default (not lesson-level blockers).
+      // Safety-critical / unrunnable Core gaps are promoted in evaluateQuality via assessCoreActivity.
+      bump(incompleteCore.length === 0, "Every activity has a complete Core Activity section", true);
+      items.forEach((item) => {
+        activityWarnings(item, plan)
+          .filter((warning) => !/^Core Activity:/i.test(warning))
+          .forEach((warning) => warnings.push(`${item.title || "Activity"}: ${warning}`));
+      });
     } else if (sectionId === "songs") {
       const songs = [...(plan.songs || [])];
       WEEKDAYS.forEach((day) => songs.push(...(plan.dailyPlans?.[day]?.songs || [])));
@@ -314,19 +460,16 @@
       const acts = flattenActivities(plan);
       const needing = acts.filter((item) => {
         const req = imageRequirementForActivity(item);
-        return (req === "example_recommended" || req === "required") && !item.noImageNeeded;
+        return ["setup_needed", "finished_example_needed", "both_setup_and_finished"].includes(req);
       });
-      const withImages = needing.filter((item) => text(item.exampleImageUrl || item.setupImageUrl || item.imageUrl));
-      bump(needing.length === 0 || withImages.length === needing.length, "Example images for activities that need them (or mark No image needed)");
-      needing.filter((item) => !text(item.exampleImageUrl || item.setupImageUrl || item.imageUrl)).forEach((item) => {
-        missing.push(`${item.title || "Activity"} needs an example image or “No image needed”.`);
+      needing.forEach((item) => {
+        activityWarnings(item).filter((warning) => /image/i.test(warning)).forEach((warning) => missing.push(`${item.title || "Activity"}: ${warning}`));
       });
+      bump(needing.length === 0 || missing.length === 0, "Images for activities that need them (or mark No image needed / Optional)");
     } else if (sectionId === "toolkit") {
       const toolkit = plan.teachingKit?.teacherToolkit || {};
       bump(meaningfulText(toolkit.overview || toolkit.summary || plan.weeklyOverview, 4), "Teacher toolkit overview");
       bump(fieldFilled(toolkit.prepChecklist) || meaningfulText(toolkit.preparation, 4), "Prep checklist");
-    } else if (sectionId === "family") {
-      bump(meaningfulText(plan.familyConnection, 5), "Weekly family connection");
     } else if (sectionId === "quality") {
       const report = evaluateQuality(plan);
       bump(!report.blockers.length, "No hard publish blockers");
@@ -366,6 +509,7 @@
   function evaluateQuality(plan) {
     const blockers = [];
     const warnings = [];
+    const ownerNotes = [];
     SECTION_DEFS.forEach((section) => {
       if (section.id === "quality" || section.id === "publish") return;
       const info = computeSectionStatus(section.id, plan, { skipPublish: true });
@@ -377,7 +521,7 @@
           activityKey: "",
         });
       }
-      info.warnings.slice(0, 3).forEach((warning, index) => {
+      info.warnings.slice(0, 6).forEach((warning, index) => {
         warnings.push({
           id: `warn:${section.id}:${index}`,
           sectionId: section.id,
@@ -385,17 +529,52 @@
           activityKey: "",
         });
       });
+      if (state.ownerApprovals[`section:${section.id}`] === "rejected") {
+        ownerNotes.push({
+          id: `note:section:${section.id}`,
+          sectionId: section.id,
+          label: `${section.label}: owner requested changes`,
+          activityKey: "",
+        });
+      }
     });
     flattenActivities(plan).forEach((item) => {
-      activityWarnings(item).forEach((warning, index) => {
-        const target = /image/i.test(warning) ? warnings : blockers;
-        target.push({
-          id: `activity:${item._key}:${index}`,
-          sectionId: item.dayOfWeek,
+      const core = assessCoreActivity(item, plan);
+      // Core gaps are warnings unless assessCoreActivity promotes a safety/unrunnable blocker.
+      core.warnings.forEach((warning, index) => {
+        warnings.push({
+          id: `activity-core:${item._key}:${index}`,
+          sectionId: "activities",
           label: `${item.title || "Activity"} (${item.dayOfWeek}): ${warning}`,
           activityKey: item._key,
         });
       });
+      core.blockers.forEach((blocker, index) => {
+        blockers.push({
+          id: `activity-core-block:${item._key}:${index}`,
+          sectionId: "activities",
+          label: `${item.title || "Activity"} (${item.dayOfWeek}): ${blocker}`,
+          activityKey: item._key,
+        });
+      });
+      activityWarnings(item, plan)
+        .filter((warning) => !/^Core Activity:/i.test(warning))
+        .forEach((warning, index) => {
+          warnings.push({
+            id: `activity:${item._key}:${index}`,
+            sectionId: /image/i.test(warning) ? "images" : "activities",
+            label: `${item.title || "Activity"} (${item.dayOfWeek}): ${warning}`,
+            activityKey: item._key,
+          });
+        });
+      if (state.ownerApprovals[`activity:${item._key}`] === "rejected") {
+        ownerNotes.push({
+          id: `note:activity:${item._key}`,
+          sectionId: "activities",
+          label: `${item.title || "Activity"}: owner requested changes`,
+          activityKey: item._key,
+        });
+      }
     });
     const linked = linkedResources(plan);
     if (linked.some((row) => /rejected|revision/i.test(text(row.status)))) {
@@ -414,7 +593,14 @@
         activityKey: "",
       });
     }
-    return { blockers, warnings };
+    return { blockers, warnings, ownerNotes };
+  }
+
+  function ownerSummaryStatus(progress) {
+    if (progress.publishReady) return "Ready for Owner Review";
+    if (progress.blockerCount > 0) return "Blocked";
+    if (progress.warningCount > 0) return "Needs Review";
+    return "Draft";
   }
 
   function overallProgress(plan) {
@@ -422,19 +608,26 @@
     const required = rows.reduce((sum, row) => sum + row.required, 0);
     const complete = rows.reduce((sum, row) => sum + row.complete, 0);
     const percent = required ? Math.round((complete / required) * 100) : 0;
-    const blockers = evaluateQuality(plan).blockers;
+    const report = evaluateQuality(plan);
     const incompleteSections = rows.filter((row) => row.status === "Not Started" || row.status === "Needs Work").length;
     const approvedSections = rows.filter((row) => row.status === "Approved").length;
-    const publishReady = blockers.length === 0 && incompleteSections === 0;
+    const publishReady = report.blockers.length === 0 && incompleteSections === 0;
     return {
       percent,
       required,
       complete,
-      blockerCount: blockers.length,
+      blockerCount: report.blockers.length,
+      warningCount: report.warnings.length,
+      ownerNoteCount: (report.ownerNotes || []).length,
       incompleteSections,
       approvedSections,
       publishReady,
       draftStatus: text(plan.status || "draft"),
+      summaryStatus: ownerSummaryStatus({
+        publishReady,
+        blockerCount: report.blockers.length,
+        warningCount: report.warnings.length,
+      }),
     };
   }
 
@@ -500,13 +693,19 @@
     const status = activityStatus(item);
     const warnings = activityWarnings(item);
     const req = imageRequirementForActivity(item);
+    const core = assessCoreActivity(item);
+    const coreClass = core.complete
+      ? "is-complete"
+      : (core.safetyCritical ? "is-safety" : (core.tooThin || core.unrunnable ? "is-thin" : "is-incomplete"));
+    const domain = item.activityCategory || item.learningDomain || item.domain || "Activity";
     return `
       <button type="button" class="llh-lre-activity-card ${state.openActivityKey === item._key ? "is-open" : ""}" data-lre-open-activity="${esc(item._key)}">
         <strong>${esc(item.title || "Untitled activity")}</strong>
-        <span>${esc(item.activityCategory || "Activity")}</span>
-        <span>${esc(item.dayOfWeek)}</span>
+        <span>${esc(item.dayOfWeek || "")}</span>
+        <span>${esc(domain)}</span>
         ${statusBadge(status)}
-        <span>Images: ${esc(req.replace(/_/g, " "))}</span>
+        <span class="llh-lre-core-flag ${coreClass}" data-lre-core-status="${esc(core.statusLabel)}">Core: ${esc(core.statusLabel)}</span>
+        <span>Images: ${esc(imageRequirementLabel(req))}</span>
         <span>${warnings.length} warning${warnings.length === 1 ? "" : "s"}</span>
       </button>
     `;
@@ -517,98 +716,125 @@
     const day = item.dayOfWeek;
     const index = item._index;
     const base = `dailyPlans.${day}.items.${index}`;
+    const core = assessCoreActivity(item);
+    const coreMissing = core.missing;
+    const req = imageRequirementForActivity(item);
+    const teacherTips = Array.isArray(item.teacherTips) ? item.teacherTips.join("\n") : (item.teacherTips || "");
+    const observationPrompts = Array.isArray(item.observationPrompts)
+      ? item.observationPrompts.join("\n")
+      : (item.observationPrompts || "");
+    const substitutions = Array.isArray(item.substitutions)
+      ? item.substitutions.map((row) => (typeof row === "string" ? row : `${row?.need || ""} → ${row?.use || ""}`)).join("\n")
+      : (item.supplySubstitutions || item.substitutionsText || "");
+    const settingTags = Array.isArray(item.settingTags) ? item.settingTags.join(", ") : (item.groupSetting || item.setting || "");
     return `
       <article class="llh-lre-activity-editor" data-lre-activity-editor="${esc(item._key)}">
         <div class="llh-lre-activity-editor-head">
-          <h3>Editing: ${esc(item.title || "Untitled activity")}</h3>
+          <div>
+            <h3 data-lre-activity-title>Editing: ${esc(item.title || "Untitled activity")}</h3>
+            <p class="muted-copy">${esc(day)} · ${esc(item.activityCategory || "Activity")} · Core: ${esc(core.statusLabel)} · Screenshot this activity to ask for help filling it.</p>
+          </div>
           <button type="button" class="ghost-button" data-lre-close-activity>Close activity</button>
         </div>
-        ${ACTIVITY_SUBSECTIONS.map((sub) => {
-          if (sub.id === "core") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${input("Activity name", `${base}.title`, item.title, "Mirror Play Faces")}
-              ${input("Category", `${base}.activityCategory`, item.activityCategory || "", "Art / Circle Time / Sensory")}
-              ${textarea("Objective", `${base}.objective`, item.objective, "Children notice and name feelings on their own faces.")}
-              ${textarea("Short description", `${base}.description`, item.description, "A quick teacher-facing summary of the play invitation.")}
-            </section>`;
-          }
-          if (sub.id === "materials") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Materials for this activity", `${base}.materials`, item.materials, "Hand mirrors, feeling cards, basket")}
-              ${textarea("Setup", `${base}.setup`, item.setup, "Place mirrors at child height near the feeling cards.")}
-            </section>`;
-          }
-          if (sub.id === "directions") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Directions / steps", `${base}.steps`, item.steps, "1. Invite two friends… 2. Model one feeling…")}
-            </section>`;
-          }
-          if (sub.id === "guidance") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Teacher role", `${base}.teacherRole`, item.teacherRole, "Model, then step back and narrate gently.")}
-              ${textarea("Teacher language / questions", `${base}.teacherLanguage`, item.teacherLanguage, "What do your eyebrows do when you feel surprised?")}
-            </section>`;
-          }
-          if (sub.id === "learning") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Learning goals", `${base}.learningGoalsText`, Array.isArray(item.learningGoals) ? item.learningGoals.join("\n") : (item.learningGoals || ""), "Name two feelings\nNotice a friend’s face")}
-              ${textarea("Observation opportunities", `${base}.observationOpportunities`, item.observationOpportunities, "Does the child try a new expression without prompting?")}
-              ${textarea("Vocabulary", `${base}.vocabulary`, item.vocabulary, "happy, calm, eyebrows, mirror")}
-            </section>`;
-          }
-          if (sub.id === "adaptations") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Adaptations", `${base}.adaptations`, item.adaptations, "Offer photos instead of mirrors for children who prefer still images.")}
-              ${textarea("Extensions", `${base}.extensions`, item.extensions, "Invite children to draw the face they practiced.")}
-              ${textarea("Age modifications", `${base}.ageModifications`, item.ageModifications, "Toddlers: fewer cards. Pre-K: peer coaching.")}
-            </section>`;
-          }
-          if (sub.id === "cleanup") {
-            return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-              ${textarea("Safety notes", `${base}.safetyNotes`, item.safetyNotes, "Use unbreakable mirrors only.")}
-              ${textarea("Cleanup / reset", `${base}.cleanup`, item.cleanup || item.resetNotes || "", "Wipe mirrors and return cards to the basket.")}
-            </section>`;
-          }
-          return `<section class="llh-lre-sub"><h4>${esc(sub.label)}</h4>
-            ${input("Example image URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "Upload via Images section when possible")}
-            ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
-            <label class="llh-lre-check"><input type="checkbox" data-lre-bool="${base}.noImageNeeded" ${item.noImageNeeded ? "checked" : ""} /> No image needed for this activity</label>
-            <p class="muted-copy">Circle time, songs, movement, and simple conversations usually do not need an example image. Art setups and unclear end products usually do.</p>
-            ${item.exampleImageUrl ? `<img class="llh-lre-thumb" src="${esc(item.exampleImageUrl)}" alt="Example for ${esc(item.title || "activity")}" />` : ""}
-            ${item.setupImageUrl ? `<img class="llh-lre-thumb" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "activity")}" />` : ""}
-          </section>`;
-        }).join("")}
+        ${core.blockers.length ? `
+          <div class="llh-lre-missing" data-lre-core-blockers>
+            <strong>Blocking Core issues:</strong>
+            <ul>${core.blockers.map((label) => `<li>${esc(label)}</li>`).join("")}</ul>
+          </div>
+        ` : ""}
+        ${coreMissing.length ? `
+          <div class="llh-lre-warnings" data-lre-core-missing>
+            <strong>Core Activity review warnings:</strong>
+            <ul>${coreMissing.map((label) => `<li>${esc(label)}</li>`).join("")}</ul>
+            <p class="muted-copy">These count as review warnings unless they are safety-critical or the activity cannot be run.</p>
+          </div>
+        ` : `<p class="llh-lre-ok">Core Activity fields look complete for this activity.</p>`}
+
+        <section class="llh-lre-sub llh-lre-core-section llh-lre-core-activity" data-lre-core-section>
+          <h4>Core Activity</h4>
+          <p class="muted-copy">Fill these first. One-line filler does not count as complete.</p>
+          ${input("Activity name", `${base}.title`, item.title, "Apple Investigation")}
+          ${input("Weekday", `${base}.dayOfWeek`, item.dayOfWeek || day, "monday")}
+          ${input("Category / developmental domain", `${base}.activityCategory`, item.activityCategory || "", "STEM/Discovery")}
+          ${CORE_ACTIVITY_FIELDS.map((field) => {
+            const pathKey = field.key;
+            const value = coreFieldValue(item, field.key);
+            const rows = field.key === "description" || field.key === "steps"
+              ? 6
+              : (field.key === "ageModifications" || field.key === "durationMinutes" ? 2 : 3);
+            return `
+              <label class="llh-lre-field llh-lre-core-field" data-lre-core-field="${esc(field.key)}">
+                <span class="llh-lre-label">${esc(field.label)}</span>
+                <span class="llh-lre-example">Example: ${esc(field.example)}</span>
+                <textarea data-lre-path="${esc(base)}.${esc(pathKey)}" rows="${rows}">${esc(value)}</textarea>
+              </label>
+            `;
+          }).join("")}
+        </section>
+
+        <section class="llh-lre-sub llh-lre-activity-enrichment" data-lre-enrichment-section>
+          <h4>Enrichment</h4>
+          <p class="muted-copy">Optional depth after Core Activity is solid. Keep tips short and classroom-ready.</p>
+          ${textarea("Group and setting", `${base}.groupSetting`, settingTags, "small group, indoor")}
+          ${textarea("Teacher tips", `${base}.teacherTips`, teacherTips, "Stay at the table and narrate gently. End before anyone bites.")}
+          ${textarea("Supply substitutions", `${base}.substitutionsText`, substitutions, "No view-finders → use empty paper-towel tubes\nNo placemats → use trays")}
+          ${textarea("Observation prompts", `${base}.observationPrompts`, observationPrompts, "Does the child try a new sensory word without prompting?")}
+          ${textarea("Vocabulary", `${base}.vocabulary`, item.vocabulary || "", "apple, stem, skin, cool, bumpy")}
+          ${textarea("Support adaptations", `${base}.supportAdaptations`, item.supportAdaptations || item.adaptations || "", "Offer hand-over-hand exploring for children who need motor support.")}
+          ${textarea("Challenge adaptations", `${base}.challengeAdaptations`, item.challengeAdaptations || item.extensions || "", "Invite children to sort apples by color after looking.")}
+        </section>
+
+        <section class="llh-lre-sub" data-lre-images-section>
+          <h4>Images</h4>
+          <label class="llh-lre-field">
+            <span class="llh-lre-label">Image requirement</span>
+            <select data-lre-path="${esc(base)}.imageRequirement">
+              ${IMAGE_REQUIREMENT_OPTIONS.map((opt) => `<option value="${esc(opt.id)}" ${req === opt.id ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
+            </select>
+          </label>
+          <p class="muted-copy">Circle time, songs, movement, and obvious activities can be No image needed. Art, unclear finished products, printable/card work, and unusual setups usually need pictures.</p>
+          ${textarea("Setup image brief", `${base}.imageBriefSetup`, item.imageBriefSetup || "", "Low table with three whole apples on placemats; damp cloth nearby; no tasting props.")}
+          ${textarea("Finished example image brief", `${base}.imageBriefExample`, item.imageBriefExample || "", "Child-led stamp sheet with imperfect apple prints — not an adult craft model.")}
+          ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
+          ${input("Finished example image URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "")}
+          ${item.setupImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "activity")}" /><figcaption>Setup · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
+          ${item.exampleImageUrl ? `<figure class="llh-lre-figure"><img class="llh-lre-thumb" src="${esc(item.exampleImageUrl)}" alt="Finished example for ${esc(item.title || "activity")}" /><figcaption>Finished example · ${esc(item.title || "Activity")} · ${esc(day)}</figcaption></figure>` : ""}
+        </section>
       </article>
     `;
   }
 
-  function renderWeekday(sectionId) {
-    const day = state.draft.dailyPlans[sectionId] || emptyDay();
-    const items = (day.items || []).map((item, index) => ({
-      ...item,
-      dayOfWeek: sectionId,
-      _key: activityKey(sectionId, item, index),
-      _index: index,
-    }));
-    const open = items.find((item) => item._key === state.openActivityKey) || null;
-    const base = `dailyPlans.${sectionId}`;
+  function renderWeekPlan() {
     return `
-      ${input("Daily focus", `${base}.theme`, day.theme, "Faces & Feelings")}
-      ${textarea("Daily objectives", `${base}.objectives`, day.objectives, "Children practice naming feelings during play.")}
-      ${textarea("Daily materials (day-specific only)", `${base}.materials`, day.materials, "Feeling cards for today’s small group — not the full weekly supply list")}
-      ${textarea("Preparation", `${base}.preparation`, day.preparation || "", "Stage mirrors before arrival; print two extra feeling cards.")}
-      ${textarea("Schedule / flow", `${base}.schedule`, day.schedule || "", "Arrival → circle song → small groups → outdoor → closing")}
-      ${textarea("Book for this day", `${base}.bookNotes`, day.bookNotes || (day.books?.[0]?.title || ""), "The Color Monster — ask: Which color matches your body today?")}
-      ${textarea("Song for this day", `${base}.songNotes`, day.songNotes || (day.songs?.[0]?.title || ""), "If You’re Happy and You Know It — add calm/proud verses")}
+      <p class="muted-copy">Edit the week rhythm here. Open the Activities section to change individual activity directions.</p>
+      ${WEEKDAYS.map((dayId) => {
+        const day = state.draft.dailyPlans[dayId] || emptyDay();
+        const base = `dailyPlans.${dayId}`;
+        const count = Array.isArray(day.items) ? day.items.length : 0;
+        return `
+          <article class="llh-lre-card-block" data-lre-week-day="${esc(dayId)}">
+            <h3>${esc(dayId.charAt(0).toUpperCase() + dayId.slice(1))} · ${count} activit${count === 1 ? "y" : "ies"}</h3>
+            ${input("Daily focus", `${base}.theme`, day.theme || day.focus || "", "Faces & Feelings")}
+            ${textarea("Daily objectives", `${base}.objectives`, day.objectives || "", "Children practice naming feelings during play.")}
+            ${textarea("Schedule / flow", `${base}.schedule`, day.schedule || "", "Arrival → circle song → small groups → outdoor → closing")}
+            ${textarea("Day-specific materials", `${base}.materials`, day.materials || "", "Feeling cards for today’s small group — not the full weekly list")}
+          </article>
+        `;
+      }).join("")}
+    `;
+  }
+
+  function renderActivitiesSection() {
+    const items = flattenActivities(state.draft);
+    const open = items.find((item) => item._key === state.openActivityKey) || null;
+    const coreCompleteCount = items.filter((item) => coreActivityComplete(item)).length;
+    return `
       <div class="llh-lre-activity-list">
-        <h3>Activities</h3>
-        <p class="muted-copy">Open one activity at a time. Summary cards stay visible so you can screenshot a single activity cleanly.</p>
-        <div class="llh-lre-activity-cards">${items.map(renderActivityCard).join("") || "<p class='muted-copy'>No activities yet for this day.</p>"}</div>
+        <p class="muted-copy">Open one activity at a time. Fill the <strong>Core Activity</strong> fields first — then enrichment. Screenshot mode hides sidebar clutter so you can ask for help on that exact activity.</p>
+        <p class="muted-copy">Core complete: ${coreCompleteCount} / ${items.length}</p>
+        <div class="llh-lre-activity-cards">${items.map(renderActivityCard).join("") || "<p class='muted-copy'>No activities in this draft yet.</p>"}</div>
         ${open ? renderOpenActivity(open) : ""}
       </div>
-      ${textarea("Observation focus", `${base}.observationFocus`, day.observationFocus || (Array.isArray(day.observations) ? day.observations.join("\n") : ""), "Does the child try a peer’s suggestion?")}
-      ${textarea("Teacher questions", `${base}.teacherQuestions`, day.teacherQuestions || "", "What helped your body feel calm?")}
-      ${textarea("Family connection", `${base}.familyConnection`, day.familyConnection || "", "Ask at pickup: Which feeling did we practice today?")}
     `;
   }
 
@@ -730,18 +956,31 @@
 
   function renderImagesSection() {
     const acts = flattenActivities(state.draft);
+    const lessonTitle = state.draft.title || "Lesson";
     return `
+      <p class="muted-copy">Images stay draft-only until owner publish. Customers cannot open draft image URLs.</p>
       <div class="llh-lre-image-grid">
         ${acts.map((item) => {
           const req = imageRequirementForActivity(item);
-          const url = item.exampleImageUrl || item.setupImageUrl || item.imageUrl || "";
+          const base = `dailyPlans.${item.dayOfWeek}.items.${item._index}`;
           return `
             <article class="llh-lre-card-block">
               <h3>${esc(item.title || "Activity")}</h3>
-              <p class="muted-copy">${esc(item.dayOfWeek)} · ${esc(item.activityCategory || "Activity")} · ${esc(req.replace(/_/g, " "))}</p>
-              ${url ? `<img class="llh-lre-image" src="${esc(url)}" alt="${esc(item.title || "Activity")} example" />` : `<div class="llh-lre-image llh-lre-image--empty">No image yet</div>`}
-              ${input("Example image URL", `dailyPlans.${item.dayOfWeek}.items.${item._index}.exampleImageUrl`, item.exampleImageUrl || "", "")}
-              <label class="llh-lre-check"><input type="checkbox" data-lre-bool="dailyPlans.${item.dayOfWeek}.items.${item._index}.noImageNeeded" ${item.noImageNeeded ? "checked" : ""} /> No image needed</label>
+              <p class="muted-copy">${esc(lessonTitle)} · ${esc(item.dayOfWeek)} · ${esc(item.activityCategory || "Activity")} · ${esc(imageRequirementLabel(req))}</p>
+              <label class="llh-lre-field">
+                <span class="llh-lre-label">Image requirement</span>
+                <select data-lre-path="${esc(base)}.imageRequirement">
+                  ${IMAGE_REQUIREMENT_OPTIONS.map((opt) => `<option value="${esc(opt.id)}" ${req === opt.id ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
+                </select>
+              </label>
+              ${item.setupImageUrl
+                ? `<figure class="llh-lre-figure"><img class="llh-lre-image" src="${esc(item.setupImageUrl)}" alt="Setup for ${esc(item.title || "Activity")}" /><figcaption>Setup · ${esc(item.title || "Activity")}</figcaption></figure>`
+                : `<div class="llh-lre-image llh-lre-image--empty">No setup image</div>`}
+              ${item.exampleImageUrl || item.imageUrl
+                ? `<figure class="llh-lre-figure"><img class="llh-lre-image" src="${esc(item.exampleImageUrl || item.imageUrl)}" alt="Finished example for ${esc(item.title || "Activity")}" /><figcaption>Finished example · ${esc(item.title || "Activity")}</figcaption></figure>`
+                : `<div class="llh-lre-image llh-lre-image--empty">No finished example</div>`}
+              ${input("Setup image URL", `${base}.setupImageUrl`, item.setupImageUrl || "", "")}
+              ${input("Finished example URL", `${base}.exampleImageUrl`, item.exampleImageUrl || "", "")}
               <div class="form-actions">
                 <button type="button" class="ghost-button" data-lre-approve-image="${esc(item._key)}">Approve</button>
                 <button type="button" class="ghost-button" data-lre-reject-image="${esc(item._key)}">Request Changes</button>
@@ -756,20 +995,21 @@
 
   function renderQualitySection() {
     const report = evaluateQuality(state.draft);
+    const jumpList = (rows, emptyHtml) => `
+      <ul class="llh-lre-blocker-list">
+        ${(rows || []).map((row) => `
+          <li><button type="button" class="llh-lre-blocker-link" data-lre-jump-section="${esc(row.sectionId)}" data-lre-jump-activity="${esc(row.activityKey || "")}">${esc(row.label)}</button></li>
+        `).join("") || emptyHtml}
+      </ul>
+    `;
     return `
-      <p class="muted-copy">Click a blocker to open the exact section or activity that needs work.</p>
-      <h3>Blockers (${report.blockers.length})</h3>
-      <ul class="llh-lre-blocker-list">
-        ${report.blockers.map((row) => `
-          <li><button type="button" class="llh-lre-blocker-link" data-lre-jump-section="${esc(row.sectionId)}" data-lre-jump-activity="${esc(row.activityKey || "")}">${esc(row.label)}</button></li>
-        `).join("") || "<li class='llh-lre-ok'>No hard blockers right now.</li>"}
-      </ul>
-      <h3>Warnings (${report.warnings.length})</h3>
-      <ul class="llh-lre-blocker-list">
-        ${report.warnings.map((row) => `
-          <li><button type="button" class="llh-lre-blocker-link" data-lre-jump-section="${esc(row.sectionId)}" data-lre-jump-activity="${esc(row.activityKey || "")}">${esc(row.label)}</button></li>
-        `).join("") || "<li class='muted-copy'>No quality warnings.</li>"}
-      </ul>
+      <p class="muted-copy">Core Activity gaps are review warnings by default. Only safety-critical, unrunnable, or gold-standard-required Core issues become blockers.</p>
+      <h3>Blocking issues (${report.blockers.length})</h3>
+      ${jumpList(report.blockers, "<li class='llh-lre-ok'>No hard blockers right now.</li>")}
+      <h3>Review warnings (${report.warnings.length})</h3>
+      ${jumpList(report.warnings, "<li class='muted-copy'>No review warnings.</li>")}
+      <h3>Owner notes needed (${(report.ownerNotes || []).length})</h3>
+      ${jumpList(report.ownerNotes, "<li class='muted-copy'>No owner change requests yet.</li>")}
     `;
   }
 
@@ -782,17 +1022,22 @@
     const linked = linkedResources(state.draft);
     const images = flattenActivities(state.draft).map((item) => ({
       title: item.title,
-      ok: Boolean(item.exampleImageUrl || item.setupImageUrl || item.imageUrl || item.noImageNeeded || imageRequirementForActivity(item) === "no_image_needed"),
+      ok: activityWarnings(item).every((warning) => !/image/i.test(warning)),
     }));
+    const ownerStatus = progress.summaryStatus || ownerSummaryStatus(progress);
     return `
       <div class="llh-lre-publish-grid">
         <article class="llh-lre-card-block">
+          <h3>Owner status</h3>
+          <p>${esc(ownerStatus)}</p>
           <h3>Sections complete</h3>
           <p>${sections.filter((row) => row.status === "Complete" || row.status === "Approved").length} / ${sections.length}</p>
           <h3>Sections approved</h3>
           <p>${progress.approvedSections} / ${sections.length}</p>
-          <h3>Outstanding blockers</h3>
+          <h3>Blocking issues</h3>
           <p>${progress.blockerCount}</p>
+          <h3>Review warnings</h3>
+          <p>${progress.warningCount || 0}</p>
         </article>
         <article class="llh-lre-card-block">
           <h3>Printable statuses</h3>
@@ -808,16 +1053,16 @@
         <button type="button" class="ghost-button" data-lre-compare>Compare published vs draft</button>
       </div>
       <div class="llh-lre-preview-frame llh-lre-preview-frame--${esc(state.previewViewport)}" data-lre-preview-frame>
-        <p class="muted-copy">Preview uses the customer Teaching Kit renderer when available. Viewport: ${esc(state.previewViewport)}.</p>
+        <p class="muted-copy">ADMIN PREVIEW — NOT LIVE TO CUSTOMERS. Viewport: ${esc(state.previewViewport)}.</p>
         <div data-lre-preview-host></div>
       </div>
       <div class="llh-lre-publish-confirm">
-        <p><strong>Publish Ready: ${progress.publishReady ? "Yes" : "No"}</strong> — a lesson cannot be Publish Ready while any section is incomplete, blocked, rejected, or waiting on printable/image review.</p>
+        <p><strong>Status: ${esc(ownerStatus)}</strong> — a lesson cannot be Ready for Owner Review while any blocker remains. Publish never runs automatically.</p>
         <label class="llh-lre-field">Type an owner confirmation to publish
           <input data-lre-publish-confirm placeholder="PUBLISH LESSON" value="${esc(state.publishConfirm)}" />
         </label>
         <button type="button" class="primary-button" data-lre-publish ${progress.publishReady && state.publishConfirm === "PUBLISH LESSON" ? "" : "disabled"}>Publish lesson</button>
-        <p class="muted-copy">Publishing is deliberate and never automatic. Prefer Save Draft while reviewing.</p>
+        <p class="muted-copy">Publishing is deliberate and never automatic. Prefer Save Draft while reviewing. Draft Review Publish still requires Approve + typed <code>PUBLISH TEACHING KIT</code>.</p>
       </div>
     `;
   }
@@ -829,40 +1074,18 @@
         ${input("Lesson title", "title", plan.title, "All About Me")}
         ${input("Age group", "age", plan.age, "Preschool")}
         ${input("Theme", "theme", plan.theme, "All About Me")}
-        ${input("Draft status", "status", plan.status || "draft", "draft")}
         ${input("Cover image URL", "coverImageUrl", plan.coverImageUrl || "", "/images/lesson-covers/...")}
         ${plan.coverImageUrl ? `<img class="llh-lre-cover" src="${esc(plan.coverImageUrl)}" alt="Lesson cover" />` : ""}
-      `;
-    }
-    if (sectionId === "overview") {
-      return `
         ${textarea("Weekly overview", "weeklyOverview", plan.weeklyOverview, "This week children explore names, feelings, and what makes each friend unique.")}
-        ${textarea("Weekly vocabulary", "vocabularyWords", plan.vocabularyWords, "unique, feelings, family, friends")}
-        ${textarea("Adaptations", "adaptations", plan.adaptations, "Offer photo supports for dual-language learners.")}
-      `;
-    }
-    if (sectionId === "objectives") {
-      return `
         ${textarea("Learning objectives", "objectives", plan.objectives, "Children will name one feeling and one thing that makes them unique.")}
-        ${textarea("Learning domains (comma separated)", "learningDomainsText", (plan.learningDomains || []).join(", "), "Social-Emotional, Language")}
-      `;
-    }
-    if (sectionId === "materials") {
-      return `
+        ${textarea("Weekly vocabulary", "vocabularyWords", plan.vocabularyWords, "unique, feelings, family, friends")}
         ${textarea("Weekly materials", "weeklyMaterials", plan.weeklyMaterials, "Mirrors, name cards, multicultural crayons, family photo frames")}
-        ${textarea("Preparation notes", "preparationNotes", plan.preparationNotes || plan.teachingKit?.teacherToolkit?.preparation || "", "Prep name cards before Monday arrival.")}
-        ${textarea("Safety notes", "safetyNotes", plan.safetyNotes || "", "Use unbreakable mirrors only.")}
-        ${textarea("Observation opportunities", "observationOpportunities", plan.observationOpportunities, "Notice whether children greet friends by name.")}
+        ${textarea("Adaptations", "adaptations", plan.adaptations, "Offer photo supports for dual-language learners.")}
+        ${textarea("Family connection", "familyConnection", plan.familyConnection, "Ask your child which feeling they practiced and draw it together.")}
       `;
     }
-    if (WEEKDAYS.includes(sectionId)) return renderWeekday(sectionId);
-    if (sectionId === "reusable") {
-      const reusable = flattenActivities(plan).filter((item) => /reusable|anytime|center/i.test(`${item.title} ${item.activityCategory}`));
-      return `
-        <p class="muted-copy">Activities tagged as reusable/anytime/center appear here. Open a weekday to edit the full activity.</p>
-        <div class="llh-lre-activity-cards">${reusable.map(renderActivityCard).join("") || "<p class='muted-copy'>No reusable activities tagged yet.</p>"}</div>
-      `;
-    }
+    if (sectionId === "week") return renderWeekPlan();
+    if (sectionId === "activities") return renderActivitiesSection();
     if (sectionId === "songs") return renderSongsSection();
     if (sectionId === "books") return renderBooksSection();
     if (sectionId === "printables") return renderPrintablesSection();
@@ -874,9 +1097,6 @@
         ${textarea("Prep checklist", "teachingKit.teacherToolkit.preparation", toolkit.preparation || (Array.isArray(toolkit.prepChecklist) ? toolkit.prepChecklist.join("\n") : ""), "Print cards\nStage mirrors\nCue family note")}
         ${textarea("Teacher tips", "teachingKit.teacherToolkit.tips", toolkit.tips || "", "Narrate feelings without forcing a share.")}
       `;
-    }
-    if (sectionId === "family") {
-      return textarea("Family connection", "familyConnection", plan.familyConnection, "Ask your child which feeling they practiced and draw it together.");
     }
     if (sectionId === "quality") return renderQualitySection();
     if (sectionId === "publish") return renderPublishSection();
@@ -919,12 +1139,12 @@
           <div>
             <p class="llh-lre-kicker">Lesson Review & Editor · Owner only</p>
             <h1>${esc(state.draft.title || "Untitled lesson")}</h1>
-            <p class="muted-copy">${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")} · Draft status: ${esc(progress.draftStatus)} · Progress ${progress.percent}% · Blockers ${progress.blockerCount}</p>
+            <p class="muted-copy" data-lre-summary-status>${esc(state.draft.age || "Age")} · ${esc(state.draft.theme || "Theme")} · ${esc(progress.summaryStatus || ownerSummaryStatus(progress))} · Progress ${progress.percent}% · Blocking ${progress.blockerCount} · Warnings ${progress.warningCount || 0}</p>
           </div>
           <div class="llh-lre-header-actions">
             <button type="button" class="ghost-button" data-lre-preview>Preview</button>
             <button type="button" class="primary-button" data-lre-save-draft ${state.saving ? "disabled" : ""}>Save Draft</button>
-            <button type="button" class="ghost-button" data-lre-back>Back to Lesson Plans</button>
+            <button type="button" class="ghost-button" data-lre-back>${state.returnToQueue ? "Back to Draft Review" : "Back to Lesson Plans"}</button>
             <button type="button" class="ghost-button" data-lre-screenshot-toggle>${state.screenshotMode ? "Exit Screenshot mode" : "Screenshot mode"}</button>
           </div>
         </div>
@@ -960,7 +1180,7 @@
     const progress = overallProgress(state.draft);
     el.hidden = false;
     el.innerHTML = `
-      <div class="llh-lre ${state.screenshotMode ? "is-screenshot-mode" : ""}" data-lesson-review-editor>
+      <div class="llh-lre ${state.screenshotMode ? "is-screenshot-mode" : ""} ${state.openActivityKey ? "has-open-activity" : ""}" data-lesson-review-editor data-lre-lesson-title="${esc(state.draft.title || "")}">
         ${renderHeader(progress)}
         <div class="llh-lre-layout">
           ${renderNav()}
@@ -975,6 +1195,9 @@
     `;
     document.body.classList.toggle("llh-lre-open", true);
     document.body.classList.toggle("llh-lre-screenshot", state.screenshotMode);
+    if (state.screenshotMode) {
+      document.querySelector(".llh-meta-cookie-dismiss, [data-cookie-dismiss], #llhMetaCookieNotice button")?.click?.();
+    }
     if (section.id === "publish") mountPreview();
   }
 
@@ -994,6 +1217,142 @@
       });
     });
     return next;
+  }
+
+  function hydratePlanFromEnrichmentDraft(plan, enrichmentDraft) {
+    const next = ensurePlanShape(plan);
+    const draft = clone(enrichmentDraft) || {};
+    next.enrichmentDraft = draft;
+    const week = draft.week && typeof draft.week === "object" ? draft.week : {};
+    if (week.proposedDailyPlans && typeof week.proposedDailyPlans === "object") {
+      next.dailyPlans = ensurePlanShape({ dailyPlans: week.proposedDailyPlans }).dailyPlans;
+    }
+    if (meaningfulText(week.weeklyOverview, 1)) next.weeklyOverview = week.weeklyOverview;
+    if (meaningfulText(week.objectives, 1)) next.objectives = week.objectives;
+    if (meaningfulText(week.weeklyMaterials, 1)) next.weeklyMaterials = week.weeklyMaterials;
+    if (meaningfulText(week.vocabularyWords || week.vocabulary, 1)) {
+      next.vocabularyWords = week.vocabularyWords || (Array.isArray(week.vocabCards) ? week.vocabCards.join("\n") : week.vocabulary);
+    }
+    if (meaningfulText(week.familyConnection, 1)) next.familyConnection = week.familyConnection;
+    if (meaningfulText(week.adaptations, 1)) next.adaptations = week.adaptations;
+    if (Array.isArray(week.books) && week.books.length) next.books = clone(week.books);
+    if (Array.isArray(week.songs) && week.songs.length) next.songs = clone(week.songs);
+    if (week.teacherToolkit && typeof week.teacherToolkit === "object") {
+      next.teachingKit = next.teachingKit || { schemaVersion: 1 };
+      next.teachingKit.teacherToolkit = {
+        ...(next.teachingKit.teacherToolkit || {}),
+        ...clone(week.teacherToolkit),
+      };
+    }
+    const overlays = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
+    WEEKDAYS.forEach((day) => {
+      const items = next.dailyPlans[day].items || [];
+      items.forEach((item, index) => {
+        const keyCandidates = [
+          text(item.sourceKey),
+          text(item.itemId) ? `${next.id}:${item.itemId}` : "",
+          text(item.itemId) ? `${next.id}:${day}:${item.itemId}` : "",
+          activityKey(day, item, index),
+        ].filter(Boolean);
+        const overlay = keyCandidates.map((key) => overlays[key]).find((row) => row && typeof row === "object") || null;
+        if (!overlay) return;
+        [
+          "title", "dayOfWeek", "activityCategory",
+          "ageModifications", "recommendedAge", "durationMinutes", "duration", "estimatedDuration",
+          "objective", "description", "materials", "preparation", "prep", "setup",
+          "steps", "directions", "teacherLanguage", "observationOpportunities",
+          "safetyNotes", "cleanupTips", "cleanup", "resetNotes",
+          "teacherTips", "teacherRole", "observationPrompts", "vocabulary",
+          "supportAdaptations", "challengeAdaptations", "adaptations", "extensions",
+          "groupSetting", "settingTags", "substitutions", "substitutionsText",
+          "exampleImageUrl", "setupImageUrl", "imageUrl", "imageRequirement",
+          "imageBriefSetup", "imageBriefExample",
+        ].forEach((field) => {
+          if (overlay[field] != null && overlay[field] !== "") item[field] = clone(overlay[field]);
+        });
+        // Normalize equivalent age/duration aliases into the Open Review Core keys.
+        if (!text(item.ageModifications)) {
+          const ageAlias = text(overlay.ageModifications || overlay.recommendedAge || item.recommendedAge || item.ageBand);
+          if (ageAlias) item.ageModifications = ageAlias;
+        }
+        if (item.durationMinutes == null || item.durationMinutes === "") {
+          const durAlias = overlay.durationMinutes ?? overlay.duration ?? overlay.estimatedDuration ?? item.duration ?? item.estimatedDuration;
+          if (durAlias != null && durAlias !== "") item.durationMinutes = durAlias;
+        }
+        if (overlay.imageRequirement) item.imageRequirement = normalizeImageRequirement(overlay.imageRequirement);
+        if (overlay.noImageNeeded === true || normalizeImageRequirement(overlay.imageRequirement) === "no_image_needed") {
+          item.noImageNeeded = true;
+        }
+      });
+    });
+    return next;
+  }
+
+  function buildEnrichmentDraftFromPlan(plan) {
+    const existing = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+      ? clone(plan.enrichmentDraft)
+      : { activities: {}, week: {} };
+    if (!existing.activities || typeof existing.activities !== "object") existing.activities = {};
+    if (!existing.week || typeof existing.week !== "object") existing.week = {};
+    existing.week.proposedDailyPlans = clone(plan.dailyPlans || {});
+    existing.week.weeklyOverview = plan.weeklyOverview || existing.week.weeklyOverview || "";
+    existing.week.objectives = plan.objectives || existing.week.objectives || "";
+    existing.week.weeklyMaterials = plan.weeklyMaterials || existing.week.weeklyMaterials || "";
+    existing.week.vocabularyWords = plan.vocabularyWords || existing.week.vocabularyWords || "";
+    existing.week.familyConnection = plan.familyConnection || existing.week.familyConnection || "";
+    existing.week.adaptations = plan.adaptations || existing.week.adaptations || "";
+    existing.week.books = clone(plan.books || existing.week.books || []);
+    existing.week.songs = clone(plan.songs || existing.week.songs || []);
+    existing.week.teacherToolkit = clone(plan.teachingKit?.teacherToolkit || existing.week.teacherToolkit || {});
+    flattenActivities(plan).forEach((item) => {
+      const key = text(item.sourceKey) || (text(item.itemId) ? `${plan.id}:${item.itemId}` : item._key);
+      const prev = existing.activities[key] && typeof existing.activities[key] === "object"
+        ? existing.activities[key]
+        : {};
+      const imageReq = normalizeImageRequirement(item.imageRequirement || imageRequirementForActivity(item));
+      const ageModifications = text(coreFieldValue(item, "ageModifications") || prev.ageModifications || "");
+      const durationRaw = coreFieldValue(item, "durationMinutes");
+      const durationMinutes = durationRaw !== ""
+        ? durationRaw
+        : (prev.durationMinutes != null && prev.durationMinutes !== "" ? prev.durationMinutes : "");
+      existing.activities[key] = {
+        ...prev,
+        title: item.title || prev.title || "",
+        dayOfWeek: item.dayOfWeek || prev.dayOfWeek || "",
+        activityCategory: item.activityCategory || prev.activityCategory || "",
+        ageModifications,
+        durationMinutes,
+        objective: item.objective || "",
+        description: item.description || "",
+        materials: item.materials || "",
+        preparation: item.preparation || item.prep || "",
+        setup: item.setup || "",
+        steps: item.steps || item.directions || "",
+        teacherLanguage: item.teacherLanguage || "",
+        observationOpportunities: item.observationOpportunities || "",
+        safetyNotes: item.safetyNotes || "",
+        cleanupTips: item.cleanupTips || item.cleanup || item.resetNotes || "",
+        groupSetting: item.groupSetting || "",
+        teacherTips: item.teacherTips || prev.teacherTips || "",
+        substitutionsText: item.substitutionsText || "",
+        observationPrompts: item.observationPrompts || prev.observationPrompts || "",
+        vocabulary: item.vocabulary || "",
+        supportAdaptations: item.supportAdaptations || item.adaptations || "",
+        challengeAdaptations: item.challengeAdaptations || item.extensions || "",
+        adaptations: item.supportAdaptations || item.adaptations || "",
+        extensions: item.challengeAdaptations || item.extensions || "",
+        imageBriefSetup: item.imageBriefSetup || "",
+        imageBriefExample: item.imageBriefExample || "",
+        exampleImageUrl: item.exampleImageUrl || "",
+        setupImageUrl: item.setupImageUrl || "",
+        imageRequirement: imageReq,
+        noImageNeeded: imageReq === "no_image_needed",
+      };
+    });
+    existing.updatedAt = new Date().toISOString();
+    const admin = typeof adminSession === "function" ? adminSession() : null;
+    existing.lastEditedBy = String(admin?.email || existing.lastEditedBy || "owner").trim();
+    return existing;
   }
 
   async function saveDraft() {
@@ -1021,6 +1380,57 @@
       const existing = typeof curriculumLessonPlanById === "function"
         ? curriculumLessonPlanById(lessonPlan.id)
         : null;
+
+      // Draft Review Open Review: persist enrichment draft only — never rewrite published lesson body.
+      if (state.ownerDraftReview === true && !state._forcePublish) {
+        const enrichmentDraft = buildEnrichmentDraftFromPlan(lessonPlan);
+        const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
+          ? curriculumExpectedUpdatedAt()
+          : "";
+        const enrichResponse = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            saveMode: "enrichment_draft",
+            expectedUpdatedAt,
+            lessonPlan: { id: lessonPlan.id, enrichmentDraft },
+          }),
+        });
+        const enrichData = await enrichResponse.json().catch(() => ({}));
+        if (!enrichResponse.ok) throw new Error(enrichData.error || `Draft save failed (${enrichResponse.status})`);
+        if (enrichData.curriculum && typeof applyCurriculumState === "function") {
+          applyCurriculumState(enrichData.curriculum, { siteContentUpdatedAt: enrichData.siteContentUpdatedAt });
+        } else if (enrichData.siteContentUpdatedAt && typeof siteContentState !== "undefined" && siteContentState) {
+          siteContentState.updatedAt = enrichData.siteContentUpdatedAt;
+        }
+        if (state.draftReviewId) {
+          const queueExpected = typeof curriculumExpectedUpdatedAt === "function"
+            ? curriculumExpectedUpdatedAt()
+            : (enrichData.siteContentUpdatedAt || "");
+          const queueRes = await fetch("/api/admin/curriculum/draft-review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              action: "save-edited",
+              id: state.draftReviewId,
+              expectedUpdatedAt: queueExpected,
+              enrichmentDraft,
+            }),
+          });
+          const queueData = await queueRes.json().catch(() => ({}));
+          if (!queueRes.ok) throw new Error(queueData.error || `Draft Review save failed (${queueRes.status})`);
+          if (queueData.siteContentUpdatedAt && typeof siteContentState !== "undefined" && siteContentState) {
+            siteContentState.updatedAt = queueData.siteContentUpdatedAt;
+          }
+        }
+        state.draft = hydratePlanFromEnrichmentDraft(lessonPlan, enrichmentDraft);
+        state.originalSnapshot = JSON.stringify(state.draft);
+        state.dirty = false;
+        state.statusText = "Draft saved. Published lesson unchanged.";
+        state.isSuccess = true;
+        return true;
+      }
+
       // Save Draft never publishes. Explicit publish uses _forcePublish.
       // Preserve already-published lessons so routine draft field saves do not demote Farm Animals / live kits.
       if (state._forcePublish) {
@@ -1118,15 +1528,34 @@
       if (typeof showActionFeedback === "function") showActionFeedback("Lesson Review editor host is missing.");
       return false;
     }
-    const plan = ensurePlanShape(incoming);
+    let plan = ensurePlanShape(incoming);
     if (options.enrichmentDraft && typeof options.enrichmentDraft === "object") {
-      plan.enrichmentDraft = clone(options.enrichmentDraft);
+      plan = hydratePlanFromEnrichmentDraft(plan, options.enrichmentDraft);
+    } else if (plan.enrichmentDraft && typeof plan.enrichmentDraft === "object" && options.ownerDraftReview === true) {
+      plan = hydratePlanFromEnrichmentDraft(plan, plan.enrichmentDraft);
     }
+    // Map legacy section ids from older callers onto the simplified menu.
+    const sectionAlias = {
+      overview: "basics",
+      objectives: "basics",
+      materials: "basics",
+      family: "basics",
+      monday: "week",
+      tuesday: "week",
+      wednesday: "week",
+      thursday: "week",
+      friday: "week",
+      reusable: "activities",
+      "preview & publish": "publish",
+      preview: "publish",
+    };
+    const requestedSection = text(options.sectionId || "basics").toLowerCase();
     state.open = true;
     state.planId = plan.id || planId;
     state.draft = plan;
     state.originalSnapshot = JSON.stringify(plan);
-    state.sectionId = options.sectionId || "basics";
+    state.sectionId = sectionAlias[requestedSection] || requestedSection || "basics";
+    if (!SECTION_DEFS.some((row) => row.id === state.sectionId)) state.sectionId = "basics";
     state.openActivityKey = "";
     state.screenshotMode = false;
     state.dirty = false;
@@ -1418,15 +1847,25 @@
       const existing = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(state.planId) : null;
       const hostEl = document.querySelector("[data-lre-preview-host]");
       if (hostEl) {
-        hostEl.innerHTML = `<pre class="llh-lre-compare-pre">${esc(JSON.stringify({
-          publishedStatus: existing?.status || "unknown",
-          draftTitle: state.draft.title,
-          publishedTitle: existing?.title,
-          draftActivities: flattenActivities(state.draft).length,
-          publishedActivities: existing ? flattenActivities(ensurePlanShape(existing)).length : 0,
-          draftResources: (state.draft.resourceIds || []).length,
-          publishedResources: (existing?.resourceIds || []).length,
-        }, null, 2))}</pre>`;
+        const published = existing ? flattenActivities(ensurePlanShape(existing)) : [];
+        const draftActs = flattenActivities(state.draft);
+        const pubTitles = new Set(published.map((item) => text(item.title).toLowerCase()).filter(Boolean));
+        const draftTitles = new Set(draftActs.map((item) => text(item.title).toLowerCase()).filter(Boolean));
+        const added = draftActs.filter((item) => !pubTitles.has(text(item.title).toLowerCase()));
+        const removed = published.filter((item) => !draftTitles.has(text(item.title).toLowerCase()));
+        const list = (rows, empty) => rows.length
+          ? `<ul>${rows.map((item) => `<li><strong>${esc(item.title || "Untitled")}</strong> · ${esc(item.dayOfWeek || "")}</li>`).join("")}</ul>`
+          : `<p class="muted-copy">${esc(empty)}</p>`;
+        hostEl.innerHTML = `
+          <div class="llh-lre-compare-readable">
+            <p><strong>Published status:</strong> ${esc(existing?.status || "unknown")}</p>
+            <p><strong>Draft activities:</strong> ${draftActs.length} · <strong>Published activities:</strong> ${published.length}</p>
+            <p><strong>Draft resources:</strong> ${(state.draft.resourceIds || []).length} · <strong>Published resources:</strong> ${(existing?.resourceIds || []).length}</p>
+            <h4>Activities added in draft</h4>
+            ${list(added, "None")}
+            <h4>Activities removed vs published</h4>
+            ${list(removed, "None")}
+          </div>`;
       }
       return;
     }
@@ -1485,7 +1924,10 @@
       dirty: state.dirty,
     }),
     SECTION_DEFS,
+    CORE_ACTIVITY_FIELDS,
+    assessCoreActivity,
     computeSectionStatus: (sectionId, plan) => computeSectionStatus(sectionId, plan || state.draft),
+    evaluateQuality: (plan) => evaluateQuality(plan || state.draft),
     overallProgress: (plan) => overallProgress(plan || state.draft),
   };
 })(typeof window !== "undefined" ? window : globalThis);
