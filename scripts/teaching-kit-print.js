@@ -652,12 +652,12 @@
       dayIds = [text(opts.day) || "monday"];
     }
 
-    // Only accept singular UI picks for modes that use them. Stale activity/song/
-    // printable IDs left in Print Center state must not widen an unrelated preset.
-    const acceptActivityId = documentMode === "one_activity" || documentMode === "selected_resources";
-    const acceptSongId = documentMode === "one_song" || documentMode === "selected_resources";
-    const acceptBookId = documentMode === "selected_resources";
-    const acceptPrintableId = documentMode === "one_printable" || documentMode === "selected_resources";
+    // Singular UI picks apply only to one_* modes. Selected Resources must use its
+    // checkbox arrays exclusively — never inherit a stale One Activity / One Song /
+    // One Printable id from Print Center state.
+    const acceptActivityId = documentMode === "one_activity";
+    const acceptSongId = documentMode === "one_song";
+    const acceptPrintableId = documentMode === "one_printable";
     const activityIds = asIdList([
       ...(Array.isArray(opts.activityIds) && acceptActivityId ? opts.activityIds : []),
       ...(selectedResources && Array.isArray(selectedResources.activityIds) ? selectedResources.activityIds : []),
@@ -669,9 +669,8 @@
       ...(acceptSongId ? [text(opts.songId)] : []),
     ].filter(Boolean));
     const bookIds = asIdList([
-      ...(Array.isArray(opts.bookIds) && acceptBookId ? opts.bookIds : []),
+      ...(Array.isArray(opts.bookIds) && selectedResources ? opts.bookIds : []),
       ...(selectedResources && Array.isArray(selectedResources.bookIds) ? selectedResources.bookIds : []),
-      ...(acceptBookId ? [text(opts.bookId)] : []),
     ].filter(Boolean));
     const printableIds = asIdList([
       ...(Array.isArray(opts.printableIds) && acceptPrintableId ? opts.printableIds : []),
@@ -2670,6 +2669,122 @@
     return `${lines.join("\n")}\n`;
   }
 
+  /**
+   * Visible width for Fit Page: intersect the host with overflow-x clipping ancestors.
+   * On narrow Teaching Kit layouts the preview host can be wider than a clipped
+   * scrollport (overflow-x:hidden parents). Fitting to clientWidth alone then
+   * scales too large and clips the cover on mobile.
+   *
+   * Height always uses clientHeight — vertical clipping/scroll is expected, and
+   * intersecting overflow-y ancestors while the host is partially scrolled would
+   * collapse avail height and over-shrink the page.
+   */
+  function visiblePreviewHostBox(previewHost) {
+    const fallbackW = Math.max(1, Number(previewHost.clientWidth) || 1);
+    const fallbackH = Math.max(1, Number(previewHost.clientHeight) || 1);
+    if (typeof previewHost.getBoundingClientRect !== "function") {
+      return { width: fallbackW, height: fallbackH, left: 0, top: 0, hostLeft: 0 };
+    }
+    const hostRect = previewHost.getBoundingClientRect();
+    let left = Number(hostRect.left) || 0;
+    let right = Number(hostRect.right) || left + fallbackW;
+    const rootEl = (typeof document !== "undefined" && document.documentElement) ? document.documentElement : null;
+    let el = previewHost.parentElement;
+    while (el && el !== rootEl) {
+      let cs = null;
+      try { cs = typeof getComputedStyle === "function" ? getComputedStyle(el) : null; } catch (_err) { cs = null; }
+      if (cs && typeof el.getBoundingClientRect === "function") {
+        const ox = String(cs.overflowX || "");
+        const clipsX = ox === "hidden" || ox === "auto" || ox === "scroll";
+        if (clipsX) {
+          const r = el.getBoundingClientRect();
+          left = Math.max(left, Number(r.left) || left);
+          right = Math.min(right, Number(r.right) || right);
+        }
+      }
+      el = el.parentElement;
+    }
+    const clippedW = right - left;
+    // Ignore tiny/degenerate horizontal intersections (layout not ready).
+    const width = clippedW >= 32 ? Math.max(1, Math.min(fallbackW, clippedW)) : fallbackW;
+    return {
+      width,
+      height: fallbackH,
+      left: clippedW >= 32 ? left : (Number(hostRect.left) || 0),
+      top: Number(hostRect.top) || 0,
+      hostLeft: Number(hostRect.left) || 0,
+    };
+  }
+
+  /**
+   * Fit Page for the in-app Print Center preview host.
+   * Scales the first page to fully fit the visible host box (contain), centered,
+   * without changing the underlying print/PDF document dimensions.
+   * Does not re-apply after the user sets data-tk-preview-zoom="manual".
+   */
+  function applyPrintPreviewFitPage(previewHost) {
+    if (!previewHost || typeof previewHost.querySelector !== "function") {
+      return { ok: false, reason: "missing_host", scale: 1 };
+    }
+    const frame = previewHost.querySelector(".tk-print-preview-frame, [data-tk-print-preview-document]");
+    const pageEl = frame && frame.querySelector(".tk-print-page");
+    if (!frame || !pageEl) {
+      return { ok: false, reason: "missing_page", scale: 1 };
+    }
+    if (previewHost.getAttribute("data-tk-preview-zoom") === "manual") {
+      return { ok: true, reason: "manual", scale: Number(frame.dataset.tkPreviewScale || 1) || 1 };
+    }
+    frame.style.transform = "none";
+    frame.style.width = "";
+    frame.style.height = "";
+    frame.style.margin = "0";
+    frame.style.marginLeft = "0";
+    frame.style.marginRight = "0";
+    frame.style.marginBottom = "0";
+    // Force layout with natural page size before measuring.
+    void pageEl.offsetWidth;
+    const pad = 12;
+    const visible = visiblePreviewHostBox(previewHost);
+    const availW = Math.max(1, Number(visible.width) - pad);
+    const availH = Math.max(1, Number(visible.height) - pad);
+    const pageW = Math.max(1, Number(pageEl.offsetWidth) || Number(pageEl.getBoundingClientRect().width) || 1);
+    const pageH = Math.max(1, Number(pageEl.offsetHeight) || Number(pageEl.getBoundingClientRect().height) || 1);
+    const pageCount = Math.max(1, frame.querySelectorAll(".tk-print-page").length);
+    const scale = Math.min(availW / pageW, availH / pageH, 1);
+    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    // top-left origin + negative margins collapse the post-transform layout box so
+    // the host does not keep an 8.5in scrollWidth (which caused horizontal scroll).
+    frame.style.transformOrigin = "top left";
+    frame.style.transform = `scale(${safeScale})`;
+    frame.style.width = `${pageW}px`;
+    const scaledW = pageW * safeScale;
+    const scaledH = pageH * pageCount * safeScale;
+    // Center within the *visible* portion of the host (not the overflowed layout width).
+    const visibleOffsetInHost = Math.max(0, Number(visible.left) - Number(visible.hostLeft) || 0);
+    const offsetX = visibleOffsetInHost + Math.max(0, (availW - scaledW) / 2);
+    frame.style.marginLeft = `${Math.round(offsetX)}px`;
+    frame.style.marginRight = `${Math.round(-(pageW * (1 - safeScale)))}px`;
+    frame.style.marginBottom = `${Math.round(-(pageH * pageCount * (1 - safeScale)))}px`;
+    frame.dataset.tkPreviewScale = String(safeScale);
+    previewHost.setAttribute("data-tk-preview-zoom", "fit-page");
+    previewHost.style.setProperty("--tk-preview-fit-scale", String(safeScale));
+    previewHost.style.setProperty("--tk-preview-scaled-height", `${Math.ceil(scaledH)}px`);
+    return {
+      ok: true,
+      reason: "fit-page",
+      scale: safeScale,
+      pageWidth: pageW,
+      pageHeight: pageH,
+      availWidth: availW,
+      availHeight: availH,
+      pageCount,
+      scaledWidth: scaledW,
+      scaledHeight: scaledH,
+      visibleWidth: visible.width,
+      visibleHeight: visible.height,
+    };
+  }
+
   return {
     PRESETS,
     PART_LABELS,
@@ -2700,5 +2815,6 @@
     buildEntireBinderKitHtml,
     buildFullWeeklyLessonPlanHtml,
     buildFullWeeklyLessonPlanText,
+    applyPrintPreviewFitPage,
   };
 });

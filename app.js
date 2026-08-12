@@ -28628,8 +28628,17 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     const previewHost = document.querySelector("[data-tk-print-preview-host]");
     if (previewHost) {
       previewHost.hidden = false;
+      previewHost.removeAttribute("data-tk-preview-zoom");
       const attachNote = renderTeachingKitAttachmentPreviewNote(attachmentPlan, built.manifest);
       previewHost.innerHTML = `${attachNote}<div class="tk-print-preview-frame" data-tk-print-preview-document="${escapeHtml(documentMode)}">${built.html}</div>`;
+      // Fit Page: whole first page visible in the preview host (viewer-only; PDF unchanged).
+      const applyFit = () => {
+        if (typeof printApi.applyPrintPreviewFitPage === "function") {
+          printApi.applyPrintPreviewFitPage(previewHost);
+        }
+      };
+      applyFit();
+      requestAnimationFrame(applyFit);
       const summary = built.summary?.summary || "Selection preview ready";
       const attachSummary = attachmentPlan?.summary ? ` ${attachmentPlan.summary}.` : "";
       if (typeof showToast === "function") {
@@ -28774,11 +28783,13 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
 
     // Print: open the merged PDF (includes actual printable pages) and print that file.
     const pdfUrl = URL.createObjectURL(blob);
+    // Prefer Fit Page when the browser PDF viewer honors open params.
+    const pdfViewUrl = `${pdfUrl}#view=Fit`;
     const printFrame = document.createElement("iframe");
     printFrame.className = "llh-teaching-kit-merged-pdf-frame";
     printFrame.setAttribute("aria-hidden", "true");
     printFrame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
-    printFrame.src = pdfUrl;
+    printFrame.src = pdfViewUrl;
     document.body.appendChild(printFrame);
     const cleanupMerged = () => {
       try { printFrame.remove(); } catch (_err) { /* ignore */ }
@@ -28789,7 +28800,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
         printFrame.contentWindow?.focus();
         printFrame.contentWindow?.print();
       } catch (_err) {
-        window.open(pdfUrl, "_blank", "noopener");
+        window.open(pdfViewUrl, "_blank", "noopener");
       }
       setTimeout(cleanupMerged, 120000);
     }, { once: true });
