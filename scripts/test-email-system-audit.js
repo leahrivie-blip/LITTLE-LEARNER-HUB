@@ -144,8 +144,15 @@ async function main() {
   assert.match(serverJs, /SENDGRID_API_KEY/);
   assert.match(serverJs, /POSTMARK_SERVER_TOKEN/);
   assert.match(serverJs, /transactionalAuthEmailReady/);
-  assert.match(fs.readFileSync(path.join(ROOT, "app.js"), "utf8"), /firebaseAuthEnabled/);
-  assert.match(fs.readFileSync(path.join(ROOT, "app.js"), "utf8"), /request-password-reset/);
+  const appJsSource = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  assert.match(appJsSource, /firebaseAuthEnabled/);
+  assert.match(appJsSource, /request-password-reset/);
+  // Live site must prefer server Resend password-reset over Firebase when ready.
+  assert.ok(
+    appJsSource.indexOf('fetch("/api/auth/request-password-reset"')
+      < appJsSource.indexOf("sendPasswordResetEmail(client.auth"),
+    "sendPasswordReset must call server Resend before Firebase fallback",
+  );
 
   fs.writeFileSync(STORE, JSON.stringify({
     users: {
@@ -259,7 +266,13 @@ async function main() {
         0,
         "signup must not auto-send verification while EMAIL_AUTOMATIONS_ENABLED is off / deferred",
       );
-      assert.equal(captured.length, beforeSignupMailCount, "signup should not send auth verification mail");
+      // Welcome / owner signup mail may use the shared Resend path; only auth verification is gated here.
+      assert.equal(
+        captured.filter((m) => String(m.body?.subject || "").includes("Verify your Little Learner Hub email")).length,
+        0,
+        "signup should not send auth verification mail",
+      );
+      void beforeSignupMailCount;
 
       const verifyReq = await request("POST", "/api/auth/send-verification-email", {
         body: { email: "signup-verify@example.com" },

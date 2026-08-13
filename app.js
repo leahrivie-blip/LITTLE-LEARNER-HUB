@@ -16271,7 +16271,29 @@ async function completeForcedPasswordChange(newPassword, confirmPassword) {
 async function sendPasswordReset(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
+  const neutralMessage = "If an account exists for that email, password reset instructions have been sent.";
   console.info("[auth] password_reset_request", { email: cleanEmail, firebase: firebaseAuthEnabled });
+  // Prefer the shared Resend transactional path (same provider as other production emails).
+  // Firebase Auth reset remains a fallback only when the server provider is not ready.
+  try {
+    const response = await fetch("/api/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data.delivery && data.delivery !== "not_ready") {
+      // sent | skipped | failed — identical public response (no account enumeration).
+      console.info("[auth] password_reset_email_sent", {
+        email: cleanEmail,
+        via: "server",
+        delivery: data.delivery === "sent" ? "sent" : "accepted",
+      });
+      return data.message || neutralMessage;
+    }
+  } catch (error) {
+    console.warn("[auth] server_password_reset_unavailable", error);
+  }
   if (firebaseAuthEnabled) {
     const client = await getFirebaseAuthClient();
     const resetUrl = window.location.origin && window.location.origin !== "null"
@@ -16282,26 +16304,12 @@ async function sendPasswordReset(email) {
         url: resetUrl,
         handleCodeInApp: false,
       });
-      console.info("[auth] password_reset_email_sent", { email: cleanEmail });
-      return "Password reset email sent. Please check your inbox (and spam folder). The link usually stays valid for about an hour — request another if it expires.";
+      console.info("[auth] password_reset_email_sent", { email: cleanEmail, via: "firebase" });
+      return neutralMessage;
     } catch (error) {
-      console.error("[auth] password_reset_email_failed", { email: cleanEmail, code: error?.code, message: error?.message });
+      console.error("[auth] password_reset_email_failed", { email: cleanEmail, code: error?.code });
       throw error;
     }
-  }
-  // Gated server Resend path — only used when Firebase is off and Resend+DNS are ready.
-  try {
-    const response = await fetch("/api/auth/request-password-reset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: cleanEmail }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok && data.delivery === "sent") {
-      return data.message || "If that email is in Little Learner Hub, a password reset link has been sent.";
-    }
-  } catch (error) {
-    console.warn("[auth] server_password_reset_unavailable", error);
   }
   const token = `demo-reset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   localStorage.setItem("llhDemoResetToken", JSON.stringify({
