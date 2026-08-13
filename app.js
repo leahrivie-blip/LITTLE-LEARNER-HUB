@@ -568,6 +568,21 @@ let formBuilderState = {
   originTemplateId: "",
   mode: "create", // create | edit | customize
   previewOpen: false,
+  /** Enrollment baseline extras (testing Forms spine). */
+  formKind: "",
+  sections: [],
+  enrollmentConfig: null,
+  packFormId: "",
+  resourceId: "",
+  editingSectionId: "",
+  enrollUiMode: "edit", // edit | preview
+  /** Shared Forms Center extras (branding / Question Bank / audience). */
+  branding: { inherit: true, hideAll: false, showLogo: true, showProgramName: true, showContact: true, headerAlign: "left", showLlhFooter: true },
+  intendedAudience: "family",
+  starterKey: "",
+  questionBankOpen: false,
+  questionBankQuery: "",
+  questionBankCategory: "",
 };
 /** Wave 4 — Confirm & Send wizard (one modular flow; not a second assignment system). */
 let assignFlowState = null;
@@ -8089,10 +8104,10 @@ const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
 const HOME_DAYCARE_FORMS_PACK = Object.freeze([
   {
     id: "hdh-pack-enrollment",
-    title: "Enrollment Packet",
+    title: "Enrollment Form",
     category: "Enrollment",
     resourceId: "form-enrollment-forms-enrollment-packet",
-    description: "Start-of-care checklist and family signatures.",
+    description: "Baseline childcare enrollment packet — customize sections, schedule, permissions, and print blank.",
   },
   {
     id: "hdh-pack-emergency",
@@ -9194,6 +9209,12 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
   const fieldSnapshot = Array.isArray(formSpec.fields)
     ? formSpec.fields.map((field, index) => ({ ...field, order: index }))
     : [];
+  const shared = getFormsSharedBuilderApi();
+  const brandingResolved = shared?.resolveBranding
+    ? shared.resolveBranding(getProgramSettings() || {}, formSpec.branding || null)
+    : null;
+  const formsBranding = formSpec.formsBranding
+    || (shared?.snapshotBranding && brandingResolved ? shared.snapshotBranding(brandingResolved) : null);
   const saved = appendChildRecord("Documents", {
     childId,
     title,
@@ -9218,6 +9239,7 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     providerReviewed: false,
     assigneeType: "child",
     requiresSignature: formSpec.requiresSignature !== false,
+    formsBranding,
   });
   return saved;
 }
@@ -9645,6 +9667,7 @@ function openAssignSendFlow(seed = {}) {
     shareWithFamily: seed.shareWithFamily !== false,
     requiresSignature: seed.requiresSignature != null ? seed.requiresSignature !== false : formSpec.requiresSignature !== false,
   });
+  assignFlowState.programSettings = getProgramSettings() || {};
   assignFlowState.open = true;
   assignFlowState.step = "recipients";
   assignFlowState.idempotencyKey = api.newIdempotencyKey();
@@ -10271,6 +10294,221 @@ function getFormBuilderApi() {
     || null;
 }
 
+function getEnrollmentFormBuilderApi() {
+  return (typeof window !== "undefined" && window.LlhEnrollmentFormBuilder)
+    || (typeof globalThis !== "undefined" && globalThis.LlhEnrollmentFormBuilder)
+    || null;
+}
+
+function getFormsSharedBuilderApi() {
+  return (typeof window !== "undefined" && window.LlhFormsSharedBuilder)
+    || (typeof globalThis !== "undefined" && globalThis.LlhFormsSharedBuilder)
+    || null;
+}
+
+function currentFormsBrandingResolved() {
+  const shared = getFormsSharedBuilderApi();
+  const settings = getProgramSettings() || {};
+  if (shared?.resolveBranding) {
+    return shared.resolveBranding(settings, formBuilderState.branding || null);
+  }
+  return {
+    programName: settings.programName || settings.businessName || "",
+    address: settings.address || "",
+    phone: settings.contactPhone || settings.phone || "",
+    email: settings.contactEmail || settings.email || "",
+    website: settings.website || "",
+    logoDataUrl: settings.logoDataUrl || "",
+    showLogo: Boolean(settings.logoDataUrl),
+    showProgramName: true,
+    showContact: true,
+    headerAlign: "left",
+    showLlhFooter: true,
+    llhFooterText: "Created with Little Learner Hub",
+  };
+}
+
+function getEnrollmentBaselineApi() {
+  return (typeof window !== "undefined" && window.LlhEnrollmentBaseline)
+    || (typeof globalThis !== "undefined" && globalThis.LlhEnrollmentBaseline)
+    || getFormBuilderApi()?.enrollmentBaseline
+    || null;
+}
+
+function isEnrollmentFormBuilderTemplate(template = {}) {
+  const baseline = getEnrollmentBaselineApi();
+  if (baseline?.isEnrollmentBaselineTemplate) return baseline.isEnrollmentBaselineTemplate(template);
+  return String(template.formKind || "") === "enrollment_baseline"
+    || String(template.packFormId || "") === "hdh-pack-enrollment";
+}
+
+function currentEnrollmentBuilderTemplate() {
+  return {
+    id: formBuilderState.templateId,
+    title: formBuilderState.title,
+    category: formBuilderState.category,
+    body: formBuilderState.body,
+    fields: formBuilderState.fields,
+    branding: formBuilderState.branding || null,
+    intendedAudience: formBuilderState.intendedAudience || "family",
+    requiresSignature: formBuilderState.requiresSignature,
+    formKind: formBuilderState.formKind || "enrollment_baseline",
+    sections: formBuilderState.sections || [],
+    enrollmentConfig: formBuilderState.enrollmentConfig || {},
+    packFormId: formBuilderState.packFormId || "hdh-pack-enrollment",
+    resourceId: formBuilderState.resourceId || "",
+    originTemplateId: formBuilderState.originTemplateId || "",
+  };
+}
+
+function seedEnrollmentTemplateFromPack(pack = {}) {
+  const enrollApi = getEnrollmentFormBuilderApi();
+  const baseline = getEnrollmentBaselineApi();
+  if (enrollApi?.ensureEnrollmentTemplate) {
+    return enrollApi.ensureEnrollmentTemplate({
+      id: pack.id,
+      title: baseline?.ENROLLMENT_TEMPLATE_TITLE || "Enrollment Form",
+      category: pack.category || "Enrollment",
+      packFormId: pack.id || "hdh-pack-enrollment",
+      resourceId: pack.resourceId || "",
+      sourceType: "starter",
+    });
+  }
+  if (baseline?.buildEnrollmentBaselineTemplate) {
+    return baseline.buildEnrollmentBaselineTemplate({
+      id: pack.id,
+      title: baseline.ENROLLMENT_TEMPLATE_TITLE,
+      sourceType: "starter",
+    });
+  }
+  return {
+    id: pack.id,
+    title: pack.title || "Enrollment Form",
+    category: pack.category || "Enrollment",
+    body: pack.description || "",
+    fields: [],
+    packFormId: pack.id,
+    resourceId: pack.resourceId || "",
+    sourceType: "starter",
+  };
+}
+
+function rerenderEnrollmentFormBuilder() {
+  const panel = document.querySelector("#hdhFormBuilderPanel");
+  if (window.LlhFormsDirtyState && panel) window.LlhFormsDirtyState.captureFormDrafts(panel, "formBuilder");
+  renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+  const next = document.querySelector("#hdhFormBuilderPanel");
+  if (window.LlhFormsDirtyState && next) window.LlhFormsDirtyState.restoreFormDrafts(next, "formBuilder");
+}
+
+function printEnrollmentBlankForm(template = currentEnrollmentBuilderTemplate()) {
+  const enrollApi = getEnrollmentFormBuilderApi();
+  const settings = getProgramSettings() || {};
+  const programName = settings.programName || settings.businessName || "";
+  const branding = currentFormsBrandingResolved();
+  const text = enrollApi?.renderPrintBlankText
+    ? enrollApi.renderPrintBlankText(template, { programName, branding })
+    : String(template.body || "ENROLLMENT FORM");
+  // Reuse existing print architecture — no second PDF engine.
+  if (typeof printTextDocument === "function") {
+    printTextDocument("Enrollment Form", text);
+  }
+}
+
+function printGenericBlankForm(template = {}) {
+  const shared = getFormsSharedBuilderApi();
+  const branding = currentFormsBrandingResolved();
+  const text = shared?.renderPrintBlankText
+    ? shared.renderPrintBlankText(template, branding)
+    : `${template.title || "Form"}\n\n${template.body || ""}`;
+  if (typeof printTextDocument === "function") {
+    printTextDocument(template.title || "Form", text);
+  }
+}
+
+function saveEnrollmentFormFromBuilder() {
+  const role = getUserRole();
+  if (role === USER_ROLES.ASSISTANT) {
+    showActionFeedback("Assistants cannot manage form templates.");
+    return Promise.resolve(null);
+  }
+  const api = getFormBuilderApi();
+  const baseline = getEnrollmentBaselineApi();
+  let fields = formBuilderState.fields;
+  try {
+    fields = api ? api.normalizeFormFields(fields) : fields;
+  } catch (error) {
+    showActionFeedback(error.message || "Fix field validation errors before saving.");
+    return Promise.resolve(null);
+  }
+  if (baseline?.applyEnrollmentVisibility) {
+    const applied = baseline.applyEnrollmentVisibility({
+      fields,
+      sections: formBuilderState.sections,
+      enrollmentConfig: formBuilderState.enrollmentConfig,
+    });
+    fields = applied.fields;
+    formBuilderState.sections = applied.sections;
+    formBuilderState.enrollmentConfig = applied.enrollmentConfig;
+  }
+  const payload = {
+    id: formBuilderState.templateId || undefined,
+    title: formBuilderState.title || "Enrollment Form",
+    category: formBuilderState.category || "Enrollment",
+    body: formBuilderState.body,
+    bodyText: formBuilderState.body,
+    fields,
+    requiresSignature: formBuilderState.requiresSignature !== false,
+    sourceType: "provider",
+    originTemplateId: formBuilderState.originTemplateId || "",
+    contentVersion: 1,
+    formKind: "enrollment_baseline",
+    sections: formBuilderState.sections || [],
+    enrollmentConfig: formBuilderState.enrollmentConfig || {},
+    packFormId: formBuilderState.packFormId || "hdh-pack-enrollment",
+    resourceId: formBuilderState.resourceId || "form-enrollment-forms-enrollment-packet",
+    libraryCategory: "enrollment",
+    complianceDisclaimer: baseline?.BASELINE_DISCLAIMER || undefined,
+    branding: formBuilderState.branding || { inherit: true },
+    intendedAudience: formBuilderState.intendedAudience || "family",
+  };
+  return Promise.resolve()
+    .then(async () => {
+      if (canUseLaunchBackend()) {
+        const headers = await staffAuthHeaders();
+        if (!headers) throw new Error("Sign in to save templates.");
+        const response = await fetch("/api/program-forms/templates", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Could not save enrollment form.");
+        await ensureProgramFormsLoaded({ force: true });
+        return data.template;
+      }
+      const list = formsProgramTemplates();
+      const id = payload.id || `form-template-${Date.now().toString(36)}`;
+      const saved = { ...payload, id, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() };
+      const next = [saved, ...list.filter((item) => String(item.id) !== String(id))].slice(0, 80);
+      await saveFormsProgramTemplates(next);
+      return saved;
+    })
+    .then((saved) => {
+      if (!saved) return null;
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("formBuilder");
+      formBuilderState.templateId = saved.id;
+      formBuilderState.open = true;
+      showActionFeedback(`Enrollment form “${saved.title}” saved.`);
+      rerenderEnrollmentFormBuilder();
+      return saved;
+    })
+    .catch((error) => {
+      showActionFeedback(error.message || "Could not save enrollment form.");
+      return null;
+    });
+}
+
 function listSystemFormsForLibrary() {
   try {
     if (typeof formGroups !== "object" || !formGroups) return [];
@@ -10290,22 +10528,42 @@ function listSystemFormsForLibrary() {
 
 function openFormBuilderFromTemplate(template, mode = "edit") {
   const api = getFormBuilderApi();
-  const fields = Array.isArray(template?.fields)
-    ? (api ? api.normalizeFormFields(template.fields) : template.fields)
+  const enrollApi = getEnrollmentFormBuilderApi();
+  let source = template || {};
+  if (isEnrollmentFormBuilderTemplate(source) && enrollApi?.ensureEnrollmentTemplate) {
+    source = enrollApi.ensureEnrollmentTemplate(source);
+  }
+  const fields = Array.isArray(source?.fields)
+    ? (api ? api.normalizeFormFields(source.fields) : source.fields)
     : [];
   formBuilderState = {
     open: true,
-    templateId: mode === "customize" || mode === "create" ? "" : String(template?.id || ""),
-    title: String(template?.title || "Custom form"),
-    category: String(template?.category || "Other"),
-    body: String(template?.body || template?.bodyText || ""),
+    templateId: mode === "customize" || mode === "create" ? "" : String(source?.id || ""),
+    title: String(source?.title || "Custom form"),
+    category: String(source?.category || "Other"),
+    body: String(source?.body || source?.bodyText || source?.description || ""),
     fields: fields.map((field, index) => ({ ...field, order: index })),
-    requiresSignature: template?.requiresSignature !== false,
+    requiresSignature: source?.requiresSignature !== false,
     originTemplateId: mode === "customize"
-      ? String(template?.id || template?.originTemplateId || "")
-      : String(template?.originTemplateId || ""),
+      ? String(source?.id || source?.originTemplateId || "")
+      : String(source?.originTemplateId || ""),
     mode,
     previewOpen: false,
+    formKind: String(source?.formKind || (isEnrollmentFormBuilderTemplate(source) ? "enrollment_baseline" : "")),
+    sections: Array.isArray(source?.sections) ? source.sections : [],
+    enrollmentConfig: source?.enrollmentConfig || null,
+    packFormId: String(source?.packFormId || ""),
+    resourceId: String(source?.resourceId || ""),
+    editingSectionId: "",
+    enrollUiMode: "edit",
+    branding: source?.branding && typeof source.branding === "object"
+      ? { ...source.branding }
+      : { inherit: true, hideAll: false, showLogo: true, showProgramName: true, showContact: true, headerAlign: "left", showLlhFooter: true },
+    intendedAudience: String(source?.intendedAudience || source?.audience || "family"),
+    starterKey: String(source?.starterKey || source?.sourceStarterKey || ""),
+    questionBankOpen: false,
+    questionBankQuery: "",
+    questionBankCategory: "",
   };
 }
 
@@ -10340,7 +10598,7 @@ function renderFormBuilderFieldEditor(field, index) {
       <div class="hdh-forms-pack-actions">
         <button class="ghost-button" type="button" data-fb-move-up="${escapeHtml(field.id)}" ${index === 0 ? "disabled" : ""}>Move up</button>
         <button class="ghost-button" type="button" data-fb-move-down="${escapeHtml(field.id)}">Move down</button>
-        <button class="ghost-button" type="button" data-fb-delete-field="${escapeHtml(field.id)}">Delete field</button>
+        <button class="ghost-button" type="button" data-fb-delete-field="${escapeHtml(field.id)}">Delete</button>
       </div>
     </article>
   `;
@@ -10349,26 +10607,87 @@ function renderFormBuilderFieldEditor(field, index) {
 function renderFormBuilderPanel() {
   if (!isHomeDaycareHubTestingEnabled() || !formBuilderState.open) return "";
   const api = getFormBuilderApi();
+  const enrollApi = getEnrollmentFormBuilderApi();
+  const settings = getProgramSettings() || {};
+  const programName = settings.programName || settings.businessName || "";
+  const enrollmentTemplate = currentEnrollmentBuilderTemplate();
+  const useEnrollmentEditor = isEnrollmentFormBuilderTemplate(enrollmentTemplate) && enrollApi;
+
+  const shared = getFormsSharedBuilderApi();
+  const branding = currentFormsBrandingResolved();
+  const brandingHeaderHtml = shared?.renderBrandingHeaderHtml
+    ? shared.renderBrandingHeaderHtml(branding, { escape: escapeHtml, formTitle: formBuilderState.title || "Form" })
+    : "";
+  const llhFooterHtml = shared?.renderLlhFooterHtml
+    ? shared.renderLlhFooterHtml(branding, { escape: escapeHtml })
+    : "";
+  const brandingControls = shared?.renderBrandingControlsHtml
+    ? shared.renderBrandingControlsHtml(formBuilderState.branding || {}, { escape: escapeHtml })
+    : "";
+
+  if (useEnrollmentEditor) {
+    const editorHtml = formBuilderState.enrollUiMode === "preview"
+      ? enrollApi.renderEnrollmentPreviewHtml(enrollmentTemplate, {
+        escape: escapeHtml,
+        programName,
+        branding,
+        brandingHeaderHtml,
+        llhFooterHtml,
+        mode: "preview",
+      })
+      : enrollApi.renderEnrollmentEditorHtml(enrollmentTemplate, {
+        escape: escapeHtml,
+        programName,
+        editingSectionId: formBuilderState.editingSectionId || "",
+        mode: "edit",
+      });
+    return `
+      <section class="section-block form-builder-panel enroll-form-builder-panel" id="hdhFormBuilderPanel" data-form-builder="true" data-enrollment-builder="true">
+        <p class="eyebrow">Enrollment Form Builder</p>
+        <h3>Enrollment Form</h3>
+        <p class="muted-copy">Customize this baseline for your program. Assigned / signed enrollment submissions keep their own snapshot — later template edits do not rewrite history.</p>
+        <div class="account-actions-row" style="margin-bottom:12px;">
+          <button class="ghost-button" type="button" data-enroll-mode="edit" ${formBuilderState.enrollUiMode === "edit" ? "disabled" : ""}>Edit Form</button>
+          <button class="ghost-button" type="button" data-enroll-mode="preview" ${formBuilderState.enrollUiMode === "preview" ? "disabled" : ""}>Preview Form</button>
+          <button class="ghost-button" type="button" data-enroll-print-blank>Print Blank</button>
+          <button class="primary-button" type="button" data-enroll-save>Save Changes</button>
+          <button class="ghost-button" type="button" data-fb-close>Close builder</button>
+        </div>
+        ${brandingControls}
+        ${editorHtml}
+        <p class="form-note">Preview and print exclude builder controls. Program branding comes from Program Settings.</p>
+      </section>
+    `;
+  }
+
   const types = api?.fieldsLib?.FIELD_TYPES || [
     "info", "short_text", "long_text", "number", "date", "time",
     "checkbox", "yes_no", "radio", "dropdown", "initials", "signature", "file",
   ];
+  const repeatPresets = shared?.listRepeatGroupPresets ? shared.listRepeatGroupPresets() : [];
+  const qbankHtml = formBuilderState.questionBankOpen && shared?.renderQuestionBankPickerHtml
+    ? shared.renderQuestionBankPickerHtml({
+      escape: escapeHtml,
+      query: formBuilderState.questionBankQuery || "",
+      category: formBuilderState.questionBankCategory || "",
+    })
+    : "";
   const preview = formBuilderState.previewOpen && api
-    ? api.renderPreviewHtml({
+    ? (api.renderEnrollmentAwarePreviewHtml || api.renderPreviewHtml)({
       title: formBuilderState.title,
       body: formBuilderState.body,
       fields: formBuilderState.fields,
       requiresSignature: formBuilderState.requiresSignature,
-    }, { escape: escapeHtml })
+    }, { escape: escapeHtml, brandingHeaderHtml, llhFooterHtml })
     : "";
   return `
     <section class="section-block form-builder-panel" id="hdhFormBuilderPanel" data-form-builder="true">
-      <p class="eyebrow">Structured Form Builder</p>
-      <h3>${formBuilderState.mode === "create" ? "Create form" : formBuilderState.mode === "customize" ? "Customize copy" : "Edit template"}</h3>
-      <p class="muted-copy">Add fields with labels and options — no JSON. Assigned forms keep their own snapshot when you change a template later.</p>
+      <p class="eyebrow">Form Builder</p>
+      <h3>${formBuilderState.mode === "create" ? "Create Blank Form" : formBuilderState.mode === "customize" ? "Customize copy" : "Edit form"}</h3>
+      <p class="muted-copy">Sections and questions stay simple. Assigned forms keep their own copy when you change a template later.</p>
       <form id="formBuilderMetaForm" class="panel-form" data-form-builder-meta="true" onsubmit="return false;">
         <div class="form-grid-two">
-          <label>Title
+          <label>Form name
             <input name="title" data-fb-meta="title" maxlength="160" required value="${escapeHtml(formBuilderState.title || "")}" autocomplete="off" />
           </label>
           <label>Category
@@ -10379,33 +10698,57 @@ function renderFormBuilderPanel() {
             </select>
           </label>
         </div>
-        <label>Instructions / body text (optional — works with or without fields)
-          <textarea name="body" data-fb-meta="body" rows="5" maxlength="12000">${escapeHtml(formBuilderState.body || "")}</textarea>
+        <label>Who is this for?
+          <select data-fb-meta="intendedAudience">
+            <option value="family" ${formBuilderState.intendedAudience === "family" ? "selected" : ""}>Parent / Guardian</option>
+            <option value="staff" ${formBuilderState.intendedAudience === "staff" ? "selected" : ""}>Staff</option>
+            <option value="admin" ${formBuilderState.intendedAudience === "admin" ? "selected" : ""}>Director / Admin</option>
+            <option value="general" ${formBuilderState.intendedAudience === "general" ? "selected" : ""}>General / Printable</option>
+          </select>
+        </label>
+        <label>Description / instructions (optional)
+          <textarea name="body" data-fb-meta="body" rows="4" maxlength="12000">${escapeHtml(formBuilderState.body || "")}</textarea>
         </label>
         <label class="settings-check-label">
           <input type="checkbox" data-fb-meta="requiresSignature" ${formBuilderState.requiresSignature ? "checked" : ""} />
           Signature required
         </label>
       </form>
+      ${brandingControls}
+      ${qbankHtml || `
       <div class="fb-add-field-row">
-        <label>Add field
+        <p class="eyebrow">Add Question</p>
+        <label>Write My Own
           <select id="fbAddFieldType">
             ${types.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(api?.fieldTypeLabel(type) || type)}</option>`).join("")}
           </select>
         </label>
-        <button class="primary-button" type="button" data-fb-add-field>Add field</button>
+        <button class="primary-button" type="button" data-fb-add-field>Write My Own</button>
+        <button class="ghost-button" type="button" data-fb-open-qbank>Choose From Question Bank</button>
       </div>
+      <div class="fb-add-field-row">
+        <label>Add another person / group
+          <select id="fbRepeatPreset">
+            ${repeatPresets.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.title)} (${preset.minCount}–${preset.maxCount})</option>`).join("")}
+          </select>
+        </label>
+        <label>How many?
+          <input type="number" id="fbRepeatCount" min="1" max="6" value="2" />
+        </label>
+        <button class="ghost-button" type="button" data-fb-add-repeat-group>Add Another Person</button>
+      </div>`}
       <div class="fb-field-list" data-fb-field-list>
         ${formBuilderState.fields.length
           ? formBuilderState.fields.map((field, index) => renderFormBuilderFieldEditor(field, index)).join("")
-          : `<p class="muted-copy">No structured fields yet — body-only templates still work. Add fields when you need fillable answers.</p>`}
+          : `<p class="muted-copy">Start with Section 1 — add questions below. No preset fields are forced onto a blank form.</p>`}
       </div>
       <div class="account-actions-row" style="margin-top:14px;">
-        <button class="primary-button" type="button" data-fb-save>Save my template</button>
-        <button class="ghost-button" type="button" data-fb-preview>${formBuilderState.previewOpen ? "Hide preview" : "Preview"}</button>
+        <button class="primary-button" type="button" data-fb-save>Save Changes</button>
+        <button class="ghost-button" type="button" data-fb-preview>${formBuilderState.previewOpen ? "Hide preview" : "Preview Form"}</button>
+        <button class="ghost-button" type="button" data-fb-print-blank>Print Blank</button>
         <button class="ghost-button" type="button" data-fb-close>Close builder</button>
       </div>
-      <p class="form-note">Dirty-state protected: typing is kept even if the hub refreshes. Preview never saves or assigns.</p>
+      <p class="form-note">Preview and Print Blank never show edit controls. Assigned / signed copies stay unchanged when you edit later.</p>
       ${preview}
     </section>
   `;
@@ -10437,7 +10780,10 @@ function renderUnifiedTemplateLibraryPanel() {
         ? "One library for your program — My Templates, starter pack, and system forms. Duplicate a starter to customize; originals stay read-only."
         : "Simple template library for your home daycare. Start from a starter pack or your saved templates — no need to track where each one came from."}</p>
       <div class="account-actions-row" style="margin-bottom:12px;">
-        <button class="primary-button" type="button" data-fb-create>Create form</button>
+        <button class="primary-button" type="button" data-fb-create>Create Blank Form</button>
+        <button class="ghost-button" type="button" data-fb-use-starter="emergency_contact">Use Emergency Contact starter</button>
+        <button class="ghost-button" type="button" data-fb-use-starter="authorized_pickup">Use Authorized Pickup starter</button>
+        <button class="ghost-button" type="button" data-fb-use-starter="child_info_update">Use Child Info Update starter</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
       </div>
       <form class="hdh-forms-filters template-library-filters" data-template-library-filters="true" onsubmit="return false;">
@@ -66176,6 +66522,21 @@ function renderProgramSettingsPage() {
   // Show logo preview only when a real logo URL exists (never leave an empty <img>).
   syncProgramLogoPreview(settings.logoDataUrl || "");
 
+  // Forms Center branding defaults (reuse Program Settings identity — not a second logo store).
+  const formsBranding = settings.formsBranding && typeof settings.formsBranding === "object"
+    ? settings.formsBranding
+    : {};
+  const showLogoCb = form.querySelector('[name="formsBrandingShowLogo"]');
+  const showNameCb = form.querySelector('[name="formsBrandingShowProgramName"]');
+  const showContactCb = form.querySelector('[name="formsBrandingShowContact"]');
+  const showFooterCb = form.querySelector('[name="formsBrandingShowLlhFooter"]');
+  const alignSelect = form.querySelector('[name="formsBrandingHeaderAlign"]');
+  if (showLogoCb) showLogoCb.checked = formsBranding.showLogo !== false;
+  if (showNameCb) showNameCb.checked = formsBranding.showProgramName !== false;
+  if (showContactCb) showContactCb.checked = formsBranding.showContact !== false;
+  if (showFooterCb) showFooterCb.checked = formsBranding.showLlhFooter !== false;
+  if (alignSelect) alignSelect.value = formsBranding.headerAlign === "center" ? "center" : "left";
+
   // Show signature preview if data present
   updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
 }
@@ -70011,7 +70372,27 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-fb-create]")) {
     event.preventDefault();
-    openFormBuilderFromTemplate({ title: "Custom form", category: "Other", body: "", fields: [] }, "create");
+    const shared = getFormsSharedBuilderApi();
+    const seed = shared?.createBlankFormSeed
+      ? shared.createBlankFormSeed({ title: "Untitled form", description: "" })
+      : { title: "Untitled form", category: "Other", body: "", fields: [], sections: [{ id: "section_1", title: "Section 1", visible: true }] };
+    openFormBuilderFromTemplate(seed, "create");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return;
+  }
+
+  const useStarterBtn = event.target.closest("[data-fb-use-starter]");
+  if (useStarterBtn) {
+    event.preventDefault();
+    const key = useStarterBtn.getAttribute("data-fb-use-starter");
+    const shared = getFormsSharedBuilderApi();
+    const result = shared?.createStarterCopy ? shared.createStarterCopy(key) : { ok: false, error: "Starter library unavailable." };
+    if (!result.ok) {
+      showActionFeedback(result.error || "Could not create starter form.");
+      return;
+    }
+    openFormBuilderFromTemplate(result.template, "customize");
     renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
     queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     return;
@@ -70033,11 +70414,88 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-fb-preview]")) {
     event.preventDefault();
     formBuilderState.previewOpen = !formBuilderState.previewOpen;
+    formBuilderState.questionBankOpen = false;
     const panel = document.querySelector("#hdhFormBuilderPanel");
     if (window.LlhFormsDirtyState && panel) window.LlhFormsDirtyState.captureFormDrafts(panel, "formBuilder");
     renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
     const next = document.querySelector("#hdhFormBuilderPanel");
     if (window.LlhFormsDirtyState && next) window.LlhFormsDirtyState.restoreFormDrafts(next, "formBuilder");
+    return;
+  }
+
+  if (event.target.closest("[data-fb-print-blank]")) {
+    event.preventDefault();
+    printGenericBlankForm({
+      title: formBuilderState.title,
+      body: formBuilderState.body,
+      description: formBuilderState.body,
+      fields: formBuilderState.fields,
+      sections: formBuilderState.sections,
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-open-qbank]")) {
+    event.preventDefault();
+    formBuilderState.questionBankOpen = true;
+    formBuilderState.previewOpen = false;
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-qbank-close]")) {
+    event.preventDefault();
+    formBuilderState.questionBankOpen = false;
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  const qbankAddBtn = event.target.closest("[data-fb-qbank-add]");
+  if (qbankAddBtn) {
+    event.preventDefault();
+    const shared = getFormsSharedBuilderApi();
+    const bankId = qbankAddBtn.getAttribute("data-fb-qbank-add");
+    const existingIds = formBuilderState.fields.map((field) => field.id);
+    const copied = shared?.copyQuestionBankItem
+      ? shared.copyQuestionBankItem(bankId, existingIds)
+      : { ok: false, error: "Question Bank unavailable." };
+    if (!copied.ok) {
+      showActionFeedback(copied.error || "Could not add that question.");
+      return;
+    }
+    const start = formBuilderState.fields.length;
+    formBuilderState.fields = [
+      ...formBuilderState.fields,
+      ...copied.fields.map((field, index) => ({ ...field, order: start + index, helpText: field.helperText || field.helpText || "" })),
+    ];
+    formBuilderState.questionBankOpen = false;
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    showActionFeedback("Question added to this form.");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-add-repeat-group]")) {
+    event.preventDefault();
+    const shared = getFormsSharedBuilderApi();
+    const presetId = document.querySelector("#fbRepeatPreset")?.value || "emergency_contact";
+    const count = Number(document.querySelector("#fbRepeatCount")?.value || 2);
+    const existingIds = formBuilderState.fields.map((field) => field.id);
+    const expanded = shared?.expandRepeatGroup
+      ? shared.expandRepeatGroup(presetId, count, existingIds)
+      : { ok: false, error: "Could not add that group." };
+    if (!expanded.ok) {
+      showActionFeedback(expanded.error || "Could not add that group.");
+      return;
+    }
+    const start = formBuilderState.fields.length;
+    formBuilderState.fields = [
+      ...formBuilderState.fields,
+      ...expanded.fields.map((field, index) => ({ ...field, order: start + index, helpText: field.helperText || "" })),
+    ];
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    showActionFeedback(`Added ${expanded.count} ${expanded.sectionTitle || "entries"}.`);
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
     return;
   }
 
@@ -70099,6 +70557,142 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const enrollModeBtn = event.target.closest("[data-enroll-mode]");
+  if (enrollModeBtn && formBuilderState.open) {
+    event.preventDefault();
+    formBuilderState.enrollUiMode = enrollModeBtn.getAttribute("data-enroll-mode") === "preview" ? "preview" : "edit";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-print-blank]") && formBuilderState.open) {
+    event.preventDefault();
+    printEnrollmentBlankForm();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-save]") && formBuilderState.open) {
+    event.preventDefault();
+    saveEnrollmentFormFromBuilder();
+    return;
+  }
+
+  const enrollEditSection = event.target.closest("[data-enroll-edit-section]");
+  if (enrollEditSection && formBuilderState.open) {
+    event.preventDefault();
+    const sectionId = enrollEditSection.getAttribute("data-enroll-edit-section");
+    formBuilderState.editingSectionId = formBuilderState.editingSectionId === sectionId ? "" : sectionId;
+    formBuilderState.enrollUiMode = "edit";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  const enrollToggleSection = event.target.closest("[data-enroll-toggle-section]");
+  if (enrollToggleSection && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollToggleSection.getAttribute("data-enroll-toggle-section");
+    const makeVisible = enrollToggleSection.getAttribute("data-visible") === "1";
+    formBuilderState.sections = baseline?.setEnrollmentSectionVisible
+      ? baseline.setEnrollmentSectionVisible(formBuilderState.sections, sectionId, makeVisible)
+      : (formBuilderState.sections || []).map((section) => (
+        String(section.id) === String(sectionId) ? { ...section, visible: makeVisible } : section
+      ));
+    if (baseline?.applyEnrollmentVisibility) {
+      const applied = baseline.applyEnrollmentVisibility(currentEnrollmentBuilderTemplate());
+      formBuilderState.fields = applied.fields;
+      formBuilderState.sections = applied.sections;
+    }
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "sections", String(Date.now()));
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  const enrollMoveUp = event.target.closest("[data-enroll-move-section-up]");
+  if (enrollMoveUp && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollMoveUp.getAttribute("data-enroll-move-section-up");
+    const sections = [...(formBuilderState.sections || [])].sort((a, b) => Number(a.order) - Number(b.order));
+    const index = sections.findIndex((section) => String(section.id) === String(sectionId));
+    if (index > 0) {
+      formBuilderState.sections = baseline?.reorderEnrollmentSections
+        ? baseline.reorderEnrollmentSections(sections, index, index - 1)
+        : sections;
+      rerenderEnrollmentFormBuilder();
+    }
+    return;
+  }
+
+  const enrollMoveDown = event.target.closest("[data-enroll-move-section-down]");
+  if (enrollMoveDown && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollMoveDown.getAttribute("data-enroll-move-section-down");
+    const sections = [...(formBuilderState.sections || [])].sort((a, b) => Number(a.order) - Number(b.order));
+    const index = sections.findIndex((section) => String(section.id) === String(sectionId));
+    if (index >= 0 && index < sections.length - 1) {
+      formBuilderState.sections = baseline?.reorderEnrollmentSections
+        ? baseline.reorderEnrollmentSections(sections, index, index + 1)
+        : sections;
+      rerenderEnrollmentFormBuilder();
+    }
+    return;
+  }
+
+  const enrollAddCustom = event.target.closest("[data-enroll-add-custom]");
+  if (enrollAddCustom && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollAddCustom.getAttribute("data-enroll-add-custom");
+    const customType = enrollAddCustom.getAttribute("data-custom-type") || "short_text";
+    formBuilderState.fields = baseline?.addCustomEnrollmentField
+      ? baseline.addCustomEnrollmentField(formBuilderState.fields, {
+        sectionId,
+        type: customType,
+        label: customType === "long_text" ? "Custom multiline question" : customType === "yes_no" ? "Custom yes/no question" : "Custom question",
+        required: false,
+      })
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = sectionId;
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-add-permission]") && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    formBuilderState.fields = baseline?.addCustomPermission
+      ? baseline.addCustomPermission(formBuilderState.fields, "Custom permission")
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = "permissions";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-add-document]") && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    formBuilderState.fields = baseline?.addCustomDocumentItem
+      ? baseline.addCustomDocumentItem(formBuilderState.fields, "Custom document")
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = "documents";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-add-policy]") && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    formBuilderState.fields = baseline?.addCustomPolicyAcknowledgment
+      ? baseline.addCustomPolicyAcknowledgment(formBuilderState.fields, "Custom policy acknowledgment")
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = "policies";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
   if (event.target.closest("[data-fb-save]")) {
     event.preventDefault();
     const role = getUserRole();
@@ -70133,6 +70727,16 @@ document.addEventListener("click", async (event) => {
       sourceType: "provider",
       originTemplateId: formBuilderState.originTemplateId || "",
       contentVersion: 1,
+      formKind: formBuilderState.formKind || undefined,
+      sections: Array.isArray(formBuilderState.sections) ? formBuilderState.sections : undefined,
+      enrollmentConfig: formBuilderState.enrollmentConfig || undefined,
+      packFormId: formBuilderState.packFormId || undefined,
+      resourceId: formBuilderState.resourceId || undefined,
+      libraryCategory: formBuilderState.formKind === "enrollment_baseline" ? "enrollment" : undefined,
+      branding: formBuilderState.branding || { inherit: true },
+      intendedAudience: formBuilderState.intendedAudience || "family",
+      starterKey: formBuilderState.starterKey || undefined,
+      sourceStarterKey: formBuilderState.starterKey || undefined,
     };
     Promise.resolve()
       .then(async () => {
@@ -70175,18 +70779,25 @@ document.addEventListener("click", async (event) => {
     let source = formsProgramTemplates().find((item) => String(item.id) === String(id));
     if (!source && kind === "starter") {
       const pack = HOME_DAYCARE_FORMS_PACK.find((item) => String(item.id) === String(id));
-      source = pack
-        ? {
-          id: pack.id,
-          title: pack.title,
-          category: pack.category,
-          body: `${pack.title}\n\n${pack.description || ""}\n\nParent signature: __________\nDate: __________`,
-          fields: [],
+      if (pack && (pack.id === "hdh-pack-enrollment" || /enrollment packet/i.test(pack.title || ""))) {
+        source = {
+          ...seedEnrollmentTemplateFromPack(pack),
           sourceType: "starter",
-          packFormId: pack.id,
-          resourceId: pack.resourceId || "",
-        }
-        : null;
+        };
+      } else {
+        source = pack
+          ? {
+            id: pack.id,
+            title: pack.title,
+            category: pack.category,
+            body: `${pack.title}\n\n${pack.description || ""}\n\nParent signature: __________\nDate: __________`,
+            fields: [],
+            sourceType: "starter",
+            packFormId: pack.id,
+            resourceId: pack.resourceId || "",
+          }
+          : null;
+      }
     }
     if (!source && kind === "system") {
       const sys = listSystemFormsForLibrary().find((item) => String(item.id) === String(id));
@@ -70251,18 +70862,34 @@ document.addEventListener("click", async (event) => {
     let template = formsProgramTemplates().find((item) => String(item.id) === String(id));
     if (!template && kind === "starter") {
       const pack = HOME_DAYCARE_FORMS_PACK.find((item) => String(item.id) === String(id));
-      template = pack
-        ? { title: pack.title, body: pack.description || pack.title, fields: [], requiresSignature: true }
-        : null;
+      if (pack && (pack.id === "hdh-pack-enrollment" || /enrollment packet/i.test(pack.title || ""))) {
+        template = seedEnrollmentTemplateFromPack(pack);
+      } else {
+        template = pack
+          ? { title: pack.title, body: pack.description || pack.title, fields: [], requiresSignature: true }
+          : null;
+      }
     }
     if (!template) {
       showActionFeedback("Template not found.");
       return;
     }
     const api = getFormBuilderApi();
-    const html = api
-      ? api.renderPreviewHtml(template, { escape: escapeHtml })
-      : `<pre>${escapeHtml(template.body || "")}</pre>`;
+    const enrollApi = getEnrollmentFormBuilderApi();
+    const settings = getProgramSettings() || {};
+    const programName = settings.programName || settings.businessName || "";
+    let html = "";
+    if (isEnrollmentFormBuilderTemplate(template) && enrollApi) {
+      html = enrollApi.renderEnrollmentPreviewHtml(template, {
+        escape: escapeHtml,
+        programName,
+        mode: "preview",
+      });
+    } else if (api) {
+      html = (api.renderEnrollmentAwarePreviewHtml || api.renderPreviewHtml)(template, { escape: escapeHtml });
+    } else {
+      html = `<pre>${escapeHtml(template.body || "")}</pre>`;
+    }
     const host = document.querySelector("[data-template-library]") || document.querySelector("#hdhFormTemplatesPanel");
     let previewHost = document.querySelector("[data-library-preview-host]");
     if (!previewHost && host) {
@@ -74757,9 +75384,51 @@ document.addEventListener("input", (event) => {
     if (key === "category") formBuilderState.category = value;
     if (key === "body") formBuilderState.body = value;
     if (key === "requiresSignature") formBuilderState.requiresSignature = Boolean(value);
+    if (key === "intendedAudience") formBuilderState.intendedAudience = String(value || "family");
     if (window.LlhFormsDirtyState) {
       window.LlhFormsDirtyState.touch("formBuilder", key, String(value));
     }
+  }
+  if (event.target.matches("[data-fb-branding]")) {
+    const key = event.target.getAttribute("data-fb-branding");
+    const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    formBuilderState.branding = { ...(formBuilderState.branding || {}) };
+    if (key === "hideAll") {
+      formBuilderState.branding.hideAll = Boolean(value);
+      formBuilderState.branding.hideBranding = Boolean(value);
+    } else if (key === "headerAlign") {
+      formBuilderState.branding.headerAlign = value === "center" ? "center" : "left";
+    } else {
+      formBuilderState.branding[key] = Boolean(value);
+    }
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("formBuilder", `branding.${key}`, String(value));
+    }
+    // Re-render when branding toggles change so Preview / controls stay in sync.
+    if (event.target.type === "checkbox" || key === "headerAlign") {
+      clearTimeout(window.__llhFbBrandingTimer);
+      window.__llhFbBrandingTimer = setTimeout(() => {
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      }, 120);
+    }
+  }
+  if (event.target.matches("[data-fb-qbank-query], [data-fb-qbank-category]")) {
+    if (event.target.matches("[data-fb-qbank-query]")) {
+      formBuilderState.questionBankQuery = event.target.value || "";
+    }
+    if (event.target.matches("[data-fb-qbank-category]")) {
+      formBuilderState.questionBankCategory = event.target.value || "";
+    }
+    clearTimeout(window.__llhQbankSearchTimer);
+    const selStart = event.target.selectionStart;
+    const selEnd = event.target.selectionEnd;
+    window.__llhQbankSearchTimer = setTimeout(() => {
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      const next = document.querySelector(event.target.matches("[data-fb-qbank-query]") ? "[data-fb-qbank-query]" : "[data-fb-qbank-category]");
+      if (next && typeof selStart === "number") {
+        try { next.focus(); next.setSelectionRange(selStart, selEnd); } catch (_e) { /* ignore */ }
+      }
+    }, 160);
   }
   if (assignFlowState?.open && event.target.matches("[data-assign-search]")) {
     const api = getFormsAssignFlowApi();
@@ -74807,6 +75476,57 @@ document.addEventListener("input", (event) => {
     if (window.LlhFormsDirtyState) {
       window.LlhFormsDirtyState.touch("formBuilder", `${fieldId}:${prop}`, event.target.type === "checkbox" ? String(event.target.checked) : event.target.value);
     }
+  }
+  if (event.target.matches("[data-enroll-section-title]")) {
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = event.target.getAttribute("data-enroll-section-title");
+    const title = event.target.value || "";
+    formBuilderState.sections = baseline?.renameEnrollmentSection
+      ? baseline.renameEnrollmentSection(formBuilderState.sections, sectionId, title)
+      : (formBuilderState.sections || []).map((section) => (
+        String(section.id) === String(sectionId) ? { ...section, title } : section
+      ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `sectionTitle:${sectionId}`, title);
+  }
+  if (event.target.matches("[data-enroll-field-label]")) {
+    const fieldId = event.target.getAttribute("data-enroll-field-label");
+    const label = event.target.value || "";
+    formBuilderState.fields = (formBuilderState.fields || []).map((field) => (
+      String(field.id) === String(fieldId) ? { ...field, label } : field
+    ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollLabel:${fieldId}`, label);
+  }
+  if (event.target.matches("[data-enroll-field-required]")) {
+    const fieldId = event.target.getAttribute("data-enroll-field-required");
+    const required = Boolean(event.target.checked);
+    formBuilderState.fields = (formBuilderState.fields || []).map((field) => (
+      String(field.id) === String(fieldId) ? { ...field, required } : field
+    ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollRequired:${fieldId}`, String(required));
+  }
+  if (event.target.matches("[data-enroll-field-visible]")) {
+    const fieldId = event.target.getAttribute("data-enroll-field-visible");
+    const visible = Boolean(event.target.checked);
+    formBuilderState.fields = (formBuilderState.fields || []).map((field) => (
+      String(field.id) === String(fieldId) ? { ...field, visible } : field
+    ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollVisible:${fieldId}`, String(visible));
+  }
+  if (event.target.matches("[data-enroll-config]")) {
+    const key = event.target.getAttribute("data-enroll-config");
+    const baseline = getEnrollmentBaselineApi();
+    const current = formBuilderState.enrollmentConfig || {};
+    let value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    if (key === "minEmergencyContacts" || key === "minAuthorizedPickup") value = Number(value) || 0;
+    const nextConfig = baseline?.buildEnrollmentConfig
+      ? baseline.buildEnrollmentConfig({ ...current, [key]: value })
+      : { ...current, [key]: value };
+    formBuilderState.enrollmentConfig = nextConfig;
+    if (baseline?.applyEnrollmentVisibility) {
+      const applied = baseline.applyEnrollmentVisibility(currentEnrollmentBuilderTemplate());
+      formBuilderState.fields = applied.fields;
+    }
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollConfig:${key}`, String(value));
   }
   if (event.target.matches("[data-staff-profile-email]")) {
     staffProfilePaperworkEmail = String(event.target.value || "").toLowerCase();
@@ -79217,6 +79937,21 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
   function finalize(logoDataUrl) {
     if (logoDataUrl !== undefined) settings.logoDataUrl = logoDataUrl;
     else if (existing.logoDataUrl) settings.logoDataUrl = existing.logoDataUrl;
+
+    settings.formsBranding = {
+      showLogo: form.querySelector('[name="formsBrandingShowLogo"]')?.checked !== false,
+      showProgramName: form.querySelector('[name="formsBrandingShowProgramName"]')?.checked !== false,
+      showContact: form.querySelector('[name="formsBrandingShowContact"]')?.checked !== false,
+      showLlhFooter: form.querySelector('[name="formsBrandingShowLlhFooter"]')?.checked !== false,
+      headerAlign: form.querySelector('[name="formsBrandingHeaderAlign"]')?.value === "center" ? "center" : "left",
+      llhFooterControlledByPlan: true,
+    };
+    // Avoid persisting one-off checkbox field names as top-level settings keys.
+    delete settings.formsBrandingShowLogo;
+    delete settings.formsBrandingShowProgramName;
+    delete settings.formsBrandingShowContact;
+    delete settings.formsBrandingShowLlhFooter;
+    delete settings.formsBrandingHeaderAlign;
 
     saveProgramSettings(settings);
 

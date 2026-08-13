@@ -36,6 +36,7 @@ Protected surfaces include (non-exhaustive): `app.js` Forms/Paperwork HQ/builder
 - Genuine blocker / security / data-integrity / major UX-confusion bug fixes from supervised testing (categories 1–3)
 - Minimal, modular, isolated diffs; preserve strict auth and isolation
 - Continuing to treat PR #626 memory protections as mandatory (no `structuredClone(storeCache)` on hot paths; do not retain upload buffers)
+- **Owner-approved 2026-08-13:** upgrade the existing testing-site Enrollment Form into the baseline structured enrollment packet (section cards, weekday schedule, permissions, print blank) on the Forms spine — no second form system, no production merge/deploy
 
 ## Next priority (not Forms)
 

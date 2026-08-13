@@ -6,7 +6,10 @@
 (function formBuilderLibModule(root, factory) {
   "use strict";
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("../server/form-fields-lib.js"));
+    module.exports = factory(
+      require("../server/form-fields-lib.js"),
+      require("../server/enrollment-form-baseline.js"),
+    );
   } else {
     const fallback = {
       FIELD_TYPES: [
@@ -71,9 +74,12 @@
         return aliases[key] || key;
       },
     };
-    root.LlhFormBuilder = factory(root.LlhFormFieldsLib || fallback);
+    root.LlhFormBuilder = factory(
+      root.LlhFormFieldsLib || fallback,
+      root.LlhEnrollmentBaseline || null,
+    );
   }
-}(typeof globalThis !== "undefined" ? globalThis : this, function factory(fieldsLib) {
+}(typeof globalThis !== "undefined" ? globalThis : this, function factory(fieldsLib, enrollmentBaseline) {
   "use strict";
 
   const FIELD_TYPE_LABELS = Object.freeze({
@@ -165,14 +171,22 @@
   }
 
   /** Recipient preview HTML — never saves/assigns. */
-  function renderPreviewHtml(template = {}, { escape = escapeHtml } = {}) {
+  function renderPreviewHtml(template = {}, {
+    escape = escapeHtml,
+    brandingHeaderHtml = "",
+    llhFooterHtml = "",
+  } = {}) {
     const title = escape(template.title || "Form preview");
     const body = escape(template.body || template.bodyText || "");
-    const fields = Array.isArray(template.fields) ? [...template.fields].sort((a, b) => a.order - b.order) : [];
+    const fields = Array.isArray(template.fields)
+      ? [...template.fields].filter((field) => field && field.visible !== false).sort((a, b) => a.order - b.order)
+      : [];
     const fieldHtml = fields.map((field) => {
       const req = field.required ? '<span class="fb-required" aria-label="required">*</span>' : "";
-      const help = field.helpText ? `<p class="muted-copy fb-help">${escape(field.helpText)}</p>` : "";
-      const label = `<label class="fb-preview-label"><span>${escape(field.label || "Field")}${req}</span>`;
+      const help = field.helpText || field.helperText
+        ? `<p class="muted-copy fb-help">${escape(field.helpText || field.helperText)}</p>`
+        : "";
+      const label = `<label class="fb-preview-label"><span>${escape(field.label || "Question")}${req}</span>`;
       if (field.type === "info") {
         return `<div class="fb-preview-field fb-preview-info"><p>${escape(field.label)}</p>${help}</div>`;
       }
@@ -199,14 +213,13 @@
       }
       if (field.type === "signature") {
         return `<div class="fb-preview-field fb-preview-signature">${label}${help}
-          <div class="fb-signature-placeholder" aria-hidden="true">Signature area</div>
-          <p class="muted-copy">Signature capture comes in a later wave — placeholder only.</p></label></div>`;
+          <div class="fb-signature-placeholder" aria-hidden="true">Signature area</div></label></div>`;
       }
       if (field.type === "initials") {
         return `<div class="fb-preview-field">${label}${help}<input type="text" disabled maxlength="8" placeholder="Initials" /></label></div>`;
       }
       if (field.type === "file") {
-        return `<div class="fb-preview-field">${label}${help}<input type="file" disabled /><p class="muted-copy">File upload comes later — placeholder only.</p></label></div>`;
+        return `<div class="fb-preview-field">${label}${help}<input type="file" disabled /></label></div>`;
       }
       const inputType = field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
       return `<div class="fb-preview-field">${label}${help}<input type="${inputType}" disabled placeholder="${escape(field.placeholder || "")}" /></label></div>`;
@@ -214,14 +227,16 @@
 
     return `
       <article class="fb-preview" data-form-preview="true">
+        ${brandingHeaderHtml || ""}
         <header class="fb-preview-head">
           <p class="eyebrow">Preview</p>
-          <h3>${title}</h3>
-          <p class="muted-copy">Recipient view — nothing is saved or sent from Preview.</p>
+          ${brandingHeaderHtml ? "" : `<h3>${title}</h3>`}
+          <p class="muted-copy">What families or staff will see — nothing is saved or sent from Preview.</p>
         </header>
         ${body ? `<div class="fb-preview-body"><pre class="fh-form-pre">${body}</pre></div>` : ""}
-        <div class="fb-preview-fields">${fieldHtml || '<p class="muted-copy">No structured fields on this form.</p>'}</div>
-        ${template.requiresSignature !== false ? `<p class="muted-copy fb-preview-sign-note">Signature required (placeholder).</p>` : ""}
+        <div class="fb-preview-fields">${fieldHtml || '<p class="muted-copy">No questions on this form yet.</p>'}</div>
+        ${template.requiresSignature !== false ? `<p class="muted-copy fb-preview-sign-note">Signature required.</p>` : ""}
+        ${llhFooterHtml || ""}
       </article>
     `;
   }
@@ -251,16 +266,33 @@
       });
     });
     (Array.isArray(starterPack) ? starterPack : []).forEach((pack) => {
+      const isEnrollment = enrollmentBaseline
+        && (
+          String(pack.id || "") === enrollmentBaseline.ENROLLMENT_PACK_FORM_ID
+          || /enrollment packet/i.test(String(pack.title || ""))
+        );
+      const enrollmentSeed = isEnrollment
+        ? enrollmentBaseline.buildEnrollmentBaselineTemplate({
+          id: pack.id,
+          title: enrollmentBaseline.ENROLLMENT_TEMPLATE_TITLE,
+          sourceType: "starter",
+        })
+        : null;
       rows.push({
         id: pack.id,
-        title: pack.title,
+        title: enrollmentSeed ? enrollmentSeed.title : pack.title,
         category: pack.category || "Other",
-        description: pack.description || "",
-        body: "",
-        fields: [],
+        description: enrollmentSeed
+          ? enrollmentSeed.description
+          : (pack.description || ""),
+        body: enrollmentSeed ? enrollmentSeed.body : "",
+        fields: enrollmentSeed ? enrollmentSeed.fields : [],
+        sections: enrollmentSeed ? enrollmentSeed.sections : undefined,
+        enrollmentConfig: enrollmentSeed ? enrollmentSeed.enrollmentConfig : undefined,
+        formKind: enrollmentSeed ? enrollmentSeed.formKind : undefined,
         sourceType: "starter",
         sourceKind: "starter",
-        libraryCategory: "starter",
+        libraryCategory: isEnrollment ? "enrollment" : "starter",
         packFormId: pack.id,
         resourceId: pack.resourceId || "",
         readOnly: true,
@@ -315,6 +347,18 @@
     });
   }
 
+  function renderEnrollmentAwarePreviewHtml(template = {}, options = {}) {
+    if (
+      enrollmentBaseline
+      && enrollmentBaseline.isEnrollmentBaselineTemplate(template)
+      && typeof globalThis !== "undefined"
+      && globalThis.LlhEnrollmentFormBuilder
+    ) {
+      return globalThis.LlhEnrollmentFormBuilder.renderEnrollmentPreviewHtml(template, options);
+    }
+    return renderPreviewHtml(template, options);
+  }
+
   return {
     FIELD_TYPE_LABELS,
     LIBRARY_CATEGORIES,
@@ -323,9 +367,11 @@
     createEmptyField,
     reorderFields,
     renderPreviewHtml,
+    renderEnrollmentAwarePreviewHtml,
     buildUnifiedTemplateLibrary,
     applyFieldPatch,
     fieldsLib,
+    enrollmentBaseline,
     normalizeFormFields: (...args) => fieldsLib.normalizeFormFields(...args),
     validateAiStructuredDraft: (...args) => fieldsLib.validateAiStructuredDraft(...args),
     extractStructuredDraftFromAiText: (...args) => fieldsLib.extractStructuredDraftFromAiText(...args),

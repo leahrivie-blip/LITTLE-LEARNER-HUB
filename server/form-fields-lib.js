@@ -24,7 +24,8 @@ const FIELD_TYPES = Object.freeze([
 ]);
 
 const CHOICE_TYPES = new Set(["radio", "dropdown"]);
-const MAX_FIELDS = 80;
+/** Raised so the baseline Enrollment Form (~200 fields) fits one template. */
+const MAX_FIELDS = 240;
 const MAX_OPTIONS = 40;
 const MAX_LABEL = 200;
 const MAX_HELP = 500;
@@ -134,7 +135,7 @@ function normalizeFormField(raw = {}, { order = 0, strict = true } = {}) {
   }
   const label = cleanText(raw.label || (type === "info" ? "Information" : "Field"), MAX_LABEL)
     || (type === "info" ? "Information" : "Field");
-  return {
+  const normalized = {
     id,
     type,
     label,
@@ -144,6 +145,19 @@ function normalizeFormField(raw = {}, { order = 0, strict = true } = {}) {
     order: Number.isFinite(Number(raw.order)) ? Number(raw.order) : Number(order) || 0,
     placeholder: cleanText(raw.placeholder || "", 160),
   };
+  // Enrollment / section-aware metadata (optional — ignored by older forms).
+  const sectionId = cleanText(raw.sectionId || raw.section || "", 80);
+  if (sectionId) normalized.sectionId = sectionId;
+  if (raw.visible === false) normalized.visible = false;
+  else if (raw.visible === true) normalized.visible = true;
+  if (raw.optionalByDefault === true) normalized.optionalByDefault = true;
+  if (raw.ageGroup) normalized.ageGroup = cleanText(raw.ageGroup, 40);
+  if (raw.permissionItem === true) normalized.permissionItem = true;
+  if (raw.documentItem === true) normalized.documentItem = true;
+  if (raw.acknowledgmentItem === true) normalized.acknowledgmentItem = true;
+  if (raw.configurable === false) normalized.configurable = false;
+  if (raw.customizable === false) normalized.customizable = false;
+  return normalized;
 }
 
 function normalizeFormFields(rawFields, { strict = true } = {}) {

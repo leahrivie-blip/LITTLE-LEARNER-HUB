@@ -161,7 +161,8 @@ function validateRequiredAnswers(fields = [], answers = {}) {
 function sanitizeAnswers(answers = {}) {
   const src = answers && typeof answers === "object" ? answers : {};
   const out = {};
-  Object.keys(src).slice(0, 80).forEach((key) => {
+  // Enrollment baseline can exceed 200 fields; keep headroom without unbounded growth.
+  Object.keys(src).slice(0, 250).forEach((key) => {
     const id = cleanText(key, 80);
     if (!id) return;
     const value = src[key];
