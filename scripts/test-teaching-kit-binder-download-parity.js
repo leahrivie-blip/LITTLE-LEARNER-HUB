@@ -221,14 +221,15 @@ function unitViewerLabelClickSync() {
   const viewerJs = fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-viewer.js"), "utf8");
   ok(viewerJs.includes("input[data-tk-print-preset]"), "viewer syncs print preset on change");
   ok(viewerJs.includes("emptySelectedResources"), "viewer clears selected resources for Entire Binder");
-  ok(viewerJs.includes("Preparing your PDF…"), "viewer shows Preparing your PDF…");
-  ok(viewerJs.includes("Download started"), "viewer shows Download started");
+  ok(viewerJs.includes("Preparing your binder…"), "viewer shows Preparing your binder…");
+  ok(viewerJs.includes("Your binder is ready. Download started."), "viewer shows binder ready copy");
   ok(viewerJs.includes("Selection incomplete"), "Ready to print hidden when unresolved");
-  ok(viewerJs.includes("downloadBusy"), "download click guard present");
+  ok(viewerJs.includes("binderRequestId"), "viewer tracks binder request id");
+  ok(viewerJs.includes("data-tk-retry-binder"), "viewer has Try Again");
 
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
-  ok(appJs.includes("Preparing your PDF…"), "app download preparing copy");
-  ok(appJs.includes("Download started"), "app download started copy");
+  ok(appJs.includes("Preparing your binder…"), "app download preparing copy");
+  ok(appJs.includes("Your binder is ready. Download started."), "app download started copy");
   ok(appJs.includes("teachingKitBinderBusy"), "app download busy guard");
   ok(appJs.includes("download_pdf_unavailable"), "download never silent-falls through to print");
   ok(appJs.includes("teachingKitPdfFileName"), "app uses branded PDF filename helper");

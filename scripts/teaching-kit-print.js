@@ -2504,10 +2504,12 @@
       return {
         ok: false,
         reason: strictPlan.reason || "attachment_missing",
+        code: "PRINTABLE_MISSING",
         bytes: null,
         built,
         report: strictPlan,
-        message: strictPlan.summary,
+        message: strictPlan.summary
+          || "Binder couldn't be completed because one printable is unavailable.",
       };
     }
 
@@ -2519,12 +2521,31 @@
       && options.host.querySelectorAll(".tk-print-page").length,
     );
     const binderInput = hostHasPages ? options.host : built.html;
+    const notify = (payload) => {
+      if (typeof options.onProgress === "function") {
+        try { options.onProgress(payload); } catch (_err) { /* ignore */ }
+      }
+    };
+    notify({
+      stage: "collecting",
+      message: "Collecting lesson pages…",
+      pageCount: built.pageCount || 0,
+    });
+    if ((built.manifest?.activities || []).length) {
+      notify({ stage: "activities", message: "Adding activities…" });
+    }
+    const binderRenderStarted = Date.now();
     const binderRendered = await binderApi.renderBinderPdf(binderInput, {
       paperSize: built.paperSize || options.paperSize || "letter",
       stylesHref: options.stylesHref,
       // Only force the in-document host path when that host still has pages.
       forceBrowser: options.forceBrowser === true && hostHasPages,
+      onProgress: options.onProgress,
+      shouldAbort: options.shouldAbort,
+      pageTimeoutMs: options.pageTimeoutMs,
+      scale: options.scale,
     });
+    const generationMs = Date.now() - binderRenderStarted;
     // Allow printable-only packs to skip binder pages when binder render is empty
     // but attachments exist (e.g. one_printable with cover omitted).
     const allowAttachmentOnly = ["printables", "one_printable"].includes(built.documentMode)
@@ -2533,14 +2554,26 @@
       return {
         ok: false,
         reason: binderRendered.reason || "binder_pdf_failed",
+        code: binderRendered.reason === "html2canvas_timeout" || binderRendered.reason === "request_timeout"
+          ? "REQUEST_TIMEOUT"
+          : "PDF_GENERATION_FAILURE",
         bytes: null,
         built,
         report: strictPlan,
+        generationMs,
         message: binderRendered.message
           || "Could not render the Teaching Kit binder to PDF. Please try again.",
       };
     }
 
+    if (strictPlan.attachments.length) {
+      notify({
+        stage: "printables",
+        message: "Adding printables…",
+        printableCount: strictPlan.attachments.length,
+      });
+    }
+    const mergeStarted = Date.now();
     const merged = await merger.mergeTeachingKitPdf({
       binderPdfBytes: binderRendered.ok ? binderRendered.bytes : null,
       manifest: built.manifest,
@@ -2548,14 +2581,24 @@
       fetchBytes: options.fetchBytes,
       failOnInvalid: true,
     });
+    const mergeMs = Date.now() - mergeStarted;
     if (!merged.ok) {
+      const mergeCode = merged.reason === "invalid_attachment" || merged.reason === "corrupted_resource"
+        ? "CORRUPTED_RESOURCE"
+        : (merged.reason === "attachment_missing" || merged.reason === "missing_attachment"
+          ? "PRINTABLE_MISSING"
+          : "PDF_MERGE_FAILURE");
       return {
         ok: false,
         reason: merged.reason || "merge_failed",
+        code: mergeCode,
         bytes: null,
         built,
         report: merged.report || strictPlan,
-        message: merged.report?.summary || "",
+        generationMs,
+        mergeMs,
+        message: merged.report?.summary
+          || "Binder pages were built, but printable PDFs could not be merged.",
       };
     }
 
@@ -2564,12 +2607,16 @@
       reason: "ok",
       bytes: merged.bytes,
       built,
+      generationMs,
+      mergeMs,
       report: {
         ...merged.report,
         binderEngine: binderRendered.engine || null,
         contentFingerprint: built.contentFingerprint,
         selectedPrintableIds: built.manifest?.printableIds || [],
         includedPrintableIds: (merged.report?.included || []).map((item) => item.id),
+        generationMs,
+        mergeMs,
       },
       manifest: built.manifest,
       contentFingerprint: built.contentFingerprint,
