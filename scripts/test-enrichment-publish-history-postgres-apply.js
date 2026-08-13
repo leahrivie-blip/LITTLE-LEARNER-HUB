@@ -86,21 +86,44 @@ function backupRowFor(store, overrides = {}) {
   };
 }
 
+function toUpdatedAtExact(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (value instanceof Date) {
+    // Millisecond fixtures serialize cleanly; microsecond fixtures must pass strings.
+    return value.toISOString().replace(/\.\d{3}Z$/, (m) => `${m.slice(0, -1)}000+00`).replace(/Z$/, "+00").replace("T", " ");
+  }
+  return String(value).trim();
+}
+
 function createMockClient({
   store,
   updatedAt = new Date("2026-08-12T23:50:00.000Z"),
+  updatedAtExact = null,
   backup,
   mutateBeforeLock = null,
   failWrite = false,
   corruptAfterWrite = false,
 } = {}) {
   let writes = 0;
+  const exact = updatedAtExact || toUpdatedAtExact(updatedAt);
   let row = {
     id: "launch-store",
     data: JSON.parse(JSON.stringify(store)),
-    updated_at: updatedAt,
+    // Simulates node-pg Date (millisecond precision) for display/diagnostics.
+    updated_at: updatedAt instanceof Date ? updatedAt : new Date(String(updatedAt).replace(" ", "T").replace(/\+00$/, "Z")),
+    // Exact Postgres timestamptz::text — sole SQL CAS token.
+    updated_at_exact: exact,
   };
   const resolvedBackup = backup === undefined ? backupRowFor(store) : backup;
+  function selectRow() {
+    return {
+      id: row.id,
+      data: row.data,
+      updated_at: row.updated_at,
+      updated_at_exact: row.updated_at_exact,
+    };
+  }
   return {
     writeCount() { return writes; },
     getRow() { return row; },
@@ -115,27 +138,33 @@ function createMockClient({
       }
       if (text.includes("FOR UPDATE")) {
         if (typeof mutateBeforeLock === "function") mutateBeforeLock(row);
-        return { rows: [{ id: row.id, data: row.data, updated_at: row.updated_at }], rowCount: 1 };
+        return { rows: [selectRow()], rowCount: 1 };
       }
-      if (text.startsWith("SELECT id, data, updated_at FROM llh_store WHERE id")) {
-        return { rows: [{ id: row.id, data: row.data, updated_at: row.updated_at }], rowCount: 1 };
+      if (text.includes("FROM llh_store") && text.includes("updated_at_exact") && text.includes("LIMIT 1")) {
+        return { rows: [selectRow()], rowCount: 1 };
       }
       if (text.includes("UPDATE llh_store") && text.includes("updated_at IS NOT DISTINCT FROM")) {
         if (failWrite) throw new Error("synthetic_write_failure");
-        if (new Date(row.updated_at).getTime() !== new Date(params[2]).getTime()) {
+        // Exact-text CAS (not Date#getTime): microseconds must match.
+        if (String(row.updated_at_exact) !== String(params[2]).trim()) {
           return { rows: [], rowCount: 0 };
         }
         writes += 1;
+        const nextExact = "2026-08-13 00:00:00.000000+00";
         row = {
           id: params[0],
           data: JSON.parse(params[1]),
           updated_at: new Date("2026-08-13T00:00:00.000Z"),
+          updated_at_exact: nextExact,
         };
         if (corruptAfterWrite) {
           row.data = JSON.parse(JSON.stringify(row.data));
           row.data.siteContent.curriculum.lessonPlans[0].enrichmentDraft = { tip: "CORRUPTED" };
         }
-        return { rows: [{ id: row.id, updated_at: row.updated_at }], rowCount: 1 };
+        return {
+          rows: [{ id: row.id, updated_at: row.updated_at, updated_at_exact: row.updated_at_exact }],
+          rowCount: 1,
+        };
       }
       throw new Error(`Unexpected SQL in mock: ${text.slice(0, 160)}`);
     },
@@ -233,6 +262,7 @@ async function main() {
       updatedAt,
       mutateBeforeLock: (row) => {
         row.updated_at = new Date("2026-08-12T23:59:00.000Z");
+        row.updated_at_exact = "2026-08-12 23:59:00.000000+00";
         row.data = JSON.parse(JSON.stringify(row.data));
         row.data.users["b@example.com"] = { plan: "Pro" };
       },
@@ -285,21 +315,43 @@ async function main() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  // Direct helper single-write proof
+  // Direct helper single-write proof (exact CAS token required)
   {
     const store = makeStore(8);
     const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-    const client = createMockClient({ store, updatedAt });
+    const updatedAtExact = "2026-08-12 23:50:00.000000+00";
+    const client = createMockClient({ store, updatedAt, updatedAtExact });
     const result = await applyControlledPostgresPrune({
       client,
       storeRecordId: "launch-store",
       sourceStore: store,
       sourceUpdatedAt: updatedAt,
+      sourceUpdatedAtExact: updatedAtExact,
       sourceFingerprint: stableFingerprint(store),
       backupId,
       confirmPostgresPrune: true,
     });
     assert.equal(result.postgresWriteCount, 1);
+  }
+
+  // Reject apply when only a JS Date token is supplied (precision-unsafe).
+  {
+    const store = makeStore(8);
+    const updatedAt = new Date("2026-08-12T23:50:00.000Z");
+    const client = createMockClient({ store, updatedAt });
+    await assert.rejects(
+      () => applyControlledPostgresPrune({
+        client,
+        storeRecordId: "launch-store",
+        sourceStore: store,
+        sourceUpdatedAt: updatedAt,
+        sourceFingerprint: stableFingerprint(store),
+        backupId,
+        confirmPostgresPrune: true,
+      }),
+      /updatedAtExact missing/,
+    );
+    assert.equal(client.writeCount(), 0);
   }
 
   {
