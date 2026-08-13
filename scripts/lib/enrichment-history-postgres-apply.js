@@ -28,12 +28,6 @@ function stableFingerprint(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value ?? null)).digest("hex");
 }
 
-function lessonPlanIds(store) {
-  const plans = store?.siteContent?.curriculum?.lessonPlans;
-  if (!Array.isArray(plans)) return [];
-  return plans.map((p) => String(p?.id || "")).filter(Boolean).sort();
-}
-
 /**
  * History-only transform invariant: everything except enrichmentPublishHistory identical.
  * @param {object} beforeStore
@@ -97,7 +91,8 @@ function assertHistoryOnlyTransform(beforeStore, afterStore) {
 }
 
 /**
- * Verify backup is in the same DB, verified, predates apply, and bound to this store.
+ * Verify backup is in the same DB, verified, predates apply, and cryptographically
+ * bound to the exact source store document being pruned.
  * @param {import("pg").Client} client
  * @param {string} backupId
  * @param {object} currentStore
@@ -111,27 +106,11 @@ async function verifyPostgresBackup(client, backupId, currentStore) {
       + "(expected prefix backup_<ISO-timestamp>_...).",
     );
   }
+  // Load full backup document so we can SHA-256 bind it to the exact source store.
+  // Metadata counts alone are insufficient (same IDs/counts can differ in content).
   const result = await client.query(
     `SELECT id, created_at, source, verified,
-            user_count, message_count, founding_count,
-            jsonb_array_length(
-              COALESCE(data->'siteContent'->'curriculum'->'lessonPlans', '[]'::jsonb)
-            ) AS lesson_plan_count,
-            (
-              SELECT COALESCE(jsonb_agg(value ORDER BY value), '[]'::jsonb)
-              FROM jsonb_array_elements_text(
-                COALESCE(
-                  (
-                    SELECT jsonb_agg(p->>'id')
-                    FROM jsonb_array_elements(
-                      COALESCE(data->'siteContent'->'curriculum'->'lessonPlans', '[]'::jsonb)
-                    ) p
-                    WHERE COALESCE(p->>'id', '') <> ''
-                  ),
-                  '[]'::jsonb
-                )
-              )
-            ) AS lesson_plan_ids
+            user_count, message_count, founding_count, data
      FROM llh_store_backups
      WHERE id = $1
      LIMIT 1`,
@@ -151,34 +130,17 @@ async function verifyPostgresBackup(client, backupId, currentStore) {
   if (!String(row.source || "").trim()) {
     throw new Error(`Refusing Postgres apply: backup source missing: ${id}`);
   }
-
-  const currentPlans = Array.isArray(currentStore?.siteContent?.curriculum?.lessonPlans)
-    ? currentStore.siteContent.curriculum.lessonPlans
-    : [];
-  const currentIds = lessonPlanIds(currentStore);
-  const backupIds = Array.isArray(row.lesson_plan_ids)
-    ? row.lesson_plan_ids.map(String).filter(Boolean).sort()
-    : [];
-  if (Number(row.lesson_plan_count) !== currentPlans.length) {
-    throw new Error(
-      `Refusing Postgres apply: backup lesson_plan_count ${row.lesson_plan_count} `
-      + `!= current ${currentPlans.length} (backup not bound to this store).`,
-    );
-  }
-  if (JSON.stringify(backupIds) !== JSON.stringify(currentIds)) {
-    throw new Error(
-      "Refusing Postgres apply: backup lesson plan ids do not match current store "
-      + "(unrelated/verified backup rejected).",
-    );
+  if (!row.data || typeof row.data !== "object") {
+    throw new Error(`Refusing Postgres apply: backup data missing for ${id}`);
   }
 
-  const users = currentStore?.users && typeof currentStore.users === "object"
-    ? Object.keys(currentStore.users).length
-    : 0;
-  if (Number(row.user_count) !== users) {
+  const sourceFingerprint = stableFingerprint(currentStore);
+  const backupFingerprint = stableFingerprint(row.data);
+  if (backupFingerprint !== sourceFingerprint) {
     throw new Error(
-      `Refusing Postgres apply: backup user_count ${row.user_count} != current ${users} `
-      + "(backup not bound to this production store snapshot family).",
+      "Refusing Postgres apply: backup store fingerprint does not match the exact source "
+      + "store being pruned (same lesson IDs/counts are not sufficient). "
+      + `backupFp=${backupFingerprint.slice(0, 12)}… sourceFp=${sourceFingerprint.slice(0, 12)}…`,
     );
   }
 
@@ -187,7 +149,7 @@ async function verifyPostgresBackup(client, backupId, currentStore) {
     createdAt: row.created_at,
     source: row.source,
     verified: true,
-    lessonPlanCount: Number(row.lesson_plan_count),
+    storeFingerprint: backupFingerprint,
     userCount: Number(row.user_count),
   };
 }

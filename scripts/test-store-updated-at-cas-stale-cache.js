@@ -233,21 +233,24 @@ async function main() {
       },
     }, null, 2));
 
-    // C) Trigger normal persistence from stale in-memory storeCache.
-    // Lesson-plan save reads/writes storeCache (still fat) while Postgres is already pruned.
+    // C) Legitimate NEW curriculum mutation on the stale process, then persist.
+    // Lesson-plan save carries fat history in storeCache while Postgres is already pruned.
+    const NEW_OVERVIEW = "cas-new-admin-overview";
+    const NEW_OBJECTIVES = "cas-new-admin-objectives";
     const staleTouch = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken: token,
       expectedUpdatedAt: stamp,
       lessonPlan: {
         id: PLAN_ID,
-        weeklyOverview: "stale-cache-touch",
+        weeklyOverview: NEW_OVERVIEW,
+        objectives: NEW_OBJECTIVES,
       },
     });
     assert(staleTouch.status === 200, `stale touch failed: ${staleTouch.status} ${staleTouch.text}`);
     stamp = staleTouch.json.siteContentUpdatedAt || stamp;
     await new Promise((r) => setTimeout(r, 400));
 
-    // D/E) Dump must show pruned history, not fat.
+    // D/E/F) Dump must show pruned history AND the new Admin mutation.
     const afterDump = JSON.parse(fs.readFileSync(dumpPath, "utf8"));
     const afterPlan = (afterDump.siteContent.curriculum.lessonPlans || []).find((p) => p.id === PLAN_ID);
     assert(afterPlan, "plan missing after stale persistence");
@@ -255,6 +258,8 @@ async function main() {
       (afterPlan.enrichmentPublishHistory || []).length === 5,
       `stale cache restored fat history: ${(afterPlan.enrichmentPublishHistory || []).length}`,
     );
+    assert(afterPlan.weeklyOverview === NEW_OVERVIEW, "new weekly overview mutation was lost");
+    assert(afterPlan.objectives === NEW_OBJECTIVES, "new objectives mutation was lost");
     assert(
       !Array.isArray(afterPlan.enrichmentPublishHistory)
         || afterPlan.enrichmentPublishHistory.every((e) => e && e.versionId),
@@ -262,9 +267,12 @@ async function main() {
     );
     assert(output.includes("store_updated_at_conflict"), "expected updated_at conflict recovery log");
     assert(
-      output.includes("store_updated_at_conflict_recovered")
-        || output.includes("full_store_write_success_after_updated_at_conflict"),
-      "expected successful conflict recovery/retry",
+      output.includes("full_store_write_success_after_updated_at_conflict"),
+      "expected exactly one successful recovery retry",
+    );
+    assert(
+      !output.includes("store_updated_at_conflict_retry_exhausted"),
+      "single conflict must not exhaust retries",
     );
 
     // F) Legitimate newer mutation after recovery persists; history stays capped.
@@ -296,26 +304,32 @@ async function main() {
     assert(finalPlan.familyConnection === "cas-legit-mutation", "legitimate mutation lost");
 
     // Concurrent bump of row updated_at under a normal persistence: history remains pruned;
-    // prior legitimate mutation preserved by authoritative reload + reconcile.
+    // the in-flight curriculum mutation and earlier mutations are preserved by reconcile.
     fs.writeFileSync(controlPath, JSON.stringify({
       bumpRowUpdatedAt: new Date("2026-08-13T02:00:00.000Z").toISOString(),
     }, null, 2));
+    const CONCURRENT_OVERVIEW = "after-bump-touch";
     const concurrentTouch = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken: token,
       expectedUpdatedAt: stamp,
       lessonPlan: {
         id: PLAN_ID,
-        weeklyOverview: "after-bump-touch",
+        weeklyOverview: CONCURRENT_OVERVIEW,
+        objectives: NEW_OBJECTIVES,
       },
     });
-    assert(concurrentTouch.status === 200, `concurrent touch failed: ${concurrentTouch.status} ${concurrentTouch.text}`);
+    assert(concurrentTouch.status === 200, `concurrent touch failed: ${concurrentTouch.status} ${String(concurrentTouch.text||"").slice(0,200)}`);
     await new Promise((r) => setTimeout(r, 400));
     const concurrentDump = JSON.parse(fs.readFileSync(dumpPath, "utf8"));
     const concurrentPlan = (concurrentDump.siteContent.curriculum.lessonPlans || []).find((p) => p.id === PLAN_ID);
     assert((concurrentPlan.enrichmentPublishHistory || []).length === 5, "history changed after concurrent bump");
     assert(
-      concurrentPlan.familyConnection === "cas-legit-mutation",
-      "legitimate earlier mutation was silently lost after concurrency recovery",
+      concurrentPlan.weeklyOverview === CONCURRENT_OVERVIEW,
+      `concurrent curriculum mutation lost (overview=${concurrentPlan.weeklyOverview})`,
+    );
+    assert(
+      concurrentPlan.objectives === NEW_OBJECTIVES,
+      `earlier objectives mutation lost after concurrency recovery (objectives=${concurrentPlan.objectives})`,
     );
 
     console.log("Store updated_at CAS stale-cache checks passed.");

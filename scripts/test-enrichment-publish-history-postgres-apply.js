@@ -73,7 +73,6 @@ function makeStore(historyLen = 8) {
 }
 
 function backupRowFor(store, overrides = {}) {
-  const ids = store.siteContent.curriculum.lessonPlans.map((p) => p.id).sort();
   return {
     id: "backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
     created_at: new Date("2026-08-12T23:44:42.421Z"),
@@ -82,8 +81,7 @@ function backupRowFor(store, overrides = {}) {
     user_count: Object.keys(store.users || {}).length,
     message_count: 0,
     founding_count: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
-    lesson_plan_count: store.siteContent.curriculum.lessonPlans.length,
-    lesson_plan_ids: ids,
+    data: JSON.parse(JSON.stringify(store)),
     ...overrides,
   };
 }
@@ -197,24 +195,19 @@ async function main() {
     await assert.rejects(() => run(applyArgs, { client: unverified, env }), /not verified/);
     assert.equal(unverified.writeCount(), 0);
 
-    const mismatchedIds = createMockClient({
-      store,
+    // Same lesson IDs/counts/users, different content → must refuse via fingerprint.
+    const drifted = JSON.parse(JSON.stringify(store));
+    drifted.siteContent.curriculum.lessonPlans[0].weeklyOverview = "drifted-after-backup";
+    const mismatchedFingerprint = createMockClient({
+      store: drifted,
       updatedAt,
-      backup: backupRowFor(store, {
-        lesson_plan_ids: ["cur-lp-totally-unrelated"],
-        lesson_plan_count: 1,
-      }),
+      backup: backupRowFor(store), // backup of version A; source is version B
     });
-    await assert.rejects(() => run(applyArgs, { client: mismatchedIds, env }), /not bound|do not match|lesson_plan/);
-    assert.equal(mismatchedIds.writeCount(), 0);
-
-    const mismatchedUsers = createMockClient({
-      store,
-      updatedAt,
-      backup: backupRowFor(store, { user_count: 999 }),
-    });
-    await assert.rejects(() => run(applyArgs, { client: mismatchedUsers, env }), /user_count/);
-    assert.equal(mismatchedUsers.writeCount(), 0);
+    await assert.rejects(
+      () => run(applyArgs, { client: mismatchedFingerprint, env }),
+      /fingerprint does not match/,
+    );
+    assert.equal(mismatchedFingerprint.writeCount(), 0);
   }
 
   // TEST 4 success single write

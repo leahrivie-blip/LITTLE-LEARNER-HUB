@@ -285,6 +285,11 @@ Module.prototype.require = function mockPgRequire(id) {
               delete ctrl.bumpRowUpdatedAt;
               writeControl(ctrl);
             }
+            if (ctrl.bumpRowUpdatedAtEverySelect) {
+              state.rowUpdatedAt = new Date(Date.now() + (state.selectCount + 1) * 1000);
+              state.updatedAtConflicts += 1;
+              // Keep the flag armed so the post-recovery retry also conflicts.
+            }
             state.selectCount += 1;
             writeStatus();
             if (!state.store) return { rows: [] };

@@ -32,6 +32,7 @@ const emailAuth = require("./email-auth.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const analyticsStore = require("./analytics-store.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
+const llhStoreUpdatedAtReconcile = require("./llh-store-updated-at-reconcile.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const enrichmentMedia = require("./enrichment-media.js");
@@ -4581,8 +4582,8 @@ function sameStoreUpdatedAt(a, b) {
 
 /**
  * After an external llh_store update (maintenance prune, other instance), rebuild
- * storeCache from authoritative Postgres and overlay non-curriculum in-memory
- * progress from the rejected stale write so legitimate mutations are not lost.
+ * storeCache from authoritative Postgres and overlay legitimate stale mutations.
+ * enrichmentPublishHistory always comes from authoritative Postgres.
  */
 function reconcileStoreCacheAfterUpdatedAtConflict(authoritativeStore, staleLocalStore) {
   const auth = authoritativeStore && typeof authoritativeStore === "object"
@@ -4592,18 +4593,14 @@ function reconcileStoreCacheAfterUpdatedAtConflict(authoritativeStore, staleLoca
   if (!staleLocalStore || typeof staleLocalStore !== "object") {
     return storeCache;
   }
-  let next = {
-    ...staleLocalStore,
-    // Never re-inflate curriculum / enrichment history from a stale pre-prune cache.
-    siteContent: auth.siteContent,
-    foundingMembers: auth.foundingMembers,
-  };
+  // First preserve session/analytics/email overlays using auth as the live cache base.
+  let next = llhStoreUpdatedAtReconcile.reconcileStoreAfterUpdatedAtConflict(auth, staleLocalStore);
   next = mergeStorePreserveSignupTransactionalStamps(next);
   next = mergeStorePreserveAnalyticsEvents(next);
   next = mergeStorePreserveAdminSessions(next);
   next = mergeStorePreserveEmailCampaigns(next);
-  next.siteContent = auth.siteContent;
-  next.foundingMembers = auth.foundingMembers;
+  // Re-assert history authority after overlay helpers.
+  next = llhStoreUpdatedAtReconcile.reconcileStoreAfterUpdatedAtConflict(auth, next);
   storeCache = next;
   return storeCache;
 }
@@ -5571,7 +5568,25 @@ function enqueuePostgresStoreWrite() {
         nextCounts = assertSafePostgresStoreReplacement(storeCache);
         const retryPayload = JSON.stringify(storeCache);
         const retryFingerprint = fingerprintStorePayload(retryPayload);
-        await executePostgresStoreUpsert(retryPayload, nextCounts);
+        try {
+          await executePostgresStoreUpsert(retryPayload, nextCounts);
+        } catch (retryError) {
+          if (retryError?.code === "store_updated_at_conflict") {
+            const exhausted = new Error(
+              "llh_store updated_at conflict persisted after one recovery retry",
+            );
+            exhausted.code = "store_updated_at_conflict_retry_exhausted";
+            exhausted.liveUpdatedAt = retryError.liveUpdatedAt;
+            exhausted.expectedUpdatedAt = retryError.expectedUpdatedAt;
+            logStorePersistence("store_updated_at_conflict_retry_exhausted", {
+              generation: writeGeneration,
+              liveUpdatedAt: retryError.liveUpdatedAt,
+              expectedUpdatedAt: retryError.expectedUpdatedAt,
+            });
+            throw exhausted;
+          }
+          throw retryError;
+        }
         lastPersistedStoreFingerprint = retryFingerprint;
         logStorePersistence("full_store_write_success_after_updated_at_conflict", {
           generation: writeGeneration,
@@ -5598,6 +5613,16 @@ function enqueuePostgresStoreWrite() {
   postgresWriteChain = writePromise.catch((error) => {
     postgresWriteInFlight = false;
     storeWriteMetrics.activeFullStoreWrites = Math.max(0, storeWriteMetrics.activeFullStoreWrites - 1);
+    // Concurrency exhaustion is a clean rejected write, not a disconnect/OOM event.
+    if (error?.code === "store_updated_at_conflict_retry_exhausted") {
+      storeWriteMetricsLib.recordWriteFailure(storeWriteMetrics);
+      logStorePersistence("failed_write", {
+        error: error.message || "updated_at conflict retry exhausted",
+        code: error.code,
+      });
+      console.error("Could not persist launch store to Postgres:", error.message);
+      return;
+    }
     if (error?.code !== "store_count_drop_blocked") {
       databaseReady = false;
       lastPostgresError = error.message || "Postgres store write failed.";
