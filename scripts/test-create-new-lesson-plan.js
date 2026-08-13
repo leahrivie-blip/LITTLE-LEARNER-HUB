@@ -182,8 +182,11 @@ function assertStaticContract() {
   );
   assert.doesNotMatch(pasteSrc, /openai|chat\.completions|generateActivity/i);
   assert.match(indexHtml, /curriculum-lesson-structure-paste\.js/);
-  assert.match(appJs, /Paste Week Update/);
-  assert.match(appJs, /data-paste-week-update|paste-week-update/);
+  const editorSrc = fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-enrichment-editor.js"), "utf8");
+  assert.match(editorSrc, /Paste Week Update/);
+  assert.match(editorSrc, /data-paste-week-update/);
+  assert.match(editorSrc, /Paste Activity Update/);
+  assert.match(editorSrc, /data-paste-activity-update/);
   console.log("PASS  static contract: create path persists a draft instead of opening a missing ID");
 }
 
@@ -371,6 +374,9 @@ async function runServerTests() {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await page.addInitScript(() => {
+        try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
+      });
       await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 45000 });
       await page.evaluate(() => setView("admin"));
