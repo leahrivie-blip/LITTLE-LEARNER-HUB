@@ -135,6 +135,15 @@
     observations: "observationPrompts",
     vocabulary: "vocabulary",
     "vocabulary words": "vocabulary",
+    // Resource headings — recognized but never auto-applied from an activity paste.
+    "linked resources": "linkedResourcesManual",
+    printable: "linkedResourcesManual",
+    printables: "linkedResourcesManual",
+    books: "linkedResourcesManual",
+    songs: "linkedResourcesManual",
+    "draft books": "linkedResourcesManual",
+    "draft songs": "linkedResourcesManual",
+    "draft printables": "linkedResourcesManual",
   });
 
   const WEEK_FIELD_META = Object.freeze({
@@ -214,6 +223,118 @@
     mixedAgeAdaptations: { label: "Mixed-age adaptations", kind: "scalar", path: "mixedAgeAdaptations" },
     observationPrompts: { label: "Observation prompts", kind: "array", path: "observationPrompts", max: 8 },
     vocabulary: { label: "Vocabulary", kind: "vocab", path: "vocabulary", max: 16 },
+    linkedResourcesManual: {
+      label: "Linked / draft resources",
+      kind: "manualResource",
+      path: null,
+    },
+  });
+
+  /**
+   * System/identity fields copied onto a Replace-mode draft activity.
+   * Editable instructional content is never preserved from this list.
+   */
+  const ACTIVITY_SYSTEM_PRESERVE_KEYS = Object.freeze([
+    "id",
+    "itemId",
+    "lessonPlanId",
+    "createdAt",
+    "createdBy",
+    "updatedBy",
+    "ownerId",
+    "version",
+    "revision",
+    "sourceActivityId",
+    "sourceKey",
+    "activityId",
+    "setupImageUrl",
+    "exampleImageUrl",
+    "setupImageThumbUrl",
+    "exampleImageThumbUrl",
+    "setupMediaAssetId",
+    "exampleMediaAssetId",
+    "setupPhotoUrl",
+    "examplePhotoUrl",
+    "imageRequirement",
+  ]);
+
+  const ACTIVITY_REPLACE_REQUIRED_FIELD_IDS = Object.freeze([
+    "title",
+    "dayOfWeek",
+    "activityCategory",
+    "ageModifications",
+    "durationMinutes",
+    "objective",
+    "description",
+    "materials",
+    "preparation",
+    "setup",
+    "steps",
+    "teacherLanguage",
+    "observationOpportunities",
+    "safetyNotes",
+    "cleanupTips",
+  ]);
+
+  const ACTIVITY_REPLACE_PREVIEW_GROUPS = Object.freeze({
+    core: [
+      "title",
+      "dayOfWeek",
+      "activityCategory",
+      "ageModifications",
+      "durationMinutes",
+      "objective",
+      "description",
+      "materials",
+      "preparation",
+      "setup",
+    ],
+    teaching: ["steps", "teacherLanguage", "observationOpportunities"],
+    safety: ["safetyNotes", "cleanupTips"],
+    enrichment: [
+      "settingTag_small_group",
+      "settingTag_large_group",
+      "indoorAlternatives",
+      "outdoorAlternatives",
+      "teacherTips",
+      "substitutions",
+      "adaptations",
+      "extensions",
+      "mixedAgeAdaptations",
+      "observationPrompts",
+      "vocabulary",
+    ],
+  });
+
+  const ACTIVITY_REPLACE_EMPTY_BY_PATH = Object.freeze({
+    title: "",
+    dayOfWeek: "",
+    activityCategory: "",
+    ageModifications: "",
+    durationMinutes: "",
+    objective: "",
+    description: "",
+    materials: "",
+    preparation: "",
+    setup: "",
+    steps: "",
+    teacherLanguage: "",
+    observationOpportunities: "",
+    safetyNotes: "",
+    cleanupTips: "",
+    indoorAlternatives: "",
+    outdoorAlternatives: "",
+    adaptations: "",
+    extensions: "",
+    mixedAgeAdaptations: "",
+    teacherTips: [],
+    substitutions: [],
+    observationPrompts: [],
+    vocabulary: [],
+    settingTags: [],
+    imageBriefSetup: "",
+    imageBriefExample: "",
+    imageRequirementAiSuggestion: "",
   });
 
   function text(value) {
@@ -782,6 +903,7 @@
     const sections = splitLabeledSections(pastedText, ACTIVITY_HEADING_ALIASES);
     const fieldChanges = [];
     const unrecognized = [];
+    const manualResources = [];
     const seenFields = new Set();
 
     sections.forEach((section) => {
@@ -794,6 +916,16 @@
       const meta = ACTIVITY_FIELD_META[section.fieldId];
       if (!meta) {
         unrecognized.push({ heading: section.headingRaw, body: section.body });
+        return;
+      }
+
+      if (meta.kind === "manualResource") {
+        if (text(section.body) || text(section.headingRaw)) {
+          manualResources.push({
+            heading: section.headingRaw,
+            body: section.body,
+          });
+        }
         return;
       }
 
@@ -1015,7 +1147,7 @@
       activityKey: key,
       fieldChanges,
       unrecognized,
-      manualResources: [],
+      manualResources,
     };
   }
 
@@ -1188,6 +1320,608 @@
     return { draft, appliedFields: [], scope: text(preview.scope), activityKey: "" };
   }
 
+  function emptyValueForEditablePath(path) {
+    if (Object.prototype.hasOwnProperty.call(ACTIVITY_REPLACE_EMPTY_BY_PATH, path)) {
+      const blank = ACTIVITY_REPLACE_EMPTY_BY_PATH[path];
+      return Array.isArray(blank) ? blank.slice() : blank;
+    }
+    return "";
+  }
+
+  function pickPreservedSystemFields(draftActivity, publishedActivity) {
+    const out = {};
+    const sources = [draftActivity, publishedActivity];
+    ACTIVITY_SYSTEM_PRESERVE_KEYS.forEach((key) => {
+      for (let i = 0; i < sources.length; i += 1) {
+        const src = sources[i];
+        if (src && typeof src === "object" && Object.prototype.hasOwnProperty.call(src, key)
+          && src[key] !== undefined) {
+          out[key] = JSON.parse(JSON.stringify(src[key]));
+          break;
+        }
+      }
+    });
+    if (!text(out.id) && publishedActivity && text(publishedActivity.id)) {
+      out.id = text(publishedActivity.id);
+    }
+    if (!text(out.itemId) && publishedActivity && text(publishedActivity.itemId)) {
+      out.itemId = text(publishedActivity.itemId);
+    }
+    return out;
+  }
+
+  function parseReplaceSectionValue(fieldId, body) {
+    const meta = ACTIVITY_FIELD_META[fieldId];
+    if (!meta) return { ok: false };
+    if (meta.kind === "manualResource") {
+      return { ok: true, kind: "manualResource" };
+    }
+    if (meta.kind === "settingTag") {
+      return {
+        ok: true,
+        kind: "settingTag",
+        tag: meta.tag,
+        prose: text(body),
+        proseUnsupported: Boolean(meta.proseUnsupported),
+        proseUnsupportedReason: meta.proseUnsupportedReason || "",
+      };
+    }
+    if (meta.kind === "weekday") {
+      const parsed = parseWeekday(body);
+      if (!parsed) return { ok: false, note: "Unsupported weekday" };
+      return { ok: true, kind: "weekday", value: parsed };
+    }
+    if (meta.kind === "duration") {
+      return { ok: true, kind: "duration", value: parseDurationValue(body) };
+    }
+    if (meta.kind === "scalar" || meta.kind === "scalarWithSettingTag") {
+      return {
+        ok: true,
+        kind: meta.kind,
+        value: text(body),
+        tag: meta.tag || "",
+      };
+    }
+    if (meta.kind === "orderedLineList") {
+      return { ok: true, kind: meta.kind, value: splitOrderedStepLines(body).slice(0, meta.max || 40) };
+    }
+    if (meta.kind === "lineList") {
+      return { ok: true, kind: meta.kind, value: splitContentLines(body).slice(0, meta.max || 80) };
+    }
+    if (meta.kind === "array") {
+      return { ok: true, kind: meta.kind, value: splitContentLines(body).slice(0, meta.max || 8) };
+    }
+    if (meta.kind === "vocab") {
+      return { ok: true, kind: meta.kind, value: parseVocabularyItems(body).slice(0, meta.max || 16) };
+    }
+    if (meta.kind === "substitutions") {
+      return {
+        ok: true,
+        kind: meta.kind,
+        value: parseSubstitutionBlocks(body).slice(0, meta.max || 12),
+      };
+    }
+    return { ok: false };
+  }
+
+  function mergeReplaceParsedValues(prior, extra, kind, max) {
+    if (kind === "lineList" || kind === "orderedLineList" || kind === "array" || kind === "vocab") {
+      const keyFn = kind === "orderedLineList" ? stepDedupeKey : null;
+      return dedupePreserveOrder([].concat(prior || [], extra || []), keyFn).slice(0, max || 80);
+    }
+    if (kind === "substitutions") {
+      return dedupePreserveOrder(
+        [].concat(prior || [], extra || []),
+        (s) => `${text(s.need).toLowerCase()}=>${text(s.use).toLowerCase()}`,
+      ).slice(0, max || 12);
+    }
+    return extra;
+  }
+
+  function displayReplaceValue(fieldId, value) {
+    const meta = ACTIVITY_FIELD_META[fieldId];
+    if (!meta) return "";
+    if (value == null || value === "") return "";
+    if (Array.isArray(value)) {
+      if (meta.kind === "substitutions") {
+        return value.map((s) => `If missing: ${s.need} → Use instead: ${s.use}`).join("\n");
+      }
+      return value.map((item) => (typeof item === "string" ? item : text(item))).filter(Boolean).join("\n");
+    }
+    return text(value);
+  }
+
+  function collectPlanResourceHints(plan, week) {
+    const relationships = [];
+    asArray(plan?.resourceIds).forEach((id) => {
+      const rid = text(id);
+      if (!rid) return;
+      relationships.push({ kind: "resourceId", id: rid, title: rid });
+    });
+    asArray(week?.printableIds).forEach((id) => {
+      const rid = text(id);
+      if (!rid) return;
+      relationships.push({ kind: "printableId", id: rid, title: rid });
+    });
+    asArray(plan?.books).concat(asArray(week?.books)).forEach((book) => {
+      const title = text(book?.title || book);
+      if (title) relationships.push({ kind: "book", id: title, title });
+    });
+    asArray(plan?.songs).concat(asArray(week?.songs)).forEach((song) => {
+      const title = text(song?.title || song);
+      if (title) relationships.push({ kind: "song", id: title, title });
+    });
+    return { relationships };
+  }
+
+  function materialsMayMatchResource(materialsText, resourceTitle) {
+    const hay = text(materialsText).toLowerCase();
+    const needle = text(resourceTitle).toLowerCase();
+    if (!hay || !needle || needle.length < 4) return false;
+    return hay.includes(needle);
+  }
+
+  /**
+   * Build a CLEAN replacement draft activity in memory.
+   * Omitted editable fields are explicitly blank. Lists are pasted-only.
+   */
+  function buildReplacementActivity(publishedActivity, draftActivity, parsedValues, activityKey) {
+    const preserved = pickPreservedSystemFields(draftActivity, publishedActivity);
+    const next = { ...preserved, replaceOwned: true };
+    Object.keys(ACTIVITY_REPLACE_EMPTY_BY_PATH).forEach((path) => {
+      next[path] = emptyValueForEditablePath(path);
+    });
+
+    const values = parsedValues && typeof parsedValues === "object" ? parsedValues : {};
+    Object.keys(values).forEach((fieldId) => {
+      if (fieldId === "settingTags") return;
+      const meta = ACTIVITY_FIELD_META[fieldId];
+      if (!meta || !meta.path) return;
+      const parsed = values[fieldId];
+      if (meta.kind === "lineList" || meta.kind === "orderedLineList") {
+        next[meta.path] = asArray(parsed).map(text).filter(Boolean).join("\n");
+        return;
+      }
+      if (meta.kind === "array" || meta.kind === "vocab") {
+        next[meta.path] = asArray(parsed).map(text).filter(Boolean);
+        if (meta.max) next[meta.path] = next[meta.path].slice(0, meta.max);
+        return;
+      }
+      if (meta.kind === "substitutions") {
+        next.substitutions = asArray(parsed)
+          .filter((s) => s && text(s.need) && text(s.use))
+          .map((s) => ({ need: text(s.need), use: text(s.use) }))
+          .slice(0, meta.max || 12);
+        return;
+      }
+      if (meta.kind === "duration") {
+        next.durationMinutes = parsed === "" || parsed == null ? "" : parsed;
+        return;
+      }
+      if (meta.kind === "weekday") {
+        next.dayOfWeek = text(parsed);
+        return;
+      }
+      next[meta.path] = parsed == null ? "" : parsed;
+    });
+
+    next.settingTags = dedupePreserveOrder(asArray(parsedValues?.settingTags).map(text).filter(Boolean)).slice(0, 8);
+    next.imageBriefSetup = "";
+    next.imageBriefExample = "";
+    next.imageRequirementAiSuggestion = "";
+
+    const key = text(activityKey);
+    if (key) {
+      if (!text(next.id) && !text(next.itemId)) next.id = key;
+      if (text(publishedActivity?.id) === key && !text(next.id)) next.id = key;
+      if (text(publishedActivity?.itemId) === key && !text(next.itemId)) next.itemId = key;
+    }
+    return next;
+  }
+
+  function validateReplacementActivity(replacement, expectedKey) {
+    if (!replacement || typeof replacement !== "object" || Array.isArray(replacement)) {
+      return "invalid_replacement";
+    }
+    const key = text(expectedKey);
+    if (!key) return "missing_activity_key";
+    const id = text(replacement.id);
+    const itemId = text(replacement.itemId);
+    if (!id && !itemId) return "missing_identity";
+    if (id !== key && itemId !== key) return "identity_mismatch";
+    if (replacement.replaceOwned !== true) return "missing_replace_owned";
+    return "";
+  }
+
+  function activityReplaceFingerprint({ planId, activityKey, mode, draftActivity, week } = {}) {
+    return JSON.stringify({
+      planId: text(planId),
+      activityKey: text(activityKey),
+      mode: text(mode) || "replace",
+      draftActivity: draftActivity && typeof draftActivity === "object" ? draftActivity : {},
+      week: week && typeof week === "object" ? week : {},
+    });
+  }
+
+  function formatRecognizedRow(fieldId, value, supplied) {
+    const meta = ACTIVITY_FIELD_META[fieldId] || {};
+    return {
+      fieldId,
+      label: meta.label || fieldId,
+      kind: meta.kind || "scalar",
+      supplied: Boolean(supplied),
+      display: supplied ? displayReplaceValue(fieldId, value) : "",
+      required: ACTIVITY_REPLACE_REQUIRED_FIELD_IDS.includes(fieldId),
+    };
+  }
+
+  /**
+   * Replace-mode preview: parse one complete activity paste, build a clean
+   * replacement object, and describe missing/unrecognized/protected items.
+   * Does not write to a draft.
+   */
+  function buildActivityReplacePreview(pastedText, activity, draftActivity, activityKey, options = {}) {
+    const key = text(activityKey);
+    const planId = text(options.planId);
+    const week = options.week && typeof options.week === "object" ? options.week : {};
+    const plan = options.plan && typeof options.plan === "object" ? options.plan : {};
+    const sections = splitLabeledSections(String(pastedText || ""), ACTIVITY_HEADING_ALIASES);
+    const parsedValues = {};
+    const unrecognized = [];
+    const manualResources = [];
+    const unsupported = [];
+    const settingTags = [];
+    const seenFields = new Set();
+    let recognizedCount = 0;
+
+    if (!key) {
+      return {
+        mode: "replace",
+        scope: "activity",
+        activityKey: "",
+        planId,
+        error: "missing_activity_key",
+        replacementActivity: null,
+        fieldChanges: [],
+        ui: { singleConfirm: true, perFieldCheckboxes: false },
+        unrecognized: [],
+        manualResources: [],
+        missing: [],
+        groups: { core: [], teaching: [], safety: [], enrichment: [], images: [] },
+      };
+    }
+
+    sections.forEach((section) => {
+      if (!section.fieldId) {
+        if (text(section.body) || (section.headingRaw && section.headingRaw !== "(preamble)")) {
+          unrecognized.push({ heading: section.headingRaw, body: section.body });
+        }
+        return;
+      }
+      const meta = ACTIVITY_FIELD_META[section.fieldId];
+      if (!meta) {
+        unrecognized.push({ heading: section.headingRaw, body: section.body });
+        return;
+      }
+      const parsed = parseReplaceSectionValue(section.fieldId, section.body);
+      if (!parsed.ok) {
+        unrecognized.push({
+          heading: section.headingRaw,
+          body: section.body,
+          note: parsed.note || "Could not map this section",
+        });
+        return;
+      }
+      if (parsed.kind === "manualResource") {
+        manualResources.push({ heading: section.headingRaw, body: section.body });
+        return;
+      }
+      if (parsed.kind === "settingTag") {
+        if (parsed.tag && !settingTags.includes(parsed.tag)) settingTags.push(parsed.tag);
+        if (parsed.prose && parsed.proseUnsupported) {
+          unsupported.push({
+            fieldId: `${section.fieldId}_prose`,
+            label: `${meta.label} (text)`,
+            body: parsed.prose,
+            reason: parsed.proseUnsupportedReason,
+          });
+        }
+        seenFields.add(section.fieldId);
+        recognizedCount += 1;
+        return;
+      }
+      if (parsed.kind === "scalarWithSettingTag" && parsed.tag && !settingTags.includes(parsed.tag)) {
+        settingTags.push(parsed.tag);
+      }
+      if (seenFields.has(section.fieldId)
+        && (parsed.kind === "lineList" || parsed.kind === "orderedLineList"
+          || parsed.kind === "array" || parsed.kind === "vocab" || parsed.kind === "substitutions")) {
+        parsedValues[section.fieldId] = mergeReplaceParsedValues(
+          parsedValues[section.fieldId],
+          parsed.value,
+          parsed.kind,
+          meta.max,
+        );
+        return;
+      }
+      parsedValues[section.fieldId] = parsed.value;
+      seenFields.add(section.fieldId);
+      recognizedCount += 1;
+    });
+
+    parsedValues.settingTags = settingTags;
+
+    if (!recognizedCount && !unsupported.length && !manualResources.length) {
+      return {
+        mode: "replace",
+        scope: "activity",
+        activityKey: key,
+        planId,
+        error: "parse_empty",
+        replacementActivity: null,
+        fieldChanges: [],
+        ui: { singleConfirm: true, perFieldCheckboxes: false },
+        unrecognized,
+        manualResources,
+        missing: [],
+        groups: { core: [], teaching: [], safety: [], enrichment: [], images: [] },
+        currentTitle: text(draftActivity?.title) || text(activity?.title),
+        nextTitle: "",
+      };
+    }
+
+    const replacementActivity = buildReplacementActivity(activity, draftActivity, parsedValues, key);
+    const identityError = validateReplacementActivity(replacementActivity, key);
+    if (identityError) {
+      return {
+        mode: "replace",
+        scope: "activity",
+        activityKey: key,
+        planId,
+        error: identityError,
+        replacementActivity: null,
+        fieldChanges: [],
+        ui: { singleConfirm: true, perFieldCheckboxes: false },
+        unrecognized,
+        manualResources,
+        missing: [],
+        groups: { core: [], teaching: [], safety: [], enrichment: [], images: [] },
+      };
+    }
+
+    const missing = [];
+    const groups = { core: [], teaching: [], safety: [], enrichment: [], images: [] };
+    Object.keys(ACTIVITY_REPLACE_PREVIEW_GROUPS).forEach((groupId) => {
+      ACTIVITY_REPLACE_PREVIEW_GROUPS[groupId].forEach((fieldId) => {
+        if (fieldId === "settingTag_small_group" || fieldId === "settingTag_large_group") {
+          const tag = ACTIVITY_FIELD_META[fieldId].tag;
+          const supplied = settingTags.includes(tag);
+          const row = {
+            fieldId,
+            label: ACTIVITY_FIELD_META[fieldId].label,
+            kind: "settingTag",
+            supplied,
+            display: supplied ? ACTIVITY_FIELD_META[fieldId].label : "",
+            required: false,
+          };
+          groups[groupId].push(row);
+          if (!supplied) missing.push(row);
+          return;
+        }
+        const meta = ACTIVITY_FIELD_META[fieldId];
+        const supplied = Object.prototype.hasOwnProperty.call(parsedValues, fieldId)
+          && !(Array.isArray(parsedValues[fieldId]) && parsedValues[fieldId].length === 0)
+          && parsedValues[fieldId] !== "";
+        const value = supplied
+          ? parsedValues[fieldId]
+          : (meta && meta.path ? replacementActivity[meta.path] : "");
+        const row = formatRecognizedRow(fieldId, value, supplied);
+        groups[groupId].push(row);
+        if (!supplied) missing.push(row);
+      });
+    });
+
+    const currentTitle = text(draftActivity?.title) || text(activity?.title) || "";
+    const nextTitle = text(replacementActivity.title);
+    const oldBriefSetup = text(draftActivity?.imageBriefSetup);
+    const oldBriefExample = text(draftActivity?.imageBriefExample);
+    const staleImageBriefs = [];
+    if (oldBriefSetup) {
+      staleImageBriefs.push({
+        field: "imageBriefSetup",
+        previous: oldBriefSetup,
+        action: "cleared",
+        reason: "AI/generated setup brief from the previous activity is not kept as active.",
+      });
+    }
+    if (oldBriefExample) {
+      staleImageBriefs.push({
+        field: "imageBriefExample",
+        previous: oldBriefExample,
+        action: "cleared",
+        reason: "AI/generated example brief from the previous activity is not kept as active.",
+      });
+    }
+
+    const preserved = pickPreservedSystemFields(draftActivity, activity);
+    const protectedImages = [];
+    ["setupImageUrl", "exampleImageUrl", "setupPhotoUrl", "examplePhotoUrl"].forEach((field) => {
+      if (text(preserved[field])) {
+        protectedImages.push({
+          field,
+          url: text(preserved[field]),
+          note: "EXISTING IMAGE MAY NO LONGER MATCH THIS ACTIVITY — keep for review, replace later, or remove. Not deleted.",
+        });
+      }
+    });
+    ["setupMediaAssetId", "exampleMediaAssetId"].forEach((field) => {
+      if (text(preserved[field])) {
+        protectedImages.push({
+          field,
+          id: text(preserved[field]),
+          note: "Uploaded media asset is not being deleted.",
+        });
+      }
+    });
+
+    const resourceHints = collectPlanResourceHints(plan, week);
+    const newMaterials = text(replacementActivity.materials);
+    const protectedResources = resourceHints.relationships.map((rel) => {
+      const oldMaterials = text(draftActivity?.materials) || text(activity?.materials);
+      const matchedOld = materialsMayMatchResource(oldMaterials, rel.title);
+      const matchedNew = materialsMayMatchResource(newMaterials, rel.title);
+      return {
+        ...rel,
+        protected: true,
+        review: matchedOld && !matchedNew
+          ? "May no longer match replacement activity — review manually."
+          : "These resources will remain linked and are not being deleted.",
+      };
+    });
+
+    groups.images = [
+      ...staleImageBriefs.map((item) => ({
+        fieldId: item.field,
+        label: item.field === "imageBriefSetup" ? "Setup example brief" : "Finished example brief",
+        supplied: false,
+        display: "",
+        previous: item.previous,
+        note: item.reason,
+        required: false,
+      })),
+      ...protectedImages.map((item) => ({
+        fieldId: item.field,
+        label: item.field,
+        supplied: true,
+        display: item.url || item.id || "",
+        note: item.note,
+        required: false,
+        protected: true,
+      })),
+    ];
+
+    const fingerprint = activityReplaceFingerprint({
+      planId,
+      activityKey: key,
+      mode: "replace",
+      draftActivity,
+      week,
+    });
+
+    return {
+      mode: "replace",
+      scope: "activity",
+      activityKey: key,
+      planId,
+      currentTitle,
+      nextTitle,
+      replacementActivity,
+      fieldChanges: [],
+      ui: { singleConfirm: true, perFieldCheckboxes: false },
+      unrecognized,
+      manualResources,
+      unsupported,
+      missing,
+      groups,
+      staleImageBriefs,
+      protectedImages,
+      protectedResources,
+      fingerprint,
+      imageRequirementPreserved: Object.prototype.hasOwnProperty.call(preserved, "imageRequirement")
+        ? preserved.imageRequirement
+        : "",
+    };
+  }
+
+  /**
+   * Atomically swap one replacement activity into a draft clone.
+   * Week + every other activity remain byte-identical. Zero writes on error.
+   */
+  function applyActivityReplacementToDraft(draftInput, preview, {
+    confirm = false,
+    expectedActivityKey = "",
+    expectedPlanId = "",
+    expectedFingerprint = "",
+    currentDraftActivity = null,
+    currentWeek = null,
+  } = {}) {
+    const fail = (error) => ({
+      draft: JSON.parse(JSON.stringify(draftInput && typeof draftInput === "object" ? draftInput : { activities: {}, week: {} })),
+      appliedFields: [],
+      scope: "activity",
+      activityKey: text(preview?.activityKey),
+      error,
+      changed: false,
+    });
+
+    if (!preview || preview.mode !== "replace") return fail("invalid_preview");
+    if (!confirm) return fail("confirm_required");
+    if (preview.error) return fail(preview.error);
+    const activityKey = text(preview.activityKey);
+    if (!activityKey) return fail("missing_activity_key");
+    if (expectedActivityKey && activityKey !== text(expectedActivityKey)) return fail("stale_selection");
+    if (expectedPlanId && preview.planId && preview.planId !== text(expectedPlanId)) return fail("stale_plan");
+    if (!preview.replacementActivity) return fail("invalid_replacement");
+
+    const identityError = validateReplacementActivity(preview.replacementActivity, activityKey);
+    if (identityError) return fail(identityError);
+
+    if (expectedFingerprint && preview.fingerprint && expectedFingerprint !== preview.fingerprint) {
+      return fail("stale_preview");
+    }
+
+    const source = draftInput && typeof draftInput === "object"
+      ? JSON.parse(JSON.stringify(draftInput))
+      : { activities: {}, week: {} };
+    if (!source.activities || typeof source.activities !== "object") source.activities = {};
+    if (!source.week || typeof source.week !== "object") source.week = {};
+
+    if (currentDraftActivity != null || currentWeek != null) {
+      const liveFingerprint = activityReplaceFingerprint({
+        planId: preview.planId,
+        activityKey,
+        mode: "replace",
+        draftActivity: currentDraftActivity != null ? currentDraftActivity : source.activities[activityKey],
+        week: currentWeek != null ? currentWeek : source.week,
+      });
+      if (preview.fingerprint && liveFingerprint !== preview.fingerprint) return fail("stale_preview");
+    }
+
+    const weekSnapshot = JSON.stringify(source.week);
+    const otherActsSnapshot = {};
+    Object.keys(source.activities).forEach((k) => {
+      if (k !== activityKey) otherActsSnapshot[k] = source.activities[k];
+    });
+
+    source.activities[activityKey] = JSON.parse(JSON.stringify(preview.replacementActivity));
+
+    source.week = JSON.parse(weekSnapshot);
+    Object.keys(source.activities).forEach((k) => {
+      if (k !== activityKey) {
+        if (Object.prototype.hasOwnProperty.call(otherActsSnapshot, k)) {
+          source.activities[k] = otherActsSnapshot[k];
+        } else {
+          delete source.activities[k];
+        }
+      }
+    });
+    Object.keys(otherActsSnapshot).forEach((k) => {
+      source.activities[k] = otherActsSnapshot[k];
+    });
+
+    const appliedFields = Object.keys(ACTIVITY_REPLACE_EMPTY_BY_PATH).filter((path) => (
+      Object.prototype.hasOwnProperty.call(source.activities[activityKey], path)
+    ));
+    return {
+      draft: source,
+      appliedFields,
+      scope: "activity",
+      activityKey,
+      error: "",
+      changed: true,
+    };
+  }
+
   function emptyImporterState() {
     return {
       open: false,
@@ -1199,6 +1933,8 @@
       preview: null,
       highlightFields: [],
       highlightUntil: 0,
+      mode: "update", // update | replace
+      replaceConfirm: false,
     };
   }
 
@@ -1217,6 +1953,14 @@
     ) {
       return true;
     }
+    if (importerState.preview && importerState.preview.mode === "replace") {
+      if (activityKey && importerState.preview.activityKey && activityKey !== importerState.preview.activityKey) {
+        return true;
+      }
+      if (planId && importerState.preview.planId && planId !== importerState.preview.planId) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -1226,6 +1970,9 @@
     ACTIVITY_HEADING_ALIASES,
     WEEK_FIELD_META,
     ACTIVITY_FIELD_META,
+    ACTIVITY_SYSTEM_PRESERVE_KEYS,
+    ACTIVITY_REPLACE_REQUIRED_FIELD_IDS,
+    ACTIVITY_REPLACE_EMPTY_BY_PATH,
     SETTING_TAG_BY_LABEL,
     normalizeHeading,
     splitLabeledSections,
@@ -1237,7 +1984,12 @@
     normalizeMilestoneLabel,
     buildWeekPreview,
     buildActivityPreview,
+    buildActivityReplacePreview,
+    buildReplacementActivity,
     applyPreviewToDraft,
+    applyActivityReplacementToDraft,
+    activityReplaceFingerprint,
+    pickPreservedSystemFields,
     emptyImporterState,
     shouldClearImporterState,
     buildListDiff,

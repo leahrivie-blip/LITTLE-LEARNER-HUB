@@ -764,16 +764,16 @@
 
   function activityEnrichmentView(activity, draftActivity) {
     const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
-    const tips = asArray(d.teacherTips).length
+    const tips = Object.prototype.hasOwnProperty.call(d, "teacherTips")
       ? asArray(d.teacherTips).map(text).filter(Boolean)
       : asArray(activity?.teacherTips).map(text).filter(Boolean);
-    const substitutions = asArray(d.substitutions).length
+    const substitutions = Object.prototype.hasOwnProperty.call(d, "substitutions")
       ? asArray(d.substitutions)
       : asArray(activity?.substitutions);
-    const settingTags = asArray(d.settingTags).length
+    const settingTags = Object.prototype.hasOwnProperty.call(d, "settingTags")
       ? asArray(d.settingTags).map(text).filter(Boolean)
       : asArray(activity?.settingTags).map(text).filter(Boolean);
-    const observationPrompts = asArray(d.observationPrompts).length
+    const observationPrompts = Object.prototype.hasOwnProperty.call(d, "observationPrompts")
       ? asArray(d.observationPrompts).map(text).filter(Boolean)
       : (text(activity?.observationOpportunities)
         ? text(activity.observationOpportunities).split(/\n+/).map(text).filter(Boolean)
@@ -786,9 +786,9 @@
     const recommendedImageRequirement = recommendImageRequirement(activity);
     const ownerClassified = hasOwnerImageClassification(activity, d);
     // Preserve AI recommendation text if present — never treat as owner classification.
-    const imageRequirementAiSuggestion = normalizeImageRequirement(d.imageRequirementAiSuggestion)
-      || normalizeImageRequirement(activity?.imageRequirementAiSuggestion)
-      || "";
+    const imageRequirementAiSuggestion = Object.prototype.hasOwnProperty.call(d, "imageRequirementAiSuggestion")
+      ? (normalizeImageRequirement(d.imageRequirementAiSuggestion) || "")
+      : (normalizeImageRequirement(activity?.imageRequirementAiSuggestion) || "");
     return {
       imageRequirement,
       imageRequirementLabel: imageRequirementLabel(imageRequirement),
@@ -808,12 +808,13 @@
       settingTags,
       observationPrompts,
       vocabulary,
-      indoorAlternatives: pickDraftOrPublishedText(d.indoorAlternatives, activity?.indoorAlternatives),
-      outdoorAlternatives: pickDraftOrPublishedText(d.outdoorAlternatives, activity?.outdoorAlternatives),
-      adaptations: pickDraftOrPublishedText(d.adaptations, activity?.adaptations),
-      extensions: pickDraftOrPublishedText(d.extensions, activity?.extensions),
-      mixedAgeAdaptations: pickDraftOrPublishedText(
-        d.mixedAgeAdaptations,
+      indoorAlternatives: pickOwnedDraftText(d, "indoorAlternatives", activity?.indoorAlternatives),
+      outdoorAlternatives: pickOwnedDraftText(d, "outdoorAlternatives", activity?.outdoorAlternatives),
+      adaptations: pickOwnedDraftText(d, "adaptations", activity?.adaptations),
+      extensions: pickOwnedDraftText(d, "extensions", activity?.extensions),
+      mixedAgeAdaptations: pickOwnedDraftText(
+        d,
+        "mixedAgeAdaptations",
         activity?.mixedAgeAdaptations || activity?.mixedAge,
       ),
       setup: Object.prototype.hasOwnProperty.call(d, "setup")
@@ -1232,11 +1233,16 @@
   function buildJumpIndex(plan, activities, enrichmentDraft) {
     const list = flattenLessonActivities(plan, activities, enrichmentDraft);
     const hits = [];
+    const draftActs = enrichmentDraft && enrichmentDraft.activities && typeof enrichmentDraft.activities === "object"
+      ? enrichmentDraft.activities
+      : {};
     list.forEach((act, index) => {
+      const key = text(act.id) || text(act.itemId);
+      const overlayTitle = activityEnrichmentView(act, draftActs[key] || draftActs[text(act.itemId)]).title;
       hits.push({
         type: "activity",
-        id: text(act.id) || text(act.itemId),
-        label: text(act.title) || "Activity",
+        id: key,
+        label: overlayTitle || text(act.title) || "Activity",
         meta: text(act.dayOfWeek),
         index,
       });
@@ -1263,7 +1269,6 @@
     ].forEach(([id, label]) => {
       hits.push({ type: "section", id, label, meta: "Week section" });
     });
-    void enrichmentDraft;
     return hits;
   }
 
@@ -1273,6 +1278,59 @@
     return asArray(hits).filter((hit) => (
       `${hit.label} ${hit.meta} ${hit.type}`.toLowerCase().includes(q)
     )).slice(0, 20);
+  }
+
+  /**
+   * Replace-owned draft overlay: omitted/blank editable fields stay blank.
+   * Does not delete uploaded images or linked resource relationships.
+   * Used only when paste Replace set `replaceOwned` on the draft activity.
+   */
+  function mergeReplaceOwnedActivity(act, patch, view) {
+    const ownedText = (key, fallback) => (
+      Object.prototype.hasOwnProperty.call(patch, key) ? text(patch[key]) : text(fallback)
+    );
+    const dayRaw = ownedText("dayOfWeek", view.dayOfWeek).toLowerCase();
+    const vocabList = Object.prototype.hasOwnProperty.call(patch, "vocabulary")
+      ? vocabularyListFrom(patch.vocabulary)
+      : asArray(view.vocabulary).map(text).filter(Boolean);
+    const next = {
+      ...act,
+      title: ownedText("title", view.title),
+      dayOfWeek: WEEKDAYS.includes(dayRaw) ? dayRaw : "",
+      activityCategory: ownedText("activityCategory", view.activityCategory),
+      ageModifications: ownedText("ageModifications", view.ageModifications),
+      objective: ownedText("objective", view.objective),
+      description: ownedText("description", view.description),
+      teacherLanguage: ownedText("teacherLanguage", view.teacherLanguage),
+      safetyNotes: ownedText("safetyNotes", view.safetyNotes),
+      imageRequirement: view.imageRequirement || act.imageRequirement || "",
+      setupImageUrl: view.setupImageUrl,
+      exampleImageUrl: view.exampleImageUrl,
+      setupImageThumbUrl: view.setupImageThumbUrl,
+      exampleImageThumbUrl: view.exampleImageThumbUrl,
+      setupMediaAssetId: view.setupMediaAssetId,
+      exampleMediaAssetId: view.exampleMediaAssetId,
+      teacherTips: view.teacherTips,
+      substitutions: view.substitutions,
+      settingTags: view.settingTags,
+      observationOpportunities: ownedText("observationOpportunities", view.observationOpportunities),
+      vocabulary: vocabList.join(", "),
+      indoorAlternatives: ownedText("indoorAlternatives", view.indoorAlternatives),
+      outdoorAlternatives: ownedText("outdoorAlternatives", view.outdoorAlternatives),
+      adaptations: ownedText("adaptations", view.adaptations),
+      extensions: ownedText("extensions", view.extensions),
+      mixedAgeAdaptations: ownedText("mixedAgeAdaptations", view.mixedAgeAdaptations),
+      materials: ownedText("materials", view.materials),
+      preparation: ownedText("preparation", view.preparation),
+      cleanupTips: ownedText("cleanupTips", view.cleanupTips),
+      setup: ownedText("setup", view.setup),
+      steps: ownedText("steps", view.steps),
+    };
+    if (Object.prototype.hasOwnProperty.call(patch, "durationMinutes")) {
+      const dur = patch.durationMinutes;
+      next.durationMinutes = (dur === "" || dur == null) ? "" : dur;
+    }
+    return next;
   }
 
   /**
@@ -1297,6 +1355,9 @@
       const patch = draftActs[key] || draftActs[text(act.itemId)];
       if (!patch) return act;
       const view = activityEnrichmentView(act, patch);
+      if (patch.replaceOwned === true) {
+        return mergeReplaceOwnedActivity(act, patch, view);
+      }
       const ownedObs = Object.prototype.hasOwnProperty.call(patch, "observationOpportunities")
         ? text(patch.observationOpportunities)
         : "";
@@ -1383,6 +1444,45 @@
         const targetDay = WEEKDAYS.includes(text(match.dayOfWeek).toLowerCase())
           ? text(match.dayOfWeek).toLowerCase()
           : day;
+        const patchKey = text(match.id) || text(match.itemId) || text(item.itemId) || text(item.id);
+        const itemPatch = draftActs[patchKey] || draftActs[text(match.itemId)] || draftActs[text(item.itemId)];
+        if (itemPatch && itemPatch.replaceOwned === true) {
+          relocated[targetDay].push({
+            ...item,
+            title: match.title,
+            dayOfWeek: targetDay,
+            activityCategory: match.activityCategory,
+            objective: match.objective,
+            description: match.description,
+            teacherLanguage: match.teacherLanguage,
+            safetyNotes: match.safetyNotes,
+            imageRequirement: match.imageRequirement || item.imageRequirement || "",
+            setupImageUrl: match.setupImageUrl || item.setupImageUrl,
+            exampleImageUrl: match.exampleImageUrl || item.exampleImageUrl,
+            setupImageThumbUrl: match.setupImageThumbUrl || item.setupImageThumbUrl,
+            exampleImageThumbUrl: match.exampleImageThumbUrl || item.exampleImageThumbUrl,
+            setupMediaAssetId: match.setupMediaAssetId || item.setupMediaAssetId,
+            exampleMediaAssetId: match.exampleMediaAssetId || item.exampleMediaAssetId,
+            teacherTips: match.teacherTips,
+            substitutions: match.substitutions,
+            settingTags: match.settingTags,
+            observationOpportunities: match.observationOpportunities,
+            vocabulary: match.vocabulary,
+            indoorAlternatives: match.indoorAlternatives,
+            outdoorAlternatives: match.outdoorAlternatives,
+            adaptations: match.adaptations,
+            extensions: match.extensions,
+            mixedAgeAdaptations: match.mixedAgeAdaptations,
+            ageModifications: match.ageModifications,
+            durationMinutes: match.durationMinutes,
+            materials: match.materials,
+            preparation: match.preparation,
+            cleanupTips: match.cleanupTips,
+            setup: match.setup,
+            steps: match.steps,
+          });
+          return;
+        }
         const mergedItem = {
           ...item,
           title: match.title || item.title,
