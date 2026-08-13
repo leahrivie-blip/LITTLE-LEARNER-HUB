@@ -65,19 +65,22 @@
     if (!field) return "";
     if (field.type === "info") return String(field.label || "");
     if (field.type === "long_text") {
-      return `${field.label}:\n________________________________________________________________________\n________________________________________________________________________`;
+      return `${field.label}\n________________________________________________________________________\n________________________________________________________________________\n________________________________________________________________________`;
     }
     if (field.type === "checkbox") return `[ ] ${field.label}`;
-    if (field.type === "yes_no") return `${field.label}:  [ ] Yes   [ ] No`;
+    if (field.type === "yes_no") return `${field.label}\n[ ] Yes          [ ] No`;
     if (field.type === "signature") {
-      return `${field.label}: ______________________________________________`;
+      return `${field.label}\n________________________________________________    Date __________`;
     }
-    if (field.type === "time" || field.type === "date") {
-      return `${field.label}: ____________________`;
+    if (field.type === "time") {
+      return `${field.label}: ______ : ______   [ ] AM   [ ] PM`;
+    }
+    if (field.type === "date") {
+      return `${field.label}: ____ / ____ / ________`;
     }
     if (field.type === "dropdown" || field.type === "radio") {
-      const opts = (field.options || []).map((opt) => `[ ] ${opt.label || opt.value}`).join("   ");
-      return `${field.label}:\n${opts || "____________________"}`;
+      const opts = (field.options || []).map((opt) => `[ ] ${opt.label || opt.value}`).join("     ");
+      return `${field.label}\n${opts || "____________________"}`;
     }
     return `${field.label}: ________________________________________________`;
   }
@@ -90,14 +93,16 @@
     const fields = (prepared.fields || []).filter((field) => field.visible !== false);
     const lines = [];
     lines.push("ENROLLMENT FORM");
-    lines.push("");
-    lines.push(`Program: ${programName || "____________________________________________"}`);
+    lines.push("============================================================");
+    lines.push(`Program: ${String(programName || "").trim() || "____________________________________________"}`);
     lines.push("Child name: ______________________________________________");
-    lines.push("Date: ____________________________________________________");
+    lines.push("Date completed: __________________________________________");
     lines.push("");
     lines.push(api?.BASELINE_DISCLAIMER
       || "Customize this form for your program. State or licensing-specific requirements may need to be added separately.");
     lines.push("");
+    // Soft page-break groups for browser print (form feed between major blocks).
+    const pageBreakAfter = new Set(["schedule", "household", "medical", "daily_care", "permissions"]);
     sections.forEach((section) => {
       const sectionFields = fields
         .filter((field) => String(field.sectionId || "") === String(section.id))
@@ -106,13 +111,40 @@
       lines.push("");
       lines.push(String(section.title || section.id).toUpperCase());
       lines.push("------------------------------------------------------------");
-      sectionFields.forEach((field) => {
-        lines.push(blankLineForField(field));
-        lines.push("");
-      });
+      if (section.id === "schedule") {
+        // Group weekday rows for readable handwriting
+        const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+        days.forEach((day) => {
+          const attending = sectionFields.find((f) => f.id === `enroll.schedule.${day}.attending`);
+          const arrival = sectionFields.find((f) => f.id === `enroll.schedule.${day}.arrival`);
+          const departure = sectionFields.find((f) => f.id === `enroll.schedule.${day}.departure`);
+          if (!attending && !arrival && !departure) return;
+          const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
+          lines.push(`${dayLabel}`);
+          if (attending) lines.push(`[ ] Attending`);
+          if (arrival) lines.push(`Arrival: ______ : ______   [ ] AM   [ ] PM`);
+          if (departure) lines.push(`Departure: ______ : ______   [ ] AM   [ ] PM`);
+          lines.push("");
+        });
+        sectionFields
+          .filter((f) => !/\.(monday|tuesday|wednesday|thursday|friday)\./.test(String(f.id)))
+          .forEach((field) => {
+            lines.push(blankLineForField(field));
+            lines.push("");
+          });
+      } else {
+        sectionFields.forEach((field) => {
+          // Never print internal IDs
+          lines.push(blankLineForField(field));
+          lines.push("");
+        });
+      }
+      if (pageBreakAfter.has(section.id)) {
+        lines.push("\f");
+      }
     });
     lines.push("");
-    lines.push("(Page numbers appear in your browser print dialog when supported.)");
+    lines.push("— End of enrollment form —");
     return lines.join("\n").replace(/\n{3,}/g, "\n\n");
   }
 

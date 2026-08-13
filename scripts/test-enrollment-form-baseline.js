@@ -107,27 +107,31 @@ function unitBaselineSectionsRender() {
   const template = enrollmentBaseline.buildEnrollmentBaselineTemplate();
   const titles = template.sections.map((section) => section.title);
   [
+    "Program / Enrollment Information",
     "Child Information",
-    "Enrollment Schedule & Hours",
+    "Child Attendance Schedule",
     "Parent / Guardian 1",
     "Parent / Guardian 2",
     "Household / Custody Information",
     "Emergency Contacts",
     "Authorized Pickup",
     "Medical Information",
-    "Development & Individual Needs",
-    "Daily Care Information",
+    "Immunization / Health Documentation",
+    "Development / Support Information",
+    "Daily Care / Routines",
     "Getting to Know Your Child",
-    "Permissions & Consents",
+    "Permissions",
     "Required Document Checklist",
-    "Policy Acknowledgments",
+    "Program Policies / Acknowledgments",
     "Signatures",
   ].forEach((title) => assert.ok(titles.includes(title), `missing section ${title}`));
+  assert.equal(template.sections.length, 17);
   const editor = enrollmentBuilder.renderEnrollmentEditorHtml(template, { editingSectionId: "" });
   assert.match(editor, /ENROLLMENT FORM/);
   assert.match(editor, /Child Information/);
-  assert.match(editor, /Enrollment Schedule/);
+  assert.match(editor, /Child Attendance Schedule/);
   assert.doesNotMatch(editor, /universally licensing-compliant/i);
+  assert.doesNotMatch(editor, /enroll\.child\.legal_first_name/);
   pass("2.baseline-sections-render");
 }
 
@@ -170,20 +174,30 @@ function unitCustomQuestionAndPermissionPersist() {
     { sectionId: "getting_to_know", type: "long_text", label: "Custom bedtime routine?" },
   );
   fields = enrollmentBaseline.addCustomPermission(fields, "Custom zoo trip permission");
+  fields = enrollmentBaseline.addCustomDocumentItem(fields, "Custom school physical");
+  fields = enrollmentBaseline.addCustomPolicyAcknowledgment(fields, "Custom playground policy");
   const customQ = fields.find((f) => f.label === "Custom bedtime routine?");
   const customP = fields.find((f) => f.label === "Custom zoo trip permission");
+  const customD = fields.find((f) => f.label === "Custom school physical");
+  const customA = fields.find((f) => f.label === "Custom playground policy");
   assert.ok(customQ);
   assert.ok(customP);
+  assert.ok(customD);
+  assert.ok(customA);
   assert.equal(customQ.type, "long_text");
   assert.equal(customP.type, "yes_no");
   assert.equal(customP.permissionItem, true);
+  assert.equal(customD.documentItem, true);
+  assert.equal(customA.acknowledgmentItem, true);
   const saved = programFormsLib.normalizeTemplate({
     ...enrollmentBaseline.buildEnrollmentBaselineTemplate({ fields }),
     sourceType: "provider",
   }, { programId: "p-enroll" });
   assert.ok(saved.fields.some((f) => f.label === "Custom bedtime routine?"));
   assert.ok(saved.fields.some((f) => f.label === "Custom zoo trip permission" && f.permissionItem));
-  pass("6-7.custom-question-and-permission-persist");
+  assert.ok(saved.fields.some((f) => f.label === "Custom school physical" && f.documentItem));
+  assert.ok(saved.fields.some((f) => f.label === "Custom playground policy" && f.acknowledgmentItem));
+  pass("6-7.custom-question-permission-document-acknowledgment-persist");
 }
 
 function unitWeekdaySchedulePersists() {
@@ -217,13 +231,144 @@ function unitPreviewAndPrintExcludeBuilderControls() {
   const preview = enrollmentBuilder.renderEnrollmentPreviewHtml(template);
   assert.match(preview, /data-form-preview="true"/);
   assert.doesNotMatch(preview, /data-enroll-edit-section|data-enroll-save|Edit section|Hide section|Add custom/);
+  assert.doesNotMatch(preview, /enroll\.[a-z0-9_.]+/);
   const printText = enrollmentBuilder.renderPrintBlankText(template, { programName: "Sunshine Care" });
   assert.match(printText, /ENROLLMENT FORM/);
   assert.match(printText, /Sunshine Care/);
   assert.match(printText, /CHILD INFORMATION/i);
-  assert.match(printText, /Monday — Attending/);
+  assert.match(printText, /PROGRAM \/ ENROLLMENT INFORMATION/i);
+  assert.match(printText, /Monday/);
+  assert.match(printText, /\[ \] Attending/);
+  assert.match(printText, /Photo identification may be required/i);
   assert.doesNotMatch(printText, /data-enroll-|Edit section|Hide section|builder|DEBUG|TODO/i);
+  assert.doesNotMatch(printText, /enroll\.(child|schedule|guardian)/);
   pass("11-12.preview-and-print-exclude-builder-controls");
+}
+
+function unitStableIdsAndGuardian2Optional() {
+  const template = enrollmentBaseline.buildEnrollmentBaselineTemplate();
+  const ids = template.fields.map((f) => f.id);
+  assert.ok(ids.every((id) => String(id).startsWith("enroll.")));
+  assert.ok(ids.includes("enroll.child.legal_first_name"));
+  assert.ok(ids.includes("enroll.schedule.friday.departure"));
+  const g2 = template.sections.find((s) => s.id === "guardian2");
+  assert.equal(g2.optional, true);
+  assert.ok(template.fields.filter((f) => f.sectionId === "guardian2").every((f) => f.required === false));
+  pass("stable-ids-and-guardian2-optional");
+}
+
+function unitSeparatePhotoPermissions() {
+  const fields = enrollmentBaseline.buildBaselineFields();
+  const classroom = fields.find((f) => f.id === "enroll.permission.classroom_photos");
+  const privateFamily = fields.find((f) => f.id === "enroll.permission.private_family_photos");
+  const publicSocial = fields.find((f) => f.id === "enroll.permission.website_social_photos");
+  assert.ok(classroom);
+  assert.ok(privateFamily);
+  assert.ok(publicSocial);
+  assert.notEqual(classroom.id, publicSocial.id);
+  assert.notEqual(privateFamily.id, publicSocial.id);
+  assert.match(classroom.label, /classroom documentation/i);
+  assert.match(privateFamily.label, /private family/i);
+  assert.match(publicSocial.label, /public|social/i);
+  pass("public-social-permission-separate-from-private");
+}
+
+function unitAgeAwareVisibility() {
+  const template = enrollmentBaseline.buildEnrollmentBaselineTemplate();
+  const infantOff = enrollmentBaseline.applyEnrollmentVisibility(template, {
+    showInfantToddlerCare: false,
+    showOlderChildCare: true,
+  });
+  assert.equal(infantOff.fields.filter((f) => f.ageGroup === "infant_toddler" && f.visible !== false).length, 0);
+  assert.ok(infantOff.fields.some((f) => f.ageGroup === "older" && f.visible !== false));
+  const olderOff = enrollmentBaseline.applyEnrollmentVisibility(template, {
+    showInfantToddlerCare: true,
+    showOlderChildCare: false,
+  });
+  assert.equal(olderOff.fields.filter((f) => f.ageGroup === "older" && f.visible !== false).length, 0);
+  assert.ok(olderOff.fields.some((f) => f.ageGroup === "infant_toddler" && f.visible !== false));
+  const preview = enrollmentBuilder.renderEnrollmentPreviewHtml(infantOff);
+  assert.doesNotMatch(preview, /Breast milk \/ formula/);
+  assert.match(preview, /Toileting routine/);
+  pass("infant-older-visibility-affects-family-preview");
+}
+
+function unitSectionRenameReorderAndFieldEdits() {
+  const template = enrollmentBaseline.buildEnrollmentBaselineTemplate();
+  let sections = enrollmentBaseline.renameEnrollmentSection(template.sections, "medical", "Health & Medical");
+  assert.equal(sections.find((s) => s.id === "medical").title, "Health & Medical");
+  const from = sections.findIndex((s) => s.id === "permissions");
+  const to = from + 1;
+  sections = enrollmentBaseline.reorderEnrollmentSections(sections, from, to);
+  assert.equal(sections[to].id, "permissions");
+  const fields = template.fields.map((field) => (
+    field.id === "enroll.medical.dentist"
+      ? { ...field, required: true, visible: true, label: "Family dentist" }
+      : field
+  ));
+  const saved = programFormsLib.normalizeTemplate({
+    ...template,
+    sections,
+    fields,
+    sourceType: "provider",
+  }, { programId: "p-edit" });
+  const dentist = saved.fields.find((f) => f.id === "enroll.medical.dentist");
+  assert.equal(dentist.label, "Family dentist");
+  assert.equal(dentist.required, true);
+  assert.equal(dentist.id, "enroll.medical.dentist");
+  pass("section-rename-reorder-and-field-edits");
+}
+
+function unitChildProfileNoSilentOverwrite() {
+  const existing = {
+    name: "Existing Child",
+    allergies: "Eggs",
+    parentInfo: "Parent Keep",
+  };
+  const patch = enrollmentBaseline.buildChildProfilePatchFromEnrollmentAnswers({
+    "enroll.child.legal_first_name": "New",
+    "enroll.child.legal_last_name": "Name",
+    "enroll.medical.allergies": "Peanuts",
+    "enroll.guardian1.full_name": "Different Parent",
+    "enroll.child.dob": "2021-01-01",
+  });
+  const safe = enrollmentBaseline.mergeChildProfilePatchSafely(existing, patch);
+  assert.equal(safe.name, undefined);
+  assert.equal(safe.allergies, undefined);
+  assert.equal(safe.parentInfo, undefined);
+  assert.equal(safe.dob, "2021-01-01");
+  // Helper is not auto-wired into profile saves.
+  const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  assert.doesNotMatch(appJs, /mergeChildProfilePatchSafely\(/);
+  assert.doesNotMatch(appJs, /buildChildProfilePatchFromEnrollmentAnswers\(/);
+  pass("child-profile-soft-map-no-silent-overwrite");
+}
+
+function unitMedicalAndProgramFieldsPresent() {
+  const fields = enrollmentBaseline.buildBaselineFields();
+  [
+    "enroll.child.program_name",
+    "enroll.child.schedule_type",
+    "enroll.child.enrollment_type",
+    "enroll.medical.dentist",
+    "enroll.medical.dentist_phone",
+    "enroll.medical.medication_allergies",
+    "enroll.medical.insurance_member_number",
+    "enroll.immunization.record_received",
+    "enroll.development.iep_ifsp",
+    "enroll.development.motor",
+    "enroll.know.dislikes",
+    "enroll.know.words_signs",
+    "enroll.guardian1.work_address",
+    "enroll.guardian1.legal_guardian",
+    "enroll.emergency.1.authorized_emergency_contact",
+  ].forEach((id) => assert.ok(fields.some((f) => f.id === id), `missing ${id}`));
+  const enrollmentType = fields.find((f) => f.id === "enroll.child.enrollment_type");
+  assert.ok(enrollmentType.options.some((o) => /Before school/i.test(o.label)));
+  assert.ok(enrollmentType.options.some((o) => /After school/i.test(o.label)));
+  const insuranceMember = fields.find((f) => f.id === "enroll.medical.insurance_member_number");
+  assert.equal(insuranceMember.required, false);
+  pass("medical-program-and-support-fields-present");
 }
 
 function unitLegacyTemplatesStillLoad() {
@@ -457,6 +602,12 @@ async function main() {
     unitWeekdaySchedulePersists,
     unitMultiEntryContacts,
     unitPreviewAndPrintExcludeBuilderControls,
+    unitStableIdsAndGuardian2Optional,
+    unitSeparatePhotoPermissions,
+    unitAgeAwareVisibility,
+    unitSectionRenameReorderAndFieldEdits,
+    unitChildProfileNoSilentOverwrite,
+    unitMedicalAndProgramFieldsPresent,
     unitLegacyTemplatesStillLoad,
     unitHistoricalAnswersProtected,
     unitFormsCenterOutsideEnrollmentUnchanged,

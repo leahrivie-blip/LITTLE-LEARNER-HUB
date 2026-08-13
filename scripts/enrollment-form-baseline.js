@@ -178,11 +178,23 @@ function buildGuardianFields(prefix, sectionId, { requiredDefaults = true } = {}
       sectionId,
       required: false,
     }),
-    shortText(`enroll.${prefix}.primary_phone`, "Primary phone", {
+    shortText(`enroll.${prefix}.city`, "City", {
+      sectionId,
+      required: false,
+    }),
+    shortText(`enroll.${prefix}.state`, "State", {
+      sectionId,
+      required: false,
+    }),
+    shortText(`enroll.${prefix}.zip`, "ZIP", {
+      sectionId,
+      required: false,
+    }),
+    shortText(`enroll.${prefix}.primary_phone`, "Phone", {
       sectionId,
       required: requiredDefaults,
     }),
-    shortText(`enroll.${prefix}.secondary_phone`, "Secondary phone", {
+    shortText(`enroll.${prefix}.secondary_phone`, "Alternate phone", {
       sectionId,
       required: false,
       optionalByDefault: true,
@@ -201,12 +213,25 @@ function buildGuardianFields(prefix, sectionId, { requiredDefaults = true } = {}
       required: false,
       optionalByDefault: true,
     }),
+    shortText(`enroll.${prefix}.work_address`, "Work address", {
+      sectionId,
+      required: false,
+      optionalByDefault: true,
+    }),
     dropdown(`enroll.${prefix}.preferred_contact`, "Preferred contact method", [
       "Phone call",
       "Text message",
       "Email",
       "In person",
     ], {
+      sectionId,
+      required: false,
+    }),
+    yesNo(`enroll.${prefix}.lives_with_child`, "Lives with child?", {
+      sectionId,
+      required: false,
+    }),
+    yesNo(`enroll.${prefix}.legal_guardian`, "Legal guardian?", {
       sectionId,
       required: false,
     }),
@@ -238,32 +263,73 @@ function buildRepeatPersonFields(kind, count, sectionId, extraFieldBuilder) {
 
 function buildBaselineSections() {
   return [
-    { id: "child_info", title: "Child Information", order: 0, visible: true, optional: false, fixed: true },
-    { id: "schedule", title: "Enrollment Schedule & Hours", order: 1, visible: true, optional: false, fixed: true },
-    { id: "guardian1", title: "Parent / Guardian 1", order: 2, visible: true, optional: false, fixed: true },
-    { id: "guardian2", title: "Parent / Guardian 2", order: 3, visible: true, optional: true, fixed: false },
-    { id: "household", title: "Household / Custody Information", order: 4, visible: true, optional: true, fixed: false },
-    { id: "emergency", title: "Emergency Contacts", order: 5, visible: true, optional: false, fixed: true },
-    { id: "authorized_pickup", title: "Authorized Pickup", order: 6, visible: true, optional: false, fixed: true },
-    { id: "medical", title: "Medical Information", order: 7, visible: true, optional: false, fixed: true },
-    { id: "development", title: "Development & Individual Needs", order: 8, visible: true, optional: true, fixed: false },
-    { id: "daily_care", title: "Daily Care Information", order: 9, visible: true, optional: true, fixed: false },
-    { id: "getting_to_know", title: "Getting to Know Your Child", order: 10, visible: true, optional: true, fixed: false },
-    { id: "permissions", title: "Permissions & Consents", order: 11, visible: true, optional: false, fixed: true },
-    { id: "documents", title: "Required Document Checklist", order: 12, visible: true, optional: true, fixed: false },
-    { id: "policies", title: "Policy Acknowledgments", order: 13, visible: true, optional: false, fixed: true },
-    { id: "signatures", title: "Signatures", order: 14, visible: true, optional: false, fixed: true },
+    { id: "program_info", title: "Program / Enrollment Information", order: 0, visible: true, optional: false, fixed: true },
+    { id: "child_info", title: "Child Information", order: 1, visible: true, optional: false, fixed: true },
+    { id: "schedule", title: "Child Attendance Schedule", order: 2, visible: true, optional: false, fixed: true },
+    { id: "guardian1", title: "Parent / Guardian 1", order: 3, visible: true, optional: false, fixed: true },
+    { id: "guardian2", title: "Parent / Guardian 2", order: 4, visible: true, optional: true, fixed: false },
+    { id: "household", title: "Household / Custody Information", order: 5, visible: true, optional: true, fixed: false },
+    { id: "emergency", title: "Emergency Contacts", order: 6, visible: true, optional: false, fixed: true },
+    { id: "authorized_pickup", title: "Authorized Pickup", order: 7, visible: true, optional: false, fixed: true },
+    { id: "medical", title: "Medical Information", order: 8, visible: true, optional: false, fixed: true },
+    { id: "immunization", title: "Immunization / Health Documentation", order: 9, visible: true, optional: true, fixed: false },
+    { id: "development", title: "Development / Support Information", order: 10, visible: true, optional: true, fixed: false },
+    { id: "daily_care", title: "Daily Care / Routines", order: 11, visible: true, optional: true, fixed: false },
+    { id: "getting_to_know", title: "Getting to Know Your Child", order: 12, visible: true, optional: true, fixed: false },
+    { id: "permissions", title: "Permissions", order: 13, visible: true, optional: false, fixed: true },
+    { id: "documents", title: "Required Document Checklist", order: 14, visible: true, optional: true, fixed: false },
+    { id: "policies", title: "Program Policies / Acknowledgments", order: 15, visible: true, optional: false, fixed: true },
+    { id: "signatures", title: "Signatures", order: 16, visible: true, optional: false, fixed: true },
   ];
 }
 
 function buildBaselineFields() {
   const fields = [];
 
-  // Section 1 — Child Information
+  // Program / Enrollment Information (stable IDs; not duplicated under child_info)
+  fields.push(
+    shortText("enroll.child.program_name", "Program name", {
+      sectionId: "program_info",
+      required: false,
+      helpText: "Defaults to your program settings when blank on print/preview.",
+      optionalByDefault: true,
+      configurable: true,
+    }),
+    dateField("enroll.child.requested_start_date", "Child enrollment / start date", {
+      sectionId: "program_info",
+      required: true,
+    }),
+    dropdown("enroll.child.enrollment_type", "Enrollment type", [
+      "Full-time",
+      "Part-time",
+      "Drop-in",
+      "Before school",
+      "After school",
+      "Before & after school",
+      "Other",
+    ], { sectionId: "program_info", required: true }),
+    shortText("enroll.child.classroom", "Preferred classroom", {
+      sectionId: "program_info",
+      required: false,
+    }),
+    dropdown("enroll.child.schedule_type", "Schedule type", [
+      "Fixed weekly schedule",
+      "Variable / rotating schedule",
+      "Drop-in only",
+      "Other",
+    ], {
+      sectionId: "program_info",
+      required: false,
+      optionalByDefault: true,
+      configurable: true,
+    }),
+  );
+
+  // Child Information
   fields.push(
     shortText("enroll.child.legal_first_name", "Legal first name", { sectionId: "child_info", required: true }),
     shortText("enroll.child.middle_name", "Middle name", { sectionId: "child_info", required: false, optionalByDefault: true }),
-    shortText("enroll.child.legal_last_name", "Last name", { sectionId: "child_info", required: true }),
+    shortText("enroll.child.legal_last_name", "Legal last name", { sectionId: "child_info", required: true }),
     shortText("enroll.child.preferred_name", "Preferred name", { sectionId: "child_info", required: false }),
     dateField("enroll.child.dob", "Date of birth", { sectionId: "child_info", required: true }),
     dropdown("enroll.child.gender", "Gender", ["Girl", "Boy", "Prefer not to say", "Other"], {
@@ -278,14 +344,6 @@ function buildBaselineFields() {
     shortText("enroll.child.state", "State", { sectionId: "child_info", required: true }),
     shortText("enroll.child.zip", "ZIP", { sectionId: "child_info", required: true }),
     shortText("enroll.child.primary_language", "Primary language", { sectionId: "child_info", required: false }),
-    dateField("enroll.child.requested_start_date", "Requested / start date", { sectionId: "child_info", required: true }),
-    shortText("enroll.child.classroom", "Classroom / program", { sectionId: "child_info", required: false }),
-    dropdown("enroll.child.enrollment_type", "Enrollment type", [
-      "Full-time",
-      "Part-time",
-      "Drop-in",
-      "Other",
-    ], { sectionId: "child_info", required: true }),
   );
 
   // Section 2 — Schedule
@@ -295,17 +353,22 @@ function buildBaselineFields() {
   fields.push(...buildGuardianFields("guardian1", "guardian1", { requiredDefaults: true }));
   fields.push(...buildGuardianFields("guardian2", "guardian2", { requiredDefaults: false }));
 
-  // Section 5 — Household / custody
+  // Household / custody
   fields.push(
-    shortText("enroll.household.lives_with", "Who does the child live with?", {
+    shortText("enroll.household.lives_with", "Child lives with", {
       sectionId: "household",
       required: false,
+    }),
+    longText("enroll.household.other_members", "Other household members", {
+      sectionId: "household",
+      required: false,
+      optionalByDefault: true,
     }),
     yesNo("enroll.household.custody_restrictions", "Are there custody restrictions?", {
       sectionId: "household",
       required: false,
     }),
-    yesNo("enroll.household.court_orders", "Are there court orders affecting pickup/contact?", {
+    yesNo("enroll.household.court_orders", "Court order / legal restrictions affecting pickup or contact?", {
       sectionId: "household",
       required: false,
     }),
@@ -313,37 +376,46 @@ function buildBaselineFields() {
       sectionId: "household",
       required: false,
     }),
-    longText("enroll.household.custody_notes", "Custody / restriction notes", {
+    longText("enroll.household.custody_notes", "Custody arrangement / additional notes", {
       sectionId: "household",
       required: false,
       helpText: "Share only what the program needs for safe pickup and contact.",
     }),
-    longText("enroll.household.not_authorized", "Persons specifically NOT authorized to pick up or contact the child", {
+    longText("enroll.household.not_authorized", "Person(s) prohibited from pickup or contact", {
       sectionId: "household",
       required: false,
     }),
   );
 
-  // Section 6 — Emergency contacts (3 slots)
+  // Emergency contacts (3 slots)
   fields.push(...buildRepeatPersonFields("emergency", 3, "emergency", (prefix, index, sectionId) => [
-    shortText(`${prefix}.secondary_phone`, `Emergency contact ${index} — Secondary phone`, {
+    shortText(`${prefix}.secondary_phone`, `Emergency contact ${index} — Alternate phone`, {
       sectionId,
       required: false,
       optionalByDefault: true,
     }),
-    yesNo(`${prefix}.authorized_pickup`, `Emergency contact ${index} — Authorized pickup?`, {
+    yesNo(`${prefix}.authorized_emergency_contact`, `Emergency contact ${index} — Authorized for emergency contact?`, {
+      sectionId,
+      required: false,
+    }),
+    yesNo(`${prefix}.authorized_pickup`, `Emergency contact ${index} — Authorized for pickup?`, {
       sectionId,
       required: false,
     }),
   ]));
 
-  // Section 7 — Authorized pickup (3 slots)
+  // Authorized pickup (3 slots)
   fields.push(
-    field("enroll.pickup.policy_note", "info", "Identification may be required according to program policy.", {
-      sectionId: "authorized_pickup",
-      required: false,
-      helpText: "Staff may ask for photo ID before releasing a child.",
-    }),
+    field(
+      "enroll.pickup.policy_note",
+      "info",
+      "Photo identification may be required according to program policy before a child is released.",
+      {
+        sectionId: "authorized_pickup",
+        required: false,
+        helpText: "Staff may ask for photo ID before releasing a child.",
+      },
+    ),
   );
   for (let i = 1; i <= 3; i += 1) {
     fields.push(
@@ -367,32 +439,68 @@ function buildBaselineFields() {
     );
   }
 
-  // Section 8 — Medical
+  // Medical
   fields.push(
-    shortText("enroll.medical.physician", "Pediatrician / physician", { sectionId: "medical", required: false }),
+    shortText("enroll.medical.physician", "Primary physician", { sectionId: "medical", required: false }),
     shortText("enroll.medical.physician_phone", "Physician phone", { sectionId: "medical", required: false }),
     shortText("enroll.medical.preferred_hospital", "Preferred hospital", { sectionId: "medical", required: false }),
-    shortText("enroll.medical.insurance", "Health insurance information", {
+    shortText("enroll.medical.dentist", "Dentist", {
+      sectionId: "medical", required: false, optionalByDefault: true, configurable: true,
+    }),
+    shortText("enroll.medical.dentist_phone", "Dentist phone", {
+      sectionId: "medical", required: false, optionalByDefault: true, configurable: true,
+    }),
+    shortText("enroll.medical.insurance", "Health insurance provider", {
       sectionId: "medical",
       required: false,
       optionalByDefault: true,
       configurable: true,
     }),
+    shortText("enroll.medical.insurance_member_number", "Insurance member / policy number", {
+      sectionId: "medical",
+      required: false,
+      optionalByDefault: true,
+      configurable: true,
+      helpText: "Optional — never required by this baseline.",
+    }),
     longText("enroll.medical.allergies", "Allergies", { sectionId: "medical", required: false }),
     longText("enroll.medical.food_allergies", "Food allergies", { sectionId: "medical", required: false }),
-    longText("enroll.medical.medications", "Medications", { sectionId: "medical", required: false }),
+    longText("enroll.medical.medication_allergies", "Medication allergies", { sectionId: "medical", required: false }),
     longText("enroll.medical.conditions", "Medical conditions", { sectionId: "medical", required: false }),
+    longText("enroll.medical.medications", "Current medications", { sectionId: "medical", required: false }),
+    longText("enroll.medical.special_instructions", "Special healthcare needs", { sectionId: "medical", required: false }),
     longText("enroll.medical.dietary", "Dietary restrictions", { sectionId: "medical", required: false }),
-    longText("enroll.medical.emergency_info", "Emergency medical information", { sectionId: "medical", required: false }),
-    longText("enroll.medical.special_instructions", "Special health instructions", { sectionId: "medical", required: false }),
+    longText("enroll.medical.emergency_info", "Emergency medical notes", { sectionId: "medical", required: false }),
   );
 
-  // Section 9 — Development (optional by default)
+  // Immunization / health documentation (works with document checklist; optional section)
   fields.push(
-    longText("enroll.development.considerations", "Developmental considerations", {
+    yesNo("enroll.immunization.record_received", "Immunization record received", {
+      sectionId: "immunization", required: false,
+    }),
+    yesNo("enroll.immunization.health_statement_received", "Health statement / physical received", {
+      sectionId: "immunization", required: false,
+    }),
+    yesNo("enroll.immunization.allergy_action_plan", "Allergy action plan on file (if required)", {
+      sectionId: "immunization", required: false,
+    }),
+    yesNo("enroll.immunization.medication_authorization", "Medication authorization on file (if required)", {
+      sectionId: "immunization", required: false,
+    }),
+    longText("enroll.immunization.other_notes", "Other required health documents / notes", {
+      sectionId: "immunization", required: false, optionalByDefault: true,
+    }),
+  );
+
+  // Development / support (optional by default)
+  fields.push(
+    longText("enroll.development.considerations", "Developmental concerns", {
       sectionId: "development", required: false, optionalByDefault: true,
     }),
-    longText("enroll.development.speech", "Speech / language considerations", {
+    longText("enroll.development.speech", "Speech / language concerns", {
+      sectionId: "development", required: false, optionalByDefault: true,
+    }),
+    longText("enroll.development.motor", "Motor concerns", {
       sectionId: "development", required: false, optionalByDefault: true,
     }),
     longText("enroll.development.physical", "Physical accommodations", {
@@ -401,23 +509,32 @@ function buildBaselineFields() {
     longText("enroll.development.sensory", "Sensory needs", {
       sectionId: "development", required: false, optionalByDefault: true,
     }),
-    longText("enroll.development.social_emotional", "Social-emotional / behavioral support considerations", {
+    longText("enroll.development.social_emotional", "Behavioral / social-emotional considerations", {
       sectionId: "development", required: false, optionalByDefault: true,
     }),
-    longText("enroll.development.outside_services", "Outside services / therapies", {
+    longText("enroll.development.iep_ifsp", "IEP / IFSP or other support plan", {
       sectionId: "development", required: false, optionalByDefault: true,
     }),
-    longText("enroll.development.teacher_support", "Additional teacher support notes", {
+    longText("enroll.development.outside_services", "Therapies / services received", {
+      sectionId: "development", required: false, optionalByDefault: true,
+    }),
+    longText("enroll.development.strategies_that_work", "Strategies that work well", {
+      sectionId: "development", required: false, optionalByDefault: true,
+    }),
+    longText("enroll.development.teacher_support", "Additional support information", {
       sectionId: "development", required: false, optionalByDefault: true,
     }),
   );
 
-  // Section 10 — Daily care (age-aware optional fields)
+  // Daily care / routines (age-aware optional fields)
   fields.push(
+    longText("enroll.daily.feeding_schedule", "Feeding schedule", {
+      sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
+    }),
     longText("enroll.daily.breast_formula", "Breast milk / formula", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
     }),
-    longText("enroll.daily.bottle_schedule", "Bottle schedule", {
+    longText("enroll.daily.bottle_schedule", "Bottle instructions", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
     }),
     longText("enroll.daily.feeding_instructions", "Feeding instructions", {
@@ -429,31 +546,34 @@ function buildBaselineFields() {
     longText("enroll.daily.nap_schedule", "Nap schedule", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
     }),
-    longText("enroll.daily.sleep_routine", "Sleep routine", {
+    longText("enroll.daily.sleep_routine", "Sleep comfort / routine", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
     }),
     yesNo("enroll.daily.pacifier", "Uses a pacifier?", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
     }),
-    longText("enroll.daily.comfort_items", "Comfort items", {
+    longText("enroll.daily.diapering", "Diapering", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
+    }),
+    longText("enroll.daily.toileting_infant", "Toilet-learning status", {
+      sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
+    }),
+    longText("enroll.daily.comfort_items", "Comfort items", {
+      sectionId: "daily_care", required: false, optionalByDefault: true,
     }),
     longText("enroll.daily.soothing", "Soothing strategies", {
-      sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
+      sectionId: "daily_care", required: false, optionalByDefault: true,
     }),
-    longText("enroll.daily.diapering", "Diapering information", {
-      sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
+    longText("enroll.daily.typical_mood", "Typical mood / temperament", {
+      sectionId: "daily_care", required: false, optionalByDefault: true,
     }),
-    longText("enroll.daily.toileting_infant", "Toileting information", {
-      sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "infant_toddler",
-    }),
-    longText("enroll.daily.toileting_status", "Toileting status", {
+    longText("enroll.daily.toileting_status", "Toileting routine / status", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "older",
     }),
     longText("enroll.daily.rest_needs", "Rest / nap needs", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "older",
     }),
-    longText("enroll.daily.eating_preferences", "Eating concerns / preferences", {
+    longText("enroll.daily.eating_preferences", "Food preferences / eating concerns", {
       sectionId: "daily_care", required: false, optionalByDefault: true, ageGroup: "older",
     }),
     longText("enroll.daily.comfort_needs", "Comfort needs", {
@@ -461,36 +581,46 @@ function buildBaselineFields() {
     }),
   );
 
-  // Section 11 — Getting to know
+  // Getting to know your child
   fields.push(
-    longText("enroll.know.enjoys", "What does your child enjoy?", { sectionId: "getting_to_know", required: false }),
-    longText("enroll.know.favorites", "Favorite toys or activities", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.enjoys", "Likes / interests", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.dislikes", "Dislikes", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.favorites", "Favorite toys / items", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.favorite_activities", "Favorite activities", { sectionId: "getting_to_know", required: false }),
     longText("enroll.know.happy", "What makes your child happy?", { sectionId: "getting_to_know", required: false }),
     longText("enroll.know.upset", "What tends to upset or frustrate your child?", { sectionId: "getting_to_know", required: false }),
-    longText("enroll.know.comforted", "How does your child prefer to be comforted?", { sectionId: "getting_to_know", required: false }),
-    longText("enroll.know.fears", "Does your child have any fears?", { sectionId: "getting_to_know", required: false }),
-    longText("enroll.know.family_culture", "Family routines, traditions, or cultural information teachers should know", {
+    longText("enroll.know.fears", "Fears", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.comforted", "Comfort strategies", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.words_signs", "Words / signs your child uses", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.how_communicates", "How your child communicates needs", { sectionId: "getting_to_know", required: false }),
+    longText("enroll.know.family_culture", "Family traditions / culture staff should know", {
       sectionId: "getting_to_know", required: false,
     }),
-    longText("enroll.know.anything_else", "Is there anything else you want us to know about your child?", {
+    longText("enroll.know.important_family_info", "Important family information", {
+      sectionId: "getting_to_know", required: false,
+    }),
+    longText("enroll.know.anything_else", "Anything else staff should know", {
       sectionId: "getting_to_know", required: false,
     }),
   );
 
-  // Section 12 — Permissions (separate items)
+  // Permissions — each item independent (private documentation ≠ public/social)
   const permissionLabels = [
     ["emergency_medical", "Emergency medical treatment"],
     ["emergency_transport", "Emergency transportation"],
-    ["walking_trips", "Walking trips"],
+    ["walking_trips", "Local walking trips"],
     ["field_trips", "Field trips"],
     ["program_transport", "Program transportation"],
     ["sunscreen", "Sunscreen"],
     ["insect_repellent", "Insect repellent"],
     ["diaper_cream", "Diaper cream / topical products"],
-    ["classroom_photos", "Classroom / internal photos"],
-    ["website_social_photos", "Website / social media photos"],
+    ["classroom_photos", "Photos for classroom documentation"],
+    ["private_family_photos", "Photos for private family communication"],
+    ["website_social_photos", "Photos for public / social media"],
     ["video", "Video"],
-    ["water_activities", "Water activities"],
+    ["water_activities", "Water play"],
+    ["outdoor_play", "Outdoor play"],
+    ["food_activity", "Food / activity participation"],
   ];
   permissionLabels.forEach(([key, label]) => {
     fields.push(yesNo(`enroll.permission.${key}`, label, {
@@ -851,6 +981,26 @@ function buildChildProfilePatchFromEnrollmentAnswers(answers = {}, fields = []) 
   return patch;
 }
 
+/**
+ * Soft-merge enrollment → Child Profile.
+ * Never silently overwrites non-empty existing profile values.
+ * Does not mutate historical enrollment submissions.
+ * Not auto-applied — callers must opt in explicitly.
+ */
+function mergeChildProfilePatchSafely(existingProfile = {}, patch = {}) {
+  const existing = existingProfile && typeof existingProfile === "object" ? existingProfile : {};
+  const incoming = patch && typeof patch === "object" ? patch : {};
+  const next = {};
+  Object.keys(incoming).forEach((key) => {
+    const proposed = String(incoming[key] ?? "").trim();
+    if (!proposed) return;
+    const current = String(existing[key] ?? "").trim();
+    if (current) return; // keep existing Child Profile value
+    next[key] = proposed;
+  });
+  return next;
+}
+
 function enrollmentBaselineStats(template = buildEnrollmentBaselineTemplate()) {
   const applied = applyEnrollmentVisibility(template);
   const fields = applied.fields || [];
@@ -891,6 +1041,7 @@ function enrollmentBaselineStats(template = buildEnrollmentBaselineTemplate()) {
     addCustomDocumentItem,
     addCustomPolicyAcknowledgment,
     buildChildProfilePatchFromEnrollmentAnswers,
+    mergeChildProfilePatchSafely,
     enrollmentBaselineStats
   };
 }));

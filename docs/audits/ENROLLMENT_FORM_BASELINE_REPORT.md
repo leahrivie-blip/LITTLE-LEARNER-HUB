@@ -1,4 +1,4 @@
-# Enrollment Form Baseline — Testing Report
+# Enrollment Form Baseline — Testing Report (finish pass)
 
 **Branch:** `cursor/enrollment-form-baseline-51c0`  
 **PR:** #653 (draft; base `cursor/forms-paperwork-wave8-4eae`)  
@@ -9,139 +9,140 @@
 
 ---
 
-## 1. Existing enrollment architecture found
+## Final counts
+
+| Metric | Value |
+|---|---|
+| Sections | **17** |
+| Fields | **205** |
+| Permissions (independent) | **15** |
+| Emergency contact slots | **3** |
+| Authorized pickup slots | **3** |
+
+### Exact section names
+
+1. Program / Enrollment Information  
+2. Child Information  
+3. Child Attendance Schedule  
+4. Parent / Guardian 1  
+5. Parent / Guardian 2  
+6. Household / Custody Information  
+7. Emergency Contacts  
+8. Authorized Pickup  
+9. Medical Information  
+10. Immunization / Health Documentation  
+11. Development / Support Information  
+12. Daily Care / Routines  
+13. Getting to Know Your Child  
+14. Permissions  
+15. Required Document Checklist  
+16. Program Policies / Acknowledgments  
+17. Signatures  
+
+---
+
+## Architecture (unchanged spine)
 
 | Piece | Location |
 |---|---|
-| Forms Center / Paperwork HQ / Template Library | `app.js` (HDH testing-fenced) + Wave 1–8 server libs |
+| Forms Center / Template Library | `app.js` (HDH testing-fenced) + Wave 1–8 server libs |
 | Structured Form Builder | `scripts/form-builder-lib.js` + `server/form-fields-lib.js` |
-| Enrollment starter pack entry | `HOME_DAYCARE_FORMS_PACK` → `hdh-pack-enrollment` |
+| Enrollment baseline | `server/enrollment-form-baseline.js` (+ browser copy) |
+| Enrollment editor/preview/print helpers | `scripts/enrollment-form-builder.js` |
 | Template store | `programData[programId].forms.templates[]` |
-| Assigned / signed history | Child `Documents[]` snapshots `fields` + body at Confirm & Send |
-| Print / PDF | Existing `printTextDocument()` (browser print / Save as PDF) |
-| Child Profile overlap | `name`, `dob`, `classroom`, `enrollmentDate`, `parentInfo`, `emergencyContact`, `pickupContacts`, `allergies`, `medical` |
+| Assigned / signed history | Child `Documents[]` snapshots at Confirm & Send |
+| Print | Existing `printTextDocument()` |
 
-No second Forms store, PDF engine, or enrollment CRM was added.
-
----
-
-## 2. Files changed
-
-- `server/enrollment-form-baseline.js` (new)
-- `scripts/enrollment-form-baseline.js` (browser UMD copy)
-- `scripts/enrollment-form-builder.js` (new)
-- `scripts/test-enrollment-form-baseline.js` (new)
-- `scripts/form-builder-lib.js`
-- `server/form-fields-lib.js` (MAX_FIELDS 80 → 220; section metadata)
-- `server/program-forms-lib.js` (sections/config normalize + enrollment duplicate seed)
-- `app.js` (enrollment section-card editor wiring)
-- `styles.css`, `index.html`, `service-worker.js`, `llh-shell-manifest.json`, `package.json`
-- `.cursor/rules/forms-paperwork-feature-freeze.mdc` (owner-approved exception note)
+No second Forms store, PDF vendor, or e-sign vendor.
 
 ---
 
-## 3. Exact sections / fields added
+## Intentionally optional
 
-15 sections / **165** structured fields, including:
+- Guardian 2 (entire section)  
+- Household / custody  
+- Immunization / health documentation  
+- Development / support  
+- Daily care / routines  
+- Getting to know your child  
+- Required document checklist  
+- Gender, insurance provider, insurance member/policy number  
+- Dentist fields  
+- Infant/toddler vs older daily-care field groups (owner toggles)  
+- Second guardian signature block  
 
-1. Child Information  
-2. Enrollment Schedule & Hours (Mon–Fri attending + arrival + departure; notes; variable schedule)  
-3. Parent / Guardian 1  
-4. Parent / Guardian 2 (optional section)  
-5. Household / Custody Information  
-6. Emergency Contacts (3 slots)  
-7. Authorized Pickup (3 slots + ID policy note)  
-8. Medical Information  
-9. Development & Individual Needs (optional by default)  
-10. Daily Care Information (infant/toddler + older, configurable)  
-11. Getting to Know Your Child  
-12. Permissions & Consents (12 separate yes/no items)  
-13. Required Document Checklist  
-14. Policy Acknowledgments  
-15. Signatures (printable / existing signature placeholders — no new e-sign vendor)
+## Intentionally NOT included (and why)
 
----
-
-## 4. What the owner can customize
-
-- Show/hide optional sections; rename section titles; reorder sections  
-- Required/optional + visible per field (labels editable; IDs fixed)  
-- Age-care toggles (infant/toddler vs older), gender, insurance  
-- Min emergency contacts / min authorized pickup  
-- Add custom short / multiline / yes-no questions  
-- Add custom permission / document / policy acknowledgment  
-- Preview Form, Print Blank Form, Save Changes  
+- New e-sign vendor / certificate — reuse Wave 5 signature placeholders  
+- New PDF engine — reuse `printTextDocument`  
+- Auto-apply Child Profile overwrite — soft map helper only; `mergeChildProfilePatchSafely` fills blanks only and is **not** auto-wired  
+- Deep court-order document intake beyond yes/no + notes — avoid unnecessary sensitive legal detail  
+- Unlimited contact repeaters — fixed 3 slots fit existing field schema without a new repeater engine  
 
 ---
 
-## 5. What intentionally remains fixed
+## Finish-pass deltas (vs first PR commit)
 
-- Stable internal field IDs (`enroll.*`)  
-- Forms spine stores / assign / Family Hub / signature wave architecture  
-- No new PDF generator; no new e-sign infrastructure  
-- Production env / Render / Postgres untouched  
-- Non-enrollment Forms Center behavior unchanged  
-
----
-
-## 6. Historical enrollment answers protected
-
-- Confirm & Send already snapshots `fields` + body onto the Document  
-- Template label/visibility edits bump template content only  
-- Tests prove historical snapshot labels/answers stay unchanged after template edits  
-
----
-
-## 7. Child Profile overlap handling
-
-- Soft mapping helper: `buildChildProfilePatchFromEnrollmentAnswers()`  
-- Canonical current profile keys only (name/dob/classroom/enrollmentDate/parentInfo/emergency/pickup/allergies/medical)  
-- Does **not** auto-rewrite profile or mutate signed enrollment snapshots  
+- Added `program_info` section (program name, start date, enrollment type incl. before/after school, preferred classroom, schedule type) without duplicating child IDs  
+- Expanded guardian fields (city/state/ZIP, work address, lives with child, legal guardian)  
+- Household: other members + clearer custody wording  
+- Emergency: authorized-for-emergency-contact per slot  
+- Medical: dentist, dentist phone, medication allergies, optional insurance member number  
+- New optional Immunization / Health Documentation section  
+- Development: motor, IEP/IFSP, strategies that work well  
+- Getting-to-know: dislikes, words/signs, how communicates, favorite activities, important family info  
+- Permissions: private family photos **separate** from public/social; outdoor play; food/activity  
+- Print blank polish (weekday grouping, writing space, photo-ID statement, no field IDs)  
+- `mergeChildProfilePatchSafely` + tests proving no silent overwrite  
+- Age-aware toggles verified to affect family preview  
 
 ---
 
-## 8. Print / preview behavior
+## Files changed (this finish pass + original)
 
-- Preview uses enrollment renderer with **no** builder controls  
-- Print Blank builds plain text via existing `printTextDocument`  
-- Includes program name, child name line, section headings, blank lines/boxes  
-- Print CSS hides editor chrome  
+- `server/enrollment-form-baseline.js`  
+- `scripts/enrollment-form-baseline.js`  
+- `scripts/enrollment-form-builder.js`  
+- `scripts/test-enrollment-form-baseline.js`  
+- `scripts/test-forms-wave8-closeout.js` (shell pin only)  
+- `server/form-fields-lib.js` (`MAX_FIELDS` → 240)  
+- `server/program-forms-lib.js`, `scripts/form-builder-lib.js`, `app.js`, `styles.css`, shell/cache files (from original PR)  
+- `docs/audits/ENROLLMENT_FORM_BASELINE_REPORT.md`  
 
 ---
 
-## 9. Tests run and results
+## Test results
 
 | Suite | Result |
 |---|---|
 | `npm run test:enrollment-form-baseline` | **PASSED** |
 | `npm run test:forms-wave3-builder` | **PASSED** |
+| `npm run test:forms-wave8-closeout` | **PASSED** |
+| `npm run check` | **PASSED** |
+
+### Safety checks
+
+| Check | Result |
+|---|---|
+| Historical-answer protection | **PASS** |
+| Child Profile overwrite protection | **PASS** (soft merge blanks-only; not auto-applied) |
+| Preview cleanliness (no builder/IDs) | **PASS** |
+| Print Blank quality (no builder/IDs; packet layout) | **PASS** |
+| Existing Forms regression (Wave 3 + Wave 8) | **PASS** |
+| Production touched | **NO** |
+| Merge performed | **NO** |
+| Testing deploy performed | **NO** |
 
 ---
 
-## 10. Testing-site deploy / version
+## Screenshots
 
-**Not deployed** to Render testing in this run (STOP gate).  
-Shell ready for testing deploy when approved: `20260813-enrollment-baseline1`.
-
----
-
-## 11. Screenshots
-
-Artifacts: `/opt/cursor/artifacts/enrollment-baseline/screenshots/`
-
-1. `01-owner-form-editor.png` — owner section-card editor  
-2. `02-section-customized.png` — Child Information Edit section  
-3. `03-full-preview.png` / `03b-full-preview-scrolled.png` — family preview  
-4. `04-print-blank.png` — blank printable enrollment form  
+`/opt/cursor/artifacts/enrollment-baseline/screenshots/`  
+(from prior pass; structure titles updated in code — re-capture after testing deploy if desired)
 
 ---
 
-## 12. Blockers for owner testing
+## STOP for owner approval
 
-None for local/testing-branch owner testing of the Enrollment Form editor, preview, print-blank, and save path.
-
-Remaining non-blockers (pre-existing Forms spine):
-
-- Testing acknowledgment is not a legal e-sign certificate  
-- Parent structured fill-in for assigned docs still uses the existing Wave answer/sign path  
-- Testing-site Render deploy not performed in this run  
+Ready for owner testing on this branch after an approved testing-site deploy.  
+Do **not** merge to production. Do **not** deploy production.

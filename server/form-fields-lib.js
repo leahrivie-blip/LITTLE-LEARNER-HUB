@@ -24,8 +24,8 @@ const FIELD_TYPES = Object.freeze([
 ]);
 
 const CHOICE_TYPES = new Set(["radio", "dropdown"]);
-/** Raised from 80 so the baseline Enrollment Form (~160 fields) fits one template. */
-const MAX_FIELDS = 220;
+/** Raised so the baseline Enrollment Form (~200 fields) fits one template. */
+const MAX_FIELDS = 240;
 const MAX_OPTIONS = 40;
 const MAX_LABEL = 200;
 const MAX_HELP = 500;

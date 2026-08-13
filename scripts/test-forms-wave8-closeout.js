@@ -111,9 +111,10 @@ function unitCloseoutMarkers() {
   const recordLib = fs.readFileSync(path.join(ROOT, "server/forms-record-lib.js"), "utf8");
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "llh-shell-manifest.json"), "utf8"));
 
-  assert.match(indexHtml, /20260811-forms-wave8-closeout1/);
-  assert.equal(manifest.version, "20260811-forms-wave8-closeout1");
-  assert.equal(manifest.cacheName, "llh-shell-v234-forms-wave8-closeout1");
+  // Shell bumped for enrollment baseline polish; Wave 8 closeout markers below must remain.
+  assert.match(indexHtml, /20260813-enrollment-baseline1/);
+  assert.equal(manifest.version, "20260813-enrollment-baseline1");
+  assert.equal(manifest.cacheName, "llh-shell-v235-enrollment-baseline1");
 
   assert.match(appJs, /data-paperwork-clear-filters/);
   assert.match(appJs, /unsaved form edits/);
