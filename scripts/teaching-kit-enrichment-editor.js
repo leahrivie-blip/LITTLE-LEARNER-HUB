@@ -958,6 +958,13 @@
     return state.draft.activities[key];
   }
 
+  function activityDraftDisplayTitle(act) {
+    if (!act) return "Untitled activity";
+    const key = draftKey(act);
+    const view = api().activityEnrichmentView(act, (state.draft.activities || {})[key] || {});
+    return view.title || act.title || "Untitled activity";
+  }
+
   function recomputePercent(plan, activities) {
     return api().computeCompletionPercent(plan, activities, state.draft, scoringOptions());
   }
@@ -1097,6 +1104,8 @@
         preview: null,
         highlightFields,
         highlightUntil,
+        mode: "update",
+        replaceConfirm: false,
       };
   }
 
@@ -1152,6 +1161,8 @@
     state.pasteImport.phase = "edit";
     state.pasteImport.rawText = "";
     state.pasteImport.preview = null;
+    state.pasteImport.mode = "update";
+    state.pasteImport.replaceConfirm = false;
     render();
   }
 
@@ -1168,6 +1179,13 @@
     const matched = getActivities(plan).find((item) => draftKey(item) === key);
     if (!matched) return null;
     const draftAct = state.draft.activities[key] || {};
+    if (state.pasteImport.mode === "replace" && typeof paste.buildActivityReplacePreview === "function") {
+      return paste.buildActivityReplacePreview(state.pasteImport.rawText, matched, draftAct, key, {
+        plan,
+        planId: state.planId,
+        week: state.draft.week || {},
+      });
+    }
     return paste.buildActivityPreview(state.pasteImport.rawText, matched, draftAct, key);
   }
 
@@ -1175,6 +1193,11 @@
     const paste = pasteApi();
     if (!paste || !state.pasteImport?.preview) return;
     const preview = state.pasteImport.preview;
+    if (preview.mode === "replace") {
+      state.statusText = "Use REPLACE ACTIVITY after the single confirmation. Per-field apply is not used in Replace mode.";
+      render();
+      return;
+    }
     // Re-assert isolation against current editor selection.
     if (preview.scope === "activity") {
       const plan = getPlan();
@@ -1221,6 +1244,88 @@
     state.statusText = result.appliedFields.length
       ? `Applied ${result.appliedFields.length} paste update(s) to draft (not published).`
       : "No paste changes applied.";
+    render();
+  }
+
+  function applyPasteImportReplace() {
+    const paste = pasteApi();
+    if (!paste || !state.pasteImport?.preview) return;
+    const preview = state.pasteImport.preview;
+    if (preview.mode !== "replace") {
+      state.statusText = "Replace apply blocked — preview is not a replacement.";
+      render();
+      return;
+    }
+    if (!state.pasteImport.replaceConfirm) {
+      state.statusText = "Confirm the replacement before applying.";
+      render();
+      return;
+    }
+    const plan = getPlan();
+    const current = plan ? getActivities(plan)[state.activityIndex] : null;
+    const currentKey = current ? draftKey(current) : "";
+    if (!preview.activityKey || preview.activityKey !== currentKey || preview.activityKey !== state.pasteImport.activityKey) {
+      state.statusText = "Replacement cancelled — activity selection changed. Preview again.";
+      if (state.pasteImport) {
+        state.pasteImport.phase = "edit";
+        state.pasteImport.preview = null;
+        state.pasteImport.replaceConfirm = false;
+      }
+      render();
+      return;
+    }
+    if (state.mode !== "activities") {
+      state.statusText = "Replacement cancelled — left Activity editor.";
+      resetPasteImport();
+      render();
+      return;
+    }
+    const liveFingerprint = paste.activityReplaceFingerprint
+      ? paste.activityReplaceFingerprint({
+        planId: state.planId,
+        activityKey: currentKey,
+        mode: "replace",
+        draftActivity: state.draft.activities[currentKey] || {},
+        week: state.draft.week || {},
+      })
+      : "";
+    const result = paste.applyActivityReplacementToDraft(state.draft, preview, {
+      confirm: true,
+      expectedActivityKey: currentKey,
+      expectedPlanId: state.planId,
+      expectedFingerprint: liveFingerprint,
+      currentDraftActivity: state.draft.activities[currentKey] || {},
+      currentWeek: state.draft.week || {},
+    });
+    if (result.error || !result.changed) {
+      state.statusText = result.error === "stale_preview" || result.error === "stale_selection" || result.error === "stale_plan"
+        ? "Replacement cancelled — the activity changed since preview. Preview again."
+        : (result.error === "parse_empty" || result.error === "invalid_replacement"
+          ? "Replacement blocked — parse/apply failed. No changes were made."
+          : `Replacement blocked (${result.error || "unknown"}). No changes were made.`);
+      if (result.error === "stale_preview" || result.error === "stale_selection" || result.error === "stale_plan") {
+        if (state.pasteImport) {
+          state.pasteImport.phase = "edit";
+          state.pasteImport.preview = null;
+          state.pasteImport.replaceConfirm = false;
+        }
+      }
+      render();
+      return;
+    }
+    state.draft = result.draft;
+    if (!state.draft.activities) state.draft.activities = {};
+    if (!state.draft.week) state.draft.week = {};
+    const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
+    markDirty({ autosave: !explicitOnly });
+    state.pasteImport.highlightFields = result.appliedFields.slice();
+    state.pasteImport.highlightUntil = Date.now() + 10000;
+    state.pasteImport.open = false;
+    state.pasteImport.phase = "edit";
+    state.pasteImport.preview = null;
+    state.pasteImport.rawText = "";
+    state.pasteImport.replaceConfirm = false;
+    state.statusText = "Replaced draft activity content (not published). Save Draft to persist.";
     render();
   }
 
@@ -3021,7 +3126,7 @@
                   <button type="button" class="tk-enrich-queue-item status-${status} ${globalIndex === state.activityIndex ? "is-active" : ""}" data-activity-index="${globalIndex}">
                     <span class="tk-enrich-status-dot" title="${esc(enrich.activityStatusLabel(status))}"></span>
                     <span>
-                      <strong>${esc(act.title)}</strong>
+                      <strong>${esc(activityDraftDisplayTitle(act))}</strong>
                       <small>${esc(DAY_LABEL[act.dayOfWeek] || "")} · ${esc(enrich.activityStatusLabel(status))}</small>
                     </span>
                   </button>
@@ -3503,6 +3608,131 @@
     `;
   }
 
+  function renderReplacePreviewRows(rows) {
+    return (rows || []).map((row) => `
+      <article class="tk-paste-change ${row.supplied ? "" : "is-missing"} ${row.required && !row.supplied ? "is-required-missing" : ""}" data-paste-field="${esc(row.fieldId || "")}">
+        <header>
+          <strong>${esc(row.label || row.fieldId || "")}</strong>
+          <span class="muted-copy">${row.supplied ? "From paste" : (row.protected ? "Protected" : "Missing — will be blank")}</span>
+        </header>
+        ${row.display ? `<pre>${esc(row.display)}</pre>` : (row.supplied ? "" : `<p class="muted-copy">Blank after replacement.</p>`)}
+        ${row.previous ? `<p class="muted-copy">Previous (cleared): ${esc(row.previous)}</p>` : ""}
+        ${row.note ? `<p class="muted-copy">${esc(row.note)}</p>` : ""}
+      </article>
+    `).join("");
+  }
+
+  function renderActivityReplacePreviewBody(pi, isolationNote) {
+    const preview = pi.preview || {};
+    const groups = preview.groups || {};
+    const missing = preview.missing || [];
+    const requiredMissing = missing.filter((row) => row.required);
+    const optionalMissing = missing.filter((row) => !row.required);
+    const unrecognized = preview.unrecognized || [];
+    const manual = preview.manualResources || [];
+    const unsupported = preview.unsupported || [];
+    const protectedResources = preview.protectedResources || [];
+    const confirmChecked = pi.replaceConfirm ? "checked" : "";
+    const canReplace = Boolean(pi.replaceConfirm) && preview.replacementActivity && !preview.error;
+    return `
+      <p class="muted-copy">${isolationNote} This preview does not change the draft until you confirm once below.</p>
+      <section class="tk-paste-replace-hero">
+        <p><span class="muted-copy">CURRENT ACTIVITY</span><strong>${esc(preview.currentTitle || "Untitled")}</strong></p>
+        <p class="muted-copy">WILL BECOME</p>
+        <p><span class="muted-copy">NEW ACTIVITY</span><strong>${esc(preview.nextTitle || "Untitled")}</strong></p>
+      </section>
+      <section class="tk-paste-group">
+        <h4>CORE ACTIVITY</h4>
+        ${renderReplacePreviewRows(groups.core)}
+      </section>
+      <section class="tk-paste-group">
+        <h4>TEACHING &amp; LEARNING</h4>
+        ${renderReplacePreviewRows(groups.teaching)}
+      </section>
+      <section class="tk-paste-group">
+        <h4>SAFETY &amp; CLEANUP</h4>
+        ${renderReplacePreviewRows(groups.safety)}
+      </section>
+      <section class="tk-paste-group">
+        <h4>ENRICHMENT</h4>
+        ${renderReplacePreviewRows(groups.enrichment)}
+      </section>
+      <section class="tk-paste-group">
+        <h4>IMAGES / RESOURCES</h4>
+        ${renderReplacePreviewRows(groups.images) || `<p class="muted-copy">No image briefs or uploaded images on this activity.</p>`}
+      </section>
+      <section class="tk-paste-missing ${requiredMissing.length ? "has-required" : ""}">
+        <h4>MISSING FROM NEW ACTIVITY</h4>
+        <p class="muted-copy">These fields will be blank after replacement.</p>
+        ${requiredMissing.length ? `
+          <p class="tk-paste-missing-required">Required missing:</p>
+          <ul>${requiredMissing.map((row) => `<li class="is-required-missing">${esc(row.label)}</li>`).join("")}</ul>
+        ` : ""}
+        ${optionalMissing.length ? `
+          <p class="muted-copy">Optional missing:</p>
+          <ul>${optionalMissing.map((row) => `<li>${esc(row.label)}</li>`).join("")}</ul>
+        ` : ""}
+        ${!missing.length ? `<p class="muted-copy">Every mapped field was present in the paste.</p>` : ""}
+      </section>
+      ${unsupported.length ? `
+        <section class="tk-paste-unrecognized">
+          <h4>UNSUPPORTED (not applied)</h4>
+          ${unsupported.map((item) => `
+            <p><strong>${esc(item.label)}</strong></p>
+            <p class="muted-copy">${esc(item.reason || "")}</p>
+            ${item.body ? `<pre>${esc(item.body)}</pre>` : ""}
+          `).join("")}
+        </section>
+      ` : ""}
+      ${manual.length ? `
+        <section class="tk-paste-unrecognized">
+          <h4>Requires manual resource action</h4>
+          <p class="muted-copy">Linked resources / books / songs / printables are not created, linked, or unlinked from this paste.</p>
+          <ul>
+            ${manual.map((item) => `
+              <li><strong>${esc(item.heading)}</strong>${item.body ? `<pre>${esc(item.body)}</pre>` : ""}</li>
+            `).join("")}
+          </ul>
+        </section>
+      ` : ""}
+      ${protectedResources.length ? `
+        <section class="tk-paste-unrecognized">
+          <h4>PROTECTED LINKED RESOURCES</h4>
+          <p class="muted-copy">These resources will remain linked and are not being deleted.</p>
+          <ul>
+            ${protectedResources.map((item) => `
+              <li><strong>${esc(item.title || item.id)}</strong> — ${esc(item.review || "")}</li>
+            `).join("")}
+          </ul>
+        </section>
+      ` : ""}
+      ${unrecognized.length ? `
+        <section class="tk-paste-unrecognized">
+          <h4>UNRECOGNIZED</h4>
+          <p class="muted-copy">These sections could not be mapped and will not be saved anywhere.</p>
+          <ul>
+            ${unrecognized.map((item) => `
+              <li>
+                <strong>${esc(item.heading || "Unknown")}</strong>
+                ${item.note ? `<span class="muted-copy"> — ${esc(item.note)}</span>` : ""}
+                ${item.body ? `<pre>${esc(item.body)}</pre>` : ""}
+              </li>
+            `).join("")}
+          </ul>
+        </section>
+      ` : ""}
+      <label class="tk-paste-replace-confirm">
+        <input type="checkbox" data-paste-replace-confirm ${confirmChecked} />
+        I understand this will replace the current draft activity content with the new activity shown above.
+      </label>
+      <div class="tk-enrich-modal-actions">
+        <button type="button" class="ghost-button" data-paste-import-back>Back to paste</button>
+        <button type="button" class="ghost-button" data-paste-import-cancel>Cancel</button>
+        <button type="button" class="primary-button" data-paste-import-replace-apply ${canReplace ? "" : "disabled"}>REPLACE ACTIVITY</button>
+      </div>
+    `;
+  }
+
   function renderPasteImportModal() {
     const pi = state.pasteImport;
     if (!pi || !pi.open) return "";
@@ -3514,23 +3744,46 @@
       : null;
     const targetLabel = isWeek
       ? (plan?.title || "Current lesson week")
-      : (act?.title || "Selected activity");
+      : (activityDraftDisplayTitle(act) || "Selected activity");
     const isolationNote = isWeek
       ? "Applies only to this lesson’s week draft. Activities are never modified."
       : `Applies only to activity ID <code>${esc(pi.activityKey || "")}</code>. Week fields are never modified.`;
+    const pasteMode = isWeek ? "update" : (pi.mode === "replace" ? "replace" : "update");
     let body = "";
     if (pi.phase !== "preview" || !pi.preview) {
+      const modeChooser = isWeek ? "" : `
+        <fieldset class="tk-paste-mode" data-paste-import-mode-group>
+          <legend>Choose how this paste should apply</legend>
+          <label class="tk-paste-mode-option ${pasteMode === "update" ? "is-on" : ""}">
+            <input type="radio" name="tk-paste-activity-mode" data-paste-import-mode="update" ${pasteMode === "update" ? "checked" : ""} />
+            <span>
+              <strong>Update Existing Activity</strong>
+              <span class="muted-copy">Fill blank fields or selectively update parts of this activity without removing everything else.</span>
+            </span>
+          </label>
+          <label class="tk-paste-mode-option ${pasteMode === "replace" ? "is-on" : ""}">
+            <input type="radio" name="tk-paste-activity-mode" data-paste-import-mode="replace" ${pasteMode === "replace" ? "checked" : ""} />
+            <span>
+              <strong>Replace With New Activity</strong>
+              <span class="muted-copy">Replace the current activity’s editable content with one complete new pasted activity.</span>
+            </span>
+          </label>
+        </fieldset>
+      `;
       body = `
         <p class="muted-copy">${isolationNote} Pasting never publishes and never overwrites without preview.</p>
+        ${modeChooser}
         <label class="tk-paste-textarea-label">
-          <span>Paste structured field updates</span>
-          <textarea data-paste-import-text rows="16" placeholder="Recommended age:&#10;Infant 0–6 months&#10;&#10;Vocabulary:&#10;rattle&#10;roll">${esc(pi.rawText || "")}</textarea>
+          <span>${pasteMode === "replace" ? "Paste one complete activity" : "Paste structured field updates"}</span>
+          <textarea data-paste-import-text rows="16" placeholder="Activity name:&#10;My Community Helper Vest">${esc(pi.rawText || "")}</textarea>
         </label>
         <div class="tk-enrich-modal-actions">
           <button type="button" class="ghost-button" data-paste-import-cancel>Cancel</button>
-          <button type="button" class="primary-button" data-paste-import-parse>Preview changes</button>
+          <button type="button" class="primary-button" data-paste-import-parse>${pasteMode === "replace" ? "Preview Replacement" : "Preview changes"}</button>
         </div>
       `;
+    } else if (!isWeek && (pi.preview.mode === "replace" || pasteMode === "replace")) {
+      body = renderActivityReplacePreviewBody(pi, isolationNote);
     } else {
       const preview = pi.preview;
       const changes = preview.fieldChanges || [];
@@ -4794,6 +5047,7 @@
         if (state.pasteImport) {
           state.pasteImport.phase = "edit";
           state.pasteImport.preview = null;
+          state.pasteImport.replaceConfirm = false;
         }
         render();
         return;
@@ -4806,9 +5060,23 @@
           render();
           return;
         }
+        if (preview.mode === "replace" && preview.error) {
+          state.statusText = preview.error === "parse_empty"
+            ? "Could not recognize a complete activity in the paste. No changes were made."
+            : `Replacement preview blocked (${preview.error}). No changes were made.`;
+          state.pasteImport.preview = null;
+          state.pasteImport.phase = "edit";
+          render();
+          return;
+        }
         state.pasteImport.preview = preview;
         state.pasteImport.phase = "preview";
+        state.pasteImport.replaceConfirm = false;
         render();
+        return;
+      }
+      if (event.target.closest("[data-paste-import-replace-apply]")) {
+        applyPasteImportReplace();
         return;
       }
       if (event.target.closest("[data-paste-import-apply]")) {
@@ -5448,9 +5716,27 @@
         const fieldId = event.target.getAttribute("data-paste-select") || "";
         const preview = state.pasteImport?.preview;
         if (!preview || !fieldId) return;
+        if (preview.mode === "replace") return;
         const change = (preview.fieldChanges || []).find((item) => item.fieldId === fieldId);
         if (!change) return;
         change.selected = Boolean(event.target.checked);
+        return;
+      }
+      if (event.target.matches("[data-paste-import-mode]")) {
+        if (!state.pasteImport) return;
+        const nextMode = event.target.getAttribute("data-paste-import-mode") === "replace" ? "replace" : "update";
+        state.pasteImport.mode = nextMode;
+        state.pasteImport.phase = "edit";
+        state.pasteImport.preview = null;
+        state.pasteImport.replaceConfirm = false;
+        render();
+        return;
+      }
+      if (event.target.matches("[data-paste-replace-confirm]")) {
+        if (!state.pasteImport) return;
+        state.pasteImport.replaceConfirm = Boolean(event.target.checked);
+        const btn = document.querySelector("[data-paste-import-replace-apply]");
+        if (btn) btn.disabled = !state.pasteImport.replaceConfirm || !state.pasteImport.preview?.replacementActivity;
         return;
       }
     });
@@ -5510,7 +5796,12 @@
             <span class="tk-enrich-missing">Missing: ${esc(missingText)}</span>`;
         }
         const titleNode = document.querySelector("[data-enrich-title]");
-        if (field === "title" && titleNode) titleNode.textContent = String(draftAct.title || act.title || "");
+        if (field === "title") {
+          const nextTitle = String(draftAct.title || act.title || "");
+          if (titleNode) titleNode.textContent = nextTitle;
+          const side = document.querySelector(".tk-enrich-queue-item.is-active strong");
+          if (side) side.textContent = nextTitle;
+        }
         // Owner workspace / Draft Review: explicit Save Draft only (no silent autosave).
         const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
         markDirty({ autosave: !explicitOnly });
