@@ -219,6 +219,38 @@ function normalizeStaffDocument(raw = {}, { programId = "" } = {}) {
   return formsSignatureLib.ensureDocumentVersions(base);
 }
 
+function normalizeEnrollmentTemplateExtras(raw = {}) {
+  let enrollmentBaseline = null;
+  try {
+    enrollmentBaseline = require("./enrollment-form-baseline.js");
+  } catch (_error) {
+    enrollmentBaseline = null;
+  }
+  const formKind = cleanText(raw.formKind || "", 40);
+  const looksEnrollment = formKind === "enrollment_baseline"
+    || (enrollmentBaseline && enrollmentBaseline.isEnrollmentBaselineTemplate(raw));
+  if (!looksEnrollment) {
+    return {
+      formKind: formKind || undefined,
+      sections: Array.isArray(raw.sections) ? raw.sections : undefined,
+      enrollmentConfig: raw.enrollmentConfig && typeof raw.enrollmentConfig === "object"
+        ? raw.enrollmentConfig
+        : undefined,
+    };
+  }
+  const sections = enrollmentBaseline
+    ? enrollmentBaseline.normalizeEnrollmentSections(raw.sections)
+    : (Array.isArray(raw.sections) ? raw.sections : []);
+  const enrollmentConfig = enrollmentBaseline
+    ? enrollmentBaseline.buildEnrollmentConfig(raw.enrollmentConfig || {})
+    : (raw.enrollmentConfig || {});
+  return {
+    formKind: "enrollment_baseline",
+    sections,
+    enrollmentConfig,
+  };
+}
+
 function normalizeTemplate(raw = {}, { programId = "", strictFields = true } = {}) {
   const id = cleanText(raw.id || "", 80) || newId("form-template");
   const body = formFieldsLib.cleanText(raw.body || raw.bodyText || raw.draftText || "", 20000);
@@ -228,6 +260,7 @@ function normalizeTemplate(raw = {}, { programId = "", strictFields = true } = {
   }
   const fp = formFieldsLib.templateContentFingerprint({ body, fields });
   const sourceType = cleanText(raw.sourceType || "provider", 40) || "provider";
+  const enrollmentExtras = normalizeEnrollmentTemplateExtras(raw);
   return {
     id,
     programId: cleanText(programId || raw.programId || "", 80),
@@ -253,6 +286,9 @@ function normalizeTemplate(raw = {}, { programId = "", strictFields = true } = {
     ),
     packFormId: cleanText(raw.packFormId || "", 80),
     resourceId: cleanText(raw.resourceId || "", 80),
+    formKind: enrollmentExtras.formKind,
+    sections: enrollmentExtras.sections,
+    enrollmentConfig: enrollmentExtras.enrollmentConfig,
     bodyHash: cleanText(raw.bodyHash || "", 80) || fp.bodyHash,
     fieldsHash: cleanText(raw.fieldsHash || "", 80) || fp.fieldsHash,
     contentVersion: Math.max(1, Number(raw.contentVersion) || 1),
@@ -405,14 +441,35 @@ function upsertTemplate(store, programId, raw, { actorUserId, actorRole } = {}) 
 
 /** Duplicate any template into a provider-owned copy (new id + originTemplateId). */
 function duplicateTemplateAsProvider(store, programId, source, { actorUserId, actorRole } = {}) {
-  const origin = normalizeTemplate(source || {}, { programId, strictFields: false });
+  let sourcePayload = source || {};
+  try {
+    const enrollmentBaseline = require("./enrollment-form-baseline.js");
+    const isEnrollmentStarter = enrollmentBaseline.isEnrollmentBaselineTemplate(sourcePayload)
+      || String(sourcePayload.packFormId || "") === enrollmentBaseline.ENROLLMENT_PACK_FORM_ID
+      || String(sourcePayload.id || "") === enrollmentBaseline.ENROLLMENT_PACK_FORM_ID;
+    const hasStructuredFields = Array.isArray(sourcePayload.fields) && sourcePayload.fields.length > 0;
+    if (isEnrollmentStarter && !hasStructuredFields) {
+      sourcePayload = {
+        ...enrollmentBaseline.buildEnrollmentBaselineTemplate({
+          title: sourcePayload.title || enrollmentBaseline.ENROLLMENT_TEMPLATE_TITLE,
+          sourceType: "starter",
+        }),
+        id: sourcePayload.id || enrollmentBaseline.ENROLLMENT_PACK_FORM_ID,
+      };
+    }
+  } catch (_error) {
+    // Baseline helper unavailable — fall through to plain duplicate.
+  }
+  const origin = normalizeTemplate(sourcePayload, { programId, strictFields: false });
   const copy = {
     ...origin,
     id: newId("form-template"),
     programId,
     sourceType: "provider",
     originTemplateId: origin.id || origin.originTemplateId || "",
-    title: `${origin.title || "Custom form"} (copy)`.slice(0, 160),
+    title: origin.formKind === "enrollment_baseline"
+      ? (origin.title || "Enrollment Form")
+      : `${origin.title || "Custom form"} (copy)`.slice(0, 160),
     createdAt: nowIso(),
     updatedAt: nowIso(),
     createdByEmail: normalizeEmail(actorUserId || ""),

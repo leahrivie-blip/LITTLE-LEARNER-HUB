@@ -568,6 +568,14 @@ let formBuilderState = {
   originTemplateId: "",
   mode: "create", // create | edit | customize
   previewOpen: false,
+  /** Enrollment baseline extras (testing Forms spine). */
+  formKind: "",
+  sections: [],
+  enrollmentConfig: null,
+  packFormId: "",
+  resourceId: "",
+  editingSectionId: "",
+  enrollUiMode: "edit", // edit | preview
 };
 /** Wave 4 — Confirm & Send wizard (one modular flow; not a second assignment system). */
 let assignFlowState = null;
@@ -8089,10 +8097,10 @@ const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
 const HOME_DAYCARE_FORMS_PACK = Object.freeze([
   {
     id: "hdh-pack-enrollment",
-    title: "Enrollment Packet",
+    title: "Enrollment Form",
     category: "Enrollment",
     resourceId: "form-enrollment-forms-enrollment-packet",
-    description: "Start-of-care checklist and family signatures.",
+    description: "Baseline childcare enrollment packet — customize sections, schedule, permissions, and print blank.",
   },
   {
     id: "hdh-pack-emergency",
@@ -10271,6 +10279,177 @@ function getFormBuilderApi() {
     || null;
 }
 
+function getEnrollmentFormBuilderApi() {
+  return (typeof window !== "undefined" && window.LlhEnrollmentFormBuilder)
+    || (typeof globalThis !== "undefined" && globalThis.LlhEnrollmentFormBuilder)
+    || null;
+}
+
+function getEnrollmentBaselineApi() {
+  return (typeof window !== "undefined" && window.LlhEnrollmentBaseline)
+    || (typeof globalThis !== "undefined" && globalThis.LlhEnrollmentBaseline)
+    || getFormBuilderApi()?.enrollmentBaseline
+    || null;
+}
+
+function isEnrollmentFormBuilderTemplate(template = {}) {
+  const baseline = getEnrollmentBaselineApi();
+  if (baseline?.isEnrollmentBaselineTemplate) return baseline.isEnrollmentBaselineTemplate(template);
+  return String(template.formKind || "") === "enrollment_baseline"
+    || String(template.packFormId || "") === "hdh-pack-enrollment";
+}
+
+function currentEnrollmentBuilderTemplate() {
+  return {
+    id: formBuilderState.templateId,
+    title: formBuilderState.title,
+    category: formBuilderState.category,
+    body: formBuilderState.body,
+    fields: formBuilderState.fields,
+    requiresSignature: formBuilderState.requiresSignature,
+    formKind: formBuilderState.formKind || "enrollment_baseline",
+    sections: formBuilderState.sections || [],
+    enrollmentConfig: formBuilderState.enrollmentConfig || {},
+    packFormId: formBuilderState.packFormId || "hdh-pack-enrollment",
+    resourceId: formBuilderState.resourceId || "",
+    originTemplateId: formBuilderState.originTemplateId || "",
+  };
+}
+
+function seedEnrollmentTemplateFromPack(pack = {}) {
+  const enrollApi = getEnrollmentFormBuilderApi();
+  const baseline = getEnrollmentBaselineApi();
+  if (enrollApi?.ensureEnrollmentTemplate) {
+    return enrollApi.ensureEnrollmentTemplate({
+      id: pack.id,
+      title: baseline?.ENROLLMENT_TEMPLATE_TITLE || "Enrollment Form",
+      category: pack.category || "Enrollment",
+      packFormId: pack.id || "hdh-pack-enrollment",
+      resourceId: pack.resourceId || "",
+      sourceType: "starter",
+    });
+  }
+  if (baseline?.buildEnrollmentBaselineTemplate) {
+    return baseline.buildEnrollmentBaselineTemplate({
+      id: pack.id,
+      title: baseline.ENROLLMENT_TEMPLATE_TITLE,
+      sourceType: "starter",
+    });
+  }
+  return {
+    id: pack.id,
+    title: pack.title || "Enrollment Form",
+    category: pack.category || "Enrollment",
+    body: pack.description || "",
+    fields: [],
+    packFormId: pack.id,
+    resourceId: pack.resourceId || "",
+    sourceType: "starter",
+  };
+}
+
+function rerenderEnrollmentFormBuilder() {
+  const panel = document.querySelector("#hdhFormBuilderPanel");
+  if (window.LlhFormsDirtyState && panel) window.LlhFormsDirtyState.captureFormDrafts(panel, "formBuilder");
+  renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+  const next = document.querySelector("#hdhFormBuilderPanel");
+  if (window.LlhFormsDirtyState && next) window.LlhFormsDirtyState.restoreFormDrafts(next, "formBuilder");
+}
+
+function printEnrollmentBlankForm(template = currentEnrollmentBuilderTemplate()) {
+  const enrollApi = getEnrollmentFormBuilderApi();
+  const settings = getProgramSettings() || {};
+  const programName = settings.programName || settings.businessName || "";
+  const text = enrollApi?.renderPrintBlankText
+    ? enrollApi.renderPrintBlankText(template, { programName })
+    : String(template.body || "ENROLLMENT FORM");
+  // Reuse existing print architecture — no second PDF engine.
+  if (typeof printTextDocument === "function") {
+    printTextDocument("Enrollment Form", text);
+  }
+}
+
+function saveEnrollmentFormFromBuilder() {
+  const role = getUserRole();
+  if (role === USER_ROLES.ASSISTANT) {
+    showActionFeedback("Assistants cannot manage form templates.");
+    return Promise.resolve(null);
+  }
+  const api = getFormBuilderApi();
+  const baseline = getEnrollmentBaselineApi();
+  let fields = formBuilderState.fields;
+  try {
+    fields = api ? api.normalizeFormFields(fields) : fields;
+  } catch (error) {
+    showActionFeedback(error.message || "Fix field validation errors before saving.");
+    return Promise.resolve(null);
+  }
+  if (baseline?.applyEnrollmentVisibility) {
+    const applied = baseline.applyEnrollmentVisibility({
+      fields,
+      sections: formBuilderState.sections,
+      enrollmentConfig: formBuilderState.enrollmentConfig,
+    });
+    fields = applied.fields;
+    formBuilderState.sections = applied.sections;
+    formBuilderState.enrollmentConfig = applied.enrollmentConfig;
+  }
+  const payload = {
+    id: formBuilderState.templateId || undefined,
+    title: formBuilderState.title || "Enrollment Form",
+    category: formBuilderState.category || "Enrollment",
+    body: formBuilderState.body,
+    bodyText: formBuilderState.body,
+    fields,
+    requiresSignature: formBuilderState.requiresSignature !== false,
+    sourceType: "provider",
+    originTemplateId: formBuilderState.originTemplateId || "",
+    contentVersion: 1,
+    formKind: "enrollment_baseline",
+    sections: formBuilderState.sections || [],
+    enrollmentConfig: formBuilderState.enrollmentConfig || {},
+    packFormId: formBuilderState.packFormId || "hdh-pack-enrollment",
+    resourceId: formBuilderState.resourceId || "form-enrollment-forms-enrollment-packet",
+    libraryCategory: "enrollment",
+    complianceDisclaimer: baseline?.BASELINE_DISCLAIMER || undefined,
+  };
+  return Promise.resolve()
+    .then(async () => {
+      if (canUseLaunchBackend()) {
+        const headers = await staffAuthHeaders();
+        if (!headers) throw new Error("Sign in to save templates.");
+        const response = await fetch("/api/program-forms/templates", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Could not save enrollment form.");
+        await ensureProgramFormsLoaded({ force: true });
+        return data.template;
+      }
+      const list = formsProgramTemplates();
+      const id = payload.id || `form-template-${Date.now().toString(36)}`;
+      const saved = { ...payload, id, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() };
+      const next = [saved, ...list.filter((item) => String(item.id) !== String(id))].slice(0, 80);
+      await saveFormsProgramTemplates(next);
+      return saved;
+    })
+    .then((saved) => {
+      if (!saved) return null;
+      if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.clearForm("formBuilder");
+      formBuilderState.templateId = saved.id;
+      formBuilderState.open = true;
+      showActionFeedback(`Enrollment form “${saved.title}” saved.`);
+      rerenderEnrollmentFormBuilder();
+      return saved;
+    })
+    .catch((error) => {
+      showActionFeedback(error.message || "Could not save enrollment form.");
+      return null;
+    });
+}
+
 function listSystemFormsForLibrary() {
   try {
     if (typeof formGroups !== "object" || !formGroups) return [];
@@ -10290,22 +10469,34 @@ function listSystemFormsForLibrary() {
 
 function openFormBuilderFromTemplate(template, mode = "edit") {
   const api = getFormBuilderApi();
-  const fields = Array.isArray(template?.fields)
-    ? (api ? api.normalizeFormFields(template.fields) : template.fields)
+  const enrollApi = getEnrollmentFormBuilderApi();
+  let source = template || {};
+  if (isEnrollmentFormBuilderTemplate(source) && enrollApi?.ensureEnrollmentTemplate) {
+    source = enrollApi.ensureEnrollmentTemplate(source);
+  }
+  const fields = Array.isArray(source?.fields)
+    ? (api ? api.normalizeFormFields(source.fields) : source.fields)
     : [];
   formBuilderState = {
     open: true,
-    templateId: mode === "customize" || mode === "create" ? "" : String(template?.id || ""),
-    title: String(template?.title || "Custom form"),
-    category: String(template?.category || "Other"),
-    body: String(template?.body || template?.bodyText || ""),
+    templateId: mode === "customize" || mode === "create" ? "" : String(source?.id || ""),
+    title: String(source?.title || "Custom form"),
+    category: String(source?.category || "Other"),
+    body: String(source?.body || source?.bodyText || ""),
     fields: fields.map((field, index) => ({ ...field, order: index })),
-    requiresSignature: template?.requiresSignature !== false,
+    requiresSignature: source?.requiresSignature !== false,
     originTemplateId: mode === "customize"
-      ? String(template?.id || template?.originTemplateId || "")
-      : String(template?.originTemplateId || ""),
+      ? String(source?.id || source?.originTemplateId || "")
+      : String(source?.originTemplateId || ""),
     mode,
     previewOpen: false,
+    formKind: String(source?.formKind || (isEnrollmentFormBuilderTemplate(source) ? "enrollment_baseline" : "")),
+    sections: Array.isArray(source?.sections) ? source.sections : [],
+    enrollmentConfig: source?.enrollmentConfig || null,
+    packFormId: String(source?.packFormId || ""),
+    resourceId: String(source?.resourceId || ""),
+    editingSectionId: "",
+    enrollUiMode: "edit",
   };
 }
 
@@ -10349,12 +10540,49 @@ function renderFormBuilderFieldEditor(field, index) {
 function renderFormBuilderPanel() {
   if (!isHomeDaycareHubTestingEnabled() || !formBuilderState.open) return "";
   const api = getFormBuilderApi();
+  const enrollApi = getEnrollmentFormBuilderApi();
+  const settings = getProgramSettings() || {};
+  const programName = settings.programName || settings.businessName || "";
+  const enrollmentTemplate = currentEnrollmentBuilderTemplate();
+  const useEnrollmentEditor = isEnrollmentFormBuilderTemplate(enrollmentTemplate) && enrollApi;
+
+  if (useEnrollmentEditor) {
+    const editorHtml = formBuilderState.enrollUiMode === "preview"
+      ? enrollApi.renderEnrollmentPreviewHtml(enrollmentTemplate, {
+        escape: escapeHtml,
+        programName,
+        mode: "preview",
+      })
+      : enrollApi.renderEnrollmentEditorHtml(enrollmentTemplate, {
+        escape: escapeHtml,
+        programName,
+        editingSectionId: formBuilderState.editingSectionId || "",
+        mode: "edit",
+      });
+    return `
+      <section class="section-block form-builder-panel enroll-form-builder-panel" id="hdhFormBuilderPanel" data-form-builder="true" data-enrollment-builder="true">
+        <p class="eyebrow">Enrollment Form Builder</p>
+        <h3>Enrollment Form</h3>
+        <p class="muted-copy">Customize this baseline for your program. Assigned / signed enrollment submissions keep their own snapshot — later template edits do not rewrite history.</p>
+        <div class="account-actions-row" style="margin-bottom:12px;">
+          <button class="ghost-button" type="button" data-enroll-mode="edit" ${formBuilderState.enrollUiMode === "edit" ? "disabled" : ""}>Edit Form</button>
+          <button class="ghost-button" type="button" data-enroll-mode="preview" ${formBuilderState.enrollUiMode === "preview" ? "disabled" : ""}>Preview Form</button>
+          <button class="ghost-button" type="button" data-enroll-print-blank>Print Blank Form</button>
+          <button class="primary-button" type="button" data-enroll-save>Save Changes</button>
+          <button class="ghost-button" type="button" data-fb-close>Close builder</button>
+        </div>
+        ${editorHtml}
+        <p class="form-note">Internal field IDs stay stable. Renaming labels does not break saved answers. Preview and print exclude builder controls.</p>
+      </section>
+    `;
+  }
+
   const types = api?.fieldsLib?.FIELD_TYPES || [
     "info", "short_text", "long_text", "number", "date", "time",
     "checkbox", "yes_no", "radio", "dropdown", "initials", "signature", "file",
   ];
   const preview = formBuilderState.previewOpen && api
-    ? api.renderPreviewHtml({
+    ? (api.renderEnrollmentAwarePreviewHtml || api.renderPreviewHtml)({
       title: formBuilderState.title,
       body: formBuilderState.body,
       fields: formBuilderState.fields,
@@ -70099,6 +70327,142 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const enrollModeBtn = event.target.closest("[data-enroll-mode]");
+  if (enrollModeBtn && formBuilderState.open) {
+    event.preventDefault();
+    formBuilderState.enrollUiMode = enrollModeBtn.getAttribute("data-enroll-mode") === "preview" ? "preview" : "edit";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-print-blank]") && formBuilderState.open) {
+    event.preventDefault();
+    printEnrollmentBlankForm();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-save]") && formBuilderState.open) {
+    event.preventDefault();
+    saveEnrollmentFormFromBuilder();
+    return;
+  }
+
+  const enrollEditSection = event.target.closest("[data-enroll-edit-section]");
+  if (enrollEditSection && formBuilderState.open) {
+    event.preventDefault();
+    const sectionId = enrollEditSection.getAttribute("data-enroll-edit-section");
+    formBuilderState.editingSectionId = formBuilderState.editingSectionId === sectionId ? "" : sectionId;
+    formBuilderState.enrollUiMode = "edit";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  const enrollToggleSection = event.target.closest("[data-enroll-toggle-section]");
+  if (enrollToggleSection && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollToggleSection.getAttribute("data-enroll-toggle-section");
+    const makeVisible = enrollToggleSection.getAttribute("data-visible") === "1";
+    formBuilderState.sections = baseline?.setEnrollmentSectionVisible
+      ? baseline.setEnrollmentSectionVisible(formBuilderState.sections, sectionId, makeVisible)
+      : (formBuilderState.sections || []).map((section) => (
+        String(section.id) === String(sectionId) ? { ...section, visible: makeVisible } : section
+      ));
+    if (baseline?.applyEnrollmentVisibility) {
+      const applied = baseline.applyEnrollmentVisibility(currentEnrollmentBuilderTemplate());
+      formBuilderState.fields = applied.fields;
+      formBuilderState.sections = applied.sections;
+    }
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "sections", String(Date.now()));
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  const enrollMoveUp = event.target.closest("[data-enroll-move-section-up]");
+  if (enrollMoveUp && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollMoveUp.getAttribute("data-enroll-move-section-up");
+    const sections = [...(formBuilderState.sections || [])].sort((a, b) => Number(a.order) - Number(b.order));
+    const index = sections.findIndex((section) => String(section.id) === String(sectionId));
+    if (index > 0) {
+      formBuilderState.sections = baseline?.reorderEnrollmentSections
+        ? baseline.reorderEnrollmentSections(sections, index, index - 1)
+        : sections;
+      rerenderEnrollmentFormBuilder();
+    }
+    return;
+  }
+
+  const enrollMoveDown = event.target.closest("[data-enroll-move-section-down]");
+  if (enrollMoveDown && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollMoveDown.getAttribute("data-enroll-move-section-down");
+    const sections = [...(formBuilderState.sections || [])].sort((a, b) => Number(a.order) - Number(b.order));
+    const index = sections.findIndex((section) => String(section.id) === String(sectionId));
+    if (index >= 0 && index < sections.length - 1) {
+      formBuilderState.sections = baseline?.reorderEnrollmentSections
+        ? baseline.reorderEnrollmentSections(sections, index, index + 1)
+        : sections;
+      rerenderEnrollmentFormBuilder();
+    }
+    return;
+  }
+
+  const enrollAddCustom = event.target.closest("[data-enroll-add-custom]");
+  if (enrollAddCustom && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = enrollAddCustom.getAttribute("data-enroll-add-custom");
+    const customType = enrollAddCustom.getAttribute("data-custom-type") || "short_text";
+    formBuilderState.fields = baseline?.addCustomEnrollmentField
+      ? baseline.addCustomEnrollmentField(formBuilderState.fields, {
+        sectionId,
+        type: customType,
+        label: customType === "long_text" ? "Custom multiline question" : customType === "yes_no" ? "Custom yes/no question" : "Custom question",
+        required: false,
+      })
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = sectionId;
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-add-permission]") && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    formBuilderState.fields = baseline?.addCustomPermission
+      ? baseline.addCustomPermission(formBuilderState.fields, "Custom permission")
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = "permissions";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-add-document]") && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    formBuilderState.fields = baseline?.addCustomDocumentItem
+      ? baseline.addCustomDocumentItem(formBuilderState.fields, "Custom document")
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = "documents";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
+  if (event.target.closest("[data-enroll-add-policy]") && formBuilderState.open) {
+    event.preventDefault();
+    const baseline = getEnrollmentBaselineApi();
+    formBuilderState.fields = baseline?.addCustomPolicyAcknowledgment
+      ? baseline.addCustomPolicyAcknowledgment(formBuilderState.fields, "Custom policy acknowledgment")
+      : formBuilderState.fields;
+    formBuilderState.editingSectionId = "policies";
+    rerenderEnrollmentFormBuilder();
+    return;
+  }
+
   if (event.target.closest("[data-fb-save]")) {
     event.preventDefault();
     const role = getUserRole();
@@ -70133,6 +70497,12 @@ document.addEventListener("click", async (event) => {
       sourceType: "provider",
       originTemplateId: formBuilderState.originTemplateId || "",
       contentVersion: 1,
+      formKind: formBuilderState.formKind || undefined,
+      sections: Array.isArray(formBuilderState.sections) ? formBuilderState.sections : undefined,
+      enrollmentConfig: formBuilderState.enrollmentConfig || undefined,
+      packFormId: formBuilderState.packFormId || undefined,
+      resourceId: formBuilderState.resourceId || undefined,
+      libraryCategory: formBuilderState.formKind === "enrollment_baseline" ? "enrollment" : undefined,
     };
     Promise.resolve()
       .then(async () => {
@@ -70175,18 +70545,25 @@ document.addEventListener("click", async (event) => {
     let source = formsProgramTemplates().find((item) => String(item.id) === String(id));
     if (!source && kind === "starter") {
       const pack = HOME_DAYCARE_FORMS_PACK.find((item) => String(item.id) === String(id));
-      source = pack
-        ? {
-          id: pack.id,
-          title: pack.title,
-          category: pack.category,
-          body: `${pack.title}\n\n${pack.description || ""}\n\nParent signature: __________\nDate: __________`,
-          fields: [],
+      if (pack && (pack.id === "hdh-pack-enrollment" || /enrollment packet/i.test(pack.title || ""))) {
+        source = {
+          ...seedEnrollmentTemplateFromPack(pack),
           sourceType: "starter",
-          packFormId: pack.id,
-          resourceId: pack.resourceId || "",
-        }
-        : null;
+        };
+      } else {
+        source = pack
+          ? {
+            id: pack.id,
+            title: pack.title,
+            category: pack.category,
+            body: `${pack.title}\n\n${pack.description || ""}\n\nParent signature: __________\nDate: __________`,
+            fields: [],
+            sourceType: "starter",
+            packFormId: pack.id,
+            resourceId: pack.resourceId || "",
+          }
+          : null;
+      }
     }
     if (!source && kind === "system") {
       const sys = listSystemFormsForLibrary().find((item) => String(item.id) === String(id));
@@ -70251,18 +70628,34 @@ document.addEventListener("click", async (event) => {
     let template = formsProgramTemplates().find((item) => String(item.id) === String(id));
     if (!template && kind === "starter") {
       const pack = HOME_DAYCARE_FORMS_PACK.find((item) => String(item.id) === String(id));
-      template = pack
-        ? { title: pack.title, body: pack.description || pack.title, fields: [], requiresSignature: true }
-        : null;
+      if (pack && (pack.id === "hdh-pack-enrollment" || /enrollment packet/i.test(pack.title || ""))) {
+        template = seedEnrollmentTemplateFromPack(pack);
+      } else {
+        template = pack
+          ? { title: pack.title, body: pack.description || pack.title, fields: [], requiresSignature: true }
+          : null;
+      }
     }
     if (!template) {
       showActionFeedback("Template not found.");
       return;
     }
     const api = getFormBuilderApi();
-    const html = api
-      ? api.renderPreviewHtml(template, { escape: escapeHtml })
-      : `<pre>${escapeHtml(template.body || "")}</pre>`;
+    const enrollApi = getEnrollmentFormBuilderApi();
+    const settings = getProgramSettings() || {};
+    const programName = settings.programName || settings.businessName || "";
+    let html = "";
+    if (isEnrollmentFormBuilderTemplate(template) && enrollApi) {
+      html = enrollApi.renderEnrollmentPreviewHtml(template, {
+        escape: escapeHtml,
+        programName,
+        mode: "preview",
+      });
+    } else if (api) {
+      html = (api.renderEnrollmentAwarePreviewHtml || api.renderPreviewHtml)(template, { escape: escapeHtml });
+    } else {
+      html = `<pre>${escapeHtml(template.body || "")}</pre>`;
+    }
     const host = document.querySelector("[data-template-library]") || document.querySelector("#hdhFormTemplatesPanel");
     let previewHost = document.querySelector("[data-library-preview-host]");
     if (!previewHost && host) {
@@ -74807,6 +75200,57 @@ document.addEventListener("input", (event) => {
     if (window.LlhFormsDirtyState) {
       window.LlhFormsDirtyState.touch("formBuilder", `${fieldId}:${prop}`, event.target.type === "checkbox" ? String(event.target.checked) : event.target.value);
     }
+  }
+  if (event.target.matches("[data-enroll-section-title]")) {
+    const baseline = getEnrollmentBaselineApi();
+    const sectionId = event.target.getAttribute("data-enroll-section-title");
+    const title = event.target.value || "";
+    formBuilderState.sections = baseline?.renameEnrollmentSection
+      ? baseline.renameEnrollmentSection(formBuilderState.sections, sectionId, title)
+      : (formBuilderState.sections || []).map((section) => (
+        String(section.id) === String(sectionId) ? { ...section, title } : section
+      ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `sectionTitle:${sectionId}`, title);
+  }
+  if (event.target.matches("[data-enroll-field-label]")) {
+    const fieldId = event.target.getAttribute("data-enroll-field-label");
+    const label = event.target.value || "";
+    formBuilderState.fields = (formBuilderState.fields || []).map((field) => (
+      String(field.id) === String(fieldId) ? { ...field, label } : field
+    ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollLabel:${fieldId}`, label);
+  }
+  if (event.target.matches("[data-enroll-field-required]")) {
+    const fieldId = event.target.getAttribute("data-enroll-field-required");
+    const required = Boolean(event.target.checked);
+    formBuilderState.fields = (formBuilderState.fields || []).map((field) => (
+      String(field.id) === String(fieldId) ? { ...field, required } : field
+    ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollRequired:${fieldId}`, String(required));
+  }
+  if (event.target.matches("[data-enroll-field-visible]")) {
+    const fieldId = event.target.getAttribute("data-enroll-field-visible");
+    const visible = Boolean(event.target.checked);
+    formBuilderState.fields = (formBuilderState.fields || []).map((field) => (
+      String(field.id) === String(fieldId) ? { ...field, visible } : field
+    ));
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollVisible:${fieldId}`, String(visible));
+  }
+  if (event.target.matches("[data-enroll-config]")) {
+    const key = event.target.getAttribute("data-enroll-config");
+    const baseline = getEnrollmentBaselineApi();
+    const current = formBuilderState.enrollmentConfig || {};
+    let value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    if (key === "minEmergencyContacts" || key === "minAuthorizedPickup") value = Number(value) || 0;
+    const nextConfig = baseline?.buildEnrollmentConfig
+      ? baseline.buildEnrollmentConfig({ ...current, [key]: value })
+      : { ...current, [key]: value };
+    formBuilderState.enrollmentConfig = nextConfig;
+    if (baseline?.applyEnrollmentVisibility) {
+      const applied = baseline.applyEnrollmentVisibility(currentEnrollmentBuilderTemplate());
+      formBuilderState.fields = applied.fields;
+    }
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", `enrollConfig:${key}`, String(value));
   }
   if (event.target.matches("[data-staff-profile-email]")) {
     staffProfilePaperworkEmail = String(event.target.value || "").toLowerCase();

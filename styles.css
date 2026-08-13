@@ -23380,6 +23380,102 @@ body.hdh-persona-parent .main {
   margin-left: 4px;
 }
 
+/* Enrollment Form baseline — section-card editor (testing Forms spine) */
+.enroll-form-builder-panel .enroll-editor-head,
+.enroll-form-preview .enroll-preview-head {
+  margin-bottom: 14px;
+}
+
+.enroll-editor-actions,
+.enroll-config-row {
+  margin-top: 12px;
+}
+
+.enroll-section-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.enroll-section-card {
+  border: 1px solid rgba(36, 48, 71, 0.14);
+  border-radius: 10px;
+  background: #fffdf8;
+  padding: 12px 14px;
+}
+
+.enroll-section-card.is-hidden-section {
+  opacity: 0.72;
+  background: #f4f1ea;
+}
+
+.enroll-section-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.enroll-section-editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(36, 48, 71, 0.1);
+  display: grid;
+  gap: 12px;
+}
+
+.enroll-field-list {
+  display: grid;
+  gap: 10px;
+}
+
+.enroll-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(36, 48, 71, 0.1);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.enroll-field-row input[type="text"] {
+  min-width: min(100%, 220px);
+}
+
+.enroll-preview-section {
+  margin-top: 18px;
+  padding-top: 8px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.enroll-preview-section h4 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+@media print {
+  .enroll-form-builder-panel .account-actions-row,
+  .enroll-editor-actions,
+  .enroll-config-row,
+  .enroll-section-card-head .hdh-forms-pack-actions,
+  .enroll-section-editor,
+  [data-form-builder="true"] > .eyebrow,
+  [data-enrollment-builder="true"] > .account-actions-row {
+    display: none !important;
+  }
+
+  .enroll-form-preview,
+  .enroll-preview-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
 .template-library-filters {
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
 }

@@ -6,7 +6,10 @@
 (function formBuilderLibModule(root, factory) {
   "use strict";
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("../server/form-fields-lib.js"));
+    module.exports = factory(
+      require("../server/form-fields-lib.js"),
+      require("../server/enrollment-form-baseline.js"),
+    );
   } else {
     const fallback = {
       FIELD_TYPES: [
@@ -71,9 +74,12 @@
         return aliases[key] || key;
       },
     };
-    root.LlhFormBuilder = factory(root.LlhFormFieldsLib || fallback);
+    root.LlhFormBuilder = factory(
+      root.LlhFormFieldsLib || fallback,
+      root.LlhEnrollmentBaseline || null,
+    );
   }
-}(typeof globalThis !== "undefined" ? globalThis : this, function factory(fieldsLib) {
+}(typeof globalThis !== "undefined" ? globalThis : this, function factory(fieldsLib, enrollmentBaseline) {
   "use strict";
 
   const FIELD_TYPE_LABELS = Object.freeze({
@@ -251,16 +257,33 @@
       });
     });
     (Array.isArray(starterPack) ? starterPack : []).forEach((pack) => {
+      const isEnrollment = enrollmentBaseline
+        && (
+          String(pack.id || "") === enrollmentBaseline.ENROLLMENT_PACK_FORM_ID
+          || /enrollment packet/i.test(String(pack.title || ""))
+        );
+      const enrollmentSeed = isEnrollment
+        ? enrollmentBaseline.buildEnrollmentBaselineTemplate({
+          id: pack.id,
+          title: enrollmentBaseline.ENROLLMENT_TEMPLATE_TITLE,
+          sourceType: "starter",
+        })
+        : null;
       rows.push({
         id: pack.id,
-        title: pack.title,
+        title: enrollmentSeed ? enrollmentSeed.title : pack.title,
         category: pack.category || "Other",
-        description: pack.description || "",
-        body: "",
-        fields: [],
+        description: enrollmentSeed
+          ? enrollmentSeed.description
+          : (pack.description || ""),
+        body: enrollmentSeed ? enrollmentSeed.body : "",
+        fields: enrollmentSeed ? enrollmentSeed.fields : [],
+        sections: enrollmentSeed ? enrollmentSeed.sections : undefined,
+        enrollmentConfig: enrollmentSeed ? enrollmentSeed.enrollmentConfig : undefined,
+        formKind: enrollmentSeed ? enrollmentSeed.formKind : undefined,
         sourceType: "starter",
         sourceKind: "starter",
-        libraryCategory: "starter",
+        libraryCategory: isEnrollment ? "enrollment" : "starter",
         packFormId: pack.id,
         resourceId: pack.resourceId || "",
         readOnly: true,
@@ -315,6 +338,18 @@
     });
   }
 
+  function renderEnrollmentAwarePreviewHtml(template = {}, options = {}) {
+    if (
+      enrollmentBaseline
+      && enrollmentBaseline.isEnrollmentBaselineTemplate(template)
+      && typeof globalThis !== "undefined"
+      && globalThis.LlhEnrollmentFormBuilder
+    ) {
+      return globalThis.LlhEnrollmentFormBuilder.renderEnrollmentPreviewHtml(template, options);
+    }
+    return renderPreviewHtml(template, options);
+  }
+
   return {
     FIELD_TYPE_LABELS,
     LIBRARY_CATEGORIES,
@@ -323,9 +358,11 @@
     createEmptyField,
     reorderFields,
     renderPreviewHtml,
+    renderEnrollmentAwarePreviewHtml,
     buildUnifiedTemplateLibrary,
     applyFieldPatch,
     fieldsLib,
+    enrollmentBaseline,
     normalizeFormFields: (...args) => fieldsLib.normalizeFormFields(...args),
     validateAiStructuredDraft: (...args) => fieldsLib.validateAiStructuredDraft(...args),
     extractStructuredDraftFromAiText: (...args) => fieldsLib.extractStructuredDraftFromAiText(...args),
