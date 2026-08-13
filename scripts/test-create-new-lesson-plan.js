@@ -248,6 +248,87 @@ function runParserTests() {
     { title: "Color Scarf Tracking", objective: "" },
   );
   assert.ok((actPreview.fieldChanges || []).some((change) => change.fieldId === "objective"));
+
+  const ownerGatePaste = `Lesson title:
+DISPOSABLE CREATE LESSON TEST
+
+Age band:
+Preschool
+
+Weekly overview:
+A disposable lesson used only to verify the new lesson creation workflow.
+
+Learning objectives:
+Explore through play
+Build language
+Practice problem-solving
+
+Materials list:
+Blocks
+Paper
+Crayons
+
+Teacher preparation / Toolkit:
+Prepare materials before children arrive.
+
+Prep checklist:
+Set out materials
+Prepare activity areas
+
+Observation focus:
+Participation
+Language
+Problem-solving
+
+Family connection:
+Invite families to talk about the week's learning.
+
+Milestones:
+Language
+Fine motor
+Social-emotional
+
+Monday:
+Monday Activity One
+Monday Activity Two
+Monday Activity Three
+
+Tuesday:
+Tuesday Activity One
+Tuesday Activity Two
+Tuesday Activity Three
+
+Wednesday:
+Wednesday Activity One
+Wednesday Activity Two
+Wednesday Activity Three
+
+Thursday:
+Thursday Activity One
+Thursday Activity Two
+Thursday Activity Three
+
+Friday:
+Friday Activity One
+Friday Activity Two
+Friday Activity Three
+`;
+  const gateParsed = parseFullLessonStructurePaste(ownerGatePaste);
+  assert.equal(gateParsed.ok, true, gateParsed.errors.join("; "));
+  assert.equal(gateParsed.lesson.title, "DISPOSABLE CREATE LESSON TEST");
+  assert.equal(gateParsed.lesson.age, "Preschool");
+  assert.match(gateParsed.lesson.teacherPreparation, /Prepare materials before children arrive/);
+  assert.deepEqual(gateParsed.lesson.prepChecklist, ["Set out materials", "Prepare activity areas"]);
+  assert.deepEqual(gateParsed.lesson.observationFocus, ["Participation", "Language", "Problem-solving"]);
+  assert.equal(gateParsed.activityCount, 15);
+  assert.equal(gateParsed.unrecognized.length, 0, JSON.stringify(gateParsed.unrecognized));
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    assert.equal(gateParsed.dailyPlans[day].items.length, 3, `${day} should have 3 shells`);
+  });
+  const gatePreview = buildStructurePreview(gateParsed);
+  assert.equal(gatePreview.recognized.teacherPreparation, true);
+  assert.equal(gatePreview.recognized.prepChecklist, 2);
+  assert.equal(gatePreview.recognized.observationFocus, 3);
   console.log("PASS  parser: title/age/week fields/weekdays/14 unique blank activity shells");
 }
 

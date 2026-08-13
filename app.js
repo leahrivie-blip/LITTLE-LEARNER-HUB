@@ -10258,6 +10258,8 @@ function renderAdminCreateLessonPlanDialog() {
           <li>Learning objectives ${rec.objectives ? `✓ ${rec.objectives}` : "—"}</li>
           <li>Materials ${rec.weeklyMaterials ? `✓ ${rec.weeklyMaterials}` : "—"}</li>
           <li>Teacher preparation ${rec.teacherPreparation ? "✓ recognized" : "—"}</li>
+          <li>Prep checklist ${rec.prepChecklist ? `✓ ${rec.prepChecklist}` : "—"}</li>
+          <li>Observation focus ${rec.observationFocus ? `✓ ${rec.observationFocus}` : "—"}</li>
           <li>Family connection ${rec.familyConnection ? "✓ recognized" : "—"}</li>
           <li>Milestones ${rec.milestones ? `✓ ${rec.milestones}` : "—"}</li>
         </ul>

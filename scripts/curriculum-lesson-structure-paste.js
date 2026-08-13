@@ -136,10 +136,18 @@
     activities: "activities",
   });
 
+  const LESSON_HEADING_BY_NORMALIZED = Object.freeze((() => {
+    const out = {};
+    Object.keys(LESSON_HEADING_ALIASES).forEach((key) => {
+      out[normalizeHeading(key)] = LESSON_HEADING_ALIASES[key];
+    });
+    return out;
+  })());
+
   function headingFieldId(label) {
     const normalized = normalizeHeading(label);
-    if (Object.prototype.hasOwnProperty.call(LESSON_HEADING_ALIASES, normalized)) {
-      return LESSON_HEADING_ALIASES[normalized];
+    if (Object.prototype.hasOwnProperty.call(LESSON_HEADING_BY_NORMALIZED, normalized)) {
+      return LESSON_HEADING_BY_NORMALIZED[normalized];
     }
     const weekday = parseWeekday(normalized);
     if (weekday) return `weekday:${weekday}`;
