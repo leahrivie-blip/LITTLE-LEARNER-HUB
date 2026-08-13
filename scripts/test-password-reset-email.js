@@ -221,9 +221,10 @@ async function main() {
       assert.match(String(mail.body.subject || ""), /Reset your Little Learner Hub password/);
       const html = String(mail.body.html || "");
       const text = String(mail.body.text || "");
-      assert.match(html, new RegExp(`${PROD_SITE.replace(/\./g, "\\.")}/\\?view=reset-password&resetToken=`));
-      assert.match(text, new RegExp(`${PROD_SITE.replace(/\./g, "\\.")}/\\?view=reset-password&resetToken=`));
-      assert.doesNotMatch(html, /localhost|127\.0\.0\.1|onrender\.com/i);
+      const prodHostRe = PROD_SITE.replace(/\./g, "\\.");
+      assert.match(text, new RegExp(`${prodHostRe}/\\?view=reset-password&resetToken=`));
+      assert.match(html, new RegExp(`${prodHostRe}/\\?view=reset-password&amp;resetToken=`));
+      assert.doesNotMatch(`${html}\n${text}`, /localhost|127\.0\.0\.1|onrender\.com/i);
 
       const token = extractResetToken(html, text);
       assert.ok(token, "reset token must be present in email");

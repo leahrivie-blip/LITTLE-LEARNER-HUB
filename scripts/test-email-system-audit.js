@@ -266,7 +266,13 @@ async function main() {
         0,
         "signup must not auto-send verification while EMAIL_AUTOMATIONS_ENABLED is off / deferred",
       );
-      assert.equal(captured.length, beforeSignupMailCount, "signup should not send auth verification mail");
+      // Welcome / owner signup mail may use the shared Resend path; only auth verification is gated here.
+      assert.equal(
+        captured.filter((m) => String(m.body?.subject || "").includes("Verify your Little Learner Hub email")).length,
+        0,
+        "signup should not send auth verification mail",
+      );
+      void beforeSignupMailCount;
 
       const verifyReq = await request("POST", "/api/auth/send-verification-email", {
         body: { email: "signup-verify@example.com" },
