@@ -3,14 +3,17 @@
  * Dry-run (default) maintenance tool for enrichmentPublishHistory retention.
  *
  * Default: READ-ONLY — never writes the store.
- * Optional apply (requires explicit --apply) is for separate owner approval only.
- * This task must NOT run --apply against production.
  *
- * Usage:
- *   node scripts/prune-enrichment-publish-history.js
- *   node scripts/prune-enrichment-publish-history.js --store-path=/path/to/store.json
- *   PRODUCTION_DATABASE_URL=... node scripts/prune-enrichment-publish-history.js --from-postgres
- *   node scripts/prune-enrichment-publish-history.js --apply   # writes local/json path only when set
+ * Local JSON apply:
+ *   node scripts/prune-enrichment-publish-history.js --store-path=/path/to/store.json --apply
+ *
+ * Postgres dry-run:
+ *   PRODUCTION_DATABASE_URL=... node scripts/prune-enrichment-publish-history.js --from-postgres --json
+ *
+ * Controlled Postgres apply (extra confirm + verified backup required):
+ *   PRODUCTION_DATABASE_URL=... node scripts/prune-enrichment-publish-history.js \
+ *     --from-postgres --apply --confirm-postgres-prune \
+ *     --backup-id=backup_... --json
  */
 "use strict";
 
@@ -22,6 +25,13 @@ const {
   trimEnrichmentPublishHistory,
   pruneEnrichmentPublishHistoryInStore,
 } = require("../server/enrichment-publish-history.js");
+const {
+  resolveStoreRecordId,
+  stableFingerprint,
+  assertHistoryOnlyTransform,
+  loadPostgresStoreRow,
+  applyControlledPostgresPrune,
+} = require("./lib/enrichment-history-postgres-apply.js");
 
 function byteLen(value) {
   return Buffer.byteLength(JSON.stringify(value ?? null), "utf8");
@@ -31,55 +41,32 @@ function parseArgs(argv) {
   const out = {
     apply: false,
     fromPostgres: false,
+    confirmPostgresPrune: false,
+    backupId: "",
     storePath: "",
     json: false,
   };
   for (const arg of argv) {
     if (arg === "--apply") out.apply = true;
     else if (arg === "--from-postgres") out.fromPostgres = true;
+    else if (arg === "--confirm-postgres-prune") out.confirmPostgresPrune = true;
     else if (arg === "--json") out.json = true;
     else if (arg.startsWith("--store-path=")) out.storePath = arg.slice("--store-path=".length);
+    else if (arg.startsWith("--backup-id=")) out.backupId = arg.slice("--backup-id=".length).trim();
   }
   return out;
 }
 
-async function loadStore(args) {
-  if (args.fromPostgres) {
-    const url = String(process.env.PRODUCTION_DATABASE_URL || "").trim();
-    if (!url) {
-      throw new Error("PRODUCTION_DATABASE_URL is required with --from-postgres");
-    }
-    const client = new Client({
-      connectionString: url,
-      ssl: url.includes("localhost") || url.includes("127.0.0.1")
-        ? undefined
-        : { rejectUnauthorized: false },
-      statement_timeout: 180000,
-    });
-    await client.connect();
-    try {
-      const result = await client.query(
-        "SELECT id, data FROM llh_store ORDER BY CASE WHEN id = 'launch-store' THEN 0 ELSE 1 END LIMIT 1",
-      );
-      if (!result.rows[0]?.data) throw new Error("No llh_store row found");
-      return {
-        store: result.rows[0].data,
-        source: `postgres:${result.rows[0].id}`,
-        writablePath: "",
-      };
-    } finally {
-      await client.end();
-    }
-  }
-
-  const storePath = args.storePath
-    || process.env.LLH_STORE_PATH
-    || path.join(__dirname, "..", "server", "data", "launch-store.json");
-  if (!fs.existsSync(storePath)) {
-    throw new Error(`Store file not found: ${storePath}`);
-  }
-  const store = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  return { store, source: storePath, writablePath: storePath };
+function createPgClient(connectionString) {
+  const url = String(connectionString || "").trim();
+  if (!url) throw new Error("PRODUCTION_DATABASE_URL is required with --from-postgres");
+  return new Client({
+    connectionString: url,
+    ssl: url.includes("localhost") || url.includes("127.0.0.1")
+      ? undefined
+      : { rejectUnauthorized: false },
+    statement_timeout: 180000,
+  });
 }
 
 function analyze(store) {
@@ -115,15 +102,11 @@ function analyze(store) {
       bytesAfter: afterBytes,
       bytesSaved: Math.max(0, beforeBytes - afterBytes),
       retainedVersionIds: after.map((e) => e.versionId),
-      draftUntouched: plan.enrichmentDraft,
-      teachingKitUntouched: plan.teachingKit,
     });
   }
 
   perPlan.sort((a, b) => b.bytesBefore - a.bytesBefore);
-
   const storeBytesBefore = byteLen(store);
-  // Project full-store size by cloning only history arrays (do not mutate caller's store).
   const projected = JSON.parse(JSON.stringify(store));
   pruneEnrichmentPublishHistoryInStore(projected);
   const storeBytesAfter = byteLen(projected);
@@ -157,77 +140,170 @@ function analyze(store) {
   };
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const loaded = await loadStore(args);
+function applyLocalJsonPrune(sourceStore, writablePath) {
+  const clone = JSON.parse(JSON.stringify(sourceStore));
+  pruneEnrichmentPublishHistoryInStore(clone);
+  assertHistoryOnlyTransform(sourceStore, clone);
+  fs.writeFileSync(writablePath, JSON.stringify(clone, null, 2));
+  return clone;
+}
+
+async function loadStore(args, deps = {}) {
+  if (args.fromPostgres) {
+    const storeRecordId = resolveStoreRecordId(deps.env || process.env);
+    const client = deps.client || createPgClient(
+      (deps.env || process.env).PRODUCTION_DATABASE_URL,
+    );
+    const ownsClient = !deps.client;
+    if (ownsClient) await client.connect();
+    try {
+      const loaded = await loadPostgresStoreRow(client, storeRecordId);
+      return {
+        ...loaded,
+        writablePath: "",
+        client,
+        ownsClient,
+        storeRecordId,
+        fromPostgres: true,
+      };
+    } catch (error) {
+      if (ownsClient) {
+        try { await client.end(); } catch { /* ignore */ }
+      }
+      throw error;
+    }
+  }
+
+  const storePath = args.storePath
+    || process.env.LLH_STORE_PATH
+    || path.join(__dirname, "..", "server", "data", "launch-store.json");
+  if (!fs.existsSync(storePath)) {
+    throw new Error(`Store file not found: ${storePath}`);
+  }
+  const store = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  return {
+    store,
+    source: storePath,
+    writablePath: storePath,
+    fromPostgres: false,
+    client: null,
+    ownsClient: false,
+    storeRecordId: "",
+    updatedAt: null,
+    fingerprint: stableFingerprint(store),
+  };
+}
+
+async function run(argv = process.argv.slice(2), deps = {}) {
+  const args = parseArgs(argv);
+  const loaded = await loadStore(args, deps);
   const report = analyze(loaded.store);
   report.source = loaded.source;
   report.applyRequested = args.apply;
+  report.confirmPostgresPrune = args.confirmPostgresPrune;
+  report.backupId = args.backupId || null;
   report.wrote = false;
+  report.postgresWriteCount = 0;
 
-  if (args.apply) {
-    if (args.fromPostgres || !loaded.writablePath) {
-      throw new Error(
-        "Refusing --apply for Postgres / non-writable sources. "
-        + "Production prune requires separate owner approval and a controlled apply path.",
+  try {
+    if (!args.apply) return report;
+
+    if (args.fromPostgres || loaded.fromPostgres) {
+      if (!args.confirmPostgresPrune) {
+        throw new Error(
+          "Refusing --apply for Postgres / non-writable sources. "
+          + "Production prune requires --confirm-postgres-prune and a verified --backup-id.",
+        );
+      }
+      const applyResult = await applyControlledPostgresPrune({
+        client: loaded.client,
+        storeRecordId: loaded.storeRecordId,
+        sourceStore: loaded.store,
+        sourceUpdatedAt: loaded.updatedAt,
+        sourceFingerprint: loaded.fingerprint,
+        backupId: args.backupId,
+        confirmPostgresPrune: args.confirmPostgresPrune,
+      });
+      report.wrote = true;
+      report.postgresWriteCount = applyResult.postgresWriteCount;
+      report.backup = applyResult.backup;
+      report.prunedFingerprint = applyResult.prunedFingerprint;
+      report.postWriteVerified = true;
+      report.newUpdatedAt = applyResult.newUpdatedAt;
+      report.liveCacheNote = (
+        "Postgres row updated under updated_at CAS. A Render restart is still recommended "
+        + "so storeCache reloads promptly; correctness no longer depends on restart timing "
+        + "because stale full-store writes are rejected/reconciled by updated_at concurrency."
       );
+      const after = analyze(
+        (await loadPostgresStoreRow(loaded.client, loaded.storeRecordId)).store,
+      );
+      report.historyEntriesAfter = after.historyEntriesBefore;
+      report.historyBytesAfter = after.historyBytesBefore;
+      report.storeBytesAfter = after.storeBytesBefore;
+      report.storeBytesSaved = Math.max(0, report.storeBytesBefore - report.storeBytesAfter);
+      report.historyBytesSaved = Math.max(0, report.historyBytesBefore - report.historyBytesAfter);
+      report.historyEntriesRemoved = Math.max(
+        0,
+        report.historyEntriesBefore - report.historyEntriesAfter,
+      );
+      report.storeReductionPct = report.storeBytesBefore
+        ? Number(((1 - report.storeBytesAfter / report.storeBytesBefore) * 100).toFixed(2))
+        : 0;
+      return report;
     }
-    const clone = JSON.parse(JSON.stringify(loaded.store));
-    pruneEnrichmentPublishHistoryInStore(clone);
-    // Prove current draft / published / TK / resources untouched for a sample plan.
-    const beforePlans = loaded.store.siteContent?.curriculum?.lessonPlans || [];
-    const afterPlans = clone.siteContent?.curriculum?.lessonPlans || [];
-    for (let i = 0; i < beforePlans.length; i += 1) {
-      const b = beforePlans[i];
-      const a = afterPlans.find((p) => p.id === b.id) || afterPlans[i];
-      if (JSON.stringify(b.enrichmentDraft ?? null) !== JSON.stringify(a.enrichmentDraft ?? null)) {
-        throw new Error(`Safety abort: enrichmentDraft changed for ${b.id}`);
-      }
-      if (JSON.stringify(b.enrichmentPublished ?? null) !== JSON.stringify(a.enrichmentPublished ?? null)) {
-        throw new Error(`Safety abort: enrichmentPublished changed for ${b.id}`);
-      }
-      if (JSON.stringify(b.teachingKit ?? null) !== JSON.stringify(a.teachingKit ?? null)) {
-        throw new Error(`Safety abort: teachingKit changed for ${b.id}`);
-      }
-      if (JSON.stringify(b.dailyPlans ?? null) !== JSON.stringify(a.dailyPlans ?? null)) {
-        throw new Error(`Safety abort: dailyPlans changed for ${b.id}`);
-      }
-      if (JSON.stringify(b.resourceIds ?? null) !== JSON.stringify(a.resourceIds ?? null)) {
-        throw new Error(`Safety abort: resourceIds changed for ${b.id}`);
-      }
+
+    if (!loaded.writablePath) {
+      throw new Error("Refusing --apply: no writable local store path.");
     }
-    fs.writeFileSync(loaded.writablePath, JSON.stringify(clone, null, 2));
+    applyLocalJsonPrune(loaded.store, loaded.writablePath);
     report.wrote = true;
-  }
-
-  if (args.json) {
-    console.log(JSON.stringify(report, null, 2));
-    return;
-  }
-
-  console.log("Enrichment publish-history retention dry-run");
-  console.log(`Source: ${report.source}`);
-  console.log(`Retention limit: ${report.retentionLimit}`);
-  console.log(`Apply mode: ${report.applyRequested ? (report.wrote ? "WROTE local file" : "requested") : "OFF (read-only)"}`);
-  console.log("");
-  console.log(`Lesson plans: ${report.totalLessonPlans}`);
-  console.log(`Plans with history: ${report.plansWithHistory}`);
-  console.log(`History entries before → after: ${report.historyEntriesBefore} → ${report.historyEntriesAfter} (removed ${report.historyEntriesRemoved})`);
-  console.log(`History bytes before → after: ${report.historyBytesBefore} → ${report.historyBytesAfter} (saved ${report.historyBytesSaved})`);
-  console.log(`Full store bytes before → after: ${report.storeBytesBefore} → ${report.storeBytesAfter}`);
-  console.log(`Estimated store savings: ${report.storeBytesSaved} bytes (${report.storeReductionPct}%)`);
-  console.log(`Estimated store savings MB: ${(report.storeBytesSaved / (1024 * 1024)).toFixed(2)} MB`);
-  console.log("");
-  console.log("Largest 10 histories:");
-  for (const row of report.largest10) {
-    console.log(
-      `- ${row.title || row.id}: before ${row.before} → after ${row.after} `
-      + `(saved ${(row.bytesSaved / (1024 * 1024)).toFixed(3)} MB)`,
-    );
+    return report;
+  } finally {
+    if (loaded.ownsClient && loaded.client) {
+      try { await loaded.client.end(); } catch { /* ignore */ }
+    }
   }
 }
 
-main().catch((error) => {
-  console.error("FAIL:", error.message || error);
-  process.exit(1);
-});
+async function main(argv = process.argv.slice(2)) {
+  const args = parseArgs(argv);
+  const report = await run(argv);
+  if (args.json) {
+    console.log(JSON.stringify(report, null, 2));
+    return report;
+  }
+  console.log("Enrichment publish-history retention");
+  console.log(`Source: ${report.source}`);
+  console.log(`Retention limit: ${report.retentionLimit}`);
+  console.log(
+    `Apply mode: ${
+      report.applyRequested
+        ? (report.wrote ? (report.postgresWriteCount ? "WROTE postgres" : "WROTE local file") : "requested")
+        : "OFF (read-only)"
+    }`,
+  );
+  console.log(`History entries before → after: ${report.historyEntriesBefore} → ${report.historyEntriesAfter}`);
+  console.log(`Full store bytes before → after: ${report.storeBytesBefore} → ${report.storeBytesAfter}`);
+  for (const row of report.largest10) {
+    console.log(`- ${row.title || row.id}: ${row.before} → ${row.after}`);
+  }
+  return report;
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("FAIL:", error.message || error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  parseArgs,
+  analyze,
+  run,
+  main,
+  applyLocalJsonPrune,
+  // Re-export apply helpers for tests.
+  ...require("./lib/enrichment-history-postgres-apply.js"),
+};
