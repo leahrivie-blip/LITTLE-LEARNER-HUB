@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260808-cookie-cta" />
-  <link rel="stylesheet" href="styles.css?v=20260813-enrollment-baseline1" />
+  <link rel="stylesheet" href="styles.css?v=20260813-forms-shared1" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260811-forms-wave8-closeout1" />
   <link rel="stylesheet" href="styles/owner-testing-admin.css?v=20260811-forms-wave8-closeout1" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
@@ -1884,6 +1884,17 @@
                 <div id="programLogoPreviewWrap" hidden>
                   <p class="form-note">Current logo:</p>
                 </div>
+                <p class="form-note" style="margin-top:12px;">Forms header defaults (used across Forms Center — individual forms can hide branding without deleting these settings)</p>
+                <label class="settings-check-label"><input type="checkbox" name="formsBrandingShowLogo" value="1" checked /> Show logo on forms</label>
+                <label class="settings-check-label"><input type="checkbox" name="formsBrandingShowProgramName" value="1" checked /> Show program name on forms</label>
+                <label class="settings-check-label"><input type="checkbox" name="formsBrandingShowContact" value="1" checked /> Show contact information on forms</label>
+                <label>Forms header alignment
+                  <select name="formsBrandingHeaderAlign">
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                  </select>
+                </label>
+                <label class="settings-check-label"><input type="checkbox" name="formsBrandingShowLlhFooter" value="1" checked /> Show subtle “Created with Little Learner Hub” footer</label>
                 <label>Signature Name<input type="text" name="signatureName" placeholder="e.g. Leah Ivie" /></label>
                 <label>Signature Title<input type="text" name="signatureTitle" placeholder="e.g. Owner, Director" /></label>
                 <div id="signaturePreview" class="settings-signature-preview" style="display:none;">
@@ -2551,16 +2562,21 @@
     <script src="scripts/admin-analytics-diagnostics.js?v=20260804-analytics-diag-phase8-r1" defer></script>
     <script src="scripts/nav-origin.js?v=20260811-forms-wave8-closeout1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260804-admin-login-trim-r2" defer></script>
-    <script src="scripts/forms-dirty-state.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/paperwork-surfaces.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/enrollment-form-baseline.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/form-builder-lib.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/enrollment-form-builder.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/forms-assign-flow.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/forms-document-detail.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/forms-upload-ui.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="scripts/forms-signature-ui.js?v=20260813-enrollment-baseline1" defer></script>
-    <script src="app.js?v=20260813-enrollment-baseline1" defer></script>
+    <script src="scripts/forms-dirty-state.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/paperwork-surfaces.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/enrollment-form-baseline.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-branding-lib.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-question-bank.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-repeat-groups.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-starter-lib.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-shared-builder.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/form-builder-lib.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/enrollment-form-builder.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-assign-flow.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-document-detail.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-upload-ui.js?v=20260813-forms-shared1" defer></script>
+    <script src="scripts/forms-signature-ui.js?v=20260813-forms-shared1" defer></script>
+    <script src="app.js?v=20260813-forms-shared1" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260806-tk-admin-flags-settings" defer></script>
     <script src="scripts/owner-testing-admin-ui.js?v=20260811-forms-wave8-closeout1" defer></script>

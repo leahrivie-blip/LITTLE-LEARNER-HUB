@@ -85,16 +85,27 @@
     return `${field.label}: ________________________________________________`;
   }
 
-  function renderPrintBlankText(template = {}, { programName = "" } = {}) {
+  function renderPrintBlankText(template = {}, { programName = "", branding = null } = {}) {
     const api = getBaseline();
     const prepared = ensureEnrollmentTemplate(template);
     const sections = (prepared.sections || []).filter((section) => section.visible !== false)
       .sort((a, b) => Number(a.order) - Number(b.order));
     const fields = (prepared.fields || []).filter((field) => field.visible !== false);
     const lines = [];
-    lines.push("ENROLLMENT FORM");
+    const brand = branding && typeof branding === "object" ? branding : null;
+    if (brand) {
+      if (brand.showLogo && brand.logoDataUrl) lines.push("[Program logo on file]");
+      if (brand.showProgramName && brand.programName) lines.push(String(brand.programName));
+      lines.push(String(prepared.title || "Enrollment Form"));
+      if (brand.showContact !== false) {
+        const contact = [brand.address, brand.phone, brand.email, brand.website].filter(Boolean).join(" · ");
+        if (contact) lines.push(contact);
+      }
+    } else {
+      lines.push("ENROLLMENT FORM");
+      lines.push(`Program: ${String(programName || "").trim() || "____________________________________________"}`);
+    }
     lines.push("============================================================");
-    lines.push(`Program: ${String(programName || "").trim() || "____________________________________________"}`);
     lines.push("Child name: ______________________________________________");
     lines.push("Date completed: __________________________________________");
     lines.push("");
@@ -145,12 +156,19 @@
     });
     lines.push("");
     lines.push("— End of enrollment form —");
+    if (brand && brand.showLlhFooter !== false) {
+      lines.push("");
+      lines.push(brand.llhFooterText || "Created with Little Learner Hub");
+    }
     return lines.join("\n").replace(/\n{3,}/g, "\n\n");
   }
 
   function renderEnrollmentPreviewHtml(template = {}, {
     escape = escapeHtml,
     programName = "",
+    branding = null,
+    brandingHeaderHtml = "",
+    llhFooterHtml = "",
     mode = "preview",
   } = {}) {
     const prepared = ensureEnrollmentTemplate(template);
@@ -199,16 +217,20 @@
         </section>`;
     }).join("");
 
+    const brand = branding && typeof branding === "object" ? branding : null;
+    const hideLegacyProgram = Boolean(brandingHeaderHtml);
     return `
       <article class="fb-preview enroll-form-preview" data-form-preview="true" data-enroll-mode="${escape(mode)}">
+        ${brandingHeaderHtml || ""}
         <header class="fb-preview-head enroll-preview-head">
-          <p class="eyebrow">ENROLLMENT FORM</p>
-          <h3>${escape(prepared.title || "Enrollment Form")}</h3>
-          <p class="muted-copy">${escape(programName || "Program name / logo area")}</p>
+          ${hideLegacyProgram ? "" : `<p class="eyebrow">ENROLLMENT FORM</p>`}
+          ${hideLegacyProgram ? "" : `<h3>${escape(prepared.title || "Enrollment Form")}</h3>`}
+          ${hideLegacyProgram ? "" : `<p class="muted-copy">${escape((brand && brand.programName) || programName || "Program name / logo area")}</p>`}
           <p class="form-note">${escape(getBaseline()?.BASELINE_DISCLAIMER || "Customize this form for your program.")}</p>
           <p class="muted-copy">Child name: ______________________________</p>
         </header>
         ${sectionHtml || '<p class="muted-copy">No visible sections.</p>'}
+        ${llhFooterHtml || ""}
       </article>
     `;
   }

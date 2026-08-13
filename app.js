@@ -576,6 +576,13 @@ let formBuilderState = {
   resourceId: "",
   editingSectionId: "",
   enrollUiMode: "edit", // edit | preview
+  /** Shared Forms Center extras (branding / Question Bank / audience). */
+  branding: { inherit: true, hideAll: false, showLogo: true, showProgramName: true, showContact: true, headerAlign: "left", showLlhFooter: true },
+  intendedAudience: "family",
+  starterKey: "",
+  questionBankOpen: false,
+  questionBankQuery: "",
+  questionBankCategory: "",
 };
 /** Wave 4 — Confirm & Send wizard (one modular flow; not a second assignment system). */
 let assignFlowState = null;
@@ -9202,6 +9209,12 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
   const fieldSnapshot = Array.isArray(formSpec.fields)
     ? formSpec.fields.map((field, index) => ({ ...field, order: index }))
     : [];
+  const shared = getFormsSharedBuilderApi();
+  const brandingResolved = shared?.resolveBranding
+    ? shared.resolveBranding(getProgramSettings() || {}, formSpec.branding || null)
+    : null;
+  const formsBranding = formSpec.formsBranding
+    || (shared?.snapshotBranding && brandingResolved ? shared.snapshotBranding(brandingResolved) : null);
   const saved = appendChildRecord("Documents", {
     childId,
     title,
@@ -9226,6 +9239,7 @@ function assignFormDocumentToChild(childId, formSpec = {}) {
     providerReviewed: false,
     assigneeType: "child",
     requiresSignature: formSpec.requiresSignature !== false,
+    formsBranding,
   });
   return saved;
 }
@@ -9653,6 +9667,7 @@ function openAssignSendFlow(seed = {}) {
     shareWithFamily: seed.shareWithFamily !== false,
     requiresSignature: seed.requiresSignature != null ? seed.requiresSignature !== false : formSpec.requiresSignature !== false,
   });
+  assignFlowState.programSettings = getProgramSettings() || {};
   assignFlowState.open = true;
   assignFlowState.step = "recipients";
   assignFlowState.idempotencyKey = api.newIdempotencyKey();
@@ -10285,6 +10300,34 @@ function getEnrollmentFormBuilderApi() {
     || null;
 }
 
+function getFormsSharedBuilderApi() {
+  return (typeof window !== "undefined" && window.LlhFormsSharedBuilder)
+    || (typeof globalThis !== "undefined" && globalThis.LlhFormsSharedBuilder)
+    || null;
+}
+
+function currentFormsBrandingResolved() {
+  const shared = getFormsSharedBuilderApi();
+  const settings = getProgramSettings() || {};
+  if (shared?.resolveBranding) {
+    return shared.resolveBranding(settings, formBuilderState.branding || null);
+  }
+  return {
+    programName: settings.programName || settings.businessName || "",
+    address: settings.address || "",
+    phone: settings.contactPhone || settings.phone || "",
+    email: settings.contactEmail || settings.email || "",
+    website: settings.website || "",
+    logoDataUrl: settings.logoDataUrl || "",
+    showLogo: Boolean(settings.logoDataUrl),
+    showProgramName: true,
+    showContact: true,
+    headerAlign: "left",
+    showLlhFooter: true,
+    llhFooterText: "Created with Little Learner Hub",
+  };
+}
+
 function getEnrollmentBaselineApi() {
   return (typeof window !== "undefined" && window.LlhEnrollmentBaseline)
     || (typeof globalThis !== "undefined" && globalThis.LlhEnrollmentBaseline)
@@ -10306,6 +10349,8 @@ function currentEnrollmentBuilderTemplate() {
     category: formBuilderState.category,
     body: formBuilderState.body,
     fields: formBuilderState.fields,
+    branding: formBuilderState.branding || null,
+    intendedAudience: formBuilderState.intendedAudience || "family",
     requiresSignature: formBuilderState.requiresSignature,
     formKind: formBuilderState.formKind || "enrollment_baseline",
     sections: formBuilderState.sections || [],
@@ -10360,12 +10405,24 @@ function printEnrollmentBlankForm(template = currentEnrollmentBuilderTemplate())
   const enrollApi = getEnrollmentFormBuilderApi();
   const settings = getProgramSettings() || {};
   const programName = settings.programName || settings.businessName || "";
+  const branding = currentFormsBrandingResolved();
   const text = enrollApi?.renderPrintBlankText
-    ? enrollApi.renderPrintBlankText(template, { programName })
+    ? enrollApi.renderPrintBlankText(template, { programName, branding })
     : String(template.body || "ENROLLMENT FORM");
   // Reuse existing print architecture — no second PDF engine.
   if (typeof printTextDocument === "function") {
     printTextDocument("Enrollment Form", text);
+  }
+}
+
+function printGenericBlankForm(template = {}) {
+  const shared = getFormsSharedBuilderApi();
+  const branding = currentFormsBrandingResolved();
+  const text = shared?.renderPrintBlankText
+    ? shared.renderPrintBlankText(template, branding)
+    : `${template.title || "Form"}\n\n${template.body || ""}`;
+  if (typeof printTextDocument === "function") {
+    printTextDocument(template.title || "Form", text);
   }
 }
 
@@ -10412,6 +10469,8 @@ function saveEnrollmentFormFromBuilder() {
     resourceId: formBuilderState.resourceId || "form-enrollment-forms-enrollment-packet",
     libraryCategory: "enrollment",
     complianceDisclaimer: baseline?.BASELINE_DISCLAIMER || undefined,
+    branding: formBuilderState.branding || { inherit: true },
+    intendedAudience: formBuilderState.intendedAudience || "family",
   };
   return Promise.resolve()
     .then(async () => {
@@ -10482,7 +10541,7 @@ function openFormBuilderFromTemplate(template, mode = "edit") {
     templateId: mode === "customize" || mode === "create" ? "" : String(source?.id || ""),
     title: String(source?.title || "Custom form"),
     category: String(source?.category || "Other"),
-    body: String(source?.body || source?.bodyText || ""),
+    body: String(source?.body || source?.bodyText || source?.description || ""),
     fields: fields.map((field, index) => ({ ...field, order: index })),
     requiresSignature: source?.requiresSignature !== false,
     originTemplateId: mode === "customize"
@@ -10497,6 +10556,14 @@ function openFormBuilderFromTemplate(template, mode = "edit") {
     resourceId: String(source?.resourceId || ""),
     editingSectionId: "",
     enrollUiMode: "edit",
+    branding: source?.branding && typeof source.branding === "object"
+      ? { ...source.branding }
+      : { inherit: true, hideAll: false, showLogo: true, showProgramName: true, showContact: true, headerAlign: "left", showLlhFooter: true },
+    intendedAudience: String(source?.intendedAudience || source?.audience || "family"),
+    starterKey: String(source?.starterKey || source?.sourceStarterKey || ""),
+    questionBankOpen: false,
+    questionBankQuery: "",
+    questionBankCategory: "",
   };
 }
 
@@ -10531,7 +10598,7 @@ function renderFormBuilderFieldEditor(field, index) {
       <div class="hdh-forms-pack-actions">
         <button class="ghost-button" type="button" data-fb-move-up="${escapeHtml(field.id)}" ${index === 0 ? "disabled" : ""}>Move up</button>
         <button class="ghost-button" type="button" data-fb-move-down="${escapeHtml(field.id)}">Move down</button>
-        <button class="ghost-button" type="button" data-fb-delete-field="${escapeHtml(field.id)}">Delete field</button>
+        <button class="ghost-button" type="button" data-fb-delete-field="${escapeHtml(field.id)}">Delete</button>
       </div>
     </article>
   `;
@@ -10546,11 +10613,26 @@ function renderFormBuilderPanel() {
   const enrollmentTemplate = currentEnrollmentBuilderTemplate();
   const useEnrollmentEditor = isEnrollmentFormBuilderTemplate(enrollmentTemplate) && enrollApi;
 
+  const shared = getFormsSharedBuilderApi();
+  const branding = currentFormsBrandingResolved();
+  const brandingHeaderHtml = shared?.renderBrandingHeaderHtml
+    ? shared.renderBrandingHeaderHtml(branding, { escape: escapeHtml, formTitle: formBuilderState.title || "Form" })
+    : "";
+  const llhFooterHtml = shared?.renderLlhFooterHtml
+    ? shared.renderLlhFooterHtml(branding, { escape: escapeHtml })
+    : "";
+  const brandingControls = shared?.renderBrandingControlsHtml
+    ? shared.renderBrandingControlsHtml(formBuilderState.branding || {}, { escape: escapeHtml })
+    : "";
+
   if (useEnrollmentEditor) {
     const editorHtml = formBuilderState.enrollUiMode === "preview"
       ? enrollApi.renderEnrollmentPreviewHtml(enrollmentTemplate, {
         escape: escapeHtml,
         programName,
+        branding,
+        brandingHeaderHtml,
+        llhFooterHtml,
         mode: "preview",
       })
       : enrollApi.renderEnrollmentEditorHtml(enrollmentTemplate, {
@@ -10567,12 +10649,13 @@ function renderFormBuilderPanel() {
         <div class="account-actions-row" style="margin-bottom:12px;">
           <button class="ghost-button" type="button" data-enroll-mode="edit" ${formBuilderState.enrollUiMode === "edit" ? "disabled" : ""}>Edit Form</button>
           <button class="ghost-button" type="button" data-enroll-mode="preview" ${formBuilderState.enrollUiMode === "preview" ? "disabled" : ""}>Preview Form</button>
-          <button class="ghost-button" type="button" data-enroll-print-blank>Print Blank Form</button>
+          <button class="ghost-button" type="button" data-enroll-print-blank>Print Blank</button>
           <button class="primary-button" type="button" data-enroll-save>Save Changes</button>
           <button class="ghost-button" type="button" data-fb-close>Close builder</button>
         </div>
+        ${brandingControls}
         ${editorHtml}
-        <p class="form-note">Internal field IDs stay stable. Renaming labels does not break saved answers. Preview and print exclude builder controls.</p>
+        <p class="form-note">Preview and print exclude builder controls. Program branding comes from Program Settings.</p>
       </section>
     `;
   }
@@ -10581,22 +10664,30 @@ function renderFormBuilderPanel() {
     "info", "short_text", "long_text", "number", "date", "time",
     "checkbox", "yes_no", "radio", "dropdown", "initials", "signature", "file",
   ];
+  const repeatPresets = shared?.listRepeatGroupPresets ? shared.listRepeatGroupPresets() : [];
+  const qbankHtml = formBuilderState.questionBankOpen && shared?.renderQuestionBankPickerHtml
+    ? shared.renderQuestionBankPickerHtml({
+      escape: escapeHtml,
+      query: formBuilderState.questionBankQuery || "",
+      category: formBuilderState.questionBankCategory || "",
+    })
+    : "";
   const preview = formBuilderState.previewOpen && api
     ? (api.renderEnrollmentAwarePreviewHtml || api.renderPreviewHtml)({
       title: formBuilderState.title,
       body: formBuilderState.body,
       fields: formBuilderState.fields,
       requiresSignature: formBuilderState.requiresSignature,
-    }, { escape: escapeHtml })
+    }, { escape: escapeHtml, brandingHeaderHtml, llhFooterHtml })
     : "";
   return `
     <section class="section-block form-builder-panel" id="hdhFormBuilderPanel" data-form-builder="true">
-      <p class="eyebrow">Structured Form Builder</p>
-      <h3>${formBuilderState.mode === "create" ? "Create form" : formBuilderState.mode === "customize" ? "Customize copy" : "Edit template"}</h3>
-      <p class="muted-copy">Add fields with labels and options — no JSON. Assigned forms keep their own snapshot when you change a template later.</p>
+      <p class="eyebrow">Form Builder</p>
+      <h3>${formBuilderState.mode === "create" ? "Create Blank Form" : formBuilderState.mode === "customize" ? "Customize copy" : "Edit form"}</h3>
+      <p class="muted-copy">Sections and questions stay simple. Assigned forms keep their own copy when you change a template later.</p>
       <form id="formBuilderMetaForm" class="panel-form" data-form-builder-meta="true" onsubmit="return false;">
         <div class="form-grid-two">
-          <label>Title
+          <label>Form name
             <input name="title" data-fb-meta="title" maxlength="160" required value="${escapeHtml(formBuilderState.title || "")}" autocomplete="off" />
           </label>
           <label>Category
@@ -10607,33 +10698,57 @@ function renderFormBuilderPanel() {
             </select>
           </label>
         </div>
-        <label>Instructions / body text (optional — works with or without fields)
-          <textarea name="body" data-fb-meta="body" rows="5" maxlength="12000">${escapeHtml(formBuilderState.body || "")}</textarea>
+        <label>Who is this for?
+          <select data-fb-meta="intendedAudience">
+            <option value="family" ${formBuilderState.intendedAudience === "family" ? "selected" : ""}>Parent / Guardian</option>
+            <option value="staff" ${formBuilderState.intendedAudience === "staff" ? "selected" : ""}>Staff</option>
+            <option value="admin" ${formBuilderState.intendedAudience === "admin" ? "selected" : ""}>Director / Admin</option>
+            <option value="general" ${formBuilderState.intendedAudience === "general" ? "selected" : ""}>General / Printable</option>
+          </select>
+        </label>
+        <label>Description / instructions (optional)
+          <textarea name="body" data-fb-meta="body" rows="4" maxlength="12000">${escapeHtml(formBuilderState.body || "")}</textarea>
         </label>
         <label class="settings-check-label">
           <input type="checkbox" data-fb-meta="requiresSignature" ${formBuilderState.requiresSignature ? "checked" : ""} />
           Signature required
         </label>
       </form>
+      ${brandingControls}
+      ${qbankHtml || `
       <div class="fb-add-field-row">
-        <label>Add field
+        <p class="eyebrow">Add Question</p>
+        <label>Write My Own
           <select id="fbAddFieldType">
             ${types.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(api?.fieldTypeLabel(type) || type)}</option>`).join("")}
           </select>
         </label>
-        <button class="primary-button" type="button" data-fb-add-field>Add field</button>
+        <button class="primary-button" type="button" data-fb-add-field>Write My Own</button>
+        <button class="ghost-button" type="button" data-fb-open-qbank>Choose From Question Bank</button>
       </div>
+      <div class="fb-add-field-row">
+        <label>Add another person / group
+          <select id="fbRepeatPreset">
+            ${repeatPresets.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.title)} (${preset.minCount}–${preset.maxCount})</option>`).join("")}
+          </select>
+        </label>
+        <label>How many?
+          <input type="number" id="fbRepeatCount" min="1" max="6" value="2" />
+        </label>
+        <button class="ghost-button" type="button" data-fb-add-repeat-group>Add Another Person</button>
+      </div>`}
       <div class="fb-field-list" data-fb-field-list>
         ${formBuilderState.fields.length
           ? formBuilderState.fields.map((field, index) => renderFormBuilderFieldEditor(field, index)).join("")
-          : `<p class="muted-copy">No structured fields yet — body-only templates still work. Add fields when you need fillable answers.</p>`}
+          : `<p class="muted-copy">Start with Section 1 — add questions below. No preset fields are forced onto a blank form.</p>`}
       </div>
       <div class="account-actions-row" style="margin-top:14px;">
-        <button class="primary-button" type="button" data-fb-save>Save my template</button>
-        <button class="ghost-button" type="button" data-fb-preview>${formBuilderState.previewOpen ? "Hide preview" : "Preview"}</button>
+        <button class="primary-button" type="button" data-fb-save>Save Changes</button>
+        <button class="ghost-button" type="button" data-fb-preview>${formBuilderState.previewOpen ? "Hide preview" : "Preview Form"}</button>
+        <button class="ghost-button" type="button" data-fb-print-blank>Print Blank</button>
         <button class="ghost-button" type="button" data-fb-close>Close builder</button>
       </div>
-      <p class="form-note">Dirty-state protected: typing is kept even if the hub refreshes. Preview never saves or assigns.</p>
+      <p class="form-note">Preview and Print Blank never show edit controls. Assigned / signed copies stay unchanged when you edit later.</p>
       ${preview}
     </section>
   `;
@@ -10665,7 +10780,10 @@ function renderUnifiedTemplateLibraryPanel() {
         ? "One library for your program — My Templates, starter pack, and system forms. Duplicate a starter to customize; originals stay read-only."
         : "Simple template library for your home daycare. Start from a starter pack or your saved templates — no need to track where each one came from."}</p>
       <div class="account-actions-row" style="margin-bottom:12px;">
-        <button class="primary-button" type="button" data-fb-create>Create form</button>
+        <button class="primary-button" type="button" data-fb-create>Create Blank Form</button>
+        <button class="ghost-button" type="button" data-fb-use-starter="emergency_contact">Use Emergency Contact starter</button>
+        <button class="ghost-button" type="button" data-fb-use-starter="authorized_pickup">Use Authorized Pickup starter</button>
+        <button class="ghost-button" type="button" data-fb-use-starter="child_info_update">Use Child Info Update starter</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI Form Builder</button>
       </div>
       <form class="hdh-forms-filters template-library-filters" data-template-library-filters="true" onsubmit="return false;">
@@ -66404,6 +66522,21 @@ function renderProgramSettingsPage() {
   // Show logo preview only when a real logo URL exists (never leave an empty <img>).
   syncProgramLogoPreview(settings.logoDataUrl || "");
 
+  // Forms Center branding defaults (reuse Program Settings identity — not a second logo store).
+  const formsBranding = settings.formsBranding && typeof settings.formsBranding === "object"
+    ? settings.formsBranding
+    : {};
+  const showLogoCb = form.querySelector('[name="formsBrandingShowLogo"]');
+  const showNameCb = form.querySelector('[name="formsBrandingShowProgramName"]');
+  const showContactCb = form.querySelector('[name="formsBrandingShowContact"]');
+  const showFooterCb = form.querySelector('[name="formsBrandingShowLlhFooter"]');
+  const alignSelect = form.querySelector('[name="formsBrandingHeaderAlign"]');
+  if (showLogoCb) showLogoCb.checked = formsBranding.showLogo !== false;
+  if (showNameCb) showNameCb.checked = formsBranding.showProgramName !== false;
+  if (showContactCb) showContactCb.checked = formsBranding.showContact !== false;
+  if (showFooterCb) showFooterCb.checked = formsBranding.showLlhFooter !== false;
+  if (alignSelect) alignSelect.value = formsBranding.headerAlign === "center" ? "center" : "left";
+
   // Show signature preview if data present
   updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
 }
@@ -70239,7 +70372,27 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-fb-create]")) {
     event.preventDefault();
-    openFormBuilderFromTemplate({ title: "Custom form", category: "Other", body: "", fields: [] }, "create");
+    const shared = getFormsSharedBuilderApi();
+    const seed = shared?.createBlankFormSeed
+      ? shared.createBlankFormSeed({ title: "Untitled form", description: "" })
+      : { title: "Untitled form", category: "Other", body: "", fields: [], sections: [{ id: "section_1", title: "Section 1", visible: true }] };
+    openFormBuilderFromTemplate(seed, "create");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return;
+  }
+
+  const useStarterBtn = event.target.closest("[data-fb-use-starter]");
+  if (useStarterBtn) {
+    event.preventDefault();
+    const key = useStarterBtn.getAttribute("data-fb-use-starter");
+    const shared = getFormsSharedBuilderApi();
+    const result = shared?.createStarterCopy ? shared.createStarterCopy(key) : { ok: false, error: "Starter library unavailable." };
+    if (!result.ok) {
+      showActionFeedback(result.error || "Could not create starter form.");
+      return;
+    }
+    openFormBuilderFromTemplate(result.template, "customize");
     renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
     queueMicrotask(() => document.querySelector("#hdhFormBuilderPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     return;
@@ -70261,11 +70414,88 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-fb-preview]")) {
     event.preventDefault();
     formBuilderState.previewOpen = !formBuilderState.previewOpen;
+    formBuilderState.questionBankOpen = false;
     const panel = document.querySelector("#hdhFormBuilderPanel");
     if (window.LlhFormsDirtyState && panel) window.LlhFormsDirtyState.captureFormDrafts(panel, "formBuilder");
     renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
     const next = document.querySelector("#hdhFormBuilderPanel");
     if (window.LlhFormsDirtyState && next) window.LlhFormsDirtyState.restoreFormDrafts(next, "formBuilder");
+    return;
+  }
+
+  if (event.target.closest("[data-fb-print-blank]")) {
+    event.preventDefault();
+    printGenericBlankForm({
+      title: formBuilderState.title,
+      body: formBuilderState.body,
+      description: formBuilderState.body,
+      fields: formBuilderState.fields,
+      sections: formBuilderState.sections,
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-open-qbank]")) {
+    event.preventDefault();
+    formBuilderState.questionBankOpen = true;
+    formBuilderState.previewOpen = false;
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-qbank-close]")) {
+    event.preventDefault();
+    formBuilderState.questionBankOpen = false;
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  const qbankAddBtn = event.target.closest("[data-fb-qbank-add]");
+  if (qbankAddBtn) {
+    event.preventDefault();
+    const shared = getFormsSharedBuilderApi();
+    const bankId = qbankAddBtn.getAttribute("data-fb-qbank-add");
+    const existingIds = formBuilderState.fields.map((field) => field.id);
+    const copied = shared?.copyQuestionBankItem
+      ? shared.copyQuestionBankItem(bankId, existingIds)
+      : { ok: false, error: "Question Bank unavailable." };
+    if (!copied.ok) {
+      showActionFeedback(copied.error || "Could not add that question.");
+      return;
+    }
+    const start = formBuilderState.fields.length;
+    formBuilderState.fields = [
+      ...formBuilderState.fields,
+      ...copied.fields.map((field, index) => ({ ...field, order: start + index, helpText: field.helperText || field.helpText || "" })),
+    ];
+    formBuilderState.questionBankOpen = false;
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    showActionFeedback("Question added to this form.");
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+    return;
+  }
+
+  if (event.target.closest("[data-fb-add-repeat-group]")) {
+    event.preventDefault();
+    const shared = getFormsSharedBuilderApi();
+    const presetId = document.querySelector("#fbRepeatPreset")?.value || "emergency_contact";
+    const count = Number(document.querySelector("#fbRepeatCount")?.value || 2);
+    const existingIds = formBuilderState.fields.map((field) => field.id);
+    const expanded = shared?.expandRepeatGroup
+      ? shared.expandRepeatGroup(presetId, count, existingIds)
+      : { ok: false, error: "Could not add that group." };
+    if (!expanded.ok) {
+      showActionFeedback(expanded.error || "Could not add that group.");
+      return;
+    }
+    const start = formBuilderState.fields.length;
+    formBuilderState.fields = [
+      ...formBuilderState.fields,
+      ...expanded.fields.map((field, index) => ({ ...field, order: start + index, helpText: field.helperText || "" })),
+    ];
+    if (window.LlhFormsDirtyState) window.LlhFormsDirtyState.touch("formBuilder", "fieldsRev", String(Date.now()));
+    showActionFeedback(`Added ${expanded.count} ${expanded.sectionTitle || "entries"}.`);
+    renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
     return;
   }
 
@@ -70503,6 +70733,10 @@ document.addEventListener("click", async (event) => {
       packFormId: formBuilderState.packFormId || undefined,
       resourceId: formBuilderState.resourceId || undefined,
       libraryCategory: formBuilderState.formKind === "enrollment_baseline" ? "enrollment" : undefined,
+      branding: formBuilderState.branding || { inherit: true },
+      intendedAudience: formBuilderState.intendedAudience || "family",
+      starterKey: formBuilderState.starterKey || undefined,
+      sourceStarterKey: formBuilderState.starterKey || undefined,
     };
     Promise.resolve()
       .then(async () => {
@@ -75150,9 +75384,51 @@ document.addEventListener("input", (event) => {
     if (key === "category") formBuilderState.category = value;
     if (key === "body") formBuilderState.body = value;
     if (key === "requiresSignature") formBuilderState.requiresSignature = Boolean(value);
+    if (key === "intendedAudience") formBuilderState.intendedAudience = String(value || "family");
     if (window.LlhFormsDirtyState) {
       window.LlhFormsDirtyState.touch("formBuilder", key, String(value));
     }
+  }
+  if (event.target.matches("[data-fb-branding]")) {
+    const key = event.target.getAttribute("data-fb-branding");
+    const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    formBuilderState.branding = { ...(formBuilderState.branding || {}) };
+    if (key === "hideAll") {
+      formBuilderState.branding.hideAll = Boolean(value);
+      formBuilderState.branding.hideBranding = Boolean(value);
+    } else if (key === "headerAlign") {
+      formBuilderState.branding.headerAlign = value === "center" ? "center" : "left";
+    } else {
+      formBuilderState.branding[key] = Boolean(value);
+    }
+    if (window.LlhFormsDirtyState) {
+      window.LlhFormsDirtyState.touch("formBuilder", `branding.${key}`, String(value));
+    }
+    // Re-render when branding toggles change so Preview / controls stay in sync.
+    if (event.target.type === "checkbox" || key === "headerAlign") {
+      clearTimeout(window.__llhFbBrandingTimer);
+      window.__llhFbBrandingTimer = setTimeout(() => {
+        renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      }, 120);
+    }
+  }
+  if (event.target.matches("[data-fb-qbank-query], [data-fb-qbank-category]")) {
+    if (event.target.matches("[data-fb-qbank-query]")) {
+      formBuilderState.questionBankQuery = event.target.value || "";
+    }
+    if (event.target.matches("[data-fb-qbank-category]")) {
+      formBuilderState.questionBankCategory = event.target.value || "";
+    }
+    clearTimeout(window.__llhQbankSearchTimer);
+    const selStart = event.target.selectionStart;
+    const selEnd = event.target.selectionEnd;
+    window.__llhQbankSearchTimer = setTimeout(() => {
+      renderHomeDaycareHubPage({ refreshHouseholds: false, skipFormsBootstrap: true });
+      const next = document.querySelector(event.target.matches("[data-fb-qbank-query]") ? "[data-fb-qbank-query]" : "[data-fb-qbank-category]");
+      if (next && typeof selStart === "number") {
+        try { next.focus(); next.setSelectionRange(selStart, selEnd); } catch (_e) { /* ignore */ }
+      }
+    }, 160);
   }
   if (assignFlowState?.open && event.target.matches("[data-assign-search]")) {
     const api = getFormsAssignFlowApi();
@@ -79661,6 +79937,21 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
   function finalize(logoDataUrl) {
     if (logoDataUrl !== undefined) settings.logoDataUrl = logoDataUrl;
     else if (existing.logoDataUrl) settings.logoDataUrl = existing.logoDataUrl;
+
+    settings.formsBranding = {
+      showLogo: form.querySelector('[name="formsBrandingShowLogo"]')?.checked !== false,
+      showProgramName: form.querySelector('[name="formsBrandingShowProgramName"]')?.checked !== false,
+      showContact: form.querySelector('[name="formsBrandingShowContact"]')?.checked !== false,
+      showLlhFooter: form.querySelector('[name="formsBrandingShowLlhFooter"]')?.checked !== false,
+      headerAlign: form.querySelector('[name="formsBrandingHeaderAlign"]')?.value === "center" ? "center" : "left",
+      llhFooterControlledByPlan: true,
+    };
+    // Avoid persisting one-off checkbox field names as top-level settings keys.
+    delete settings.formsBrandingShowLogo;
+    delete settings.formsBrandingShowProgramName;
+    delete settings.formsBrandingShowContact;
+    delete settings.formsBrandingShowLlhFooter;
+    delete settings.formsBrandingHeaderAlign;
 
     saveProgramSettings(settings);
 

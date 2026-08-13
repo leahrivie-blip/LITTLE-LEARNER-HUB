@@ -456,7 +456,8 @@ async function runtimeWave3() {
     const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
     assert.match(appJs, /data-form-builder/);
     assert.match(appJs, /data-template-library/);
-    assert.match(appJs, /Structured Form Builder/);
+    assert.match(appJs, /Form Builder/);
+    assert.match(appJs, /Create Blank Form|data-fb-create/);
     assert.match(appJs, /function renderUnifiedTemplateLibraryPanel/);
     const css = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
     assert.match(css, /\.form-builder-panel/);

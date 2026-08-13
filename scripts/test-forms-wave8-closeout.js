@@ -112,9 +112,9 @@ function unitCloseoutMarkers() {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "llh-shell-manifest.json"), "utf8"));
 
   // Shell bumped for enrollment baseline polish; Wave 8 closeout markers below must remain.
-  assert.match(indexHtml, /20260813-enrollment-baseline1/);
-  assert.equal(manifest.version, "20260813-enrollment-baseline1");
-  assert.equal(manifest.cacheName, "llh-shell-v235-enrollment-baseline1");
+  assert.match(indexHtml, /20260813-forms-shared1/);
+  assert.equal(manifest.version, "20260813-forms-shared1");
+  assert.equal(manifest.cacheName, "llh-shell-v236-forms-shared1");
 
   assert.match(appJs, /data-paperwork-clear-filters/);
   assert.match(appJs, /unsaved form edits/);

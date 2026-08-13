@@ -116,6 +116,9 @@
 
   function buildConfirmPayload(state) {
     const formSpec = state.formSpec || {};
+    const programSettings = state.programSettings && typeof state.programSettings === "object"
+      ? state.programSettings
+      : {};
     return {
       idempotencyKey: state.idempotencyKey || newIdempotencyKey(),
       templateId: state.templateId || formSpec.templateId || "",
@@ -131,6 +134,19 @@
         contentVersion: formSpec.contentVersion || 1,
         requiresSignature: state.requiresSignature !== false,
         notes: formSpec.notes || "Assigned via Confirm & Send.",
+        branding: formSpec.branding || null,
+        formsBranding: formSpec.formsBranding || null,
+      },
+      // Names/logo/contact from Program Settings — snapshotted server-side at assign time.
+      programSettings: {
+        programName: programSettings.programName || programSettings.businessName || "",
+        businessName: programSettings.businessName || "",
+        address: programSettings.address || "",
+        contactPhone: programSettings.contactPhone || programSettings.phone || "",
+        contactEmail: programSettings.contactEmail || programSettings.email || "",
+        website: programSettings.website || "",
+        logoDataUrl: programSettings.logoDataUrl || "",
+        formsBranding: programSettings.formsBranding || null,
       },
       target: buildTargetPayload(state),
       dueDate: state.dueDate || "",

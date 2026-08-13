@@ -334,6 +334,19 @@ function snapshotFormSpec(raw = {}, template = null) {
     1,
     Number(raw.templateVersion || raw.contentVersion || template?.contentVersion) || 1,
   );
+  // Branding snapshot (assign-time). Prefer explicit snapshot on the request so later
+  // Program Settings logo/name edits do not rewrite historical assigned/signed docs.
+  let formsBranding = null;
+  const brandingSource = raw.formsBranding || raw.brandingSnapshot
+    || template?.formsBranding || template?.brandingSnapshot || null;
+  if (brandingSource && typeof brandingSource === "object") {
+    try {
+      const brandingLib = require("./forms-branding-lib.js");
+      formsBranding = brandingLib.snapshotFormsBranding(brandingSource);
+    } catch (_error) {
+      formsBranding = null;
+    }
+  }
   return {
     title,
     category,
@@ -351,6 +364,7 @@ function snapshotFormSpec(raw = {}, template = null) {
       ? raw.requiresSignature !== false
       : (template ? template.requiresSignature !== false : true),
     notes: cleanText(raw.notes || "Assigned via Confirm & Send.", 500),
+    formsBranding,
   };
 }
 
@@ -398,6 +412,8 @@ function buildChildAssignmentRow(planItem, formSpec, {
       templateId: formSpec.templateId || existing.templateId || "",
       templateVersion: formSpec.templateVersion,
       sendBatchId: sendBatchId || existing.sendBatchId || "",
+      // Preserve historical branding snapshot when refreshing an open assignment.
+      formsBranding: existing.formsBranding || formSpec.formsBranding || null,
     };
   }
   return {
@@ -431,6 +447,7 @@ function buildChildAssignmentRow(planItem, formSpec, {
     requiresSignature: formSpec.requiresSignature !== false,
     sendBatchId: sendBatchId || "",
     archived: false,
+    formsBranding: formSpec.formsBranding || null,
   };
 }
 

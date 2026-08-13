@@ -181,6 +181,7 @@
     "test:forms-wave2-viewport": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave2-viewport-smoke.js",
     "test:forms-wave3-builder": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave3-builder.js",
     "test:enrollment-form-baseline": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-enrollment-form-baseline.js",
+    "test:forms-shared-capabilities": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-shared-capabilities.js",
     "test:forms-wave3-viewport": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave3-viewport-smoke.js",
     "test:forms-wave4-assign": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave4-assign.js",
     "test:forms-wave4-viewport": "HOME_DAYCARE_HUB_TESTING=1 NODE_ENV=test node scripts/test-forms-wave4-viewport-smoke.js",

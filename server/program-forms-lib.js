@@ -226,16 +226,40 @@ function normalizeEnrollmentTemplateExtras(raw = {}) {
   } catch (_error) {
     enrollmentBaseline = null;
   }
+  let brandingLib = null;
+  try {
+    brandingLib = require("./forms-branding-lib.js");
+  } catch (_error) {
+    brandingLib = null;
+  }
   const formKind = cleanText(raw.formKind || "", 40);
   const looksEnrollment = formKind === "enrollment_baseline"
     || (enrollmentBaseline && enrollmentBaseline.isEnrollmentBaselineTemplate(raw));
+  const branding = brandingLib
+    ? brandingLib.normalizeFormBrandingOverride(raw.branding || raw.formsBrandingOverride || {})
+    : (raw.branding && typeof raw.branding === "object" ? raw.branding : undefined);
+  const intendedAudience = cleanText(raw.intendedAudience || raw.audience || "", 40);
+  const starterKey = cleanText(raw.starterKey || raw.sourceStarterKey || "", 80);
   if (!looksEnrollment) {
     return {
       formKind: formKind || undefined,
-      sections: Array.isArray(raw.sections) ? raw.sections : undefined,
+      sections: Array.isArray(raw.sections) ? raw.sections.slice(0, 80).map((section, index) => ({
+        id: cleanText(section?.id || `section_${index + 1}`, 80) || `section_${index + 1}`,
+        title: cleanText(section?.title || `Section ${index + 1}`, 160) || `Section ${index + 1}`,
+        description: cleanText(section?.description || "", 500),
+        visible: section?.visible !== false,
+        order: Number.isFinite(Number(section?.order)) ? Number(section.order) : index,
+        fieldIds: Array.isArray(section?.fieldIds)
+          ? section.fieldIds.map((id) => cleanText(id, 80)).filter(Boolean).slice(0, 240)
+          : undefined,
+      })) : undefined,
       enrollmentConfig: raw.enrollmentConfig && typeof raw.enrollmentConfig === "object"
         ? raw.enrollmentConfig
         : undefined,
+      branding,
+      intendedAudience: intendedAudience || undefined,
+      starterKey: starterKey || undefined,
+      sourceStarterKey: cleanText(raw.sourceStarterKey || starterKey || "", 80) || undefined,
     };
   }
   const sections = enrollmentBaseline
@@ -248,6 +272,10 @@ function normalizeEnrollmentTemplateExtras(raw = {}) {
     formKind: "enrollment_baseline",
     sections,
     enrollmentConfig,
+    branding,
+    intendedAudience: intendedAudience || "family",
+    starterKey: starterKey || "enrollment",
+    sourceStarterKey: cleanText(raw.sourceStarterKey || "enrollment", 80) || "enrollment",
   };
 }
 
@@ -289,6 +317,10 @@ function normalizeTemplate(raw = {}, { programId = "", strictFields = true } = {
     formKind: enrollmentExtras.formKind,
     sections: enrollmentExtras.sections,
     enrollmentConfig: enrollmentExtras.enrollmentConfig,
+    branding: enrollmentExtras.branding,
+    intendedAudience: enrollmentExtras.intendedAudience,
+    starterKey: enrollmentExtras.starterKey,
+    sourceStarterKey: enrollmentExtras.sourceStarterKey,
     bodyHash: cleanText(raw.bodyHash || "", 80) || fp.bodyHash,
     fieldsHash: cleanText(raw.fieldsHash || "", 80) || fp.fieldsHash,
     contentVersion: Math.max(1, Number(raw.contentVersion) || 1),
@@ -883,7 +915,23 @@ function confirmSendAssignments(store, context, request = {}, {
     }
   }
 
-  const formSpec = formsAssignLib.snapshotFormSpec(request.formSpec || request, template);
+  const formSpecInput = { ...(request.formSpec || request) };
+  // Resolve assign-time branding from Program Settings (client-supplied) + template override.
+  // Snapshot is frozen onto each document so later logo/name edits do not rewrite history.
+  if (!formSpecInput.formsBranding && !formSpecInput.brandingSnapshot) {
+    try {
+      const brandingLib = require("./forms-branding-lib.js");
+      const resolved = brandingLib.resolveFormsBranding({
+        programSettings: request.programSettings || request.programBranding || {},
+        formOverride: template?.branding || formSpecInput.branding || null,
+        programDisplayName: request.programDisplayName || "",
+      });
+      formSpecInput.formsBranding = brandingLib.snapshotFormsBranding(resolved);
+    } catch (_error) {
+      // Branding is additive — assignment still succeeds without it.
+    }
+  }
+  const formSpec = formsAssignLib.snapshotFormSpec(formSpecInput, template);
   if (!formSpec.title) {
     throw Object.assign(new Error("Form title is required."), { status: 400 });
   }
@@ -962,6 +1010,7 @@ function confirmSendAssignments(store, context, request = {}, {
           updatedAt: nowIso(),
           lastNotifiedAt: nowIso(),
           shareWithFamily: false,
+          formsBranding: existing.formsBranding || formSpec.formsBranding || null,
         }
         : {
           id: formsAssignLib.newId("staff-form"),
@@ -983,6 +1032,7 @@ function confirmSendAssignments(store, context, request = {}, {
           assignedAt: nowIso(),
           sendBatchId,
           shareWithFamily: false,
+          formsBranding: formSpec.formsBranding || null,
         };
       const saved = upsertStaffDocument(store, context.programId, payload, {
         actorUserId,
