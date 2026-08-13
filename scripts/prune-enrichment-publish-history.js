@@ -219,7 +219,9 @@ async function run(argv = process.argv.slice(2), deps = {}) {
         client: loaded.client,
         storeRecordId: loaded.storeRecordId,
         sourceStore: loaded.store,
+        // updatedAt (JS Date) is logs/diagnostics only; CAS uses updatedAtExact.
         sourceUpdatedAt: loaded.updatedAt,
+        sourceUpdatedAtExact: loaded.updatedAtExact,
         sourceFingerprint: loaded.fingerprint,
         backupId: args.backupId,
         confirmPostgresPrune: args.confirmPostgresPrune,
@@ -230,6 +232,8 @@ async function run(argv = process.argv.slice(2), deps = {}) {
       report.prunedFingerprint = applyResult.prunedFingerprint;
       report.postWriteVerified = true;
       report.newUpdatedAt = applyResult.newUpdatedAt;
+      report.newUpdatedAtExact = applyResult.newUpdatedAtExact;
+      report.sourceUpdatedAtExact = applyResult.sourceUpdatedAtExact;
       report.liveCacheNote = (
         "Postgres row updated under updated_at CAS. A Render restart is still recommended "
         + "so storeCache reloads promptly; correctness no longer depends on restart timing "

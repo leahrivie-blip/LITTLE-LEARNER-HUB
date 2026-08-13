@@ -13,11 +13,33 @@ const {
 /** Matches server/index.js FOUNDING_ADVISORY_LOCK_NS. */
 const FOUNDING_ADVISORY_LOCK_NS = 87442201;
 
+/**
+ * Exact CAS token SQL projection.
+ * `updated_at::text` preserves full PostgreSQL timestamptz precision (including
+ * microseconds) and round-trips through `$n::timestamptz` without a JS Date.
+ * Do NOT use node-postgres Date values as the SQL write precondition.
+ */
+const LLH_STORE_UPDATED_AT_EXACT_SQL = "updated_at::text";
+
+const POSTGRES_SELECT_STORE_ROW = `
+SELECT id, data, updated_at, ${LLH_STORE_UPDATED_AT_EXACT_SQL} AS updated_at_exact
+FROM llh_store
+WHERE id = $1
+LIMIT 1
+`;
+
+const POSTGRES_SELECT_STORE_ROW_FOR_UPDATE = `
+SELECT id, data, updated_at, ${LLH_STORE_UPDATED_AT_EXACT_SQL} AS updated_at_exact
+FROM llh_store
+WHERE id = $1
+FOR UPDATE
+`;
+
 const POSTGRES_UPDATE_STORE_IF_UNCHANGED = `
 UPDATE llh_store
 SET data = $2::jsonb, updated_at = NOW()
 WHERE id = $1 AND updated_at IS NOT DISTINCT FROM $3::timestamptz
-RETURNING id, updated_at
+RETURNING id, updated_at, ${LLH_STORE_UPDATED_AT_EXACT_SQL} AS updated_at_exact
 `;
 
 function resolveStoreRecordId(env = process.env) {
@@ -26,6 +48,35 @@ function resolveStoreRecordId(env = process.env) {
 
 function stableFingerprint(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value ?? null)).digest("hex");
+}
+
+/**
+ * Normalize the exact Postgres timestamptz text token used for CAS.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function normalizeUpdatedAtExact(value) {
+  return String(value ?? "").trim();
+}
+
+/**
+ * Demonstrate / detect JS Date millisecond truncation of a timestamptz.
+ * Useful in tests; never use the result as a SQL CAS token.
+ * @param {string} updatedAtExact Postgres `updated_at::text` (e.g. 2026-08-13 01:06:09.627215+00)
+ * @returns {string} ISO string truncated to milliseconds (e.g. ...627Z)
+ */
+function jsDateIsoFromUpdatedAtExact(updatedAtExact) {
+  const exact = normalizeUpdatedAtExact(updatedAtExact);
+  if (!exact) return "";
+  // Normalize common Postgres timestamptz::text into an ISO-8601 form Date can parse.
+  let iso = exact.includes("T") ? exact : exact.replace(" ", "T");
+  if (iso.endsWith("+00")) iso = `${iso.slice(0, -3)}Z`;
+  else if (iso.endsWith("+00:00")) iso = `${iso.slice(0, -6)}Z`;
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) {
+    throw new Error(`Unable to parse updatedAtExact as Date: ${exact}`);
+  }
+  return d.toISOString();
 }
 
 /**
@@ -155,18 +206,22 @@ async function verifyPostgresBackup(client, backupId, currentStore) {
 }
 
 async function loadPostgresStoreRow(client, storeRecordId) {
-  const result = await client.query(
-    "SELECT id, data, updated_at FROM llh_store WHERE id = $1 LIMIT 1",
-    [storeRecordId],
-  );
+  const result = await client.query(POSTGRES_SELECT_STORE_ROW, [storeRecordId]);
   if (!result.rows[0]?.data) {
     throw new Error(`No llh_store row found for id=${storeRecordId}`);
   }
   const row = result.rows[0];
+  const updatedAtExact = normalizeUpdatedAtExact(row.updated_at_exact);
+  if (!updatedAtExact) {
+    throw new Error(`llh_store updated_at_exact missing for id=${storeRecordId}`);
+  }
   return {
     store: row.data,
     storeId: String(row.id),
+    // Coarse JS Date / ISO for logs/diagnostics ONLY — never use as SQL CAS token.
     updatedAt: row.updated_at,
+    // Exact Postgres timestamptz text — sole CAS token for guarded writes.
+    updatedAtExact,
     source: `postgres:${row.id}`,
     fingerprint: stableFingerprint(row.data),
   };
@@ -181,6 +236,7 @@ async function applyControlledPostgresPrune(options) {
     storeRecordId = resolveStoreRecordId(),
     sourceStore,
     sourceUpdatedAt,
+    sourceUpdatedAtExact,
     sourceFingerprint,
     backupId,
     confirmPostgresPrune,
@@ -195,8 +251,12 @@ async function applyControlledPostgresPrune(options) {
   if (!sourceStore || typeof sourceStore !== "object") {
     throw new Error("Refusing Postgres apply: source store missing.");
   }
-  if (!sourceUpdatedAt) {
-    throw new Error("Refusing Postgres apply: source updated_at missing (concurrency token).");
+  const casToken = normalizeUpdatedAtExact(sourceUpdatedAtExact);
+  if (!casToken) {
+    throw new Error(
+      "Refusing Postgres apply: source updatedAtExact missing "
+      + "(exact Postgres concurrency token; JS Date is not sufficient).",
+    );
   }
   if (!sourceFingerprint) {
     throw new Error("Refusing Postgres apply: source fingerprint missing.");
@@ -217,17 +277,20 @@ async function applyControlledPostgresPrune(options) {
       [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
     );
     const locked = await client.query(
-      "SELECT id, data, updated_at FROM llh_store WHERE id = $1 FOR UPDATE",
+      POSTGRES_SELECT_STORE_ROW_FOR_UPDATE,
       [storeRecordId],
     );
     if (!locked.rows.length) {
       throw new Error(`Refusing Postgres apply: llh_store row missing under lock (${storeRecordId}).`);
     }
     const live = locked.rows[0];
-    if (new Date(live.updated_at).getTime() !== new Date(sourceUpdatedAt).getTime()) {
+    const liveExact = normalizeUpdatedAtExact(live.updated_at_exact);
+    if (!liveExact || liveExact !== casToken) {
       throw new Error(
         "Refusing Postgres apply: stale-state precondition failed "
-        + `(live updated_at ${String(live.updated_at)} != source ${String(sourceUpdatedAt)}).`,
+        + `(live updated_at_exact ${liveExact || String(live.updated_at)} `
+        + `!= source ${casToken}`
+        + `${sourceUpdatedAt != null ? `; jsDate=${String(sourceUpdatedAt)}` : ""}).`,
       );
     }
     if (stableFingerprint(live.data) !== sourceFingerprint) {
@@ -236,9 +299,10 @@ async function applyControlledPostgresPrune(options) {
         + "(concurrency mismatch).",
       );
     }
+    // Bind the exact Postgres text token — never a JS Date — so microseconds are preserved.
     const updated = await client.query(
       POSTGRES_UPDATE_STORE_IF_UNCHANGED,
-      [storeRecordId, payload, sourceUpdatedAt],
+      [storeRecordId, payload, casToken],
     );
     if (!updated.rowCount) {
       throw new Error(
@@ -292,6 +356,8 @@ async function applyControlledPostgresPrune(options) {
     stats,
     storeId: storeRecordId,
     newUpdatedAt: reread.updatedAt,
+    newUpdatedAtExact: reread.updatedAtExact,
+    sourceUpdatedAtExact: casToken,
   };
 }
 
@@ -308,9 +374,14 @@ function countHistoryEntries(store) {
 
 module.exports = {
   FOUNDING_ADVISORY_LOCK_NS,
+  LLH_STORE_UPDATED_AT_EXACT_SQL,
+  POSTGRES_SELECT_STORE_ROW,
+  POSTGRES_SELECT_STORE_ROW_FOR_UPDATE,
   POSTGRES_UPDATE_STORE_IF_UNCHANGED,
   resolveStoreRecordId,
   stableFingerprint,
+  normalizeUpdatedAtExact,
+  jsDateIsoFromUpdatedAtExact,
   assertHistoryOnlyTransform,
   verifyPostgresBackup,
   loadPostgresStoreRow,
