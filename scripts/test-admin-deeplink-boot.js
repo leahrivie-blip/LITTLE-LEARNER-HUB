@@ -119,11 +119,13 @@ function assertStaticContract() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "llh-shell-manifest.json"), "utf8"));
-  assert.match(indexHtml, /app\.js\?v=20260813-admin-deeplink-boot-r1/);
-  assert.match(sw, /SHELL_VERSION = "20260813-admin-deeplink-boot-r1"/);
-  assert.match(sw, /\/app\.js\?v=20260813-admin-deeplink-boot-r1/);
-  assert.equal(manifest.version, "20260813-admin-deeplink-boot-r1");
-  assert.equal(manifest.cacheName, "llh-shell-v201-admin-deeplink-boot-r1");
+  assert.match(appJs, /function restoreMainAdminFromBareDeepLink\(/);
+  assert.match(appJs, /adminActiveSectionTab = "admin-home"/);
+  assert.match(indexHtml, /app\.js\?v=20260813-admin-deeplink-main-r1/);
+  assert.match(sw, /SHELL_VERSION = "20260813-admin-deeplink-main-r1"/);
+  assert.match(sw, /\/app\.js\?v=20260813-admin-deeplink-main-r1/);
+  assert.equal(manifest.version, "20260813-admin-deeplink-main-r1");
+  assert.equal(manifest.cacheName, "llh-shell-v202-admin-deeplink-main-r1");
   console.log("PASS  static contract: pending intended admin route is captured before hydration");
 }
 
@@ -212,6 +214,8 @@ async function adminViewState(page) {
       intended: typeof pendingIntendedBootView !== "undefined" ? pendingIntendedBootView : "",
       pendingReturn: typeof pendingAuthReturnView !== "undefined" ? pendingAuthReturnView : "",
       adminFull: typeof hasAdminFullAccess === "function" ? hasAdminFullAccess() : false,
+      section: typeof getAdminSectionTab === "function" ? getAdminSectionTab() : "",
+      preview: typeof adminPreviewMode === "function" ? adminPreviewMode() : "",
     };
   });
 }
@@ -248,6 +252,8 @@ async function main() {
         assert.match(state.heading, /Admin Content Manager/);
         assert.equal(state.protectedVisible, true, "owner should see unlocked Admin Content Manager");
         assert.equal(state.adminFull, true);
+        assert.equal(state.section, "admin-home", `bare /#/admin must open main Admin Home, got ${state.section}`);
+        assert.equal(state.preview, "Admin", `bare /#/admin must restore main Admin, not View As, got ${state.preview}`);
         await screenshot(page, "admin-deeplink-owner-direct-desktop.png");
         await page.close();
         console.log("PASS  authenticated owner direct-open /#/admin → Admin");
@@ -389,6 +395,29 @@ async function main() {
         await screenshot(page, "admin-deeplink-owner-direct-mobile.png");
         await page.close();
         console.log("PASS  mobile-width/direct-load /#/admin → Admin");
+      }
+
+      console.log("8) Leftover Testing Center / View As still opens main Admin");
+      {
+        const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+        await delayMembershipSync(page);
+        await seedOwnerAdmin(page, token);
+        await page.addInitScript(() => {
+          localStorage.setItem("llhAdminPreviewMode", "Parent");
+          localStorage.setItem("llhAdminActiveSection", "ai-testing");
+        });
+        await page.goto(`${BASE}/#/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await waitForBootReady(page);
+        await page.waitForSelector("#view-admin.active-view", { timeout: 20000 });
+        const state = await adminViewState(page);
+        assert.equal(state.active, "admin", `expected admin view, got ${state.active}`);
+        assert.equal(state.section, "admin-home", `expected Admin Home, got ${state.section}`);
+        assert.equal(state.preview, "Admin", `expected main Admin preview, got ${state.preview}`);
+        assert.equal(state.adminFull, true);
+        assert.equal(state.protectedVisible, true);
+        await screenshot(page, "admin-deeplink-main-admin-not-testing.png");
+        await page.close();
+        console.log("PASS  leftover Testing Center / View As → main Admin Home");
       }
     } finally {
       await browser.close().catch(() => {});

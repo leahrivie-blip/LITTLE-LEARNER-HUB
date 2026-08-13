@@ -76622,6 +76622,31 @@ function initialViewFromLocation() {
   return pathView || hashView || "home";
 }
 
+function adminLocationHasExplicitPanel() {
+  try {
+    return Boolean(String(new URLSearchParams(window.location.search || "").get("adminPanel") || "").trim());
+  } catch (_error) {
+    return false;
+  }
+}
+
+/**
+ * Bare `/#/admin` (no adminPanel) must open main Admin Home — not the testing
+ * site chrome, leftover AI Testing tab, or View As persona on this device.
+ */
+function restoreMainAdminFromBareDeepLink() {
+  if (adminLocationHasExplicitPanel()) return;
+  try {
+    if (localStorage.getItem("llhAdminUnlocked") === "true") {
+      const preview = localStorage.getItem("llhAdminPreviewMode") || "Admin";
+      if (preview !== "Admin") localStorage.setItem("llhAdminPreviewMode", "Admin");
+    }
+  } catch (_error) { /* private mode */ }
+  adminActiveSectionTab = "admin-home";
+  adminActiveGroup = "admin-home";
+  try { localStorage.setItem("llhAdminActiveSection", "admin-home"); } catch (_error) { /* private mode */ }
+}
+
 /**
  * Preserve the first location-derived view across auth hydration so `/#/admin`
  * is not overwritten by the default Calendar/home landing.
@@ -76637,6 +76662,7 @@ function captureIntendedBootViewFromLocation() {
   ) {
     pendingAuthReturnView = pendingAuthReturnView || "admin";
   }
+  if (pendingIntendedBootView === "admin") restoreMainAdminFromBareDeepLink();
   return pendingIntendedBootView;
 }
 
