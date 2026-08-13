@@ -241,31 +241,47 @@ async function waitWhileBusy(page, timeoutMs, onTick) {
   return { timeline, elapsedMs: Date.now() - started, stillBusy: lastBusy, sawBusy };
 }
 
-async function screenshotPdfPages(browser, bytes, destDir, prefix) {
+async function shotCard(page, name) {
+  const card = page.locator("[data-tk-ready-print-card], [data-tk-panel='build']").first();
+  if (await card.count()) {
+    await card.screenshot({ path: path.join(ARTIFACT, name) }).catch(async () => {
+      await page.screenshot({ path: path.join(ARTIFACT, name), fullPage: false });
+    });
+    return;
+  }
+  await page.screenshot({ path: path.join(ARTIFACT, name), fullPage: false }).catch(() => {});
+}
+
+async function renderPdfPages(bytes, destDir, prefix) {
+  const shots = [];
   const doc = await PDFDocument.load(bytes);
   const count = doc.getPageCount();
-  const picks = [0, Math.min(count - 1, Math.floor(count / 2)), count - 1];
-  const unique = [...new Set(picks)];
-  const shots = [];
-  for (const index of unique) {
-    const one = await PDFDocument.create();
-    const [copied] = await one.copyPages(doc, [index]);
-    one.addPage(copied);
-    const partBytes = await one.save();
-    const partPath = path.join(destDir, `${prefix}-page-${index + 1}-of-${count}.pdf`);
-    fs.writeFileSync(partPath, partBytes);
-    const preview = await browser.newPage();
-    try {
-      await preview.goto(`file://${partPath}`, { waitUntil: "load", timeout: 20000 });
-      await preview.waitForTimeout(700);
-      const png = path.join(destDir, `${prefix}-page-${index + 1}.png`);
-      await preview.screenshot({ path: png, fullPage: true });
-      shots.push({ index, png, partPath });
-    } catch (error) {
-      shots.push({ index, error: String(error?.message || error) });
-    } finally {
-      await preview.close();
-    }
+  const picks = [...new Set([0, Math.min(count - 1, Math.floor(count / 2)), count - 1])];
+  const { createCanvas, ImageData, Path2D } = require("@napi-rs/canvas");
+  if (typeof global.ImageData === "undefined") global.ImageData = ImageData;
+  if (typeof global.Path2D === "undefined") global.Path2D = Path2D;
+  const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+  const workerPath = path.join(ROOT, "node_modules/pdfjs-dist/build/pdf.worker.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
+  const pdf = await pdfjs.getDocument({
+    data: new Uint8Array(bytes),
+    isOffscreenCanvasSupported: false,
+    useSystemFonts: true,
+  }).promise;
+  for (const index of picks) {
+    const page = await pdf.getPage(index + 1);
+    const viewport = page.getViewport({ scale: 1.15 });
+    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const png = path.join(destDir, `${prefix}-page-${index + 1}.png`);
+    fs.writeFileSync(png, canvas.toBuffer("image/png"));
+    const textContent = await page.getTextContent();
+    const text = (textContent.items || []).map((item) => item.str).join(" ");
+    shots.push({ index, png, text });
+    const part = await PDFDocument.create();
+    const [copied] = await part.copyPages(doc, [index]);
+    part.addPage(copied);
+    fs.writeFileSync(path.join(destDir, `${prefix}-page-${index + 1}-of-${count}.pdf`), await part.save());
   }
   return { count, shots };
 }
@@ -363,14 +379,44 @@ async function mountOwnerFarm(page, plan) {
   }, plan);
 }
 
+async function restoreOwnerPipeline(page) {
+  await page.evaluate(() => {
+    const gate = window.__llhOwnerGate || {};
+    if (gate.origHtml2canvas) window.html2canvas = gate.origHtml2canvas;
+    if (gate.origTimeoutForScope && window.LLHTeachingKitBinderJob) {
+      window.LLHTeachingKitBinderJob.timeoutForScope = gate.origTimeoutForScope;
+    }
+    if (gate.origDataUrlToBytes && window.LLHTeachingKitPrintablePdfMerge) {
+      window.LLHTeachingKitPrintablePdfMerge.dataUrlToBytes = gate.origDataUrlToBytes;
+    }
+    if (gate.origDefaultFetchBytes && window.LLHTeachingKitPrintablePdfMerge) {
+      window.LLHTeachingKitPrintablePdfMerge.defaultFetchBytes = gate.origDefaultFetchBytes;
+    }
+    if (window.html2canvas) delete window.html2canvas.__ownerGateWrapped;
+    if (window.printTeachingKitBinder) delete window.printTeachingKitBinder.__ownerGateWrapped;
+  });
+}
+
 async function instrumentOwnerPage(page) {
   await page.evaluate(() => {
-    window.__llhOwnerGate = {
+    window.__llhOwnerGate = window.__llhOwnerGate || {
       binderJobs: 0,
       html2canvasCalls: 0,
       printInvocations: 0,
       fetchMutations: [],
     };
+    if (!window.__llhOwnerGate.origHtml2canvas && typeof window.html2canvas === "function") {
+      window.__llhOwnerGate.origHtml2canvas = window.html2canvas;
+    }
+    if (!window.__llhOwnerGate.origTimeoutForScope && window.LLHTeachingKitBinderJob?.timeoutForScope) {
+      window.__llhOwnerGate.origTimeoutForScope = window.LLHTeachingKitBinderJob.timeoutForScope;
+    }
+    if (!window.__llhOwnerGate.origDataUrlToBytes && window.LLHTeachingKitPrintablePdfMerge?.dataUrlToBytes) {
+      window.__llhOwnerGate.origDataUrlToBytes = window.LLHTeachingKitPrintablePdfMerge.dataUrlToBytes;
+    }
+    if (!window.__llhOwnerGate.origDefaultFetchBytes && window.LLHTeachingKitPrintablePdfMerge?.defaultFetchBytes) {
+      window.__llhOwnerGate.origDefaultFetchBytes = window.LLHTeachingKitPrintablePdfMerge.defaultFetchBytes;
+    }
     if (typeof window.printTeachingKitBinder === "function" && !window.printTeachingKitBinder.__ownerGateWrapped) {
       const orig = window.printTeachingKitBinder;
       window.printTeachingKitBinder = async function wrappedPrintTeachingKitBinder(...args) {
@@ -584,7 +630,7 @@ async function main() {
     await instrumentOwnerPage(page);
     await mountOwnerFarm(page, plan);
     await openPrintCenter(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "01-print-center-ready.png"), fullPage: true });
+    await shotCard(page, "01-print-center-ready.png");
 
     const readyText = await page.locator("#resourceViewerBody").innerText();
     ok(/Print Center|Build My Kit|Download PDF/i.test(readyText), "Print Center is visible to the owner");
@@ -601,7 +647,7 @@ async function main() {
     await downloadBtn.evaluate((btn) => { btn.click(); btn.click(); });
     await page.waitForTimeout(120);
     const immediate = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "02-download-immediate.png"), fullPage: true });
+    await shotCard(page, "02-download-immediate.png");
     const clickAck = immediate.downloadDisabled === true
       && /Preparing/i.test(`${immediate.heading} ${immediate.message} ${immediate.downloadLabel} ${immediate.panelText}`);
     const requestVisible = /Request received|Request tk-binder|Preparing .*Binder/i.test(`${immediate.heading} ${immediate.message} ${immediate.panelText}`);
@@ -623,7 +669,7 @@ async function main() {
         visiblePast8s = true;
       }
       if (elapsedMs === 0 || elapsedMs > 1000 && [1000, 8000, 15000, 30000, 45000].some((mark) => Math.abs(elapsedMs - mark) < 400)) {
-        await page.screenshot({ path: path.join(ARTIFACT, `03-download-${elapsedMs}ms.png`), fullPage: false }).catch(() => {});
+        await shotCard(page, `03-download-${elapsedMs}ms.png`);
       }
       const generic = /Preparing your binder/i.test(snap.message) && !/page \d+ of \d+/i.test(text);
       if (generic) {
@@ -637,7 +683,7 @@ async function main() {
       }
     });
     const generationMs = Date.now() - t0;
-    await page.screenshot({ path: path.join(ARTIFACT, "04-download-complete.png"), fullPage: true });
+    await shotCard(page, "04-download-complete.png");
     const afterDownload = await snapshotStatus(page);
     gate.generationMs = generationMs;
     gate.statusBeyond8s = visiblePast8s ? "PASS" : "FAIL";
@@ -671,15 +717,21 @@ async function main() {
     ok(pageCount >= 10, `Entire Binder has substantial pages (${pageCount})`);
     ok(/Little-Learner-Hub-Farm-Animals-Teacher-Binder\.pdf/i.test(entireDownload.fileName || ""), `filename is meaningful (${entireDownload.fileName})`);
 
-    const visuals = await screenshotPdfPages(browser, pdfBytes, ARTIFACT, "entire-binder");
+    const visuals = await renderPdfPages(pdfBytes, ARTIFACT, "entire-binder");
     const printableInFile = latin1Has(pdfBytes, "FARM-CARDS::page-");
     const lastReport = afterDownload.lastPrint || {};
     const includedPrintable = (lastReport.mergeReport?.includedPrintableIds || []).includes("cur-res-farm-cards")
       || printableInFile;
-    gate.firstPage = visuals.shots.length && !visuals.shots[0]?.error ? "PASS" : "FAIL";
-    gate.printableIncluded = includedPrintable ? "PASS" : "FAIL";
-    gate.middlePage = pageCount >= 10 && visuals.shots.length >= 2 ? "PASS" : "FAIL";
-    gate.lastPage = includedPrintable ? "PASS" : "FAIL";
+    const firstText = visuals.shots[0]?.text || "";
+    const middleText = (visuals.shots[1]?.text || visuals.shots[0]?.text || "");
+    const lastText = visuals.shots[visuals.shots.length - 1]?.text || "";
+    const firstPng = visuals.shots[0]?.png && fs.existsSync(visuals.shots[0].png);
+    const middlePng = visuals.shots.length >= 2 && visuals.shots[1]?.png && fs.existsSync(visuals.shots[1].png);
+    gate.firstPage = firstPng ? "PASS" : "FAIL";
+    gate.printableIncluded = includedPrintable || /FARM-CARDS/i.test(lastText) ? "PASS" : "FAIL";
+    gate.middlePage = pageCount >= 10 && middlePng ? "PASS" : "FAIL";
+    gate.lastPage = includedPrintable || /FARM-CARDS/i.test(lastText) ? "PASS" : "FAIL";
+    console.log(`  PDF page text first=${JSON.stringify(firstText.slice(0, 80))} last=${JSON.stringify(lastText.slice(0, 80))}`);
     ok(includedPrintable, "requested Farm Animal Cards printable is in the merged PDF");
     ok(!/bugs-and-butterflies|cur-lp-preschool-bugs/i.test(Buffer.from(pdfBytes).toString("latin1")), "no unrelated lesson ids leaked into PDF bytes");
 
@@ -715,7 +767,7 @@ async function main() {
     await printBtn.evaluate((btn) => { btn.click(); btn.click(); });
     await page.waitForTimeout(80);
     const printImmediate = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "05-print-immediate.png"), fullPage: true });
+    await shotCard(page, "05-print-immediate.png");
     ok(printImmediate.printDisabled === true, "Print shows busy immediately");
     ok(printImmediate.downloadDisabled === true, "Download is guarded while Print is preparing");
     ok(printImmediate.printTarget === true, "print target iframe created from the initial click");
@@ -725,11 +777,11 @@ async function main() {
 
     const printPoll = await waitWhileBusy(page, 180000, async (snap, elapsedMs) => {
       if ([1000, 8000, 20000].some((mark) => Math.abs(elapsedMs - mark) < 400)) {
-        await page.screenshot({ path: path.join(ARTIFACT, `06-print-${elapsedMs}ms.png`), fullPage: false }).catch(() => {});
+        await shotCard(page, `06-print-${elapsedMs}ms.png`);
       }
     });
     const afterPrint = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "07-print-complete.png"), fullPage: true });
+    await shotCard(page, "07-print-complete.png");
     const printSrcOk = /^blob:/i.test(afterPrint.printTargetSrc) || /^blob:/i.test(printPoll.timeline.map((row) => row.printTargetSrc).filter(Boolean).slice(-1)[0] || "");
     const printReached = afterPrint.printInvocations > 0
       || afterPrint.lastPrint?.reason === "printed_merged_pdf"
@@ -748,10 +800,12 @@ async function main() {
     // ── OWNER TEST 5: error UX via disposable interception ──
     console.log("\nOwner Test 5 — Error experience");
     async function remount() {
+      await restoreOwnerPipeline(page);
       await mountOwnerFarm(page, plan);
       await instrumentOwnerPage(page);
       await openPrintCenter(page);
       await selectPreset(page, "week_binder");
+      await page.locator("[data-tk-download-binder]").waitFor({ state: "visible", timeout: 8000 });
     }
 
     await remount();
@@ -784,7 +838,7 @@ async function main() {
     await page.locator("[data-tk-download-binder]").click({ force: true });
     const printableErr = await waitWhileBusy(page, 90000);
     const printableSnap = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "08-printable-fetch-error.png"), fullPage: true });
+    await shotCard(page, "08-printable-fetch-error.png");
     const printableFailUx = printableSnap.downloadDisabled === false
       && printableSnap.retry === true
       && printableSnap.smaller === true
@@ -807,7 +861,7 @@ async function main() {
     await page.locator("[data-tk-download-binder]").click({ force: true });
     const h2cErr = await waitWhileBusy(page, 45000);
     const h2cSnap = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "09-html2canvas-timeout.png"), fullPage: true });
+    await shotCard(page, "09-html2canvas-timeout.png");
     const h2cFailUx = h2cSnap.downloadDisabled === false
       && h2cSnap.retry === true
       && /couldn't finish|timeout|try again/i.test(`${h2cSnap.heading} ${h2cSnap.message} ${h2cSnap.panelText}`)
@@ -829,7 +883,7 @@ async function main() {
     await page.locator("[data-tk-download-binder]").click({ force: true });
     const fullTimeout = await waitWhileBusy(page, 20000);
     const timeoutSnap = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "10-full-binder-timeout.png"), fullPage: true });
+    await shotCard(page, "10-full-binder-timeout.png");
     const timeoutFailUx = timeoutSnap.downloadDisabled === false
       && timeoutSnap.retry === true
       && timeoutSnap.smaller === true
@@ -849,13 +903,18 @@ async function main() {
     console.log("\nOwner Test 7 — One Day");
     await remount();
     await selectPreset(page, "today_pack", { day: "wednesday" });
+    await page.waitForFunction(() => {
+      const btn = document.querySelector("[data-tk-download-binder]");
+      return btn && btn.disabled !== true;
+    }, null, { timeout: 8000 });
     const oneDayDownloadsBefore = downloads.length;
     await page.locator("[data-tk-download-binder]").click({ force: true });
+    await page.waitForTimeout(150);
     const oneDayImmediate = await snapshotStatus(page);
     ok(oneDayImmediate.downloadDisabled === true, "One Day download shows busy status");
     const oneDayWait = await waitWhileBusy(page, 180000);
     const oneDaySnap = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "11-one-day-complete.png"), fullPage: true });
+    await shotCard(page, "11-one-day-complete.png");
     const oneDayFile = downloads[downloads.length - 1];
     let oneDayOk = oneDaySnap.downloadDisabled === false && downloads.length > oneDayDownloadsBefore;
     if (oneDayFile?.path && fs.existsSync(oneDayFile.path)) {
@@ -878,13 +937,18 @@ async function main() {
     console.log("\nOwner Test 8 — Selected Resources");
     await remount();
     await selectPreset(page, "selected_resources", { selectedVocabulary: true });
+    await page.waitForFunction(() => {
+      const btn = document.querySelector("[data-tk-download-binder]");
+      return btn && btn.disabled !== true;
+    }, null, { timeout: 8000 });
     const selectedDownloadsBefore = downloads.length;
     await page.locator("[data-tk-download-binder]").click({ force: true });
+    await page.waitForTimeout(150);
     const selectedImmediate = await snapshotStatus(page);
     ok(selectedImmediate.downloadDisabled === true, "Selected Resources download shows busy status");
     await waitWhileBusy(page, 180000);
     const selectedSnap = await snapshotStatus(page);
-    await page.screenshot({ path: path.join(ARTIFACT, "12-selected-resources-complete.png"), fullPage: true });
+    await shotCard(page, "12-selected-resources-complete.png");
     const selectedFile = downloads[downloads.length - 1];
     let selectedOk = selectedSnap.downloadDisabled === false && downloads.length > selectedDownloadsBefore;
     if (selectedFile?.path && fs.existsSync(selectedFile.path)) {
