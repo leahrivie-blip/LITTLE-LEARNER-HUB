@@ -9346,6 +9346,17 @@ async function handleAdminIssueTempPassword(request, response) {
   });
 }
 
+function classifyPasswordResetEmailError(error) {
+  const raw = String(error?.message || error || "").slice(0, 300);
+  if (/not_configured|provider_not_ready/i.test(raw)) return "provider_not_ready";
+  if (/\b401\b|unauthorized|invalid.+api.+key/i.test(raw)) return "provider_auth_rejected";
+  if (/\b403\b|forbidden|domain|unverified|testing.?mode/i.test(raw)) return "provider_sender_rejected";
+  if (/\b422\b|invalid.+from|invalid.+to|validation/i.test(raw)) return "provider_validation_rejected";
+  if (/\b429\b|rate.?limit/i.test(raw)) return "provider_rate_limited";
+  if (/\b5\d\d\b|timeout|network|fetch failed|econn/i.test(raw)) return "provider_unavailable";
+  return "provider_send_failed";
+}
+
 async function handlePasswordResetRequest(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -9362,7 +9373,14 @@ async function handlePasswordResetRequest(request, response) {
     else if (result?.ok) delivery = "skipped";
     else delivery = "failed";
   } catch (error) {
-    console.warn("[email] Password reset email failed:", error.message);
+    // Sanitized only — never log tokens, passwords, or full reset URLs.
+    console.warn(JSON.stringify({
+      tag: "email-send",
+      eventType: "password_reset_email",
+      provider: detectedEmailProvider() || "",
+      success: false,
+      error: classifyPasswordResetEmailError(error),
+    }));
     delivery = "failed";
   }
   // Always return a generic success body so callers cannot enumerate accounts.
@@ -9372,7 +9390,7 @@ async function handlePasswordResetRequest(request, response) {
     delivery,
     message: delivery === "not_ready"
       ? "Server password-reset email is not ready yet. Use Firebase Auth recovery or try again after Resend is configured."
-      : "If that email is in Little Learner Hub, a password reset link has been sent.",
+      : "If an account exists for that email, password reset instructions have been sent.",
   });
 }
 
@@ -19678,6 +19696,7 @@ async function sendPasswordResetEmail(email) {
     subject: payload.subject,
     text: payload.text,
     html: payload.html,
+    eventType: "password_reset_email",
   });
   return { ok: true, email: cleanEmail, expiresAt: tokenData.expiresAt, emailResult };
 }
