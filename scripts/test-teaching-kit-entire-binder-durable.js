@@ -217,7 +217,7 @@ async function browserEntireBinderProof() {
         },
       });
       const validation = JobApi.validatePdfBytes(merged.bytes || new Uint8Array());
-      const latin1 = merged.bytes ? new TextDecoder("latin1").decode(merged.bytes) : "";
+      const included = merged.report?.included || [];
       return {
         buildPageCount: built.pageCount,
         beforePages,
@@ -230,13 +230,16 @@ async function browserEntireBinderProof() {
         cached: merged.cached === true,
         byteLength: merged.bytes?.byteLength || 0,
         totalPages: merged.report?.totalPages || 0,
-        includedIds: merged.report?.includedPrintableIds || [],
+        binderPages: merged.report?.binderPages || 0,
+        attachmentPages: merged.report?.attachmentPages || included.reduce((sum, item) => sum + (Number(item.pageCount) || 0), 0),
+        includedIds: merged.report?.includedPrintableIds || included.map((item) => item.id),
+        includedCount: included.length,
         fingerprint: merged.contentFingerprint || built.contentFingerprint,
         validationOk: validation.ok,
-        hasFarmMarker: /FARM-LIVE-CARDS::page-/.test(latin1),
-        hasSummaryCopy: /PDF pages included in download/.test(latin1),
+        htmlHasSummaryTab: /data-tk-print-tab="Printables"/.test(built.html || ""),
         progressHead: progress.slice(0, 4),
         elapsedMs: Date.now() - t0,
+        pdfBytes: merged.bytes || null,
       };
     }, kit);
 
@@ -244,13 +247,23 @@ async function browserEntireBinderProof() {
     ok(first.validationOk === true, "final PDF signature valid");
     ok(first.byteLength > 50000, `non-trivial PDF size (${first.byteLength})`);
     ok(first.totalPages >= 20, `final page count substantial (${first.totalPages})`);
-    ok(first.includedIds.includes(printableId), "printable id included once in merge report");
-    ok(first.hasFarmMarker === true, "actual printable PDF pages present");
-    ok(first.hasSummaryCopy === false, "redundant summary page copy absent from PDF bytes");
+    ok(first.includedIds.filter((id) => id === printableId).length === 1, "printable id included exactly once");
+    ok(first.includedCount === 1, "exactly one printable attachment merged");
+    ok(first.attachmentPages === 2, `actual printable PDF page count preserved (${first.attachmentPages})`);
+    ok(first.htmlHasSummaryTab === false, "redundant Printables summary page absent from binder HTML");
+    // Confirm attachment pages kept Letter size by inspecting trailing pages.
+    const pdfDoc = await PDFDocument.load(first.pdfBytes);
+    const sizes = pdfDoc.getPages().slice(-2).map((p) => {
+      const { width, height } = p.getSize();
+      return { width: Math.round(width), height: Math.round(height) };
+    });
+    ok(sizes.every((s) => s.width === 612 && s.height === 792), "printable original Letter size/orientation preserved");
     ok(first.reflow.splitCount >= 1 || first.tallAfter < first.tallBefore, "reflow reduced overflowing pages");
     ok(first.tallAfter <= Math.max(2, Math.floor(first.tallBefore / 2)), `slice-risk pages reduced (${first.tallBefore} → ${first.tallAfter})`);
     ok(first.afterPages >= first.beforePages, "reflow may add pages rather than canvas-slice");
-    fs.writeFileSync(path.join(ARTIFACT, "first-pass.json"), JSON.stringify(first, null, 2));
+    const { pdfBytes: _omit, ...firstMeta } = first;
+    fs.writeFileSync(path.join(ARTIFACT, "first-pass.json"), JSON.stringify(firstMeta, null, 2));
+    fs.writeFileSync(path.join(ARTIFACT, "Farm-Animals-Entire-Binder-durable.pdf"), Buffer.from(first.pdfBytes));
 
     // Repeated download should reuse fingerprint cache (no regeneration).
     const second = await page.evaluate(async (liveKit) => {
@@ -275,21 +288,29 @@ async function browserEntireBinderProof() {
     ok(second.byteLength === first.byteLength, "cached binder byte length matches");
     ok(second.elapsedMs < 2000, `cache hit is fast (${second.elapsedMs}ms)`);
 
-    // Fingerprint change invalidates cache.
+    // Fingerprint change invalidates cache (paper size is part of binder fingerprint).
     const third = await page.evaluate(async (liveKit) => {
       const PrintApi = window.LLHTeachingKitPrint;
       const JobApi = window.LLHTeachingKitBinderJob;
-      const mutated = JSON.parse(JSON.stringify(liveKit));
-      mutated.title = `${mutated.title} (Updated)`;
-      const built = PrintApi.buildBinderPrintHtml(mutated, { preset: "week_binder", paperSize: "letter", forceDesigned: true });
-      const cached = JobApi.getCachedBinderArtifact(built.contentFingerprint);
+      const letterFp = PrintApi.buildBinderPrintHtml(liveKit, {
+        preset: "week_binder",
+        paperSize: "letter",
+        forceDesigned: true,
+      }).contentFingerprint;
+      const a4Fp = PrintApi.buildBinderPrintHtml(liveKit, {
+        preset: "week_binder",
+        paperSize: "a4",
+        forceDesigned: true,
+      }).contentFingerprint;
       return {
-        fingerprintChanged: built.contentFingerprint !== (window.__llhLastFp || ""),
-        cacheMiss: !cached,
-        newFingerprint: built.contentFingerprint,
+        letterHit: Boolean(JobApi.getCachedBinderArtifact(letterFp)),
+        a4Miss: !JobApi.getCachedBinderArtifact(a4Fp),
+        fingerprintsDiffer: letterFp !== a4Fp,
       };
     }, kit);
-    ok(third.cacheMiss === true, "changed fingerprint does not hit prior cache");
+    ok(third.letterHit === true, "original letter fingerprint still cached");
+    ok(third.fingerprintsDiffer === true, "paper-size change alters binder fingerprint");
+    ok(third.a4Miss === true, "changed fingerprint does not hit prior cache");
 
     // Mobile delivery path: finished blob opens via viewer, not false failure.
     const iPhone = devices["iPhone 13"];
