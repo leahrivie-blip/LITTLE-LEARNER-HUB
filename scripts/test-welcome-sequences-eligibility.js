@@ -345,6 +345,338 @@ await test("paid welcome delivers once; renewals / duplicates skipped", async ()
   assert.equal(sends.length, 1);
 });
 
+function makeWelcomeApi(storeRef, { sends } = { sends: [] }) {
+  return createOnboardingWelcome({
+    readStore: () => storeRef.store,
+    writeStore: (next) => { storeRef.store = next; },
+    writableStore: () => storeRef.store,
+    sendEmail: async (opts) => {
+      sends.push(opts);
+      return { sent: true, configured: true, provider: "test", messageId: `msg-${sends.length}` };
+    },
+    fanOutNotificationsAndPush: async () => ({ created: 1 }),
+    ensureMessagingStore: (s) => {
+      s.messages = Array.isArray(s.messages) ? s.messages : [];
+      s.notifications = Array.isArray(s.notifications) ? s.notifications : [];
+      return s;
+    },
+    messagingRandomId: () => `id-${Math.random().toString(16).slice(2)}`,
+    messagePreviewText: (body) => String(body || "").slice(0, 80),
+    messagingLib: { MESSAGE_KINDS: ["message", "announcement"] },
+    foundingSpotsRemaining: () => 0,
+    ADMIN_EMAIL: "owner@example.com",
+    ADMIN_NAME: "Leah",
+    SUPPORT_EMAIL_TO: "leahrivie@gmail.com",
+    SITE_URL: "https://littlelearnershubbyleah.com",
+    htmlEscape: (v) => String(v ?? ""),
+  });
+}
+
+await test("1) new free signup → free welcome eligible once", async () => {
+  const sends = [];
+  const storeRef = {
+    store: {
+      users: {
+        "newfree@example.com": {
+          email: "newfree@example.com",
+          plan: "Free",
+          subscriptionStatus: "Free Plan",
+          signupAt: afterCutoff,
+        },
+      },
+      messages: [],
+      notifications: [],
+      onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} },
+    },
+  };
+  ensureOnboardingWelcome(storeRef.store);
+  const api = makeWelcomeApi(storeRef, { sends });
+  assert.equal(isEligibleForFreeWelcome(storeRef.store.users["newfree@example.com"]), true);
+  const first = await api.maybeDeliverOnSignup("newfree@example.com");
+  assert.equal(first.ok, true);
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].subject, "Welcome to Little Learner Hub 💛 Here’s where to start");
+  assert.equal(sends[0].replyTo, "leahrivie@gmail.com");
+  assert.ok(storeRef.store.users["newfree@example.com"].onboardingWelcome.freeWelcomeSentAt);
+  const again = await api.maybeDeliverOnSignup("newfree@example.com");
+  assert.equal(again.ok, false);
+  assert.equal(sends.length, 1);
+});
+
+await test("2) existing free upgrades later → paid welcome once", async () => {
+  const sends = [];
+  const storeRef = {
+    store: {
+      users: {
+        "upgrade@example.com": {
+          email: "upgrade@example.com",
+          plan: "Free",
+          subscriptionStatus: "Free Plan",
+          signupAt: beforeCutoff,
+          onboardingWelcome: { freeWelcomeSentAt: beforeCutoff },
+        },
+      },
+      messages: [],
+      notifications: [],
+      onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} },
+    },
+  };
+  ensureOnboardingWelcome(storeRef.store);
+  const api = makeWelcomeApi(storeRef, { sends });
+  // Still free → no paid welcome yet
+  assert.equal(
+    (await api.maybeDeliverOnProPurchase("upgrade@example.com")).ok,
+    false,
+  );
+  // Upgrade later
+  storeRef.store.users["upgrade@example.com"] = {
+    ...storeRef.store.users["upgrade@example.com"],
+    plan: "Pro",
+    subscriptionStatus: "Pro Monthly Subscription Active",
+    stripeSubscriptionStatus: "active",
+    subscriptionStartedAt: afterCutoff,
+  };
+  const paid = await api.maybeDeliverOnProPurchase("upgrade@example.com");
+  assert.equal(paid.ok, true);
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].subject, "You’re officially a Little Learner Hub member 💛");
+  assert.ok(storeRef.store.users["upgrade@example.com"].onboardingWelcome.proWelcomeSentAt);
+  assert.ok(storeRef.store.users["upgrade@example.com"].onboardingWelcome.freeWelcomeSentAt);
+});
+
+await test("3) immediate paid race: free email skipped once paid is authoritative", async () => {
+  // Architecture cannot know at signup that checkout will complete moments later.
+  // Safe race guard: if paid becomes authoritative before provider send, free email is skipped.
+  const sends = [];
+  const storeRef = {
+    store: {
+      users: {
+        "instant@example.com": {
+          email: "instant@example.com",
+          plan: "Free",
+          subscriptionStatus: "Free Plan",
+          signupAt: afterCutoff,
+        },
+      },
+      messages: [],
+      notifications: [],
+      onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} },
+    },
+  };
+  ensureOnboardingWelcome(storeRef.store);
+  let flipped = false;
+  const api = createOnboardingWelcome({
+    readStore: () => storeRef.store,
+    writeStore: (next) => { storeRef.store = next; },
+    writableStore: () => storeRef.store,
+    sendEmail: async (opts) => {
+      sends.push(opts);
+      return { sent: true, configured: true, provider: "test", messageId: `msg-${sends.length}` };
+    },
+    fanOutNotificationsAndPush: async () => {
+      // Simulate checkout completing during in-app delivery (before email send).
+      if (!flipped) {
+        flipped = true;
+        storeRef.store.users["instant@example.com"] = {
+          ...storeRef.store.users["instant@example.com"],
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Active",
+          stripeSubscriptionStatus: "active",
+          subscriptionStartedAt: afterCutoff,
+        };
+      }
+      return { created: 1 };
+    },
+    ensureMessagingStore: (s) => {
+      s.messages = Array.isArray(s.messages) ? s.messages : [];
+      s.notifications = Array.isArray(s.notifications) ? s.notifications : [];
+      return s;
+    },
+    messagingRandomId: () => "id-race",
+    messagePreviewText: (body) => String(body || "").slice(0, 80),
+    messagingLib: { MESSAGE_KINDS: ["message", "announcement"] },
+    foundingSpotsRemaining: () => 0,
+    ADMIN_EMAIL: "owner@example.com",
+    ADMIN_NAME: "Leah",
+    SUPPORT_EMAIL_TO: "leahrivie@gmail.com",
+    SITE_URL: "https://littlelearnershubbyleah.com",
+    htmlEscape: (v) => String(v ?? ""),
+  });
+
+  const freeAttempt = await api.maybeDeliverOnSignup("instant@example.com");
+  assert.equal(freeAttempt.ok, true);
+  assert.equal(freeAttempt.emailDelivery.reason, "skipped_not_free");
+  assert.equal(sends.length, 0, "provider must not send free welcome after paid is authoritative");
+  assert.equal(
+    Boolean(storeRef.store.users["instant@example.com"].onboardingWelcome?.freeWelcomeSentAt),
+    false,
+    "skipped free email must not stamp freeWelcomeSentAt as sent",
+  );
+
+  const paid = await api.maybeDeliverOnProPurchase("instant@example.com");
+  assert.equal(paid.ok, true);
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].subject, "You’re officially a Little Learner Hub member 💛");
+});
+
+await test("4-7) existing paid / renewal / monthly→annual / duplicate → no new welcome", async () => {
+  const sends = [];
+  const storeRef = {
+    store: {
+      users: {
+        "oldpaid@example.com": {
+          email: "oldpaid@example.com",
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Active",
+          stripeSubscriptionStatus: "active",
+          subscriptionStartedAt: beforeCutoff,
+        },
+        "renew@example.com": {
+          email: "renew@example.com",
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Active",
+          stripeSubscriptionStatus: "active",
+          subscriptionStartedAt: afterCutoff,
+          onboardingWelcome: { proWelcomeSentAt: afterCutoff },
+        },
+      },
+      messages: [],
+      notifications: [],
+      onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} },
+    },
+  };
+  ensureOnboardingWelcome(storeRef.store);
+  const api = makeWelcomeApi(storeRef, { sends });
+  assert.equal((await api.maybeDeliverOnProPurchase("oldpaid@example.com")).ok, false);
+  assert.equal((await api.maybeDeliverOnProPurchase("renew@example.com")).ok, false);
+  // Monthly → annual plan label change with existing stamp
+  storeRef.store.users["renew@example.com"].subscriptionStatus = "Pro Annual Subscription Active";
+  storeRef.store.users["renew@example.com"].subscriptionCadence = "annual";
+  assert.equal((await api.maybeDeliverOnProPurchase("renew@example.com")).ok, false);
+  assert.equal(sends.length, 0);
+});
+
+await test("8-9) failed payment / incomplete checkout → no paid welcome", () => {
+  const store = { onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} } };
+  ensureOnboardingWelcome(store);
+  assert.equal(isEligibleForProWelcome({
+    email: "fail@example.com",
+    plan: "Pro",
+    subscriptionStatus: "Payment Failed",
+    stripeSubscriptionStatus: "unpaid",
+    subscriptionStartedAt: afterCutoff,
+  }, store), false);
+  assert.equal(isEligibleForProWelcome({
+    email: "incomplete@example.com",
+    plan: "Free",
+    subscriptionStatus: "Checkout Started",
+    pendingPlan: "monthly",
+    stripeSubscriptionStatus: "incomplete",
+    subscriptionStartedAt: afterCutoff,
+  }, store), false);
+});
+
+await test("10) known hard-bounced email → provider send not attempted", async () => {
+  const sends = [];
+  const storeRef = {
+    store: {
+      users: {
+        "bounce@example.com": {
+          email: "bounce@example.com",
+          plan: "Free",
+          subscriptionStatus: "Free Plan",
+          signupAt: afterCutoff,
+          emailBounced: true,
+          bouncedAt: afterCutoff,
+          emailDeliveryStatus: "bounced",
+        },
+      },
+      messages: [],
+      notifications: [],
+      onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} },
+    },
+  };
+  ensureOnboardingWelcome(storeRef.store);
+  const api = makeWelcomeApi(storeRef, { sends });
+  const result = await api.maybeDeliverOnSignup("bounce@example.com");
+  assert.equal(result.ok, true);
+  assert.equal(result.emailDelivery.reason, "known_bounced");
+  assert.equal(result.emailDelivery.attempted, false);
+  assert.equal(sends.length, 0, "provider must not be called for known hard bounce");
+  assert.ok(storeRef.store.users["bounce@example.com"].onboardingWelcome.freeWelcomeSentAt,
+    "bounce skip is terminal — stamp to prevent endless signup retries");
+  assert.equal(
+    storeRef.store.users["bounce@example.com"].onboardingWelcome.emailSentAt || "",
+    "",
+    "must not mark emailSentAt when provider send was skipped as undeliverable",
+  );
+  const retry = await api.maybeDeliverOnSignup("bounce@example.com");
+  assert.equal(retry.ok, false);
+  assert.equal(sends.length, 0);
+});
+
+await test("11) marketing unsubscribe does not block transactional welcome", async () => {
+  const sends = [];
+  const storeRef = {
+    store: {
+      users: {
+        "unsub@example.com": {
+          email: "unsub@example.com",
+          plan: "Free",
+          subscriptionStatus: "Free Plan",
+          signupAt: afterCutoff,
+          emailPrefs: { unsubscribedAt: afterCutoff, marketing: false },
+        },
+      },
+      messages: [],
+      notifications: [],
+      onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} },
+    },
+  };
+  ensureOnboardingWelcome(storeRef.store);
+  const api = makeWelcomeApi(storeRef, { sends });
+  const result = await api.maybeDeliverOnSignup("unsub@example.com");
+  assert.equal(result.ok, true);
+  assert.equal(sends.length, 1, "transactional onboarding welcome still sends despite marketing opt-out");
+  assert.equal(sends[0].replyTo, "leahrivie@gmail.com");
+});
+
+await test("12-13) existing freeWelcomeSentAt / proWelcomeSentAt → no resend", () => {
+  assert.equal(isEligibleForFreeWelcome({
+    email: "stamped-free@example.com",
+    plan: "Free",
+    subscriptionStatus: "Free Plan",
+    onboardingWelcome: { freeWelcomeSentAt: afterCutoff },
+  }), false);
+  const store = { onboardingWelcome: { autoDeliverEligibleAfter: cutoff, sequences: {} } };
+  ensureOnboardingWelcome(store);
+  assert.equal(isEligibleForProWelcome({
+    email: "stamped-paid@example.com",
+    plan: "Pro",
+    subscriptionStatus: "Pro Monthly Subscription Active",
+    stripeSubscriptionStatus: "active",
+    subscriptionStartedAt: afterCutoff,
+    onboardingWelcome: { proWelcomeSentAt: afterCutoff },
+  }, store), false);
+});
+
+await test("14) Teaching Kits one-time campaign helpers remain separate", () => {
+  const welcomeJs = fs.readFileSync(path.join(__dirname, "..", "server", "onboarding-welcome.js"), "utf8");
+  const engagementJs = fs.readFileSync(path.join(__dirname, "..", "server", "email-engagement.js"), "utf8");
+  assert.doesNotMatch(welcomeJs, /one_time_welcome_update|buildWelcomeUpdateContent|sendOneTimeWelcomeUpdate/);
+  assert.match(engagementJs, /one_time_welcome_update/);
+  assert.match(engagementJs, /buildWelcomeUpdateContent/);
+  assert.match(engagementJs, /isKnownBouncedEmail/);
+});
+
+await test("15) Reply-To remains SUPPORT_EMAIL_TO; no List-Unsubscribe on transactional welcome", () => {
+  const moduleJs = fs.readFileSync(path.join(__dirname, "..", "server", "onboarding-welcome.js"), "utf8");
+  assert.match(moduleJs, /replyTo:\s*SUPPORT_EMAIL_TO/);
+  assert.match(moduleJs, /isKnownBouncedEmail/);
+  assert.doesNotMatch(moduleJs, /listUnsubscribeUrl/);
+  assert.match(moduleJs, /marketing unsubscribe is intentionally NOT checked/i);
+});
+
 if (!process.exitCode) {
   console.log("\nAll welcome sequence eligibility checks passed.");
 }

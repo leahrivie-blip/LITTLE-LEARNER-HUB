@@ -8,6 +8,7 @@
  */
 
 const membershipAccess = require("../scripts/membership-access.js");
+const { isKnownBouncedEmail } = require("./free-user-welcome-email.js");
 
 const SEQUENCE_ID = "free-welcome";
 const TRIAL_SEQUENCE_ID = "trial-welcome";
@@ -433,6 +434,8 @@ function isEligibleForFreeWelcome(user, nowMs = Date.now()) {
   if (welcomeFlags(user).freeWelcomeSentAt) return false;
 
   // Canonical Free access only (membershipCurrentAccessKey) — never UI labels.
+  // If paid membership is already authoritative, free welcome must not send
+  // (covers the race where checkout completes before the async signup welcome runs).
   if (membershipAccess.membershipCurrentAccessKey(user, nowMs) !== "free") return false;
 
   const status = String(user.accountStatus || "Active").trim().toLowerCase();
@@ -787,7 +790,22 @@ function createOnboardingWelcome(deps) {
   async function deliverEmailWelcome(email, user, preview, {
     eventType = "free_welcome",
     idempotencyKey = "",
+    store = null,
   } = {}) {
+    // Hard-bounce / known-undeliverable: never call the provider again.
+    // Marketing unsubscribe is intentionally NOT checked — these are transactional
+    // account/onboarding welcomes, not marketing broadcasts.
+    if (store && typeof isKnownBouncedEmail === "function" && isKnownBouncedEmail(store, email)) {
+      return {
+        sent: false,
+        configured: true,
+        provider: "suppressed",
+        messageId: "",
+        skipped: true,
+        reason: "known_bounced",
+        error: "known_bounced",
+      };
+    }
     let emailResult = { sent: false, configured: false, provider: "not configured", messageId: "" };
     try {
       emailResult = await sendEmail({
@@ -878,28 +896,49 @@ function createOnboardingWelcome(deps) {
     }
 
     if (sequence.email?.enabled !== false || options.forceEmail) {
-      result.emailDelivery.attempted = true;
-      const emailEventType = isFreeWelcome
-        ? "free_welcome"
-        : sequenceId === TRIAL_SEQUENCE_ID
-          ? "trial_welcome"
-          : sequenceId === PRO_SEQUENCE_ID
-            ? "pro_welcome"
-            : sequenceId === TRIAL_CHECKIN_SEQUENCE_ID
-              ? "trial_checkin"
-              : `onboarding_${sequenceId}`;
-      const emailResult = await deliverEmailWelcome(clean, user, previewEmail, {
-        eventType: emailEventType,
-        idempotencyKey: `${emailEventType}:${clean}`,
-      });
-      result.emailDelivery.sent = Boolean(emailResult.sent);
-      result.emailDelivery.configured = Boolean(emailResult.configured);
-      result.emailDelivery.messageId = emailResult.messageId || "";
-      result.emailDelivery.reason = emailResult.sent
-        ? "sent"
-        : (emailResult.configured ? "send_failed" : "unconfigured");
-      result.emailDelivery.provider = emailResult.provider || "";
-      result.emailDelivery.error = emailResult.error || "";
+      // Fresh authoritative re-check immediately before provider send. If checkout
+      // completed during in-app delivery, free welcome must not also email.
+      const liveStore = typeof readStore === "function" ? readStore() : store;
+      const liveUser = liveStore?.users?.[clean] || store.users?.[clean] || user;
+      if (!options.force && isFreeWelcome && !isEligibleForFreeWelcome(liveUser)) {
+        result.emailDelivery.attempted = false;
+        result.emailDelivery.skipped = true;
+        result.emailDelivery.reason = "skipped_not_free";
+      } else {
+        const emailEventType = isFreeWelcome
+          ? "free_welcome"
+          : sequenceId === TRIAL_SEQUENCE_ID
+            ? "trial_welcome"
+            : sequenceId === PRO_SEQUENCE_ID
+              ? "pro_welcome"
+              : sequenceId === TRIAL_CHECKIN_SEQUENCE_ID
+                ? "trial_checkin"
+                : `onboarding_${sequenceId}`;
+        const emailResult = await deliverEmailWelcome(clean, liveUser, previewEmail, {
+          eventType: emailEventType,
+          idempotencyKey: `${emailEventType}:${clean}`,
+          store: liveStore || store,
+        });
+        if (emailResult.skipped && emailResult.reason === "known_bounced") {
+          result.emailDelivery.attempted = false;
+          result.emailDelivery.skipped = true;
+          result.emailDelivery.sent = false;
+          result.emailDelivery.configured = true;
+          result.emailDelivery.reason = "known_bounced";
+          result.emailDelivery.provider = "suppressed";
+          result.emailDelivery.error = "known_bounced";
+        } else {
+          result.emailDelivery.attempted = true;
+          result.emailDelivery.sent = Boolean(emailResult.sent);
+          result.emailDelivery.configured = Boolean(emailResult.configured);
+          result.emailDelivery.messageId = emailResult.messageId || "";
+          result.emailDelivery.reason = emailResult.sent
+            ? "sent"
+            : (emailResult.configured ? "send_failed" : "unconfigured");
+          result.emailDelivery.provider = emailResult.provider || "";
+          result.emailDelivery.error = emailResult.error || "";
+        }
+      }
     } else {
       result.emailDelivery.skipped = true;
       result.emailDelivery.reason = "disabled";
@@ -915,15 +954,27 @@ function createOnboardingWelcome(deps) {
     // Free welcome: if Resend is configured and the send fails, do NOT stamp so a later
     // retry can deliver exactly one email. If email is unconfigured/disabled, stamp after
     // in-app delivery so local/dev does not loop forever.
+    // Known hard-bounce skips are terminal (stamp without emailSentAt) so signup retries
+    // do not loop provider attempts forever.
     if (isFreeWelcome) {
       const emailSendFailed = result.emailDelivery.attempted
         && !result.emailDelivery.sent
         && result.emailDelivery.reason === "send_failed";
+      const knownBounced = result.emailDelivery.reason === "known_bounced";
+      const skippedNotFree = result.emailDelivery.reason === "skipped_not_free";
       if (result.emailDelivery.sent) {
         nextFlags[stampKey] = nowIso;
         nextFlags.emailSentAt = nowIso;
         nextFlags.emailMessageId = result.emailDelivery.messageId || "";
         nextFlags.lastError = "";
+      } else if (knownBounced) {
+        nextFlags[stampKey] = nowIso;
+        nextFlags.lastError = "known_bounced";
+      } else if (skippedNotFree) {
+        // Paid became authoritative before free email — do not stamp free welcome as sent
+        // and do not set emailSentAt. Paid welcome path owns onboarding email.
+        nextFlags.lastAttemptAt = nowIso;
+        nextFlags.lastError = "skipped_not_free";
       } else if (emailSendFailed) {
         nextFlags.lastAttemptAt = nowIso;
         nextFlags.lastError = result.emailDelivery.error || "send_failed";
@@ -941,6 +992,9 @@ function createOnboardingWelcome(deps) {
       nextFlags[stampKey] = nowIso;
       nextFlags.emailSentAt = result.emailDelivery.sent ? nowIso : (flags.emailSentAt || "");
       if (result.emailDelivery.messageId) nextFlags.emailMessageId = result.emailDelivery.messageId;
+      if (result.emailDelivery.reason === "known_bounced") {
+        nextFlags.lastError = "known_bounced";
+      }
     }
 
     // Stamp on the same store object that holds the welcome message, then persist once.
