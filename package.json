@@ -302,6 +302,7 @@
     "test:curriculum-import-gold": "node scripts/test-curriculum-import-gold-standard.js",
     "test:platform-wide-audit": "node scripts/test-platform-wide-audit-regression.js",
     "test:admin-auth-session": "node scripts/test-admin-auth-session.js",
+    "test:admin-deeplink-boot": "NODE_ENV=test node scripts/test-admin-deeplink-boot.js",
     "test:admin-dashboard-drilldown": "node scripts/test-admin-dashboard-drilldown.js",
     "test:owner-command-center": "node scripts/test-owner-command-center.js",
     "test:admin-ai-content-manager": "node scripts/test-admin-ai-content-manager.js",

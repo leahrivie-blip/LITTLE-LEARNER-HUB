@@ -6375,6 +6375,8 @@ let resourceViewerReturnToId = "";
 let viewReturnContexts = Object.create(null);
 let lessonNavHistorySilent = false;
 let pendingAuthReturnView = "";
+/** First location-derived view captured before auth hydration can drop `/#/admin`. */
+let pendingIntendedBootView = "";
 let suppressBootLanding = false;
 let viewNavigationGeneration = 0;
 const APP_BOOT_VERIFY_TIMEOUT_MS = 18000;
@@ -76563,11 +76565,12 @@ function resetPasswordLinkRequestedFromLocation() {
 // Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
 // Admin-only unlock (no provider login) restores Admin immediately to avoid Home flash / "kicked out" feel.
 // Signed-in providers do NOT auto-open Admin — they land on Calendar / last workspace section.
-// Open Admin only via Admin nav, /admin, or ?view=admin.
+// Open Admin only via Admin nav, /admin, #/admin, or ?view=admin.
+const intendedBootView = captureIntendedBootViewFromLocation();
 if (!currentUser) {
   if (resetPasswordLinkRequestedFromLocation()) {
     setView("reset-password", { fromBoot: true, replaceHistory: true });
-  } else if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+  } else if (intendedBootView === "admin" || (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin")) {
     setView("admin", { fromBoot: true, replaceHistory: true });
   } else {
     renderHome();
@@ -76575,21 +76578,24 @@ if (!currentUser) {
 } else {
   // Synchronously open Calendar (or last remembered section) before async sync work.
   // This prevents the old Dashboard from flashing or lingering behind Calendar.
-  const earlyLanding = (() => {
-    const fromLocation = (() => {
-      if (resetPasswordLinkRequestedFromLocation()) return "reset-password";
-      if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
-      return adRouteMap[window.location.pathname] || adRouteMap[window.location.hash] || "";
-    })();
-    if (fromLocation && fromLocation !== "home") return fromLocation;
-    return defaultLoggedInLandingView();
-  })();
+  // Explicit deep links captured above win over the default signed-in landing.
+  const earlyLanding = intendedBootView && intendedBootView !== "home"
+    ? intendedBootView
+    : defaultLoggedInLandingView();
   if (earlyLanding !== "lesson-editor") {
     setView(earlyLanding, { fromBoot: true, replaceHistory: true });
   }
 }
 loadSiteContentFromBackend().catch(() => {});
 loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: false }).catch(() => {});
+
+/** @param {string} raw @returns {string} */
+function locationRouteKey(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const noQuery = text.split("?")[0];
+  return noQuery.replace(/\/+$/, "") || "/";
+}
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -76599,7 +76605,8 @@ function initialViewFromLocation() {
   // notificationclick) and by "Open Little Learner Hub" copy — routes
   // straight to the right conversation/tab instead of the default landing.
   if (params.get("view") === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
-  if (params.get("view") === "admin" && (canSeeAdminNav() || isAdminUnlocked() || hasAdminFullAccess())) return "admin";
+  // Recognize Admin before owner/session hydration. Unlock + server auth still gate content.
+  if (params.get("view") === "admin") return "admin";
   // Parent magic links must land in Family Hub even when the visitor is not a provider account.
   if (params.get("familyHub") && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
     return "family-hub";
@@ -76607,9 +76614,30 @@ function initialViewFromLocation() {
   if (params.get("view") === "family-hub" && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
     return "family-hub";
   }
-  const pathView = adRouteMap[window.location.pathname];
-  const hashView = adRouteMap[window.location.hash];
+  const pathKey = locationRouteKey(window.location.pathname);
+  const hashKey = locationRouteKey(window.location.hash);
+  if (pathKey === "/admin" || hashKey === "#/admin" || hashKey === "#admin") return "admin";
+  const pathView = adRouteMap[pathKey] || adRouteMap[window.location.pathname];
+  const hashView = adRouteMap[hashKey] || adRouteMap[window.location.hash];
   return pathView || hashView || "home";
+}
+
+/**
+ * Preserve the first location-derived view across auth hydration so `/#/admin`
+ * is not overwritten by the default Calendar/home landing.
+ * @returns {string}
+ */
+function captureIntendedBootViewFromLocation() {
+  if (pendingIntendedBootView) return pendingIntendedBootView;
+  pendingIntendedBootView = initialViewFromLocation();
+  if (
+    pendingIntendedBootView === "admin"
+    && !isLoggedIn()
+    && !(typeof hasAdminFullAccess === "function" && hasAdminFullAccess())
+  ) {
+    pendingAuthReturnView = pendingAuthReturnView || "admin";
+  }
+  return pendingIntendedBootView;
 }
 
 async function initializeAppView(options = {}) {
@@ -76618,6 +76646,8 @@ async function initializeAppView(options = {}) {
     suppressBootLanding = false;
   }
   const bootNavGeneration = viewNavigationGeneration;
+  // Capture before await: membership sync / URL cleanup can drop `#/admin`.
+  const intendedView = captureIntendedBootViewFromLocation();
   const needsVerification = requiresVerifiedAppBoot();
   if (needsVerification) {
     appBootState = "pending";
@@ -76643,9 +76673,17 @@ async function initializeAppView(options = {}) {
       }
     }
     if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
+      if (intendedView === "admin") {
+        const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+        const defaultLanding = currentUser ? defaultLoggedInLandingView() : "home";
+        if (activeView !== "admin" && (!activeView || activeView === defaultLanding || activeView === "calendar" || activeView === "home")) {
+          setView("admin", { fromBoot: true, replaceHistory: true });
+          window.setTimeout(() => applyAdminLocationDeepLink(), 0);
+        }
+      }
       return;
     }
-    const initialView = initialViewFromLocation();
+    const initialView = pendingIntendedBootView || intendedView || initialViewFromLocation();
     const lessonEditId = lessonPlanEditRouteIdFromLocation();
     if (!currentAttribution()?.firstSeenAt) {
       saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
