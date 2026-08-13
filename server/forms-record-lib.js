@@ -436,7 +436,7 @@ function buildDocumentDetailDto({
       archived: tracking.archived,
       requiresSignature: isUpload ? false : ensured.requiresSignature !== false,
       shareWithFamily: ensured.shareWithFamily === true || ensured.shareWithFamily === "true",
-      programName: cleanText(programName, 160),
+      programName: resolveStableDocumentProgramName(ensured, programName),
       currentVersionId: String(ensured.currentVersionId || current?.id || ""),
       currentVersionNumber: Number(current?.versionNumber || ensured.contentVersion || 1),
       bodyPreview: isUpload ? "" : String(current?.bodyText || ensured.draftText || "").slice(0, 4000),
@@ -556,7 +556,7 @@ function buildCompletedRecordDto({
     testingOnly: true,
     record: {
       heading: "Little Learner Hub",
-      programName: cleanText(programName, 160),
+      programName: resolveStableDocumentProgramName(ensured, programName),
       title: cleanText(ensured.title || "Form", 160) || "Form",
       category: cleanText(ensured.category || "", 80),
       recipientKind: recipient?.recipientKind || located.assigneeType,
@@ -640,6 +640,25 @@ function programDisplayName(store, programId) {
   return cleanText(p?.name || p?.programName || p?.label || "Program", 160);
 }
 
+/**
+ * Stable program name for document detail / completed-record rendering.
+ * Uses assign-time formsBranding when present; otherwise legacy-safe fallback.
+ * Never prefers mutable live Program Settings over historical stability.
+ * Read-only — does not mutate the stored document.
+ */
+function resolveStableDocumentProgramName(doc, liveProgramName = "") {
+  try {
+    const brandingLib = require("./forms-branding-lib.js");
+    const branding = brandingLib.brandingForDocument(doc || {}, {
+      programName: cleanText(liveProgramName, 160),
+      showProgramName: Boolean(cleanText(liveProgramName, 160)),
+    });
+    return branding.showProgramName ? cleanText(branding.programName || "", 160) : "";
+  } catch (_error) {
+    return "";
+  }
+}
+
 module.exports = {
   locateDocument,
   authorizeDocumentAccess,
@@ -649,6 +668,7 @@ module.exports = {
   buildCompletedRecordDto,
   maybeMarkViewed,
   programDisplayName,
+  resolveStableDocumentProgramName,
   methodLabel,
   actionLabel,
   pickVersion,

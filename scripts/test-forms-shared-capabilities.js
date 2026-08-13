@@ -17,6 +17,7 @@ const sharedBuilder = require("./forms-shared-builder.js");
 const formFieldsLib = require("../server/form-fields-lib.js");
 const formsAssignLib = require("../server/forms-assign-lib.js");
 const formsSignatureLib = require("../server/forms-signature-lib.js");
+const formsRecordLib = require("../server/forms-record-lib.js");
 const programFormsLib = require("../server/program-forms-lib.js");
 const enrollmentBaseline = require("../server/enrollment-form-baseline.js");
 const enrollmentBuilder = require("./enrollment-form-builder.js");
@@ -299,6 +300,184 @@ section("18. Historical assigned/completed/signed documents remain unchanged", (
   }));
   assert.equal(later.programName, "Original Daycare");
   assert.equal(later.fromSnapshot, true);
+});
+
+section("legacy-branding.1 new assigned document snapshots program branding", () => {
+  const snap = brandingLib.snapshotFormsBranding(brandingLib.resolveFormsBranding({
+    programSettings: {
+      programName: "Snapshot Daycare",
+      address: "1 Oak St",
+      contactPhone: "555-0100",
+      contactEmail: "hi@snapshot.test",
+      logoDataUrl: "data:image/png;base64,AAAA",
+    },
+  }));
+  const formSpec = formsAssignLib.snapshotFormSpec({
+    title: "Permission",
+    body: "Please sign",
+    formsBranding: snap,
+  });
+  assert.equal(formSpec.formsBranding.programName, "Snapshot Daycare");
+  assert.equal(formSpec.formsBranding.logoDataUrl, "data:image/png;base64,AAAA");
+});
+
+section("legacy-branding.2 changing Program Settings does not change new assigned document", () => {
+  const row = formsAssignLib.buildChildAssignmentRow(
+    { kind: "child", childId: "c1", householdId: "h1" },
+    formsAssignLib.snapshotFormSpec({
+      title: "Permission",
+      body: "Please sign",
+      formsBranding: brandingLib.snapshotFormsBranding(brandingLib.resolveFormsBranding({
+        programSettings: {
+          programName: "Frozen Name",
+          logoDataUrl: "data:image/png;base64,AAAA",
+          contactPhone: "555-0100",
+        },
+      })),
+    }),
+    { shareWithFamily: true }
+  );
+  const before = JSON.stringify(row.formsBranding);
+  const rendered = brandingLib.brandingForDocument(row, brandingLib.resolveFormsBranding({
+    programSettings: {
+      programName: "Brand New Name",
+      logoDataUrl: "data:image/png;base64,ZZZZ",
+      contactPhone: "999-9999",
+    },
+  }));
+  assert.equal(rendered.programName, "Frozen Name");
+  assert.equal(rendered.logoDataUrl, "data:image/png;base64,AAAA");
+  assert.equal(rendered.phone, "555-0100");
+  assert.equal(JSON.stringify(row.formsBranding), before, "document branding must not mutate on render");
+});
+
+section("legacy-branding.3–4 legacy doc without formsBranding is deterministic and ignores live settings", () => {
+  const legacyDoc = {
+    id: "doc_legacy_1",
+    title: "Old Permission",
+    draftText: "Body",
+    answers: { a1: "unchanged-answer" },
+    signedAt: "2026-01-01T00:00:00.000Z",
+    signedBy: "Parent Legacy",
+    signedSnapshot: "Body\nSigned by Parent Legacy",
+    // no formsBranding / brandingSnapshot / programName
+  };
+  const frozen = JSON.stringify(legacyDoc);
+  const liveA = brandingLib.resolveFormsBranding({
+    programSettings: {
+      programName: "Live Name A",
+      logoDataUrl: "data:image/png;base64,AAAA",
+      address: "A Street",
+      contactPhone: "111",
+      contactEmail: "a@test",
+      website: "https://a.test",
+    },
+  });
+  const liveB = brandingLib.resolveFormsBranding({
+    programSettings: {
+      programName: "Live Name B",
+      logoDataUrl: "data:image/png;base64,BBBB",
+      address: "B Street",
+      contactPhone: "222",
+      contactEmail: "b@test",
+      website: "https://b.test",
+    },
+  });
+  const renderA = brandingLib.brandingForDocument(legacyDoc, liveA);
+  const renderB = brandingLib.brandingForDocument(legacyDoc, liveB);
+  assert.equal(renderA.legacySafeFallback, true);
+  assert.equal(renderA.fromSnapshot, false);
+  assert.equal(renderA.showLogo, false);
+  assert.equal(renderA.logoDataUrl, "");
+  assert.equal(renderA.showContact, false);
+  assert.equal(renderA.programName, "");
+  assert.deepEqual(renderA, renderB, "legacy rendering must be identical across Program Settings changes");
+  assert.equal(JSON.stringify(legacyDoc), frozen, "view/print must not mutate stored legacy Document");
+
+  const dtoA = formsRecordLib.buildCompletedRecordDto({
+    located: { document: legacyDoc, assigneeType: "child" },
+    auth: { level: "director", canPrint: true },
+    programName: "Live Name A",
+  });
+  const dtoB = formsRecordLib.buildCompletedRecordDto({
+    located: { document: legacyDoc, assigneeType: "child" },
+    auth: { level: "director", canPrint: true },
+    programName: "Live Name B",
+  });
+  assert.equal(dtoA.record.programName, "");
+  assert.equal(dtoB.record.programName, "");
+  assert.equal(dtoA.record.programName, dtoB.record.programName);
+  assert.equal(JSON.stringify(legacyDoc), frozen);
+});
+
+section("legacy-branding.5–6 legacy answers and signatures remain unchanged", () => {
+  const legacyDoc = {
+    id: "doc_legacy_sig",
+    title: "Signed Form",
+    draftText: "Content",
+    answers: { childName: "Ava", allergy: "Peanuts" },
+    signedAt: "2026-02-02T12:00:00.000Z",
+    signedBy: "Parent One",
+    signedRole: "guardian",
+    signedSnapshot: "Content\nSignature: Parent One",
+    signatureMethod: "typed",
+  };
+  const answersBefore = JSON.stringify(legacyDoc.answers);
+  const sigBefore = JSON.stringify({
+    signedAt: legacyDoc.signedAt,
+    signedBy: legacyDoc.signedBy,
+    signedSnapshot: legacyDoc.signedSnapshot,
+  });
+  brandingLib.brandingForDocument(legacyDoc, brandingLib.resolveFormsBranding({
+    programSettings: { programName: "Should Not Appear", logoDataUrl: "data:image/png;base64,AAAA" },
+  }));
+  const dto = formsRecordLib.buildCompletedRecordDto({
+    located: { document: formsSignatureLib.ensureDocumentVersions(legacyDoc), assigneeType: "child" },
+    auth: { level: "director", canPrint: true },
+    programName: "Should Not Appear",
+  });
+  assert.equal(JSON.stringify(legacyDoc.answers), answersBefore);
+  assert.equal(JSON.stringify({
+    signedAt: legacyDoc.signedAt,
+    signedBy: legacyDoc.signedBy,
+    signedSnapshot: legacyDoc.signedSnapshot,
+  }), sigBefore);
+  assert.equal(dto.record.signature.signerDisplayName, "Parent One");
+  assert.match(dto.record.bodyText, /Content/);
+});
+
+section("legacy-branding.7–8 live branding still available for unsent templates / preview", () => {
+  const live = brandingLib.resolveFormsBranding({
+    programSettings: {
+      programName: "Current Daycare",
+      logoDataUrl: "data:image/png;base64,AAAA",
+      address: "9 Pine",
+      contactPhone: "555-1212",
+    },
+    formOverride: { inherit: true },
+  });
+  assert.equal(live.programName, "Current Daycare");
+  assert.equal(live.showLogo, true);
+  const previewHtml = sharedBuilder.renderBrandingHeaderHtml(live, { formTitle: "Draft Template" });
+  assert.match(previewHtml, /Current Daycare/);
+  assert.match(previewHtml, /Draft Template/);
+  // Template preview path does not go through brandingForDocument(legacy).
+  assert.equal(typeof brandingLib.resolveFormsBranding, "function");
+});
+
+section("legacy-branding.trusted document programName reused when present", () => {
+  const legacyWithName = {
+    id: "doc_legacy_named",
+    title: "Old Form",
+    draftText: "Body",
+    programName: "Stored Historical Name",
+  };
+  const branding = brandingLib.brandingForDocument(legacyWithName, brandingLib.resolveFormsBranding({
+    programSettings: { programName: "Live Override", logoDataUrl: "data:image/png;base64,AAAA" },
+  }));
+  assert.equal(branding.programName, "Stored Historical Name");
+  assert.equal(branding.showLogo, false);
+  assert.equal(branding.legacySafeFallback, true);
 });
 
 section("19. Enrollment Form from PR #653 still builds", () => {

@@ -168,12 +168,24 @@
   }
 
   /**
-   * Prefer document branding snapshot for historical print/preview.
-   * Falls back to live resolve only when no snapshot exists (legacy docs).
+   * Branding for assigned/completed/signed document rendering.
+   *
+   * Priority: historical stability > showing current Program Settings.
+   * - If the document has a formsBranding / brandingSnapshot → use it (assign-time freeze).
+   * - Else, only reuse identity fields already stored ON the document (never invent).
+   * - Else, deterministic legacy-safe empty branding (no live logo/name/contact).
+   *
+   * `liveResolved` is intentionally ignored for legacy docs so viewing/printing cannot
+   * rewrite historical appearance when Program Settings change. Does not mutate `doc`.
    */
   function brandingForDocument(doc, liveResolved) {
-    const snap = doc && typeof doc === "object" ? (doc.formsBranding || doc.brandingSnapshot) : null;
-    if (snap && typeof snap === "object" && (snap.snapshottedAt || snap.programName || snap.logoDataUrl)) {
+    const document = doc && typeof doc === "object" ? doc : {};
+    const snap = document.formsBranding || document.brandingSnapshot || null;
+    if (
+      snap
+      && typeof snap === "object"
+      && (snap.snapshottedAt || snap.programName || snap.logoDataUrl || snap.address || snap.phone || snap.email)
+    ) {
       return {
         programName: cleanText(snap.programName || "", 160),
         address: cleanText(snap.address || "", 240),
@@ -187,11 +199,32 @@
         headerAlign: normalizeHeaderAlign(snap.headerAlign),
         showLlhFooter: snap.showLlhFooter !== false,
         llhFooterText: cleanText(snap.llhFooterText || "Created with Little Learner Hub", 80),
-        fromSnapshot: true
+        fromSnapshot: true,
+        legacySafeFallback: false
       };
     }
-    const live = liveResolved && typeof liveResolved === "object" ? liveResolved : {};
-    return Object.assign({}, live, { fromSnapshot: false });
+
+    // Trust only explicit identity already persisted on the Document row — do not guess
+    // from body text, signedSnapshot wording, or today's Program Settings.
+    const trustedName = cleanText(document.programName || document.programDisplayName || "", 160);
+    // liveResolved retained for API compatibility; must not affect legacy rendering.
+    void liveResolved;
+    return {
+      programName: trustedName,
+      address: "",
+      phone: "",
+      email: "",
+      website: "",
+      logoDataUrl: "",
+      showLogo: false,
+      showProgramName: Boolean(trustedName),
+      showContact: false,
+      headerAlign: "left",
+      showLlhFooter: true,
+      llhFooterText: "Created with Little Learner Hub",
+      fromSnapshot: false,
+      legacySafeFallback: true
+    };
   }
 
   return {
