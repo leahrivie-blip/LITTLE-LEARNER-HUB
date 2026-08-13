@@ -572,6 +572,10 @@ async function run(argv = process.argv.slice(2), deps = {}) {
         report.prunedFingerprint = applyResult.prunedFingerprint;
         report.postWriteVerified = true;
         report.newUpdatedAt = applyResult.newUpdatedAt;
+        report.liveCacheNote = (
+          "Postgres row updated. Restart the web service after apply so the in-memory "
+          + "storeCache reloads the pruned document and cannot overwrite it on the next write."
+        );
         // Refresh size metrics from the pruned truth.
         const after = analyze(
           (await loadPostgresStoreRow(loaded.client, loaded.storeRecordId)).store,
