@@ -81,7 +81,13 @@
   });
 
   let requestSeq = 0;
-  /** In-session Entire Binder artifacts keyed by content fingerprint (no curriculum mutation). */
+  /**
+   * In-session Entire Binder artifacts keyed by content fingerprint.
+   * Scope (intentional for this PR — not server/DB caching):
+   * - Survives repeated Download in the same browser tab/session while the fingerprint matches.
+   * - Refreshing or closing the browser clears the cache; a later download regenerates HTML pages.
+   * - Paper-size / selection fingerprint changes miss the cache and regenerate.
+   */
   const binderArtifactCache = new Map();
 
   function text(value) {

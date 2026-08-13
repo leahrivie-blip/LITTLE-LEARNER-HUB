@@ -284,6 +284,12 @@
       || el.classList.contains("tk-print-resource-grid")
       || el.classList.contains("tk-print-book-stack")
       || el.classList.contains("tk-print-toolkit-groups")
+      || el.classList.contains("tk-print-toolkit-group")
+      || el.classList.contains("tk-print-toolkit-intro")
+      || el.classList.contains("tk-print-materials-group")
+      || el.classList.contains("tk-print-check")
+      || el.classList.contains("tk-print-list")
+      || el.classList.contains("tk-print-bullets")
       || el.classList.contains("tk-print-notes-grid")
       || el.classList.contains("tk-print-body");
   }
@@ -293,6 +299,10 @@
     const height = Math.max(Number(el.scrollHeight) || 0, Number(el.offsetHeight) || 0);
     if (height > budgetPx) return false;
     if (!el.classList) return false;
+    // Materials groups often exceed one page once filled; never keep the whole
+    // checklist atomic (even with .tk-print-keep) so list rows can fill prior
+    // short intro/banner pages instead of creating a stub sheet.
+    if (el.classList.contains("tk-print-materials-group")) return false;
     return el.classList.contains("tk-print-keep")
       || el.classList.contains("tk-print-keep-row")
       || el.classList.contains("tk-print-panel")
@@ -306,7 +316,6 @@
       || el.classList.contains("tk-print-day-activity")
       || el.classList.contains("tk-print-resource-card")
       || el.classList.contains("tk-print-book-card")
-      || el.classList.contains("tk-print-materials-group")
       || el.classList.contains("tk-print-notes-card")
       || el.classList.contains("tk-print-section-banner")
       || el.classList.contains("tk-print-activity-card");
@@ -414,6 +423,10 @@
         parent.insertBefore(nextPage, currentPage.nextSibling);
         if (orphanIsHead && orphanHead) nextBody.appendChild(orphanHead);
         nextBody.appendChild(overflowUnit);
+        // Drop empty shells if orphan-head pull moved every remaining node forward.
+        if (!currentBody.children.length) {
+          parent.removeChild(currentPage);
+        }
         currentPage = nextPage;
         currentBody = nextBody;
         splitCount += 1;
