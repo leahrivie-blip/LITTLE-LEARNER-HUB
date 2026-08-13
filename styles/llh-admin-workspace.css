@@ -534,3 +534,35 @@ body:has(#view-admin.active-view) .llh-public-nav {
     grid-template-columns: 1fr;
   }
 }
+
+.admin-create-lesson-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow: auto;
+  background: rgba(28, 18, 12, 0.45);
+}
+
+.admin-create-lesson-dialog {
+  width: min(720px, 100%);
+  margin-top: 32px;
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: #fffaf4;
+  box-shadow: 0 16px 40px rgba(28, 18, 12, 0.2);
+}
+
+.admin-create-lesson-dialog textarea {
+  width: 100%;
+  min-height: 220px;
+}
+
+.admin-create-lesson-preview-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}

@@ -6755,6 +6755,15 @@ let adminCurriculumActivityFilters = {
 };
 let adminCurriculumLessonSaving = false;
 let adminCurriculumLessonImportDraft = null;
+let adminCreateLessonPlanUi = {
+  step: "",
+  pasteText: "",
+  preview: null,
+  parsed: null,
+  duplicate: null,
+  error: "",
+  creating: false,
+};
 let adminCurriculumLessonImportTextCache = "";
 let adminCurriculumLessonImportPreview = null;
 let adminCurriculumLessonImportPreviewText = "";
@@ -10146,10 +10155,281 @@ async function openAdminCurriculumLessonUpgrade(planId, options = {}) {
   return openOwnerTeachingKitEditor(planId, { ...options, source: "upgrade" });
 }
 
-function createAdminCurriculumLessonPlan() {
-  const id = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+function curriculumLessonStructurePasteApi() {
+  return globalThis.LLHCurriculumLessonStructurePaste || null;
+}
+
+function resetAdminCreateLessonPlanUi() {
+  adminCreateLessonPlanUi = {
+    step: "",
+    pasteText: "",
+    preview: null,
+    parsed: null,
+    duplicate: null,
+    error: "",
+    creating: false,
+  };
+  document.querySelector("#adminCreateLessonPlanOverlay")?.remove();
+}
+
+function createAdminCurriculumLessonPlan(options) {
+  const opts = options && typeof options === "object" ? options : {};
   adminCurriculumLessonImportDraft = null;
-  openAdminCurriculumLessonEditor(id, { scroll: true });
+  if (opts.startBlank === true) {
+    void startBlankAdminCurriculumLessonPlan();
+    return;
+  }
+  adminCreateLessonPlanUi = {
+    step: "choose",
+    pasteText: "",
+    preview: null,
+    parsed: null,
+    duplicate: null,
+    error: "",
+    creating: false,
+  };
+  renderAdminCreateLessonPlanDialog();
+}
+
+function renderAdminCreateLessonPlanDialog() {
+  const ui = adminCreateLessonPlanUi;
+  let host = document.querySelector("#adminCreateLessonPlanOverlay");
+  if (!ui.step) {
+    host?.remove();
+    return;
+  }
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "adminCreateLessonPlanOverlay";
+    host.className = "admin-create-lesson-overlay";
+    host.addEventListener("click", (event) => {
+      if (event.target === host) resetAdminCreateLessonPlanUi();
+    });
+    document.body.appendChild(host);
+  }
+  const busy = ui.creating ? " disabled" : "";
+  let body = "";
+  if (ui.step === "choose") {
+    body = `
+      <p class="muted-copy">Create a genuinely new draft lesson. Nothing is published until you use the existing Publish workflow.</p>
+      <div class="form-actions">
+        <button type="button" class="primary-button" data-create-lesson-start-blank${busy}>Start Blank</button>
+        <button type="button" class="ghost-button" data-create-lesson-paste${busy}>Paste Full Lesson Plan</button>
+        <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
+      </div>
+    `;
+  } else if (ui.step === "paste") {
+    body = `
+      <p class="muted-copy">Paste lesson title, age band, week fields, and weekday activity names. This builds structure only — activity directions stay blank until you use Paste Activity Update.</p>
+      <label>Paste full lesson plan
+        <textarea id="adminCreateLessonPasteText" rows="18" placeholder="Lesson title:&#10;Baby Moves &amp; Discovers&#10;&#10;Age band:&#10;Infant 0–6 Months&#10;&#10;Monday:&#10;Color Scarf Tracking">${escapeHtml(ui.pasteText || "")}</textarea>
+      </label>
+      ${ui.error ? `<p class="form-message" role="alert">${escapeHtml(ui.error)}</p>` : ""}
+      <div class="form-actions">
+        <button type="button" class="ghost-button" data-create-lesson-choose${busy}>Back</button>
+        <button type="button" class="primary-button" data-create-lesson-preview${busy}>Preview</button>
+        <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
+      </div>
+    `;
+  } else if (ui.step === "preview" || ui.step === "duplicate") {
+    const preview = ui.preview || {};
+    const rec = preview.recognized || {};
+    const byDay = preview.byDay || {};
+    const weekdayHtml = ["monday", "tuesday", "wednesday", "thursday", "friday"].map((day) => {
+      const names = Array.isArray(byDay[day]) ? byDay[day] : [];
+      const label = day.charAt(0).toUpperCase() + day.slice(1);
+      return `
+        <div>
+          <strong>${escapeHtml(label)} — ${names.length}</strong>
+          <ul>${names.map((name) => `<li>${escapeHtml(name)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        </div>
+      `;
+    }).join("");
+    const unrecognized = preview.unrecognized || [];
+    const rejectedMilestones = preview.rejectedMilestones || [];
+    body = `
+      <div class="admin-create-lesson-preview">
+        <p class="eyebrow">NEW LESSON</p>
+        <h4>${escapeHtml(preview.title || "Untitled")}</h4>
+        <p>${escapeHtml(preview.age || "Age not recognized")}</p>
+        <p class="eyebrow">WEEK CONTENT</p>
+        <ul>
+          <li>Weekly overview ${rec.weeklyOverview ? "✓ recognized" : "—"}</li>
+          <li>Learning objectives ${rec.objectives ? `✓ ${rec.objectives}` : "—"}</li>
+          <li>Materials ${rec.weeklyMaterials ? `✓ ${rec.weeklyMaterials}` : "—"}</li>
+          <li>Teacher preparation ${rec.teacherPreparation ? "✓ recognized" : "—"}</li>
+          <li>Family connection ${rec.familyConnection ? "✓ recognized" : "—"}</li>
+          <li>Milestones ${rec.milestones ? `✓ ${rec.milestones}` : "—"}</li>
+        </ul>
+        <p class="eyebrow">ACTIVITIES</p>
+        <div class="admin-create-lesson-preview-days">${weekdayHtml}</div>
+        <p><strong>TOTAL ACTIVITIES: ${Number(preview.activityCount) || 0}</strong></p>
+        ${unrecognized.length ? `
+          <p class="eyebrow">UNRECOGNIZED SECTIONS</p>
+          <ul>${unrecognized.map((item) => `<li>${escapeHtml(item.heading || "")}${item.body ? `: ${escapeHtml(item.body)}` : ""}</li>`).join("")}</ul>
+        ` : ""}
+        ${rejectedMilestones.length ? `
+          <p class="muted-copy">Unsupported milestone values (not mapped): ${escapeHtml(rejectedMilestones.join(", "))}</p>
+        ` : ""}
+      </div>
+      ${ui.step === "duplicate" && ui.duplicate ? `
+        <p class="form-message" role="alert">A lesson named ‘${escapeHtml(ui.duplicate.title || preview.title || "")}’ already exists.</p>
+        <div class="form-actions">
+          <button type="button" class="primary-button" data-create-lesson-open-existing${busy}>Open existing lesson</button>
+          <button type="button" class="ghost-button" data-create-lesson-as-copy${busy}>Create as new copy</button>
+          <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
+        </div>
+      ` : `
+        ${ui.error ? `<p class="form-message" role="alert">${escapeHtml(ui.error)}</p>` : ""}
+        <div class="form-actions">
+          <button type="button" class="primary-button" data-create-lesson-confirm${busy}>Create Draft Lesson</button>
+          <button type="button" class="ghost-button" data-create-lesson-paste${busy}>Back</button>
+          <button type="button" class="ghost-button" data-create-lesson-cancel${busy}>Cancel</button>
+        </div>
+      `}
+    `;
+  }
+  host.innerHTML = `
+    <div class="admin-create-lesson-dialog" role="dialog" aria-modal="true" aria-labelledby="adminCreateLessonPlanTitle">
+      <p class="eyebrow">Owner Admin</p>
+      <h3 id="adminCreateLessonPlanTitle">Create New Lesson Plan</h3>
+      ${body}
+    </div>
+  `;
+}
+
+async function persistNewCurriculumLessonDraft(lessonPlan) {
+  const token = adminSession()?.token || "";
+  if (!curriculumLessonPlanConfig.endpoint || !canUseLaunchBackend() || !token) {
+    throw new Error("Backend server and admin login are required.");
+  }
+  if (!curriculumExpectedUpdatedAt()) {
+    try { await loadAdminSiteContent(); } catch (_error) { /* stamp may still be empty on a fresh store */ }
+  }
+  const payload = {
+    expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+    lessonPlan: {
+      ...lessonPlan,
+      status: "draft",
+      resourceIds: [],
+    },
+  };
+  // Always mint a server ID so this path cannot overwrite an existing lesson.
+  delete payload.lessonPlan.id;
+  delete payload.lessonPlan.enrichmentPublished;
+  delete payload.lessonPlan.enrichmentPublishHistory;
+  delete payload.lessonPlan.enrichmentDraftUndo;
+  delete payload.lessonPlan.teachingKit;
+  const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 409) {
+    await handleCurriculumSaveConflict(data || {});
+    throw new Error(data?.error || "Content was updated elsewhere. Click Create again.");
+  }
+  if (!response.ok || !data?.lessonPlan?.id) {
+    throw new Error(data?.error || "Could not create the draft lesson.");
+  }
+  applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+    siteContentUpdatedAt: data.siteContentUpdatedAt,
+  });
+  return data.lessonPlan;
+}
+
+async function startBlankAdminCurriculumLessonPlan() {
+  const api = curriculumLessonStructurePasteApi();
+  if (!api) throw new Error("Lesson structure helper did not load.");
+  adminCreateLessonPlanUi.creating = true;
+  renderAdminCreateLessonPlanDialog();
+  try {
+    const existing = typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : [];
+    let title = "New Lesson Plan";
+    if (api.findDuplicateLessonTitle(title, existing)) {
+      title = `New Lesson Plan ${Date.now().toString(16).slice(-4)}`;
+    }
+    const lessonPlan = api.buildBlankLessonPlan({ title, age: "Preschool" });
+    const saved = await persistNewCurriculumLessonDraft(lessonPlan);
+    resetAdminCreateLessonPlanUi();
+    adminCurriculumLessonEditorId = saved.id;
+    setAdminCurriculumLessonSaveBanner(`Draft “${saved.title}” created. Not visible to customers until you Publish.`, true);
+    await openOwnerTeachingKitEditor(saved.id, { source: "edit", initialMode: "activities" });
+  } catch (error) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.error = error.message || "Could not create a blank draft.";
+    renderAdminCreateLessonPlanDialog();
+  }
+}
+
+function previewAdminCreateLessonPaste() {
+  const api = curriculumLessonStructurePasteApi();
+  if (!api) {
+    adminCreateLessonPlanUi.error = "Lesson structure helper did not load.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  const textarea = document.querySelector("#adminCreateLessonPasteText");
+  const pasteText = textarea ? textarea.value : adminCreateLessonPlanUi.pasteText;
+  adminCreateLessonPlanUi.pasteText = pasteText;
+  const parsed = api.parseFullLessonStructurePaste(pasteText, {
+    generateItemId: typeof generateCurriculumItemIdClient === "function"
+      ? generateCurriculumItemIdClient
+      : api.generateItemId,
+  });
+  adminCreateLessonPlanUi.parsed = parsed;
+  adminCreateLessonPlanUi.preview = api.buildStructurePreview(parsed);
+  adminCreateLessonPlanUi.error = parsed.errors.join(" ");
+  if (!parsed.ok) {
+    adminCreateLessonPlanUi.step = "paste";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  const existing = typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : [];
+  const duplicate = api.findDuplicateLessonTitle(parsed.lesson.title, existing);
+  adminCreateLessonPlanUi.duplicate = duplicate;
+  adminCreateLessonPlanUi.step = duplicate ? "duplicate" : "preview";
+  renderAdminCreateLessonPlanDialog();
+}
+
+async function confirmAdminCreateLessonPaste({ asCopy = false } = {}) {
+  const api = curriculumLessonStructurePasteApi();
+  const parsed = adminCreateLessonPlanUi.parsed;
+  if (!api || !parsed?.ok) {
+    adminCreateLessonPlanUi.error = "Preview the paste before creating a draft.";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (asCopy && parsed.lesson?.title) {
+    parsed.lesson = { ...parsed.lesson, title: `${parsed.lesson.title} (Import copy)` };
+    adminCreateLessonPlanUi.preview = api.buildStructurePreview(parsed);
+  } else if (!asCopy) {
+    const existing = typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : [];
+    const duplicate = api.findDuplicateLessonTitle(parsed.lesson.title, existing);
+    if (duplicate) {
+      adminCreateLessonPlanUi.duplicate = duplicate;
+      adminCreateLessonPlanUi.step = "duplicate";
+      renderAdminCreateLessonPlanDialog();
+      return;
+    }
+  }
+  adminCreateLessonPlanUi.creating = true;
+  renderAdminCreateLessonPlanDialog();
+  try {
+    const lessonPlan = api.buildCanonicalLessonPlan(parsed, {
+      lastEditedBy: adminSession()?.email || "",
+    });
+    const saved = await persistNewCurriculumLessonDraft(lessonPlan);
+    resetAdminCreateLessonPlanUi();
+    adminCurriculumLessonEditorId = saved.id;
+    setAdminCurriculumLessonSaveBanner(`Draft “${saved.title}” created. Not visible to customers until you Publish.`, true);
+    await openOwnerTeachingKitEditor(saved.id, { source: "edit", initialMode: "activities" });
+  } catch (error) {
+    adminCreateLessonPlanUi.creating = false;
+    adminCreateLessonPlanUi.error = error.message || "Could not create the draft lesson.";
+    renderAdminCreateLessonPlanDialog();
+  }
 }
 
 function curriculumImportApi() {
@@ -12656,7 +12936,7 @@ function renderAdminCurriculumLessonPlanManager() {
       <div class="account-actions-row">
         <button class="ghost-button" type="button" data-admin-section-tab="curriculum-library-health">Library Health</button>
         <button class="ghost-button" type="button" data-admin-section-tab="curriculum-ai-director">AI Curriculum Director</button>
-        <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
+        <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">Create New Lesson Plan</button>
       </div>
     </div>
     ${mismatchBanner}
@@ -50236,7 +50516,6 @@ function applyAdminAiDraftToEditor() {
   }
   const type = adminAiContentState.contentType || "lesson";
   if (type === "lesson" || type === "theme") {
-    createAdminCurriculumLessonPlan();
     requestAnimationFrame(() => {
       const form = document.querySelector("#adminCurriculumLessonPlanForm");
       const importText = document.querySelector("#adminCurriculumLessonImportText");
@@ -73420,6 +73699,52 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminCreateCurriculumLessonPlanButton")) {
     createAdminCurriculumLessonPlan();
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-cancel]")) {
+    resetAdminCreateLessonPlanUi();
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-choose]")) {
+    adminCreateLessonPlanUi.step = "choose";
+    adminCreateLessonPlanUi.error = "";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-paste]")) {
+    const textarea = document.querySelector("#adminCreateLessonPasteText");
+    if (textarea) adminCreateLessonPlanUi.pasteText = textarea.value;
+    adminCreateLessonPlanUi.step = "paste";
+    adminCreateLessonPlanUi.error = "";
+    renderAdminCreateLessonPlanDialog();
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-preview]")) {
+    previewAdminCreateLessonPaste();
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-start-blank]")) {
+    const button = event.target.closest("[data-create-lesson-start-blank]");
+    if (button) button.disabled = true;
+    startBlankAdminCurriculumLessonPlan().catch((error) => {
+      adminCreateLessonPlanUi.creating = false;
+      adminCreateLessonPlanUi.error = error.message || "Could not create a blank draft.";
+      renderAdminCreateLessonPlanDialog();
+    });
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-confirm]")) {
+    confirmAdminCreateLessonPaste();
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-as-copy]")) {
+    confirmAdminCreateLessonPaste({ asCopy: true });
+    return;
+  }
+  if (event.target.closest("[data-create-lesson-open-existing]")) {
+    const existingId = adminCreateLessonPlanUi.duplicate?.id || "";
+    resetAdminCreateLessonPlanUi();
+    if (existingId) openAdminCurriculumLessonEditor(existingId, { scroll: true });
     return;
   }
   if (event.target.closest("#adminCreateCurriculumResourceButton")) {

@@ -109,7 +109,6 @@ async function openAdminImporter(page) {
   }
   await page.evaluate(() => {
     if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
-    if (typeof createAdminCurriculumLessonPlan === "function") createAdminCurriculumLessonPlan();
   });
   await page.waitForSelector("#adminCurriculumLessonImportText", { timeout: 15000 });
 }
