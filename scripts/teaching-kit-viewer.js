@@ -75,6 +75,105 @@
     return Boolean(text(value));
   }
 
+  function binderJobApi() {
+    return (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitBinderJob)
+      || (typeof require === "function" ? (() => { try { return require("./teaching-kit-binder-job.js"); } catch (_e) { return null; } })()
+      : null);
+  }
+
+  function binderStageList(state) {
+    const busy = state.downloadBusy === true;
+    const failed = state.downloadStatus === "error";
+    const started = state.downloadStatus === "started" || state.downloadStatus === "printed";
+    const current = text(state.binderStage);
+    const intent = text(state.lastBinderIntent) === "print" ? "print" : "download";
+    const ids = ["received", "collecting", "building", intent === "print" ? "print" : "download"];
+    return ids.map((id) => {
+      const index = ids.indexOf(id);
+      const currentIndex = ids.indexOf(current);
+      const done = started || (busy && currentIndex > index) || (failed && index < currentIndex);
+      const active = (busy && current === id) || (failed && current === id);
+      return { id, done, active, label: binderJobApi()?.stageById(id)?.label || id };
+    });
+  }
+
+  function binderStatusPanelHtml(kit, state) {
+    const job = binderJobApi();
+    const busy = state.downloadBusy === true;
+    const failed = state.downloadStatus === "error";
+    const started = state.downloadStatus === "started" || state.downloadStatus === "printed";
+    const kitTitle = text(kit?.title) || "Teaching Kit";
+    const intent = text(state.lastBinderIntent) === "print" ? "print" : "download";
+    const heading = busy
+      ? (intent === "print" ? `Preparing ${kitTitle} print view` : `Preparing ${kitTitle} Binder`)
+      : (failed
+        ? "Download failed — retry"
+        : (started
+          ? (intent === "print" ? "Print view is ready." : "Binder ready — your download has started.")
+          : ""));
+    const message = text(state.downloadStatusMessage)
+      || (busy ? "Preparing your binder…" : "")
+      || (failed ? (job?.ERRORS?.REQUEST_TIMEOUT || "We couldn't finish this binder download.") : "")
+      || (started ? (intent === "print" ? "Print view is ready." : "Your binder is ready. Download started.") : "");
+    const stages = (busy || failed || started) ? binderStageList(state) : [];
+    const stageHtml = stages.length
+      ? `<ol class="tk-binder-status-stages" data-tk-binder-stages>${stages.map((item) => (
+        `<li data-tk-binder-stage="${escapeHtml(item.id)}" class="${item.done ? "is-done" : ""}${item.active ? " is-current" : ""}">${escapeHtml(item.label)}</li>`
+      )).join("")}</ol>`
+      : "";
+    const retryHtml = failed
+      ? `<div class="tk-binder-status-actions">
+          <button type="button" class="tk-btn tk-btn-primary" data-tk-retry-binder>Try Again</button>
+          <button type="button" class="tk-btn tk-btn-ghost" data-tk-smaller-section>Download a Smaller Section</button>
+        </div>`
+      : "";
+    const againHtml = started && intent === "download" && state.lastDownloadObjectUrl
+      ? `<div class="tk-binder-status-actions">
+          <button type="button" class="tk-btn tk-btn-ghost" data-tk-download-again>Download again</button>
+        </div>`
+      : "";
+    if (!busy && !failed && !started) {
+      return `<p class="tk-note" data-tk-download-status role="status" hidden></p>
+        <div class="tk-binder-status-panel" data-tk-binder-status-panel hidden></div>`;
+    }
+    return `
+      <div class="tk-binder-status-panel" data-tk-binder-status-panel data-tk-binder-status="${escapeHtml(state.downloadStatus || "idle")}" role="status" aria-live="polite">
+        <p class="tk-binder-status-heading" data-tk-ready-status-heading><strong>${escapeHtml(heading)}</strong></p>
+        <p class="tk-note" data-tk-download-status>${escapeHtml(message)}</p>
+        ${state.binderRequestId ? `<p class="tk-muted tk-binder-request-id">Request ${escapeHtml(state.binderRequestId)}</p>` : ""}
+        ${stageHtml}
+        ${retryHtml}${againHtml}
+      </div>
+    `;
+  }
+
+  function paintBinderStatus(root, kit, state) {
+    if (!root) return;
+    const card = root.querySelector("[data-tk-ready-print-card]");
+    if (!card) return;
+    const existing = card.querySelector("[data-tk-binder-status-panel]");
+    const wrap = card.ownerDocument.createElement("div");
+    wrap.innerHTML = binderStatusPanelHtml(kit, state);
+    const next = wrap.querySelector("[data-tk-binder-status-panel]");
+    if (existing && next) existing.replaceWith(next);
+    else if (next && !existing) {
+      const summary = card.querySelector("[data-tk-print-summary]");
+      if (summary) summary.after(next);
+    }
+    const title = card.querySelector("[data-tk-ready-title]");
+    if (title) {
+      if (state.downloadBusy) title.textContent = "Preparing your binder…";
+      else if (state.downloadStatus === "error") title.textContent = "Download failed — retry";
+      else if (state.downloadStatus === "started") title.textContent = "Binder ready — your download has started.";
+      else if (state.downloadStatus === "printed") title.textContent = "Print view is ready.";
+    }
+    const statusEl = card.querySelector("[data-tk-download-status]");
+    if (statusEl && state.downloadStatusMessage) {
+      statusEl.hidden = false;
+      statusEl.textContent = state.downloadStatusMessage;
+    }
+  }
+
   function detailBlockHtml(title, bodyHtml, { open = false, className = "" } = {}) {
     if (!text(bodyHtml)) return "";
     return `
@@ -886,31 +985,29 @@
                 const selectionSummary = summarizeCurrentPrintSelection(kit, state);
                 const busy = state.downloadBusy === true;
                 const failed = state.downloadStatus === "error";
+                const started = state.downloadStatus === "started" || state.downloadStatus === "printed";
                 const actionEnabled = printEnabled && selectionSummary.canPrint && !busy;
                 const names = (selectionSummary.itemLabels || []).slice(0, 8).join(" · ");
                 const readyTitle = !printEnabled
                   ? "Print Center unavailable"
                   : (busy
-                    ? "Preparing your PDF…"
+                    ? "Preparing your binder…"
                     : (failed
                       ? "Download failed — retry"
-                      : (selectionSummary.canPrint ? "Ready to print" : "Selection incomplete")));
-                const statusMessage = busy
-                  ? (state.downloadStatusMessage || "Preparing your PDF…")
-                  : (failed
-                    ? (state.downloadStatusMessage || "PDF generation failed. Please try again.")
-                    : (state.downloadStatus === "started"
-                      ? (state.downloadStatusMessage || "Download started")
-                      : ""));
+                      : (started
+                        ? (state.downloadStatus === "printed"
+                          ? "Print view is ready."
+                          : "Binder ready — your download has started.")
+                        : (selectionSummary.canPrint ? "Ready to print" : "Selection incomplete"))));
                 return `
               <h4 data-tk-ready-title>${escapeHtml(readyTitle)}</h4>
               <p class="tk-muted" data-tk-print-summary><strong>${escapeHtml(selectionSummary.summary)}</strong>${names ? ` — ${escapeHtml(names)}${(selectionSummary.itemLabels || []).length > 8 ? "…" : ""}` : ""}</p>
               <p class="tk-muted">${escapeHtml(String(includedCount))} kit activities · ${escapeHtml(presentLabel(state.printPreset || "week_binder", "Entire Binder Kit"))} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}${selectionSummary.itemCount ? ` · ${escapeHtml(String(selectionSummary.itemCount))} section${selectionSummary.itemCount === 1 ? "" : "s"}` : ""}</p>
               ${!selectionSummary.canPrint && printEnabled ? `<p class="tk-note" role="status">${escapeHtml(selectionSummary.emptyReason || "Select something to print.")}</p>` : ""}
-              ${statusMessage ? `<p class="tk-note" data-tk-download-status role="status">${escapeHtml(statusMessage)}</p>` : `<p class="tk-note" data-tk-download-status role="status" hidden></p>`}
+              ${binderStatusPanelHtml(kit, state)}
               <div class="tk-build-cta-stack">
                 <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${actionEnabled ? "Print selection" : (printEnabled ? (busy ? "Working…" : "Print (select items)") : "Print binder (unavailable)")}</button>
-                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${busy ? "Preparing your PDF…" : (actionEnabled ? "Download PDF" : (printEnabled ? "Download (select items)" : "Download PDF (unavailable)"))}</button>
+                <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">${busy ? "Preparing your binder…" : (actionEnabled ? "Download PDF" : (printEnabled ? "Download (select items)" : "Download PDF (unavailable)"))}</button>
                 <button type="button" class="tk-btn tk-btn-ghost" data-tk-preview-print ${actionEnabled ? "" : "disabled"} aria-disabled="${actionEnabled ? "false" : "true"}">Preview selection</button>
                 <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="binder">Open Digital Binder</button>
               </div>
@@ -1264,8 +1361,8 @@
         <div class="tk-stack tk-binder-actions">
           <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print</button>
           ${state.printCenterEnabled
-            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print binder</button>
-               <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder>Download PDF</button>`
+            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${state.downloadBusy ? "disabled" : ""} aria-disabled="${state.downloadBusy ? "true" : "false"}">${state.downloadBusy ? "Working…" : "Print binder"}</button>
+               <button type="button" class="tk-btn tk-btn-secondary" data-tk-download-binder ${state.downloadBusy ? "disabled" : ""} aria-disabled="${state.downloadBusy ? "true" : "false"}">${state.downloadBusy ? "Preparing your binder…" : "Download PDF"}</button>`
             : ""}
           <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Back to Today</button>
         </div>
@@ -1399,6 +1496,12 @@
       downloadBusy: false,
       downloadStatus: "idle",
       downloadStatusMessage: "",
+      binderRequestId: "",
+      binderStage: "",
+      lastBinderIntent: "",
+      lastDownloadObjectUrl: "",
+      lastDownloadFileName: "",
+      lastDownloadBlob: null,
       selectedResources: {
         overview: false,
         vocabulary: false,
@@ -1571,6 +1674,52 @@
       // (Clicking the label text does not target the input, which previously left the
       // radio visually checked while state.printPreset stayed on Songs / Selected Resources.)
 
+      const retryBinder = event.target.closest("[data-tk-retry-binder]");
+      if (retryBinder) {
+        event.preventDefault();
+        if (state.downloadBusy) return;
+        const retryIntent = state.lastBinderIntent === "print" ? "print" : "download";
+        const target = root.querySelector(retryIntent === "print" ? "[data-tk-print-binder]" : "[data-tk-download-binder]");
+        if (target && !target.disabled) target.click();
+        else {
+          state.downloadStatus = "idle";
+          state.downloadStatusMessage = "";
+          rerender({ preserveScroll: true });
+          const again = root.querySelector(retryIntent === "print" ? "[data-tk-print-binder]" : "[data-tk-download-binder]");
+          again?.click();
+        }
+        return;
+      }
+
+      const downloadAgain = event.target.closest("[data-tk-download-again]");
+      if (downloadAgain) {
+        event.preventDefault();
+        const job = binderJobApi();
+        if (state.lastDownloadBlob && job?.triggerBlobDownload) {
+          job.triggerBlobDownload(state.lastDownloadBlob, state.lastDownloadFileName || "Teaching-Kit-Binder.pdf");
+          state.downloadStatus = "started";
+          state.downloadStatusMessage = "Your binder is ready. Download started.";
+          paintBinderStatus(root, kit, state);
+        }
+        return;
+      }
+
+      const smallerSection = event.target.closest("[data-tk-smaller-section]");
+      if (smallerSection) {
+        event.preventDefault();
+        state.downloadBusy = false;
+        state.downloadStatus = "idle";
+        state.downloadStatusMessage = "";
+        state.binderStage = "";
+        state.surface = "build";
+        state.printPreset = "today_pack";
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        if (printApi?.defaultPartsForPreset) state.printParts = printApi.defaultPartsForPreset("today_pack");
+        rerender({ preserveScroll: true });
+        root.querySelector("[data-tk-print-preset='today_pack']")?.focus();
+        return;
+      }
+
       const printBtn = event.target.closest("[data-tk-print-binder], [data-tk-download-binder], [data-tk-preview-print]");
       if (printBtn) {
         event.preventDefault();
@@ -1587,40 +1736,88 @@
         const intent = printBtn.hasAttribute("data-tk-download-binder")
           ? "download"
           : (printBtn.hasAttribute("data-tk-preview-print") ? "preview" : "print");
-        if (typeof ctx.onPrint !== "function") return;
+        if (typeof ctx.onPrint !== "function") {
+          state.downloadStatus = "error";
+          state.downloadStatusMessage = "Print Center is not connected. Refresh and try again.";
+          rerender({ preserveScroll: true });
+          return;
+        }
+        const job = binderJobApi();
         const payload = {
           ...buildCurrentPrintOptions(kit, state),
           adminPreview: isOwnerPreviewKit(kit, chrome),
           intent,
         };
-        if (intent === "download") {
-          state.downloadBusy = true;
-          state.downloadStatus = "preparing";
-          state.downloadStatusMessage = "Preparing your PDF…";
-          rerender({ preserveScroll: true });
+        if (intent === "preview") {
+          Promise.resolve(ctx.onPrint(payload)).catch(() => {});
+          return;
         }
-        Promise.resolve(ctx.onPrint(payload)).then((result) => {
-          if (intent !== "download") return;
+        const requestId = job?.createBinderRequestId ? job.createBinderRequestId() : `tk-binder-${Date.now()}`;
+        const timeoutMs = job?.timeoutForScope ? job.timeoutForScope(payload) : 180000;
+        state.surface = "build";
+        state.downloadBusy = true;
+        state.downloadStatus = "preparing";
+        state.binderRequestId = requestId;
+        state.binderStage = "received";
+        state.lastBinderIntent = intent;
+        state.downloadStatusMessage = intent === "print" ? "Preparing print view…" : "Preparing your binder…";
+        payload.binderRequestId = requestId;
+        payload.shouldAbort = () => !job?.isActiveRequest || !job.isActiveRequest(state, requestId);
+        payload.onProgress = (progress) => {
+          if (job && !job.isActiveRequest(state, requestId)) return;
+          if (progress?.stage) state.binderStage = progress.stage;
+          if (progress?.message) state.downloadStatusMessage = progress.message;
+          paintBinderStatus(root, kit, state);
+        };
+        if (intent === "print" && job?.openPrintTarget) {
+          const opened = job.openPrintTarget(root.ownerDocument || (typeof document !== "undefined" ? document : null));
+          if (opened?.frame) payload.printTarget = opened.frame;
+        }
+        printBtn.disabled = true;
+        printBtn.setAttribute("aria-disabled", "true");
+        const other = root.querySelector(intent === "print" ? "[data-tk-download-binder]" : "[data-tk-print-binder]");
+        if (other) {
+          other.disabled = true;
+          other.setAttribute("aria-disabled", "true");
+        }
+        rerender({ preserveScroll: true });
+        const run = Promise.resolve(ctx.onPrint(payload));
+        const guarded = job?.withTimeout ? job.withTimeout(run, timeoutMs, "REQUEST_TIMEOUT") : run;
+        Promise.resolve(guarded).then((result) => {
+          if (job && !job.isActiveRequest(state, requestId)) return;
           if (result && result.ok) {
-            state.downloadStatus = "started";
+            state.downloadStatus = intent === "print" ? "printed" : "started";
+            state.binderStage = intent === "print" ? "print" : "download";
             state.downloadStatusMessage = result.fileName
-              ? `Download started (${result.fileName})`
-              : "Download started";
+              ? (intent === "print"
+                ? "Print view is ready."
+                : `Your binder is ready. Download started. (${result.fileName})`)
+              : (intent === "print"
+                ? "Print view is ready."
+                : "Your binder is ready. Download started.");
+            if (result.blob) state.lastDownloadBlob = result.blob;
+            if (result.objectUrl) state.lastDownloadObjectUrl = result.objectUrl;
+            if (result.fileName) state.lastDownloadFileName = result.fileName;
           } else {
+            const code = result?.code || result?.reason || "UNEXPECTED_ERROR";
             state.downloadStatus = "error";
+            state.binderStage = "error";
             state.downloadStatusMessage = result?.message
-              || result?.reason
-              || "PDF generation failed. Please try again.";
+              || job?.ownerMessage?.(code)
+              || "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.";
           }
         }).catch((error) => {
-          if (intent !== "download") return;
+          if (job && !job.isActiveRequest(state, requestId)) return;
+          const code = error?.code || error?.reason || "UNEXPECTED_ERROR";
           state.downloadStatus = "error";
-          state.downloadStatusMessage = error?.message || "PDF generation failed. Please try again.";
+          state.binderStage = "error";
+          state.downloadStatusMessage = error?.message
+            || job?.ownerMessage?.(code)
+            || "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.";
         }).finally(() => {
-          if (intent === "download") {
-            state.downloadBusy = false;
-            rerender({ preserveScroll: true });
-          }
+          if (job && !job.isActiveRequest(state, requestId)) return;
+          state.downloadBusy = false;
+          rerender({ preserveScroll: true });
         });
         return;
       }
@@ -2034,6 +2231,8 @@
     buildCurrentPrintOptions,
     summarizeCurrentPrintSelection,
     collectSelectedResourcePayload,
+    binderStatusPanelHtml,
+    paintBinderStatus,
     workspaceHtml,
     surfaceHtml,
     binderSurfaceHtml,

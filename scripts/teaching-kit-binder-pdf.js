@@ -251,6 +251,38 @@
     };
   }
 
+  function notifyBinderProgress(options, payload) {
+    if (typeof options?.onProgress === "function") {
+      try { options.onProgress(payload); } catch (_err) { /* ignore */ }
+    }
+  }
+
+  function shouldIgnoreCaptureElement(el, pageEl) {
+    if (!el || el === pageEl) return false;
+    if (el.classList && el.classList.contains("tk-print-page") && el !== pageEl) return true;
+    if (el.classList && el.classList.contains("teaching-kit-workspace")) return true;
+    if (el.classList && el.classList.contains("lesson-workspace-action-bars")) return true;
+    if (el.id === "resourceViewerModal") return true;
+    if (el.tagName === "SCRIPT" || el.tagName === "IFRAME") return true;
+    return false;
+  }
+
+  function withPageCaptureTimeout(promise, timeoutMs) {
+    const ms = Math.max(3000, Number(timeoutMs) || 20000);
+    let timer = null;
+    return new Promise((resolve, reject) => {
+      timer = setTimeout(() => {
+        const error = new Error("html2canvas_timeout");
+        error.reason = "html2canvas_timeout";
+        reject(error);
+      }, ms);
+      Promise.resolve(promise).then(
+        (value) => { if (timer) clearTimeout(timer); resolve(value); },
+        (error) => { if (timer) clearTimeout(timer); reject(error); },
+      );
+    });
+  }
+
   async function renderBinderPdfInBrowser(hostOrHtml, options = {}) {
     const PDFLib = pdfLibApi();
     const html2canvas = (typeof globalThis !== "undefined" && globalThis.html2canvas) || null;
@@ -292,7 +324,30 @@
       const paper = letterSize(options.paperSize);
       const pdfDoc = await PDFLib.PDFDocument.create();
       let pageErrors = 0;
-      for (const pageEl of pages) {
+      const captureStarted = Date.now();
+      const pageTimeoutMs = Number(options.pageTimeoutMs) || 20000;
+      notifyBinderProgress(options, {
+        stage: "building",
+        message: `Building PDF… page 1 of ${pages.length}`,
+        pageIndex: 0,
+        pageCount: pages.length,
+      });
+      for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+        const pageEl = pages[pageIndex];
+        if (typeof options.shouldAbort === "function" && options.shouldAbort()) {
+          return {
+            ok: false,
+            reason: "request_timeout",
+            bytes: null,
+            message: "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.",
+          };
+        }
+        notifyBinderProgress(options, {
+          stage: "building",
+          message: `Building PDF… page ${pageIndex + 1} of ${pages.length}`,
+          pageIndex,
+          pageCount: pages.length,
+        });
         const targetW = paper.cssWidthPx || 816;
         const targetH = paper.cssHeightPx || 1056;
         const prevMinHeight = pageEl.style.minHeight;
@@ -327,22 +382,31 @@
         );
         let canvas = null;
         try {
-          canvas = await html2canvas(pageEl, {
+          canvas = await withPageCaptureTimeout(html2canvas(pageEl, {
             backgroundColor: "#ffffff",
             scale: options.scale || 2,
             useCORS: true,
             logging: false,
             windowWidth: width,
             windowHeight: height,
+            ignoreElements: (el) => shouldIgnoreCaptureElement(el, pageEl),
             onclone: prepareClonedBinderDocument,
-          });
+          }), pageTimeoutMs);
         } catch (err) {
           pageErrors += 1;
           console.warn("[llh-tk-pdf] html2canvas page failed", err?.message || err);
           pageEl.style.minHeight = prevMinHeight;
           pageEl.style.width = prevWidth;
           pageEl.style.boxSizing = prevBox;
-          continue;
+          return {
+            ok: false,
+            reason: err?.reason === "html2canvas_timeout" ? "html2canvas_timeout" : "binder_pdf_render_failed",
+            bytes: null,
+            pageErrors,
+            message: err?.reason === "html2canvas_timeout"
+              ? "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section."
+              : "Could not render binder pages to PDF. Please try Print selection, or retry Download PDF.",
+          };
         }
         pageEl.style.minHeight = prevMinHeight;
         pageEl.style.width = prevWidth;
@@ -384,7 +448,15 @@
             added = 1;
           }
         }
-        if (!added) pageErrors += 1;
+        if (!added) {
+          return {
+            ok: false,
+            reason: "binder_pdf_render_failed",
+            bytes: null,
+            pageErrors: pageErrors + 1,
+            message: "Could not render binder pages to PDF. Please try Print selection, or retry Download PDF.",
+          };
+        }
       }
       if (!pdfDoc.getPageCount()) {
         return {
@@ -405,6 +477,7 @@
         paperSize: paper.css.toLowerCase(),
         pageCount: pdfDoc.getPageCount(),
         pageErrors,
+        generationMs: Date.now() - captureStarted,
       };
     } catch (error) {
       return {

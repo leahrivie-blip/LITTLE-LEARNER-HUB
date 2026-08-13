@@ -27379,6 +27379,7 @@ function showToast(message) {
 
 let lessonPlanDownloadBusy = false;
 let teachingKitBinderBusy = false;
+let teachingKitBinderActiveId = "";
 
 function setLessonDownloadButtonsBusy(busy, triggerButton = null) {
   const buttons = document.querySelectorAll("[data-lesson-download-variant], [data-lesson-editor-download-week], [data-lesson-editor-download-full]");
@@ -28402,6 +28403,13 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
           "merge_failed",
           "binder_pdf_failed",
           "busy",
+          "PRINTABLE_MISSING",
+          "REQUEST_TIMEOUT",
+          "PDF_GENERATION_FAILURE",
+          "PDF_MERGE_FAILURE",
+          "PDF_VALIDATION_FAILURE",
+          "html2canvas_timeout",
+          "request_timeout",
         ];
         if (!known.includes(printResult.reason) && !printResult.message) {
           showToast("Teaching Kit print could not start. Please try again.");
@@ -28461,25 +28469,49 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   const flags = featureFlags || activeTeachingKitFlags || {};
   const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
   const teachingKitApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKit : null;
+  const jobApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitBinderJob : null;
   const isDownload = selection.intent === "download";
-  if (isDownload && teachingKitBinderBusy) {
-    if (typeof showToast === "function") showToast("Download already in progress…");
-    return { ok: false, reason: "busy", message: "Download already in progress…" };
+  const locksBinder = isDownload || selection.intent === "print";
+  const requestId = selection.binderRequestId || jobApi?.createBinderRequestId?.() || `tk-binder-${Date.now()}`;
+  const notify = (progress) => {
+    if (typeof selection.onProgress === "function") {
+      try { selection.onProgress(progress); } catch (_err) { /* ignore */ }
+    }
+  };
+  const aborted = () => (
+    (typeof selection.shouldAbort === "function" && selection.shouldAbort())
+    || (teachingKitBinderActiveId && teachingKitBinderActiveId !== requestId)
+  );
+  const fail = (reason, extra = {}) => {
+    const code = extra.code || jobApi?.errorCode?.(reason) || "UNEXPECTED_ERROR";
+    const message = extra.message || jobApi?.ownerMessage?.(code, extra.message) || extra.message || "The binder request failed unexpectedly. Nothing was changed.";
+    if (typeof showToast === "function" && extra.silent !== true) showToast(message);
+    if (typeof showActionFeedback === "function" && extra.silent !== true) {
+      showActionFeedback(message, null, { ttlMs: 7000 });
+    }
+    return { ok: false, reason, code, message, binderRequestId: requestId, ...extra };
+  };
+  if (locksBinder && teachingKitBinderBusy) {
+    return fail("busy", { message: jobApi?.ERRORS?.BUSY || "This binder request is already in progress." });
   }
   if (!printApi || typeof printApi.buildBinderPrintHtml !== "function") {
-    if (typeof showToast === "function") showToast("Teaching Kit print module is not loaded.");
-    return { ok: false, reason: "print_module_missing", message: "Teaching Kit print module is not loaded." };
+    return fail("pdf_pipeline_missing", { message: "Teaching Kit print module is not loaded." });
   }
-  if (isDownload) {
+  if (locksBinder) {
     teachingKitBinderBusy = true;
-    if (typeof showToast === "function") showToast("Preparing your PDF…");
-    if (typeof showActionFeedback === "function") {
-      showActionFeedback("Preparing your PDF…", null, { ttlMs: 8000 });
+    teachingKitBinderActiveId = requestId;
+    notify({ stage: "received", message: isDownload ? "Preparing your binder…" : "Preparing print view…" });
+    if (typeof showToast === "function") {
+      showToast(isDownload ? "Preparing your binder…" : "Preparing print view…");
     }
   }
   const releaseDownloadBusy = () => {
-    if (isDownload) teachingKitBinderBusy = false;
+    if (locksBinder && teachingKitBinderActiveId === requestId) {
+      teachingKitBinderBusy = false;
+      teachingKitBinderActiveId = "";
+    }
   };
+  const jobStarted = Date.now();
   try {
   const kitPayload = kit || activeTeachingKitPayload;
   const plan = selection.plan || viewerResource?._curriculumLessonPlan || null;
@@ -28509,11 +28541,11 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
         : (!kitPayload?.companion || kitPayload?.locked ? "unavailable" : "ok"),
     };
   if (!preAuth.ok) {
-    const message = preAuth.reason === "print_flag_off"
-      ? "Teaching Kit Print Center is not enabled."
-      : "This Teaching Kit is not ready to print yet.";
-    if (typeof showToast === "function") showToast(message);
-    return { ok: false, reason: preAuth.reason || "unavailable", message };
+    return fail(preAuth.reason || "unavailable", {
+      message: preAuth.reason === "print_flag_off"
+        ? "Teaching Kit Print Center is not enabled."
+        : "This Teaching Kit is not ready to print yet.",
+    });
   }
 
   // Authorize BEFORE any binder HTML assembly (entitlement non-bypass).
@@ -28564,8 +28596,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     } else if (reason === "unavailable") {
       message = "This Teaching Kit is not ready to print yet.";
     }
-    if (typeof showToast === "function") showToast(message);
-    return { ok: false, reason, message, manifest: built.manifest || null };
+    return fail(reason, { message, manifest: built.manifest || null });
   }
 
   if (gate.counted && watermark && !String(built.html).includes(watermark)) {
@@ -28592,11 +28623,9 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   // Download always requires a real PDF file — never fall through to a silent print dialog.
   const needsMergedPdf = selectedPdfPrintables.length > 0 || isDownload;
   if (isDownload && typeof printApi.buildMergedTeachingKitPdf !== "function") {
-    const message = "PDF download is unavailable right now. Please try again.";
-    if (typeof showToast === "function") showToast(message);
     document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
     document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
-    return { ok: false, reason: "pdf_pipeline_missing", message, manifest: built.manifest || null };
+    return fail("pdf_pipeline_missing", { manifest: built.manifest || null });
   }
 
   // Expose for automated inspection of the actual print document (not the live UI).
@@ -28669,6 +28698,7 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
   // When PDF printables are selected (or Download is requested), build one merged PDF:
   // Teaching Kit binder pages + actual attached printable pages in selection order.
   if (needsMergedPdf && typeof printApi.buildMergedTeachingKitPdf === "function") {
+    notify({ stage: "building", message: "Building PDF…" });
     const merged = await printApi.buildMergedTeachingKitPdf(kitPayload, {
       ...selection,
       plan,
@@ -28679,6 +28709,9 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       forceBrowser: true,
       fetchBytes: (source, attachment) => resolveTeachingKitPrintableBytes(source, attachment),
       stylesHref: `${window.location.origin}/styles.css`,
+      onProgress: selection.onProgress,
+      shouldAbort: () => aborted(),
+      pageTimeoutMs: jobApi?.pageCaptureTimeoutMs?.() || 20000,
     });
     if (!merged.ok) {
       const message = merged.message
@@ -28703,18 +28736,17 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       return {
         ok: false,
         reason: merged.reason || "merge_failed",
+        code: merged.code || (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitBinderJob?.errorCode?.(merged.reason)),
         message,
         manifest: built.manifest || null,
         attachmentPlan: merged.report || attachmentPlan,
       };
     }
 
-    if (!merged.bytes || !merged.bytes.byteLength) {
-      const message = "The PDF file was empty. Please try again.";
-      if (typeof showToast === "function") showToast(message);
+    if (!merged.bytes || !merged.bytes.byteLength || (jobApi?.validatePdfBytes && !jobApi.validatePdfBytes(merged.bytes).ok)) {
       document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
       document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
-      return { ok: false, reason: "empty_pdf", message, manifest: built.manifest || null };
+      return fail("empty_pdf", { manifest: built.manifest || null });
     }
 
     const fileName = (typeof printApi.teachingKitPdfFileName === "function"
@@ -28764,19 +28796,29 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
 
     if (isDownload) {
-      downloadBlob(blob, fileName);
-      if (typeof showToast === "function") showToast("Download started");
+      notify({ stage: "download", message: "Starting download…" });
+      const started = jobApi?.triggerBlobDownload
+        ? jobApi.triggerBlobDownload(blob, fileName)
+        : (downloadBlob(blob, fileName), { ok: true, objectUrl: "" });
+      if (!started?.ok) {
+        return fail("blob_failure", { fileName, blob, manifest: built.manifest || null });
+      }
+      if (typeof showToast === "function") showToast("Your binder is ready. Download started.");
       if (typeof showActionFeedback === "function") {
-        showActionFeedback(`Download started (${fileName})`, null, { ttlMs: 4200 });
+        showActionFeedback(`Binder ready — your download has started. (${fileName})`, null, { ttlMs: 8000 });
       }
       return {
         ok: true,
         reason: "downloaded_merged_pdf",
+        code: "OK",
         pageCount: merged.report?.totalPages || 0,
         paperSize: built.paperSize || selection.paperSize || "letter",
         designedDocument: true,
         documentMode,
         fileName,
+        blob,
+        objectUrl: started.objectUrl || "",
+        binderRequestId: requestId,
         manifest: built.manifest || null,
         sectionManifest: built.sectionManifest || null,
         contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
@@ -28784,37 +28826,51 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       };
     }
 
-    // Print: open the merged PDF (includes actual printable pages) and print that file.
+    notify({ stage: "print", message: "Preparing print view…" });
     const pdfUrl = URL.createObjectURL(blob);
-    // Prefer Fit Page when the browser PDF viewer honors open params.
     const pdfViewUrl = `${pdfUrl}#view=Fit`;
-    const printFrame = document.createElement("iframe");
-    printFrame.className = "llh-teaching-kit-merged-pdf-frame";
-    printFrame.setAttribute("aria-hidden", "true");
-    printFrame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
+    const printFrame = selection.printTarget && selection.printTarget.nodeType === 1
+      ? selection.printTarget
+      : document.createElement("iframe");
+    printFrame.className = `${printFrame.className || ""} llh-teaching-kit-merged-pdf-frame`.trim();
+    printFrame.setAttribute("title", "Teaching Kit print view");
+    printFrame.style.cssText = printFrame.getAttribute("data-tk-print-target")
+      ? printFrame.style.cssText
+      : "position:fixed;left:-12000px;top:0;width:816px;height:1056px;border:0;background:#fff;";
+    if (!printFrame.isConnected) document.body.appendChild(printFrame);
     printFrame.src = pdfViewUrl;
-    document.body.appendChild(printFrame);
     const cleanupMerged = () => {
       try { printFrame.remove(); } catch (_err) { /* ignore */ }
       try { URL.revokeObjectURL(pdfUrl); } catch (_err2) { /* ignore */ }
     };
-    printFrame.addEventListener("load", () => {
+    const tryPrint = () => {
       try {
         printFrame.contentWindow?.focus();
         printFrame.contentWindow?.print();
+        return true;
       } catch (_err) {
-        window.open(pdfViewUrl, "_blank", "noopener");
+        return false;
       }
+    };
+    printFrame.addEventListener("load", () => {
+      tryPrint();
       setTimeout(cleanupMerged, 120000);
     }, { once: true });
+    setTimeout(() => { tryPrint(); }, 1500);
     setTimeout(cleanupMerged, 120000);
+    if (typeof showToast === "function") showToast("Print view is ready.");
     return {
       ok: true,
       reason: "printed_merged_pdf",
+      code: "OK",
       pageCount: merged.report?.totalPages || 0,
       paperSize: built.paperSize || selection.paperSize || "letter",
       designedDocument: true,
       documentMode,
+      blob,
+      objectUrl: pdfUrl,
+      fileName,
+      binderRequestId: requestId,
       manifest: built.manifest || null,
       contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
       mergeReport: merged.report || null,
@@ -28895,11 +28951,19 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
     contentFingerprint: built.contentFingerprint || "",
   };
   } catch (error) {
-    const message = error?.message || "Teaching Kit print could not start. Please try again.";
+    const message = error?.message
+      || jobApi?.ownerMessage?.(error?.code || error?.reason)
+      || "We couldn't finish this binder download. Nothing was changed. Try again, or download a smaller section.";
     if (typeof showToast === "function") showToast(message);
     document.body.classList.remove("printing-resource", "printing-teaching-kit", "trial-curriculum-watermark-active");
     document.querySelectorAll(".llh-teaching-kit-print-host").forEach((node) => node.remove());
-    return { ok: false, reason: "exception", message };
+    return {
+      ok: false,
+      reason: error?.reason || "exception",
+      code: error?.code || jobApi?.errorCode?.(error?.reason) || "UNEXPECTED_ERROR",
+      message,
+      binderRequestId: requestId,
+    };
   } finally {
     releaseDownloadBusy();
   }
@@ -28958,9 +29022,20 @@ async function resolveTeachingKitPrintableBytes(source, attachment) {
   }
   const href = resolveTeachingKitPrintableFetchUrl(fileData || ref);
   if (href && (/^https?:\/\//i.test(href) || /^blob:/i.test(href))) {
-    const res = await fetch(href, { credentials: "include" });
-    if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
-    return new Uint8Array(await res.arrayBuffer());
+    const timeoutMs = (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitBinderJob?.fetchTimeoutMs?.())
+      || 20000;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const res = await fetch(href, {
+        credentials: "include",
+        signal: controller ? controller.signal : undefined,
+      });
+      if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
+      return new Uint8Array(await res.arrayBuffer());
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
   if (mergeApi?.defaultFetchBytes) return mergeApi.defaultFetchBytes(href || ref, attachment);
   return null;
