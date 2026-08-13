@@ -1163,20 +1163,45 @@
 
     if (tabId === "printables") {
       const printables = content.printables || kit.companion?.printables || [];
+      const ownerPreview = isOwnerPreviewKit(kit);
       return `
         <div class="tk-binder-section-body">
           <h3 class="tk-section-title">Printables</h3>
-          <p class="tk-muted">Ink-friendly resources for the week. PDFs generate only when you print.</p>
+          <p class="tk-muted">Preview each printable before you download or print the Entire Binder. Attached PDF pages are included in the binder download.</p>
           <div class="tk-stack">
-            ${printables.map((printable) => `
-              <article class="tk-binder-block">
-                <h4>${escapeHtml(printable.title || "Printable")}</h4>
-                <p class="tk-muted">${escapeHtml(printable.kind || printable.type || "Classroom printable")}</p>
-                ${(printable.usedInWeek || []).length
-                  ? `<div class="tk-used-map">${printable.usedInWeek.map((slot) => `<span class="tk-used-pill">${escapeHtml(`${slot.dayLabel || slot.day} · ${slot.moment || ""}`)}</span>`).join("")}</div>`
-                  : ""}
+            ${printables.map((printable) => {
+              const title = text(printable.title) || "Printable";
+              const preview = text(printable.previewUrl || printable.thumbnailUrl || printable.coverImageUrl);
+              const pageCount = Number(printable.pageCount) || 0;
+              const hasFile = Boolean(text(printable.fileUrl || printable.fileData || printable.url));
+              const metaBits = [
+                pageCount > 0 ? `${pageCount} page${pageCount === 1 ? "" : "s"}` : "",
+                text(printable.kind || printable.type || printable.resourceCategory || "Classroom printable"),
+              ].filter(Boolean);
+              return `
+              <article class="tk-binder-activity" data-tk-printable-card="${escapeHtml(printable.id || "")}">
+                <div class="tk-binder-activity-media">
+                  ${preview
+                    ? lazyImgHtml(preview, `Preview of ${title}`, "tk-printable-preview-thumb")
+                    : (ownerPreview
+                      ? `<div class="tk-photo-placeholder tk-photo-missing tk-photo-placeholder-sm">Preview not added yet</div>`
+                      : `<div class="tk-photo-placeholder tk-photo-placeholder-sm" aria-hidden="true">PDF</div>`)}
+                </div>
+                <div>
+                  <h4>${escapeHtml(title)}</h4>
+                  ${metaBits.length ? `<p class="tk-muted tk-card-meta">${escapeHtml(metaBits.join(" · "))}</p>` : ""}
+                  ${(printable.usedInWeek || []).length
+                    ? `<div class="tk-used-map">${printable.usedInWeek.map((slot) => `<span class="tk-used-pill">${escapeHtml(`${slot.dayLabel || slot.day} · ${slot.moment || ""}`)}</span>`).join("")}</div>`
+                    : ""}
+                  ${hasFile
+                    ? `<button type="button" class="tk-btn tk-btn-secondary tk-btn-sm" data-tk-open-printable="${escapeHtml(printable.id || "")}" data-tk-printable-href="${escapeHtml(text(printable.fileUrl || printable.url))}" data-tk-from-binder="1">Preview printable</button>`
+                    : (ownerPreview
+                      ? `<p class="tk-muted tk-field-empty">PDF file not linked yet.</p>`
+                      : `<p class="tk-muted">Printable file unavailable.</p>`)}
+                </div>
               </article>
-            `).join("") || emptyBinderStateHtml("Printables", isOwnerPreviewKit(kit))}
+            `;
+            }).join("") || emptyBinderStateHtml("Printables", ownerPreview)}
           </div>
         </div>
       `;
@@ -1666,7 +1691,16 @@
       if (!body) return;
       renderInto(body, kit, state, chrome);
       const nextRoot = body.querySelector("[data-teaching-kit-workspace]");
-      if (nextRoot) bindWorkspace(nextRoot, { kit, state, chrome, onCopy: ctx.onCopy, onPrint: ctx.onPrint });
+      if (nextRoot) {
+        bindWorkspace(nextRoot, {
+          kit,
+          state,
+          chrome,
+          onCopy: ctx.onCopy,
+          onPrint: ctx.onPrint,
+          onOpenPrintable: ctx.onOpenPrintable,
+        });
+      }
     }
 
     function onClick(event) {
@@ -1788,13 +1822,17 @@
           if (result && result.ok) {
             state.downloadStatus = intent === "print" ? "printed" : "started";
             state.binderStage = intent === "print" ? "print" : "download";
-            state.downloadStatusMessage = result.fileName
-              ? (intent === "print"
+            const viewerDelivery = result.delivery === "viewer" || result.reason === "opened_viewer";
+            state.downloadStatusMessage = result.message
+              || (intent === "print"
                 ? "Print view is ready."
-                : `Your binder is ready. Download started. (${result.fileName})`)
-              : (intent === "print"
-                ? "Print view is ready."
-                : "Your binder is ready. Download started.");
+                : (viewerDelivery
+                  ? (result.fileName
+                    ? `Your binder PDF is ready. Use Share → Save to Files if needed. (${result.fileName})`
+                    : "Your binder PDF is ready. Use Share → Save to Files if needed.")
+                  : (result.fileName
+                    ? `Your binder is ready. Download started. (${result.fileName})`
+                    : "Your binder is ready. Download started.")));
             if (result.blob) state.lastDownloadBlob = result.blob;
             if (result.objectUrl) state.lastDownloadObjectUrl = result.objectUrl;
             if (result.fileName) state.lastDownloadFileName = result.fileName;
@@ -1877,6 +1915,29 @@
         state.showSubstitute = Boolean(openActivity.getAttribute("data-tk-from-build"));
         state.openEverything = false;
         rerender();
+        return;
+      }
+
+      const openPrintable = event.target.closest("[data-tk-open-printable]");
+      if (openPrintable) {
+        event.preventDefault();
+        const printableId = text(openPrintable.getAttribute("data-tk-open-printable"));
+        const href = text(openPrintable.getAttribute("data-tk-printable-href"));
+        const printable = (kit.companion?.printables || []).find((item) => text(item?.id) === printableId) || null;
+        if (typeof ctx.onOpenPrintable === "function") {
+          Promise.resolve(ctx.onOpenPrintable({
+            id: printableId,
+            href: href || text(printable?.fileUrl || printable?.url),
+            title: text(printable?.title),
+            pageCount: Number(printable?.pageCount) || 0,
+            printable,
+          })).catch(() => {});
+          return;
+        }
+        const openHref = href || text(printable?.fileUrl || printable?.url);
+        if (openHref && typeof window !== "undefined" && typeof window.open === "function") {
+          window.open(openHref, "_blank", "noopener,noreferrer");
+        }
         return;
       }
 
@@ -2207,6 +2268,7 @@
       chrome,
       onCopy: opts.onCopy,
       onPrint: opts.onPrint,
+      onOpenPrintable: opts.onOpenPrintable,
     });
     body.dataset.teachingKitEnhanced = "1";
     body.classList.remove("teaching-kit-loading");

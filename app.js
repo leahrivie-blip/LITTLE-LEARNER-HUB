@@ -28670,6 +28670,19 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
         navigator.clipboard.writeText(message).catch(() => {});
       }
     },
+    onOpenPrintable: (payload) => {
+      const href = String(payload?.href || payload?.printable?.fileUrl || "").trim();
+      if (!href) {
+        if (typeof showToast === "function") showToast("That printable file is not available to preview.");
+        return { ok: false, reason: "missing_file" };
+      }
+      // Prefer the published media URL / existing safe open path — do not regenerate PDFs.
+      if (typeof window !== "undefined" && typeof window.open === "function") {
+        window.open(href, "_blank", "noopener,noreferrer");
+        return { ok: true, reason: "opened" };
+      }
+      return { ok: false, reason: "window_open_unavailable" };
+    },
     onPrint: (selection) => printTeachingKitBinder(viewerResource, result.teachingKit, {
       ...selection,
       plan: viewerResource?._curriculumLessonPlan || null,
@@ -29089,17 +29102,43 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
       notify({ stage: "download", message: "Starting download…" });
       const started = jobApi?.triggerBlobDownload
         ? jobApi.triggerBlobDownload(blob, fileName)
-        : (downloadBlob(blob, fileName), { ok: true, objectUrl: "" });
+        : (downloadBlob(blob, fileName), { ok: true, objectUrl: "", delivery: "download" });
       if (!started?.ok) {
+        // Binder bytes already validated — do not convert a browser handoff quirk into
+        // a false "binder failed" when we can still offer the finished PDF object URL.
+        if (blob && started?.objectUrl) {
+          return {
+            ok: true,
+            reason: "opened_viewer",
+            code: "OK",
+            pageCount: merged.report?.totalPages || 0,
+            paperSize: built.paperSize || selection.paperSize || "letter",
+            designedDocument: true,
+            documentMode,
+            fileName,
+            blob,
+            objectUrl: started.objectUrl,
+            delivery: "viewer",
+            binderRequestId: requestId,
+            manifest: built.manifest || null,
+            contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
+            mergeReport: merged.report || null,
+            message: "Your binder PDF is ready. Open it to Share or Save to Files.",
+          };
+        }
         return fail("blob_failure", { fileName, blob, manifest: built.manifest || null });
       }
-      if (typeof showToast === "function") showToast("Your binder is ready. Download started.");
+      const viewerDelivery = started.delivery === "viewer" || started.reason === "opened_viewer";
+      const readyMessage = viewerDelivery
+        ? `Your binder PDF is ready. Open Share → Save to Files if needed. (${fileName})`
+        : "Your binder is ready. Download started.";
+      if (typeof showToast === "function") showToast(readyMessage);
       if (typeof showActionFeedback === "function") {
-        showActionFeedback(`Binder ready — your download has started. (${fileName})`, null, { ttlMs: 8000 });
+        showActionFeedback(readyMessage, null, { ttlMs: 8000 });
       }
       return {
         ok: true,
-        reason: "downloaded_merged_pdf",
+        reason: viewerDelivery ? "opened_viewer" : "downloaded_merged_pdf",
         code: "OK",
         pageCount: merged.report?.totalPages || 0,
         paperSize: built.paperSize || selection.paperSize || "letter",
@@ -29108,11 +29147,14 @@ async function printTeachingKitBinder(viewerResource, kit, selection = {}, featu
         fileName,
         blob,
         objectUrl: started.objectUrl || "",
+        delivery: started.delivery || "download",
+        cached: merged.cached === true,
         binderRequestId: requestId,
         manifest: built.manifest || null,
         sectionManifest: built.sectionManifest || null,
         contentFingerprint: merged.contentFingerprint || built.contentFingerprint || "",
         mergeReport: merged.report || null,
+        message: readyMessage,
       };
     }
 
