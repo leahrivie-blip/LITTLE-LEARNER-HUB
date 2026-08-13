@@ -431,6 +431,12 @@ let postgresStoreDirty = false;
 let postgresDirtyDrainScheduled = false;
 /** SHA-256 of the last successfully persisted store JSON (not the payload itself). */
 let lastPersistedStoreFingerprint = "";
+/**
+ * Authoritative llh_store.updated_at last observed/written by this process.
+ * Full-store upserts compare this token under FOR UPDATE so a stale storeCache
+ * (e.g. pre-maintenance-prune) cannot overwrite a newer Postgres document.
+ */
+let lastKnownLlhStoreUpdatedAt = null;
 /** Last time a lastSeenAt page_view touch scheduled a durable store persist. */
 let lastSeenStorePersistScheduledAt = 0;
 // Phase 2 of the admin-token-in-URL security follow-up: sanitized counters only —
@@ -4508,20 +4514,22 @@ async function initializePostgresStore() {
   await analyticsStore.initAnalyticsTable(postgresPool, postgresQueryWithTransientRetry);
   await curriculumResourceMigration.initMigrationTable(postgresPool, postgresQueryWithTransientRetry);
   const result = await postgresQueryWithTransientRetry(
-    "SELECT data FROM llh_store WHERE id = $1",
+    "SELECT data, updated_at FROM llh_store WHERE id = $1",
     [storeRecordId],
     { label: "Postgres load store" },
   );
   if (result.rows.length) {
     storeCache = result.rows[0].data || defaultStore();
+    lastKnownLlhStoreUpdatedAt = result.rows[0].updated_at || null;
   } else {
     storeCache = defaultStore();
     // Initial insert is not ON CONFLICT — do not retry (avoids duplicate-key races).
-    await postgresQueryWithTransientRetry(
-      "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW())",
+    const inserted = await postgresQueryWithTransientRetry(
+      "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) RETURNING updated_at",
       [storeRecordId, JSON.stringify(storeCache)],
       { label: "Postgres bootstrap store insert", retries: 0 },
     );
+    lastKnownLlhStoreUpdatedAt = inserted.rows[0]?.updated_at || null;
   }
   databaseReady = true;
   lastPostgresError = "";
@@ -4552,16 +4560,68 @@ function ensurePostgresPool() {
 async function reloadStoreFromPostgres() {
   if (!usePostgresStore() || !postgresPool) return false;
   const result = await postgresQueryWithTransientRetry(
-    "SELECT data FROM llh_store WHERE id = $1",
+    "SELECT data, updated_at FROM llh_store WHERE id = $1",
     [storeRecordId],
     { label: "Postgres reload store" },
   );
   if (!result.rows.length) return false;
   storeCache = result.rows[0].data || defaultStore();
+  lastKnownLlhStoreUpdatedAt = result.rows[0].updated_at || null;
   databaseReady = true;
   lastPostgresError = "";
+  lastPersistedStoreCounts = storeInventoryCounts(storeCache);
   rememberPersistedStoreFingerprint(storeCache);
   return true;
+}
+
+function sameStoreUpdatedAt(a, b) {
+  if (a == null || b == null) return a == null && b == null;
+  return new Date(a).getTime() === new Date(b).getTime();
+}
+
+/**
+ * After an external llh_store update (maintenance prune, other instance), rebuild
+ * storeCache from authoritative Postgres and overlay non-curriculum in-memory
+ * progress from the rejected stale write so legitimate mutations are not lost.
+ */
+function reconcileStoreCacheAfterUpdatedAtConflict(authoritativeStore, staleLocalStore) {
+  const auth = authoritativeStore && typeof authoritativeStore === "object"
+    ? authoritativeStore
+    : defaultStore();
+  storeCache = auth;
+  if (!staleLocalStore || typeof staleLocalStore !== "object") {
+    return storeCache;
+  }
+  let next = {
+    ...staleLocalStore,
+    // Never re-inflate curriculum / enrichment history from a stale pre-prune cache.
+    siteContent: auth.siteContent,
+    foundingMembers: auth.foundingMembers,
+  };
+  next = mergeStorePreserveSignupTransactionalStamps(next);
+  next = mergeStorePreserveAnalyticsEvents(next);
+  next = mergeStorePreserveAdminSessions(next);
+  next = mergeStorePreserveEmailCampaigns(next);
+  next.siteContent = auth.siteContent;
+  next.foundingMembers = auth.foundingMembers;
+  storeCache = next;
+  return storeCache;
+}
+
+async function recoverStoreCacheFromUpdatedAtConflict(staleLocalStore) {
+  const loaded = await reloadStoreFromPostgres();
+  if (!loaded) {
+    const err = new Error("Could not reload authoritative llh_store after updated_at conflict.");
+    err.code = "store_updated_at_conflict_reload_failed";
+    throw err;
+  }
+  reconcileStoreCacheAfterUpdatedAtConflict(storeCache, staleLocalStore);
+  lastPersistedStoreCounts = storeInventoryCounts(storeCache);
+  rememberPersistedStoreFingerprint(storeCache);
+  logStorePersistence("store_updated_at_conflict_recovered", {
+    updatedAt: lastKnownLlhStoreUpdatedAt,
+  });
+  return storeCache;
 }
 
 function startPostgresReconnectLoop() {
@@ -4959,6 +5019,7 @@ ON CONFLICT (id) DO UPDATE SET
     true
   ),
   updated_at = NOW()
+RETURNING id, updated_at
 `;
 /** Stable advisory-lock namespace shared by Founding claims and Postgres store upserts. */
 const FOUNDING_ADVISORY_LOCK_NS = 87442201;
@@ -5343,6 +5404,7 @@ async function executePostgresStoreUpsert(payload, nextCounts) {
   for (let attempt = 0; attempt <= POSTGRES_STORE_WRITE_RETRY_COUNT; attempt += 1) {
     const started = Date.now();
     try {
+      let wroteUpdatedAt = null;
       await withPostgresClient(async (client) => {
         try {
           await client.query("BEGIN");
@@ -5350,7 +5412,22 @@ async function executePostgresStoreUpsert(payload, nextCounts) {
             "SELECT pg_advisory_xact_lock($1, hashtext($2))",
             [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
           );
-          await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
+          const locked = await client.query(
+            "SELECT updated_at FROM llh_store WHERE id = $1 FOR UPDATE",
+            [storeRecordId],
+          );
+          if (locked.rows.length && lastKnownLlhStoreUpdatedAt != null
+            && !sameStoreUpdatedAt(locked.rows[0].updated_at, lastKnownLlhStoreUpdatedAt)) {
+            const err = new Error(
+              "llh_store updated_at concurrency conflict — refusing stale storeCache overwrite",
+            );
+            err.code = "store_updated_at_conflict";
+            err.liveUpdatedAt = locked.rows[0].updated_at;
+            err.expectedUpdatedAt = lastKnownLlhStoreUpdatedAt;
+            throw err;
+          }
+          const upserted = await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
+          wroteUpdatedAt = upserted.rows[0]?.updated_at || null;
           await client.query("COMMIT");
         } catch (error) {
           try { await client.query("ROLLBACK"); } catch { /* ignore */ }
@@ -5366,9 +5443,11 @@ async function executePostgresStoreUpsert(payload, nextCounts) {
       databaseReady = true;
       lastPostgresError = "";
       lastPersistedStoreCounts = nextCounts;
+      if (wroteUpdatedAt) lastKnownLlhStoreUpdatedAt = wroteUpdatedAt;
       return;
     } catch (error) {
       lastError = error;
+      if (error?.code === "store_updated_at_conflict") throw error;
       const canRetry = isTransientPostgresConnectionError(error) && attempt < POSTGRES_STORE_WRITE_RETRY_COUNT;
       if (!canRetry) throw error;
       storeWriteMetrics.retryAttempts += 1;
@@ -5471,7 +5550,37 @@ function enqueuePostgresStoreWrite() {
       payloadBytes,
     });
     try {
-      await executePostgresStoreUpsert(payload, nextCounts);
+      try {
+        await executePostgresStoreUpsert(payload, nextCounts);
+      } catch (error) {
+        if (error?.code !== "store_updated_at_conflict") throw error;
+        // External writer advanced llh_store (e.g. history prune). Reload authoritative
+        // state, preserve non-curriculum in-memory progress, retry once with new token.
+        let staleLocal = null;
+        try { staleLocal = JSON.parse(payload); } catch { staleLocal = null; }
+        logStorePersistence("store_updated_at_conflict", {
+          generation: writeGeneration,
+          liveUpdatedAt: error.liveUpdatedAt,
+          expectedUpdatedAt: error.expectedUpdatedAt,
+        });
+        await recoverStoreCacheFromUpdatedAtConflict(staleLocal);
+        if (writeGeneration !== postgresWriteGeneration) {
+          storeWriteMetrics.staleGenerationsSkipped += 1;
+          return;
+        }
+        nextCounts = assertSafePostgresStoreReplacement(storeCache);
+        const retryPayload = JSON.stringify(storeCache);
+        const retryFingerprint = fingerprintStorePayload(retryPayload);
+        await executePostgresStoreUpsert(retryPayload, nextCounts);
+        lastPersistedStoreFingerprint = retryFingerprint;
+        logStorePersistence("full_store_write_success_after_updated_at_conflict", {
+          generation: writeGeneration,
+          payloadBytes: Buffer.byteLength(retryPayload, "utf8"),
+          lastDurationMs: storeWriteMetrics.lastDurationMs,
+        });
+        scheduleDirtyDrain();
+        return;
+      }
       lastPersistedStoreFingerprint = fingerprint;
       logStorePersistence("full_store_write_success", {
         generation: writeGeneration,

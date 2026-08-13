@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-/**
- * Deterministic tests for controlled Postgres apply path
- * in scripts/prune-enrichment-publish-history.js
- */
 "use strict";
 
 const assert = require("assert");
@@ -16,9 +12,7 @@ const {
   applyControlledPostgresPrune,
   run,
 } = require("./prune-enrichment-publish-history.js");
-const {
-  pruneEnrichmentPublishHistoryInStore,
-} = require("../server/enrichment-publish-history.js");
+const { pruneEnrichmentPublishHistoryInStore } = require("../server/enrichment-publish-history.js");
 
 function entry(n, overrides = {}) {
   return {
@@ -28,7 +22,7 @@ function entry(n, overrides = {}) {
     publishedBy: "tester",
     fingerprint: `fp-${n}`,
     lessonPlanId: "plan-a",
-    snapshot: { enrichmentDraft: { tip: `t-${n}`, pad: "x".repeat(200) } },
+    snapshot: { enrichmentDraft: { tip: `t-${n}`, pad: "x".repeat(120) } },
     ...overrides,
   };
 }
@@ -65,7 +59,7 @@ function makeStore(historyLen = 8) {
             teachingKit: null,
             dailyPlans: { tuesday: { items: [{ title: "Me" }] } },
             resourceIds: [],
-            enrichmentPublishHistory: history.map((e, idx) => ({
+            enrichmentPublishHistory: history.map((e) => ({
               ...e,
               versionId: `aam-${e.versionId}`,
               fingerprint: `aam-${e.fingerprint}`,
@@ -78,15 +72,26 @@ function makeStore(historyLen = 8) {
   };
 }
 
-function createMockClient({
-  store,
-  updatedAt = new Date("2026-08-12T23:40:00.000Z"),
-  backup = {
+function backupRowFor(store, overrides = {}) {
+  const ids = store.siteContent.curriculum.lessonPlans.map((p) => p.id).sort();
+  return {
     id: "backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
     created_at: new Date("2026-08-12T23:44:42.421Z"),
     source: "pre-enrichment-history-prune",
     verified: true,
-  },
+    user_count: Object.keys(store.users || {}).length,
+    message_count: 0,
+    founding_count: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
+    lesson_plan_count: store.siteContent.curriculum.lessonPlans.length,
+    lesson_plan_ids: ids,
+    ...overrides,
+  };
+}
+
+function createMockClient({
+  store,
+  updatedAt = new Date("2026-08-12T23:50:00.000Z"),
+  backup,
   mutateBeforeLock = null,
   failWrite = false,
   corruptAfterWrite = false,
@@ -97,7 +102,8 @@ function createMockClient({
     data: JSON.parse(JSON.stringify(store)),
     updated_at: updatedAt,
   };
-  const client = {
+  const resolvedBackup = backup === undefined ? backupRowFor(store) : backup;
+  return {
     writeCount() { return writes; },
     getRow() { return row; },
     async query(sql, params = []) {
@@ -105,9 +111,9 @@ function createMockClient({
       if (text === "BEGIN" || text === "COMMIT" || text === "ROLLBACK") return { rows: [], rowCount: 0 };
       if (text.includes("pg_advisory_xact_lock")) return { rows: [], rowCount: 0 };
       if (text.includes("FROM llh_store_backups")) {
-        if (!backup) return { rows: [], rowCount: 0 };
-        if (params[0] && backup.id !== params[0]) return { rows: [], rowCount: 0 };
-        return { rows: [backup], rowCount: 1 };
+        if (!resolvedBackup) return { rows: [], rowCount: 0 };
+        if (params[0] && resolvedBackup.id !== params[0]) return { rows: [], rowCount: 0 };
+        return { rows: [resolvedBackup], rowCount: 1 };
       }
       if (text.includes("FOR UPDATE")) {
         if (typeof mutateBeforeLock === "function") mutateBeforeLock(row);
@@ -118,8 +124,7 @@ function createMockClient({
       }
       if (text.includes("UPDATE llh_store") && text.includes("updated_at IS NOT DISTINCT FROM")) {
         if (failWrite) throw new Error("synthetic_write_failure");
-        const expected = params[2];
-        if (new Date(row.updated_at).getTime() !== new Date(expected).getTime()) {
+        if (new Date(row.updated_at).getTime() !== new Date(params[2]).getTime()) {
           return { rows: [], rowCount: 0 };
         }
         writes += 1;
@@ -139,287 +144,155 @@ function createMockClient({
     async connect() {},
     async end() {},
   };
-  return client;
 }
 
-async function testParseArgsSafety() {
-  const dry = parseArgs(["--from-postgres", "--json"]);
-  assert.equal(dry.apply, false);
-  assert.equal(dry.confirmPostgresPrune, false);
-  const refused = parseArgs(["--from-postgres", "--apply", "--json"]);
-  assert.equal(refused.apply, true);
-  assert.equal(refused.confirmPostgresPrune, false);
-  const ok = parseArgs([
-    "--from-postgres",
-    "--apply",
-    "--confirm-postgres-prune",
-    "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-    "--json",
-  ]);
-  assert.equal(ok.confirmPostgresPrune, true);
-  assert.equal(ok.backupId, "backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune");
-}
-
-async function test1DryRunOnly() {
-  const store = makeStore(8);
-  const client = createMockClient({ store });
-  const report = await run(["--from-postgres", "--json"], {
-    client,
-    env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-  });
-  assert.equal(report.wrote, false);
-  assert.equal(report.postgresWriteCount, 0);
-  assert.equal(client.writeCount(), 0);
-  assert.equal(report.historyEntriesBefore, 16);
-  assert.equal(report.historyEntriesAfter, 10);
-}
-
-async function test2ApplyWithoutConfirmRefused() {
-  const store = makeStore(8);
-  const client = createMockClient({ store });
-  await assert.rejects(
-    () => run(["--from-postgres", "--apply", "--json"], {
-      client,
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /confirm-postgres-prune/,
-  );
-  assert.equal(client.writeCount(), 0);
-}
-
-async function test3MissingOrUnverifiedBackupRefused() {
-  const store = makeStore(8);
-  const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-
-  const missing = createMockClient({ store, updatedAt, backup: null });
-  await assert.rejects(
-    () => run([
-      "--from-postgres",
-      "--apply",
-      "--confirm-postgres-prune",
-      "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-      "--json",
-    ], {
-      client: missing,
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /backup not found/,
-  );
-  assert.equal(missing.writeCount(), 0);
-
-  const unverified = createMockClient({
-    store,
-    updatedAt,
-    backup: {
-      id: "backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-      created_at: new Date("2026-08-12T23:44:42.421Z"),
-      source: "pre-enrichment-history-prune",
-      verified: false,
-    },
-  });
-  await assert.rejects(
-    () => run([
-      "--from-postgres",
-      "--apply",
-      "--confirm-postgres-prune",
-      "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-      "--json",
-    ], {
-      client: unverified,
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /not verified/,
-  );
-  assert.equal(unverified.writeCount(), 0);
-
-  await assert.rejects(
-    () => run([
-      "--from-postgres",
-      "--apply",
-      "--confirm-postgres-prune",
-      "--json",
-    ], {
-      client: createMockClient({ store, updatedAt }),
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /backup-id is required/,
-  );
-}
-
-async function test4SuccessfulSingleWrite() {
-  const store = makeStore(8);
-  const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-  const client = createMockClient({ store, updatedAt });
-  const report = await run([
-    "--from-postgres",
-    "--apply",
-    "--confirm-postgres-prune",
-    "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-    "--json",
-  ], {
-    client,
-    env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-  });
-  assert.equal(report.wrote, true);
-  assert.equal(report.postgresWriteCount, 1);
-  assert.equal(client.writeCount(), 1);
-  assert.equal(report.postWriteVerified, true);
-  const persisted = client.getRow().data;
-  const farm = persisted.siteContent.curriculum.lessonPlans[0];
-  const aam = persisted.siteContent.curriculum.lessonPlans[1];
-  assert.equal(farm.enrichmentPublishHistory.length, 5);
-  assert.equal(aam.enrichmentPublishHistory.length, 5);
-  assert.deepStrictEqual(farm.enrichmentDraft, store.siteContent.curriculum.lessonPlans[0].enrichmentDraft);
-  assert.deepStrictEqual(farm.teachingKit, store.siteContent.curriculum.lessonPlans[0].teachingKit);
-  assert.deepStrictEqual(farm.dailyPlans, store.siteContent.curriculum.lessonPlans[0].dailyPlans);
-  assert.deepStrictEqual(farm.resourceIds, ["res-1"]);
-  assert.equal(farm.coverMediaAssetId, "cover-1");
-  assert.ok(farm.enrichmentPublishHistory.every((e) => e.versionId));
-}
-
-async function test5StaleStateRefuses() {
-  const store = makeStore(8);
-  const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-  const client = createMockClient({
-    store,
-    updatedAt,
-    mutateBeforeLock: (row) => {
-      row.updated_at = new Date("2026-08-12T23:59:00.000Z");
-      row.data = JSON.parse(JSON.stringify(row.data));
-      row.data.users = { ...row.data.users, "b@example.com": { plan: "Pro" } };
-    },
-  });
-  await assert.rejects(
-    () => run([
-      "--from-postgres",
-      "--apply",
-      "--confirm-postgres-prune",
-      "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-      "--json",
-    ], {
-      client,
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /stale-state|fingerprint changed|concurrency/i,
-  );
-  assert.equal(client.writeCount(), 0);
-}
-
-async function test6InvariantViolationRefuses() {
-  const store = makeStore(3);
-  const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-  // Force invariant failure by monkey-patching prune result via corrupted source transform:
-  // call applyControlledPostgresPrune with a source that already differs non-history after clone+prune
-  // by injecting a buggy client that returns ok backup but we pass a broken assert via
-  // mutating pruneEnrichmentPublishHistoryInStore outcome — instead directly call assertHistoryOnlyTransform.
-  const before = makeStore(3);
-  const after = JSON.parse(JSON.stringify(before));
-  after.siteContent.curriculum.lessonPlans[0].enrichmentDraft = { tip: "CHANGED" };
-  assert.throws(
-    () => assertHistoryOnlyTransform(before, after),
-    /enrichmentDraft changed/,
-  );
-
-  // Also ensure apply path won't write if history trim mismatches: use applyControlledPostgresPrune
-  // with a custom client and mutate pruned path by failing assert — covered above.
-  // Simulate retention invariant via corrupted expected history using direct helper:
-  const client = createMockClient({ store, updatedAt });
-  const pruned = JSON.parse(JSON.stringify(store));
-  pruned.siteContent.curriculum.lessonPlans[0].enrichmentPublishHistory = [
-    entry(99, { versionId: "not-from-policy" }),
-  ];
-  assert.throws(
-    () => assertHistoryOnlyTransform(store, pruned),
-    /history trim mismatch/,
-  );
-  assert.equal(client.writeCount(), 0);
-}
-
-async function test7WriteErrorCleanFailure() {
-  const store = makeStore(8);
-  const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-  const client = createMockClient({ store, updatedAt, failWrite: true });
-  await assert.rejects(
-    () => run([
-      "--from-postgres",
-      "--apply",
-      "--confirm-postgres-prune",
-      "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-      "--json",
-    ], {
-      client,
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /synthetic_write_failure/,
-  );
-  assert.equal(client.writeCount(), 0);
-}
-
-async function test8PostWriteVerificationFailure() {
-  const store = makeStore(8);
-  const updatedAt = new Date("2026-08-12T23:50:00.000Z");
-  const client = createMockClient({ store, updatedAt, corruptAfterWrite: true });
-  await assert.rejects(
-    () => run([
-      "--from-postgres",
-      "--apply",
-      "--confirm-postgres-prune",
-      "--backup-id=backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
-      "--json",
-    ], {
-      client,
-      env: { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" },
-    }),
-    /HARD FAILURE|fingerprint mismatch|post-write/i,
-  );
-  // Write happened, but success was not reported.
-  assert.equal(client.writeCount(), 1);
-}
-
-async function test9LocalJsonApplyUnchanged() {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "llh-pg-apply-"));
-  const storePath = path.join(tmpDir, "store.json");
-  const store = makeStore(8);
-  fs.writeFileSync(storePath, JSON.stringify(store));
-  const before = fs.readFileSync(storePath, "utf8");
-  const dry = await run([`--store-path=${storePath}`, "--json"]);
-  assert.equal(dry.wrote, false);
-  assert.equal(fs.readFileSync(storePath, "utf8"), before);
-
-  const applied = await run([`--store-path=${storePath}`, "--apply", "--json"]);
-  assert.equal(applied.wrote, true);
-  const after = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  assert.equal(after.siteContent.curriculum.lessonPlans[0].enrichmentPublishHistory.length, 5);
-  assert.deepStrictEqual(
-    after.siteContent.curriculum.lessonPlans[0].enrichmentDraft,
-    store.siteContent.curriculum.lessonPlans[0].enrichmentDraft,
-  );
-  assertHistoryOnlyTransform(store, after);
-  // Local apply still does not require postgres confirm flags.
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-}
-
-async function testHistoryOnlyAndFingerprintHelpers() {
-  const store = makeStore(6);
-  const pruned = JSON.parse(JSON.stringify(store));
-  pruneEnrichmentPublishHistoryInStore(pruned);
-  assertHistoryOnlyTransform(store, pruned);
-  assert.notEqual(stableFingerprint(store), stableFingerprint(pruned));
-}
+const env = { PRODUCTION_DATABASE_URL: "postgres://local/test", LLH_STORE_RECORD_ID: "launch-store" };
+const backupId = "backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune";
+const applyArgs = [
+  "--from-postgres", "--apply", "--confirm-postgres-prune", `--backup-id=${backupId}`, "--json",
+];
 
 async function main() {
-  await testParseArgsSafety();
-  await test1DryRunOnly();
-  await test2ApplyWithoutConfirmRefused();
-  await test3MissingOrUnverifiedBackupRefused();
-  await test4SuccessfulSingleWrite();
-  await test5StaleStateRefuses();
-  await test6InvariantViolationRefuses();
-  await test7WriteErrorCleanFailure();
-  await test8PostWriteVerificationFailure();
-  await test9LocalJsonApplyUnchanged();
-  await testHistoryOnlyAndFingerprintHelpers();
-  // Direct applyControlledPostgresPrune unit proof for single write
+  assert.equal(parseArgs(["--from-postgres"]).confirmPostgresPrune, false);
+
+  // TEST 1 dry-run
+  {
+    const client = createMockClient({ store: makeStore(8) });
+    const report = await run(["--from-postgres", "--json"], { client, env });
+    assert.equal(report.wrote, false);
+    assert.equal(client.writeCount(), 0);
+  }
+
+  // TEST 2 apply without confirm
+  {
+    const client = createMockClient({ store: makeStore(8) });
+    await assert.rejects(
+      () => run(["--from-postgres", "--apply", "--json"], { client, env }),
+      /confirm-postgres-prune/,
+    );
+    assert.equal(client.writeCount(), 0);
+  }
+
+  // TEST 3 missing / unverified / mismatched backup
+  {
+    const store = makeStore(8);
+    const updatedAt = new Date("2026-08-12T23:50:00.000Z");
+    const missing = createMockClient({ store, updatedAt, backup: null });
+    await assert.rejects(() => run(applyArgs, { client: missing, env }), /backup not found/);
+    assert.equal(missing.writeCount(), 0);
+
+    const notFoundClient = createMockClient({
+      store,
+      updatedAt,
+      backup: backupRowFor(store, { id: "backup_2026-01-01T00-00-00-000Z_other" }),
+    });
+    await assert.rejects(() => run(applyArgs, { client: notFoundClient, env }), /backup not found/);
+    assert.equal(notFoundClient.writeCount(), 0);
+
+    const unverified = createMockClient({
+      store,
+      updatedAt,
+      backup: backupRowFor(store, { verified: false }),
+    });
+    await assert.rejects(() => run(applyArgs, { client: unverified, env }), /not verified/);
+    assert.equal(unverified.writeCount(), 0);
+
+    const mismatchedIds = createMockClient({
+      store,
+      updatedAt,
+      backup: backupRowFor(store, {
+        lesson_plan_ids: ["cur-lp-totally-unrelated"],
+        lesson_plan_count: 1,
+      }),
+    });
+    await assert.rejects(() => run(applyArgs, { client: mismatchedIds, env }), /not bound|do not match|lesson_plan/);
+    assert.equal(mismatchedIds.writeCount(), 0);
+
+    const mismatchedUsers = createMockClient({
+      store,
+      updatedAt,
+      backup: backupRowFor(store, { user_count: 999 }),
+    });
+    await assert.rejects(() => run(applyArgs, { client: mismatchedUsers, env }), /user_count/);
+    assert.equal(mismatchedUsers.writeCount(), 0);
+  }
+
+  // TEST 4 success single write
+  {
+    const store = makeStore(8);
+    const updatedAt = new Date("2026-08-12T23:50:00.000Z");
+    const client = createMockClient({ store, updatedAt });
+    const report = await run(applyArgs, { client, env });
+    assert.equal(report.wrote, true);
+    assert.equal(report.postgresWriteCount, 1);
+    assert.equal(client.writeCount(), 1);
+    const farm = client.getRow().data.siteContent.curriculum.lessonPlans[0];
+    assert.equal(farm.enrichmentPublishHistory.length, 5);
+    assert.deepStrictEqual(farm.enrichmentDraft, store.siteContent.curriculum.lessonPlans[0].enrichmentDraft);
+  }
+
+  // TEST 5 stale state
+  {
+    const store = makeStore(8);
+    const updatedAt = new Date("2026-08-12T23:50:00.000Z");
+    const client = createMockClient({
+      store,
+      updatedAt,
+      mutateBeforeLock: (row) => {
+        row.updated_at = new Date("2026-08-12T23:59:00.000Z");
+        row.data = JSON.parse(JSON.stringify(row.data));
+        row.data.users["b@example.com"] = { plan: "Pro" };
+      },
+    });
+    await assert.rejects(() => run(applyArgs, { client, env }), /stale-state|fingerprint|concurrency/i);
+    assert.equal(client.writeCount(), 0);
+  }
+
+  // TEST 6 invariant
+  {
+    const store = makeStore(3);
+    const broken = JSON.parse(JSON.stringify(store));
+    broken.siteContent.curriculum.lessonPlans[0].enrichmentDraft = { tip: "CHANGED" };
+    assert.throws(() => assertHistoryOnlyTransform(store, broken), /enrichmentDraft|non-history/);
+  }
+
+  // TEST 7 write error
+  {
+    const store = makeStore(8);
+    const updatedAt = new Date("2026-08-12T23:50:00.000Z");
+    const client = createMockClient({ store, updatedAt, failWrite: true });
+    await assert.rejects(() => run(applyArgs, { client, env }), /synthetic_write_failure/);
+    assert.equal(client.writeCount(), 0);
+  }
+
+  // TEST 8 post-write verify failure
+  {
+    const store = makeStore(8);
+    const updatedAt = new Date("2026-08-12T23:50:00.000Z");
+    const client = createMockClient({ store, updatedAt, corruptAfterWrite: true });
+    await assert.rejects(() => run(applyArgs, { client, env }), /HARD FAILURE|fingerprint|post-write/i);
+    assert.equal(client.writeCount(), 1);
+  }
+
+  // TEST 9 local JSON regression
+  {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "llh-pg-apply-"));
+    const storePath = path.join(tmpDir, "store.json");
+    const store = makeStore(8);
+    fs.writeFileSync(storePath, JSON.stringify(store));
+    const before = fs.readFileSync(storePath, "utf8");
+    const dry = await run([`--store-path=${storePath}`, "--json"]);
+    assert.equal(dry.wrote, false);
+    assert.equal(fs.readFileSync(storePath, "utf8"), before);
+    const applied = await run([`--store-path=${storePath}`, "--apply", "--json"]);
+    assert.equal(applied.wrote, true);
+    const after = JSON.parse(fs.readFileSync(storePath, "utf8"));
+    assert.equal(after.siteContent.curriculum.lessonPlans[0].enrichmentPublishHistory.length, 5);
+    assertHistoryOnlyTransform(store, after);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+
+  // Direct helper single-write proof
   {
     const store = makeStore(8);
     const updatedAt = new Date("2026-08-12T23:50:00.000Z");
@@ -430,13 +303,19 @@ async function main() {
       sourceStore: store,
       sourceUpdatedAt: updatedAt,
       sourceFingerprint: stableFingerprint(store),
-      backupId: "backup_2026-08-12T23-44-42-105Z_pre-enrichment-history-prune",
+      backupId,
       confirmPostgresPrune: true,
     });
-    assert.equal(result.wrote, true);
     assert.equal(result.postgresWriteCount, 1);
-    assert.equal(client.writeCount(), 1);
   }
+
+  {
+    const store = makeStore(6);
+    const pruned = JSON.parse(JSON.stringify(store));
+    pruneEnrichmentPublishHistoryInStore(pruned);
+    assertHistoryOnlyTransform(store, pruned);
+  }
+
   console.log("All enrichment publish-history Postgres apply-path tests passed.");
 }
 

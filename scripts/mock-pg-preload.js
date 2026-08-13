@@ -35,6 +35,8 @@ function buildSeedStore() {
 
 const state = {
   store: seedPayloadBytes > 0 ? buildSeedStore() : null,
+  /** Row-level llh_store.updated_at (distinct from siteContent.updatedAt). */
+  rowUpdatedAt: seedPayloadBytes > 0 ? new Date("2026-08-12T16:00:00.000Z") : null,
   analyticsEvents: [],
   writes: [],
   analyticsInserts: 0,
@@ -53,6 +55,7 @@ const state = {
   overlappingUpserts: 0,
   activeConflictUpserts: 0,
   maxActiveConflictUpserts: 0,
+  updatedAtConflicts: 0,
 };
 
 global.__LLH_MOCK_PG__ = state;
@@ -250,7 +253,10 @@ Module.prototype.require = function mockPgRequire(id) {
             writeStatus();
             return { rows: [] };
           }
-          if (text.includes("SELECT 1") || text.includes("SELECT data FROM llh_store")) {
+          const isLlhStoreSelect = /\bFROM\s+llh_store\b(?!\w)/i.test(text)
+            && !/llh_store_backups/i.test(text)
+            && text.includes("SELECT");
+          if (text.includes("SELECT 1") || isLlhStoreSelect) {
             const ctrl = readControl();
             if (ctrl.failAllSelects || ctrl.failAllQueries) {
               writeStatus();
@@ -266,10 +272,31 @@ Module.prototype.require = function mockPgRequire(id) {
               writeStatus();
               return { rows: [{ ok: 1 }] };
             }
+            // External maintenance prune simulation: replace store + bump row updated_at.
+            if (ctrl.externalStorePrune && typeof ctrl.externalStorePrune === "object") {
+              const prune = ctrl.externalStorePrune;
+              state.store = prune.store || state.store;
+              state.rowUpdatedAt = new Date(prune.updatedAt || Date.now());
+              delete ctrl.externalStorePrune;
+              writeControl(ctrl);
+            }
+            if (ctrl.bumpRowUpdatedAt) {
+              state.rowUpdatedAt = new Date(ctrl.bumpRowUpdatedAt === true ? Date.now() : ctrl.bumpRowUpdatedAt);
+              delete ctrl.bumpRowUpdatedAt;
+              writeControl(ctrl);
+            }
             state.selectCount += 1;
             writeStatus();
-            if (state.store) return { rows: [{ data: state.store }] };
-            return { rows: [] };
+            if (!state.store) return { rows: [] };
+            if (text.includes("FOR UPDATE") && text.includes("updated_at") && !text.includes("data")) {
+              return { rows: [{ updated_at: state.rowUpdatedAt || new Date() }] };
+            }
+            return {
+              rows: [{
+                data: state.store,
+                updated_at: state.rowUpdatedAt || new Date(),
+              }],
+            };
           }
           if (text.includes("INSERT INTO llh_store") || text.includes("UPDATE llh_store")) {
             const isConflictUpsert = text.includes("ON CONFLICT") || text.includes("jsonb_set");
@@ -309,6 +336,7 @@ Module.prototype.require = function mockPgRequire(id) {
                 ? Buffer.byteLength(params[1], "utf8")
                 : Buffer.byteLength(JSON.stringify(params[1] || {}), "utf8");
               state.store = data;
+              state.rowUpdatedAt = new Date();
             }
             state.writes.push({
               at: Date.now(),
@@ -321,6 +349,11 @@ Module.prototype.require = function mockPgRequire(id) {
                 .filter(Boolean)
                 .slice(-8),
               updatedAt: data?.siteContent?.updatedAt || "",
+              rowUpdatedAt: state.rowUpdatedAt,
+              historyLens: (data?.siteContent?.curriculum?.lessonPlans || []).map((p) => ({
+                id: p.id,
+                history: Array.isArray(p.enrichmentPublishHistory) ? p.enrichmentPublishHistory.length : 0,
+              })).slice(-12),
               analyticsCount: (data?.analyticsEvents || []).length,
               payloadBytes,
             });
@@ -329,7 +362,7 @@ Module.prototype.require = function mockPgRequire(id) {
               state.activeConflictUpserts = Math.max(0, state.activeConflictUpserts - 1);
             }
             writeStatus();
-            return { rows: [] };
+            return { rows: [{ id: "launch-store", updated_at: state.rowUpdatedAt || new Date() }], rowCount: 1 };
           }
           writeStatus();
           return { rows: [] };
