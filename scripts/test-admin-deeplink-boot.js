@@ -116,6 +116,14 @@ function assertStaticContract() {
     /if \(params\.get\("view"\) === "admin" && \(canSeeAdminNav/,
     "admin deep-link recognition must not wait on hydrated owner nav",
   );
+  const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "llh-shell-manifest.json"), "utf8"));
+  assert.match(indexHtml, /app\.js\?v=20260813-admin-deeplink-boot-r1/);
+  assert.match(sw, /SHELL_VERSION = "20260813-admin-deeplink-boot-r1"/);
+  assert.match(sw, /\/app\.js\?v=20260813-admin-deeplink-boot-r1/);
+  assert.equal(manifest.version, "20260813-admin-deeplink-boot-r1");
+  assert.equal(manifest.cacheName, "llh-shell-v201-admin-deeplink-boot-r1");
   console.log("PASS  static contract: pending intended admin route is captured before hydration");
 }
 
