@@ -72,15 +72,25 @@
     return ref;
   }
 
-  async function defaultFetchBytes(source) {
+  async function defaultFetchBytes(source, _attachment, options = {}) {
     const ref = text(source);
     if (!ref) return null;
     if (/^data:/i.test(ref)) return dataUrlToBytes(ref);
     const href = resolveFetchableUrl(ref);
     if (typeof fetch === "function" && (/^https?:\/\//i.test(href) || /^blob:/i.test(href))) {
-      const res = await fetch(href, { credentials: "include" });
-      if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
-      return new Uint8Array(await res.arrayBuffer());
+      const timeoutMs = Math.max(3000, Number(options.timeoutMs) || 20000);
+      const controller = typeof AbortController === "function" ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      try {
+        const res = await fetch(href, {
+          credentials: "include",
+          signal: controller ? controller.signal : undefined,
+        });
+        if (!res.ok) throw new Error(`fetch_failed_${res.status}`);
+        return new Uint8Array(await res.arrayBuffer());
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     }
     if (typeof require === "function" && !/^https?:\/\//i.test(ref) && !ref.startsWith("/")) {
       try {

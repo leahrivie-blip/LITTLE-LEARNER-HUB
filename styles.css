@@ -24806,6 +24806,59 @@ body.nuo-open #freePlanReminderBar {
   gap: 8px;
   margin: 10px 0;
 }
+.tk-binder-status-panel {
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--tk-line, #e8e0f4);
+  border-radius: 12px;
+  background: #f7f4fb;
+}
+.tk-binder-status-heading {
+  margin: 0 0 6px;
+}
+.tk-binder-status-stages {
+  margin: 8px 0 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.88rem;
+}
+.tk-binder-status-stages li {
+  margin: 4px 0;
+  padding-left: 1.35em;
+  position: relative;
+}
+.tk-binder-status-stages li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 0.65em;
+  height: 0.65em;
+  box-sizing: border-box;
+  border: 2px solid #8a7aa8;
+  border-radius: 50%;
+  background: transparent;
+}
+.tk-binder-status-stages li.is-current::before {
+  border-color: #5c4d7a;
+  background: #5c4d7a;
+}
+.tk-binder-status-stages li.is-done::before {
+  border-color: #2f6b4f;
+  background: #2f6b4f;
+}
+.tk-binder-status-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tk-binder-request-id {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+.llh-teaching-kit-print-target {
+  background: #fff;
+}
 .tk-eyebrow { font-size: 0.78rem; font-weight: 700; color: var(--tk-muted); }
 .tk-big { font-size: 1.3rem; font-weight: 800; color: var(--tk-brand-deep); }
 .tk-check-row {
