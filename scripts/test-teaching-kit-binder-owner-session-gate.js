@@ -394,6 +394,10 @@ async function restoreOwnerPipeline(page) {
     }
     if (window.html2canvas) delete window.html2canvas.__ownerGateWrapped;
     if (window.printTeachingKitBinder) delete window.printTeachingKitBinder.__ownerGateWrapped;
+    try {
+      if (typeof teachingKitBinderBusy !== "undefined") teachingKitBinderBusy = false;
+      if (typeof teachingKitBinderActiveId !== "undefined") teachingKitBinderActiveId = "";
+    } catch (_err) { /* ignore */ }
   });
 }
 
@@ -487,6 +491,26 @@ async function instrumentOwnerPage(page) {
       window.LLHTeachingKitBinderJob.openPrintTarget.__ownerGateWrapped = true;
     }
   });
+}
+
+async function clickDownloadOnce(page) {
+  await page.evaluate(() => {
+    try {
+      if (typeof teachingKitBinderBusy !== "undefined") teachingKitBinderBusy = false;
+      if (typeof teachingKitBinderActiveId !== "undefined") teachingKitBinderActiveId = "";
+    } catch (_err) { /* ignore */ }
+    const btn = document.querySelector("[data-tk-panel='build'] [data-tk-download-binder]")
+      || document.querySelector("[data-tk-download-binder]");
+    if (!btn) throw new Error("missing Download PDF button");
+    btn.click();
+  });
+  await page.waitForFunction(() => {
+    const btn = document.querySelector("[data-tk-download-binder]");
+    const panel = document.querySelector("[data-tk-binder-status-panel]");
+    return Boolean(btn?.disabled)
+      || /Preparing|Working/i.test(btn?.innerText || "")
+      || /Preparing|Building/i.test(panel?.innerText || "");
+  }, null, { timeout: 8000 });
 }
 
 async function openPrintCenter(page) {
@@ -903,13 +927,9 @@ async function main() {
     console.log("\nOwner Test 7 — One Day");
     await remount();
     await selectPreset(page, "today_pack", { day: "wednesday" });
-    await page.waitForFunction(() => {
-      const btn = document.querySelector("[data-tk-download-binder]");
-      return btn && btn.disabled !== true;
-    }, null, { timeout: 8000 });
+    await page.waitForFunction(() => document.querySelector("[data-tk-print-preset='today_pack']")?.checked === true, null, { timeout: 8000 });
     const oneDayDownloadsBefore = downloads.length;
-    await page.locator("[data-tk-download-binder]").click({ force: true });
-    await page.waitForTimeout(150);
+    await clickDownloadOnce(page);
     const oneDayImmediate = await snapshotStatus(page);
     ok(oneDayImmediate.downloadDisabled === true, "One Day download shows busy status");
     const oneDayWait = await waitWhileBusy(page, 180000);
@@ -937,13 +957,9 @@ async function main() {
     console.log("\nOwner Test 8 — Selected Resources");
     await remount();
     await selectPreset(page, "selected_resources", { selectedVocabulary: true });
-    await page.waitForFunction(() => {
-      const btn = document.querySelector("[data-tk-download-binder]");
-      return btn && btn.disabled !== true;
-    }, null, { timeout: 8000 });
+    await page.waitForFunction(() => document.querySelector("[data-tk-print-preset='selected_resources']")?.checked === true, null, { timeout: 8000 });
     const selectedDownloadsBefore = downloads.length;
-    await page.locator("[data-tk-download-binder]").click({ force: true });
-    await page.waitForTimeout(150);
+    await clickDownloadOnce(page);
     const selectedImmediate = await snapshotStatus(page);
     ok(selectedImmediate.downloadDisabled === true, "Selected Resources download shows busy status");
     await waitWhileBusy(page, 180000);
