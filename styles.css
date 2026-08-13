@@ -28780,6 +28780,79 @@ button.primary-button.is-loading[data-upgrade-lesson-cta] {
   overflow: auto;
   width: 100%;
 }
+.tk-paste-mode {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.75rem 0 0.35rem;
+  padding: 0;
+  border: 0;
+}
+.tk-paste-mode legend {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+.tk-paste-mode-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.55rem;
+  background: #fff;
+  cursor: pointer;
+}
+.tk-paste-mode-option.is-on {
+  border-color: rgba(36, 49, 42, 0.42);
+  box-shadow: 0 0 0 1px rgba(36, 49, 42, 0.12);
+}
+.tk-paste-mode-option span {
+  display: grid;
+  gap: 0.2rem;
+}
+.tk-paste-replace-hero {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.55rem;
+  background: #f3eee4;
+}
+.tk-paste-replace-hero strong {
+  display: block;
+  font-size: 1.05rem;
+}
+.tk-paste-group {
+  margin: 0.85rem 0 1rem;
+}
+.tk-paste-group h4 {
+  margin: 0 0 0.45rem;
+}
+.tk-paste-change.is-missing {
+  border-style: dashed;
+  background: #f7f4ee;
+}
+.tk-paste-change.is-required-missing,
+.tk-paste-missing li.is-required-missing {
+  border-color: #9a3b2f;
+  color: #6d241c;
+}
+.tk-paste-missing.has-required {
+  border: 1px solid rgba(154, 59, 47, 0.28);
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.75rem;
+}
+.tk-paste-missing-required {
+  font-weight: 700;
+  color: #6d241c;
+}
+.tk-paste-replace-confirm {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-weight: 600;
+  margin: 1rem 0 0.75rem;
+}
 .tk-paste-textarea-label {
   display: grid;
   gap: 0.35rem;
