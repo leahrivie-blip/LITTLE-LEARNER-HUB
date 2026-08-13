@@ -1,5 +1,5 @@
-const CACHE_NAME = "llh-shell-v200-upgrade-lesson-open-fix-r1";
-const SHELL_VERSION = "20260810-tk-editor-open-focus-fix-r1";
+const CACHE_NAME = "llh-shell-v201-admin-deeplink-boot-r1";
+const SHELL_VERSION = "20260813-admin-deeplink-boot-r1";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
@@ -54,7 +54,7 @@ const APP_SHELL = [
   "/scripts/lesson-review-editor.js?v=20260812-core-age-duration-r1",
   "/styles/lesson-review-editor.css?v=20260812-core-age-duration-r1",
   "/scripts/teaching-kit-authoring.js?v=20260803-tk-authoring",
-  "/app.js?v=20260810-tk-editor-open-focus-fix-r1",
+  "/app.js?v=20260813-admin-deeplink-boot-r1",
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260806-tk-admin-flags-settings",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",
