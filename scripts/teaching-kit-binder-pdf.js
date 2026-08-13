@@ -267,6 +267,179 @@
     return false;
   }
 
+  function pageHeightBudgetPx(paper) {
+    // Full Letter/A4 CSS height. Small slack avoids needless splits on sub-pixel overflow.
+    return Math.max(800, Number(paper?.cssHeightPx) || 1056);
+  }
+
+  function isFlowContainer(el) {
+    if (!el || !el.classList) return false;
+    return el.classList.contains("tk-print-day-sheet")
+      || el.classList.contains("tk-print-day-sheet-grid")
+      || el.classList.contains("tk-print-day-activities")
+      || el.classList.contains("tk-print-activity-card")
+      || el.classList.contains("tk-print-activity-grid")
+      || el.classList.contains("tk-print-activity-primary")
+      || el.classList.contains("tk-print-activity-secondary")
+      || el.classList.contains("tk-print-resource-grid")
+      || el.classList.contains("tk-print-book-stack")
+      || el.classList.contains("tk-print-toolkit-groups")
+      || el.classList.contains("tk-print-notes-grid")
+      || el.classList.contains("tk-print-body");
+  }
+
+  function isAtomicKeepUnit(el, budgetPx) {
+    if (!el || el.nodeType !== 1) return false;
+    const height = Math.max(Number(el.scrollHeight) || 0, Number(el.offsetHeight) || 0);
+    if (height > budgetPx) return false;
+    if (!el.classList) return false;
+    return el.classList.contains("tk-print-keep")
+      || el.classList.contains("tk-print-keep-row")
+      || el.classList.contains("tk-print-panel")
+      || el.classList.contains("tk-print-callout")
+      || el.classList.contains("tk-print-callout-tip")
+      || el.classList.contains("tk-print-callout-watch")
+      || el.classList.contains("tk-print-callout-extend")
+      || el.classList.contains("tk-print-callout-cleanup")
+      || el.classList.contains("tk-print-activity-head")
+      || el.classList.contains("tk-print-day-sheet-head")
+      || el.classList.contains("tk-print-day-activity")
+      || el.classList.contains("tk-print-resource-card")
+      || el.classList.contains("tk-print-book-card")
+      || el.classList.contains("tk-print-materials-group")
+      || el.classList.contains("tk-print-notes-card")
+      || el.classList.contains("tk-print-section-banner")
+      || el.classList.contains("tk-print-activity-card");
+  }
+
+  /**
+   * Flatten binder page bodies into keep-together flow units for capture pagination.
+   * Large wrappers (day sheets / activity cards) may span; their panels/cards stay atomic.
+   */
+  function flattenBinderFlowUnits(container, budgetPx, depth) {
+    const level = Number(depth) || 0;
+    const units = [];
+    Array.from(container?.children || []).forEach((child) => {
+      if (!child || child.nodeType !== 1) return;
+      const height = Math.max(Number(child.scrollHeight) || 0, Number(child.offsetHeight) || 0);
+      if (isAtomicKeepUnit(child, budgetPx)) {
+        units.push(child);
+        return;
+      }
+      if ((isFlowContainer(child) || height > budgetPx) && child.children && child.children.length && level < 8) {
+        const nested = flattenBinderFlowUnits(child, budgetPx, level + 1);
+        if (nested.length) {
+          nested.forEach((unit) => units.push(unit));
+          return;
+        }
+      }
+      units.push(child);
+    });
+    return units;
+  }
+
+  function cloneBinderPageShell(pageEl) {
+    const clone = pageEl.cloneNode(false);
+    Array.from(pageEl.attributes || []).forEach((attr) => {
+      if (attr && attr.name) clone.setAttribute(attr.name, attr.value);
+    });
+    clone.setAttribute("data-tk-print-continued", "1");
+    Array.from(pageEl.children || []).forEach((child) => {
+      if (!child || child.nodeType !== 1) return;
+      if (child.classList && child.classList.contains("tk-print-body")) {
+        const body = child.cloneNode(false);
+        Array.from(child.attributes || []).forEach((attr) => {
+          if (attr && attr.name) body.setAttribute(attr.name, attr.value);
+        });
+        clone.appendChild(body);
+        return;
+      }
+      clone.appendChild(child.cloneNode(true));
+    });
+    return clone;
+  }
+
+  /**
+   * Pre-paginate overflowing .tk-print-page sections at keep-together boundaries so
+   * html2canvas capture does not canvas-slice through cards/boxes. CSS break-* rules
+   * alone cannot protect Download PDF because capture rasterizes then slices pixels.
+   */
+  function reflowOverflowingBinderPages(host, paper) {
+    if (!host || typeof host.querySelectorAll !== "function") {
+      return { ok: false, reason: "no_host", pagesBefore: 0, pagesAfter: 0, splitCount: 0 };
+    }
+    const budgetPx = pageHeightBudgetPx(paper);
+    const softLimit = Math.floor(budgetPx * 1.08);
+    const initialPages = Array.from(host.querySelectorAll(".tk-print-page"));
+    let splitCount = 0;
+    initialPages.forEach((pageEl) => {
+      const naturalH = Math.max(Number(pageEl.scrollHeight) || 0, Number(pageEl.offsetHeight) || 0);
+      if (naturalH <= softLimit) return;
+      const body = pageEl.querySelector(".tk-print-body");
+      if (!body) return;
+      const units = flattenBinderFlowUnits(body, budgetPx, 0);
+      if (units.length <= 1) return;
+      const parent = pageEl.parentNode;
+      if (!parent) return;
+      // Detach units, then refill page shells without orphaning headings when possible.
+      units.forEach((unit) => {
+        if (unit.parentNode) unit.parentNode.removeChild(unit);
+      });
+      body.innerHTML = "";
+      let currentPage = pageEl;
+      let currentBody = body;
+      units.forEach((unit) => {
+        currentBody.appendChild(unit);
+        const pageH = Math.max(Number(currentPage.scrollHeight) || 0, Number(currentPage.offsetHeight) || 0);
+        if (pageH <= softLimit || currentBody.children.length === 1) return;
+        const overflowUnit = currentBody.lastElementChild;
+        if (!overflowUnit) return;
+        currentBody.removeChild(overflowUnit);
+        // Keep section banners / activity heads with the content that follows them.
+        const orphanHead = currentBody.lastElementChild;
+        const orphanIsHead = Boolean(
+          orphanHead
+          && orphanHead.classList
+          && (
+            orphanHead.classList.contains("tk-print-section-banner")
+            || orphanHead.classList.contains("tk-print-activity-head")
+            || orphanHead.classList.contains("tk-print-day-sheet-head")
+            || orphanHead.classList.contains("tk-print-title-bar")
+          )
+        );
+        if (orphanIsHead) currentBody.removeChild(orphanHead);
+        const nextPage = cloneBinderPageShell(currentPage);
+        const nextBody = nextPage.querySelector(".tk-print-body");
+        if (!nextBody) return;
+        parent.insertBefore(nextPage, currentPage.nextSibling);
+        if (orphanIsHead && orphanHead) nextBody.appendChild(orphanHead);
+        nextBody.appendChild(overflowUnit);
+        currentPage = nextPage;
+        currentBody = nextBody;
+        splitCount += 1;
+      });
+    });
+    const pagesAfter = host.querySelectorAll(".tk-print-page").length;
+    return {
+      ok: true,
+      reason: "ok",
+      pagesBefore: initialPages.length,
+      pagesAfter,
+      splitCount,
+      budgetPx,
+    };
+  }
+
+  function yieldToBrowser() {
+    return new Promise((resolve) => {
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => setTimeout(resolve, 0));
+      } else {
+        setTimeout(resolve, 0);
+      }
+    });
+  }
+
   function withPageCaptureTimeout(promise, timeoutMs) {
     const ms = Math.max(3000, Number(timeoutMs) || 20000);
     let timer = null;
@@ -322,6 +495,20 @@
         };
       }
       const paper = letterSize(options.paperSize);
+      // Keep-together reflow BEFORE capture so Download PDF does not canvas-slice cards.
+      const reflow = options.skipReflow === true
+        ? { ok: false, reason: "skipped", pagesBefore: pages.length, pagesAfter: pages.length, splitCount: 0 }
+        : reflowOverflowingBinderPages(host, paper);
+      pages = Array.from(host.querySelectorAll(".tk-print-page"));
+      if (!pages.length) {
+        return {
+          ok: false,
+          reason: "no_binder_pages",
+          bytes: null,
+          message: "No binder pages were available to download. Please try Preview, then Download PDF again.",
+        };
+      }
+      try { host.setAttribute("data-tk-print-html", host.innerHTML); } catch (_err) { /* ignore */ }
       const pdfDoc = await PDFLib.PDFDocument.create();
       let pageErrors = 0;
       const captureStarted = Date.now();
@@ -331,6 +518,7 @@
         message: `Building PDF… page 1 of ${pages.length}`,
         pageIndex: 0,
         pageCount: pages.length,
+        reflowSplitCount: reflow.splitCount || 0,
       });
       for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
         const pageEl = pages[pageIndex];
@@ -348,6 +536,8 @@
           pageIndex,
           pageCount: pages.length,
         });
+        // Yield so mobile Safari can paint progress and is less likely to kill the tab.
+        if (pageIndex > 0) await yieldToBrowser();
         const targetW = paper.cssWidthPx || 816;
         const targetH = paper.cssHeightPx || 1056;
         const prevMinHeight = pageEl.style.minHeight;
@@ -362,8 +552,8 @@
           Number(pageEl.offsetHeight) || 0,
           1,
         );
-        // Only paginate when content is meaningfully taller than one sheet
-        // (e.g. dense One Activity). Slight overflow stays on one page.
+        // After keep-together reflow, canvas slicing should be rare. Retain as last resort
+        // only for a single atomic block that is still taller than one sheet.
         const needsSlice = naturalH > targetH * 1.25;
         if (!needsSlice && naturalH < targetH) {
           pageEl.style.minHeight = `${targetH}px`;
@@ -478,6 +668,7 @@
         pageCount: pdfDoc.getPageCount(),
         pageErrors,
         generationMs: Date.now() - captureStarted,
+        reflow,
       };
     } catch (error) {
       return {
@@ -514,5 +705,8 @@
     renderBinderPdfWithPlaywright,
     renderBinderPdfInBrowser,
     embedCanvasAsPrintablePages,
+    reflowOverflowingBinderPages,
+    flattenBinderFlowUnits,
+    pageHeightBudgetPx,
   };
 });

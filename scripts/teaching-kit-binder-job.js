@@ -81,9 +81,60 @@
   });
 
   let requestSeq = 0;
+  /** In-session Entire Binder artifacts keyed by content fingerprint (no curriculum mutation). */
+  const binderArtifactCache = new Map();
 
   function text(value) {
     return String(value == null ? "" : value).trim();
+  }
+
+  function prefersOpenPdfViewer(options = {}) {
+    if (options.forceDownload === true) return false;
+    if (options.forceOpenViewer === true) return true;
+    const nav = options.navigator || (typeof navigator !== "undefined" ? navigator : null);
+    if (!nav) return false;
+    const ua = text(nav.userAgent);
+    const platform = text(nav.platform);
+    const maxTouchPoints = Number(nav.maxTouchPoints) || 0;
+    const iOS = /iPad|iPhone|iPod/i.test(ua)
+      || (platform === "MacIntel" && maxTouchPoints > 1);
+    // iOS Safari/Chrome ignore or weakly support <a download> for blob PDFs.
+    return iOS;
+  }
+
+  function cacheBinderArtifact(fingerprint, artifact) {
+    const key = text(fingerprint);
+    if (!key || !artifact?.bytes || !artifact.bytes.byteLength) return false;
+    binderArtifactCache.set(key, {
+      bytes: artifact.bytes,
+      fileName: text(artifact.fileName),
+      pageCount: Number(artifact.pageCount) || 0,
+      byteLength: artifact.bytes.byteLength,
+      cachedAt: Date.now(),
+    });
+    // Bound memory: keep the most recent few binder artifacts only.
+    if (binderArtifactCache.size > 4) {
+      const oldest = binderArtifactCache.keys().next().value;
+      if (oldest) binderArtifactCache.delete(oldest);
+    }
+    return true;
+  }
+
+  function getCachedBinderArtifact(fingerprint) {
+    const key = text(fingerprint);
+    if (!key || !binderArtifactCache.has(key)) return null;
+    const hit = binderArtifactCache.get(key);
+    if (!hit?.bytes?.byteLength) return null;
+    const validation = validatePdfBytes(hit.bytes);
+    if (!validation.ok) {
+      binderArtifactCache.delete(key);
+      return null;
+    }
+    return hit;
+  }
+
+  function clearBinderArtifactCache() {
+    binderArtifactCache.clear();
   }
 
   function createBinderRequestId() {
@@ -245,13 +296,52 @@
   function triggerBlobDownload(blob, fileName, options = {}) {
     const documentRef = options.document || (typeof document !== "undefined" ? document : null);
     const urlApi = options.URL || (typeof URL !== "undefined" ? URL : null);
+    const win = options.window || (typeof window !== "undefined" ? window : null);
     if (!blob || !documentRef || !urlApi?.createObjectURL) {
-      return { ok: false, reason: "blob_failure", objectUrl: "" };
+      return { ok: false, reason: "blob_failure", objectUrl: "", delivery: "none" };
     }
     const url = urlApi.createObjectURL(blob);
+    const safeName = text(fileName) || "Teaching-Kit-Binder.pdf";
+    const openViewer = prefersOpenPdfViewer(options);
+    if (openViewer) {
+      // Mobile-compatible handoff: open the finished PDF in a document viewer so the
+      // user can Share / Save to Files / Print. Do not treat missing <a download>
+      // support as binder generation failure.
+      let opened = null;
+      try {
+        opened = win && typeof win.open === "function"
+          ? win.open(url, "_blank", "noopener,noreferrer")
+          : null;
+      } catch (_err) {
+        opened = null;
+      }
+      if (!opened) {
+        const link = documentRef.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.setAttribute("aria-label", safeName);
+        documentRef.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      // Keep object URL alive longer on mobile so Share/Save still works.
+      const revokeMs = Number(options.revokeMs) || 120000;
+      setTimeout(() => {
+        try { urlApi.revokeObjectURL(url); } catch (_err) { /* ignore */ }
+      }, revokeMs);
+      return {
+        ok: true,
+        reason: "opened_viewer",
+        objectUrl: url,
+        fileName: safeName,
+        delivery: "viewer",
+        popupBlocked: !opened,
+      };
+    }
     const link = documentRef.createElement("a");
     link.href = url;
-    link.download = text(fileName) || "Teaching-Kit-Binder.pdf";
+    link.download = safeName;
     link.rel = "noopener";
     documentRef.body.appendChild(link);
     link.click();
@@ -260,7 +350,7 @@
     setTimeout(() => {
       try { urlApi.revokeObjectURL(url); } catch (_err) { /* ignore */ }
     }, revokeMs);
-    return { ok: true, reason: "started", objectUrl: url, fileName: link.download };
+    return { ok: true, reason: "started", objectUrl: url, fileName: safeName, delivery: "download" };
   }
 
   function binderBusyPatch(state, patch) {
@@ -289,6 +379,10 @@
     logDiagnostics,
     openPrintTarget,
     triggerBlobDownload,
+    prefersOpenPdfViewer,
+    cacheBinderArtifact,
+    getCachedBinderArtifact,
+    clearBinderArtifactCache,
     binderBusyPatch,
   };
 });
