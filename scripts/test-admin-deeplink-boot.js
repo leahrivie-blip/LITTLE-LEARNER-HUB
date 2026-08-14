@@ -105,7 +105,10 @@ function assertStaticContract() {
   assert.match(appJs, /function captureIntendedBootViewFromLocation\(/);
   assert.match(appJs, /function locationRouteKey\(/);
   assert.match(appJs, /function isAdminDeepLinkToken\(/);
+  assert.match(appJs, /function hashLooksLikeAdminDeepLink\(/);
+  assert.match(appJs, /function normalizeGluedAdminHashInLocation\(/);
   assert.match(appJs, /isAdminDeepLinkToken\(pathKeyLower\) \|\| isAdminDeepLinkToken\(hashKeyLower\)/);
+  assert.match(appJs, /hashLooksLikeAdminDeepLink\(window\.location\.hash\)/);
   assert.match(appJs, /pendingAuthReturnView = pendingAuthReturnView \|\| "admin"/);
   const bootStart = appJs.indexOf("async function initializeAppView(");
   const bootEnd = appJs.indexOf("initializeAppView();", bootStart);
@@ -120,7 +123,7 @@ function assertStaticContract() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "llh-shell-manifest.json"), "utf8"));
-  const SHELL = "20260814-admin-deeplink-chromebook-r1";
+  const SHELL = "20260814-admin-deeplink-doublepaste-r1";
   assert.match(appJs, /function restoreMainAdminFromBareDeepLink\(/);
   assert.match(appJs, /adminActiveSectionTab = "admin-home"/);
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
@@ -134,7 +137,7 @@ function assertStaticContract() {
   assert.match(sw, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(sw, new RegExp(`/app\\.js\\?v=${SHELL}`));
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v203-admin-deeplink-chromebook-r1");
+  assert.equal(manifest.cacheName, "llh-shell-v204-admin-deeplink-doublepaste-r1");
   console.log("PASS  static contract: pending intended admin route is captured before hydration");
 }
 
@@ -443,6 +446,13 @@ async function main() {
           { label: "path-admin", url: `${BASE}/admin`, viewport: { width: 1024, height: 768 } },
           { label: "chromebook-tablet", url: `${BASE}/#/admin`, viewport: { width: 960, height: 600 } },
           { label: "mobile-narrow", url: `${BASE}/?view=admin`, viewport: { width: 390, height: 844 } },
+          // Chat / Chromebook double-paste: second absolute URL glued into the hash.
+          {
+            label: "double-paste-hash",
+            url: `${BASE}/#/adminhttps://little-learner-hub.onrender.com/#/admin`,
+            viewport: { width: 1366, height: 768 },
+            expectCleanHash: "#/admin",
+          },
         ];
         for (const variant of variants) {
           const page = await browser.newPage({ viewport: variant.viewport });
@@ -455,6 +465,9 @@ async function main() {
           assert.equal(state.active, "admin", `${variant.label}: expected admin, got ${state.active}`);
           assert.equal(state.protectedVisible, true, `${variant.label}: owner must see Admin Content Manager`);
           assert.equal(state.section, "admin-home", `${variant.label}: must open Admin Home`);
+          if (variant.expectCleanHash) {
+            assert.equal(state.hash, variant.expectCleanHash, `${variant.label}: hash should be cleaned`);
+          }
           await screenshot(page, `admin-deeplink-${variant.label}.png`);
           await page.close();
           console.log(`PASS  ${variant.label} → Admin Home`);

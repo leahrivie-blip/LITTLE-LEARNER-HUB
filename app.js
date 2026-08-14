@@ -77063,6 +77063,38 @@ function isAdminDeepLinkToken(raw) {
     || key === "#admin-home";
 }
 
+/**
+ * True when the hash is an Admin deep link — including Chromebook / chat
+ * double-paste glue like `#/adminhttps://little-learner-hub.onrender.com/#/admin`.
+ * @param {string} hashRaw
+ * @returns {boolean}
+ */
+function hashLooksLikeAdminDeepLink(hashRaw) {
+  const hash = String(hashRaw || "").trim();
+  if (!hash) return false;
+  // Exact / trailing-slash / query forms.
+  if (/^#\/?admin(?:-home|home)?(?:\/|$|\?)/i.test(hash)) return true;
+  // Paste-glued second URL immediately after "admin".
+  if (/^#\/?admin(?:-home|home)?(?=https?:\/\/)/i.test(hash)) return true;
+  // Second `#/admin` anywhere after a glued absolute URL in the hash.
+  if (/https?:\/\/[^\s#]+#\/?admin(?:\/|$|\?)/i.test(hash)) return true;
+  return false;
+}
+
+/**
+ * Rewrite paste-glued admin hashes to a clean `#/admin` so refresh keeps working.
+ */
+function normalizeGluedAdminHashInLocation() {
+  try {
+    const hash = String(window.location.hash || "").trim();
+    if (!hashLooksLikeAdminDeepLink(hash)) return;
+    if (/^#\/?admin\/?$/i.test(hash)) return;
+    const next = `${window.location.pathname || "/"}${window.location.search || ""}#/admin`;
+    if (`${window.location.pathname || "/"}${window.location.search || ""}${window.location.hash || ""}` === next) return;
+    window.history.replaceState(null, "", next);
+  } catch (_error) { /* ignore */ }
+}
+
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
   if (resetPasswordLinkRequestedFromLocation()) return "reset-password";
@@ -77086,9 +77118,9 @@ function initialViewFromLocation() {
   const hashKey = locationRouteKey(window.location.hash);
   const pathKeyLower = pathKey.toLowerCase();
   const hashKeyLower = hashKey.toLowerCase();
-  // Tolerate trailing slashes, mixed case, and "#admin" vs "#/admin" (Chromebook / PWA).
+  // Tolerate trailing slashes, mixed case, "#admin" vs "#/admin", and double-pasted URLs.
   if (isAdminDeepLinkToken(pathKeyLower) || isAdminDeepLinkToken(hashKeyLower)) return "admin";
-  if (/^#\/?admin(?:\/|$)/i.test(String(window.location.hash || "").trim())) return "admin";
+  if (hashLooksLikeAdminDeepLink(window.location.hash)) return "admin";
   const pathView = adRouteMap[pathKey] || adRouteMap[pathKeyLower] || adRouteMap[window.location.pathname];
   const hashView = adRouteMap[hashKey] || adRouteMap[hashKeyLower] || adRouteMap[window.location.hash];
   return pathView || hashView || "home";
@@ -77134,7 +77166,10 @@ function captureIntendedBootViewFromLocation() {
   ) {
     pendingAuthReturnView = pendingAuthReturnView || "admin";
   }
-  if (pendingIntendedBootView === "admin") restoreMainAdminFromBareDeepLink();
+  if (pendingIntendedBootView === "admin") {
+    normalizeGluedAdminHashInLocation();
+    restoreMainAdminFromBareDeepLink();
+  }
   return pendingIntendedBootView;
 }
 
