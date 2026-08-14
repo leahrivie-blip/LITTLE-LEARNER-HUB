@@ -160,11 +160,8 @@
         if (countShellCssRules() < 20) return false;
         var token = window.getComputedStyle(document.documentElement).getPropertyValue("--llh-primary").trim();
         if (!token) return false;
-        var landing = document.querySelector(".landing-home");
-        if (landing) {
-          var landingFont = window.getComputedStyle(landing).fontFamily || "";
-          if (!/Plus Jakarta Sans|Fraunces/i.test(landingFont)) return false;
-        }
+        // Fonts are a soft signal only: Chromebooks / headless / blocked font CDNs can
+        // fall back to a system stack while styles.css is still the real shell.
         try {
           if (!localStorage.getItem("llhUser")) {
             var sidebar = document.querySelector(".sidebar");

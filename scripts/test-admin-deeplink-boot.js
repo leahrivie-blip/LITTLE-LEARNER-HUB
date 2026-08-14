@@ -201,7 +201,11 @@ async function delayMembershipSync(page, ms = 1200) {
 
 async function waitForBootReady(page) {
   await page.waitForFunction(
-    () => document.body.classList.contains("app-boot-ready") && typeof setView === "function",
+    () => Boolean(
+      document.body
+      && document.body.classList.contains("app-boot-ready")
+      && typeof setView === "function",
+    ),
     null,
     { timeout: 45000 },
   );
