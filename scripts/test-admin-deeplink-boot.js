@@ -104,7 +104,8 @@ function assertStaticContract() {
   assert.match(appJs, /let pendingIntendedBootView = ""/);
   assert.match(appJs, /function captureIntendedBootViewFromLocation\(/);
   assert.match(appJs, /function locationRouteKey\(/);
-  assert.match(appJs, /hashKey === "#\/admin" \|\| hashKey === "#admin"/);
+  assert.match(appJs, /function isAdminDeepLinkToken\(/);
+  assert.match(appJs, /isAdminDeepLinkToken\(pathKeyLower\) \|\| isAdminDeepLinkToken\(hashKeyLower\)/);
   assert.match(appJs, /pendingAuthReturnView = pendingAuthReturnView \|\| "admin"/);
   const bootStart = appJs.indexOf("async function initializeAppView(");
   const bootEnd = appJs.indexOf("initializeAppView();", bootStart);
@@ -119,13 +120,21 @@ function assertStaticContract() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "llh-shell-manifest.json"), "utf8"));
+  const SHELL = "20260814-admin-deeplink-chromebook-r1";
   assert.match(appJs, /function restoreMainAdminFromBareDeepLink\(/);
   assert.match(appJs, /adminActiveSectionTab = "admin-home"/);
-  assert.match(indexHtml, /app\.js\?v=20260813-admin-deeplink-main-r1/);
-  assert.match(sw, /SHELL_VERSION = "20260813-admin-deeplink-main-r1"/);
-  assert.match(sw, /\/app\.js\?v=20260813-admin-deeplink-main-r1/);
-  assert.equal(manifest.version, "20260813-admin-deeplink-main-r1");
-  assert.equal(manifest.cacheName, "llh-shell-v202-admin-deeplink-main-r1");
+  assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
+  assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
+  assert.doesNotMatch(
+    indexHtml,
+    /if \(localStorage\.getItem\("llhUser"\)\) return;/,
+    "shell recovery must run for signed-in Chromebook owners",
+  );
+  assert.match(indexHtml, /llh-shell-manifest\.json/, "stale signed-in shells must compare live manifest version");
+  assert.match(sw, new RegExp(`SHELL_VERSION = "${SHELL}"`));
+  assert.match(sw, new RegExp(`/app\\.js\\?v=${SHELL}`));
+  assert.equal(manifest.version, SHELL);
+  assert.equal(manifest.cacheName, "llh-shell-v203-admin-deeplink-chromebook-r1");
   console.log("PASS  static contract: pending intended admin route is captured before hydration");
 }
 
@@ -192,7 +201,11 @@ async function delayMembershipSync(page, ms = 1200) {
 
 async function waitForBootReady(page) {
   await page.waitForFunction(
-    () => document.body.classList.contains("app-boot-ready") && typeof setView === "function",
+    () => Boolean(
+      document.body
+      && document.body.classList.contains("app-boot-ready")
+      && typeof setView === "function",
+    ),
     null,
     { timeout: 45000 },
   );
@@ -418,6 +431,34 @@ async function main() {
         await screenshot(page, "admin-deeplink-main-admin-not-testing.png");
         await page.close();
         console.log("PASS  leftover Testing Center / View As → main Admin Home");
+      }
+
+      console.log("9) Cross-device admin URL variants (Chromebook / tablet / query / path)");
+      {
+        const variants = [
+          { label: "hash-slash", url: `${BASE}/#/admin`, viewport: { width: 1366, height: 768 } },
+          { label: "hash-bare", url: `${BASE}/#admin`, viewport: { width: 1366, height: 768 } },
+          { label: "query-view", url: `${BASE}/?view=admin`, viewport: { width: 1280, height: 800 } },
+          { label: "query-mixed-case", url: `${BASE}/?view=Admin`, viewport: { width: 1024, height: 768 } },
+          { label: "path-admin", url: `${BASE}/admin`, viewport: { width: 1024, height: 768 } },
+          { label: "chromebook-tablet", url: `${BASE}/#/admin`, viewport: { width: 960, height: 600 } },
+          { label: "mobile-narrow", url: `${BASE}/?view=admin`, viewport: { width: 390, height: 844 } },
+        ];
+        for (const variant of variants) {
+          const page = await browser.newPage({ viewport: variant.viewport });
+          await delayMembershipSync(page, 600);
+          await seedOwnerAdmin(page, token);
+          await page.goto(variant.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+          await waitForBootReady(page);
+          await page.waitForSelector("#view-admin.active-view", { timeout: 20000 });
+          const state = await adminViewState(page);
+          assert.equal(state.active, "admin", `${variant.label}: expected admin, got ${state.active}`);
+          assert.equal(state.protectedVisible, true, `${variant.label}: owner must see Admin Content Manager`);
+          assert.equal(state.section, "admin-home", `${variant.label}: must open Admin Home`);
+          await screenshot(page, `admin-deeplink-${variant.label}.png`);
+          await page.close();
+          console.log(`PASS  ${variant.label} → Admin Home`);
+        }
       }
     } finally {
       await browser.close().catch(() => {});

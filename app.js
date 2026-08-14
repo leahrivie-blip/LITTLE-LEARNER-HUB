@@ -77045,8 +77045,22 @@ loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: false
 function locationRouteKey(raw) {
   const text = String(raw || "").trim();
   if (!text) return "";
-  const noQuery = text.split("?")[0];
+  const noQuery = text.split("?")[0].split("&")[0];
   return noQuery.replace(/\/+$/, "") || "/";
+}
+
+/** @param {string} raw @returns {boolean} */
+function isAdminDeepLinkToken(raw) {
+  const key = String(raw || "").trim().toLowerCase();
+  return key === "admin"
+    || key === "admin-home"
+    || key === "adminhome"
+    || key === "/admin"
+    || key === "/admin-home"
+    || key === "#/admin"
+    || key === "#admin"
+    || key === "#/admin-home"
+    || key === "#admin-home";
 }
 
 function initialViewFromLocation() {
@@ -77056,21 +77070,27 @@ function initialViewFromLocation() {
   // Deep link used by push notification taps (see service-worker.js
   // notificationclick) and by "Open Little Learner Hub" copy — routes
   // straight to the right conversation/tab instead of the default landing.
-  if (params.get("view") === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
+  const viewParam = String(params.get("view") || "").trim().toLowerCase();
+  if (viewParam === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
   // Recognize Admin before owner/session hydration. Unlock + server auth still gate content.
-  if (params.get("view") === "admin") return "admin";
+  // Case-insensitive so Chromebook / PWA rewrites of ?view=Admin still land correctly.
+  if (isAdminDeepLinkToken(viewParam)) return "admin";
   // Parent magic links must land in Family Hub even when the visitor is not a provider account.
   if (params.get("familyHub") && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
     return "family-hub";
   }
-  if (params.get("view") === "family-hub" && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+  if (viewParam === "family-hub" && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
     return "family-hub";
   }
   const pathKey = locationRouteKey(window.location.pathname);
   const hashKey = locationRouteKey(window.location.hash);
-  if (pathKey === "/admin" || hashKey === "#/admin" || hashKey === "#admin") return "admin";
-  const pathView = adRouteMap[pathKey] || adRouteMap[window.location.pathname];
-  const hashView = adRouteMap[hashKey] || adRouteMap[window.location.hash];
+  const pathKeyLower = pathKey.toLowerCase();
+  const hashKeyLower = hashKey.toLowerCase();
+  // Tolerate trailing slashes, mixed case, and "#admin" vs "#/admin" (Chromebook / PWA).
+  if (isAdminDeepLinkToken(pathKeyLower) || isAdminDeepLinkToken(hashKeyLower)) return "admin";
+  if (/^#\/?admin(?:\/|$)/i.test(String(window.location.hash || "").trim())) return "admin";
+  const pathView = adRouteMap[pathKey] || adRouteMap[pathKeyLower] || adRouteMap[window.location.pathname];
+  const hashView = adRouteMap[hashKey] || adRouteMap[hashKeyLower] || adRouteMap[window.location.hash];
   return pathView || hashView || "home";
 }
 
