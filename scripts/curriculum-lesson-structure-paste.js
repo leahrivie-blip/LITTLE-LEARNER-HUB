@@ -176,7 +176,33 @@
     "linked resources": "linkedResources",
     "linked resource": "linkedResources",
     "resource title": "linkedResources",
+    "cover image": "coverImageUrl",
+    "cover image url": "coverImageUrl",
+    "cover photo": "coverImageUrl",
+    "cover photo url": "coverImageUrl",
+    "lesson cover": "coverImageUrl",
+    "lesson cover url": "coverImageUrl",
+    "printable name": "pendingPrintables",
+    "printable title": "pendingPrintables",
+    "linked printable": "linkedResources",
+    "printable link": "pendingPrintables",
+    "resource id": "linkedResources",
   });
+
+  const NESTED_BODY_HEADINGS = Object.freeze(new Set([
+    "activity name", "weekday", "category", "developmental domain", "recommended age",
+    "estimated duration", "activity objective", "what children will do", "materials",
+    "teacher preparation", "setup", "step-by-step directions", "step by step directions",
+    "suggested questions to ask", "suggested questions", "learning and observation focus",
+    "safety and supervision", "cleanup", "indoor option", "indoor", "outdoor option", "outdoor",
+    "teacher tips", "supply substitutions", "support adaptations", "added challenge",
+    "mixed-age adaptations", "mixed age adaptations", "observation prompts", "vocabulary",
+    "vocabulary words", "image requirement", "setup example brief", "finished example brief",
+    "setup image", "setup image url", "example image", "example image url", "example images",
+    "finished example image", "author", "why this book", "book questions", "discussion questions",
+    "lyrics", "how to use", "tune", "instructions", "purpose / description", "purpose", "notes",
+    "type", "rights status", "rights / licensing", "day association", "teacher notes",
+  ]));
 
   const LESSON_HEADING_BY_NORMALIZED = Object.freeze((() => {
     const out = {};
@@ -228,6 +254,12 @@
           flush();
           current = { headingRaw: labelPart.trim(), fieldId: fieldId || "" };
           if (rest) bodyLines.push(rest);
+          return;
+        }
+        const nestedKeep = NESTED_BODY_HEADINGS.has(normalizePasteHeading(labelPart));
+        if (!nestedKeep && /^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "") {
+          flush();
+          current = { headingRaw: labelPart.trim(), fieldId: "" };
           return;
         }
       }
@@ -392,6 +424,8 @@
       familyConnection: "",
       milestones: [],
       rejectedMilestones: [],
+      coverImageUrl: "",
+      coverManualUpload: null,
     };
     const dailyPlans = emptyDailyPlans();
     const usedItemIds = new Set();
@@ -400,6 +434,7 @@
     const songBodies = [];
     const ideaBodies = [];
     const linkedBodies = [];
+    const pendingPrintableBodies = [];
     const kitUnsupported = [];
 
     function uniqueItemId() {
@@ -441,6 +476,11 @@
       if (Array.isArray(fields.observationPrompts) && fields.observationPrompts.length) {
         item.observationPrompts = fields.observationPrompts.slice();
       }
+      if (text(fields.imageRequirement)) item.imageRequirement = text(fields.imageRequirement);
+      if (String(fields.imageBriefSetup || "").trim()) item.imageBriefSetup = String(fields.imageBriefSetup).trim();
+      if (String(fields.imageBriefExample || "").trim()) item.imageBriefExample = String(fields.imageBriefExample).trim();
+      if (fields.setupImageUpload) item.setupImageUpload = fields.setupImageUpload;
+      if (fields.exampleImageUpload) item.exampleImageUpload = fields.exampleImageUpload;
       dailyPlans[day].items.push(item);
     }
 
@@ -483,13 +523,21 @@
           unrecognized.push({ heading: "Activities", body: line });
         });
       } else if (fieldId === "books") {
-        bookBodies.push(kit && typeof kit.labeledSectionBody === "function" ? kit.labeledSectionBody(section) : body);
+        bookBodies.push(`${section.headingRaw}:\n${body}`);
       } else if (fieldId === "songs") {
-        songBodies.push(kit && typeof kit.labeledSectionBody === "function" ? kit.labeledSectionBody(section) : body);
+        songBodies.push(`${section.headingRaw}:\n${body}`);
       } else if (fieldId === "printableIdeas") {
-        ideaBodies.push(kit && typeof kit.labeledSectionBody === "function" ? kit.labeledSectionBody(section) : body);
+        ideaBodies.push(`${section.headingRaw}:\n${body}`);
       } else if (fieldId === "linkedResources") {
-        linkedBodies.push(kit && typeof kit.labeledSectionBody === "function" ? kit.labeledSectionBody(section) : body);
+        linkedBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "pendingPrintables") {
+        pendingPrintableBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "coverImageUrl") {
+        if (kit && typeof kit.parseCoverOrUrl === "function") {
+          const cover = kit.parseCoverOrUrl(body);
+          if (cover.ok) lesson.coverImageUrl = cover.url;
+          else if (cover.manualUpload) lesson.coverManualUpload = cover;
+        }
       } else if (fieldId.startsWith("weekday:")) {
         const day = fieldId.slice("weekday:".length);
         if (kit && typeof kit.parseStructuredActivities === "function" && /activity\s*name\s*:/i.test(body)) {
@@ -506,6 +554,7 @@
     let songs = [];
     let printableIdeas = [];
     let linkedResources = { resolved: [], unresolved: [], unsupported: [] };
+    let pendingPrintables = [];
     if (kit) {
       if (bookBodies.length) {
         const parsedBooks = kit.parseBooksSection(bookBodies.join("\n\n"));
@@ -529,6 +578,18 @@
           { ageDisplay: lesson.ageDisplay || lesson.age },
         );
         kitUnsupported.push(...(linkedResources.unsupported || []));
+      }
+      if (pendingPrintableBodies.length && typeof kit.parsePendingPrintableSection === "function") {
+        const pendingParsed = kit.parsePendingPrintableSection(
+          pendingPrintableBodies.join("\n\n"),
+          options.existingResources,
+          { ageDisplay: lesson.ageDisplay || lesson.age },
+        );
+        pendingPrintables = pendingParsed.pending || [];
+        if ((pendingParsed.resolved || []).length) {
+          linkedResources.resolved = (linkedResources.resolved || []).concat(pendingParsed.resolved);
+        }
+        kitUnsupported.push(...(pendingParsed.unsupported || []));
       }
     } else if (bookBodies.length || songBodies.length || ideaBodies.length || linkedBodies.length) {
       unrecognized.push({
@@ -569,6 +630,7 @@
       songs,
       printableIdeas,
       linkedResources,
+      pendingPrintables,
     };
   }
 
@@ -608,6 +670,9 @@
       },
       unrecognized: parsed?.unrecognized || [],
       rejectedMilestones: lesson.rejectedMilestones || [],
+      coverImageUrl: lesson.coverImageUrl || "",
+      coverManualUpload: lesson.coverManualUpload || null,
+      pendingPrintables: parsed?.pendingPrintables || [],
       errors: parsed?.errors || [],
     };
   }
@@ -654,6 +719,7 @@
       createdAt: now,
       updatedAt: now,
     };
+    if (text(lesson.coverImageUrl)) plan.coverImageUrl = lesson.coverImageUrl;
     if (id) plan.id = id;
     if (Object.keys(weekDraft).length) {
       plan.enrichmentDraft = {

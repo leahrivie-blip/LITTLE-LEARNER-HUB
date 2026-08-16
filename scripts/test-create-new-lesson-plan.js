@@ -541,6 +541,48 @@ function runFullWeekPasteTests() {
   assert.ok(!plan.enrichmentPublished);
   const fridayTitles = parsed.dailyPlans.friday.items.map((item) => item.title).join(" ");
   assert.doesNotMatch(fridayTitles, /Color Monster|Feelings Song|Calm Choice|Tummy-Time/);
+  const unknownHeading = parseFullLessonStructurePaste(`Lesson title:
+Coverage Check
+Age band:
+Toddler
+Family connection:
+Keep family text.
+Sensory regulation goal:
+Do not store this randomly.
+Monday:
+Keep Monday
+`);
+  assert.ok(unknownHeading.unrecognized.some((row) => /Sensory regulation goal/i.test(row.heading || "")), unknownHeading.unrecognized);
+  assert.doesNotMatch(unknownHeading.lesson.familyConnection, /Do not store this randomly/);
+  const coverParsed = parseFullLessonStructurePaste(`Lesson title:
+Cover Check
+Age band:
+Preschool
+Cover image URL:
+https://example.test/covers/feelings.png
+Monday:
+A
+`);
+  assert.equal(coverParsed.lesson.coverImageUrl, "https://example.test/covers/feelings.png");
+  assert.equal(buildCanonicalLessonPlan(coverParsed).coverImageUrl, "https://example.test/covers/feelings.png");
+  const coverUpload = parseFullLessonStructurePaste(`Lesson title:
+Cover Upload
+Age band:
+Preschool
+Cover photo:
+feelings-cover.jpg
+Monday:
+A
+`);
+  assert.ok(coverUpload.lesson.coverManualUpload);
+  assert.ok(!coverUpload.lesson.coverImageUrl);
+  const kit = require("./curriculum-week-kit-paste.js");
+  const songs = kit.parseSongsSection("Song title: Demo\nTune: London Bridge\nHow to use: Circle\n");
+  assert.equal(songs.records[0].title, "Demo");
+  assert.ok(songs.unsupported.some((row) => /tune/i.test(row.heading || "") || /Tune is not/i.test(row.note || "")));
+  const books = kit.parseBooksSection("Book title: Demo Book\nTeacher notes: Not a stored book field.\nAuthor: A\n");
+  assert.equal(books.records[0].author, "A");
+  assert.ok(books.unsupported.some((row) => /teacher notes/i.test(row.heading || "")));
   console.log("PASS  full-week paste: 10 activities, 2 books, 2 songs, 2 ideas, 1 resolved + 1 unresolved link");
 }
 

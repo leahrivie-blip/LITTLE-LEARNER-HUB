@@ -10286,6 +10286,12 @@ function renderAdminCreateLessonPlanDialog() {
         <ul>${(preview.linkedResources?.resolved || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
         <p>Unresolved (${(preview.linkedResources?.unresolved || []).length})</p>
         <ul>${(preview.linkedResources?.unresolved || []).map((item) => `<li>${escapeHtml(item.title || "")}${item.reason ? `: ${escapeHtml(item.reason)}` : ""}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        ${preview.coverImageUrl ? `<p>Lesson cover URL: ${escapeHtml(preview.coverImageUrl)}</p>` : ""}
+        ${preview.coverManualUpload ? `<p class="muted-copy">${escapeHtml(preview.coverManualUpload.reason || "Cover reference detected — manual upload required.")}</p>` : ""}
+        ${(preview.pendingPrintables || []).length ? `
+          <p class="eyebrow">PRINTABLE REFERENCES NEEDING UPLOAD (${preview.pendingPrintables.length})</p>
+          <ul>${preview.pendingPrintables.map((item) => `<li>Printable referenced: ${escapeHtml(item.title || "")} — Existing resource: none — PDF upload required: YES — ${escapeHtml(item.actionRequired || "")}</li>`).join("")}</ul>
+        ` : ""}
         ${unrecognized.length ? `
           <p class="eyebrow">UNRECOGNIZED SECTIONS</p>
           <ul>${unrecognized.map((item) => `<li>${escapeHtml(item.heading || "")}${item.body ? `: ${escapeHtml(item.body)}` : ""}</li>`).join("")}</ul>

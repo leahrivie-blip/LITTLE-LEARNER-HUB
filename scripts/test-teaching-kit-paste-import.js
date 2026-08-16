@@ -393,6 +393,19 @@ function main() {
 
   ok((activityPreview.unrecognized || []).some((u) => /Totally unknown/i.test(u.heading)),
     "26. unknown headings not guessed into another field");
+
+  const imageReqPreview = paste.buildActivityPreview(
+    "Image requirement:\nOptional\nSetup example brief:\nTray on a mat.\nSetup image URL:\nhttps://example.test/setup.jpg\n",
+    activity,
+    draftAct,
+    activity.id,
+  );
+  const imageReq = findChange(imageReqPreview, "imageRequirement");
+  ok(imageReq && imageReq.next === "optional", "image requirement maps to existing enum");
+  const brief = findChange(imageReqPreview, "imageBriefSetup");
+  ok(brief && /Tray on a mat/.test(brief.next || ""), "setup example brief is paste-safe");
+  ok((imageReqPreview.fieldChanges || []).some((c) => c.fieldId === "setupImageUpload" && c.kind === "unsupported"),
+    "setup image URL is upload-only and not faked");
   const smallGroupProse = findChange(activityPreview, "settingTag_small_group_prose");
   ok(smallGroupProse && smallGroupProse.kind === "unsupported" && smallGroupProse.selected === false,
     "26b. Small group prose is UNSUPPORTED — NOT APPLIED (no activity prose field)");

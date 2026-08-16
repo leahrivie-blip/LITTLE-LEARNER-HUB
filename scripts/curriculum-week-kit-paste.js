@@ -47,6 +47,9 @@
     "discussion questions": "questions",
     questions: "questions",
     "teacher notes": "unsupportedBookField",
+    "day association": "suggestedWeekday",
+    "suggested weekday": "suggestedWeekday",
+    "suggested day": "suggestedWeekday",
   });
 
   const SONG_HEADING_ALIASES = freezeNormalizedAliases({
@@ -60,6 +63,12 @@
     lyrics: "lyrics",
     "teacher notes": "teacherDirections",
     motions: "motions",
+    "movement / action prompts": "motions",
+    "rights / licensing": "rightsStatus",
+    "rights status": "rightsStatus",
+    rights: "rightsStatus",
+    "day association": "linkedWeekday",
+    "linked weekday": "linkedWeekday",
   });
 
   const IDEA_HEADING_ALIASES = freezeNormalizedAliases({
@@ -133,8 +142,18 @@
     "mixed age adaptations": "mixedAgeAdaptations",
     "observation prompts": "observationPrompts",
     vocabulary: "vocabulary",
-    "image requirement": "unsupportedActivityField",
-    "example images": "unsupportedActivityField",
+    "image requirement": "imageRequirement",
+    "setup example brief": "imageBriefSetup",
+    "finished example brief": "imageBriefExample",
+    "example image brief": "imageBriefExample",
+    "setup image": "setupImageUpload",
+    "setup image url": "setupImageUpload",
+    "setup photo": "setupImageUpload",
+    "example image": "exampleImageUpload",
+    "example image url": "exampleImageUpload",
+    "example images": "exampleImageUpload",
+    "finished example image": "exampleImageUpload",
+    "finished example image url": "exampleImageUpload",
   });
 
   const ACTIVITY_START_IDS = Object.freeze(["title"]);
@@ -259,6 +278,10 @@
       out.questions = questions;
       out.afterReadingQuestions = questions.split(/\n+/).map((line) => text(line)).filter(Boolean);
     }
+    const day = text(raw.suggestedWeekday).toLowerCase();
+    if (["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day)) {
+      out.suggestedWeekday = day;
+    }
     return out;
   }
 
@@ -270,6 +293,25 @@
     if (text(raw.teacherDirections)) out.teacherDirections = text(raw.teacherDirections);
     if (text(raw.motions)) out.motions = text(raw.motions);
     if (multiline(raw.lyrics)) out.lyrics = multiline(raw.lyrics);
+    const rights = text(raw.rightsStatus).toLowerCase().replace(/\s+/g, "_");
+    const rightsMap = {
+      traditional: "traditional",
+      public_domain: "public_domain",
+      "public-domain": "public_domain",
+      original: "original",
+      copyrighted_title_only: "copyrighted_title_only",
+      "copyrighted — title only (no lyrics)": "copyrighted_title_only",
+      licensed: "licensed",
+    };
+    if (rightsMap[rights] || rightsMap[text(raw.rightsStatus).toLowerCase()]) {
+      out.rightsStatus = rightsMap[rights] || rightsMap[text(raw.rightsStatus).toLowerCase()];
+    } else if (text(raw.rightsStatus)) {
+      out.unresolvedRightsStatus = text(raw.rightsStatus);
+    }
+    const day = text(raw.linkedWeekday).toLowerCase();
+    if (["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day)) {
+      out.linkedWeekday = day;
+    }
     return out;
   }
 
@@ -364,6 +406,68 @@
     };
   }
 
+  function parseImageRequirement(raw) {
+    const value = text(raw).toLowerCase().replace(/\s+/g, "_");
+    const compact = text(raw).toLowerCase();
+    const byValue = {
+      not_needed: "not_needed",
+      example_only: "example_only",
+      setup_only: "setup_only",
+      required: "required",
+      optional: "optional",
+      needs_owner_classification: "needs_owner_classification",
+    };
+    const byLabel = {
+      "no image needed": "not_needed",
+      "finished example only": "example_only",
+      "setup image only": "setup_only",
+      "setup + finished example": "required",
+      optional: "optional",
+      "needs owner classification": "needs_owner_classification",
+    };
+    return byValue[value] || byLabel[compact] || "";
+  }
+
+  function parseCoverOrUrl(raw) {
+    const value = text(raw);
+    if (!value) return { ok: false, empty: true };
+    if (/^https?:\/\//i.test(value) || /^\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$/.test(value)) {
+      return { ok: true, url: value };
+    }
+    return {
+      ok: false,
+      manualUpload: true,
+      raw: value,
+      reason: "Cover reference detected — manual upload required.",
+    };
+  }
+
+  function parsePendingPrintableSection(body, resources, context) {
+    const linked = parseLinkedResourcesSection(body, resources, context);
+    const pending = [];
+    const unresolved = [];
+    (linked.unresolved || []).forEach((item) => {
+      const title = text(item.entry?.title);
+      if (!title) return;
+      pending.push({
+        title,
+        description: text(item.entry?.description),
+        existingResource: "none",
+        pdfUploadRequired: true,
+        coverDetected: Boolean(text(item.entry?.coverUrl)),
+        actionRequired: "Create / Upload Printable",
+        reason: item.reason,
+      });
+      unresolved.push(item);
+    });
+    return {
+      resolved: linked.resolved || [],
+      unresolved,
+      pending,
+      unsupported: linked.unsupported || [],
+    };
+  }
+
   function parseStructuredActivities(body, weekday) {
     const source = String(body || "");
     if (!/activity\s*name\s*:/i.test(source)) {
@@ -391,15 +495,26 @@
         out.observationPrompts = listLines(raw.observationPrompts);
       }
       if (text(raw.dayOfWeek)) out.dayOfWeek = text(raw.dayOfWeek).toLowerCase() || weekday;
+      const imageReq = parseImageRequirement(raw.imageRequirement);
+      if (imageReq) out.imageRequirement = imageReq;
+      else if (text(raw.imageRequirement)) out.unresolvedImageRequirement = text(raw.imageRequirement);
+      if (multiline(raw.imageBriefSetup)) out.imageBriefSetup = multiline(raw.imageBriefSetup);
+      if (multiline(raw.imageBriefExample)) out.imageBriefExample = multiline(raw.imageBriefExample);
+      if (text(raw.setupImageUpload)) {
+        out.setupImageUpload = {
+          raw: text(raw.setupImageUpload),
+          actionRequired: "Activity setup photo — manual upload required.",
+        };
+      }
+      if (text(raw.exampleImageUpload)) {
+        out.exampleImageUpload = {
+          raw: text(raw.exampleImageUpload),
+          actionRequired: "Activity finished example photo — manual upload required.",
+        };
+      }
       return out;
     }).filter(Boolean);
-    const unsupported = parsed.unsupported.slice();
-    parsed.records.forEach((raw) => {
-      if (raw.unsupportedActivityField) {
-        unsupported.push({ heading: "Image requirement / example images", body: String(raw.unsupportedActivityField).slice(0, 240) });
-      }
-    });
-    return { records, unsupported };
+    return { records, unsupported: parsed.unsupported.slice() };
   }
 
   function labeledSectionBody(section) {
@@ -454,6 +569,9 @@
     parsePrintableIdeasSection,
     parseStructuredActivities,
     labeledSectionBody,
+    parsePendingPrintableSection,
+    parseImageRequirement,
+    parseCoverOrUrl,
     parseLinkedResourcesSection,
     resolveExistingResource,
     mergeRecordsByTitle,

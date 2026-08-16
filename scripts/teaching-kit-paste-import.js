@@ -167,8 +167,18 @@
     observations: "observationPrompts",
     vocabulary: "vocabulary",
     "vocabulary words": "vocabulary",
-    "image requirement": "imageRequirementUnsupported",
-    "example images": "exampleImagesUnsupported",
+    "image requirement": "imageRequirement",
+    "setup example brief": "imageBriefSetup",
+    "finished example brief": "imageBriefExample",
+    "example image brief": "imageBriefExample",
+    "setup image": "setupImageUpload",
+    "setup image url": "setupImageUpload",
+    "setup photo": "setupImageUpload",
+    "example image": "exampleImageUpload",
+    "example image url": "exampleImageUpload",
+    "example images": "exampleImageUpload",
+    "finished example image": "exampleImageUpload",
+    "finished example image url": "exampleImageUpload",
     // Resource headings — recognized but never auto-applied from an activity paste.
     "linked resources": "linkedResourcesManual",
     printable: "linkedResourcesManual",
@@ -261,17 +271,24 @@
     mixedAgeAdaptations: { label: "Mixed-age adaptations", kind: "scalar", path: "mixedAgeAdaptations" },
     observationPrompts: { label: "Observation prompts", kind: "array", path: "observationPrompts", max: 8 },
     vocabulary: { label: "Vocabulary", kind: "vocab", path: "vocabulary", max: 16 },
-    imageRequirementUnsupported: {
+    imageRequirement: {
       label: "Image requirement",
-      kind: "unsupported",
-      path: null,
-      reason: "UNSUPPORTED — NOT APPLIED. Image requirement is not stored from paste text.",
+      kind: "enum",
+      path: "imageRequirement",
     },
-    exampleImagesUnsupported: {
-      label: "Example images",
-      kind: "unsupported",
+    imageBriefSetup: { label: "Setup example brief", kind: "scalar", path: "imageBriefSetup" },
+    imageBriefExample: { label: "Finished example brief", kind: "scalar", path: "imageBriefExample" },
+    setupImageUpload: {
+      label: "Setup image",
+      kind: "uploadRequired",
       path: null,
-      reason: "UNSUPPORTED — NOT APPLIED. Example images are not stored from paste text.",
+      reason: "Activity setup photo is upload-only. Reference detected — manual upload required. Not applied as a fake file.",
+    },
+    exampleImageUpload: {
+      label: "Finished example image",
+      kind: "uploadRequired",
+      path: null,
+      reason: "Activity finished example photo is upload-only. Reference detected — manual upload required. Not applied as a fake file.",
     },
     linkedResourcesManual: {
       label: "Linked / draft resources",
@@ -1075,6 +1092,47 @@
         });
         return;
       }
+      if (meta.kind === "uploadRequired") {
+        fieldChanges.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          kind: "unsupported",
+          selected: false,
+          applicable: false,
+          body: section.body,
+          reason: meta.reason || "Upload-only field. Reference detected — manual upload required.",
+        });
+        return;
+      }
+      if (meta.kind === "enum" && section.fieldId === "imageRequirement") {
+        const kit = weekKitApi();
+        const parsedReq = kit && typeof kit.parseImageRequirement === "function"
+          ? kit.parseImageRequirement(section.body)
+          : "";
+        if (!parsedReq) {
+          fieldChanges.push({
+            fieldId: section.fieldId,
+            label: meta.label,
+            kind: "unsupported",
+            selected: false,
+            applicable: false,
+            body: section.body,
+            reason: "Image requirement value is not an existing owner option. Not guessed.",
+          });
+          return;
+        }
+        const current = text(resolveActivityCurrent(section.fieldId, activity, draftActivity));
+        const scalar = buildScalarDiff(current, parsedReq);
+        fieldChanges.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          kind: "scalar",
+          ...scalar,
+          parsedEnum: parsedReq,
+        });
+        seenFields.add(section.fieldId);
+        return;
+      }
 
       if (meta.kind === "manualResource") {
         if (text(section.body) || text(section.headingRaw)) {
@@ -1572,6 +1630,17 @@
         value: parseSubstitutionBlocks(body).slice(0, meta.max || 12),
       };
     }
+    if (meta.kind === "uploadRequired" || meta.kind === "unsupported") {
+      return { ok: true, kind: "unsupported", reason: meta.reason || "UNSUPPORTED — NOT APPLIED." };
+    }
+    if (meta.kind === "enum") {
+      const kit = weekKitApi();
+      const parsedReq = kit && typeof kit.parseImageRequirement === "function"
+        ? kit.parseImageRequirement(body)
+        : "";
+      if (!parsedReq) return { ok: false, note: "Unsupported image requirement value" };
+      return { ok: true, kind: "scalar", value: parsedReq };
+    }
     return { ok: false };
   }
 
@@ -1780,6 +1849,15 @@
           label: meta.label,
           body: section.body,
           reason: meta.reason || "UNSUPPORTED — NOT APPLIED.",
+        });
+        return;
+      }
+      if (meta.kind === "uploadRequired") {
+        unsupported.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          body: section.body,
+          reason: meta.reason || "Upload-only field. Reference detected — manual upload required.",
         });
         return;
       }
