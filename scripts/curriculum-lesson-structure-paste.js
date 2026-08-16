@@ -106,10 +106,30 @@
     return days;
   }
 
+  /** @typedef {{ display: string, bucket: string }} CanonicalAgeBand */
+
+  const CANONICAL_AGE_BANDS = Object.freeze([
+    Object.freeze({ display: "Infant 0–6 Months", bucket: "Infant" }),
+    Object.freeze({ display: "Infant 6–12 Months", bucket: "Infant" }),
+    Object.freeze({ display: "Infant", bucket: "Infant" }),
+    Object.freeze({ display: "Toddler 12–24 Months", bucket: "Toddler" }),
+    Object.freeze({ display: "Toddler 24–36 Months", bucket: "Toddler" }),
+    Object.freeze({ display: "Toddler", bucket: "Toddler" }),
+    Object.freeze({ display: "Preschool 3–4 Years", bucket: "Preschool" }),
+    Object.freeze({ display: "Preschool 4–5 Years", bucket: "Preschool" }),
+    Object.freeze({ display: "Preschool", bucket: "Preschool" }),
+  ]);
+
+  const CANONICAL_AGE_BAND_LABELS = Object.freeze(CANONICAL_AGE_BANDS.map((entry) => entry.display));
+
   const LESSON_HEADING_ALIASES = Object.freeze({
+    "lesson plan name": "title",
+    "lesson name": "title",
     "lesson title": "title",
     title: "title",
+    theme: "title",
     "age band": "age",
+    "age range": "age",
     "recommended age": "age",
     "age group": "age",
     age: "age",
@@ -144,8 +164,12 @@
     return out;
   })());
 
+  function normalizePasteHeading(raw) {
+    return normalizeHeading(raw);
+  }
+
   function headingFieldId(label) {
-    const normalized = normalizeHeading(label);
+    const normalized = normalizePasteHeading(label);
     if (Object.prototype.hasOwnProperty.call(LESSON_HEADING_BY_NORMALIZED, normalized)) {
       return LESSON_HEADING_BY_NORMALIZED[normalized];
     }
@@ -202,20 +226,127 @@
       .filter(Boolean);
   }
 
-  function mapAgeBand(raw) {
-    const parser = importParser();
-    if (parser && typeof parser.parseCurriculumImportAgeValue === "function") {
-      const parsed = parser.parseCurriculumImportAgeValue(raw);
-      const display = text(parsed?.display || "");
-      const bucket = text(parsed?.bucket || "");
-      return { display: display || bucket, bucket };
+  /**
+   * Collapse human-readable age wording for unique alias lookup.
+   * Does not fuzzy-match or guess across overlapping bands.
+   * @param {unknown} raw
+   * @returns {string}
+   */
+  function normalizeAgeAliasKey(raw) {
+    return String(raw == null ? "" : raw)
+      .trim()
+      .toLowerCase()
+      .replace(/[–—−]/g, "-")
+      .replace(/[_/:：,()]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /**
+   * @param {string} key
+   * @returns {{ family: "" | "infant" | "toddler" | "preschool", start: string, end: string, unit: "" | "month" | "year" }}
+   */
+  function parseAgeAliasParts(key) {
+    const family = /\binfants?\b/.test(key)
+      ? "infant"
+      : /\btoddlers?\b/.test(key)
+        ? "toddler"
+        : /\bpre-?schools?\b|\bpre-?k\b|\bprek\b/.test(key)
+          ? "preschool"
+          : "";
+    const range = key.match(/(\d+)\s*-\s*(\d+)\s*(months?|years?|m|y)?\b/);
+    if (!range) return { family, start: "", end: "", unit: "" };
+    const unitRaw = String(range[3] || "");
+    const unit = /^(m|month|months)$/.test(unitRaw) ? "month" : /^(y|year|years)$/.test(unitRaw) ? "year" : "";
+    return { family, start: range[1], end: range[2], unit };
+  }
+
+  /**
+   * Unique range fingerprints for existing canonical bands only.
+   * @type {Readonly<Record<string, string>>}
+   */
+  const UNIQUE_AGE_RANGE_TO_DISPLAY = Object.freeze({
+    "0-6": "Infant 0–6 Months",
+    "0-6|month": "Infant 0–6 Months",
+    "6-12": "Infant 6–12 Months",
+    "6-12|month": "Infant 6–12 Months",
+    "12-24": "Toddler 12–24 Months",
+    "12-24|month": "Toddler 12–24 Months",
+    "1-2|year": "Toddler 12–24 Months",
+    "24-36": "Toddler 24–36 Months",
+    "24-36|month": "Toddler 24–36 Months",
+    "2-3|year": "Toddler 24–36 Months",
+    "3-4": "Preschool 3–4 Years",
+    "3-4|year": "Preschool 3–4 Years",
+    "4-5": "Preschool 4–5 Years",
+    "4-5|year": "Preschool 4–5 Years",
+  });
+
+  const FAMILY_ONLY_AGE_DISPLAY = Object.freeze({
+    infant: "Infant",
+    toddler: "Toddler",
+    preschool: "Preschool",
+  });
+
+  const DISPLAY_TO_BAND = Object.freeze((() => {
+    const out = {};
+    CANONICAL_AGE_BANDS.forEach((entry) => {
+      out[entry.display] = entry;
+    });
+    return out;
+  })());
+
+  /**
+   * Map human-readable age wording onto an existing canonical LLH age band.
+   * Returns empty display when the value is missing, unknown, or ambiguous.
+   * @param {unknown} raw
+   * @returns {{ display: string, bucket: string, raw: string }}
+   */
+  function resolveAgeBandAlias(raw) {
+    const original = text(raw);
+    if (!original) return { display: "", bucket: "", raw: original };
+    const key = normalizeAgeAliasKey(original);
+    const exactCanonical = CANONICAL_AGE_BANDS.find((entry) => (
+      normalizeAgeAliasKey(entry.display) === key
+      || normalizeAgeAliasKey(entry.display.replace(/–/g, "-")) === key
+    ));
+    if (exactCanonical) return { display: exactCanonical.display, bucket: exactCanonical.bucket, raw: original };
+
+    const parts = parseAgeAliasParts(key);
+    if (parts.start && parts.end) {
+      const rangeKey = `${parts.start}-${parts.end}`;
+      const unitKey = parts.unit ? `${rangeKey}|${parts.unit}` : rangeKey;
+      const display = UNIQUE_AGE_RANGE_TO_DISPLAY[unitKey] || "";
+      if (!display) return { display: "", bucket: "", raw: original };
+      const band = DISPLAY_TO_BAND[display];
+      if (!band) return { display: "", bucket: "", raw: original };
+      if (parts.family && parts.family !== band.bucket.toLowerCase()) {
+        return { display: "", bucket: "", raw: original };
+      }
+      return { display: band.display, bucket: band.bucket, raw: original };
     }
-    const value = text(raw);
-    const lower = value.toLowerCase();
-    if (lower.includes("infant")) return { display: value, bucket: "Infant" };
-    if (lower.includes("toddler")) return { display: value, bucket: "Toddler" };
-    if (lower.includes("preschool")) return { display: value, bucket: "Preschool" };
-    return { display: "", bucket: "" };
+    if (parts.family && FAMILY_ONLY_AGE_DISPLAY[parts.family]) {
+      const display = FAMILY_ONLY_AGE_DISPLAY[parts.family];
+      const band = DISPLAY_TO_BAND[display];
+      return band
+        ? { display: band.display, bucket: band.bucket, raw: original }
+        : { display: "", bucket: "", raw: original };
+    }
+    return { display: "", bucket: "", raw: original };
+  }
+
+  function mapAgeBand(raw) {
+    const mapped = resolveAgeBandAlias(raw);
+    return { display: mapped.display, bucket: mapped.bucket, raw: mapped.raw };
+  }
+
+  function unrecognizedAgeBandError(raw) {
+    const pasted = text(raw);
+    const choices = CANONICAL_AGE_BAND_LABELS.join("\n");
+    if (pasted) {
+      return `Could not recognize age band “${pasted}”.\nChoose one of:\n${choices}`;
+    }
+    return `Age band was not recognized.\nChoose one of:\n${choices}`;
   }
 
   function normalizeTitleKey(title) {
@@ -230,6 +361,7 @@
       title: "",
       age: "",
       ageDisplay: "",
+      ageRaw: "",
       weeklyOverview: "",
       objectives: "",
       weeklyMaterials: "",
@@ -285,6 +417,7 @@
       if (fieldId === "title") lesson.title = text(body);
       else if (fieldId === "age") {
         const mapped = mapAgeBand(body);
+        lesson.ageRaw = mapped.raw || text(body);
         lesson.ageDisplay = mapped.display || mapped.bucket;
         lesson.age = mapped.display || mapped.bucket;
       } else if (fieldId === "weeklyOverview") lesson.weeklyOverview = String(body || "").trim();
@@ -322,7 +455,7 @@
 
     const errors = [];
     if (!lesson.title) errors.push("Lesson title is required.");
-    if (!lesson.age) errors.push("Age band was not recognized.");
+    if (!lesson.age) errors.push(unrecognizedAgeBandError(lesson.ageRaw || ""));
 
     return {
       ok: errors.length === 0,
@@ -454,7 +587,11 @@
     WEEKDAYS,
     WEEKDAY_LABEL,
     LESSON_HEADING_ALIASES,
+    CANONICAL_AGE_BANDS,
+    CANONICAL_AGE_BAND_LABELS,
+    normalizePasteHeading,
     normalizeTitleKey,
+    resolveAgeBandAlias,
     mapAgeBand,
     parseFullLessonStructurePaste,
     buildStructurePreview,
