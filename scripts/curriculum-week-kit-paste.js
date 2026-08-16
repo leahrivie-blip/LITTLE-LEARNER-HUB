@@ -47,6 +47,8 @@
     "discussion questions": "questions",
     questions: "questions",
     "teacher notes": "unsupportedBookField",
+    "book url": "unsupportedBookField",
+    "book link": "unsupportedBookField",
     "day association": "suggestedWeekday",
     "suggested weekday": "suggestedWeekday",
     "suggested day": "suggestedWeekday",
@@ -57,6 +59,9 @@
     song: "title",
     title: "title",
     tune: "tuneUnsupported",
+    "song url": "urlUnsupported",
+    "song link": "urlUnsupported",
+    "teacher directions": "teacherDirections",
     description: "whenToUse",
     "how to use": "whenToUse",
     "suggested use": "whenToUse",
@@ -92,6 +97,13 @@
     "resource placement": "placement",
     placement: "placement",
     "resource section": "placement",
+    "printable name": "title",
+    "printable description": "description",
+    description: "description",
+    "printable cover image url": "coverUrl",
+    "cover image url": "coverUrl",
+    "printable pdf": "pdfName",
+    pdf: "pdfName",
   });
 
   const KIT_SECTION_FIELD_IDS = Object.freeze({
@@ -154,6 +166,8 @@
     "example images": "exampleImageUpload",
     "finished example image": "exampleImageUpload",
     "finished example image url": "exampleImageUpload",
+    "finished example photo": "exampleImageUpload",
+    "setup photo url": "setupImageUpload",
   });
 
   const ACTIVITY_START_IDS = Object.freeze(["title"]);
@@ -243,13 +257,15 @@
         unsupported.push({ heading: section.headingRaw, body: multiline(section.body).slice(0, 240) });
         return;
       }
-      if (section.fieldId === "tuneUnsupported" || section.fieldId === "unsupportedBookField") {
+      if (section.fieldId === "tuneUnsupported" || section.fieldId === "unsupportedBookField" || section.fieldId === "urlUnsupported") {
         unsupported.push({
           heading: section.headingRaw,
           body: text(section.body),
           note: section.fieldId === "tuneUnsupported"
             ? "Tune is not a stored song field."
-            : "Teacher notes is not a stored book field.",
+            : section.fieldId === "urlUnsupported"
+              ? "Song URL is not a stored song field."
+              : "This book field is not stored (teacher notes / book URL).",
         });
         return;
       }
@@ -454,7 +470,9 @@
         description: text(item.entry?.description),
         existingResource: "none",
         pdfUploadRequired: true,
+        pdfName: text(item.entry?.pdfName),
         coverDetected: Boolean(text(item.entry?.coverUrl)),
+        coverUrl: text(item.entry?.coverUrl),
         actionRequired: "Create / Upload Printable",
         reason: item.reason,
       });
@@ -495,6 +513,19 @@
         out.observationPrompts = listLines(raw.observationPrompts);
       }
       if (text(raw.dayOfWeek)) out.dayOfWeek = text(raw.dayOfWeek).toLowerCase() || weekday;
+      const durationMatch = text(raw.durationMinutes).match(/(\d+)/);
+      if (durationMatch) out.durationMinutes = Number(durationMatch[1]);
+      if (multiline(raw.substitutions)) {
+        const subs = [];
+        listLines(raw.substitutions).forEach((line) => {
+          const arrow = line.match(/^(.+?)\s*(?:→|->|=>|—)\s*(.+)$/);
+          if (!arrow) return;
+          const need = text(arrow[1].replace(/^if\s+missing:?\s*/i, ""));
+          const use = text(arrow[2].replace(/^use\s+instead:?\s*/i, ""));
+          if (need && use) subs.push({ need, use });
+        });
+        if (subs.length) out.substitutions = subs;
+      }
       const imageReq = parseImageRequirement(raw.imageRequirement);
       if (imageReq) out.imageRequirement = imageReq;
       else if (text(raw.imageRequirement)) out.unresolvedImageRequirement = text(raw.imageRequirement);
@@ -521,7 +552,7 @@
     const heading = normalizeHeading(section?.headingRaw);
     const startHeadings = new Set([
       "book title", "book", "song title", "song", "idea title", "printable idea",
-      "linked resource", "resource title",
+      "linked resource", "resource title", "printable name",
     ]);
     const body = section?.body || "";
     if (startHeadings.has(heading)) return `${section.headingRaw}:\n${body}`;
@@ -532,10 +563,17 @@
     const parsed = parseRecordList(body, LINK_HEADING_ALIASES, ["title"]);
     const resolved = [];
     const unresolved = [];
+    const existingIds = new Set(
+      (Array.isArray(context?.existingResourceIds) ? context.existingResourceIds : []).map(text).filter(Boolean),
+    );
     parsed.records.forEach((entry) => {
       const result = resolveExistingResource(entry, resources, context);
-      if (result.ok) resolved.push(result);
-      else unresolved.push(result);
+      if (result.ok) {
+        resolved.push({
+          ...result,
+          alreadyLinked: existingIds.has(text(result.resource?.id)),
+        });
+      } else unresolved.push(result);
     });
     return { resolved, unresolved, unsupported: parsed.unsupported };
   }

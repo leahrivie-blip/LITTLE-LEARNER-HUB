@@ -204,10 +204,12 @@
     "teacher tips", "supply substitutions", "support adaptations", "added challenge",
     "mixed-age adaptations", "mixed age adaptations", "observation prompts", "vocabulary",
     "vocabulary words", "image requirement", "setup example brief", "finished example brief",
-    "setup image", "setup image url", "example image", "example image url", "example images",
-    "finished example image", "author", "why this book", "book questions", "discussion questions",
-    "lyrics", "how to use", "tune", "instructions", "purpose / description", "purpose", "notes",
-    "type", "rights status", "rights / licensing", "day association", "teacher notes",
+    "setup image", "setup image url", "setup photo", "setup photo url", "example image", "example image url", "example images",
+    "finished example image", "finished example photo", "author", "why this book", "book questions", "discussion questions",
+    "lyrics", "how to use", "tune", "song url", "book url", "teacher directions", "instructions",
+    "purpose / description", "purpose", "notes", "type", "rights status", "rights / licensing",
+    "day association", "teacher notes", "printable description", "printable pdf",
+    "printable cover image url", "resource placement",
   ]));
 
   const LESSON_HEADING_BY_NORMALIZED = Object.freeze((() => {
@@ -257,6 +259,11 @@
         const rest = headingMatch[2];
         const fieldId = headingFieldId(labelPart);
         if (fieldId) {
+          const nestedKeep = NESTED_BODY_HEADINGS.has(normalizePasteHeading(labelPart));
+          if (nestedKeep && current?.fieldId && String(current.fieldId).startsWith("weekday:")) {
+            if (current) bodyLines.push(line);
+            return;
+          }
           flush();
           current = { headingRaw: labelPart.trim(), fieldId: fieldId || "" };
           if (rest) bodyLines.push(rest);
@@ -488,6 +495,12 @@
       if (text(fields.imageRequirement)) item.imageRequirement = text(fields.imageRequirement);
       if (String(fields.imageBriefSetup || "").trim()) item.imageBriefSetup = String(fields.imageBriefSetup).trim();
       if (String(fields.imageBriefExample || "").trim()) item.imageBriefExample = String(fields.imageBriefExample).trim();
+      if (Array.isArray(fields.substitutions) && fields.substitutions.length) {
+        item.substitutions = fields.substitutions.slice();
+      }
+      if (fields.durationMinutes != null && fields.durationMinutes !== "") {
+        item.durationMinutes = fields.durationMinutes;
+      }
       if (fields.setupImageUpload) item.setupImageUpload = fields.setupImageUpload;
       if (fields.exampleImageUpload) item.exampleImageUpload = fields.exampleImageUpload;
       dailyPlans[day].items.push(item);
@@ -594,7 +607,10 @@
         linkedResources = kit.parseLinkedResourcesSection(
           linkedBodies.join("\n\n"),
           options.existingResources,
-          { ageDisplay: lesson.ageDisplay || lesson.age },
+          {
+            ageDisplay: lesson.ageDisplay || lesson.age,
+            existingResourceIds: options.existingLesson?.resourceIds || options.existingResourceIds || [],
+          },
         );
         kitUnsupported.push(...(linkedResources.unsupported || []));
       }
@@ -670,6 +686,29 @@
       prepChecklist: Array.isArray(lesson.prepChecklist) ? lesson.prepChecklist.length : 0,
     };
     const linked = parsed?.linkedResources || { resolved: [], unresolved: [] };
+    const resolvedAll = linked.resolved || [];
+    const unresolvedAll = linked.unresolved || [];
+    const activityMediaWarnings = [];
+    WEEKDAYS.forEach((day) => {
+      (parsed?.dailyPlans?.[day]?.items || []).forEach((item) => {
+        if (item?.setupImageUpload) {
+          activityMediaWarnings.push({
+            title: item.title,
+            kind: "setup",
+            actionRequired: item.setupImageUpload.actionRequired || "manual upload required",
+            raw: item.setupImageUpload.raw || "",
+          });
+        }
+        if (item?.exampleImageUpload) {
+          activityMediaWarnings.push({
+            title: item.title,
+            kind: "finished",
+            actionRequired: item.exampleImageUpload.actionRequired || "manual upload required",
+            raw: item.exampleImageUpload.raw || "",
+          });
+        }
+      });
+    });
     return {
       title: lesson.title || "",
       age: lesson.ageDisplay || lesson.age || "",
@@ -680,10 +719,16 @@
       songs: (parsed?.songs || []).map((item) => item.title),
       printableIdeas: (parsed?.printableIdeas || []).map((item) => item.title),
       linkedResources: {
-        resolved: (linked.resolved || []).map((item) => item.resource?.title || item.entry?.title || ""),
-        unresolved: (linked.unresolved || []).map((item) => ({
+        resolved: resolvedAll.filter((item) => !item.alreadyLinked).map((item) => item.resource?.title || item.entry?.title || ""),
+        alreadyLinked: resolvedAll.filter((item) => item.alreadyLinked).map((item) => item.resource?.title || item.entry?.title || ""),
+        unresolved: unresolvedAll.filter((item) => !item.ambiguous).map((item) => ({
           title: item.entry?.title || "",
           reason: item.reason || "",
+        })),
+        ambiguous: unresolvedAll.filter((item) => item.ambiguous).map((item) => ({
+          title: item.entry?.title || "",
+          reason: item.reason || "",
+          candidates: item.candidates || [],
         })),
         destination: "Lesson → Linked Resources → Printables",
       },
@@ -692,8 +737,28 @@
       coverImageUrl: lesson.coverImageUrl || "",
       coverManualUpload: lesson.coverManualUpload || null,
       pendingPrintables: parsed?.pendingPrintables || [],
+      activityMediaWarnings,
       errors: parsed?.errors || [],
     };
+  }
+
+  function cloneDailyPlansWithoutUploadRefs(dailyPlans) {
+    const source = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : emptyDailyPlans();
+    const next = emptyDailyPlans();
+    WEEKDAYS.forEach((day) => {
+      const dayPlan = source[day] && typeof source[day] === "object" ? source[day] : { items: [] };
+      next[day] = {
+        ...dayPlan,
+        items: (dayPlan.items || []).map((item) => {
+          if (!item || typeof item !== "object") return item;
+          const cloned = { ...item };
+          delete cloned.setupImageUpload;
+          delete cloned.exampleImageUpload;
+          return cloned;
+        }),
+      };
+    });
+    return next;
   }
 
   function buildCanonicalLessonPlan(parsed, options = {}) {
@@ -733,7 +798,7 @@
       adaptations: "",
       books: [],
       songs: [],
-      dailyPlans: parsed?.dailyPlans || emptyDailyPlans(),
+      dailyPlans: cloneDailyPlansWithoutUploadRefs(parsed?.dailyPlans),
       resourceIds: [],
       createdAt: now,
       updatedAt: now,

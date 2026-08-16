@@ -10284,13 +10284,21 @@ function renderAdminCreateLessonPlanDialog() {
         <p class="muted-copy">${escapeHtml((preview.linkedResources && preview.linkedResources.destination) || "Lesson → Linked Resources → Printables")}</p>
         <p>Resolved (${(preview.linkedResources?.resolved || []).length})</p>
         <ul>${(preview.linkedResources?.resolved || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        <p>Already linked (${(preview.linkedResources?.alreadyLinked || []).length})</p>
+        <ul>${(preview.linkedResources?.alreadyLinked || []).map((title) => `<li>${escapeHtml(title)} (already linked)</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
         <p>Unresolved (${(preview.linkedResources?.unresolved || []).length})</p>
         <ul>${(preview.linkedResources?.unresolved || []).map((item) => `<li>${escapeHtml(item.title || "")}${item.reason ? `: ${escapeHtml(item.reason)}` : ""}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        <p>Ambiguous (${(preview.linkedResources?.ambiguous || []).length})</p>
+        <ul>${(preview.linkedResources?.ambiguous || []).map((item) => `<li>${escapeHtml(item.title || "")}${item.reason ? `: ${escapeHtml(item.reason)}` : ""}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
         ${preview.coverImageUrl ? `<p>Lesson cover URL: ${escapeHtml(preview.coverImageUrl)}</p>` : ""}
         ${preview.coverManualUpload ? `<p class="muted-copy">${escapeHtml(preview.coverManualUpload.reason || "Cover reference detected — manual upload required.")}</p>` : ""}
         ${(preview.pendingPrintables || []).length ? `
           <p class="eyebrow">PRINTABLE REFERENCES NEEDING UPLOAD (${preview.pendingPrintables.length})</p>
-          <ul>${preview.pendingPrintables.map((item) => `<li>Printable referenced: ${escapeHtml(item.title || "")} — Existing resource: none — PDF upload required: YES — ${escapeHtml(item.actionRequired || "")}</li>`).join("")}</ul>
+          <ul>${preview.pendingPrintables.map((item) => `<li>Printable referenced: ${escapeHtml(item.title || "")} — Existing resource: none — PDF upload required: YES — Cover / Preview Image: ${item.coverDetected ? "reference detected" : "none"} — Action required: ${escapeHtml(item.actionRequired || "Create / Upload Printable")}</li>`).join("")}</ul>
+        ` : ""}
+        ${(preview.activityMediaWarnings || []).length ? `
+          <p class="eyebrow">ACTIVITY PHOTOS — MANUAL UPLOAD REQUIRED (${preview.activityMediaWarnings.length})</p>
+          <ul>${preview.activityMediaWarnings.map((item) => `<li>${escapeHtml(item.title || "")}: ${escapeHtml(item.kind || "")} photo ${escapeHtml(item.raw || "")} — ${escapeHtml(item.actionRequired || "manual upload required")}</li>`).join("")}</ul>
         ` : ""}
         ${unrecognized.length ? `
           <p class="eyebrow">UNRECOGNIZED SECTIONS</p>
@@ -10455,7 +10463,7 @@ async function confirmAdminCreateLessonPaste({ asCopy = false } = {}) {
     const resolvedLinks = parsed.linkedResources?.resolved || [];
     for (let i = 0; i < resolvedLinks.length; i += 1) {
       const resourceId = resolvedLinks[i]?.resource?.id;
-      if (resourceId && typeof linkCurriculumResourceToLesson === "function") {
+      if (resourceId && !resolvedLinks[i].alreadyLinked && typeof linkCurriculumResourceToLesson === "function") {
         await linkCurriculumResourceToLesson(resourceId, saved.id);
       }
     }

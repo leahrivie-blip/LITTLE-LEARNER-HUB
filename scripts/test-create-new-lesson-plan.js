@@ -583,6 +583,21 @@ A
   const books = kit.parseBooksSection("Book title: Demo Book\nTeacher notes: Not a stored book field.\nAuthor: A\n");
   assert.equal(books.records[0].author, "A");
   assert.ok(books.unsupported.some((row) => /teacher notes/i.test(row.heading || "")));
+  const nestedWeekday = parseFullLessonStructurePaste(`Lesson title:
+Nested Weekday Fields
+Age band:
+Toddler 24–36 Months
+Monday:
+Activity name: First
+Recommended age: 2-3 years
+Materials:
+feeling cards
+Activity name: Second
+Category: Literacy
+`);
+  assert.equal(nestedWeekday.dailyPlans.monday.items.length, 2, "weekday nested materials/age must not split the day");
+  assert.equal(nestedWeekday.lesson.age, "Toddler 24–36 Months");
+  assert.match(nestedWeekday.dailyPlans.monday.items[0].materials || "", /feeling cards/);
   console.log("PASS  full-week paste: 10 activities, 2 books, 2 songs, 2 ideas, 1 resolved + 1 unresolved link");
 }
 
