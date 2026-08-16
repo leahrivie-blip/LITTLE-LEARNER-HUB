@@ -1,0 +1,45 @@
+/* Tester-only Forms workflow. Loaded only with the tester module. */
+.forms-wf-catalog-list,
+.forms-wf-child-launch,
+.forms-wf-fill-form {
+  margin-top: 12px;
+}
+
+.forms-wf-meal-rows {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.forms-wf-meal-row {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.12));
+  border-radius: 12px;
+}
+
+@media (min-width: 720px) {
+  .forms-wf-meal-row {
+    grid-template-columns: 1.2fr 0.8fr 1fr 1fr;
+    align-items: end;
+  }
+}
+
+.forms-wf-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--soft, #f4f7f4);
+}
+
+.forms-wf-fill-form .primary-button,
+.forms-wf-child-launch .primary-button {
+  min-height: 44px;
+}
