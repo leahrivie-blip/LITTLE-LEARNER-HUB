@@ -14256,6 +14256,9 @@ function resetAdminTkPrintableDraft(plan, resource) {
 }
 
 function clearAdminTkPrintableDraft() {
+  if (adminTkPrintableDraft?.previewObjectUrl) {
+    try { URL.revokeObjectURL(adminTkPrintableDraft.previewObjectUrl); } catch { /* ignore */ }
+  }
   adminTkPrintableDraft = null;
   adminTkPrintablePaste = { open: false, rawText: "", preview: null, chosenLessonId: "", error: "" };
 }
@@ -14292,6 +14295,29 @@ function assignFileToInput(input, file) {
   }
 }
 
+function updateAdminTkPrintableCoverThumb(panel, draft) {
+  const wrap = panel?.querySelector("[data-tk-printable-preview-thumb]");
+  const img = wrap?.querySelector("img");
+  if (!wrap || !img || !draft) return;
+  let src = "";
+  if (draft.previewFile && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+    if (!draft.previewObjectUrl) {
+      draft.previewObjectUrl = URL.createObjectURL(draft.previewFile);
+    }
+    src = draft.previewObjectUrl;
+  } else {
+    src = draft.previewImageUrl || "";
+  }
+  if (src) {
+    wrap.hidden = false;
+    img.src = src;
+    img.alt = "Cover / preview image";
+  } else {
+    wrap.hidden = true;
+    img.removeAttribute("src");
+  }
+}
+
 function hydrateAdminTkPrintableForm() {
   const panel = document.querySelector("#adminTkPrintableForm");
   const draft = adminTkPrintableDraft;
@@ -14325,12 +14351,13 @@ function hydrateAdminTkPrintableForm() {
   if (previewLabel) {
     previewLabel.textContent = draft.previewFileName
       ? `Selected: ${draft.previewFileName}`
-      : (draft.previewImageUrl ? "Keeping current preview unless you choose a new image." : "No preview selected yet.");
+      : (draft.previewImageUrl ? "Keeping current cover / preview unless you choose a new image." : "No cover / preview selected yet.");
   }
   const thumb = panel.querySelector("[data-tk-printable-preview-thumb] img");
   if (thumb && draft.previewImageUrl && !draft.previewFile) {
     thumb.src = draft.previewImageUrl;
   }
+  updateAdminTkPrintableCoverThumb(panel, draft);
 }
 
 function syncAdminTkPrintableDraftFromEvent(target) {
@@ -14349,6 +14376,10 @@ function syncAdminTkPrintableDraftFromEvent(target) {
   }
   if (field === "previewFile") {
     const file = target.files?.[0] || null;
+    if (adminTkPrintableDraft.previewObjectUrl) {
+      try { URL.revokeObjectURL(adminTkPrintableDraft.previewObjectUrl); } catch { /* ignore */ }
+      adminTkPrintableDraft.previewObjectUrl = "";
+    }
     adminTkPrintableDraft.previewFile = file;
     adminTkPrintableDraft.previewFileName = file?.name || "";
     const label = panel.querySelector("[data-tk-printable-preview-name]");
@@ -14356,9 +14387,10 @@ function syncAdminTkPrintableDraftFromEvent(target) {
       label.textContent = file
         ? `Selected: ${file.name}`
         : (adminTkPrintableDraft.previewImageUrl
-          ? "Keeping current preview unless you choose a new image."
-          : "No preview selected yet.");
+          ? "Keeping current cover / preview unless you choose a new image."
+          : "No cover / preview selected yet.");
     }
+    updateAdminTkPrintableCoverThumb(panel, adminTkPrintableDraft);
     return;
   }
   adminTkPrintableDraft[field] = target.value;
@@ -14476,6 +14508,7 @@ function applyAdminTkPrintablePaste() {
   const previewFile = adminTkPrintableDraft.previewFile;
   const previewFileName = adminTkPrintableDraft.previewFileName;
   const previewImageUrl = adminTkPrintableDraft.previewImageUrl;
+  const previewObjectUrl = adminTkPrintableDraft.previewObjectUrl;
   const resourceId = adminTkPrintableDraft.resourceId;
   const hostLessonId = adminTkPrintableDraft.lessonPlanId;
   adminTkPrintableDraft = api.applyPrintablePasteToDraft(adminTkPrintableDraft, preview);
@@ -14484,6 +14517,7 @@ function applyAdminTkPrintablePaste() {
   adminTkPrintableDraft.previewFile = previewFile;
   adminTkPrintableDraft.previewFileName = previewFileName;
   adminTkPrintableDraft.previewImageUrl = previewImageUrl;
+  adminTkPrintableDraft.previewObjectUrl = previewObjectUrl;
   adminTkPrintableDraft.resourceId = resourceId;
   if (!adminTkPrintableDraft.lessonPlanId) adminTkPrintableDraft.lessonPlanId = hostLessonId;
   adminTkPrintablePaste.open = false;
@@ -14508,7 +14542,7 @@ function renderTeachingKitPrintableForm(plan, resource) {
     : (isEdit ? "Keeping current PDF unless you choose a new file." : "No PDF selected yet.");
   const previewNameCopy = draft.previewFileName
     ? `Selected: ${escapeHtml(draft.previewFileName)}`
-    : (previewSrc ? "Keeping current preview unless you choose a new image." : "No preview selected yet.");
+    : (previewSrc ? "Keeping current cover / preview unless you choose a new image." : "No cover / preview selected yet.");
   // Use a div (not <form>): this panel can sit near the lesson editor form, and nested
   // <form> tags are dropped by the HTML parser — which also merges fields into the outer form.
   return `
@@ -14539,11 +14573,14 @@ function renderTeachingKitPrintableForm(plan, resource) {
         <input data-tk-printable-field="pdfFile" type="file" accept="application/pdf,.pdf" ${isEdit ? "" : "required"} />
         <small class="muted-copy tk-printable-file-name" data-tk-printable-pdf-name>${pdfNameCopy}</small>
       </label>
-      <label>Preview image (PNG/JPEG/WEBP/GIF, max ${CURRICULUM_PREVIEW_UPLOAD_MAX_MB} MB)
+      <label>Cover / Preview Image
+        <small class="muted-copy">Optional — shown with this printable in Little Learner Hub.</small>
         <input data-tk-printable-field="previewFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif" />
         <small class="muted-copy tk-printable-file-name" data-tk-printable-preview-name>${previewNameCopy}</small>
       </label>
-      ${previewSrc ? `<div class="tk-printable-preview-thumb" data-tk-printable-preview-thumb><img src="${escapeHtml(previewSrc)}" alt="Printable preview" /></div>` : `<div class="tk-printable-preview-thumb" data-tk-printable-preview-thumb hidden><img alt="Printable preview" /></div>`}
+      ${previewSrc || draft.previewFile
+        ? `<div class="tk-printable-preview-thumb" data-tk-printable-preview-thumb><img src="${escapeHtml(previewSrc)}" alt="Cover / preview image" /></div>`
+        : `<div class="tk-printable-preview-thumb" data-tk-printable-preview-thumb hidden><img alt="Cover / preview image" /></div>`}
       <div class="form-actions">
         <button class="primary-button" type="button" data-tk-printable-save ${adminTkPrintableSaving ? "disabled" : ""}>${adminTkPrintableSaving ? "Saving…" : (isEdit ? "Save printable draft" : "Save draft & link to lesson")}</button>
         <button class="ghost-button" type="button" data-tk-printable-cancel>Cancel</button>

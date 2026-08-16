@@ -373,7 +373,120 @@ async function runCases() {
     ok(attachPages[0].width > attachPages[0].height, "landscape width > height");
   }
 
-  // Dense smoke report for Entire Kit
+  console.log("\n11) PDF + cover/preview image uses PDF as print source");
+  {
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const strip = await makePdfBytes({ title: "TUMMY-STRIP", pages: 1 });
+    const observation = await makePdfBytes({ title: "TUMMY-OBS", pages: 1 });
+    const lessonId = ctx.plan.id;
+    const siblingPlan = {
+      ...ctx.plan,
+      id: "cur-lp-other-lesson-isolation",
+      title: "Other Lesson Isolation",
+      resourceIds: ["cur-res-other-lesson-printable"],
+    };
+    const resources = [
+      {
+        id: "cur-res-tummy-strip",
+        title: "Tummy-Time Visual Strip",
+        resourceCategory: "Printables",
+        lessonPlanIds: [lessonId],
+        status: "draft",
+        accessLevel: "free",
+        fileName: "tummy-time-visual-strip.pdf",
+        mimeType: "application/pdf",
+        fileData: toDataUrl(strip.bytes),
+        previewImageUrl: png,
+        description: "Simple teacher-use visual cards for tummy-time routines.",
+        printingInstructions: "Print on standard US Letter paper.",
+        pageCount: 1,
+      },
+      {
+        id: "cur-res-tummy-obs",
+        title: "Tummy Time Observation & Progress Card",
+        resourceCategory: "Printables",
+        lessonPlanIds: [lessonId],
+        status: "draft",
+        accessLevel: "free",
+        fileName: "tummy-time-observation.pdf",
+        mimeType: "application/pdf",
+        fileData: toDataUrl(observation.bytes),
+        previewImageUrl: png,
+        pageCount: 1,
+      },
+      {
+        id: "cur-res-other-lesson-printable",
+        title: "Other Lesson Printable",
+        resourceCategory: "Printables",
+        lessonPlanIds: [siblingPlan.id],
+        status: "published",
+        fileName: "other.pdf",
+        mimeType: "application/pdf",
+        fileData: toDataUrl(observation.bytes),
+        pageCount: 1,
+      },
+    ];
+    const plan = { ...ctx.plan, resourceIds: ["cur-res-tummy-strip", "cur-res-tummy-obs"] };
+    const kit = Mapper.mapLessonPlanToTeachingKit(plan, ctx.farm.activities || [], resources, { day: "monday" });
+    const mappedIds = (kit.companion.printables || []).map((item) => item.id);
+    ok(mappedIds.includes("cur-res-tummy-strip") && mappedIds.includes("cur-res-tummy-obs"), "linked printables mapped for lesson");
+    ok(!mappedIds.includes("cur-res-other-lesson-printable"), "other-lesson printable not mapped onto this lesson");
+    const stripMapped = (kit.companion.printables || []).find((item) => item.id === "cur-res-tummy-strip");
+    ok(stripMapped.previewUrl === png, "mapper exposes canonical previewImageUrl as previewUrl");
+    ok(stripMapped.fileData.startsWith("data:application/pdf"), "mapper keeps PDF fileData");
+
+    const model = Model.buildPrintableTeachingKitModel(kit, plan);
+    const stripModel = model.printables.find((item) => item.id === "cur-res-tummy-strip");
+    ok(stripModel.hasPdfAttachment === true, "cover does not clear hasPdfAttachment");
+    ok(stripModel.embedAsImage === false, "PDF+cover is not treated as image printable");
+    ok(stripModel.previewUrl === png, "cover remains display preview");
+    ok(stripModel.fileData.startsWith("data:application/pdf"), "model print source is PDF");
+
+    const planned = Merge.planPrintableAttachments({
+      documentMode: "printables",
+      include: { printables: true },
+      printables: model.printables,
+    });
+    ok(planned.ok && planned.attachments.length === 2, "All Printables plans both PDFs once");
+    ok(planned.attachments.every((item) => /^data:application\/pdf/i.test(item.source)), "merge source is PDF not cover image");
+    ok(planned.attachments.map((item) => item.id).join(",") === "cur-res-tummy-strip,cur-res-tummy-obs", "deterministic printable order");
+
+    const mergedOne = await Print.buildMergedTeachingKitPdf(kit, {
+      preset: "one_printable",
+      printableId: "cur-res-tummy-strip",
+      plan,
+      stylesHref,
+    });
+    const oneInspect = await assertMergedContainsAttachments(mergedOne, ["cur-res-tummy-strip"], "cover+pdf one printable");
+    const attachPages = oneInspect.inspected.pages.slice(mergedOne.report.binderPageCount);
+    ok(attachPages.length === 1, "1-page US Letter PDF stays one page");
+    ok(attachPages[0].orientation === "portrait", "portrait preserved");
+    ok(Math.abs(attachPages[0].width - 612) < 1 && Math.abs(attachPages[0].height - 792) < 1, "letter page size preserved");
+
+    const mergedAll = await Print.buildMergedTeachingKitPdf(kit, {
+      preset: "all_printables",
+      plan,
+      stylesHref,
+    });
+    await assertMergedContainsAttachments(
+      mergedAll,
+      ["cur-res-tummy-strip", "cur-res-tummy-obs"],
+      "cover+pdf all printables",
+    );
+    ok((mergedAll.report.included || []).filter((item) => item.id === "cur-res-tummy-strip").length === 1, "strip included once");
+
+    const siblingKit = Mapper.mapLessonPlanToTeachingKit(
+      siblingPlan,
+      ctx.farm.activities || [],
+      resources,
+      { day: "monday" },
+    );
+    const siblingIds = (siblingKit.companion.printables || []).map((item) => item.id);
+    ok(siblingIds.includes("cur-res-other-lesson-printable"), "sibling lesson keeps its own printable");
+    ok(!siblingIds.includes("cur-res-tummy-strip"), "strip does not leak into sibling lesson printables");
+  }
+
+  // Dense Teaching Kit PDF smoke report
   console.log("\nDense Teaching Kit PDF smoke report");
   {
     const validResources = ctx.resources.filter((item) => ["cur-res-farm-cards", "cur-res-farm-poster", "cur-res-farm-worksheet"].includes(item.id));

@@ -210,11 +210,15 @@ New Description`, {
   ok(merged.accessLevel === "pro" && merged.printingInstructions === "Old print notes", "10. access/print unchanged");
   ok(merged.pdfFile && merged.pdfFile.name === "keep.pdf", "11. existing PDF untouched");
   ok(merged.previewFile && merged.previewFileName === "keep.png", "12. existing preview image untouched");
+  ok(merged.previewImageUrl === "https://example.test/keep.png", "12. existing cover URL untouched by paste");
+  ok(merged.resourceId === "res-existing", "edit. same resource id after metadata paste");
   ok(merged.pasteLinkedLessonPlanId === currentLesson.id, "13. lesson link stays current lesson");
   ok(partialPreview.statusAfterSave === "draft" && partialPreview.publishes === false, "14-15. remains draft, no auto publish");
 
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   ok(appJs.includes("Save draft & link to lesson"), "16. manual save CTA still present");
+  ok(appJs.includes("Cover / Preview Image"), "16. Cover / Preview Image field label");
+  ok(appJs.includes("Optional — shown with this printable in Little Learner Hub."), "16. cover helper copy");
   ok(appJs.includes('data-tk-printable-field="pdfFile"'), "16. PDF still manual");
   ok(appJs.includes('data-tk-printable-field="previewFile"'), "16. preview still manual");
   ok(appJs.includes("data-tk-printable-paste-open"), "16. paste button in printable form");
