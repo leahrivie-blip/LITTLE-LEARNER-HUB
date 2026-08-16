@@ -184,6 +184,8 @@ function assertStaticContract() {
   );
   assert.doesNotMatch(pasteSrc, /openai|chat\.completions|generateActivity/i);
   assert.match(indexHtml, /curriculum-lesson-structure-paste\.js/);
+  assert.match(indexHtml, /curriculum-week-kit-paste\.js/);
+  assert.match(appJs, /linkCurriculumResourceToLesson\(/);
   const editorSrc = fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-enrichment-editor.js"), "utf8");
   assert.match(editorSrc, /Paste Week Update/);
   assert.match(editorSrc, /data-paste-week-update/);
@@ -332,6 +334,214 @@ Friday Activity Three
   assert.equal(gatePreview.recognized.prepChecklist, 2);
   assert.equal(gatePreview.recognized.observationFocus, 3);
   console.log("PASS  parser: title/age/week fields/weekdays/14 unique blank activity shells");
+}
+
+const FULL_WEEK_PASTE = `Lesson title:
+Big Feelings, Little Bodies
+
+Age band:
+Toddler 12–24 Months
+
+Weekly overview:
+Children practice naming simple feelings and using calm-down choices with adult support.
+
+Learning objectives:
+Name a feeling with adult support
+Practice a calm body
+Use gentle hands with friends
+
+Materials list:
+Feeling faces
+Soft puppets
+Calm choice cards
+
+Teacher preparation / Toolkit:
+Prepare a calm corner and keep feeling cards within reach.
+
+Prep checklist:
+Print feeling cards
+Set out puppets
+
+Observation focus:
+Naming feelings
+Seeking adult help
+
+Family connection:
+Invite families to name one feeling at home this week.
+
+Monday:
+Activity name: Feelings Check-In
+Category: Circle
+Activity objective: Name a feeling
+What children will do: Point to a feeling face
+Vocabulary:
+happy
+sad
+
+Activity name: Mirror Faces
+Category: Language
+Activity objective: Copy a feeling face
+What children will do: Look in a mirror
+
+Tuesday:
+Activity name: Puppet Feelings
+Category: Dramatic play
+Activity objective: Hear a feeling story
+What children will do: Watch a puppet
+
+Activity name: Soft Hug Practice
+Category: Social
+Activity objective: Use gentle hands
+What children will do: Practice a gentle hug
+
+Wednesday:
+Activity name: Calm Choice Walk
+Category: Movement
+Activity objective: Choose a calm action
+What children will do: Pick a card and try it
+
+Activity name: Feeling Song Circle
+Category: Music
+Activity objective: Sing a feeling song
+What children will do: Move with the song
+
+Thursday:
+Activity name: Color Monster Look
+Category: Literacy
+Activity objective: Notice a feeling in a book
+What children will do: Look at pictures
+
+Activity name: Heart Hands
+Category: Art
+Activity objective: Make a heart with hands
+What children will do: Press hands together
+
+Friday:
+Activity name: Helping Hands Puppet Play
+Category: Dramatic play
+Activity objective: Help a friend puppet
+What children will do: Offer a puppet a hug
+Vocabulary:
+help
+friend
+gentle
+Image requirement:
+Show two children sharing a puppet.
+Example images:
+Adult-taken classroom photo only.
+
+Activity name: Calm Goodbye
+Category: Circle
+Activity objective: End with a calm body
+What children will do: Take a slow breath
+
+Books:
+Book title: The Color Monster
+Author: Anna Llenas
+Why this book: Supports simple conversations about different emotions.
+Book questions:
+What feeling do you see?
+What does your face look like when you feel happy?
+
+Book title: In My Heart
+Author: Jo Witek
+Why this book: Gives children simple language for describing feelings.
+Book questions:
+What feeling is the character having?
+Can you show that feeling with your face?
+
+Songs:
+Song title: If You're Happy and You Know It
+How to use: Change the feeling and action during each verse.
+Teacher notes: Use familiar movements and allow children to participate through gestures.
+
+Song title: Breathe In, Breathe Out
+Description: A short teacher-led calming chant.
+Lyrics:
+Breathe in slow.
+Breathe out slow.
+My body can rest.
+
+Printable Ideas:
+Idea title: My Feelings Cards
+Type: Visual cards
+Purpose / description: Simple emotion faces children can point to.
+Instructions: Print, cut apart, and use during circle time or one-on-one conversations.
+Notes: Use large toddler-friendly facial expressions.
+
+Idea title: Calm Choice Cards
+Type: Choice cards
+Purpose / description: Visual choices for simple calming strategies.
+Instructions: Offer two or three choices when the child needs adult support.
+
+Linked Resources:
+Linked resource: Tummy-Time Visual Strip
+Linked resource: Not A Real Printable Title
+
+Milestones:
+Social-emotional
+Language
+Quantum feelings
+`;
+
+function runFullWeekPasteTests() {
+  const existingResources = [
+    {
+      id: "cur-res-tummy-time-visual-strip",
+      title: "Tummy-Time Visual Strip",
+      resourceCategory: "Printables",
+      resourceType: "Printable",
+    },
+  ];
+  const parsed = parseFullLessonStructurePaste(FULL_WEEK_PASTE, { existingResources });
+  assert.equal(parsed.ok, true, parsed.errors.join("; "));
+  assert.equal(parsed.lesson.title, "Big Feelings, Little Bodies");
+  assert.equal(parsed.lesson.age, "Toddler 12–24 Months");
+  assert.match(parsed.lesson.weeklyOverview, /naming simple feelings/);
+  assert.equal(parsed.lesson.objectives.split("\n").length, 3);
+  assert.equal(parsed.dailyPlans.monday.items.length, 2);
+  assert.equal(parsed.dailyPlans.tuesday.items.length, 2);
+  assert.equal(parsed.dailyPlans.wednesday.items.length, 2);
+  assert.equal(parsed.dailyPlans.thursday.items.length, 2);
+  assert.equal(parsed.dailyPlans.friday.items.length, 2);
+  assert.equal(parsed.activityCount, 10);
+  assert.equal(parsed.dailyPlans.friday.items[0].title, "Helping Hands Puppet Play");
+  assert.match(parsed.dailyPlans.friday.items[0].vocabulary, /gentle/);
+  assert.equal(parsed.dailyPlans.friday.items[1].title, "Calm Goodbye");
+  assert.equal(parsed.books.length, 2);
+  assert.equal(parsed.books[0].title, "The Color Monster");
+  assert.equal(parsed.books[1].title, "In My Heart");
+  assert.match(parsed.books[0].questions, /What feeling do you see/);
+  assert.equal(parsed.songs.length, 2);
+  assert.equal(parsed.songs[0].title, "If You're Happy and You Know It");
+  assert.match(parsed.songs[0].teacherDirections, /familiar movements/);
+  assert.match(parsed.songs[1].lyrics, /Breathe in slow/);
+  assert.equal(parsed.printableIdeas.length, 2);
+  assert.equal(parsed.printableIdeas[0].title, "My Feelings Cards");
+  assert.equal(parsed.printableIdeas[1].title, "Calm Choice Cards");
+  assert.equal(parsed.linkedResources.resolved.length, 1);
+  assert.equal(parsed.linkedResources.resolved[0].resource.id, "cur-res-tummy-time-visual-strip");
+  assert.equal(parsed.linkedResources.unresolved.length, 1);
+  assert.match(parsed.linkedResources.unresolved[0].entry.title, /Not A Real Printable Title/);
+  assert.deepEqual(parsed.lesson.milestones, ["Social-emotional", "Language"]);
+  assert.ok(parsed.lesson.rejectedMilestones.includes("Quantum feelings"));
+  const preview = buildStructurePreview(parsed);
+  assert.equal(preview.books.length, 2);
+  assert.equal(preview.songs.length, 2);
+  assert.equal(preview.printableIdeas.length, 2);
+  assert.equal(preview.linkedResources.resolved.length, 1);
+  assert.equal(preview.linkedResources.unresolved.length, 1);
+  assert.match(preview.linkedResources.destination, /Linked Resources/);
+  const plan = buildCanonicalLessonPlan(parsed);
+  assert.equal(plan.status, "draft");
+  assert.equal(plan.resourceIds.length, 0);
+  assert.equal(plan.enrichmentDraft.week.books.length, 2);
+  assert.equal(plan.enrichmentDraft.week.songs.length, 2);
+  assert.equal(plan.enrichmentDraft.week.printableIdeas.length, 2);
+  assert.ok(!plan.enrichmentPublished);
+  const fridayTitles = parsed.dailyPlans.friday.items.map((item) => item.title).join(" ");
+  assert.doesNotMatch(fridayTitles, /Color Monster|Feelings Song|Calm Choice|Tummy-Time/);
+  console.log("PASS  full-week paste: 10 activities, 2 books, 2 songs, 2 ideas, 1 resolved + 1 unresolved link");
 }
 
 function assertCanonicalHelloWorld(parsed, label) {
@@ -655,6 +865,7 @@ async function runServerTests() {
 async function main() {
   assertStaticContract();
   runParserTests();
+  runFullWeekPasteTests();
   runHeadingAndAgeAliasTests();
   await runServerTests();
   console.log("\nAll create-new-lesson-plan tests passed.");

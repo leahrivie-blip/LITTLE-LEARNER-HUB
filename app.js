@@ -10274,6 +10274,18 @@ function renderAdminCreateLessonPlanDialog() {
         <p class="eyebrow">ACTIVITIES</p>
         <div class="admin-create-lesson-preview-days">${weekdayHtml}</div>
         <p><strong>TOTAL ACTIVITIES: ${Number(preview.activityCount) || 0}</strong></p>
+        <p class="eyebrow">BOOKS (${(preview.books || []).length})</p>
+        <ul>${(preview.books || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        <p class="eyebrow">SONGS (${(preview.songs || []).length})</p>
+        <ul>${(preview.songs || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        <p class="eyebrow">PRINTABLE IDEAS (${(preview.printableIdeas || []).length})</p>
+        <ul>${(preview.printableIdeas || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        <p class="eyebrow">LINKED RESOURCES</p>
+        <p class="muted-copy">${escapeHtml((preview.linkedResources && preview.linkedResources.destination) || "Lesson → Linked Resources → Printables")}</p>
+        <p>Resolved (${(preview.linkedResources?.resolved || []).length})</p>
+        <ul>${(preview.linkedResources?.resolved || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+        <p>Unresolved (${(preview.linkedResources?.unresolved || []).length})</p>
+        <ul>${(preview.linkedResources?.unresolved || []).map((item) => `<li>${escapeHtml(item.title || "")}${item.reason ? `: ${escapeHtml(item.reason)}` : ""}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
         ${unrecognized.length ? `
           <p class="eyebrow">UNRECOGNIZED SECTIONS</p>
           <ul>${unrecognized.map((item) => `<li>${escapeHtml(item.heading || "")}${item.body ? `: ${escapeHtml(item.body)}` : ""}</li>`).join("")}</ul>
@@ -10387,6 +10399,9 @@ function previewAdminCreateLessonPaste() {
     generateItemId: typeof generateCurriculumItemIdClient === "function"
       ? generateCurriculumItemIdClient
       : api.generateItemId,
+    existingResources: typeof effectiveCurriculum === "function"
+      ? (effectiveCurriculum().resources || [])
+      : [],
   });
   adminCreateLessonPlanUi.parsed = parsed;
   adminCreateLessonPlanUi.preview = api.buildStructurePreview(parsed);
@@ -10431,6 +10446,13 @@ async function confirmAdminCreateLessonPaste({ asCopy = false } = {}) {
       lastEditedBy: adminSession()?.email || "",
     });
     const saved = await persistNewCurriculumLessonDraft(lessonPlan);
+    const resolvedLinks = parsed.linkedResources?.resolved || [];
+    for (let i = 0; i < resolvedLinks.length; i += 1) {
+      const resourceId = resolvedLinks[i]?.resource?.id;
+      if (resourceId && typeof linkCurriculumResourceToLesson === "function") {
+        await linkCurriculumResourceToLesson(resourceId, saved.id);
+      }
+    }
     resetAdminCreateLessonPlanUi();
     adminCurriculumLessonEditorId = saved.id;
     setAdminCurriculumLessonSaveBanner(`Draft “${saved.title}” created. Not visible to customers until you Publish.`, true);

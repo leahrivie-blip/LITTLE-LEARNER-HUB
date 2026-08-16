@@ -1172,7 +1172,10 @@
     const plan = getPlan();
     if (!plan) return null;
     if (state.pasteImport.scope === "week") {
-      return paste.buildWeekPreview(state.pasteImport.rawText, state.draft.week || {}, plan);
+      return paste.buildWeekPreview(state.pasteImport.rawText, state.draft.week || {}, plan, {
+        existingResources: curriculumResources(),
+        existingResourceIds: plan?.resourceIds || [],
+      });
     }
     const key = String(state.pasteImport.activityKey || "").trim();
     if (!key) return null;
@@ -1235,6 +1238,17 @@
     if (!state.draft.week) state.draft.week = {};
     const explicitOnly = state.ownerWorkspace === true || state.ownerDraftReview === true;
     markDirty({ autosave: !explicitOnly });
+    if (preview.scope === "week" && selectedFieldIds.includes("linkedResources") && typeof linkCurriculumResourceToLesson === "function") {
+      const linkChange = (preview.fieldChanges || []).find((change) => change.fieldId === "linkedResources");
+      const planId = state.planId;
+      const existingIds = new Set((getPlan()?.resourceIds || []).map((id) => String(id)));
+      (linkChange?.resolved || []).forEach((item) => {
+        const resourceId = item?.resource?.id;
+        if (!resourceId || item.alreadyLinked || existingIds.has(String(resourceId))) return;
+        existingIds.add(String(resourceId));
+        void linkCurriculumResourceToLesson(resourceId, planId);
+      });
+    }
     state.pasteImport.highlightFields = result.appliedFields.slice();
     state.pasteImport.highlightUntil = Date.now() + 10000;
     state.pasteImport.open = false;
@@ -3560,6 +3574,47 @@
             </label>
           ` : `<p class="muted-copy">Already enabled — no change.</p>`}
           ${change.proseNote ? `<p class="muted-copy">${esc(change.proseNote)}</p>` : ""}
+        </article>
+      `;
+    }
+    if (change.kind === "recordList") {
+      const titles = change.titles || (change.incoming || change.records || []).map((item) => item.title);
+      return `
+        <article class="tk-paste-change" data-paste-field="${esc(change.fieldId)}">
+          <header>
+            <strong>${esc(change.label)}</strong>
+            <span class="muted-copy">Merge by title (never deletes omitted items)</span>
+          </header>
+          <p>${titles.length} detected</p>
+          <ul>${titles.map((title) => `<li>${esc(title)}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+          ${titles.length ? `
+            <label class="tk-paste-select-row">
+              <input type="checkbox" data-paste-select="${esc(change.fieldId)}" ${selected} />
+              Apply ${titles.length} ${esc(change.label.toLowerCase())}
+            </label>
+          ` : ""}
+        </article>
+      `;
+    }
+    if (change.kind === "linkedResources") {
+      const resolved = change.resolved || [];
+      const unresolved = change.unresolved || [];
+      return `
+        <article class="tk-paste-change" data-paste-field="${esc(change.fieldId)}">
+          <header>
+            <strong>${esc(change.label)}</strong>
+            <span class="muted-copy">${esc(change.destination || "Lesson → Linked Resources → Printables")}</span>
+          </header>
+          <p>Resolved (${resolved.length})</p>
+          <ul>${resolved.map((item) => `<li>${esc(item.resource?.title || item.entry?.title || "")}${item.alreadyLinked ? " (already linked)" : ""}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+          <p>Unresolved (${unresolved.length})</p>
+          <ul>${unresolved.map((item) => `<li>${esc(item.entry?.title || "")}${item.reason ? ` — ${esc(item.reason)}` : ""}</li>`).join("") || `<li class="muted-copy">None</li>`}</ul>
+          ${resolved.some((item) => item.resource?.id && !item.alreadyLinked) ? `
+            <label class="tk-paste-select-row">
+              <input type="checkbox" data-paste-select="${esc(change.fieldId)}" ${selected} />
+              Link resolved existing resources only
+            </label>
+          ` : `<p class="muted-copy">No new unique existing resources to link. Unresolved titles are not created from text.</p>`}
         </article>
       `;
     }

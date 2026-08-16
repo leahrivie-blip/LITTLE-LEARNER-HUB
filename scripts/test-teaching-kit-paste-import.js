@@ -245,6 +245,83 @@ function main() {
   ok(weekApply.draft.week.familyConnection === "Existing family note", "unselected family replace not applied");
   ok(!Object.prototype.hasOwnProperty.call(weekApply.draft.week, "linkedResources"), "14b. no fabricated resource field");
 
+  const kitResources = [
+    { id: "cur-res-tummy-time-visual-strip", title: "Tummy-Time Visual Strip", resourceCategory: "Printables" },
+  ];
+  const existingWeekKit = {
+    weeklyOverview: "Keep existing overview",
+    books: [{ title: "Existing Book", author: "A" }],
+    songs: [{ title: "Existing Song" }],
+    printableIdeas: [{ title: "Existing Idea" }],
+    familyConnection: "Existing family note",
+    milestones: ["Gross motor"],
+  };
+  const partialBooksPreview = paste.buildWeekPreview(
+    "Books:\nBook title: The Color Monster\nAuthor: Anna Llenas\nBook questions:\nWhat feeling do you see?\n",
+    existingWeekKit,
+    { resourceIds: ["cur-res-already-linked"] },
+    { existingResources: kitResources, existingResourceIds: ["cur-res-already-linked"] },
+  );
+  const booksChange = findChange(partialBooksPreview, "books");
+  ok(booksChange && booksChange.titles.includes("The Color Monster"), "week paste detects book title");
+  booksChange.selected = true;
+  const booksApply = paste.applyPreviewToDraft(
+    { activities: { keep: { title: "Stay" } }, week: JSON.parse(JSON.stringify(existingWeekKit)) },
+    partialBooksPreview,
+    { selectedFieldIds: ["books"] },
+  );
+  ok(booksApply.draft.week.books.some((item) => item.title === "The Color Monster"), "book applied");
+  ok(booksApply.draft.week.books.some((item) => item.title === "Existing Book"), "existing book preserved");
+  ok(booksApply.draft.week.songs[0].title === "Existing Song", "partial books paste does not erase songs");
+  ok(booksApply.draft.week.printableIdeas[0].title === "Existing Idea", "partial books paste does not erase ideas");
+  ok(booksApply.draft.week.weeklyOverview === "Keep existing overview", "partial books paste does not erase overview");
+  ok(booksApply.draft.activities.keep.title === "Stay", "partial books paste does not erase activities");
+
+  const songsPreview = paste.buildWeekPreview(
+    "Songs:\nSong title: Breathe In, Breathe Out\nLyrics:\nBreathe in slow.\nTeacher notes: Soft voice.\n",
+    existingWeekKit,
+    {},
+  );
+  const songsChange = findChange(songsPreview, "songs");
+  ok(songsChange.titles.includes("Breathe In, Breathe Out"), "week paste detects song");
+  songsChange.selected = true;
+  const songsApply = paste.applyPreviewToDraft(
+    { activities: {}, week: JSON.parse(JSON.stringify(existingWeekKit)) },
+    songsPreview,
+    { selectedFieldIds: ["songs"] },
+  );
+  const appliedSong = songsApply.draft.week.songs.find((item) => item.title === "Breathe In, Breathe Out");
+  ok(appliedSong && /Breathe in slow/.test(appliedSong.lyrics || ""), "song lyrics stored from owner text");
+  ok(songsApply.draft.week.books[0].title === "Existing Book", "partial songs paste does not erase books");
+
+  const ideasPreview = paste.buildWeekPreview(
+    "Printable Ideas:\nIdea title: Calm Choice Cards\nType: Choice cards\n",
+    existingWeekKit,
+    {},
+  );
+  const ideasChange = findChange(ideasPreview, "printableIdeas");
+  ok(ideasChange.titles.includes("Calm Choice Cards"), "week paste detects printable idea");
+  ok(!(ideasPreview.fieldChanges || []).some((c) => c.fieldId === "linkedResources" && (c.incoming || []).length), "ideas are not linked resources");
+
+  const linksPreview = paste.buildWeekPreview(
+    "Linked Resources:\nLinked resource: Tummy-Time Visual Strip\nLinked resource: Missing Printable\n",
+    existingWeekKit,
+    { resourceIds: ["cur-res-already-linked"], age: "Toddler 12–24 Months" },
+    { existingResources: kitResources, existingResourceIds: ["cur-res-already-linked"] },
+  );
+  const linksChange = findChange(linksPreview, "linkedResources");
+  ok(linksChange.resolved.length === 1, "exactly one existing resource resolved");
+  ok(linksChange.unresolved.length === 1, "unresolved resource remains visible");
+  ok((linksPreview.manualResources || []).some((item) => /Missing Printable/.test(item.heading || item.body || "")), "unresolved stays manual");
+  const alreadyPreview = paste.buildWeekPreview(
+    "Linked Resources:\nLinked resource: Tummy-Time Visual Strip\n",
+    existingWeekKit,
+    { resourceIds: ["cur-res-tummy-time-visual-strip"] },
+    { existingResources: kitResources, existingResourceIds: ["cur-res-tummy-time-visual-strip"] },
+  );
+  const alreadyChange = findChange(alreadyPreview, "linkedResources");
+  ok(alreadyChange.resolved[0].alreadyLinked === true, "already-linked resource is not duplicated");
+
   // --- Activity heading coverage ---
   const activity = sampleActivity();
   const draftAct = {
