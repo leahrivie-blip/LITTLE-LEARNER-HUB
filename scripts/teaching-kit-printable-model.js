@@ -243,26 +243,38 @@
     };
   }
 
+  function isPdfPrintableSource(entry, fileData, fileUrl, mimeType) {
+    return Boolean(
+      /^data:application\/pdf/i.test(fileData)
+      || /^data:application\/pdf/i.test(fileUrl)
+      || /application\/pdf/i.test(mimeType)
+      || /\.pdf(\?|$)/i.test(fileUrl)
+      || /\.pdf(\?|$)/i.test(text(entry.fileName)),
+    );
+  }
+
   function normalizePrintable(item) {
     const entry = item && typeof item === "object" ? item : {};
     const title = presentCopy(entry.title);
     if (!title) return null;
     const fileData = text(entry.fileData);
     const fileUrl = text(entry.fileUrl || entry.url || entry.downloadUrl || entry.mediaUrl || fileData);
-    const previewUrl = text(entry.previewUrl || entry.thumbnailUrl || entry.coverImageUrl || fileUrl);
+    const coverUrl = text(
+      entry.previewImageUrl
+      || entry.previewUrl
+      || entry.thumbnailUrl
+      || entry.coverImageUrl,
+    );
     const mimeType = text(entry.mimeType)
       || (/^data:application\/pdf/i.test(fileData) || /\.pdf(\?|$)/i.test(fileUrl) ? "application/pdf" : "");
-    const embedAsImage = isImageUrl(previewUrl, mimeType) || isImageUrl(fileUrl, mimeType);
     const hasPdfAttachment = Boolean(
-      !embedAsImage
-      && (
-        /^data:application\/pdf/i.test(fileData)
-        || /^data:application\/pdf/i.test(fileUrl)
-        || /application\/pdf/i.test(mimeType)
-        || /\.pdf(\?|$)/i.test(fileUrl)
-        || /\.pdf(\?|$)/i.test(text(entry.fileName))
-      )
+      isPdfPrintableSource(entry, fileData, fileUrl, mimeType)
       && (fileData || fileUrl),
+    );
+    // Cover/preview images identify the printable; they must not replace a PDF print source.
+    const previewUrl = coverUrl || (hasPdfAttachment ? "" : fileUrl);
+    const embedAsImage = !hasPdfAttachment && (
+      isImageUrl(previewUrl, mimeType) || isImageUrl(fileUrl, mimeType)
     );
     return {
       id: stableResourceId(entry, "printable", title) || text(entry.id),
@@ -275,7 +287,9 @@
       purpose: presentCopy(entry.purpose || entry.whyThisPrintable),
       suggestedUse: presentCopy(entry.suggestedUse || entry.howToUse || entry.useNotes),
       teacherNotes: presentCopy(entry.teacherNotes || entry.instructions),
-      printingDirections: presentCopy(entry.printingDirections || entry.printNotes || entry.notes),
+      printingDirections: presentCopy(
+        entry.printingDirections || entry.printingInstructions || entry.printNotes || entry.notes,
+      ),
       previewUrl,
       fileUrl,
       fileData,

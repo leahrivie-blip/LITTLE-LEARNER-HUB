@@ -31,6 +31,16 @@
     return null;
   }
 
+  function weekKitApi() {
+    if (typeof globalThis !== "undefined" && globalThis.LLHCurriculumWeekKitPaste) {
+      return globalThis.LLHCurriculumWeekKitPaste;
+    }
+    if (typeof require === "function") {
+      try { return require("./curriculum-week-kit-paste.js"); } catch (_error) { return null; }
+    }
+    return null;
+  }
+
   function importParser() {
     if (typeof globalThis !== "undefined" && globalThis.CurriculumLessonImportParser) {
       return globalThis.CurriculumLessonImportParser;
@@ -154,7 +164,53 @@
     milestones: "milestones",
     "developmental milestones": "milestones",
     activities: "activities",
+    books: "books",
+    book: "books",
+    "book title": "books",
+    songs: "songs",
+    song: "songs",
+    "song title": "songs",
+    "printable ideas": "printableIdeas",
+    "printable idea": "printableIdeas",
+    "idea title": "printableIdeas",
+    "linked resources": "linkedResources",
+    "linked resource": "linkedResources",
+    "resource title": "linkedResources",
+    "cover image": "coverImageUrl",
+    "cover image url": "coverImageUrl",
+    "cover photo": "coverImageUrl",
+    "cover photo url": "coverImageUrl",
+    "lesson cover": "coverImageUrl",
+    "lesson cover url": "coverImageUrl",
+    "cover alt": "coverImageAlt",
+    "cover alt text": "coverImageAlt",
+    "cover image alt": "coverImageAlt",
+    "image position": "coverImagePosition",
+    "cover image position": "coverImagePosition",
+    "cover quality": "coverQualityStatus",
+    "printable name": "pendingPrintables",
+    "printable title": "pendingPrintables",
+    "linked printable": "linkedResources",
+    "printable link": "pendingPrintables",
+    "resource id": "linkedResources",
   });
+
+  const NESTED_BODY_HEADINGS = Object.freeze(new Set([
+    "activity name", "weekday", "category", "developmental domain", "recommended age",
+    "estimated duration", "activity objective", "what children will do", "materials",
+    "teacher preparation", "setup", "step-by-step directions", "step by step directions",
+    "suggested questions to ask", "suggested questions", "learning and observation focus",
+    "safety and supervision", "cleanup", "indoor option", "indoor", "outdoor option", "outdoor",
+    "teacher tips", "supply substitutions", "support adaptations", "added challenge",
+    "mixed-age adaptations", "mixed age adaptations", "observation prompts", "vocabulary",
+    "vocabulary words", "image requirement", "setup example brief", "finished example brief",
+    "setup image", "setup image url", "setup photo", "setup photo url", "example image", "example image url", "example images",
+    "finished example image", "finished example photo", "author", "why this book", "book questions", "discussion questions",
+    "lyrics", "how to use", "tune", "song url", "book url", "teacher directions", "instructions",
+    "purpose / description", "purpose", "notes", "type", "rights status", "rights / licensing",
+    "day association", "teacher notes", "printable description", "printable pdf",
+    "printable cover image url", "resource placement",
+  ]));
 
   const LESSON_HEADING_BY_NORMALIZED = Object.freeze((() => {
     const out = {};
@@ -202,11 +258,21 @@
         const labelPart = headingMatch[1];
         const rest = headingMatch[2];
         const fieldId = headingFieldId(labelPart);
-        const looksLikeHeading = fieldId || (/^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "");
-        if (looksLikeHeading) {
+        if (fieldId) {
+          const nestedKeep = NESTED_BODY_HEADINGS.has(normalizePasteHeading(labelPart));
+          if (nestedKeep && current?.fieldId && String(current.fieldId).startsWith("weekday:")) {
+            if (current) bodyLines.push(line);
+            return;
+          }
           flush();
           current = { headingRaw: labelPart.trim(), fieldId: fieldId || "" };
           if (rest) bodyLines.push(rest);
+          return;
+        }
+        const nestedKeep = NESTED_BODY_HEADINGS.has(normalizePasteHeading(labelPart));
+        if (!nestedKeep && /^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "") {
+          flush();
+          current = { headingRaw: labelPart.trim(), fieldId: "" };
           return;
         }
       }
@@ -371,9 +437,21 @@
       familyConnection: "",
       milestones: [],
       rejectedMilestones: [],
+      coverImageUrl: "",
+      coverImageAlt: "",
+      coverImagePosition: "",
+      coverQualityStatus: "",
+      coverManualUpload: null,
     };
     const dailyPlans = emptyDailyPlans();
     const usedItemIds = new Set();
+    const kit = weekKitApi();
+    const bookBodies = [];
+    const songBodies = [];
+    const ideaBodies = [];
+    const linkedBodies = [];
+    const pendingPrintableBodies = [];
+    const kitUnsupported = [];
 
     function uniqueItemId() {
       let id = generateId();
@@ -382,24 +460,50 @@
       return id;
     }
 
-    function addActivity(day, title) {
-      const name = text(title);
+    function addActivity(day, titleOrFields) {
+      const fields = titleOrFields && typeof titleOrFields === "object"
+        ? titleOrFields
+        : { title: titleOrFields };
+      const name = text(fields.title);
       if (!name || !dailyPlans[day]) return;
-      dailyPlans[day].items.push({
+      const item = {
         itemId: uniqueItemId(),
         title: name,
-        objective: "",
-        description: "",
-        materials: "",
-        setup: "",
-        steps: "",
+        objective: text(fields.objective),
+        description: String(fields.description || "").trim(),
+        materials: String(fields.materials || "").trim(),
+        setup: String(fields.setup || "").trim(),
+        steps: String(fields.steps || "").trim(),
         teacherRole: "",
-        teacherLanguage: "",
-        observationOpportunities: "",
-        vocabulary: "",
-        safetyNotes: "",
+        teacherLanguage: String(fields.teacherLanguage || "").trim(),
+        observationOpportunities: String(fields.observationOpportunities || "").trim(),
+        vocabulary: String(fields.vocabulary || "").trim(),
+        safetyNotes: String(fields.safetyNotes || "").trim(),
         familyConnection: "",
+      };
+      [
+        "activityCategory", "ageModifications", "durationMinutes", "preparation",
+        "cleanupTips", "indoorAlternatives", "outdoorAlternatives", "adaptations",
+        "extensions", "mixedAgeAdaptations",
+      ].forEach((key) => {
+        if (String(fields[key] || "").trim()) item[key] = String(fields[key]).trim();
       });
+      if (Array.isArray(fields.teacherTips) && fields.teacherTips.length) item.teacherTips = fields.teacherTips.slice();
+      if (Array.isArray(fields.observationPrompts) && fields.observationPrompts.length) {
+        item.observationPrompts = fields.observationPrompts.slice();
+      }
+      if (text(fields.imageRequirement)) item.imageRequirement = text(fields.imageRequirement);
+      if (String(fields.imageBriefSetup || "").trim()) item.imageBriefSetup = String(fields.imageBriefSetup).trim();
+      if (String(fields.imageBriefExample || "").trim()) item.imageBriefExample = String(fields.imageBriefExample).trim();
+      if (Array.isArray(fields.substitutions) && fields.substitutions.length) {
+        item.substitutions = fields.substitutions.slice();
+      }
+      if (fields.durationMinutes != null && fields.durationMinutes !== "") {
+        item.durationMinutes = fields.durationMinutes;
+      }
+      if (fields.setupImageUpload) item.setupImageUpload = fields.setupImageUpload;
+      if (fields.exampleImageUpload) item.exampleImageUpload = fields.exampleImageUpload;
+      dailyPlans[day].items.push(item);
     }
 
     sections.forEach((section) => {
@@ -440,17 +544,109 @@
         listLines(body).forEach((line) => {
           unrecognized.push({ heading: "Activities", body: line });
         });
+      } else if (fieldId === "books") {
+        bookBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "songs") {
+        songBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "printableIdeas") {
+        ideaBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "linkedResources") {
+        linkedBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "pendingPrintables") {
+        pendingPrintableBodies.push(`${section.headingRaw}:\n${body}`);
+      } else if (fieldId === "coverImageUrl") {
+        if (kit && typeof kit.parseCoverOrUrl === "function") {
+          const cover = kit.parseCoverOrUrl(body);
+          if (cover.ok) lesson.coverImageUrl = cover.url;
+          else if (cover.manualUpload) lesson.coverManualUpload = cover;
+        }
+      } else if (fieldId === "coverImageAlt") {
+        lesson.coverImageAlt = text(body);
+      } else if (fieldId === "coverImagePosition") {
+        const pos = text(body).toLowerCase();
+        if (["center", "top", "bottom", "left", "right"].includes(pos)) lesson.coverImagePosition = pos;
+        else if (text(body)) unrecognized.push({ heading: section.headingRaw, body: text(body) });
+      } else if (fieldId === "coverQualityStatus") {
+        const quality = text(body).toLowerCase().replace(/\s+/g, "_");
+        if (["good", "needs_upgrade", "missing"].includes(quality)) lesson.coverQualityStatus = quality;
+        else if (text(body)) unrecognized.push({ heading: section.headingRaw, body: text(body) });
       } else if (fieldId.startsWith("weekday:")) {
         const day = fieldId.slice("weekday:".length);
-        listLines(body).forEach((line) => addActivity(day, line));
+        if (kit && typeof kit.parseStructuredActivities === "function" && /activity\s*name\s*:/i.test(body)) {
+          const parsedDay = kit.parseStructuredActivities(body, day);
+          (parsedDay.records || []).forEach((record) => addActivity(day, record));
+          (parsedDay.unsupported || []).forEach((row) => kitUnsupported.push(row));
+        } else {
+          listLines(body).forEach((line) => addActivity(day, line));
+        }
       }
     });
+
+    let books = [];
+    let songs = [];
+    let printableIdeas = [];
+    let linkedResources = { resolved: [], unresolved: [], unsupported: [] };
+    let pendingPrintables = [];
+    if (kit) {
+      if (bookBodies.length) {
+        const parsedBooks = kit.parseBooksSection(bookBodies.join("\n\n"));
+        books = parsedBooks.records || [];
+        kitUnsupported.push(...(parsedBooks.unsupported || []));
+      }
+      if (songBodies.length) {
+        const parsedSongs = kit.parseSongsSection(songBodies.join("\n\n"));
+        songs = parsedSongs.records || [];
+        kitUnsupported.push(...(parsedSongs.unsupported || []));
+      }
+      if (ideaBodies.length) {
+        const parsedIdeas = kit.parsePrintableIdeasSection(ideaBodies.join("\n\n"));
+        printableIdeas = parsedIdeas.records || [];
+        kitUnsupported.push(...(parsedIdeas.unsupported || []));
+      }
+      if (linkedBodies.length) {
+        linkedResources = kit.parseLinkedResourcesSection(
+          linkedBodies.join("\n\n"),
+          options.existingResources,
+          {
+            ageDisplay: lesson.ageDisplay || lesson.age,
+            existingResourceIds: options.existingLesson?.resourceIds || options.existingResourceIds || [],
+          },
+        );
+        kitUnsupported.push(...(linkedResources.unsupported || []));
+      }
+      if (pendingPrintableBodies.length && typeof kit.parsePendingPrintableSection === "function") {
+        const pendingParsed = kit.parsePendingPrintableSection(
+          pendingPrintableBodies.join("\n\n"),
+          options.existingResources,
+          { ageDisplay: lesson.ageDisplay || lesson.age },
+        );
+        pendingPrintables = pendingParsed.pending || [];
+        if ((pendingParsed.resolved || []).length) {
+          linkedResources.resolved = (linkedResources.resolved || []).concat(pendingParsed.resolved);
+        }
+        kitUnsupported.push(...(pendingParsed.unsupported || []));
+      }
+    } else if (bookBodies.length || songBodies.length || ideaBodies.length || linkedBodies.length) {
+      unrecognized.push({
+        heading: "Week kit",
+        body: "Week-kit parser did not load; books/songs/ideas/resources were not placed.",
+      });
+    }
 
     const activities = [];
     WEEKDAYS.forEach((day) => {
       (dailyPlans[day].items || []).forEach((item) => {
         activities.push({ dayOfWeek: day, title: item.title, itemId: item.itemId });
       });
+    });
+
+    (kitUnsupported || []).forEach((row) => {
+      if (row && (text(row.heading) || text(row.body))) {
+        unrecognized.push({
+          heading: row.heading || "Unsupported field",
+          body: text(row.body).slice(0, 240) + (row.note ? ` (${row.note})` : ""),
+        });
+      }
     });
 
     const errors = [];
@@ -465,6 +661,11 @@
       dailyPlans,
       activities,
       activityCount: activities.length,
+      books,
+      songs,
+      printableIdeas,
+      linkedResources,
+      pendingPrintables,
     };
   }
 
@@ -484,16 +685,80 @@
       observationFocus: Array.isArray(lesson.observationFocus) ? lesson.observationFocus.length : 0,
       prepChecklist: Array.isArray(lesson.prepChecklist) ? lesson.prepChecklist.length : 0,
     };
+    const linked = parsed?.linkedResources || { resolved: [], unresolved: [] };
+    const resolvedAll = linked.resolved || [];
+    const unresolvedAll = linked.unresolved || [];
+    const activityMediaWarnings = [];
+    WEEKDAYS.forEach((day) => {
+      (parsed?.dailyPlans?.[day]?.items || []).forEach((item) => {
+        if (item?.setupImageUpload) {
+          activityMediaWarnings.push({
+            title: item.title,
+            kind: "setup",
+            actionRequired: item.setupImageUpload.actionRequired || "manual upload required",
+            raw: item.setupImageUpload.raw || "",
+          });
+        }
+        if (item?.exampleImageUpload) {
+          activityMediaWarnings.push({
+            title: item.title,
+            kind: "finished",
+            actionRequired: item.exampleImageUpload.actionRequired || "manual upload required",
+            raw: item.exampleImageUpload.raw || "",
+          });
+        }
+      });
+    });
     return {
       title: lesson.title || "",
       age: lesson.ageDisplay || lesson.age || "",
       recognized,
       byDay,
       activityCount: parsed?.activityCount || 0,
+      books: (parsed?.books || []).map((item) => item.title),
+      songs: (parsed?.songs || []).map((item) => item.title),
+      printableIdeas: (parsed?.printableIdeas || []).map((item) => item.title),
+      linkedResources: {
+        resolved: resolvedAll.filter((item) => !item.alreadyLinked).map((item) => item.resource?.title || item.entry?.title || ""),
+        alreadyLinked: resolvedAll.filter((item) => item.alreadyLinked).map((item) => item.resource?.title || item.entry?.title || ""),
+        unresolved: unresolvedAll.filter((item) => !item.ambiguous).map((item) => ({
+          title: item.entry?.title || "",
+          reason: item.reason || "",
+        })),
+        ambiguous: unresolvedAll.filter((item) => item.ambiguous).map((item) => ({
+          title: item.entry?.title || "",
+          reason: item.reason || "",
+          candidates: item.candidates || [],
+        })),
+        destination: "Lesson → Linked Resources → Printables",
+      },
       unrecognized: parsed?.unrecognized || [],
       rejectedMilestones: lesson.rejectedMilestones || [],
+      coverImageUrl: lesson.coverImageUrl || "",
+      coverManualUpload: lesson.coverManualUpload || null,
+      pendingPrintables: parsed?.pendingPrintables || [],
+      activityMediaWarnings,
       errors: parsed?.errors || [],
     };
+  }
+
+  function cloneDailyPlansWithoutUploadRefs(dailyPlans) {
+    const source = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : emptyDailyPlans();
+    const next = emptyDailyPlans();
+    WEEKDAYS.forEach((day) => {
+      const dayPlan = source[day] && typeof source[day] === "object" ? source[day] : { items: [] };
+      next[day] = {
+        ...dayPlan,
+        items: (dayPlan.items || []).map((item) => {
+          if (!item || typeof item !== "object") return item;
+          const cloned = { ...item };
+          delete cloned.setupImageUpload;
+          delete cloned.exampleImageUpload;
+          return cloned;
+        }),
+      };
+    });
+    return next;
   }
 
   function buildCanonicalLessonPlan(parsed, options = {}) {
@@ -513,6 +778,9 @@
       });
     }
     if (lesson.milestones?.length) weekDraft.milestones = lesson.milestones.slice();
+    if ((parsed?.books || []).length) weekDraft.books = parsed.books.slice();
+    if ((parsed?.songs || []).length) weekDraft.songs = parsed.songs.slice();
+    if ((parsed?.printableIdeas || []).length) weekDraft.printableIdeas = parsed.printableIdeas.slice();
 
     const plan = {
       title: lesson.title || "Untitled Lesson Plan",
@@ -530,11 +798,15 @@
       adaptations: "",
       books: [],
       songs: [],
-      dailyPlans: parsed?.dailyPlans || emptyDailyPlans(),
+      dailyPlans: cloneDailyPlansWithoutUploadRefs(parsed?.dailyPlans),
       resourceIds: [],
       createdAt: now,
       updatedAt: now,
     };
+    if (text(lesson.coverImageUrl)) plan.coverImageUrl = lesson.coverImageUrl;
+    if (text(lesson.coverImageAlt)) plan.coverImageAlt = lesson.coverImageAlt;
+    if (text(lesson.coverImagePosition)) plan.coverImagePosition = lesson.coverImagePosition;
+    if (text(lesson.coverQualityStatus)) plan.coverQualityStatus = lesson.coverQualityStatus;
     if (id) plan.id = id;
     if (Object.keys(weekDraft).length) {
       plan.enrichmentDraft = {

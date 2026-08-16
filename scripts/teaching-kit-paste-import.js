@@ -70,12 +70,42 @@
     "family idea": "familyConnection",
     milestones: "milestones",
     "developmental milestones": "milestones",
-    // Resource headings — recognized but never auto-applied.
-    "linked resources": "linkedResourcesManual",
+    books: "books",
+    book: "books",
+    "book title": "books",
+    author: "books",
+    "why this book": "books",
+    "why it fits": "books",
+    "book questions": "books",
+    "discussion questions": "books",
+    lyrics: "songs",
+    instructions: "printableIdeas",
+    "purpose / description": "printableIdeas",
+    songs: "songs",
+    song: "songs",
+    "song title": "songs",
+    tune: "songs",
+    "how to use": "songs",
+    "suggested use": "songs",
+    lyrics: "songs",
+    motions: "songs",
+    "printable ideas": "printableIdeas",
+    "printable idea": "printableIdeas",
+    "idea title": "printableIdeas",
+    "purpose / description": "printableIdeas",
+    purpose: "printableIdeas",
+    instructions: "printableIdeas",
+    notes: "printableIdeas",
+    "linked resources": "linkedResources",
+    "linked resource": "linkedResources",
+    "resource title": "linkedResources",
+    "resource type": "linkedResources",
+    "resource placement": "linkedResources",
+    placement: "linkedResources",
+    "resource section": "linkedResources",
+    // Legacy resource headings — recognized but never auto-created as files.
     printable: "linkedResourcesManual",
     printables: "linkedResourcesManual",
-    books: "linkedResourcesManual",
-    songs: "linkedResourcesManual",
     "draft books": "linkedResourcesManual",
     "draft songs": "linkedResourcesManual",
     "draft printables": "linkedResourcesManual",
@@ -119,7 +149,9 @@
     "small group": "settingTag_small_group",
     "large group": "settingTag_large_group",
     indoor: "indoorAlternatives",
+    "indoor option": "indoorAlternatives",
     outdoor: "outdoorAlternatives",
+    "outdoor option": "outdoorAlternatives",
     "teacher tip": "teacherTips",
     "teacher tips": "teacherTips",
     "supply substitution": "substitutions",
@@ -135,6 +167,18 @@
     observations: "observationPrompts",
     vocabulary: "vocabulary",
     "vocabulary words": "vocabulary",
+    "image requirement": "imageRequirement",
+    "setup example brief": "imageBriefSetup",
+    "finished example brief": "imageBriefExample",
+    "example image brief": "imageBriefExample",
+    "setup image": "setupImageUpload",
+    "setup image url": "setupImageUpload",
+    "setup photo": "setupImageUpload",
+    "example image": "exampleImageUpload",
+    "example image url": "exampleImageUpload",
+    "example images": "exampleImageUpload",
+    "finished example image": "exampleImageUpload",
+    "finished example image url": "exampleImageUpload",
     // Resource headings — recognized but never auto-applied from an activity paste.
     "linked resources": "linkedResourcesManual",
     printable: "linkedResourcesManual",
@@ -155,6 +199,10 @@
     observationFocus: { label: "Observation focus", kind: "array", path: "teacherToolkit.observationFocus", max: 24 },
     familyConnection: { label: "Family connection", kind: "scalar", path: "familyConnection" },
     milestones: { label: "Milestones", kind: "milestones", path: "milestones", max: 16 },
+    books: { label: "Books", kind: "recordList", path: "books", max: 24 },
+    songs: { label: "Songs", kind: "recordList", path: "songs", max: 24 },
+    printableIdeas: { label: "Printable Ideas", kind: "recordList", path: "printableIdeas", max: 24 },
+    linkedResources: { label: "Linked Resources", kind: "linkedResources", path: "resourceIds" },
     linkedResourcesManual: {
       label: "Linked / draft resources",
       kind: "manualResource",
@@ -223,6 +271,25 @@
     mixedAgeAdaptations: { label: "Mixed-age adaptations", kind: "scalar", path: "mixedAgeAdaptations" },
     observationPrompts: { label: "Observation prompts", kind: "array", path: "observationPrompts", max: 8 },
     vocabulary: { label: "Vocabulary", kind: "vocab", path: "vocabulary", max: 16 },
+    imageRequirement: {
+      label: "Image requirement",
+      kind: "enum",
+      path: "imageRequirement",
+    },
+    imageBriefSetup: { label: "Setup example brief", kind: "scalar", path: "imageBriefSetup" },
+    imageBriefExample: { label: "Finished example brief", kind: "scalar", path: "imageBriefExample" },
+    setupImageUpload: {
+      label: "Setup image",
+      kind: "uploadRequired",
+      path: null,
+      reason: "Activity setup photo is upload-only. Reference detected — manual upload required. Not applied as a fake file.",
+    },
+    exampleImageUpload: {
+      label: "Finished example image",
+      kind: "uploadRequired",
+      path: null,
+      reason: "Activity finished example photo is upload-only. Reference detected — manual upload required. Not applied as a fake file.",
+    },
     linkedResourcesManual: {
       label: "Linked / draft resources",
       kind: "manualResource",
@@ -336,6 +403,16 @@
     imageBriefExample: "",
     imageRequirementAiSuggestion: "",
   });
+
+  function weekKitApi() {
+    if (typeof globalThis !== "undefined" && globalThis.LLHCurriculumWeekKitPaste) {
+      return globalThis.LLHCurriculumWeekKitPaste;
+    }
+    if (typeof require === "function") {
+      try { return require("./curriculum-week-kit-paste.js"); } catch (_error) { return null; }
+    }
+    return null;
+  }
 
   function text(value) {
     if (value == null) return "";
@@ -507,13 +584,23 @@
         const fieldId = Object.prototype.hasOwnProperty.call(aliasMap, normalized)
           ? aliasMap[normalized]
           : "";
-        if (fieldId || (/^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "" && /[A-Za-z]/.test(labelPart))) {
+        if (fieldId) {
           flush();
           current = {
             headingRaw: labelPart.trim(),
-            fieldId: fieldId || "",
+            fieldId,
           };
           if (rest) bodyLines.push(rest);
+          return;
+        }
+        // Unknown "Label:" with empty rest still starts an unrecognized section so
+        // nested unknown headings cannot leak into the previous field's body.
+        if (/^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "" && /[A-Za-z]/.test(labelPart)) {
+          flush();
+          current = {
+            headingRaw: labelPart.trim(),
+            fieldId: "",
+          };
           return;
         }
       }
@@ -635,15 +722,17 @@
     };
   }
 
-  function buildWeekPreview(pastedText, currentWeek, publishedPlan) {
+  function buildWeekPreview(pastedText, currentWeek, publishedPlan, options = {}) {
     const week = currentWeek && typeof currentWeek === "object" ? currentWeek : {};
     const plan = publishedPlan && typeof publishedPlan === "object" ? publishedPlan : {};
     const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object" ? week.teacherToolkit : {};
+    const kit = weekKitApi();
     const sections = splitLabeledSections(pastedText, WEEK_HEADING_ALIASES);
     const fieldChanges = [];
     const unrecognized = [];
     const manualResources = [];
     const seenFields = new Set();
+    const kitTextBuffers = {};
 
     function currentFor(fieldId) {
       if (fieldId === "weeklyOverview") {
@@ -672,6 +761,9 @@
       if (fieldId === "milestones") {
         return asArray(week.milestones).map(text).filter(Boolean);
       }
+      if (fieldId === "books") return asArray(week.books);
+      if (fieldId === "songs") return asArray(week.songs);
+      if (fieldId === "printableIdeas") return asArray(week.printableIdeas);
       return "";
     }
 
@@ -696,6 +788,19 @@
           body: section.body,
           note: "Requires manual resource action",
         });
+        return;
+      }
+      if (meta.kind === "recordList" || meta.kind === "linkedResources") {
+        if (!kit) {
+          if (meta.kind === "linkedResources") {
+            manualResources.push({ heading: section.headingRaw, body: section.body, note: "Requires manual resource action" });
+          } else {
+            unrecognized.push({ heading: section.headingRaw, body: section.body });
+          }
+          return;
+        }
+        const kitBody = `${section.headingRaw}:\n${section.body || ""}`;
+        kitTextBuffers[section.fieldId] = `${kitTextBuffers[section.fieldId] || ""}\n\n${kitBody}`.trim();
         return;
       }
       if (seenFields.has(section.fieldId)) {
@@ -793,6 +898,62 @@
           kind: "milestones",
           list: { ...list, unknown },
           selected: list.add.length > 0,
+        });
+      }
+    });
+
+    Object.keys(kitTextBuffers).forEach((fieldId) => {
+      const meta = WEEK_FIELD_META[fieldId];
+      const body = kitTextBuffers[fieldId];
+      if (!kit || !meta) return;
+      if (meta.kind === "recordList") {
+        const parsedKit = fieldId === "books"
+          ? kit.parseBooksSection(body)
+          : fieldId === "songs"
+            ? kit.parseSongsSection(body)
+            : kit.parsePrintableIdeasSection(body);
+        const incoming = parsedKit.records || [];
+        fieldChanges.push({
+          fieldId,
+          label: meta.label,
+          kind: "recordList",
+          records: kit.mergeRecordsByTitle(currentFor(fieldId), incoming, meta.max),
+          incoming,
+          titles: incoming.map((item) => item.title),
+          selected: incoming.length > 0,
+          unsupported: parsedKit.unsupported || [],
+        });
+        return;
+      }
+      if (meta.kind === "linkedResources") {
+        const parsedLinks = kit.parseLinkedResourcesSection(
+          body,
+          options.existingResources,
+          { ageDisplay: text(plan.age) },
+        );
+        const existingIds = new Set(
+          [...asArray(plan.resourceIds), ...asArray(options.existingResourceIds)].map(text).filter(Boolean),
+        );
+        const resolved = (parsedLinks.resolved || []).map((item) => ({
+          ...item,
+          alreadyLinked: existingIds.has(text(item.resource?.id)),
+        }));
+        const unresolved = parsedLinks.unresolved || [];
+        unresolved.forEach((item) => {
+          manualResources.push({
+            heading: item.entry?.title || "Linked resource",
+            body: item.reason || "",
+            note: "Requires manual resource action",
+          });
+        });
+        fieldChanges.push({
+          fieldId,
+          label: meta.label,
+          kind: "linkedResources",
+          resolved,
+          unresolved,
+          destination: "Lesson → Linked Resources → Printables",
+          selected: resolved.some((row) => row.resource?.id && !row.alreadyLinked),
         });
       }
     });
@@ -916,6 +1077,60 @@
       const meta = ACTIVITY_FIELD_META[section.fieldId];
       if (!meta) {
         unrecognized.push({ heading: section.headingRaw, body: section.body });
+        return;
+      }
+
+      if (meta.kind === "unsupported") {
+        fieldChanges.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          kind: "unsupported",
+          selected: false,
+          applicable: false,
+          body: section.body,
+          reason: meta.reason || "UNSUPPORTED — NOT APPLIED.",
+        });
+        return;
+      }
+      if (meta.kind === "uploadRequired") {
+        fieldChanges.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          kind: "unsupported",
+          selected: false,
+          applicable: false,
+          body: section.body,
+          reason: meta.reason || "Upload-only field. Reference detected — manual upload required.",
+        });
+        return;
+      }
+      if (meta.kind === "enum" && section.fieldId === "imageRequirement") {
+        const kit = weekKitApi();
+        const parsedReq = kit && typeof kit.parseImageRequirement === "function"
+          ? kit.parseImageRequirement(section.body)
+          : "";
+        if (!parsedReq) {
+          fieldChanges.push({
+            fieldId: section.fieldId,
+            label: meta.label,
+            kind: "unsupported",
+            selected: false,
+            applicable: false,
+            body: section.body,
+            reason: "Image requirement value is not an existing owner option. Not guessed.",
+          });
+          return;
+        }
+        const current = text(resolveActivityCurrent(section.fieldId, activity, draftActivity));
+        const scalar = buildScalarDiff(current, parsedReq);
+        fieldChanges.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          kind: "scalar",
+          ...scalar,
+          parsedEnum: parsedReq,
+        });
+        seenFields.add(section.fieldId);
         return;
       }
 
@@ -1218,6 +1433,20 @@
         if (change.kind === "milestones") {
           draft.week.milestones = asArray(change.list?.next).map(text).filter(Boolean).slice(0, 16);
           appliedFields.push(change.fieldId);
+          return;
+        }
+        if (change.kind === "recordList") {
+          const kit = weekKitApi();
+          const current = asArray(draft.week[change.fieldId]);
+          const incoming = asArray(change.incoming?.length ? change.incoming : change.records);
+          draft.week[change.fieldId] = kit
+            ? kit.mergeRecordsByTitle(current, incoming, 24)
+            : current.concat(incoming).slice(0, 24);
+          appliedFields.push(change.fieldId);
+          return;
+        }
+        if (change.kind === "linkedResources") {
+          appliedFields.push(change.fieldId);
         }
       });
       // Isolation guarantee: week apply never mutates activity drafts.
@@ -1400,6 +1629,17 @@
         kind: meta.kind,
         value: parseSubstitutionBlocks(body).slice(0, meta.max || 12),
       };
+    }
+    if (meta.kind === "uploadRequired" || meta.kind === "unsupported") {
+      return { ok: true, kind: "unsupported", reason: meta.reason || "UNSUPPORTED — NOT APPLIED." };
+    }
+    if (meta.kind === "enum") {
+      const kit = weekKitApi();
+      const parsedReq = kit && typeof kit.parseImageRequirement === "function"
+        ? kit.parseImageRequirement(body)
+        : "";
+      if (!parsedReq) return { ok: false, note: "Unsupported image requirement value" };
+      return { ok: true, kind: "scalar", value: parsedReq };
     }
     return { ok: false };
   }
@@ -1601,6 +1841,24 @@
       const meta = ACTIVITY_FIELD_META[section.fieldId];
       if (!meta) {
         unrecognized.push({ heading: section.headingRaw, body: section.body });
+        return;
+      }
+      if (meta.kind === "unsupported") {
+        unsupported.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          body: section.body,
+          reason: meta.reason || "UNSUPPORTED — NOT APPLIED.",
+        });
+        return;
+      }
+      if (meta.kind === "uploadRequired") {
+        unsupported.push({
+          fieldId: section.fieldId,
+          label: meta.label,
+          body: section.body,
+          reason: meta.reason || "Upload-only field. Reference detected — manual upload required.",
+        });
         return;
       }
       const parsed = parseReplaceSectionValue(section.fieldId, section.body);

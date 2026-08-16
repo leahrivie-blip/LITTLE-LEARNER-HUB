@@ -800,7 +800,15 @@
         mimeType: text(resource.mimeType),
         fileData,
         fileUrl: resolvedFile,
-        previewUrl: text(resource.previewUrl || resource.thumbnailUrl || resource.coverImageUrl),
+        previewUrl: text(
+          resource.previewUrl
+          || resource.previewImageUrl
+          || resource.thumbnailUrl
+          || resource.coverImageUrl,
+        ),
+        previewImageUrl: text(resource.previewImageUrl || resource.previewUrl),
+        description: text(resource.description),
+        printingInstructions: text(resource.printingInstructions),
         pageCount: Number(resource.pageCount) || 0,
       };
     });

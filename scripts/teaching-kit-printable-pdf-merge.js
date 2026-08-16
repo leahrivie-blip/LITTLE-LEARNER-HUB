@@ -137,7 +137,7 @@
         return;
       }
       seen.add(id);
-      const source = text(item.fileData || item.fileUrl || item.previewUrl);
+      const source = text(item.fileData || item.fileUrl);
       const isPdf = item.hasPdfAttachment === true
         || item.embedAsImage === false
         || /application\/pdf/i.test(text(item.mimeType))
