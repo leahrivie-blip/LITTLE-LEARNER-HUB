@@ -2146,6 +2146,14 @@ let adminTkPrintableEditingId = "";
 let adminTkPrintableSaving = false;
 /** In-progress Create/Upload Printable draft (metadata + File objects). Survives host re-renders. */
 let adminTkPrintableDraft = null;
+/** Paste Printable Update UI state. Does not mutate the form until Apply. */
+let adminTkPrintablePaste = {
+  open: false,
+  rawText: "",
+  preview: null,
+  chosenLessonId: "",
+  error: "",
+};
 const curriculumAccessConfig = {
   lessonPlanEndpoint: "/api/curriculum/lesson-plans",
   activityEndpoint: "/api/curriculum/activities",
@@ -14249,6 +14257,14 @@ function resetAdminTkPrintableDraft(plan, resource) {
 
 function clearAdminTkPrintableDraft() {
   adminTkPrintableDraft = null;
+  adminTkPrintablePaste = { open: false, rawText: "", preview: null, chosenLessonId: "", error: "" };
+}
+
+function teachingKitPrintablePasteApi() {
+  if (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitPrintablePaste) {
+    return globalThis.LLHTeachingKitPrintablePaste;
+  }
+  return null;
 }
 
 function ensureAdminTkPrintableDraft(plan, resource) {
@@ -14348,6 +14364,139 @@ function syncAdminTkPrintableDraftFromEvent(target) {
   adminTkPrintableDraft[field] = target.value;
 }
 
+function collectPrintablePasteLessons() {
+  try {
+    return (typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : []) || [];
+  } catch {
+    return [];
+  }
+}
+
+function renderTeachingKitPrintablePastePanel(plan, draft) {
+  const pasteState = adminTkPrintablePaste || { open: false, rawText: "", preview: null, chosenLessonId: "", error: "" };
+  const preview = pasteState.preview;
+  const lessonConflict = preview?.lessonResult?.needsOwnerChoice;
+  const candidates = preview?.lessonResult?.candidates || [];
+  const canApply = Boolean(preview?.canApply) && !pasteState.error;
+  let previewHtml = "";
+  if (preview) {
+    const rows = (preview.previewRows || []).map((row) => `
+      <div class="tk-printable-paste-row">
+        <strong>${escapeHtml(row.label)}:</strong>
+        <pre>${escapeHtml(row.value || "")}</pre>
+      </div>
+    `).join("");
+    const errors = (preview.parsed?.errors || []).map((err) => `<li>${escapeHtml(err)}</li>`).join("");
+    const choiceHtml = lessonConflict ? `
+      <div class="tk-printable-paste-choice">
+        <p>${escapeHtml(preview.lessonResult.error || "Choose which lesson should receive this resource.")}</p>
+        ${candidates.map((item) => `
+          <label>
+            <input type="radio" name="tk-printable-paste-lesson" data-tk-printable-paste-choose="${escapeHtml(item.id || "")}" ${pasteState.chosenLessonId === item.id ? "checked" : ""} />
+            ${escapeHtml(item.title || item.id || "Lesson")} (${escapeHtml(item.age || "age unknown")})
+          </label>
+        `).join("")}
+      </div>
+    ` : "";
+    previewHtml = `
+      <section class="tk-printable-paste-preview" data-tk-printable-paste-preview>
+        <h5>PRINTABLE PREVIEW</h5>
+        ${rows}
+        <p class="muted-copy">Fields detected: ${Number(preview.fieldsDetected) || 0}. Fields not included: ${(preview.fieldsNotIncluded || []).join(", ")}.</p>
+        ${preview.activityLinkUnsupported ? `<p class="muted-copy">Activity-level resource links are not supported. This printable will link to the lesson.</p>` : ""}
+        ${errors ? `<ul class="tk-printable-paste-errors">${errors}</ul>` : ""}
+        ${choiceHtml}
+      </section>
+    `;
+  }
+  return `
+    <div class="tk-printable-paste" data-tk-printable-paste>
+      <button class="ghost-button" type="button" data-tk-printable-paste-open>Paste Printable Update</button>
+      <div class="tk-printable-paste-box" data-tk-printable-paste-box ${pasteState.open ? "" : "hidden"}>
+        <p class="muted-copy">Paste printable metadata, then Preview. Nothing is saved or published until you Apply and then Save draft &amp; link to lesson. PDF and preview image stay manual.</p>
+        <label>
+          <span>Paste printable metadata</span>
+          <textarea data-tk-printable-paste-text rows="12" placeholder="Title:&#10;Tummy-Time Visual Strip">${escapeHtml(pasteState.rawText || "")}</textarea>
+        </label>
+        ${pasteState.error && !preview ? `<p class="form-message">${escapeHtml(pasteState.error)}</p>` : ""}
+        ${previewHtml}
+        <div class="form-actions">
+          <button class="ghost-button" type="button" data-tk-printable-paste-preview>Preview</button>
+          <button class="primary-button" type="button" data-tk-printable-paste-apply ${canApply ? "" : "disabled"}>Apply Printable Update</button>
+          <button class="ghost-button" type="button" data-tk-printable-paste-cancel>Close paste</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function refreshTeachingKitPrintablePastePanel(plan) {
+  const host = document.querySelector("[data-tk-printable-paste]");
+  const form = document.querySelector("#adminTkPrintableForm");
+  if (!host || !form) return;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = renderTeachingKitPrintablePastePanel(plan || curriculumLessonPlanById(form.getAttribute("data-curriculum-lesson-id")), adminTkPrintableDraft);
+  const next = wrap.firstElementChild;
+  if (next) host.replaceWith(next);
+}
+
+function buildAdminTkPrintablePastePreview() {
+  const api = teachingKitPrintablePasteApi();
+  if (!api) {
+    adminTkPrintablePaste.error = "Paste Printable Update failed to load.";
+    adminTkPrintablePaste.preview = null;
+    return;
+  }
+  const form = document.querySelector("#adminTkPrintableForm");
+  const lessonPlanId = form?.getAttribute("data-curriculum-lesson-id")
+    || adminTkPrintableDraft?.lessonPlanId
+    || "";
+  const currentLesson = curriculumLessonPlanById(lessonPlanId);
+  const existing = adminTkPrintableDraft?.resourceId
+    ? curriculumResourceById(adminTkPrintableDraft.resourceId)
+    : null;
+  adminTkPrintablePaste.preview = api.buildPrintablePastePreview(adminTkPrintablePaste.rawText, {
+    currentLesson,
+    lessons: collectPrintablePasteLessons(),
+    existingResource: existing,
+    ownerChosenLessonId: adminTkPrintablePaste.chosenLessonId,
+    fromLesson: Boolean(currentLesson?.id),
+  });
+  adminTkPrintablePaste.error = adminTkPrintablePaste.preview.canApply
+    ? ""
+    : ((adminTkPrintablePaste.preview.parsed?.errors || [])[0] || adminTkPrintablePaste.preview.lessonResult?.error || "");
+}
+
+function applyAdminTkPrintablePaste() {
+  const api = teachingKitPrintablePasteApi();
+  const preview = adminTkPrintablePaste?.preview;
+  if (!api || !preview || !preview.canApply || !adminTkPrintableDraft) return false;
+  const pdfFile = adminTkPrintableDraft.pdfFile;
+  const pdfFileName = adminTkPrintableDraft.pdfFileName;
+  const previewFile = adminTkPrintableDraft.previewFile;
+  const previewFileName = adminTkPrintableDraft.previewFileName;
+  const previewImageUrl = adminTkPrintableDraft.previewImageUrl;
+  const resourceId = adminTkPrintableDraft.resourceId;
+  const hostLessonId = adminTkPrintableDraft.lessonPlanId;
+  adminTkPrintableDraft = api.applyPrintablePasteToDraft(adminTkPrintableDraft, preview);
+  adminTkPrintableDraft.pdfFile = pdfFile;
+  adminTkPrintableDraft.pdfFileName = pdfFileName;
+  adminTkPrintableDraft.previewFile = previewFile;
+  adminTkPrintableDraft.previewFileName = previewFileName;
+  adminTkPrintableDraft.previewImageUrl = previewImageUrl;
+  adminTkPrintableDraft.resourceId = resourceId;
+  if (!adminTkPrintableDraft.lessonPlanId) adminTkPrintableDraft.lessonPlanId = hostLessonId;
+  adminTkPrintablePaste.open = false;
+  adminTkPrintablePaste.preview = null;
+  adminTkPrintablePaste.rawText = "";
+  adminTkPrintablePaste.chosenLessonId = "";
+  adminTkPrintablePaste.error = "";
+  hydrateAdminTkPrintableForm();
+  refreshTeachingKitPrintablePastePanel();
+  setFormMessage("#adminTkPrintableMessage", "Printable metadata applied to the form (not saved, not published). Upload the PDF, then Save draft & link to lesson.", true);
+  return true;
+}
+
 function renderTeachingKitPrintableForm(plan, resource) {
   const lessonPlanId = plan?.id || "";
   const draft = ensureAdminTkPrintableDraft(plan, resource);
@@ -14385,6 +14534,7 @@ function renderTeachingKitPrintableForm(plan, resource) {
         </label>
       </div>
       <label>Printing instructions<textarea data-tk-printable-field="printingInstructions" rows="2" placeholder="US Letter, color or grayscale, laminate optional…">${escapeHtml(draft.printingInstructions || "")}</textarea></label>
+      ${renderTeachingKitPrintablePastePanel(plan, draft)}
       <label>PDF file (max ${CURRICULUM_UPLOAD_MAX_MB} MB)${isEdit ? " — leave empty to keep current" : " — required"}
         <input data-tk-printable-field="pdfFile" type="file" accept="application/pdf,.pdf" ${isEdit ? "" : "required"} />
         <small class="muted-copy tk-printable-file-name" data-tk-printable-pdf-name>${pdfNameCopy}</small>
@@ -14501,7 +14651,8 @@ async function saveTeachingKitPrintableForm(panel) {
     if (el.type !== "file") syncAdminTkPrintableDraftFromEvent(el);
   });
   const draft = adminTkPrintableDraft;
-  const lessonPlanId = host.getAttribute("data-curriculum-lesson-id")
+  const lessonPlanId = draft?.pasteLinkedLessonPlanId
+    || host.getAttribute("data-curriculum-lesson-id")
     || draft?.lessonPlanId
     || "";
   if (!lessonPlanId || !draft) return;
@@ -73592,12 +73743,22 @@ document.addEventListener("input", (event) => {
   if (event.target.closest("#adminTkPrintableForm") && event.target.matches("[data-tk-printable-field]")) {
     syncAdminTkPrintableDraftFromEvent(event.target);
   }
+  if (event.target.matches("[data-tk-printable-paste-text]")) {
+    adminTkPrintablePaste.rawText = event.target.value || "";
+    adminTkPrintablePaste.preview = null;
+  }
 });
 
 document.addEventListener("change", async (event) => {
   if (event.target.closest("#adminTkPrintableForm") && event.target.matches("[data-tk-printable-field]")) {
     syncAdminTkPrintableDraftFromEvent(event.target);
     // Never let printable file/metadata changes re-render Linked Resources hosts.
+    return;
+  }
+  if (event.target.matches("[data-tk-printable-paste-choose]")) {
+    adminTkPrintablePaste.chosenLessonId = event.target.getAttribute("data-tk-printable-paste-choose") || "";
+    buildAdminTkPrintablePastePreview();
+    refreshTeachingKitPrintablePastePanel();
     return;
   }
   if (event.target.matches("[data-curriculum-activity-move-day]")) {
@@ -73944,6 +74105,47 @@ document.addEventListener("click", async (event) => {
       return;
     }
     await saveTeachingKitPrintableForm(event.target.closest("#adminTkPrintableForm"));
+    return;
+  }
+  if (event.target.closest("[data-tk-printable-paste-open]")) {
+    event.preventDefault();
+    adminTkPrintablePaste.open = true;
+    adminTkPrintablePaste.preview = null;
+    adminTkPrintablePaste.error = "";
+    refreshTeachingKitPrintablePastePanel();
+    document.querySelector("[data-tk-printable-paste-text]")?.focus();
+    return;
+  }
+  if (event.target.closest("[data-tk-printable-paste-cancel]")) {
+    event.preventDefault();
+    adminTkPrintablePaste.open = false;
+    adminTkPrintablePaste.preview = null;
+    adminTkPrintablePaste.error = "";
+    refreshTeachingKitPrintablePastePanel();
+    return;
+  }
+  if (event.target.closest("[data-tk-printable-paste-preview]")) {
+    event.preventDefault();
+    const textEl = document.querySelector("[data-tk-printable-paste-text]");
+    if (textEl) adminTkPrintablePaste.rawText = textEl.value || "";
+    adminTkPrintablePaste.chosenLessonId = "";
+    buildAdminTkPrintablePastePreview();
+    refreshTeachingKitPrintablePastePanel();
+    return;
+  }
+  if (event.target.closest("[data-tk-printable-paste-apply]")) {
+    event.preventDefault();
+    const textEl = document.querySelector("[data-tk-printable-paste-text]");
+    if (textEl) adminTkPrintablePaste.rawText = textEl.value || "";
+    const chosen = document.querySelector("[data-tk-printable-paste-choose]:checked");
+    if (chosen) adminTkPrintablePaste.chosenLessonId = chosen.getAttribute("data-tk-printable-paste-choose") || "";
+    buildAdminTkPrintablePastePreview();
+    if (!adminTkPrintablePaste.preview?.canApply) {
+      refreshTeachingKitPrintablePastePanel();
+      setFormMessage("#adminTkPrintableMessage", `❌ ${adminTkPrintablePaste.error || "Fix paste errors before applying."}`, false);
+      return;
+    }
+    applyAdminTkPrintablePaste();
     return;
   }
   if (event.target.closest("#adminTkCreatePrintableButton")) {
