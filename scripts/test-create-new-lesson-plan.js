@@ -16,6 +16,8 @@ const {
   buildCanonicalLessonPlan,
   buildBlankLessonPlan,
   findDuplicateLessonTitle,
+  resolveAgeBandAlias,
+  CANONICAL_AGE_BAND_LABELS,
 } = require("./curriculum-lesson-structure-paste.js");
 const pasteImport = require("./teaching-kit-paste-import.js");
 
@@ -332,6 +334,97 @@ Friday Activity Three
   console.log("PASS  parser: title/age/week fields/weekdays/14 unique blank activity shells");
 }
 
+function assertCanonicalHelloWorld(parsed, label) {
+  assert.equal(parsed.ok, true, `${label}: ${parsed.errors.join("; ")}`);
+  assert.equal(parsed.lesson.title, "Hello, Little World", label);
+  assert.equal(parsed.lesson.age, "Infant 0–6 Months", label);
+  assert.equal(parsed.lesson.ageDisplay, "Infant 0–6 Months", label);
+}
+
+function runHeadingAndAgeAliasTests() {
+  const case1 = parseFullLessonStructurePaste("Lesson plan name:\nHello, Little World\nAge:\nInfant 0–6 months");
+  assertCanonicalHelloWorld(case1, "case 1");
+  const preview1 = buildStructurePreview(case1);
+  assert.equal(preview1.title, "Hello, Little World");
+  assert.equal(preview1.age, "Infant 0–6 Months");
+  globalThis.__llhCreateLessonPreviewCase1 = preview1;
+
+  const case2 = parseFullLessonStructurePaste("Title:\nHello, Little World\nAge band:\nInfant 0-6 months");
+  assertCanonicalHelloWorld(case2, "case 2");
+
+  const case3 = parseFullLessonStructurePaste("Lesson Name:\nHello, Little World\nAge Range:\n0–6 months");
+  assertCanonicalHelloWorld(case3, "case 3");
+
+  const case4 = parseFullLessonStructurePaste("Lesson title:\nHello, Little World\nAge:\nInfant (0-6 months)");
+  assertCanonicalHelloWorld(case4, "case 4");
+
+  const unknown = parseFullLessonStructurePaste("Lesson plan name:\nHello, Little World\nAge:\nInfant 0–7 months");
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.lesson.age, "");
+  assert.match(unknown.errors.join("\n"), /Could not recognize age band [“"]Infant 0–7 months[”"]/);
+  CANONICAL_AGE_BAND_LABELS.forEach((label) => {
+    assert.match(unknown.errors.join("\n"), new RegExp(label.replace(/[–]/g, "[–-]")));
+  });
+
+  const crlf = parseFullLessonStructurePaste("Lesson plan name:\r\nHello, Little World\r\n\r\nAge:  \r\nInfant 0–6 months\r\n");
+  assertCanonicalHelloWorld(crlf, "crlf");
+
+  const spaced = parseFullLessonStructurePaste("  LESSON PLAN NAME:   \n\n  Hello, Little World  \n\n  AGE BAND:  \n  Infants 0-6 months  \n");
+  assertCanonicalHelloWorld(spaced, "spacing/caps/plural");
+
+  const dashVariants = [
+    "Infant 0–6 months",
+    "Infant 0-6 months",
+    "Infants 0–6 months",
+    "Infants 0-6 months",
+    "0–6 months",
+    "0-6 months",
+    "0–6m",
+    "0-6m",
+    "Infant: 0–6 months",
+    "Infant: 0-6 months",
+    "Infant (0–6 months)",
+    "Infant (0-6 months)",
+  ];
+  dashVariants.forEach((value) => {
+    const mapped = resolveAgeBandAlias(value);
+    assert.equal(mapped.display, "Infant 0–6 Months", value);
+    assert.equal(mapped.bucket, "Infant", value);
+  });
+
+  const otherBands = [
+    ["Infant 6-12 months", "Infant 6–12 Months"],
+    ["Infants 6–12 months", "Infant 6–12 Months"],
+    ["6-12m", "Infant 6–12 Months"],
+    ["Toddler 12-24 months", "Toddler 12–24 Months"],
+    ["12–24 months", "Toddler 12–24 Months"],
+    ["Toddler 1–2 years", "Toddler 12–24 Months"],
+    ["Toddler 24-36 months", "Toddler 24–36 Months"],
+    ["Toddler 2–3 years", "Toddler 24–36 Months"],
+    ["Preschool 3-4 years", "Preschool 3–4 Years"],
+    ["3–4 years", "Preschool 3–4 Years"],
+    ["Preschool 4-5 years", "Preschool 4–5 Years"],
+    ["4–5 years", "Preschool 4–5 Years"],
+    ["Toddler", "Toddler"],
+    ["Preschool", "Preschool"],
+    ["Infant", "Infant"],
+  ];
+  otherBands.forEach(([value, expected]) => {
+    assert.equal(resolveAgeBandAlias(value).display, expected, value);
+  });
+
+  const themeTitle = parseFullLessonStructurePaste("Theme:\nHello, Little World\nRecommended Age:\nInfant 0–6 Months");
+  assertCanonicalHelloWorld(themeTitle, "theme/recommended age");
+
+  const oldFormat = parseFullLessonStructurePaste(SAMPLE_PASTE);
+  assert.equal(oldFormat.ok, true, oldFormat.errors.join("; "));
+  assert.equal(oldFormat.lesson.title, "Baby Moves & Discovers");
+  assert.equal(oldFormat.lesson.age, "Infant 0–6 Months");
+  assert.equal(oldFormat.activityCount, 14);
+
+  console.log("PASS  parser: human-readable title/age aliases and unique age-band mapping");
+}
+
 async function adminLogin() {
   const res = await requestJson("POST", "/api/admin/login", {
     email: ADMIN.email,
@@ -562,6 +655,7 @@ async function runServerTests() {
 async function main() {
   assertStaticContract();
   runParserTests();
+  runHeadingAndAgeAliasTests();
   await runServerTests();
   console.log("\nAll create-new-lesson-plan tests passed.");
 }
