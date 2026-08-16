@@ -182,6 +182,12 @@
     "cover photo url": "coverImageUrl",
     "lesson cover": "coverImageUrl",
     "lesson cover url": "coverImageUrl",
+    "cover alt": "coverImageAlt",
+    "cover alt text": "coverImageAlt",
+    "cover image alt": "coverImageAlt",
+    "image position": "coverImagePosition",
+    "cover image position": "coverImagePosition",
+    "cover quality": "coverQualityStatus",
     "printable name": "pendingPrintables",
     "printable title": "pendingPrintables",
     "linked printable": "linkedResources",
@@ -425,6 +431,9 @@
       milestones: [],
       rejectedMilestones: [],
       coverImageUrl: "",
+      coverImageAlt: "",
+      coverImagePosition: "",
+      coverQualityStatus: "",
       coverManualUpload: null,
     };
     const dailyPlans = emptyDailyPlans();
@@ -538,6 +547,16 @@
           if (cover.ok) lesson.coverImageUrl = cover.url;
           else if (cover.manualUpload) lesson.coverManualUpload = cover;
         }
+      } else if (fieldId === "coverImageAlt") {
+        lesson.coverImageAlt = text(body);
+      } else if (fieldId === "coverImagePosition") {
+        const pos = text(body).toLowerCase();
+        if (["center", "top", "bottom", "left", "right"].includes(pos)) lesson.coverImagePosition = pos;
+        else if (text(body)) unrecognized.push({ heading: section.headingRaw, body: text(body) });
+      } else if (fieldId === "coverQualityStatus") {
+        const quality = text(body).toLowerCase().replace(/\s+/g, "_");
+        if (["good", "needs_upgrade", "missing"].includes(quality)) lesson.coverQualityStatus = quality;
+        else if (text(body)) unrecognized.push({ heading: section.headingRaw, body: text(body) });
       } else if (fieldId.startsWith("weekday:")) {
         const day = fieldId.slice("weekday:".length);
         if (kit && typeof kit.parseStructuredActivities === "function" && /activity\s*name\s*:/i.test(body)) {
@@ -720,6 +739,9 @@
       updatedAt: now,
     };
     if (text(lesson.coverImageUrl)) plan.coverImageUrl = lesson.coverImageUrl;
+    if (text(lesson.coverImageAlt)) plan.coverImageAlt = lesson.coverImageAlt;
+    if (text(lesson.coverImagePosition)) plan.coverImagePosition = lesson.coverImagePosition;
+    if (text(lesson.coverQualityStatus)) plan.coverQualityStatus = lesson.coverQualityStatus;
     if (id) plan.id = id;
     if (Object.keys(weekDraft).length) {
       plan.enrichmentDraft = {
