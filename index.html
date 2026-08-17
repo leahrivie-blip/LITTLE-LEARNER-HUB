@@ -621,7 +621,7 @@
                 <button class="lp-btn-primary llh-btn llh-btn-primary llh-hero-primary-cta" data-action="start-free" type="button">Start Free</button>
                 <button class="llh-btn llh-btn-secondary llh-hero-secondary-cta" data-home-open-farm="1" type="button">Preview a Real Lesson</button>
               </div>
-              <p class="llh-hero-reassure">No credit card required • 10 complete starter plans</p>
+              <p class="llh-hero-reassure">Start Free includes 10 complete starter plans. No credit card required.</p>
             </div>
             <div class="lp-hero-visual llh-hero-visual" aria-label="Farm Animals lesson preview">
               <figure class="llh-hero-product-shot">
@@ -635,6 +635,11 @@
             <div class="lp-section-header">
               <h2 class="lp-section-title">See a Complete Week Before You Sign Up</h2>
               <p class="lp-section-sub">Explore a real Little Learner Hub lesson plan with five days of activities, books, songs, materials, teacher support, and classroom printables.</p>
+              <ul class="llh-farm-proof">
+                <li>Five days already organized</li>
+                <li>Activities, books, songs, and materials together</li>
+                <li>Print only what your classroom needs</li>
+              </ul>
             </div>
             <div id="homeFarmFeatured" data-home-farm-day="monday">
               <div class="llh-preview-empty muted-copy" role="status">Loading the Farm Animals lesson…</div>
@@ -715,25 +720,6 @@
             </div>
           </section>
 
-          <section class="llh-section llh-browse-lessons-section" id="homeLessonPlans" aria-label="Find your next lesson plan">
-            <div class="lp-section-header">
-              <h2 class="lp-section-title">Find Your Next Lesson Plan</h2>
-              <p class="lp-section-sub">Browse complete Free starter plans or preview themes available with Early User access.</p>
-            </div>
-            <div class="llh-home-age-filters" role="tablist" aria-label="Lesson age filters">
-              <button class="llh-btn llh-btn-ghost is-active" type="button" role="tab" aria-selected="true" data-home-browse-age="All">All</button>
-              <button class="llh-btn llh-btn-ghost" type="button" role="tab" aria-selected="false" data-home-browse-age="Infant">Infant</button>
-              <button class="llh-btn llh-btn-ghost" type="button" role="tab" aria-selected="false" data-home-browse-age="Toddler">Toddler</button>
-              <button class="llh-btn llh-btn-ghost" type="button" role="tab" aria-selected="false" data-home-browse-age="Preschool">Preschool</button>
-            </div>
-            <div id="homeFreeLessonGrid" class="llh-home-lesson-grid"></div>
-            <h3 class="llh-home-locked-heading">More Plans Available with Early User Access</h3>
-            <div id="homeLockedLessonGrid" class="llh-home-lesson-grid"></div>
-            <div class="llh-section-actions">
-              <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons">Browse All Lesson Plans</button>
-            </div>
-          </section>
-
           <section class="lp-reviews-section llh-reviews-section" id="homeReviews" aria-label="Provider reviews">
             <div class="lp-section-header">
               <h2 class="lp-section-title">What childcare providers are saying</h2>
@@ -792,6 +778,26 @@
             </div>
           </section>
 
+          <section class="llh-section llh-browse-lessons-section" id="homeLessonPlans" aria-label="Find your next lesson plan">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Find Your Next Lesson Plan</h2>
+              <p class="lp-section-sub">Browse complete Free starter plans first. Early User themes can be previewed without unlocking the full plan.</p>
+            </div>
+            <div class="llh-home-age-filters" role="tablist" aria-label="Lesson age filters">
+              <button class="llh-btn llh-btn-ghost is-active" type="button" role="tab" aria-selected="true" data-home-browse-age="All">All</button>
+              <button class="llh-btn llh-btn-ghost" type="button" role="tab" aria-selected="false" data-home-browse-age="Infant">Infant</button>
+              <button class="llh-btn llh-btn-ghost" type="button" role="tab" aria-selected="false" data-home-browse-age="Toddler">Toddler</button>
+              <button class="llh-btn llh-btn-ghost" type="button" role="tab" aria-selected="false" data-home-browse-age="Preschool">Preschool</button>
+            </div>
+            <div id="homeFreeLessonGrid" class="llh-home-lesson-grid"></div>
+            <h3 class="llh-home-locked-heading" hidden>More Plans Available with Early User Access</h3>
+            <p class="llh-home-locked-note muted-copy" hidden>Covers and titles are visible. Full directions, printables, and downloads stay with Early User access.</p>
+            <div id="homeLockedLessonGrid" class="llh-home-lesson-grid"></div>
+            <div class="llh-section-actions">
+              <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons">Browse All Lesson Plans</button>
+            </div>
+          </section>
+
           <section class="lp-pricing-section llh-pricing-section" id="homePricing" aria-label="Membership pricing">
             <div class="lp-section-header">
               <h2 class="lp-section-title">Simple pricing</h2>
@@ -838,6 +844,18 @@
             </div>
           </section>
 
+          <section class="llh-section llh-coming-soon-section" id="homeComingSoon" hidden aria-label="What we are building">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">What we are building</h2>
+              <p class="lp-section-sub">These daycare operations tools are being developed or tested — not advertised as ready today.</p>
+            </div>
+            <ul class="llh-coming-list">
+              <li>Family Hub (in preview)</li>
+              <li>Daily operations (in development)</li>
+              <li>Enrollment tools (planned)</li>
+            </ul>
+          </section>
+
           <footer class="llh-public-footer" aria-label="Footer">
             <div class="llh-footer-brand">
               <strong>Little Learner Hub</strong>
@@ -847,7 +865,7 @@
               <a href="#homeHero" data-home-nav="home">Home</a>
               <a href="#homeFarmPreview" data-home-nav="lessons">Lesson Plans</a>
               <a href="#homePricing" data-home-nav="pricing">Pricing</a>
-              <a href="#homeComingSoon" data-home-nav="coming-soon">See what we’re building</a>
+              <button type="button" data-home-nav="coming-soon">See what we’re building</button>
               <button type="button" data-action="open-idea-request">Have a lesson idea? Send Leah a request.</button>
               <button type="button" data-action="open-login">Log In</button>
               <button type="button" data-action="start-free">Sign Up</button>
@@ -863,20 +881,9 @@
             <p class="llh-footer-copy">© <span id="llhFooterYear">2026</span> Little Learner Hub by Leah. All Rights Reserved.</p>
           </footer>
 
-          <section class="llh-section llh-coming-soon-section" id="homeComingSoon" hidden aria-label="What we are building">
-            <div class="lp-section-header">
-              <h2 class="lp-section-title">What we are building</h2>
-              <p class="lp-section-sub">These daycare operations tools are being developed or tested — not advertised as ready today.</p>
-            </div>
-            <ul class="llh-coming-list">
-              <li>Family Hub (in preview)</li>
-              <li>Daily operations (in development)</li>
-              <li>Enrollment tools (planned)</li>
-            </ul>
-          </section>
-
-          <div class="lp-mobile-sticky-cta" aria-label="Start free">
+            <div class="lp-mobile-sticky-cta" aria-label="Start free">
             <button class="lp-btn-primary" data-action="start-free" type="button">Start Free</button>
+            <p class="llh-sticky-reassure">10 starter plans · no credit card</p>
           </div>
 
         </section>

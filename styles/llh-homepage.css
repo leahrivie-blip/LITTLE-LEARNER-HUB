@@ -1269,8 +1269,8 @@ body.llh-public-menu-open {
 
 .landing-home .lp-mobile-sticky-cta .lp-btn-primary {
   width: 100%;
-  min-height: 38px;
-  padding: 5px 14px;
+  min-height: 44px;
+  padding: 8px 14px;
   font-size: 0.94rem;
   border-radius: 11px;
   box-shadow: 0 2px 10px rgba(123, 95, 232, 0.22);
@@ -1889,6 +1889,76 @@ body.llh-public-menu-open {
   margin-top: 16px;
 }
 
+.llh-farm-proof {
+  display: grid;
+  gap: 8px;
+  max-width: 640px;
+  margin: 16px auto 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.llh-farm-proof li {
+  position: relative;
+  padding-left: 1.2em;
+  color: var(--llh-home-ink);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.llh-farm-proof li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: #5db89a;
+}
+
+.llh-farm-day-short {
+  display: none;
+}
+
+.llh-farm-more {
+  margin-top: 16px;
+}
+
+.llh-farm-more summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+}
+
+.llh-home-locked-note {
+  margin: 0 0 12px;
+}
+
+.landing-home .lp-mobile-sticky-cta .lp-btn-primary {
+  min-height: 44px;
+}
+
+.llh-sticky-reassure {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--llh-home-muted);
+}
+
+.llh-path-section,
+.llh-how-section,
+.llh-value-section,
+.llh-age-entry-section {
+  margin-top: 18px;
+  margin-bottom: 18px;
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
 .llh-farm-printable-row {
   display: flex;
   gap: 12px;
@@ -2004,6 +2074,9 @@ body.llh-public-menu-open {
   font-weight: 700;
 }
 
+.llh-coming-soon-section[hidden] {
+  display: none !important;
+}
 .llh-coming-soon-section:not([hidden]) {
   display: block;
 }
@@ -2039,5 +2112,16 @@ body.llh-public-menu-open {
   .llh-farm-printable-card {
     flex: none;
     width: 100%;
+  }
+  .llh-farm-day-full {
+    display: none;
+  }
+  .llh-farm-day-short {
+    display: inline;
+  }
+  .llh-farm-day-tabs .llh-btn {
+    flex: 1 0 auto;
+    min-width: 44px;
+    padding-inline: 8px;
   }
 }

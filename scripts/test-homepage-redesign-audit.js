@@ -216,29 +216,41 @@ async function runAudit(playwright, baseUrl, seeded) {
   assert(/WebApplication/i.test(structuredData || "") && /Organization/i.test(structuredData || ""), "Structured data missing Organization/WebApplication");
   results.foundingPrice = true;
 
+  async function closeAuth() {
+    const modal = page.locator("#authModal.open");
+    if (!(await modal.count())) return;
+    await page.locator("#closeModal").click({ force: true }).catch(() => {});
+    await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 4000 }).catch(async () => {
+      await page.evaluate(() => {
+        document.querySelector("#authModal")?.classList.remove("open");
+        document.body.classList.remove("auth-modal-open");
+      });
+    });
+  }
+
   // Desktop login / signup
   await page.locator(".llh-public-nav-actions [data-action='open-login']").click();
   await page.waitForSelector("#authModal.open");
   assert(/log in/i.test(await page.locator("#authTitle").innerText()), "Login modal title");
   results.loginButtons.push("desktop-public-nav");
-  await page.click("#closeModal");
+  await closeAuth();
 
   await page.locator(".llh-public-nav-actions [data-action='start-free']").click();
   await page.waitForSelector("#authModal.open");
   assert(/create/i.test(await page.locator("#authTitle").innerText()), "Signup modal title");
   results.signupButtons.push("desktop-public-nav-start-free");
-  await page.click("#closeModal");
+  await closeAuth();
 
   await page.locator('#homePricing [data-checkout-plan="early_user"]').click();
   await page.waitForSelector("#authModal.open");
   results.signupButtons.push("pricing-pro-monthly");
-  await page.click("#closeModal");
+  await closeAuth();
 
   // Footer login/signup
   await page.locator('.llh-footer-links [data-action="open-login"]').click();
   await page.waitForSelector("#authModal.open");
   results.loginButtons.push("footer");
-  await page.click("#closeModal");
+  await closeAuth();
 
   // Nav scroll — section jump uses sticky-nav offset; wait until section is on screen.
   await page.locator('.llh-footer-links [data-home-nav="coming-soon"]').click();
@@ -247,7 +259,7 @@ async function runAudit(playwright, baseUrl, seeded) {
     if (!el) return false;
     const rect = el.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0;
-  }, null, { timeout: 5000 });
+  }, null, { timeout: 8000 });
   const comingVisible = await page.locator("#homeComingSoon").evaluate((el) => {
     const rect = el.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0;

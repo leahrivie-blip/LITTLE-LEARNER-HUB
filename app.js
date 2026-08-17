@@ -32649,7 +32649,10 @@ function scrollToHomeSection(sectionKeyOrId) {
   const sectionId = HOME_NAV_SECTION_IDS[sectionKeyOrId] || sectionKeyOrId;
   const target = document.getElementById(sectionId);
   if (!target) return false;
-  if (sectionId === "homeComingSoon") target.hidden = false;
+  if (sectionId === "homeComingSoon") {
+    target.hidden = false;
+    target.removeAttribute("hidden");
+  }
   const alreadyOnHome = Boolean(document.querySelector("#view-home.active-view"));
   // Avoid setView's default scroll-to-top — it races section scrolling and makes
   // Home / Lesson Plans / Reviews nav links feel like they do nothing.
@@ -33052,6 +33055,19 @@ function homeFarmFeaturedHtml(resource, dayKey) {
     if (!title) return "";
     return `<li><strong>${escapeHtml(title)}</strong>${movement ? `<span>${escapeHtml(String(movement))}</span>` : ""}</li>`;
   }).filter(Boolean).join("");
+  const objectivesHtml = homeListSnippet(plan.objectives || plan.learningObjectives);
+  const materialsHtml = homeListSnippet(plan.weeklyMaterials || toolkit.prepChecklist);
+  const toolkitHtml = homeListSnippet(toolkit.observationFocus || plan.observationOpportunities || toolkit.teacherPreparation);
+  const familyHtml = String(plan.familyConnection || "").trim();
+  const detailSections = [
+    objectivesHtml ? `<section><h4>Learning objectives</h4>${objectivesHtml}</section>` : "",
+    materialsHtml ? `<section><h4>Materials and teacher preparation</h4>${materialsHtml}</section>` : "",
+    bookHtml ? `<section><h4>Books with questions</h4><ul>${bookHtml}</ul></section>` : "",
+    songHtml ? `<section><h4>Songs with movement</h4><ul>${songHtml}</ul></section>` : "",
+    toolkitHtml ? `<section><h4>Teacher Toolkit</h4>${toolkitHtml}</section>` : "",
+    familyHtml ? `<section><h4>Family connection</h4><p>${escapeHtml(familyHtml)}</p></section>` : "",
+  ].filter(Boolean).join("");
+  const dayLabel = (day) => day.charAt(0).toUpperCase() + day.slice(1);
   return `
     <article class="llh-farm-featured" data-home-farm-id="${escapeHtml(resource.id)}">
       <div class="llh-farm-featured-hero">
@@ -33064,39 +33080,31 @@ function homeFarmFeaturedHtml(resource, dayKey) {
       </div>
       <div class="llh-farm-day-tabs" role="tablist" aria-label="Farm Animals weekdays">
         ${["monday", "tuesday", "wednesday", "thursday", "friday"].map((day) => `
-          <button class="llh-btn llh-btn-ghost${day === activeDay ? " is-active" : ""}" type="button" role="tab" aria-selected="${day === activeDay ? "true" : "false"}" data-home-farm-day="${day}">${day.charAt(0).toUpperCase() + day.slice(1)}</button>
+          <button class="llh-btn llh-btn-ghost${day === activeDay ? " is-active" : ""}" type="button" role="tab" aria-selected="${day === activeDay ? "true" : "false"}" aria-label="${dayLabel(day)}" data-home-farm-day="${day}"><span class="llh-farm-day-full">${dayLabel(day)}</span><span class="llh-farm-day-short">${dayLabel(day).slice(0, 3)}</span></button>
         `).join("")}
       </div>
       <div class="llh-farm-day-panel">
-        <p><strong>${escapeHtml(dayPlan.theme || activeDay)}</strong></p>
-        ${activities.length ? `<ul>${activities.slice(0, 6).map((item) => `<li>${escapeHtml(item.title || "Activity")}</li>`).join("")}</ul>` : "<p class=\"muted-copy\">Activities for this day are in the full lesson view.</p>"}
+        <p><strong>${escapeHtml(dayPlan.theme || dayLabel(activeDay))}</strong></p>
+        ${activities.length ? `<ul>${activities.slice(0, 6).map((item) => `<li>${escapeHtml(item.title || "Activity")}</li>`).join("")}</ul>` : "<p class=\"muted-copy\">Open the full lesson to see this day's activities.</p>"}
       </div>
-      <div class="llh-farm-details">
-        <section><h4>Learning objectives</h4>${homeListSnippet(plan.objectives || plan.learningObjectives)}</section>
-        <section><h4>Materials and teacher preparation</h4>${homeListSnippet(plan.weeklyMaterials || toolkit.prepChecklist)}</section>
-        <section><h4>Books with questions</h4>${bookHtml ? `<ul>${bookHtml}</ul>` : "<p class=\"muted-copy\">See the full lesson for book guides.</p>"}</section>
-        <section><h4>Songs with movement</h4>${songHtml ? `<ul>${songHtml}</ul>` : "<p class=\"muted-copy\">See the full lesson for song guides.</p>"}</section>
-        <section><h4>Teacher Toolkit</h4>${homeListSnippet(toolkit.observationFocus || plan.observationOpportunities || toolkit.teacherPreparation)}</section>
-        <section><h4>Family connection</h4><p>${escapeHtml(plan.familyConnection || "")}</p></section>
-      </div>
+      ${printables.length ? `
       <section class="llh-farm-printables" aria-label="Printables included">
         <h4>Printables Included</h4>
         <p>Preview the classroom resources included with this Free lesson plan.</p>
-        ${printables.length ? `
           <div class="llh-farm-printable-row">
             ${printables.map((item) => `
               <button class="llh-farm-printable-card" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeFarmPreview">
-                <img src="${escapeHtml(item.previewImageUrl || item.previewUrl)}" alt="${escapeHtml(item.title || "Printable preview")}" loading="lazy" decoding="async" onerror="this.closest('button')?.remove()" />
+                <img src="${escapeHtml(item.previewImageUrl || item.coverImageUrl || item.previewUrl)}" alt="${escapeHtml(item.title || "Printable preview")}" loading="lazy" decoding="async" onerror="this.closest('button')?.remove()" />
                 <span>${escapeHtml(item.title || "Classroom printable")}</span>
               </button>
             `).join("")}
           </div>
-        ` : `<p class="muted-copy">Open the full lesson to view linked classroom printables.</p>`}
-      </section>
+      </section>` : ""}
       <div class="llh-farm-actions">
         <button class="llh-btn llh-btn-primary" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeFarmPreview">Explore the Free Farm Animals Plan</button>
         <button class="llh-btn llh-btn-secondary" type="button" data-action="start-free">Create a Free Account</button>
       </div>
+      ${detailSections ? `<details class="llh-farm-more"><summary>See books, songs, materials, and teacher support</summary><div class="llh-farm-details">${detailSections}</div></details>` : ""}
     </article>
   `;
 }
@@ -33181,6 +33189,10 @@ function renderHomePublicPreviews() {
       ? lockedPlans.map((plan) => homeBrowseLessonCardHtml(plan, { locked: true })).join("")
       : "";
   }
+  const lockedHeading = document.querySelector(".llh-home-locked-heading");
+  const lockedNote = document.querySelector(".llh-home-locked-note");
+  if (lockedHeading) lockedHeading.hidden = !lockedPlans.length;
+  if (lockedNote) lockedNote.hidden = !lockedPlans.length;
   if (ageHost) ageHost.innerHTML = homeAgeGroupCardsHtml();
   const lessonGrid = document.querySelector("#homeLessonPreviewGrid");
   if (lessonGrid) {
