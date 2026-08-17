@@ -173,9 +173,9 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForFunction(() => typeof setView === "function" && typeof openAuthModal === "function", null, { timeout: 30000 });
 
   const sectionIds = [
-    "homeHero", "homeLessonPlans", "homeActivities", "homeFeatures", "homeComingSoon",
-    "homeAudience", "homeFounder", "homeReviews", "homeShapeFeedback",
-    "homePricing", "homeFinalCta",
+    "homeHero", "homeFarmPreview", "homePaths", "homeAgeGroups", "homeHowItWorks",
+    "homeFeatures", "homeLessonPlans", "homeReviews", "homeFounder",
+    "homePricing", "homeFinalCta", "homeComingSoon",
   ];
   for (const id of sectionIds) {
     const exists = await page.locator(`#${id}`).count();
@@ -187,27 +187,27 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForFunction(() => {
     try {
       return typeof renderManagedHomeContent === "function"
-        && document.querySelectorAll("#homeReviews .lp-review-card").length >= 6;
+        && document.querySelectorAll("#homeReviews .llh-reviews-grid .lp-review-card").length >= 3;
     } catch { return false; }
   }, null, { timeout: 15000 }).catch(() => null);
   const reviewsText = await page.locator("#homeReviews").innerText();
   assert(/I actually love it/.test(reviewsText), "Tiffany review text missing");
   assert(/Tiffany/.test(reviewsText), "Tiffany name missing");
-  for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
-    assert(new RegExp(name).test(reviewsText), `${name} review missing after site-content apply`);
-  }
+  const visibleReviewCount = await page.locator("#homeReviews .llh-reviews-grid .lp-review-card").count();
+  assert(visibleReviewCount === 3, `expected 3 visible review cards, got ${visibleReviewCount}`);
+  assert(await page.locator("#homeReviewsMore").count(), "Read more reviews control missing");
   const reviewCardCount = await page.locator("#homeReviews .lp-review-card").count();
-  assert(reviewCardCount >= 6, `expected >=6 review cards, got ${reviewCardCount}`);
+  assert(reviewCardCount >= 3, `expected >=3 review cards, got ${reviewCardCount}`);
   assert((await page.locator(".llh-nav-rating, .lp-review-stars, .llh-reviews-stars").count()) === 0, "star rating UI still present");
   assert(!/Rated 5 stars/i.test(reviewsText), "star-rating copy still present");
   assert(!/123 Main/i.test(await page.content()), "homepage still contains fake address placeholder");
   results.tiffany = true;
   results.multiReviews = reviewCardCount;
 
-  // Pricing must show $9.99 founding, not conflict with outdated $19.99 as the offer.
   const pricingText = await page.locator("#homePricing").innerText();
-  assert(/\$9\.99/.test(pricingText), "Founding price missing on pricing section");
-  assert(/continuously active/i.test(pricingText), "Continuous membership messaging missing");
+  assert(/\$13\.99/.test(pricingText), "Early User price missing on pricing section");
+  assert(/Regularly \$19\.99\/month/.test(pricingText), "Regular price compare missing");
+  assert(/\$0/.test(pricingText), "Free $0 missing");
   const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
   const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
   const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
@@ -229,7 +229,7 @@ async function runAudit(playwright, baseUrl, seeded) {
   results.signupButtons.push("desktop-public-nav-start-free");
   await page.click("#closeModal");
 
-  await page.locator('#homePricing [data-checkout-plan="monthly"]').click();
+  await page.locator('#homePricing [data-checkout-plan="early_user"]').click();
   await page.waitForSelector("#authModal.open");
   results.signupButtons.push("pricing-pro-monthly");
   await page.click("#closeModal");
@@ -259,11 +259,11 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForTimeout(500);
   if (seeded?.planId) {
     await page.waitForFunction(() => {
-      const grid = document.querySelector("#homeLessonPreviewGrid");
+      const grid = document.querySelector("#homeFreeLessonGrid, #homeFarmFeatured");
       return grid && grid.querySelector("[data-home-open-preview]");
     }, null, { timeout: 15000 }).catch(() => {});
   }
-  const previewBtn = page.locator("#homeLessonPreviewGrid [data-home-open-preview]").first();
+  const previewBtn = page.locator("#homeFarmFeatured [data-home-open-preview], #homeFreeLessonGrid [data-home-open-preview]").first();
   if (await previewBtn.count()) {
     await previewBtn.click();
     await page.waitForSelector("#resourceViewerModal.open, #featurePreviewModal.open", { timeout: 10000 });
@@ -342,6 +342,11 @@ async function runAudit(playwright, baseUrl, seeded) {
     if (typeof checkoutAmount === "function") return checkoutAmount("founding");
     return null;
   });
+  const earlyUserAmount = await page.evaluate(() => {
+    if (typeof checkoutAmount === "function") return checkoutAmount("early_user");
+    return null;
+  });
+  assert(String(earlyUserAmount || "").includes("13.99") || String(earlyUserAmount || "").includes("19.99"), `Early User checkout amount unexpected: ${earlyUserAmount}`);
   assert(String(foundingAmount || "").includes("9.99"), `Founding checkout amount unexpected: ${foundingAmount}`);
 
   // Install / Add to Home Screen surfaces still exist for logged-in users

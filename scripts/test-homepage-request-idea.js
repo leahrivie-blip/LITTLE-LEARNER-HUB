@@ -84,10 +84,7 @@ async function stopServer(child) {
 }
 
 async function openIdeaModal(page) {
-  await page.evaluate(() => {
-    document.querySelector("#homeRequestIdea")?.scrollIntoView({ block: "center" });
-  });
-  await page.click("#homeRequestIdeaButton");
+  await page.locator('.llh-footer-links [data-action="open-idea-request"]').click();
   await page.waitForSelector("#ideaRequestModal.open", { timeout: 8000 });
 }
 
@@ -95,17 +92,8 @@ async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
-  const lessonsIdx = html.indexOf('id="homeLessonPlans"');
-  const ideaIdx = html.indexOf('id="homeRequestIdea"');
-  const activitiesIdx = html.indexOf('id="homeActivities"');
-  const pricingIdx = html.indexOf('id="homePricing"');
-  assert.ok(lessonsIdx > -1 && ideaIdx > lessonsIdx, "idea section should follow lesson preview");
-  assert.ok(activitiesIdx > ideaIdx, "idea section should sit before activities");
-  assert.ok(pricingIdx > ideaIdx, "idea section should sit before pricing");
-  assert.match(html, /Help Shape What Gets Built Next/);
-  assert.match(html, /Your requests help guide what we build and improve next/);
-  assert.doesNotMatch(html, /classroom needs help guide/);
-  assert.match(html, /Request an Idea/);
+  assert.match(html, /data-action="open-idea-request"/);
+  assert.match(html, /Have a lesson idea\? Send Leah a request/);
   assert.match(html, /id="ideaRequestModal"/);
   assert.match(html, /value="Lesson Plan"/);
   assert.match(html, /value="School Age"/);
@@ -113,6 +101,7 @@ async function main() {
   assert.match(appJs, /ideaRequestSavedContact/);
   assert.match(appJs, /homepage_idea_request/);
   assert.match(appJs, /\/api\/feature-request/);
+  assert.ok(html.indexOf('id="homePricing"') > html.indexOf('id="homeLessonPlans"'));
 
   const child = startServer();
   const browser = await chromium.launch({ headless: true });
@@ -124,9 +113,9 @@ async function main() {
     {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
-      await page.waitForSelector("#homeRequestIdea", { timeout: 15000 });
+      await page.waitForSelector(".llh-public-footer", { timeout: 15000 });
       await page.evaluate(() => {
-        document.querySelector("#homeRequestIdea")?.scrollIntoView({ block: "center" });
+        document.querySelector(".llh-public-footer")?.scrollIntoView({ block: "center" });
       });
       await page.screenshot({ path: path.join(OUT_DIR, "request-idea-section-desktop.png"), fullPage: false });
 
@@ -235,9 +224,9 @@ async function main() {
     {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
       await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
-      await page.waitForSelector("#homeRequestIdea", { timeout: 15000 });
+      await page.waitForSelector(".llh-public-footer", { timeout: 15000 });
       await page.evaluate(() => {
-        document.querySelector("#homeRequestIdea")?.scrollIntoView({ block: "center" });
+        document.querySelector(".llh-public-footer")?.scrollIntoView({ block: "center" });
       });
       await page.screenshot({ path: path.join(OUT_DIR, "request-idea-section-mobile.png"), fullPage: false });
       await page.close();

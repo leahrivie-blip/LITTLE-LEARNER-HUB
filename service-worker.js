@@ -1,5 +1,5 @@
-const CACHE_NAME = "llh-shell-v207-linked-preview-keep-editor-r2";
-const SHELL_VERSION = "20260817-linked-preview-keep-editor-r2";
+const CACHE_NAME = "llh-shell-v208-home-farm-conversion";
+const SHELL_VERSION = "20260817-home-farm-conversion";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
@@ -9,7 +9,7 @@ const APP_SHELL = [
   "/styles.css?v=20260812-tk-manual-kit-media-r1",
   "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260808-cookie-cta",
+  "/styles/llh-homepage.css?v=20260817-home-farm",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
   "/styles/llh-messaging.css?v=20260805-tk-owner-preview-r2",
   "/styles/llh-comms.css?v=20260730-hdh-own-tester-kid",

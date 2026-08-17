@@ -95,22 +95,14 @@ test("Tiffany review remains on homepage without star ratings", () => {
   assert.doesNotMatch(html, /placeholder="Little Learner Home Daycare"/);
 });
 
-test("private Help Shape feedback sits between reviews and pricing", () => {
-  assert.match(html, /id="homeShapeFeedback"/);
-  assert.match(html, /Help Shape Little Learner Hub/);
-  assert.match(html, /id="homeShapeFeedbackForm"/);
-  assert.match(html, /value="New Feature"/);
-  assert.match(html, /value="Lesson Plan Request"/);
-  assert.match(html, /value="Activity Request"/);
-  assert.match(html, /value="Bug Report"/);
-  assert.match(html, /value="General Feedback"/);
+test("private Help Shape feedback remains available via existing handlers", () => {
   assert.match(appJs, /submitHomeShapeFeedbackForm/);
   assert.match(appJs, /homepage_shape/);
   assert.match(homeCss, /\.llh-shape-feedback-form/);
+  assert.match(html, /data-action="open-idea-request"/);
   const reviewsIdx = html.indexOf('id="homeReviews"');
-  const shapeIdx = html.indexOf('id="homeShapeFeedback"');
   const pricingIdx = html.indexOf('id="homePricing"');
-  assert.ok(reviewsIdx > -1 && shapeIdx > reviewsIdx && pricingIdx > shapeIdx);
+  assert.ok(reviewsIdx > -1 && pricingIdx > reviewsIdx);
   assert.doesNotMatch(html, /AggregateRating|aggregateRating/);
 });
 

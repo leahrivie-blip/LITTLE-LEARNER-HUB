@@ -1762,3 +1762,282 @@ body.llh-public-menu-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* Compact conversion homepage */
+.llh-announce-link {
+  color: #fff;
+  text-decoration: underline;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.llh-hero--compact {
+  align-items: center;
+  gap: 28px;
+}
+
+.llh-hero-reassure {
+  margin: 12px 0 0;
+  color: var(--llh-home-muted);
+  font-size: 0.92rem;
+}
+
+.llh-hero-product-shot {
+  margin: 0;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--llh-home-shadow);
+}
+
+.llh-hero-product-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.llh-hero-product-shot figcaption {
+  padding: 10px 14px 14px;
+  font-size: 0.86rem;
+  color: var(--llh-home-muted);
+}
+
+.llh-path-grid,
+.llh-age-entry-grid,
+.llh-value-grid,
+.llh-home-lesson-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.llh-path-card,
+.llh-age-entry-card,
+.llh-value-grid article,
+.llh-home-lesson-card,
+.llh-farm-featured {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(42, 42, 53, 0.06);
+}
+
+.llh-how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: llh-how;
+}
+
+.llh-how-steps li {
+  counter-increment: llh-how;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.llh-how-steps li strong::before {
+  content: counter(llh-how) ". ";
+}
+
+.llh-farm-featured-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.llh-farm-featured-hero img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.llh-farm-day-tabs,
+.llh-home-age-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin: 16px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.llh-farm-day-tabs .llh-btn,
+.llh-home-age-filters .llh-btn,
+.llh-path-card .llh-btn,
+.llh-farm-actions .llh-btn,
+.llh-home-lesson-card .llh-btn,
+.llh-final-actions .llh-btn {
+  min-height: 44px;
+}
+
+.llh-farm-day-tabs .is-active,
+.llh-home-age-filters .is-active {
+  background: #5a4d8a;
+  color: #fff;
+  border-color: #5a4d8a;
+}
+
+.llh-farm-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.llh-farm-printable-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.llh-farm-printable-card {
+  flex: 0 0 160px;
+  background: none;
+  border: 1px solid var(--llh-home-line);
+  border-radius: 12px;
+  padding: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.llh-farm-printable-card img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.llh-farm-actions,
+.llh-final-actions,
+.llh-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.llh-home-lesson-cover {
+  position: relative;
+  margin: -20px -20px 14px;
+}
+
+.llh-home-lesson-cover img {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+
+.llh-home-lesson-card.is-locked .llh-home-lesson-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(42, 42, 53, 0.22);
+}
+
+.llh-home-lock {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(42, 42, 53, 0.72);
+}
+
+.llh-home-lock::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 7px;
+  width: 10px;
+  height: 7px;
+  border: 2px solid #fff;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+}
+
+.llh-home-lock::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 13px;
+  width: 12px;
+  height: 9px;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.llh-chip.early-user {
+  background: #efeaf8;
+  color: #5a4d8a;
+}
+
+.llh-chip.free {
+  background: #e8f7f1;
+  color: #1f7a57;
+}
+
+.llh-reviews-grid--compact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.llh-reviews-more {
+  margin: 16px auto 0;
+  max-width: 720px;
+}
+
+.llh-reviews-more summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+}
+
+.llh-coming-soon-section:not([hidden]) {
+  display: block;
+}
+
+.llh-footer-links button {
+  background: none;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+@media (max-width: 980px) {
+  .llh-path-grid,
+  .llh-age-entry-grid,
+  .llh-value-grid,
+  .llh-home-lesson-grid,
+  .llh-how-steps,
+  .llh-farm-featured-hero,
+  .llh-farm-details,
+  .llh-reviews-grid--compact {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .llh-farm-printable-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: visible;
+  }
+  .llh-farm-printable-card {
+    flex: none;
+    width: 100%;
+  }
+}
