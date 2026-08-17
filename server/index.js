@@ -2586,7 +2586,8 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
 function publicCurriculumLessonPlanPreviewDto(plan, storeOrContent = null) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (isStoreCuratedFreeLessonPlan(entry, storeOrContent)) return null;
+  // Free unlock is plan-authoritative — Free lessons use the unlocked Free DTO path.
+  if (userMayUnlockFreeCurriculumPlan(entry, { store: storeOrContent, siteContent: storeOrContent })) return null;
   // Public Pro teaser: overview metadata only. Do not ship objectives, materials,
   // vocabulary, books, songs, or activity names — those unlock with paid access.
   let activityCount = 0;
@@ -2647,7 +2648,7 @@ function curriculumLessonPlanUnlockedFreeDto(plan) {
 function publicCurriculumLessonPlanFreeDto(plan, storeOrContent = null) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (!isStoreCuratedFreeLessonPlan(entry, storeOrContent)) return null;
+  if (!userMayUnlockFreeCurriculumPlan(entry, { store: storeOrContent, siteContent: storeOrContent })) return null;
   return curriculumLessonPlanUnlockedFreeDto(plan);
 }
 
@@ -2687,6 +2688,7 @@ function freeStarterOverrideIds(storeOrContent = null) {
   return null;
 }
 
+/** Inventory helper for Free Starter Library admin/marketing — not Free/Pro authorization. */
 function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
   return freeCurriculumSample.isCuratedFreeLessonPlan(
     plan,
@@ -2698,10 +2700,10 @@ function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
 function userMayUnlockFreeCurriculumPlan(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry) return false;
-  const storeOrContent = accessContext?.store || accessContext?.siteContent || null;
-  // Policy: every Free account unlocks only the curated 10-plan Starter Library.
-  // Legacy Free bypass is permanently disabled.
-  return isStoreCuratedFreeLessonPlan(entry, storeOrContent);
+  // Canonical Free unlock: published parent lesson.plan === "Free".
+  // Free Starter Library IDs remain inventory/marketing only — not authorization.
+  // Legacy Free bypass is permanently disabled. accessContext kept for call-site compatibility.
+  return String(entry.plan || "").trim() === "Free";
 }
 
 function authorizedCurriculumLessonPlanDto(plan) {
@@ -2750,7 +2752,7 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan, storeOrContent
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
-  if (isStoreCuratedFreeLessonPlan(parentPlan, storeOrContent)) return null;
+  if (userMayUnlockFreeCurriculumPlan(parentPlan, { store: storeOrContent, siteContent: storeOrContent })) return null;
   // Overview teaser only — no description/materials/steps/teacher language/etc.
   return {
     id: entry.id,
@@ -2803,7 +2805,7 @@ function curriculumActivityUnlockedFreeDto(activity, parentPlan) {
 }
 
 function publicCurriculumActivityFreeDto(activity, parentPlan, storeOrContent = null) {
-  if (!parentPlan || !isStoreCuratedFreeLessonPlan(parentPlan, storeOrContent)) return null;
+  if (!parentPlan || !userMayUnlockFreeCurriculumPlan(parentPlan, { store: storeOrContent, siteContent: storeOrContent })) return null;
   return curriculumActivityUnlockedFreeDto(activity, parentPlan);
 }
 
@@ -25552,7 +25554,12 @@ async function handleTrialCurriculumExportAuthorize(request, response, url) {
   const action = String(body.action || "export").trim();
   // Never trust client-owned flags — resolve Free / provider-owned on the server.
   const isProviderOwned = isServerProviderOwnedCurriculum(store, email, resourceId);
-  const isFreeCurriculum = resourceType === "lesson-plan" && isStoreCuratedFreeLessonPlan({ id: resourceId }, store);
+  const trialLessonPlan = resourceType === "lesson-plan"
+    ? (readSiteCurriculum(store).lessonPlans || []).find((item) => item.id === resourceId)
+    : null;
+  const isFreeCurriculum = Boolean(
+    trialLessonPlan && userMayUnlockFreeCurriculumPlan(trialLessonPlan, { store }),
+  );
 
   if (isProviderOwned || isFreeCurriculum) {
     jsonResponse(response, 200, {
@@ -25658,10 +25665,10 @@ async function handleTrialCurriculumExportGeneratePdf(request, response, url) {
   }
 
   const unlimited = membershipAccess.membershipHasProAccess(user) && !membershipAccess.membershipUserInTrial(user);
-  const isFreeCurriculum = isStoreCuratedFreeLessonPlan({ id: resourceId }, store);
   const isProviderOwned = isServerProviderOwnedCurriculum(store, email, resourceId);
   const curriculum = readSiteCurriculum(store);
   const plan = curriculum.lessonPlans.find((item) => item.id === resourceId);
+  const isFreeCurriculum = Boolean(plan && userMayUnlockFreeCurriculumPlan(plan, { store }));
   if (!plan) {
     jsonResponse(response, 404, { error: "Curriculum resource not found." });
     return;

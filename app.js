@@ -2587,6 +2587,7 @@ function freeStarterOverrideIdsFromSite() {
 }
 
 function isCuratedFreeCurriculumPlan(planOrResource) {
+  // Starter Library inventory / marketing only — Free unlock uses isFreeAccessibleCurriculumPlan (plan field).
   const api = freeCurriculumSampleApi();
   const plan = planOrResource?._curriculumLessonPlan || planOrResource;
   if (api?.isCuratedFreeLessonPlan) {
@@ -2598,7 +2599,9 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  return isCuratedFreeCurriculumPlan(planOrResource);
+  // Canonical Free unlock: lesson.plan === "Free". Starter Library IDs are not authorization.
+  const plan = planOrResource?._curriculumLessonPlan || planOrResource;
+  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free";
 }
 
 function curriculumResourceLooksLikeLessonPlan(resource) {
@@ -34754,7 +34757,7 @@ async function resolveCurriculumPlanForAssignment(resourceOrId, options = {}) {
   if (status === "draft" || status === "archived") {
     throw new Error("Draft and archived lesson plans cannot be assigned.");
   }
-  if (String(resource.plan || "").trim() === "Pro" && !isProUser() && !hasAdminFullAccess() && !isCuratedFreeCurriculumPlan(resource)) {
+  if (String(resource.plan || "").trim() === "Pro" && !isProUser() && !hasAdminFullAccess() && !isFreeAccessibleCurriculumPlan(resource)) {
     throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
   }
 

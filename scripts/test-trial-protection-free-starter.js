@@ -235,6 +235,7 @@ function startServer() {
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
       NODE_ENV: "test",
+      LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
       ADMIN_EMAIL: "admin@test.local",
       ADMIN_PASSWORD: "admin-pass",
       ADMIN_ACCESS_CODE: "admin-code",
