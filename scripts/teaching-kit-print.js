@@ -329,7 +329,7 @@
     `;
   }
 
-  function materialsGroupedHtml(materials, limit = 60) {
+  function materialsGroupedHtml(materials, limit = Number.POSITIVE_INFINITY) {
     const rows = (materials || []).map((item) => {
       if (item && typeof item === "object") {
         return {
@@ -1855,8 +1855,11 @@
         ? model.overview.masterMaterialsDetailed
         : model.overview?.masterMaterials;
     }
-    const materialsHtml = materialsGroupedHtml(source, options.limit || 60)
-      || checkboxListHtml(source, options.limit || 60);
+    // Full-kit Materials List / Entire Binder must not silently drop supplies.
+    // Callers may still pass an explicit finite options.limit for compact packs.
+    const limit = Number.isFinite(options.limit) ? options.limit : Number.POSITIVE_INFINITY;
+    const materialsHtml = materialsGroupedHtml(source, limit)
+      || checkboxListHtml(source, limit);
     if (!materialsHtml) {
       return emptyStateHtml("No materials list yet", "Materials appear here once supplies are listed on the lesson or its activities.");
     }
@@ -1915,7 +1918,9 @@
     const prep = (setup.prepTasks || []).map((task) => `${task.label}${task.minutes ? ` (~${task.minutes} min)` : ""}`);
     const printChecklist = (setup.printChecklist || []).map((item) => `${item.label}${(item.usedInWeek || []).length ? ` (${item.usedInWeek.join("; ")})` : ""}`);
     const vocab = (model.overview?.vocabulary || []).map((word) => word.word).filter(Boolean).slice(0, 20);
-    const materialsInner = materialsGroupedHtml(setup.materials, 40) || checkboxListHtml(setup.materials, 40);
+    // Setup materials list must match the kit inventory — do not silently truncate.
+    const materialsInner = materialsGroupedHtml(setup.materials, Number.POSITIVE_INFINITY)
+      || checkboxListHtml(setup.materials, Number.POSITIVE_INFINITY);
     const groups = [
       toolkitGroupHtml("materials", "Setup materials", "materials", materialsInner),
       toolkitGroupHtml("prep", "Prep checklist", "prep", checkboxListHtml(prep, 12)),

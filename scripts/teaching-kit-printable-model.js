@@ -394,18 +394,21 @@
         });
       }
     }
-    masterMaterials = uniqueStrings(masterMaterials, 80);
+    // Entire Binder / Materials List must include every unique supply — never silently
+    // truncate the master list (a prior hard cap of 80 dropped kit materials).
+    masterMaterials = uniqueStrings(masterMaterials);
     if (!masterMaterialsDetailed.length) {
       masterMaterialsDetailed = masterMaterials.map((label) => ({ label, category: "" }));
     } else {
       // Keep detailed rows aligned with deduped labels (preserve first category).
       const seen = new Set();
+      const allowed = new Set(masterMaterials.map((label) => text(label).toLowerCase()).filter(Boolean));
       masterMaterialsDetailed = masterMaterialsDetailed.filter((item) => {
         const key = text(item.label).toLowerCase();
-        if (!key || seen.has(key)) return false;
+        if (!key || seen.has(key) || !allowed.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 80);
+      });
     }
 
     const weeklyFocus = presentCopy(
