@@ -8,6 +8,7 @@
 
   const api = () => root.LLHTeachingKitEnrichment;
   const pasteApi = () => root.LLHTeachingKitPasteImport;
+  const printableIdeaRemoveApi = () => root.LLHTeachingKitPrintableIdeaRemove;
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const DAY_LABEL = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
   const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -596,6 +597,7 @@
     const entry = raw && typeof raw === "object" ? raw : { title: raw };
     if (enrich && typeof enrich.normalizePrintableIdea === "function") {
       return enrich.normalizePrintableIdea({
+        id: String(entry.id || "").trim(),
         title: String(entry.title || entry.name || "").trim(),
         purpose: String(entry.purpose || "").trim(),
         description: String(entry.description || entry.summary || "").trim(),
@@ -747,6 +749,7 @@
       <form class="tk-enrich-kit-media-form" data-kit-media-form="printableIdea" data-kit-media-index="${index}">
         <h5>${isAdd ? "Add printable idea" : "Edit printable idea"}</h5>
         <p class="muted-copy">Ideas only — upload actual files in Linked Resources.</p>
+        ${item.id ? `<input type="hidden" name="ideaId" value="${esc(item.id)}" />` : ""}
         <label class="tk-enrich-core-field"><span>Idea title</span>
           <input name="title" type="text" maxlength="180" required value="${esc(item.title || item.name || "")}" placeholder="Printable idea title" />
         </label>
@@ -829,16 +832,20 @@
     const type = item && typeof item === "object"
       ? String(item.type || item.kind || "").trim()
       : "";
+    const ideaId = item && typeof item === "object"
+      ? String(item.id || "").trim()
+      : "";
+    const idAttr = ideaId ? ` data-printable-idea-id="${esc(ideaId)}"` : "";
     return `
-      <article class="tk-enrich-kit-media-card" data-kit-media-card="printableIdea" data-kit-media-index="${index}">
+      <article class="tk-enrich-kit-media-card" data-kit-media-card="printableIdea" data-kit-media-index="${index}"${idAttr}>
         <div class="tk-enrich-kit-media-card-body">
           <strong>${esc(title || "Printable idea")}</strong>
           ${type ? `<div class="muted-copy">${esc(type)}</div>` : ""}
           ${purpose ? `<div class="tk-enrich-kit-media-meta">${esc(purpose)}</div>` : ""}
         </div>
         <div class="tk-enrich-kit-media-card-actions">
-          <button type="button" class="ghost-button" data-kit-media-edit="printableIdea" data-kit-media-index="${index}">Edit</button>
-          <button type="button" class="ghost-button" data-kit-media-remove="printableIdea" data-kit-media-index="${index}">Remove</button>
+          <button type="button" class="ghost-button" data-kit-media-edit="printableIdea" data-kit-media-index="${index}"${idAttr}>Edit</button>
+          <button type="button" class="ghost-button" data-kit-media-remove="printableIdea" data-kit-media-index="${index}"${idAttr}>Remove</button>
         </div>
       </article>
     `;
@@ -848,6 +855,10 @@
     const week = state.draft.week || {};
     const draftBooks = Array.isArray(week.books) ? week.books : [];
     const draftSongs = Array.isArray(week.songs) ? week.songs : [];
+    const ideaHelper = printableIdeaRemoveApi();
+    if (ideaHelper && typeof ideaHelper.ensurePrintableIdeaIds === "function") {
+      week.printableIdeas = ideaHelper.ensurePrintableIdeaIds(week.printableIdeas);
+    }
     const printableIdeas = Array.isArray(week.printableIdeas) ? week.printableIdeas : [];
     const vocabCards = Array.isArray(week.vocabCards) ? week.vocabCards : [];
     const edit = state.kitMediaEdit && typeof state.kitMediaEdit === "object" ? state.kitMediaEdit : null;
@@ -894,7 +905,10 @@
       <section class="tk-enrich-card-block" data-week-section="printables" data-enrich-week-printables id="tk-week-printables">
         <div class="tk-enrich-card-head">
           <h4>Printable Ideas</h4>
-          <button type="button" class="ghost-button" data-kit-media-add="printableIdea">+ Add Printable Idea</button>
+          <div class="form-actions">
+            <button type="button" class="ghost-button" data-kit-media-add="printableIdea">+ Add Printable Idea</button>
+            <button type="button" class="ghost-button" data-printable-idea-cleanup>Remove duplicate/filler ideas</button>
+          </div>
         </div>
         <p class="muted-copy">Proposed printable ideas only. Actual files stay in Linked Resources — this does not upload files.</p>
         <div class="tk-enrich-kit-media-list">
@@ -1816,6 +1830,87 @@
         // Server draft-save cleanup is the safety net; keep going.
       }
     }
+  }
+
+  function ideaRemoveHelper() {
+    return printableIdeaRemoveApi() || {};
+  }
+
+  async function persistPrintableIdeasDraft(successText) {
+    const saved = await saveDraft({ silent: false });
+    if (saved) {
+      state.statusText = successText;
+      renderChromeOnly();
+    }
+    return saved;
+  }
+
+  async function removeClickedPrintableIdea(event, button) {
+    const helper = ideaRemoveHelper();
+    const week = ensureWeekDraft();
+    week.printableIdeas = typeof helper.ensurePrintableIdeaIds === "function"
+      ? helper.ensurePrintableIdeaIds(week.printableIdeas)
+      : (Array.isArray(week.printableIdeas) ? week.printableIdeas : []);
+    const ideaId = (typeof helper.resolvePrintableIdeaIdFromEvent === "function"
+      ? helper.resolvePrintableIdeaIdFromEvent(event)
+      : "")
+      || String(button?.getAttribute?.("data-printable-idea-id") || "").trim();
+    if (!ideaId || typeof helper.removePrintableIdeaById !== "function") {
+      state.statusText = "Could not identify that Printable Idea. Refresh and try again.";
+      renderChromeOnly();
+      return;
+    }
+    const before = week.printableIdeas;
+    const result = helper.removePrintableIdeaById(before, ideaId);
+    if (!result.removed) {
+      state.statusText = "That Printable Idea was not found in this lesson draft.";
+      renderChromeOnly();
+      return;
+    }
+    const title = typeof helper.printableIdeaTitle === "function"
+      ? helper.printableIdeaTitle(result.removed)
+      : String(result.removed?.title || "Printable idea");
+    const confirmed = window.confirm(
+      `Remove Printable Idea “${title}” (${ideaId}) from this lesson draft?\n\nLinked Resources, uploaded PDFs, and published lesson data will not be changed.`,
+    );
+    if (!confirmed) return;
+    week.printableIdeas = result.list;
+    if (state.kitMediaEdit?.kind === "printableIdea") state.kitMediaEdit = null;
+    await persistPrintableIdeasDraft(`Removed Printable Idea “${title}”. Draft saved. Linked Resources unchanged.`);
+    render();
+  }
+
+  async function cleanupDuplicateFillerPrintableIdeas() {
+    const helper = ideaRemoveHelper();
+    if (typeof helper.applyDuplicateFillerCleanup !== "function") {
+      state.statusText = "Printable Idea cleanup is unavailable. Refresh and try again.";
+      renderChromeOnly();
+      return;
+    }
+    const week = ensureWeekDraft();
+    const applied = helper.applyDuplicateFillerCleanup(week.printableIdeas);
+    const selected = applied.selection?.remove || [];
+    if (!selected.length) {
+      week.printableIdeas = applied.list;
+      state.statusText = "No duplicate/filler Printable Ideas to remove on this lesson draft.";
+      render();
+      return;
+    }
+    const preview = selected
+      .map((row) => `- ${row.title} (${row.id || "no-id"})`)
+      .join("\n");
+    const confirmed = window.confirm(
+      `Remove ${selected.length} duplicate/filler Printable Idea(s) from this lesson draft?\n\n`
+      + `${preview}\n\n`
+      + `Linked Resources will not be changed. Unique Printable Ideas will be kept.`,
+    );
+    if (!confirmed) return;
+    week.printableIdeas = applied.list;
+    if (state.kitMediaEdit?.kind === "printableIdea") state.kitMediaEdit = null;
+    await persistPrintableIdeasDraft(
+      `Removed ${selected.length} duplicate/filler Printable Idea(s). Draft saved. Linked Resources unchanged.`,
+    );
+    render();
   }
 
   async function saveDraft({ silent = false, _retry = false } = {}) {
@@ -5303,11 +5398,24 @@
         render();
         return;
       }
+      const printableIdeaCleanup = event.target.closest("[data-printable-idea-cleanup]");
+      if (printableIdeaCleanup) {
+        event.preventDefault();
+        event.stopPropagation();
+        void cleanupDuplicateFillerPrintableIdeas();
+        return;
+      }
       const kitMediaRemove = event.target.closest("[data-kit-media-remove]");
       if (kitMediaRemove) {
         const kind = kitMediaRemove.getAttribute("data-kit-media-remove") || "";
+        if (kind === "printableIdea") {
+          event.preventDefault();
+          event.stopPropagation();
+          void removeClickedPrintableIdea(event, kitMediaRemove);
+          return;
+        }
         const index = Number(kitMediaRemove.getAttribute("data-kit-media-index"));
-        if (!["book", "song", "printableIdea"].includes(kind) || !Number.isFinite(index) || index < 0) return;
+        if (!["book", "song"].includes(kind) || !Number.isFinite(index) || index < 0) return;
         const week = ensureWeekDraft();
         const key = kind === "book" ? "books" : kind === "song" ? "songs" : "printableIdeas";
         const list = Array.isArray(week[key]) ? [...week[key]] : [];
@@ -5992,6 +6100,7 @@
           week.songs = list.slice(0, 24);
         } else {
           const next = normalizeManualPrintableIdeaEntry({
+            id: formData.get("ideaId"),
             title: formData.get("title"),
             type: formData.get("type"),
             purpose: formData.get("purpose"),

@@ -14126,9 +14126,17 @@ async function fetchCurriculumResourceFile(resourceId) {
   return href;
 }
 
+const curriculumResourceOpenLock = { id: "", at: 0 };
+
 async function openCurriculumResourceFile(resourceId) {
   const requestedId = String(resourceId || "").trim();
   if (!requestedId) throw new Error("Resource id is required.");
+  const now = Date.now();
+  if (curriculumResourceOpenLock.id === requestedId && (now - curriculumResourceOpenLock.at) < 1000) {
+    return;
+  }
+  curriculumResourceOpenLock.id = requestedId;
+  curriculumResourceOpenLock.at = now;
   const href = await fetchCurriculumResourceFile(requestedId);
   if (String(href).startsWith("data:")) {
     const objectUrl = curriculumResourceDataUrlToObjectUrl(href);
