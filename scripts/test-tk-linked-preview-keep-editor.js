@@ -243,10 +243,15 @@ async function main() {
 
     await page.evaluate(() => {
       window.__previewOpens = [];
+      window.__blankTargets = [];
       window.open = (url, target) => {
         window.__previewOpens.push({ url: String(url || ""), target: String(target || "") });
-        return { closed: false };
+        return null;
       };
+      document.addEventListener("click", (event) => {
+        const a = event.target?.closest?.("a[target='_blank']");
+        if (a) window.__blankTargets.push(a.getAttribute("href") || "");
+      }, true);
     });
 
     await page.locator(`[data-curriculum-resource-open="${RES_A}"]`).first().click({ timeout: 8000 });
@@ -256,23 +261,42 @@ async function main() {
       planId: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "",
       mode: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.mode || "",
       listVisible: Boolean(document.querySelector("#adminCurriculumLessonPlanList")),
-      opens: window.__previewOpens || [],
-      error: document.querySelector("[data-tk-linked-resource-preview-error]")?.textContent || "",
+      overlay: Boolean(document.querySelector("[data-tk-linked-resource-preview-overlay]:not([hidden])")),
+      frameSrc: document.querySelector("[data-tk-linked-resource-preview-frame]")?.getAttribute("src") || "",
+      blankTargets: window.__blankTargets || [],
+      href: window.location.href,
     }));
     ok(afterA.open === true && afterA.planId === PLAN_ID, "editor stays open after first Preview / Download");
     ok(afterA.mode === "week", "Week tab is retained after first Preview / Download");
     ok(!afterA.listVisible, "lesson-plan list is not restored after Preview / Download");
-    ok(afterA.opens.length === 1, "first Preview / Download opens exactly one preview");
+    ok(afterA.overlay === true, "preview stays inside the editor overlay when popups are blocked");
+    ok(/^blob:/.test(afterA.frameSrc), "overlay iframe loads the clicked printable blob");
+    ok(afterA.blankTargets.length === 0, "preview does not click a target=_blank link that can navigate this tab");
+
+    await page.locator("[data-tk-linked-resource-preview-close]").first().click({ timeout: 8000 });
+    await page.waitForFunction(() => {
+      const overlay = document.querySelector("[data-tk-linked-resource-preview-overlay]");
+      return !overlay || overlay.hidden === true;
+    }, null, { timeout: 5000 });
 
     await page.locator(`[data-curriculum-resource-open="${RES_B}"]`).first().click({ timeout: 8000 });
     await page.waitForTimeout(400);
     const afterB = await page.evaluate(() => ({
       open: window.LLHTeachingKitEnrichmentEditor?.isOpen?.() === true,
       mode: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.mode || "",
-      opens: window.__previewOpens || [],
+      frameSrc: document.querySelector("[data-tk-linked-resource-preview-frame]")?.getAttribute("src") || "",
+      overlayCount: document.querySelectorAll("[data-tk-linked-resource-preview-overlay]").length,
     }));
     ok(afterB.open === true && afterB.mode === "week", "editor stays on Week after second printable Preview");
-    ok(afterB.opens.length === 2, "two printables produce two preview opens");
+    ok(/^blob:/.test(afterB.frameSrc), "second printable replaces the overlay with its own blob");
+    ok(afterB.frameSrc !== afterA.frameSrc, "second Preview / Download loads a different printable blob");
+    ok(afterB.overlayCount === 1, "two printables share one overlay instead of navigating away");
+
+    await page.locator("[data-tk-linked-resource-preview-close]").first().click({ timeout: 8000 });
+    await page.waitForFunction(() => {
+      const overlay = document.querySelector("[data-tk-linked-resource-preview-overlay]");
+      return !overlay || overlay.hidden === true;
+    }, null, { timeout: 5000 });
 
     await page.locator(`[data-curriculum-resource-open="${RES_MISSING}"]`).first().click({ timeout: 8000 });
     await page.waitForTimeout(600);
@@ -280,11 +304,11 @@ async function main() {
       open: window.LLHTeachingKitEnrichmentEditor?.isOpen?.() === true,
       mode: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.mode || "",
       error: document.querySelector("[data-tk-linked-resource-preview-error]")?.textContent || "",
-      opens: (window.__previewOpens || []).length,
+      listVisible: Boolean(document.querySelector("#adminCurriculumLessonPlanList")),
     }));
     ok(afterMissing.open === true && afterMissing.mode === "week", "missing PDF bytes keep the editor open on Week");
     ok(/missing|not available|could not|not stored/i.test(afterMissing.error), "missing PDF shows an inline error");
-    ok(afterMissing.opens === 2, "missing PDF does not open a third preview");
+    ok(!afterMissing.listVisible, "missing PDF does not restore the lesson-plan list");
 
     const types = await page.evaluate(() => [...document.querySelectorAll("[data-curriculum-resource-open]")].map((el) => el.getAttribute("type")));
     ok(types.every((t) => t === "button"), "every Preview / Download control is type=button");

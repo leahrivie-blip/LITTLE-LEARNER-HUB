@@ -72,7 +72,10 @@ async function main() {
   );
   ok(handlerSlice.includes("handleCurriculumResourceOpenClick(event)"), "bubble click path uses the isolated helper");
   ok(!handlerSlice.includes('querySelector("[data-curriculum-resource-open]")'), "click path does not use the first matching querySelector");
-  ok(appJs.includes("curriculumResourceDataUrlToObjectUrl"), "owner preview converts PDF data URLs to object URLs");
+  ok(appJs.includes("presentCurriculumResourcePreviewInEditor"), "editor-open preview uses an in-editor overlay");
+  ok(appJs.includes("data-tk-linked-resource-preview-overlay"), "overlay marker is stable");
+  ok(!extractFunction(appJs, "openCurriculumResourcePreviewTab").includes('target = "_blank"'), "preview fallback does not set target=_blank");
+  ok(!extractFunction(appJs, "openCurriculumResourcePreviewTab").includes("noopener,noreferrer"), "preview does not use noopener window.open that always returns null");
   ok(appJs.includes("Printable PDF was not stored. The media file could not be resolved.") || appJs.includes("Printable PDF bytes are missing"), "missing PDF copy is explicit");
 
   const fnSource = [
