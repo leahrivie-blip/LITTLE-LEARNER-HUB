@@ -14042,6 +14042,25 @@ function curriculumResourceFileHref(resource) {
   return "";
 }
 
+function resolveCurriculumResourceOpenId(event) {
+  const target = event?.target;
+  if (!target || typeof target.closest !== "function") return "";
+  const button = target.closest("[data-curriculum-resource-open]");
+  if (!button) return "";
+  return String(button.getAttribute("data-curriculum-resource-open") || "").trim();
+}
+
+function curriculumResourceDataUrlToObjectUrl(fileData) {
+  const text = String(fileData || "").trim();
+  const match = text.match(/^data:([^;]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match || typeof atob !== "function") return "";
+  const mimeType = String(match[1] || "application/octet-stream").trim() || "application/octet-stream";
+  const binary = atob(match[2].replace(/\s+/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+}
+
 function curriculumResourceHasFile(resource) {
   if (!resource) return false;
   if (resource.hasFile === true) return true;
@@ -14096,14 +14115,42 @@ async function fetchCurriculumResourceFile(resourceId) {
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not open resource file.");
-  const href = curriculumResourceFileHref(data.resource);
+  const resource = data.resource;
+  if (resource?.id && String(resource.id) !== String(resourceId)) {
+    throw new Error("Preview opened the wrong printable. Refresh and try again.");
+  }
+  const fileData = String(resource?.fileData || "").trim();
+  if (fileData.startsWith("data:")) return fileData;
+  const href = curriculumResourceFileHref(resource);
   if (!href) throw new Error("Resource file data is not available.");
   return href;
 }
 
 async function openCurriculumResourceFile(resourceId) {
-  const href = await fetchCurriculumResourceFile(resourceId);
-  window.open(href, "_blank", "noopener");
+  const requestedId = String(resourceId || "").trim();
+  if (!requestedId) throw new Error("Resource id is required.");
+  const href = await fetchCurriculumResourceFile(requestedId);
+  if (String(href).startsWith("data:")) {
+    const objectUrl = curriculumResourceDataUrlToObjectUrl(href);
+    if (!objectUrl) throw new Error("Resource file data is not available.");
+    window.open(objectUrl, "_blank", "noopener");
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (String(href).startsWith("/") && token) {
+    const response = await fetch(href, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) {
+      throw new Error("Printable file could not be resolved.");
+    }
+    const blob = await response.blob();
+    if (!blob.size) throw new Error("Printable file could not be resolved.");
+    const objectUrl = URL.createObjectURL(blob);
+    window.open(objectUrl, "_blank", "noopener");
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
+    return;
+  }
+  throw new Error("Resource file data is not available.");
 }
 
 async function uploadCurriculumResourceFile({ resourceId, file }) {
@@ -14775,6 +14822,14 @@ async function saveTeachingKitPrintableForm(panel) {
       ...(previewImageData ? { previewImageData, previewFileName } : {}),
     };
     const data = await postTeachingKitPrintableAction(payload);
+    const savedId = String(data?.resource?.id || "").trim();
+    if (!savedId) throw new Error("Printable was not saved with a resource id.");
+    if (fileData || !resourceId) {
+      const opened = await fetchCurriculumResourceFile(savedId);
+      if (!String(opened).startsWith("data:application/pdf")) {
+        throw new Error("Printable PDF was not stored. The media file could not be resolved.");
+      }
+    }
     adminTkPrintableFormOpen = false;
     adminTkPrintableEditingId = "";
     clearAdminTkPrintableDraft();
@@ -74136,8 +74191,12 @@ document.addEventListener("click", async (event) => {
   }
   const curriculumResourceOpenButton = event.target.closest("[data-curriculum-resource-open]");
   if (curriculumResourceOpenButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const resourceId = resolveCurriculumResourceOpenId(event);
+    if (!resourceId) return;
     try {
-      await openCurriculumResourceFile(curriculumResourceOpenButton.dataset.curriculumResourceOpen);
+      await openCurriculumResourceFile(resourceId);
     } catch (error) {
       setFormMessage(
         "#adminCurriculumResourceMessage",
