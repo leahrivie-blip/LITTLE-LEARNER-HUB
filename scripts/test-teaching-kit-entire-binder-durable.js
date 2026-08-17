@@ -80,6 +80,13 @@ function unitManifestAndPrintablesUi() {
   ok((built.attachmentPlan?.attachments || []).length === 1, "one printable PDF attachment planned");
   ok(built.attachmentPlan.attachments[0].id === "cur-res-c5cd1e5e6d5ea78a", "Farm Animals picture card pack id preserved");
 
+  const expectedMaterials = (kit.companion?.materialsModel?.master || []).length;
+  ok(expectedMaterials > 80, `Farm Animals master materials exceed legacy 80-cap (${expectedMaterials})`);
+  const materialsMatch = String(built.html || "").match(/data-tk-print-tab="Materials"[\s\S]*?(?=<section class="tk-print-page|$)/);
+  const materialsLi = ((materialsMatch && materialsMatch[0]) || "").match(/<li[\s>]/g) || [];
+  ok(materialsLi.length === expectedMaterials,
+    `Entire Binder Materials list is complete (${materialsLi.length}/${expectedMaterials})`);
+
   // On-screen Binder Printables tab shows previews (separate from final PDF summary omission).
   const state = Viewer.defaultState(kit, {
     printCenterEnabled: true,
