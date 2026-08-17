@@ -14042,12 +14042,76 @@ function curriculumResourceFileHref(resource) {
   return "";
 }
 
-function resolveCurriculumResourceOpenId(event) {
+function eventTargetElement(event) {
   const target = event?.target;
+  if (target && target.nodeType === 1) return target;
+  return target && target.parentElement ? target.parentElement : null;
+}
+
+function resolveCurriculumResourceOpenId(event) {
+  const target = eventTargetElement(event);
   if (!target || typeof target.closest !== "function") return "";
   const button = target.closest("[data-curriculum-resource-open]");
   if (!button) return "";
   return String(button.getAttribute("data-curriculum-resource-open") || "").trim();
+}
+
+function showLinkedResourcePreviewError(message) {
+  const text = String(message || "Printable PDF bytes are missing.").trim();
+  const wrap = document.querySelector("[data-tk-enrich-linked-resources-wrap]");
+  if (wrap) {
+    let err = wrap.querySelector("[data-tk-linked-resource-preview-error]");
+    if (!err) {
+      err = document.createElement("p");
+      err.className = "form-message is-error";
+      err.setAttribute("data-tk-linked-resource-preview-error", "1");
+      err.setAttribute("role", "alert");
+      wrap.appendChild(err);
+    }
+    err.hidden = false;
+    err.textContent = `❌ ${text}`;
+  }
+  setFormMessage("#adminCurriculumResourceMessage", `❌ ${text}`, false);
+}
+
+function openCurriculumResourcePreviewTab(url) {
+  const href = String(url || "").trim();
+  if (!href) return false;
+  const opened = window.open(href, "_blank", "noopener,noreferrer");
+  if (opened) return true;
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  return true;
+}
+
+async function handleCurriculumResourceOpenClick(event) {
+  const target = eventTargetElement(event);
+  const button = target && typeof target.closest === "function"
+    ? target.closest("[data-curriculum-resource-open]")
+    : null;
+  if (!button) return false;
+  if (event && typeof event.preventDefault === "function") event.preventDefault();
+  if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+  if (event && typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+  const resourceId = String(button.getAttribute("data-curriculum-resource-open") || "").trim();
+  if (!resourceId) return true;
+  try {
+    await openCurriculumResourceFile(resourceId);
+  } catch (error) {
+    showLinkedResourcePreviewError(error?.message || "Printable PDF bytes are missing. The lesson editor is still open.");
+  }
+  return true;
+}
+
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("click", (event) => {
+    void handleCurriculumResourceOpenClick(event);
+  }, true);
 }
 
 function curriculumResourceDataUrlToObjectUrl(fileData) {
@@ -14122,7 +14186,7 @@ async function fetchCurriculumResourceFile(resourceId) {
   const fileData = String(resource?.fileData || "").trim();
   if (fileData.startsWith("data:")) return fileData;
   const href = curriculumResourceFileHref(resource);
-  if (!href) throw new Error("Resource file data is not available.");
+  if (!href) throw new Error("Printable PDF bytes are missing. The lesson editor is still open.");
   return href;
 }
 
@@ -14141,7 +14205,7 @@ async function openCurriculumResourceFile(resourceId) {
   if (String(href).startsWith("data:")) {
     const objectUrl = curriculumResourceDataUrlToObjectUrl(href);
     if (!objectUrl) throw new Error("Resource file data is not available.");
-    window.open(objectUrl, "_blank", "noopener");
+    openCurriculumResourcePreviewTab(objectUrl);
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
     return;
   }
@@ -14149,12 +14213,12 @@ async function openCurriculumResourceFile(resourceId) {
   if (String(href).startsWith("/") && token) {
     const response = await fetch(href, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) {
-      throw new Error("Printable file could not be resolved.");
+      throw new Error("Printable PDF bytes are missing. The lesson editor is still open.");
     }
     const blob = await response.blob();
-    if (!blob.size) throw new Error("Printable file could not be resolved.");
+    if (!blob.size) throw new Error("Printable PDF bytes are missing. The lesson editor is still open.");
     const objectUrl = URL.createObjectURL(blob);
-    window.open(objectUrl, "_blank", "noopener");
+    openCurriculumResourcePreviewTab(objectUrl);
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
     return;
   }
@@ -14896,6 +14960,8 @@ if (typeof window !== "undefined") {
   window.refreshTeachingKitLinkedResourcesHosts = refreshTeachingKitLinkedResourcesHosts;
   window.hydrateAdminTkPrintableForm = hydrateAdminTkPrintableForm;
   window.postTeachingKitPrintableAction = postTeachingKitPrintableAction;
+  window.handleCurriculumResourceOpenClick = handleCurriculumResourceOpenClick;
+  window.resolveCurriculumResourceOpenId = resolveCurriculumResourceOpenId;
 }
 
 async function saveAdminCurriculumResourceForm(form) {
@@ -74197,23 +74263,7 @@ document.addEventListener("click", async (event) => {
     openAdminCurriculumResourceEditor(curriculumResourceEditButton.dataset.curriculumResourceEdit, { scroll: true });
     return;
   }
-  const curriculumResourceOpenButton = event.target.closest("[data-curriculum-resource-open]");
-  if (curriculumResourceOpenButton) {
-    event.preventDefault();
-    event.stopPropagation();
-    const resourceId = resolveCurriculumResourceOpenId(event);
-    if (!resourceId) return;
-    try {
-      await openCurriculumResourceFile(resourceId);
-    } catch (error) {
-      setFormMessage(
-        "#adminCurriculumResourceMessage",
-        `❌ ${error.message || "Could not open resource file."}`,
-        false,
-      );
-    }
-    return;
-  }
+  if (await handleCurriculumResourceOpenClick(event)) return;
   if (event.target.closest("[data-curriculum-resource-back]")) {
     adminCurriculumResourceEditorId = "";
     renderAdminCurriculumResourceManager();

@@ -389,6 +389,7 @@
     "test:tk-upgrade-safety": "NODE_ENV=test node scripts/test-tk-upgrade-safety.js",
     "test:tk-linked-printable-upload": "NODE_ENV=test node scripts/test-tk-linked-printable-upload.js",
     "test:tk-printable-preview-handler": "NODE_ENV=test node scripts/test-tk-printable-preview-handler.js",
+    "test:tk-linked-preview-keep-editor": "NODE_ENV=test node scripts/test-tk-linked-preview-keep-editor.js",
     "test:tk-printable-idea-remove": "NODE_ENV=test node scripts/test-tk-printable-idea-remove.js",
     "test:teaching-kit-admin-publish-customer-e2e": "NODE_ENV=test node scripts/test-teaching-kit-admin-publish-customer-e2e.js",
     "test:tk-recovery-controls-phase3": "NODE_ENV=test node scripts/test-tk-recovery-controls-phase3.js",

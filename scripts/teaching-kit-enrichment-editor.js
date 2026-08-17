@@ -4710,6 +4710,16 @@
       const eventEl = event.target && event.target.nodeType === 1
         ? event.target
         : event.target?.parentElement;
+      const resourceOpenBtn = eventEl?.closest?.("[data-curriculum-resource-open]");
+      if (resourceOpenBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        if (typeof root.handleCurriculumResourceOpenClick === "function") {
+          await root.handleCurriculumResourceOpenClick(event);
+        }
+        return;
+      }
       const openBtn = eventEl?.closest?.("[data-curriculum-lesson-enrich]");
       if (openBtn) {
         event.preventDefault();
@@ -4739,11 +4749,11 @@
         return;
       }
       if (!state.open) return;
-      if (event.target.closest("[data-enrich-exit]") || event.target.closest("[data-enrich-close]")) {
+      if (eventEl?.closest?.("[data-enrich-exit]") || eventEl?.closest?.("[data-enrich-close]")) {
         void close();
         return;
       }
-      if (event.target.closest("[data-enrich-cancel]")) {
+      if (eventEl?.closest?.("[data-enrich-cancel]")) {
         void close({ abandonUnsaved: true });
         return;
       }
