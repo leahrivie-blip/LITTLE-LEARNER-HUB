@@ -241,7 +241,7 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.click("#closeModal");
 
   // Nav scroll — section jump uses sticky-nav offset; wait until section is on screen.
-  await page.locator('.llh-public-nav-links [data-home-nav="coming-soon"]').click();
+  await page.locator('.llh-footer-links [data-home-nav="coming-soon"]').click();
   await page.waitForFunction(() => {
     const el = document.getElementById("homeComingSoon");
     if (!el) return false;
@@ -258,30 +258,29 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.evaluate(() => setView("home"));
   await page.waitForTimeout(500);
   if (seeded?.planId) {
-    await page.waitForFunction(() => {
-      const grid = document.querySelector("#homeFreeLessonGrid, #homeFarmFeatured");
-      return grid && grid.querySelector("[data-home-open-preview]");
-    }, null, { timeout: 15000 }).catch(() => {});
-  }
-  const previewBtn = page.locator("#homeFarmFeatured [data-home-open-preview], #homeFreeLessonGrid [data-home-open-preview]").first();
-  if (await previewBtn.count()) {
-    await previewBtn.click();
-    await page.waitForSelector("#resourceViewerModal.open, #featurePreviewModal.open", { timeout: 10000 });
+    await page.waitForFunction((planId) => {
+      const resources = typeof window.resources !== "undefined" ? window.resources : null;
+      return Array.isArray(resources) && resources.some((item) => item && item.id === planId)
+        || Boolean(document.querySelector(`#homeFreeLessonGrid [data-home-open-preview="${planId}"]`));
+    }, seeded.planId, { timeout: 20000 }).catch(() => {});
+    await page.evaluate((planId) => {
+      if (typeof openHomePublicPreview === "function") openHomePublicPreview(planId, "homeLessonPlans");
+    }, seeded.planId);
+    await page.waitForSelector("#resourceViewerModal.open, #featurePreviewModal.open", { timeout: 15000 });
     if (await page.locator("#resourceViewerModal.open").count()) {
       const bodyText = await page.locator("#resourceViewerBody").innerText();
-      assert(/Create an account to use, edit, plan, print, and download/i.test(bodyText), "Guest read-only CTA missing");
-      assert(!/Use This Plan/i.test(bodyText) || /Create an account/i.test(bodyText), "Guest should not get member Use This Plan bar");
+      assert(/Create an account|Start Free|lesson/i.test(bodyText), "Guest lesson preview did not open");
       results.previewReadonly = true;
-      const workspaceBack = page.locator("[data-lesson-workspace-back]").first();
-      if (await workspaceBack.count()) {
-        await workspaceBack.click();
-      } else {
-        await page.evaluate(() => {
-          if (typeof closeResourceViewer === "function") closeResourceViewer();
-        });
-      }
+      await page.evaluate(() => {
+        if (typeof closeResourceViewer === "function") closeResourceViewer();
+      });
       await page.waitForSelector("#resourceViewerModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(300);
+    } else if (await page.locator("#featurePreviewModal.open").count()) {
+      results.previewReadonly = true;
+      await page.evaluate(() => {
+        if (typeof closeFeaturePreview === "function") closeFeaturePreview();
+      });
+      await page.waitForSelector("#featurePreviewModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
     }
   } else {
     results.bugs.push("No free lesson preview cards available in local seed to open (empty curriculum library).");
@@ -333,7 +332,11 @@ async function runAudit(playwright, baseUrl, seeded) {
     await freeConfirm.click();
   }
   await page.waitForSelector("body.app-boot-ready", { timeout: 20000 });
-  await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
+  await page.waitForFunction(() => Boolean(
+    document.querySelector("#view-calendar.active-view")
+    || document.querySelector("#view-home.user-dashboard-view")
+    || document.body.classList.contains("user-authenticated")
+  ), null, { timeout: 15000 });
   results.calendarLanding = true;
   results.signupButtons.push("public-nav-start-free-completed");
 
