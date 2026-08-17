@@ -190,6 +190,7 @@
     "test:home-daycare-hub-step-d": "node scripts/test-home-daycare-hub-step-d.js",
     "test:family-hub-testing-readiness": "node scripts/test-family-hub-testing-readiness.js",
     "test:forms-phase1-acceptance": "node scripts/test-forms-phase1-acceptance.js",
+    "test:forms-workflow-tester": "node scripts/test-forms-workflow-tester.js",
     "test:family-hub-phase2-acceptance": "node scripts/test-family-hub-phase2-acceptance.js",
     "test:ecosystem-phase3-acceptance": "node scripts/test-ecosystem-phase3-acceptance.js",
     "test:ecosystem-spine-acceptance": "node scripts/test-ecosystem-spine-acceptance.js",
