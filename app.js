@@ -32876,20 +32876,45 @@ function publicActivityPreviewCtaHtml() {
   `;
 }
 
+function homeLockedPreviewCopy() {
+  const homepageEarlyUser = Boolean(document.querySelector("#homePricing [data-checkout-plan='early_user']"));
+  const earlyUser = homepageEarlyUser || (typeof earlyUserPricingEnabled === "function" && earlyUserPricingEnabled());
+  const earlyPrice = typeof offeredProMonthlyLabel === "function" && earlyUserPricingEnabled()
+    ? offeredProMonthlyLabel()
+    : "$13.99/month";
+  const regularPrice = typeof regularProMonthlyLabel === "function" ? regularProMonthlyLabel() : "$19.99/month";
+  return {
+    lead: earlyUser
+      ? `This lesson requires paid access. Early User is ${earlyPrice} (regularly ${regularPrice}).`
+      : "This lesson requires paid access. Full lesson content stays with a paid plan.",
+    cta: earlyUser ? `Choose Early User — ${earlyPrice}` : "",
+    sticky: earlyUser ? "Included with Early User access" : "Included with paid access",
+  };
+}
+
 function applyHomeLockedLessonPreviewCopy() {
   const modal = document.getElementById("featurePreviewModal");
   if (!modal?.classList.contains("open")) return;
+  const copy = homeLockedPreviewCopy();
   const body = document.getElementById("featurePreviewBody");
-  if (body && !body.querySelector("[data-home-locked-copy]")) {
-    body.insertAdjacentHTML(
-      "afterbegin",
-      `<p data-home-locked-copy>This lesson is included with Early User access.</p>`,
-    );
+  const lead = body?.querySelector("[data-home-locked-copy]") || (() => {
+    if (!body) return null;
+    body.insertAdjacentHTML("afterbegin", `<p data-home-locked-copy></p>`);
+    return body.querySelector("[data-home-locked-copy]");
+  })();
+  if (lead) lead.textContent = copy.lead;
+  const eyebrow = document.getElementById("featurePreviewEyebrow");
+  if (eyebrow && /pro /i.test(eyebrow.textContent || "")) {
+    eyebrow.textContent = copy.sticky;
   }
-  modal.querySelectorAll("[data-checkout-plan], [data-fp-sticky-upgrade] .primary-button").forEach((button) => {
-    if (button.dataset) button.dataset.checkoutPlan = "early_user";
-    button.textContent = "Choose Early User — $13.99/month";
+  modal.querySelectorAll("[data-fp-sticky-upgrade] strong").forEach((node) => {
+    if (/unlock this pro/i.test(node.textContent || "")) node.textContent = copy.sticky;
   });
+  if (copy.cta) {
+    modal.querySelectorAll("[data-checkout-plan='early_user']").forEach((button) => {
+      button.textContent = copy.cta;
+    });
+  }
   if (!modal.querySelector("[data-home-keep-browsing-free]")) {
     const host = modal.querySelector("[data-fp-sticky-upgrade]") || body;
     if (!host) return;
@@ -33166,13 +33191,17 @@ function renderHomePublicPreviews() {
     heroCover.alt = farm.coverImageAlt || "Farm Animals weekly lesson plan cover";
   }
   if (farmHost) {
+    farmHost.classList.remove("is-loading", "is-empty", "is-ready");
     if (farm) {
+      farmHost.classList.add("is-ready");
       const day = farmHost.getAttribute("data-home-farm-day") || "monday";
       farmHost.innerHTML = homeFarmFeaturedHtml(farm, day);
     } else if (curriculumLibraryLoading || siteContentLoadPromise) {
-      farmHost.innerHTML = `<div class="llh-preview-empty muted-copy" role="status">Loading the Farm Animals lesson…</div>`;
+      farmHost.classList.add("is-loading");
+      farmHost.innerHTML = `<div class="llh-farm-skeleton" role="status">Loading the Farm Animals lesson…</div>`;
     } else {
-      farmHost.innerHTML = `<div class="llh-preview-empty muted-copy">The Farm Animals lesson will appear here when published curriculum is available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></div>`;
+      farmHost.classList.add("is-empty");
+      farmHost.innerHTML = `<p class="llh-farm-fallback muted-copy" role="status">The Farm Animals week will show here when that published lesson is available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></p>`;
     }
   }
   const ageFilter = document.querySelector("[data-home-browse-age].is-active")?.getAttribute("data-home-browse-age") || "All";
@@ -66983,7 +67012,11 @@ document.addEventListener("click", async (event) => {
     const host = document.querySelector("#homeFarmFeatured");
     if (host) host.setAttribute("data-home-farm-day", homeFarmDay.getAttribute("data-home-farm-day") || "monday");
     const farm = homeFarmAnimalsLesson();
-    if (farm && host) host.innerHTML = homeFarmFeaturedHtml(farm, host.getAttribute("data-home-farm-day") || "monday");
+    if (farm && host) {
+      host.classList.remove("is-loading", "is-empty");
+      host.classList.add("is-ready");
+      host.innerHTML = homeFarmFeaturedHtml(farm, host.getAttribute("data-home-farm-day") || "monday");
+    }
     return;
   }
 

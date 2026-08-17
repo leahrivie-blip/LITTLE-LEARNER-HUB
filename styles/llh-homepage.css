@@ -1889,6 +1889,32 @@ body.llh-public-menu-open {
   margin-top: 16px;
 }
 
+.llh-farm-featured-host.is-loading,
+.llh-farm-featured-host.is-empty {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.llh-farm-skeleton,
+.llh-farm-fallback {
+  margin: 0;
+  padding: 12px 4px 4px;
+  text-align: left;
+  color: var(--llh-home-muted);
+  font-size: 0.95rem;
+}
+
+.llh-farm-skeleton::after {
+  content: "";
+  display: block;
+  margin-top: 10px;
+  height: 8px;
+  max-width: 220px;
+  border-radius: 999px;
+  background: rgba(90, 77, 138, 0.12);
+}
+
 .llh-farm-proof {
   display: grid;
   gap: 8px;
