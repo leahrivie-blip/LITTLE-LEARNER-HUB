@@ -24,6 +24,8 @@ const ROOT = path.join(__dirname, "..");
 const ARTIFACT = "/opt/cursor/artifacts/tk-entire-binder-complete";
 const LIVE_SHAPE = path.join(__dirname, "fixtures/teaching-kit/farm-animals-entire-binder-live-shape.json");
 const PORT = allocateSafeTestPort(5497, 400);
+const INDEX_HTML = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const SHELL_VERSION = (INDEX_HTML.match(/var SHELL_VERSION = "([^"]+)"/) || [])[1] || "test-shell";
 
 require("./teaching-kit-present.js");
 const Print = require("./teaching-kit-print.js");
@@ -125,8 +127,9 @@ function unitFarmAnimalsMaterialsComplete() {
   ok((entire.manifest?.songs || []).length === 5, "five songs requested");
   ok((entire.manifest?.books || []).length === 3, "three books requested");
   ok((entire.attachmentPlan?.attachments || []).length === 1, "one printable PDF planned");
-  ok(Number(entire.attachmentPlan.attachments[0].pageCount || 0) === 2,
-    "fixture printable metadata pageCount is 2 (production may differ)");
+  const fixturePrintablePages = Number((kit.companion?.printables || [])[0]?.pageCount || 0);
+  ok(fixturePrintablePages === 2,
+    `fixture printable metadata pageCount is 2 (got ${fixturePrintablePages}; production live file may differ)`);
 
   const materialsOnly = Print.buildBinderPrintHtml(kit, {
     preset: "materials_list",
@@ -303,7 +306,30 @@ async function browserCompleteBinderProof(expectedMaterials) {
 
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // Block SW controllerchange reloads that destroy long binder PDF evaluates.
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      serviceWorkers: "block",
+    });
+    const page = await context.newPage();
+    await page.addInitScript((shellVersion) => {
+      try {
+        // Prevent one-shot shell CSS / manifest recovery reload during long PDF jobs.
+        sessionStorage.setItem("llhShellCssRecovery", shellVersion);
+      } catch (_err) { /* ignore */ }
+      window.__LLH_SW_RELOADING = true;
+    }, SHELL_VERSION);
+    // Serve a matching shell manifest so the boot script does not force a refresh.
+    await page.route("**/llh-shell-manifest.json**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          version: SHELL_VERSION,
+          cacheName: "llh-shell-test",
+        }),
+      });
+    });
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForFunction(() => (
       window.LLHTeachingKitPrint
@@ -329,9 +355,13 @@ async function browserCompleteBinderProof(expectedMaterials) {
       host.style.cssText = "display:block;position:fixed;left:-12000px;top:0;width:816px;visibility:visible;";
       host.innerHTML = `<article class="printable-resource-page teaching-kit-print-article">${built.html}</article>`;
       document.body.appendChild(host);
-      const materialsLi = (host.querySelector('[data-tk-print-tab="Materials"]')?.querySelectorAll("li") || []).length;
-      const toolkitHost = host.querySelector('[data-tk-print-tab="Teacher Toolkit"]');
-      const toolkitMaterialsLi = (toolkitHost?.querySelector('[data-toolkit-group="materials"]')?.querySelectorAll("li") || []).length;
+      const materialsLi = [...host.querySelectorAll('[data-tk-print-tab="Materials"]')]
+        .reduce((sum, node) => sum + node.querySelectorAll("li").length, 0);
+      const toolkitMaterialsLi = [...host.querySelectorAll('[data-tk-print-tab="Teacher Toolkit"]')]
+        .reduce((sum, node) => {
+          const group = node.querySelector('[data-toolkit-group="materials"]');
+          return sum + (group ? group.querySelectorAll("li").length : 0);
+        }, 0);
       const activityCards = host.querySelectorAll(".tk-print-activity-card").length;
       const sectionTabs = [...host.querySelectorAll("[data-tk-print-tab]")].map((node) => node.getAttribute("data-tk-print-tab"));
       const merged = await PrintApi.buildMergedTeachingKitPdf(liveKit, {
@@ -350,9 +380,9 @@ async function browserCompleteBinderProof(expectedMaterials) {
       });
       const validation = JobApi.validatePdfBytes(merged.bytes || new Uint8Array());
       const blob = new Blob([merged.bytes], { type: "application/pdf" });
-      const download = JobApi.triggerBlobDownload(blob, built.fileName || "Teacher-Binder.pdf", {
-        forceDownload: true,
-      });
+      // Do not trigger a real navigation download here — it destroys the page
+      // context before Playwright can serialize the large PDF return payload.
+      // Download delivery is smoke-tested separately with a tiny blob.
       return {
         mergeOk: merged.ok,
         reason: merged.reason,
@@ -369,8 +399,6 @@ async function browserCompleteBinderProof(expectedMaterials) {
         byteLength: merged.bytes?.byteLength || 0,
         clientBytes: blob.size,
         validationOk: validation.ok,
-        downloadOk: download.ok === true,
-        delivery: download.delivery,
         pdfBytes: merged.bytes || null,
       };
     }, kit);
@@ -393,7 +421,13 @@ async function browserCompleteBinderProof(expectedMaterials) {
     ok(result.serverPages === expectedTotal2,
       `page formula: total=${result.serverPages} === binder(${result.binderPages})+attachments(${result.attachmentPages})`);
     ok(result.clientBytes === result.byteLength, `client Blob bytes match server (${result.clientBytes})`);
-    ok(result.downloadOk === true && result.delivery === "download", "download trigger succeeded");
+
+    const downloadSmoke = await page.evaluate(() => {
+      const JobApi = window.LLHTeachingKitBinderJob;
+      const blob = new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46])], { type: "application/pdf" });
+      return JobApi.triggerBlobDownload(blob, "Teacher-Binder-download-smoke.pdf", { forceDownload: true });
+    });
+    ok(downloadSmoke.ok === true && downloadSmoke.delivery === "download", "download trigger succeeded");
 
     const pdfDoc = await PDFDocument.load(result.pdfBytes);
     const downloadedPages = pdfDoc.getPageCount();
