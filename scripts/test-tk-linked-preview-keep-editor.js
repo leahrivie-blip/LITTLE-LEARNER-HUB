@@ -146,6 +146,7 @@ function writeStore() {
             lessonPlanIds: [PLAN_ID],
             fileName: "missing.pdf",
             mimeType: "application/pdf",
+            mediaAssetId: "missing-asset-does-not-exist",
             hasFile: true,
             disposableQaFixture: true,
           },
@@ -273,19 +274,17 @@ async function main() {
     ok(afterB.open === true && afterB.mode === "week", "editor stays on Week after second printable Preview");
     ok(afterB.opens.length === 2, "two printables produce two preview opens");
 
-    const missing = page.locator(`[data-curriculum-resource-open="${RES_MISSING}"]`);
-    if (await missing.count()) {
-      await missing.first().click({ timeout: 8000 });
-      await page.waitForTimeout(400);
-      const afterMissing = await page.evaluate(() => ({
-        open: window.LLHTeachingKitEnrichmentEditor?.isOpen?.() === true,
-        error: document.querySelector("[data-tk-linked-resource-preview-error]")?.textContent || "",
-        opens: (window.__previewOpens || []).length,
-      }));
-      ok(afterMissing.open === true, "missing PDF bytes keep the editor open");
-      ok(/missing|not available|could not/i.test(afterMissing.error), "missing PDF shows an inline error");
-      ok(afterMissing.opens === 2, "missing PDF does not open a third preview");
-    }
+    await page.locator(`[data-curriculum-resource-open="${RES_MISSING}"]`).first().click({ timeout: 8000 });
+    await page.waitForTimeout(600);
+    const afterMissing = await page.evaluate(() => ({
+      open: window.LLHTeachingKitEnrichmentEditor?.isOpen?.() === true,
+      mode: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.mode || "",
+      error: document.querySelector("[data-tk-linked-resource-preview-error]")?.textContent || "",
+      opens: (window.__previewOpens || []).length,
+    }));
+    ok(afterMissing.open === true && afterMissing.mode === "week", "missing PDF bytes keep the editor open on Week");
+    ok(/missing|not available|could not|not stored/i.test(afterMissing.error), "missing PDF shows an inline error");
+    ok(afterMissing.opens === 2, "missing PDF does not open a third preview");
 
     const types = await page.evaluate(() => [...document.querySelectorAll("[data-curriculum-resource-open]")].map((el) => el.getAttribute("type")));
     ok(types.every((t) => t === "button"), "every Preview / Download control is type=button");
