@@ -50,7 +50,10 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+        # Install browsers for the `playwright` package used by release audit (not
+        # @playwright/test), so chromium.launch does not fail and leave the audit
+        # server child holding the process open until the 60m job timeout.
+        run: ./node_modules/playwright/cli.js install chromium --with-deps
 
       - name: Run release gate
         run: npm run test:release

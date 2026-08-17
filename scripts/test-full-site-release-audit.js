@@ -713,8 +713,28 @@ async function auditApiPermissions() {
     assert.equal(legacyCount, freeCount, `existing Free (${legacyCount}) must match curated Free unlock count (${freeCount}) — no legacy bypass`);
     assert.ok(proCount > freeCount, `Pro (${proCount}) should unlock more than Free (${freeCount})`);
     assert.ok(proCount >= 40, `Pro should unlock nearly the full published library (got ${proCount})`);
-    assert.equal(freeCount, 10, `Free must unlock exactly 10 Starter Library plans (got ${freeCount})`);
-    pass(`${label}: unlock counts curated=${freeCount} existingFree=${legacyCount} pro=${proCount}`);
+    // Canonical Free unlock is lesson.plan === "Free" (Starter Library IDs are inventory only).
+    const freeUserPlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans
+      || freeLib.json?.curriculumLibrary?.lessonPlans
+      || [];
+    const planFreePublished = freeUserPlans.filter((p) => p && String(p.plan || "").trim() === "Free");
+    const unlockedForFree = freeUserPlans.filter((p) => p && p.locked !== true);
+    assert.equal(
+      unlockedForFree.length,
+      planFreePublished.length,
+      `Free unlock count (${unlockedForFree.length}) must equal published plan=Free count (${planFreePublished.length})`,
+    );
+    assert.ok(
+      unlockedForFree.every((p) => String(p.plan || "").trim() === "Free"),
+      "unlocked Free lessons must all have plan=Free",
+    );
+    assert.equal(
+      freeUserPlans.filter((p) => String(p.plan || "").trim() === "Pro" && p.locked !== true).length,
+      0,
+      "plan=Pro must stay locked for Free users (Starter ID must not authorize)",
+    );
+    assert.ok(freeCount > 0, `Free must unlock plan=Free lessons (got ${freeCount})`);
+    pass(`${label}: unlock counts planFree=${freeCount} existingFree=${legacyCount} pro=${proCount}`);
   } catch (error) {
     fail(label, error);
   }
@@ -760,9 +780,9 @@ async function main() {
   let bootLog = "";
   child.stdout.on("data", (d) => { bootLog += d.toString(); });
   child.stderr.on("data", (d) => { bootLog += d.toString(); });
-  const browser = await chromium.launch({ headless: true });
-
+  let browser = null;
   try {
+    browser = await chromium.launch({ headless: true });
     await waitForBoot(child);
     pass("server health");
     await auditApiPermissions();
@@ -787,8 +807,20 @@ async function main() {
     fail("audit-runner", error);
     if (bootLog) console.error(bootLog.slice(-2500));
   } finally {
-    await browser.close().catch(() => {});
-    child.kill("SIGTERM");
+    if (browser) await browser.close().catch(() => {});
+    if (child && child.exitCode === null) {
+      child.kill("SIGTERM");
+      await new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          try { child.kill("SIGKILL"); } catch { /* ignore */ }
+          resolve();
+        }, 3000);
+        child.on("exit", () => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
+    }
   }
 
   report.finishedAt = new Date().toISOString();
