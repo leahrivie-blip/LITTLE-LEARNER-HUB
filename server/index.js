@@ -22918,21 +22918,46 @@ function findCurriculumResourceByMediaAssetId(store, mediaAssetId) {
   )) || null;
 }
 
-async function buildCurriculumResourceFilePayload(resource) {
+function findCurriculumResourceForMediaAssetRequest(store, assetId) {
+  const id = String(assetId || "").trim();
+  if (!id) return null;
+  const byAsset = findCurriculumResourceByMediaAssetId(store, id);
+  if (byAsset) return byAsset;
+  const previewPrefix = "curriculum-resource-preview-";
+  const filePrefix = "curriculum-resource-";
+  const resourceId = id.startsWith(previewPrefix)
+    ? id.slice(previewPrefix.length)
+    : (id.startsWith(filePrefix) ? id.slice(filePrefix.length) : "");
+  if (!resourceId) return null;
+  const curriculum = readSiteCurriculum(store);
+  return (curriculum.resources || []).find((item) => item.id === resourceId) || null;
+}
+
+function inlineCurriculumAssetDataUrl(asset) {
+  if (!asset?.buffer?.length) return "";
+  const mime = String(asset.mimeType || "application/octet-stream").trim() || "application/octet-stream";
+  return `data:${mime};base64,${Buffer.from(asset.buffer).toString("base64")}`;
+}
+
+async function buildCurriculumResourceFilePayload(resource, { includeInlineBytes = false } = {}) {
   const normalized = normalizedCurriculumResource(resource);
   if (!normalized) return null;
-  if (normalized.mediaAssetId && usePostgresStore() && postgresPool && databaseReady) {
+  const postgresReady = usePostgresStore() && postgresPool && databaseReady;
+  const mediaAssetId = String(normalized.mediaAssetId || "").trim()
+    || (postgresReady ? curriculumMedia.curriculumResourceMediaAssetId(normalized.id) : "");
+  if (mediaAssetId && postgresReady) {
     const asset = await curriculumMedia.readMediaAsset(
       postgresPool,
-      normalized.mediaAssetId,
+      mediaAssetId,
       curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND,
     );
     if (asset?.buffer?.length) {
       return curriculumMedia.curriculumResourcePublicDto(normalized, {
-        fileData: "",
-        mediaUrl: normalized.mediaUrl || curriculumMedia.curriculumResourceMediaUrl(normalized.mediaAssetId),
+        fileData: includeInlineBytes ? inlineCurriculumAssetDataUrl(asset) : "",
+        mediaUrl: normalized.mediaUrl || curriculumMedia.curriculumResourceMediaUrl(mediaAssetId),
       });
     }
+    return null;
   }
   if (curriculumMedia.isHttpsCurriculumFileRef(normalized.fileData)) {
     return curriculumMedia.curriculumResourcePublicDto(normalized, {
@@ -22946,13 +22971,56 @@ async function buildCurriculumResourceFilePayload(resource) {
       mediaUrl: normalized.mediaUrl || "",
     });
   }
-  if (normalized.mediaUrl) {
+  if (normalized.mediaUrl && !usePostgresStore()) {
     return curriculumMedia.curriculumResourcePublicDto(normalized, {
       fileData: "",
       mediaUrl: normalized.mediaUrl,
     });
   }
   return null;
+}
+
+async function assertCurriculumPrintableMediaResolvable(resource, { requirePreview = false } = {}) {
+  const normalized = normalizedCurriculumResource(resource);
+  if (!normalized) {
+    const error = new Error("Printable PDF was not stored. The media file could not be resolved.");
+    error.code = "media_not_resolvable";
+    error.status = 503;
+    throw error;
+  }
+  const payload = await buildCurriculumResourceFilePayload(normalized, { includeInlineBytes: true });
+  const fileData = String(payload?.fileData || "").trim();
+  const hasPdf = (fileData.startsWith("data:application/pdf") || curriculumMedia.isHttpsCurriculumFileRef(fileData));
+  if (!payload || !hasPdf) {
+    const error = new Error("Printable PDF was not stored. The media file could not be resolved.");
+    error.code = "media_not_resolvable";
+    error.status = 503;
+    throw error;
+  }
+  if (!requirePreview) return;
+  if (usePostgresStore() && postgresPool && databaseReady) {
+    const previewId = String(normalized.previewMediaAssetId || "").trim()
+      || curriculumMedia.curriculumResourcePreviewMediaAssetId(normalized.id);
+    const preview = await curriculumMedia.readMediaAsset(
+      postgresPool,
+      previewId,
+      curriculumMedia.CURRICULUM_RESOURCE_PREVIEW_MEDIA_KIND,
+    );
+    if (!preview?.buffer?.length) {
+      const error = new Error("Preview image was not stored. The printable was not marked saved.");
+      error.code = "preview_not_resolvable";
+      error.status = 503;
+      throw error;
+    }
+    return;
+  }
+  const previewUrl = String(normalized.previewImageUrl || "").trim();
+  if (!previewUrl.startsWith("data:image/")) {
+    const error = new Error("Preview image was not stored. The printable was not marked saved.");
+    error.code = "preview_not_resolvable";
+    error.status = 503;
+    throw error;
+  }
 }
 
 async function authorizePublicCurriculumResource(store, resource, request, url) {
@@ -23008,7 +23076,7 @@ async function handleAdminCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  const payload = await buildCurriculumResourceFilePayload(resource);
+  const payload = await buildCurriculumResourceFilePayload(resource, { includeInlineBytes: true });
   if (!payload) {
     jsonResponse(response, 404, { error: "Resource file data is not available." });
     return;
@@ -23852,7 +23920,7 @@ async function handleCurriculumResourceMedia(request, response, assetId, { admin
     return;
   }
   const store = readStore();
-  const resource = findCurriculumResourceByMediaAssetId(store, id);
+  const resource = findCurriculumResourceForMediaAssetRequest(store, id);
   if (!resource) {
     textResponse(response, 404, "Resource not found.");
     return;
@@ -23864,13 +23932,17 @@ async function handleCurriculumResourceMedia(request, response, assetId, { admin
       return;
     }
   }
-  const mediaKind = id.startsWith("curriculum-resource-preview-")
+  const isPreview = id.startsWith("curriculum-resource-preview-");
+  const mediaKind = isPreview
     ? curriculumMedia.CURRICULUM_RESOURCE_PREVIEW_MEDIA_KIND
     : curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND;
+  const storageId = isPreview
+    ? (String(resource.previewMediaAssetId || "").trim() || id)
+    : (String(resource.mediaAssetId || "").trim() || id);
   try {
     const asset = await curriculumMedia.readMediaAsset(
       postgresPool,
-      id,
+      storageId,
       mediaKind,
     );
     if (!asset?.buffer?.length) {
@@ -23967,8 +24039,10 @@ async function handleAdminCurriculumMigrateInlineMedia(request, response) {
 
 /**
  * Owner-only Teaching Kit printable create/update from Linked Resources.
- * Starts as draft; when the parent lesson is already public, linked printables
- * with files are promoted so customer Teaching Kit media URLs resolve.
+ * Starts as draft and stays draft until the printable is explicitly published
+ * (or a separate lesson-publish path promotes linked files).
+ * Creating or linking from this endpoint does not publish the resource,
+ * even when the parent lesson is already public.
  * Auth uses admin session email only (requireTeachingKitOwnerAdminSession);
  * client-supplied email/role is ignored.
  */
@@ -24137,6 +24211,10 @@ async function handleAdminTeachingKitPrintable(request, response) {
         jsonResponse(response, 404, { error: "Could not link printable to lesson.", code: "link_failed" });
         return;
       }
+      await assertCurriculumPrintableMediaResolvable(
+        (curriculum.resources || []).find((item) => item.id === resourceId),
+        { requirePreview: Boolean(body.previewImageData || body.previewData) },
+      );
     } else if (action === "update" || action === "replace_pdf" || action === "replace_preview") {
       const existing = (curriculum.resources || []).find((item) => item.id === resourceIdIncoming);
       if (!existing) {
@@ -24200,6 +24278,14 @@ async function handleAdminTeachingKitPrintable(request, response) {
       if (!(resource.lessonPlanIds || []).includes(lessonPlanId)) {
         curriculum = linkCurriculumResourceToLessonPlan(curriculum, resource.id, lessonPlanId) || curriculum;
       }
+      const requirePdfCheck = action === "replace_pdf" || Boolean(body.fileData) || action === "update";
+      const requirePreviewCheck = action === "replace_preview" || Boolean(body.previewImageData || body.previewData);
+      if (requirePdfCheck || requirePreviewCheck) {
+        await assertCurriculumPrintableMediaResolvable(
+          (curriculum.resources || []).find((item) => item.id === resource.id),
+          { requirePreview: requirePreviewCheck },
+        );
+      }
     } else if (action === "unlink") {
       curriculum = unlinkCurriculumResourceFromLessonPlan(curriculum, resourceIdIncoming, lessonPlanId);
       if (!curriculum) {
@@ -24246,14 +24332,11 @@ async function handleAdminTeachingKitPrintable(request, response) {
       return;
     }
 
-    // Uploader stays draft-first, but when the parent lesson is already public,
-    // promote linked printables that have files so customer media URLs work.
-    let promotedPrintableIds = [];
-    if (action === "create" || action === "update" || action === "replace_pdf" || action === "replace_preview") {
-      const promoted = publishLinkedDraftResourcesForLesson(curriculum, lessonPlanId, { now });
-      curriculum = promoted.curriculum;
-      promotedPrintableIds = promoted.publishedResourceIds;
-    }
+    // Do not promote drafts here. Save draft & link must remain draft even when
+    // the parent lesson is already public. Lesson-publish still uses
+    // publishLinkedDraftResourcesForLesson. Already-published resources keep
+    // their status via the update path above.
+    const promotedPrintableIds = [];
 
     // Touch only records whose object identity changed (or new/removed resources).
     const touchedLessonPlanIds = (curriculum.lessonPlans || [])
@@ -29455,7 +29538,7 @@ const server = http.createServer(async (request, response) => {
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/curriculum-resources/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/curriculum-resources/".length));
-      const adminMedia = url.searchParams.get("admin") === "1" && validAdminToken(extractAdminToken(request, url));
+      const adminMedia = validAdminToken(extractAdminToken(request, url));
       return await handleCurriculumResourceMedia(request, response, assetId, { admin: adminMedia, requestUrl: url });
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/admin/media/enrichment-photos/")) {
