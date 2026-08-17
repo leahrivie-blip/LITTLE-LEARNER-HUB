@@ -15,7 +15,11 @@
   const state = {
     showArchivedCatalog: false,
     fillResourceId: "",
+    fillChildId: "",
     mealEntries: null,
+    fillSaving: false,
+    viewerSaving: false,
+    addingMeal: false,
   };
 
   function enabled() {
@@ -57,7 +61,7 @@
   }
 
   function setFormTypeArchived(resourceId, archived) {
-    if (!canManageFormCatalog() || !resourceId) return formCatalogArchiveMap();
+    if (!enabled() || !canManageFormCatalog() || !resourceId) return formCatalogArchiveMap();
     const settings = { ...(getProgramSettings() || {}) };
     const nextMap = { ...formCatalogArchiveMap() };
     if (archived) {
@@ -91,7 +95,7 @@
       visible: true,
       archived: false,
       testerWorkflowForm: true,
-      formCategory: "Incident report",
+      formCategory: "Arrival / from home",
     };
   }
 
@@ -99,9 +103,9 @@
     return {
       id: "hdh-pack-injury-from-home",
       title: "Injury or Mark From Home",
-      category: "Incident report",
+      category: "Arrival / from home",
       resourceId: INJURY_FROM_HOME_ID,
-      description: "Arrival observation of an injury or mark from before care.",
+      description: "Arrival observation of an injury or mark reported as occurring before the child entered care — not an in-care incident.",
     };
   }
 
@@ -201,11 +205,24 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
     }
   }
 
+  function resolveLockedChildId(preferredId) {
+    const fromAttr = String(preferredId || "").trim();
+    let fromProfile = "";
+    try {
+      if (typeof selectedChildId !== "undefined") fromProfile = String(selectedChildId || "").trim();
+    } catch (_error) { /* ignore */ }
+    if (fromAttr && fromProfile && fromAttr !== fromProfile) return "";
+    return fromAttr || fromProfile;
+  }
+
   function saveCompletedFormRecord({ childId, resource, values, draftText, extra = {} }) {
-    if (!childId || !resource) throw new Error("Child and form are required.");
+    if (!enabled()) return null;
+    const lockedId = resolveLockedChildId(childId);
+    if (!lockedId || !resource || !resource.id) return null;
+    const childIdSafe = lockedId;
     const today = new Date().toISOString().slice(0, 10);
     return appendChildRecord("Documents", {
-      childId,
+      childId: childIdSafe,
       title: resource.title,
       category: resource.formCategory || resource.tags?.[0] || "Other",
       packFormId: extra.packFormId || "",
@@ -237,30 +254,29 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
   function catalogManagerHtml() {
     const items = formsWorkflowCatalog();
     const showArchived = state.showArchivedCatalog;
-    const visible = items.filter((item) => showArchived || !isFormTypeArchived(item.id) || canManageFormCatalog());
+    const visible = items.filter((item) => showArchived || !isFormTypeArchived(item.id));
     return `
       <section class="section-block forms-wf-catalog" id="formsWorkflowCatalogPanel">
         <p class="eyebrow">Manage Forms</p>
         <h3>Forms your ${escapeHtml(formsCareSettingNoun().toLowerCase())} uses</h3>
-        <p class="muted-copy">Hide forms you do not use. Hidden forms are not deleted. Completed records stay in each child’s Forms &amp; Records file and can still be viewed or printed.</p>
-        <label class="settings-check-label"><input type="checkbox" data-forms-wf-show-archived ${showArchived ? "checked" : ""} /> Show archived forms</label>
+        <p class="muted-copy">Archive hides a form type from <strong>new</strong> form pickers only. It does not delete the form definition, does not delete completed paperwork, and does not change a child’s existing Forms &amp; Records. That is different from removing one saved document on a child file.</p>
+        <label class="settings-check-label"><input type="checkbox" data-forms-wf-show-archived ${showArchived ? "checked" : ""} /> Show archived form types</label>
         <div class="forms-wf-catalog-list" role="list">
           ${visible.map((item) => {
             const archived = isFormTypeArchived(item.id);
-            if (archived && !showArchived && !canManageFormCatalog()) return "";
             return `
-              <article class="hdh-forms-pack-item" role="listitem" data-form-id="${escapeHtml(item.id)}">
+              <article class="hdh-forms-pack-item forms-wf-catalog-item" role="listitem" data-form-id="${escapeHtml(item.id)}">
                 <div>
                   <strong>${escapeHtml(item.title)}</strong>
-                  <p class="muted-copy">${escapeHtml((item.tags && item.tags[0]) || "Forms Library")} · ${archived ? "Archived" : "Active"}</p>
+                  <p class="muted-copy">${escapeHtml((item.tags && item.tags[0]) || "Forms Library")} · ${archived ? "Hidden from new forms" : "Active for new forms"}</p>
                 </div>
                 ${canManageFormCatalog() ? `
                   <div class="hdh-forms-pack-actions">
                     ${archived
-                      ? `<button class="primary-button" type="button" data-forms-wf-restore="${escapeHtml(item.id)}">Restore</button>`
-                      : `<button class="ghost-button" type="button" data-forms-wf-archive="${escapeHtml(item.id)}">Archive</button>`}
+                      ? `<button class="primary-button" type="button" data-forms-wf-restore="${escapeHtml(item.id)}">Restore to new-form list</button>`
+                      : `<button class="ghost-button" type="button" data-forms-wf-archive="${escapeHtml(item.id)}">Hide from new forms</button>`}
                   </div>
-                ` : `<p class="muted-copy">Active forms only</p>`}
+                ` : `<p class="muted-copy">Staff can fill active forms. Catalog hide/restore is owner/director only.</p>`}
               </article>
             `;
           }).join("")}
@@ -323,7 +339,7 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
         <form id="formsWorkflowFillForm" class="panel-form forms-wf-fill-form" data-resource-id="${escapeHtml(resourceId)}" data-child-id="${escapeHtml(child.id)}">
           <p class="eyebrow">Fill for ${escapeHtml(child.name)}</p>
           <h3>${escapeHtml(resource.title)}</h3>
-          <p class="hdh-disclaimer" role="note">Neutral program record. Check your own licensing rules before relying on this template.</p>
+          <p class="hdh-disclaimer" role="note">This is a program record of an injury or mark observed at arrival or reported as happening before care. It is not an in-care incident report and does not determine licensing compliance. Check your own rules before relying on this template.</p>
           <input type="hidden" name="childId" value="${escapeHtml(child.id)}" />
           <div class="form-grid-two">
             <label>Child<input name="childName" value="${escapeHtml(child.name)}" readonly /></label>
@@ -360,6 +376,11 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
   }
 
   function childFillPickerHtml(child) {
+    if (state.fillChildId && String(state.fillChildId) !== String(child.id)) {
+      state.fillResourceId = "";
+      state.fillChildId = "";
+      state.mealEntries = null;
+    }
     const active = activeCatalogForms();
     const selected = state.fillResourceId || "";
     return `
@@ -399,33 +420,51 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
   }
 
   function handleFillSubmit(form) {
-    const childId = String(form.dataset.childId || form.childId?.value || "").trim();
+    if (!enabled() || !form || form.dataset.formsWfSaved === "1" || state.fillSaving) return null;
+    const childId = resolveLockedChildId(form.dataset.childId);
     const resourceId = String(form.dataset.resourceId || "").trim();
-    const resource = formsWorkflowCatalog().find((item) => item.id === resourceId) || injuryFromHomeResource();
+    const resource = formsWorkflowCatalog().find((item) => item.id === resourceId);
+    if (!childId || !resource) return null;
+    if (resourceId !== MEAL_TRACKING_ID && resourceId !== INJURY_FROM_HOME_ID) return null;
     const child = currentChildById(childId);
+    if (!child) return null;
+    form.dataset.formsWfSaved = "1";
+    state.fillSaving = true;
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
     const values = typeof collectFormData === "function" ? collectFormData(form) : {};
-    values.childName = child?.name || values.childName;
+    values.childName = child.name;
+    delete values.childId;
     let extra = { source: "child-profile" };
     let draftText = "";
     if (resourceId === MEAL_TRACKING_ID) {
       const mealEntries = collectMealEntriesFromForm(form);
       extra.mealEntries = mealEntries;
-      draftText = `${resource.title}\n\nChild: ${child?.name || ""}\nDate: ${values.date || ""}\n\n${mealEntriesPrintable(mealEntries)}\n\nNotes:\n${values.notes || ""}`;
+      draftText = `${resource.title}\n\nChild: ${child.name}\nDate: ${values.date || ""}\n\n${mealEntriesPrintable(mealEntries)}\n\nNotes:\n${values.notes || ""}`;
     } else {
       draftText = injuryFromHomePrintable(resource, values, child);
     }
     const saved = saveCompletedFormRecord({ childId, resource, values, draftText, extra });
     state.fillResourceId = "";
+    state.fillChildId = "";
     state.mealEntries = null;
     if (typeof showActionFeedback === "function") showActionFeedback("Saved to child file.");
     if (typeof childProfileTab !== "undefined") childProfileTab = "forms-records";
     if (typeof renderChildManagement === "function") renderChildManagement();
     return saved;
+    } finally {
+      state.fillSaving = false;
+    }
   }
 
   function launchFormForChild(childId, resourceId) {
+    if (!enabled()) return;
+    const lockedId = String(childId || "").trim();
+    if (!lockedId || !resourceId) return;
     state.fillResourceId = resourceId;
-    if (typeof selectedChildId !== "undefined") selectedChildId = childId;
+    state.fillChildId = lockedId;
+    if (typeof selectedChildId !== "undefined") selectedChildId = lockedId;
     try { localStorage.setItem("llhSelectedChild", childId); } catch (_error) { /* ignore */ }
     if (typeof hdhAiDraftState !== "undefined") {
       hdhAiDraftState.childId = childId;
@@ -440,12 +479,13 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
       return;
     }
     if (typeof openResourceViewer === "function") {
-      openResourceViewer(resourceId, { returnTo: "children", childId, lockChild: true });
+      openResourceViewer(resourceId, { returnTo: "children", childId: lockedId, lockChild: true });
     }
   }
 
   function attachViewerChrome(resourceId, options = {}) {
-    const childId = String(options.childId || (typeof hdhAiDraftState !== "undefined" && hdhAiDraftState.lockedChildId) || "").trim();
+    if (!enabled() || options.lockChild !== true) return;
+    const childId = resolveLockedChildId(options.childId);
     if (!childId) return;
     const body = document.querySelector("#resourceViewerBody");
     if (!body || body.querySelector("[data-forms-wf-viewer-bar]")) return;
@@ -461,24 +501,35 @@ ${typeof formSignatureBlock === "function" ? formSignatureBlock() : "Acknowledgm
   }
 
   function saveViewerFormToChild(resourceId, childId) {
+    if (!enabled() || state.viewerSaving) return null;
+    const lockedId = resolveLockedChildId(childId);
     const resource = formsWorkflowCatalog().find((item) => item.id === resourceId)
       || (typeof resources !== "undefined" ? resources.find((item) => item.id === resourceId) : null);
-    if (!resource) return;
-    const body = document.querySelector("#resourceViewerBody");
-    const draftText = String(body?.innerText || resource.title).trim();
-    const child = currentChildById(childId);
-    saveCompletedFormRecord({
-      childId,
-      resource,
-      values: { childName: child?.name || "", date: new Date().toISOString().slice(0, 10) },
-      draftText,
-      extra: { source: "forms-center" },
-    });
-    if (typeof showActionFeedback === "function") showActionFeedback("Saved to child file.");
-    if (typeof closeResourceViewer === "function") closeResourceViewer();
-    if (typeof childProfileTab !== "undefined") childProfileTab = "forms-records";
-    if (typeof selectedChildId !== "undefined") selectedChildId = childId;
-    if (typeof renderChildManagement === "function") renderChildManagement();
+    if (!lockedId || !resource) return null;
+    const saveBtn = document.querySelector("[data-forms-wf-save-viewer]");
+    if (saveBtn?.dataset.formsWfSaved === "1") return null;
+    if (saveBtn) saveBtn.dataset.formsWfSaved = "1";
+    state.viewerSaving = true;
+    try {
+      const body = document.querySelector("#resourceViewerBody");
+      const draftText = String(body?.innerText || resource.title).trim();
+      const child = currentChildById(lockedId);
+      const saved = saveCompletedFormRecord({
+        childId: lockedId,
+        resource,
+        values: { childName: child?.name || "", date: new Date().toISOString().slice(0, 10) },
+        draftText,
+        extra: { source: "forms-center" },
+      });
+      if (typeof showActionFeedback === "function") showActionFeedback("Saved to child file.");
+      if (typeof closeResourceViewer === "function") closeResourceViewer();
+      if (typeof childProfileTab !== "undefined") childProfileTab = "forms-records";
+      if (typeof selectedChildId !== "undefined") selectedChildId = lockedId;
+      if (typeof renderChildManagement === "function") renderChildManagement();
+      return saved;
+    } finally {
+      state.viewerSaving = false;
+    }
   }
 
   function installWrappers() {
@@ -612,11 +663,17 @@ Label: ________________  Time: ________  Offered: ________________`;
     const addMeal = event.target.closest("[data-forms-wf-add-meal]");
     if (addMeal) {
       event.preventDefault();
-      const form = document.querySelector("#formsWorkflowFillForm");
-      state.mealEntries = [...collectMealEntriesFromForm(form || { querySelector: () => null }), { label: "", time: "", offered: "", amount: "" }];
-      const child = currentChildById(form?.dataset.childId);
-      const mount = form?.parentElement;
-      if (mount && child) mount.innerHTML = structuredFillHtml(child, MEAL_TRACKING_ID);
+      if (state.addingMeal) return;
+      state.addingMeal = true;
+      try {
+        const form = document.querySelector("#formsWorkflowFillForm");
+        state.mealEntries = [...collectMealEntriesFromForm(form || { querySelector: () => null }), { label: "", time: "", offered: "", amount: "" }];
+        const child = currentChildById(form?.dataset.childId);
+        const mount = form?.parentElement;
+        if (mount && child) mount.innerHTML = structuredFillHtml(child, MEAL_TRACKING_ID);
+      } finally {
+        state.addingMeal = false;
+      }
       return;
     }
     const saveViewer = event.target.closest("[data-forms-wf-save-viewer]");
@@ -673,6 +730,7 @@ Label: ________________  Time: ________  Offered: ________________`;
       defaultMealEntries,
       normalizeMealEntries,
       enabled,
+      resolveLockedChildId,
     };
   }
 

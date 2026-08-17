@@ -39,7 +39,17 @@
   background: var(--soft, #f4f7f4);
 }
 
+.forms-wf-catalog-item .hdh-forms-pack-actions {
+  margin-top: 8px;
+}
+
+.forms-wf-catalog [data-forms-wf-archive] {
+  border-color: var(--line, rgba(36, 48, 71, 0.2));
+}
+
 .forms-wf-fill-form .primary-button,
-.forms-wf-child-launch .primary-button {
+.forms-wf-child-launch .primary-button,
+.forms-wf-catalog .primary-button,
+.forms-wf-catalog .ghost-button {
   min-height: 44px;
 }
