@@ -682,12 +682,184 @@ function runHeadingAndAgeAliasTests() {
 
   const themeTitle = parseFullLessonStructurePaste("Theme:\nHello, Little World\nRecommended Age:\nInfant 0–6 Months");
   assertCanonicalHelloWorld(themeTitle, "theme/recommended age");
+  assert.equal(themeTitle.lesson.theme, "Hello, Little World");
 
   const oldFormat = parseFullLessonStructurePaste(SAMPLE_PASTE);
   assert.equal(oldFormat.ok, true, oldFormat.errors.join("; "));
   assert.equal(oldFormat.lesson.title, "Baby Moves & Discovers");
   assert.equal(oldFormat.lesson.age, "Infant 0–6 Months");
   assert.equal(oldFormat.activityCount, 14);
+
+  const colonlessTitleAge = parseFullLessonStructurePaste(`Lesson Plan Title
+Tiny Artist Studio
+
+Age Group
+Infant 0–6 Months
+
+Theme
+Art, Color, Sensory Exploration
+
+Monday
+Tummy Time Art Gallery
+`);
+  assert.equal(colonlessTitleAge.ok, true, colonlessTitleAge.errors.join("; "));
+  assert.equal(colonlessTitleAge.lesson.title, "Tiny Artist Studio");
+  assert.equal(colonlessTitleAge.lesson.age, "Infant 0–6 Months");
+  assert.equal(colonlessTitleAge.lesson.theme, "Art, Color, Sensory Exploration");
+  assert.equal(colonlessTitleAge.dailyPlans.monday.items[0].title, "Tummy Time Art Gallery");
+
+  const chatgptWeek = parseFullLessonStructurePaste(`Lesson Plan Title
+Tiny Artist Studio
+
+Age Group
+Infant 0–6 Months
+
+Theme
+Art, Color, Sensory Exploration, Movement and Caregiver Connection
+
+Weekly overview
+Tiny Artist Studio introduces young infants to art through safe sensory exploration.
+
+Learning objectives
+Notice and visually track bold colors and moving objects
+Reach toward interesting colors, textures and objects
+
+Materials list
+Large resealable bags
+Infant safe mirrors
+
+Teacher preparation / Toolkit
+Prepare all paint experiences before bringing infants to the activity area.
+
+Books
+Mix It Up by Hervé Tullet
+Mouse Paint by Ellen Stoll Walsh
+
+Book questions
+What color do you see
+Can you look at the picture
+
+Songs
+The Colors Song
+Twinkle Twinkle Little Star
+
+Song lyrics
+Red and yellow, blue and green
+Pretty colors can be seen
+
+Printable ideas
+Tiny Artist Studio welcome sign
+My First Masterpiece display page
+
+Linked resources
+None yet
+
+Activity name
+Tummy Time Art Gallery
+
+Weekday
+Monday
+
+Category/developmental domain
+Physical Development, Visual Development and Language
+
+Recommended age
+Infant 0–6 Months
+
+Estimated duration
+5–8 minutes
+
+Activity objective
+Support visual tracking, head lifting and early language while infants view simple artwork during tummy time.
+
+What children will do
+Infants will lie on their tummy or in another comfortable supported position and look at bold art cards.
+
+Materials
+Tummy time mat
+High contrast art cards
+
+Teacher preparation
+Place two or three cards at infant eye level before beginning.
+
+Setup
+Lay baby comfortably on the tummy time mat.
+
+Step-by-step directions
+Place one bold art card in front of baby.
+Allow time for baby to notice the picture.
+
+Suggested questions to ask
+Do you see the picture
+Where did it go
+
+Vocabulary
+Art
+Look
+Red
+
+Image requirement
+No image required yet
+
+Example images
+None yet
+
+Activity name
+Mess Free Canvas Smush
+
+Weekday
+Monday
+
+Activity objective
+Allow infants to safely explore color movement through a sealed paint experience.
+
+What children will do
+Infants will press, pat, kick or push a sealed bag containing washable paint and paper.
+
+Activity name
+Color Kick Painting
+
+Weekday
+Tuesday
+
+Activity objective
+Encourage leg movement by allowing babies to kick against a sealed paint bag.
+
+Activity name
+Baby Art Gallery Walk
+
+Weekday
+Friday
+
+Activity objective
+Celebrate the week's exploration while encouraging visual attention.
+`);
+  assert.equal(chatgptWeek.ok, true, chatgptWeek.errors.join("; "));
+  assert.equal(chatgptWeek.lesson.title, "Tiny Artist Studio", chatgptWeek.unrecognized);
+  assert.equal(chatgptWeek.lesson.age, "Infant 0–6 Months");
+  assert.match(chatgptWeek.lesson.theme, /Art, Color, Sensory Exploration/);
+  assert.match(chatgptWeek.lesson.weeklyOverview, /safe sensory exploration/);
+  assert.equal(chatgptWeek.lesson.objectives.split("\n").length, 2);
+  assert.match(chatgptWeek.lesson.weeklyMaterials, /Large resealable bags/);
+  assert.match(chatgptWeek.lesson.teacherPreparation, /paint experiences/);
+  assert.equal(chatgptWeek.activityCount, 4, chatgptWeek.dailyPlans);
+  assert.equal(chatgptWeek.dailyPlans.monday.items.length, 2);
+  assert.equal(chatgptWeek.dailyPlans.monday.items[0].title, "Tummy Time Art Gallery");
+  assert.match(chatgptWeek.dailyPlans.monday.items[0].objective, /visual tracking/);
+  assert.match(chatgptWeek.dailyPlans.monday.items[0].activityCategory, /Physical Development/);
+  assert.match(chatgptWeek.dailyPlans.monday.items[0].materials, /Tummy time mat/);
+  assert.match(chatgptWeek.dailyPlans.monday.items[0].steps, /bold art card/);
+  assert.equal(chatgptWeek.dailyPlans.monday.items[1].title, "Mess Free Canvas Smush");
+  assert.equal(chatgptWeek.dailyPlans.tuesday.items[0].title, "Color Kick Painting");
+  assert.equal(chatgptWeek.dailyPlans.friday.items[0].title, "Baby Art Gallery Walk");
+  assert.equal(chatgptWeek.books.length, 2);
+  assert.equal(chatgptWeek.books[0].title, "Mix It Up by Hervé Tullet");
+  assert.match(chatgptWeek.books[0].questions, /What color do you see/);
+  assert.equal(chatgptWeek.songs.length, 2);
+  assert.equal(chatgptWeek.songs[0].title, "The Colors Song");
+  assert.equal(chatgptWeek.printableIdeas.length, 2);
+  assert.equal(chatgptWeek.linkedResources.unresolved.length, 0);
+  assert.ok(!chatgptWeek.dailyPlans.monday.items[0].exampleImageUpload, "placeholder example images must not request upload");
 
   console.log("PASS  parser: human-readable title/age aliases and unique age-band mapping");
 }

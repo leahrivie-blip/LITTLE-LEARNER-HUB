@@ -70,7 +70,11 @@
   function parseWeekday(raw) {
     const api = pasteApi();
     if (api && typeof api.parseWeekday === "function") return api.parseWeekday(raw);
-    const cleaned = text(raw).toLowerCase();
+    return parseWeekdayExact(raw);
+  }
+
+  function parseWeekdayExact(raw) {
+    const cleaned = text(raw).toLowerCase().replace(/[:：]+$/g, "");
     if (WEEKDAYS.includes(cleaned)) return cleaned;
     const map = {
       mon: "monday",
@@ -136,12 +140,18 @@
     "lesson plan name": "title",
     "lesson name": "title",
     "lesson title": "title",
+    "lesson plan title": "title",
+    "plan title": "title",
     title: "title",
-    theme: "title",
+    theme: "theme",
+    "weekly theme": "theme",
+    "unit theme": "theme",
     "age band": "age",
     "age range": "age",
     "recommended age": "age",
     "age group": "age",
+    ages: "age",
+    "developmental age": "age",
     age: "age",
     "weekly overview": "weeklyOverview",
     "week overview": "weeklyOverview",
@@ -196,7 +206,9 @@
   });
 
   const NESTED_BODY_HEADINGS = Object.freeze(new Set([
-    "activity name", "weekday", "category", "developmental domain", "recommended age",
+    "activity name", "weekday", "category", "developmental domain",
+    "category/developmental domain", "category / developmental domain", "category developmental domain",
+    "recommended age",
     "estimated duration", "activity objective", "what children will do", "materials",
     "teacher preparation", "setup", "step-by-step directions", "step by step directions",
     "suggested questions to ask", "suggested questions", "learning and observation focus",
@@ -206,7 +218,7 @@
     "vocabulary words", "image requirement", "setup example brief", "finished example brief",
     "setup image", "setup image url", "setup photo", "setup photo url", "example image", "example image url", "example images",
     "finished example image", "finished example photo", "author", "why this book", "book questions", "discussion questions",
-    "lyrics", "how to use", "tune", "song url", "book url", "teacher directions", "instructions",
+    "lyrics", "song lyrics", "how to use", "tune", "song url", "book url", "teacher directions", "instructions",
     "purpose / description", "purpose", "notes", "type", "rights status", "rights / licensing",
     "day association", "teacher notes", "printable description", "printable pdf",
     "printable cover image url", "resource placement",
@@ -220,6 +232,12 @@
     return out;
   })());
 
+  const NESTED_BODY_HEADING_NORMALIZED = Object.freeze((() => {
+    const out = new Set();
+    NESTED_BODY_HEADINGS.forEach((key) => out.add(normalizeHeading(key)));
+    return out;
+  })());
+
   function normalizePasteHeading(raw) {
     return normalizeHeading(raw);
   }
@@ -229,9 +247,70 @@
     if (Object.prototype.hasOwnProperty.call(LESSON_HEADING_BY_NORMALIZED, normalized)) {
       return LESSON_HEADING_BY_NORMALIZED[normalized];
     }
-    const weekday = parseWeekday(normalized);
+    const weekday = parseWeekdayExact(normalized);
     if (weekday) return `weekday:${weekday}`;
     return "";
+  }
+
+  function isActivityStartHeading(label) {
+    return normalizePasteHeading(label) === "activity name";
+  }
+
+  function isNestedBodyHeading(label) {
+    const normalized = normalizePasteHeading(label);
+    if (NESTED_BODY_HEADING_NORMALIZED.has(normalized)) return true;
+    const kit = weekKitApi();
+    if (kit && kit.ACTIVITY_ITEM_ALIASES && Object.prototype.hasOwnProperty.call(kit.ACTIVITY_ITEM_ALIASES, normalized)) {
+      return true;
+    }
+    return false;
+  }
+
+  function stripHeadingDecorators(raw) {
+    return String(raw || "")
+      .trim()
+      .replace(/^#+\s*/, "")
+      .replace(/^\*\*(.+?)\*\*$/, "$1")
+      .replace(/^[_*]+|[_*]+$/g, "")
+      .trim();
+  }
+
+  function looksLikeBareHeadingCandidate(trimmed) {
+    if (!trimmed || trimmed.length > 80) return false;
+    if (/[.!?]$/.test(trimmed)) return false;
+    if (trimmed.split(/\s+/).length > 8) return false;
+    return /^[A-Za-z][A-Za-z0-9 /&'’:,-]*$/.test(trimmed);
+  }
+
+  function parseStructureHeadingLine(trimmed) {
+    const cleaned = stripHeadingDecorators(trimmed);
+    if (!cleaned) return null;
+    const headingMatch = cleaned.match(/^(.{1,80}?)\s*:\s*(.*)$/);
+    if (headingMatch) {
+      const labelPart = headingMatch[1].trim();
+      const rest = headingMatch[2];
+      const fieldId = headingFieldId(labelPart);
+      const nestedKeep = isNestedBodyHeading(labelPart);
+      const isActivityStart = isActivityStartHeading(labelPart);
+      if (fieldId || nestedKeep || isActivityStart || (/^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "")) {
+        return { labelPart, rest, fieldId, nestedKeep, isActivityStart };
+      }
+    }
+    if (!looksLikeBareHeadingCandidate(cleaned)) return null;
+    const labelPart = cleaned.replace(/[:：]+$/g, "").trim();
+    const fieldId = headingFieldId(labelPart);
+    const nestedKeep = isNestedBodyHeading(labelPart);
+    const isActivityStart = isActivityStartHeading(labelPart);
+    if (!fieldId && !nestedKeep && !isActivityStart) return null;
+    return { labelPart, rest: "", fieldId, nestedKeep, isActivityStart };
+  }
+
+  function isInsideWeekdaySection(current) {
+    return Boolean(current?.fieldId && String(current.fieldId).startsWith("weekday:"));
+  }
+
+  function isInsideActivityBlock(current) {
+    return current?.fieldId === "activityBlock";
   }
 
   function splitStructureSections(pastedText) {
@@ -251,28 +330,56 @@
       current = null;
     }
 
+    function startSection(headingRaw, fieldId, rest) {
+      flush();
+      current = { headingRaw, fieldId: fieldId || "" };
+      if (rest) bodyLines.push(rest);
+    }
+
     lines.forEach((line) => {
       const trimmed = line.trim();
-      const headingMatch = trimmed.match(/^(.+?)\s*:\s*(.*)$/);
-      if (headingMatch) {
-        const labelPart = headingMatch[1];
-        const rest = headingMatch[2];
-        const fieldId = headingFieldId(labelPart);
-        if (fieldId) {
-          const nestedKeep = NESTED_BODY_HEADINGS.has(normalizePasteHeading(labelPart));
-          if (nestedKeep && current?.fieldId && String(current.fieldId).startsWith("weekday:")) {
-            if (current) bodyLines.push(line);
+      const heading = parseStructureHeadingLine(trimmed);
+      if (heading) {
+        const { labelPart, rest, fieldId, nestedKeep, isActivityStart } = heading;
+
+        if (isInsideActivityBlock(current)) {
+          if (isActivityStart) {
+            startSection(labelPart, "activityBlock", rest);
             return;
           }
-          flush();
-          current = { headingRaw: labelPart.trim(), fieldId: fieldId || "" };
-          if (rest) bodyLines.push(rest);
+          if (nestedKeep || fieldId.startsWith("weekday:")) {
+            bodyLines.push(line);
+            return;
+          }
+          if (fieldId) {
+            startSection(labelPart, fieldId, rest);
+            return;
+          }
+          bodyLines.push(line);
           return;
         }
-        const nestedKeep = NESTED_BODY_HEADINGS.has(normalizePasteHeading(labelPart));
-        if (!nestedKeep && /^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "") {
-          flush();
-          current = { headingRaw: labelPart.trim(), fieldId: "" };
+
+        if (isActivityStart && !isInsideWeekdaySection(current)) {
+          startSection(labelPart, "activityBlock", rest);
+          return;
+        }
+
+        if (fieldId) {
+          if (nestedKeep && isInsideWeekdaySection(current)) {
+            bodyLines.push(line);
+            return;
+          }
+          startSection(labelPart, fieldId, rest);
+          return;
+        }
+
+        if (nestedKeep && isInsideWeekdaySection(current)) {
+          bodyLines.push(line);
+          return;
+        }
+
+        if (!nestedKeep && rest === "") {
+          startSection(labelPart, "", "");
           return;
         }
       }
@@ -415,6 +522,13 @@
     return `Age band was not recognized.\nChoose one of:\n${choices}`;
   }
 
+  function isPlaceholderPasteValue(raw) {
+    const kit = weekKitApi();
+    if (kit && typeof kit.isPlaceholderPasteValue === "function") return kit.isPlaceholderPasteValue(raw);
+    const value = text(raw).toLowerCase().replace(/[.]+$/g, "");
+    return !value || /^(none|none yet|n\/a|na|not yet|n a|no image required yet)$/.test(value);
+  }
+
   function normalizeTitleKey(title) {
     return text(title).toLowerCase();
   }
@@ -425,6 +539,7 @@
     const unrecognized = [];
     const lesson = {
       title: "",
+      theme: "",
       age: "",
       ageDisplay: "",
       ageRaw: "",
@@ -518,8 +633,13 @@
         }
         return;
       }
-      if (fieldId === "title") lesson.title = text(body);
-      else if (fieldId === "age") {
+      if (fieldId === "title") {
+        const nextTitle = text(body);
+        if (nextTitle) lesson.title = nextTitle;
+      } else if (fieldId === "theme") {
+        const nextTheme = text(body);
+        if (nextTheme) lesson.theme = nextTheme;
+      } else if (fieldId === "age") {
         const mapped = mapAgeBand(body);
         lesson.ageRaw = mapped.raw || text(body);
         lesson.ageDisplay = mapped.display || mapped.bucket;
@@ -545,13 +665,45 @@
           unrecognized.push({ heading: "Activities", body: line });
         });
       } else if (fieldId === "books") {
-        bookBodies.push(`${section.headingRaw}:\n${body}`);
+        const packed = kit && typeof kit.labeledSectionBody === "function"
+          ? kit.labeledSectionBody(section)
+          : `${section.headingRaw}:\n${body}`;
+        if (String(packed || "").trim()) bookBodies.push(packed);
       } else if (fieldId === "songs") {
-        songBodies.push(`${section.headingRaw}:\n${body}`);
+        const packed = kit && typeof kit.labeledSectionBody === "function"
+          ? kit.labeledSectionBody(section)
+          : `${section.headingRaw}:\n${body}`;
+        if (String(packed || "").trim()) songBodies.push(packed);
       } else if (fieldId === "printableIdeas") {
-        ideaBodies.push(`${section.headingRaw}:\n${body}`);
+        const packed = kit && typeof kit.labeledSectionBody === "function"
+          ? kit.labeledSectionBody(section)
+          : `${section.headingRaw}:\n${body}`;
+        if (String(packed || "").trim()) ideaBodies.push(packed);
       } else if (fieldId === "linkedResources") {
-        linkedBodies.push(`${section.headingRaw}:\n${body}`);
+        if (!isPlaceholderPasteValue(body)) {
+          const packed = kit && typeof kit.labeledSectionBody === "function"
+            ? kit.labeledSectionBody(section)
+            : `${section.headingRaw}:\n${body}`;
+          if (String(packed || "").trim()) linkedBodies.push(packed);
+        }
+      } else if (fieldId === "activityBlock") {
+        if (kit && typeof kit.parseStructuredActivities === "function") {
+          const source = `Activity name:\n${body}`;
+          const parsedDay = kit.parseStructuredActivities(source, "");
+          (parsedDay.records || []).forEach((record) => {
+            const day = parseWeekdayExact(record.dayOfWeek);
+            if (day) addActivity(day, record);
+            else {
+              unrecognized.push({
+                heading: record.title || section.headingRaw || "Activity",
+                body: "Activity weekday was missing. Add Monday–Friday so this activity can be placed.",
+              });
+            }
+          });
+          (parsedDay.unsupported || []).forEach((row) => kitUnsupported.push(row));
+        } else if (text(body)) {
+          unrecognized.push({ heading: section.headingRaw || "Activity name", body: text(body).slice(0, 240) });
+        }
       } else if (fieldId === "pendingPrintables") {
         pendingPrintableBodies.push(`${section.headingRaw}:\n${body}`);
       } else if (fieldId === "coverImageUrl") {
@@ -572,7 +724,7 @@
         else if (text(body)) unrecognized.push({ heading: section.headingRaw, body: text(body) });
       } else if (fieldId.startsWith("weekday:")) {
         const day = fieldId.slice("weekday:".length);
-        if (kit && typeof kit.parseStructuredActivities === "function" && /activity\s*name\s*:/i.test(body)) {
+        if (kit && typeof kit.parseStructuredActivities === "function" && /\bactivity\s*name\b/i.test(body)) {
           const parsedDay = kit.parseStructuredActivities(body, day);
           (parsedDay.records || []).forEach((record) => addActivity(day, record));
           (parsedDay.unsupported || []).forEach((row) => kitUnsupported.push(row));
@@ -650,6 +802,7 @@
     });
 
     const errors = [];
+    if (!lesson.title && text(lesson.theme)) lesson.title = text(lesson.theme);
     if (!lesson.title) errors.push("Lesson title is required.");
     if (!lesson.age) errors.push(unrecognizedAgeBandError(lesson.ageRaw || ""));
 
@@ -785,7 +938,7 @@
     const plan = {
       title: lesson.title || "Untitled Lesson Plan",
       age: lesson.age || "Preschool",
-      theme: "",
+      theme: lesson.theme || "",
       plan: "Free",
       status: "draft",
       learningDomains: [],
