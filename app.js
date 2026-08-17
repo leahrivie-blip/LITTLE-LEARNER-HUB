@@ -3003,9 +3003,10 @@ const guestAllowedViews = new Set([
 
 const HOME_NAV_SECTION_IDS = {
   home: "homeHero",
-  lessons: "homeLessonPlans",
-  activities: "homeActivities",
+  lessons: "homeFarmPreview",
+  activities: "homePaths",
   features: "homeFeatures",
+  how: "homeHowItWorks",
   "coming-soon": "homeComingSoon",
   pricing: "homePricing",
   reviews: "homeReviews",
@@ -5206,6 +5207,7 @@ function syncPublicFoundingOfferUi() {
       return;
     }
     if (node.closest("#llhFoundingAnnounceBanner")) {
+      if (node.closest("[data-home-early-user-announce]")) return;
       node.textContent = soldOut
         ? spotsMsg
         : `${spotsMsg} Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is ${regularProMonthlyLabel()}.`;
@@ -5215,7 +5217,7 @@ function syncPublicFoundingOfferUi() {
   });
 
   const announce = document.querySelector("#llhFoundingAnnounceBanner");
-  if (announce) {
+  if (announce && !announce.hasAttribute("data-home-early-user-announce")) {
     const cta = announce.querySelector("[data-checkout-plan]");
     if (soldOut) {
       announce.hidden = true;
@@ -5264,7 +5266,8 @@ function syncPublicFoundingOfferUi() {
   }
 
   // Homepage / marketing Pro price card (non-founding card).
-  const proCard = document.querySelector(".lp-pro-card");
+  // Authored Early User homepage cards stay as written ($13.99) — do not rewrite them here.
+  const proCard = Array.from(document.querySelectorAll(".lp-pro-card")).find((card) => !card.closest("#homePricing"));
   if (proCard) {
     const title = proCard.querySelector(".lp-price-header h3");
     const amountStrong = proCard.querySelector(".lp-price-amount strong");
@@ -32183,9 +32186,10 @@ function renderManagedHomeContent() {
   if (reviewsGrid && reviews.length && !redesignedHome) {
     reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
   } else if (reviewsGrid && reviews.length && redesignedHome) {
-    if (reviewsGrid.dataset.cmsReviewsAppended !== "1") {
+    const extraHost = document.querySelector("#homeReviewsExtra") || reviewsGrid;
+    if (extraHost.dataset.cmsReviewsAppended !== "1") {
       const existingNames = new Set(
-        Array.from(reviewsGrid.querySelectorAll(".lp-reviewer strong"))
+        Array.from(document.querySelectorAll("#homeReviews .lp-reviewer strong"))
           .map((node) => String(node.textContent || "").trim().toLowerCase())
           .filter(Boolean),
       );
@@ -32194,9 +32198,9 @@ function renderManagedHomeContent() {
         return Boolean(name) && !existingNames.has(name);
       });
       if (extras.length) {
-        reviewsGrid.insertAdjacentHTML("beforeend", extras.map(reviewCardHtml).join(""));
+        extraHost.insertAdjacentHTML("beforeend", extras.map(reviewCardHtml).join(""));
       }
-      reviewsGrid.dataset.cmsReviewsAppended = "1";
+      extraHost.dataset.cmsReviewsAppended = "1";
     }
   }
 
@@ -32645,6 +32649,10 @@ function scrollToHomeSection(sectionKeyOrId) {
   const sectionId = HOME_NAV_SECTION_IDS[sectionKeyOrId] || sectionKeyOrId;
   const target = document.getElementById(sectionId);
   if (!target) return false;
+  if (sectionId === "homeComingSoon") {
+    target.hidden = false;
+    target.removeAttribute("hidden");
+  }
   const alreadyOnHome = Boolean(document.querySelector("#view-home.active-view"));
   // Avoid setView's default scroll-to-top — it races section scrolling and makes
   // Home / Lesson Plans / Reviews nav links feel like they do nothing.
@@ -32868,6 +32876,57 @@ function publicActivityPreviewCtaHtml() {
   `;
 }
 
+function homeLockedPreviewCopy() {
+  const homepageEarlyUser = Boolean(document.querySelector("#homePricing [data-checkout-plan='early_user']"));
+  const earlyUser = homepageEarlyUser || (typeof earlyUserPricingEnabled === "function" && earlyUserPricingEnabled());
+  const earlyPrice = typeof offeredProMonthlyLabel === "function" && earlyUserPricingEnabled()
+    ? offeredProMonthlyLabel()
+    : "$13.99/month";
+  const regularPrice = typeof regularProMonthlyLabel === "function" ? regularProMonthlyLabel() : "$19.99/month";
+  return {
+    lead: earlyUser
+      ? `This lesson requires paid access. Early User is ${earlyPrice} (regularly ${regularPrice}).`
+      : "This lesson requires paid access. Full lesson content stays with a paid plan.",
+    cta: earlyUser ? `Choose Early User — ${earlyPrice}` : "",
+    sticky: earlyUser ? "Included with Early User access" : "Included with paid access",
+  };
+}
+
+function applyHomeLockedLessonPreviewCopy() {
+  const modal = document.getElementById("featurePreviewModal");
+  if (!modal?.classList.contains("open")) return;
+  const copy = homeLockedPreviewCopy();
+  const body = document.getElementById("featurePreviewBody");
+  const lead = body?.querySelector("[data-home-locked-copy]") || (() => {
+    if (!body) return null;
+    body.insertAdjacentHTML("afterbegin", `<p data-home-locked-copy></p>`);
+    return body.querySelector("[data-home-locked-copy]");
+  })();
+  if (lead) lead.textContent = copy.lead;
+  const eyebrow = document.getElementById("featurePreviewEyebrow");
+  if (eyebrow && /pro /i.test(eyebrow.textContent || "")) {
+    eyebrow.textContent = copy.sticky;
+  }
+  modal.querySelectorAll("[data-fp-sticky-upgrade] strong").forEach((node) => {
+    if (/unlock this pro/i.test(node.textContent || "")) node.textContent = copy.sticky;
+  });
+  if (copy.cta) {
+    modal.querySelectorAll("[data-checkout-plan='early_user']").forEach((button) => {
+      button.textContent = copy.cta;
+    });
+  }
+  if (!modal.querySelector("[data-home-keep-browsing-free]")) {
+    const host = modal.querySelector("[data-fp-sticky-upgrade]") || body;
+    if (!host) return;
+    const browse = document.createElement("button");
+    browse.type = "button";
+    browse.className = "ghost-button";
+    browse.dataset.homeKeepBrowsingFree = "1";
+    browse.textContent = "Keep Browsing Free Plans";
+    host.appendChild(browse);
+  }
+}
+
 async function openHomePublicPreview(resourceId, sectionId = "") {
   const resource = (resources || []).find((item) => item.id === resourceId);
   if (!resource) return;
@@ -32875,6 +32934,7 @@ async function openHomePublicPreview(resourceId, sectionId = "") {
   lessonLibraryReturnView = "home";
   if (!canAccess(resource)) {
     openLockedResourcePreview(resource);
+    applyHomeLockedLessonPreviewCopy();
     return;
   }
   await openResourceViewer(resourceId, { returnTo: "" });
@@ -32936,32 +32996,237 @@ async function refreshHomeHeroInventory() {
   return homeHeroInventoryPromise;
 }
 
+function homePublishedLessonPlans() {
+  return (resources || []).filter((resource) => (
+    resource
+    && resource.category === "Lesson Plans"
+    && resource._curriculumManaged
+    && isResourceVisibleToCurrentUser(resource)
+    && !["draft", "archived"].includes(String(resource.status || "published").toLowerCase())
+  ));
+}
+
+function homeFarmAnimalsLesson() {
+  const plans = homePublishedLessonPlans();
+  return plans.find((plan) => plan.id === "cur-lp-preschool-farm-animals")
+    || plans.find((plan) => /farm animals/i.test(`${plan.title || ""} ${plan.theme || ""}`))
+    || null;
+}
+
+function homeLessonCoverUrl(resource) {
+  const plan = resource?._curriculumLessonPlan || resource || {};
+  const resolved = typeof lessonPlanCoversApi === "function"
+    ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)
+    : null;
+  const raw = resource?.thumbnailUrl || resource?.previewData || plan.coverImageUrl || resolved?.url || "";
+  const safe = typeof sanitizedImageSource === "function" ? sanitizedImageSource(raw) : String(raw || "").trim();
+  return safe || "/images/lesson-covers/farm.svg";
+}
+
+function homeMatchesAgeFilter(resource, ageFilter) {
+  if (!ageFilter || ageFilter === "All") return true;
+  const age = String(normalizeAgeGroup(resource?.age) || resource?.age || "").toLowerCase();
+  return age === String(ageFilter).toLowerCase();
+}
+
+function homePublicPrintablePreviews(resource) {
+  const planId = resource?._curriculumLessonPlan?.id || resource?.id || "";
+  if (!planId || typeof curriculumResourcesForLesson !== "function") return [];
+  return curriculumResourcesForLesson(planId).filter((item) => {
+    const status = String(item.status || "published").toLowerCase();
+    if (status === "draft" || status === "archived") return false;
+    const kind = `${item.resourceCategory || ""} ${item.resourceType || ""} ${item.category || ""}`.toLowerCase();
+    if (kind.includes("idea")) return false;
+    const img = String(item.previewImageUrl || item.coverImageUrl || item.previewUrl || "").trim();
+    if (!img || img.startsWith("data:")) return false;
+    return /^https?:\/\//i.test(img) || img.startsWith("/");
+  }).slice(0, 3);
+}
+
+function homeFarmDayKeys(plan) {
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  const daily = plan?.dailyPlans || {};
+  return days.filter((day) => Array.isArray(daily[day]?.items) ? daily[day].items.length : daily[day]);
+}
+
+function homeListSnippet(value, limit = 6) {
+  const items = curriculumAsStringArray(value).slice(0, limit);
+  if (!items.length) return "";
+  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function homeFarmFeaturedHtml(resource, dayKey) {
+  const plan = resource?._curriculumLessonPlan || {};
+  const cover = homeLessonCoverUrl(resource);
+  const days = homeFarmDayKeys(plan);
+  const activeDay = days.includes(dayKey) ? dayKey : (days[0] || "monday");
+  const dayPlan = plan.dailyPlans?.[activeDay] || {};
+  const activities = Array.isArray(dayPlan.items) ? dayPlan.items : [];
+  const activityCount = days.reduce((sum, day) => sum + (Array.isArray(plan.dailyPlans?.[day]?.items) ? plan.dailyPlans[day].items.length : 0), 0);
+  const books = Array.isArray(plan.books) ? plan.books : [];
+  const songs = Array.isArray(plan.songs) ? plan.songs : [];
+  const toolkit = plan.teachingKit || {};
+  const printables = homePublicPrintablePreviews(resource);
+  const bookHtml = books.slice(0, 4).map((book) => {
+    const title = typeof book === "string" ? book : (book?.title || "");
+    const author = typeof book === "object" ? (book.author || "") : "";
+    const questions = typeof book === "object" ? curriculumAsStringArray(book.questions || book.discussionQuestions) : [];
+    if (!title) return "";
+    return `<li><strong>${escapeHtml(title)}</strong>${author ? ` — ${escapeHtml(author)}` : ""}${questions.length ? `<span>${escapeHtml(questions[0])}</span>` : ""}</li>`;
+  }).filter(Boolean).join("");
+  const songHtml = songs.slice(0, 4).map((song) => {
+    const title = typeof song === "string" ? song : (song?.title || "");
+    const movement = typeof song === "object" ? (song.movement || song.actions || "") : "";
+    if (!title) return "";
+    return `<li><strong>${escapeHtml(title)}</strong>${movement ? `<span>${escapeHtml(String(movement))}</span>` : ""}</li>`;
+  }).filter(Boolean).join("");
+  const objectivesHtml = homeListSnippet(plan.objectives || plan.learningObjectives);
+  const materialsHtml = homeListSnippet(plan.weeklyMaterials || toolkit.prepChecklist);
+  const toolkitHtml = homeListSnippet(toolkit.observationFocus || plan.observationOpportunities || toolkit.teacherPreparation);
+  const familyHtml = String(plan.familyConnection || "").trim();
+  const detailSections = [
+    objectivesHtml ? `<section><h4>Learning objectives</h4>${objectivesHtml}</section>` : "",
+    materialsHtml ? `<section><h4>Materials and teacher preparation</h4>${materialsHtml}</section>` : "",
+    bookHtml ? `<section><h4>Books with questions</h4><ul>${bookHtml}</ul></section>` : "",
+    songHtml ? `<section><h4>Songs with movement</h4><ul>${songHtml}</ul></section>` : "",
+    toolkitHtml ? `<section><h4>Teacher Toolkit</h4>${toolkitHtml}</section>` : "",
+    familyHtml ? `<section><h4>Family connection</h4><p>${escapeHtml(familyHtml)}</p></section>` : "",
+  ].filter(Boolean).join("");
+  const dayLabel = (day) => day.charAt(0).toUpperCase() + day.slice(1);
+  return `
+    <article class="llh-farm-featured" data-home-farm-id="${escapeHtml(resource.id)}">
+      <div class="llh-farm-featured-hero">
+        <img src="${escapeHtml(cover)}" alt="${escapeHtml(plan.coverImageAlt || resource.title || "Farm Animals")}" width="640" height="360" loading="eager" decoding="async" onerror="this.onerror=null;this.src='/images/lesson-covers/farm.svg';" />
+        <div>
+          <p class="llh-farm-kicker"><span class="llh-chip free">Free</span> Preschool · Farm Animals${activityCount ? ` · ${activityCount} activities` : ""} · 5-day lesson plan</p>
+          <h3>${escapeHtml(resource.title || "Farm Animals")}</h3>
+          <p>${escapeHtml(plan.weeklyOverview || resource.description || "")}</p>
+        </div>
+      </div>
+      <div class="llh-farm-day-tabs" role="tablist" aria-label="Farm Animals weekdays">
+        ${["monday", "tuesday", "wednesday", "thursday", "friday"].map((day) => `
+          <button class="llh-btn llh-btn-ghost${day === activeDay ? " is-active" : ""}" type="button" role="tab" aria-selected="${day === activeDay ? "true" : "false"}" aria-label="${dayLabel(day)}" data-home-farm-day="${day}"><span class="llh-farm-day-full">${dayLabel(day)}</span><span class="llh-farm-day-short">${dayLabel(day).slice(0, 3)}</span></button>
+        `).join("")}
+      </div>
+      <div class="llh-farm-day-panel">
+        <p><strong>${escapeHtml(dayPlan.theme || dayLabel(activeDay))}</strong></p>
+        ${activities.length ? `<ul>${activities.slice(0, 6).map((item) => `<li>${escapeHtml(item.title || "Activity")}</li>`).join("")}</ul>` : "<p class=\"muted-copy\">Open the full lesson to see this day's activities.</p>"}
+      </div>
+      ${printables.length ? `
+      <section class="llh-farm-printables" aria-label="Printables included">
+        <h4>Printables Included</h4>
+        <p>Preview the classroom resources included with this Free lesson plan.</p>
+          <div class="llh-farm-printable-row">
+            ${printables.map((item) => `
+              <button class="llh-farm-printable-card" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeFarmPreview">
+                <img src="${escapeHtml(item.previewImageUrl || item.coverImageUrl || item.previewUrl)}" alt="${escapeHtml(item.title || "Printable preview")}" loading="lazy" decoding="async" onerror="this.closest('button')?.remove()" />
+                <span>${escapeHtml(item.title || "Classroom printable")}</span>
+              </button>
+            `).join("")}
+          </div>
+      </section>` : ""}
+      <div class="llh-farm-actions">
+        <button class="llh-btn llh-btn-primary" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeFarmPreview">Explore the Free Farm Animals Plan</button>
+        <button class="llh-btn llh-btn-secondary" type="button" data-action="start-free">Create a Free Account</button>
+      </div>
+      ${detailSections ? `<details class="llh-farm-more"><summary>See books, songs, materials, and teacher support</summary><div class="llh-farm-details">${detailSections}</div></details>` : ""}
+    </article>
+  `;
+}
+
+function homeBrowseLessonCardHtml(resource, { locked = false } = {}) {
+  const cover = homeLessonCoverUrl(resource);
+  const overview = String(resource.description || resource._curriculumLessonPlan?.weeklyOverview || "").trim();
+  const shortOverview = overview.length > 180 ? `${overview.slice(0, 177)}…` : (overview || "Play-based weekly lesson plan.");
+  const dayHint = countLessonPlanDaysOrActivities(resource);
+  return `
+    <article class="llh-home-lesson-card${locked ? " is-locked" : ""}">
+      <div class="llh-home-lesson-cover">
+        <img src="${escapeHtml(cover)}" alt="${escapeHtml(resource.title || "Lesson plan")}" width="320" height="180" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/lesson-covers/default.svg';" />
+        ${locked ? `<span class="llh-home-lock" aria-hidden="true"></span>` : ""}
+      </div>
+      <div class="llh-home-lesson-body">
+        <p class="llh-preview-meta">
+          <span class="llh-chip ${locked ? "early-user" : "free"}">${locked ? "Included with Early User" : "Free"}</span>
+          <span>${escapeHtml(normalizeAgeGroup(resource.age) || resource.age || "")}</span>
+          ${resource.theme ? `<span>${escapeHtml(resource.theme)}</span>` : ""}
+        </p>
+        <h3>${escapeHtml(resource.title)}</h3>
+        <p>${escapeHtml(shortOverview)}</p>
+        ${!locked && /5-day|5 day/i.test(dayHint) ? `<p class="muted-copy">5-day week</p>` : ""}
+        <button class="llh-btn ${locked ? "llh-btn-secondary" : "llh-btn-primary"}" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeLessonPlans">${locked ? "Preview Lesson" : "View Free Lesson"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function homeAgeGroupCardsHtml() {
+  const plans = homePublishedLessonPlans().filter((plan) => isFreeAccessibleCurriculumPlan(plan));
+  return ["Infant", "Toddler", "Preschool"].map((age) => {
+    const example = plans.find((plan) => homeMatchesAgeFilter(plan, age) && plan.id !== "cur-lp-preschool-farm-animals")
+      || plans.find((plan) => homeMatchesAgeFilter(plan, age));
+    if (!example) {
+      return `<article class="llh-age-entry-card"><h3>${age}</h3><p class="muted-copy">No lesson plans are available for this age group yet.</p></article>`;
+    }
+    return `
+      <article class="llh-age-entry-card">
+        <h3>${age}</h3>
+        <p>${escapeHtml(example.title)}</p>
+        <button class="llh-btn llh-btn-secondary" type="button" data-home-open-preview="${escapeHtml(example.id)}" data-home-preview-section="homeAgeGroups">View ${escapeHtml(example.title)}</button>
+        <button class="llh-btn llh-btn-ghost" type="button" data-home-set-age-filter="${age}">Browse ${age} plans</button>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderHomePublicPreviews() {
-  const lessonGrid = document.querySelector("#homeLessonPreviewGrid");
-  const activityGrid = document.querySelector("#homeActivityPreviewGrid");
-  if (lessonGrid) {
-    const lessons = pickHomeLessonPreviewPlans(5);
-    if (lessons.length) {
-      lessonGrid.innerHTML = lessons.map(homeLessonPreviewCardHtml).join("");
+  const farmHost = document.querySelector("#homeFarmFeatured");
+  const freeGrid = document.querySelector("#homeFreeLessonGrid");
+  const lockedGrid = document.querySelector("#homeLockedLessonGrid");
+  const ageHost = document.querySelector("#homeAgeGroupCards");
+  const heroCover = document.querySelector("#homeHeroFarmCover");
+  const farm = homeFarmAnimalsLesson();
+  if (heroCover && farm) {
+    heroCover.src = homeLessonCoverUrl(farm);
+    heroCover.alt = farm.coverImageAlt || "Farm Animals weekly lesson plan cover";
+  }
+  if (farmHost) {
+    farmHost.classList.remove("is-loading", "is-empty", "is-ready");
+    if (farm) {
+      farmHost.classList.add("is-ready");
+      const day = farmHost.getAttribute("data-home-farm-day") || "monday";
+      farmHost.innerHTML = homeFarmFeaturedHtml(farm, day);
     } else if (curriculumLibraryLoading || siteContentLoadPromise) {
-      lessonGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="status">Loading free lesson plan previews…</div>`;
-    } else if (curriculumLibraryLoadFailed) {
-      lessonGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="alert">Lesson plan previews could not load. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></div>`;
+      farmHost.classList.add("is-loading");
+      farmHost.innerHTML = `<div class="llh-farm-skeleton" role="status">Loading the Farm Animals lesson…</div>`;
     } else {
-      lessonGrid.innerHTML = `<div class="llh-preview-empty muted-copy">Free lesson plan previews will appear here as published curriculum is available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button> · <button class="link-button" type="button" data-view="lessons">Browse Lesson Plans</button></div>`;
+      farmHost.classList.add("is-empty");
+      farmHost.innerHTML = `<p class="llh-farm-fallback muted-copy" role="status">The Farm Animals week will show here when that published lesson is available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></p>`;
     }
   }
-  if (activityGrid) {
-    const activities = pickHomeActivityPreviews(6);
-    if (activities.length) {
-      activityGrid.innerHTML = activities.map(homeActivityPreviewCardHtml).join("");
-    } else if (curriculumLibraryLoading || siteContentLoadPromise) {
-      activityGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="status">Loading activity previews…</div>`;
-    } else if (curriculumLibraryLoadFailed) {
-      activityGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="alert">Activity previews could not load. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></div>`;
-    } else {
-      activityGrid.innerHTML = `<div class="llh-preview-empty muted-copy">Activity previews will appear here as published activities are available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button> · <button class="link-button" type="button" data-view="activities">Browse Activities</button></div>`;
-    }
+  const ageFilter = document.querySelector("[data-home-browse-age].is-active")?.getAttribute("data-home-browse-age") || "All";
+  const published = homePublishedLessonPlans();
+  const freePlans = published.filter((plan) => isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 10);
+  const lockedPlans = published.filter((plan) => !isFreeAccessibleCurriculumPlan(plan) && homeMatchesAgeFilter(plan, ageFilter)).slice(0, 6);
+  if (freeGrid) {
+    freeGrid.innerHTML = freePlans.length
+      ? freePlans.map((plan) => homeBrowseLessonCardHtml(plan, { locked: false })).join("")
+      : `<p class="muted-copy" role="status">No lesson plans are available for this age group yet.</p>`;
+  }
+  if (lockedGrid) {
+    lockedGrid.innerHTML = lockedPlans.length
+      ? lockedPlans.map((plan) => homeBrowseLessonCardHtml(plan, { locked: true })).join("")
+      : "";
+  }
+  const lockedHeading = document.querySelector(".llh-home-locked-heading");
+  const lockedNote = document.querySelector(".llh-home-locked-note");
+  if (lockedHeading) lockedHeading.hidden = !lockedPlans.length;
+  if (lockedNote) lockedNote.hidden = !lockedPlans.length;
+  if (ageHost) ageHost.innerHTML = homeAgeGroupCardsHtml();
+  const lessonGrid = document.querySelector("#homeLessonPreviewGrid");
+  if (lessonGrid) {
+    const lessons = pickHomeLessonPreviewPlans(5);
+    lessonGrid.innerHTML = lessons.length ? lessons.map(homeLessonPreviewCardHtml).join("") : lessonGrid.innerHTML;
   }
 }
 
@@ -66729,6 +66994,57 @@ document.addEventListener("click", async (event) => {
       homePreviewButton.dataset.homeOpenPreview || "",
       homePreviewButton.dataset.homePreviewSection || "",
     );
+    return;
+  }
+
+  const homeOpenFarm = event.target.closest("[data-home-open-farm]");
+  if (homeOpenFarm) {
+    event.preventDefault();
+    const farm = homeFarmAnimalsLesson();
+    if (farm) openHomePublicPreview(farm.id, "homeFarmPreview");
+    else scrollToHomeSection("lessons");
+    return;
+  }
+
+  const homeFarmDay = event.target.closest("[data-home-farm-day]");
+  if (homeFarmDay) {
+    event.preventDefault();
+    const host = document.querySelector("#homeFarmFeatured");
+    if (host) host.setAttribute("data-home-farm-day", homeFarmDay.getAttribute("data-home-farm-day") || "monday");
+    const farm = homeFarmAnimalsLesson();
+    if (farm && host) {
+      host.classList.remove("is-loading", "is-empty");
+      host.classList.add("is-ready");
+      host.innerHTML = homeFarmFeaturedHtml(farm, host.getAttribute("data-home-farm-day") || "monday");
+    }
+    return;
+  }
+
+  const homeBrowseAge = event.target.closest("[data-home-browse-age]");
+  if (homeBrowseAge) {
+    event.preventDefault();
+    document.querySelectorAll("[data-home-browse-age]").forEach((button) => {
+      const active = button === homeBrowseAge;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    renderHomePublicPreviews();
+    return;
+  }
+
+  const homeSetAgeFilter = event.target.closest("[data-home-set-age-filter]");
+  if (homeSetAgeFilter) {
+    event.preventDefault();
+    activeFilter = homeSetAgeFilter.getAttribute("data-home-set-age-filter") || "All";
+    setView("lessons");
+    return;
+  }
+
+  const keepBrowsingFree = event.target.closest("[data-home-keep-browsing-free]");
+  if (keepBrowsingFree) {
+    event.preventDefault();
+    if (typeof closeFeaturePreview === "function") closeFeaturePreview();
+    scrollToHomeSection("homeLessonPlans");
     return;
   }
 

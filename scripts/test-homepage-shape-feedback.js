@@ -106,19 +106,15 @@ function testStaticMarkers() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const homeCss = fs.readFileSync(path.join(ROOT, "styles/llh-homepage.css"), "utf8");
 
-  assert.match(html, /id="homeShapeFeedback"/);
-  assert.match(html, /Help Shape Little Learner Hub/);
-  assert.match(html, /id="homeShapeFeedbackForm"/);
-  assert.match(html, /never shows as a public review|never appear as a public review/i);
+  assert.match(html, /id="ideaRequestModal"/);
+  assert.match(appJs, /submitHomeShapeFeedbackForm/);
   for (const category of CATEGORIES) {
-    assert.match(html, new RegExp(`value="${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+    assert.match(appJs + html, new RegExp(category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
 
   const reviewsIdx = html.indexOf('id="homeReviews"');
-  const shapeIdx = html.indexOf('id="homeShapeFeedback"');
   const pricingIdx = html.indexOf('id="homePricing"');
-  assert.ok(reviewsIdx > -1 && shapeIdx > reviewsIdx, "shape feedback must follow reviews");
-  assert.ok(pricingIdx > shapeIdx, "shape feedback must come before pricing");
+  assert.ok(reviewsIdx > -1 && pricingIdx > reviewsIdx, "pricing must follow reviews");
 
   assert.doesNotMatch(html, /lp-review-stars|llh-reviews-stars|★★★★★|⭐⭐⭐⭐⭐/);
   assert.doesNotMatch(html, /AggregateRating|aggregateRating/);

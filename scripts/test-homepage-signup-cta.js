@@ -30,27 +30,22 @@ test("hero prioritizes Start Free for TikTok conversion (no pricing in hero)", (
   const actionsHtml = html.slice(actionsIdx, actionsIdx + 900);
   assert.match(actionsHtml, /data-action="start-free"/);
   assert.match(actionsHtml, />Start Free</);
-  assert.match(actionsHtml, /data-view="lessons"/);
-  assert.match(actionsHtml, /data-guest-browse="lessons"/);
-  assert.match(actionsHtml, /Preview Free Lesson Plans/);
-  assert.match(actionsHtml, /Hundreds of childcare providers already use Little Learner Hub to save hours every week/);
+  assert.match(actionsHtml, /data-home-open-farm/);
+  assert.match(actionsHtml, /Preview a Real Lesson/);
   assert.doesNotMatch(actionsHtml, /data-checkout-plan="monthly"/);
   assert.doesNotMatch(actionsHtml, /\$19\.99/);
   assert.doesNotMatch(actionsHtml, /Founding/);
   assert.doesNotMatch(actionsHtml, /llh-hero-login-link/);
-  assert.match(html, /Spend Less Time Planning\. More Time Teaching\./);
-  assert.match(html, /llh-hero-curriculum-preview/);
-  assert.match(html, /Explore the Curriculum/);
+  assert.match(html, /Your whole week planned before Monday/);
+  assert.match(html, /id="homeFarmPreview"/);
   assert.doesNotMatch(html, /127 lesson plans/);
   assert.doesNotMatch(html, /2,110 activities/);
   assert.doesNotMatch(html, /id="homeHeroInventory"/);
   assert.doesNotMatch(html, /Founding Member/);
-  assert.match(html, /Everything You Need for the Week/);
-  assert.match(html, /See What(?:'|\&rsquo;|&apos;)?s Included in Every Lesson/);
 });
 
-test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Founding announce hidden", () => {
-  assert.match(html, /Upgrade to Pro|Choose Pro Monthly/);
+test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Early User announce visible", () => {
+  assert.match(html, /Choose Early User/);
   assert.match(html, /Create Free Account/);
   assert.match(html, /llh-final-cta|lp-final-cta/);
   assert.match(html, /lp-mobile-sticky-cta/);
@@ -60,17 +55,16 @@ test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Founding announ
   assert.match(stickyHtml, /data-action="start-free"/);
   assert.match(stickyHtml, />Start Free</);
   assert.doesNotMatch(stickyHtml, /Preview Free Lesson Plans/);
-  assert.match(html, /data-checkout-plan="monthly"/);
-  assert.match(html, /id="llhFoundingAnnounceBanner"[^>]*\bhidden\b/);
+  assert.match(html, /data-checkout-plan="early_user"/);
+  assert.match(html, /id="llhFoundingAnnounceBanner"/);
+  assert.match(html, /Early User access is \$13\.99\/month/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
 });
 
 test("Tiffany review remains on homepage without star ratings", () => {
   assert.match(html, /I actually love it\. I would definitely use it for our lesson planning/);
   assert.match(html, /Tiffany/);
-  assert.match(html, /What Childcare Providers Are Saying/);
-  assert.match(html, /Built with providers, not for a textbook/);
-  assert.match(html, /data-action="request-lesson-plan"/);
+  assert.match(html, /What childcare providers are saying/);
   assert.match(html, /I requested a theme and it showed up in the library/);
   assert.match(html, /Works for my mixed ages without rewriting everything/);
   assert.match(html, /made by someone who(?:'|\&rsquo;|&apos;)?s been in the room/);
@@ -95,22 +89,14 @@ test("Tiffany review remains on homepage without star ratings", () => {
   assert.doesNotMatch(html, /placeholder="Little Learner Home Daycare"/);
 });
 
-test("private Help Shape feedback sits between reviews and pricing", () => {
-  assert.match(html, /id="homeShapeFeedback"/);
-  assert.match(html, /Help Shape Little Learner Hub/);
-  assert.match(html, /id="homeShapeFeedbackForm"/);
-  assert.match(html, /value="New Feature"/);
-  assert.match(html, /value="Lesson Plan Request"/);
-  assert.match(html, /value="Activity Request"/);
-  assert.match(html, /value="Bug Report"/);
-  assert.match(html, /value="General Feedback"/);
+test("private Help Shape feedback remains available via existing handlers", () => {
   assert.match(appJs, /submitHomeShapeFeedbackForm/);
   assert.match(appJs, /homepage_shape/);
   assert.match(homeCss, /\.llh-shape-feedback-form/);
+  assert.match(html, /data-action="open-idea-request"/);
   const reviewsIdx = html.indexOf('id="homeReviews"');
-  const shapeIdx = html.indexOf('id="homeShapeFeedback"');
   const pricingIdx = html.indexOf('id="homePricing"');
-  assert.ok(reviewsIdx > -1 && shapeIdx > reviewsIdx && pricingIdx > shapeIdx);
+  assert.ok(reviewsIdx > -1 && pricingIdx > reviewsIdx);
   assert.doesNotMatch(html, /AggregateRating|aggregateRating/);
 });
 

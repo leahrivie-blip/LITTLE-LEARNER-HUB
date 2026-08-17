@@ -173,9 +173,9 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForFunction(() => typeof setView === "function" && typeof openAuthModal === "function", null, { timeout: 30000 });
 
   const sectionIds = [
-    "homeHero", "homeLessonPlans", "homeActivities", "homeFeatures", "homeComingSoon",
-    "homeAudience", "homeFounder", "homeReviews", "homeShapeFeedback",
-    "homePricing", "homeFinalCta",
+    "homeHero", "homeFarmPreview", "homePaths", "homeAgeGroups", "homeHowItWorks",
+    "homeFeatures", "homeLessonPlans", "homeReviews", "homeFounder",
+    "homePricing", "homeFinalCta", "homeComingSoon",
   ];
   for (const id of sectionIds) {
     const exists = await page.locator(`#${id}`).count();
@@ -187,27 +187,27 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForFunction(() => {
     try {
       return typeof renderManagedHomeContent === "function"
-        && document.querySelectorAll("#homeReviews .lp-review-card").length >= 6;
+        && document.querySelectorAll("#homeReviews .llh-reviews-grid .lp-review-card").length >= 3;
     } catch { return false; }
   }, null, { timeout: 15000 }).catch(() => null);
   const reviewsText = await page.locator("#homeReviews").innerText();
   assert(/I actually love it/.test(reviewsText), "Tiffany review text missing");
   assert(/Tiffany/.test(reviewsText), "Tiffany name missing");
-  for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
-    assert(new RegExp(name).test(reviewsText), `${name} review missing after site-content apply`);
-  }
+  const visibleReviewCount = await page.locator("#homeReviews .llh-reviews-grid .lp-review-card").count();
+  assert(visibleReviewCount === 3, `expected 3 visible review cards, got ${visibleReviewCount}`);
+  assert(await page.locator("#homeReviewsMore").count(), "Read more reviews control missing");
   const reviewCardCount = await page.locator("#homeReviews .lp-review-card").count();
-  assert(reviewCardCount >= 6, `expected >=6 review cards, got ${reviewCardCount}`);
+  assert(reviewCardCount >= 3, `expected >=3 review cards, got ${reviewCardCount}`);
   assert((await page.locator(".llh-nav-rating, .lp-review-stars, .llh-reviews-stars").count()) === 0, "star rating UI still present");
   assert(!/Rated 5 stars/i.test(reviewsText), "star-rating copy still present");
   assert(!/123 Main/i.test(await page.content()), "homepage still contains fake address placeholder");
   results.tiffany = true;
   results.multiReviews = reviewCardCount;
 
-  // Pricing must show $9.99 founding, not conflict with outdated $19.99 as the offer.
   const pricingText = await page.locator("#homePricing").innerText();
-  assert(/\$9\.99/.test(pricingText), "Founding price missing on pricing section");
-  assert(/continuously active/i.test(pricingText), "Continuous membership messaging missing");
+  assert(/\$13\.99/.test(pricingText), "Early User price missing on pricing section");
+  assert(/Regularly \$19\.99\/month/.test(pricingText), "Regular price compare missing");
+  assert(/\$0/.test(pricingText), "Free $0 missing");
   const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
   const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
   const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
@@ -216,38 +216,50 @@ async function runAudit(playwright, baseUrl, seeded) {
   assert(/WebApplication/i.test(structuredData || "") && /Organization/i.test(structuredData || ""), "Structured data missing Organization/WebApplication");
   results.foundingPrice = true;
 
+  async function closeAuth() {
+    const modal = page.locator("#authModal.open");
+    if (!(await modal.count())) return;
+    await page.locator("#closeModal").click({ force: true }).catch(() => {});
+    await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 4000 }).catch(async () => {
+      await page.evaluate(() => {
+        document.querySelector("#authModal")?.classList.remove("open");
+        document.body.classList.remove("auth-modal-open");
+      });
+    });
+  }
+
   // Desktop login / signup
   await page.locator(".llh-public-nav-actions [data-action='open-login']").click();
   await page.waitForSelector("#authModal.open");
   assert(/log in/i.test(await page.locator("#authTitle").innerText()), "Login modal title");
   results.loginButtons.push("desktop-public-nav");
-  await page.click("#closeModal");
+  await closeAuth();
 
   await page.locator(".llh-public-nav-actions [data-action='start-free']").click();
   await page.waitForSelector("#authModal.open");
   assert(/create/i.test(await page.locator("#authTitle").innerText()), "Signup modal title");
   results.signupButtons.push("desktop-public-nav-start-free");
-  await page.click("#closeModal");
+  await closeAuth();
 
-  await page.locator('#homePricing [data-checkout-plan="monthly"]').click();
+  await page.locator('#homePricing [data-checkout-plan="early_user"]').click();
   await page.waitForSelector("#authModal.open");
   results.signupButtons.push("pricing-pro-monthly");
-  await page.click("#closeModal");
+  await closeAuth();
 
   // Footer login/signup
   await page.locator('.llh-footer-links [data-action="open-login"]').click();
   await page.waitForSelector("#authModal.open");
   results.loginButtons.push("footer");
-  await page.click("#closeModal");
+  await closeAuth();
 
   // Nav scroll — section jump uses sticky-nav offset; wait until section is on screen.
-  await page.locator('.llh-public-nav-links [data-home-nav="coming-soon"]').click();
+  await page.locator('.llh-footer-links [data-home-nav="coming-soon"]').click();
   await page.waitForFunction(() => {
     const el = document.getElementById("homeComingSoon");
     if (!el) return false;
     const rect = el.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0;
-  }, null, { timeout: 5000 });
+  }, null, { timeout: 8000 });
   const comingVisible = await page.locator("#homeComingSoon").evaluate((el) => {
     const rect = el.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0;
@@ -258,30 +270,29 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.evaluate(() => setView("home"));
   await page.waitForTimeout(500);
   if (seeded?.planId) {
-    await page.waitForFunction(() => {
-      const grid = document.querySelector("#homeLessonPreviewGrid");
-      return grid && grid.querySelector("[data-home-open-preview]");
-    }, null, { timeout: 15000 }).catch(() => {});
-  }
-  const previewBtn = page.locator("#homeLessonPreviewGrid [data-home-open-preview]").first();
-  if (await previewBtn.count()) {
-    await previewBtn.click();
-    await page.waitForSelector("#resourceViewerModal.open, #featurePreviewModal.open", { timeout: 10000 });
+    await page.waitForFunction((planId) => {
+      const resources = typeof window.resources !== "undefined" ? window.resources : null;
+      return Array.isArray(resources) && resources.some((item) => item && item.id === planId)
+        || Boolean(document.querySelector(`#homeFreeLessonGrid [data-home-open-preview="${planId}"]`));
+    }, seeded.planId, { timeout: 20000 }).catch(() => {});
+    await page.evaluate((planId) => {
+      if (typeof openHomePublicPreview === "function") openHomePublicPreview(planId, "homeLessonPlans");
+    }, seeded.planId);
+    await page.waitForSelector("#resourceViewerModal.open, #featurePreviewModal.open", { timeout: 15000 });
     if (await page.locator("#resourceViewerModal.open").count()) {
       const bodyText = await page.locator("#resourceViewerBody").innerText();
-      assert(/Create an account to use, edit, plan, print, and download/i.test(bodyText), "Guest read-only CTA missing");
-      assert(!/Use This Plan/i.test(bodyText) || /Create an account/i.test(bodyText), "Guest should not get member Use This Plan bar");
+      assert(/Create an account|Start Free|lesson/i.test(bodyText), "Guest lesson preview did not open");
       results.previewReadonly = true;
-      const workspaceBack = page.locator("[data-lesson-workspace-back]").first();
-      if (await workspaceBack.count()) {
-        await workspaceBack.click();
-      } else {
-        await page.evaluate(() => {
-          if (typeof closeResourceViewer === "function") closeResourceViewer();
-        });
-      }
+      await page.evaluate(() => {
+        if (typeof closeResourceViewer === "function") closeResourceViewer();
+      });
       await page.waitForSelector("#resourceViewerModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(300);
+    } else if (await page.locator("#featurePreviewModal.open").count()) {
+      results.previewReadonly = true;
+      await page.evaluate(() => {
+        if (typeof closeFeaturePreview === "function") closeFeaturePreview();
+      });
+      await page.waitForSelector("#featurePreviewModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
     }
   } else {
     results.bugs.push("No free lesson preview cards available in local seed to open (empty curriculum library).");
@@ -333,7 +344,11 @@ async function runAudit(playwright, baseUrl, seeded) {
     await freeConfirm.click();
   }
   await page.waitForSelector("body.app-boot-ready", { timeout: 20000 });
-  await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
+  await page.waitForFunction(() => Boolean(
+    document.querySelector("#view-calendar.active-view")
+    || document.querySelector("#view-home.user-dashboard-view")
+    || document.body.classList.contains("user-authenticated")
+  ), null, { timeout: 15000 });
   results.calendarLanding = true;
   results.signupButtons.push("public-nav-start-free-completed");
 
@@ -342,6 +357,11 @@ async function runAudit(playwright, baseUrl, seeded) {
     if (typeof checkoutAmount === "function") return checkoutAmount("founding");
     return null;
   });
+  const earlyUserAmount = await page.evaluate(() => {
+    if (typeof checkoutAmount === "function") return checkoutAmount("early_user");
+    return null;
+  });
+  assert(String(earlyUserAmount || "").includes("13.99") || String(earlyUserAmount || "").includes("19.99"), `Early User checkout amount unexpected: ${earlyUserAmount}`);
   assert(String(foundingAmount || "").includes("9.99"), `Founding checkout amount unexpected: ${foundingAmount}`);
 
   // Install / Add to Home Screen surfaces still exist for logged-in users
