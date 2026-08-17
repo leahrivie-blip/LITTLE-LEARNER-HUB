@@ -143,6 +143,7 @@ async function main() {
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
       NODE_ENV: "test",
+      LLH_SKIP_STARTUP_CURRICULUM_SEED: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

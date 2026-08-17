@@ -2125,6 +2125,7 @@ const curriculumBackupConfig = {
 };
 const curriculumLessonPlanConfig = {
   endpoint: "/api/admin/curriculum/lesson-plans",
+  accessPlanEndpoint: "/api/admin/curriculum/lesson-plans/access-plan",
 };
 if (typeof window !== "undefined") {
   window.curriculumLessonPlanConfig = curriculumLessonPlanConfig;
@@ -2586,6 +2587,7 @@ function freeStarterOverrideIdsFromSite() {
 }
 
 function isCuratedFreeCurriculumPlan(planOrResource) {
+  // Starter Library inventory / marketing only — Free unlock uses isFreeAccessibleCurriculumPlan (plan field).
   const api = freeCurriculumSampleApi();
   const plan = planOrResource?._curriculumLessonPlan || planOrResource;
   if (api?.isCuratedFreeLessonPlan) {
@@ -2597,7 +2599,9 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  return isCuratedFreeCurriculumPlan(planOrResource);
+  // Canonical Free unlock: lesson.plan === "Free". Starter Library IDs are not authorization.
+  const plan = planOrResource?._curriculumLessonPlan || planOrResource;
+  return String(plan?.plan || planOrResource?.plan || "").trim() === "Free";
 }
 
 function curriculumResourceLooksLikeLessonPlan(resource) {
@@ -12923,6 +12927,111 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
   showActionFeedback(adminCurriculumLessonSaveBanner.text);
 }
 
+/**
+ * Owner Admin bulk Set Free / Set Pro — updates only the canonical `plan` field.
+ * Requires explicit confirmation listing count, target, and exact titles.
+ */
+async function bulkUpdateAdminCurriculumLessonAccessPlan(accessPlan) {
+  const targetPlan = accessPlan === "Pro" ? "Pro" : "Free";
+  const ids = [...adminCurriculumSelectedIds];
+  if (!ids.length) {
+    showActionFeedback("Select at least one lesson plan first.");
+    return;
+  }
+  const token = adminSession()?.token || "";
+  const endpoint = curriculumLessonPlanConfig.accessPlanEndpoint;
+  if (!token || !endpoint) {
+    showActionFeedback("Admin unlock and backend are required for Set Free / Set Pro.");
+    return;
+  }
+  const plans = curriculumLessonPlansForAdmin().filter((plan) => ids.includes(plan.id));
+  if (!plans.length) {
+    showActionFeedback("Selected lesson plans could not be found. Refresh and try again.");
+    return;
+  }
+  const titles = plans.map((plan) => String(plan.title || "Untitled Lesson Plan"));
+  const titleBlock = titles.map((title, index) => `${index + 1}. ${title}`).join("\n");
+  const confirmed = await confirmAction({
+    title: `Set ${plans.length} lesson${plans.length === 1 ? "" : "s"} to ${targetPlan}?`,
+    message: [
+      `Selected lessons: ${plans.length}`,
+      `Target access level: ${targetPlan}`,
+      "",
+      "Exact lesson titles:",
+      titleBlock,
+      "",
+      "This changes only Free/Pro access. Publication status and lesson content stay the same.",
+    ].join("\n"),
+    confirmLabel: `Set ${targetPlan}`,
+    cancelLabel: "Cancel",
+  });
+  if (!confirmed) return;
+
+  captureAdminLessonListViewState();
+  let data = {};
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+        lessonPlanIds: plans.map((plan) => plan.id),
+        plan: targetPlan,
+        confirm: true,
+      }),
+    });
+    data = await response.json().catch(() => ({}));
+    if (!response.ok && response.status !== 207) {
+      throw new Error(data?.error || `HTTP ${response.status}`);
+    }
+  } catch (error) {
+    const message = error?.message || "Could not update Free/Pro access.";
+    setAdminCurriculumLessonSaveBanner(`❌ ${message}`, false);
+    renderAdminCurriculumLessonPlanManager();
+    restoreAdminLessonListViewState();
+    showActionFeedback(adminCurriculumLessonSaveBanner.text);
+    return;
+  }
+
+  if (data.curriculum) {
+    applyCurriculumState(data.curriculum, {
+      siteContentUpdatedAt: data.siteContentUpdatedAt,
+    });
+  }
+
+  const failed = Array.isArray(data.failed) ? data.failed : [];
+  const failedIds = new Set(failed.map((item) => String(item.id || "")).filter(Boolean));
+  const failedTitles = (Array.isArray(data.failedTitles) ? data.failedTitles : [])
+    .concat(failed.map((item) => item.title).filter(Boolean))
+    .filter((title, index, arr) => title && arr.indexOf(title) === index);
+  const updatedCount = Number(data.updatedCount) || 0;
+
+  if (failedIds.size || data.ok === false) {
+    adminCurriculumSelectedIds = new Set(
+      [...failedIds].filter(Boolean).length
+        ? [...failedIds]
+        : plans.map((plan) => plan.id),
+    );
+    const failLabel = failedTitles.length
+      ? failedTitles.join(", ")
+      : [...failedIds].join(", ") || "selected lessons";
+    setAdminCurriculumLessonSaveBanner(
+      `❌ Updated ${updatedCount} lesson${updatedCount === 1 ? "" : "s"} to ${targetPlan}; failed: ${failLabel}. Failed lessons stay selected for retry.`,
+      false,
+    );
+  } else {
+    adminCurriculumSelectedIds = new Set();
+    setAdminCurriculumLessonSaveBanner(
+      `✅ Updated ${updatedCount} lesson${updatedCount === 1 ? "" : "s"} to ${targetPlan}.`,
+      true,
+    );
+  }
+
+  renderAdminCurriculumLessonPlanManager();
+  restoreAdminLessonListViewState();
+  showActionFeedback(adminCurriculumLessonSaveBanner.text);
+}
+
 function renderAdminCurriculumLessonPlanManager() {
   const target = document.querySelector("#adminCurriculumLessonPlanApp");
   if (!target) return;
@@ -13091,6 +13200,8 @@ function renderAdminCurriculumLessonPlanManager() {
         <button type="button" class="primary-button" data-curriculum-bulk="published">Publish</button>
         <button type="button" class="ghost-button" data-curriculum-bulk="draft">Move to Draft</button>
         <button type="button" class="ghost-button" data-curriculum-bulk="archived">Archive</button>
+        <button type="button" class="ghost-button" data-curriculum-bulk="set-free">Set Free</button>
+        <button type="button" class="ghost-button" data-curriculum-bulk="set-pro">Set Pro</button>
         <button type="button" class="ghost-button" data-curriculum-bulk="clear">Clear selection</button>
       </div>
     </div>
@@ -34911,7 +35022,7 @@ async function resolveCurriculumPlanForAssignment(resourceOrId, options = {}) {
   if (status === "draft" || status === "archived") {
     throw new Error("Draft and archived lesson plans cannot be assigned.");
   }
-  if (String(resource.plan || "").trim() === "Pro" && !isProUser() && !hasAdminFullAccess() && !isCuratedFreeCurriculumPlan(resource)) {
+  if (String(resource.plan || "").trim() === "Pro" && !isProUser() && !hasAdminFullAccess() && !isFreeAccessibleCurriculumPlan(resource)) {
     throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
   }
 
@@ -72061,6 +72172,10 @@ document.addEventListener("click", async (event) => {
     }
     if (["published", "draft", "archived"].includes(action)) {
       bulkUpdateAdminCurriculumLessonStatus(action);
+      return;
+    }
+    if (action === "set-free" || action === "set-pro") {
+      bulkUpdateAdminCurriculumLessonAccessPlan(action === "set-pro" ? "Pro" : "Free");
       return;
     }
   }
