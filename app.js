@@ -14074,15 +14074,73 @@ function showLinkedResourcePreviewError(message) {
   setFormMessage("#adminCurriculumResourceMessage", `❌ ${text}`, false);
 }
 
-function openCurriculumResourcePreviewTab(url) {
+function presentCurriculumResourcePreviewInEditor(url, fileName) {
+  const href = String(url || "").trim();
+  const host = document.querySelector("#adminTeachingKitEnrichmentHost");
+  if (!href || !host) return false;
+  let overlay = host.querySelector("[data-tk-linked-resource-preview-overlay]");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.setAttribute("data-tk-linked-resource-preview-overlay", "1");
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "Printable preview");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:14000;background:rgba(20,28,24,.42);display:flex;align-items:flex-end;justify-content:center;padding:16px;";
+    overlay.innerHTML = `
+      <div data-tk-linked-resource-preview-panel style="width:min(960px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:12px;padding:12px;box-shadow:0 16px 40px rgba(20,28,24,.28);">
+        <div class="form-actions" style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <strong data-tk-linked-resource-preview-title>Printable preview</strong>
+          <a class="ghost-button" data-tk-linked-resource-preview-download>Download</a>
+          <button class="ghost-button" type="button" data-tk-linked-resource-preview-close>Close preview</button>
+        </div>
+        <iframe data-tk-linked-resource-preview-frame title="Printable preview" style="width:100%;min-height:70vh;border:1px solid #ddd;background:#f7f3ec;"></iframe>
+      </div>
+    `;
+    overlay.addEventListener("click", (event) => {
+      const el = event.target && event.target.nodeType === 1 ? event.target : event.target?.parentElement;
+      event.stopPropagation();
+      if (el?.closest?.("[data-tk-linked-resource-preview-close]") || el === overlay) {
+        event.preventDefault();
+        overlay.hidden = true;
+        overlay.style.display = "none";
+        const frame = overlay.querySelector("[data-tk-linked-resource-preview-frame]");
+        if (frame) frame.removeAttribute("src");
+      }
+    });
+    host.appendChild(overlay);
+  }
+  const frame = overlay.querySelector("[data-tk-linked-resource-preview-frame]");
+  const download = overlay.querySelector("[data-tk-linked-resource-preview-download]");
+  const title = overlay.querySelector("[data-tk-linked-resource-preview-title]");
+  overlay.hidden = false;
+  overlay.style.display = "flex";
+  if (title) title.textContent = fileName ? `Printable preview · ${fileName}` : "Printable preview";
+  if (frame) frame.src = href;
+  if (download) {
+    download.setAttribute("href", href);
+    download.setAttribute("download", fileName || "printable.pdf");
+    download.removeAttribute("target");
+  }
+  overlay.scrollIntoView({ block: "nearest" });
+  return true;
+}
+
+function openCurriculumResourcePreviewTab(url, fileName) {
   const href = String(url || "").trim();
   if (!href) return false;
-  const opened = window.open(href, "_blank", "noopener,noreferrer");
-  if (opened) return true;
+  if (typeof isOwnerTeachingKitEditorOpen === "function"
+    && isOwnerTeachingKitEditorOpen()
+    && presentCurriculumResourcePreviewInEditor(href, fileName)) {
+    return true;
+  }
+  const opened = window.open(href, "_blank");
+  if (opened && opened !== window) {
+    try { opened.opener = null; } catch (_error) { /* ignore */ }
+    return true;
+  }
   const anchor = document.createElement("a");
   anchor.href = href;
-  anchor.target = "_blank";
-  anchor.rel = "noopener noreferrer";
+  anchor.download = fileName || "printable.pdf";
+  anchor.rel = "noopener";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
