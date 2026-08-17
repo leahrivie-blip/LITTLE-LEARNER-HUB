@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 /**
  * Entire Binder completeness regression — proves Materials / Toolkit lists are not
- * silently truncated, selective modes still resolve, and a large multi-printable
- * binder keeps every expected section + attachment page.
+ * silently truncated, selective modes stay compact, and PDF page totals follow:
+ *
+ *   totalPages === binderPageCount + attachmentPageCount
+ *
+ * Fixture printables may be 2 pages; production printables may be 5 pages.
+ * Do not treat a fixed 51 / 54 grand total as the primary correctness invariant.
  *
  * Run: npm run test:teaching-kit-entire-binder-complete
  */
@@ -20,6 +24,8 @@ const ROOT = path.join(__dirname, "..");
 const ARTIFACT = "/opt/cursor/artifacts/tk-entire-binder-complete";
 const LIVE_SHAPE = path.join(__dirname, "fixtures/teaching-kit/farm-animals-entire-binder-live-shape.json");
 const PORT = allocateSafeTestPort(5497, 400);
+const INDEX_HTML = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const SHELL_VERSION = (INDEX_HTML.match(/var SHELL_VERSION = "([^"]+)"/) || [])[1] || "test-shell";
 
 require("./teaching-kit-present.js");
 const Print = require("./teaching-kit-print.js");
@@ -49,6 +55,15 @@ function toolkitSetupMaterialsLiCount(html) {
   const group = ((toolkit && toolkit[0]) || "").match(/data-toolkit-group="materials"[\s\S]*?(?=<section class="tk-print-toolkit-group"|$)/);
   const rows = ((group && group[0]) || "").match(/<li[\s>]/g) || [];
   return rows.length;
+}
+
+function activityCardCount(html) {
+  return (String(html || "").match(/class="tk-print-activity-card"/g) || []).length;
+}
+
+/** Primary page-count invariant: binder capture + every linked printable page. */
+function expectedMergedPageCount(binderPageCount, attachmentPageCount) {
+  return Number(binderPageCount) + Number(attachmentPageCount);
 }
 
 async function makePdfBytes(title, pages) {
@@ -107,9 +122,14 @@ function unitFarmAnimalsMaterialsComplete() {
     .forEach((tab) => ok(tabs.includes(tab), `section present: ${tab}`));
   ok(tabs.filter((tab) => tab === "Daily Plans").length === 5, "five weekday Daily Plans pages");
   ok((entire.manifest?.activities || []).length === 15, "fifteen activities requested");
+  ok(activityCardCount(entire.html) === 15, `fifteen activity cards rendered (${activityCardCount(entire.html)})`);
+  ok(expectedMaterials === 113, `Farm Animals live-shape has 113 materials (${expectedMaterials})`);
   ok((entire.manifest?.songs || []).length === 5, "five songs requested");
   ok((entire.manifest?.books || []).length === 3, "three books requested");
   ok((entire.attachmentPlan?.attachments || []).length === 1, "one printable PDF planned");
+  const fixturePrintablePages = Number((kit.companion?.printables || [])[0]?.pageCount || 0);
+  ok(fixturePrintablePages === 2,
+    `fixture printable metadata pageCount is 2 (got ${fixturePrintablePages}; production live file may differ)`);
 
   const materialsOnly = Print.buildBinderPrintHtml(kit, {
     preset: "materials_list",
@@ -123,11 +143,17 @@ function unitFarmAnimalsMaterialsComplete() {
 }
 
 function unitSelectiveModesStillWork() {
-  console.log("\nUnit: all Print Center modes still resolve");
+  console.log("\nUnit: all Print Center modes still resolve (compact modes stay bounded)");
   const kit = loadLiveKit();
+  const expectedMaterials = (kit.companion?.materialsModel?.master || []).length;
   const activityId = (kit.companion?.activities || [])[0]?.id;
   const songId = (kit.companion?.songs || [])[0]?.id;
   const printableId = (kit.companion?.printables || [])[0]?.id;
+  const entire = Print.buildBinderPrintHtml(kit, {
+    preset: "week_binder",
+    paperSize: "letter",
+    forceDesigned: true,
+  });
   const cases = [
     ["Entire Binder", { preset: "week_binder" }, "entire_binder"],
     ["Weekly Overview", { preset: "weekly_overview" }, "overview"],
@@ -147,6 +173,34 @@ function unitSelectiveModesStillWork() {
     ok(built.documentMode === mode, `${label} documentMode=${mode}`);
     ok(built.pageCount >= 1, `${label} has pages (${built.pageCount})`);
   });
+
+  const oneDay = Print.buildBinderPrintHtml(kit, {
+    preset: "today_pack",
+    day: "monday",
+    paperSize: "letter",
+    forceDesigned: true,
+  });
+  const oneActivity = Print.buildBinderPrintHtml(kit, {
+    preset: "one_activity",
+    activityId,
+    paperSize: "letter",
+    forceDesigned: true,
+  });
+  const weekly = Print.buildBinderPrintHtml(kit, {
+    preset: "weekly_overview",
+    paperSize: "letter",
+    forceDesigned: true,
+  });
+  ok(oneDay.pageCount < entire.pageCount, `One Day stays compact vs Entire Binder (${oneDay.pageCount} < ${entire.pageCount})`);
+  ok(oneActivity.pageCount < entire.pageCount,
+    `One Activity stays compact vs Entire Binder (${oneActivity.pageCount} < ${entire.pageCount})`);
+  ok(weekly.pageCount < entire.pageCount,
+    `Weekly Overview stays compact vs Entire Binder (${weekly.pageCount} < ${entire.pageCount})`);
+  ok(activityCardCount(oneActivity.html) === 1, "One Activity renders exactly one activity card");
+  ok(materialsLiCount(oneDay.html) === 0, "One Day does not dump the full Materials list");
+  ok(materialsLiCount(oneActivity.html) === 0, "One Activity does not dump the full Materials list");
+  ok(materialsLiCount(entire.html) === expectedMaterials, "Entire Binder still keeps full Materials list");
+
   // One Song / One Printable when ids exist.
   if (songId) {
     const oneSong = Print.buildBinderPrintHtml(kit, {
@@ -252,7 +306,30 @@ async function browserCompleteBinderProof(expectedMaterials) {
 
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // Block SW controllerchange reloads that destroy long binder PDF evaluates.
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      serviceWorkers: "block",
+    });
+    const page = await context.newPage();
+    await page.addInitScript((shellVersion) => {
+      try {
+        // Prevent one-shot shell CSS / manifest recovery reload during long PDF jobs.
+        sessionStorage.setItem("llhShellCssRecovery", shellVersion);
+      } catch (_err) { /* ignore */ }
+      window.__LLH_SW_RELOADING = true;
+    }, SHELL_VERSION);
+    // Serve a matching shell manifest so the boot script does not force a refresh.
+    await page.route("**/llh-shell-manifest.json**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          version: SHELL_VERSION,
+          cacheName: "llh-shell-test",
+        }),
+      });
+    });
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForFunction(() => (
       window.LLHTeachingKitPrint
@@ -278,7 +355,15 @@ async function browserCompleteBinderProof(expectedMaterials) {
       host.style.cssText = "display:block;position:fixed;left:-12000px;top:0;width:816px;visibility:visible;";
       host.innerHTML = `<article class="printable-resource-page teaching-kit-print-article">${built.html}</article>`;
       document.body.appendChild(host);
-      const materialsLi = (host.querySelector('[data-tk-print-tab="Materials"]')?.querySelectorAll("li") || []).length;
+      const materialsLi = [...host.querySelectorAll('[data-tk-print-tab="Materials"]')]
+        .reduce((sum, node) => sum + node.querySelectorAll("li").length, 0);
+      const toolkitMaterialsLi = [...host.querySelectorAll('[data-tk-print-tab="Teacher Toolkit"]')]
+        .reduce((sum, node) => {
+          const group = node.querySelector('[data-toolkit-group="materials"]');
+          return sum + (group ? group.querySelectorAll("li").length : 0);
+        }, 0);
+      const activityCards = host.querySelectorAll(".tk-print-activity-card").length;
+      const sectionTabs = [...host.querySelectorAll("[data-tk-print-tab]")].map((node) => node.getAttribute("data-tk-print-tab"));
       const merged = await PrintApi.buildMergedTeachingKitPdf(liveKit, {
         preset: "week_binder",
         paperSize: "letter",
@@ -295,23 +380,25 @@ async function browserCompleteBinderProof(expectedMaterials) {
       });
       const validation = JobApi.validatePdfBytes(merged.bytes || new Uint8Array());
       const blob = new Blob([merged.bytes], { type: "application/pdf" });
-      const download = JobApi.triggerBlobDownload(blob, built.fileName || "Teacher-Binder.pdf", {
-        forceDownload: true,
-      });
+      // Do not trigger a real navigation download here — it destroys the page
+      // context before Playwright can serialize the large PDF return payload.
+      // Download delivery is smoke-tested separately with a tiny blob.
       return {
         mergeOk: merged.ok,
         reason: merged.reason,
         materialsLi,
+        toolkitMaterialsLi,
+        activityCards,
+        sectionTabs,
         htmlPages: built.pageCount,
         serverPages: merged.report?.totalPages || 0,
         binderPages: merged.report?.binderPageCount || 0,
         attachmentPages: merged.report?.attachmentPageCount || 0,
         includedIds: (merged.report?.included || []).map((item) => item.id),
+        includedAttachmentPages: (merged.report?.included || []).map((item) => Number(item.pageCount) || 0),
         byteLength: merged.bytes?.byteLength || 0,
         clientBytes: blob.size,
         validationOk: validation.ok,
-        downloadOk: download.ok === true,
-        delivery: download.delivery,
         pdfBytes: merged.bytes || null,
       };
     }, kit);
@@ -319,23 +406,103 @@ async function browserCompleteBinderProof(expectedMaterials) {
     ok(result.mergeOk === true, "Entire Binder merge succeeded");
     ok(result.validationOk === true, "PDF signature valid");
     ok(result.materialsLi === expectedMaterials, `browser Materials list complete (${result.materialsLi})`);
+    ok(result.toolkitMaterialsLi === expectedMaterials,
+      `browser Toolkit materials complete (${result.toolkitMaterialsLi})`);
+    ok(result.activityCards === 15, `browser activity cards complete (${result.activityCards})`);
+    ["Cover", "Contents", "Overview", "Weekly Plan", "Daily Plans", "Activities", "Songs", "Books", "Teacher Toolkit", "Materials"]
+      .forEach((tab) => ok(result.sectionTabs.includes(tab), `browser section present: ${tab}`));
     ok(result.includedIds.includes(printableId), "printable attachment included");
-    ok(result.attachmentPages === 2, `printable pages preserved (${result.attachmentPages})`);
-    ok(result.serverPages >= result.htmlPages + result.attachmentPages,
-      `PDF pages >= html sections + attachments (${result.serverPages})`);
+    ok(result.includedIds.length === 1, "no printable attachment dropped or duplicated");
+    ok(result.attachmentPages === 2, `fixture printable pages preserved (${result.attachmentPages})`);
+    ok(result.includedAttachmentPages.reduce((sum, n) => sum + n, 0) === result.attachmentPages,
+      "included printable page counts sum to attachmentPageCount");
+    ok(result.binderPages >= 1, `binder pages captured (${result.binderPages})`);
+    const expectedTotal2 = expectedMergedPageCount(result.binderPages, result.attachmentPages);
+    ok(result.serverPages === expectedTotal2,
+      `page formula: total=${result.serverPages} === binder(${result.binderPages})+attachments(${result.attachmentPages})`);
     ok(result.clientBytes === result.byteLength, `client Blob bytes match server (${result.clientBytes})`);
-    ok(result.downloadOk === true && result.delivery === "download", "download trigger succeeded");
+
+    const downloadSmoke = await page.evaluate(() => {
+      const JobApi = window.LLHTeachingKitBinderJob;
+      const blob = new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46])], { type: "application/pdf" });
+      return JobApi.triggerBlobDownload(blob, "Teacher-Binder-download-smoke.pdf", { forceDownload: true });
+    });
+    ok(downloadSmoke.ok === true && downloadSmoke.delivery === "download", "download trigger succeeded");
 
     const pdfDoc = await PDFDocument.load(result.pdfBytes);
     const downloadedPages = pdfDoc.getPageCount();
     ok(downloadedPages === result.serverPages,
       `downloaded page count matches server (${downloadedPages}/${result.serverPages})`);
 
+    // Regression: printable 2 → 5 pages increases total by exactly 3; binder body unchanged.
+    const fivePageBytes = await makePdfBytes("FARM-COMPLETE-CARDS-5", 5);
+    const fivePageResult = await page.evaluate(async (payload) => {
+      const PrintApi = window.LLHTeachingKitPrint;
+      const JobApi = window.LLHTeachingKitBinderJob;
+      JobApi.clearBinderArtifactCache?.();
+      const fiveBytes = Uint8Array.from(atob(payload.fiveB64), (c) => c.charCodeAt(0));
+      const built = PrintApi.buildBinderPrintHtml(payload.kit, {
+        preset: "week_binder",
+        paperSize: "letter",
+        forceDesigned: true,
+      });
+      const materialsBlock = built.html.match(/data-tk-print-tab="Materials"[\s\S]*?(?=<section class="tk-print-page|$)/)?.[0] || "";
+      const materialsLi = (materialsBlock.match(/<li[\s>]/g) || []).length;
+      const toolkitBlock = built.html.match(/data-tk-print-tab="Teacher Toolkit"[\s\S]*?(?=<section class="tk-print-page|$)/)?.[0] || "";
+      const toolkitGroup = toolkitBlock.match(/data-toolkit-group="materials"[\s\S]*?(?=<section class="tk-print-toolkit-group"|$)/)?.[0] || "";
+      const toolkitMaterialsLi = (toolkitGroup.match(/<li[\s>]/g) || []).length;
+      const activityCards = (built.html.match(/class="tk-print-activity-card"/g) || []).length;
+      const merged = await PrintApi.buildMergedTeachingKitPdf(payload.kit, {
+        preset: "week_binder",
+        paperSize: "letter",
+        forceDesigned: true,
+        forceBrowser: true,
+        skipArtifactCache: true,
+        pageTimeoutMs: JobApi.pageCaptureTimeoutMs(),
+        fetchBytes: async () => fiveBytes,
+      });
+      return {
+        ok: merged.ok,
+        reason: merged.reason,
+        materialsLi,
+        toolkitMaterialsLi,
+        activityCards,
+        totalPages: merged.report?.totalPages || 0,
+        binderPages: merged.report?.binderPageCount || 0,
+        attachmentPages: merged.report?.attachmentPageCount || 0,
+        includedIds: (merged.report?.included || []).map((item) => item.id),
+        byteLength: merged.bytes?.byteLength || 0,
+      };
+    }, {
+      kit,
+      fiveB64: Buffer.from(fivePageBytes).toString("base64"),
+    });
+
+    ok(fivePageResult.ok === true, "5-page printable Entire Binder merge succeeded");
+    ok(fivePageResult.materialsLi === expectedMaterials,
+      `5-page printable Materials still complete (${fivePageResult.materialsLi})`);
+    ok(fivePageResult.toolkitMaterialsLi === expectedMaterials,
+      `5-page printable Toolkit materials still complete (${fivePageResult.toolkitMaterialsLi})`);
+    ok(fivePageResult.activityCards === 15, `5-page printable activities still complete (${fivePageResult.activityCards})`);
+    ok(fivePageResult.includedIds.includes(printableId), "5-page printable still attached");
+    ok(fivePageResult.attachmentPages === 5, `5-page printable pages preserved (${fivePageResult.attachmentPages})`);
+    ok(fivePageResult.binderPages === result.binderPages,
+      `binder pages unchanged when printable grows 2→5 (${fivePageResult.binderPages})`);
+    ok(fivePageResult.totalPages === expectedMergedPageCount(fivePageResult.binderPages, fivePageResult.attachmentPages),
+      `5-page formula: total=${fivePageResult.totalPages} === binder+attachments`);
+    ok(fivePageResult.totalPages === result.serverPages + 3,
+      `printable 2→5 increases total by exactly 3 (${result.serverPages} → ${fivePageResult.totalPages})`);
+
     const { pdfBytes: _omit, ...meta } = result;
     fs.writeFileSync(path.join(ARTIFACT, "farm-animals-complete.json"), JSON.stringify({
       ...meta,
       expectedMaterials,
       downloadedPages,
+      pageFormula: "totalPages === binderPageCount + attachmentPageCount",
+      fixturePrintablePages: 2,
+      productionLikePrintablePages: 5,
+      fivePage: fivePageResult,
+      note: "Fixture total may be binder+2 (~51 historically). Production live printable is 5 pages (~54). Do not hardcode either total.",
     }, null, 2));
     fs.writeFileSync(path.join(ARTIFACT, "Farm-Animals-Entire-Binder-complete.pdf"), Buffer.from(result.pdfBytes));
 
@@ -374,6 +541,7 @@ async function browserCompleteBinderProof(expectedMaterials) {
         reason: merged.reason,
         materialsLi,
         totalPages: merged.report?.totalPages || 0,
+        binderPages: merged.report?.binderPageCount || 0,
         includedIds: (merged.report?.included || []).map((item) => item.id),
         attachmentPages: merged.report?.attachmentPageCount || 0,
         byteLength: merged.bytes?.byteLength || 0,
@@ -390,6 +558,8 @@ async function browserCompleteBinderProof(expectedMaterials) {
     ok(oversizedResult.materialsLi === 160, `oversized Materials complete in browser HTML (${oversizedResult.materialsLi})`);
     ok(oversizedResult.includedIds.length === 3, "all three printables merged");
     ok(oversizedResult.attachmentPages === 9, `oversized attachment pages 2+3+4=${oversizedResult.attachmentPages}`);
+    ok(oversizedResult.totalPages === expectedMergedPageCount(oversizedResult.binderPages, oversizedResult.attachmentPages),
+      `oversized formula: total=${oversizedResult.totalPages} === binder(${oversizedResult.binderPages})+attachments(${oversizedResult.attachmentPages})`);
     const oversizedPdf = await PDFDocument.load(oversizedResult.pdfBytes);
     ok(oversizedPdf.getPageCount() === oversizedResult.totalPages,
       `oversized downloaded pages match (${oversizedPdf.getPageCount()})`);
@@ -404,7 +574,12 @@ async function browserCompleteBinderProof(expectedMaterials) {
     fs.writeFileSync(path.join(ARTIFACT, "Oversized-Entire-Binder-complete.pdf"), Buffer.from(oversizedResult.pdfBytes));
 
     return {
-      farm: { ...result, downloadedPages, expectedMaterials },
+      farm: {
+        ...result,
+        downloadedPages,
+        expectedMaterials,
+        fivePage: fivePageResult,
+      },
       oversized: { ...oversizedResult, downloadedPages: oversizedPdf.getPageCount() },
     };
   } finally {
@@ -425,7 +600,12 @@ async function main() {
     expectedMaterials: unit.expectedMaterials,
     farmHtmlPages: unit.htmlPageCount,
     farmPdfPages: proof.farm.downloadedPages,
+    farmBinderPages: proof.farm.binderPages,
+    farmAttachmentPages: proof.farm.attachmentPages,
     farmBytes: proof.farm.byteLength,
+    pageFormula: "totalPages === binderPageCount + attachmentPageCount",
+    fivePagePdfPages: proof.farm.fivePage?.totalPages,
+    fivePageDelta: (proof.farm.fivePage?.totalPages || 0) - proof.farm.downloadedPages,
     oversizedPdfPages: proof.oversized.downloadedPages,
     oversizedBytes: proof.oversized.byteLength,
   }));
