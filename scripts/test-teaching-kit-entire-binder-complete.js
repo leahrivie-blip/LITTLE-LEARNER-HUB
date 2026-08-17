@@ -40,13 +40,15 @@ function loadLiveKit() {
 
 function materialsLiCount(html) {
   const match = String(html || "").match(/data-tk-print-tab="Materials"[\s\S]*?(?=<section class="tk-print-page|$)/);
-  return ((match && match[0]) || "").match(/<li[\s>]/g) || []).length;
+  const rows = ((match && match[0]) || "").match(/<li[\s>]/g) || [];
+  return rows.length;
 }
 
 function toolkitSetupMaterialsLiCount(html) {
   const toolkit = String(html || "").match(/data-tk-print-tab="Teacher Toolkit"[\s\S]*?(?=<section class="tk-print-page|$)/);
   const group = ((toolkit && toolkit[0]) || "").match(/data-toolkit-group="materials"[\s\S]*?(?=<section class="tk-print-toolkit-group"|$)/);
-  return ((group && group[0]) || "").match(/<li[\s>]/g) || []).length;
+  const rows = ((group && group[0]) || "").match(/<li[\s>]/g) || [];
+  return rows.length;
 }
 
 async function makePdfBytes(title, pages) {
@@ -356,7 +358,8 @@ async function browserCompleteBinderProof(expectedMaterials) {
         paperSize: "letter",
         forceDesigned: true,
       });
-      const materialsLi = (built.html.match(/data-tk-print-tab="Materials"[\s\S]*?(?=<section class="tk-print-page|$)/)?.[0].match(/<li[\s>]/g) || []).length;
+      const materialsBlock = built.html.match(/data-tk-print-tab="Materials"[\s\S]*?(?=<section class="tk-print-page|$)/)?.[0] || "";
+      const materialsLi = (materialsBlock.match(/<li[\s>]/g) || []).length;
       const merged = await PrintApi.buildMergedTeachingKitPdf(payload.kit, {
         preset: "week_binder",
         paperSize: "letter",
