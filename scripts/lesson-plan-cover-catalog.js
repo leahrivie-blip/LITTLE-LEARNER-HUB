@@ -28,6 +28,12 @@
       prompt: "Children's book illustration, 16:9. Close-up friendly insects: ladybug, caterpillar, ant, and beetle on green leaves with dewdrops. Bright garden light. No text.",
     },
     {
+      title: "Tiny Artist Studio",
+      slug: "tiny-artist-studio",
+      age: "Infant",
+      prompt: "Bright photo-style 16:9 cover of infant handprint and footprint butterfly keepsake art on white cardstock with pastel paint palette on a sunlit wooden table. No text.",
+    },
+    {
       title: "Apple Orchard Adventure",
       slug: "apple-orchard-adventure",
       age: "Toddler",

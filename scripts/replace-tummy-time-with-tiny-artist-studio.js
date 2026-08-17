@@ -340,6 +340,7 @@ function mergeOntoExisting(existing, parsed) {
   };
 
   // Preserve entitlement / identity / linked resources / covers. Replace lesson content only.
+  const coverImageUrl = "/images/lesson-covers/tiny-artist-studio.jpg";
   return {
     ...existing,
     id: LESSON_ID,
@@ -358,10 +359,11 @@ function mergeOntoExisting(existing, parsed) {
     createdAt: existing.createdAt || now,
     publishedAt: existing.publishedAt || existing.createdAt || now,
     updatedAt: now,
-    coverImageUrl: existing.coverImageUrl || "",
-    coverImageAlt: existing.coverImageAlt || "",
-    coverImagePosition: existing.coverImagePosition || "",
-    coverQualityStatus: existing.coverQualityStatus || "",
+    coverImageUrl,
+    coverImageAlt: "Tiny Artist Studio infant handprint and footprint butterfly artwork",
+    coverImagePosition: existing.coverImagePosition || "center",
+    coverQualityStatus: "good",
+    coverSource: "uploaded",
     teachingKit: existing.teachingKit && typeof existing.teachingKit === "object"
       ? {
           ...existing.teachingKit,
