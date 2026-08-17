@@ -2,10 +2,30 @@
  * Revenue line-item collection for Admin analytics.
  * Phase 1: dedupe analytics checkout_success vs billingEvents twins.
  *
- * Identity note: billingEvents and analytics checkout_success do NOT currently
- * share a Stripe invoice / payment_intent / checkout session id. When analytics
- * checkout_success is persisted, recordBillingEvent copies the same createdAt.
- * That exact createdAt + email + checkout_success type is the reliable twin key.
+ * =============================================================================
+ * INVARIANT (narrow — do not broaden without a stable payment id)
+ * =============================================================================
+ * Twin identity key: lowercase email + checkout_success type + identical createdAt
+ * string equality.
+ *
+ * Guaranteed ONLY for this synchronous path:
+ *   sanitizeAnalyticsEvent(body) → handleAnalyticsEvent
+ *     → recordBillingEvent(store, event)
+ *       → billing.createdAt = event.createdAt  (same string reference copy)
+ *
+ * NOT guaranteed for:
+ *   - appendBillingEvent(...) which sets createdAt: new Date().toISOString()
+ *     independently (Stripe membership assign / cancel helpers)
+ *   - Client analytics checkout_success that arrives later with a different ISO
+ *     timestamp than an earlier Stripe billing row (missed-dedupe → possible
+ *     double-count)
+ *   - Postgres TIMESTAMPTZ round-trip of analytics created_at vs JSON store
+ *     billingEvents createdAt (string equality can fail if formats diverge)
+ *
+ * billingEvents and analytics checkout_success do NOT currently share a Stripe
+ * invoice / payment_intent / checkout session id. Future fix: persist a stable
+ * payment identifier on both sides when available — do not add fuzzy
+ * amount+time matching here.
  *
  * Refunds: not safely modelable from current billingEvents (no refund type/id).
  */
@@ -34,6 +54,7 @@ function isCheckoutSuccessType(type) {
 
 /**
  * Prefer billing ledger rows; add analytics checkout_success only when no twin billing row exists.
+ * Twin match requires identical createdAt strings (see file header invariant).
  * @param {object[]} paidEvents analytics events named checkout_success
  * @param {object[]} billingEvents store.billingEvents
  * @returns {object[]}
@@ -55,7 +76,7 @@ function collectRevenueItems(paidEvents = [], billingEvents = []) {
       if (!isCheckoutSuccessType(be.type || be.name || "")) return false;
       const beEmail = normalizeEmail(be.email || be.user || "");
       if (email && beEmail && beEmail !== email) return false;
-      // Reliable twin: recordBillingEvent copies analytics createdAt onto the billing row.
+      // Exact string match only — mirrors recordBillingEvent copying event.createdAt.
       return createdAt && String(be.createdAt || "") === createdAt;
     });
     if (twin) continue;
