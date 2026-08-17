@@ -258,6 +258,9 @@ function buildFeatureUsage(store, events, range) {
   const prints = countBy(scoped.filter(isPrint), contentTitle).slice(0, 15);
   const favoriteEvents = scoped.filter((e) => e.name === "favorite_add" || e.name === "resource_favorite");
   const favorites = countBy(favoriteEvents, contentTitle).slice(0, 15);
+  // Library search emits search_query / search_no_results (trackLibrarySearchAnalytics).
+  // Zero events in-range means empty period — not missing instrumentation.
+  const searchInstrumentation = searchEvents.length > 0 ? "live" : "active_empty";
 
   return {
     range: range.key,
@@ -268,7 +271,7 @@ function buildFeatureUsage(store, events, range) {
     dropOffPoints: sessions.dropOffPoints,
     mostUsedFeatures,
     searchNoResults: noResultSearches,
-    searchInstrumentation: searchEvents.length > 0 ? "live" : "pending",
+    searchInstrumentation,
     mostFavorited: favorites,
     favoritesInstrumentation: favoriteEvents.length > 0 ? "live" : "pending",
     mostDownloaded: downloads,
@@ -360,6 +363,7 @@ function buildFeatureRequestsCenter(store, { sort = "votes", category = "", stat
     categories,
     statusCounts,
     total: items.length,
+    openCount: countOpenFeatureRequests(store),
     items: items.slice(0, 200).map((item) => ({
       id: item.id,
       title: item.title || "",
@@ -378,6 +382,32 @@ function buildFeatureRequestsCenter(store, { sort = "votes", category = "", stat
       updatedAt: item.updatedAt || "",
     })),
   };
+}
+
+/** Feature Request Center terminal statuses (Released / Declined / archived). */
+const CLOSED_FEATURE_REQUEST_STATUSES = Object.freeze([
+  "completed",
+  "released",
+  "declined",
+  "rejected",
+  "archived",
+]);
+
+function isOpenFeatureRequestStatus(status) {
+  const value = String(status || "New").trim().toLowerCase();
+  if (!value) return true;
+  return !CLOSED_FEATURE_REQUEST_STATUSES.includes(value);
+}
+
+function countOpenFeatureRequests(store = {}) {
+  const items = Array.isArray(store.featureRequests) ? store.featureRequests : [];
+  return items.filter((item) => isOpenFeatureRequestStatus(item?.status)).length;
+}
+
+function funnelStageCount(funnel, stageId) {
+  const stage = (funnel?.stages || []).find((row) => row.id === stageId);
+  if (!stage) return null;
+  return Number(stage.count || 0);
 }
 
 function buildErrorCenter(store, events, range, monitoringSnapshot = null) {
@@ -432,9 +462,12 @@ function buildSearchAnalytics(store, events, range) {
     demand: row.count,
     suggestion: `Create or tag content for “${row.key}” — ${row.count} no-result search${row.count === 1 ? "" : "es"}.`,
   }));
+  // Library search is instrumented via trackLibrarySearchAnalytics → search_query / search_no_results.
+  // Other search surfaces may still be untracked — do not claim site-wide coverage.
+  const instrumentation = searches.length ? "live" : "active_empty";
   return {
     range: range.key,
-    instrumentation: searches.length ? "live" : "pending",
+    instrumentation,
     mostSearched: terms,
     noResults,
     leadingToLessonViews: toLesson.length,
@@ -443,7 +476,7 @@ function buildSearchAnalytics(store, events, range) {
     contentRecommendations: recommendations,
     note: searches.length
       ? ""
-      : "Search event instrumentation is pending. Hub is ready; queries will appear after search_query / search_no_results events start flowing.",
+      : "Search tracking is active for library search; no tracked searches occurred in this period.",
   };
 }
 
@@ -479,20 +512,24 @@ function buildEmailAnalytics(store) {
 
   const opened = receiptRows.filter((r) => r.openedAt).length;
   const clicked = receiptRows.filter((r) => r.clickedAt).length;
-  const receiptSent = receiptRows.length || sent;
+  const receiptDenom = receiptRows.length;
+  const sentTotal = sent || receiptRows.length;
 
   return {
     instrumentation: {
       opensClicks: receiptRows.length ? "partial" : "pending",
-      note: "Open/click available for welcome/founding campaigns; general automations currently track send/fail/unsubscribe.",
+      delivery: "unavailable",
+      note: "Provider-confirmed delivery is unavailable. Open/click available for welcome/founding campaigns; general automations track send/fail/unsubscribe only.",
     },
     totals: {
-      sent: sent || receiptSent,
-      delivered: Math.max((sent || receiptSent) - failed, 0),
+      sent: sentTotal,
+      // Do not treat (sent - failed) as Delivered — that is not provider delivery confirmation.
+      delivered: null,
+      sentWithoutImmediateFailure: Math.max(sentTotal - failed, 0),
       failed,
-      openRate: rate(opened, receiptSent || 1),
-      clickRate: rate(clicked, receiptSent || 1),
-      conversionRate: "—",
+      openRate: receiptDenom > 0 ? rate(opened, receiptDenom) : null,
+      clickRate: receiptDenom > 0 ? rate(clicked, receiptDenom) : null,
+      conversionRate: null,
       revenueGenerated: null,
       unsubscribes: unsubscribed,
       spamComplaints: null,
@@ -1576,19 +1613,16 @@ function buildAdvisor(store, events, range, extras = {}) {
     Object.values(store.users || {}),
   );
 
-  const visitors = customerScoped.filter((e) => e.name === "website_visit").length
-    || Number(marketing?.realtime?.sessionVisitsToday || 0);
-  const signups = customerScoped.filter((e) => e.name === "account_signup_complete").length;
+  // Canonical visitor / signup / paid counts come from Marketing Funnel unique-actor sets
+  // for this Insights range — never fall back across date ranges when a measured 0 occurs.
+  const visitors = funnelStageCount(funnel, "visitors");
+  const signups = funnelStageCount(funnel, "signupCompletions");
+  const paid = funnelStageCount(funnel, "paidConversions");
   const trials = customerUsers.filter((u) => {
     const at = u.metaStartTrialAt || u.trialStart || "";
     if (!at) return false;
     return !range.startMs || new Date(at).getTime() >= range.startMs;
   }).length;
-  const paid = customerScoped.filter((e) => e.name === "checkout_success").length
-    || customerUsers.filter((u) => {
-      const at = u.metaPurchaseAt || u.firstPaidInvoiceAt || "";
-      return at && (!range.startMs || new Date(at).getTime() >= range.startMs);
-    }).length;
 
   const sourceRows = Array.isArray(marketing?.performance?.conversionBySource)
     ? marketing.performance.conversionBySource
@@ -1599,12 +1633,16 @@ function buildAdvisor(store, events, range, extras = {}) {
   const topRequest = featureReqs.items[0];
   const revenueToday = Number(marketing?.realtime?.revenueToday || 0);
   const revenueMonth = Number(marketing?.funnel?.revenueThisMonth || 0);
+  const openFeatureRequests = countOpenFeatureRequests(store);
 
+  const formatCount = (value) => (value == null ? "—" : value);
   const summaryLines = [
-    `${visitors} website session visit${visitors === 1 ? "" : "s"} (${range.key})`,
-    `${signups} new signup${signups === 1 ? "" : "s"}`,
+    visitors == null
+      ? `Unique website visitors unavailable (${range.key})`
+      : `${visitors} unique website visitor${visitors === 1 ? "" : "s"} (${range.key})`,
+    `${formatCount(signups)} new signup${signups === 1 ? "" : "s"}`,
     `${trials} trial start${trials === 1 ? "" : "s"}`,
-    `${paid} paid conversion${paid === 1 ? "" : "s"}`,
+    `${formatCount(paid)} paid conversion${paid === 1 ? "" : "s"}`,
     revenueMonth ? `Revenue this month: $${revenueMonth.toFixed(2)}` : (revenueToday ? `Revenue today: $${revenueToday.toFixed(2)}` : "Revenue: awaiting paid invoices in range"),
   ];
   if (bestSource) {
@@ -1612,6 +1650,8 @@ function buildAdvisor(store, events, range, extras = {}) {
   }
   if (topNoResult) {
     summaryLines.push(`${topNoResult.count} search${topNoResult.count === 1 ? "" : "es"} for “${topNoResult.key}” returned no results`);
+  } else if (search.instrumentation === "active_empty") {
+    summaryLines.push("Search tracking is active for library search; no tracked searches occurred in this period");
   } else if (search.instrumentation === "pending") {
     summaryLines.push("Search demand tracking is ready but waiting on search event instrumentation");
   }
@@ -1627,9 +1667,12 @@ function buildAdvisor(store, events, range, extras = {}) {
   const actionableWorst = pickWorstActionableDropOff(advisorEdges) || (
     funnel.worstDropOff && !funnel.worstDropOff.informational ? funnel.worstDropOff : null
   );
-  if (actionableWorst && actionableWorst.dropOffCount > 0) {
+  // dropOffRateLabel is DROP-OFF math (fromCount - toCount) / fromCount — label it honestly.
+  if (actionableWorst && actionableWorst.fromCount > 0 && actionableWorst.dropOffCount > 0) {
+    const edgeLabel = actionableWorst.advisorLabel
+      || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`;
     summaryLines.push(
-      `Biggest Opportunity: ${actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`} (${actionableWorst.dropOffRateLabel})`,
+      `Largest drop-off: ${edgeLabel} (${actionableWorst.dropOffRateLabel} drop-off)`,
     );
   }
   if (!funnel.emailVerificationRequired) {
@@ -1642,7 +1685,7 @@ function buildAdvisor(store, events, range, extras = {}) {
   };
 
   const scopedEvents = customerScoped;
-  const signupCompletions = scopedEvents.filter((e) => e.name === "account_signup_complete").length;
+  const signupCompletions = signups == null ? 0 : signups;
   const firstLessons = scopedEvents.filter((e) => e.name === "first_lesson_opened" || e.name === "lesson_plan_view").length;
   const freeSelected = scopedEvents.filter((e) => e.name === "free_selected" || e.name === "free_plan_selected").length;
   const trialSelected = scopedEvents.filter((e) => e.name === "trial_selected").length;
@@ -1695,8 +1738,8 @@ function buildAdvisor(store, events, range, extras = {}) {
       "high",
       isTrialEdge
         ? `Conversion Opportunity: ${edgeLabel}`
-        : `Biggest Opportunity: ${edgeLabel}`,
-      `${actionableWorst.dropOffRateLabel} leave before ${actionableWorst.toLabel}. Focus on required steps (Visitor→Signup→Trial→Paid) — optional steps are informational only.`,
+        : `Largest drop-off: ${edgeLabel}`,
+      `${actionableWorst.dropOffRateLabel} drop-off before ${actionableWorst.toLabel}. Focus on required steps (Visitor→Signup→Trial→Paid) — optional steps are informational only.`,
       "marketing-funnel",
       "conversion",
     );
@@ -1708,7 +1751,7 @@ function buildAdvisor(store, events, range, extras = {}) {
     addRec(
       "medium",
       `Conversion Opportunity: ${secondary.advisorLabel}`,
-      `${secondary.dropOffRateLabel} on a required conversion step (${secondary.dropOffCount} people).`,
+      `${secondary.dropOffRateLabel} drop-off on a required conversion step (${secondary.dropOffCount} people).`,
       "marketing-funnel",
       "conversion",
     );
@@ -1765,12 +1808,13 @@ function buildAdvisor(store, events, range, extras = {}) {
     headline: "Today's Summary",
     summaryLines,
     metrics: {
-      visitors,
-      signups,
+      visitors: visitors == null ? null : visitors,
+      visitorsLabel: "Unique visitors",
+      signups: signups == null ? null : signups,
       trials,
-      paid,
+      paid: paid == null ? null : paid,
       avgSessionMinutes: usage.avgSessionMinutes,
-      openFeatureRequests: featureReqs.total,
+      openFeatureRequests,
       monthlyCancels: churn.monthlyChurnEvents,
     },
     recommendations: recommendations.slice(0, 8),
@@ -1854,7 +1898,15 @@ module.exports = {
   buildUserJourney,
   buildFeatureRequestsCenter,
   buildAdvisor,
+  buildSearchAnalytics,
+  buildEmailAnalytics,
+  buildTransitionRow,
+  buildAdvisorFunnelTransitions,
   isEmailVerificationRequired,
   resolveFunnelStageRole,
   pickWorstActionableDropOff,
+  isOpenFeatureRequestStatus,
+  countOpenFeatureRequests,
+  funnelStageCount,
+  CLOSED_FEATURE_REQUEST_STATUSES,
 };

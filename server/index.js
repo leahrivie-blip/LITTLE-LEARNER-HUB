@@ -32,6 +32,7 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const analyticsStore = require("./analytics-store.js");
+const analyticsRevenue = require("./analytics-revenue.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const llhStoreUpdatedAtReconcile = require("./llh-store-updated-at-reconcile.js");
 const curriculumMedia = require("./curriculum-media.js");
@@ -18409,10 +18410,10 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
   const trialUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial");
   const pastDueUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "past_due");
   const failedPaymentUsers = users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "payment_failed");
-  const revenueItems = [
-    ...paidEvents,
-    ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
-  ];
+  const revenueItems = analyticsRevenue.collectRevenueItems(
+    paidEvents,
+    billingEvents,
+  );
   const now = new Date();
   const activityAt = (user) => user.lastSeenAt || user.lastLoginAt || "";
   const onlineWindowMs = 15 * 60 * 1000;

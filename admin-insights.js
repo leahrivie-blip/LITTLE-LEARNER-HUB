@@ -147,7 +147,7 @@
         <p class="muted-copy">${esc(data.note || "")}</p>
       </section>
       <div class="admin-home-grid admin-insights-kpi-grid">
-        ${kpi("Visitors", data.metrics?.visitors ?? "—")}
+        ${kpi(data.metrics?.visitorsLabel || "Unique visitors", data.metrics?.visitors ?? "—")}
         ${kpi("Signups", data.metrics?.signups ?? "—")}
         ${kpi("Trials", data.metrics?.trials ?? "—")}
         ${kpi("Paid", data.metrics?.paid ?? "—")}
@@ -163,6 +163,7 @@
 
   function renderFeatureUsage(data) {
     return `
+      ${data.searchInstrumentation === "active_empty" ? pendingNote("Search tracking is active for library search; no tracked searches occurred in this period.") : ""}
       ${data.searchInstrumentation === "pending" ? pendingNote("Search no-result tracking is pending client instrumentation.") : ""}
       ${data.favoritesInstrumentation === "pending" ? pendingNote("Favorites ranking uses favorite_* events when available; otherwise empty.") : ""}
       <div class="admin-home-grid admin-insights-kpi-grid">
@@ -404,10 +405,10 @@
       ${data.emailVerificationRequired === false ? `
         <p class="muted-copy">Email verification is optional. “Email verified” is informational and does not count as funnel drop-off.</p>
       ` : ""}
-      ${data.worstDropOff && !data.worstDropOff.informational ? `
+      ${data.worstDropOff && !data.worstDropOff.informational && data.worstDropOff.fromCount > 0 ? `
         <div class="admin-insights-pending">
-          Biggest Opportunity: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
-          — ${esc(data.worstDropOff.dropOffRateLabel)}
+          Largest drop-off: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
+          — ${esc(data.worstDropOff.dropOffRateLabel)} drop-off
           (${esc(data.worstDropOff.dropOffCount)} people).
         </div>
       ` : ""}
@@ -563,9 +564,10 @@
           ${d.instrumentation?.note ? pendingNote(d.instrumentation.note) : ""}
           <div class="admin-home-grid admin-insights-kpi-grid">
             ${kpi("Sent", t.sent ?? 0)}
-            ${kpi("Delivered", t.delivered ?? 0)}
-            ${kpi("Open rate", t.openRate ?? "—")}
-            ${kpi("Click rate", t.clickRate ?? "—")}
+            ${kpi("Delivered", t.delivered == null ? "Unavailable" : t.delivered)}
+            ${kpi("Sent (no immediate fail)", t.sentWithoutImmediateFailure ?? "—")}
+            ${kpi("Open rate", t.openRate ?? "Unavailable")}
+            ${kpi("Click rate", t.clickRate ?? "Unavailable")}
             ${kpi("Unsubscribes", t.unsubscribes ?? 0)}
           </div>
           <section><h4>By template</h4>${table(["Template", "Sent"], (d.byTemplate || []).map((r) => [r.key, r.count]))}</section>

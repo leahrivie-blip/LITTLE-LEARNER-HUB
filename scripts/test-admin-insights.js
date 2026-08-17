@@ -284,13 +284,402 @@ async function wiring() {
   assert.match(adminInsightsUi, /data-funnel-exit-stage/);
   assert.match(adminInsightsUi, /Email verification is optional/);
   assert.match(adminInsightsUi, /is-informational/);
+  assert.match(adminInsightsUi, /Largest drop-off/);
+  assert.match(adminInsightsUi, /Unavailable/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /\/api\/admin\/insights/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /exitStage/);
+  assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /analyticsRevenue\.collectRevenueItems/);
   console.log("PASS admin-insights wiring");
+}
+
+function phase1Trust() {
+  const revenue = require("../server/analytics-revenue.js");
+  const now = Date.now();
+  const iso = (msAgo) => new Date(now - msAgo).toISOString();
+
+  // Drop-off math honesty
+  const drop10to4 = insights.buildTransitionRow(
+    { id: "signupCompletions", label: "Signup completed", count: 10 },
+    { id: "trialStarts", label: "Trial started", count: 4 },
+  );
+  assert.equal(drop10to4.dropOffCount, 6);
+  assert.equal(drop10to4.dropOffRate, 60);
+  assert.equal(drop10to4.dropOffRateLabel, "60.0%");
+  assert.equal(drop10to4.conversionRate, 40);
+
+  const dropSame = insights.buildTransitionRow(
+    { id: "a", label: "A", count: 10 },
+    { id: "b", label: "B", count: 10 },
+  );
+  assert.equal(dropSame.dropOffCount, 0);
+  assert.equal(dropSame.dropOffRate, 0);
+  assert.equal(dropSame.dropOffRateLabel, "0.0%");
+
+  const dropZero = insights.buildTransitionRow(
+    { id: "a", label: "A", count: 0 },
+    { id: "b", label: "B", count: 0 },
+  );
+  assert.equal(dropZero.dropOffRate, 0);
+  assert.equal(dropZero.conversionRate, 0);
+  assert.equal(dropZero.dropOffRateLabel, "0%");
+
+  // ---------------------------------------------------------------------------
+  // Revenue fixtures (1–7) — exact createdAt twin key only
+  // ---------------------------------------------------------------------------
+  const twinAt = iso(1000);
+  const t1 = revenue.collectRevenueItems(
+    [{
+      id: "evt_pay_1",
+      name: "checkout_success",
+      user: "payer@provider.com",
+      createdAt: twinAt,
+      detail: { monthlyPrice: 13.99 },
+      amount: 13.99,
+    }],
+    [{
+      id: "bill_1",
+      email: "payer@provider.com",
+      type: "checkout_success",
+      amount: 13.99,
+      createdAt: twinAt,
+    }],
+  );
+  assert.equal(revenue.sumRevenueAmount(t1), 13.99, "fixture1 twin → $13.99");
+
+  const t2a = iso(2000);
+  const t2b = iso(3000);
+  const t2 = revenue.collectRevenueItems(
+    [
+      { id: "a1", name: "checkout_success", user: "payer@provider.com", createdAt: t2a, amount: 13.99 },
+      { id: "a2", name: "checkout_success", user: "payer@provider.com", createdAt: t2b, amount: 13.99 },
+    ],
+    [
+      { id: "b1", email: "payer@provider.com", type: "checkout_success", amount: 13.99, createdAt: t2a },
+      { id: "b2", email: "payer@provider.com", type: "checkout_success", amount: 13.99, createdAt: t2b },
+    ],
+  );
+  assert.equal(revenue.sumRevenueAmount(t2), 27.98, "fixture2 two distinct timestamps → $27.98");
+
+  const sharedTs = iso(4000);
+  const t3 = revenue.collectRevenueItems(
+    [
+      { id: "e1", name: "checkout_success", user: "one@provider.com", createdAt: sharedTs, amount: 10 },
+      { id: "e2", name: "checkout_success", user: "two@provider.com", createdAt: sharedTs, amount: 10 },
+    ],
+    [
+      { id: "bb1", email: "one@provider.com", type: "checkout_success", amount: 10, createdAt: sharedTs },
+      { id: "bb2", email: "two@provider.com", type: "checkout_success", amount: 10, createdAt: sharedTs },
+    ],
+  );
+  assert.equal(revenue.sumRevenueAmount(t3), 20, "fixture3 different emails same timestamp both count");
+
+  const t4 = revenue.collectRevenueItems(
+    [{ id: "e", name: "checkout_success", user: "same@provider.com", createdAt: iso(5000), amount: 13.99 }],
+    [{ id: "b", email: "same@provider.com", type: "checkout_success", amount: 13.99, createdAt: iso(6000) }],
+  );
+  assert.equal(revenue.sumRevenueAmount(t4), 27.98, "fixture4 same email/amount different timestamps both count");
+
+  const t5 = revenue.collectRevenueItems(
+    [],
+    [
+      { email: "x@provider.com", type: "subscription_canceled", amount: 19.99, createdAt: twinAt },
+      { email: "x@provider.com", type: "payment_failed", amount: 19.99, createdAt: twinAt },
+      { email: "ok@provider.com", type: "checkout_success", amount: 9.99, createdAt: twinAt },
+    ],
+  );
+  assert.equal(revenue.sumRevenueAmount(t5), 9.99, "fixture5 cancel/fail excluded");
+
+  const t6 = revenue.collectRevenueItems(
+    [{ id: "only_a", name: "checkout_success", user: "analytics@provider.com", createdAt: iso(7000), amount: 13.99 }],
+    [],
+  );
+  assert.equal(revenue.sumRevenueAmount(t6), 13.99, "fixture6 analytics-only counts once");
+
+  const t7 = revenue.collectRevenueItems(
+    [],
+    [{ id: "only_b", email: "billing@provider.com", type: "checkout_success", amount: 13.99, createdAt: iso(8000) }],
+  );
+  assert.equal(revenue.sumRevenueAmount(t7), 13.99, "fixture7 billing-only counts once");
+
+  // Prove recordBillingEvent copies analytics createdAt (source invariant for twin key).
+  const indexJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
+  assert.match(
+    indexJs,
+    /function recordBillingEvent[\s\S]*?createdAt:\s*event\.createdAt\s*\|\|\s*new Date\(\)\.toISOString\(\)/,
+  );
+  assert.match(indexJs, /if \(billingStorePatch\) recordBillingEvent\(store, event\);/);
+  assert.match(
+    indexJs,
+    /function appendBillingEvent[\s\S]*?createdAt:\s*new Date\(\)\.toISOString\(\)/,
+    "appendBillingEvent uses independent timestamps (not twin-guaranteed)",
+  );
+
+  // Open feature requests exclude Completed / Declined (canonical FEATURE_REQUEST_STATUSES)
+  const frStore = {
+    featureRequests: [
+      { id: "1", title: "A", status: "New", votes: 1 },
+      { id: "2", title: "B", status: "Planned", votes: 2 },
+      { id: "3", title: "C", status: "In Progress", votes: 3 },
+      { id: "4", title: "D", status: "Completed", votes: 4 },
+      { id: "5", title: "E", status: "Declined", votes: 5 },
+      { id: "6", title: "F", status: "Under Review", votes: 1 },
+      { id: "7", title: "G", status: "completed", votes: 1 },
+      { id: "8", title: "H", status: "COMPLETED", votes: 1 },
+    ],
+    users: {},
+    analyticsEvents: [],
+  };
+  assert.equal(insights.countOpenFeatureRequests(frStore), 4);
+  assert.equal(insights.isOpenFeatureRequestStatus("Completed"), false);
+  assert.equal(insights.isOpenFeatureRequestStatus("completed"), false);
+  assert.equal(insights.isOpenFeatureRequestStatus("Planned"), true);
+  assert.deepEqual(
+    [...insights.CLOSED_FEATURE_REQUEST_STATUSES].sort(),
+    ["archived", "completed", "declined", "rejected", "released"].sort(),
+  );
+  const commsLib = require("../server/comms-lib.js");
+  assert.deepEqual(
+    [...commsLib.FEATURE_REQUEST_STATUSES],
+    ["New", "Under Review", "Planned", "In Progress", "Completed", "Declined"],
+  );
+
+  // Canonical Advisor ↔ Funnel signup / paid / visitors; no today fallback on empty 7d
+  const oldVisit = iso(10 * 86400000);
+  const parityStore = {
+    users: {
+      "new@provider.com": {
+        email: "new@provider.com",
+        signupAt: iso(2 * 86400000),
+        createdAt: iso(2 * 86400000),
+        metaPurchaseAt: iso(1 * 86400000),
+        firstPaidInvoiceAt: iso(1 * 86400000),
+        plan: "Pro",
+        subscriptionStatus: "active",
+        attribution: { source: "Direct", landingPage: "/" },
+      },
+    },
+    featureRequests: frStore.featureRequests,
+    analyticsEvents: [
+      // Only an old visit — outside 7d so visitors in 7d should be 0 (not today's fallback).
+      {
+        name: "website_visit",
+        sessionId: "old",
+        visitorId: "v-old",
+        createdAt: oldVisit,
+        path: "/",
+      },
+      // Refresh duplicates same visitor today — unique visitor count stays 1 if in range.
+    ],
+    siteContent: { curriculum: { lessonPlans: [], activities: [] } },
+  };
+
+  const empty7dAdvisor = insights.buildInsights(parityStore, {
+    hub: "advisor",
+    range: "7d",
+    marketing: { realtime: { sessionVisitsToday: 122 } },
+  });
+  const empty7dFunnel = insights.buildInsights(parityStore, { hub: "marketing-funnel", range: "7d" });
+  assert.equal(empty7dAdvisor.data.metrics.visitors, 0, "7d visitors stay 0 (no Today fallback)");
+  assert.equal(
+    empty7dAdvisor.data.metrics.visitors,
+    empty7dFunnel.data.stages.find((s) => s.id === "visitors").count,
+  );
+  assert.ok(!empty7dAdvisor.data.summaryLines.some((line) => /122/.test(line)));
+
+  // Signup + paid from user stamps (no checkout_success / signup events) — Advisor matches Funnel
+  const stampAdvisor = insights.buildInsights(parityStore, { hub: "advisor", range: "30d" });
+  const stampFunnel = insights.buildInsights(parityStore, { hub: "marketing-funnel", range: "30d" });
+  const funnelSignups = stampFunnel.data.stages.find((s) => s.id === "signupCompletions").count;
+  const funnelPaid = stampFunnel.data.stages.find((s) => s.id === "paidConversions").count;
+  assert.equal(stampAdvisor.data.metrics.signups, funnelSignups);
+  assert.equal(stampAdvisor.data.metrics.paid, funnelPaid);
+  assert.equal(stampAdvisor.data.metrics.signups, 1);
+  assert.equal(stampAdvisor.data.metrics.paid, 1);
+
+  // Canonical KPI equality across Insights ranges (visitors / signups / paid)
+  const rangeParityStore = {
+    users: {
+      "range@provider.com": {
+        email: "range@provider.com",
+        signupAt: iso(2 * 3600000),
+        createdAt: iso(2 * 3600000),
+        metaPurchaseAt: iso(3600000),
+        firstPaidInvoiceAt: iso(3600000),
+        plan: "Pro",
+        subscriptionStatus: "active",
+        attribution: { source: "Direct", landingPage: "/" },
+      },
+    },
+    featureRequests: [],
+    analyticsEvents: [
+      {
+        name: "website_visit",
+        sessionId: "r1",
+        visitorId: "v-range",
+        createdAt: iso(3 * 3600000),
+        path: "/",
+      },
+      {
+        name: "website_visit",
+        sessionId: "r1b",
+        visitorId: "v-range",
+        createdAt: iso(2.5 * 3600000),
+        path: "/",
+      },
+    ],
+    siteContent: { curriculum: { lessonPlans: [], activities: [] } },
+  };
+  for (const range of ["today", "7d", "30d", "all"]) {
+    const advisor = insights.buildInsights(rangeParityStore, {
+      hub: "advisor",
+      range,
+      marketing: { realtime: { sessionVisitsToday: 999 } },
+    });
+    const funnel = insights.buildInsights(rangeParityStore, { hub: "marketing-funnel", range });
+    const visitors = funnel.data.stages.find((s) => s.id === "visitors").count;
+    const signups = funnel.data.stages.find((s) => s.id === "signupCompletions").count;
+    const paid = funnel.data.stages.find((s) => s.id === "paidConversions").count;
+    assert.equal(advisor.data.metrics.visitors, visitors, `visitors parity ${range}`);
+    assert.equal(advisor.data.metrics.signups, signups, `signups parity ${range}`);
+    assert.equal(advisor.data.metrics.paid, paid, `paid parity ${range}`);
+    assert.ok(!advisor.data.summaryLines.some((line) => /999/.test(line)), `no today fallback ${range}`);
+  }
+
+  // Empty today stays zero (no fallback)
+  const emptyToday = insights.buildInsights(
+    { users: {}, featureRequests: [], analyticsEvents: [] },
+    { hub: "advisor", range: "today", marketing: { realtime: { sessionVisitsToday: 50 } } },
+  );
+  assert.equal(emptyToday.data.metrics.visitors, 0);
+  assert.equal(emptyToday.data.metrics.signups, 0);
+  assert.equal(emptyToday.data.metrics.paid, 0);
+
+  // Paid event + matching user stamp still counts once
+  const paidUnionStore = {
+    ...parityStore,
+    analyticsEvents: [
+      ...(parityStore.analyticsEvents || []),
+      {
+        name: "checkout_success",
+        user: "new@provider.com",
+        createdAt: iso(1 * 86400000),
+        detail: { plan: "monthly" },
+      },
+    ],
+  };
+  const paidAdvisor = insights.buildInsights(paidUnionStore, { hub: "advisor", range: "30d" });
+  const paidFunnel = insights.buildInsights(paidUnionStore, { hub: "marketing-funnel", range: "30d" });
+  assert.equal(paidAdvisor.data.metrics.paid, 1);
+  assert.equal(paidAdvisor.data.metrics.paid, paidFunnel.data.stages.find((s) => s.id === "paidConversions").count);
+
+  // Drop-off wording
+  assert.ok(
+    stampAdvisor.data.summaryLines.some((line) => /Largest drop-off:/.test(line) && /drop-off\)/.test(line))
+      || !stampAdvisor.data.summaryLines.some((line) => /Largest drop-off:/.test(line)),
+    "drop-off lines must say drop-off when present",
+  );
+  // Force a drop-off summary with known edge
+  const dropStore = {
+    users: {},
+    featureRequests: [],
+    analyticsEvents: Array.from({ length: 10 }, (_, i) => ({
+      name: "website_visit",
+      visitorId: `v${i}`,
+      sessionId: `s${i}`,
+      createdAt: iso(1000 + i),
+      path: "/",
+    })).concat(
+      Array.from({ length: 10 }, (_, i) => ({
+        name: "account_signup_complete",
+        user: `u${i}@provider.com`,
+        visitorId: `v${i}`,
+        createdAt: iso(500 + i),
+      })),
+    ),
+  };
+  // Add user signup stamps without trials → 100% drop signup→trial
+  dropStore.users = Object.fromEntries(
+    Array.from({ length: 10 }, (_, i) => [
+      `u${i}@provider.com`,
+      {
+        email: `u${i}@provider.com`,
+        signupAt: iso(500 + i),
+        createdAt: iso(500 + i),
+      },
+    ]),
+  );
+  const dropAdvisor = insights.buildInsights(dropStore, { hub: "advisor", range: "7d" });
+  const dropLine = dropAdvisor.data.summaryLines.find((line) => /Largest drop-off:/.test(line));
+  assert.ok(dropLine, "expected largest drop-off summary line");
+  assert.match(dropLine, /drop-off\)/);
+  assert.doesNotMatch(dropLine, /^Biggest Opportunity:/);
+
+  // Open requests KPI
+  assert.equal(stampAdvisor.data.metrics.openFeatureRequests, 4);
+
+  // Search active_empty (not instrumentation missing)
+  const searchEmpty = insights.buildSearchAnalytics({ users: {} }, [], insights.parseRange("7d"));
+  assert.equal(searchEmpty.instrumentation, "active_empty");
+  assert.match(searchEmpty.note, /no tracked searches occurred/i);
+  assert.doesNotMatch(searchEmpty.note, /instrumentation is pending/i);
+
+  const searchAdvisor = insights.buildInsights(
+    { users: {}, featureRequests: [], analyticsEvents: [] },
+    { hub: "advisor", range: "7d" },
+  );
+  assert.ok(searchAdvisor.data.summaryLines.some((line) => /Search tracking is active for library search/i.test(line)));
+  assert.ok(!searchAdvisor.data.summaryLines.some((line) => /waiting on search event instrumentation/i.test(line)));
+
+  // Email honesty
+  const email = insights.buildEmailAnalytics({
+    emailEngagement: { events: [{ type: "sent", templateId: "welcome" }], campaigns: {} },
+  });
+  assert.equal(email.totals.delivered, null);
+  assert.equal(email.totals.openRate, null);
+  assert.equal(email.totals.clickRate, null);
+  assert.equal(email.totals.sent, 1);
+  assert.equal(email.totals.sentWithoutImmediateFailure, 1);
+  assert.notEqual(email.totals.delivered, 0);
+  assert.notEqual(email.totals.openRate, "0%");
+  assert.notEqual(email.totals.clickRate, "0%");
+  // Measured zero open rate when receipts exist but none opened
+  const emailZero = insights.buildEmailAnalytics({
+    freeUserWelcomeEmail: {
+      recipientReceipts: {
+        a: { email: "a@provider.com", sentAt: iso(10), openedAt: "", clickedAt: "" },
+      },
+    },
+  });
+  assert.equal(emailZero.totals.openRate, "0.0%");
+  assert.equal(emailZero.totals.clickRate, "0.0%");
+  assert.equal(emailZero.totals.delivered, null);
+  // UI maps null delivered → "Unavailable" (not 0)
+  const adminUi = fs.readFileSync(path.join(ROOT, "admin-insights.js"), "utf8");
+  assert.match(adminUi, /t\.delivered == null \? "Unavailable" : t\.delivered/);
+  assert.match(adminUi, /t\.openRate \?\? "Unavailable"/);
+
+  // Trial starts unchanged: stamp-based
+  const trialStore = {
+    users: {
+      "trial@provider.com": {
+        email: "trial@provider.com",
+        signupAt: iso(3 * 86400000),
+        metaStartTrialAt: iso(2 * 86400000),
+        trialStart: iso(2 * 86400000),
+      },
+    },
+    featureRequests: [],
+    analyticsEvents: [],
+  };
+  const trialAdvisor = insights.buildInsights(trialStore, { hub: "advisor", range: "7d" });
+  assert.equal(trialAdvisor.data.metrics.trials, 1);
+
+  console.log("PASS admin-insights phase1 trust");
 }
 
 async function main() {
   unit();
+  phase1Trust();
   await apiSmoke();
   await wiring();
   console.log("All admin-insights checks passed.");
