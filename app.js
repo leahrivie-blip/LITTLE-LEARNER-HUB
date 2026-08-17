@@ -10228,7 +10228,7 @@ function renderAdminCreateLessonPlanDialog() {
     `;
   } else if (ui.step === "paste") {
     body = `
-      <p class="muted-copy">Paste lesson title, age band, week fields, and weekday activity names. This builds structure only — activity directions stay blank until you use Paste Activity Update.</p>
+      <p class="muted-copy">Paste the lesson title, age group, week fields, and activities. Labels work with or without a colon — Lesson Plan Title, Age Group, and Activity name + Weekday blocks are recognized.</p>
       <label>Paste full lesson plan
         <textarea id="adminCreateLessonPasteText" rows="18" placeholder="Lesson title:&#10;Baby Moves &amp; Discovers&#10;&#10;Age band:&#10;Infant 0–6 Months&#10;&#10;Monday:&#10;Color Scarf Tracking">${escapeHtml(ui.pasteText || "")}</textarea>
       </label>

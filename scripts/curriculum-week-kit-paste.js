@@ -66,6 +66,7 @@
     "how to use": "whenToUse",
     "suggested use": "whenToUse",
     lyrics: "lyrics",
+    "song lyrics": "lyrics",
     "teacher notes": "teacherDirections",
     motions: "motions",
     "movement / action prompts": "motions",
@@ -128,6 +129,8 @@
     category: "activityCategory",
     "developmental domain": "activityCategory",
     "category / developmental domain": "activityCategory",
+    "category/developmental domain": "activityCategory",
+    "category developmental domain": "activityCategory",
     "recommended age": "ageModifications",
     "estimated duration": "durationMinutes",
     "activity objective": "objective",
@@ -172,6 +175,44 @@
 
   const ACTIVITY_START_IDS = Object.freeze(["title"]);
 
+  function stripHeadingDecorators(raw) {
+    return String(raw || "")
+      .trim()
+      .replace(/^#+\s*/, "")
+      .replace(/^\*\*(.+?)\*\*$/, "$1")
+      .replace(/^[_*]+|[_*]+$/g, "")
+      .trim();
+  }
+
+  function looksLikeBareHeadingCandidate(trimmed) {
+    if (!trimmed || trimmed.length > 80) return false;
+    if (/[.!?]$/.test(trimmed)) return false;
+    if (trimmed.split(/\s+/).length > 8) return false;
+    return /^[A-Za-z][A-Za-z0-9 /&'’:,-]*$/.test(trimmed);
+  }
+
+  function matchLabeledHeading(trimmed, aliasMap) {
+    const cleaned = stripHeadingDecorators(trimmed);
+    if (!cleaned) return null;
+    const headingMatch = cleaned.match(/^(.{1,80}?)\s*:\s*(.*)$/);
+    if (headingMatch) {
+      const labelPart = headingMatch[1].trim();
+      const rest = headingMatch[2];
+      const normalized = normalizeHeading(labelPart);
+      const fieldId = Object.prototype.hasOwnProperty.call(aliasMap, normalized)
+        ? aliasMap[normalized]
+        : "";
+      if (fieldId || (/^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "")) {
+        return { labelPart, rest, fieldId };
+      }
+    }
+    if (!looksLikeBareHeadingCandidate(cleaned)) return null;
+    const labelPart = cleaned.replace(/[:：]+$/g, "").trim();
+    const normalized = normalizeHeading(labelPart);
+    if (!Object.prototype.hasOwnProperty.call(aliasMap, normalized)) return null;
+    return { labelPart, rest: "", fieldId: aliasMap[normalized] };
+  }
+
   function splitLabeledSections(pastedText, aliasMap) {
     const lines = String(pastedText || "").replace(/\r\n/g, "\n").split("\n");
     const sections = [];
@@ -190,20 +231,12 @@
     }
     lines.forEach((line) => {
       const trimmed = line.trim();
-      const headingMatch = trimmed.match(/^(.+?)\s*:\s*(.*)$/);
-      if (headingMatch) {
-        const labelPart = headingMatch[1];
-        const rest = headingMatch[2];
-        const normalized = normalizeHeading(labelPart);
-        const fieldId = Object.prototype.hasOwnProperty.call(aliasMap, normalized)
-          ? aliasMap[normalized]
-          : "";
-        if (fieldId || (/^[A-Za-z][A-Za-z0-9 /&'-]{0,60}$/.test(labelPart) && rest === "")) {
-          flush();
-          current = { headingRaw: labelPart.trim(), fieldId: fieldId || "" };
-          if (rest) bodyLines.push(rest);
-          return;
-        }
+      const heading = matchLabeledHeading(trimmed, aliasMap);
+      if (heading) {
+        flush();
+        current = { headingRaw: heading.labelPart, fieldId: heading.fieldId || "" };
+        if (heading.rest) bodyLines.push(heading.rest);
+        return;
       }
       if (current) bodyLines.push(line);
       else if (trimmed) sections.push({ headingRaw: "", fieldId: "", body: trimmed, recognized: false });
@@ -398,18 +431,63 @@
     };
   }
 
-  function parseBooksSection(body) {
-    const parsed = parseRecordList(body, BOOK_HEADING_ALIASES, ["title"]);
+  function splitTrailingHeadingBlock(body, headingNames) {
+    const names = new Set((headingNames || []).map((name) => normalizeHeading(name)));
+    const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
+    let splitAt = -1;
+    lines.forEach((line, index) => {
+      if (splitAt >= 0) return;
+      const trimmed = line.trim();
+      const matched = matchLabeledHeading(trimmed, Object.fromEntries([...names].map((name) => [name, "trailing"])));
+      if (matched && matched.fieldId === "trailing") splitAt = index;
+    });
+    if (splitAt <= 0) return { main: String(body || ""), trailing: "", restOnHeading: "" };
+    const heading = matchLabeledHeading(lines[splitAt].trim(), Object.fromEntries([...names].map((name) => [name, "trailing"])));
+    const trailingLines = [];
+    if (heading?.rest) trailingLines.push(heading.rest);
+    trailingLines.push(...lines.slice(splitAt + 1));
     return {
-      records: parsed.records.map(normalizeBookRecord).filter(Boolean),
+      main: lines.slice(0, splitAt).join("\n").replace(/^\n+|\n+$/g, ""),
+      trailing: trailingLines.join("\n").replace(/^\n+|\n+$/g, ""),
+    };
+  }
+
+  function parseBooksSection(body) {
+    const source = String(body || "");
+    const structured = /\bbook\s*title\s*:/i.test(source) || /^\s*title\s*:/im.test(source);
+    const split = structured
+      ? { main: source, trailing: "" }
+      : splitTrailingHeadingBlock(source, ["book questions", "discussion questions"]);
+    const parsed = parseRecordList(split.main, BOOK_HEADING_ALIASES, ["title"]);
+    const records = parsed.records.map(normalizeBookRecord).filter(Boolean);
+    if (split.trailing && records.length) {
+      records.forEach((book) => {
+        if (book.questions) return;
+        book.questions = split.trailing;
+        book.afterReadingQuestions = split.trailing.split(/\n+/).map((line) => text(line)).filter(Boolean);
+      });
+    }
+    return {
+      records,
       unsupported: parsed.unsupported,
     };
   }
 
   function parseSongsSection(body) {
-    const parsed = parseRecordList(body, SONG_HEADING_ALIASES, ["title"]);
+    const source = String(body || "");
+    const structured = /\bsong\s*title\s*:/i.test(source) || /^\s*title\s*:/im.test(source);
+    const split = structured
+      ? { main: source, trailing: "" }
+      : splitTrailingHeadingBlock(source, ["song lyrics", "lyrics"]);
+    const parsed = parseRecordList(split.main, SONG_HEADING_ALIASES, ["title"]);
+    const records = parsed.records.map(normalizeSongRecord).filter(Boolean);
+    if (split.trailing && records.length === 1 && !multiline(records[0].lyrics)) {
+      records[0].lyrics = split.trailing;
+    } else if (split.trailing && records.length > 1 && records.every((song) => !multiline(song.lyrics))) {
+      records[0].lyrics = split.trailing;
+    }
     return {
-      records: parsed.records.map(normalizeSongRecord).filter(Boolean),
+      records,
       unsupported: parsed.unsupported,
     };
   }
@@ -435,6 +513,9 @@
     };
     const byLabel = {
       "no image needed": "not_needed",
+      "no image required": "not_needed",
+      "no image required yet": "not_needed",
+      "none yet": "not_needed",
       "finished example only": "example_only",
       "setup image only": "setup_only",
       "setup + finished example": "required",
@@ -486,9 +567,31 @@
     };
   }
 
+  function isPlaceholderPasteValue(raw) {
+    const value = text(raw).toLowerCase().replace(/[.]+$/g, "");
+    return !value || /^(none|none yet|n\/a|na|not yet|n a|no image required yet)$/.test(value);
+  }
+
+  function parseWeekdayName(raw) {
+    const cleaned = text(raw).toLowerCase().replace(/[:：]+$/g, "");
+    const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+    if (days.includes(cleaned)) return cleaned;
+    const map = {
+      mon: "monday",
+      tue: "tuesday",
+      tues: "tuesday",
+      wed: "wednesday",
+      thu: "thursday",
+      thur: "thursday",
+      thurs: "thursday",
+      fri: "friday",
+    };
+    return map[cleaned] || "";
+  }
+
   function parseStructuredActivities(body, weekday) {
     const source = String(body || "");
-    if (!/activity\s*name\s*:/i.test(source)) {
+    if (!/\bactivity\s*name\b/i.test(source)) {
       return { records: [], unsupported: [] };
     }
     const parsed = parseRecordList(source, ACTIVITY_ITEM_ALIASES, ["title"]);
@@ -512,7 +615,7 @@
       if (multiline(raw.observationPrompts)) {
         out.observationPrompts = listLines(raw.observationPrompts);
       }
-      if (text(raw.dayOfWeek)) out.dayOfWeek = text(raw.dayOfWeek).toLowerCase() || weekday;
+      if (text(raw.dayOfWeek)) out.dayOfWeek = parseWeekdayName(raw.dayOfWeek) || weekday;
       const durationMatch = text(raw.durationMinutes).match(/(\d+)/);
       if (durationMatch) out.durationMinutes = Number(durationMatch[1]);
       if (multiline(raw.substitutions)) {
@@ -531,13 +634,13 @@
       else if (text(raw.imageRequirement)) out.unresolvedImageRequirement = text(raw.imageRequirement);
       if (multiline(raw.imageBriefSetup)) out.imageBriefSetup = multiline(raw.imageBriefSetup);
       if (multiline(raw.imageBriefExample)) out.imageBriefExample = multiline(raw.imageBriefExample);
-      if (text(raw.setupImageUpload)) {
+      if (text(raw.setupImageUpload) && !isPlaceholderPasteValue(raw.setupImageUpload)) {
         out.setupImageUpload = {
           raw: text(raw.setupImageUpload),
           actionRequired: "Activity setup photo — manual upload required.",
         };
       }
-      if (text(raw.exampleImageUpload)) {
+      if (text(raw.exampleImageUpload) && !isPlaceholderPasteValue(raw.exampleImageUpload)) {
         out.exampleImageUpload = {
           raw: text(raw.exampleImageUpload),
           actionRequired: "Activity finished example photo — manual upload required.",
@@ -606,6 +709,9 @@
     parseSongsSection,
     parsePrintableIdeasSection,
     parseStructuredActivities,
+    parseWeekdayName,
+    isPlaceholderPasteValue,
+    matchLabeledHeading,
     labeledSectionBody,
     parsePendingPrintableSection,
     parseImageRequirement,
