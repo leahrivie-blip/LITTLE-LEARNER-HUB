@@ -143,6 +143,7 @@
     "test:pro-lesson-preview-audit": "node scripts/test-pro-lesson-preview-audit.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
+    "test:curriculum-access-plan-bulk": "NODE_ENV=test node scripts/test-curriculum-access-plan-bulk.js",
     "test:curriculum-admin-editor": "node scripts/test-curriculum-admin-editor-phase-e.js",
     "test:curriculum-planner": "node scripts/test-curriculum-planner-phase-f1.js",
     "test:curriculum-planner-notes": "node scripts/test-curriculum-planner-phase-f2.js",

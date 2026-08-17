@@ -8,6 +8,7 @@ const stripeBillingReconciliation = require("../scripts/stripe-billing-reconcili
 const accountAccess = require("../scripts/account-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
+const curriculumLessonAccessPlan = require("./curriculum-lesson-access-plan.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const trialClassification = require("../scripts/trial-classification.js");
@@ -3318,6 +3319,18 @@ function writeSiteCurriculumTouched(store, incomingCurriculum, {
     if (!plan?.id || !touchPlans.has(plan.id)) return plan;
     const incomingPlan = incomingPlanById.get(plan.id);
     if (!incomingPlan) return plan;
+    // Access-plan-only patch: mutate Free/Pro without re-normalizing lesson body.
+    if (incomingPlan.__llhAccessPlanPatch === true) {
+      const accessPlan = incomingPlan.plan === "Pro" ? "Pro" : (incomingPlan.plan === "Free" ? "Free" : null);
+      if (!accessPlan) return plan;
+      return {
+        ...plan,
+        plan: accessPlan,
+        updatedAt: Object.prototype.hasOwnProperty.call(incomingPlan, "updatedAt")
+          ? incomingPlan.updatedAt
+          : plan.updatedAt,
+      };
+    }
     // Surgical patches keep published dailyPlans by reference and never
     // re-normalize unrelated activity timing fields on this lesson.
     if (incomingPlan.dailyPlans === plan.dailyPlans) {
@@ -22886,6 +22899,188 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   }
 }
 
+/**
+ * Owner-only bulk Set Free / Set Pro for curriculum lesson plans.
+ * Mutates only the canonical `plan` access field — never status or lesson body.
+ */
+async function handleAdminCurriculumLessonAccessPlan(request, response) {
+  let body = {};
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid JSON body.", code: "invalid_json" });
+    return;
+  }
+  if (!requireTeachingKitOwnerAdminSession(request, body, response)) return;
+
+  const accessPlan = curriculumLessonAccessPlan.normalizeAccessPlan(body.plan);
+  if (!accessPlan) {
+    jsonResponse(response, 400, {
+      error: 'Access plan must be exactly "Free" or "Pro".',
+      code: "invalid_access_plan",
+      allowed: [...curriculumLessonAccessPlan.ALLOWED_ACCESS_PLANS],
+    });
+    return;
+  }
+
+  const lessonPlanIds = curriculumLessonAccessPlan.sanitizeLessonPlanIds(
+    body.lessonPlanIds || body.ids || (body.lessonPlanId ? [body.lessonPlanId] : []),
+  );
+  if (!lessonPlanIds.length) {
+    jsonResponse(response, 400, {
+      error: "Select at least one lesson plan.",
+      code: "lesson_plan_ids_required",
+    });
+    return;
+  }
+
+  const store = readStore();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const preview = curriculumLessonAccessPlan.previewAccessPlanChange(
+    existingCurriculum.lessonPlans || [],
+    lessonPlanIds,
+    accessPlan,
+  );
+
+  // Explicit confirm required so customer access never changes on a dry run / mis-click.
+  if (body.confirm !== true) {
+    jsonResponse(response, 200, {
+      ok: true,
+      preview: true,
+      plan: accessPlan,
+      selectedCount: preview.selectedCount,
+      titles: preview.titles,
+      lessons: preview.lessons,
+      missingIds: preview.missingIds,
+      message: "Preview only — set confirm:true after owner confirmation to save.",
+    });
+    return;
+  }
+
+  if (preview.missingIds.length && preview.selectedCount === 0) {
+    jsonResponse(response, 404, {
+      ok: false,
+      error: "None of the selected lesson plans were found.",
+      code: "lesson_plans_not_found",
+      failed: preview.missingIds.map((id) => ({ id, title: "", error: "Lesson plan not found." })),
+      updatedCount: 0,
+    });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const applied = curriculumLessonAccessPlan.applyAccessPlanToLessonPlans(
+    existingCurriculum.lessonPlans || [],
+    lessonPlanIds,
+    accessPlan,
+    now,
+  );
+  const failed = [...applied.failed];
+  for (const id of preview.missingIds) {
+    if (!failed.some((item) => item.id === id)) {
+      failed.push({ id, title: "", error: "Lesson plan not found." });
+    }
+  }
+
+  const idSet = new Set(lessonPlanIds);
+  const failedIds = new Set(failed.map((item) => item.id));
+  const patchedPlans = (applied.nextLessonPlans || []).map((plan) => {
+    if (!plan?.id || !idSet.has(String(plan.id)) || failedIds.has(plan.id)) return plan;
+    return {
+      ...plan,
+      plan: accessPlan,
+      updatedAt: plan.updatedAt || now,
+      __llhAccessPlanPatch: true,
+    };
+  });
+  const touchedLessonPlanIds = patchedPlans
+    .filter((plan) => plan && plan.__llhAccessPlanPatch === true)
+    .map((plan) => plan.id);
+
+  if (!touchedLessonPlanIds.length) {
+    jsonResponse(response, failed.length ? 207 : 200, {
+      ok: failed.length === 0,
+      saved: failed.length === 0,
+      plan: accessPlan,
+      updatedCount: 0,
+      updated: [],
+      failed,
+      failedTitles: failed.map((item) => item.title).filter(Boolean),
+      curriculum: {
+        ...existingCurriculum,
+        resources: (existingCurriculum.resources || [])
+          .map((item) => curriculumResourceMetadata(item))
+          .filter(Boolean),
+      },
+      siteContentUpdatedAt: siteContent.updatedAt,
+    });
+    return;
+  }
+
+  const nextCurriculum = {
+    ...existingCurriculum,
+    lessonPlans: patchedPlans,
+    updatedAt: now,
+  };
+  const writeResult = writeSiteCurriculumTouched(store, nextCurriculum, {
+    updatedAt: now,
+    touchedLessonPlanIds,
+  });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      ok: false,
+      error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+      code: "curriculum_wipe_blocked",
+      failed: applied.updated.map((item) => ({
+        id: item.id,
+        title: item.title,
+        error: "Curriculum wipe guard blocked the write.",
+      })),
+      updatedCount: 0,
+    });
+    return;
+  }
+
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("[curriculum-access-plan] persist failed", error.message);
+    jsonResponse(response, 503, {
+      ok: false,
+      error: "Access plan could not be saved. Please try again.",
+      code: "persist_failed",
+    });
+    return;
+  }
+
+  const persisted = store.siteContent.curriculum || nextCurriculum;
+  const updatedLessons = applied.updated.filter((item) => !failedIds.has(item.id));
+  const ok = failed.length === 0;
+  jsonResponse(response, ok ? 200 : 207, {
+    ok,
+    saved: true,
+    plan: accessPlan,
+    updatedCount: updatedLessons.length,
+    updated: updatedLessons,
+    failed,
+    failedTitles: failed.map((item) => item.title).filter(Boolean),
+    curriculum: {
+      ...persisted,
+      resources: (persisted.resources || [])
+        .map((item) => curriculumResourceMetadata(item))
+        .filter(Boolean),
+    },
+    siteContentUpdatedAt: store.siteContent.updatedAt,
+  });
+}
+
 async function persistCurriculumUploadToMediaAsset({ resourceId, parsed, fileName }) {
   if (!usePostgresStore() || !postgresPool || !databaseReady) {
     const error = new Error("Persistent media storage is unavailable.");
@@ -29752,6 +29947,9 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/series") return await handleAdminCurriculumSeriesSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans/access-plan") {
+      return await handleAdminCurriculumLessonAccessPlan(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/upload") return await handleAdminLessonCoverUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/upload") return await handleAdminEnrichmentPhotoUpload(request, response);
