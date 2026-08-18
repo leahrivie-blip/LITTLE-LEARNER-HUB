@@ -236,6 +236,7 @@
     "test:signup-email-tap": "node scripts/test-signup-email-tap.js",
     "test:signup-pricing-flow": "node scripts/test-signup-pricing-flow.js",
     "test:signup-paid-focus": "node scripts/test-signup-paid-focus.js",
+    "test:signup-dropoff-fix": "NODE_ENV=test node scripts/test-signup-dropoff-fix.js",
     "test:support-reply-email": "NODE_ENV=test node scripts/test-support-reply-email.js",
     "test:free-user-upgrade-experience": "node scripts/test-free-user-upgrade-experience.js",
     "test:free-paid-conversion-unify": "node scripts/test-free-paid-conversion-unify.js",

@@ -3496,6 +3496,39 @@ function clearPreferredSignupPlan() {
   setPreferredSignupPlan("");
 }
 
+/** True only when a CTA already chose Free (Start Free, header Sign Up, ?signup=1). */
+function isExplicitFreeSignupIntent(intent = preferredSignupPlanFromStorage()) {
+  const plan = String(intent || "").trim().toLowerCase();
+  return plan === "free" || plan === "start-free" || plan === "free-plan";
+}
+
+function isPlausibleSignupEmail(value) {
+  const email = String(value || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function trackSignupStartOnce(source = "auth_modal") {
+  try {
+    if (sessionStorage.getItem("llhSignupStartTracked") === "1") return;
+    sessionStorage.setItem("llhSignupStartTracked", "1");
+  } catch {
+    /* storage blocked — still emit this page's first start */
+  }
+  trackEvent("signup_start", { source });
+}
+
+function emitSignupCompleteOnce(detail = {}) {
+  const email = String(detail.email || "").trim().toLowerCase();
+  try {
+    const key = `llhSignupComplete:${email || "unknown"}`;
+    if (sessionStorage.getItem(key) === "1") return;
+    sessionStorage.setItem(key, "1");
+  } catch {
+    /* emit anyway */
+  }
+  trackEvent("account_signup_complete", detail);
+}
+
 /**
  * Signup modal title + supporting note from the CTA's selected plan intent.
  * Free / Pro / Trial / neutral must never reuse the wrong plan message.
@@ -3617,7 +3650,6 @@ function openAuthModal(mode = "login") {
   // Close the public mobile menu so it cannot sit above / steal taps from auth.
   if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
   if (mode === "signup") {
-    trackEvent("signup_start", { source: "auth_modal" });
     renderSignupWizardStep();
   }
   const authFocusRoot = modal?.querySelector(".auth-modal-card, .modal-card") || modal;
@@ -16576,6 +16608,7 @@ function setAuthMode(mode) {
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
   submitButton.hidden = false;
   if (mode === "signup") {
+    trackSignupStartOnce("auth_modal");
     applySignupIntentCopyToAuthModal();
     submitButton.textContent = "Continue";
     forgotButton.style.display = "none";
@@ -16603,7 +16636,14 @@ function setAuthMode(mode) {
 async function signUpWithProvider(email, password, phone, firstName, lastName) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
+  if (!isPlausibleSignupEmail(cleanEmail)) throw new Error("Please enter a valid email address.");
   if (String(password || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
+  const existingLocal = (typeof accounts === "function" ? accounts() : {})[cleanEmail];
+  if (existingLocal && (existingLocal.passwordHash || existingLocal.signupAt || existingLocal.firebaseUid)) {
+    const duplicate = new Error("An account already exists for this email. Try logging in or use Forgot password.");
+    duplicate.code = "auth/email-already-in-use";
+    throw duplicate;
+  }
   const cleanFirst = String(firstName || "").trim();
   const cleanLast  = String(lastName || "").trim();
   const fullName   = [cleanFirst, cleanLast].filter(Boolean).join(" ");
@@ -73949,6 +73989,11 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       document.querySelector("#emailInput")?.focus?.();
       return;
     }
+    if (!isPlausibleSignupEmail(email)) {
+      setFormMessage("#authMessage", "Please enter a valid email address.");
+      document.querySelector("#emailInput")?.focus?.();
+      return;
+    }
     if (String(password || "").length < 8) {
       setFormMessage("#authMessage", "Please use a password with at least 8 characters.");
       document.querySelector("#passwordInput")?.focus?.();
@@ -73987,15 +74032,34 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           lastName,
           name: [firstName, lastName].filter(Boolean).join(" "),
         });
-        // Advance the wizard immediately so Create Account never freezes behind
-        // slow profile/welcome sync and blocks every other button on the page.
-        signupWizardStep = 2;
-        setFormMessage("#authMessage", "");
-        renderSignupWizardStep();
-        submitButton.disabled = false;
+        trackEvent("signup_form_submit", {
+          email: result.email,
+          preferredPlan: preferredPlan || "",
+          signupFlow: "wizard-step-1",
+        });
         const registrationEventId = makeMetaEventId("reg");
-        // Profile sync first — analytics/welcome/admin alerts must not race ahead of
-        // a successful account create. Fire analytics only after sync succeeds.
+        emitSignupCompleteOnce({
+          email: result.email,
+          plan: selectedAtSignup,
+          preferredPlan: preferredPlan || "free",
+          source: trafficSource(),
+          firstName,
+          lastName,
+          signupFlow: "wizard-step-1",
+          metaEventId: registrationEventId,
+        });
+        const finishFree = isExplicitFreeSignupIntent(preferredPlan);
+        // Advance or finish immediately so Create Account never freezes behind
+        // slow profile/welcome sync and blocks every other button on the page.
+        if (finishFree) {
+          setFormMessage("#authMessage", "");
+          submitButton.disabled = false;
+        } else {
+          signupWizardStep = 2;
+          setFormMessage("#authMessage", "");
+          renderSignupWizardStep();
+          submitButton.disabled = false;
+        }
         runAuthSyncWithTimeout("signup profile sync", () => syncAccountProfileToBackend(result.email, {
           firstName,
           lastName,
@@ -74005,17 +74069,6 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           phone,
         }, { signup: true, lastLogin: true, metaEventId: registrationEventId })).then((syncedUser) => {
           if (syncedUser) {
-            trackEvent("account_signup_complete", {
-              email: result.email,
-              plan: selectedAtSignup,
-              preferredPlan: preferredPlan || "free",
-              source: trafficSource(),
-              firstName,
-              lastName,
-              signupFlow: "wizard-step-1",
-              metaEventId: registrationEventId,
-            });
-            // Browser mirror; server CAPI is authoritative and dedupes via event_id.
             trackMetaPixel("CompleteRegistration", {
               content_name: "account_signup",
               status: true,
@@ -74029,6 +74082,10 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
             loadUserAiUsage(result.email).catch(() => {}),
           ]);
         }).catch(() => {});
+        if (finishFree) {
+          await finishSignupWithPlan("free");
+          trackEvent("signup_landed_free", { email: result.email, destination: "lessons" });
+        }
         return;
       }
       if (signupWizardStep === 2) {

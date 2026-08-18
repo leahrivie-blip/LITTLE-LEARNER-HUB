@@ -763,6 +763,31 @@ function isSignupStartEvent(event) {
   ].includes(event.name);
 }
 
+/** Step-level unique-actor counts for signup diagnosis — does not change funnel stages. */
+const SIGNUP_STEP_EVENT_NAMES = Object.freeze([
+  "signup_start",
+  "signup_form_submit",
+  "account_signup_complete",
+  "signup_persona_selected",
+  "signup_plan_selected",
+  "free_plan_selected",
+  "signup_landed_free",
+]);
+
+function buildSignupStepCounts(events = [], isTestActor = () => false) {
+  const counts = {};
+  for (const name of SIGNUP_STEP_EVENT_NAMES) {
+    const keys = new Set();
+    for (const event of events) {
+      if (!event || event.name !== name || isTestActor(event)) continue;
+      const key = actorKey(event) || normalizeEmail(event.user || event.detail?.email || "");
+      if (key) keys.add(key);
+    }
+    counts[name] = keys.size;
+  }
+  return counts;
+}
+
 function pct(part, whole) {
   if (!whole) return 0;
   return Number(((part / whole) * 100).toFixed(1));
@@ -1557,6 +1582,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     transitions,
     advisorTransitions,
     worstDropOff: worstDrop,
+    signupStepCounts: buildSignupStepCounts(scoped, isTestActor),
     ctaBreakdown: {
       startFree: ctaKindCounts.start_free || 0,
       startTrial: ctaKindCounts.start_trial || 0,
@@ -1891,6 +1917,7 @@ module.exports = {
   RANGES,
   FUNNEL_STAGE_DEFS,
   ADVISOR_FUNNEL_EDGES,
+  SIGNUP_STEP_EVENT_NAMES,
   parseRange,
   buildInsights,
   buildFeatureUsage,
