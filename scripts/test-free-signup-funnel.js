@@ -170,23 +170,98 @@ function testStageOrderAndRates() {
 function testZeroDenominator() {
   const empty = insights.buildFreeSignupFunnel([]);
   assert.equal(empty.stages.length, 6);
-  for (const stage of empty.stages) {
+  for (const id of ["homepageVisitors", "startFreeClicks", "signupStart"]) {
+    const stage = stageById(empty, id);
     assert.equal(stage.uniqueActors, 0);
     assert.equal(stage.dropOffCount, 0);
     assert.ok(Number.isFinite(stage.conversionFromPrev));
     assert.ok(Number.isFinite(stage.dropOffRate));
   }
+  assert.equal(stageById(empty, "accountCreated").uniqueActors, 0);
+  assert.equal(stageById(empty, "accountCreated").dropOffCount, null, "previous gated step is unavailable, not a 0% edge");
   assert.equal(stageById(empty, "startFreeClicks").conversionFromPrev, 0);
   assert.equal(stageById(empty, "startFreeClicks").conversionFromPrevLabel, "0%");
   assert.equal(stageById(empty, "startFreeClicks").dropOffRateLabel, "0%");
-  for (const leak of empty.leaks) {
-    assert.equal(leak.count, 0);
-    assert.equal(leak.percent, 0);
-    assert.equal(leak.percentLabel, "0%");
-  }
+  assert.equal(leakById(empty, "A").count, 0);
+  assert.equal(leakById(empty, "A").percentLabel, "0%");
   assert.equal(empty.largestLeak, null);
   assert.match(empty.largestLeakLabel, /none in this range/i);
   console.log("PASS zero-denominator cases are safe");
+}
+
+function testHistoricalStepUnavailable() {
+  const now = Date.now();
+  const events = [];
+  for (let i = 1; i <= 8; i += 1) {
+    events.push(ev("website_visit", { visitorId: `h${i}`, detail: { view: "home" }, ago: 9000 - i }, now));
+  }
+  events.push(ev("cta_click", { visitorId: "h1", detail: { cta: "start_free", placement: "hero" }, ago: 4000 }, now));
+  events.push(ev("signup_start", { visitorId: "h1", ago: 3900 }, now));
+  events.push(ev("account_signup_complete", { visitorId: "h1", user: "old@x.com", ago: 3800 }, now));
+
+  const funnel = insights.buildFreeSignupFunnel(events, () => false, { rangeKey: "7d" });
+  assert.equal(funnel.rangeLabel, "7 days");
+  assert.equal(stageById(funnel, "homepageVisitors").uniqueActors, 8);
+  assert.equal(stageById(funnel, "signupFormSubmit").dataAvailable, false);
+  assert.equal(stageById(funnel, "signupFormSubmit").uniqueActors, null);
+  assert.equal(stageById(funnel, "signupFormSubmit").conversionFromPrevLabel, "Historical step data unavailable");
+  assert.equal(stageById(funnel, "landedFree").dataAvailable, false);
+  assert.equal(stageById(funnel, "landedFree").uniqueActors, null);
+  assert.equal(leakById(funnel, "B").percentLabel, "Historical step data unavailable");
+  assert.equal(leakById(funnel, "E").percentLabel, "Historical step data unavailable");
+  assert.equal(funnel.resultingPopulation, null);
+  assert.equal(funnel.overallConversionRateLabel, "Historical step data unavailable");
+  assert.ok(funnel.largestLeak, "largest leak uses available edges only");
+  assert.match(funnel.largestLeakLabel, /Homepage visitors → Clicked Start Free/);
+  assert.notEqual(funnel.largestLeak.toLabel, "Submitted signup");
+  console.log("PASS historical step data unavailable (not 0)");
+}
+
+function testPaidTrialNotCountedInFreeFunnel() {
+  const now = Date.now();
+  const events = [
+    ev("website_visit", { visitorId: "free1", detail: { view: "home" }, ago: 8000 }, now),
+    ev("website_visit", { visitorId: "pro1", detail: { view: "home" }, ago: 7900 }, now),
+    ev("cta_click", { visitorId: "free1", detail: { cta: "start_free", placement: "hero" }, ago: 7000 }, now),
+    ev("cta_click", { visitorId: "pro1", detail: { cta: "start_trial", placement: "hero" }, ago: 6900 }, now),
+    ev("signup_start", { visitorId: "free1", ago: 6000 }, now),
+    ev("signup_start", { visitorId: "pro1", ago: 5900 }, now),
+    ev("signup_form_submit", { visitorId: "free1", user: "free@x.com", detail: { preferredPlan: "free" }, ago: 5000 }, now),
+    ev("signup_form_submit", { visitorId: "pro1", user: "pro@x.com", detail: { preferredPlan: "monthly" }, ago: 4900 }, now),
+    ev("account_signup_complete", { visitorId: "free1", user: "free@x.com", detail: { plan: "Free" }, ago: 4000 }, now),
+    ev("account_signup_complete", { visitorId: "pro1", user: "pro@x.com", detail: { plan: "Pro" }, ago: 3900 }, now),
+    ev("signup_landed_free", { visitorId: "free1", user: "free@x.com", ago: 3000 }, now),
+  ];
+  const funnel = insights.buildFreeSignupFunnel(events);
+  assert.equal(stageById(funnel, "startFreeClicks").uniqueActors, 1, "start_trial is not a Start Free click");
+  assert.equal(stageById(funnel, "signupFormSubmit").uniqueActors, 1, "paid/trial submit excluded");
+  assert.equal(stageById(funnel, "accountCreated").uniqueActors, 1, "Pro account complete excluded");
+  assert.equal(stageById(funnel, "landedFree").uniqueActors, 1);
+  assert.equal(leakById(funnel, "D").count, 0, "Pro signup is not a Free-landing failure");
+  assert.equal(leakById(funnel, "E").count, 1);
+  console.log("PASS paid/trial signups do not contaminate Free funnel");
+}
+
+function testAdvisorSummaryWording() {
+  const now = Date.now();
+  const analyticsEvents = [];
+  for (let i = 1; i <= 10; i += 1) {
+    analyticsEvents.push(ev("website_visit", { visitorId: `w${i}`, detail: { view: "home" }, ago: 8000 - i }, now));
+  }
+  analyticsEvents.push(ev("cta_click", { visitorId: "w1", detail: { cta: "start_free", placement: "hero" }, ago: 1000 }, now));
+  analyticsEvents.push(ev("signup_start", { visitorId: "w1", ago: 900 }, now));
+  const advisor = insights.buildInsights({
+    users: {},
+    featureRequests: [],
+    siteContent: { curriculum: { lessonPlans: [], activities: [] } },
+    analyticsEvents,
+  }, { hub: "advisor", range: "7d" });
+  assert.ok(
+    advisor.data.summaryLines.some((line) => /Largest current leak: Homepage visitors → Clicked Start Free/.test(line)),
+    "advisor names the Free-funnel leak without calling it form abandonment",
+  );
+  assert.ok(!(advisor.data.summaryLines || []).some((line) => /abandoned a signup form/i.test(line)));
+  console.log("PASS advisor summary wording");
 }
 
 function testExistingAdvisorOpportunitiesStillWork() {
@@ -253,6 +328,9 @@ function testWiring() {
   assert.match(ui, /FREE SIGNUP FUNNEL/);
   assert.match(ui, /renderFreeSignupFunnel/);
   assert.match(ui, /Start Free by placement/);
+  assert.match(ui, /Historical step data unavailable/);
+  assert.match(ui, /never clicked Start Free/);
+  assert.match(ui, /Time window|Selected range|Homepage visitors:/);
   assert.match(server, /function buildFreeSignupFunnel/);
   assert.match(server, /freeSignupFunnel: buildFreeSignupFunnel/);
   assert.doesNotMatch(server, /placement === "farm"/);
@@ -264,6 +342,9 @@ function main() {
   testUniqueActorsAndNoDoubleCount();
   testStageOrderAndRates();
   testZeroDenominator();
+  testHistoricalStepUnavailable();
+  testPaidTrialNotCountedInFreeFunnel();
+  testAdvisorSummaryWording();
   testExistingAdvisorOpportunitiesStillWork();
   testWiring();
   console.log("All free-signup-funnel checks passed.");

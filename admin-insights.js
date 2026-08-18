@@ -130,12 +130,21 @@
 
   function renderFreeSignupFunnel(funnel, { compact = false } = {}) {
     if (!funnel || !Array.isArray(funnel.stages) || !funnel.stages.length) return "";
+    const rangeLabel = funnel.rangeLabel
+      || ({ today: "Today", "7d": "7 days", "30d": "30 days", all: "All time" }[insightsState.range] || insightsState.range || "");
+    const peopleCell = (stage) => (
+      stage.dataAvailable === false || stage.uniqueActors == null
+        ? "Historical step data unavailable"
+        : stage.uniqueActors
+    );
     const rows = (funnel.stages || []).map((stage, index) => {
-      const conv = index === 0 ? "" : esc(stage.conversionFromPrevLabel);
+      const conv = index === 0 ? "Starting population" : (stage.conversionFromPrevLabel || "—");
       const drop = index === 0
-        ? ""
-        : `${esc(stage.dropOffCount)} · ${esc(stage.dropOffRateLabel)}`;
-      return [stage.label, stage.uniqueActors, conv || "—", drop || "—"];
+        ? "—"
+        : (stage.dataAvailable === false || stage.dropOffCount == null
+          ? (stage.dropOffRateLabel || "Historical step data unavailable")
+          : `${stage.dropOffCount} lost · ${stage.dropOffRateLabel}`);
+      return [stage.label, peopleCell(stage), conv, drop];
     });
     const ctaRows = (funnel.ctaSources || []).map((row) => [
       row.label,
@@ -145,21 +154,31 @@
     const leakRows = (funnel.leaks || []).map((leak) => [
       leak.id,
       leak.label,
-      leak.count,
+      leak.dataAvailable === false || leak.count == null ? "Historical step data unavailable" : leak.count,
       leak.percentLabel,
     ]);
+    const start = funnel.startingPopulation;
+    const result = funnel.resultingPopulation;
+    const resultLabel = result == null ? "Historical step data unavailable" : result;
+    const lostLabel = funnel.didNotReachFree == null ? "Historical step data unavailable" : funnel.didNotReachFree;
     return `
       <section class="admin-insights-free-signup-funnel" aria-label="Free signup funnel">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Free signup</p>
+            <p class="eyebrow">Free signup · ${esc(rangeLabel || "Selected range")}</p>
             <h3>${esc(funnel.title || "FREE SIGNUP FUNNEL")}</h3>
           </div>
         </div>
+        <p class="muted-copy">
+          Homepage visitors: ${esc(start ?? "—")}
+          → Reached Free lessons: ${esc(resultLabel)}
+          · Conversion: ${esc(funnel.overallConversionRateLabel || "—")}
+          · Did not reach Free: ${esc(lostLabel)}
+        </p>
         ${funnel.largestLeakLabel ? `
           <div class="admin-insights-pending">${esc(funnel.largestLeakLabel)}</div>
         ` : ""}
-        ${table(["Step", "Unique people", "From previous", "Drop-off"], rows)}
+        ${table(["Step", "People at this step", "From previous step", "Did not continue"], rows)}
         ${compact ? "" : `
           <div class="admin-insights-split">
             <section>
@@ -460,6 +479,9 @@
           Largest drop-off: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
           — ${esc(data.worstDropOff.dropOffRateLabel)} drop-off
           (${esc(data.worstDropOff.dropOffCount)} people).
+          ${data.worstDropOff.from === "visitors" && data.worstDropOff.to === "signupStarts"
+            ? " This includes people who never clicked Start Free — not form abandonment. Use the Free signup funnel for the click vs submit split."
+            : ""}
         </div>
       ` : ""}
       <div class="admin-home-grid admin-insights-kpi-grid">

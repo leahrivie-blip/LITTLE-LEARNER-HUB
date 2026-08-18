@@ -804,6 +804,31 @@ const FREE_SIGNUP_CTA_SOURCE_DEFS = Object.freeze([
   { id: "other", label: "Other Start Free CTAs" },
 ]);
 
+/** Steps added in PR #679 — 0 would be misleading if the event has never been recorded. */
+const FREE_SIGNUP_HISTORICAL_EVENT_GATES = Object.freeze({
+  signupFormSubmit: "signup_form_submit",
+  landedFree: "signup_landed_free",
+});
+
+const FREE_SIGNUP_RANGE_LABELS = Object.freeze({
+  today: "Today",
+  "7d": "7 days",
+  "30d": "30 days",
+  all: "All time",
+});
+
+function catalogHasEventName(catalog, name) {
+  const eventName = String(name || "");
+  if (!eventName) return false;
+  return (catalog || []).some((event) => event && event.name === eventName);
+}
+
+function isExplicitPaidOrTrialSignupEvent(event) {
+  const plan = String(event?.detail?.plan || event?.detail?.preferredPlan || "").trim().toLowerCase();
+  if (!plan) return false;
+  return /trial|founding|monthly|annual|^pro$|paid/.test(plan);
+}
+
 function isHomepageVisitEvent(event) {
   if (!event || (event.name !== "website_visit" && event.name !== "page_view")) return false;
   const view = String(event.detail?.view || event.view || "").trim().toLowerCase();
@@ -892,8 +917,27 @@ function uniqueActorSet(events, unioner, predicate) {
   return { actors, eventCount };
 }
 
-function buildFreeSignupStageRow(def, uniqueActors, eventCount, prevCount, index) {
+function buildFreeSignupStageRow(def, uniqueActors, eventCount, prevCount, index, {
+  dataAvailable = true,
+  prevDataAvailable = true,
+} = {}) {
+  if (dataAvailable === false) {
+    return {
+      id: def.id,
+      label: def.label,
+      uniqueActors: null,
+      reaching: null,
+      eventCount: 0,
+      conversionFromPrev: null,
+      conversionFromPrevLabel: "Historical step data unavailable",
+      dropOffCount: null,
+      dropOffRate: null,
+      dropOffRateLabel: "Historical step data unavailable",
+      dataAvailable: false,
+    };
+  }
   const count = uniqueActors;
+  const edgeAvailable = index === 0 || prevDataAvailable;
   const converted = index === 0 ? count : Math.min(count, prevCount);
   const dropped = index === 0 ? 0 : Math.max(prevCount - count, 0);
   return {
@@ -902,11 +946,12 @@ function buildFreeSignupStageRow(def, uniqueActors, eventCount, prevCount, index
     uniqueActors: count,
     reaching: count,
     eventCount,
-    conversionFromPrev: index === 0 ? 100 : pct(converted, prevCount),
-    conversionFromPrevLabel: index === 0 ? "—" : rate(converted, prevCount),
-    dropOffCount: dropped,
-    dropOffRate: index === 0 ? 0 : pct(dropped, prevCount),
-    dropOffRateLabel: index === 0 ? "—" : rate(dropped, prevCount),
+    conversionFromPrev: !edgeAvailable ? null : (index === 0 ? 100 : pct(converted, prevCount)),
+    conversionFromPrevLabel: !edgeAvailable ? "—" : (index === 0 ? "—" : rate(converted, prevCount)),
+    dropOffCount: !edgeAvailable ? null : dropped,
+    dropOffRate: !edgeAvailable ? null : (index === 0 ? 0 : pct(dropped, prevCount)),
+    dropOffRateLabel: !edgeAvailable ? "—" : (index === 0 ? "—" : rate(dropped, prevCount)),
+    dataAvailable: true,
   };
 }
 
@@ -914,16 +959,25 @@ function buildFreeSignupStageRow(def, uniqueActors, eventCount, prevCount, index
  * Detailed Free signup funnel from existing analytics only.
  * Unique actors (visitor/email/session linked). Repeated signup_start is one start.
  */
-function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
+function buildFreeSignupFunnel(events = [], isTestActor = () => false, { catalogEvents = null, rangeKey = "" } = {}) {
   const scoped = (events || []).filter((event) => event && !isTestActor(event));
+  const catalog = Array.isArray(catalogEvents) ? catalogEvents : events;
   const links = buildActorLinkIndex(scoped);
   const unioner = buildActorUnionFinder(links);
 
   const homepage = uniqueActorSet(scoped, unioner, isHomepageVisitEvent);
   const startFree = uniqueActorSet(scoped, unioner, isStartFreeClickEvent);
   const signupStart = uniqueActorSet(scoped, unioner, (event) => event.name === "signup_start");
-  const formSubmit = uniqueActorSet(scoped, unioner, (event) => event.name === "signup_form_submit");
-  const accountCreated = uniqueActorSet(scoped, unioner, (event) => event.name === "account_signup_complete");
+  const formSubmit = uniqueActorSet(
+    scoped,
+    unioner,
+    (event) => event.name === "signup_form_submit" && !isExplicitPaidOrTrialSignupEvent(event),
+  );
+  const accountCreated = uniqueActorSet(
+    scoped,
+    unioner,
+    (event) => event.name === "account_signup_complete" && !isExplicitPaidOrTrialSignupEvent(event),
+  );
   const landedFree = uniqueActorSet(scoped, unioner, (event) => event.name === "signup_landed_free");
 
   const collected = [
@@ -936,12 +990,20 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
   ];
 
   const stages = collected.map((row, index) => {
+    const gateName = FREE_SIGNUP_HISTORICAL_EVENT_GATES[row.def.id];
+    const dataAvailable = !gateName || catalogHasEventName(catalog, gateName);
+    const prevGate = index === 0 ? "" : FREE_SIGNUP_HISTORICAL_EVENT_GATES[collected[index - 1].def.id];
+    const prevDataAvailable = index === 0 || !prevGate || catalogHasEventName(catalog, prevGate);
     const prevCount = index === 0 ? row.set.actors.size : collected[index - 1].set.actors.size;
-    return buildFreeSignupStageRow(row.def, row.set.actors.size, row.set.eventCount, prevCount, index);
+    return buildFreeSignupStageRow(row.def, row.set.actors.size, row.set.eventCount, prevCount, index, {
+      dataAvailable,
+      prevDataAvailable,
+    });
   });
 
   const transitions = stages.slice(1).map((stage, idx) => {
     const from = stages[idx];
+    const available = from.dataAvailable !== false && stage.dataAvailable !== false;
     return {
       from: from.id,
       to: stage.id,
@@ -949,11 +1011,12 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
       toLabel: stage.label,
       fromCount: from.uniqueActors,
       toCount: stage.uniqueActors,
-      conversionRate: stage.conversionFromPrev,
-      conversionRateLabel: stage.conversionFromPrevLabel,
-      dropOffCount: stage.dropOffCount,
-      dropOffRate: stage.dropOffRate,
-      dropOffRateLabel: stage.dropOffRateLabel,
+      conversionRate: available ? stage.conversionFromPrev : null,
+      conversionRateLabel: available ? stage.conversionFromPrevLabel : "Historical step data unavailable",
+      dropOffCount: available ? stage.dropOffCount : null,
+      dropOffRate: available ? stage.dropOffRate : null,
+      dropOffRateLabel: available ? stage.dropOffRateLabel : "Historical step data unavailable",
+      dataAvailable: available,
     };
   });
 
@@ -964,11 +1027,23 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
     }
     return n;
   };
+  const formAvailable = catalogHasEventName(catalog, FREE_SIGNUP_HISTORICAL_EVENT_GATES.signupFormSubmit);
+  const landedAvailable = catalogHasEventName(catalog, FREE_SIGNUP_HISTORICAL_EVENT_GATES.landedFree);
   const leakA = leakCount(homepage.actors, startFree.actors);
   const leakB = leakCount(startFree.actors, formSubmit.actors);
   const leakC = leakCount(formSubmit.actors, accountCreated.actors);
   const leakD = leakCount(accountCreated.actors, landedFree.actors);
   const leakE = landedFree.actors.size;
+  const unavailableLeak = (id, label, from, to) => ({
+    id,
+    label,
+    count: null,
+    percent: null,
+    percentLabel: "Historical step data unavailable",
+    from,
+    to,
+    dataAvailable: false,
+  });
 
   const leaks = [
     {
@@ -979,46 +1054,59 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
       percentLabel: rate(leakA, homepage.actors.size),
       from: "homepageVisitors",
       to: "startFreeClicks",
+      dataAvailable: true,
     },
-    {
-      id: "B",
-      label: "Clicked Start Free but never submitted",
-      count: leakB,
-      percent: pct(leakB, startFree.actors.size),
-      percentLabel: rate(leakB, startFree.actors.size),
-      from: "startFreeClicks",
-      to: "signupFormSubmit",
-    },
-    {
-      id: "C",
-      label: "Form submitted but account creation fails",
-      count: leakC,
-      percent: pct(leakC, formSubmit.actors.size),
-      percentLabel: rate(leakC, formSubmit.actors.size),
-      from: "signupFormSubmit",
-      to: "accountCreated",
-    },
-    {
-      id: "D",
-      label: "Account created but Free landing fails",
-      count: leakD,
-      percent: pct(leakD, accountCreated.actors.size),
-      percentLabel: rate(leakD, accountCreated.actors.size),
-      from: "accountCreated",
-      to: "landedFree",
-    },
-    {
-      id: "E",
-      label: "Successful Free signup",
-      count: leakE,
-      percent: pct(leakE, homepage.actors.size),
-      percentLabel: rate(leakE, homepage.actors.size),
-      from: "landedFree",
-      to: "",
-    },
+    formAvailable
+      ? {
+        id: "B",
+        label: "Clicked Start Free but never submitted",
+        count: leakB,
+        percent: pct(leakB, startFree.actors.size),
+        percentLabel: rate(leakB, startFree.actors.size),
+        from: "startFreeClicks",
+        to: "signupFormSubmit",
+        dataAvailable: true,
+      }
+      : unavailableLeak("B", "Clicked Start Free but never submitted", "startFreeClicks", "signupFormSubmit"),
+    formAvailable
+      ? {
+        id: "C",
+        label: "Form submitted but account creation fails",
+        count: leakC,
+        percent: pct(leakC, formSubmit.actors.size),
+        percentLabel: rate(leakC, formSubmit.actors.size),
+        from: "signupFormSubmit",
+        to: "accountCreated",
+        dataAvailable: true,
+      }
+      : unavailableLeak("C", "Form submitted but account creation fails", "signupFormSubmit", "accountCreated"),
+    landedAvailable
+      ? {
+        id: "D",
+        label: "Account created but Free landing fails",
+        count: leakD,
+        percent: pct(leakD, accountCreated.actors.size),
+        percentLabel: rate(leakD, accountCreated.actors.size),
+        from: "accountCreated",
+        to: "landedFree",
+        dataAvailable: true,
+      }
+      : unavailableLeak("D", "Account created but Free landing fails", "accountCreated", "landedFree"),
+    landedAvailable
+      ? {
+        id: "E",
+        label: "Successful Free signup",
+        count: leakE,
+        percent: pct(leakE, homepage.actors.size),
+        percentLabel: rate(leakE, homepage.actors.size),
+        from: "landedFree",
+        to: "",
+        dataAvailable: true,
+      }
+      : unavailableLeak("E", "Successful Free signup", "landedFree", ""),
   ];
 
-  const leakTransitions = transitions.filter((row) => row.dropOffCount > 0);
+  const leakTransitions = transitions.filter((row) => row.dataAvailable !== false && row.dropOffCount > 0);
   const largestTransition = leakTransitions
     .slice()
     .sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0] || null;
@@ -1049,8 +1137,18 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
     };
   });
 
+  const startCount = homepage.actors.size;
+  const endCount = landedAvailable ? landedFree.actors.size : null;
+  const range = String(rangeKey || "").toLowerCase();
   return {
     title: "FREE SIGNUP FUNNEL",
+    rangeKey: range || "",
+    rangeLabel: FREE_SIGNUP_RANGE_LABELS[range] || "",
+    startingPopulation: startCount,
+    resultingPopulation: endCount,
+    overallConversionRate: landedAvailable ? pct(endCount, startCount) : null,
+    overallConversionRateLabel: landedAvailable ? rate(endCount, startCount) : "Historical step data unavailable",
+    didNotReachFree: landedAvailable ? Math.max(startCount - endCount, 0) : null,
     stages,
     transitions,
     leaks,
@@ -1060,7 +1158,7 @@ function buildFreeSignupFunnel(events = [], isTestActor = () => false) {
       : "Largest current leak: none in this range",
     ctaSources,
     signupStepCounts: buildSignupStepCounts(events, isTestActor),
-    note: "Unique people, not repeat modal opens. Hero and header/nav are separately attributed. Farm Animals preview, pricing, footer, and other page Start Free buttons share “Other” because existing analytics only record placement=page for those.",
+    note: "Unique people, not repeat modal opens. “Visitor who never clicks Start Free” is homepage bounce, not form abandonment. Hero and header/nav are separately attributed. Farm Animals preview, pricing, footer, and other page Start Free buttons share “Other” because existing analytics only record placement=page for those.",
   };
 }
 
@@ -1859,7 +1957,10 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     advisorTransitions,
     worstDropOff: worstDrop,
     signupStepCounts: buildSignupStepCounts(scoped, isTestActor),
-    freeSignupFunnel: buildFreeSignupFunnel(scoped, isTestActor),
+    freeSignupFunnel: buildFreeSignupFunnel(scoped, isTestActor, {
+      catalogEvents: events,
+      rangeKey: range.key,
+    }),
     ctaBreakdown: {
       startFree: ctaKindCounts.start_free || 0,
       startTrial: ctaKindCounts.start_trial || 0,
