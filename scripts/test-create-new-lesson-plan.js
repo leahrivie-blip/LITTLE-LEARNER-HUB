@@ -20,6 +20,7 @@ const {
   CANONICAL_AGE_BAND_LABELS,
 } = require("./curriculum-lesson-structure-paste.js");
 const pasteImport = require("./teaching-kit-paste-import.js");
+const { runStructuredActivityParserRegressionTests } = require("./test-master-lesson-activity-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20480 + Math.floor(Math.random() * 80);
@@ -1096,6 +1097,7 @@ async function main() {
   runParserTests();
   runFullWeekPasteTests();
   runHeadingAndAgeAliasTests();
+  runStructuredActivityParserRegressionTests();
   await runServerTests();
   console.log("\nAll create-new-lesson-plan tests passed.");
 }

@@ -46,6 +46,8 @@
     "book questions": "questions",
     "discussion questions": "questions",
     questions: "questions",
+    "book prompts": "unsupportedBookField",
+    "book prompt": "unsupportedBookField",
     "teacher notes": "unsupportedBookField",
     "book url": "unsupportedBookField",
     "book link": "unsupportedBookField",
@@ -126,38 +128,53 @@
     "activity name": "title",
     title: "title",
     weekday: "dayOfWeek",
+    "activity weekday": "dayOfWeek",
     category: "activityCategory",
     "developmental domain": "activityCategory",
     "category / developmental domain": "activityCategory",
     "category/developmental domain": "activityCategory",
     "category developmental domain": "activityCategory",
+    "category/domain": "activityCategory",
     "recommended age": "ageModifications",
+    age: "ageModifications",
     "estimated duration": "durationMinutes",
+    duration: "durationMinutes",
     "activity objective": "objective",
+    objective: "objective",
     "what children will do": "description",
     materials: "materials",
     "teacher preparation": "preparation",
+    "teacher prep": "preparation",
     setup: "setup",
     "step-by-step directions": "steps",
     "step by step directions": "steps",
+    steps: "steps",
     "suggested questions to ask": "teacherLanguage",
     "suggested questions": "teacherLanguage",
+    questions: "teacherLanguage",
     "learning and observation focus": "observationOpportunities",
+    "observation focus": "observationOpportunities",
     "safety and supervision": "safetyNotes",
+    safety: "safetyNotes",
     cleanup: "cleanupTips",
     "indoor option": "indoorAlternatives",
     indoor: "indoorAlternatives",
     "outdoor option": "outdoorAlternatives",
     outdoor: "outdoorAlternatives",
+    "indoor/outdoor options": "indoorAlternatives",
     "teacher tips": "teacherTips",
+    tips: "teacherTips",
     "supply substitutions": "substitutions",
+    substitutions: "substitutions",
     "support adaptations": "adaptations",
     "added challenge": "extensions",
     "mixed-age adaptations": "mixedAgeAdaptations",
     "mixed age adaptations": "mixedAgeAdaptations",
+    "mixed-age": "mixedAgeAdaptations",
     "observation prompts": "observationPrompts",
     vocabulary: "vocabulary",
     "image requirement": "imageRequirement",
+    "image request": "imageRequirement",
     "setup example brief": "imageBriefSetup",
     "finished example brief": "imageBriefExample",
     "example image brief": "imageBriefExample",
@@ -302,12 +319,7 @@
         });
         return;
       }
-      const value = section.fieldId === "questions" || section.fieldId === "lyrics" || section.fieldId === "instructions"
-        || section.fieldId === "notes" || section.fieldId === "purpose" || section.fieldId === "whenToUse"
-        || section.fieldId === "teacherDirections" || section.fieldId === "whyThisBook" || section.fieldId === "teacherNotes"
-        ? multiline(section.body)
-        : text(section.body);
-      current[section.fieldId] = value;
+      current[section.fieldId] = multiline(section.body);
     });
     flush();
     return { records, unsupported };
@@ -455,11 +467,22 @@
   function parseBooksSection(body) {
     const source = String(body || "");
     const structured = /\bbook\s*title\s*:/i.test(source) || /^\s*title\s*:/im.test(source);
+    const promptSplit = structured
+      ? { main: source, trailing: "" }
+      : splitTrailingHeadingBlock(source, ["book prompts", "book prompt"]);
     const split = structured
       ? { main: source, trailing: "" }
-      : splitTrailingHeadingBlock(source, ["book questions", "discussion questions"]);
+      : splitTrailingHeadingBlock(promptSplit.main, ["book questions", "discussion questions"]);
     const parsed = parseRecordList(split.main, BOOK_HEADING_ALIASES, ["title"]);
     const records = parsed.records.map(normalizeBookRecord).filter(Boolean);
+    const unsupported = parsed.unsupported.slice();
+    if (promptSplit.trailing) {
+      unsupported.push({
+        heading: "Book prompts",
+        body: multiline(promptSplit.trailing).slice(0, 240),
+        note: "Book prompts is not a stored book field.",
+      });
+    }
     if (split.trailing && records.length) {
       records.forEach((book) => {
         if (book.questions) return;
@@ -469,7 +492,7 @@
     }
     return {
       records,
-      unsupported: parsed.unsupported,
+      unsupported,
     };
   }
 

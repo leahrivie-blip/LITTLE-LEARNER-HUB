@@ -203,19 +203,24 @@
     "linked printable": "linkedResources",
     "printable link": "pendingPrintables",
     "resource id": "linkedResources",
+    "book prompts": "bookPrompts",
+    "book prompt": "bookPrompts",
   });
 
   const NESTED_BODY_HEADINGS = Object.freeze(new Set([
-    "activity name", "weekday", "category", "developmental domain",
+    "activity name", "weekday", "activity weekday", "category", "developmental domain",
+    "category/domain", "category domain",
     "category/developmental domain", "category / developmental domain", "category developmental domain",
-    "recommended age",
-    "estimated duration", "activity objective", "what children will do", "materials",
-    "teacher preparation", "setup", "step-by-step directions", "step by step directions",
-    "suggested questions to ask", "suggested questions", "learning and observation focus",
-    "safety and supervision", "cleanup", "indoor option", "indoor", "outdoor option", "outdoor",
-    "teacher tips", "supply substitutions", "support adaptations", "added challenge",
-    "mixed-age adaptations", "mixed age adaptations", "observation prompts", "vocabulary",
-    "vocabulary words", "image requirement", "setup example brief", "finished example brief",
+    "recommended age", "age",
+    "estimated duration", "duration", "activity objective", "objective", "what children will do", "materials",
+    "teacher preparation", "teacher prep", "setup", "step-by-step directions", "step by step directions", "steps",
+    "suggested questions to ask", "suggested questions", "questions",
+    "learning and observation focus", "observation focus",
+    "safety and supervision", "safety", "cleanup", "indoor option", "indoor", "outdoor option", "outdoor",
+    "indoor/outdoor options", "indoor outdoor options",
+    "teacher tips", "tips", "supply substitutions", "substitutions", "support adaptations", "added challenge",
+    "mixed-age adaptations", "mixed age adaptations", "mixed-age", "observation prompts", "vocabulary",
+    "vocabulary words", "image requirement", "image request", "setup example brief", "finished example brief",
     "setup image", "setup image url", "setup photo", "setup photo url", "example image", "example image url", "example images",
     "finished example image", "finished example photo", "author", "why this book", "book questions", "discussion questions",
     "lyrics", "song lyrics", "how to use", "tune", "song url", "book url", "teacher directions", "instructions",
@@ -264,6 +269,15 @@
       return true;
     }
     return false;
+  }
+
+  function isActivityFieldHeading(label) {
+    return isActivityStartHeading(label) || isNestedBodyHeading(label);
+  }
+
+  function structureParserState(current) {
+    if (isInsideActivityBlock(current)) return "ACTIVITY";
+    return "TOP_LEVEL_LESSON";
   }
 
   function stripHeadingDecorators(raw) {
@@ -341,13 +355,16 @@
       const heading = parseStructureHeadingLine(trimmed);
       if (heading) {
         const { labelPart, rest, fieldId, nestedKeep, isActivityStart } = heading;
+        const parserState = structureParserState(current);
 
-        if (isInsideActivityBlock(current)) {
+        if (parserState === "ACTIVITY") {
           if (isActivityStart) {
             startSection(labelPart, "activityBlock", rest);
             return;
           }
-          if (nestedKeep || fieldId.startsWith("weekday:")) {
+          // Activity fields stay on the current activity, even when the same
+          // heading is also a top-level lesson field (Age, Materials, Observation focus).
+          if (isActivityFieldHeading(labelPart) || fieldId.startsWith("weekday:")) {
             bodyLines.push(line);
             return;
           }
@@ -663,6 +680,11 @@
       } else if (fieldId === "activities") {
         listLines(body).forEach((line) => {
           unrecognized.push({ heading: "Activities", body: line });
+        });
+      } else if (fieldId === "bookPrompts") {
+        unrecognized.push({
+          heading: section.headingRaw || "Book prompts",
+          body: (text(body) || "Book prompts is not a stored book field.").slice(0, 240),
         });
       } else if (fieldId === "books") {
         const packed = kit && typeof kit.labeledSectionBody === "function"
