@@ -35,7 +35,10 @@
     const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
     const items = [];
     days.forEach((day) => {
-      const dayItems = Array.isArray(plan?.dailyPlans?.[day]?.items) ? plan.dailyPlans[day].items : [];
+      const dayPlan = plan?.dailyPlans?.[day];
+      const dayItems = Array.isArray(dayPlan)
+        ? dayPlan
+        : (Array.isArray(dayPlan?.items) ? dayPlan.items : []);
       dayItems.forEach((item) => {
         if (text(item?.title)) items.push({ ...item, dayOfWeek: day });
       });
@@ -52,7 +55,10 @@
     });
     if (!present.size) {
       days.forEach((day) => {
-        const items = Array.isArray(plan?.dailyPlans?.[day]?.items) ? plan.dailyPlans[day].items : [];
+        const dayPlan = plan?.dailyPlans?.[day];
+        const items = Array.isArray(dayPlan)
+          ? dayPlan
+          : (Array.isArray(dayPlan?.items) ? dayPlan.items : []);
         if (items.some((item) => text(item?.title))) present.add(day);
       });
     }

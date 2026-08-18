@@ -137,7 +137,8 @@ function assertUnitContract() {
   assert.match(editorJs, /Public lesson preview/);
   assert.match(editorJs, /data-owner-workspace-panel/);
   assert.match(editorJs, /Still on my list/);
-  assert.match(editorJs, /Optional: Add image/);
+  assert.match(editorJs, /activityOptionalCues/);
+  assert.match(fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-owner-workspace.js"), "utf8"), /Optional: Add image/);
   assert.match(indexHtml, /teaching-kit-owner-workspace\.js/);
   assert.doesNotMatch(
     editorJs.slice(editorJs.indexOf("data-kit-media-remove"), editorJs.indexOf("data-kit-media-remove") + 1800),
@@ -282,7 +283,7 @@ async function runPersistTests() {
       lessonPlan: {
         id: "cur-lp-owner-ws-noage",
         title: "Needs an age band",
-        age: "???",
+        age: "not-an-age-band",
         status: "draft",
         plan: "Pro",
         dailyPlans: {

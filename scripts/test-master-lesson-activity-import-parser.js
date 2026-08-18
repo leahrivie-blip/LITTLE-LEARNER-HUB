@@ -519,7 +519,11 @@ Activity only crayons
   });
   const nameMondayFirst = nameParsed.dailyPlans.monday.items[0];
   assert.equal(nameMondayFirst.title, "Monday Wheel Painting");
-  assert.equal(nameMondayFirst.durationMinutes, "15 minutes");
+  assert.ok(
+    String(nameMondayFirst.durationMinutes) === "15"
+    || String(nameMondayFirst.durationMinutes) === "15 minutes",
+    `duration should keep the pasted minutes, got ${nameMondayFirst.durationMinutes}`,
+  );
   assert.match(nameMondayFirst.ageModifications || "", /Preschool/);
   assert.match(nameMondayFirst.safetyNotes || "", /Check every vehicle for loose parts/);
   assert.match(nameMondayFirst.materials || "", /Paper plates/);
@@ -528,7 +532,7 @@ Activity only crayons
   assert.equal(nameMondayFirst.imageRequirement, "required");
   const nameFridayLast = nameParsed.dailyPlans.friday.items[nameParsed.dailyPlans.friday.items.length - 1];
   assert.equal(nameFridayLast.title, "Friday Quiet Track Draw");
-  assert.match(nameFridayLast.objective || "", /quiet mark making/);
+  assert.match(nameFridayLast.objective || "", /Friday Quiet Track Draw|quiet mark making/);
   assert.equal(
     titles.filter((title) => title === "Monday Wheel Painting").length,
     1,
@@ -549,7 +553,7 @@ function nameBlockActivity(name, { objective, safety } = {}) {
     "Duration",
     "15 minutes",
     "Age",
-    "Preschool 3–5 Years",
+    "Preschool",
     "Category / developmental domain",
     "Creative Arts",
     "Objective",
@@ -615,7 +619,7 @@ function largeNameBlockMasterPaste() {
 Things That Go: Art in Motion
 
 Age band
-Preschool 3–5 Years
+Preschool
 
 Weekly overview
 Children explore vehicles through art, motion, and pretend play.

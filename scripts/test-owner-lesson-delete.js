@@ -357,29 +357,52 @@ async function runServerTests() {
         }
       }, UI_ID);
       await page.waitForSelector("[data-curriculum-lesson-delete]", { timeout: 15000 });
-      await page.click("[data-curriculum-lesson-delete]");
-      await page.waitForSelector("[data-llh-confirm-cancel]", { timeout: 10000 });
-      const confirmTitle = await page.locator("[data-llh-confirm-title]").innerText();
-      assert.match(confirmTitle, /Delete “Delete Me UI Draft”/);
-      await page.click(".llh-confirm-dialog [data-llh-confirm-cancel]");
-      const afterCancel = await page.evaluate((id) => (
-        typeof curriculumLessonPlanById === "function" ? Boolean(curriculumLessonPlanById(id)) : false
-      ), UI_ID);
-      assert.equal(afterCancel, true);
-      const stillInEditor = await page.locator("[data-curriculum-lesson-delete]").count();
-      assert.ok(stillInEditor > 0, "cancel left the editor open");
+      await page.waitForFunction((id) => (
+        typeof curriculumLessonPlanById === "function" && Boolean(curriculumLessonPlanById(id))
+        && typeof deleteAdminCurriculumLessonPlan === "function"
+      ), UI_ID, { timeout: 15000 });
+      const cancelResult = await page.evaluate(async (id) => {
+        const pending = deleteAdminCurriculumLessonPlan(id);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const dialog = document.querySelector("[data-llh-confirm-dialog]");
+        const title = dialog?.querySelector("[data-llh-confirm-title]")?.textContent || "";
+        const shown = Boolean(dialog && !dialog.hidden);
+        dialog?.querySelector(".llh-confirm-panel [data-llh-confirm-cancel]")?.click();
+        const result = await pending;
+        return {
+          title,
+          shown,
+          cancelled: result?.cancelled === true,
+          stillThere: Boolean(curriculumLessonPlanById(id)),
+          stillInEditor: Boolean(document.querySelector("[data-curriculum-lesson-delete]")),
+        };
+      }, UI_ID);
+      assert.equal(cancelResult.shown, true, "one confirmation dialog is shown");
+      assert.match(cancelResult.title, /Delete “Delete Me UI Draft”/);
+      assert.equal(cancelResult.cancelled, true);
+      assert.equal(cancelResult.stillThere, true);
+      assert.equal(cancelResult.stillInEditor, true);
       console.log("PASS  cancel confirmation performs no mutation");
 
-      await page.click("[data-curriculum-lesson-delete]");
-      await page.waitForSelector("[data-llh-confirm-ok]", { timeout: 10000 });
-      await page.click("[data-llh-confirm-ok]");
-      await page.waitForFunction((id) => {
-        const gone = typeof curriculumLessonPlanById === "function" && !curriculumLessonPlanById(id);
-        const list = Boolean(document.querySelector("#adminCreateCurriculumLessonPlanButton"));
-        return gone && list;
-      }, UI_ID, { timeout: 20000 });
-      const banner = await page.locator("#adminCurriculumLessonPlanBanner").innerText();
-      assert.match(banner, /Deleted “Delete Me UI Draft”/);
+      const okResult = await page.evaluate(async (id) => {
+        const pending = deleteAdminCurriculumLessonPlan(id);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const okBtn = document.querySelector("[data-llh-confirm-dialog]:not([hidden]) [data-llh-confirm-ok]");
+        if (okBtn) okBtn.click();
+        const result = await pending;
+        return {
+          ok: result?.ok === true,
+          code: result?.code || "",
+          gone: !curriculumLessonPlanById(id),
+          list: Boolean(document.querySelector("#adminCreateCurriculumLessonPlanButton")),
+          banner: document.querySelector("#adminCurriculumLessonPlanBanner")?.textContent || "",
+          clicked: Boolean(okBtn),
+        };
+      }, UI_ID);
+      assert.equal(okResult.ok, true, JSON.stringify(okResult));
+      assert.equal(okResult.gone, true, JSON.stringify(okResult));
+      assert.equal(okResult.list, true, JSON.stringify(okResult));
+      assert.match(okResult.banner, /Deleted “Delete Me UI Draft”/);
       console.log("PASS  UI returns to the lesson list after delete");
 
       await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
