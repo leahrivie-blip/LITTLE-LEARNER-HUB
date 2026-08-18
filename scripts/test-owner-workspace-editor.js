@@ -368,6 +368,7 @@ async function runPersistTests() {
     }, token);
     assert.equal(published.status, 200, published.text);
     assert.equal(published.json.ok, true);
+    stamp = published.json.siteContentUpdatedAt || stamp;
     console.log("PASS  1,7 core lesson publishes with optional todos remaining");
 
     const publicLib = await requestJson("GET", "/api/site-content");
@@ -395,7 +396,7 @@ async function runPersistTests() {
         },
       },
     }, token);
-    assert.equal(emptyAge.status, 200, emptyAge.text);
+    assert.equal(emptyAge.status, 200, emptyAge.json?.error || emptyAge.status);
     stamp = emptyAge.json.siteContentUpdatedAt;
     assert.equal(emptyAge.json.lessonPlan.age, "", "empty age must not become Preschool on save");
     const emptyAgeTheme = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
