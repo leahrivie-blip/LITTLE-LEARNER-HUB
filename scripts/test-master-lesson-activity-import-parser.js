@@ -199,7 +199,146 @@ ${blocks.join("\n\n")}
   };
 }
 
+const LIVE_THREE_ACTIVITY_PREVIEW_PASTE = `Lesson title
+Little Makers Workshop PREVIEW TEST
+
+Age band
+Toddler 12–24 Months
+
+Weekly overview
+A short test lesson for checking the master importer.
+
+Learning objectives
+Explore art materials through simple toddler-safe creative play.
+Practice pressing, scribbling, rolling, and making choices.
+
+Materials list
+Large paper
+Chunky washable crayons
+Washable paint
+Large toy car
+
+Teacher preparation/Toolkit
+Prepare materials before inviting children to the activity area.
+
+Prep checklist
+Tape paper securely.
+Set out only the materials needed.
+
+Observation focus
+Notice how children grasp, press, roll, repeat actions, and make simple choices.
+
+Family connection
+Share one simple piece of process art.
+
+Activity name
+Giant Floor Drawing
+Activity weekday
+Monday
+Category/domain
+Creative Arts
+Age
+Toddler 12–24 Months
+Duration
+8–12 minutes
+Objective
+Encourage early mark making.
+What children will do
+Children make large scribbles on paper.
+Materials
+Large paper
+Chunky washable crayons
+Painter's tape
+Observation focus
+Notice grasp and arm movement.
+Image request
+Close-up of toddler hands using chunky crayons.
+
+Activity name
+Toy Car Paint Tracks
+Activity weekday
+Tuesday
+Category/domain
+Creative Arts
+Age
+Toddler 12–24 Months
+Duration
+10–12 minutes
+Objective
+Explore rolling movement.
+Materials
+Large toy car
+Paint
+Large paper
+Observation focus
+Notice pushing and visual tracking.
+
+Activity name
+Sticky Wall Collage
+Activity weekday
+Wednesday
+Category/domain
+Creative Arts
+Age
+Toddler 12–24 Months
+Duration
+10–15 minutes
+Objective
+Practice placing and pressing.
+Materials
+Contact paper
+Large paper shapes
+Observation focus
+Notice finger use and release.
+`;
+
 function runStructuredActivityParserRegressionTests() {
+  const liveParsed = parseFullLessonStructurePaste(LIVE_THREE_ACTIVITY_PREVIEW_PASTE);
+  assert.equal(liveParsed.ok, true, liveParsed.errors.join("; "));
+  assert.equal(liveParsed.activityCount, 3, JSON.stringify(liveParsed.unrecognized));
+  assert.equal(
+    liveParsed.unrecognized.some((row) => /Activity weekday was missing/i.test(row.body || "")),
+    false,
+    JSON.stringify(liveParsed.unrecognized),
+  );
+  assert.deepEqual(liveParsed.dailyPlans.monday.items.map((item) => item.title), ["Giant Floor Drawing"]);
+  assert.deepEqual(liveParsed.dailyPlans.tuesday.items.map((item) => item.title), ["Toy Car Paint Tracks"]);
+  assert.deepEqual(liveParsed.dailyPlans.wednesday.items.map((item) => item.title), ["Sticky Wall Collage"]);
+  assert.equal(liveParsed.dailyPlans.thursday.items.length, 0);
+  assert.equal(liveParsed.dailyPlans.friday.items.length, 0);
+  const livePreview = formatActivityPreview(liveParsed);
+  assert.match(livePreview, /Monday — 1/);
+  assert.match(livePreview, /- Giant Floor Drawing/);
+  assert.match(livePreview, /Tuesday — 1/);
+  assert.match(livePreview, /- Toy Car Paint Tracks/);
+  assert.match(livePreview, /Wednesday — 1/);
+  assert.match(livePreview, /- Sticky Wall Collage/);
+  assert.match(livePreview, /Thursday — 0/);
+  assert.match(livePreview, /Friday — 0/);
+  assert.match(livePreview, /TOTAL ACTIVITIES: 3/);
+  assert.deepEqual(listLines(liveParsed.lesson.weeklyMaterials), [
+    "Large paper",
+    "Chunky washable crayons",
+    "Washable paint",
+    "Large toy car",
+  ]);
+  const liveStructurePreview = buildStructurePreview(liveParsed);
+  assert.equal(liveStructurePreview.recognized.weeklyMaterials, 4);
+  assert.equal(liveStructurePreview.recognized.observationFocus, 1);
+  assert.deepEqual(liveParsed.lesson.observationFocus, [
+    "Notice how children grasp, press, roll, repeat actions, and make simple choices.",
+  ]);
+  assert.match(liveParsed.dailyPlans.monday.items[0].observationOpportunities || "", /Notice grasp and arm movement/);
+  assert.match(liveParsed.dailyPlans.tuesday.items[0].observationOpportunities || "", /Notice pushing and visual tracking/);
+  assert.match(liveParsed.dailyPlans.wednesday.items[0].observationOpportunities || "", /Notice finger use and release/);
+  assert.deepEqual(listLines(liveParsed.dailyPlans.monday.items[0].materials), [
+    "Large paper",
+    "Chunky washable crayons",
+    "Painter's tape",
+  ]);
+  console.log("PASS  0  live 3-activity Create New Lesson Plan preview fixture");
+  console.log(livePreview);
+
   const weekdayParsed = parseFullLessonStructurePaste(giantFloorDrawingPaste("Weekday"));
   assertGiantFloorDrawing(weekdayParsed, "Weekday heading");
   console.log("PASS  1  Activity name + Weekday Monday parses one Monday activity");
