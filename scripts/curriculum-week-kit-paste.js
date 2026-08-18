@@ -645,10 +645,14 @@
         const subs = [];
         listLines(raw.substitutions).forEach((line) => {
           const arrow = line.match(/^(.+?)\s*(?:→|->|=>|—)\s*(.+)$/);
-          if (!arrow) return;
-          const need = text(arrow[1].replace(/^if\s+missing:?\s*/i, ""));
-          const use = text(arrow[2].replace(/^use\s+instead:?\s*/i, ""));
-          if (need && use) subs.push({ need, use });
+          if (arrow) {
+            const need = text(arrow[1].replace(/^if\s+missing:?\s*/i, ""));
+            const use = text(arrow[2].replace(/^use\s+instead:?\s*/i, ""));
+            if (need && use) subs.push({ need, use });
+            return;
+          }
+          const use = text(line.replace(/^use(?:\s+instead)?:?\s*/i, ""));
+          if (use) subs.push({ need: "If missing", use });
         });
         if (subs.length) out.substitutions = subs;
       }
