@@ -151,6 +151,10 @@ function unit() {
     "worstDropOff ignores optional email verify");
   assert.ok(Array.isArray(funnel.data.advisorTransitions));
   assert.ok(funnel.data.advisorTransitions.some((t) => t.from === "signupCompletions" && t.to === "trialStarts"));
+  assert.ok(funnel.data.freeSignupFunnel, "freeSignupFunnel breakdown is attached");
+  assert.ok(Array.isArray(funnel.data.freeSignupFunnel.stages));
+  assert.equal(funnel.data.freeSignupFunnel.stages[0].id, "homepageVisitors");
+  assert.ok(funnel.data.signupStepCounts);
 
   const advisorRecheck = insights.buildInsights(store, { hub: "advisor", range: "30d" });
   assert.ok(advisorRecheck.data.summaryLines.some((line) => /email verification is optional/i.test(line)));
@@ -286,6 +290,8 @@ async function wiring() {
   assert.match(adminInsightsUi, /is-informational/);
   assert.match(adminInsightsUi, /Largest drop-off/);
   assert.match(adminInsightsUi, /Unavailable/);
+  assert.match(adminInsightsUi, /FREE SIGNUP FUNNEL/);
+  assert.match(adminInsightsUi, /renderFreeSignupFunnel/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /\/api\/admin\/insights/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /exitStage/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /analyticsRevenue\.collectRevenueItems/);

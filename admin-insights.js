@@ -128,6 +128,55 @@
     return `<p class="form-note admin-insights-pending">${esc(text)}</p>`;
   }
 
+  function renderFreeSignupFunnel(funnel, { compact = false } = {}) {
+    if (!funnel || !Array.isArray(funnel.stages) || !funnel.stages.length) return "";
+    const rows = (funnel.stages || []).map((stage, index) => {
+      const conv = index === 0 ? "" : esc(stage.conversionFromPrevLabel);
+      const drop = index === 0
+        ? ""
+        : `${esc(stage.dropOffCount)} · ${esc(stage.dropOffRateLabel)}`;
+      return [stage.label, stage.uniqueActors, conv || "—", drop || "—"];
+    });
+    const ctaRows = (funnel.ctaSources || []).map((row) => [
+      row.label,
+      row.uniqueActors,
+      row.eventCount,
+    ]);
+    const leakRows = (funnel.leaks || []).map((leak) => [
+      leak.id,
+      leak.label,
+      leak.count,
+      leak.percentLabel,
+    ]);
+    return `
+      <section class="admin-insights-free-signup-funnel" aria-label="Free signup funnel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Free signup</p>
+            <h3>${esc(funnel.title || "FREE SIGNUP FUNNEL")}</h3>
+          </div>
+        </div>
+        ${funnel.largestLeakLabel ? `
+          <div class="admin-insights-pending">${esc(funnel.largestLeakLabel)}</div>
+        ` : ""}
+        ${table(["Step", "Unique people", "From previous", "Drop-off"], rows)}
+        ${compact ? "" : `
+          <div class="admin-insights-split">
+            <section>
+              <h4>Where people leave</h4>
+              ${table(["", "Leak", "People", "Share"], leakRows)}
+            </section>
+            <section>
+              <h4>Start Free by placement</h4>
+              ${table(["Source", "Unique people", "Clicks"], ctaRows)}
+            </section>
+          </div>
+        `}
+        ${funnel.note ? `<p class="muted-copy">${esc(funnel.note)}</p>` : ""}
+      </section>
+    `;
+  }
+
   function renderAdvisor(data) {
     const recs = (data.recommendations || []).map((rec, idx) => `
       <article class="admin-home-card admin-insights-rec" data-insights-open-hub="${esc(rec.hub || "advisor")}" data-rec-category="${esc(rec.category || "conversion")}">
@@ -154,6 +203,7 @@
         ${kpi("Avg session (min)", data.metrics?.avgSessionMinutes ?? "—")}
         ${kpi("Open requests", data.metrics?.openFeatureRequests ?? "—")}
       </div>
+      ${renderFreeSignupFunnel(data.freeSignupFunnel, { compact: true })}
       <div class="section-heading" style="margin-top:20px;">
         <div><p class="eyebrow">Recommendations</p><h3>What to do next</h3></div>
       </div>
@@ -422,6 +472,7 @@
         ${kpi("Cost / paid", costs.costPerPaid != null ? `$${costs.costPerPaid}` : "—")}
       </div>
       ${costs.note ? `<p class="muted-copy">${esc(costs.note)}</p>` : ""}
+      ${renderFreeSignupFunnel(data.freeSignupFunnel)}
       <section class="admin-insights-funnel-vertical" aria-label="Marketing funnel conversion chart">
         <h4>Conversion chart</h4>
         <p class="muted-copy">Click a stage to see who reached it and where they exited.</p>
