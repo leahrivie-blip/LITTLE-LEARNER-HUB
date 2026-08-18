@@ -217,7 +217,14 @@ function validateThankYou6Recipient(user, options = {}) {
   const inTrial = membershipAccess.membershipUserInTrial(user, nowMs);
   const foundingActive = membershipAccess.membershipFoundingActive(user, nowMs);
   const planDisplay = membershipAccess.membershipPlanDisplay(user, nowMs);
-  const isFreeAccess = !hasPro && planDisplay === "Free";
+  const accessKey = membershipAccess.membershipCurrentAccessKey(user, nowMs);
+  const billingReview = membershipAccess.membershipIsBillingReviewRequired(user);
+  const cancelingPaid = (
+    Boolean(user?.cancelAtPeriodEnd)
+    || String(user?.subscriptionStatus || "").toLowerCase().includes("access ends")
+  ) && hasPro;
+  const isSystem = user?.systemAccount === true || user?.internalAccessOverride === true;
+  const isFreeAccess = accessKey === "free" && !hasPro && planDisplay === "Free" && !billingReview && !cancelingPaid;
   const alreadyGot = state ? alreadyReceived(state, email) : false;
   const isAdmin = adminEmails.has(email);
   const prefs = emailPrefs(user);
@@ -241,10 +248,13 @@ function validateThankYou6Recipient(user, options = {}) {
     notTrial: !inTrial,
     notAdmin: !isAdmin,
     notTestAccount: !isTest,
+    notSystemAccount: !isSystem,
     notBounced: !bounced,
     notUnsubscribed: !unsubscribed,
     notAlreadyReceived: !alreadyGot,
     noActivePaidStripe: !activeStripe,
+    notBillingReview: !billingReview,
+    notCancelingPaid: !cancelingPaid,
     notConvertedToPaid: !converted,
     notGrandfatheredPaid: !grandfatheredPaid,
     notEarlyUser: !earlyUser,
@@ -262,10 +272,13 @@ function validateThankYou6Recipient(user, options = {}) {
   if (hasPro) excludeReasons.push("has_pro_access");
   if (inTrial) excludeReasons.push("in_trial");
   if (isAdmin) excludeReasons.push("admin_account");
+  if (isSystem) excludeReasons.push("system_account");
   if (bounced) excludeReasons.push("bounced_email");
   if (unsubscribed) excludeReasons.push("unsubscribed");
   if (alreadyGot) excludeReasons.push("already_received_thankyou6");
   if (activeStripe) excludeReasons.push("active_paid_stripe");
+  if (billingReview) excludeReasons.push("billing_review_or_past_due");
+  if (cancelingPaid) excludeReasons.push("canceling_with_paid_access");
   if (converted) excludeReasons.push("already_converted_to_paid");
   if (grandfatheredPaid) excludeReasons.push("grandfathered_paid");
   if (earlyUser) excludeReasons.push("early_user_paid");
@@ -280,11 +293,12 @@ function validateThankYou6Recipient(user, options = {}) {
     createdAt: activityScore.accountCreatedAtOf(user),
     qualifies,
     qualifyReason: qualifies
-      ? "Free access, valid email, no paid/Stripe/Early User/Founding/annual/center conversion, not admin/test, marketing allowed"
+      ? "Canonical accessKey=free, valid email, no paid/Stripe/trial/Early User/Founding/annual/center/past_due/canceling entitlement, not admin/test/system, marketing allowed"
       : "",
     excludeReasons,
     checks,
     accountStatus: accountStatusLabel(user, nowMs),
+    accessKey,
     membershipPlan: planDisplay,
     currentPlan: planDisplay,
     stripeSubscriptionStatus: String(user?.stripeSubscriptionStatus || ""),
@@ -377,8 +391,10 @@ function previewRow(row) {
     firstName: row.firstName || "",
     email: row.email,
     currentPlan: row.currentPlan || "Free",
+    accessKey: row.accessKey || "free",
     accountCreatedAt: row.createdAt || "",
     lastActiveAt: row.lastActiveAt || "",
+    lastSeenAt: row.signals?.lastSeenAt || "",
     lastLoginAt: row.signals?.lastLoginAt || "",
     noActivePaidSubscription: row.noActivePaidSubscription === true,
     activityScore: row.score,
@@ -417,8 +433,7 @@ function buildThankYou6RecipientDryRun(store, options = {}) {
       continue;
     }
     seen.add(email);
-    const plan = membershipAccess.membershipPlanDisplay({ ...user, email }, nowMs);
-    if (plan === "Free" && !membershipAccess.membershipHasProAccess({ ...user, email }, nowMs)) {
+    if (membershipAccess.membershipCurrentAccessKey({ ...user, email }, nowMs) === "free") {
       totalFree += 1;
     }
     const row = validateThankYou6Recipient({ ...user, email }, {
@@ -456,7 +471,7 @@ function buildThankYou6RecipientDryRun(store, options = {}) {
     checkoutPlan: CHECKOUT_PLAN,
     checkoutPriceEnv: CHECKOUT_PRICE_ENV,
     excludedPriceEnv: EXCLUDED_PRICE_ENV,
-    audienceRule: "Current Free access only, ranked by recent product activity (lastSeenAt/lastLoginAt + featureUsage). Max 25.",
+    audienceRule: "Canonical membershipCurrentAccessKey === free only (not Owner paidUsers / Inactive / Active Users). Ranked by isolated lastSeenAt/lastLoginAt + featureUsage. Max 25.",
     confirmPhraseRequired: CONFIRM_PHRASE,
     confirmationWarning: CONFIRMATION_WARNING.replace("25", String(ranked.selectedCount || 25)),
     activityFormula: ranked.formula,

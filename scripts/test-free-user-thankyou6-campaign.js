@@ -239,6 +239,55 @@ function sampleUsers() {
       featureUsage: { page_view: 9 },
       emailPrefs: { marketing: false, unsubscribedAt: isoDaysAgo(3) },
     },
+    "trial.user@providermail.com": {
+      email: "trial.user@providermail.com",
+      plan: "Pro",
+      stripeSubscriptionStatus: "trialing",
+      trialStatus: "In Trial",
+      trialEnd: isoDaysAgo(-5),
+      lastSeenAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 9 },
+    },
+    "pastdue.user@providermail.com": {
+      email: "pastdue.user@providermail.com",
+      plan: "Free",
+      stripeSubscriptionStatus: "past_due",
+      subscriptionStatus: "Billing Review Required",
+      lastSeenAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 9 },
+    },
+    "unpaid.user@providermail.com": {
+      email: "unpaid.user@providermail.com",
+      plan: "Free",
+      stripeSubscriptionStatus: "unpaid",
+      subscriptionStatus: "Billing Review Required",
+      lastSeenAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 9 },
+    },
+    "canceling.paid@providermail.com": {
+      email: "canceling.paid@providermail.com",
+      plan: "Pro",
+      stripeSubscriptionStatus: "active",
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: isoDaysAgo(-20),
+      lastSeenAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 9 },
+    },
+    "center.paid@providermail.com": {
+      email: "center.paid@providermail.com",
+      plan: "Pro",
+      billingOffer: "center",
+      stripeSubscriptionStatus: "active",
+      lastSeenAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 9 },
+    },
+    "system.user@providermail.com": {
+      email: "system.user@providermail.com",
+      plan: "Free",
+      systemAccount: true,
+      lastSeenAt: isoDaysAgo(1),
+      featureUsage: { lesson_plan_view: 9 },
+    },
   };
   for (let i = 0; i < 30; i += 1) {
     const email = `batch${String(i).padStart(2, "0")}@providermail.com`;
@@ -324,9 +373,19 @@ async function main() {
     assert.ok(!emails.includes("admin.owner@providermail.com"));
     assert.ok(!emails.includes("test.user@example.com"));
     assert.ok(!emails.includes("unsub.user@providermail.com"));
+    assert.ok(!emails.includes("trial.user@providermail.com"));
+    assert.ok(!emails.includes("pastdue.user@providermail.com"));
+    assert.ok(!emails.includes("unpaid.user@providermail.com"));
+    assert.ok(!emails.includes("canceling.paid@providermail.com"));
+    assert.ok(!emails.includes("center.paid@providermail.com"));
+    assert.ok(!emails.includes("system.user@providermail.com"));
     assert.equal(report.recipients[0].email, "active.hot@providermail.com");
     assert.ok(report.recipients.every((row) => row.noActivePaidSubscription));
     assert.ok(report.recipients.every((row) => row.currentPlan === "Free"));
+    const again = buildThankYou6RecipientDryRun(store, {
+      adminEmails: ["admin.owner@providermail.com"],
+    });
+    assert.deepEqual(again.recipients.map((row) => row.email), emails);
 
     const noRecency = buildThankYou6RecipientDryRun({
       users: {
@@ -354,6 +413,54 @@ async function main() {
       stripeSubscriptionStatus: "active",
     });
     assert.equal(early.qualifies, false);
+  });
+
+  await test("trial, past_due, unpaid, canceling paid, and system fail eligibility", () => {
+    const trial = validateThankYou6Recipient({
+      email: "trial.user@providermail.com",
+      plan: "Pro",
+      stripeSubscriptionStatus: "trialing",
+      trialStatus: "In Trial",
+      trialEnd: isoDaysAgo(-5),
+    });
+    assert.equal(trial.qualifies, false);
+    assert.ok(trial.excludeReasons.includes("in_trial") || trial.excludeReasons.includes("not_free_access"));
+
+    const pastDue = validateThankYou6Recipient({
+      email: "pastdue.user@providermail.com",
+      plan: "Free",
+      stripeSubscriptionStatus: "past_due",
+      subscriptionStatus: "Billing Review Required",
+    });
+    assert.equal(pastDue.qualifies, false);
+    assert.ok(pastDue.excludeReasons.includes("billing_review_or_past_due") || pastDue.excludeReasons.includes("active_paid_stripe"));
+    assert.notEqual(pastDue.accessKey, "free");
+
+    const unpaid = validateThankYou6Recipient({
+      email: "unpaid.user@providermail.com",
+      plan: "Free",
+      stripeSubscriptionStatus: "unpaid",
+      subscriptionStatus: "Billing Review Required",
+    });
+    assert.equal(unpaid.qualifies, false);
+
+    const canceling = validateThankYou6Recipient({
+      email: "canceling.paid@providermail.com",
+      plan: "Pro",
+      stripeSubscriptionStatus: "active",
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: isoDaysAgo(-20),
+    });
+    assert.equal(canceling.qualifies, false);
+    assert.ok(canceling.excludeReasons.includes("canceling_with_paid_access") || canceling.excludeReasons.includes("has_pro_access"));
+
+    const system = validateThankYou6Recipient({
+      email: "system.user@providermail.com",
+      plan: "Free",
+      systemAccount: true,
+    });
+    assert.equal(system.qualifies, false);
+    assert.ok(system.excludeReasons.includes("system_account"));
   });
 
   let store = { users: sampleUsers(), emailEngagement: { settings: {}, events: [] } };
