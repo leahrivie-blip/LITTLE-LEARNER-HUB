@@ -69,7 +69,7 @@ This report is the owner-facing technical record. Status meanings:
 | Started signup → completed | Same | Unique actors who started | Started-signup actors | **GREEN** |
 | Signup → trial / trial → paid | Same | Account stamps / paid stamps | Prior stage | **GREEN** |
 | Improve “{lesson}” | Highest viewed lesson exists | Lesson-view **events** in range | Events + unique viewers now shown | **YELLOW**. Previously **RED** copy claimed users open it “before upgrading.” Copy now states upgrade association is **not measured**. |
-| Email N trial users ending in 48h | `trialEnd` within 48h, not already paid, not test email | Current snapshot | Current trial accounts | **GREEN** after excluding test + already-paid |
+| Email N trial users ending in 48h | Canonical `membershipUserInTrial` + `trialEnd` within 48h, not already paid, not test/admin/system | Current snapshot | Current trial accounts | **GREEN** |
 | Reach N inactive Pro/Founding | `plan` contains pro/found **and** tracked lastSeen/lastLogin older than 14 days | Snapshot | Paid accounts with activity timestamps | **GREEN** after fix. Previously **RED**: missing timestamps counted as inactive. |
 | Double down on {source} | Best Owner source by paid, signups > 0, not TikTok | Owner attribution snapshot | Visitors / signups / paid | **YELLOW**. Now shows sample size and “not causal.” Still ranks on Owner snapshot, not Insights range. |
 | Build “{search}” | Top no-result query | Insights range | Search events | **GREEN** |
@@ -293,7 +293,7 @@ Farm Animals (`cur-lp-preschool-farm-animals`) has **no special backend counter*
 4. Funnel banner and step rows use the same honest continued / did-not-continue wording.
 5. Highest-viewed lesson no longer claims it is opened “before upgrading.”
 6. Source ranking shows visitors/signups/paid and a small-sample warning; not causal.
-7. Trial-ending rec excludes test emails and already-paid accounts.
+7. Trial-ending rec requires current trial state and excludes test, admin/system, and already-paid accounts.
 8. Inactive Pro/Founding rec requires a real lastSeen/lastLogin; incomplete activity data is excluded.
 9. Zero-denominator Insights rates → **Insufficient data**.
 10. Advisor cards render evidence (numerator/denominator/window) when present.

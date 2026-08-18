@@ -4,6 +4,7 @@
  */
 
 const testAccountGuard = require("./test-account-guard.js");
+const membershipAccess = require("../scripts/membership-access.js");
 
 const HUBS = Object.freeze([
   "advisor",
@@ -281,12 +282,23 @@ function summarizeLessonViewEvidence(events = [], title = "") {
   };
 }
 
+function isExcludedAdvisorAccount(user = {}, env = process.env) {
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (testAccountGuard.shouldExcludeFromCustomerAnalytics(email, env)) return true;
+  if (user?.internalAccessOverride === true || user?.systemAccount === true) return true;
+  const configured = new Set(
+    [env.ADMIN_EMAIL, env.ADMIN_EMAILS]
+      .flatMap((value) => String(value || "").split(/[,;\s]+/))
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return Boolean(email && configured.has(email));
+}
+
 function isTrialEndingSoonForAdvisor(user = {}, now = Date.now(), hours = 48) {
-  if (testAccountGuard.shouldExcludeFromCustomerAnalytics(user?.email || "")) return false;
-  if (!user?.trialEnd) return false;
+  if (isExcludedAdvisorAccount(user)) return false;
+  if (!membershipAccess.membershipUserInTrial(user, now)) return false;
   if (user.metaPurchaseAt || user.firstPaidInvoiceAt) return false;
-  const status = String(user.stripeSubscriptionStatus || user.subscriptionStatus || "").toLowerCase();
-  if (status.includes("canceled") || status.includes("ended") || status.includes("unpaid")) return false;
   const end = new Date(user.trialEnd).getTime();
   if (!Number.isFinite(end) || end <= 0) return false;
   const hoursLeft = (end - now) / 3600000;
@@ -294,7 +306,7 @@ function isTrialEndingSoonForAdvisor(user = {}, now = Date.now(), hours = 48) {
 }
 
 function isInactivePaidMemberForAdvisor(user = {}, now = Date.now(), days = 14) {
-  if (testAccountGuard.shouldExcludeFromCustomerAnalytics(user?.email || "")) return false;
+  if (isExcludedAdvisorAccount(user)) return false;
   const plan = String(user?.plan || "").toLowerCase();
   if (!plan.includes("pro") && !plan.includes("found")) return false;
   const lastRaw = user.lastSeenAt || user.lastLoginAt || "";
@@ -2373,7 +2385,7 @@ function buildAdvisor(store, events, range, extras = {}) {
     addRec(
       "high",
       `Conversion Opportunity: email ${trialEnding.length} trial user${trialEnding.length === 1 ? "" : "s"} ending within 48 hours`,
-      `${trialEnding.length} current trial account${trialEnding.length === 1 ? "" : "s"} ${trialEnding.length === 1 ? "has" : "have"} a trialEnd within 48 hours and no recorded paid conversion. Test/admin emails are excluded.`,
+      `${trialEnding.length} current trial account${trialEnding.length === 1 ? "" : "s"} ${trialEnding.length === 1 ? "has" : "have"} a trialEnd within 48 hours, are still in trial, and have no recorded paid conversion. Test, admin, and system accounts are excluded.`,
       "advisor",
       "conversion",
       {

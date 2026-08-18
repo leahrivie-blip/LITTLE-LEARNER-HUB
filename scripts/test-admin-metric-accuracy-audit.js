@@ -254,19 +254,41 @@ function stageCount(funnel, id) {
   }), false, "test emails excluded from inactive Pro rec");
 
   const future = new Date(now + 24 * 3600000).toISOString();
-  assert.equal(insights.isTrialEndingSoonForAdvisor({
+  const liveTrial = {
     email: "trial@provider.com",
+    plan: "Pro",
+    stripeSubscriptionStatus: "trialing",
     trialEnd: future,
-  }), true);
+  };
+  assert.equal(insights.isTrialEndingSoonForAdvisor(liveTrial), true);
   assert.equal(insights.isTrialEndingSoonForAdvisor({
+    ...liveTrial,
     email: "paid-trial@provider.com",
-    trialEnd: future,
     firstPaidInvoiceAt: iso(1000),
   }), false, "already-paid trial is not a conversion opportunity");
   assert.equal(insights.isTrialEndingSoonForAdvisor({
+    ...liveTrial,
     email: "qa@example.com",
-    trialEnd: future,
   }), false);
+  assert.equal(insights.isTrialEndingSoonForAdvisor({
+    email: "leftover-end@provider.com",
+    plan: "Pro",
+    stripeSubscriptionStatus: "active",
+    trialEnd: future,
+  }), false, "leftover trialEnd on a paid-active account is not a current trial");
+  const previousAdmin = process.env.ADMIN_EMAIL;
+  process.env.ADMIN_EMAIL = "owner@llh.test";
+  assert.equal(insights.isTrialEndingSoonForAdvisor({
+    ...liveTrial,
+    email: "owner@llh.test",
+  }), false, "configured admin email is excluded");
+  if (previousAdmin == null) delete process.env.ADMIN_EMAIL;
+  else process.env.ADMIN_EMAIL = previousAdmin;
+  assert.equal(insights.isTrialEndingSoonForAdvisor({
+    ...liveTrial,
+    email: "override@provider.com",
+    internalAccessOverride: true,
+  }), false, "internal admin override is excluded");
   console.log("PASS inactive and trial advisor thresholds");
 }
 
