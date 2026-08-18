@@ -10506,7 +10506,7 @@ async function deleteAdminCurriculumLessonPlan(planId) {
   const title = String(record.title || "this lesson").trim();
   const confirmed = await confirmAction({
     title: `Delete “${title}”?`,
-    message: "This permanently deletes this lesson plan and its lesson-owned activity records. This cannot be undone.",
+    message: "This permanently deletes this lesson plan and its lesson-owned activity records. If it is published or featured, it also disappears from the live library. This cannot be undone.",
     confirmLabel: "Delete lesson",
     cancelLabel: "Cancel",
     danger: true,
@@ -12738,7 +12738,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </div>
       ${record.id ? `
       <div class="admin-lesson-danger-zone" data-curriculum-lesson-danger-zone>
-        <p class="muted-copy">Permanent owner/admin action. This cannot be undone.</p>
+        <p class="muted-copy">Permanent owner/admin action. Published lessons also leave the live library. This cannot be undone.</p>
         <button class="danger-button" type="button" data-curriculum-lesson-delete="${escapeHtml(record.id)}" ${adminCurriculumLessonDeleting ? "disabled" : ""}>Delete lesson</button>
       </div>
       ` : ""}

@@ -21955,11 +21955,6 @@ async function handlePermanentDeleteDisposableFixture(request, response) {
   });
 }
 
-function isDraftCurriculumLessonStatus(status) {
-  const value = String(status || "draft").trim().toLowerCase();
-  return value === "draft" || value === "";
-}
-
 function isSafeSingleLessonDelete(existingCurriculum, incomingCurriculum, planId) {
   const targetId = normalizedShortText(planId, 160);
   if (!targetId) return false;
@@ -22062,13 +22057,6 @@ async function handleAdminCurriculumLessonPlanDelete(request, response) {
       jsonResponse(response, 404, {
         error: "Lesson plan not found.",
         code: "lesson_not_found",
-      });
-      return;
-    }
-    if (!isDraftCurriculumLessonStatus(existingPlan.status)) {
-      jsonResponse(response, 409, {
-        error: "Only draft lesson plans can be permanently deleted from this control.",
-        code: "deletion_conflict",
       });
       return;
     }
