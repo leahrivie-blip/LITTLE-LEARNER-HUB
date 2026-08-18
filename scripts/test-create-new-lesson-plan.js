@@ -21,6 +21,7 @@ const {
 } = require("./curriculum-lesson-structure-paste.js");
 const pasteImport = require("./teaching-kit-paste-import.js");
 const { runStructuredActivityParserRegressionTests } = require("./test-master-lesson-activity-import-parser.js");
+const { ensureEnrichmentEditorOpen } = require("./test-helpers/tk-enrich-playwright.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 20480 + Math.floor(Math.random() * 80);
@@ -1022,7 +1023,7 @@ async function runServerTests() {
       await page.click("#adminCreateCurriculumLessonPlanButton");
       await page.waitForSelector("[data-create-lesson-start-blank]", { timeout: 10000 });
       await page.click("[data-create-lesson-start-blank]");
-      await page.waitForSelector(".tk-enrich-shell, #adminTeachingKitEnrichmentHost:not([hidden])", { timeout: 30000 });
+      await ensureEnrichmentEditorOpen(page, { timeoutMs: 30000 });
       const blankUi = await page.evaluate(() => ({
         open: Boolean(window.LLHTeachingKitEnrichmentEditor?.isOpen?.()),
         id: window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "",
@@ -1055,7 +1056,7 @@ async function runServerTests() {
       } else {
         await page.click("[data-create-lesson-confirm]");
       }
-      await page.waitForSelector(".tk-enrich-shell, #adminTeachingKitEnrichmentHost:not([hidden])", { timeout: 30000 });
+      await ensureEnrichmentEditorOpen(page, { timeoutMs: 30000 });
       const pasteUi = await page.evaluate(() => {
         const id = window.LLHTeachingKitEnrichmentEditor?.getState?.()?.planId || "";
         const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(id) : null;
