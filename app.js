@@ -2587,7 +2587,8 @@ function freeStarterOverrideIdsFromSite() {
 }
 
 function isCuratedFreeCurriculumPlan(planOrResource) {
-  // Starter Library inventory / marketing only — Free unlock uses isFreeAccessibleCurriculumPlan (plan field).
+  // Historical Starter Library inventory / merchandising only.
+  // Never use this for unlock. Customer access uses isFreeAccessibleCurriculumPlan (plan field).
   const api = freeCurriculumSampleApi();
   const plan = planOrResource?._curriculumLessonPlan || planOrResource;
   if (api?.isCuratedFreeLessonPlan) {
@@ -32623,7 +32624,7 @@ function renderLessonPlanLibraryNotice() {
   } else if (accountIsInTrial()) {
     accessCopy = MEMBERSHIP_COPY.trialCore;
   } else if (stats.freeTotal) {
-    accessCopy = `${MEMBERSHIP_COPY.freeCore}${ageBreakdown ? ` (${ageBreakdown} in your included set.)` : ""}`;
+    accessCopy = `Your Free account includes ${stats.freeTotal} complete lesson plan${stats.freeTotal === 1 ? "" : "s"}${ageBreakdown ? ` (${ageBreakdown} in your included set.)` : ""}. ${MEMBERSHIP_COPY.freeBrowse}`;
   } else {
     accessCopy = `${MEMBERSHIP_COPY.freeCore} Upgrade to Pro anytime to unlock ${Math.max(stats.proTotal, growth.totalPlans)}+ lesson plans.`;
   }
@@ -59811,6 +59812,7 @@ async function renderAdminFreeStarterLibrarySection() {
       <div class="section-heading">
         <div><p class="eyebrow">Content</p><h3>Free Starter Library</h3></div>
       </div>
+      <p class="muted-copy">Merchandising / homepage inventory only — this list does <strong>not</strong> grant or deny lesson access. Customer entitlement is <code>lesson.plan</code> via Curriculum → Lesson Plans → Set Free / Set Pro. Saving here never changes Free/Pro values.</p>
       <p class="muted-copy">Exactly 10 published lesson plans (3 Infant, 3 Toddler, 4 Preschool). Preview before saving. Unrelated lesson edits never change this list.</p>
       <p><strong>Source:</strong> ${escapeHtml(lib.source || "default")} · <strong>Distribution:</strong> Infant ${ages.Infant || 0} · Toddler ${ages.Toddler || 0} · Preschool ${ages.Preschool || 0}</p>
       ${errors.length ? `<div class="access-notice"><strong>Validation</strong><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>` : `<p class="form-note">Current set meets the required distribution.</p>`}
