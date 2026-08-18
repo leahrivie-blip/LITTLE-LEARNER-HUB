@@ -10549,18 +10549,15 @@ async function deleteAdminCurriculumLessonPlan(planId) {
     if (typeof LLHTeachingKitEnrichmentEditor !== "undefined" && LLHTeachingKitEnrichmentEditor.isOpen?.()) {
       await LLHTeachingKitEnrichmentEditor.close({ force: true, abandonUnsaved: true });
     }
-    if (typeof restoreAdminLessonListAfterTkEditorClose === "function") {
-      restoreAdminLessonListAfterTkEditorClose();
-    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
-      renderAdminCurriculumLessonPlanManager();
-    }
     if (typeof loadAdminSiteContent === "function") {
       try { await loadAdminSiteContent(); } catch (_error) { /* local drop already applied */ }
     }
-    if (typeof restoreAdminLessonListAfterTkEditorClose === "function") {
-      restoreAdminLessonListAfterTkEditorClose();
-    } else if (typeof renderAdminCurriculumLessonPlanManager === "function") {
+    adminCurriculumLessonEditorId = "";
+    if (typeof renderAdminCurriculumLessonPlanManager === "function") {
       renderAdminCurriculumLessonPlanManager();
+    }
+    if (typeof applyAdminSectionVisibility === "function") {
+      applyAdminSectionVisibility();
     }
     const success = `Deleted “${data.deletedTitle || title}”.`;
     if (typeof setAdminCurriculumLessonSaveBanner === "function") {

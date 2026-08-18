@@ -86,7 +86,7 @@ Explore
 AGE_GROUP: Preschool
 THEME: Theme
 PLAN: Free
-STATUS: Published
+STATUS: draft
 WEEKLY_OVERVIEW: Overview text
 MONDAY:
 ACTIVITY_NAME: Inline Activity
@@ -129,12 +129,12 @@ PLAN:
 Free
 STATUS:
 draft
-MONDAY
-ACTIVITY_NAME:
+MONDAY:
+ACTIVITY NAME:
 Paint Tracks
 CATEGORY:
 Art
-DESCRIPTION:
+Description:
 Paint.
 MATERIALS:
 Paint
