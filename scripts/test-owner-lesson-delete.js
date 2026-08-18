@@ -133,6 +133,11 @@ function assertStaticContract() {
   const enrichJs = fs.readFileSync(path.join(ROOT, "scripts/teaching-kit-enrichment-editor.js"), "utf8");
   const pasteJs = fs.readFileSync(path.join(ROOT, "scripts/curriculum-lesson-structure-paste.js"), "utf8");
   const kitJs = fs.readFileSync(path.join(ROOT, "scripts/curriculum-week-kit-paste.js"), "utf8");
+  const css = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
+  const confirmZ = [...css.matchAll(/\.llh-confirm-dialog\s*\{[^}]*z-index:\s*(\d+)/g)].map((m) => Number(m[1]));
+  const editorZ = [...css.matchAll(/#adminTeachingKitEnrichmentHost\s*\{[^}]*z-index:\s*(\d+)/g)].map((m) => Number(m[1]));
+  assert.ok(confirmZ.length && editorZ.length, "expected confirm + editor z-index rules");
+  assert.ok(Math.min(...confirmZ) > Math.max(...editorZ), `confirm z-index ${confirmZ} must beat editor ${editorZ}`);
   assert.match(serverJs, /\/api\/admin\/curriculum\/lesson-plans\/delete/);
   assert.match(serverJs, /function handleAdminCurriculumLessonPlanDelete/);
   assert.match(serverJs, /function isSafeSingleLessonDelete/);

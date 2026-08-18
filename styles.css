@@ -17774,7 +17774,7 @@ body.has-action-toast #llhMetaCookieNotice {
   }
 
   .llh-confirm-dialog {
-    z-index: 1300;
+    z-index: 14000;
     align-items: end;
     padding: 12px;
     padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
@@ -20774,7 +20774,8 @@ body.lesson-editor-view .main {
 .llh-confirm-dialog {
   position: fixed;
   inset: 0;
-  z-index: 1300;
+  /* Above Teaching Kit editor (13050) so Delete lesson confirm is clickable. */
+  z-index: 14000;
   display: grid;
   place-items: center;
   padding: 16px;
