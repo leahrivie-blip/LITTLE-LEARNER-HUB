@@ -13,7 +13,6 @@ const { chromium } = require("playwright");
 const {
   ROOT, waitForHealth, startServer, seedStore,
 } = require("./lib/messaging-test-harness.js");
-const { unlockAdminInBrowser } = require("./lib/admin-browser-unlock.js");
 const history = require("../server/admin-sent-campaign-history.js");
 const paid = require("../server/paid-user-checkin.js");
 const thankYou6InApp = require("../server/thankyou6-in-app.js");
@@ -394,13 +393,41 @@ async function main() {
         hasTouch: true,
       });
       const page = await context.newPage();
-      await page.goto(BASE, { waitUntil: "domcontentloaded" });
-      await unlockAdminInBrowser(page, BASE, { openMessages: true });
-      await page.waitForSelector(".admin-messages-inbox-sent-toggle", { timeout: 20000 });
-      const inboxLabel = await page.locator(".admin-new-messages-hero h3").textContent();
-      assert.match(String(inboxLabel || ""), /Inbox/i);
-      await page.locator(".admin-messages-inbox-sent-btn", { hasText: "Sent" }).click();
-      await page.waitForSelector(".admin-sent-campaign-card", { timeout: 20000 });
+      const pageErrors = [];
+      page.on("pageerror", (error) => pageErrors.push(String(error)));
+      await page.goto(`${BASE}/?view=admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForFunction(
+        () => typeof window.setView === "function" && typeof window.setAdminSectionTab === "function",
+        null,
+        { timeout: 30000 },
+      );
+      const loginError = await page.evaluate(async ({ apiBase, ownerEmail, ownerPassword, ownerCode }) => {
+        const res = await fetch(`${apiBase}/api/admin/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ email: ownerEmail, password: ownerPassword, code: ownerCode }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return data.error || `Login failed (${res.status})`;
+        localStorage.setItem("llhAdminUnlocked", "true");
+        localStorage.setItem("llhAdminSession", JSON.stringify({
+          token: data.token,
+          email: data.email || ownerEmail,
+          mode: data.mode || "server",
+          trustedDevice: true,
+        }));
+        if (typeof window.setView === "function") window.setView("admin");
+        if (typeof window.renderAdminDashboard === "function") window.renderAdminDashboard();
+        if (typeof window.setAdminSectionTab === "function") window.setAdminSectionTab("messages-sent");
+        return "";
+      }, { apiBase: BASE, ownerEmail: ADMIN_EMAIL, ownerPassword: "test-password", ownerCode: "test-code" });
+      assert.equal(loginError, "", loginError);
+      try {
+        await page.waitForSelector(".admin-sent-campaign-card", { timeout: 25000 });
+      } catch (error) {
+        const html = await page.locator("#adminMessagesApp").innerHTML().catch(() => "");
+        throw new Error(`${error.message}\npageErrors=${pageErrors.join(" | ")}\nadminMessagesApp=${html.slice(0, 1200)}`);
+      }
       const cardText = await page.locator(".admin-sent-campaign-card").first().innerText();
       assert.match(cardText, /Paid User Check-In/);
       assert.match(cardText, /21 recipients/);

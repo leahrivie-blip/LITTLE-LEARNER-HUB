@@ -8,7 +8,7 @@ async function unlockAdminInBrowser(page, base, {
   code = "test-code",
   openMessages = false,
 } = {}) {
-  await page.goto(`${base}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.goto(`${base}/?view=admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForSelector("body.app-boot-ready", { timeout: 30000 }).catch(() => {});
   await page.waitForFunction(
     () => typeof window.setView === "function" && typeof window.renderAdminDashboard === "function",
